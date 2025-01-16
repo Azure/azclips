@@ -5,5 +5,5 @@ import (
 )
 
 func main() {
-	fmt.Println("Hello, Azure CLI V3!")
+	fmt.Println("Hello, World!")
 }
