@@ -6,12 +6,13 @@ import (
 	"github.com/hashicorp/go-plugin"
 )
 
+const HANDSHAKE_KEY = "AZURE_CLI_PLUGIN"
 const PLUGIN_NAME = "azure-cli-core"
 
 // Handshake is the handshake config for the core plugin
 var Handshake = plugin.HandshakeConfig{
 	ProtocolVersion:  1,
-	MagicCookieKey:   "AZURE_CLI_PLUGIN",
+	MagicCookieKey:   HANDSHAKE_KEY,
 	MagicCookieValue: PLUGIN_NAME,
 }
 
