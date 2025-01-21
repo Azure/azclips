@@ -1,42 +1,58 @@
 package core
 
 import (
-	"os"
 	"strings"
 
-	"github.com/Azure/azure-cli-v3/core/shared"
+	rest "github.com/Azure/azure-cli-v3/modules/rest/config"
+	"github.com/Azure/azure-cli-v3/shared/proto"
 	hclog "github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/go-plugin"
 )
-
-func StartCorePlugin() {
-	core := CoreImpl()
-	plugin.Serve(&plugin.ServeConfig{
-		HandshakeConfig: shared.Handshake,
-		Plugins: map[string]plugin.Plugin{
-			shared.PLUGIN_NAME: &shared.CorePlugin{Impl: core},
-		},
-	})
-}
-
-func CoreImpl() shared.Core {
-	logger := hclog.New(&hclog.LoggerOptions{
-		Name:       shared.PLUGIN_NAME,
-		Level:      hclog.Info,
-		Output:     os.Stderr,
-		JSONFormat: true,
-	})
-
-	return &coreImpl{
-		logger: logger,
-	}
-}
 
 type coreImpl struct {
 	logger hclog.Logger
+	// the modules loaded in the core
+	manager *Manager
+}
+
+func NewCore(logger hclog.Logger) *coreImpl {
+	manager := NewManager(logger)
+	return &coreImpl{
+		logger:  logger,
+		manager: manager,
+	}
+}
+
+func (c *coreImpl) Init() {
+	c.manager.Init()
+	c.manager.LoadModule(rest.MODULE_NAME)
+}
+
+func (c *coreImpl) Dispose() {
+	c.manager.Dispose()
+}
+
+func (c *coreImpl) GetCoreInfo() (*proto.CoreInfo, error) {
+	return &proto.CoreInfo{
+		Version: VERSION,
+	}, nil
 }
 
 func (c *coreImpl) RunCommand(args []string) string {
 	c.logger.Info("Message from core plugin", "args", args)
-	return strings.Join(args, " ")
+
+	restModule, err := c.manager.GetModule(rest.MODULE_NAME)
+	if err != nil {
+		c.logger.Error("Error getting rest module", "error", err)
+		return ""
+	}
+	c.logger.Info("Rest module loaded")
+
+	metadata, err := restModule.Metadata(c)
+	if err != nil {
+		c.logger.Error("Error getting metadata", "error", err)
+		return ""
+	}
+	c.logger.Info("Metadata", "metadata", metadata)
+
+	return strings.Join([]string{metadata.Name, metadata.Version}, " ")
 }

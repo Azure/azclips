@@ -1,4 +1,4 @@
-package shared
+package plugin
 
 import (
 	"net/rpc"
