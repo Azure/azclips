@@ -24,6 +24,9 @@ func main() {
 	if len(args) == 0 {
 		args = []string{"--help"}
 	}
-	result := core.RunCommand(args)
+	result, err := core.RunCommand(args)
+	if err != nil {
+		fmt.Println(err)
+	}
 	fmt.Println(result)
 }

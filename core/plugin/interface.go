@@ -24,7 +24,7 @@ var PluginMap = map[string]plugin.Plugin{
 
 // Core is the interface that we'll implement in the core plugin
 type Core interface {
-	RunCommand(args []string) string
+	RunCommand(args []string) (string, error)
 }
 
 // CoreImpl is the implementation of the Core interface
@@ -32,13 +32,13 @@ type CoreRPC struct {
 	client *rpc.Client
 }
 
-func (c *CoreRPC) RunCommand(args []string) string {
+func (c *CoreRPC) RunCommand(args []string) (string, error) {
 	var response string
 	err := c.client.Call("Plugin.RunCommand", args, &response)
 	if err != nil {
-		panic(err)
+		return "", err
 	}
-	return response
+	return response, nil
 }
 
 type CoreRPCServer struct {
@@ -46,7 +46,11 @@ type CoreRPCServer struct {
 }
 
 func (s *CoreRPCServer) RunCommand(args []string, response *string) error {
-	*response = s.Impl.RunCommand(args)
+	var err error
+	*response, err = s.Impl.RunCommand(args)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

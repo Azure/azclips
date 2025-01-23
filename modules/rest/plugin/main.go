@@ -3,9 +3,9 @@ package main
 import (
 	"os"
 
+	"github.com/Azure/azure-cli-v3/modules/rest"
 	"github.com/Azure/azure-cli-v3/modules/rest/config"
 	"github.com/Azure/azure-cli-v3/shared"
-	"github.com/Azure/azure-cli-v3/shared/proto"
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 )
@@ -31,28 +31,5 @@ func ModuleImpl() shared.Module {
 	})
 
 	logger.Info("Rest module loaded")
-	return &restModule{
-		logger: logger,
-	}
-}
-
-type restModule struct {
-	logger hclog.Logger
-}
-
-func (r *restModule) Metadata(azCtx shared.AzContext) (*proto.ModuleMetadata, error) {
-	coreInfo, err := azCtx.GetCoreInfo()
-	if err != nil {
-		return nil, err
-	}
-	r.logger.Info("Core info", "coreInfo", coreInfo)
-
-	return &proto.ModuleMetadata{
-		Name:    config.MODULE_NAME,
-		Version: config.VERSION,
-	}, nil
-}
-
-func (r *restModule) Check(_ shared.AzContext, uri shared.CMDUri) (shared.CMDUri, error) {
-	return uri, nil
+	return rest.NewRestModule(logger)
 }

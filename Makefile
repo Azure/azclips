@@ -16,33 +16,33 @@ OUTPUT_DIR=./build
 MODULES_DIR=./modules
 
 # Get just the module names without the full path
-MODULE_NAMES=$(notdir $(wildcard $(MODULES_DIR)/*))
+PLUGIN_MODULES=$(patsubst $(MODULES_DIR)/%/plugin/main.go,%,$(wildcard $(MODULES_DIR)/*/plugin/main.go))
 
 # Create output directories if they don't exist
 $(OUTPUT_DIR):
 	$(MKDIR_CMD) "$(OUTPUT_DIR)"
 
-$(OUTPUT_DIR)/modules: | $(OUTPUT_DIR)
-	$(MKDIR_CMD) "$(OUTPUT_DIR)/modules"
+$(OUTPUT_DIR)/plugins: | $(OUTPUT_DIR)
+	$(MKDIR_CMD) "$(OUTPUT_DIR)/plugins"
 
-build-modules: clean-processes $(OUTPUT_DIR)/modules $(MODULE_NAMES)
+build-plugins: clean-processes $(OUTPUT_DIR)/plugins $(PLUGIN_MODULES)
 
-$(MODULE_NAMES):
-	go build -o "$(OUTPUT_DIR)/modules/$@.azm" "$(MODULES_DIR)/$@/main.go"
+$(PLUGIN_MODULES):
+	go build -o "$(OUTPUT_DIR)/plugins/$@.azm" "$(MODULES_DIR)/$@/plugin/main.go"
 
 build-az: $(AZ_DIR)
 	go build -o "$(OUTPUT_DIR)/az$(EXE_EXT)" "$(AZ_DIR)/main.go"
 
-build: clean-processes build-proto build-modules build-az
+build: clean-processes build-proto build-plugins build-az
 
 build-proto:
 	buf generate
 
 run: build
 	ifeq ($(DETECTED_OS),Windows)
-		cd $(OUTPUT_DIR) && powershell -Command "$$env:AZURE_CLI_MODULE_PATH='$(OUTPUT_DIR)/modules'; ./az$(EXE_EXT)"
+		cd $(OUTPUT_DIR) && powershell -Command "$$env:AZURE_CLI_PLUGIN_PATH='$(OUTPUT_DIR)/plugins'; ./az$(EXE_EXT)"
 	else
-		cd $(OUTPUT_DIR) && AZURE_CLI_MODULE_PATH="$(OUTPUT_DIR)/modules" ./az$(EXE_EXT)
+		cd $(OUTPUT_DIR) && AZURE_CLI_PLUGIN_PATH="$(OUTPUT_DIR)/plugins" ./az$(EXE_EXT)
 	endif
 
 clean-processes:
@@ -56,4 +56,4 @@ clean:
 	go clean
 	rm -rf $(OUTPUT_DIR)
 
-.PHONY: build build-modules build-az clean
+.PHONY: build build-plugins build-az clean

@@ -12,7 +12,9 @@ import (
 	"github.com/hashicorp/go-plugin"
 )
 
-type ModuleInfo struct {
+// TODO: support build-in modules
+
+type PluginInfo struct {
 	Name   string
 	path   string
 	client *plugin.Client
@@ -20,56 +22,63 @@ type ModuleInfo struct {
 	initialized sync.Once
 }
 
-type Manager struct {
-	logger  hclog.Logger
-	modules map[string]*ModuleInfo
+type BuildInInfo struct {
+	Name string
+	Impl shared.Module
+}
+
+type ModuleManager struct {
+	logger   hclog.Logger
+	plugins  map[string]*PluginInfo
+	buildIns map[string]*BuildInInfo
 	// doneCh is a channel that receives a signal when the manager is disposed
 	doneCh chan struct{}
 }
 
-func NewManager(logger hclog.Logger) *Manager {
-	return &Manager{
-		logger:  logger,
-		modules: make(map[string]*ModuleInfo),
-		doneCh:  make(chan struct{}),
+func NewModuleManager(logger hclog.Logger) *ModuleManager {
+	return &ModuleManager{
+		logger:   logger,
+		plugins:  make(map[string]*PluginInfo),
+		buildIns: make(map[string]*BuildInInfo),
+		doneCh:   make(chan struct{}),
 	}
 }
 
-func (m *Manager) Dispose() {
+func (m *ModuleManager) Dispose() {
 	close(m.doneCh)
 	// using plugin internal function to dispose of the clients
 	plugin.CleanupClients()
 }
 
-func (m *Manager) Init() {
-	modulePaths := getModulePaths()
+func (m *ModuleManager) Init() {
+	pluginPaths := getPluginPaths()
 	// reverse iteration the modulePaths so that the modules in the last folder are loaded first and
 	// will be overridden by the modules in the previous folder if they have the same name
-	for i := len(modulePaths) - 1; i >= 0; i-- {
-		path := modulePaths[i]
+	for i := len(pluginPaths) - 1; i >= 0; i-- {
+		path := pluginPaths[i]
 		plugins, err := plugin.Discover("*.azm", path)
 		if err != nil {
 			m.logger.Error("Error discovering modules in path", "path", path, "error", err)
 			continue
 		}
 		// get the file name without the .azm extension
-		for _, plugin := range plugins {
-			name := filepath.Base(plugin)
+		for _, p := range plugins {
+			name := filepath.Base(p)
 			name = strings.TrimSuffix(name, ".azm")
-			module := &ModuleInfo{
+			m.plugins[name] = &PluginInfo{
 				Name: name,
-				path: plugin,
+				path: p,
 			}
-			m.modules[name] = module
 		}
 	}
 
-	for _, module := range m.modules {
-		m.logger.Info("Detected module", "name", module.Name, "path", module.path)
+	for _, p := range m.plugins {
+		m.logger.Info("Detected plugin", "name", p.Name, "path", p.path)
 	}
 }
 
-func (m *Manager) LoadModule(name string) error {
+// Load the plugin module
+func (m *ModuleManager) LoadPlugin(name string) error {
 	// check if is closing
 	select {
 	case <-m.doneCh:
@@ -77,20 +86,20 @@ func (m *Manager) LoadModule(name string) error {
 	default:
 	}
 
-	module, ok := m.modules[name]
-	if !ok {
-		return ErrModuleNotFound
+	pg, pg_ok := m.plugins[name]
+	if !pg_ok {
+		return ErrPluginNotFound
 	}
 
 	var loadErr error
 
-	module.initialized.Do(func() {
+	pg.initialized.Do(func() {
 		client := plugin.NewClient(&plugin.ClientConfig{
 			HandshakeConfig: shared.ModuleHandshakeConfig(name),
 			Plugins: map[string]plugin.Plugin{
 				name: &shared.ModulePlugin{},
 			},
-			Cmd:              exec.Command(module.path),
+			Cmd:              exec.Command(pg.path),
 			AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 			Logger:           m.logger,
 			// use the managed client to dispose of the client when the manager is disposed
@@ -103,39 +112,57 @@ func (m *Manager) LoadModule(name string) error {
 			client.Kill()
 			loadErr = ErrManagerDisposed
 		default:
-			module.client = client
+			pg.client = client
 		}
 	})
 
 	return loadErr
 }
 
-func (m *Manager) GetModule(name string) (shared.Module, error) {
-	if _, ok := m.modules[name]; !ok {
-		return nil, ErrModuleNotFound
-	}
-
-	client := m.modules[name].client
-	if client == nil {
-		return nil, ErrModuleUnloaded
-	}
-
-	// Connect via RPC
-	rpcClient, err := client.Client()
-	if err != nil {
-		return nil, err
-	}
-
-	// Request the plugin
-	raw, err := rpcClient.Dispense(name)
-	if err != nil {
-		return nil, err
-	}
-	return raw.(shared.Module), nil
+func (m *ModuleManager) RegisterBuildIn(info *BuildInInfo) error {
+	m.buildIns[info.Name] = info
+	return nil
 }
 
-var ErrModuleNotFound = errors.New("module not found in registered modules")
+func (m *ModuleManager) GetModule(name string) (shared.Module, error) {
+	pg, pg_ok := m.plugins[name]
+	bi, bi_ok := m.buildIns[name]
 
-var ErrModuleUnloaded = errors.New("module is not loaded")
+	// the plugin module has higher priority than the build-in module
+	// this can be used to override the build-in module for hot fix
+	if pg_ok {
+		if pg.client == nil {
+			if err := m.LoadPlugin(name); err != nil {
+				return nil, err
+			}
+			if pg.client == nil {
+				return nil, ErrPluginUnloaded
+			}
+		}
 
+		// connect via rRPC
+		grpcClient, err := pg.client.Client()
+		if err != nil {
+			return nil, err
+		}
+
+		// Request the plugin
+		raw, err := grpcClient.Dispense(name)
+		if err != nil {
+			return nil, err
+		}
+		return raw.(shared.Module), nil
+	}
+
+	if bi_ok {
+		return bi.Impl, nil
+	}
+
+	return nil, ErrModuleNotFound
+}
+
+var ErrPluginNotFound = errors.New("plugin not found in downloaded plugins")
+var ErrPluginUnloaded = errors.New("plugin is not loaded")
+
+var ErrModuleNotFound = errors.New("module is not found")
 var ErrManagerDisposed = errors.New("manager is disposed")

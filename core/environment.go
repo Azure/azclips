@@ -15,10 +15,10 @@ func getConfigDir() string {
 	return configDir
 }
 
-func getModulePaths() []string {
-	modulePaths := os.Getenv("AZURE_CLI_MODULE_PATH")
-	if modulePaths == "" {
-		return []string{filepath.Join(getConfigDir(), "modules")}
+func getPluginPaths() []string {
+	pluginPaths := os.Getenv("AZURE_CLI_PLUGIN_PATH")
+	if pluginPaths == "" {
+		return []string{filepath.Join(getConfigDir(), "plugins")}
 	}
-	return strings.Split(modulePaths, ";")
+	return strings.Split(pluginPaths, ";")
 }
