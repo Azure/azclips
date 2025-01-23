@@ -49,10 +49,31 @@ message InterfaceResponse {
 
 message ModuleMetadata {
     string name = 1;
-    string version = 2;
+    ModuleHelp help = 2;
+    repeated command.CMDInterface groups = 3;
+    repeated command.CMDInterface commands = 4;
+    oneof cls {
+        BuildInModule build_in = 5;
+        PluginModule plugin = 6;
+    }
 }
 
-message CoreInfo {
+// ModuleHelp is the help message of the module
+message ModuleHelp {
+    string short = 1; // short description of the module
+    string long = 2; // long description of the module
+}
+
+// BuildInModule is the module that is built in to the core
+message BuildInModule {
+}
+
+// PluginModule is the module that is loaded from a plugin
+message PluginModule {
     string version = 1;
 }
 
+// CoreInfo is the information of the core
+message CoreInfo {
+    string version = 1;
+}

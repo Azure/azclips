@@ -40,18 +40,26 @@ func (m *GRPCClient) Metadata(azCtx AzContext) (*proto.ModuleMetadata, error) {
 	return r.Metadata, err
 }
 
-func (m *GRPCClient) Check(azCtx AzContext, uri CMDUri) (CMDUri, error) {
+func (m *GRPCClient) Check(azCtx AzContext, uri CMDUri) (*CMDUri, error) {
 	azCtxServer, stop := createAzContextServer(m.broker, azCtx)
 	defer stop()
 
 	r, err := m.client.Check(context.Background(), &proto.CheckRequest{
 		AzCtxServer: azCtxServer,
-		Uri:         string(uri),
+		Uri:         uri.String(),
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return CMDUri(r.Uri), nil
+	if len(r.Uri) == 0 {
+		// if the command is not exists, the r.Uri is empty string and NewCMDUri will return nil
+		return nil, nil
+	}
+	u, err := ParseCMDUri(r.Uri)
+	if err != nil {
+		return nil, err
+	}
+	return u, nil
 }
 
 func (m *GRPCClient) Interface(azCtx AzContext, uri CMDUri) (*proto.CMDInterface, error) {
@@ -60,7 +68,7 @@ func (m *GRPCClient) Interface(azCtx AzContext, uri CMDUri) (*proto.CMDInterface
 
 	r, err := m.client.Interface(context.Background(), &proto.InterfaceRequest{
 		AzCtxServer: azCtxServer,
-		Uri:         string(uri),
+		Uri:         uri.String(),
 	})
 	if err != nil {
 		return nil, err
@@ -101,12 +109,24 @@ func (m *GRPCServer) Check(ctx context.Context, req *proto.CheckRequest) (*proto
 	defer conn.Close()
 	azCtx := &GRPCAzContextClient{client: proto.NewAzContextClient(conn)}
 
-	r, err := m.Impl.Check(azCtx, CMDUri(req.Uri))
+	// Parse the request URI
+	uri, err := ParseCMDUri(req.Uri)
+	if err != nil {
+		// failed to parse the request URI
+		return nil, err
+	}
+	r, err := m.Impl.Check(azCtx, *uri)
 	if err != nil {
 		return nil, err
 	}
+	if r == nil {
+		// The command is not exists
+		return &proto.CheckResponse{
+			Uri: "",
+		}, nil
+	}
 	return &proto.CheckResponse{
-		Uri: string(r),
+		Uri: r.String(),
 	}, nil
 }
 
@@ -118,7 +138,14 @@ func (m *GRPCServer) Interface(ctx context.Context, req *proto.InterfaceRequest)
 	defer conn.Close()
 	azCtx := &GRPCAzContextClient{client: proto.NewAzContextClient(conn)}
 
-	r, err := m.Impl.Interface(azCtx, CMDUri(req.Uri))
+	// Parse the request URI
+	uri, err := ParseCMDUri(req.Uri)
+	if err != nil {
+		// failed to parse the request URI
+		return nil, err
+	}
+
+	r, err := m.Impl.Interface(azCtx, *uri)
 	if err != nil {
 		return nil, err
 	}

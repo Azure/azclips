@@ -26,9 +26,9 @@ type Module interface {
 	// GetName returns the metadata of the module
 	Metadata(azCtx AzContext) (*proto.ModuleMetadata, error)
 
-	// Check the command returns the command uri if the command is exists, else returns empty string
-	// This approach can support the command redirect to another command
-	Check(azCtx AzContext, uri CMDUri) (CMDUri, error)
+	// Check the command returns the command uri if the command is exists, else returns nil
+	// This approach can support the command redirect to another command even cross modules
+	Check(azCtx AzContext, uri CMDUri) (*CMDUri, error)
 
 	// Return the command interface definition
 	Interface(azCtx AzContext, uri CMDUri) (*proto.CMDInterface, error)
