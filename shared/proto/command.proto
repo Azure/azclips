@@ -1,0 +1,265 @@
+syntax = "proto3";
+package proto.command;
+option go_package = "./proto";
+
+// The interface of the command / command group
+message CMDInterface {
+    string name = 1;
+    CMDHelp help = 2;
+    oneof level {
+        CMDCommand command = 3;
+        CMDCommandGroup group = 4;
+    }
+}
+
+message CMDCommand {
+    repeated CMDArg args = 1;
+}
+
+message CMDCommandGroup {
+    repeated CMDInterface groups = 1;
+    repeated CMDInterface commands = 2;
+}
+
+message CMDHelp {
+    string short = 1; // short description of the command
+    string long = 2; // long description of the command
+}
+
+message CMDArgGroup {
+    string name = 1;
+    repeated CMDArg args = 2;
+}
+
+message CMDArg {
+    string var_name = 1; // the variable name of the argument
+    string name = 2; // the formal name of the argument in the struct
+    repeated string options = 3; // the options value of the argument
+    bool internal = 4; // whether is internal argument only which will not be exposed in command line interface
+    bool required = 5; // whether the argument is required
+    bool nullable = 6; // whether can accept null value or not.
+    CMDArgBlank blank = 7; // blank value is used when argument don't have any value
+    CMDArgDefault default = 8; // default value of the argument
+    CMDArgHelp help = 9; // help message of the argument
+    CMDArgPromptInput prompt = 10; // prompt input of the argument
+    oneof arg_type {
+        CMDClsArg cls = 31;
+        CMDStringArg str = 32;
+        CMDNumberArg number = 33;
+        CMDBooleanArg boolean = 34;
+        CMDObjectArg object = 35;
+        CMDArrayArg array = 36;
+        CMDDocumentArg document = 37;
+        // TODO: add blob arg
+    }
+}
+
+// The argument value if an argument is assigned empty
+message CMDArgBlank {
+    // json formatted string, support null
+    string value = 1;
+}
+
+// The default value of the argument
+message CMDArgDefault {
+    // json formatted string, support null
+    string value = 1;
+}
+
+message CMDCommandHelp {
+    string short = 1; // short description of the command
+    string long = 2; // long description of the command
+}
+
+message CMDArgHelp {
+    string short = 1; // short description of the argument
+    string long = 2; // long description of the argument
+}
+
+// The prompt input of the argument
+message CMDArgPromptInput {
+    string prompt = 1; // The prompt string, if given, is printed to standard output without a trailing newline before reading input.
+    bool secret = 2; // Whether to hide the input value as a password
+    bool confirm = 3; // Whether need user to input value twice for confirmation
+}
+
+message CMDArgEnum {
+    repeated CMDArgEnumItem items = 1; // the items of the enum
+    bool support_extension = 2; // whether value outside of the enum items is allowed
+}
+
+message CMDArgEnumItem {
+    string name = 1; // the name of the enum item
+    string value = 2; // json formatted string, support null
+    bool internal = 3; // whether is internal enum item only which will not be exposed in command line interface
+}
+
+
+// Cls Argument is used to defined a pattern as class so that it can be used internally to avoid reference cycle
+message CMDClsArg {
+    string cls_type = 1; // the class name of the argument
+}
+
+
+// String Argument
+message CMDStringArg {
+    CMDArgEnum enum = 1; // the enum of the string
+    oneof format {
+        CMDStringFormat string = 10;
+        CMDDurationFormat duration = 11;
+        CMDDateFormat date = 12;
+        CMDDateTimeFormat date_time = 13;
+        CMDTimeFormat time = 14;
+        CMDUuidFormat uuid = 15;
+        CMDPasswordFormat password = 16;
+        CMDSubscriptionIdFormat subscription_id = 17;
+        CMDResourceGroupNameFormat resource_group_name = 18;
+        CMDResourceIdFormat resource_id = 19;
+        CMDResourceLocationFormat resource_location = 20;
+    }
+}
+
+message CMDStringFormat {
+    string pattern = 1; // the regular expression pattern of the string
+    uint32 max_length = 2; // the maximum length of the string
+    uint32 min_length = 3; // the minimum length of the string
+}
+
+message CMDDurationFormat {
+    enum Protocol {
+        ISO8601 = 0;  // PnYnMnDTnHnMnS
+    }
+    Protocol protocol = 1; // the protocol of the duration
+}
+
+message CMDDateFormat {
+    enum Protocol {
+        ISO8601 = 0;  // yyyy-mm-dd
+    }
+    Protocol protocol = 1; // the protocol of the date
+}
+
+message CMDTimeFormat {
+    enum Protocol {
+        ISO8601 = 0;  // hh:mm:ss.xxx
+    }
+    Protocol protocol = 1; // the protocol of the time
+    uint32 ms_length = 2; // the length of the milliseconds precision of the time, default is 3
+}   
+
+message CMDDateTimeFormat {
+    enum Protocol {
+        ISO8601 = 0; // 2024-03-19T08:30:00.123+00:00
+        RFC1123 = 1; // Tue, 19 Mar 2024 08:30:00 GMT
+    }
+    Protocol protocol = 1; // the protocol of the date time
+    uint32 ms_length = 2; // the length of the milliseconds precision of the time, default is 3
+}
+
+message CMDUuidFormat {
+    enum Case {
+        LOWER = 0;
+        UPPER = 1;
+    }
+    Case case = 1; // the case of the uuid
+    bool no_hyphen = 2; // whether to not use hyphen in the uuid
+    bool with_braces = 3; // whether to use braces in the uuid
+}
+
+// CMDPasswordFormat indicates the string should be treated as a password
+// This is an empty message used only for type discrimination
+message CMDPasswordFormat {
+}
+
+// CMDSubscriptionIdFormat indicates the string should be treated as an Azure subscription ID
+// This is an empty message used only for type discrimination
+message CMDSubscriptionIdFormat {
+}
+
+// CMDResourceGroupNameFormat indicates the string should be treated as an Azure resource group name
+// This is an empty message used only for type discrimination
+message CMDResourceGroupNameFormat {
+}
+
+message CMDResourceIdFormat {
+    repeated string templates = 1; // the supported templates of the resource id
+}
+
+message CMDResourceLocationFormat {
+    bool no_rg_default = 1; // whether to not use the location value of resource group as default value
+}
+
+message CMDNumberArg {
+    CMDArgEnum enum = 1; // the enum of the number
+    oneof format {
+        CMDInt32Format int32 = 10;
+        CMDInt64Format int64 = 11;
+        CMDFloatFormat float = 12;
+        CMDDoubleFormat double = 13;
+    }
+}
+
+message CMDInt32Format {
+    uint32 minimum = 1; // the minimum value of the integer
+    uint32 maximum = 2; // the maximum value of the integer
+    uint32 multiple_of = 3; // the multiple of the integer
+}
+
+message CMDInt64Format {
+    uint64 minimum = 1; // the minimum value of the integer
+    uint64 maximum = 2; // the maximum value of the integer
+    uint64 multiple_of = 3; // the multiple of the integer
+}
+
+message CMDFloatFormat {
+    float minimum = 1; // the minimum value of the float
+    float maximum = 2; // the maximum value of the float
+    bool exclusive_minimum = 3; // whether the minimum value is exclusive
+    bool exclusive_maximum = 4; // whether the maximum value is exclusive
+    float multiple_of = 5; // the multiple of the float
+}
+
+message CMDDoubleFormat {
+    double minimum = 1; // the minimum value of the float
+    double maximum = 2; // the maximum value of the float
+    bool exclusive_minimum = 3; // whether the minimum value is exclusive
+    bool exclusive_maximum = 4; // whether the maximum value is exclusive
+    double multiple_of = 5; // the multiple of the float
+}
+
+message CMDBooleanArg {
+    repeated string reverse_options = 1; // the reverse flag of the boolean
+}
+
+// CMDDocumentArg can accept any allowed json value
+// This is an empty message used only for type discrimination
+message CMDDocumentArg {
+}
+
+message CMDObjectArg {
+    string cls_type = 1; // the class implementation
+    repeated CMDArg props = 2; // the property arguments of the object
+    CMDObjectArgAdditionalProperties additional_props = 3; // the additional properties of the object
+    CMDObjectFormat format = 4; // the format of the object
+}
+
+message CMDObjectArgAdditionalProperties {
+    CMDArg item = 1; // the item argument of the additional properties
+}
+
+message CMDObjectFormat {
+    uint32 min_length = 1; // the minimum length of the object
+    uint32 max_length = 2; // the maximum length of the object
+}
+
+message CMDArrayArg {
+    string cls_type = 1; // the class implementation
+    CMDArg item = 2; // the item argument of the array
+    CMDArrayFormat format = 3; // the format of the array
+}
+
+message CMDArrayFormat {
+    bool unique = 1; // whether the array should be unique
+    uint32 min_length = 2; // the minimum length of the array
+    uint32 max_length = 3; // the maximum length of the array
+}

@@ -23,15 +23,15 @@ type AzContext interface {
 }
 
 type Module interface {
-	// GetName returns the name of the module
+	// GetName returns the metadata of the module
 	Metadata(azCtx AzContext) (*proto.ModuleMetadata, error)
 
 	// Check the command returns the command uri if the command is exists, else returns empty string
 	// This approach can support the command redirect to another command
 	Check(azCtx AzContext, uri CMDUri) (CMDUri, error)
 
-	// // Return the help message for the command with the given cmd uri
-	// Help(azCtx AzContext, uri CMDUri) interface{}
+	// Return the command interface definition
+	Interface(azCtx AzContext, uri CMDUri) (*proto.CMDInterface, error)
 
 	// // Execute executes the command with the given command name uri
 	// Execute(azCtx AzContext, uri CMDUri, args CMDArgs) (CMDResult, error)

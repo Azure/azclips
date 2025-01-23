@@ -1,10 +1,13 @@
 syntax = "proto3";
-package proto;
+package proto.module;
 option go_package = "./proto";
+
+import "shared/proto/command.proto";
 
 service Module {
     rpc Metadata(MetadataRequest) returns (MetadataResponse);
     rpc Check(CheckRequest) returns (CheckResponse);
+    rpc Interface(InterfaceRequest) returns (InterfaceResponse);
 }
 
 service AzContext {
@@ -33,6 +36,15 @@ message GetCoreInfoRequest {}
 
 message GetCoreInfoResponse {
     CoreInfo core_info = 1;
+}
+
+message InterfaceRequest {
+    uint32 az_ctx_server = 1;
+    string uri = 2;
+}
+
+message InterfaceResponse {
+    command.CMDInterface interface = 1;
 }
 
 message ModuleMetadata {

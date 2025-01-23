@@ -19,8 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Module_Metadata_FullMethodName = "/proto.Module/Metadata"
-	Module_Check_FullMethodName    = "/proto.Module/Check"
+	Module_Metadata_FullMethodName  = "/proto.module.Module/Metadata"
+	Module_Check_FullMethodName     = "/proto.module.Module/Check"
+	Module_Interface_FullMethodName = "/proto.module.Module/Interface"
 )
 
 // ModuleClient is the client API for Module service.
@@ -29,6 +30,7 @@ const (
 type ModuleClient interface {
 	Metadata(ctx context.Context, in *MetadataRequest, opts ...grpc.CallOption) (*MetadataResponse, error)
 	Check(ctx context.Context, in *CheckRequest, opts ...grpc.CallOption) (*CheckResponse, error)
+	Interface(ctx context.Context, in *InterfaceRequest, opts ...grpc.CallOption) (*InterfaceResponse, error)
 }
 
 type moduleClient struct {
@@ -57,12 +59,22 @@ func (c *moduleClient) Check(ctx context.Context, in *CheckRequest, opts ...grpc
 	return out, nil
 }
 
+func (c *moduleClient) Interface(ctx context.Context, in *InterfaceRequest, opts ...grpc.CallOption) (*InterfaceResponse, error) {
+	out := new(InterfaceResponse)
+	err := c.cc.Invoke(ctx, Module_Interface_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ModuleServer is the server API for Module service.
 // All implementations should embed UnimplementedModuleServer
 // for forward compatibility
 type ModuleServer interface {
 	Metadata(context.Context, *MetadataRequest) (*MetadataResponse, error)
 	Check(context.Context, *CheckRequest) (*CheckResponse, error)
+	Interface(context.Context, *InterfaceRequest) (*InterfaceResponse, error)
 }
 
 // UnimplementedModuleServer should be embedded to have forward compatible implementations.
@@ -74,6 +86,9 @@ func (UnimplementedModuleServer) Metadata(context.Context, *MetadataRequest) (*M
 }
 func (UnimplementedModuleServer) Check(context.Context, *CheckRequest) (*CheckResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Check not implemented")
+}
+func (UnimplementedModuleServer) Interface(context.Context, *InterfaceRequest) (*InterfaceResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Interface not implemented")
 }
 
 // UnsafeModuleServer may be embedded to opt out of forward compatibility for this service.
@@ -123,11 +138,29 @@ func _Module_Check_Handler(srv interface{}, ctx context.Context, dec func(interf
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Module_Interface_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InterfaceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ModuleServer).Interface(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Module_Interface_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ModuleServer).Interface(ctx, req.(*InterfaceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Module_ServiceDesc is the grpc.ServiceDesc for Module service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Module_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "proto.Module",
+	ServiceName: "proto.module.Module",
 	HandlerType: (*ModuleServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -138,13 +171,17 @@ var Module_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "Check",
 			Handler:    _Module_Check_Handler,
 		},
+		{
+			MethodName: "Interface",
+			Handler:    _Module_Interface_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "shared/proto/module.proto",
 }
 
 const (
-	AzContext_GetCoreInfo_FullMethodName = "/proto.AzContext/GetCoreInfo"
+	AzContext_GetCoreInfo_FullMethodName = "/proto.module.AzContext/GetCoreInfo"
 )
 
 // AzContextClient is the client API for AzContext service.
@@ -219,7 +256,7 @@ func _AzContext_GetCoreInfo_Handler(srv interface{}, ctx context.Context, dec fu
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var AzContext_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "proto.AzContext",
+	ServiceName: "proto.module.AzContext",
 	HandlerType: (*AzContextServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

@@ -54,6 +54,20 @@ func (m *GRPCClient) Check(azCtx AzContext, uri CMDUri) (CMDUri, error) {
 	return CMDUri(r.Uri), nil
 }
 
+func (m *GRPCClient) Interface(azCtx AzContext, uri CMDUri) (*proto.CMDInterface, error) {
+	azCtxServer, stop := createAzContextServer(m.broker, azCtx)
+	defer stop()
+
+	r, err := m.client.Interface(context.Background(), &proto.InterfaceRequest{
+		AzCtxServer: azCtxServer,
+		Uri:         string(uri),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return r.Interface, nil
+}
+
 // Here is the gRPC server that GRPCClient talks to.
 type GRPCServer struct {
 	// This is the real implementation of the module
@@ -93,6 +107,23 @@ func (m *GRPCServer) Check(ctx context.Context, req *proto.CheckRequest) (*proto
 	}
 	return &proto.CheckResponse{
 		Uri: string(r),
+	}, nil
+}
+
+func (m *GRPCServer) Interface(ctx context.Context, req *proto.InterfaceRequest) (*proto.InterfaceResponse, error) {
+	conn, err := m.broker.Dial(req.AzCtxServer)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	azCtx := &GRPCAzContextClient{client: proto.NewAzContextClient(conn)}
+
+	r, err := m.Impl.Interface(azCtx, CMDUri(req.Uri))
+	if err != nil {
+		return nil, err
+	}
+	return &proto.InterfaceResponse{
+		Interface: r,
 	}, nil
 }
 
