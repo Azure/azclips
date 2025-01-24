@@ -7,15 +7,15 @@ import (
 	hclog "github.com/hashicorp/go-hclog"
 )
 
-type restModule struct {
+type module struct {
 	logger hclog.Logger
 }
 
-func NewRestModule(logger hclog.Logger) *restModule {
-	return &restModule{logger: logger}
+func New(logger hclog.Logger) *module {
+	return &module{logger: logger}
 }
 
-func (r *restModule) Metadata(azCtx shared.AzContext) (*proto.ModuleMetadata, error) {
+func (r *module) Metadata(azCtx shared.AzContext) (*proto.ModuleMetadata, error) {
 	coreInfo, err := azCtx.GetCoreInfo()
 	if err != nil {
 		return nil, err
@@ -32,10 +32,10 @@ func (r *restModule) Metadata(azCtx shared.AzContext) (*proto.ModuleMetadata, er
 	}, nil
 }
 
-func (r *restModule) Check(_ shared.AzContext, uri shared.CMDUri) (*shared.CMDUri, error) {
+func (r *module) Check(_ shared.AzContext, uri shared.CMDUri) (*shared.CMDUri, error) {
 	return &uri, nil
 }
 
-func (r *restModule) Interface(_ shared.AzContext, uri shared.CMDUri) (*proto.CMDInterface, error) {
+func (r *module) Interface(_ shared.AzContext, uri shared.CMDUri) (*proto.CMDInterface, error) {
 	return nil, nil
 }

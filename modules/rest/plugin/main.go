@@ -31,5 +31,5 @@ func ModuleImpl() shared.Module {
 	})
 
 	logger.Info("Rest module loaded")
-	return rest.NewRestModule(logger)
+	return rest.New(logger)
 }
