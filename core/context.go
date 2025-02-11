@@ -1,7 +1,7 @@
 package core
 
 import (
-	"github.com/Azure/azure-cli-v3/shared/proto"
+	"github.com/Azure/azure-cli-lite/shared/proto"
 )
 
 func (c *coreImpl) GetCoreInfo() (*proto.CoreInfo, error) {

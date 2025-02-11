@@ -14,22 +14,51 @@ type CMDUri struct {
 	ModuleName string
 	Cmds       []string
 	Executable bool
+	Version    string
+	Params     map[string]string
 }
 
 func (c CMDUri) String() string {
+	paramsSuffix := ""
+	if c.Version != "" || len(c.Params) > 0 {
+		paramsSuffix = "?"
+		if c.Version != "" {
+			paramsSuffix += fmt.Sprintf("version=%s", c.Version)
+		}
+		for k, v := range c.Params {
+			paramsSuffix += fmt.Sprintf("&%s=%s", k, v)
+		}
+	}
 	if len(c.Cmds) == 0 {
-		return fmt.Sprintf("%s%s/", CMD_URI_SCHEME, c.ModuleName)
+		return fmt.Sprintf("%s%s/%s", CMD_URI_SCHEME, c.ModuleName, paramsSuffix)
 	}
 	if c.Executable {
-		return fmt.Sprintf("%s%s/%s", CMD_URI_SCHEME, c.ModuleName, strings.Join(c.Cmds, "/"))
+		return fmt.Sprintf("%s%s/%s%s", CMD_URI_SCHEME, c.ModuleName, strings.Join(c.Cmds, "/"), paramsSuffix)
 	} else {
-		return fmt.Sprintf("%s%s/%s/", CMD_URI_SCHEME, c.ModuleName, strings.Join(c.Cmds, "/"))
+		return fmt.Sprintf("%s%s/%s/%s", CMD_URI_SCHEME, c.ModuleName, strings.Join(c.Cmds, "/"), paramsSuffix)
 	}
 }
 
 func ParseCMDUri(raw string) (*CMDUri, error) {
 	if !strings.HasPrefix(raw, CMD_URI_SCHEME) {
 		return nil, fmt.Errorf("invalid URI scheme: must start with %s", CMD_URI_SCHEME)
+	}
+	// parse params
+	version := ""
+	params := make(map[string]string)
+	paramsIndex := strings.Index(raw, "?")
+	if paramsIndex != -1 {
+		for _, part := range strings.Split(raw[paramsIndex+1:], "&") {
+			parts := strings.Split(part, "=")
+			if len(parts) == 2 {
+				if parts[0] == "version" {
+					version = parts[1]
+				} else {
+					params[parts[0]] = parts[1]
+				}
+			}
+		}
+		raw = raw[:paramsIndex]
 	}
 	parts := strings.Split(raw[len(CMD_URI_SCHEME):], "/")
 	if strings.HasSuffix(raw, "/") {
@@ -55,5 +84,5 @@ func ParseCMDUri(raw string) (*CMDUri, error) {
 		return nil, fmt.Errorf("invalid URI: module name should end with '/'")
 	}
 	executable := len(cmds) > 0 && !strings.HasSuffix(raw, "/")
-	return &CMDUri{ModuleName: moduleName, Cmds: cmds, Executable: executable}, nil
+	return &CMDUri{ModuleName: moduleName, Cmds: cmds, Executable: executable, Version: version, Params: params}, nil
 }

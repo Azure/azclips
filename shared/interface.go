@@ -3,7 +3,7 @@ package shared
 import (
 	"context"
 
-	"github.com/Azure/azure-cli-v3/shared/proto"
+	"github.com/Azure/azure-cli-lite/shared/proto"
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
 )
@@ -18,7 +18,9 @@ func ModuleHandshakeConfig(name string) plugin.HandshakeConfig {
 	}
 }
 
+// AzContext is the context of the Azure CLI provided by the core
 type AzContext interface {
+	// GetCoreInfo returns the core information
 	GetCoreInfo() (*proto.CoreInfo, error)
 }
 
@@ -26,7 +28,8 @@ type Module interface {
 	// GetName returns the metadata of the module
 	Metadata(azCtx AzContext) (*proto.ModuleMetadata, error)
 
-	// Check the command returns the command uri if the command is exists, else returns nil
+	// Check the command returns the command uri if the command belongs to this module, else returns nil.
+	// If the command is not downloaded, this function will download the command.
 	// This approach can support the command redirect to another command even cross modules
 	Check(azCtx AzContext, uri CMDUri) (*CMDUri, error)
 
@@ -34,7 +37,7 @@ type Module interface {
 	Interface(azCtx AzContext, uri CMDUri) (*proto.CMDInterface, error)
 
 	// // Execute executes the command with the given command name uri
-	// Execute(azCtx AzContext, uri CMDUri, args CMDArgs) (CMDResult, error)
+	// Execute(azCtx AzContext, uri CMDUri, args CMDArgs) (*proto.CMDOutput, error)
 }
 
 type ModulePlugin struct {

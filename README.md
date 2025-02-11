@@ -1,5 +1,5 @@
-# azure-cli-v3
+# azure-cli-lite
 
 ## Description
 
-This project implements the Azure CLI in Golang.
+This project implements the lite version of Azure CLI in Golang.

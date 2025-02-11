@@ -1,4 +1,4 @@
-module github.com/Azure/azure-cli-v3
+module github.com/Azure/azure-cli-lite
 
 go 1.23.4
 
@@ -8,8 +8,12 @@ require (
 )
 
 require (
+	github.com/dlclark/regexp2 v1.11.4 // indirect
+	github.com/dop251/goja v0.0.0-20250125213203-5ef83b82af17 // indirect
 	github.com/fatih/color v1.13.0 // indirect
+	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/google/pprof v0.0.0-20230207041349-798e818bf904 // indirect
 	github.com/hashicorp/go-version v1.7.0 // indirect
 	github.com/hashicorp/yamux v0.1.1 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect

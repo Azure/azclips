@@ -3,7 +3,7 @@ package plugin
 import (
 	"os"
 
-	"github.com/Azure/azure-cli-v3/core"
+	"github.com/Azure/azure-cli-lite/core"
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 )

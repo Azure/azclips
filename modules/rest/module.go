@@ -1,9 +1,10 @@
 package rest
 
 import (
-	"github.com/Azure/azure-cli-v3/modules/rest/config"
-	"github.com/Azure/azure-cli-v3/shared"
-	"github.com/Azure/azure-cli-v3/shared/proto"
+	"github.com/Azure/azure-cli-lite/modules/rest/config"
+	"github.com/Azure/azure-cli-lite/shared"
+	"github.com/Azure/azure-cli-lite/shared/proto"
+	"github.com/dop251/goja"
 	hclog "github.com/hashicorp/go-hclog"
 )
 
@@ -38,4 +39,15 @@ func (r *module) Check(_ shared.AzContext, uri shared.CMDUri) (*shared.CMDUri, e
 
 func (r *module) Interface(_ shared.AzContext, uri shared.CMDUri) (*proto.CMDInterface, error) {
 	return nil, nil
+}
+
+func (r *module) Execute(_ shared.AzContext, uri shared.CMDUri, args []string) (string, error) {
+	vm := goja.New()
+	vm.Set("console", map[string]interface{}{
+		"log": func(args ...interface{}) {
+			r.logger.Info("console.log", "args", args)
+		},
+	})
+
+	return "", nil
 }

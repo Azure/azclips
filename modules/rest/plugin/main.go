@@ -3,9 +3,9 @@ package main
 import (
 	"os"
 
-	"github.com/Azure/azure-cli-v3/modules/rest"
-	"github.com/Azure/azure-cli-v3/modules/rest/config"
-	"github.com/Azure/azure-cli-v3/shared"
+	"github.com/Azure/azure-cli-lite/modules/rest"
+	"github.com/Azure/azure-cli-lite/modules/rest/config"
+	"github.com/Azure/azure-cli-lite/shared"
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 )

@@ -3,7 +3,7 @@ package shared
 import (
 	"context"
 
-	"github.com/Azure/azure-cli-v3/shared/proto"
+	"github.com/Azure/azure-cli-lite/shared/proto"
 	plugin "github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
 )

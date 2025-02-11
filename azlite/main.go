@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Azure/azure-cli-v3/core"
+	"github.com/Azure/azure-cli-lite/core"
 	hclog "github.com/hashicorp/go-hclog"
 )
 
 func main() {
 	logger := hclog.New(&hclog.LoggerOptions{
-		Name:   "az",
+		Name:   "azlite",
 		Output: os.Stderr,
 		Level:  hclog.Trace,
 		// JSONFormat: true,

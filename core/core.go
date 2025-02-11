@@ -3,7 +3,7 @@ package core
 import (
 	"strings"
 
-	"github.com/Azure/azure-cli-v3/shared"
+	"github.com/Azure/azure-cli-lite/shared"
 	hclog "github.com/hashicorp/go-hclog"
 )
 

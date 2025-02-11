@@ -1,7 +1,7 @@
 package core
 
 import (
-	auth "github.com/Azure/azure-cli-v3/modules/auth"
+	auth "github.com/Azure/azure-cli-lite/modules/auth"
 )
 
 func (c *coreImpl) loadBuildInModules() {
