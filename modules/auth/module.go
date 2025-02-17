@@ -23,8 +23,10 @@ func (m *authModule) Metadata(azCtx shared.AzContext) (*proto.ModuleMetadata, er
 
 	return &proto.ModuleMetadata{
 		Name: "auth",
-		Cls: &proto.ModuleMetadata_BuildIn{
-			BuildIn: &proto.BuildInModule{},
+		// The top priority, which are not allowed to be overridden by plugins
+		Priority: uint32(shared.PRIORITY_BUILTIN),
+		Cls: &proto.ModuleMetadata_BuiltIn{
+			BuiltIn: &proto.BuiltInModule{},
 		},
 	}, nil
 }

@@ -1,14 +1,14 @@
 # Detect OS
 ifeq ($(OS),Windows_NT)
-    DETECTED_OS := Windows
-    EXE_EXT := .exe
-    # Use PowerShell commands for Windows
-    MKDIR_CMD := powershell mkdir -Force
+	DETECTED_OS := Windows
+	EXE_EXT := .exe
+	# Use PowerShell commands for Windows
+	MKDIR_CMD := powershell mkdir -Force
 else
-    DETECTED_OS := $(shell uname -s)
-    EXE_EXT :=
-    # Use Unix commands for Linux/MacOS
-    MKDIR_CMD := mkdir -p
+	DETECTED_OS := $(shell uname -s)
+	EXE_EXT :=
+	# Use Unix commands for Linux/MacOS
+	MKDIR_CMD := mkdir -p
 endif
 
 AZLITE_DIR=./azlite
@@ -39,12 +39,11 @@ build-proto:
 	buf generate
 
 run: build
-	ifeq ($(DETECTED_OS),Windows)
-		cd $(OUTPUT_DIR) && powershell -Command "$$env:AZURE_CLI_PLUGIN_PATH='$(OUTPUT_DIR)/plugins'; ./azlite$(EXE_EXT)"
-	else
-		cd $(OUTPUT_DIR) && AZURE_CLI_PLUGIN_PATH="$(OUTPUT_DIR)/plugins" ./azlite$(EXE_EXT)
-	endif
-
+ifeq ($(DETECTED_OS),Windows)
+	cd $(OUTPUT_DIR) && powershell -Command "$$env:AZURE_CLI_PLUGIN_PATH='$(OUTPUT_DIR)/plugins'; ./azlite$(EXE_EXT)"
+else
+	cd $(OUTPUT_DIR) && AZURE_CLI_PLUGIN_PATH="$(OUTPUT_DIR)/plugins" ./azlite$(EXE_EXT)
+endif
 
 clean-processes:
 ifeq ($(DETECTED_OS),Windows)

@@ -2,6 +2,7 @@ package shared
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -15,15 +16,19 @@ type CMDUri struct {
 	Cmds       []string
 	Executable bool
 	Version    string
+	Priority   Priority
 	Params     map[string]string
 }
 
 func (c CMDUri) String() string {
 	paramsSuffix := ""
-	if c.Version != "" || len(c.Params) > 0 {
+	if c.Version != "" || c.Priority != PRIORITY_UNDEFINED || len(c.Params) > 0 {
 		paramsSuffix = "?"
 		if c.Version != "" {
 			paramsSuffix += fmt.Sprintf("version=%s", c.Version)
+		}
+		if c.Priority != PRIORITY_UNDEFINED {
+			paramsSuffix += fmt.Sprintf("priority=%d", c.Priority)
 		}
 		for k, v := range c.Params {
 			paramsSuffix += fmt.Sprintf("&%s=%s", k, v)
@@ -45,6 +50,7 @@ func ParseCMDUri(raw string) (*CMDUri, error) {
 	}
 	// parse params
 	version := ""
+	priority := PRIORITY_UNDEFINED
 	params := make(map[string]string)
 	paramsIndex := strings.Index(raw, "?")
 	if paramsIndex != -1 {
@@ -53,6 +59,10 @@ func ParseCMDUri(raw string) (*CMDUri, error) {
 			if len(parts) == 2 {
 				if parts[0] == "version" {
 					version = parts[1]
+				} else if parts[0] == "priority" {
+					if p, err := strconv.Atoi(parts[1]); err == nil {
+						priority = Priority(p)
+					}
 				} else {
 					params[parts[0]] = parts[1]
 				}
@@ -84,5 +94,5 @@ func ParseCMDUri(raw string) (*CMDUri, error) {
 		return nil, fmt.Errorf("invalid URI: module name should end with '/'")
 	}
 	executable := len(cmds) > 0 && !strings.HasSuffix(raw, "/")
-	return &CMDUri{ModuleName: moduleName, Cmds: cmds, Executable: executable, Version: version, Params: params}, nil
+	return &CMDUri{ModuleName: moduleName, Cmds: cmds, Executable: executable, Version: version, Priority: priority, Params: params}, nil
 }

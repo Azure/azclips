@@ -24,6 +24,8 @@ func (r *module) Metadata(azCtx shared.AzContext) (*proto.ModuleMetadata, error)
 
 	return &proto.ModuleMetadata{
 		Name: config.MODULE_NAME,
+		// the template plugin module will override the rest module, but allow the rest plugin module to override it
+		Priority: uint32(shared.PRIORITY_LOW),
 		Cls: &proto.ModuleMetadata_Plugin{
 			Plugin: &proto.PluginModule{
 				Version: config.VERSION,

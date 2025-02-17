@@ -36,6 +36,9 @@ type Module interface {
 	// Return the command interface definition
 	Interface(azCtx AzContext, uri CMDUri) (*proto.CMDInterface, error)
 
+	// check the available versions of the command
+	// Versions(azCtx AzContext, uri CMDUri) (, error)
+
 	// // Execute executes the command with the given command name uri
 	// Execute(azCtx AzContext, uri CMDUri, args CMDArgs) (*proto.CMDOutput, error)
 }
@@ -52,4 +55,46 @@ func (p *ModulePlugin) GRPCServer(broker *plugin.GRPCBroker, s *grpc.Server) err
 
 func (p *ModulePlugin) GRPCClient(ctx context.Context, broker *plugin.GRPCBroker, c *grpc.ClientConn) (interface{}, error) {
 	return &GRPCClient{client: proto.NewModuleClient(c), broker: broker}, nil
+}
+
+type Priority uint32
+
+const (
+	PRIORITY_UNDEFINED Priority = 0
+	// reserve 1-9 for future use
+	// the built-in module has the highest priority, it's not allowed to be overridden by plugins
+	// The command priority range is 10-29
+	PRIORITY_BUILTIN Priority = 10
+	// the plugin module has the high priority, it's allowed to be overridden by others
+	// The command priority range is 30-49
+	PRIORITY_HIGH Priority = 30
+	// the plugin module has the medium priority, it's allowed to be overridden by others
+	// The command priority range is 50-69
+	PRIORITY_MEDIUM Priority = 50
+	// the plugin module has the low priority, it's allowed to be overridden by others
+	// The command priority range is 70-89
+	PRIORITY_LOW Priority = 70
+	// the plugin module has the lowest priority, it's allowed to be overridden by others, usually the rest module
+	// The command priority range is 90-109
+	PRIORITY_LOWEST Priority = 90
+)
+
+func (p Priority) IsBuiltIn() bool {
+	return p >= PRIORITY_BUILTIN && p < PRIORITY_HIGH
+}
+
+func (p Priority) IsHigh() bool {
+	return p >= PRIORITY_HIGH && p < PRIORITY_MEDIUM
+}
+
+func (p Priority) IsMedium() bool {
+	return p >= PRIORITY_MEDIUM && p < PRIORITY_LOW
+}
+
+func (p Priority) IsLow() bool {
+	return p >= PRIORITY_LOW && p < PRIORITY_LOWEST
+}
+
+func (p Priority) IsLowest() bool {
+	return p >= PRIORITY_LOWEST
 }

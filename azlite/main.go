@@ -9,22 +9,21 @@ import (
 )
 
 func main() {
+	clientName := "azlite"
+	description := "Azure CLI Lite, the lightweight Azure CLI alternative."
 	logger := hclog.New(&hclog.LoggerOptions{
-		Name:   "azlite",
+		Name:   clientName,
 		Output: os.Stderr,
 		Level:  hclog.Trace,
 		// JSONFormat: true,
 	})
 
-	core := core.NewCore(logger)
+	core := core.NewCore(logger, clientName, description)
 	defer core.Dispose()
 	core.Init()
 
-	args := os.Args[1:]
-	if len(args) == 0 {
-		args = []string{"--help"}
-	}
-	result, err := core.RunCommand(args)
+	// run command with out the first argument
+	result, err := core.RunCommand(os.Args[1:])
 	if err != nil {
 		fmt.Println(err)
 	}

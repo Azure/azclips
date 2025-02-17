@@ -22,7 +22,7 @@ type PluginInfo struct {
 	initialized sync.Once
 }
 
-type BuildInInfo struct {
+type BuiltInInfo struct {
 	Name string
 	Impl shared.Module
 }
@@ -30,7 +30,7 @@ type BuildInInfo struct {
 type ModuleManager struct {
 	logger   hclog.Logger
 	plugins  map[string]*PluginInfo
-	buildIns map[string]*BuildInInfo
+	builtIns map[string]*BuiltInInfo
 	// doneCh is a channel that receives a signal when the manager is disposed
 	doneCh chan struct{}
 }
@@ -39,18 +39,18 @@ func NewModuleManager(logger hclog.Logger) *ModuleManager {
 	return &ModuleManager{
 		logger:   logger,
 		plugins:  make(map[string]*PluginInfo),
-		buildIns: make(map[string]*BuildInInfo),
+		builtIns: make(map[string]*BuiltInInfo),
 		doneCh:   make(chan struct{}),
 	}
 }
 
-func (m *ModuleManager) Dispose() {
+func (m *ModuleManager) dispose() {
 	close(m.doneCh)
 	// using plugin internal function to dispose of the clients
 	plugin.CleanupClients()
 }
 
-func (m *ModuleManager) Init() {
+func (m *ModuleManager) init() {
 	pluginPaths := getPluginPaths()
 	// reverse iteration the modulePaths so that the modules in the last folder are loaded first and
 	// will be overridden by the modules in the previous folder if they have the same name
@@ -77,8 +77,19 @@ func (m *ModuleManager) Init() {
 	}
 }
 
+func (m *ModuleManager) getModuleNames() []string {
+	names := make([]string, 0, len(m.plugins)+len(m.builtIns))
+	for name := range m.builtIns {
+		names = append(names, name)
+	}
+	for name := range m.plugins {
+		names = append(names, name)
+	}
+	return names
+}
+
 // Load the plugin module
-func (m *ModuleManager) LoadPlugin(name string) error {
+func (m *ModuleManager) loadPlugin(name string) error {
 	// check if is closing
 	select {
 	case <-m.doneCh:
@@ -119,20 +130,20 @@ func (m *ModuleManager) LoadPlugin(name string) error {
 	return loadErr
 }
 
-func (m *ModuleManager) RegisterBuildIn(info *BuildInInfo) error {
-	m.buildIns[info.Name] = info
+func (m *ModuleManager) registerBuiltIn(info *BuiltInInfo) error {
+	m.builtIns[info.Name] = info
 	return nil
 }
 
-func (m *ModuleManager) GetModule(name string) (shared.Module, error) {
+func (m *ModuleManager) getModule(name string) (shared.Module, error) {
 	pg, pg_ok := m.plugins[name]
-	bi, bi_ok := m.buildIns[name]
+	bi, bi_ok := m.builtIns[name]
 
 	// the plugin module has higher priority than the build-in module
 	// this can be used to override the build-in module for hot fix
 	if pg_ok {
 		if pg.client == nil {
-			if err := m.LoadPlugin(name); err != nil {
+			if err := m.loadPlugin(name); err != nil {
 				return nil, err
 			}
 			if pg.client == nil {
@@ -161,7 +172,12 @@ func (m *ModuleManager) GetModule(name string) (shared.Module, error) {
 	return nil, ErrModuleNotFound
 }
 
-var ErrPluginNotFound = errors.New("plugin not found in downloaded plugins")
+func (m *ModuleManager) dynamicDownloadPlugin(name string) error {
+	// TODO: dynamic download the plugin from the internet
+	return ErrPluginNotFound
+}
+
+var ErrPluginNotFound = errors.New("plugin not found plugins")
 var ErrPluginUnloaded = errors.New("plugin is not loaded")
 
 var ErrModuleNotFound = errors.New("module is not found")

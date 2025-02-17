@@ -7,18 +7,19 @@ message CMDInterface {
     string name = 1;
     CMDHelp help = 2;
     oneof level {
-        CMDCommand command = 3;
-        CMDCommandGroup group = 4;
+        CMDCommandGroup group = 10;
+        CMDCommand command = 11;
     }
 }
 
 message CMDCommand {
-    repeated CMDArg args = 1;
+    string version = 1; // the version of the command
+    repeated CMDArg args = 10;
 }
 
 message CMDCommandGroup {
-    repeated CMDInterface groups = 1;
-    repeated CMDInterface commands = 2;
+    repeated CMDInterface groups = 10;
+    repeated CMDInterface commands = 11;
 }
 
 message CMDHelp {
@@ -35,13 +36,14 @@ message CMDArg {
     string var_name = 1; // the variable name of the argument
     string name = 2; // the formal name of the argument in the struct
     repeated string options = 3; // the options value of the argument
-    bool internal = 4; // whether is internal argument only which will not be exposed in command line interface
-    bool required = 5; // whether the argument is required
-    bool nullable = 6; // whether can accept null value or not.
-    CMDArgBlank blank = 7; // blank value is used when argument don't have any value
-    CMDArgDefault default = 8; // default value of the argument
-    CMDArgHelp help = 9; // help message of the argument
-    CMDArgPromptInput prompt = 10; // prompt input of the argument
+    string group = 4; // the group name of the argument
+    bool internal = 5; // whether is internal argument only which will not be exposed in command line interface
+    bool required = 6; // whether the argument is required
+    bool nullable = 7; // whether can accept null value or not.
+    CMDArgBlank blank = 8; // blank value is used when argument don't have any value
+    CMDArgDefault default = 9; // default value of the argument
+    CMDArgHelp help = 10; // help message of the argument
+    CMDArgPromptInput prompt = 11; // prompt input of the argument
     oneof arg_type {
         CMDClsArg cls = 31;
         CMDStringArg str = 32;
@@ -49,7 +51,7 @@ message CMDArg {
         CMDBooleanArg boolean = 34;
         CMDObjectArg object = 35;
         CMDArrayArg array = 36;
-        CMDDocumentArg document = 37;
+        CMDAnyTypeArg any_type = 37;
         // TODO: add blob arg
     }
 }
@@ -231,9 +233,9 @@ message CMDBooleanArg {
     repeated string reverse_options = 1; // the reverse flag of the boolean
 }
 
-// CMDDocumentArg can accept any allowed json value
+// CMDAnyTypeArg can accept any data type, such as numbers, strings, objects, and so on.
 // This is an empty message used only for type discrimination
-message CMDDocumentArg {
+message CMDAnyTypeArg {
 }
 
 message CMDObjectArg {

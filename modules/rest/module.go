@@ -25,6 +25,8 @@ func (r *module) Metadata(azCtx shared.AzContext) (*proto.ModuleMetadata, error)
 
 	return &proto.ModuleMetadata{
 		Name: config.MODULE_NAME,
+		// The lowest priority, it's allowed to be overridden by others
+		Priority: uint32(shared.PRIORITY_LOWEST),
 		Cls: &proto.ModuleMetadata_Plugin{
 			Plugin: &proto.PluginModule{
 				Version: config.VERSION,
