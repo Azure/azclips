@@ -1,0 +1,1 @@
+The commands are generated in this folder from azure-rest-apis

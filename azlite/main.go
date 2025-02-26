@@ -1,10 +1,10 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/Azure/azure-cli-lite/core"
+	tea "github.com/charmbracelet/bubbletea"
 	hclog "github.com/hashicorp/go-hclog"
 )
 
@@ -23,9 +23,16 @@ func main() {
 	core.Init()
 
 	// run command with out the first argument
-	result, err := core.RunCommand(os.Args[1:])
+	view, err := core.RunCommand(os.Args[1:])
 	if err != nil {
-		fmt.Println(err)
+		// TODO: handle errors
+		logger.Error("run command failed", "error", err)
+		os.Exit(1)
 	}
-	fmt.Println(result)
+
+	if _, err := tea.NewProgram(view).Run(); err != nil {
+		// TODO: handle errors
+		logger.Error("run command failed", "error", err)
+		os.Exit(1)
+	}
 }

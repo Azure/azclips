@@ -5,7 +5,7 @@ import (
 )
 
 func (c *coreImpl) loadBuiltInModules() {
-	c.manager.RegisterBuiltIn(&BuiltInInfo{
+	c.manager.registerBuiltIn(&BuiltInInfo{
 		Name: "auth",
 		Impl: auth.NewAuthModule(c.logger),
 	})

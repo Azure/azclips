@@ -177,6 +177,7 @@ func (m *ModuleManager) dynamicDownloadPlugin(name string) error {
 	return ErrPluginNotFound
 }
 
+
 var ErrPluginNotFound = errors.New("plugin not found plugins")
 var ErrPluginUnloaded = errors.New("plugin is not loaded")
 

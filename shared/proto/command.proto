@@ -265,3 +265,8 @@ message CMDArrayFormat {
     uint32 min_length = 2; // the minimum length of the array
     uint32 max_length = 3; // the maximum length of the array
 }
+
+message CMDParams {
+    map<string, bytes> params = 1;
+    repeated string patch_keys = 2;  // the keys of the params which are assigned as patch value, the value can be `param1.prop1[1].tags.a` or `param1.prop1+`. Here the `+` means to extend the array properties.
+}

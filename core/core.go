@@ -11,6 +11,10 @@ import (
 	hclog "github.com/hashicorp/go-hclog"
 )
 
+type Core interface {
+	RunCommand(args []string) (View, error)
+}
+
 type coreImpl struct {
 	logger hclog.Logger
 	// the modules loaded in the core
@@ -38,9 +42,7 @@ func (c *coreImpl) Dispose() {
 	c.manager.dispose()
 }
 
-func (c *coreImpl) RunCommand(args []string) (string, error) {
-	// showHelp, interactive := c.parseHelpFlags(args)
-
+func (c *coreImpl) RunCommand(args []string) (View, error) {
 	i := 0
 	for ; i < len(args); i++ {
 		if strings.HasPrefix(args[i], "-") {
@@ -52,31 +54,27 @@ func (c *coreImpl) RunCommand(args []string) (string, error) {
 
 	helpInfo, err := c.NeedHelp(cmds, flags)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if helpInfo != nil {
-		// TODO: display help info
-		return "", nil
+		return &HelpView{core: c, helpInfo: helpInfo}, nil
 	}
 
-	executeInfo, err := c.NeedExecute(cmds, flags)
+	executor, err := c.NeedExecute(cmds, flags)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	if executeInfo != nil {
-		// TODO: execute the command
-
-		return "", nil
+	if executor != nil {
+		return &RunView{executor: executor}, nil
 	}
 
-	// return error
-	return "", fmt.Errorf("no command found")
+	return nil, fmt.Errorf("no command found")
 }
 
 // Check user need help or not, if need, return the help info, otherwise return nil
-func (c *coreImpl) NeedHelp(cmds []string, flags []string) (*HelpInfo, error) {
+func (c *coreImpl) NeedHelp(cmds []string, flags []string) (HelpInfo, error) {
 	hasHelpFlag := false
 	for _, flag := range flags {
 		if flag == "--help" || flag == "-h" {
@@ -97,7 +95,6 @@ func (c *coreImpl) NeedHelp(cmds []string, flags []string) (*HelpInfo, error) {
 
 	if len(uris) == 0 {
 		// no command found
-		// TODO: suggest possible commands
 		return nil, fmt.Errorf("no module found")
 	}
 
@@ -110,35 +107,17 @@ func (c *coreImpl) NeedHelp(cmds []string, flags []string) (*HelpInfo, error) {
 		// if len(uris) > 1 {
 		// 	// TODO: has duplicate commands, may need to suggest possible command choices in the help info
 		// }
-		// return the help info of the command
 		return c.retrieveHelpInfoForCommand(uris[0])
 	} else {
-		// return the help info of the command group
 		return c.retrieveHelpInfoForGroup(uris)
 	}
 }
 
-type executeInfo struct {
-	cmd    shared.CMDUri
-	params interface{}
-}
-
 // Check user need execute or not, if need, return the execute info, otherwise return nil
-func (c *coreImpl) NeedExecute(cmds []string, flags []string) (interface{}, error) {
-	// return "", nil
-	return nil, nil
-}
-
-func (c *coreImpl) construct(args []string) (interface{}, error) {
-	// find the first args that starts with '-'
-	i := 0
-	for ; i < len(args); i++ {
-		if strings.HasPrefix(args[i], "-") {
-			break
-		}
+func (c *coreImpl) NeedExecute(cmds []string, flags []string) (CmdExecutor, error) {
+	if len(cmds) == 0 {
+		return nil, fmt.Errorf("no command found")
 	}
-	cmds := args[:i]
-	flags := args[i:]
 
 	uris, err := c.checkCmds(cmds)
 	if err != nil {
@@ -146,18 +125,20 @@ func (c *coreImpl) construct(args []string) (interface{}, error) {
 	}
 
 	if len(uris) == 0 {
-		// TODO: check possible command names, download the plugin if necessary
 		return nil, fmt.Errorf("no module found")
 	}
 
-	if uris[0].Executable {
-		uri := uris[0]
-		return c.parseExecutableFlags(uri, flags)
-	} else {
-
+	if !uris[0].Executable {
+		return nil, fmt.Errorf("no executable command found")
 	}
 
-	return nil, nil
+	uri := uris[0]
+	params, err := c.parseParams(uri, flags)
+	if err != nil {
+		return nil, err
+	}
+
+	return &cmdExecutorImpl{core: c, cmd: *uri, params: params}, nil
 }
 
 func (c *coreImpl) checkCmds(cmds []string) ([]*shared.CMDUri, error) {
@@ -284,13 +265,31 @@ func (c *coreImpl) checkCmds(cmds []string) ([]*shared.CMDUri, error) {
 	return uriCandidates, nil
 }
 
-func (c *coreImpl) parseExecutableFlags(uri *shared.CMDUri, flags []string) error {
+func (c *coreImpl) parseParams(uri *shared.CMDUri, flags []string) (interface{}, error) {
 	module, err := c.manager.getModule(uri.ModuleName)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	// cmdInterface, err := module.Interface(c, *uri)
-	// if err != nil {
-	// 	return err
-	// }
+	cmd, err := module.Interface(c, *uri)
+	if err != nil {
+		return nil, err
+	}
+
+	if cmd.GetCommand() == nil {
+		return nil, fmt.Errorf("no command found")
+	}
+
+	argActions, errs := parseArgs(cmd, flags)
+	if len(errs) > 0 {
+		// TODO: format the merged error messages
+		return nil, fmt.Errorf("error parsing arguments: %v", errs)
+	}
+
+	// TODO: build the command params from the argActions, here we can apply default values and format the values, combine with the --input-file
+
+	// TODO: verify the params based on the command interface
+
+	// flagArgs := make([]string, 0)
+
+	return nil, nil
 }
