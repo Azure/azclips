@@ -1,0 +1,18 @@
+syntax = "proto3";
+package context;
+
+
+service AzContext {
+    rpc GetCoreInfo(GetCoreInfoRequest) returns (GetCoreInfoResponse);
+}
+
+message GetCoreInfoRequest {}
+
+message GetCoreInfoResponse {
+    CoreInfo core_info = 1;
+}
+
+// CoreInfo is the information of the core
+message CoreInfo {
+    string version = 1;
+}

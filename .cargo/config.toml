@@ -1,0 +1,2 @@
+[env]
+CARGO_MANIFEST_BUILD_PROTO = "true"

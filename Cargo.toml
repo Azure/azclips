@@ -1,7 +1,9 @@
 [workspace]
 members = [
     "azlite",
-    "core",
+    "core", 
+    "module",
+    "rest",
 ]
 
 [workspace.package]
@@ -10,3 +12,4 @@ edition = "2021"
 authors = ["Azure CLI Lite Team"]
 description = "A lightweight Azure CLI implementation"
 license = "MIT" 
+
