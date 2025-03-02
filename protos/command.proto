@@ -195,18 +195,32 @@ message CMDNumberArg {
     oneof format {
         CMDInt32Format int32 = 10;
         CMDInt64Format int64 = 11;
-        CMDFloatFormat float = 12;
-        CMDDoubleFormat double = 13;
+        CMDUint32Format uint32 = 20;
+        CMDUint64Format uint64 = 21;
+        CMDFloatFormat float = 30;
+        CMDDoubleFormat double = 31;
     }
 }
 
 message CMDInt32Format {
+    int32 minimum = 1; // the minimum value of the integer
+    int32 maximum = 2; // the maximum value of the integer
+    int32 multiple_of = 3; // the multiple of the integer
+}
+
+message CMDInt64Format {
+    int64 minimum = 1; // the minimum value of the integer
+    int64 maximum = 2; // the maximum value of the integer
+    int64 multiple_of = 3; // the multiple of the integer
+}
+
+message CMDUint32Format {
     uint32 minimum = 1; // the minimum value of the integer
     uint32 maximum = 2; // the maximum value of the integer
     uint32 multiple_of = 3; // the multiple of the integer
 }
 
-message CMDInt64Format {
+message CMDUint64Format {
     uint64 minimum = 1; // the minimum value of the integer
     uint64 maximum = 2; // the maximum value of the integer
     uint64 multiple_of = 3; // the multiple of the integer

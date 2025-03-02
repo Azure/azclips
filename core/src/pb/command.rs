@@ -496,7 +496,7 @@ pub struct CmdNumberArg {
     /// the enum of the number
     #[prost(message, optional, tag = "1")]
     pub r#enum: ::core::option::Option<CmdArgEnum>,
-    #[prost(oneof = "cmd_number_arg::Format", tags = "10, 11, 12, 13")]
+    #[prost(oneof = "cmd_number_arg::Format", tags = "10, 11, 20, 21, 30, 31")]
     pub format: ::core::option::Option<cmd_number_arg::Format>,
 }
 /// Nested message and enum types in `CMDNumberArg`.
@@ -507,14 +507,42 @@ pub mod cmd_number_arg {
         Int32(super::CmdInt32Format),
         #[prost(message, tag = "11")]
         Int64(super::CmdInt64Format),
-        #[prost(message, tag = "12")]
+        #[prost(message, tag = "20")]
+        Uint32(super::CmdUint32Format),
+        #[prost(message, tag = "21")]
+        Uint64(super::CmdUint64Format),
+        #[prost(message, tag = "30")]
         Float(super::CmdFloatFormat),
-        #[prost(message, tag = "13")]
+        #[prost(message, tag = "31")]
         Double(super::CmdDoubleFormat),
     }
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct CmdInt32Format {
+    /// the minimum value of the integer
+    #[prost(int32, tag = "1")]
+    pub minimum: i32,
+    /// the maximum value of the integer
+    #[prost(int32, tag = "2")]
+    pub maximum: i32,
+    /// the multiple of the integer
+    #[prost(int32, tag = "3")]
+    pub multiple_of: i32,
+}
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct CmdInt64Format {
+    /// the minimum value of the integer
+    #[prost(int64, tag = "1")]
+    pub minimum: i64,
+    /// the maximum value of the integer
+    #[prost(int64, tag = "2")]
+    pub maximum: i64,
+    /// the multiple of the integer
+    #[prost(int64, tag = "3")]
+    pub multiple_of: i64,
+}
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct CmdUint32Format {
     /// the minimum value of the integer
     #[prost(uint32, tag = "1")]
     pub minimum: u32,
@@ -526,7 +554,7 @@ pub struct CmdInt32Format {
     pub multiple_of: u32,
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
-pub struct CmdInt64Format {
+pub struct CmdUint64Format {
     /// the minimum value of the integer
     #[prost(uint64, tag = "1")]
     pub minimum: u64,
