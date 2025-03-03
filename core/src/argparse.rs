@@ -153,6 +153,7 @@ struct ShorthandSyntaxParser {
     list_start_char: char,
     list_end_char: char,
     key_value_separator: char,
+    prop_name_separator: char,
     item_separator: char,
     partial_value_key_pattern: Regex,
 }
@@ -160,7 +161,31 @@ struct ShorthandSyntaxParser {
 static SHORTHAND_SYNTAX_PARSER: LazyLock<ShorthandSyntaxParser> =
     LazyLock::new(ShorthandSyntaxParser::default);
 
-const PARTIAL_VALUE_KEY_PATTERN: &'static str = r"^(((\[-?[0-9]+])|((([a-zA-Z0-9_\-]+)|('([^']*)'(/([^']*)')*))(\[-?[0-9]+])?))(\.(([a-zA-Z0-9_\-]+)|('([^']*)'(/([^']*)')*))(\[-?[0-9]+])?)*)=(.*)$";
+const PARTIAL_VALUE_KEY_PATTERN: &'static str = concat!(
+    "^",                           // start
+    "(",                           // start of capture group 1 - key path
+    "(?:",                         // non-capturing group - first key
+    "[a-zA-Z0-9_\\-]+",            // normal identifier
+    "|",                           // or
+    "'(?:[^']*)'(?:/(?:[^']*)')*", // quoted key
+    "|",                           // or
+    "\\[-?[0-9]*\\]", // array index, in the expression, match the [], but raise error when part key
+    ")",
+    "(?:\\[-?[0-9]*\\])*", // optional array index, in the expression, match the [], but raise error when part key
+    "(?:",                 // non-capturing group - subsequent keys
+    "\\.",                 // dot separator
+    "(?:",                 // non-capturing group
+    "[a-zA-Z0-9_\\-]*", // normal identifier, in the expression, match the ., but raise error when part key
+    "|",                // or
+    "'(?:[^']*)'(?:/(?:[^']*)')*", // quoted key
+    ")",
+    "(?:\\[-?[0-9]*\\])*", // optional array index, in the expression, match the [], but raise error when part key
+    ")*",                  // repeat zero or more times
+    ")",                   // end of capture group 1
+    "=",                   // equals separator
+    "(.*)",                // capture group 2 - value part
+    "$"                    // end
+);
 
 impl Default for ShorthandSyntaxParser {
     fn default() -> Self {
@@ -175,6 +200,7 @@ impl Default for ShorthandSyntaxParser {
             list_start_char: '[',
             list_end_char: ']',
             key_value_separator: ':',
+            prop_name_separator: '.',
             item_separator: ',',
             partial_value_key_pattern: Regex::new(PARTIAL_VALUE_KEY_PATTERN).unwrap(),
         }
@@ -210,7 +236,7 @@ impl ShorthandSyntaxParser {
                         range: remain.count(),
                     })
                 } else {
-                    Ok(result)
+                    Ok(ShorthandSyntaxResult::Value(Value::String(result)))
                 }
             } else {
                 // return the bool, number, or string value directly
@@ -247,7 +273,7 @@ impl ShorthandSyntaxParser {
     fn parse_single_quotes_string(
         &self,
         remain: &mut Chars<'_>,
-    ) -> Result<(ShorthandSyntaxResult, usize), AzUserUsageError> {
+    ) -> Result<(String, usize), AzUserUsageError> {
         let data = remain.as_str();
         assert!(remain.next().unwrap() == self.single_quote_char);
         let mut idx = 1;
@@ -262,7 +288,7 @@ impl ShorthandSyntaxParser {
                     idx += 2;
                 } else {
                     idx += 1;
-                    return Ok((ShorthandSyntaxResult::Value(Value::String(result)), idx));
+                    return Ok((result, idx));
                 }
             } else {
                 result.push(c);
@@ -508,7 +534,8 @@ impl ShorthandSyntaxParser {
         let data = remain.as_str();
         let mut str = remain.as_str();
         if str.starts_with(self.single_quote_char) {
-            return self.parse_single_quotes_string(remain);
+            let (result, len) = self.parse_single_quotes_string(remain)?;
+            return Ok((ShorthandSyntaxResult::Value(Value::String(result)), len));
         }
 
         let mut idx = 0;
@@ -568,6 +595,156 @@ impl ShorthandSyntaxParser {
         } else {
             Ok((ShorthandSyntaxResult::Value(Value::String(result)), idx))
         }
+    }
+
+    fn split_partial_value<'a>(&self, value: &'a str) -> Option<(&'a str, &'a str)> {
+        if let Some(captures) = self.partial_value_key_pattern.captures(value) {
+            let key = captures.get(1).unwrap().as_str();
+            let value = captures.get(2).unwrap().as_str();
+            Some((key, value))
+        } else {
+            None
+        }
+    }
+
+    fn parse_partial_value_key_parts(&self, key: &str) -> Result<Vec<String>, AzUserUsageError> {
+        let mut parts = Vec::new();
+        let mut remain = key.chars();
+        let mut idx = 0;
+        let mut str = remain.as_str();
+        while str.len() > 0 {
+            if str.starts_with(self.list_start_char) {
+                match self.parse_partial_value_idx_key(&mut remain) {
+                    Ok((part, len)) => {
+                        parts.push(part);
+                        idx += len;
+                        str = remain.as_str();
+                    }
+                    Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                        msg,
+                        data: _,
+                        at,
+                        range,
+                    }) => {
+                        return Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                            msg,
+                            data: key.to_string(),
+                            at: at + idx,
+                            range,
+                        })
+                    }
+                    Err(e) => return Err(e),
+                }
+            } else {
+                match self.parse_partial_value_prop_key(&mut remain) {
+                    Ok((part, len)) => {
+                        parts.push(part);
+                        idx += len;
+                        str = remain.as_str();
+                    }
+                    Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                        msg,
+                        data: _,
+                        at,
+                        range,
+                    }) => {
+                        return Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                            msg,
+                            data: key.to_string(),
+                            at: at + idx,
+                            range,
+                        })
+                    }
+                    Err(e) => return Err(e),
+                }
+            }
+        }
+
+        Ok(parts)
+    }
+
+    fn parse_partial_value_idx_key(
+        &self,
+        remain: &mut Chars<'_>,
+    ) -> Result<(String, usize), AzUserUsageError> {
+        let data = remain.as_str();
+        assert_eq!(remain.next().unwrap(), self.list_start_char);
+        let mut str = remain.as_str();
+        let mut idx = 1;
+
+        let mut part = String::new();
+        while str.len() > 0 {
+            if str.starts_with(self.list_end_char) || str.starts_with(self.prop_name_separator) {
+                break;
+            }
+            part.push(remain.next().unwrap());
+            idx += 1;
+            str = remain.as_str();
+        }
+
+        if !str.starts_with(self.list_end_char) {
+            return Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg: "Expect character ']'".to_string(),
+                data: data.to_string(),
+                at: idx,
+                range: 1,
+            });
+        }
+        _ = remain.next().unwrap();
+        // str = remain.as_str();
+        idx += 1;
+        if part.is_empty() {
+            return Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg: "Miss prop name".to_string(),
+                data: data.to_string(),
+                at: 0,
+                range: idx,
+            });
+        }
+        Ok((part, idx))
+    }
+
+    fn parse_partial_value_prop_key(
+        &self,
+        remain: &mut Chars<'_>,
+    ) -> Result<(String, usize), AzUserUsageError> {
+        let data = remain.as_str();
+        let mut str = remain.as_str();
+        let mut idx = 0;
+        if str.starts_with(self.prop_name_separator) {
+            _ = remain.next().unwrap();
+            idx += 1;
+            str = remain.as_str();
+        }
+        let part = if str.starts_with(self.single_quote_char) {
+            let (part, len) = self.parse_single_quotes_string(remain)?;
+            idx += len;
+            str = remain.as_str();
+            part
+        } else {
+            let mut part = String::new();
+            while str.len() > 0 {
+                if str.starts_with(self.prop_name_separator)
+                    || str.starts_with(self.list_start_char)
+                {
+                    break;
+                }
+                part.push(remain.next().unwrap());
+                idx += 1;
+                str = remain.as_str();
+            }
+            part
+        };
+
+        if part.is_empty() {
+            return Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg: "Miss prop name".to_string(),
+                data: data.to_string(),
+                at: 0,
+                range: idx,
+            });
+        }
+        return Ok((part, idx));
     }
 }
 
@@ -798,37 +975,19 @@ mod tests {
 
         let mut remain = "'hello world'".chars();
         let result = parser.parse_single_quotes_string(&mut remain).unwrap();
-        assert_eq!(
-            result,
-            (
-                ShorthandSyntaxResult::Value(Value::String("hello world".to_string())),
-                13
-            )
-        );
+        assert_eq!(result, ("hello world".to_string(), 13));
 
         assert_eq!(remain.as_str(), "");
 
         let mut remain = "'hello world'abc".chars();
         let result = parser.parse_single_quotes_string(&mut remain).unwrap();
-        assert_eq!(
-            result,
-            (
-                ShorthandSyntaxResult::Value(Value::String("hello world".to_string())),
-                13
-            )
-        );
+        assert_eq!(result, ("hello world".to_string(), 13));
 
         assert_eq!(remain.as_str(), "abc");
 
         let mut remain = "'hello world'/ab/c//'".chars();
         let result = parser.parse_single_quotes_string(&mut remain).unwrap();
-        assert_eq!(
-            result,
-            (
-                ShorthandSyntaxResult::Value(Value::String("hello world'ab/c//".to_string())),
-                21
-            )
-        );
+        assert_eq!(result, ("hello world'ab/c//".to_string(), 21));
         assert_eq!(remain.as_str(), "");
 
         // error cases
@@ -1574,6 +1733,374 @@ mod tests {
                 msg: "Expect character ',' or ']'".to_string(),
                 data: "[1,2,[3,4}]".to_string(),
                 at: 9,
+                range: 1,
+            })
+        );
+    }
+
+    // TODO: add test for help message parse
+    // #[test]
+    // fn test_shorthand_syntax_help_parse() {
+    // }
+
+    #[test]
+    fn test_split_partial_value_key() {
+        let parser = ShorthandSyntaxParser::default();
+        let value = "a={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("a", "{c:d}")));
+
+        let value = "a.b='{c:d}'";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("a.b", "'{c:d}'")));
+
+        let value = "a[1]={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("a[1]", "{c:d}")));
+
+        let value = "a[-1]={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("a[-1]", "{c:d}")));
+
+        let value = "a[1].b={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("a[1].b", "{c:d}")));
+        let value = "a[1][2]={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("a[1][2]", "{c:d}")));
+
+        let value = "'a b'={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("'a b'", "{c:d}")));
+
+        let value = "'a '/'={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("'a '/'", "{c:d}")));
+
+        let value = "'a '/'.b={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("'a '/'.b", "{c:d}")));
+
+        let value = "'a '/'[1]={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("'a '/'[1]", "{c:d}")));
+
+        let value = "'a //'[1]={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("'a //'[1]", "{c:d}")));
+
+        let value = "'a=b'[1].b={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("'a=b'[1].b", "{c:d}")));
+
+        let value = "'a'/=b'[1].b={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("'a'/=b'[1].b", "{c:d}")));
+
+        let value = "a.b[1].d={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("a.b[1].d", "{c:d}")));
+
+        let value = "a.b[-1].d={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("a.b[-1].d", "{c:d}")));
+
+        let value = "a.b[1][2].d={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("a.b[1][2].d", "{c:d}")));
+
+        let value = "a.'b cd'.d={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("a.'b cd'.d", "{c:d}")));
+
+        let value = "a.'b c'/d'.d={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("a.'b c'/d'.d", "{c:d}")));
+
+        let value = "[1]={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("[1]", "{c:d}")));
+
+        let value = "[1].b={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("[1].b", "{c:d}")));
+
+        let value = "[1][2]={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("[1][2]", "{c:d}")));
+
+        let value = "[1][2].b={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("[1][2].b", "{c:d}")));
+
+        // test invalid cases which will not blocked by regex, but will raise error when parse partial key parts
+        let value = "a[]={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("a[]", "{c:d}")));
+
+        let value = "[1]..b={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("[1]..b", "{c:d}")));
+
+        let value = "[1].b.={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("[1].b.", "{c:d}")));
+
+        let value = "[1].[2]={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("[1].[2]", "{c:d}")));
+
+        // test invalid cases which should be blocked by regex
+        let value = "[a]={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, None);
+
+        let value = "a.'b cd'e={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, None);
+
+        let value = "a[1]b={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, None);
+
+        let value = ".a={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_parse_partial_value_key_parts() {
+        let parser = ShorthandSyntaxParser::default();
+        let key = "a";
+        let result = parser.parse_partial_value_key_parts(&key);
+        assert_eq!(result, Ok(vec!["a".to_string()]));
+
+        let key = "a.b";
+        let result = parser.parse_partial_value_key_parts(&key);
+        assert_eq!(result, Ok(vec!["a".to_string(), "b".to_string()]));
+
+        let key = "a[1]";
+        let result = parser.parse_partial_value_key_parts(&key);
+        assert_eq!(result, Ok(vec!["a".to_string(), "1".to_string()]));
+
+        let key = "a[-1]";
+        let result = parser.parse_partial_value_key_parts(&key);
+        assert_eq!(result, Ok(vec!["a".to_string(), "-1".to_string()]));
+
+        let key = "a[1].b";
+        let result = parser.parse_partial_value_key_parts(&key);
+        assert_eq!(
+            result,
+            Ok(vec!["a".to_string(), "1".to_string(), "b".to_string()])
+        );
+
+        let key = "a[1][2]";
+        let result = parser.parse_partial_value_key_parts(&key);
+        assert_eq!(
+            result,
+            Ok(vec!["a".to_string(), "1".to_string(), "2".to_string()])
+        );
+
+        let key = "'a b'";
+        let result = parser.parse_partial_value_key_parts(&key);
+        assert_eq!(result, Ok(vec!["a b".to_string()]));
+
+        let key = "'a '/'";
+        let result = parser.parse_partial_value_key_parts(&key);
+        assert_eq!(result, Ok(vec!["a '".to_string()]));
+
+        let key = "'a '/'.b";
+        let result = parser.parse_partial_value_key_parts(&key);
+        assert_eq!(result, Ok(vec!["a '".to_string(), "b".to_string()]));
+
+        let key = "'a '/'[1]";
+        let result = parser.parse_partial_value_key_parts(&key);
+        assert_eq!(result, Ok(vec!["a '".to_string(), "1".to_string()]));
+
+        let key = "'a //'[1]";
+        let result = parser.parse_partial_value_key_parts(&key);
+        assert_eq!(result, Ok(vec!["a //".to_string(), "1".to_string()]));
+
+        let key = "'a=b'[1].b";
+        let result = parser.parse_partial_value_key_parts(&key);
+        assert_eq!(
+            result,
+            Ok(vec!["a=b".to_string(), "1".to_string(), "b".to_string()])
+        );
+
+        let key = "'a'/=b'[1].b";
+        let result = parser.parse_partial_value_key_parts(&key);
+        assert_eq!(
+            result,
+            Ok(vec!["a'=b".to_string(), "1".to_string(), "b".to_string()])
+        );
+
+        let key = "a.b[1].d";
+        let result = parser.parse_partial_value_key_parts(&key);
+        assert_eq!(
+            result,
+            Ok(vec![
+                "a".to_string(),
+                "b".to_string(),
+                "1".to_string(),
+                "d".to_string()
+            ])
+        );
+
+        let key = "a.b[-1].d";
+        let result = parser.parse_partial_value_key_parts(&key);
+        assert_eq!(
+            result,
+            Ok(vec![
+                "a".to_string(),
+                "b".to_string(),
+                "-1".to_string(),
+                "d".to_string()
+            ])
+        );
+
+        let key = "a.b[1][2].d";
+        let result = parser.parse_partial_value_key_parts(&key);
+        assert_eq!(
+            result,
+            Ok(vec![
+                "a".to_string(),
+                "b".to_string(),
+                "1".to_string(),
+                "2".to_string(),
+                "d".to_string()
+            ])
+        );
+
+        let key = "a.'b cd'.d";
+        let result = parser.parse_partial_value_key_parts(&key);
+        assert_eq!(
+            result,
+            Ok(vec!["a".to_string(), "b cd".to_string(), "d".to_string()])
+        );
+
+        let key = "a.'b c'/d'.d";
+        let result = parser.parse_partial_value_key_parts(&key);
+        assert_eq!(
+            result,
+            Ok(vec!["a".to_string(), "b c'd".to_string(), "d".to_string()])
+        );
+
+        let key = "[1]";
+        let result = parser.parse_partial_value_key_parts(&key);
+        assert_eq!(result, Ok(vec!["1".to_string()]));
+
+        let key = "[1].b";
+        let result = parser.parse_partial_value_key_parts(&key);
+        assert_eq!(result, Ok(vec!["1".to_string(), "b".to_string()]));
+
+        let key = "[1][2]";
+        let result = parser.parse_partial_value_key_parts(&key);
+        assert_eq!(result, Ok(vec!["1".to_string(), "2".to_string()]));
+
+        let key = "[1][2].b";
+        let result = parser.parse_partial_value_key_parts(&key);
+        assert_eq!(
+            result,
+            Ok(vec!["1".to_string(), "2".to_string(), "b".to_string()])
+        );
+    }
+
+    #[test]
+    fn test_parse_partial_value_key_parts_error() {
+        let parser = ShorthandSyntaxParser::default();
+        let key = "a[1.b";
+        let result = parser.parse_partial_value_key_parts(&key);
+        assert_eq!(
+            result,
+            Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg: "Expect character ']'".to_string(),
+                data: key.to_string(),
+                at: 3,
+                range: 1,
+            })
+        );
+
+        let key = "a.b[1.b";
+        let result = parser.parse_partial_value_key_parts(&key);
+        assert_eq!(
+            result,
+            Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg: "Expect character ']'".to_string(),
+                data: key.to_string(),
+                at: 5,
+                range: 1,
+            })
+        );
+
+        let key = "a[].b";
+        let result = parser.parse_partial_value_key_parts(&key);
+        assert_eq!(
+            result,
+            Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg: "Miss prop name".to_string(),
+                data: key.to_string(),
+                at: 1,
+                range: 2,
+            })
+        );
+
+        let key = "a.b[].c";
+        let result = parser.parse_partial_value_key_parts(&key);
+        assert_eq!(
+            result,
+            Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg: "Miss prop name".to_string(),
+                data: key.to_string(),
+                at: 3,
+                range: 2,
+            })
+        );
+
+        let key = "a.''.c";
+        let result = parser.parse_partial_value_key_parts(&key);
+        assert_eq!(
+            result,
+            Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg: "Miss prop name".to_string(),
+                data: key.to_string(),
+                at: 1,
+                range: 3,
+            })
+        );
+
+        let value = "[1]..b";
+        let result = parser.parse_partial_value_key_parts(&value);
+        assert_eq!(
+            result,
+            Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg: "Miss prop name".to_string(),
+                data: value.to_string(),
+                at: 3,
+                range: 1,
+            })
+        );
+
+        let value = "[1].b.";
+        let result = parser.parse_partial_value_key_parts(&value);
+        assert_eq!(
+            result,
+            Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg: "Miss prop name".to_string(),
+                data: value.to_string(),
+                at: 5,
+                range: 1,
+            })
+        );
+
+        let value = "[1].[2]";
+        let result = parser.parse_partial_value_key_parts(&value);
+        assert_eq!(
+            result,
+            Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg: "Miss prop name".to_string(),
+                data: value.to_string(),
+                at: 3,
                 range: 1,
             })
         );
