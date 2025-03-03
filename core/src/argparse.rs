@@ -401,7 +401,7 @@ impl ShorthandSyntaxParser {
                 e => e,
             })?;
 
-            let v = match v {
+            match v {
                 ShorthandSyntaxResult::Help(mut keys) => {
                     keys.push(k);
                     return Ok((ShorthandSyntaxResult::Help(keys), idx));
@@ -548,7 +548,7 @@ impl ShorthandSyntaxParser {
 
         if idx == 0 {
             return Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg: "Cannot parse empty".to_string(),
+                msg: "Cannot parse empty, for empty string, please use '' instead".to_string(),
                 data: data.to_string(),
                 at: idx,
                 range: 1,
@@ -1330,6 +1330,250 @@ mod tests {
                 msg: "Please wrap whitespace character in single quotes".to_string(),
                 data: "a\rbc,def,ghi".to_string(),
                 at: 1,
+                range: 1,
+            })
+        );
+    }
+
+    #[test]
+    fn test_parse_dict() {
+        let parser = ShorthandSyntaxParser::default();
+        let mut remain = "{a:b,c:d},{a:b,c:d}".chars();
+        let result = parser.parse_dict(&mut remain).unwrap();
+        assert_eq!(
+            result,
+            (
+                ShorthandSyntaxResult::Value(Value::Object(
+                    json!({"a": "b", "c": "d"}).as_object().unwrap().to_owned()
+                )),
+                9
+            )
+        );
+        assert_eq!(remain.as_str(), ",{a:b,c:d}");
+
+        let mut remain = "{a:{a:b,c:d},b:{a:b,c:d},c:[1,2,3],d:false,e:null,f:'1'}".chars();
+        let result = parser.parse_dict(&mut remain).unwrap();
+        assert_eq!(
+            result,
+            (
+                ShorthandSyntaxResult::Value(Value::Object(json!({"a": {"a": "b", "c": "d"}, "b": {"a": "b", "c": "d"}, "c": [1, 2, 3], "d": false, "e": null, "f": "1"}).as_object().unwrap().to_owned())),
+                56
+            )
+        );
+        assert_eq!(remain.as_str(), "");
+
+        let mut remain = "{},abc".chars();
+        let result = parser.parse_dict(&mut remain).unwrap();
+        assert_eq!(
+            result,
+            (
+                ShorthandSyntaxResult::Value(Value::Object(
+                    json!({}).as_object().unwrap().to_owned()
+                )),
+                2
+            )
+        );
+        assert_eq!(remain.as_str(), ",abc");
+
+        // test error cases
+        let mut remain = "{a:b,c:d".chars();
+        let r = parser.parse_dict(&mut remain);
+        assert_eq!(
+            r,
+            Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg: "Expect character ',' or '}'".to_string(),
+                data: "{a:b,c:d".to_string(),
+                at: 8,
+                range: 1,
+            })
+        );
+
+        let mut remain = "{a:b,c:d,".chars();
+        let r = parser.parse_dict(&mut remain);
+        assert_eq!(
+            r,
+            Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg: "Expect character '}'".to_string(),
+                data: "{a:b,c:d,".to_string(),
+                at: 9,
+                range: 1,
+            })
+        );
+
+        let mut remain = "{a:b,a:d}".chars();
+        let r = parser.parse_dict(&mut remain);
+        assert_eq!(
+            r,
+            Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg: "Duplicate defined dict key 'a'".to_string(),
+                data: "{a:b,a:d}".to_string(),
+                at: 5,
+                range: 1,
+            })
+        );
+
+        let mut remain = "{'a\"':b,c:d}".chars();
+        let r = parser.parse_dict(&mut remain);
+        assert_eq!(
+            r,
+            Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg: "Dict key should not contain double quotes".to_string(),
+                data: "{'a\"':b,c:d}".to_string(),
+                at: 1,
+                range: 4,
+            })
+        );
+
+        let mut remain = "{'a'/':b,c:d}".chars();
+        let r = parser.parse_dict(&mut remain);
+        assert_eq!(
+            r,
+            Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg: "Dict key should not contain single quotes".to_string(),
+                data: "{'a'/':b,c:d}".to_string(),
+                at: 1,
+                range: 5,
+            })
+        );
+
+        let mut remain = "{'a'bc:b,c:d}".chars();
+        let r = parser.parse_dict(&mut remain);
+        assert_eq!(
+            r,
+            Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg: "Expect character ':'".to_string(),
+                data: "{'a'bc:b,c:d}".to_string(),
+                at: 4,
+                range: 1,
+            })
+        );
+
+        let mut remain = "{'a',c:d}".chars();
+        let r = parser.parse_dict(&mut remain);
+        assert_eq!(
+            r,
+            Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg: "Expect character ':'".to_string(),
+                data: "{'a',c:d}".to_string(),
+                at: 4,
+                range: 1,
+            })
+        );
+
+        let mut remain = "{'a':".chars();
+        let r = parser.parse_dict(&mut remain);
+        assert_eq!(
+            r,
+            Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg: "Cannot parse empty".to_string(),
+                data: "{'a':".to_string(),
+                at: 5,
+                range: 1,
+            })
+        );
+
+        let mut remain = "{'a':{b:c,d:}}".chars();
+        let r = parser.parse_dict(&mut remain);
+        assert_eq!(
+            r,
+            Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg: "Cannot parse empty, for empty string, please use '' instead".to_string(),
+                data: "{'a':{b:c,d:}}".to_string(),
+                at: 12,
+                range: 1,
+            })
+        );
+        let mut remain = "{'a':{b:c,d:c]}".chars();
+        let r = parser.parse_dict(&mut remain);
+        assert_eq!(
+            r,
+            Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg: "Expect character ',' or '}'".to_string(),
+                data: "{'a':{b:c,d:c]}".to_string(),
+                at: 13,
+                range: 1,
+            })
+        );
+    }
+
+    #[test]
+    fn test_parse_list() {
+        let parser = ShorthandSyntaxParser::default();
+        let mut remain = "[a,b,c]".chars();
+        let result = parser.parse_list(&mut remain).unwrap();
+        assert_eq!(
+            result,
+            (
+                ShorthandSyntaxResult::Value(Value::Array(
+                    json!(["a", "b", "c"]).as_array().unwrap().to_owned()
+                )),
+                7
+            )
+        );
+        assert_eq!(remain.as_str(), "");
+
+        let mut remain = "[1,2,3],bcd".chars();
+        let result = parser.parse_list(&mut remain).unwrap();
+        assert_eq!(
+            result,
+            (
+                ShorthandSyntaxResult::Value(Value::Array(
+                    json!([1, 2, 3]).as_array().unwrap().to_owned()
+                )),
+                7
+            )
+        );
+        assert_eq!(remain.as_str(), ",bcd");
+
+        let mut remain = "[[1,2,3],[4,5,6],[7,8,9]]".chars();
+        let result = parser.parse_list(&mut remain).unwrap();
+        assert_eq!(
+            result,
+            (
+                ShorthandSyntaxResult::Value(Value::Array(
+                    json!([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+                        .as_array()
+                        .unwrap()
+                        .to_owned()
+                )),
+                25
+            )
+        );
+        assert_eq!(remain.as_str(), "");
+
+        // test error cases
+        let mut remain = "[1,2,3".chars();
+        let r = parser.parse_list(&mut remain);
+        assert_eq!(
+            r,
+            Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg: "Expect character ',' or ']'".to_string(),
+                data: "[1,2,3".to_string(),
+                at: 6,
+                range: 1,
+            })
+        );
+
+        let mut remain = "[1,2,3,".chars();
+        let r = parser.parse_list(&mut remain);
+        assert_eq!(
+            r,
+            Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg: "Expect character ']'".to_string(),
+                data: "[1,2,3,".to_string(),
+                at: 7,
+                range: 1,
+            })
+        );
+
+        let mut remain = "[1,2,[3,4}]".chars();
+        let r = parser.parse_list(&mut remain);
+        assert_eq!(
+            r,
+            Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg: "Expect character ',' or ']'".to_string(),
+                data: "[1,2,[3,4}]".to_string(),
+                at: 9,
                 range: 1,
             })
         );
