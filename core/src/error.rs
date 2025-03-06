@@ -16,14 +16,22 @@ pub enum AzUserUsageError {
     #[error("Invalid argument value: {0}")]
     InvalidArgumentValueError(String),
 
+    #[error("Unsupported feature: {0}")]
+    UnsupportedFeatureError(String),
+
+    #[error("Failed to parse file '{0}' with exception:\n{1}")]
+    ParseFileError(String, String),
+
     // TODO: use the data, at, range to show the error location
-    #[error("Shorthand Syntax Error: {msg}")]
+    #[error("Invalid shorthand syntax: {msg}")]
     InvalidShorthandSyntaxError {
         msg: String,
         data: String,
         at: usize,
         range: usize,
     },
+
+    // #[error("Invalid index key")]
 
     /// Arguments can not be specified together such as polymorphic arguments
     #[error("Mutually exclusive arguments: {0}")]

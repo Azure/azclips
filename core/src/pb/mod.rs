@@ -2,9 +2,11 @@ pub mod command;
 pub mod context;
 pub mod module;
 
+use std::sync::LazyLock;
+
 use serde_json::Value;
 
-use crate::error::AzInternalError;
+use crate::error::{AzInternalError, AzResult, AzUserUsageError};
 
 impl command::CmdArg {
     pub fn arg_type_ok(&self) -> Result<&command::cmd_arg::ArgType, AzInternalError> {
@@ -49,6 +51,26 @@ impl command::CmdObjectArgAdditionalProperties {
     }
 }
 
+impl command::CmdObjectArg {
+    /// return the property argument by given the name or alias, if not found, return None
+    /// This method will not check the additional properties
+    pub fn get_prop<'a>(&'a self, name_or_alias: &'_ str) -> Option<&'a command::CmdArg> {
+        for prop in self.props.iter() {
+            if prop.name == name_or_alias || prop.options.iter().any(|o| o == name_or_alias) {
+                return Some(prop);
+            }
+        }
+        None
+    }
+    /// return the item argument for the additional properties
+    pub fn get_additional_item(&self) -> Result<Option<&command::CmdArg>, AzInternalError> {
+        match self.additional_props.as_ref() {
+            Some(additional) => Ok(Some(additional.item_ok()?)),
+            None => Ok(None),
+        }
+    }
+}
+
 impl command::CmdArrayArg {
     pub fn item_ok(&self) -> Result<&command::CmdArg, AzInternalError> {
         let item = self
@@ -73,6 +95,44 @@ impl command::CmdNumberArg {
     }
 }
 
+impl command::CmdArgEnum {
+    pub fn find_value_by_name(&self, str: &str) -> Result<Option<Value>, AzInternalError> {
+        for item in self.items.iter() {
+            if item.name == str || (!self.case_sensitive && item.name.eq_ignore_ascii_case(str)) {
+                let value = item.to_owned().try_into()?;
+                return Ok(Some(value));
+            }
+        }
+        Ok(None)
+    }
+
+    pub fn validate_value(&self, value: Value) -> AzResult<Value> {
+        for item in self.items.iter() {
+            let v = item.to_owned().try_into()?;
+            if v == value {
+                return Ok(v);
+            }
+            // case insensitive match
+            match (&v, &value) {
+                (Value::String(s), Value::String(t)) => {
+                    if !self.case_sensitive && s.eq_ignore_ascii_case(t) {
+                        return Ok(v);
+                    }
+                }
+                _ => (),
+            }
+        }
+
+        if self.support_extension {
+            return Ok(value);
+        }
+        Err(
+            AzUserUsageError::InvalidArgumentValueError(format!("Invalid enum value: {}", value))
+                .into(),
+        )
+    }
+}
+
 impl TryFrom<command::CmdArgBlank> for Value {
     type Error = AzInternalError;
 
@@ -93,6 +153,19 @@ impl TryFrom<command::CmdArgDefault> for Value {
         let value = serde_json::from_str(value.value.as_str()).or(Err(
             AzInternalError::InvalidArgumentDefinitionError(
                 "Failed to parse value from the default value".to_string(),
+            ),
+        ))?;
+        Ok(value)
+    }
+}
+
+impl TryFrom<command::CmdArgEnumItem> for Value {
+    type Error = AzInternalError;
+
+    fn try_from(value: command::CmdArgEnumItem) -> Result<Self, Self::Error> {
+        let value = serde_json::from_str(value.value.as_str()).or(Err(
+            AzInternalError::InvalidArgumentDefinitionError(
+                "Failed to parse value from the enum item".to_string(),
             ),
         ))?;
         Ok(value)
@@ -167,3 +240,56 @@ fn retrieve_cls_arg_type<'a>(
     }
     return Ok(None);
 }
+
+pub(crate) static BOOLEAN_ARG_BLANK_DEFAULT: LazyLock<command::CmdArgBlank> =
+    LazyLock::new(|| command::CmdArgBlank {
+        value: "true".to_string(),
+    });
+
+pub(crate) static BOOLEAN_ARG_ENUM_DEFAULT: LazyLock<command::CmdArgEnum> =
+    LazyLock::new(|| command::CmdArgEnum {
+        items: vec![
+            command::CmdArgEnumItem {
+                name: "true".to_string(),
+                value: "true".to_string(),
+                internal: false,
+            },
+            command::CmdArgEnumItem {
+                name: "t".to_string(),
+                value: "true".to_string(),
+                internal: false,
+            },
+            command::CmdArgEnumItem {
+                name: "yes".to_string(),
+                value: "true".to_string(),
+                internal: false,
+            },
+            command::CmdArgEnumItem {
+                name: "y".to_string(),
+                value: "true".to_string(),
+                internal: false,
+            },
+            command::CmdArgEnumItem {
+                name: "false".to_string(),
+                value: "false".to_string(),
+                internal: false,
+            },
+            command::CmdArgEnumItem {
+                name: "f".to_string(),
+                value: "false".to_string(),
+                internal: false,
+            },
+            command::CmdArgEnumItem {
+                name: "no".to_string(),
+                value: "false".to_string(),
+                internal: false,
+            },
+            command::CmdArgEnumItem {
+                name: "n".to_string(),
+                value: "false".to_string(),
+                internal: false,
+            },
+        ],
+        support_extension: false,
+        case_sensitive: false,
+    });

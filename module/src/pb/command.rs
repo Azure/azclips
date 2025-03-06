@@ -162,6 +162,9 @@ pub struct CmdArgEnum {
     /// whether value outside of the enum items is allowed
     #[prost(bool, tag = "2")]
     pub support_extension: bool,
+    /// whether the enum is case sensitive
+    #[prost(bool, tag = "3")]
+    pub case_sensitive: bool,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CmdArgEnumItem {

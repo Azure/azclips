@@ -87,6 +87,7 @@ message CMDArgPromptInput {
 message CMDArgEnum {
     repeated CMDArgEnumItem items = 1; // the items of the enum
     bool support_extension = 2; // whether value outside of the enum items is allowed
+    bool case_sensitive = 3; // whether the enum is case sensitive
 }
 
 message CMDArgEnumItem {
