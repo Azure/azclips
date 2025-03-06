@@ -9,619 +9,81 @@ use serde_json::{json, Map, Value};
 
 use crate::error::{AzInternalError, AzResult, AzUserUsageError};
 use crate::pb::command::cmd_arg::ArgType;
-use crate::pb::command::{self, CmdArgEnum, CmdArgEnumItem};
-use crate::pb::{BOOLEAN_ARG_BLANK_DEFAULT, BOOLEAN_ARG_ENUM_DEFAULT};
 
-pub enum ArgOp {
-    PromptInput(ArgPromptInputOp),
-    ValueAssign(ArgValueAssignOp),
-    Help(ArgHelpOp),
+use super::partial::{SHPartialKeyPart, SHPartialKeys};
+
+pub struct ShorthandSyntaxParser {
+    null_expr: &'static str,
+    help_expr: &'static str,
+    single_quote_char: char,
+    double_quote_char: char,
+    quote_escape_char: char,
+    dict_start_char: char,
+    dict_end_char: char,
+    list_start_char: char,
+    list_end_char: char,
+    key_value_separator: char,
+    prop_name_separator: char,
+    item_separator: char,
+    partial_value_key_pattern: Regex,
 }
 
-pub struct ArgPromptInputOp {
-    keys: SHPartialKeys,
-    prompt: crate::pb::command::CmdArgPromptInput,
-}
-pub struct ArgValueAssignOp {
-    keys: SHPartialKeys,
-    /// whether the value is filled from the blank value or not
-    from_blank: bool,
-    value: Value,
-}
+pub(super) static SHORTHAND_SYNTAX_PARSER: LazyLock<ShorthandSyntaxParser> =
+    LazyLock::new(ShorthandSyntaxParser::default);
 
-pub struct ArgHelpOp {
-    keys: SHPartialKeys,
-}
+/// The regex pattern for the partial value key, which is used to parse the partial value key from the input string.
+const PARTIAL_VALUE_KEY_PATTERN: &'static str = concat!(
+    "^",                               // start
+    "(",                               // start of capture group 1 - key path
+    "(?:",                             // non-capturing group - first key
+    "(?:[a-zA-Z0-9_\\-]+)",            // normal identifier
+    "|",                               // or
+    "(?:'(?:[^']*)'(?:/(?:[^']*)')*)", // quoted key
+    "|",                               // or
+    "(?:\\[(?:(?:-|\\+)?[0-9]*)\\])", // array index, in the expression, match the [] and [-1], but raise error when part key, the index support [5], [+5] (for beyond the end of the array, +5 represent the index which is last element index of array plus 5)
+    ")",
+    "(?:\\[(?:(?:-|\\+)?[0-9]*)\\])*", // optional array index, in the expression, match the [] and [-1], but raise error when part key, the index support [5], [+5] (for beyond the end of the array, +5 represent the index which is last element index of array plus 5)
+    "(?:",                             // non-capturing group - subsequent keys
+    "\\.",                             // dot separator
+    "(?:",                             // non-capturing group
+    "(?:[a-zA-Z0-9_\\-]*)", // normal identifier, in the expression, match the ., but raise error when part key
+    "|",                    // or
+    "(?:'(?:[^']*)'(?:/(?:[^']*)')*)", // quoted key
+    ")",
+    "(?:\\[(?:(?:-|\\+)?[0-9]*)\\])*", // optional array index, in the expression, match the [] and [-1], but raise error when part key, the index support [5], [+5] (for beyond the end of the array, +5 represent the index which is last element index of array plus 5)
+    ")*",                              // repeat zero or more times
+    ")",                               // end of capture group 1
+    "=",                               // equals separator
+    "(.*)",                            // capture group 2 - value part
+    "$"                                // end
+);
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum SHPartialKeyPart {
-    Name(String),
-    /// limit the index to a small range less than 32767
-    /// When the index is None, it means the append to the end of the array
-    Index(Option<i16>),
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct SHPartialKeys {
-    parts: Vec<SHPartialKeyPart>,
-}
-
-impl Default for SHPartialKeys {
+impl Default for ShorthandSyntaxParser {
     fn default() -> Self {
-        Self { parts: vec![] }
-    }
-}
-
-impl SHPartialKeys {
-    pub fn extend(&mut self, other: impl IntoIterator<Item = SHPartialKeyPart>) {
-        self.parts.extend(other);
-    }
-
-    pub fn with_extend(mut self, other: impl IntoIterator<Item = SHPartialKeyPart>) -> Self {
-        self.extend(other);
-        self
-    }
-}
-
-impl IntoIterator for SHPartialKeys {
-    type Item = SHPartialKeyPart;
-    type IntoIter = std::vec::IntoIter<SHPartialKeyPart>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.parts.into_iter()
-    }
-}
-
-impl std::fmt::Display for SHPartialKeys {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut first = true;
-        for part in self.parts.iter() {
-            match part {
-                SHPartialKeyPart::Name(name) => {
-                    if first {
-                        write!(f, "{}", name)?;
-                        first = false;
-                    } else {
-                        write!(f, ".{}", name)?;
-                    }
-                }
-                SHPartialKeyPart::Index(Some(idx)) => write!(f, "[{}]", idx)?,
-                SHPartialKeyPart::Index(None) => write!(f, "[+]")?,
-            }
-        }
-        Ok(())
-    }
-}
-
-impl SHPartialKeys {
-    fn split_at(&self, at: usize) -> Self {
-        let mut result = Vec::new();
-        for (i, part) in self.parts.iter().enumerate() {
-            if i >= at {
-                break;
-            }
-            result.push(part.to_owned());
-        }
-        Self { parts: result }
-    }
-}
-
-/// convert the values into the argument operations, return None when the argument is not found
-pub fn parse_cmd_arg(
-    cmd: &command::CmdCommand,
-    flag: &str,
-    values: &[String],
-) -> AzResult<Option<Vec<ArgOp>>> {
-    let mut matched_arg = None;
-    for arg in cmd.args.iter() {
-        if arg.options.iter().any(|o| o == flag) {
-            matched_arg = Some(arg);
-            break;
-        }
-    }
-
-    if matched_arg.is_none() {
-        return Ok(None);
-    }
-
-    let arg = matched_arg.unwrap();
-
-    let ops = parse_arg_values(cmd, arg, values, &SHPartialKeys::default())?;
-
-    Ok(Some(ops))
-}
-
-fn parse_arg_values(
-    cmd: &command::CmdCommand,
-    arg: &command::CmdArg,
-    values: &[String],
-    prefix_keys: &SHPartialKeys,
-) -> AzResult<Vec<ArgOp>> {
-    match arg.arg_type_unwrap_cls_ok(cmd)? {
-        command::cmd_arg::ArgType::Str(_)
-        | command::cmd_arg::ArgType::Number(_)
-        | command::cmd_arg::ArgType::Boolean(_) => {
-            if values.len() > 1 {
-                // The simple type argument can't accept multiple values
-                Err(AzUserUsageError::InvalidArgumentValueError(format!(
-                    "Argument '{}' can't accept multiple values",
-                    prefix_keys
-                ))
-                .into())
-            } else {
-                let value = values.first().map(|v| v.as_str());
-                let op = parse_arg_value_str(cmd, arg, value, &prefix_keys)?;
-                Ok(vec![op])
-            }
-        }
-        command::cmd_arg::ArgType::AnyType(_) => {
-            if values.len() > 1 {
-                // The simple type argument can't accept multiple values
-                Err(AzUserUsageError::InvalidArgumentValueError(format!(
-                    "Argument '{}' can't accept multiple values",
-                    prefix_keys
-                ))
-                .into())
-            } else if values.len() == 0 {
-                let op = parse_arg_value_str(cmd, arg, None, &prefix_keys)?;
-                Ok(vec![op])
-            } else {
-                let value = values.first().unwrap();
-                if let Some(_) = SHORTHAND_SYNTAX_PARSER.split_partial_value(value) {
-                    return Err(AzUserUsageError::InvalidArgumentValueError(format!(
-                    "Argument '{}' is any type arg which only support full value shorthand syntax, please don't use partial value shorthand syntax. If it's a simple string, please wrap it with single quotes.",
-                    prefix_keys,
-                ))
-                .into());
-                }
-                let op = parse_arg_value_str(cmd, arg, Some(value), &prefix_keys)?;
-                Ok(vec![op])
-            }
-        }
-        command::cmd_arg::ArgType::Object(_) => {
-            if values.len() == 0 {
-                let op = parse_arg_value_str(cmd, arg, None, &prefix_keys)?;
-                Ok(vec![op])
-            } else {
-                let mut ops = Vec::new();
-                for value in values {
-                    if let Some((key, value)) = SHORTHAND_SYNTAX_PARSER.split_partial_value(value) {
-                        let keys = SHORTHAND_SYNTAX_PARSER.parse_partial_value_key_parts(key)?;
-                        let sub_arg = retrieve_internal_arg_by_keys(cmd, arg, &keys)?;
-                        let sub_prefix_keys = prefix_keys.to_owned().with_extend(keys.into_iter());
-                        let op = parse_arg_value_str(cmd, sub_arg, value, &sub_prefix_keys)?;
-                        ops.push(op);
-                    } else {
-                        let op = parse_arg_value_str(cmd, arg, Some(value), &prefix_keys)?;
-                        ops.push(op);
-                    }
-                }
-                Ok(ops)
-            }
-        }
-        command::cmd_arg::ArgType::Array(_) => {
-            // here we dropped the support for space separated elements, which will cause the ambiguity
-            if values.len() == 0 {
-                let op = parse_arg_value_str(cmd, arg, None, &prefix_keys)?;
-                Ok(vec![op])
-            } else {
-                let mut ops = Vec::new();
-                for value in values {
-                    if let Some((key, value)) = SHORTHAND_SYNTAX_PARSER.split_partial_value(value) {
-                        let keys = SHORTHAND_SYNTAX_PARSER.parse_partial_value_key_parts(key)?;
-                        let sub_arg = retrieve_internal_arg_by_keys(cmd, arg, &keys)?;
-                        let sub_prefix_keys = prefix_keys.to_owned().with_extend(keys.into_iter());
-                        let op = parse_arg_value_str(cmd, sub_arg, value, &sub_prefix_keys)?;
-                        ops.push(op);
-                    } else {
-                        let op = parse_arg_value_str(cmd, arg, Some(value), &prefix_keys)?;
-                        ops.push(op);
-                    }
-                }
-                Ok(ops)
-            }
-        }
-        command::cmd_arg::ArgType::Cls(_) => {
-            unreachable!()
+        ShorthandSyntaxParser {
+            null_expr: "null",
+            help_expr: "??",
+            single_quote_char: '\'',
+            double_quote_char: '"',
+            quote_escape_char: '/',
+            dict_start_char: '{',
+            dict_end_char: '}',
+            list_start_char: '[',
+            list_end_char: ']',
+            key_value_separator: ':',
+            prop_name_separator: '.',
+            item_separator: ',',
+            partial_value_key_pattern: Regex::new(PARTIAL_VALUE_KEY_PATTERN).unwrap(),
         }
     }
 }
 
-fn parse_arg_value_str(
-    cmd: &command::CmdCommand,
-    arg: &command::CmdArg,
-    value: Option<&str>, // None for the blank input
-    prefix_keys: &SHPartialKeys,
-) -> AzResult<ArgOp> {
-    let arg_type = arg.arg_type_unwrap_cls_ok(cmd)?;
-
-    // handle the blank input
-    if value.is_none() {
-        // allow prompt input
-        if let Some(prompt) = arg.prompt.as_ref() {
-            return Ok(ArgOp::PromptInput(ArgPromptInputOp {
-                keys: prefix_keys.to_owned(),
-                prompt: prompt.to_owned(),
-            }));
-        }
-
-        // else use blank value instead
-        let blank = arg
-            .blank
-            .as_ref()
-            .or_else(|| match arg_type {
-                // apply default blank value for boolean type
-                ArgType::Boolean(_) => Some(&BOOLEAN_ARG_BLANK_DEFAULT),
-                _ => None,
-            })
-            .ok_or(AzUserUsageError::InvalidArgumentValueError(format!(
-                "Argument '{}' requires a value but no value is provided",
-                prefix_keys
-            )))?
-            .to_owned();
-        let value: Value = blank.try_into()?;
-
-        if value.is_null() && !arg.nullable {
-            return Err(AzInternalError::InvalidArgumentDefinitionError(format!(
-                "Argument '{}' is not nullable, but the blank value is null",
-                prefix_keys
-            ))
-            .into());
-        }
-
-        return Ok(ArgOp::ValueAssign(ArgValueAssignOp {
-            keys: prefix_keys.to_owned(),
-            from_blank: true,
-            value,
-        }));
-    }
-
-    let value = value.unwrap();
-
-    match arg_type {
-        command::cmd_arg::ArgType::Str(str_type) => {
-            match SHORTHAND_SYNTAX_PARSER.parse(value, true)? {
-                SHResult::Help(keys) => Ok(ArgOp::Help(ArgHelpOp {
-                    keys: prefix_keys.to_owned().with_extend(keys.into_iter().rev()),
-                })),
-                SHResult::Value(mut value) => {
-                    if value.is_null() {
-                        if !arg.nullable {
-                            return Err(AzUserUsageError::InvalidArgumentValueError(format!(
-                                "Argument '{}' value cannot be null",
-                                prefix_keys
-                            ))
-                            .into());
-                        } else {
-                            return Ok(ArgOp::ValueAssign(ArgValueAssignOp {
-                                keys: prefix_keys.to_owned(),
-                                from_blank: false,
-                                value,
-                            }));
-                        }
-                    }
-
-                    // convert to string value
-                    match &value {
-                        Value::Number(n) => {
-                            value = Value::String(n.to_string());
-                        }
-                        Value::Bool(b) => {
-                            value = Value::String(b.to_string());
-                        }
-                        Value::String(_) => {} // ignore
-                        _ => {
-                            unreachable!()
-                        }
-                    }
-
-                    // handle the enum type
-                    if let Some(e) = str_type.r#enum.as_ref() {
-                        if let Some(v) = e.find_value_by_name(value.as_str().unwrap())? {
-                            value = v
-                        }
-                        value = e.validate_value(value)?
-                    }
-
-                    Ok(ArgOp::ValueAssign(ArgValueAssignOp {
-                        keys: prefix_keys.to_owned(),
-                        from_blank: false,
-                        value,
-                    }))
-                }
-            }
-        }
-        command::cmd_arg::ArgType::Number(num_type) => {
-            match SHORTHAND_SYNTAX_PARSER.parse(value, true)? {
-                SHResult::Help(keys) => Ok(ArgOp::Help(ArgHelpOp {
-                    keys: prefix_keys.to_owned().with_extend(keys.into_iter().rev()),
-                })),
-                SHResult::Value(mut value) => {
-                    if value.is_null() {
-                        if !arg.nullable {
-                            return Err(AzUserUsageError::InvalidArgumentValueError(format!(
-                                "Argument '{}' value cannot be null",
-                                prefix_keys
-                            ))
-                            .into());
-                        } else {
-                            return Ok(ArgOp::ValueAssign(ArgValueAssignOp {
-                                keys: prefix_keys.to_owned(),
-                                from_blank: false,
-                                value,
-                            }));
-                        }
-                    }
-                    if let Some(e) = num_type.r#enum.as_ref() {
-                        match &value {
-                            Value::String(v) => {
-                                if let Some(v) = e.find_value_by_name(v)? {
-                                    value = v
-                                }
-                            }
-                            _ => {}
-                        }
-                        value = e.validate_value(value)?
-                    }
-
-                    match &value {
-                        // the number will be formatted to detailed types based on the format in the format stage,
-                        // so here no need to make type transformation
-                        Value::Number(_) => Ok(ArgOp::ValueAssign(ArgValueAssignOp {
-                            keys: prefix_keys.to_owned(),
-                            from_blank: false,
-                            value,
-                        })),
-                        Value::Bool(v) => {
-                            Err(AzUserUsageError::InvalidArgumentValueError(format!(
-                                "Argument '{}' expected a number value, but got a boolean value '{}'",
-                                prefix_keys,
-                                v
-                            ))
-                            .into())
-                        }
-                        Value::String(v) => {
-                            Err(AzUserUsageError::InvalidArgumentValueError(format!(
-                                "Argument '{}' expected a number value, but got a string value '{}'",
-                                prefix_keys,
-                                v
-                            ))
-                            .into())
-                        }
-                        _ => {
-                            unreachable!()
-                        }
-                    }
-                }
-            }
-        }
-        command::cmd_arg::ArgType::Boolean(_) => {
-            match SHORTHAND_SYNTAX_PARSER.parse(value, true)? {
-                SHResult::Help(keys) => Ok(ArgOp::Help(ArgHelpOp {
-                    keys: prefix_keys.to_owned().with_extend(keys.into_iter().rev()),
-                })),
-                SHResult::Value(mut value) => {
-                    if value.is_null() {
-                        if !arg.nullable {
-                            return Err(AzUserUsageError::InvalidArgumentValueError(format!(
-                                "Argument '{}' value cannot be null",
-                                prefix_keys,
-                            ))
-                            .into());
-                        } else {
-                            return Ok(ArgOp::ValueAssign(ArgValueAssignOp {
-                                keys: prefix_keys.to_owned(),
-                                from_blank: false,
-                                value,
-                            }));
-                        }
-                    }
-
-                    match &value {
-                        Value::Bool(_) => Ok(ArgOp::ValueAssign(ArgValueAssignOp {
-                            keys: prefix_keys.to_owned(),
-                            from_blank: false,
-                            value,
-                        })),
-                        Value::String(v) => {
-                            if let Some(v) = BOOLEAN_ARG_ENUM_DEFAULT.find_value_by_name(v)? {
-                                value = v;
-                                Ok(ArgOp::ValueAssign(ArgValueAssignOp {
-                                    keys: prefix_keys.to_owned(),
-                                    from_blank: false,
-                                    value,
-                                }))
-                            } else {
-                                Err(AzUserUsageError::InvalidArgumentValueError(format!(
-                                    "Argument '{}' expected a boolean value, but got a string value '{}'",
-                                    prefix_keys,
-                                    v
-                                ))
-                                .into())
-                            }
-                        }
-                        Value::Number(v) => {
-                            Err(AzUserUsageError::InvalidArgumentValueError(format!(
-                                "Argument '{}' expected a boolean value, but got a number value '{}'",
-                                prefix_keys,
-                                v
-                            ))
-                            .into())
-                        }
-                        _ => {
-                            unreachable!()
-                        }
-                    }
-                }
-            }
-        }
-        command::cmd_arg::ArgType::AnyType(_) => {
-            // Try to parse the value from the file first when the value is prefixed with the file prefix
-            if let Some(value) = value
-                .strip_prefix(FILE_PREFIX)
-                .map(read_serde_value_from_file)
-                .transpose()?
-                .unwrap_or(None)
-            {
-                Ok(ArgOp::ValueAssign(ArgValueAssignOp {
-                    keys: prefix_keys.to_owned(),
-                    from_blank: false,
-                    value,
-                }))
-            } else if let Ok(value) = SHORTHAND_SYNTAX_PARSER.parse(value, false) {
-                // Try parse with the shorthand syntax parser then
-                match value {
-                    SHResult::Help(keys) => Ok(ArgOp::Help(ArgHelpOp {
-                        keys: prefix_keys.to_owned().with_extend(keys.into_iter().rev()),
-                    })),
-                    SHResult::Value(value) => Ok(ArgOp::ValueAssign(ArgValueAssignOp {
-                        keys: prefix_keys.to_owned(),
-                        from_blank: false,
-                        value,
-                    })),
-                }
-            } else if let Ok(value) = serde_json::from_str::<Value>(value) {
-                // If the shorthand syntax parser failed, try to parse with the serde_json
-                Ok(ArgOp::ValueAssign(ArgValueAssignOp {
-                    keys: prefix_keys.to_owned(),
-                    from_blank: false,
-                    value,
-                }))
-            } else {
-                // If the serde_json also failed, assume it's a simple string value
-                Ok(ArgOp::ValueAssign(ArgValueAssignOp {
-                    keys: prefix_keys.to_owned(),
-                    from_blank: false,
-                    value: Value::String(value.to_string()),
-                }))
-            }
-        }
-        command::cmd_arg::ArgType::Object(obj_type) => {
-            let mut serde_value = value
-                .strip_prefix(FILE_PREFIX)
-                .map(read_serde_value_from_file)
-                .transpose()?
-                .unwrap_or(None);
-
-            if serde_value.is_none() {
-                if let Ok(value) = SHORTHAND_SYNTAX_PARSER.parse(value, false) {
-                    match value {
-                        SHResult::Help(keys) => {
-                            return Ok(ArgOp::Help(ArgHelpOp {
-                                keys: prefix_keys.to_owned().with_extend(keys.into_iter().rev()),
-                            }))
-                        }
-                        SHResult::Value(value) => {
-                            serde_value = Some(value);
-                        }
-                    }
-                    // TODO: expand internal files
-                } else if let Ok(value) = serde_json::from_str::<Value>(value) {
-                    serde_value = Some(value);
-                }
-            }
-
-            // if let Some(v) = value
-            //     .strip_prefix(FILE_PREFIX)
-            //     .and_then(|v| Some(read_serde_value_from_file(v)))
-            //     .unwrap_or(Ok(None))?
-            // {
-            //     // if let Some(value) = read_serde_value_from_file(file_path)? {
-            //     //     unimplemented!()
-            //     // }
-            // }
-            unimplemented!()
-        }
-        command::cmd_arg::ArgType::Array(arr_type) => {
-            if let Some(file_path) = value.strip_prefix(FILE_PREFIX) {
-                if let Some(value) = read_serde_value_from_file(file_path)? {
-                    unimplemented!()
-                }
-            }
-
-            unimplemented!()
-        }
-        command::cmd_arg::ArgType::Cls(_) => {
-            unreachable!("cls type should not be parsed here");
-        }
-    }
-}
-
-fn format_arg_value() {}
-
-fn retrieve_internal_arg_by_keys<'a>(
-    cmd: &'a command::CmdCommand,
-    arg: &'a command::CmdArg,
-    keys: &'_ SHPartialKeys,
-) -> AzResult<&'a command::CmdArg> {
-    let mut arg = arg;
-    for (i, part) in keys.parts.iter().enumerate() {
-        match arg.arg_type_unwrap_cls_ok(cmd)? {
-            command::cmd_arg::ArgType::Object(obj) => match part {
-                SHPartialKeyPart::Name(name) => {
-                    arg = obj.get_prop(name).or(obj.get_additional_item()?).ok_or(
-                        AzUserUsageError::InvalidArgumentValueError(format!(
-                            "Object type argument {} has no internal property named '{}'",
-                            keys.split_at(i),
-                            name
-                        )),
-                    )?;
-                }
-                SHPartialKeyPart::Index(_) => {
-                    return Err(AzUserUsageError::InvalidArgumentValueError(format!(
-                        "Object type argument {} cannot support internal access by index",
-                        keys.split_at(i)
-                    ))
-                    .into());
-                }
-            },
-            command::cmd_arg::ArgType::Array(arr) => match part {
-                SHPartialKeyPart::Index(_) => {
-                    arg = arr.item_ok()?;
-                }
-                SHPartialKeyPart::Name(name) => {
-                    return Err(AzUserUsageError::InvalidArgumentValueError(format!(
-                        "Array type argument {} has no internal property named '{}'",
-                        keys.split_at(i),
-                        name
-                    ))
-                    .into());
-                }
-            },
-            command::cmd_arg::ArgType::Str(_) => {
-                return Err(AzUserUsageError::InvalidArgumentValueError(format!(
-                    "String type argument {} cannot support internal access",
-                    keys.split_at(i)
-                ))
-                .into());
-            }
-            command::cmd_arg::ArgType::Number(_) => {
-                return Err(AzUserUsageError::InvalidArgumentValueError(format!(
-                    "Number type argument {} cannot support internal access",
-                    keys.split_at(i)
-                ))
-                .into());
-            }
-            command::cmd_arg::ArgType::Boolean(_) => {
-                return Err(AzUserUsageError::InvalidArgumentValueError(format!(
-                    "Boolean type argument {} cannot support internal access",
-                    keys.split_at(i)
-                ))
-                .into());
-            }
-            command::cmd_arg::ArgType::AnyType(_) => {
-                return Err(AzUserUsageError::InvalidArgumentValueError(format!(
-                    "Any type argument {} cannot support internal access",
-                    keys.split_at(i)
-                ))
-                .into());
-            }
-            command::cmd_arg::ArgType::Cls(_) => {
-                unreachable!("cls type should be unwrapped before");
-            }
-        }
-    }
-    Ok(arg)
+/// The result of the shorthand syntax parser, which is used to parse the shorthand syntax.
+#[derive(Debug, PartialEq)]
+pub enum SHResult {
+    /// contains the index keys for the help message in reverse order, should convert to the normal order in the caller
+    Help(Vec<SHPartialKeyPart>),
+    Value(Value),
 }
 
 /// Read the value from the file, and return the value if the file is a valid serde value.
@@ -665,124 +127,13 @@ fn read_serde_value_from_file(file_path: &str) -> AzResult<Option<Value>> {
     }
     Ok(None)
 }
-struct ShorthandSyntaxParser {
-    null_expr: &'static str,
-    help_expr: &'static str,
-    single_quote_char: char,
-    double_quote_char: char,
-    quote_escape_char: char,
-    dict_start_char: char,
-    dict_end_char: char,
-    list_start_char: char,
-    list_end_char: char,
-    list_append: &'static str,
-    key_value_separator: char,
-    prop_name_separator: char,
-    item_separator: char,
-    partial_value_key_pattern: Regex,
-}
-
-static SHORTHAND_SYNTAX_PARSER: LazyLock<ShorthandSyntaxParser> =
-    LazyLock::new(ShorthandSyntaxParser::default);
-
-// The '@' prefix is for backward compatibility with the knack implementation,
-// aws cli use url way such as the 'file://' or 'fillb://' prefix. We may consider to follow it.
-const FILE_PREFIX: &'static str = "@";
-
-/// The regex pattern for the partial value key, which is used to parse the partial value key from the input string.
-const PARTIAL_VALUE_KEY_PATTERN: &'static str = concat!(
-    "^",                           // start
-    "(",                           // start of capture group 1 - key path
-    "(?:",                         // non-capturing group - first key
-    "[a-zA-Z0-9_\\-]+",            // normal identifier
-    "|",                           // or
-    "'(?:[^']*)'(?:/(?:[^']*)')*", // quoted key
-    "|",                           // or
-    "\\[(?:-?[0-9]*)|+\\]", // array index, in the expression, match the [], but raise error when part key
-    ")",
-    "(?:\\[(?:-?[0-9]*)|+\\]?)*", // optional array index, in the expression, match the [], but raise error when part key
-    "(?:",                        // non-capturing group - subsequent keys
-    "\\.",                        // dot separator
-    "(?:",                        // non-capturing group
-    "[a-zA-Z0-9_\\-]*", // normal identifier, in the expression, match the ., but raise error when part key
-    "|",                // or
-    "'(?:[^']*)'(?:/(?:[^']*)')*", // quoted key
-    ")",
-    "(?:\\[(?:-?[0-9]*)|+\\]?)*", // optional array index, in the expression, match the [], but raise error when part key
-    ")*",                         // repeat zero or more times
-    ")",                          // end of capture group 1
-    "=",                          // equals separator
-    "(.*)",                       // capture group 2 - value part
-    "$"                           // end
-);
-
-impl Default for ShorthandSyntaxParser {
-    fn default() -> Self {
-        ShorthandSyntaxParser {
-            null_expr: "null",
-            help_expr: "??",
-            single_quote_char: '\'',
-            double_quote_char: '"',
-            quote_escape_char: '/',
-            dict_start_char: '{',
-            dict_end_char: '}',
-            list_start_char: '[',
-            list_end_char: ']',
-            list_append: "+",
-            key_value_separator: ':',
-            prop_name_separator: '.',
-            item_separator: ',',
-            partial_value_key_pattern: Regex::new(PARTIAL_VALUE_KEY_PATTERN).unwrap(),
-        }
-    }
-}
-
-impl SHPartialKeyPart {
-    pub fn parse_name(value: &str) -> Result<Self, AzUserUsageError> {
-        if value.len() == 0 {
-            return Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg: "Miss prop name".to_string(),
-                data: value.to_string(),
-                at: 0,
-                range: value.len(),
-            });
-        }
-        Ok(SHPartialKeyPart::Name(value.to_string()))
-    }
-
-    pub fn parse_index(value: &str) -> Result<Self, AzUserUsageError> {
-        match value.parse::<i64>() {
-            Ok(idx) => {
-                if idx < i16::MIN as i64 || idx > i16::MAX as i64 {
-                    return Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                        msg: "Index out of range, should be less than 32767".to_string(),
-                        data: value.to_string(),
-                        at: 0,
-                        range: value.len(),
-                    });
-                }
-                Ok(SHPartialKeyPart::Index(Some(idx as i16)))
-            }
-            Err(e) => Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg: "Invalid index".to_string(),
-                data: value.to_string(),
-                at: 0,
-                range: value.len(),
-            }),
-        }
-    }
-}
-
-/// The result of the shorthand syntax parser, which is used to parse the shorthand syntax.
-#[derive(Debug, PartialEq)]
-enum SHResult {
-    /// contains the index keys for the help message in reverse order, should convert to the normal order in the caller
-    Help(Vec<SHPartialKeyPart>),
-    Value(Value),
-}
 
 impl ShorthandSyntaxParser {
-    fn parse(&self, value: &str, simple_type_only: bool) -> Result<SHResult, AzUserUsageError> {
+    pub(super) fn parse(
+        &self,
+        value: &str,
+        simple_type_only: bool,
+    ) -> Result<SHResult, AzUserUsageError> {
         if simple_type_only {
             if *value == *self.null_expr {
                 Ok(SHResult::Value(Value::Null))
@@ -1045,7 +396,7 @@ impl ShorthandSyntaxParser {
             })?;
             match v {
                 SHResult::Help(mut keys) => {
-                    keys.push(SHPartialKeyPart::Index(Some(result.len() as i16)));
+                    keys.push(SHPartialKeyPart::Index(result.len() as u16));
                     return Ok((SHResult::Help(keys), idx));
                 }
                 SHResult::Value(value) => {
@@ -1125,7 +476,7 @@ impl ShorthandSyntaxParser {
 
         if idx == 0 {
             return Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg: "Cannot parse empty, for empty string, please use '' instead".to_string(),
+                msg: "Cannot parse empty, please use '' wrapped empty string.".to_string(),
                 data: data.to_string(),
                 at: idx,
                 range: 1,
@@ -1149,7 +500,10 @@ impl ShorthandSyntaxParser {
 
     /// split the partial value into the key and the value
     /// when the value is empty, return None to represent it's a blank value
-    fn split_partial_value<'a>(&self, value: &'a str) -> Option<(&'a str, Option<&'a str>)> {
+    pub(super) fn split_partial_value<'a>(
+        &self,
+        value: &'a str,
+    ) -> Option<(&'a str, Option<&'a str>)> {
         if let Some(captures) = self.partial_value_key_pattern.captures(value) {
             let key = captures.get(1).unwrap().as_str();
             let value = captures.get(2).unwrap().as_str();
@@ -1164,7 +518,10 @@ impl ShorthandSyntaxParser {
         }
     }
 
-    fn parse_partial_value_key_parts(&self, key: &str) -> Result<SHPartialKeys, AzUserUsageError> {
+    pub(super) fn parse_partial_value_key_parts(
+        &self,
+        key: &str,
+    ) -> Result<SHPartialKeys, AzUserUsageError> {
         let mut keys = SHPartialKeys::default();
         let mut remain = key.chars();
         let mut idx = 0;
@@ -1257,9 +614,6 @@ impl ShorthandSyntaxParser {
                 at: 0,
                 range: idx,
             });
-        }
-        if part == self.list_append {
-            return Ok((SHPartialKeyPart::Index(None), idx));
         }
         match SHPartialKeyPart::parse_index(&part) {
             Ok(part) => Ok((part, idx)),
@@ -1881,7 +1235,7 @@ mod tests {
         assert_eq!(
             r,
             Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg: "Cannot parse empty".to_string(),
+                msg: "Cannot parse empty, please use '' wrapped empty string.".to_string(),
                 data: ",def".to_string(),
                 at: 0,
                 range: 1,
@@ -1893,7 +1247,7 @@ mod tests {
         assert_eq!(
             r,
             Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg: "Cannot parse empty".to_string(),
+                msg: "Cannot parse empty, please use '' wrapped empty string.".to_string(),
                 data: "".to_string(),
                 at: 0,
                 range: 1,
@@ -2113,7 +1467,7 @@ mod tests {
         assert_eq!(
             r,
             Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg: "Cannot parse empty, for empty string, please use '' instead".to_string(),
+                msg: "Cannot parse empty, please use '' wrapped empty string.".to_string(),
                 data: "{'a':{b:c,d:}}".to_string(),
                 at: 12,
                 range: 1,
@@ -2231,11 +1585,24 @@ mod tests {
 
         let value = "a=''";
         let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("a", Some(""))));
+        assert_eq!(result, Some(("a", Some("''"))));
 
         let value = "'a'/=b'[1].b=";
         let result = parser.split_partial_value(&value);
         assert_eq!(result, Some(("'a'/=b'[1].b", None)));
+
+        // value with [+]
+        let value = "a[+]={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("a[+]", Some("{c:d}"))));
+
+        let value = "[+].b[+]='{c:d}'";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("[+].b[+]", Some("'{c:d}'"))));
+
+        let value = "[+][+].'a[+]'[+]='{c:d}'";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("[+][+].'a[+]'[+]", Some("'{c:d}'"))));
 
         let value = "a={c:d}";
         let result = parser.split_partial_value(&value);
@@ -2243,15 +1610,11 @@ mod tests {
 
         let value = "a.b='{c:d}'";
         let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("a.b", Some("{c:d}"))));
+        assert_eq!(result, Some(("a.b", Some("'{c:d}'"))));
 
         let value = "a[1]={c:d}";
         let result = parser.split_partial_value(&value);
         assert_eq!(result, Some(("a[1]", Some("{c:d}"))));
-
-        let value = "a[-1]={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("a[-1]", Some("{c:d}"))));
 
         let value = "a[1].b={c:d}";
         let result = parser.split_partial_value(&value);
@@ -2326,6 +1689,10 @@ mod tests {
         assert_eq!(result, Some(("[1][2].b", Some("{c:d}"))));
 
         // test invalid cases which will not blocked by regex, but will raise error when parse partial key parts
+        let value = "a[-1]={c:d}";
+        let result = parser.split_partial_value(&value);
+        assert_eq!(result, Some(("a[-1]", Some("{c:d}"))));
+
         let value = "a[]={c:d}";
         let result = parser.split_partial_value(&value);
         assert_eq!(result, Some(("a[]", Some("{c:d}"))));
@@ -2396,14 +1763,42 @@ mod tests {
             })
         );
 
-        let key = "a[-1]";
+        let key = "a[+1].b";
         let result = parser.parse_partial_value_key_parts(&key);
         assert_eq!(
             result,
             Ok(SHPartialKeys {
                 parts: vec![
                     SHPartialKeyPart::parse_name("a").unwrap(),
-                    SHPartialKeyPart::parse_index("-1").unwrap()
+                    SHPartialKeyPart::AppendIndex(1),
+                    SHPartialKeyPart::parse_name("b").unwrap()
+                ]
+            })
+        );
+
+        let value = "[+2].b[+0]";
+        let result = parser.parse_partial_value_key_parts(&value);
+        assert_eq!(
+            result,
+            Ok(SHPartialKeys {
+                parts: vec![
+                    SHPartialKeyPart::AppendIndex(2), // append
+                    SHPartialKeyPart::parse_name("b").unwrap(),
+                    SHPartialKeyPart::AppendIndex(0) // append
+                ]
+            })
+        );
+
+        let value = "[+1][+2].'a[+1]'[+2]";
+        let result = parser.parse_partial_value_key_parts(&value);
+        assert_eq!(
+            result,
+            Ok(SHPartialKeys {
+                parts: vec![
+                    SHPartialKeyPart::parse_index("+1").unwrap(),
+                    SHPartialKeyPart::parse_index("+2").unwrap(),
+                    SHPartialKeyPart::parse_name("a[+1]").unwrap(),
+                    SHPartialKeyPart::parse_index("+2").unwrap()
                 ]
             })
         );
@@ -2528,16 +1923,15 @@ mod tests {
             })
         );
 
-        let key = "a.b[-1].d";
+        let key = "a[+1].b";
         let result = parser.parse_partial_value_key_parts(&key);
         assert_eq!(
             result,
             Ok(SHPartialKeys {
                 parts: vec![
                     SHPartialKeyPart::parse_name("a").unwrap(),
-                    SHPartialKeyPart::parse_name("b").unwrap(),
-                    SHPartialKeyPart::parse_index("-1").unwrap(),
-                    SHPartialKeyPart::parse_name("d").unwrap()
+                    SHPartialKeyPart::AppendIndex(1),
+                    SHPartialKeyPart::parse_name("b").unwrap()
                 ]
             })
         );
@@ -2670,6 +2064,30 @@ mod tests {
             })
         );
 
+        let key = "a.b[-1].d";
+        let result = parser.parse_partial_value_key_parts(&key);
+        assert_eq!(
+            result,
+            Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg: "Invalid index, support integer for direct index or integer with + for append index.".to_string(),
+                data: key.to_string(),
+                at: 3,
+                range: 4,
+            })
+        );
+
+        let key = "a[-1].b";
+        let result = parser.parse_partial_value_key_parts(&key);
+        assert_eq!(
+            result,
+            Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg: "Invalid index, support integer for direct index or integer with + for append index.".to_string(),
+                data: key.to_string(),
+                at: 1,
+                range: 4,
+            })
+        );
+
         let key = "a[].b";
         let result = parser.parse_partial_value_key_parts(&key);
         assert_eq!(
@@ -2747,7 +2165,7 @@ mod tests {
         assert_eq!(
             result,
             Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg: "Invalid index".to_string(),
+                msg: "Invalid index, support integer for direct index or integer with + for append index.".to_string(),
                 data: value.to_string(),
                 at: 1,
                 range: 3,
