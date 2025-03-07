@@ -1,9 +1,11 @@
+pub mod arg;
 mod partial;
 mod shorthand;
 
 use std::str::{Chars, FromStr};
 use std::sync::LazyLock;
 
+use arg::{CmdArgWrapper, BOOLEAN_ARG_ENUM_DEFAULT};
 use log::{debug, info};
 use regex::Regex;
 use serde::de::value;
@@ -13,7 +15,6 @@ use serde_json::{json, Map, Value};
 use crate::error::{AzInternalError, AzResult, AzUserUsageError};
 use crate::pb::command::cmd_arg::ArgType;
 use crate::pb::command::{self, CmdArgEnum, CmdArgEnumItem};
-use crate::pb::{BOOLEAN_ARG_BLANK_DEFAULT, BOOLEAN_ARG_ENUM_DEFAULT};
 
 use self::partial::{SHPartialKeyPart, SHPartialKeys};
 use self::shorthand::{SHResult, SHORTHAND_SYNTAX_PARSER};
@@ -57,20 +58,19 @@ pub fn parse_cmd_arg(
         return Ok(None);
     }
 
-    let arg = matched_arg.unwrap();
+    let arg = CmdArgWrapper::new(cmd, matched_arg.unwrap());
 
-    let ops = parse_arg_values(cmd, arg, values, &SHPartialKeys::default())?;
+    let ops = parse_arg_values(&arg, values, &SHPartialKeys::default())?;
 
     Ok(Some(ops))
 }
 
 fn parse_arg_values(
-    cmd: &command::CmdCommand,
-    arg: &command::CmdArg,
+    arg: &CmdArgWrapper,
     values: &[String],
     prefix_keys: &SHPartialKeys,
 ) -> AzResult<Vec<ArgOp>> {
-    match arg.arg_type_unwrap_cls_ok(cmd)? {
+    match arg.arg_type_unwrap_cls_ok()? {
         command::cmd_arg::ArgType::Str(_)
         | command::cmd_arg::ArgType::Number(_)
         | command::cmd_arg::ArgType::Boolean(_) => {
@@ -83,7 +83,7 @@ fn parse_arg_values(
                 .into())
             } else {
                 let value = values.first().map(|v| v.as_str());
-                let op = parse_arg_value_str(cmd, arg, value, &prefix_keys)?;
+                let op = parse_arg_value_str(arg, value, &prefix_keys)?;
                 Ok(vec![op])
             }
         }
@@ -96,7 +96,7 @@ fn parse_arg_values(
                 ))
                 .into())
             } else if values.len() == 0 {
-                let op = parse_arg_value_str(cmd, arg, None, &prefix_keys)?;
+                let op = parse_arg_value_str(arg, None, &prefix_keys)?;
                 Ok(vec![op])
             } else {
                 let value = values.first().unwrap();
@@ -107,25 +107,25 @@ fn parse_arg_values(
                 ))
                 .into());
                 }
-                let op = parse_arg_value_str(cmd, arg, Some(value), &prefix_keys)?;
+                let op = parse_arg_value_str(arg, Some(value), &prefix_keys)?;
                 Ok(vec![op])
             }
         }
         command::cmd_arg::ArgType::Object(_) => {
             if values.len() == 0 {
-                let op = parse_arg_value_str(cmd, arg, None, &prefix_keys)?;
+                let op = parse_arg_value_str(arg, None, &prefix_keys)?;
                 Ok(vec![op])
             } else {
                 let mut ops = Vec::new();
                 for value in values {
                     if let Some((key, value)) = SHORTHAND_SYNTAX_PARSER.split_partial_value(value) {
                         let keys = SHORTHAND_SYNTAX_PARSER.parse_partial_value_key_parts(key)?;
-                        let sub_arg = retrieve_internal_arg_by_keys(cmd, arg, &keys)?;
+                        let sub_arg = arg.retrieve_internal_arg_by_keys(&keys)?;
                         let sub_prefix_keys = prefix_keys.to_owned().with_extend(keys.into_iter());
-                        let op = parse_arg_value_str(cmd, sub_arg, value, &sub_prefix_keys)?;
+                        let op = parse_arg_value_str(&sub_arg, value, &sub_prefix_keys)?;
                         ops.push(op);
                     } else {
-                        let op = parse_arg_value_str(cmd, arg, Some(value), &prefix_keys)?;
+                        let op = parse_arg_value_str(arg, Some(value), &prefix_keys)?;
                         ops.push(op);
                     }
                 }
@@ -135,19 +135,19 @@ fn parse_arg_values(
         command::cmd_arg::ArgType::Array(_) => {
             // here we dropped the support for space separated elements, which will cause the ambiguity
             if values.len() == 0 {
-                let op = parse_arg_value_str(cmd, arg, None, &prefix_keys)?;
+                let op = parse_arg_value_str(arg, None, &prefix_keys)?;
                 Ok(vec![op])
             } else {
                 let mut ops = Vec::new();
                 for value in values {
                     if let Some((key, value)) = SHORTHAND_SYNTAX_PARSER.split_partial_value(value) {
                         let keys = SHORTHAND_SYNTAX_PARSER.parse_partial_value_key_parts(key)?;
-                        let sub_arg = retrieve_internal_arg_by_keys(cmd, arg, &keys)?;
+                        let sub_arg = arg.retrieve_internal_arg_by_keys(&keys)?;
                         let sub_prefix_keys = prefix_keys.to_owned().with_extend(keys.into_iter());
-                        let op = parse_arg_value_str(cmd, sub_arg, value, &sub_prefix_keys)?;
+                        let op = parse_arg_value_str(&sub_arg, value, &sub_prefix_keys)?;
                         ops.push(op);
                     } else {
-                        let op = parse_arg_value_str(cmd, arg, Some(value), &prefix_keys)?;
+                        let op = parse_arg_value_str(arg, Some(value), &prefix_keys)?;
                         ops.push(op);
                     }
                 }
@@ -161,17 +161,16 @@ fn parse_arg_values(
 }
 
 fn parse_arg_value_str(
-    cmd: &command::CmdCommand,
-    arg: &command::CmdArg,
+    arg: &CmdArgWrapper,
     value: Option<&str>, // None for the blank input
     prefix_keys: &SHPartialKeys,
 ) -> AzResult<ArgOp> {
-    let arg_type = arg.arg_type_unwrap_cls_ok(cmd)?;
+    let arg_type = arg.arg_type_unwrap_cls_ok()?;
 
     // handle the blank input
     if value.is_none() {
         // allow prompt input
-        if let Some(prompt) = arg.prompt.as_ref() {
+        if let Some(prompt) = arg.prompt() {
             return Ok(ArgOp::PromptInput(ArgPromptInputOp {
                 keys: prefix_keys.to_owned(),
                 prompt: prompt.to_owned(),
@@ -180,13 +179,7 @@ fn parse_arg_value_str(
 
         // else use blank value instead
         let blank = arg
-            .blank
-            .as_ref()
-            .or_else(|| match arg_type {
-                // apply default blank value for boolean type
-                ArgType::Boolean(_) => Some(&BOOLEAN_ARG_BLANK_DEFAULT),
-                _ => None,
-            })
+            .blank()
             .ok_or(AzUserUsageError::InvalidArgumentValueError(format!(
                 "Argument '{}' requires a value but no value is provided",
                 prefix_keys
@@ -194,7 +187,7 @@ fn parse_arg_value_str(
             .to_owned();
         let value: Value = blank.try_into()?;
 
-        if value.is_null() && !arg.nullable {
+        if value.is_null() && !arg.is_nullable() {
             return Err(AzInternalError::InvalidArgumentDefinitionError(format!(
                 "Argument '{}' is not nullable, but the blank value is null",
                 prefix_keys
@@ -213,13 +206,13 @@ fn parse_arg_value_str(
 
     match arg_type {
         command::cmd_arg::ArgType::Str(str_type) => {
-            match SHORTHAND_SYNTAX_PARSER.parse(value, true)? {
+            match SHORTHAND_SYNTAX_PARSER.parse_simple_value(value)? {
                 SHResult::Help(keys) => Ok(ArgOp::Help(ArgHelpOp {
                     keys: prefix_keys.to_owned().with_extend(keys.into_iter().rev()),
                 })),
                 SHResult::Value(mut value) => {
                     if value.is_null() {
-                        if !arg.nullable {
+                        if !arg.is_nullable() {
                             return Err(AzUserUsageError::InvalidArgumentValueError(format!(
                                 "Argument '{}' value cannot be null",
                                 prefix_keys
@@ -265,13 +258,13 @@ fn parse_arg_value_str(
             }
         }
         command::cmd_arg::ArgType::Number(num_type) => {
-            match SHORTHAND_SYNTAX_PARSER.parse(value, true)? {
+            match SHORTHAND_SYNTAX_PARSER.parse_simple_value(value)? {
                 SHResult::Help(keys) => Ok(ArgOp::Help(ArgHelpOp {
                     keys: prefix_keys.to_owned().with_extend(keys.into_iter().rev()),
                 })),
                 SHResult::Value(mut value) => {
                     if value.is_null() {
-                        if !arg.nullable {
+                        if !arg.is_nullable() {
                             return Err(AzUserUsageError::InvalidArgumentValueError(format!(
                                 "Argument '{}' value cannot be null",
                                 prefix_keys
@@ -329,13 +322,13 @@ fn parse_arg_value_str(
             }
         }
         command::cmd_arg::ArgType::Boolean(_) => {
-            match SHORTHAND_SYNTAX_PARSER.parse(value, true)? {
+            match SHORTHAND_SYNTAX_PARSER.parse_simple_value(value)? {
                 SHResult::Help(keys) => Ok(ArgOp::Help(ArgHelpOp {
                     keys: prefix_keys.to_owned().with_extend(keys.into_iter().rev()),
                 })),
                 SHResult::Value(mut value) => {
                     if value.is_null() {
-                        if !arg.nullable {
+                        if !arg.is_nullable() {
                             return Err(AzUserUsageError::InvalidArgumentValueError(format!(
                                 "Argument '{}' value cannot be null",
                                 prefix_keys,
@@ -402,7 +395,9 @@ fn parse_arg_value_str(
             //         value,
             //     }))
             // } else
-            if let Ok(value) = SHORTHAND_SYNTAX_PARSER.parse(value, false) {
+            if let Ok(value) =
+                SHORTHAND_SYNTAX_PARSER.parse_complex_value(value, Some(arg.to_owned()))
+            {
                 // Try parse with the shorthand syntax parser then
                 match value {
                     SHResult::Help(keys) => Ok(ArgOp::Help(ArgHelpOp {
@@ -443,7 +438,9 @@ fn parse_arg_value_str(
 
             let mut serde_value = None;
 
-            if let Ok(value) = SHORTHAND_SYNTAX_PARSER.parse(value, false) {
+            if let Ok(value) =
+                SHORTHAND_SYNTAX_PARSER.parse_complex_value(value, Some(arg.to_owned()))
+            {
                 match value {
                     SHResult::Help(keys) => {
                         return Ok(ArgOp::Help(ArgHelpOp {
@@ -486,78 +483,3 @@ fn parse_arg_value_str(
 }
 
 fn format_arg_value() {}
-
-fn retrieve_internal_arg_by_keys<'a>(
-    cmd: &'a command::CmdCommand,
-    arg: &'a command::CmdArg,
-    keys: &'_ SHPartialKeys,
-) -> AzResult<&'a command::CmdArg> {
-    let mut arg = arg;
-    for (i, part) in keys.parts.iter().enumerate() {
-        match arg.arg_type_unwrap_cls_ok(cmd)? {
-            command::cmd_arg::ArgType::Object(obj) => match part {
-                SHPartialKeyPart::Name(name) => {
-                    arg = obj.get_prop(name).or(obj.get_additional_item()?).ok_or(
-                        AzUserUsageError::InvalidArgumentValueError(format!(
-                            "Object type argument {} has no internal property named '{}'",
-                            keys.split_at(i),
-                            name
-                        )),
-                    )?;
-                }
-                SHPartialKeyPart::Index(_) | SHPartialKeyPart::AppendIndex(_) => {
-                    return Err(AzUserUsageError::InvalidArgumentValueError(format!(
-                        "Object type argument {} cannot support internal access by index",
-                        keys.split_at(i)
-                    ))
-                    .into());
-                }
-            },
-            command::cmd_arg::ArgType::Array(arr) => match part {
-                SHPartialKeyPart::Index(_) | SHPartialKeyPart::AppendIndex(_) => {
-                    arg = arr.item_ok()?;
-                }
-                SHPartialKeyPart::Name(name) => {
-                    return Err(AzUserUsageError::InvalidArgumentValueError(format!(
-                        "Array type argument {} has no internal property named '{}'",
-                        keys.split_at(i),
-                        name
-                    ))
-                    .into());
-                }
-            },
-            command::cmd_arg::ArgType::Str(_) => {
-                return Err(AzUserUsageError::InvalidArgumentValueError(format!(
-                    "String type argument {} cannot support internal access",
-                    keys.split_at(i)
-                ))
-                .into());
-            }
-            command::cmd_arg::ArgType::Number(_) => {
-                return Err(AzUserUsageError::InvalidArgumentValueError(format!(
-                    "Number type argument {} cannot support internal access",
-                    keys.split_at(i)
-                ))
-                .into());
-            }
-            command::cmd_arg::ArgType::Boolean(_) => {
-                return Err(AzUserUsageError::InvalidArgumentValueError(format!(
-                    "Boolean type argument {} cannot support internal access",
-                    keys.split_at(i)
-                ))
-                .into());
-            }
-            command::cmd_arg::ArgType::AnyType(_) => {
-                return Err(AzUserUsageError::InvalidArgumentValueError(format!(
-                    "Any type argument {} cannot support internal access",
-                    keys.split_at(i)
-                ))
-                .into());
-            }
-            command::cmd_arg::ArgType::Cls(_) => {
-                unreachable!("cls type should be unwrapped before");
-            }
-        }
-    }
-    Ok(arg)
-}

@@ -2,7 +2,7 @@ use thiserror::Error;
 
 pub type AzResult<T, E = AzError> = Result<T, E>;
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug)]
 pub enum AzUserUsageError {
     #[error("Command not found: {0}")]
     CommandNotFoundError(String),
@@ -32,7 +32,6 @@ pub enum AzUserUsageError {
     },
 
     // #[error("Invalid index key")]
-
     /// Arguments can not be specified together such as polymorphic arguments
     #[error("Mutually exclusive arguments: {0}")]
     MutuallyExclusiveArgumentError(String),

@@ -10,7 +10,6 @@ use serde_json::{json, Map, Value};
 use crate::error::{AzInternalError, AzResult, AzUserUsageError};
 use crate::pb::command::cmd_arg::ArgType;
 use crate::pb::command::{self, CmdArgEnum, CmdArgEnumItem};
-use crate::pb::{BOOLEAN_ARG_BLANK_DEFAULT, BOOLEAN_ARG_ENUM_DEFAULT};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum SHPartialKeyPart {
@@ -116,7 +115,7 @@ impl SHPartialKeyPart {
                     Ok(SHPartialKeyPart::Index(idx as u16))
                 }
             }
-            Err(e) => Err(AzUserUsageError::InvalidShorthandSyntaxError {
+            Err(_) => Err(AzUserUsageError::InvalidShorthandSyntaxError {
                 msg: "Invalid index, support integer for direct index or integer with + for append index.".to_string(),
                 data: value.to_string(),
                 at: 0,
