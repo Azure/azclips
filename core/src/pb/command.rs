@@ -64,9 +64,11 @@ pub struct CmdArg {
     /// the group name of the argument
     #[prost(string, tag = "4")]
     pub group: ::prost::alloc::string::String,
-    /// whether is internal argument only which will not be exposed in command line interface
+    /// whether is internal argument only which will not be
     #[prost(bool, tag = "5")]
     pub internal: bool,
+    /// exposed in command line interface
+    ///
     /// whether the argument is required
     #[prost(bool, tag = "6")]
     pub required: bool,
@@ -144,9 +146,11 @@ pub struct CmdArgHelp {
 /// The prompt input of the argument
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CmdArgPromptInput {
-    /// The prompt string, if given, is printed to standard output without a trailing newline before reading input.
+    /// The prompt string, if given, is printed to standard
     #[prost(string, tag = "1")]
     pub prompt: ::prost::alloc::string::String,
+    /// output without a trailing newline before reading input.
+    ///
     /// Whether to hide the input value as a password
     #[prost(bool, tag = "2")]
     pub secret: bool,
@@ -174,11 +178,12 @@ pub struct CmdArgEnumItem {
     /// json formatted string, support null
     #[prost(string, tag = "2")]
     pub value: ::prost::alloc::string::String,
-    /// whether is internal enum item only which will not be exposed in command line interface
+    /// whether is internal enum item only which will not be
     #[prost(bool, tag = "3")]
     pub internal: bool,
 }
-/// Cls Argument is used to defined a pattern as class so that it can be used internally to avoid reference cycle
+/// Cls Argument is used to defined a pattern as class so that it can be used
+/// internally to avoid reference cycle
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CmdClsArg {
     /// the class name of the argument
@@ -193,7 +198,7 @@ pub struct CmdStringArg {
     pub r#enum: ::core::option::Option<CmdArgEnum>,
     #[prost(
         oneof = "cmd_string_arg::Format",
-        tags = "10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20"
+        tags = "8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20"
     )]
     pub format: ::core::option::Option<cmd_string_arg::Format>,
 }
@@ -201,6 +206,16 @@ pub struct CmdStringArg {
 pub mod cmd_string_arg {
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Format {
+        /// The binary file should not be handled when arg
+        /// parse, they should be handled by command.
+        /// reference
+        /// <https://swagger.io/docs/specification/v3_0/describing-request-body/file-upload/>
+        /// for file upload.
+        #[prost(message, tag = "8")]
+        Binary(super::CmdBinaryFormat),
+        /// base64 encoded characters
+        #[prost(message, tag = "9")]
+        Byte(super::CmdByteFormat),
         #[prost(message, tag = "10")]
         String(super::CmdStringFormat),
         #[prost(message, tag = "11")]
@@ -225,6 +240,10 @@ pub mod cmd_string_arg {
         ResourceLocation(super::CmdResourceLocationFormat),
     }
 }
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct CmdByteFormat {}
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct CmdBinaryFormat {}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CmdStringFormat {
     /// the regular expression pattern of the string
@@ -474,12 +493,13 @@ pub mod cmd_uuid_format {
 /// This is an empty message used only for type discrimination
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct CmdPasswordFormat {}
-/// CMDSubscriptionIdFormat indicates the string should be treated as an Azure subscription ID
-/// This is an empty message used only for type discrimination
+/// CMDSubscriptionIdFormat indicates the string should be treated as an Azure
+/// subscription ID This is an empty message used only for type discrimination
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct CmdSubscriptionIdFormat {}
-/// CMDResourceGroupNameFormat indicates the string should be treated as an Azure resource group name
-/// This is an empty message used only for type discrimination
+/// CMDResourceGroupNameFormat indicates the string should be treated as an Azure
+/// resource group name This is an empty message used only for type
+/// discrimination
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct CmdResourceGroupNameFormat {}
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -490,7 +510,7 @@ pub struct CmdResourceIdFormat {
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct CmdResourceLocationFormat {
-    /// whether to not use the location value of resource group as default value
+    /// whether to not use the location value of resource
     #[prost(bool, tag = "1")]
     pub no_rg_default: bool,
 }
@@ -610,8 +630,8 @@ pub struct CmdBooleanArg {
     #[prost(string, repeated, tag = "1")]
     pub reverse_options: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
-/// CMDAnyTypeArg can accept any data type, such as numbers, strings, objects, and so on.
-/// This is an empty message used only for type discrimination
+/// CMDAnyTypeArg can accept any data type, such as numbers, strings, objects,
+/// and so on. This is an empty message used only for type discrimination
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct CmdAnyTypeArg {}
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -677,7 +697,7 @@ pub struct CmdParams {
         ::prost::alloc::string::String,
         ::prost::alloc::vec::Vec<u8>,
     >,
-    /// the keys of the params which are assigned as patch value, the value can be `param1.prop1\[1\].tags.a` or `param1.prop1+`. Here the `+` means to extend the array properties.
+    /// the keys of the params which are assigned as patch value, the value
     #[prost(string, repeated, tag = "2")]
     pub patch_keys: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }

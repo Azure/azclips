@@ -16,11 +16,11 @@ pub enum AzUserUsageError {
     #[error("Invalid argument value: {0}")]
     InvalidArgumentValueError(String),
 
-    #[error("Unsupported feature: {0}")]
-    UnsupportedFeatureError(String),
+    // #[error("Unsupported feature: {0}")]
+    // UnsupportedFeatureError(String),
 
-    #[error("Failed to parse file '{0}' with exception:\n{1}")]
-    ParseFileError(String, String),
+    // #[error("Failed to parse file '{0}' with exception:\n{1}")]
+    // ParseFileError(String, String),
 
     // TODO: use the data, at, range to show the error location
     #[error("Invalid shorthand syntax: {msg}")]

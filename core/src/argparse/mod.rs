@@ -206,7 +206,7 @@ fn parse_arg_value_str(
 
     match arg_type {
         command::cmd_arg::ArgType::Str(str_type) => {
-            match SHORTHAND_SYNTAX_PARSER.parse_simple_value(value)? {
+            match SHORTHAND_SYNTAX_PARSER.parse(value, Some(arg.to_owned()))? {
                 SHResult::Help(keys) => Ok(ArgOp::Help(ArgHelpOp {
                     keys: prefix_keys.to_owned().with_extend(keys.into_iter().rev()),
                 })),
@@ -258,7 +258,7 @@ fn parse_arg_value_str(
             }
         }
         command::cmd_arg::ArgType::Number(num_type) => {
-            match SHORTHAND_SYNTAX_PARSER.parse_simple_value(value)? {
+            match SHORTHAND_SYNTAX_PARSER.parse(value, Some(arg.to_owned()))? {
                 SHResult::Help(keys) => Ok(ArgOp::Help(ArgHelpOp {
                     keys: prefix_keys.to_owned().with_extend(keys.into_iter().rev()),
                 })),
@@ -322,7 +322,7 @@ fn parse_arg_value_str(
             }
         }
         command::cmd_arg::ArgType::Boolean(_) => {
-            match SHORTHAND_SYNTAX_PARSER.parse_simple_value(value)? {
+            match SHORTHAND_SYNTAX_PARSER.parse(value, Some(arg.to_owned()))? {
                 SHResult::Help(keys) => Ok(ArgOp::Help(ArgHelpOp {
                     keys: prefix_keys.to_owned().with_extend(keys.into_iter().rev()),
                 })),
@@ -395,9 +395,7 @@ fn parse_arg_value_str(
             //         value,
             //     }))
             // } else
-            if let Ok(value) =
-                SHORTHAND_SYNTAX_PARSER.parse_complex_value(value, Some(arg.to_owned()))
-            {
+            if let Ok(value) = SHORTHAND_SYNTAX_PARSER.parse(value, Some(arg.to_owned())) {
                 // Try parse with the shorthand syntax parser then
                 match value {
                     SHResult::Help(keys) => Ok(ArgOp::Help(ArgHelpOp {
@@ -438,9 +436,7 @@ fn parse_arg_value_str(
 
             let mut serde_value = None;
 
-            if let Ok(value) =
-                SHORTHAND_SYNTAX_PARSER.parse_complex_value(value, Some(arg.to_owned()))
-            {
+            if let Ok(value) = SHORTHAND_SYNTAX_PARSER.parse(value, Some(arg.to_owned())) {
                 match value {
                     SHResult::Help(keys) => {
                         return Ok(ArgOp::Help(ArgHelpOp {

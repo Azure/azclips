@@ -3,9 +3,6 @@ pub mod context;
 pub mod module;
 
 use core::fmt;
-use std::{fmt::write, sync::LazyLock};
-
-use command::{cmd_arg::ArgType, cmd_number_arg, cmd_string_arg};
 use serde_json::Value;
 
 use crate::error::{AzInternalError, AzResult, AzUserUsageError};
@@ -29,6 +26,8 @@ impl fmt::Display for command::cmd_arg::ArgType {
             command::cmd_arg::ArgType::Str(str_type) => match &str_type.format {
                 None => write!(f, "[string]"),
                 Some(format) => match format {
+                    command::cmd_string_arg::Format::Binary(_) => write!(f, "[file]"),
+                    command::cmd_string_arg::Format::Byte(_) => write!(f, "[base64-string]"),
                     command::cmd_string_arg::Format::String(_) => write!(f, "[string]"),
                     command::cmd_string_arg::Format::Duration(_) => write!(f, "[duration]"),
                     command::cmd_string_arg::Format::Date(_) => write!(f, "[date]"),
