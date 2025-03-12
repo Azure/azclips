@@ -68,13 +68,14 @@ impl<'a> CmdArgWrapper<'a> {
             match self.arg_type_unwrap_cls_ok()? {
                 command::cmd_arg::ArgType::Object(obj) => match part {
                     SHPartialKeyPart::Name(name) => {
-                        arg = obj.get_prop(name).or(obj.get_additional_item()?).ok_or(
-                            AzUserUsageError::InvalidArgumentValueError(format!(
+                        arg = obj
+                            .get_prop(name.as_str())
+                            .or(obj.get_additional_item()?)
+                            .ok_or(AzUserUsageError::InvalidArgumentValueError(format!(
                                 "Object type argument {} has no internal property named '{}'",
                                 keys.split_at(i),
                                 name
-                            )),
-                        )?;
+                            )))?;
                     }
                     SHPartialKeyPart::Index(_) | SHPartialKeyPart::AppendIndex(_) => {
                         return Err(AzUserUsageError::InvalidArgumentValueError(format!(
@@ -139,7 +140,7 @@ impl<'a> CmdArgWrapper<'a> {
 
 fn retrieve_cls_arg_type_in_obj<'a>(
     obj: &'a command::CmdObjectArg,
-    cls_type: &'_ String,
+    cls_type: &'_ str,
 ) -> Result<Option<&'a command::cmd_arg::ArgType>, AzInternalError> {
     for arg in obj.props.iter() {
         if let Some(arg_type) = retrieve_cls_arg_type(arg, cls_type)? {
@@ -158,7 +159,7 @@ fn retrieve_cls_arg_type_in_obj<'a>(
 
 fn retrieve_cls_arg_type_in_array<'a>(
     array: &'a command::CmdArrayArg,
-    cls_type: &'_ String,
+    cls_type: &'_ str,
 ) -> Result<Option<&'a command::cmd_arg::ArgType>, AzInternalError> {
     let item = array.item_ok()?;
     if let Some(arg_type) = retrieve_cls_arg_type(item, cls_type)? {
@@ -169,12 +170,16 @@ fn retrieve_cls_arg_type_in_array<'a>(
 
 fn retrieve_cls_arg_type<'a>(
     arg: &'a command::CmdArg,
-    cls_type: &'_ String,
+    cls_type: &'_ str,
 ) -> Result<Option<&'a command::cmd_arg::ArgType>, AzInternalError> {
     let arg_type = arg.arg_type_ok()?;
     match arg_type {
         command::cmd_arg::ArgType::Object(obj) => {
-            if obj.cls_type == *cls_type {
+            if obj
+                .cls_type
+                .as_ref()
+                .is_some_and(|type_name| type_name == cls_type)
+            {
                 return Ok(Some(arg_type));
             }
             if let Some(arg_type) = retrieve_cls_arg_type_in_obj(obj, cls_type)? {
@@ -182,7 +187,11 @@ fn retrieve_cls_arg_type<'a>(
             }
         }
         command::cmd_arg::ArgType::Array(array) => {
-            if array.cls_type == *cls_type {
+            if array
+                .cls_type
+                .as_ref()
+                .is_some_and(|type_name| type_name == cls_type)
+            {
                 return Ok(Some(arg_type));
             }
             if let Some(arg_type) = retrieve_cls_arg_type_in_array(array, cls_type)? {

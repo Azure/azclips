@@ -247,14 +247,14 @@ pub struct CmdBinaryFormat {}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CmdStringFormat {
     /// the regular expression pattern of the string
-    #[prost(string, tag = "1")]
-    pub pattern: ::prost::alloc::string::String,
+    #[prost(string, optional, tag = "1")]
+    pub pattern: ::core::option::Option<::prost::alloc::string::String>,
     /// the maximum length of the string
-    #[prost(uint32, tag = "2")]
-    pub max_length: u32,
+    #[prost(uint32, optional, tag = "2")]
+    pub max_length: ::core::option::Option<u32>,
     /// the minimum length of the string
-    #[prost(uint32, tag = "3")]
-    pub min_length: u32,
+    #[prost(uint32, optional, tag = "3")]
+    pub min_length: ::core::option::Option<u32>,
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct CmdDurationFormat {
@@ -348,8 +348,8 @@ pub struct CmdTimeFormat {
     #[prost(enumeration = "cmd_time_format::Protocol", tag = "1")]
     pub protocol: i32,
     /// the length of the milliseconds precision of the time, default is 3
-    #[prost(uint32, tag = "2")]
-    pub ms_length: u32,
+    #[prost(uint32, optional, tag = "2")]
+    pub ms_length: ::core::option::Option<u32>,
 }
 /// Nested message and enum types in `CMDTimeFormat`.
 pub mod cmd_time_format {
@@ -394,8 +394,8 @@ pub struct CmdDateTimeFormat {
     #[prost(enumeration = "cmd_date_time_format::Protocol", tag = "1")]
     pub protocol: i32,
     /// the length of the milliseconds precision of the time, default is 3
-    #[prost(uint32, tag = "2")]
-    pub ms_length: u32,
+    #[prost(uint32, optional, tag = "2")]
+    pub ms_length: ::core::option::Option<u32>,
 }
 /// Nested message and enum types in `CMDDateTimeFormat`.
 pub mod cmd_date_time_format {
@@ -543,59 +543,59 @@ pub mod cmd_number_arg {
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct CmdInt32Format {
     /// the minimum value of the integer
-    #[prost(int32, tag = "1")]
-    pub minimum: i32,
+    #[prost(int32, optional, tag = "1")]
+    pub minimum: ::core::option::Option<i32>,
     /// the maximum value of the integer
-    #[prost(int32, tag = "2")]
-    pub maximum: i32,
+    #[prost(int32, optional, tag = "2")]
+    pub maximum: ::core::option::Option<i32>,
     /// the multiple of the integer
-    #[prost(int32, tag = "3")]
-    pub multiple_of: i32,
+    #[prost(int32, optional, tag = "3")]
+    pub multiple_of: ::core::option::Option<i32>,
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct CmdInt64Format {
     /// the minimum value of the integer
-    #[prost(int64, tag = "1")]
-    pub minimum: i64,
+    #[prost(int64, optional, tag = "1")]
+    pub minimum: ::core::option::Option<i64>,
     /// the maximum value of the integer
-    #[prost(int64, tag = "2")]
-    pub maximum: i64,
+    #[prost(int64, optional, tag = "2")]
+    pub maximum: ::core::option::Option<i64>,
     /// the multiple of the integer
-    #[prost(int64, tag = "3")]
-    pub multiple_of: i64,
+    #[prost(int64, optional, tag = "3")]
+    pub multiple_of: ::core::option::Option<i64>,
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct CmdUint32Format {
     /// the minimum value of the integer
-    #[prost(uint32, tag = "1")]
-    pub minimum: u32,
+    #[prost(uint32, optional, tag = "1")]
+    pub minimum: ::core::option::Option<u32>,
     /// the maximum value of the integer
-    #[prost(uint32, tag = "2")]
-    pub maximum: u32,
+    #[prost(uint32, optional, tag = "2")]
+    pub maximum: ::core::option::Option<u32>,
     /// the multiple of the integer
-    #[prost(uint32, tag = "3")]
-    pub multiple_of: u32,
+    #[prost(uint32, optional, tag = "3")]
+    pub multiple_of: ::core::option::Option<u32>,
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct CmdUint64Format {
     /// the minimum value of the integer
-    #[prost(uint64, tag = "1")]
-    pub minimum: u64,
+    #[prost(uint64, optional, tag = "1")]
+    pub minimum: ::core::option::Option<u64>,
     /// the maximum value of the integer
-    #[prost(uint64, tag = "2")]
-    pub maximum: u64,
+    #[prost(uint64, optional, tag = "2")]
+    pub maximum: ::core::option::Option<u64>,
     /// the multiple of the integer
-    #[prost(uint64, tag = "3")]
-    pub multiple_of: u64,
+    #[prost(uint64, optional, tag = "3")]
+    pub multiple_of: ::core::option::Option<u64>,
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct CmdFloatFormat {
     /// the minimum value of the float
-    #[prost(float, tag = "1")]
-    pub minimum: f32,
+    #[prost(float, optional, tag = "1")]
+    pub minimum: ::core::option::Option<f32>,
     /// the maximum value of the float
-    #[prost(float, tag = "2")]
-    pub maximum: f32,
+    #[prost(float, optional, tag = "2")]
+    pub maximum: ::core::option::Option<f32>,
     /// whether the minimum value is exclusive
     #[prost(bool, tag = "3")]
     pub exclusive_minimum: bool,
@@ -603,17 +603,17 @@ pub struct CmdFloatFormat {
     #[prost(bool, tag = "4")]
     pub exclusive_maximum: bool,
     /// the multiple of the float
-    #[prost(float, tag = "5")]
-    pub multiple_of: f32,
+    #[prost(float, optional, tag = "5")]
+    pub multiple_of: ::core::option::Option<f32>,
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct CmdDoubleFormat {
     /// the minimum value of the float
-    #[prost(double, tag = "1")]
-    pub minimum: f64,
+    #[prost(double, optional, tag = "1")]
+    pub minimum: ::core::option::Option<f64>,
     /// the maximum value of the float
-    #[prost(double, tag = "2")]
-    pub maximum: f64,
+    #[prost(double, optional, tag = "2")]
+    pub maximum: ::core::option::Option<f64>,
     /// whether the minimum value is exclusive
     #[prost(bool, tag = "3")]
     pub exclusive_minimum: bool,
@@ -621,8 +621,8 @@ pub struct CmdDoubleFormat {
     #[prost(bool, tag = "4")]
     pub exclusive_maximum: bool,
     /// the multiple of the float
-    #[prost(double, tag = "5")]
-    pub multiple_of: f64,
+    #[prost(double, optional, tag = "5")]
+    pub multiple_of: ::core::option::Option<f64>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CmdBooleanArg {
@@ -637,8 +637,8 @@ pub struct CmdAnyTypeArg {}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CmdObjectArg {
     /// the class implementation
-    #[prost(string, tag = "1")]
-    pub cls_type: ::prost::alloc::string::String,
+    #[prost(string, optional, tag = "1")]
+    pub cls_type: ::core::option::Option<::prost::alloc::string::String>,
     /// the property arguments of the object
     #[prost(message, repeated, tag = "2")]
     pub props: ::prost::alloc::vec::Vec<CmdArg>,
@@ -660,17 +660,17 @@ pub struct CmdObjectArgAdditionalProperties {
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct CmdObjectFormat {
     /// the minimum length of the object
-    #[prost(uint32, tag = "1")]
-    pub min_length: u32,
+    #[prost(uint32, optional, tag = "1")]
+    pub min_length: ::core::option::Option<u32>,
     /// the maximum length of the object
-    #[prost(uint32, tag = "2")]
-    pub max_length: u32,
+    #[prost(uint32, optional, tag = "2")]
+    pub max_length: ::core::option::Option<u32>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CmdArrayArg {
     /// the class implementation
-    #[prost(string, tag = "1")]
-    pub cls_type: ::prost::alloc::string::String,
+    #[prost(string, optional, tag = "1")]
+    pub cls_type: ::core::option::Option<::prost::alloc::string::String>,
     /// the item argument of the array
     #[prost(message, optional, boxed, tag = "2")]
     pub item: ::core::option::Option<::prost::alloc::boxed::Box<CmdArg>>,
@@ -684,11 +684,11 @@ pub struct CmdArrayFormat {
     #[prost(bool, tag = "1")]
     pub unique: bool,
     /// the minimum length of the array
-    #[prost(uint32, tag = "2")]
-    pub min_length: u32,
+    #[prost(uint32, optional, tag = "2")]
+    pub min_length: ::core::option::Option<u32>,
     /// the maximum length of the array
-    #[prost(uint32, tag = "3")]
-    pub max_length: u32,
+    #[prost(uint32, optional, tag = "3")]
+    pub max_length: ::core::option::Option<u32>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CmdParams {
@@ -698,6 +698,8 @@ pub struct CmdParams {
         ::prost::alloc::vec::Vec<u8>,
     >,
     /// the keys of the params which are assigned as patch value, the value
+    /// can be `param1.prop1\[1\].tags.a` or `param1.prop1+`. Here the `+`
+    /// means to extend the array properties.
     #[prost(string, repeated, tag = "2")]
     pub patch_keys: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }

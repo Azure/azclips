@@ -160,9 +160,24 @@ impl command::CmdArgEnum {
         if self.support_extension {
             return Ok(value);
         }
-        Err(
-            AzUserUsageError::InvalidArgumentValueError(format!("Invalid enum value: {}", value))
-                .into(),
+        Err(AzUserUsageError::InvalidArgumentValueError(format!(
+            "Invalid value {}, accept enum items: {}",
+            value, self
+        ))
+        .into())
+    }
+}
+
+impl fmt::Display for command::CmdArgEnum {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.items
+                .iter()
+                .map(|i| i.name.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
         )
     }
 }

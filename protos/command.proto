@@ -40,8 +40,8 @@ message CMDArg {
                      // exposed in command line interface
   bool required = 6; // whether the argument is required
   bool nullable = 7; // whether can accept null value or not.
-  CMDArgBlank blank =
-      8; // blank value is used when argument don't have any value
+  // blank value is used when argument don't have any value
+  CMDArgBlank blank = 8;
   CMDArgDefault default = 9;     // default value of the argument
   CMDArgHelp help = 10;          // help message of the argument
   CMDArgPromptInput prompt = 11; // prompt input of the argument
@@ -89,8 +89,8 @@ message CMDArgPromptInput {
 
 message CMDArgEnum {
   repeated CMDArgEnumItem items = 1; // the items of the enum
-  bool support_extension =
-      2;                   // whether value outside of the enum items is allowed
+  // whether value outside of the enum items is allowed
+  bool support_extension = 2;
   bool case_sensitive = 3; // whether the enum is case sensitive
 }
 
@@ -137,9 +137,9 @@ message CMDByteFormat {}
 message CMDBinaryFormat {}
 
 message CMDStringFormat {
-  string pattern = 1;    // the regular expression pattern of the string
-  uint32 max_length = 2; // the maximum length of the string
-  uint32 min_length = 3; // the minimum length of the string
+  optional string pattern = 1; // the regular expression pattern of the string
+  optional uint32 max_length = 2; // the maximum length of the string
+  optional uint32 min_length = 3; // the minimum length of the string
 }
 
 message CMDDurationFormat {
@@ -161,8 +161,8 @@ message CMDTimeFormat {
     ISO8601 = 0; // hh:mm:ss.xxx
   }
   Protocol protocol = 1; // the protocol of the time
-  uint32 ms_length =
-      2; // the length of the milliseconds precision of the time, default is 3
+  // the length of the milliseconds precision of the time, default is 3
+  optional uint32 ms_length = 2;
 }
 
 message CMDDateTimeFormat {
@@ -171,8 +171,8 @@ message CMDDateTimeFormat {
     RFC1123 = 1; // Tue, 19 Mar 2024 08:30:00 GMT
   }
   Protocol protocol = 1; // the protocol of the date time
-  uint32 ms_length =
-      2; // the length of the milliseconds precision of the time, default is 3
+  // the length of the milliseconds precision of the time, default is 3
+  optional uint32 ms_length = 2;
 }
 
 message CMDUuidFormat {
@@ -220,47 +220,48 @@ message CMDNumberArg {
 }
 
 message CMDInt32Format {
-  int32 minimum = 1;     // the minimum value of the integer
-  int32 maximum = 2;     // the maximum value of the integer
-  int32 multiple_of = 3; // the multiple of the integer
+  optional int32 minimum = 1;     // the minimum value of the integer
+  optional int32 maximum = 2;     // the maximum value of the integer
+  optional int32 multiple_of = 3; // the multiple of the integer
 }
 
 message CMDInt64Format {
-  int64 minimum = 1;     // the minimum value of the integer
-  int64 maximum = 2;     // the maximum value of the integer
-  int64 multiple_of = 3; // the multiple of the integer
+  optional int64 minimum = 1;     // the minimum value of the integer
+  optional int64 maximum = 2;     // the maximum value of the integer
+  optional int64 multiple_of = 3; // the multiple of the integer
 }
 
 message CMDUint32Format {
-  uint32 minimum = 1;     // the minimum value of the integer
-  uint32 maximum = 2;     // the maximum value of the integer
-  uint32 multiple_of = 3; // the multiple of the integer
+  optional uint32 minimum = 1;     // the minimum value of the integer
+  optional uint32 maximum = 2;     // the maximum value of the integer
+  optional uint32 multiple_of = 3; // the multiple of the integer
 }
 
 message CMDUint64Format {
-  uint64 minimum = 1;     // the minimum value of the integer
-  uint64 maximum = 2;     // the maximum value of the integer
-  uint64 multiple_of = 3; // the multiple of the integer
+  optional uint64 minimum = 1;     // the minimum value of the integer
+  optional uint64 maximum = 2;     // the maximum value of the integer
+  optional uint64 multiple_of = 3; // the multiple of the integer
 }
 
 message CMDFloatFormat {
-  float minimum = 1;          // the minimum value of the float
-  float maximum = 2;          // the maximum value of the float
-  bool exclusive_minimum = 3; // whether the minimum value is exclusive
-  bool exclusive_maximum = 4; // whether the maximum value is exclusive
-  float multiple_of = 5;      // the multiple of the float
+  optional float minimum = 1;     // the minimum value of the float
+  optional float maximum = 2;     // the maximum value of the float
+  bool exclusive_minimum = 3;     // whether the minimum value is exclusive
+  bool exclusive_maximum = 4;     // whether the maximum value is exclusive
+  optional float multiple_of = 5; // the multiple of the float
 }
 
 message CMDDoubleFormat {
-  double minimum = 1;         // the minimum value of the float
-  double maximum = 2;         // the maximum value of the float
-  bool exclusive_minimum = 3; // whether the minimum value is exclusive
-  bool exclusive_maximum = 4; // whether the maximum value is exclusive
-  double multiple_of = 5;     // the multiple of the float
+  optional double minimum = 1;     // the minimum value of the float
+  optional double maximum = 2;     // the maximum value of the float
+  bool exclusive_minimum = 3;      // whether the minimum value is exclusive
+  bool exclusive_maximum = 4;      // whether the maximum value is exclusive
+  optional double multiple_of = 5; // the multiple of the float
 }
 
 message CMDBooleanArg {
-  repeated string reverse_options = 1; // the reverse flag of the boolean
+  // the reverse flag of the boolean
+  repeated string reverse_options = 1;
 }
 
 // CMDAnyTypeArg can accept any data type, such as numbers, strings, objects,
@@ -268,10 +269,10 @@ message CMDBooleanArg {
 message CMDAnyTypeArg {}
 
 message CMDObjectArg {
-  string cls_type = 1;       // the class implementation
+  optional string cls_type = 1;       // the class implementation
   repeated CMDArg props = 2; // the property arguments of the object
-  CMDObjectArgAdditionalProperties additional_props =
-      3;                      // the additional properties of the object
+  // the additional properties of the object
+  CMDObjectArgAdditionalProperties additional_props = 3;
   CMDObjectFormat format = 4; // the format of the object
 }
 
@@ -280,26 +281,26 @@ message CMDObjectArgAdditionalProperties {
 }
 
 message CMDObjectFormat {
-  uint32 min_length = 1; // the minimum length of the object
-  uint32 max_length = 2; // the maximum length of the object
+  optional uint32 min_length = 1; // the minimum length of the object
+  optional uint32 max_length = 2; // the maximum length of the object
 }
 
 message CMDArrayArg {
-  string cls_type = 1;       // the class implementation
+  optional string cls_type = 1;       // the class implementation
   CMDArg item = 2;           // the item argument of the array
   CMDArrayFormat format = 3; // the format of the array
 }
 
 message CMDArrayFormat {
-  bool unique = 1;       // whether the array should be unique
-  uint32 min_length = 2; // the minimum length of the array
-  uint32 max_length = 3; // the maximum length of the array
+  bool unique = 1;                // whether the array should be unique
+  optional uint32 min_length = 2; // the minimum length of the array
+  optional uint32 max_length = 3; // the maximum length of the array
 }
 
 message CMDParams {
   map<string, bytes> params = 1;
-  repeated string patch_keys =
-      2; // the keys of the params which are assigned as patch value, the value
-         // can be `param1.prop1[1].tags.a` or `param1.prop1+`. Here the `+`
-         // means to extend the array properties.
+  // the keys of the params which are assigned as patch value, the value
+  // can be `param1.prop1[1].tags.a` or `param1.prop1+`. Here the `+`
+  // means to extend the array properties.
+  repeated string patch_keys = 2;
 }
