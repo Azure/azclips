@@ -826,7 +826,7 @@ impl ShorthandSyntaxParser {
                 let c = remain.next().unwrap();
                 if c.is_whitespace() {
                     return Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                        msg: "Please wrap whitespace character in single quotes".to_string(),
+                        msg: "Failed to parse string, please wrap whitespace character in single quotes".to_string(),
                         data: data.to_string(),
                         at: idx,
                         range: 1,
@@ -838,7 +838,10 @@ impl ShorthandSyntaxParser {
                     || c == self.list_start_char
                 {
                     return Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                        msg: format!("Please wrap '{}' character in single quotes", c),
+                        msg: format!(
+                            "Failed to parse string, please wrap '{}' character in single quotes",
+                            c
+                        ),
                         data: data.to_string(),
                         at: idx,
                         range: 1,
@@ -861,7 +864,7 @@ impl ShorthandSyntaxParser {
 
         if idx == 0 {
             return Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg: "Cannot parse empty, please use '' wrapped empty string.".to_string(),
+                msg: "Failed to parse string, please use '' wrapped empty string".to_string(),
                 data: data.to_string(),
                 at: idx,
                 range: 1,
@@ -1186,6 +1189,8 @@ impl ShorthandSyntaxParser {
 
 #[cfg(test)]
 mod tests {
+    use std::result;
+
     use crate::pb::command::{
         cmd_number_arg, cmd_string_arg, CmdAnyTypeArg, CmdArg, CmdArgEnum, CmdArgEnumItem,
         CmdArrayArg, CmdBooleanArg, CmdInt32Format, CmdNumberArg, CmdObjectArg,
@@ -2312,7 +2317,7 @@ mod tests {
                 data,
                 at,
                 range,
-            })) if msg == "Please wrap '{' character in single quotes".to_string()
+            })) if msg == "Failed to parse string, please wrap '{' character in single quotes".to_string()
                 && data == "{a:b,{:2}".to_string()
                 && at == 5
                 && range == 1
@@ -2326,7 +2331,7 @@ mod tests {
                 data,
                 at,
                 range,
-            })) if msg == "Please wrap '[' character in single quotes".to_string()
+            })) if msg == "Failed to parse string, please wrap '[' character in single quotes".to_string()
                 && data == "{a:b,[:2}".to_string()
                 && at == 5
                 && range == 1
@@ -2340,7 +2345,7 @@ mod tests {
                 data,
                 at,
                 range,
-            })) if msg == "Please wrap whitespace character in single quotes".to_string()
+            })) if msg == "Failed to parse string, please wrap whitespace character in single quotes".to_string()
                 && data == "[1, 2, 3]".to_string()
                 && at == 3
                 && range == 1
@@ -2475,17 +2480,366 @@ mod tests {
                 .clone()
             ))
         );
+
+        // test error cases
+        let result = parser.parse("{num:abc}", arg.clone());
+        assert!(matches!(
+            result,
+            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg,
+                data,
+                at,
+                range,
+            })) if msg == "Invalid value type, expect [int] type value".to_string() && data == "{num:abc}".to_string() && at == 5 && range == 4
+        ));
+
+        let result = parser.parse("{tags:{a:[1,2,3]}}", arg.clone());
+        assert!(matches!(
+            result,
+            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg,
+                data,
+                at,
+                range,
+            })) if msg == "Failed to parse string, please wrap '[' character in single quotes".to_string() && data == "{tags:{a:[1,2,3]}}".to_string() && at == 9 && range == 1
+        ));
+
+        let result = parser.parse("{tags:{a:{a:b}}}", arg.clone());
+        assert!(matches!(
+            result,
+            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg,
+                data,
+                at,
+                range,
+            })) if msg == "Failed to parse string, please wrap '{' character in single quotes".to_string() && data == "{tags:{a:{a:b}}}".to_string() && at == 9 && range == 1
+        ));
     }
 
-    // #[test]
-    // fn test_parse_dict_arg() {
+    #[test]
+    fn test_parse_dict_arg() {
+        let parser = ShorthandSyntaxParser::default();
 
-    // }
+        let mut cmd = CmdCommand::default();
+        let mut dict_arg = CmdArg::default();
+        dict_arg.var_name = "$Instance.dict".to_string();
+        dict_arg.name = "dict".to_string();
+        dict_arg.options = vec!["dict".to_string()];
+        dict_arg.nullable = true;
+        let mut dict_type = CmdObjectArg::default();
+        let mut key_arg = CmdArg::default();
+        key_arg.nullable = true;
+        key_arg.arg_type = Some(ArgType::AnyType(CmdAnyTypeArg::default()));
+        dict_type.additional_props = Some(Box::new(CmdObjectArgAdditionalProperties {
+            item: Some(Box::new(key_arg)),
+        }));
+        dict_arg.arg_type = Some(ArgType::Object(Box::new(dict_type)));
+        cmd.args.push(dict_arg);
 
-    // #[test]
-    // fn test_parse_array_arg() {
+        let arg = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
 
-    // }
+        let result = parser
+            .parse(
+                "{a:b,c:1,d:true,e:null,f:[1,b,false,true,null],g:{a:b,c:1,d:false,e:true,f:null}}",
+                arg.clone(),
+            )
+            .unwrap();
+        assert_eq!(
+            result,
+            SHResult::Value(Value::Object(
+                json!({"a":"b","c":1,"d":true,"e":null,"f":[1,"b",false,true,null],"g":{"a":"b","c":1,"d":false,"e":true,"f":null}})
+                    .as_object()
+                    .unwrap()
+                    .clone()
+            ))
+        );
+
+        // test null
+        let result = parser.parse("null", arg.clone()).unwrap();
+        assert_eq!(result, SHResult::Value(Value::Null));
+
+        // test error cases
+        let result = parser.parse("{a:b,f:[1,g:{a:b,f:null}}", arg.clone());
+        assert!(matches!(
+            result,
+            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg,
+                data,
+                at,
+                range,
+            })) if msg == "Expect character ',' or ']'".to_string() && data == "{a:b,f:[1,g:{a:b,f:null}}".to_string() && at == 11 && range == 1
+        ));
+
+        let result = parser.parse("{a:b,g:{a:b,f:[1,2,3]}", arg.clone());
+        assert!(matches!(
+            result,
+            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg,
+                data,
+                at,
+                range,
+            })) if msg == "Expect character ',' or '}'".to_string() && data == "{a:b,g:{a:b,f:[1,2,3]}".to_string() && at == 22 && range == 1
+        ));
+
+        let mut dict_arg = CmdArg::default();
+        dict_arg.var_name = "$Instance.dict2".to_string();
+        dict_arg.name = "dict2".to_string();
+        dict_arg.options = vec!["dict2".to_string()];
+        let mut dict_type = CmdObjectArg::default();
+        let mut key_arg = CmdArg::default();
+        key_arg.arg_type = Some(ArgType::Str(CmdStringArg::default()));
+        dict_type.additional_props = Some(Box::new(CmdObjectArgAdditionalProperties {
+            item: Some(Box::new(key_arg)),
+        }));
+        dict_arg.arg_type = Some(ArgType::Object(Box::new(dict_type)));
+        cmd.args.push(dict_arg);
+
+        let arg = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
+        let result = parser.parse("{a:b,c:1,d:true}", arg.clone()).unwrap();
+        assert_eq!(
+            result,
+            SHResult::Value(Value::Object(
+                json!({"a":"b","c":"1","d":"true"})
+                    .as_object()
+                    .unwrap()
+                    .clone()
+            ))
+        );
+
+        let result = parser.parse("{e:'null'}", arg.clone()).unwrap();
+        assert_eq!(
+            result,
+            SHResult::Value(Value::Object(
+                json!({"e":"null"}).as_object().unwrap().clone()
+            ))
+        );
+
+        let result = parser.parse("{f:'[1,2,3]'}", arg.clone()).unwrap();
+        assert_eq!(
+            result,
+            SHResult::Value(Value::Object(
+                json!({"f":"[1,2,3]"}).as_object().unwrap().clone()
+            ))
+        );
+
+        let result = parser.parse("{g:'{a:b}'}", arg.clone()).unwrap();
+        assert_eq!(
+            result,
+            SHResult::Value(Value::Object(
+                json!({"g":"{a:b}"}).as_object().unwrap().clone()
+            ))
+        );
+
+        let result = parser.parse("{h:'hello world'}", arg.clone()).unwrap();
+        assert_eq!(
+            result,
+            SHResult::Value(Value::Object(
+                json!({"h":"hello world"}).as_object().unwrap().clone()
+            ))
+        );
+
+        // support tailing ','
+        let result = parser.parse("{i:a,j:b,}", arg.clone()).unwrap();
+        assert_eq!(
+            result,
+            SHResult::Value(Value::Object(
+                json!({"i":"a","j":"b"}).as_object().unwrap().clone()
+            ))
+        );
+
+        // test error cases
+        let result = parser.parse("null", arg.clone());
+        assert!(matches!(
+            result,
+            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg,
+                data,
+                at,
+                range,
+            })) if msg == "This argument is not allowed to be null".to_string() && data == "null".to_string() && at == 0 && range == 4
+        ));
+
+        let result = parser.parse("{a:b,c:1,d:true,e:null}", arg.clone());
+        assert!(matches!(
+            result,
+            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg,
+                data,
+                at,
+                range,
+            })) if msg == "This argument is not allowed to be null".to_string() && data == "{a:b,c:1,d:true,e:null}".to_string() && at == 18 && range == 5
+        ));
+
+        let result = parser.parse("{f:[1,2,3]}", arg.clone());
+        assert!(matches!(
+            result,
+            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg,
+                data,
+                at,
+                range,
+            })) if msg == "Failed to parse string, please wrap '[' character in single quotes".to_string() && data == "{f:[1,2,3]}".to_string() && at == 3 && range == 1
+        ));
+
+        let result = parser.parse("{f:{a:b}}", arg.clone());
+        assert!(matches!(
+            result,
+            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg,
+                data,
+                at,
+                range,
+            })) if msg == "Failed to parse string, please wrap '{' character in single quotes".to_string() && data == "{f:{a:b}}".to_string() && at == 3 && range == 1
+        ));
+
+        let result = parser.parse("{i:hello world}", arg.clone());
+        assert!(matches!(
+            result,
+            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg,
+                data,
+                at,
+                range,
+            })) if msg == "Failed to parse string, please wrap whitespace character in single quotes".to_string() && data == "{i:hello world}".to_string() && at == 8 && range == 1
+        ));
+    }
+
+    #[test]
+    fn test_parse_array_arg() {
+        let parser = ShorthandSyntaxParser::default();
+
+        let mut cmd = CmdCommand::default();
+        let mut arr_arg = CmdArg::default();
+        arr_arg.var_name = "$Instance.arr".to_string();
+        arr_arg.name = "arr".to_string();
+        arr_arg.options = vec!["arr".to_string()];
+        arr_arg.nullable = true;
+        let mut arr_type = CmdArrayArg::default();
+        let mut arr_item_arg = CmdArg::default();
+        arr_item_arg.nullable = true;
+        arr_item_arg.arg_type = Some(ArgType::AnyType(CmdAnyTypeArg::default()));
+        arr_type.item = Some(Box::new(arr_item_arg));
+        arr_arg.arg_type = Some(ArgType::Array(Box::new(arr_type)));
+        cmd.args.push(arr_arg);
+
+        let arg = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
+
+        let result = parser
+            .parse(
+                "[1,true,false,null,abc,[1,2,3],{a:b,c:1,d:false,e:true,f:null}]",
+                arg.clone(),
+            )
+            .unwrap();
+        assert_eq!(
+            result,
+            SHResult::Value(Value::Array(json!([1,true,false,null,"abc",[1,2,3],{"a":"b","c":1,"d":false,"e":true,"f":null}]).as_array().unwrap().clone()))
+        );
+
+        let result = parser.parse("null", arg.clone()).unwrap();
+        assert_eq!(result, SHResult::Value(Value::Null));
+        // test tailing ','
+        let result = parser.parse("[1,2.2,3,]", arg.clone()).unwrap();
+        assert_eq!(
+            result,
+            SHResult::Value(Value::Array(json!([1, 2.2, 3]).as_array().unwrap().clone()))
+        );
+
+        // test error cases
+        let result = parser.parse("[{a:b]", arg.clone());
+        assert!(matches!(
+            result,
+            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg,
+                data,
+                at,
+                range,
+            })) if msg == "Expect character ',' or '}'".to_string() && data == "[{a:b]".to_string() && at == 5 && range == 1
+        ));
+
+        let result = parser.parse("[[1,2,3]", arg.clone());
+        assert!(matches!(
+            result,
+            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg,
+                data,
+                at,
+                range,
+            })) if msg == "Expect character ',' or ']'".to_string() && data == "[[1,2,3]".to_string() && at == 8 && range == 1
+        ));
+
+        let mut arr_arg = CmdArg::default();
+        arr_arg.var_name = "$Instance.arr2".to_string();
+        arr_arg.name = "arr2".to_string();
+        arr_arg.options = vec!["arr2".to_string()];
+        let mut arr_type = CmdArrayArg::default();
+        let mut arr_item_arg = CmdArg::default();
+        arr_item_arg.arg_type = Some(ArgType::Str(CmdStringArg::default()));
+        arr_type.item = Some(Box::new(arr_item_arg));
+        arr_arg.arg_type = Some(ArgType::Array(Box::new(arr_type)));
+        cmd.args.push(arr_arg);
+
+        let arg = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
+
+        let result = parser
+            .parse(
+                "[a,1,false,true,1.2,'null',''/','[1, 2, 3]','{\"a\":\"b\"}']",
+                arg.clone(),
+            )
+            .unwrap();
+        assert_eq!(
+            result,
+            SHResult::Value(Value::Array(
+                json!([
+                    "a",
+                    "1",
+                    "false",
+                    "true",
+                    "1.2",
+                    "null",
+                    "'",
+                    "[1, 2, 3]",
+                    "{\"a\":\"b\"}"
+                ])
+                .as_array()
+                .unwrap()
+                .clone()
+            ))
+        );
+
+        let result = parser.parse("[a,1,false,true,1.2,]", arg.clone()).unwrap();
+        assert_eq!(
+            result,
+            SHResult::Value(Value::Array(
+                json!(["a", "1", "false", "true", "1.2"])
+                    .as_array()
+                    .unwrap()
+                    .clone()
+            ))
+        );
+
+        // test errors
+        let result = parser.parse("null", arg.clone());
+        assert!(matches!(
+            result,
+            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg,
+                data,
+                at,
+                range,
+            })) if msg == "This argument is not allowed to be null".to_string() && data == "null".to_string() && at == 0 && range == 4
+        ));
+
+        let result = parser.parse("[a,null]", arg.clone());
+        assert!(matches!(
+            result,
+            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg,
+                data,
+                at,
+                range,
+            })) if msg == "This argument is not allowed to be null".to_string() && data == "[a,null]".to_string() && at == 3 && range == 5
+        ));
+    }
 
     #[test]
     fn test_parse_single_quote_string() {
@@ -2771,7 +3125,7 @@ mod tests {
                 data,
                 at,
                 range,
-            }) if msg == "Cannot parse empty, please use '' wrapped empty string.".to_string()
+            }) if msg == "Failed to parse string, please use '' wrapped empty string".to_string()
                 && data == ",def".to_string()
                 && at == 0
                 && range == 1
@@ -2786,7 +3140,7 @@ mod tests {
                 data,
                 at,
                 range,
-            }) if msg == "Cannot parse empty, please use '' wrapped empty string.".to_string()
+            }) if msg == "Failed to parse string, please use '' wrapped empty string".to_string()
                 && data == "".to_string()
                 && at == 0
                 && range == 1
@@ -2801,7 +3155,7 @@ mod tests {
                 data,
                 at,
                 range,
-            }) if msg == "Please wrap ''' character in single quotes".to_string()
+            }) if msg == "Failed to parse string, please wrap ''' character in single quotes".to_string()
                 && data == "a'bc,def,ghi".to_string()
                 && at == 1
                 && range == 1
@@ -2816,7 +3170,7 @@ mod tests {
                 data,
                 at,
                 range,
-            }) if msg == "Please wrap '\"' character in single quotes".to_string()
+            }) if msg == "Failed to parse string, please wrap '\"' character in single quotes".to_string()
                 && data == "a\"bc,def,ghi".to_string()
                 && at == 1
                 && range == 1
@@ -2831,7 +3185,7 @@ mod tests {
                 data,
                 at,
                 range,
-            }) if msg == "Please wrap whitespace character in single quotes".to_string()
+            }) if msg == "Failed to parse string, please wrap whitespace character in single quotes".to_string()
                 && data == "a bc,def,ghi".to_string()
                 && at == 1
                 && range == 1
@@ -2846,7 +3200,7 @@ mod tests {
                 data,
                 at,
                 range,
-            }) if msg == "Please wrap whitespace character in single quotes".to_string()
+            }) if msg == "Failed to parse string, please wrap whitespace character in single quotes".to_string()
                 && data == "a\tbc,def,ghi".to_string()
                 && at == 1
                 && range == 1
@@ -2861,7 +3215,7 @@ mod tests {
                 data,
                 at,
                 range,
-            }) if msg == "Please wrap whitespace character in single quotes".to_string()
+            }) if msg == "Failed to parse string, please wrap whitespace character in single quotes".to_string()
                 && data == "a\nbc,def,ghi".to_string()
                 && at == 1
                 && range == 1
@@ -2876,7 +3230,7 @@ mod tests {
                 data,
                 at,
                 range,
-            }) if msg == "Please wrap whitespace character in single quotes".to_string()
+            }) if msg == "Failed to parse string, please wrap whitespace character in single quotes".to_string()
                 && data == "a\rbc,def,ghi".to_string()
                 && at == 1
                 && range == 1
