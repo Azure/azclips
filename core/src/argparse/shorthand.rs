@@ -1074,7 +1074,7 @@ impl ShorthandSyntaxParser {
         let part = if str.starts_with(self.single_quote_char) {
             let (part, len) = self.parse_single_quotes_string(remain)?;
             idx += len;
-            str = remain.as_str();
+            // str = remain.as_str();
             part
         } else {
             let mut part = String::new();
@@ -1175,9 +1175,11 @@ impl ShorthandSyntaxParser {
             }
         })?;
 
+        let trimmed_content = content.trim_ascii();
+
         // Check if the content is already a base64 encoded string
-        let encoded = if let Ok(_) = BASE64_STANDARD.decode(&content) {
-            String::from_utf8(content).unwrap()
+        let encoded = if let Ok(_) = BASE64_STANDARD.decode(trimmed_content) {
+            String::from_utf8(trimmed_content.to_vec()).unwrap()
         } else {
             BASE64_STANDARD.encode(&content)
         };
@@ -1189,15 +1191,17 @@ impl ShorthandSyntaxParser {
 
 #[cfg(test)]
 mod tests {
+    use rand::Rng;
     use serde_json::json;
+    use std::fs::File;
     use std::io::{Seek, Write};
     use std::result;
     use tempfile::NamedTempFile;
 
     use crate::pb::command::{
         cmd_number_arg, cmd_string_arg, CmdAnyTypeArg, CmdArg, CmdArgEnum, CmdArgEnumItem,
-        CmdArrayArg, CmdBooleanArg, CmdInt32Format, CmdNumberArg, CmdObjectArg,
-        CmdObjectArgAdditionalProperties, CmdStringArg, CmdStringFormat,
+        CmdArrayArg, CmdBinaryFormat, CmdBooleanArg, CmdByteFormat, CmdInt32Format, CmdNumberArg,
+        CmdObjectArg, CmdObjectArgAdditionalProperties, CmdStringArg, CmdStringFormat,
     };
 
     use super::*;
@@ -1914,7 +1918,7 @@ mod tests {
                 &arg2,
                 "5",
                 Err(ErrorData(
-                    "Invalid value: Invalid value \"5\", expect enum items: sm, md, lg, none",
+                    "Invalid [int] value: Invalid value 5, accept enum items: sm, md, lg, none",
                     "5",
                     0,
                     1,
@@ -1924,7 +1928,7 @@ mod tests {
                 &arg2,
                 "xl",
                 Err(ErrorData(
-                    "Invalid value: Invalid value \"xl\", expect enum items: sm, md, lg, none",
+                    "Invalid [int] value: Invalid value \"xl\", accept enum items: sm, md, lg, none",
                     "xl",
                     0,
                     2,
@@ -1976,15 +1980,282 @@ mod tests {
         }
     }
 
-    // #[test]
-    // fn test_parse_number_arg_from_file() {
-    //     let parser = ShorthandSyntaxParser::default();
+    #[test]
+    fn test_parse_number_arg_from_file() {
+        let parser = ShorthandSyntaxParser::default();
+        let mut cmd = CmdCommand::default();
+        let mut num_arg = CmdArg::default();
+        num_arg.var_name = "$Instance.size".to_string();
+        num_arg.name = "size".to_string();
+        num_arg.options = vec!["size".to_string()];
+        num_arg.nullable = true;
+        let mut num_type = CmdNumberArg::default();
+        num_type.format = Some(cmd_number_arg::Format::Int32(CmdInt32Format::default()));
+        num_arg.arg_type = Some(ArgType::Number(num_type));
+        cmd.args.push(num_arg);
+        // test arg with enum
+        let mut num_arg = CmdArg::default();
+        num_arg.var_name = "$Instance.vcore".to_string();
+        num_arg.name = "vcore".to_string();
+        num_arg.options = vec!["vcore".to_string()];
+        num_arg.nullable = true;
+        let mut num_type = CmdNumberArg::default();
+        num_type.format = Some(cmd_number_arg::Format::Int32(CmdInt32Format::default()));
+        let mut enum_type = CmdArgEnum::default();
+        enum_type.items = vec![
+            CmdArgEnumItem {
+                name: "sm".to_string(),
+                value: "1".to_string(),
+                internal: false,
+            },
+            CmdArgEnumItem {
+                name: "md".to_string(),
+                value: "2".to_string(),
+                internal: false,
+            },
+            CmdArgEnumItem {
+                name: "lg".to_string(),
+                value: "4".to_string(),
+                internal: false,
+            },
+            CmdArgEnumItem {
+                name: "none".to_string(),
+                value: "null".to_string(),
+                internal: false,
+            },
+        ];
+        num_type.r#enum = Some(enum_type);
+        num_arg.arg_type = Some(ArgType::Number(num_type));
+        cmd.args.push(num_arg);
+        // test not nullable arg
+        let mut num_arg = CmdArg::default();
+        num_arg.var_name = "$Instance.unnullable".to_string();
+        num_arg.name = "unnullable".to_string();
+        num_arg.options = vec!["unnullable".to_string()];
+        let mut num_type = CmdNumberArg::default();
+        num_type.format = Some(cmd_number_arg::Format::Int32(CmdInt32Format::default()));
+        num_arg.arg_type = Some(ArgType::Number(num_type));
+        cmd.args.push(num_arg);
 
-    //     let mut cmd = CmdCommand::default();
-    //     let mut num_arg = CmdArg::default();
-    //     num_arg.var_name = "$Instance.vcore".to_string();
-    //     num_arg.name = "vcore".to_string();
-    // }
+        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
+        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
+        let arg3 = Some(CmdArgWrapper::new(&cmd, &cmd.args[2]));
+
+        for (arg, value, expected) in vec![
+            (
+                &arg1,
+                json!(0),
+                Ok(Value::Number(serde_json::Number::from(0))),
+            ),
+            (
+                &arg1,
+                json!(0.0),
+                Ok(Value::Number(serde_json::Number::from_f64(0.0).unwrap())),
+            ),
+            (
+                &arg1,
+                json!(123),
+                Ok(Value::Number(serde_json::Number::from(123))),
+            ),
+            (
+                &arg1,
+                json!(-123),
+                Ok(Value::Number(serde_json::Number::from(-123))),
+            ),
+            (
+                &arg1,
+                json!(123.456),
+                Ok(Value::Number(
+                    serde_json::Number::from_f64(123.456).unwrap(),
+                )),
+            ),
+            (
+                &arg1,
+                json!(-123.456),
+                Ok(Value::Number(
+                    serde_json::Number::from_f64(-123.456).unwrap(),
+                )),
+            ),
+            (&arg1, json!(null), Ok(Value::Null)),
+            (
+                &arg2,
+                json!("sm"),
+                Ok(Value::Number(serde_json::Number::from(1))),
+            ),
+            (
+                &arg2,
+                json!("SM"),
+                Ok(Value::Number(serde_json::Number::from(1))),
+            ),
+            (
+                &arg2,
+                json!(1),
+                Ok(Value::Number(serde_json::Number::from(1))),
+            ),
+            (
+                &arg2,
+                json!("md"),
+                Ok(Value::Number(serde_json::Number::from(2))),
+            ),
+            (
+                &arg2,
+                json!("MD"),
+                Ok(Value::Number(serde_json::Number::from(2))),
+            ),
+            (
+                &arg2,
+                json!(2),
+                Ok(Value::Number(serde_json::Number::from(2))),
+            ),
+            (
+                &arg2,
+                json!("lg"),
+                Ok(Value::Number(serde_json::Number::from(4))),
+            ),
+            (
+                &arg2,
+                json!("LG"),
+                Ok(Value::Number(serde_json::Number::from(4))),
+            ),
+            (
+                &arg2,
+                json!(4),
+                Ok(Value::Number(serde_json::Number::from(4))),
+            ),
+            (&arg2, json!("none"), Ok(Value::Null)),
+            (&arg2, json!("NONE"), Ok(Value::Null)),
+            (&arg2, json!(null), Ok(Value::Null)),
+            // error cases
+            (
+                &arg1,
+                json!("0"),
+                Err(ErrorData(
+                    "Invalid value type, expect [int] type value",
+                    "0",
+                    0,
+                    3,
+                )),
+            ),
+            (
+                &arg1,
+                json!("0.0"),
+                Err(ErrorData(
+                    "Invalid value type, expect [int] type value",
+                    "0.0",
+                    0,
+                    5,
+                )),
+            ),
+            (
+                &arg1,
+                json!("123"),
+                Err(ErrorData(
+                    "Invalid value type, expect [int] type value",
+                    "123",
+                    0,
+                    5,
+                )),
+            ),
+            (
+                &arg1,
+                json!("-123"),
+                Err(ErrorData(
+                    "Invalid value type, expect [int] type value",
+                    "-123",
+                    0,
+                    6,
+                )),
+            ),
+            (
+                &arg1,
+                json!("123.456"),
+                Err(ErrorData(
+                    "Invalid value type, expect [int] type value",
+                    "123.456",
+                    0,
+                    9,
+                )),
+            ),
+            (
+                &arg1,
+                json!("-123.456"),
+                Err(ErrorData(
+                    "Invalid value type, expect [int] type value",
+                    "-123.456",
+                    0,
+                    10,
+                )),
+            ),
+            (
+                &arg2,
+                json!(5),
+                Err(ErrorData(
+                    "Invalid [int] value: Invalid value 5, accept enum items: sm, md, lg, none",
+                    "5",
+                    0,
+                    1,
+                )),
+            ),
+            (
+                &arg2,
+                json!("xl"),
+                Err(ErrorData(
+                    "Invalid [int] value: Invalid value \"xl\", accept enum items: sm, md, lg, none",
+                    "xl",
+                    0,
+                    2,
+                )),
+            ),
+            (
+                &arg3,
+                json!(null),
+                Err(ErrorData(
+                    "This argument is not allowed to be null",
+                    "null",
+                    0,
+                    4,
+                )),
+            ),
+        ] {
+            let mut file = NamedTempFile::with_suffix(".json").expect("Failed to create temp file");
+            writeln!(file, "{}", value).expect("Failed to write to temp file");
+            file.flush().expect("Failed to flush temp file");
+            let file_value = format!("file://{}", file.path().to_str().unwrap());
+
+            match expected {
+                Ok(expected) => {
+                    let result = parser.parse(file_value.as_str(), arg.to_owned()).unwrap();
+                    assert_eq!(result, SHResult::Value(expected));
+                }
+                Err(ErrorData(msg_target, _, at_target, _)) => {
+                    let result = parser.parse(file_value.as_str(), arg.clone());
+                    match result {
+                        Err(AzError::UserUsage(
+                            AzUserUsageError::InvalidShorthandSyntaxError {
+                                msg,
+                                data,
+                                at,
+                                range,
+                            },
+                        )) => {
+                            assert_eq!(
+                                (msg, data, at, range),
+                                (
+                                    msg_target.to_string(),
+                                    file_value.to_string(),
+                                    at_target,
+                                    file_value.len()
+                                )
+                            );
+                        }
+                        _ => {
+                            panic!("Unexpected result: {:?}", result);
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     #[test]
     fn test_parse_string_without_arg() {
@@ -2242,10 +2513,280 @@ mod tests {
         }
     }
 
-    // #[test]
-    // fn test_parse_string_arg_from_file() {
+    #[test]
+    fn test_parse_string_arg_from_file() {
+        let parser = ShorthandSyntaxParser::default();
 
-    // }
+        let mut cmd = CmdCommand::default();
+        let mut str_arg = CmdArg::default();
+        str_arg.var_name = "$Path.name".to_string();
+        str_arg.name = "name".to_string();
+        str_arg.options = vec!["name".to_string(), "n".to_string()];
+        str_arg.nullable = true;
+        let mut str_type = CmdStringArg::default();
+        str_type.format = Some(cmd_string_arg::Format::String(CmdStringFormat::default()));
+        str_arg.arg_type = Some(ArgType::Str(str_type));
+        cmd.args.push(str_arg);
+
+        // test str arg with enum
+        let mut str_arg = CmdArg::default();
+        str_arg.var_name = "$Instance.vcore".to_string();
+        str_arg.name = "vcore".to_string();
+        str_arg.options = vec!["vcore".to_string()];
+        str_arg.nullable = true;
+        let mut str_type = CmdStringArg::default();
+        str_type.format = Some(cmd_string_arg::Format::String(CmdStringFormat::default()));
+        let mut enum_type = CmdArgEnum::default();
+        enum_type.items = vec![
+            CmdArgEnumItem {
+                name: "sm".to_string(),
+                value: "\"S\"".to_string(),
+                internal: false,
+            },
+            CmdArgEnumItem {
+                name: "md".to_string(),
+                value: "\"M\"".to_string(),
+                internal: false,
+            },
+            CmdArgEnumItem {
+                name: "lg".to_string(),
+                value: "\"L\"".to_string(),
+                internal: false,
+            },
+            CmdArgEnumItem {
+                name: "none".to_string(),
+                value: "null".to_string(),
+                internal: false,
+            },
+        ];
+        str_type.r#enum = Some(enum_type);
+        str_arg.arg_type = Some(ArgType::Str(str_type));
+        cmd.args.push(str_arg);
+
+        // test bytes arg
+        let mut str_arg = CmdArg::default();
+        str_arg.var_name = "$Instance.byte".to_string();
+        str_arg.name = "byte".to_string();
+        str_arg.options = vec!["byte".to_string()];
+        let mut str_type = CmdStringArg::default();
+        str_type.format = Some(cmd_string_arg::Format::Byte(CmdByteFormat::default()));
+        str_arg.arg_type = Some(ArgType::Str(str_type));
+        cmd.args.push(str_arg);
+
+        // test binary arg
+        let mut str_arg = CmdArg::default();
+        str_arg.var_name = "$Instance.binary".to_string();
+        str_arg.name = "binary".to_string();
+        str_arg.options = vec!["binary".to_string()];
+        let mut str_type = CmdStringArg::default();
+        str_type.format = Some(cmd_string_arg::Format::Binary(CmdBinaryFormat::default()));
+        str_arg.arg_type = Some(ArgType::Str(str_type));
+        cmd.args.push(str_arg);
+
+        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
+        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
+        let byte_arg = Some(CmdArgWrapper::new(&cmd, &cmd.args[2]));
+        let binary_arg = Some(CmdArgWrapper::new(&cmd, &cmd.args[3]));
+
+        let mut rng = rand::thread_rng();
+        let random_bytes: Vec<u8> = (0..100).map(|_| rng.gen()).collect();
+        let mut file = NamedTempFile::with_suffix(".bin").expect("Failed to create temp file");
+        file.write_all(&random_bytes)
+            .expect("Failed to write to temp file");
+        file.flush().expect("Failed to flush temp file");
+        let binary_file_path = file.path().to_str().unwrap();
+        let binary_base64 = BASE64_STANDARD.encode(&random_bytes);
+
+        // json file
+        for (arg, value, expected) in vec![
+            (
+                &arg1,
+                json!("hello"),
+                Ok(Value::String("hello".to_string())),
+            ),
+            (
+                &arg1,
+                json!("hello world"),
+                Ok(Value::String("hello world".to_string())),
+            ),
+            (
+                &arg1,
+                json!("[1, 2, 3]"),
+                Ok(Value::String("[1, 2, 3]".to_string())),
+            ),
+            (
+                &arg1,
+                json!("{\"a\":\"b\"}"),
+                Ok(Value::String("{\"a\":\"b\"}".to_string())),
+            ),
+            (&arg1, json!("true"), Ok(Value::String("true".to_string()))),
+            (
+                &arg1,
+                json!("false"),
+                Ok(Value::String("false".to_string())),
+            ),
+            (&arg1, json!(null), Ok(Value::Null)),
+            (&arg1, json!("null"), Ok(Value::String("null".to_string()))),
+            (&arg1, json!(""), Ok(Value::String("".to_string()))),
+            (&arg2, json!("sm"), Ok(Value::String("S".to_string()))),
+            (&arg2, json!("SM"), Ok(Value::String("S".to_string()))),
+            (&arg2, json!("S"), Ok(Value::String("S".to_string()))),
+            (&arg2, json!("s"), Ok(Value::String("S".to_string()))),
+            (&arg2, json!("md"), Ok(Value::String("M".to_string()))),
+            (&arg2, json!("MD"), Ok(Value::String("M".to_string()))),
+            (&arg2, json!("M"), Ok(Value::String("M".to_string()))),
+            (&arg2, json!("m"), Ok(Value::String("M".to_string()))),
+            (&arg2, json!("lg"), Ok(Value::String("L".to_string()))),
+            (&arg2, json!("LG"), Ok(Value::String("L".to_string()))),
+            (&arg2, json!("L"), Ok(Value::String("L".to_string()))),
+            (&arg2, json!("l"), Ok(Value::String("L".to_string()))),
+            (&arg2, json!("none"), Ok(Value::Null)),
+            (&arg2, json!("NONE"), Ok(Value::Null)),
+            (&arg2, json!(null), Ok(Value::Null)),
+            (&byte_arg, json!(binary_base64.as_str()), Ok(Value::String(binary_base64.clone()))),
+            // pass a binary file path as string value into the json, should retrieve the path value from json
+            (&binary_arg, json!(binary_file_path), Ok(Value::String(binary_file_path.to_string()))),
+            // error cases
+            (
+                &arg1,
+                json!(1),
+                Err(ErrorData(
+                    "Invalid value type, expect [string] type value",
+                    "1",
+                    0,
+                    1,
+                )),
+            ),
+            (
+                &arg1,
+                json!(true),
+                Err(ErrorData(
+                    "Invalid value type, expect [string] type value",
+                    "true",
+                    0,
+                    4,
+                )),
+            ),
+            (
+                &arg1,
+                json!(false),
+                Err(ErrorData(
+                    "Invalid value type, expect [string] type value",
+                    "false",
+                    0,
+                    5,
+                )),
+            ),
+            (
+                &arg1,
+                json!([1, 2, 3]),
+                Err(ErrorData(
+                    "Invalid value type, expect [string] type value",
+                    "[1, 2, 3]",
+                    0,
+                    9,
+                )),
+            ),
+            (
+                &arg1,
+                json!({"a": "b"}),
+                Err(ErrorData(
+                    "Invalid value type, expect [string] type value",
+                    "{\"a\":\"b\"}",
+                    0,
+                    9,
+                )),
+            ),
+            (&arg2, json!("X"), Err(ErrorData("Invalid [string] value: Invalid value \"X\", accept enum items: sm, md, lg, none", "X", 0, 1))),
+            (&byte_arg, json!(null), Err(ErrorData("This argument is not allowed to be null", "null", 0, 4))),
+        ] {
+            let mut file = NamedTempFile::with_suffix(".json").expect("Failed to create temp file");
+            writeln!(file, "{}", value).expect("Failed to write to temp file");
+            file.flush().expect("Failed to flush temp file");
+            let file_value = format!("file://{}", file.path().to_str().unwrap());
+
+            match expected {
+                Ok(expected) => {
+                    let result = parser.parse(file_value.as_str(), arg.to_owned()).unwrap();
+                    assert_eq!(result, SHResult::Value(expected));
+                }
+                Err(ErrorData(msg_target, _, at_target, _)) => {
+                    let result = parser.parse(file_value.as_str(), arg.clone());
+                    match result {
+                        Err(AzError::UserUsage(
+                            AzUserUsageError::InvalidShorthandSyntaxError {
+                                msg,
+                                data,
+                                at,
+                                range,
+                            },
+                        )) => {
+                            assert_eq!(
+                                (msg, data, at, range),
+                                (
+                                    msg_target.to_string(),
+                                    file_value.to_string(),
+                                    at_target,
+                                    file_value.len()
+                                )
+                            );
+                        }
+                        _ => {
+                            panic!("Unexpected result: {:?}", result);
+                        }
+                    }
+                }
+            }
+        }
+
+        // test string from text
+        let mut file = NamedTempFile::with_suffix(".txt").expect("Failed to create temp file");
+        write!(file, "\ncontent data\n").expect("Failed to write to temp file");
+        file.flush().expect("Failed to flush temp file");
+        let file_value = format!("file://{}", file.path().to_str().unwrap());
+
+        let result = parser.parse(file_value.as_str(), arg1.to_owned()).unwrap();
+        assert_eq!(
+            result,
+            SHResult::Value(Value::String("\ncontent data\n".to_string()))
+        );
+
+        // test bytes file
+        // try to parse already encoded base64 string
+        let mut file =
+            NamedTempFile::with_suffix(".base64.txt").expect("Failed to create temp file");
+        writeln!(file, "\n{}\n", binary_base64).expect("Failed to write to temp file");
+        file.flush().expect("Failed to flush temp file");
+        let file_value = format!("file://{}", file.path().to_str().unwrap());
+
+        let result = parser
+            .parse(file_value.as_str(), byte_arg.to_owned())
+            .unwrap();
+        assert_eq!(
+            result,
+            SHResult::Value(Value::String(binary_base64.clone()))
+        );
+
+        // try to parse binary from file
+        let file_value = format!("file://{}", binary_file_path);
+        let result = parser
+            .parse(file_value.as_str(), byte_arg.to_owned())
+            .unwrap();
+        assert_eq!(
+            result,
+            SHResult::Value(Value::String(binary_base64.clone()))
+        );
+
+        // test binary file
+        let file_value = format!("file://{}", binary_file_path);
+        let result = parser
+            .parse(file_value.as_str(), binary_arg.to_owned())
+            .unwrap();
+        assert_eq!(
+            result,
+            SHResult::Value(Value::String(binary_file_path.to_string()))
+        );
+    }
 
     #[test]
     fn test_parse_any_type_arg() {
