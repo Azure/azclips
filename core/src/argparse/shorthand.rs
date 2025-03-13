@@ -1189,7 +1189,10 @@ impl ShorthandSyntaxParser {
 
 #[cfg(test)]
 mod tests {
+    use serde_json::json;
+    use std::io::{Seek, Write};
     use std::result;
+    use tempfile::NamedTempFile;
 
     use crate::pb::command::{
         cmd_number_arg, cmd_string_arg, CmdAnyTypeArg, CmdArg, CmdArgEnum, CmdArgEnumItem,
@@ -1199,41 +1202,60 @@ mod tests {
 
     use super::*;
 
+    #[derive(Debug)]
+    struct ErrorData(&'static str, &'static str, usize, usize);
+
     #[test]
     fn test_parse_null_without_arg() {
         let parser = ShorthandSyntaxParser::default();
-
-        let result = parser.parse("null", None).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Null));
-
-        let result = parser.parse("Null", None).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("Null".to_string())));
-
-        let result = parser.parse("NULL", None).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("NULL".to_string())));
-
-        let result = parser.parse("'null'", None).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("null".to_string())));
-
-        let result = parser.parse("null,abc", None).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::String("null,abc".to_string()))
-        );
-
-        let result = parser.parse("'null'abc", None);
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "Redundant tail".to_string()
-                && data == "'null'abc".to_string()
-                && at == 6
-                && range == 3
-        ));
+        for (arg, value, expected) in vec![
+            (None, "null", Ok(Value::Null)),
+            (None, "NULL", Ok(Value::String("NULL".to_string()))),
+            (None, "Null", Ok(Value::String("Null".to_string()))),
+            (None, "'null'", Ok(Value::String("null".to_string()))),
+            (None, "'NULL'", Ok(Value::String("NULL".to_string()))),
+            (None, "'Null'", Ok(Value::String("Null".to_string()))),
+            (None, "null,abc", Ok(Value::String("null,abc".to_string()))),
+            // error cases
+            (
+                None,
+                "'null'abc",
+                Err(ErrorData("Redundant tail", "'null'abc", 6, 3)),
+            ),
+        ] {
+            match expected {
+                Ok(expected) => {
+                    let result = parser.parse(value, arg.to_owned()).unwrap();
+                    assert_eq!(result, SHResult::Value(expected));
+                }
+                Err(ErrorData(msg_target, data_target, at_target, range_target)) => {
+                    let result = parser.parse(value, arg.to_owned());
+                    match result {
+                        Err(AzError::UserUsage(
+                            AzUserUsageError::InvalidShorthandSyntaxError {
+                                msg,
+                                data,
+                                at,
+                                range,
+                            },
+                        )) => {
+                            assert_eq!(
+                                (msg, data, at, range),
+                                (
+                                    msg_target.to_string(),
+                                    data_target.to_string(),
+                                    at_target,
+                                    range_target
+                                )
+                            );
+                        }
+                        _ => {
+                            panic!("Unexpected result: {:?}", result);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     #[test]
@@ -1252,41 +1274,6 @@ mod tests {
         str_type.format = Some(cmd_string_arg::Format::String(CmdStringFormat::default()));
         str_arg.arg_type = Some(ArgType::Str(str_type));
         cmd.args.push(str_arg);
-        let arg = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
-
-        let result = parser.parse("null", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Null));
-
-        let result = parser.parse("Null", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("Null".to_string())));
-
-        let result = parser.parse("NULL", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("NULL".to_string())));
-
-        let result = parser.parse("'null'", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("null".to_string())));
-
-        let result = parser.parse("null,abc", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::String("null,abc".to_string()))
-        );
-
-        let result = parser.parse("'null'abc", arg.clone());
-
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "Redundant tail".to_string()
-                && data == "'null'abc".to_string()
-                && at == 6
-                && range == 3
-        ));
-
         // Not nullable arg
         let mut str_arg = CmdArg::default();
         str_arg.var_name = "$Path.name".to_string();
@@ -1297,83 +1284,157 @@ mod tests {
         str_arg.arg_type = Some(ArgType::Str(str_type));
         cmd.args.push(str_arg);
 
-        let arg = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
+        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
+        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
 
-        let result = parser.parse("null", arg.clone());
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "This argument is not allowed to be null".to_string()
-                && data == "null".to_string()
-                && at == 0
-                && range == 4
-        ));
-
-        let result = parser.parse("Null", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("Null".to_string())));
-
-        let result = parser.parse("NULL", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("NULL".to_string())));
-
-        let result = parser.parse("'null'", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("null".to_string())));
-
-        let result = parser.parse("null,abc", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::String("null,abc".to_string()))
-        );
-
-        let result = parser.parse("'null'abc", arg.clone());
-
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "Redundant tail".to_string()
-                && data == "'null'abc".to_string()
-                && at == 6
-                && range == 3
-        ));
+        for (arg, value, expected) in vec![
+            (&arg1, "null", Ok(Value::Null)),
+            (&arg1, "NULL", Ok(Value::String("NULL".to_string()))),
+            (&arg1, "Null", Ok(Value::String("Null".to_string()))),
+            (&arg1, "'null'", Ok(Value::String("null".to_string()))),
+            (&arg1, "'NULL'", Ok(Value::String("NULL".to_string()))),
+            (&arg1, "'Null'", Ok(Value::String("Null".to_string()))),
+            (&arg1, "null,abc", Ok(Value::String("null,abc".to_string()))),
+            // error cases
+            (
+                &arg2,
+                "null",
+                Err(ErrorData(
+                    "This argument is not allowed to be null",
+                    "null",
+                    0,
+                    4,
+                )),
+            ),
+            (
+                &arg1,
+                "'null'abc",
+                Err(ErrorData("Redundant tail", "'null'abc", 6, 3)),
+            ),
+        ] {
+            match expected {
+                Ok(expected) => {
+                    let result = parser.parse(value, arg.to_owned()).unwrap();
+                    assert_eq!(result, SHResult::Value(expected));
+                }
+                Err(ErrorData(msg_target, data_target, at_target, range_target)) => {
+                    let result = parser.parse(value, arg.to_owned());
+                    match result {
+                        Err(AzError::UserUsage(
+                            AzUserUsageError::InvalidShorthandSyntaxError {
+                                msg,
+                                data,
+                                at,
+                                range,
+                            },
+                        )) => {
+                            assert_eq!(
+                                (msg, data, at, range),
+                                (
+                                    msg_target.to_string(),
+                                    data_target.to_string(),
+                                    at_target,
+                                    range_target
+                                )
+                            );
+                        }
+                        _ => {
+                            panic!("Unexpected result: {:?}", result);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     #[test]
     fn test_parse_bool_without_arg() {
         let parser = ShorthandSyntaxParser::default();
 
-        let result = parser.parse("true", None).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Bool(true)));
-        let result = parser.parse("false", None).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Bool(false)));
-        let result = parser.parse("True", None).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("True".to_string())));
-        let result = parser.parse("False", None).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("False".to_string())));
-        let result = parser.parse("'true'", None).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("true".to_string())));
-        let result = parser.parse("'false'", None).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("false".to_string())));
-
-        let result = parser.parse("'true'abc", None);
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "Redundant tail".to_string()
-                && data == "'true'abc".to_string()
-                && at == 6
-                && range == 3
-        ));
+        for (arg, value, expected) in vec![
+            (None, "false", Ok(Value::Bool(false))),
+            (None, "true", Ok(Value::Bool(true))),
+            // treat as string
+            (None, "'false'", Ok(Value::String("false".to_string()))),
+            (None, "'true'", Ok(Value::String("true".to_string()))),
+            (None, "F", Ok(Value::String("F".to_string()))),
+            (None, "f", Ok(Value::String("f".to_string()))),
+            (None, "False", Ok(Value::String("False".to_string()))),
+            (None, "FALSE", Ok(Value::String("FALSE".to_string()))),
+            (None, "no", Ok(Value::String("no".to_string()))),
+            (None, "NO", Ok(Value::String("NO".to_string()))),
+            (None, "No", Ok(Value::String("No".to_string()))),
+            (None, "n", Ok(Value::String("n".to_string()))),
+            (None, "N", Ok(Value::String("N".to_string()))),
+            (None, "T", Ok(Value::String("T".to_string()))),
+            (None, "t", Ok(Value::String("t".to_string()))),
+            (None, "True", Ok(Value::String("True".to_string()))),
+            (None, "TRUE", Ok(Value::String("TRUE".to_string()))),
+            (None, "yes", Ok(Value::String("yes".to_string()))),
+            (None, "YES", Ok(Value::String("YES".to_string()))),
+            (None, "Yes", Ok(Value::String("Yes".to_string()))),
+            (None, "y", Ok(Value::String("y".to_string()))),
+            (None, "Y", Ok(Value::String("Y".to_string()))),
+            (None, "'F'", Ok(Value::String("F".to_string()))),
+            (None, "'f'", Ok(Value::String("f".to_string()))),
+            (None, "'False'", Ok(Value::String("False".to_string()))),
+            (None, "'FALSE'", Ok(Value::String("FALSE".to_string()))),
+            (None, "'no'", Ok(Value::String("no".to_string()))),
+            (None, "'NO'", Ok(Value::String("NO".to_string()))),
+            (None, "'No'", Ok(Value::String("No".to_string()))),
+            (None, "'n'", Ok(Value::String("n".to_string()))),
+            (None, "'N'", Ok(Value::String("N".to_string()))),
+            (None, "'T'", Ok(Value::String("T".to_string()))),
+            (None, "'t'", Ok(Value::String("t".to_string()))),
+            (None, "'True'", Ok(Value::String("True".to_string()))),
+            (None, "'TRUE'", Ok(Value::String("TRUE".to_string()))),
+            (None, "'yes'", Ok(Value::String("yes".to_string()))),
+            (None, "'YES'", Ok(Value::String("YES".to_string()))),
+            (None, "'Yes'", Ok(Value::String("Yes".to_string()))),
+            (None, "'y'", Ok(Value::String("y".to_string()))),
+            (None, "'Y'", Ok(Value::String("Y".to_string()))),
+            // the null value
+            (None, "null", Ok(Value::Null)),
+            // error cases
+            (
+                None,
+                "'true'abc",
+                Err(ErrorData("Redundant tail", "'true'abc", 6, 3)),
+            ),
+        ] {
+            match expected {
+                Ok(expected) => {
+                    let result = parser.parse(value, arg.to_owned()).unwrap();
+                    assert_eq!(result, SHResult::Value(expected));
+                }
+                Err(ErrorData(msg_target, data_target, at_target, range_target)) => {
+                    let result = parser.parse(value, arg.to_owned());
+                    match result {
+                        Err(AzError::UserUsage(
+                            AzUserUsageError::InvalidShorthandSyntaxError {
+                                msg,
+                                data,
+                                at,
+                                range,
+                            },
+                        )) => {
+                            assert_eq!(
+                                (msg, data, at, range),
+                                (
+                                    msg_target.to_string(),
+                                    data_target.to_string(),
+                                    at_target,
+                                    range_target
+                                )
+                            );
+                        }
+                        _ => {
+                            panic!("Unexpected result: {:?}", result);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     #[test]
@@ -1391,70 +1452,6 @@ mod tests {
         bool_arg.arg_type = Some(ArgType::Boolean(bool_type));
         cmd.args.push(bool_arg);
 
-        let arg = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
-
-        let result = parser.parse("true", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Bool(true)));
-
-        let result = parser.parse("false", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Bool(false)));
-
-        // values from enum
-        let result = parser.parse("T", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Bool(true)));
-
-        let result = parser.parse("t", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Bool(true)));
-
-        let result = parser.parse("True", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Bool(true)));
-
-        let result = parser.parse("'t'", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Bool(true)));
-
-        let result = parser.parse("'T'", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Bool(true)));
-
-        let result = parser.parse("'true'", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Bool(true)));
-
-        let result = parser.parse("F", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Bool(false)));
-
-        let result = parser.parse("f", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Bool(false)));
-
-        let result = parser.parse("False", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Bool(false)));
-
-        let result = parser.parse("'f'", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Bool(false)));
-
-        let result = parser.parse("'F'", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Bool(false)));
-
-        let result = parser.parse("'false'", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Bool(false)));
-
-        // test null value
-        let result = parser.parse("null", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Null));
-
-        // test invalid boolean value
-        let result = parser.parse("abc", arg.clone());
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "Invalid boolean value: Invalid value \"abc\", accept enum items: true, t, yes, y, false, f, no, n"
-                && data == "abc".to_string()
-                && at == 0
-                && range == 3
-        ));
-
         // test not nullable arg
         let mut bool_arg = CmdArg::default();
         bool_arg.var_name = "$Instance.unnullable".to_string();
@@ -1464,98 +1461,287 @@ mod tests {
         bool_arg.arg_type = Some(ArgType::Boolean(bool_type));
         cmd.args.push(bool_arg);
 
-        let arg = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
+        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
 
-        let result = parser.parse("null", arg.clone());
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "This argument is not allowed to be null".to_string()
-                && data == "null".to_string()
-                && at == 0
-                && range == 4
-        ));
+        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
+
+        for (arg, value, expected) in vec![
+            (&arg1, "F", Ok(Value::Bool(false))),
+            (&arg1, "f", Ok(Value::Bool(false))),
+            (&arg1, "false", Ok(Value::Bool(false))),
+            (&arg1, "False", Ok(Value::Bool(false))),
+            (&arg1, "FALSE", Ok(Value::Bool(false))),
+            (&arg1, "no", Ok(Value::Bool(false))),
+            (&arg1, "NO", Ok(Value::Bool(false))),
+            (&arg1, "No", Ok(Value::Bool(false))),
+            (&arg1, "n", Ok(Value::Bool(false))),
+            (&arg1, "N", Ok(Value::Bool(false))),
+            (&arg1, "T", Ok(Value::Bool(true))),
+            (&arg1, "t", Ok(Value::Bool(true))),
+            (&arg1, "true", Ok(Value::Bool(true))),
+            (&arg1, "True", Ok(Value::Bool(true))),
+            (&arg1, "TRUE", Ok(Value::Bool(true))),
+            (&arg1, "yes", Ok(Value::Bool(true))),
+            (&arg1, "YES", Ok(Value::Bool(true))),
+            (&arg1, "Yes", Ok(Value::Bool(true))),
+            (&arg1, "y", Ok(Value::Bool(true))),
+            (&arg1, "Y", Ok(Value::Bool(true))),
+            (&arg1, "'F'", Ok(Value::Bool(false))),
+            (&arg1, "'f'", Ok(Value::Bool(false))),
+            (&arg1, "'false'", Ok(Value::Bool(false))),
+            (&arg1, "'False'", Ok(Value::Bool(false))),
+            (&arg1, "'FALSE'", Ok(Value::Bool(false))),
+            (&arg1, "'no'", Ok(Value::Bool(false))),
+            (&arg1, "'NO'", Ok(Value::Bool(false))),
+            (&arg1, "'No'", Ok(Value::Bool(false))),
+            (&arg1, "'n'", Ok(Value::Bool(false))),
+            (&arg1, "'N'", Ok(Value::Bool(false))),
+            (&arg1, "'T'", Ok(Value::Bool(true))),
+            (&arg1, "'t'", Ok(Value::Bool(true))),
+            (&arg1, "'true'", Ok(Value::Bool(true))),
+            (&arg1, "'True'", Ok(Value::Bool(true))),
+            (&arg1, "'TRUE'", Ok(Value::Bool(true))),
+            (&arg1, "'yes'", Ok(Value::Bool(true))),
+            (&arg1, "'YES'", Ok(Value::Bool(true))),
+            (&arg1, "'Yes'", Ok(Value::Bool(true))),
+            (&arg1, "'y'", Ok(Value::Bool(true))),
+            (&arg1, "'Y'", Ok(Value::Bool(true))),
+            (&arg1, "null", Ok(Value::Null)),
+            // error cases
+            (
+                &arg2,
+                "null",
+                Err(ErrorData(
+                    "This argument is not allowed to be null",
+                    "null",
+                    0,
+                    4,
+                )),
+            ),
+            (&arg1, "abc", Err(ErrorData("Invalid boolean value: Invalid value \"abc\", accept enum items: true, t, yes, y, false, f, no, n", "abc", 0, 3))),
+        ] {
+            match expected {
+                Ok(expected) => {
+                    let result = parser.parse(value, arg.to_owned()).unwrap();
+                    assert_eq!(result, SHResult::Value(expected));
+                }
+                Err(ErrorData(msg_target, data_target, at_target, range_target)) => {
+                    let result = parser.parse(value, arg.to_owned());
+                    match result {
+                        Err(AzError::UserUsage(
+                            AzUserUsageError::InvalidShorthandSyntaxError {
+                                msg,
+                                data,
+                                at,
+                                range,
+                            },
+                        )) => {
+                            assert_eq!(
+                                (msg, data, at, range),
+                                (
+                                    msg_target.to_string(),
+                                    data_target.to_string(),
+                                    at_target,
+                                    range_target
+                                )
+                            );
+                        }
+                        _ => {
+                            panic!("Unexpected result: {:?}", result);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_parse_bool_arg_from_file() {
+        let parser = ShorthandSyntaxParser::default();
+
+        let mut cmd = CmdCommand::default();
+        // test nullable arg
+        let mut bool_arg = CmdArg::default();
+        bool_arg.var_name = "$Instance.enabled".to_string();
+        bool_arg.name = "enabled".to_string();
+        bool_arg.options = vec!["enabled".to_string()];
+        bool_arg.nullable = true;
+        let bool_type = CmdBooleanArg::default();
+        bool_arg.arg_type = Some(ArgType::Boolean(bool_type));
+        cmd.args.push(bool_arg);
+        // test not nullable arg
+        let mut bool_arg = CmdArg::default();
+        bool_arg.var_name = "$Instance.enabled2".to_string();
+        bool_arg.name = "enabled2".to_string();
+        bool_arg.options = vec!["enabled2".to_string()];
+        let bool_type = CmdBooleanArg::default();
+        bool_arg.arg_type = Some(ArgType::Boolean(bool_type));
+        cmd.args.push(bool_arg);
+
+        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
+        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
+
+        for (arg, value, expected) in vec![
+            (&arg1, json!(false), Ok(Value::Bool(false))),
+            (&arg1, json!("F"), Ok(Value::Bool(false))),
+            (&arg1, json!("f"), Ok(Value::Bool(false))),
+            (&arg1, json!("false"), Ok(Value::Bool(false))),
+            (&arg1, json!("False"), Ok(Value::Bool(false))),
+            (&arg1, json!("FALSE"), Ok(Value::Bool(false))),
+            (&arg1, json!("no"), Ok(Value::Bool(false))),
+            (&arg1, json!("NO"), Ok(Value::Bool(false))),
+            (&arg1, json!("No"), Ok(Value::Bool(false))),
+            (&arg1, json!("n"), Ok(Value::Bool(false))),
+            (&arg1, json!("N"), Ok(Value::Bool(false))),
+            (&arg1, json!("T"), Ok(Value::Bool(true))),
+            (&arg1, json!("t"), Ok(Value::Bool(true))),
+            (&arg1, json!(true), Ok(Value::Bool(true))),
+            (&arg1, json!("true"), Ok(Value::Bool(true))),
+            (&arg1, json!("True"), Ok(Value::Bool(true))),
+            (&arg1, json!("TRUE"), Ok(Value::Bool(true))),
+            (&arg1, json!("yes"), Ok(Value::Bool(true))),
+            (&arg1, json!("YES"), Ok(Value::Bool(true))),
+            (&arg1, json!("Yes"), Ok(Value::Bool(true))),
+            (&arg1, json!("y"), Ok(Value::Bool(true))),
+            (&arg1, json!("Y"), Ok(Value::Bool(true))),
+            (&arg1, json!(null), Ok(Value::Null)),
+            // error cases
+            (
+                &arg2,
+                json!(null),
+                Err(ErrorData(
+                    "This argument is not allowed to be null",
+                    "null",
+                    0,
+                    4,
+                )),
+            ),
+            (&arg1, json!("abc"), Err(ErrorData("Invalid boolean value: Invalid value \"abc\", accept enum items: true, t, yes, y, false, f, no, n", "abc", 0, 3))),
+        ] {
+            let mut file = NamedTempFile::with_suffix(".json").expect("Failed to create temp file");
+            writeln!(file, "{}", value).expect("Failed to write to temp file");
+            file.flush().expect("Failed to flush temp file");
+            let file_value = format!("file://{}", file.path().to_str().unwrap());
+
+            match expected {
+                Ok(expected) => {
+                    let result = parser.parse(file_value.as_str(), arg.to_owned()).unwrap();
+                    assert_eq!(result, SHResult::Value(expected));
+                }
+                Err(ErrorData(msg_target, _, at_target, _)) => {
+                    let result = parser.parse(file_value.as_str(), arg.clone());
+                    match result {
+                        Err(AzError::UserUsage(
+                            AzUserUsageError::InvalidShorthandSyntaxError {
+                                msg,
+                                data,
+                                at,
+                                range,
+                            },
+                        )) => {
+                            assert_eq!(
+                                (msg, data, at, range),
+                                (
+                                    msg_target.to_string(),
+                                    file_value.to_string(),
+                                    at_target,
+                                    file_value.len()
+                                )
+                            );
+                        }
+                        _ => {
+                            panic!("Unexpected result: {:?}", result);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     #[test]
     fn test_parse_number_without_arg() {
         let parser = ShorthandSyntaxParser::default();
 
-        let result = parser.parse("0", None).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Number(serde_json::Number::from(0)))
-        );
-        let result = parser.parse("0.0", None).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Number(serde_json::Number::from_f64(0.0).unwrap()))
-        );
-
-        let result = parser.parse("123", None).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Number(serde_json::Number::from(123)))
-        );
-        let result = parser.parse("-123", None).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Number(serde_json::Number::from(-123)))
-        );
-        let result = parser.parse("123.456", None).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Number(
-                serde_json::Number::from_f64(123.456).unwrap()
-            ))
-        );
-        let result = parser.parse("-123.456", None).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Number(
-                serde_json::Number::from_f64(-123.456).unwrap()
-            ))
-        );
-
-        let result = parser.parse("'0'", None).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("0".to_string())));
-
-        let result = parser.parse("'0.0'", None).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("0.0".to_string())));
-
-        let result = parser.parse("'123'", None).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("123".to_string())));
-        let result = parser.parse("'-123'", None).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("-123".to_string())));
-
-        let result = parser.parse("'123.456'", None).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::String("123.456".to_string()))
-        );
-        let result = parser.parse("'-123.456'", None).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::String("-123.456".to_string()))
-        );
-
-        let result = parser.parse("'123.456'abc", None);
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "Redundant tail".to_string()
-                && data == "'123.456'abc".to_string()
-                && at == 9
-                && range == 3
-        ));
+        for (arg, value, expected) in vec![
+            (None, "0", Ok(Value::Number(serde_json::Number::from(0)))),
+            (
+                None,
+                "0.0",
+                Ok(Value::Number(serde_json::Number::from_f64(0.0).unwrap())),
+            ),
+            (
+                None,
+                "123",
+                Ok(Value::Number(serde_json::Number::from(123))),
+            ),
+            (
+                None,
+                "-123",
+                Ok(Value::Number(serde_json::Number::from(-123))),
+            ),
+            (
+                None,
+                "123.456",
+                Ok(Value::Number(
+                    serde_json::Number::from_f64(123.456).unwrap(),
+                )),
+            ),
+            (
+                None,
+                "-123.456",
+                Ok(Value::Number(
+                    serde_json::Number::from_f64(-123.456).unwrap(),
+                )),
+            ),
+            (None, "'0'", Ok(Value::String("0".to_string()))),
+            (None, "'0.0'", Ok(Value::String("0.0".to_string()))),
+            (None, "'123'", Ok(Value::String("123".to_string()))),
+            (None, "'-123'", Ok(Value::String("-123".to_string()))),
+            (None, "'123.456'", Ok(Value::String("123.456".to_string()))),
+            (
+                None,
+                "'-123.456'",
+                Ok(Value::String("-123.456".to_string())),
+            ),
+            (
+                None,
+                "'123.456'abc",
+                Err(ErrorData("Redundant tail", "'123.456'abc", 9, 3)),
+            ),
+        ] {
+            match expected {
+                Ok(expected) => {
+                    let result = parser.parse(value, arg.to_owned()).unwrap();
+                    assert_eq!(result, SHResult::Value(expected));
+                }
+                Err(ErrorData(msg_target, data_target, at_target, range_target)) => {
+                    let result = parser.parse(value, arg.to_owned());
+                    match result {
+                        Err(AzError::UserUsage(
+                            AzUserUsageError::InvalidShorthandSyntaxError {
+                                msg,
+                                data,
+                                at,
+                                range,
+                            },
+                        )) => {
+                            assert_eq!(
+                                (msg, data, at, range),
+                                (
+                                    msg_target.to_string(),
+                                    data_target.to_string(),
+                                    at_target,
+                                    range_target
+                                )
+                            );
+                        }
+                        _ => {
+                            panic!("Unexpected result: {:?}", result);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     #[test]
@@ -1571,92 +1757,6 @@ mod tests {
         num_type.format = Some(cmd_number_arg::Format::Int32(CmdInt32Format::default()));
         num_arg.arg_type = Some(ArgType::Number(num_type));
         cmd.args.push(num_arg);
-
-        let arg = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
-
-        let result = parser.parse("0", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Number(serde_json::Number::from(0)))
-        );
-        let result = parser.parse("0.0", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Number(serde_json::Number::from_f64(0.0).unwrap()))
-        );
-
-        let result = parser.parse("123", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Number(serde_json::Number::from(123)))
-        );
-        let result = parser.parse("-123", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Number(serde_json::Number::from(-123)))
-        );
-        let result = parser.parse("123.456", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Number(
-                serde_json::Number::from_f64(123.456).unwrap()
-            ))
-        );
-        let result = parser.parse("-123.456", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Number(
-                serde_json::Number::from_f64(-123.456).unwrap()
-            ))
-        );
-
-        // test null value
-        let result = parser.parse("null", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Null));
-
-        // test string format
-        let result = parser.parse("'0'", arg.clone());
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "Invalid value type, expect [int] type value".to_string()
-                && data == "'0'".to_string()
-                && at == 0
-                && range == 3
-        ));
-
-        let result = parser.parse("'0.0'", arg.clone());
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "Invalid value type, expect [int] type value".to_string()
-                && data == "'0.0'".to_string()
-                && at == 0
-                && range == 5
-        ));
-
-        let result = parser.parse("'123'", arg.clone());
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "Invalid value type, expect [int] type value".to_string()
-                && data == "'123'".to_string()
-                && at == 0
-                && range == 5
-        ));
-
         // test arg with enum
         let mut num_arg = CmdArg::default();
         num_arg.var_name = "$Instance.vcore".to_string();
@@ -1691,95 +1791,6 @@ mod tests {
         num_type.r#enum = Some(enum_type);
         num_arg.arg_type = Some(ArgType::Number(num_type));
         cmd.args.push(num_arg);
-
-        let arg = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
-
-        let result = parser.parse("sm", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Number(serde_json::Number::from(1)))
-        );
-
-        let result = parser.parse("md", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Number(serde_json::Number::from(2)))
-        );
-
-        let result = parser.parse("lg", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Number(serde_json::Number::from(4)))
-        );
-
-        let result = parser.parse("1", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Number(serde_json::Number::from(1)))
-        );
-
-        let result = parser.parse("2", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Number(serde_json::Number::from(2)))
-        );
-
-        let result = parser.parse("4", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Number(serde_json::Number::from(4)))
-        );
-
-        // test case insensitive
-        let result = parser.parse("Md", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Number(serde_json::Number::from(2)))
-        );
-
-        let result = parser.parse("MD", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Number(serde_json::Number::from(2)))
-        );
-
-        // test null value
-        let result = parser.parse("null", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Null));
-
-        // test null from enum
-        let result = parser.parse("none", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Null));
-
-        // test value not in enum
-        let result = parser.parse("5", arg.clone());
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "Invalid [int] value: Invalid value 5, accept enum items: sm, md, lg, none".to_string()
-                && data == "5".to_string()
-                && at == 0
-                && range == 1
-        ));
-
-        let result = parser.parse("xl", arg.clone());
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "Invalid [int] value: Invalid value \"xl\", accept enum items: sm, md, lg, none".to_string()
-                && data == "xl".to_string()
-                && at == 0
-                && range == 2
-        ));
-
         // test not nullable arg
         let mut num_arg = CmdArg::default();
         num_arg.var_name = "$Instance.unnullable".to_string();
@@ -1790,75 +1801,279 @@ mod tests {
         num_arg.arg_type = Some(ArgType::Number(num_type));
         cmd.args.push(num_arg);
 
-        let arg = Some(CmdArgWrapper::new(&cmd, &cmd.args[2]));
+        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
+        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
+        let arg3 = Some(CmdArgWrapper::new(&cmd, &cmd.args[2]));
 
-        let result = parser.parse("null", arg.clone());
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "This argument is not allowed to be null".to_string()
-                && data == "null".to_string()
-                && at == 0
-                && range == 4
-        ));
+        for (arg, value, expected) in vec![
+            (&arg1, "0", Ok(Value::Number(serde_json::Number::from(0)))),
+            (
+                &arg1,
+                "0.0",
+                Ok(Value::Number(serde_json::Number::from_f64(0.0).unwrap())),
+            ),
+            (
+                &arg1,
+                "123",
+                Ok(Value::Number(serde_json::Number::from(123))),
+            ),
+            (
+                &arg1,
+                "-123",
+                Ok(Value::Number(serde_json::Number::from(-123))),
+            ),
+            (
+                &arg1,
+                "123.456",
+                Ok(Value::Number(
+                    serde_json::Number::from_f64(123.456).unwrap(),
+                )),
+            ),
+            (
+                &arg1,
+                "-123.456",
+                Ok(Value::Number(
+                    serde_json::Number::from_f64(-123.456).unwrap(),
+                )),
+            ),
+            (&arg1, "null", Ok(Value::Null)),
+            (&arg2, "sm", Ok(Value::Number(serde_json::Number::from(1)))),
+            (&arg2, "SM", Ok(Value::Number(serde_json::Number::from(1)))),
+            (&arg2, "1", Ok(Value::Number(serde_json::Number::from(1)))),
+            (&arg2, "md", Ok(Value::Number(serde_json::Number::from(2)))),
+            (&arg2, "MD", Ok(Value::Number(serde_json::Number::from(2)))),
+            (&arg2, "2", Ok(Value::Number(serde_json::Number::from(2)))),
+            (&arg2, "lg", Ok(Value::Number(serde_json::Number::from(4)))),
+            (&arg2, "LG", Ok(Value::Number(serde_json::Number::from(4)))),
+            (&arg2, "4", Ok(Value::Number(serde_json::Number::from(4)))),
+            (&arg2, "none", Ok(Value::Null)),
+            (&arg2, "NONE", Ok(Value::Null)),
+            (&arg2, "null", Ok(Value::Null)),
+            // error cases
+            (
+                &arg1,
+                "'0'",
+                Err(ErrorData(
+                    "Invalid value type, expect [int] type value",
+                    "'0'",
+                    0,
+                    3,
+                )),
+            ),
+            (
+                &arg1,
+                "'0.0'",
+                Err(ErrorData(
+                    "Invalid value type, expect [int] type value",
+                    "'0.0'",
+                    0,
+                    5,
+                )),
+            ),
+            (
+                &arg1,
+                "'123'",
+                Err(ErrorData(
+                    "Invalid value type, expect [int] type value",
+                    "'123'",
+                    0,
+                    5,
+                )),
+            ),
+            (
+                &arg1,
+                "'-123'",
+                Err(ErrorData(
+                    "Invalid value type, expect [int] type value",
+                    "'-123'",
+                    0,
+                    6,
+                )),
+            ),
+            (
+                &arg1,
+                "'123.456'",
+                Err(ErrorData(
+                    "Invalid value type, expect [int] type value",
+                    "'123.456'",
+                    0,
+                    9,
+                )),
+            ),
+            (
+                &arg1,
+                "'-123.456'",
+                Err(ErrorData(
+                    "Invalid value type, expect [int] type value",
+                    "'-123.456'",
+                    0,
+                    10,
+                )),
+            ),
+            (
+                &arg2,
+                "5",
+                Err(ErrorData(
+                    "Invalid value: Invalid value \"5\", expect enum items: sm, md, lg, none",
+                    "5",
+                    0,
+                    1,
+                )),
+            ),
+            (
+                &arg2,
+                "xl",
+                Err(ErrorData(
+                    "Invalid value: Invalid value \"xl\", expect enum items: sm, md, lg, none",
+                    "xl",
+                    0,
+                    2,
+                )),
+            ),
+            (
+                &arg3,
+                "null",
+                Err(ErrorData(
+                    "This argument is not allowed to be null",
+                    "null",
+                    0,
+                    4,
+                )),
+            ),
+        ] {
+            match expected {
+                Ok(expected) => {
+                    let result = parser.parse(value, arg.to_owned()).unwrap();
+                    assert_eq!(result, SHResult::Value(expected));
+                }
+                Err(ErrorData(msg_target, data_target, at_target, range_target)) => {
+                    let result = parser.parse(value, arg.to_owned());
+                    match result {
+                        Err(AzError::UserUsage(
+                            AzUserUsageError::InvalidShorthandSyntaxError {
+                                msg,
+                                data,
+                                at,
+                                range,
+                            },
+                        )) => {
+                            assert_eq!(
+                                (msg, data, at, range),
+                                (
+                                    msg_target.to_string(),
+                                    data_target.to_string(),
+                                    at_target,
+                                    range_target
+                                )
+                            );
+                        }
+                        _ => {
+                            panic!("Unexpected result: {:?}", result);
+                        }
+                    }
+                }
+            }
+        }
     }
+
+    // #[test]
+    // fn test_parse_number_arg_from_file() {
+    //     let parser = ShorthandSyntaxParser::default();
+
+    //     let mut cmd = CmdCommand::default();
+    //     let mut num_arg = CmdArg::default();
+    //     num_arg.var_name = "$Instance.vcore".to_string();
+    //     num_arg.name = "vcore".to_string();
+    // }
 
     #[test]
     fn test_parse_string_without_arg() {
         let parser = ShorthandSyntaxParser::default();
-
-        let result = parser.parse("'hello'", None).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("hello".to_string())));
-
-        let result = parser.parse("'hello world'", None).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::String("hello world".to_string()))
-        );
-
-        // the out layer string can support space
-        let result = parser.parse("hello world", None).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::String("hello world".to_string()))
-        );
-
-        let result = parser.parse("'{a:b}'", None).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("{a:b}".to_string())));
-
-        let result = parser.parse("'{\"a\":\"b\"}'", None).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::String("{\"a\":\"b\"}".to_string()))
-        );
-
-        let result = parser.parse("'[1, 2, 3]'", None).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::String("[1, 2, 3]".to_string()))
-        );
-
-        let result = parser.parse("'hello world'abc", None);
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "Redundant tail".to_string()
-                && data == "'hello world'abc".to_string()
-                && at == 13
-                && range == 3
-        ));
+        for (arg, value, expected) in vec![
+            (None, "'hello'", Ok(Value::String("hello".to_string()))),
+            (
+                None,
+                "'hello world'",
+                Ok(Value::String("hello world".to_string())),
+            ),
+            (None, "1, 2, 3", Ok(Value::String("1, 2, 3".to_string()))),
+            (None, "1,2,3", Ok(Value::String("1,2,3".to_string()))),
+            (None, "a=b,b=c", Ok(Value::String("a=b,b=c".to_string()))),
+            (
+                None,
+                "hello world",
+                Ok(Value::String("hello world".to_string())),
+            ),
+            (None, "'{a:b}'", Ok(Value::String("{a:b}".to_string()))),
+            (
+                None,
+                "'{\"a\":\"b\"}'",
+                Ok(Value::String("{\"a\":\"b\"}".to_string())),
+            ),
+            (
+                None,
+                "'[1, 2, 3]'",
+                Ok(Value::String("[1, 2, 3]".to_string())),
+            ),
+            (None, "'['", Ok(Value::String("[".to_string()))),
+            (None, "']'", Ok(Value::String("]".to_string()))),
+            (None, "'true'", Ok(Value::String("true".to_string()))),
+            (None, "'false'", Ok(Value::String("false".to_string()))),
+            (None, "'null'", Ok(Value::String("null".to_string()))),
+            (None, "'123'", Ok(Value::String("123".to_string()))),
+            (None, "'-123'", Ok(Value::String("-123".to_string()))),
+            (None, "'123.456'", Ok(Value::String("123.456".to_string()))),
+            (
+                None,
+                "'-123.456'",
+                Ok(Value::String("-123.456".to_string())),
+            ),
+            // error cases
+            (
+                None,
+                "'hello world'abc",
+                Err(ErrorData("Redundant tail", "'hello world'abc", 13, 3)),
+            ),
+        ] {
+            match expected {
+                Ok(expected) => {
+                    let result = parser.parse(value, arg.to_owned()).unwrap();
+                    assert_eq!(result, SHResult::Value(expected));
+                }
+                Err(ErrorData(msg_target, data_target, at_target, range_target)) => {
+                    let result = parser.parse(value, arg.to_owned());
+                    match result {
+                        Err(AzError::UserUsage(
+                            AzUserUsageError::InvalidShorthandSyntaxError {
+                                msg,
+                                data,
+                                at,
+                                range,
+                            },
+                        )) => {
+                            assert_eq!(
+                                (msg, data, at, range),
+                                (
+                                    msg_target.to_string(),
+                                    data_target.to_string(),
+                                    at_target,
+                                    range_target
+                                )
+                            );
+                        }
+                        _ => {
+                            panic!("Unexpected result: {:?}", result);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     #[test]
     fn test_parse_string_arg() {
+        let parser = ShorthandSyntaxParser::default();
+
         let mut cmd = CmdCommand::default();
         let mut str_arg = CmdArg::default();
         str_arg.var_name = "$Path.name".to_string();
@@ -1869,59 +2084,6 @@ mod tests {
         str_type.format = Some(cmd_string_arg::Format::String(CmdStringFormat::default()));
         str_arg.arg_type = Some(ArgType::Str(str_type));
         cmd.args.push(str_arg);
-        let arg = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
-
-        let parser = ShorthandSyntaxParser::default();
-
-        let result = parser.parse("'hello'", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("hello".to_string())));
-
-        let result = parser.parse("'hello world'", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::String("hello world".to_string()))
-        );
-
-        // the out layer string can support space
-        let result = parser.parse("hello world", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::String("hello world".to_string()))
-        );
-
-        // the out layer string with arg can support directly parse reserved characters as string
-        let result = parser.parse("{a:b}", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("{a:b}".to_string())));
-
-        let result = parser.parse("{\"a\":\"b\"}", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::String("{\"a\":\"b\"}".to_string()))
-        );
-
-        let result = parser.parse("[1, 2, 3]", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::String("[1, 2, 3]".to_string()))
-        );
-
-        let result = parser.parse("null", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Null));
-
-        // test error cases
-        let result = parser.parse("'hello world'abc", arg.clone());
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "Redundant tail".to_string()
-                && data == "'hello world'abc".to_string()
-                && at == 13
-                && range == 3
-        ));
 
         // test str arg with enum
         let mut str_arg = CmdArg::default();
@@ -1958,60 +2120,137 @@ mod tests {
         str_arg.arg_type = Some(ArgType::Str(str_type));
         cmd.args.push(str_arg);
 
-        let arg = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
+        // test str not allow null
+        let mut str_arg = CmdArg::default();
+        str_arg.var_name = "$Instance.other".to_string();
+        str_arg.name = "other".to_string();
+        str_arg.options = vec!["other".to_string()];
+        str_arg.nullable = false;
+        let mut str_type = CmdStringArg::default();
+        str_type.format = Some(cmd_string_arg::Format::String(CmdStringFormat::default()));
+        str_arg.arg_type = Some(ArgType::Str(str_type));
+        cmd.args.push(str_arg);
 
-        let result = parser.parse("sm", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("S".to_string())));
+        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
+        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
+        let arg3 = Some(CmdArgWrapper::new(&cmd, &cmd.args[2]));
 
-        let result = parser.parse("md", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("M".to_string())));
-
-        let result = parser.parse("lg", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("L".to_string())));
-
-        // test case insensitive
-        let result = parser.parse("SM", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("S".to_string())));
-
-        let result = parser.parse("Sm", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("S".to_string())));
-
-        // test pase value directly
-        let result = parser.parse("S", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("S".to_string())));
-
-        let result = parser.parse("M", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("M".to_string())));
-
-        let result = parser.parse("L", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("L".to_string())));
-
-        // test null value
-        let result = parser.parse("null", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Null));
-
-        // test null from enum
-        let result = parser.parse("none", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Null));
-
-        // test value not in enum
-        let result = parser.parse("X", arg.clone());
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "Invalid [string] value: Invalid value \"X\", accept enum items: sm, md, lg, none".to_string()
-                && data == "X".to_string()
-                && at == 0
-                && range == 1
-        ));
+        for (arg, value, expected) in [
+            (&arg1, "'hello'", Ok(Value::String("hello".to_string()))),
+            (
+                &arg1,
+                "hello world",
+                Ok(Value::String("hello world".to_string())),
+            ),
+            (
+                &arg1,
+                "'hello world'",
+                Ok(Value::String("hello world".to_string())),
+            ),
+            (&arg1, "'1, 2, 3'", Ok(Value::String("1, 2, 3".to_string()))),
+            (&arg1, "'a=b,b=c'", Ok(Value::String("a=b,b=c".to_string()))),
+            (&arg1, "'{a:b}'", Ok(Value::String("{a:b}".to_string()))),
+            (&arg1, "{a:b}", Ok(Value::String("{a:b}".to_string()))),
+            (
+                &arg1,
+                "'{\"a\":\"b\"}'",
+                Ok(Value::String("{\"a\":\"b\"}".to_string())),
+            ),
+            (
+                &arg1,
+                "{\"a\":\"b\"}",
+                Ok(Value::String("{\"a\":\"b\"}".to_string())),
+            ),
+            (
+                &arg1,
+                "'[1, 2, 3]'",
+                Ok(Value::String("[1, 2, 3]".to_string())),
+            ),
+            (
+                &arg1,
+                "[1, 2, 3]",
+                Ok(Value::String("[1, 2, 3]".to_string())),
+            ),
+            (&arg1, "'['", Ok(Value::String("[".to_string()))),
+            (&arg1, "']'", Ok(Value::String("]".to_string()))),
+            (&arg1, "'true'", Ok(Value::String("true".to_string()))),
+            (&arg1, "true", Ok(Value::String("true".to_string()))),
+            (&arg1, "'false'", Ok(Value::String("false".to_string()))),
+            (&arg1, "false", Ok(Value::String("false".to_string()))),
+            (&arg1, "'null'", Ok(Value::String("null".to_string()))),
+            (&arg1, "null", Ok(Value::Null)),
+            (&arg2, "sm", Ok(Value::String("S".to_string()))),
+            (&arg2, "SM", Ok(Value::String("S".to_string()))),
+            (&arg2, "S", Ok(Value::String("S".to_string()))),
+            (&arg2, "s", Ok(Value::String("S".to_string()))),
+            (&arg2, "md", Ok(Value::String("M".to_string()))),
+            (&arg2, "MD", Ok(Value::String("M".to_string()))),
+            (&arg2, "M", Ok(Value::String("M".to_string()))),
+            (&arg2, "m", Ok(Value::String("M".to_string()))),
+            (&arg2, "lg", Ok(Value::String("L".to_string()))),
+            (&arg2, "LG", Ok(Value::String("L".to_string()))),
+            (&arg2, "L", Ok(Value::String("L".to_string()))),
+            (&arg2, "l", Ok(Value::String("L".to_string()))),
+            (&arg2, "none", Ok(Value::Null)),
+            (&arg2, "NONE", Ok(Value::Null)),
+            (&arg2, "null", Ok(Value::Null)),
+            // error cases
+            (
+                &arg1,
+                "'hello world'abc",
+                Err(ErrorData("Redundant tail", "'hello world'abc", 13, 3)),
+            ),
+            (
+                &arg2,
+                "X",
+                Err(ErrorData("Invalid [string] value: Invalid value \"X\", accept enum items: sm, md, lg, none", "X", 0, 1)),
+            ),
+            (&arg3, "null", Err(ErrorData("This argument is not allowed to be null", "null", 0, 4))),
+        ] {
+            match expected {
+                Ok(expected) => {
+                    let result = parser.parse(value, arg.to_owned()).unwrap();
+                    assert_eq!(result, SHResult::Value(expected));
+                }
+                Err(ErrorData(msg_target, data_target, at_target, range_target)) => {
+                    let result = parser.parse(value, arg.to_owned());
+                    match result {
+                        Err(AzError::UserUsage(
+                            AzUserUsageError::InvalidShorthandSyntaxError {
+                                msg,
+                                data,
+                                at,
+                                range,
+                            },
+                        )) => {
+                            assert_eq!(
+                                (msg, data, at, range),
+                                (
+                                    msg_target.to_string(),
+                                    data_target.to_string(),
+                                    at_target,
+                                    range_target
+                                )
+                            );
+                        }
+                        _ => {
+                            panic!("Unexpected result: {:?}", result);
+                        }
+                    }
+                }
+            }
+        }
     }
+
+    // #[test]
+    // fn test_parse_string_arg_from_file() {
+
+    // }
 
     #[test]
     fn test_parse_any_type_arg() {
+        let parser = ShorthandSyntaxParser::default();
+
         let mut cmd = CmdCommand::default();
         let mut any_arg = CmdArg::default();
         any_arg.var_name = "$Instance.any".to_string();
@@ -2020,155 +2259,6 @@ mod tests {
         any_arg.options = vec!["any".to_string()];
         any_arg.arg_type = Some(ArgType::AnyType(CmdAnyTypeArg::default()));
         cmd.args.push(any_arg);
-
-        let arg = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
-
-        let parser = ShorthandSyntaxParser::default();
-
-        // null value
-        let result = parser.parse("null", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Null));
-
-        // number value
-        let result = parser.parse("123", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Number(serde_json::Number::from(123)))
-        );
-
-        let result = parser.parse("-123", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Number(serde_json::Number::from(-123)))
-        );
-
-        let result = parser.parse("123.456", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Number(
-                serde_json::Number::from_f64(123.456).unwrap()
-            ))
-        );
-
-        // boolean value
-        let result = parser.parse("true", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Bool(true)));
-
-        let result = parser.parse("false", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Bool(false)));
-
-        // string value
-        let result = parser.parse("hello", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("hello".to_string())));
-
-        let result = parser.parse("'hello'", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("hello".to_string())));
-
-        let result = parser.parse("hello world", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::String("hello world".to_string()))
-        );
-
-        let result = parser.parse("'hello world'", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::String("hello world".to_string()))
-        );
-
-        // parse object value
-        let result = parser.parse("{a:b}", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Object(
-                json!({"a": "b"}).as_object().unwrap().clone()
-            ))
-        );
-
-        let result = parser.parse("[1,2,3]", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Array(json!([1, 2, 3]).as_array().unwrap().clone()))
-        );
-
-        let result = parser
-            .parse(
-                "{windows:'c:\\temp\\filter.json',unix1:'/tmp/filter.json',unix2:/var/tmp/filter.json}",
-                None,
-            )
-            .unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Object(
-                json!({"windows":"c:\\temp\\filter.json","unix1":"/tmp/filter.json","unix2":"/var/tmp/filter.json"})
-                    .as_object()
-                    .unwrap()
-                    .clone()
-            ))
-        );
-        let result = parser
-            .parse(
-                "{a:1,c:d,d0:{},l0:[],l1:['1','2','3'],l2:[{a:b,c:d},{e:f},null,'null',true,false],l3:[1,2,3],str1:'[1,2,3]',str2:'{a:b,c:d}'}",
-                None,
-            )
-            .unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Object(
-                json!({
-                    "a": 1,
-                    "c": "d",
-                    "d0": {},
-                    "l0": [],
-                    "l1": ["1", "2", "3"],
-                    "l2": [
-                        {"a": "b", "c": "d"},
-                        {"e": "f"},
-                        null,
-                        "null",
-                        true,
-                        false,
-                    ],
-                    "l3": [1, 2, 3],
-                    "str1":"[1,2,3]",
-                    "str2":"{a:b,c:d}",
-                })
-                .as_object()
-                .unwrap()
-                .clone()
-            ))
-        );
-
-        // test dict key with reserved characters
-        let result = parser
-            .parse("{']':']','[':'[','}':'}','{':'{'}", None)
-            .unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Object(
-                json!({"]": "]", "[": "[", "}": "}", "{": "{"})
-                    .as_object()
-                    .unwrap()
-                    .clone()
-            ))
-        );
-
-        let result = parser.parse("{'\"':'\"'}", None).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Object(
-                json!({"\"": "\""}).as_object().unwrap().clone()
-            ))
-        );
-
-        let result = parser.parse("{''/':''/'}", None).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Object(
-                json!({"'": "'"}).as_object().unwrap().clone()
-            ))
-        );
-
         // test not nullable any type arg
         let mut any_arg = CmdArg::default();
         any_arg.var_name = "$Instance.unNullableAny".to_string();
@@ -2177,83 +2267,55 @@ mod tests {
         any_arg.arg_type = Some(ArgType::AnyType(CmdAnyTypeArg::default()));
         cmd.args.push(any_arg);
 
-        let arg = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
+        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
+        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
 
-        let result = parser.parse("null", arg.clone());
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "This argument is not allowed to be null".to_string()
-                && data == "null".to_string()
-                && at == 0
-                && range == 4
-        ));
-    }
-
-    #[test]
-    fn test_parse_complex_value_without_arg() {
-        let parser = ShorthandSyntaxParser::default();
-
-        let result = parser.parse("abc", None).unwrap();
-        assert_eq!(result, SHResult::Value(Value::String("abc".to_string())));
-
-        let result = parser.parse("123", None).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Number(serde_json::Number::from(123)))
-        );
-
-        let result = parser.parse("true", None).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Bool(true)));
-
-        let result = parser.parse("false", None).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Bool(false)));
-
-        let result = parser.parse("null", None).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Null));
-
-        let result = parser.parse("{a:b}", None).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Object(
-                json!({"a": "b"}).as_object().unwrap().clone()
-            ))
-        );
-
-        let result = parser.parse("[1,2,3]", None).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Array(json!([1, 2, 3]).as_array().unwrap().clone()))
-        );
-
-        let result = parser
-            .parse(
-                "{windows:'c:\\temp\\filter.json',unix1:'/tmp/filter.json',unix2:/var/tmp/filter.json}",
-                None,
-            )
-            .unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Object(
-                json!({"windows":"c:\\temp\\filter.json","unix1":"/tmp/filter.json","unix2":"/var/tmp/filter.json"})
-                    .as_object()
-                    .unwrap()
-                    .clone()
-            ))
-        );
-        let result = parser
-            .parse(
-                "{a:1,c:d,d0:{},l0:[],l1:['1','2','3'],l2:[{a:b,c:d},{e:f},null,'null',true,false],l3:[1,2,3],str1:'[1,2,3]',str2:'{a:b,c:d}'}",
-                None,
-            )
-            .unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Object(
+        for (arg, value, expected) in [
+            (&arg1, "null", Ok(Value::Null)),
+            (
+                &arg1,
+                "123",
+                Ok(Value::Number(serde_json::Number::from(123))),
+            ),
+            (
+                &arg1,
+                "-123",
+                Ok(Value::Number(serde_json::Number::from(-123))),
+            ),
+            (
+                &arg1,
+                "123.456",
+                Ok(Value::Number(
+                    serde_json::Number::from_f64(123.456).unwrap(),
+                )),
+            ),
+            (&arg1, "true", Ok(Value::Bool(true))),
+            (&arg1, "false", Ok(Value::Bool(false))),
+            (&arg1, "hello", Ok(Value::String("hello".to_string()))),
+            (&arg1, "'hello'", Ok(Value::String("hello".to_string()))),
+            (
+                &arg1,
+                "hello world",
+                Ok(Value::String("hello world".to_string())),
+            ),
+            (
+                &arg1,
+                "'hello world'",
+                Ok(Value::String("hello world".to_string())),
+            ),
+            (&arg1, "{a:b}", Ok(Value::Object(json!({"a": "b"}).as_object().unwrap().clone()))),
+            (&arg1, "[1,2,3]", Ok(Value::Array(json!([1, 2, 3]).as_array().unwrap().clone()))),
+            (&arg1, "{windows:'c:\\temp\\filter.json',unix1:'/tmp/filter.json',unix2:/var/tmp/filter.json}", Ok(Value::Object(
+                json!({
+                    "windows":"c:\\temp\\filter.json",
+                    "unix1":"/tmp/filter.json",
+                    "unix2":"/var/tmp/filter.json"
+                })
+                .as_object()
+                .unwrap()
+                .clone()
+            ))),
+            (&arg1, "{a:1,c:d,d0:{},l0:[],l1:['1','2','3'],l2:[{a:b,c:d},{e:f},null,'null',true,false],l3:[1,2,3],str1:'[1,2,3]',str2:'{a:b,c:d}'}", Ok(Value::Object(
                 json!({
                     "a": 1,
                     "c": "d",
@@ -2275,92 +2337,216 @@ mod tests {
                 .as_object()
                 .unwrap()
                 .clone()
-            ))
-        );
-
-        // test dict key with reserved characters
-        let result = parser
-            .parse("{']':']','[':'[','}':'}','{':'{'}", None)
-            .unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Object(
+            ))),
+            (&arg1, "{']':']','[':'[','}':'}','{':'{'}", Ok(Value::Object(
                 json!({"]": "]", "[": "[", "}": "}", "{": "{"})
                     .as_object()
                     .unwrap()
                     .clone()
-            ))
-        );
-
-        let result = parser.parse("{'\"':'\"'}", None).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Object(
+            ))),
+            (&arg1, "{'\"':'\"'}", Ok(Value::Object(
                 json!({"\"": "\""}).as_object().unwrap().clone()
-            ))
-        );
-
-        let result = parser.parse("{''/':''/'}", None).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Object(
+            ))),
+            (&arg1, "{''/':''/'}", Ok(Value::Object(
                 json!({"'": "'"}).as_object().unwrap().clone()
-            ))
-        );
+            ))),
+            // error cases
+            (&arg1, "{a:b,{:2}", Err(ErrorData("Failed to parse string, please wrap '{' character in single quotes", "{a:b,{:2}", 5, 1))),
+            (&arg1, "{a:b,[:2}", Err(ErrorData("Failed to parse string, please wrap '[' character in single quotes", "{a:b,[:2}", 5, 1))),
+            (&arg1, "[1, 2, 3]", Err(ErrorData("Failed to parse string, please wrap whitespace character in single quotes", "[1, 2, 3]", 3, 1))),
+            (&arg1, "{a:1,c:2},3", Err(ErrorData("Redundant tail", "{a:1,c:2},3", 9, 2))),
+            (&arg2, "null", Err(ErrorData("This argument is not allowed to be null", "null", 0, 4))),
+        ] {
+            match expected {
+                Ok(expected) => {
+                    let result = parser.parse(value, arg.to_owned()).unwrap();
+                    assert_eq!(result, SHResult::Value(expected));
+                }
+                Err(ErrorData(msg_target, data_target, at_target, range_target)) => {
+                    let result = parser.parse(value, arg.to_owned());
+                    match result {
+                        Err(AzError::UserUsage(
+                            AzUserUsageError::InvalidShorthandSyntaxError {
+                                msg,
+                                data,
+                                at,
+                                range,
+                            },
+                        )) => {
+                            assert_eq!(
+                                (msg, data, at, range),
+                                (
+                                    msg_target.to_string(),
+                                    data_target.to_string(),
+                                    at_target,
+                                    range_target
+                                )
+                            );
+                        }
+                        _ => {
+                            panic!("Unexpected result: {:?}", result);
+                        }
+                    }
+                }
+            }
+        }
+    }
 
-        // test error cases
-        let result = parser.parse("{a:b,{:2}", None);
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "Failed to parse string, please wrap '{' character in single quotes".to_string()
-                && data == "{a:b,{:2}".to_string()
-                && at == 5
-                && range == 1
-        ));
+    #[test]
+    fn test_parse_complex_value_without_arg() {
+        let parser = ShorthandSyntaxParser::default();
 
-        let result = parser.parse("{a:b,[:2}", None);
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "Failed to parse string, please wrap '[' character in single quotes".to_string()
-                && data == "{a:b,[:2}".to_string()
-                && at == 5
-                && range == 1
-        ));
+        let arg = None;
 
-        let result = parser.parse("[1, 2, 3]", None);
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "Failed to parse string, please wrap whitespace character in single quotes".to_string()
-                && data == "[1, 2, 3]".to_string()
-                && at == 3
-                && range == 1
-        ));
-
-        let r = parser.parse("{a:1,c:2},3", None);
-        assert!(matches!(
-            r,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "Redundant tail".to_string() && data == "{a:1,c:2},3".to_string() && at == 9 && range == 2
-        ));
+        for (arg, value, expected) in [
+            (&arg, "abc", Ok(Value::String("abc".to_string()))),
+            (
+                &arg,
+                "123",
+                Ok(Value::Number(serde_json::Number::from(123))),
+            ),
+            (&arg, "true", Ok(Value::Bool(true))),
+            (&arg, "false", Ok(Value::Bool(false))),
+            (&arg, "null", Ok(Value::Null)),
+            (
+                &arg,
+                "{a:b}",
+                Ok(Value::Object(
+                    json!({"a": "b"}).as_object().unwrap().clone(),
+                )),
+            ),
+            (
+                &arg,
+                "[1,2,3]",
+                Ok(Value::Array(json!([1, 2, 3]).as_array().unwrap().clone())),
+            ),
+            (&arg, "{windows:'c:\\temp\\filter.json',unix1:'/tmp/filter.json',unix2:/var/tmp/filter.json}", Ok(Value::Object(
+                json!({
+                    "windows":"c:\\temp\\filter.json",
+                    "unix1":"/tmp/filter.json",
+                    "unix2":"/var/tmp/filter.json"
+                })
+                .as_object()
+                .unwrap()
+                .clone()
+            ))),
+            (&arg, "{a:1,c:d,d0:{},l0:[],l1:['1','2','3'],l2:[{a:b,c:d},{e:f},null,'null',true,false],l3:[1,2,3],str1:'[1,2,3]',str2:'{a:b,c:d}'}", Ok(Value::Object(
+                json!({
+                    "a": 1,
+                    "c": "d",
+                    "d0": {},
+                    "l0": [],
+                    "l1": ["1", "2", "3"],
+                    "l2": [
+                        {"a": "b", "c": "d"},
+                        {"e": "f"},
+                        null,
+                        "null",
+                        true,
+                        false,
+                    ],
+                    "l3": [1, 2, 3],
+                    "str1":"[1,2,3]",
+                    "str2":"{a:b,c:d}",
+                })
+                .as_object()
+                .unwrap()
+                .clone()
+            ))),
+            (
+                &arg,
+                "{']':']','[':'[','}':'}','{':'{'}",
+                Ok(Value::Object(
+                    json!({"]": "]", "[": "[", "}": "}", "{": "{"})
+                        .as_object()
+                        .unwrap()
+                        .clone(),
+                )),
+            ),
+            (
+                &arg,
+                "{'\"':'\"'}",
+                Ok(Value::Object(
+                    json!({"\"": "\""}).as_object().unwrap().clone(),
+                )),
+            ),
+            (
+                &arg,
+                "{''/':''/'}",
+                Ok(Value::Object(
+                    json!({"'": "'"}).as_object().unwrap().clone(),
+                )),
+            ),
+            // error cases
+            (
+                &arg,
+                "{a:b,{:2}",
+                Err(ErrorData(
+                    "Failed to parse string, please wrap '{' character in single quotes",
+                    "{a:b,{:2}",
+                    5,
+                    1,
+                )),
+            ),
+            (
+                &arg,
+                "{a:b,[:2}",
+                Err(ErrorData(
+                    "Failed to parse string, please wrap '[' character in single quotes",
+                    "{a:b,[:2}",
+                    5,
+                    1,
+                )),
+            ),
+            (
+                &arg,
+                "[1, 2, 3]",
+                Err(ErrorData(
+                    "Failed to parse string, please wrap whitespace character in single quotes",
+                    "[1, 2, 3]",
+                    3,
+                    1,
+                )),
+            ),
+            (
+                &arg,
+                "{a:1,c:2},3",
+                Err(ErrorData("Redundant tail", "{a:1,c:2},3", 9, 2)),
+            ),
+        ] {
+            match expected {
+                Ok(expected) => {
+                    let result = parser.parse(value, arg.to_owned()).unwrap();
+                    assert_eq!(result, SHResult::Value(expected));
+                }
+                Err(ErrorData(msg_target, data_target, at_target, range_target)) => {
+                    let result = parser.parse(value, arg.to_owned());
+                    match result {
+                        Err(AzError::UserUsage(
+                            AzUserUsageError::InvalidShorthandSyntaxError {
+                                msg,
+                                data,
+                                at,
+                                range,
+                            },
+                        )) => {
+                            assert_eq!(
+                                (msg, data, at, range),
+                                (
+                                    msg_target.to_string(),
+                                    data_target.to_string(),
+                                    at_target,
+                                    range_target
+                                )
+                            );
+                        }
+                        _ => {
+                            panic!("Unexpected result: {:?}", result);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     #[test]
@@ -2431,12 +2617,10 @@ mod tests {
         object_arg.arg_type = Some(ArgType::Object(Box::new(object_type)));
         cmd.args.push(object_arg);
 
-        let arg = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
+        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
 
-        let result = parser.parse("{str:abc,num:123,bool:true,array:[1,b,false,true,null],tags:{a:b,c:1,d:false,e:true,f:null},additional1:1,additional2:false,additional3:[1,b,false,true,null],additional4:{a:b,c:1,d:false,e:true,f:null},additional5:[{a:b,c:d}]}", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Object(
+        for (arg, value, expected) in [
+            (&arg1, "{str:abc,num:123,bool:true,array:[1,b,false,true,null],tags:{a:b,c:1,d:false,e:true,f:null},additional1:1,additional2:false,additional3:[1,b,false,true,null],additional4:{a:b,c:1,d:false,e:true,f:null},additional5:[{a:b,c:d}]}", Ok(Value::Object(
                 json!({
                     "str": "abc",
                     "num": 123,
@@ -2452,17 +2636,9 @@ mod tests {
                 .as_object()
                 .unwrap()
                 .clone()
-            ))
-        );
-
-        // test null
-        let result = parser.parse("null", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Null));
-
-        let result = parser.parse("{str:null,num:null,bool:null,array:null,tags:null,additional1:null,additional2:null,additional3:null,additional4:null,additional5:null}", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Object(
+            ))),
+            (&arg1, "null", Ok(Value::Null)),
+            (&arg1, "{str:null,num:null,bool:null,array:null,tags:null,additional1:null,additional2:null,additional3:null,additional4:null,additional5:null}", Ok(Value::Object(
                 json!({
                     "str": null,
                     "num": null,
@@ -2478,42 +2654,45 @@ mod tests {
                 .as_object()
                 .unwrap()
                 .clone()
-            ))
-        );
-
-        // test error cases
-        let result = parser.parse("{num:abc}", arg.clone());
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "Invalid value type, expect [int] type value".to_string() && data == "{num:abc}".to_string() && at == 5 && range == 4
-        ));
-
-        let result = parser.parse("{tags:{a:[1,2,3]}}", arg.clone());
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "Failed to parse string, please wrap '[' character in single quotes".to_string() && data == "{tags:{a:[1,2,3]}}".to_string() && at == 9 && range == 1
-        ));
-
-        let result = parser.parse("{tags:{a:{a:b}}}", arg.clone());
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "Failed to parse string, please wrap '{' character in single quotes".to_string() && data == "{tags:{a:{a:b}}}".to_string() && at == 9 && range == 1
-        ));
+            ))),
+            // test error cases
+            (&arg1, "{num:abc}", Err(ErrorData("Invalid value type, expect [int] type value", "{num:abc}", 5, 4))),
+            (&arg1, "{tags:{a:[1,2,3]}}", Err(ErrorData("Failed to parse string, please wrap '[' character in single quotes", "{tags:{a:[1,2,3]}}", 9, 1))),
+            (&arg1, "{tags:{a:{a:b}}}", Err(ErrorData("Failed to parse string, please wrap '{' character in single quotes", "{tags:{a:{a:b}}}", 9, 1))),
+        ] {
+            match expected {
+                Ok(expected) => {
+                    let result = parser.parse(value, arg.to_owned()).unwrap();
+                    assert_eq!(result, SHResult::Value(expected));
+                }
+                Err(ErrorData(msg_target, data_target, at_target, range_target)) => {
+                    let result = parser.parse(value, arg.to_owned());
+                    match result {
+                        Err(AzError::UserUsage(
+                            AzUserUsageError::InvalidShorthandSyntaxError {
+                                msg,
+                                data,
+                                at,
+                                range,
+                            },
+                        )) => {
+                            assert_eq!(
+                                (msg, data, at, range),
+                                (
+                                    msg_target.to_string(),
+                                    data_target.to_string(),
+                                    at_target,
+                                    range_target
+                                )
+                            );
+                        }
+                        _ => {
+                            panic!("Unexpected result: {:?}", result);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     #[test]
@@ -2535,52 +2714,7 @@ mod tests {
         }));
         dict_arg.arg_type = Some(ArgType::Object(Box::new(dict_type)));
         cmd.args.push(dict_arg);
-
-        let arg = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
-
-        let result = parser
-            .parse(
-                "{a:b,c:1,d:true,e:null,f:[1,b,false,true,null],g:{a:b,c:1,d:false,e:true,f:null}}",
-                arg.clone(),
-            )
-            .unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Object(
-                json!({"a":"b","c":1,"d":true,"e":null,"f":[1,"b",false,true,null],"g":{"a":"b","c":1,"d":false,"e":true,"f":null}})
-                    .as_object()
-                    .unwrap()
-                    .clone()
-            ))
-        );
-
-        // test null
-        let result = parser.parse("null", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Null));
-
-        // test error cases
-        let result = parser.parse("{a:b,f:[1,g:{a:b,f:null}}", arg.clone());
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "Expect character ',' or ']'".to_string() && data == "{a:b,f:[1,g:{a:b,f:null}}".to_string() && at == 11 && range == 1
-        ));
-
-        let result = parser.parse("{a:b,g:{a:b,f:[1,2,3]}", arg.clone());
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "Expect character ',' or '}'".to_string() && data == "{a:b,g:{a:b,f:[1,2,3]}".to_string() && at == 22 && range == 1
-        ));
-
+        // not allowed to be null
         let mut dict_arg = CmdArg::default();
         dict_arg.var_name = "$Instance.dict2".to_string();
         dict_arg.name = "dict2".to_string();
@@ -2594,114 +2728,70 @@ mod tests {
         dict_arg.arg_type = Some(ArgType::Object(Box::new(dict_type)));
         cmd.args.push(dict_arg);
 
-        let arg = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
-        let result = parser.parse("{a:b,c:1,d:true}", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Object(
-                json!({"a":"b","c":"1","d":"true"})
+        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
+        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
+
+        for (arg, value, expected) in [
+            (&arg1, "{a:b,c:1,d:true,e:null,f:[1,b,false,true,null],g:{a:b,c:1,d:false,e:true,f:null}}", Ok(Value::Object(
+                json!({"a":"b","c":1,"d":true,"e":null,"f":[1,"b",false,true,null],"g":{"a":"b","c":1,"d":false,"e":true,"f":null}})
                     .as_object()
                     .unwrap()
                     .clone()
-            ))
-        );
-
-        let result = parser.parse("{e:'null'}", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Object(
-                json!({"e":"null"}).as_object().unwrap().clone()
-            ))
-        );
-
-        let result = parser.parse("{f:'[1,2,3]'}", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Object(
-                json!({"f":"[1,2,3]"}).as_object().unwrap().clone()
-            ))
-        );
-
-        let result = parser.parse("{g:'{a:b}'}", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Object(
-                json!({"g":"{a:b}"}).as_object().unwrap().clone()
-            ))
-        );
-
-        let result = parser.parse("{h:'hello world'}", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Object(
-                json!({"h":"hello world"}).as_object().unwrap().clone()
-            ))
-        );
-
-        // support tailing ','
-        let result = parser.parse("{i:a,j:b,}", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Object(
-                json!({"i":"a","j":"b"}).as_object().unwrap().clone()
-            ))
-        );
-
-        // test error cases
-        let result = parser.parse("null", arg.clone());
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "This argument is not allowed to be null".to_string() && data == "null".to_string() && at == 0 && range == 4
-        ));
-
-        let result = parser.parse("{a:b,c:1,d:true,e:null}", arg.clone());
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "This argument is not allowed to be null".to_string() && data == "{a:b,c:1,d:true,e:null}".to_string() && at == 18 && range == 5
-        ));
-
-        let result = parser.parse("{f:[1,2,3]}", arg.clone());
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "Failed to parse string, please wrap '[' character in single quotes".to_string() && data == "{f:[1,2,3]}".to_string() && at == 3 && range == 1
-        ));
-
-        let result = parser.parse("{f:{a:b}}", arg.clone());
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "Failed to parse string, please wrap '{' character in single quotes".to_string() && data == "{f:{a:b}}".to_string() && at == 3 && range == 1
-        ));
-
-        let result = parser.parse("{i:hello world}", arg.clone());
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "Failed to parse string, please wrap whitespace character in single quotes".to_string() && data == "{i:hello world}".to_string() && at == 8 && range == 1
-        ));
+            ))),
+            (&arg1, "null", Ok(Value::Null)),
+            (&arg2, "{a:b,c:1,d:true}", Ok(Value::Object(
+                json!({"a":"b","c":"1","d":"true"}  )
+                    .as_object()
+                    .unwrap()
+                    .clone()
+            ))),
+            (&arg2, "{e:'null'}", Ok(Value::Object(json!({"e":"null"}).as_object().unwrap().clone()))),
+            (&arg2, "{f:'[1,2,3]'}", Ok(Value::Object(json!({"f":"[1,2,3]"}).as_object().unwrap().clone()))),
+            (&arg2, "{g:'{a:b}'}", Ok(Value::Object(json!({"g":"{a:b}"}).as_object().unwrap().clone()))),
+            (&arg2, "{h:'hello world'}", Ok(Value::Object(json!({"h":"hello world"}).as_object().unwrap().clone()))),
+            (&arg2, "{i:a,j:b,}", Ok(Value::Object(json!({"i":"a","j":"b"}).as_object().unwrap().clone()))),
+            // test error cases
+            (&arg1, "{a:b,f:[1,g:{a:b,f:null}}", Err(ErrorData("Expect character ',' or ']'", "{a:b,f:[1,g:{a:b,f:null}}", 11, 1))),
+            (&arg1, "{a:b,g:{a:b,f:[1,2,3]}", Err(ErrorData("Expect character ',' or '}'", "{a:b,g:{a:b,f:[1,2,3]}", 22, 1))),
+            (&arg2, "null", Err(ErrorData("This argument is not allowed to be null", "null", 0, 4))),
+            (&arg2, "{a:b,c:1,d:true,e:null}", Err(ErrorData("This argument is not allowed to be null", "{a:b,c:1,d:true,e:null}", 18, 5))),
+            (&arg2, "{f:[1,2,3]}", Err(ErrorData("Failed to parse string, please wrap '[' character in single quotes", "{f:[1,2,3]}", 3, 1))),
+            (&arg2, "{g:{a:b}}", Err(ErrorData("Failed to parse string, please wrap '{' character in single quotes", "{g:{a:b}}", 3, 1))),
+            (&arg2, "{h:hello world}", Err(ErrorData("Failed to parse string, please wrap whitespace character in single quotes", "{h:hello world}", 8, 1))),
+        ] {
+            match expected {
+                Ok(expected) => {
+                    let result = parser.parse(value, arg.to_owned()).unwrap();
+                    assert_eq!(result, SHResult::Value(expected));
+                }
+                Err(ErrorData(msg_target, data_target, at_target, range_target)) => {
+                    let result = parser.parse(value, arg.to_owned());
+                    match result {
+                        Err(AzError::UserUsage(
+                            AzUserUsageError::InvalidShorthandSyntaxError {
+                                msg,
+                                data,
+                                at,
+                                range,
+                            },
+                        )) => {
+                            assert_eq!(
+                                (msg, data, at, range),
+                                (
+                                    msg_target.to_string(),
+                                    data_target.to_string(),
+                                    at_target,
+                                    range_target
+                                )
+                            );
+                        }
+                        _ => {
+                            panic!("Unexpected result: {:?}", result);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     #[test]
@@ -2722,51 +2812,6 @@ mod tests {
         arr_arg.arg_type = Some(ArgType::Array(Box::new(arr_type)));
         cmd.args.push(arr_arg);
 
-        let arg = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
-
-        let result = parser
-            .parse(
-                "[1,true,false,null,abc,[1,2,3],{a:b,c:1,d:false,e:true,f:null}]",
-                arg.clone(),
-            )
-            .unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Array(json!([1,true,false,null,"abc",[1,2,3],{"a":"b","c":1,"d":false,"e":true,"f":null}]).as_array().unwrap().clone()))
-        );
-
-        let result = parser.parse("null", arg.clone()).unwrap();
-        assert_eq!(result, SHResult::Value(Value::Null));
-        // test tailing ','
-        let result = parser.parse("[1,2.2,3,]", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Array(json!([1, 2.2, 3]).as_array().unwrap().clone()))
-        );
-
-        // test error cases
-        let result = parser.parse("[{a:b]", arg.clone());
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "Expect character ',' or '}'".to_string() && data == "[{a:b]".to_string() && at == 5 && range == 1
-        ));
-
-        let result = parser.parse("[[1,2,3]", arg.clone());
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "Expect character ',' or ']'".to_string() && data == "[[1,2,3]".to_string() && at == 8 && range == 1
-        ));
-
         let mut arr_arg = CmdArg::default();
         arr_arg.var_name = "$Instance.arr2".to_string();
         arr_arg.name = "arr2".to_string();
@@ -2778,1094 +2823,650 @@ mod tests {
         arr_arg.arg_type = Some(ArgType::Array(Box::new(arr_type)));
         cmd.args.push(arr_arg);
 
-        let arg = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
+        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
+        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
 
-        let result = parser
-            .parse(
-                "[a,1,false,true,1.2,'null',''/','[1, 2, 3]','{\"a\":\"b\"}']",
-                arg.clone(),
-            )
-            .unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Array(
-                json!([
-                    "a",
-                    "1",
-                    "false",
-                    "true",
-                    "1.2",
-                    "null",
-                    "'",
-                    "[1, 2, 3]",
-                    "{\"a\":\"b\"}"
-                ])
-                .as_array()
-                .unwrap()
-                .clone()
-            ))
-        );
-
-        let result = parser.parse("[a,1,false,true,1.2,]", arg.clone()).unwrap();
-        assert_eq!(
-            result,
-            SHResult::Value(Value::Array(
-                json!(["a", "1", "false", "true", "1.2"])
-                    .as_array()
-                    .unwrap()
-                    .clone()
-            ))
-        );
-
-        // test errors
-        let result = parser.parse("null", arg.clone());
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "This argument is not allowed to be null".to_string() && data == "null".to_string() && at == 0 && range == 4
-        ));
-
-        let result = parser.parse("[a,null]", arg.clone());
-        assert!(matches!(
-            result,
-            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            })) if msg == "This argument is not allowed to be null".to_string() && data == "[a,null]".to_string() && at == 3 && range == 5
-        ));
+        for (arg, value, expected) in [
+            (&arg1, "[1,2,3]", Ok(Value::Array(json!([1,2,3]).as_array().unwrap().clone()))),
+            (&arg1, "null", Ok(Value::Null)),
+            (&arg1, "['a','b','c']", Ok(Value::Array(json!(["a","b","c"]).as_array().unwrap().clone()))),
+            (&arg1, "['a',1,true]", Ok(Value::Array(json!(["a",1,true]).as_array().unwrap().clone()))),
+            (&arg1, "['a',1,true,]", Ok(Value::Array(json!(["a",1,true]).as_array().unwrap().clone()))),
+            (&arg1, "[1,true,false,null,abc,[1,2,3],{a:b,c:1,d:false,e:true,f:null}]", Ok(Value::Array(json!([1,true,false,null,"abc",[1,2,3],{"a":"b","c":1,"d":false,"e":true,"f":null}]).as_array().unwrap().clone()))),
+            (&arg2, "[a,1,false,true,1.2,'null',''/','[1, 2, 3]','{\"a\":\"b\"}']", Ok(Value::Array(json!(["a","1","false","true","1.2","null","'","[1, 2, 3]","{\"a\":\"b\"}"]).as_array().unwrap().clone()))),
+            (&arg2, "[a,1,false,true,1.2,]", Ok(Value::Array(json!(["a","1","false","true","1.2"]).as_array().unwrap().clone()))),
+            // test error cases
+            (&arg1, "[{a:b]", Err(ErrorData("Expect character ',' or '}'", "[{a:b]", 5, 1))),
+            (&arg1, "[[1,2,3]", Err(ErrorData("Expect character ',' or ']'", "[[1,2,3]", 8, 1))),
+            (&arg2, "null", Err(ErrorData("This argument is not allowed to be null", "null", 0, 4))),
+            (&arg2, "[a,null]", Err(ErrorData("This argument is not allowed to be null", "[a,null]", 3, 5))),
+        ] {
+            match expected {
+                Ok(expected) => {
+                    let result = parser.parse(value, arg.to_owned()).unwrap();
+                    assert_eq!(result, SHResult::Value(expected));
+                }
+                Err(ErrorData(msg_target, data_target, at_target, range_target)) => {
+                    let result = parser.parse(value, arg.to_owned());
+                    match result {
+                        Err(AzError::UserUsage(
+                            AzUserUsageError::InvalidShorthandSyntaxError {
+                                msg,
+                                data,
+                                at,
+                                range,
+                            },
+                        )) => {
+                            assert_eq!(
+                                (msg, data, at, range),
+                                (
+                                    msg_target.to_string(),
+                                    data_target.to_string(),
+                                    at_target,
+                                    range_target
+                                )
+                            );
+                        }
+                        _ => {
+                            panic!("Unexpected result: {:?}", result);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     #[test]
     fn test_parse_single_quote_string() {
         let parser = ShorthandSyntaxParser::default();
 
-        let mut remain = "'hello world'".chars();
-        let result = parser.parse_single_quotes_string(&mut remain).unwrap();
-        assert_eq!(result, ("hello world".to_string(), 13));
-
-        assert_eq!(remain.as_str(), "");
-
-        let mut remain = "'hello world'abc".chars();
-        let result = parser.parse_single_quotes_string(&mut remain).unwrap();
-        assert_eq!(result, ("hello world".to_string(), 13));
-
-        assert_eq!(remain.as_str(), "abc");
-
-        let mut remain = "'hello world'/ab/c//'".chars();
-        let result = parser.parse_single_quotes_string(&mut remain).unwrap();
-        assert_eq!(result, ("hello world'ab/c//".to_string(), 21));
-        assert_eq!(remain.as_str(), "");
-
-        // error cases
-        let mut remain = "'hello world".chars();
-        let r = parser.parse_single_quotes_string(&mut remain);
-        assert!(matches!(
-            r,
-            Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            }) if msg == "Miss the end single quote character: '".to_string()
-                && data == "'hello world".to_string()
-                && at == 12
-                && range == 1
-        ));
-
-        let mut remain = "'hello world'/abc".chars();
-        let r = parser.parse_single_quotes_string(&mut remain);
-        assert!(matches!(
-            r,
-            Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            }) if msg == "Miss the end single quote character: '".to_string()
-                && data == "'hello world'/abc".to_string()
-                && at == 17
-                && range == 1
-        ));
+        for (value, expected) in [
+            ("'hello world'", Ok(("hello world".to_string(), 13))),
+            ("'hello world'abc", Ok(("hello world".to_string(), 13))),
+            (
+                "'hello world'/ab/c//'",
+                Ok(("hello world'ab/c//".to_string(), 21)),
+            ),
+            (
+                "'hello world",
+                Err(ErrorData(
+                    "Miss the end single quote character: '",
+                    "'hello world",
+                    12,
+                    1,
+                )),
+            ),
+            (
+                "'hello world'/abc",
+                Err(ErrorData(
+                    "Miss the end single quote character: '",
+                    "'hello world'/abc",
+                    17,
+                    1,
+                )),
+            ),
+        ] {
+            match expected {
+                Ok((v, length)) => {
+                    let mut remain = value.chars();
+                    let result = parser.parse_single_quotes_string(&mut remain).unwrap();
+                    assert_eq!(result, (v, length));
+                }
+                Err(ErrorData(msg_target, data_target, at_target, range_target)) => {
+                    let mut remain = value.chars();
+                    let result = parser.parse_single_quotes_string(&mut remain);
+                    match result {
+                        Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                            msg,
+                            data,
+                            at,
+                            range,
+                        }) => {
+                            assert_eq!(
+                                (msg, data, at, range),
+                                (
+                                    msg_target.to_string(),
+                                    data_target.to_string(),
+                                    at_target,
+                                    range_target
+                                )
+                            );
+                        }
+                        _ => {
+                            panic!("Unexpected result: {:?}", result);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     #[test]
     fn test_parse_string_convert_simple_type() {
         let parser = ShorthandSyntaxParser::default();
-        let mut remain = "abc".chars();
-        let result = parser.parse_string(&mut remain, true, true).unwrap();
-        assert_eq!(
-            result,
-            (SHResult::Value(Value::String("abc".to_string())), 3)
-        );
 
-        let mut remain = "'abc'".chars();
-        let result = parser.parse_string(&mut remain, true, true).unwrap();
-        assert_eq!(
-            result,
-            (SHResult::Value(Value::String("abc".to_string())), 5)
-        );
-
-        let mut remain = "123".chars();
-        let result = parser.parse_string(&mut remain, true, true).unwrap();
-        assert_eq!(
-            result,
+        for (value, expected) in [
+            ("abc", Ok((Value::String("abc".to_string()), 3))),
+            ("'abc'", Ok((Value::String("abc".to_string()), 5))),
+            ("123", Ok((Value::Number(serde_json::Number::from(123)), 3))),
+            ("'123'", Ok((Value::String("123".to_string()), 5))),
+            ("true", Ok((Value::Bool(true), 4))),
+            ("'true'", Ok((Value::String("true".to_string()), 6))),
+            ("false", Ok((Value::Bool(false), 5))),
+            ("'false'", Ok((Value::String("false".to_string()), 7))),
+            ("null", Ok((Value::Null, 4))),
+            ("'null'", Ok((Value::String("null".to_string()), 6))),
             (
-                SHResult::Value(Value::Number(serde_json::Number::from(123))),
-                3
-            )
-        );
-
-        let mut remain = "'123'".chars();
-        let result = parser.parse_string(&mut remain, true, true).unwrap();
-        assert_eq!(
-            result,
-            (SHResult::Value(Value::String("123".to_string())), 5)
-        );
-
-        let mut remain = "true".chars();
-        let result = parser.parse_string(&mut remain, true, true).unwrap();
-        assert_eq!(result, (SHResult::Value(Value::Bool(true)), 4));
-
-        let mut remain = "'true'".chars();
-        let result = parser.parse_string(&mut remain, true, true).unwrap();
-        assert_eq!(
-            result,
-            (SHResult::Value(Value::String("true".to_string())), 6)
-        );
-
-        let mut remain = "false".chars();
-        let result = parser.parse_string(&mut remain, true, true).unwrap();
-        assert_eq!(result, (SHResult::Value(Value::Bool(false)), 5));
-
-        let mut remain = "'false'".chars();
-        let result = parser.parse_string(&mut remain, true, true).unwrap();
-        assert_eq!(
-            result,
-            (SHResult::Value(Value::String("false".to_string())), 7)
-        );
-
-        let mut remain = "null".chars();
-        let result = parser.parse_string(&mut remain, true, true).unwrap();
-        assert_eq!(result, (SHResult::Value(Value::Null), 4));
-
-        let mut remain = "'null'".chars();
-        let result = parser.parse_string(&mut remain, true, true).unwrap();
-        assert_eq!(
-            result,
-            (SHResult::Value(Value::String("null".to_string())), 6)
-        );
-
-        let mut remain = "'{\"a\":\"b\"}'".chars();
-        let result = parser.parse_string(&mut remain, true, true).unwrap();
-        assert_eq!(
-            result,
-            (
-                SHResult::Value(Value::String("{\"a\":\"b\"}".to_string())),
-                11
-            )
-        );
-
-        let mut remain = "'[1,2,3]'".chars();
-        let result = parser.parse_string(&mut remain, true, true).unwrap();
-        assert_eq!(
-            result,
-            (SHResult::Value(Value::String("[1,2,3]".to_string())), 9)
-        );
+                "'{\"a\":\"b\"}'",
+                Ok((Value::String("{\"a\":\"b\"}".to_string()), 11)),
+            ),
+            ("'[1,2,3]'", Ok((Value::String("[1,2,3]".to_string()), 9))),
+        ] {
+            match expected {
+                Ok((v, length)) => {
+                    let mut remain = value.chars();
+                    let result = parser.parse_string(&mut remain, true, true).unwrap();
+                    assert_eq!(result, (SHResult::Value(v), length));
+                }
+                Err(ErrorData(msg_target, data_target, at_target, range_target)) => {
+                    let mut remain = value.chars();
+                    let result = parser.parse_string(&mut remain, true, true);
+                    match result {
+                        Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                            msg,
+                            data,
+                            at,
+                            range,
+                        }) => {
+                            assert_eq!(
+                                (msg, data, at, range),
+                                (
+                                    msg_target.to_string(),
+                                    data_target.to_string(),
+                                    at_target,
+                                    range_target
+                                )
+                            );
+                        }
+                        _ => {
+                            panic!("Unexpected result: {:?}", result);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     #[test]
     fn test_parse_string_not_convert_simple_type() {
         let parser = ShorthandSyntaxParser::default();
-        let mut remain = "abc".chars();
-        let result = parser.parse_string(&mut remain, false, true).unwrap();
-        assert_eq!(
-            result,
-            (SHResult::Value(Value::String("abc".to_string())), 3)
-        );
 
-        let mut remain = "'abc'".chars();
-        let result = parser.parse_string(&mut remain, false, true).unwrap();
-        assert_eq!(
-            result,
-            (SHResult::Value(Value::String("abc".to_string())), 5)
-        );
-
-        let mut remain = "123".chars();
-        let result = parser.parse_string(&mut remain, false, true).unwrap();
-        assert_eq!(
-            result,
-            (SHResult::Value(Value::String("123".to_string())), 3)
-        );
-
-        let mut remain = "'123'".chars();
-        let result = parser.parse_string(&mut remain, false, true).unwrap();
-        assert_eq!(
-            result,
-            (SHResult::Value(Value::String("123".to_string())), 5)
-        );
-
-        let mut remain = "true".chars();
-        let result = parser.parse_string(&mut remain, false, true).unwrap();
-        assert_eq!(
-            result,
-            (SHResult::Value(Value::String("true".to_string())), 4)
-        );
-
-        let mut remain = "'true'".chars();
-        let result = parser.parse_string(&mut remain, false, true).unwrap();
-        assert_eq!(
-            result,
-            (SHResult::Value(Value::String("true".to_string())), 6)
-        );
-
-        let mut remain = "false".chars();
-        let result = parser.parse_string(&mut remain, false, true).unwrap();
-        assert_eq!(
-            result,
-            (SHResult::Value(Value::String("false".to_string())), 5)
-        );
-
-        let mut remain = "'false'".chars();
-        let result = parser.parse_string(&mut remain, false, true).unwrap();
-        assert_eq!(
-            result,
-            (SHResult::Value(Value::String("false".to_string())), 7)
-        );
-
-        let mut remain = "null".chars();
-        let result = parser.parse_string(&mut remain, false, true).unwrap();
-        assert_eq!(result, (SHResult::Value(Value::Null), 4));
-
-        let mut remain = "'null'".chars();
-        let result = parser.parse_string(&mut remain, false, true).unwrap();
-        assert_eq!(
-            result,
-            (SHResult::Value(Value::String("null".to_string())), 6)
-        );
-
-        let mut remain = "'{\"a\":\"b\"}'".chars();
-        let result = parser.parse_string(&mut remain, false, true).unwrap();
-        assert_eq!(
-            result,
+        for (value, expected) in [
+            ("abc", Ok((Value::String("abc".to_string()), 3))),
+            ("'abc'", Ok((Value::String("abc".to_string()), 5))),
+            ("123", Ok((Value::String("123".to_string()), 3))),
+            ("'123'", Ok((Value::String("123".to_string()), 5))),
+            ("true", Ok((Value::String("true".to_string()), 4))),
+            ("'true'", Ok((Value::String("true".to_string()), 6))),
+            ("false", Ok((Value::String("false".to_string()), 5))),
+            ("'false'", Ok((Value::String("false".to_string()), 7))),
+            ("null", Ok((Value::Null, 4))),
+            ("'null'", Ok((Value::String("null".to_string()), 6))),
             (
-                SHResult::Value(Value::String("{\"a\":\"b\"}".to_string())),
-                11
-            )
-        );
-
-        let mut remain = "'[1,2,3]'".chars();
-        let result = parser.parse_string(&mut remain, false, true).unwrap();
-        assert_eq!(
-            result,
-            (SHResult::Value(Value::String("[1,2,3]".to_string())), 9)
-        );
+                "'{\"a\":\"b\"}'",
+                Ok((Value::String("{\"a\":\"b\"}".to_string()), 11)),
+            ),
+            ("'[1,2,3]'", Ok((Value::String("[1,2,3]".to_string()), 9))),
+        ] {
+            match expected {
+                Ok((v, length)) => {
+                    let mut remain = value.chars();
+                    let result = parser.parse_string(&mut remain, false, true).unwrap();
+                    assert_eq!(result, (SHResult::Value(v), length));
+                }
+                Err(ErrorData(msg_target, data_target, at_target, range_target)) => {
+                    let mut remain = value.chars();
+                    let result = parser.parse_string(&mut remain, false, true);
+                    match result {
+                        Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                            msg,
+                            data,
+                            at,
+                            range,
+                        }) => {
+                            assert_eq!(
+                                (msg, data, at, range),
+                                (
+                                    msg_target.to_string(),
+                                    data_target.to_string(),
+                                    at_target,
+                                    range_target
+                                )
+                            );
+                        }
+                        _ => {
+                            panic!("Unexpected result: {:?}", result);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     #[test]
     fn test_parse_string_part() {
         let parser = ShorthandSyntaxParser::default();
-        let mut remain = "abc,def".chars();
-        let result = parser.parse_string(&mut remain, false, true).unwrap();
-        assert_eq!(
-            result,
-            (SHResult::Value(Value::String("abc".to_string())), 3)
-        );
-        assert_eq!(remain.as_str(), ",def");
-        let parser = ShorthandSyntaxParser::default();
-        let mut remain = "'a b c',def".chars();
-        let result = parser.parse_string(&mut remain, false, true).unwrap();
-        assert_eq!(
-            result,
-            (SHResult::Value(Value::String("a b c".to_string())), 7)
-        );
-        assert_eq!(remain.as_str(), ",def");
 
-        let mut remain = "abc:def".chars();
-        let result = parser.parse_string(&mut remain, false, true).unwrap();
-        assert_eq!(
-            result,
-            (SHResult::Value(Value::String("abc".to_string())), 3)
-        );
-        assert_eq!(remain.as_str(), ":def");
-
-        let mut remain = "abc],def".chars();
-        let result = parser.parse_string(&mut remain, false, true).unwrap();
-        assert_eq!(
-            result,
-            (SHResult::Value(Value::String("abc".to_string())), 3)
-        );
-        assert_eq!(remain.as_str(), "],def");
-
-        let mut remain = "abc},def".chars();
-        let result = parser.parse_string(&mut remain, false, true).unwrap();
-        assert_eq!(
-            result,
-            (SHResult::Value(Value::String("abc".to_string())), 3)
-        );
-        assert_eq!(remain.as_str(), "},def");
-
-        let mut remain = "'',def,ghi".chars();
-        let result = parser.parse_string(&mut remain, false, true).unwrap();
-        assert_eq!(result, (SHResult::Value(Value::String("".to_string())), 2));
-        assert_eq!(remain.as_str(), ",def,ghi");
-
-        // test error cases
-        let mut remain = ",def".chars();
-        let r = parser.parse_string(&mut remain, false, true);
-        assert!(matches!(
-            r,
-            Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            }) if msg == "Failed to parse string, please use '' wrapped empty string".to_string()
-                && data == ",def".to_string()
-                && at == 0
-                && range == 1
-        ));
-
-        let mut remain = "".chars();
-        let r = parser.parse_string(&mut remain, false, true);
-        assert!(matches!(
-            r,
-            Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            }) if msg == "Failed to parse string, please use '' wrapped empty string".to_string()
-                && data == "".to_string()
-                && at == 0
-                && range == 1
-        ));
-
-        let mut remain = "a'bc,def,ghi".chars();
-        let r = parser.parse_string(&mut remain, false, true);
-        assert!(matches!(
-            r,
-            Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            }) if msg == "Failed to parse string, please wrap ''' character in single quotes".to_string()
-                && data == "a'bc,def,ghi".to_string()
-                && at == 1
-                && range == 1
-        ));
-
-        let mut remain = "a\"bc,def,ghi".chars();
-        let r = parser.parse_string(&mut remain, false, true);
-        assert!(matches!(
-            r,
-            Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            }) if msg == "Failed to parse string, please wrap '\"' character in single quotes".to_string()
-                && data == "a\"bc,def,ghi".to_string()
-                && at == 1
-                && range == 1
-        ));
-
-        let mut remain = "a bc,def,ghi".chars();
-        let r = parser.parse_string(&mut remain, false, true);
-        assert!(matches!(
-            r,
-            Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            }) if msg == "Failed to parse string, please wrap whitespace character in single quotes".to_string()
-                && data == "a bc,def,ghi".to_string()
-                && at == 1
-                && range == 1
-        ));
-
-        let mut remain = "a\tbc,def,ghi".chars();
-        let r = parser.parse_string(&mut remain, false, true);
-        assert!(matches!(
-            r,
-            Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            }) if msg == "Failed to parse string, please wrap whitespace character in single quotes".to_string()
-                && data == "a\tbc,def,ghi".to_string()
-                && at == 1
-                && range == 1
-        ));
-
-        let mut remain = "a\nbc,def,ghi".chars();
-        let r = parser.parse_string(&mut remain, false, true);
-        assert!(matches!(
-            r,
-            Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            }) if msg == "Failed to parse string, please wrap whitespace character in single quotes".to_string()
-                && data == "a\nbc,def,ghi".to_string()
-                && at == 1
-                && range == 1
-        ));
-
-        let mut remain = "a\rbc,def,ghi".chars();
-        let r = parser.parse_string(&mut remain, false, true);
-        assert!(matches!(
-            r,
-            Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            }) if msg == "Failed to parse string, please wrap whitespace character in single quotes".to_string()
-                && data == "a\rbc,def,ghi".to_string()
-                && at == 1
-                && range == 1
-        ));
+        for (value, expected) in [
+            ("abc,def", Ok((Value::String("abc".to_string()), 3, ",def"))),
+            (
+                "'a b c',def",
+                Ok((Value::String("a b c".to_string()), 7, ",def")),
+            ),
+            ("abc:def", Ok((Value::String("abc".to_string()), 3, ":def"))),
+            (
+                "abc],def",
+                Ok((Value::String("abc".to_string()), 3, "],def")),
+            ),
+            (
+                "abc},def",
+                Ok((Value::String("abc".to_string()), 3, "},def")),
+            ),
+            (
+                "'',def,ghi",
+                Ok((Value::String("".to_string()), 2, ",def,ghi")),
+            ),
+            // error cases
+            (
+                ",def",
+                Err(ErrorData(
+                    "Failed to parse string, please use '' wrapped empty string",
+                    ",def",
+                    0,
+                    1,
+                )),
+            ),
+            (
+                "",
+                Err(ErrorData(
+                    "Failed to parse string, please use '' wrapped empty string",
+                    "",
+                    0,
+                    1,
+                )),
+            ),
+            (
+                "a'bc,def,ghi",
+                Err(ErrorData(
+                    "Failed to parse string, please wrap ''' character in single quotes",
+                    "a'bc,def,ghi",
+                    1,
+                    1,
+                )),
+            ),
+            (
+                "a\"bc,def,ghi",
+                Err(ErrorData(
+                    "Failed to parse string, please wrap '\"' character in single quotes",
+                    "a\"bc,def,ghi",
+                    1,
+                    1,
+                )),
+            ),
+            (
+                "a bc,def,ghi",
+                Err(ErrorData(
+                    "Failed to parse string, please wrap whitespace character in single quotes",
+                    "a bc,def,ghi",
+                    1,
+                    1,
+                )),
+            ),
+            (
+                "a\tbc,def,ghi",
+                Err(ErrorData(
+                    "Failed to parse string, please wrap whitespace character in single quotes",
+                    "a\tbc,def,ghi",
+                    1,
+                    1,
+                )),
+            ),
+            (
+                "a\nbc,def,ghi",
+                Err(ErrorData(
+                    "Failed to parse string, please wrap whitespace character in single quotes",
+                    "a\nbc,def,ghi",
+                    1,
+                    1,
+                )),
+            ),
+            (
+                "a\rbc,def,ghi",
+                Err(ErrorData(
+                    "Failed to parse string, please wrap whitespace character in single quotes",
+                    "a\rbc,def,ghi",
+                    1,
+                    1,
+                )),
+            ),
+        ] {
+            match expected {
+                Ok((v, length, tail)) => {
+                    let mut remain = value.chars();
+                    let result = parser.parse_string(&mut remain, false, true).unwrap();
+                    assert_eq!(result, (SHResult::Value(v), length));
+                    assert_eq!(remain.as_str(), tail);
+                }
+                Err(ErrorData(msg_target, data_target, at_target, range_target)) => {
+                    let mut remain = value.chars();
+                    let result = parser.parse_string(&mut remain, false, true);
+                    match result {
+                        Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                            msg,
+                            data,
+                            at,
+                            range,
+                        }) => {
+                            assert_eq!(
+                                (msg, data, at, range),
+                                (
+                                    msg_target.to_string(),
+                                    data_target.to_string(),
+                                    at_target,
+                                    range_target
+                                )
+                            );
+                        }
+                        _ => {
+                            panic!("Unexpected result: {:?}", result);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     #[test]
     fn test_split_partial_value_key() {
         let parser = ShorthandSyntaxParser::default();
 
-        // test blank value
-        let value = "a=";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("a", None)));
-
-        let value = "a=''";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("a", Some("''"))));
-
-        let value = "'a'/=b'[1].b=";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("'a'/=b'[1].b", None)));
-
-        // value with [+]
-        let value = "a[+]={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("a[+]", Some("{c:d}"))));
-
-        let value = "[+].b[+]='{c:d}'";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("[+].b[+]", Some("'{c:d}'"))));
-
-        let value = "[+][+].'a[+]'[+]='{c:d}'";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("[+][+].'a[+]'[+]", Some("'{c:d}'"))));
-
-        let value = "a={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("a", Some("{c:d}"))));
-
-        let value = "a.b='{c:d}'";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("a.b", Some("'{c:d}'"))));
-
-        let value = "a[1]={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("a[1]", Some("{c:d}"))));
-
-        let value = "a[1].b={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("a[1].b", Some("{c:d}"))));
-
-        let value = "a[1][2]={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("a[1][2]", Some("{c:d}"))));
-
-        let value = "'a b'={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("'a b'", Some("{c:d}"))));
-
-        let value = "'a '/'={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("'a '/'", Some("{c:d}"))));
-
-        let value = "'a '/'.b={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("'a '/'.b", Some("{c:d}"))));
-
-        let value = "'a '/'[1]={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("'a '/'[1]", Some("{c:d}"))));
-
-        let value = "'a //'[1]={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("'a //'[1]", Some("{c:d}"))));
-
-        let value = "'a=b'[1].b={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("'a=b'[1].b", Some("{c:d}"))));
-
-        let value = "'a'/=b'[1].b={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("'a'/=b'[1].b", Some("{c:d}"))));
-
-        let value = "a.b[1].d={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("a.b[1].d", Some("{c:d}"))));
-
-        let value = "a.b[-1].d={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("a.b[-1].d", Some("{c:d}"))));
-
-        let value = "a.b[1][2].d={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("a.b[1][2].d", Some("{c:d}"))));
-
-        let value = "a.'b cd'.d={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("a.'b cd'.d", Some("{c:d}"))));
-
-        let value = "a.'b c'/d'.d={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("a.'b c'/d'.d", Some("{c:d}"))));
-
-        let value = "[1]={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("[1]", Some("{c:d}"))));
-
-        let value = "[1].b={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("[1].b", Some("{c:d}"))));
-
-        let value = "[1][2]={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("[1][2]", Some("{c:d}"))));
-
-        let value = "[1][2].b={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("[1][2].b", Some("{c:d}"))));
-
-        // test invalid cases which will not blocked by regex, but will raise error when parse partial key parts
-        let value = "a[-1]={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("a[-1]", Some("{c:d}"))));
-
-        let value = "a[]={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("a[]", Some("{c:d}"))));
-
-        let value = "[1]..b={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("[1]..b", Some("{c:d}"))));
-
-        let value = "[1].b.={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("[1].b.", Some("{c:d}"))));
-
-        let value = "[1].[2]={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, Some(("[1].[2]", Some("{c:d}"))));
-
-        // test invalid cases which should be blocked by regex
-        let value = "[a]={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, None);
-
-        let value = "a.'b cd'e={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, None);
-
-        let value = "a[1]b={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, None);
-
-        let value = ".a={c:d}";
-        let result = parser.split_partial_value(&value);
-        assert_eq!(result, None);
+        for (value, expected) in [
+            ("a=", Some(("a", None))),
+            ("a=''", Some(("a", Some("''")))),
+            ("'a'/=b'[1].b=", Some(("'a'/=b'[1].b", None))),
+            ("a[+]={c:d}", Some(("a[+]", Some("{c:d}")))),
+            ("[+].b[+]='{c:d}'", Some(("[+].b[+]", Some("'{c:d}'")))),
+            (
+                "[+][+].'a[+]'[+]='{c:d}'",
+                Some(("[+][+].'a[+]'[+]", Some("'{c:d}'"))),
+            ),
+            ("a={c:d}", Some(("a", Some("{c:d}")))),
+            ("a.b='{c:d}'", Some(("a.b", Some("'{c:d}'")))),
+            ("a[1]={c:d}", Some(("a[1]", Some("{c:d}")))),
+            ("a[1].b={c:d}", Some(("a[1].b", Some("{c:d}")))),
+            ("a[1][2]={c:d}", Some(("a[1][2]", Some("{c:d}")))),
+            ("'a b'={c:d}", Some(("'a b'", Some("{c:d}")))),
+            ("'a '/'={c:d}", Some(("'a '/'", Some("{c:d}")))),
+            ("'a '/'.b={c:d}", Some(("'a '/'.b", Some("{c:d}")))),
+            ("'a '/'[1]={c:d}", Some(("'a '/'[1]", Some("{c:d}")))),
+            ("'a //'[1]={c:d}", Some(("'a //'[1]", Some("{c:d}")))),
+            ("'a=b'[1].b={c:d}", Some(("'a=b'[1].b", Some("{c:d}")))),
+            ("'a'/=b'[1].b=", Some(("'a'/=b'[1].b", None))),
+            ("a.b[1].d={c:d}", Some(("a.b[1].d", Some("{c:d}")))),
+            ("a.b[-1].d={c:d}", Some(("a.b[-1].d", Some("{c:d}")))),
+            ("a.b[1][2].d={c:d}", Some(("a.b[1][2].d", Some("{c:d}")))),
+            ("a.'b cd'.d={c:d}", Some(("a.'b cd'.d", Some("{c:d}")))),
+            ("a.'b c'/d'.d={c:d}", Some(("a.'b c'/d'.d", Some("{c:d}")))),
+            ("[1]={c:d}", Some(("[1]", Some("{c:d}")))),
+            ("[1].b={c:d}", Some(("[1].b", Some("{c:d}")))),
+            ("[1][2]={c:d}", Some(("[1][2]", Some("{c:d}")))),
+            ("[1][2].b={c:d}", Some(("[1][2].b", Some("{c:d}")))),
+            // test invalid cases which will not blocked by regex, but will raise error when parse partial key parts
+            ("a[-1]={c:d}", Some(("a[-1]", Some("{c:d}")))),
+            ("a[]={c:d}", Some(("a[]", Some("{c:d}")))),
+            ("[1]..b={c:d}", Some(("[1]..b", Some("{c:d}")))),
+            ("[1].b.={c:d}", Some(("[1].b.", Some("{c:d}")))),
+            ("[1].[2]={c:d}", Some(("[1].[2]", Some("{c:d}")))),
+            // test invalid cases which should be blocked by regex
+            ("[a]={c:d}", None),
+            ("a.'b cd'e={c:d}", None),
+            ("a[1]b={c:d}", None),
+            (".a={c:d}", None),
+        ] {
+            let result = parser.split_partial_value(&value);
+            assert_eq!(result, expected);
+        }
     }
 
     #[test]
     fn test_parse_partial_value_key_parts() {
         let parser = ShorthandSyntaxParser::default();
-        let key = "a";
-        let result = parser.parse_partial_value_key_parts(&key).unwrap();
-        assert_eq!(
-            result,
-            SHPartialKeys {
-                parts: vec![SHPartialKeyPart::parse_name("a").unwrap()]
-            }
-        );
 
-        let key = "a.b";
-        let result = parser.parse_partial_value_key_parts(&key).unwrap();
-        assert_eq!(
-            result,
-            SHPartialKeys {
-                parts: vec![
+        for (value, expected) in [
+            ("a", Ok(vec![SHPartialKeyPart::parse_name("a").unwrap()])),
+            (
+                "a.b",
+                Ok(vec![
                     SHPartialKeyPart::parse_name("a").unwrap(),
-                    SHPartialKeyPart::parse_name("b").unwrap()
-                ]
-            }
-        );
-
-        let key = "a[1]";
-        let result = parser.parse_partial_value_key_parts(&key).unwrap();
-        assert_eq!(
-            result,
-            SHPartialKeys {
-                parts: vec![
+                    SHPartialKeyPart::parse_name("b").unwrap(),
+                ]),
+            ),
+            (
+                "a[1]",
+                Ok(vec![
                     SHPartialKeyPart::parse_name("a").unwrap(),
-                    SHPartialKeyPart::parse_index("1").unwrap()
-                ]
-            }
-        );
-
-        let key = "a[+1].b";
-        let result = parser.parse_partial_value_key_parts(&key).unwrap();
-        assert_eq!(
-            result,
-            SHPartialKeys {
-                parts: vec![
+                    SHPartialKeyPart::parse_index("1").unwrap(),
+                ]),
+            ),
+            (
+                "a[+1].b",
+                Ok(vec![
                     SHPartialKeyPart::parse_name("a").unwrap(),
                     SHPartialKeyPart::AppendIndex(1),
-                    SHPartialKeyPart::parse_name("b").unwrap()
-                ]
-            }
-        );
-
-        let value = "[+2].b[+0]";
-        let result = parser.parse_partial_value_key_parts(&value).unwrap();
-        assert_eq!(
-            result,
-            SHPartialKeys {
-                parts: vec![
-                    SHPartialKeyPart::AppendIndex(2), // append
                     SHPartialKeyPart::parse_name("b").unwrap(),
-                    SHPartialKeyPart::AppendIndex(0) // append
-                ]
-            }
-        );
-
-        let value = "[+1][+2].'a[+1]'[+2]";
-        let result = parser.parse_partial_value_key_parts(&value).unwrap();
-        assert_eq!(
-            result,
-            SHPartialKeys {
-                parts: vec![
+                ]),
+            ),
+            (
+                "[+2].b[+0]",
+                Ok(vec![
+                    SHPartialKeyPart::AppendIndex(2),
+                    SHPartialKeyPart::parse_name("b").unwrap(),
+                    SHPartialKeyPart::AppendIndex(0),
+                ]),
+            ),
+            (
+                "[+1][+2].'a[+1]'[+2]",
+                Ok(vec![
                     SHPartialKeyPart::parse_index("+1").unwrap(),
                     SHPartialKeyPart::parse_index("+2").unwrap(),
                     SHPartialKeyPart::parse_name("a[+1]").unwrap(),
-                    SHPartialKeyPart::parse_index("+2").unwrap()
-                ]
-            }
-        );
-
-        let key = "a[1].b";
-        let result = parser.parse_partial_value_key_parts(&key).unwrap();
-        assert_eq!(
-            result,
-            SHPartialKeys {
-                parts: vec![
+                    SHPartialKeyPart::parse_index("+2").unwrap(),
+                ]),
+            ),
+            (
+                "a[1].b",
+                Ok(vec![
                     SHPartialKeyPart::parse_name("a").unwrap(),
                     SHPartialKeyPart::parse_index("1").unwrap(),
-                    SHPartialKeyPart::parse_name("b").unwrap()
-                ]
-            }
-        );
-
-        let key = "a[1][2]";
-        let result = parser.parse_partial_value_key_parts(&key).unwrap();
-        assert_eq!(
-            result,
-            SHPartialKeys {
-                parts: vec![
+                    SHPartialKeyPart::parse_name("b").unwrap(),
+                ]),
+            ),
+            (
+                "a[1][2]",
+                Ok(vec![
                     SHPartialKeyPart::parse_name("a").unwrap(),
                     SHPartialKeyPart::parse_index("1").unwrap(),
-                    SHPartialKeyPart::parse_index("2").unwrap()
-                ]
-            }
-        );
-
-        let key = "'a b'";
-        let result = parser.parse_partial_value_key_parts(&key).unwrap();
-        assert_eq!(
-            result,
-            SHPartialKeys {
-                parts: vec![SHPartialKeyPart::parse_name("a b").unwrap()]
-            }
-        );
-
-        let key = "'a '/'";
-        let result = parser.parse_partial_value_key_parts(&key).unwrap();
-        assert_eq!(
-            result,
-            SHPartialKeys {
-                parts: vec![SHPartialKeyPart::parse_name("a '").unwrap()]
-            }
-        );
-
-        let key = "'a '/'.b";
-        let result = parser.parse_partial_value_key_parts(&key).unwrap();
-        assert_eq!(
-            result,
-            SHPartialKeys {
-                parts: vec![
+                    SHPartialKeyPart::parse_index("2").unwrap(),
+                ]),
+            ),
+            (
+                "'a b'",
+                Ok(vec![SHPartialKeyPart::parse_name("a b").unwrap()]),
+            ),
+            (
+                "'a '/'",
+                Ok(vec![SHPartialKeyPart::parse_name("a '").unwrap()]),
+            ),
+            (
+                "'a '/'.b",
+                Ok(vec![
                     SHPartialKeyPart::parse_name("a '").unwrap(),
-                    SHPartialKeyPart::parse_name("b").unwrap()
-                ]
-            }
-        );
-
-        let key = "'a '/'[1]";
-        let result = parser.parse_partial_value_key_parts(&key).unwrap();
-        assert_eq!(
-            result,
-            SHPartialKeys {
-                parts: vec![
+                    SHPartialKeyPart::parse_name("b").unwrap(),
+                ]),
+            ),
+            (
+                "'a '/'[1]",
+                Ok(vec![
                     SHPartialKeyPart::parse_name("a '").unwrap(),
-                    SHPartialKeyPart::parse_index("1").unwrap()
-                ]
-            }
-        );
-
-        let key = "'a //'[1]";
-        let result = parser.parse_partial_value_key_parts(&key).unwrap();
-        assert_eq!(
-            result,
-            SHPartialKeys {
-                parts: vec![
+                    SHPartialKeyPart::parse_index("1").unwrap(),
+                ]),
+            ),
+            (
+                "'a //'[1]",
+                Ok(vec![
                     SHPartialKeyPart::parse_name("a //").unwrap(),
-                    SHPartialKeyPart::parse_index("1").unwrap()
-                ]
-            }
-        );
-
-        let key = "'a=b'[1].b";
-        let result = parser.parse_partial_value_key_parts(&key).unwrap();
-        assert_eq!(
-            result,
-            SHPartialKeys {
-                parts: vec![
+                    SHPartialKeyPart::parse_index("1").unwrap(),
+                ]),
+            ),
+            (
+                "'a=b'[1].b",
+                Ok(vec![
                     SHPartialKeyPart::parse_name("a=b").unwrap(),
                     SHPartialKeyPart::parse_index("1").unwrap(),
-                    SHPartialKeyPart::parse_name("b").unwrap()
-                ]
-            }
-        );
-
-        let key = "'a'/=b'[1].b";
-        let result = parser.parse_partial_value_key_parts(&key).unwrap();
-        assert_eq!(
-            result,
-            SHPartialKeys {
-                parts: vec![
+                    SHPartialKeyPart::parse_name("b").unwrap(),
+                ]),
+            ),
+            (
+                "'a'/=b'[1].b",
+                Ok(vec![
                     SHPartialKeyPart::parse_name("a'=b").unwrap(),
                     SHPartialKeyPart::parse_index("1").unwrap(),
-                    SHPartialKeyPart::parse_name("b").unwrap()
-                ]
-            }
-        );
-
-        let key = "a.b[1].d";
-        let result = parser.parse_partial_value_key_parts(&key).unwrap();
-        assert_eq!(
-            result,
-            SHPartialKeys {
-                parts: vec![
+                    SHPartialKeyPart::parse_name("b").unwrap(),
+                ]),
+            ),
+            (
+                "a.b[1].d",
+                Ok(vec![
                     SHPartialKeyPart::parse_name("a").unwrap(),
                     SHPartialKeyPart::parse_name("b").unwrap(),
                     SHPartialKeyPart::parse_index("1").unwrap(),
-                    SHPartialKeyPart::parse_name("d").unwrap()
-                ]
-            }
-        );
-
-        let key = "a[+1].b";
-        let result = parser.parse_partial_value_key_parts(&key).unwrap();
-        assert_eq!(
-            result,
-            SHPartialKeys {
-                parts: vec![
+                    SHPartialKeyPart::parse_name("d").unwrap(),
+                ]),
+            ),
+            (
+                "a[+1].b",
+                Ok(vec![
                     SHPartialKeyPart::parse_name("a").unwrap(),
                     SHPartialKeyPart::AppendIndex(1),
-                    SHPartialKeyPart::parse_name("b").unwrap()
-                ]
-            }
-        );
-
-        let key = "a.b[1][2].d";
-        let result = parser.parse_partial_value_key_parts(&key).unwrap();
-        assert_eq!(
-            result,
-            SHPartialKeys {
-                parts: vec![
+                    SHPartialKeyPart::parse_name("b").unwrap(),
+                ]),
+            ),
+            (
+                "a.b[1][2].d",
+                Ok(vec![
                     SHPartialKeyPart::parse_name("a").unwrap(),
                     SHPartialKeyPart::parse_name("b").unwrap(),
                     SHPartialKeyPart::parse_index("1").unwrap(),
                     SHPartialKeyPart::parse_index("2").unwrap(),
-                    SHPartialKeyPart::parse_name("d").unwrap()
-                ]
-            }
-        );
-
-        let key = "a.'b cd'.d";
-        let result = parser.parse_partial_value_key_parts(&key).unwrap();
-        assert_eq!(
-            result,
-            SHPartialKeys {
-                parts: vec![
+                    SHPartialKeyPart::parse_name("d").unwrap(),
+                ]),
+            ),
+            (
+                "a.'b cd'.d",
+                Ok(vec![
                     SHPartialKeyPart::parse_name("a").unwrap(),
                     SHPartialKeyPart::parse_name("b cd").unwrap(),
-                    SHPartialKeyPart::parse_name("d").unwrap()
-                ]
-            }
-        );
-
-        let key = "a.'b c'/d'.d";
-        let result = parser.parse_partial_value_key_parts(&key).unwrap();
-        assert_eq!(
-            result,
-            SHPartialKeys {
-                parts: vec![
+                    SHPartialKeyPart::parse_name("d").unwrap(),
+                ]),
+            ),
+            (
+                "a.'b c'/d'.d",
+                Ok(vec![
                     SHPartialKeyPart::parse_name("a").unwrap(),
                     SHPartialKeyPart::parse_name("b c'd").unwrap(),
-                    SHPartialKeyPart::parse_name("d").unwrap()
-                ]
-            }
-        );
-
-        let key = "[1]";
-        let result = parser.parse_partial_value_key_parts(&key).unwrap();
-        assert_eq!(
-            result,
-            SHPartialKeys {
-                parts: vec![SHPartialKeyPart::parse_index("1").unwrap()]
-            }
-        );
-
-        let key = "[1].b";
-        let result = parser.parse_partial_value_key_parts(&key).unwrap();
-        assert_eq!(
-            result,
-            SHPartialKeys {
-                parts: vec![
+                    SHPartialKeyPart::parse_name("d").unwrap(),
+                ]),
+            ),
+            ("[1]", Ok(vec![SHPartialKeyPart::parse_index("1").unwrap()])),
+            (
+                "[1].b",
+                Ok(vec![
                     SHPartialKeyPart::parse_index("1").unwrap(),
-                    SHPartialKeyPart::parse_name("b").unwrap()
-                ]
-            }
-        );
-
-        let key = "[1][2]";
-        let result = parser.parse_partial_value_key_parts(&key).unwrap();
-        assert_eq!(
-            result,
-            SHPartialKeys {
-                parts: vec![
-                    SHPartialKeyPart::parse_index("1").unwrap(),
-                    SHPartialKeyPart::parse_index("2").unwrap()
-                ]
-            }
-        );
-
-        let key = "[1][2].b";
-        let result = parser.parse_partial_value_key_parts(&key).unwrap();
-        assert_eq!(
-            result,
-            SHPartialKeys {
-                parts: vec![
+                    SHPartialKeyPart::parse_name("b").unwrap(),
+                ]),
+            ),
+            (
+                "[1][2]",
+                Ok(vec![
                     SHPartialKeyPart::parse_index("1").unwrap(),
                     SHPartialKeyPart::parse_index("2").unwrap(),
-                    SHPartialKeyPart::parse_name("b").unwrap()
-                ]
-            }
-        );
-
-        let key = "1.2.3";
-        let result = parser.parse_partial_value_key_parts(&key).unwrap();
-        assert_eq!(
-            result,
-            SHPartialKeys {
-                parts: vec![
+                ]),
+            ),
+            (
+                "[1][2].b",
+                Ok(vec![
+                    SHPartialKeyPart::parse_index("1").unwrap(),
+                    SHPartialKeyPart::parse_index("2").unwrap(),
+                    SHPartialKeyPart::parse_name("b").unwrap(),
+                ]),
+            ),
+            (
+                "1.2.3",
+                Ok(vec![
                     SHPartialKeyPart::parse_name("1").unwrap(),
                     SHPartialKeyPart::parse_name("2").unwrap(),
-                    SHPartialKeyPart::parse_name("3").unwrap()
-                ]
+                    SHPartialKeyPart::parse_name("3").unwrap(),
+                ]),
+            ),
+            // error cases
+            (
+                "a[1.b",
+                Err(ErrorData("Expect character ']'", "a[1.b", 3, 1)),
+            ),
+            (
+                "a.b[1.b",
+                Err(ErrorData("Expect character ']'", "a.b[1.b", 5, 1)),
+            ),
+            ("a.b[-1].d", Err(ErrorData("Invalid index, support integer for direct index or integer with + for append index.", "a.b[-1].d", 3, 4))),
+            ("a[-1].b", Err(ErrorData("Invalid index, support integer for direct index or integer with + for append index.", "a[-1].b", 1, 4))),
+            ("a[].b", Err(ErrorData("Miss prop name", "a[].b", 1, 2))),
+            ("a.b[].c", Err(ErrorData("Miss prop name", "a.b[].c", 3, 2))),
+            ("a.''.c", Err(ErrorData("Miss prop name", "a.''.c", 1, 3))),
+            ("[1]..b", Err(ErrorData("Miss prop name", "[1]..b", 3, 1))),
+            ("[1].b.", Err(ErrorData("Miss prop name", "[1].b.", 5, 1))),
+            ("[1].[2]", Err(ErrorData("Miss prop name", "[1].[2]", 3, 1))),
+            ("b[a]", Err(ErrorData("Invalid index, support integer for direct index or integer with + for append index.", "b[a]", 1, 3))),
+        ] {
+            match expected {
+                Ok(parts) => {
+                    let result = parser.parse_partial_value_key_parts(&value).unwrap();
+                    assert_eq!(result, SHPartialKeys { parts });
+                }
+                Err(ErrorData(msg_target, data_target, at_target, range_target)) => {
+                    let result = parser.parse_partial_value_key_parts(&value);
+                    match result {
+                        Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                            msg,
+                            data,
+                            at,
+                            range,
+                        }) => {
+                            assert_eq!(
+                                (msg, data, at, range),
+                                (
+                                    msg_target.to_string(),
+                                    data_target.to_string(),
+                                    at_target,
+                                    range_target
+                                )
+                            );
+                        }
+                        _ => {
+                            panic!("Unexpected result: {:?}", result);
+                        }
+                    }
+                }
             }
-        );
-    }
-
-    #[test]
-    fn test_parse_partial_value_key_parts_error() {
-        let parser = ShorthandSyntaxParser::default();
-        let key = "a[1.b";
-        let result = parser.parse_partial_value_key_parts(&key);
-        assert!(matches!(
-            result,
-            Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            }) if msg == "Expect character ']'".to_string()
-                && data == key.to_string()
-                && at == 3
-                && range == 1
-        ));
-
-        let key = "a.b[1.b";
-        let result = parser.parse_partial_value_key_parts(&key);
-        assert!(matches!(
-            result,
-            Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            }) if msg == "Expect character ']'".to_string()
-                && data == key.to_string()
-                && at == 5
-                && range == 1
-        ));
-
-        let key = "a.b[-1].d";
-        let result = parser.parse_partial_value_key_parts(&key);
-        assert!(matches!(
-            result,
-            Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            }) if msg == "Invalid index, support integer for direct index or integer with + for append index.".to_string()
-                && data == key.to_string()
-                && at == 3
-                && range == 4
-        ));
-
-        let key = "a[-1].b";
-        let result = parser.parse_partial_value_key_parts(&key);
-        assert!(matches!(
-            result,
-            Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            }) if msg == "Invalid index, support integer for direct index or integer with + for append index.".to_string()
-                && data == key.to_string()
-                && at == 1
-                && range == 4
-        ));
-
-        let key = "a[].b";
-        let result = parser.parse_partial_value_key_parts(&key);
-        assert!(matches!(
-            result,
-            Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            }) if msg == "Miss prop name".to_string()
-                && data == key.to_string()
-                && at == 1
-                && range == 2
-        ));
-
-        let key = "a.b[].c";
-        let result = parser.parse_partial_value_key_parts(&key);
-        assert!(matches!(
-            result,
-            Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            }) if msg == "Miss prop name".to_string()
-                && data == key.to_string()
-                && at == 3
-                && range == 2
-        ));
-
-        let key = "a.''.c";
-        let result = parser.parse_partial_value_key_parts(&key);
-        assert!(matches!(
-            result,
-            Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            }) if msg == "Miss prop name".to_string()
-                && data == key.to_string()
-                && at == 1
-                && range == 3
-        ));
-
-        let value = "[1]..b";
-        let result = parser.parse_partial_value_key_parts(&value);
-        assert!(matches!(
-            result,
-            Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            }) if msg == "Miss prop name".to_string()
-                && data == value.to_string()
-                && at == 3
-                && range == 1
-        ));
-
-        let value = "[1].b.";
-        let result = parser.parse_partial_value_key_parts(&value);
-        assert!(matches!(
-            result,
-            Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            }) if msg == "Miss prop name".to_string()
-                && data == value.to_string()
-                && at == 5
-                && range == 1
-        ));
-
-        let value = "[1].[2]";
-        let result = parser.parse_partial_value_key_parts(&value);
-        assert!(matches!(
-            result,
-            Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            }) if msg == "Miss prop name".to_string()
-                && data == value.to_string()
-                && at == 3
-                && range == 1
-        ));
-
-        let value = "b[a]";
-        let result = parser.parse_partial_value_key_parts(&value);
-        assert!(matches!(
-            result,
-            Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg,
-                data,
-                at,
-                range,
-            }) if msg == "Invalid index, support integer for direct index or integer with + for append index.".to_string()
-                && data == value.to_string()
-                && at == 1
-                && range == 3
-        ));
+        }
     }
 }

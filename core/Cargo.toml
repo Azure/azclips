@@ -22,5 +22,8 @@ thiserror = "2.0"
 tokio = { version = "1", features = ["full"] }
 tonic = {version = "0.12", features = ["default",]}
 
+[dev-dependencies]
+tempfile = "3.18"
+
 [build-dependencies]
 tonic-build = "0.12"
