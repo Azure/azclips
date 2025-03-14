@@ -1,17 +1,14 @@
-use std::str::{Chars, FromStr};
+use std::str::Chars;
 use std::sync::LazyLock;
 
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
-use log::{debug, info};
+use log::debug;
 use regex::Regex;
-use serde::de::value;
-use serde_json::map::IntoIter;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value};
 
 use crate::error::{AzError, AzResult, AzUserUsageError};
-use crate::pb::command::cmd_arg::ArgType;
-use crate::pb::command::{self, CmdCommand};
+use crate::pb::command::{self, cmd_arg::ArgType};
 
 use super::arg::{CmdArgWrapper, BOOLEAN_ARG_ENUM_DEFAULT};
 use super::partial::{SHPartialKeyPart, SHPartialKeys};
@@ -1193,15 +1190,14 @@ impl ShorthandSyntaxParser {
 mod tests {
     use rand::Rng;
     use serde_json::json;
-    use std::fs::File;
-    use std::io::{Seek, Write};
-    use std::result;
+    use std::io::Write;
     use tempfile::NamedTempFile;
 
     use crate::pb::command::{
         cmd_number_arg, cmd_string_arg, CmdAnyTypeArg, CmdArg, CmdArgEnum, CmdArgEnumItem,
-        CmdArrayArg, CmdBinaryFormat, CmdBooleanArg, CmdByteFormat, CmdInt32Format, CmdNumberArg,
-        CmdObjectArg, CmdObjectArgAdditionalProperties, CmdStringArg, CmdStringFormat,
+        CmdArrayArg, CmdBinaryFormat, CmdBooleanArg, CmdByteFormat, CmdCommand, CmdInt32Format,
+        CmdNumberArg, CmdObjectArg, CmdObjectArgAdditionalProperties, CmdStringArg,
+        CmdStringFormat,
     };
 
     use super::*;
@@ -1621,6 +1617,7 @@ mod tests {
                 )),
             ),
             (&arg1, json!("abc"), Err(ErrorData("Invalid boolean value: Invalid value \"abc\", accept enum items: true, t, yes, y, false, f, no, n", "abc", 0, 3))),
+            (&arg1, json!([1, 2, 3]), Err(ErrorData("Invalid boolean value: Invalid value [1,2,3], accept enum items: true, t, yes, y, false, f, no, n", "[1,2,3]", 0, 4))),
         ] {
             let mut file = NamedTempFile::with_suffix(".json").expect("Failed to create temp file");
             writeln!(file, "{}", value).expect("Failed to write to temp file");
@@ -2184,6 +2181,16 @@ mod tests {
                     "-123.456",
                     0,
                     10,
+                )),
+            ),
+            (
+                &arg1,
+                json!([1,2,3]),
+                Err(ErrorData(
+                    "Invalid value type, expect [int] type value",
+                    "[1,2,3]",
+                    0,
+                    4,
                 )),
             ),
             (
@@ -2934,6 +2941,210 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_any_type_arg_from_file() {
+        let parser = ShorthandSyntaxParser::default();
+
+        let mut cmd = CmdCommand::default();
+        let mut any_arg = CmdArg::default();
+        any_arg.var_name = "$Instance.any".to_string();
+        any_arg.name = "any".to_string();
+        any_arg.nullable = true;
+        any_arg.options = vec!["any".to_string()];
+        any_arg.arg_type = Some(ArgType::AnyType(CmdAnyTypeArg::default()));
+        cmd.args.push(any_arg);
+        // test not nullable any type arg
+        let mut any_arg = CmdArg::default();
+        any_arg.var_name = "$Instance.unNullableAny".to_string();
+        any_arg.name = "unNullableAny".to_string();
+        any_arg.options = vec!["unnullable-any".to_string()];
+        any_arg.arg_type = Some(ArgType::AnyType(CmdAnyTypeArg::default()));
+        cmd.args.push(any_arg);
+
+        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
+        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
+
+        for (arg, value, expected) in [
+            (&arg1, json!(null), Ok(Value::Null)),
+            (
+                &arg1,
+                json!(123),
+                Ok(Value::Number(serde_json::Number::from(123))),
+            ),
+            (
+                &arg1,
+                json!(-123),
+                Ok(Value::Number(serde_json::Number::from(-123))),
+            ),
+            (
+                &arg1,
+                json!(123.456),
+                Ok(Value::Number(
+                    serde_json::Number::from_f64(123.456).unwrap(),
+                )),
+            ),
+            (&arg1, json!(true), Ok(Value::Bool(true))),
+            (&arg1, json!(false), Ok(Value::Bool(false))),
+            (
+                &arg1,
+                json!("hello"),
+                Ok(Value::String("hello".to_string())),
+            ),
+            (
+                &arg1,
+                json!("hello world"),
+                Ok(Value::String("hello world".to_string())),
+            ),
+            (
+                &arg1,
+                json!({"a": "b"}),
+                Ok(Value::Object(
+                    json!({"a": "b"}).as_object().unwrap().clone(),
+                )),
+            ),
+            (
+                &arg1,
+                json!([1, 2, 3]),
+                Ok(Value::Array(json!([1, 2, 3]).as_array().unwrap().clone())),
+            ),
+            (
+                &arg1,
+                json!({
+                    "windows":"c:\\temp\\filter.json",
+                    "unix1":"/tmp/filter.json",
+                    "unix2":"/var/tmp/filter.json"
+                }),
+                Ok(Value::Object(
+                    json!({
+                        "windows":"c:\\temp\\filter.json",
+                        "unix1":"/tmp/filter.json",
+                        "unix2":"/var/tmp/filter.json"
+                    })
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+                )),
+            ),
+            (
+                &arg1,
+                json!({
+                    "a": 1,
+                    "c": "d",
+                    "d0": {},
+                    "l0": [],
+                    "l1": ["1", "2", "3"],
+                    "l2": [
+                        {"a": "b", "c": "d"},
+                        {"e": "f"},
+                        null,
+                        "null",
+                        true,
+                        false,
+                    ],
+                    "l3": [1, 2, 3],
+                    "str1":"[1,2,3]",
+                    "str2":"{a:b,c:d}",
+                }),
+                Ok(Value::Object(
+                    json!({
+                        "a": 1,
+                        "c": "d",
+                        "d0": {},
+                        "l0": [],
+                        "l1": ["1", "2", "3"],
+                        "l2": [
+                            {"a": "b", "c": "d"},
+                            {"e": "f"},
+                            null,
+                            "null",
+                            true,
+                            false,
+                        ],
+                        "l3": [1, 2, 3],
+                        "str1":"[1,2,3]",
+                        "str2":"{a:b,c:d}",
+                    })
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+                )),
+            ),
+            (
+                &arg1,
+                json!({"]": "]", "[": "[", "}": "}", "{": "{"}),
+                Ok(Value::Object(
+                    json!({"]": "]", "[": "[", "}": "}", "{": "{"})
+                        .as_object()
+                        .unwrap()
+                        .clone(),
+                )),
+            ),
+            (
+                &arg1,
+                json!({"\"": "\""}),
+                Ok(Value::Object(
+                    json!({"\"": "\""}).as_object().unwrap().clone(),
+                )),
+            ),
+            (
+                &arg1,
+                json!({"'": "'"}),
+                Ok(Value::Object(
+                    json!({"'": "'"}).as_object().unwrap().clone(),
+                )),
+            ),
+            // error cases
+            (
+                &arg2,
+                json!(null),
+                Err(ErrorData(
+                    "This argument is not allowed to be null",
+                    "null",
+                    0,
+                    4,
+                )),
+            ),
+        ] {
+            let mut file = NamedTempFile::with_suffix(".json").expect("Failed to create temp file");
+            writeln!(file, "{}", value).expect("Failed to write to temp file");
+            file.flush().expect("Failed to flush temp file");
+            let file_value = format!("file://{}", file.path().to_str().unwrap());
+
+            match expected {
+                Ok(expected) => {
+                    let result = parser.parse(file_value.as_str(), arg.to_owned()).unwrap();
+                    assert_eq!(result, SHResult::Value(expected));
+                }
+                Err(ErrorData(msg_target, _, at_target, _)) => {
+                    let result = parser.parse(file_value.as_str(), arg.clone());
+                    match result {
+                        Err(AzError::UserUsage(
+                            AzUserUsageError::InvalidShorthandSyntaxError {
+                                msg,
+                                data,
+                                at,
+                                range,
+                            },
+                        )) => {
+                            assert_eq!(
+                                (msg, data, at, range),
+                                (
+                                    msg_target.to_string(),
+                                    file_value.to_string(),
+                                    at_target,
+                                    file_value.len()
+                                )
+                            );
+                        }
+                        _ => {
+                            panic!("Unexpected result: {:?}", result);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
     fn test_parse_complex_value_without_arg() {
         let parser = ShorthandSyntaxParser::default();
 
@@ -3197,6 +3408,7 @@ mod tests {
                 .clone()
             ))),
             // test error cases
+            (&arg1, "[1,2,3]", Err(ErrorData("Expect [object] type value, found list value", "[1,2,3]", 0, 1))),
             (&arg1, "{num:abc}", Err(ErrorData("Invalid value type, expect [int] type value", "{num:abc}", 5, 4))),
             (&arg1, "{tags:{a:[1,2,3]}}", Err(ErrorData("Failed to parse string, please wrap '[' character in single quotes", "{tags:{a:[1,2,3]}}", 9, 1))),
             (&arg1, "{tags:{a:{a:b}}}", Err(ErrorData("Failed to parse string, please wrap '{' character in single quotes", "{tags:{a:{a:b}}}", 9, 1))),
@@ -3232,6 +3444,249 @@ mod tests {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn test_parse_object_arg_from_file() {
+        let parser = ShorthandSyntaxParser::default();
+
+        let mut cmd = CmdCommand::default();
+        let mut object_arg = CmdArg::default();
+        object_arg.var_name = "$Instance.object".to_string();
+        object_arg.name = "object".to_string();
+        object_arg.options = vec!["object".to_string()];
+        object_arg.nullable = true;
+        let mut object_type = CmdObjectArg::default();
+        // define the string property type
+        let mut str_arg = CmdArg::default();
+        str_arg.name = "str".to_string();
+        str_arg.options = vec!["str".to_string()];
+        str_arg.nullable = true;
+        str_arg.arg_type = Some(ArgType::Str(CmdStringArg::default()));
+        object_type.props.push(str_arg);
+        // define the number property type
+        let mut num_arg = CmdArg::default();
+        num_arg.name = "num".to_string();
+        num_arg.options = vec!["num".to_string()];
+        num_arg.nullable = true;
+        num_arg.arg_type = Some(ArgType::Number(CmdNumberArg::default()));
+        object_type.props.push(num_arg);
+        // define the bool property type
+        let mut bool_arg = CmdArg::default();
+        bool_arg.name = "bool".to_string();
+        bool_arg.options = vec!["bool".to_string()];
+        bool_arg.nullable = true;
+        bool_arg.arg_type = Some(ArgType::Boolean(CmdBooleanArg::default()));
+        object_type.props.push(bool_arg);
+        // define the array property type
+        let mut array_arg = CmdArg::default();
+        array_arg.name = "array".to_string();
+        array_arg.options = vec!["array".to_string()];
+        array_arg.nullable = true;
+        let mut array_type = CmdArrayArg::default();
+        let mut array_item_arg = CmdArg::default();
+        array_item_arg.nullable = true;
+        array_item_arg.arg_type = Some(ArgType::Str(CmdStringArg::default()));
+        array_type.item = Some(Box::new(array_item_arg));
+        array_arg.arg_type = Some(ArgType::Array(Box::new(array_type)));
+        object_type.props.push(array_arg);
+        // define the dict property type
+        let mut dict_arg = CmdArg::default();
+        dict_arg.name = "tags".to_string();
+        dict_arg.options = vec!["tags".to_string()];
+        dict_arg.nullable = true;
+        let mut dict_type = CmdObjectArg::default();
+        let mut tag_arg = CmdArg::default();
+        tag_arg.nullable = true;
+        tag_arg.arg_type = Some(ArgType::Str(CmdStringArg::default()));
+        dict_type.additional_props = Some(Box::new(CmdObjectArgAdditionalProperties {
+            item: Some(Box::new(tag_arg)),
+        }));
+        dict_arg.arg_type = Some(ArgType::Object(Box::new(dict_type)));
+        object_type.props.push(dict_arg);
+        // define the additional properties
+        let mut additional_props = CmdArg::default();
+        additional_props.nullable = true;
+        additional_props.arg_type = Some(ArgType::AnyType(CmdAnyTypeArg::default()));
+        object_type.additional_props = Some(Box::new(CmdObjectArgAdditionalProperties {
+            item: Some(Box::new(additional_props)),
+        }));
+        object_arg.arg_type = Some(ArgType::Object(Box::new(object_type)));
+        cmd.args.push(object_arg);
+
+        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
+
+        for (arg, value, expected) in [
+            (
+                &arg1,
+                json!({
+                    "str": "abc",
+                    "num": 123,
+                    "bool": true,
+                    "array": ["1", "b", "false", "true", null],  // as the element of array is string so number and boolean are converted to string
+                    "tags": {"a": "b", "c": "1", "d": "false", "e": "true", "f": null},  // as the item of dict is string so number and boolean are converted to string
+                    "additional1": 1,
+                    "additional2": false,
+                    "additional3": [1, "b", false, true, null],
+                    "additional4": {"a": "b", "c": 1, "d": false, "e": true, "f": null}, // as the item additional is any type so number and boolean are kept as number and boolean
+                    "additional5": [{"a": "b", "c": "d"}]
+                }),
+                Ok(Value::Object(
+                    json!({
+                        "str": "abc",
+                        "num": 123,
+                        "bool": true,
+                        "array": ["1", "b", "false", "true", null],  // as the element of array is string so number and boolean are converted to string
+                        "tags": {"a": "b", "c": "1", "d": "false", "e": "true", "f": null},  // as the item of dict is string so number and boolean are converted to string
+                        "additional1": 1,
+                        "additional2": false,
+                        "additional3": [1, "b", false, true, null],
+                        "additional4": {"a": "b", "c": 1, "d": false, "e": true, "f": null}, // as the item additional is any type so number and boolean are kept as number and boolean
+                        "additional5": [{"a": "b", "c": "d"}]
+                    })
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+                )),
+            ),
+            (&arg1, json!(null), Ok(Value::Null)),
+            (
+                &arg1,
+                json!({
+                    "str": null,
+                    "num": null,
+                    "bool": null,
+                    "array": null,
+                    "tags": null,
+                    "additional1": null,
+                    "additional2": null,
+                    "additional3": null,
+                    "additional4": null,
+                    "additional5": null
+                }),
+                Ok(Value::Object(
+                    json!({
+                        "str": null,
+                        "num": null,
+                        "bool": null,
+                        "array": null,
+                        "tags": null,
+                        "additional1": null,
+                        "additional2": null,
+                        "additional3": null,
+                        "additional4": null,
+                        "additional5": null
+                    })
+                    .as_object()
+                    .unwrap()
+                    .clone(),
+                )),
+            ),
+            // test error cases
+            (
+                &arg1,
+                json!([1, 2, 3]),
+                Err(ErrorData(
+                    "Invalid value type, expect [object] type value",
+                    "[1, 2, 3]",
+                    0,
+                    8,
+                )),
+            ),
+            // TODO: add support for the internal value type validation for object value from file.
+            // (
+            //     &arg1,
+            //     json!({"num":"abc"}),
+            //     Err(ErrorData(
+            //         "Invalid value type, expect [int] type value",
+            //         "{\"num\":\"abc\"}",
+            //         5,
+            //         4,
+            //     )),
+            // ),
+            // (
+            //     &arg1,
+            //     json!({"tags":{"a":[1,2,3]}}),
+            //     Err(ErrorData(
+            //         "Failed to parse string, please wrap '[' character in single quotes",
+            //         "{\"tags\":{\"a\":[1,2,3]}}}",
+            //         9,
+            //         1,
+            //     )),
+            // ),
+            // (
+            //     &arg1,
+            //     json!({"tags":{"a":{"a":"b"}}}),
+            //     Err(ErrorData(
+            //         "Failed to parse string, please wrap '{' character in single quotes",
+            //         "{\"tags\":{\"a\":{\"a\":\"b\"}}}}",
+            //         9,
+            //         1,
+            //     )),
+            // ),
+        ] {
+            let mut file = NamedTempFile::with_suffix(".json").expect("Failed to create temp file");
+            writeln!(file, "{}", value).expect("Failed to write to temp file");
+            file.flush().expect("Failed to flush temp file");
+            let file_value = format!("file://{}", file.path().to_str().unwrap());
+
+            match expected {
+                Ok(expected) => {
+                    let result = parser.parse(file_value.as_str(), arg.to_owned()).unwrap();
+                    assert_eq!(result, SHResult::Value(expected));
+                }
+                Err(ErrorData(msg_target, _, at_target, _)) => {
+                    let result = parser.parse(file_value.as_str(), arg.clone());
+                    match result {
+                        Err(AzError::UserUsage(
+                            AzUserUsageError::InvalidShorthandSyntaxError {
+                                msg,
+                                data,
+                                at,
+                                range,
+                            },
+                        )) => {
+                            assert_eq!(
+                                (msg, data, at, range),
+                                (
+                                    msg_target.to_string(),
+                                    file_value.to_string(),
+                                    at_target,
+                                    file_value.len()
+                                )
+                            );
+                        }
+                        _ => {
+                            panic!("Unexpected result: {:?}", result);
+                        }
+                    }
+                }
+            }
+        }
+
+        // test invalid json file
+        let mut file = NamedTempFile::with_suffix(".json").expect("Failed to create temp file");
+        writeln!(file, "{}", "{\"a\": \"b").expect("Failed to write to temp file");
+        file.flush().expect("Failed to flush temp file");
+        let file_value = format!("file://{}", file.path().to_str().unwrap());
+        let result = parser.parse(file_value.as_str(), arg1.to_owned());
+        match result {
+            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg,
+                data,
+                at,
+                range,
+            })) => {
+                assert!(msg.starts_with("Failed to parse json file:"));
+                assert_eq!(
+                    (data, at, range),
+                    (file_value.to_string(), 0, file_value.len())
+                );
+            }
+            _ => {
+                panic!("Unexpected result: {:?}", result);
             }
         }
     }
@@ -3380,6 +3835,7 @@ mod tests {
             (&arg1, "[{a:b]", Err(ErrorData("Expect character ',' or '}'", "[{a:b]", 5, 1))),
             (&arg1, "[[1,2,3]", Err(ErrorData("Expect character ',' or ']'", "[[1,2,3]", 8, 1))),
             (&arg2, "null", Err(ErrorData("This argument is not allowed to be null", "null", 0, 4))),
+            (&arg2, "{a:b}", Err(ErrorData("Expect [list] type value, found dict value", "{a:b}", 0, 1))),
             (&arg2, "[a,null]", Err(ErrorData("This argument is not allowed to be null", "[a,null]", 3, 5))),
         ] {
             match expected {
@@ -3413,6 +3869,116 @@ mod tests {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn test_parse_array_arg_from_file() {
+        let parser = ShorthandSyntaxParser::default();
+
+        let mut cmd = CmdCommand::default();
+        let mut arr_arg = CmdArg::default();
+        arr_arg.var_name = "$Instance.arr".to_string();
+        arr_arg.name = "arr".to_string();
+        arr_arg.options = vec!["arr".to_string()];
+        arr_arg.nullable = true;
+        let mut arr_type = CmdArrayArg::default();
+        let mut arr_item_arg = CmdArg::default();
+        arr_item_arg.nullable = true;
+        arr_item_arg.arg_type = Some(ArgType::AnyType(CmdAnyTypeArg::default()));
+        arr_type.item = Some(Box::new(arr_item_arg));
+        arr_arg.arg_type = Some(ArgType::Array(Box::new(arr_type)));
+        cmd.args.push(arr_arg);
+
+        let mut arr_arg = CmdArg::default();
+        arr_arg.var_name = "$Instance.arr2".to_string();
+        arr_arg.name = "arr2".to_string();
+        arr_arg.options = vec!["arr2".to_string()];
+        let mut arr_type = CmdArrayArg::default();
+        let mut arr_item_arg = CmdArg::default();
+        arr_item_arg.arg_type = Some(ArgType::Str(CmdStringArg::default()));
+        arr_type.item = Some(Box::new(arr_item_arg));
+        arr_arg.arg_type = Some(ArgType::Array(Box::new(arr_type)));
+        cmd.args.push(arr_arg);
+
+        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
+        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
+
+        for (arg, value, expected) in [
+            (&arg1, json!([1,2,3]), Ok(Value::Array(json!([1,2,3]).as_array().unwrap().clone()))),
+            (&arg1, json!(null), Ok(Value::Null)),
+            (&arg1, json!(["a","b","c"]), Ok(Value::Array(json!(["a","b","c"]).as_array().unwrap().clone()))),
+            (&arg1, json!(["a",1,true]), Ok(Value::Array(json!(["a",1,true]).as_array().unwrap().clone()))),
+            (&arg1, json!([1,true,false,null,"abc",[1,2,3],{"a":"b","c":1,"d":false,"e":true,"f":null}]), Ok(Value::Array(json!([1,true,false,null,"abc",[1,2,3],{"a":"b","c":1,"d":false,"e":true,"f":null}]).as_array().unwrap().clone()))),
+            (&arg2, json!(["a","1","false","true","1.2","null","'","[1, 2, 3]","{\"a\":\"b\"}"]), Ok(Value::Array(json!(["a","1","false","true","1.2","null","'","[1, 2, 3]","{\"a\":\"b\"}"]).as_array().unwrap().clone()))),
+            (&arg2, json!(["a","1","false","true","1.2"]), Ok(Value::Array(json!(["a","1","false","true","1.2"]).as_array().unwrap().clone()))),
+            // test error cases
+            (&arg2, json!(null), Err(ErrorData("This argument is not allowed to be null", "null", 0, 4))),
+            (&arg2, json!({"a":"b"}), Err(ErrorData("Invalid value type, expect [list] type value", "{\"a\":\"b\"}", 0, 1))),
+            // TODO: add support for the internal value type validation for object value from file.
+            // (&arg2, "[a,null]", Err(ErrorData("This argument is not allowed to be null", "[a,null]", 3, 5))),
+        ] {
+            let mut file = NamedTempFile::with_suffix(".json").expect("Failed to create temp file");
+            writeln!(file, "{}", value).expect("Failed to write to temp file");
+            file.flush().expect("Failed to flush temp file");
+            let file_value = format!("file://{}", file.path().to_str().unwrap());
+
+            match expected {
+                Ok(expected) => {
+                    let result = parser.parse(file_value.as_str(), arg.to_owned()).unwrap();
+                    assert_eq!(result, SHResult::Value(expected));
+                }
+                Err(ErrorData(msg_target, _, at_target, _)) => {
+                    let result = parser.parse(file_value.as_str(), arg.clone());
+                    match result {
+                        Err(AzError::UserUsage(
+                            AzUserUsageError::InvalidShorthandSyntaxError {
+                                msg,
+                                data,
+                                at,
+                                range,
+                            },
+                        )) => {
+                            assert_eq!(
+                                (msg, data, at, range),
+                                (
+                                    msg_target.to_string(),
+                                    file_value.to_string(),
+                                    at_target,
+                                    file_value.len()
+                                )
+                            );
+                        }
+                        _ => {
+                            panic!("Unexpected result: {:?}", result);
+                        }
+                    }
+                }
+            }
+        }
+
+        // test invalid json file
+        let mut file = NamedTempFile::with_suffix(".json").expect("Failed to create temp file");
+        writeln!(file, "{}", "[\"a\", \"b").expect("Failed to write to temp file");
+        file.flush().expect("Failed to flush temp file");
+        let file_value = format!("file://{}", file.path().to_str().unwrap());
+        let result = parser.parse(file_value.as_str(), arg1.to_owned());
+        match result {
+            Err(AzError::UserUsage(AzUserUsageError::InvalidShorthandSyntaxError {
+                msg,
+                data,
+                at,
+                range,
+            })) => {
+                assert!(msg.starts_with("Failed to parse json file:"));
+                assert_eq!(
+                    (data, at, range),
+                    (file_value.to_string(), 0, file_value.len())
+                );
+            }
+            _ => {
+                panic!("Unexpected result: {:?}", result);
             }
         }
     }
