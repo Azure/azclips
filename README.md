@@ -15,7 +15,7 @@ This repository contains multiple Rust projects:
 
 - Rust and Cargo (latest stable version)
 - An Azure account for testing
-
+- Install llvm
 ### Building
 
 To build the project:

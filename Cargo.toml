@@ -13,3 +13,8 @@ authors = ["Azure CLI Lite Team"]
 description = "A lightweight Azure CLI implementation"
 license = "MIT" 
 
+[workspace.dependencies]
+cargo-husky = { version = "1.5.0", default-features = false, features = [
+    "precommit-hook", "run-cargo-test", "run-cargo-clippy", "push-hook", "run-cargo-fmt"
+]}
+
