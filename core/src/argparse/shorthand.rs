@@ -96,7 +96,7 @@ impl ShorthandSyntaxParser {
 #[derive(Debug, PartialEq)]
 pub enum SHResult {
     /// contains the index keys for the help message in reverse order, should convert to the normal order in the caller
-    Help(Vec<SHPartialKeyPart>),
+    Help(SHPartialKeys),
     Value(Value),
 }
 
@@ -125,21 +125,64 @@ impl ShorthandSyntaxParser {
     ) -> AzResult<(SHResult, usize)> {
         let str = remain.as_str();
 
-        let arg_type = arg
-            .and_then(|a| Some(a.arg_type_unwrap_cls_ok()))
-            .transpose()?;
+        if arg.is_none() {
+            return if str.starts_with(self.dict_start_char) {
+                self.parse_dict(remain, None, depth)
+            } else if str.starts_with(self.list_start_char) {
+                self.parse_list(remain, None, depth)
+            } else {
+                // by string
+                let (result, len) = self.parse_string(remain, true, depth > 0)?;
+                let mut value = match result {
+                    Some(v) => v,
+                    None => {
+                        return Ok((SHResult::Help(SHPartialKeys::default()), len));
+                    }
+                };
+                if let Some(v_str) = value.as_str() {
+                    if self
+                        .file_uri_prefix
+                        .map_or(false, |prefix| v_str.starts_with(prefix))
+                    {
+                        if let Some(file_value) = self.parse_file_uri(v_str, None)? {
+                            value = file_value;
+                        }
+                    }
+                }
+                Ok((SHResult::Value(value), len))
+            };
+        }
+
+        let arg = arg.unwrap();
+
+        let arg_type = arg.arg_type_unwrap_cls_ok()?;
 
         match arg_type {
-            None => {
+            ArgType::AnyType(_) => {
                 if str.starts_with(self.dict_start_char) {
-                    self.parse_dict(remain, None, depth)
+                    match self.parse_dict(remain, None, depth)? {
+                        // convert help prefix keys for any type inner, usually the returned keys from inner parse should be empty
+                        (SHResult::Help(keys), len) => {
+                            Ok((SHResult::Help(arg.prefix_keys.with_extend(keys)), len))
+                        }
+                        (result, len) => Ok((result, len)),
+                    }
                 } else if str.starts_with(self.list_start_char) {
-                    self.parse_list(remain, None, depth)
+                    match self.parse_list(remain, None, depth)? {
+                        // convert help prefix keys for any type inner, usually the returned keys from inner parse should be empty
+                        (SHResult::Help(keys), len) => {
+                            Ok((SHResult::Help(arg.prefix_keys.with_extend(keys)), len))
+                        }
+                        (result, len) => Ok((result, len)),
+                    }
                 } else {
                     // by string
                     let (result, len) = self.parse_string(remain, true, depth > 0)?;
-                    let SHResult::Value(mut value) = result else {
-                        return Ok((result, len));
+                    let mut value = match result {
+                        Some(v) => v,
+                        None => {
+                            return Ok((SHResult::Help(arg.prefix_keys), len));
+                        }
                     };
                     if let Some(v_str) = value.as_str() {
                         if self
@@ -151,31 +194,7 @@ impl ShorthandSyntaxParser {
                             }
                         }
                     }
-                    Ok((SHResult::Value(value), len))
-                }
-            }
-            Some(ArgType::AnyType(_)) => {
-                if str.starts_with(self.dict_start_char) {
-                    self.parse_dict(remain, None, depth)
-                } else if str.starts_with(self.list_start_char) {
-                    self.parse_list(remain, None, depth)
-                } else {
-                    // by string
-                    let (result, len) = self.parse_string(remain, true, depth > 0)?;
-                    let SHResult::Value(mut value) = result else {
-                        return Ok((result, len));
-                    };
-                    if let Some(v_str) = value.as_str() {
-                        if self
-                            .file_uri_prefix
-                            .map_or(false, |prefix| v_str.starts_with(prefix))
-                        {
-                            if let Some(file_value) = self.parse_file_uri(v_str, None)? {
-                                value = file_value;
-                            }
-                        }
-                    }
-                    if value.is_null() && !arg.unwrap().is_nullable() {
+                    if value.is_null() && !arg.is_nullable() {
                         Err(AzUserUsageError::InvalidShorthandSyntaxError {
                             msg: "This argument is not allowed to be null".to_string(),
                             data: str.to_string(),
@@ -188,12 +207,12 @@ impl ShorthandSyntaxParser {
                     }
                 }
             }
-            Some(ArgType::Str(str_type)) => {
+            ArgType::Str(str_type) => {
                 let (result, len) = self.parse_string(remain, false, depth > 0)?;
                 let mut value = match result {
-                    SHResult::Value(v) => v,
-                    SHResult::Help(_) => {
-                        return Ok((result, len));
+                    Some(v) => v,
+                    None => {
+                        return Ok((SHResult::Help(arg.prefix_keys), len));
                     }
                 };
                 if let Some(v_str) = value.as_str() {
@@ -223,7 +242,7 @@ impl ShorthandSyntaxParser {
                         value = e.validate_value(value).map_err(|e| match e {
                             AzError::UserUsage(AzUserUsageError::InvalidArgumentValueError(e)) => {
                                 AzUserUsageError::InvalidShorthandSyntaxError {
-                                    msg: format!("Invalid {} value: {}", arg_type.unwrap(), e),
+                                    msg: format!("Invalid {} value: {}", arg_type, e),
                                     data: str.to_string(),
                                     at: 0,
                                     range: str.len(),
@@ -235,7 +254,7 @@ impl ShorthandSyntaxParser {
                     }
                 }
 
-                if value.is_null() && !arg.unwrap().is_nullable() {
+                if value.is_null() && !arg.is_nullable() {
                     Err(AzUserUsageError::InvalidShorthandSyntaxError {
                         msg: "This argument is not allowed to be null".to_string(),
                         data: str.to_string(),
@@ -245,10 +264,7 @@ impl ShorthandSyntaxParser {
                     .into())
                 } else if !value.is_null() && !value.is_string() {
                     Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                        msg: format!(
-                            "Invalid value type, expect {} type value",
-                            arg_type.unwrap()
-                        ),
+                        msg: format!("Invalid value type, expect {} type value", arg_type),
                         data: str.to_string(),
                         at: 0,
                         range: str.len(),
@@ -258,10 +274,13 @@ impl ShorthandSyntaxParser {
                     Ok((SHResult::Value(value), len))
                 }
             }
-            Some(ArgType::Number(number_type)) => {
+            ArgType::Number(number_type) => {
                 let (result, len) = self.parse_string(remain, true, depth > 0)?;
-                let SHResult::Value(mut value) = result else {
-                    return Ok((result, len));
+                let mut value = match result {
+                    Some(v) => v,
+                    None => {
+                        return Ok((SHResult::Help(arg.prefix_keys), len));
+                    }
                 };
                 if let Some(v_str) = value.as_str() {
                     if self
@@ -286,7 +305,7 @@ impl ShorthandSyntaxParser {
                         value = e.validate_value(value).map_err(|e| match e {
                             AzError::UserUsage(AzUserUsageError::InvalidArgumentValueError(e)) => {
                                 AzUserUsageError::InvalidShorthandSyntaxError {
-                                    msg: format!("Invalid {} value: {}", arg_type.unwrap(), e),
+                                    msg: format!("Invalid {} value: {}", arg_type, e),
                                     data: str.to_string(),
                                     at: 0,
                                     range: str.len(),
@@ -298,7 +317,7 @@ impl ShorthandSyntaxParser {
                     }
                 }
 
-                if value.is_null() && !arg.unwrap().is_nullable() {
+                if value.is_null() && !arg.is_nullable() {
                     Err(AzUserUsageError::InvalidShorthandSyntaxError {
                         msg: "This argument is not allowed to be null".to_string(),
                         data: str.to_string(),
@@ -308,10 +327,7 @@ impl ShorthandSyntaxParser {
                     .into())
                 } else if !value.is_null() && !value.is_number() {
                     Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                        msg: format!(
-                            "Invalid value type, expect {} type value",
-                            arg_type.unwrap()
-                        ),
+                        msg: format!("Invalid value type, expect {} type value", arg_type),
                         data: str.to_string(),
                         at: 0,
                         range: str.len(),
@@ -321,10 +337,13 @@ impl ShorthandSyntaxParser {
                     Ok((SHResult::Value(value), len))
                 }
             }
-            Some(ArgType::Boolean(_)) => {
+            ArgType::Boolean(_) => {
                 let (result, len) = self.parse_string(remain, true, depth > 0)?;
-                let SHResult::Value(mut value) = result else {
-                    return Ok((result, len));
+                let mut value = match result {
+                    Some(v) => v,
+                    None => {
+                        return Ok((SHResult::Help(arg.prefix_keys), len));
+                    }
                 };
                 if let Some(v_str) = value.as_str() {
                     if self
@@ -349,7 +368,7 @@ impl ShorthandSyntaxParser {
                     value = e.validate_value(value).map_err(|e| match e {
                         AzError::UserUsage(AzUserUsageError::InvalidArgumentValueError(e)) => {
                             AzUserUsageError::InvalidShorthandSyntaxError {
-                                msg: format!("Invalid {} value: {}", arg_type.unwrap(), e),
+                                msg: format!("Invalid {} value: {}", arg_type, e),
                                 data: str.to_string(),
                                 at: 0,
                                 range: str.len(),
@@ -360,7 +379,7 @@ impl ShorthandSyntaxParser {
                     })?;
                 }
 
-                if value.is_null() && !arg.unwrap().is_nullable() {
+                if value.is_null() && !arg.is_nullable() {
                     Err(AzUserUsageError::InvalidShorthandSyntaxError {
                         msg: "This argument is not allowed to be null".to_string(),
                         data: str.to_string(),
@@ -370,10 +389,7 @@ impl ShorthandSyntaxParser {
                     .into())
                 } else if !value.is_null() && !value.is_boolean() {
                     Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                        msg: format!(
-                            "Invalid value type, expect {} type value",
-                            arg_type.unwrap()
-                        ),
+                        msg: format!("Invalid value type, expect {} type value", arg_type),
                         data: str.to_string(),
                         at: 0,
                         range: str.len(),
@@ -383,12 +399,12 @@ impl ShorthandSyntaxParser {
                     Ok((SHResult::Value(value), len))
                 }
             }
-            Some(ArgType::Object(_)) => {
+            ArgType::Object(_) => {
                 if str.starts_with(self.dict_start_char) {
-                    self.parse_dict(remain, arg, depth)
+                    self.parse_dict(remain, Some(arg), depth)
                 } else if str.starts_with(self.list_start_char) {
                     return Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                        msg: format!("Expect {} type value, found list value", arg_type.unwrap()),
+                        msg: format!("Expect {} type value, found list value", arg_type),
                         data: str.to_string(),
                         at: 0,
                         range: 1,
@@ -397,8 +413,11 @@ impl ShorthandSyntaxParser {
                 } else {
                     // by string
                     let (result, len) = self.parse_string(remain, true, depth > 0)?;
-                    let SHResult::Value(mut value) = result else {
-                        return Ok((result, len));
+                    let mut value = match result {
+                        Some(v) => v,
+                        None => {
+                            return Ok((SHResult::Help(arg.prefix_keys), len));
+                        }
                     };
                     if let Some(v_str) = value.as_str() {
                         if self
@@ -411,7 +430,7 @@ impl ShorthandSyntaxParser {
                         }
                     }
 
-                    if value.is_null() && !arg.unwrap().is_nullable() {
+                    if value.is_null() && !arg.is_nullable() {
                         Err(AzUserUsageError::InvalidShorthandSyntaxError {
                             msg: "This argument is not allowed to be null".to_string(),
                             data: str.to_string(),
@@ -421,10 +440,7 @@ impl ShorthandSyntaxParser {
                         .into())
                     } else if !value.is_null() && !value.is_object() {
                         Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                            msg: format!(
-                                "Invalid value type, expect {} type value",
-                                arg_type.unwrap()
-                            ),
+                            msg: format!("Invalid value type, expect {} type value", arg_type),
                             data: str.to_string(),
                             at: 0,
                             range: str.len(),
@@ -435,23 +451,27 @@ impl ShorthandSyntaxParser {
                     }
                 }
             }
-            Some(ArgType::Array(_)) => {
+            ArgType::Array(_) => {
                 if str.starts_with(self.dict_start_char) {
                     return Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                        msg: format!("Expect {} type value, found dict value", arg_type.unwrap()),
+                        msg: format!("Expect {} type value, found dict value", arg_type),
                         data: str.to_string(),
                         at: 0,
                         range: 1,
                     }
                     .into());
                 } else if str.starts_with(self.list_start_char) {
-                    self.parse_list(remain, arg, depth)
+                    self.parse_list(remain, Some(arg), depth)
                 } else {
                     // by string
                     let (result, len) = self.parse_string(remain, true, depth > 0)?;
-                    let SHResult::Value(mut value) = result else {
-                        return Ok((result, len));
+                    let mut value = match result {
+                        Some(v) => v,
+                        None => {
+                            return Ok((SHResult::Help(arg.prefix_keys), len));
+                        }
                     };
+
                     if let Some(v_str) = value.as_str() {
                         if self
                             .file_uri_prefix
@@ -463,7 +483,7 @@ impl ShorthandSyntaxParser {
                         }
                     }
 
-                    if value.is_null() && !arg.unwrap().is_nullable() {
+                    if value.is_null() && !arg.is_nullable() {
                         Err(AzUserUsageError::InvalidShorthandSyntaxError {
                             msg: "This argument is not allowed to be null".to_string(),
                             data: str.to_string(),
@@ -473,10 +493,7 @@ impl ShorthandSyntaxParser {
                         .into())
                     } else if !value.is_null() && !value.is_array() {
                         Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                            msg: format!(
-                                "Invalid value type, expect {} type value",
-                                arg_type.unwrap()
-                            ),
+                            msg: format!("Invalid value type, expect {} type value", arg_type),
                             data: str.to_string(),
                             at: 0,
                             range: str.len(),
@@ -487,7 +504,7 @@ impl ShorthandSyntaxParser {
                     }
                 }
             }
-            Some(ArgType::Cls(_)) => {
+            ArgType::Cls(_) => {
                 unreachable!()
             }
         }
@@ -607,9 +624,12 @@ impl ShorthandSyntaxParser {
                 })?;
 
             let k = match k {
-                SHResult::Value(value) => value.as_str().unwrap().to_string(),
-                SHResult::Help(keys) => {
-                    return Ok((SHResult::Help(keys), idx));
+                Some(value) => value.as_str().unwrap().to_string(),
+                None => {
+                    return Ok((
+                        SHResult::Help(arg.map_or(SHPartialKeys::default(), |a| a.prefix_keys)),
+                        idx,
+                    ));
                 }
             };
 
@@ -651,6 +671,7 @@ impl ShorthandSyntaxParser {
 
             let key = SHPartialKeyPart::parse_name(&k)?;
             let sub_arg = arg
+                .as_ref()
                 .map(|a| {
                     a.retrieve_internal_arg_by_keys(&SHPartialKeys {
                         parts: vec![key.clone()],
@@ -735,6 +756,7 @@ impl ShorthandSyntaxParser {
             let key = SHPartialKeyPart::Index(result.len() as u16);
 
             let item_arg = arr_arg
+                .as_ref()
                 .map(|a| {
                     a.retrieve_internal_arg_by_keys(&SHPartialKeys {
                         parts: vec![key.clone()],
@@ -794,17 +816,18 @@ impl ShorthandSyntaxParser {
         .into())
     }
 
+    // return None if the string is help expression
     fn parse_string(
         &self,
         remain: &mut Chars<'_>,
         convert_simple_type: bool, // whether to convert the string into the number, boolean type.
         internal: bool, // whether to parse a string in the internal of the shorthand syntax
-    ) -> Result<(SHResult, usize), AzUserUsageError> {
+    ) -> Result<(Option<Value>, usize), AzUserUsageError> {
         let data = remain.as_str();
         let mut str = remain.as_str();
         if str.starts_with(self.single_quote_char) {
             let (result, len) = self.parse_single_quotes_string(remain)?;
-            return Ok((SHResult::Value(Value::String(result)), len));
+            return Ok((Some(Value::String(result)), len));
         }
 
         let mut idx = 0;
@@ -869,17 +892,17 @@ impl ShorthandSyntaxParser {
         }
 
         if result == self.null_expr {
-            Ok((SHResult::Value(Value::Null), idx))
+            Ok((Some(Value::Null), idx))
         } else if result == self.help_expr {
-            Ok((SHResult::Help(vec![]), idx))
+            Ok((None, idx))
         } else if convert_simple_type {
             match serde_json::from_str::<Value>(&result) {
-                Ok(Value::Bool(v)) => Ok((SHResult::Value(Value::Bool(v)), idx)),
-                Ok(Value::Number(v)) => Ok((SHResult::Value(Value::Number(v)), idx)),
-                _ => Ok((SHResult::Value(Value::String(result)), idx)),
+                Ok(Value::Bool(v)) => Ok((Some(Value::Bool(v)), idx)),
+                Ok(Value::Number(v)) => Ok((Some(Value::Number(v)), idx)),
+                _ => Ok((Some(Value::String(result)), idx)),
             }
         } else {
-            Ok((SHResult::Value(Value::String(result)), idx))
+            Ok((Some(Value::String(result)), idx))
         }
     }
 
@@ -4073,7 +4096,7 @@ mod tests {
                 Ok((v, length)) => {
                     let mut remain = value.chars();
                     let result = parser.parse_string(&mut remain, true, true).unwrap();
-                    assert_eq!(result, (SHResult::Value(v), length));
+                    assert_eq!(result, (Some(v), length));
                 }
                 Err(ErrorData(msg_target, data_target, at_target, range_target)) => {
                     let mut remain = value.chars();
@@ -4129,7 +4152,7 @@ mod tests {
                 Ok((v, length)) => {
                     let mut remain = value.chars();
                     let result = parser.parse_string(&mut remain, false, true).unwrap();
-                    assert_eq!(result, (SHResult::Value(v), length));
+                    assert_eq!(result, (Some(v), length));
                 }
                 Err(ErrorData(msg_target, data_target, at_target, range_target)) => {
                     let mut remain = value.chars();
@@ -4261,7 +4284,7 @@ mod tests {
                 Ok((v, length, tail)) => {
                     let mut remain = value.chars();
                     let result = parser.parse_string(&mut remain, false, true).unwrap();
-                    assert_eq!(result, (SHResult::Value(v), length));
+                    assert_eq!(result, (Some(v), length));
                     assert_eq!(remain.as_str(), tail);
                 }
                 Err(ErrorData(msg_target, data_target, at_target, range_target)) => {

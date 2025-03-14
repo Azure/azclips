@@ -1,4 +1,4 @@
-use std::sync::LazyLock;
+use std::{fmt, sync::LazyLock};
 
 use crate::{
     error::{AzInternalError, AzResult, AzUserUsageError},
@@ -8,15 +8,28 @@ use crate::{
 use super::partial::{SHPartialKeyPart, SHPartialKeys};
 
 /// This wrapper support unwrapping the cls type of the argument
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct CmdArgWrapper<'a> {
     cmd: &'a command::CmdCommand,
     inner: &'a command::CmdArg,
+    pub(super) prefix_keys: SHPartialKeys,
 }
 
 impl<'a> CmdArgWrapper<'a> {
     pub fn new(cmd: &'a command::CmdCommand, inner: &'a command::CmdArg) -> Self {
-        Self { cmd, inner }
+        Self {
+            cmd,
+            inner,
+            prefix_keys: SHPartialKeys {
+                parts: vec![SHPartialKeyPart::Name(inner.name.to_string())],
+            },
+        }
+    }
+}
+
+impl<'a> fmt::Display for CmdArgWrapper<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.prefix_keys)
     }
 }
 
@@ -131,9 +144,11 @@ impl<'a> CmdArgWrapper<'a> {
                 }
             }
         }
+
         Ok(Self {
             cmd: self.cmd,
             inner: arg,
+            prefix_keys: self.prefix_keys.to_owned().with_extend(keys.to_owned()),
         })
     }
 }

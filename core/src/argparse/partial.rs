@@ -32,6 +32,10 @@ impl Default for SHPartialKeys {
 }
 
 impl SHPartialKeys {
+    pub fn push(&mut self, part: SHPartialKeyPart) {
+        self.parts.push(part);
+    }
+
     pub fn extend(&mut self, other: impl IntoIterator<Item = SHPartialKeyPart>) {
         self.parts.extend(other);
     }
