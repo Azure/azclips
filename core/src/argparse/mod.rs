@@ -59,14 +59,14 @@ pub fn parse_cmd_arg(
     }
     let matched_arg = matched_arg.unwrap();
 
-    let arg = CmdArgWrapper::new(cmd, matched_arg);
+    let arg = CmdArgWrapper::new(cmd, matched_arg)?;
     let ops = parse_arg_values(&arg, values)?;
 
     Ok(Some(ops))
 }
 
 fn parse_arg_values(arg: &CmdArgWrapper, values: &[String]) -> AzResult<Vec<ArgOp>> {
-    match arg.arg_type_unwrap_cls_ok()? {
+    match arg.unwrapped_arg_type {
         command::cmd_arg::ArgType::Str(_)
         | command::cmd_arg::ArgType::Number(_)
         | command::cmd_arg::ArgType::Boolean(_) => {
@@ -158,8 +158,6 @@ fn parse_arg_value_str(
     arg: &CmdArgWrapper,
     value: Option<&str>, // None for the blank input
 ) -> AzResult<ArgOp> {
-    let arg_type = arg.arg_type_unwrap_cls_ok()?;
-
     // handle the blank input
     if value.is_none() {
         // allow prompt input
@@ -197,19 +195,44 @@ fn parse_arg_value_str(
 
     let value = value.unwrap();
 
+    match arg.unwrapped_arg_type {
+        command::cmd_arg::ArgType::AnyType(_) => {
+            // try parse from json string
+            if let Ok(v) = serde_json::from_str::<Value>(value) {
+                // if value.is_null() && !arg.is_nullable() {
+
+                // }
+                return Ok(ArgOp::ValueAssign(ArgValueAssignOp {
+                    keys: arg.prefix_keys.to_owned(),
+                    from_blank: false,
+                    value: v,
+                }));
+            }
+        }
+        command::cmd_arg::ArgType::Array(_) => {}
+        command::cmd_arg::ArgType::Object(_) => {}
+        _ => {}
+    }
+
     match SHORTHAND_SYNTAX_PARSER.parse(value, Some(arg.to_owned()))? {
-        SHResult::Help(keys) => Ok(ArgOp::Help(ArgHelpOp {
-            keys: arg
-                .prefix_keys
-                .to_owned()
-                .with_extend(keys.into_iter().rev()),
-        })),
+        SHResult::Help(keys) => Ok(ArgOp::Help(ArgHelpOp { keys })),
         SHResult::Value(value) => Ok(ArgOp::ValueAssign(ArgValueAssignOp {
             keys: arg.prefix_keys.to_owned(),
             from_blank: false,
             value,
         })),
     }
+
+    // // try parse from json string
+    // if let Ok(v) = serde_json::from_str::<Value>(value) {
+    //     return Ok(ArgOp::ValueAssign(ArgValueAssignOp {
+    //         keys: arg.prefix_keys.to_owned(),
+    //         from_blank: false,
+    //         value: v,
+    //     }));
+    // } else {
+
+    // }
 }
 
 // fn format_arg_value() {}

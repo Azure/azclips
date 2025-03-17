@@ -155,7 +155,7 @@ impl ShorthandSyntaxParser {
 
         let arg = arg.unwrap();
 
-        let arg_type = arg.arg_type_unwrap_cls_ok()?;
+        let arg_type = arg.unwrapped_arg_type;
 
         match arg_type {
             ArgType::AnyType(_) => {
@@ -194,18 +194,55 @@ impl ShorthandSyntaxParser {
                             }
                         }
                     }
-                    if value.is_null() && !arg.is_nullable() {
-                        Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                            msg: "This argument is not allowed to be null".to_string(),
+                    let value = arg.verify_value(value).map_err(|e| {
+                        if let AzError::UserUsage(e) = e {
+                            AzUserUsageError::InvalidShorthandSyntaxError {
+                                msg: e.to_string(),
+                                data: str.to_string(),
+                                at: 0,
+                                range: str.len(),
+                            }
+                            .into()
+                        } else {
+                            e
+                        }
+                    })?;
+                    Ok((SHResult::Value(value), len))
+                }
+            }
+            ArgType::Number(_) | ArgType::Boolean(_) => {
+                let (result, len) = self.parse_string(remain, true, depth > 0)?;
+                let mut value = match result {
+                    Some(v) => v,
+                    None => {
+                        return Ok((SHResult::Help(arg.prefix_keys), len));
+                    }
+                };
+                if let Some(v_str) = value.as_str() {
+                    if self
+                        .file_uri_prefix
+                        .map_or(false, |prefix| v_str.starts_with(prefix))
+                    {
+                        if let Some(file_value) = self.parse_file_uri(v_str, None)? {
+                            value = file_value;
+                        }
+                    }
+                }
+
+                let value = arg.verify_value(value).map_err(|e| {
+                    if let AzError::UserUsage(e) = e {
+                        AzUserUsageError::InvalidShorthandSyntaxError {
+                            msg: e.to_string(),
                             data: str.to_string(),
                             at: 0,
                             range: str.len(),
                         }
-                        .into())
+                        .into()
                     } else {
-                        Ok((SHResult::Value(value), len))
+                        e
                     }
-                }
+                })?;
+                Ok((SHResult::Value(value), len))
             }
             ArgType::Str(str_type) => {
                 let (result, len) = self.parse_string(remain, false, depth > 0)?;
@@ -227,184 +264,27 @@ impl ShorthandSyntaxParser {
                         }
                     }
                 }
-
-                if let Some(e) = str_type.r#enum.as_ref() {
-                    // try find value by name
-                    if let Some(v) = value
-                        .as_str()
-                        .and_then(|v| e.find_value_by_name(v).transpose())
-                        .transpose()?
-                    {
-                        value = v;
-                    }
-
-                    if !value.is_null() {
-                        value = e.validate_value(value).map_err(|e| match e {
-                            AzError::UserUsage(AzUserUsageError::InvalidArgumentValueError(e)) => {
-                                AzUserUsageError::InvalidShorthandSyntaxError {
-                                    msg: format!("Invalid {} value: {}", arg_type, e),
-                                    data: str.to_string(),
-                                    at: 0,
-                                    range: str.len(),
-                                }
-                                .into()
-                            }
-                            _ => e,
-                        })?;
-                    }
-                }
-
-                if value.is_null() && !arg.is_nullable() {
-                    Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                        msg: "This argument is not allowed to be null".to_string(),
-                        data: str.to_string(),
-                        at: 0,
-                        range: str.len(),
-                    }
-                    .into())
-                } else if !value.is_null() && !value.is_string() {
-                    Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                        msg: format!("Invalid value type, expect {} type value", arg_type),
-                        data: str.to_string(),
-                        at: 0,
-                        range: str.len(),
-                    }
-                    .into())
-                } else {
-                    Ok((SHResult::Value(value), len))
-                }
-            }
-            ArgType::Number(number_type) => {
-                let (result, len) = self.parse_string(remain, true, depth > 0)?;
-                let mut value = match result {
-                    Some(v) => v,
-                    None => {
-                        return Ok((SHResult::Help(arg.prefix_keys), len));
-                    }
-                };
-                if let Some(v_str) = value.as_str() {
-                    if self
-                        .file_uri_prefix
-                        .map_or(false, |prefix| v_str.starts_with(prefix))
-                    {
-                        if let Some(file_value) = self.parse_file_uri(v_str, None)? {
-                            value = file_value;
+                let value = arg.verify_value(value).map_err(|e| {
+                    if let AzError::UserUsage(e) = e {
+                        AzUserUsageError::InvalidShorthandSyntaxError {
+                            msg: e.to_string(),
+                            data: str.to_string(),
+                            at: 0,
+                            range: str.len(),
                         }
+                        .into()
+                    } else {
+                        e
                     }
-                }
-
-                if let Some(e) = number_type.r#enum.as_ref() {
-                    if let Some(v) = value
-                        .as_str()
-                        .and_then(|v| e.find_value_by_name(v).transpose())
-                        .transpose()?
-                    {
-                        value = v;
-                    }
-                    if !value.is_null() {
-                        value = e.validate_value(value).map_err(|e| match e {
-                            AzError::UserUsage(AzUserUsageError::InvalidArgumentValueError(e)) => {
-                                AzUserUsageError::InvalidShorthandSyntaxError {
-                                    msg: format!("Invalid {} value: {}", arg_type, e),
-                                    data: str.to_string(),
-                                    at: 0,
-                                    range: str.len(),
-                                }
-                                .into()
-                            }
-                            _ => e,
-                        })?;
-                    }
-                }
-
-                if value.is_null() && !arg.is_nullable() {
-                    Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                        msg: "This argument is not allowed to be null".to_string(),
-                        data: str.to_string(),
-                        at: 0,
-                        range: str.len(),
-                    }
-                    .into())
-                } else if !value.is_null() && !value.is_number() {
-                    Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                        msg: format!("Invalid value type, expect {} type value", arg_type),
-                        data: str.to_string(),
-                        at: 0,
-                        range: str.len(),
-                    }
-                    .into())
-                } else {
-                    Ok((SHResult::Value(value), len))
-                }
-            }
-            ArgType::Boolean(_) => {
-                let (result, len) = self.parse_string(remain, true, depth > 0)?;
-                let mut value = match result {
-                    Some(v) => v,
-                    None => {
-                        return Ok((SHResult::Help(arg.prefix_keys), len));
-                    }
-                };
-                if let Some(v_str) = value.as_str() {
-                    if self
-                        .file_uri_prefix
-                        .map_or(false, |prefix| v_str.starts_with(prefix))
-                    {
-                        if let Some(file_value) = self.parse_file_uri(v_str, None)? {
-                            value = file_value;
-                        }
-                    }
-                }
-
-                let e = &BOOLEAN_ARG_ENUM_DEFAULT;
-                if let Some(v) = value
-                    .as_str()
-                    .and_then(|v| e.find_value_by_name(v).transpose())
-                    .transpose()?
-                {
-                    value = v;
-                }
-                if !value.is_null() {
-                    value = e.validate_value(value).map_err(|e| match e {
-                        AzError::UserUsage(AzUserUsageError::InvalidArgumentValueError(e)) => {
-                            AzUserUsageError::InvalidShorthandSyntaxError {
-                                msg: format!("Invalid {} value: {}", arg_type, e),
-                                data: str.to_string(),
-                                at: 0,
-                                range: str.len(),
-                            }
-                            .into()
-                        }
-                        _ => e,
-                    })?;
-                }
-
-                if value.is_null() && !arg.is_nullable() {
-                    Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                        msg: "This argument is not allowed to be null".to_string(),
-                        data: str.to_string(),
-                        at: 0,
-                        range: str.len(),
-                    }
-                    .into())
-                } else if !value.is_null() && !value.is_boolean() {
-                    Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                        msg: format!("Invalid value type, expect {} type value", arg_type),
-                        data: str.to_string(),
-                        at: 0,
-                        range: str.len(),
-                    }
-                    .into())
-                } else {
-                    Ok((SHResult::Value(value), len))
-                }
+                })?;
+                Ok((SHResult::Value(value), len))
             }
             ArgType::Object(_) => {
                 if str.starts_with(self.dict_start_char) {
                     self.parse_dict(remain, Some(arg), depth)
                 } else if str.starts_with(self.list_start_char) {
                     return Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                        msg: format!("Expect {} type value, found list value", arg_type),
+                        msg: arg.invalid_value_type().err().unwrap().to_string(),
                         data: str.to_string(),
                         at: 0,
                         range: 1,
@@ -430,31 +310,26 @@ impl ShorthandSyntaxParser {
                         }
                     }
 
-                    if value.is_null() && !arg.is_nullable() {
-                        Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                            msg: "This argument is not allowed to be null".to_string(),
-                            data: str.to_string(),
-                            at: 0,
-                            range: str.len(),
+                    let value = arg.verify_value(value).map_err(|e| {
+                        if let AzError::UserUsage(e) = e {
+                            AzUserUsageError::InvalidShorthandSyntaxError {
+                                msg: e.to_string(),
+                                data: str.to_string(),
+                                at: 0,
+                                range: str.len(),
+                            }
+                            .into()
+                        } else {
+                            e
                         }
-                        .into())
-                    } else if !value.is_null() && !value.is_object() {
-                        Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                            msg: format!("Invalid value type, expect {} type value", arg_type),
-                            data: str.to_string(),
-                            at: 0,
-                            range: str.len(),
-                        }
-                        .into())
-                    } else {
-                        Ok((SHResult::Value(value), len))
-                    }
+                    })?;
+                    Ok((SHResult::Value(value), len))
                 }
             }
             ArgType::Array(_) => {
                 if str.starts_with(self.dict_start_char) {
                     return Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                        msg: format!("Expect {} type value, found dict value", arg_type),
+                        msg: arg.invalid_value_type().err().unwrap().to_string(),
                         data: str.to_string(),
                         at: 0,
                         range: 1,
@@ -483,25 +358,20 @@ impl ShorthandSyntaxParser {
                         }
                     }
 
-                    if value.is_null() && !arg.is_nullable() {
-                        Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                            msg: "This argument is not allowed to be null".to_string(),
-                            data: str.to_string(),
-                            at: 0,
-                            range: str.len(),
+                    let value = arg.verify_value(value).map_err(|e| {
+                        if let AzError::UserUsage(e) = e {
+                            AzUserUsageError::InvalidShorthandSyntaxError {
+                                msg: e.to_string(),
+                                data: str.to_string(),
+                                at: 0,
+                                range: str.len(),
+                            }
+                            .into()
+                        } else {
+                            e
                         }
-                        .into())
-                    } else if !value.is_null() && !value.is_array() {
-                        Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                            msg: format!("Invalid value type, expect {} type value", arg_type),
-                            data: str.to_string(),
-                            at: 0,
-                            range: str.len(),
-                        }
-                        .into())
-                    } else {
-                        Ok((SHResult::Value(value), len))
-                    }
+                    })?;
+                    Ok((SHResult::Value(value), len))
                 }
             }
             ArgType::Cls(_) => {
@@ -1307,8 +1177,8 @@ mod tests {
         str_arg.arg_type = Some(ArgType::Str(str_type));
         cmd.args.push(str_arg);
 
-        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
-        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
+        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]).unwrap());
+        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]).unwrap());
 
         for (arg, value, expected) in vec![
             (&arg1, "null", Ok(Value::Null)),
@@ -1323,7 +1193,7 @@ mod tests {
                 &arg2,
                 "null",
                 Err(ErrorData(
-                    "This argument is not allowed to be null",
+                    "Invalid argument value: 'name' argument is not allowed to be null",
                     "null",
                     0,
                     4,
@@ -1484,9 +1354,9 @@ mod tests {
         bool_arg.arg_type = Some(ArgType::Boolean(bool_type));
         cmd.args.push(bool_arg);
 
-        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
+        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]).unwrap());
 
-        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
+        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]).unwrap());
 
         for (arg, value, expected) in vec![
             (&arg1, "F", Ok(Value::Bool(false))),
@@ -1535,13 +1405,13 @@ mod tests {
                 &arg2,
                 "null",
                 Err(ErrorData(
-                    "This argument is not allowed to be null",
+                    "Invalid argument value: 'unnullable' argument is not allowed to be null",
                     "null",
                     0,
                     4,
                 )),
             ),
-            (&arg1, "abc", Err(ErrorData("Invalid boolean value: Invalid value \"abc\", accept enum items: true, t, yes, y, false, f, no, n", "abc", 0, 3))),
+            (&arg1, "abc", Err(ErrorData("Invalid argument value: 'enabled' argument has invalid value: invalid value \"abc\", accept enum items: true, t, yes, y, false, f, no, n", "abc", 0, 3))),
         ] {
             match expected {
                 Ok(expected) => {
@@ -1601,8 +1471,8 @@ mod tests {
         bool_arg.arg_type = Some(ArgType::Boolean(bool_type));
         cmd.args.push(bool_arg);
 
-        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
-        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
+        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]).unwrap());
+        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]).unwrap());
 
         for (arg, value, expected) in vec![
             (&arg1, json!(false), Ok(Value::Bool(false))),
@@ -1633,14 +1503,14 @@ mod tests {
                 &arg2,
                 json!(null),
                 Err(ErrorData(
-                    "This argument is not allowed to be null",
+                    "Invalid argument value: 'enabled2' argument is not allowed to be null",
                     "null",
                     0,
                     4,
                 )),
             ),
-            (&arg1, json!("abc"), Err(ErrorData("Invalid boolean value: Invalid value \"abc\", accept enum items: true, t, yes, y, false, f, no, n", "abc", 0, 3))),
-            (&arg1, json!([1, 2, 3]), Err(ErrorData("Invalid boolean value: Invalid value [1,2,3], accept enum items: true, t, yes, y, false, f, no, n", "[1,2,3]", 0, 4))),
+            (&arg1, json!("abc"), Err(ErrorData("Invalid argument value: 'enabled' argument has invalid value: invalid value \"abc\", accept enum items: true, t, yes, y, false, f, no, n", "abc", 0, 3))),
+            (&arg1, json!([1, 2, 3]), Err(ErrorData("Invalid argument value: 'enabled' argument has invalid value: invalid value [1,2,3], accept enum items: true, t, yes, y, false, f, no, n", "[1,2,3]", 0, 4))),
         ] {
             let mut file = NamedTempFile::with_suffix(".json").expect("Failed to create temp file");
             writeln!(file, "{}", value).expect("Failed to write to temp file");
@@ -1825,9 +1695,9 @@ mod tests {
         num_arg.arg_type = Some(ArgType::Number(num_type));
         cmd.args.push(num_arg);
 
-        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
-        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
-        let arg3 = Some(CmdArgWrapper::new(&cmd, &cmd.args[2]));
+        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]).unwrap());
+        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]).unwrap());
+        let arg3 = Some(CmdArgWrapper::new(&cmd, &cmd.args[2]).unwrap());
 
         for (arg, value, expected) in vec![
             (&arg1, "0", Ok(Value::Number(serde_json::Number::from(0)))),
@@ -1878,7 +1748,7 @@ mod tests {
                 &arg1,
                 "'0'",
                 Err(ErrorData(
-                    "Invalid value type, expect [int] type value",
+                    "Invalid argument value: 'size' argument has invalid value type, expect [int] type value",
                     "'0'",
                     0,
                     3,
@@ -1888,7 +1758,7 @@ mod tests {
                 &arg1,
                 "'0.0'",
                 Err(ErrorData(
-                    "Invalid value type, expect [int] type value",
+                    "Invalid argument value: 'size' argument has invalid value type, expect [int] type value",
                     "'0.0'",
                     0,
                     5,
@@ -1898,7 +1768,7 @@ mod tests {
                 &arg1,
                 "'123'",
                 Err(ErrorData(
-                    "Invalid value type, expect [int] type value",
+                    "Invalid argument value: 'size' argument has invalid value type, expect [int] type value",
                     "'123'",
                     0,
                     5,
@@ -1908,7 +1778,7 @@ mod tests {
                 &arg1,
                 "'-123'",
                 Err(ErrorData(
-                    "Invalid value type, expect [int] type value",
+                    "Invalid argument value: 'size' argument has invalid value type, expect [int] type value",
                     "'-123'",
                     0,
                     6,
@@ -1918,7 +1788,7 @@ mod tests {
                 &arg1,
                 "'123.456'",
                 Err(ErrorData(
-                    "Invalid value type, expect [int] type value",
+                    "Invalid argument value: 'size' argument has invalid value type, expect [int] type value",
                     "'123.456'",
                     0,
                     9,
@@ -1928,7 +1798,7 @@ mod tests {
                 &arg1,
                 "'-123.456'",
                 Err(ErrorData(
-                    "Invalid value type, expect [int] type value",
+                    "Invalid argument value: 'size' argument has invalid value type, expect [int] type value",
                     "'-123.456'",
                     0,
                     10,
@@ -1938,7 +1808,7 @@ mod tests {
                 &arg2,
                 "5",
                 Err(ErrorData(
-                    "Invalid [int] value: Invalid value 5, accept enum items: sm, md, lg, none",
+                    "Invalid argument value: 'vcore' argument has invalid value: invalid value 5, accept enum items: sm, md, lg, none",
                     "5",
                     0,
                     1,
@@ -1948,7 +1818,7 @@ mod tests {
                 &arg2,
                 "xl",
                 Err(ErrorData(
-                    "Invalid [int] value: Invalid value \"xl\", accept enum items: sm, md, lg, none",
+                    "Invalid argument value: 'vcore' argument has invalid value: invalid value \"xl\", accept enum items: sm, md, lg, none",
                     "xl",
                     0,
                     2,
@@ -1958,7 +1828,7 @@ mod tests {
                 &arg3,
                 "null",
                 Err(ErrorData(
-                    "This argument is not allowed to be null",
+                    "Invalid argument value: 'unnullable' argument is not allowed to be null",
                     "null",
                     0,
                     4,
@@ -2057,9 +1927,9 @@ mod tests {
         num_arg.arg_type = Some(ArgType::Number(num_type));
         cmd.args.push(num_arg);
 
-        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
-        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
-        let arg3 = Some(CmdArgWrapper::new(&cmd, &cmd.args[2]));
+        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]).unwrap());
+        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]).unwrap());
+        let arg3 = Some(CmdArgWrapper::new(&cmd, &cmd.args[2]).unwrap());
 
         for (arg, value, expected) in vec![
             (
@@ -2150,7 +2020,7 @@ mod tests {
                 &arg1,
                 json!("0"),
                 Err(ErrorData(
-                    "Invalid value type, expect [int] type value",
+                    "Invalid argument value: 'size' argument has invalid value type, expect [int] type value",
                     "0",
                     0,
                     3,
@@ -2160,7 +2030,7 @@ mod tests {
                 &arg1,
                 json!("0.0"),
                 Err(ErrorData(
-                    "Invalid value type, expect [int] type value",
+                    "Invalid argument value: 'size' argument has invalid value type, expect [int] type value",
                     "0.0",
                     0,
                     5,
@@ -2170,7 +2040,7 @@ mod tests {
                 &arg1,
                 json!("123"),
                 Err(ErrorData(
-                    "Invalid value type, expect [int] type value",
+                    "Invalid argument value: 'size' argument has invalid value type, expect [int] type value",
                     "123",
                     0,
                     5,
@@ -2180,7 +2050,7 @@ mod tests {
                 &arg1,
                 json!("-123"),
                 Err(ErrorData(
-                    "Invalid value type, expect [int] type value",
+                    "Invalid argument value: 'size' argument has invalid value type, expect [int] type value",
                     "-123",
                     0,
                     6,
@@ -2190,7 +2060,7 @@ mod tests {
                 &arg1,
                 json!("123.456"),
                 Err(ErrorData(
-                    "Invalid value type, expect [int] type value",
+                    "Invalid argument value: 'size' argument has invalid value type, expect [int] type value",
                     "123.456",
                     0,
                     9,
@@ -2200,7 +2070,7 @@ mod tests {
                 &arg1,
                 json!("-123.456"),
                 Err(ErrorData(
-                    "Invalid value type, expect [int] type value",
+                    "Invalid argument value: 'size' argument has invalid value type, expect [int] type value",
                     "-123.456",
                     0,
                     10,
@@ -2210,7 +2080,7 @@ mod tests {
                 &arg1,
                 json!([1,2,3]),
                 Err(ErrorData(
-                    "Invalid value type, expect [int] type value",
+                    "Invalid argument value: 'size' argument has invalid value type, expect [int] type value",
                     "[1,2,3]",
                     0,
                     4,
@@ -2220,7 +2090,7 @@ mod tests {
                 &arg2,
                 json!(5),
                 Err(ErrorData(
-                    "Invalid [int] value: Invalid value 5, accept enum items: sm, md, lg, none",
+                    "Invalid argument value: 'vcore' argument has invalid value: invalid value 5, accept enum items: sm, md, lg, none",
                     "5",
                     0,
                     1,
@@ -2230,7 +2100,7 @@ mod tests {
                 &arg2,
                 json!("xl"),
                 Err(ErrorData(
-                    "Invalid [int] value: Invalid value \"xl\", accept enum items: sm, md, lg, none",
+                    "Invalid argument value: 'vcore' argument has invalid value: invalid value \"xl\", accept enum items: sm, md, lg, none",
                     "xl",
                     0,
                     2,
@@ -2240,7 +2110,7 @@ mod tests {
                 &arg3,
                 json!(null),
                 Err(ErrorData(
-                    "This argument is not allowed to be null",
+                    "Invalid argument value: 'unnullable' argument is not allowed to be null",
                     "null",
                     0,
                     4,
@@ -2432,9 +2302,9 @@ mod tests {
         str_arg.arg_type = Some(ArgType::Str(str_type));
         cmd.args.push(str_arg);
 
-        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
-        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
-        let arg3 = Some(CmdArgWrapper::new(&cmd, &cmd.args[2]));
+        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]).unwrap());
+        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]).unwrap());
+        let arg3 = Some(CmdArgWrapper::new(&cmd, &cmd.args[2]).unwrap());
 
         for (arg, value, expected) in [
             (&arg1, "'hello'", Ok(Value::String("hello".to_string()))),
@@ -2504,9 +2374,9 @@ mod tests {
             (
                 &arg2,
                 "X",
-                Err(ErrorData("Invalid [string] value: Invalid value \"X\", accept enum items: sm, md, lg, none", "X", 0, 1)),
+                Err(ErrorData("Invalid argument value: 'vcore' argument has invalid value: invalid value \"X\", accept enum items: sm, md, lg, none", "X", 0, 1)),
             ),
-            (&arg3, "null", Err(ErrorData("This argument is not allowed to be null", "null", 0, 4))),
+            (&arg3, "null", Err(ErrorData("Invalid argument value: 'other' argument is not allowed to be null", "null", 0, 4))),
         ] {
             match expected {
                 Ok(expected) => {
@@ -2613,10 +2483,10 @@ mod tests {
         str_arg.arg_type = Some(ArgType::Str(str_type));
         cmd.args.push(str_arg);
 
-        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
-        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
-        let byte_arg = Some(CmdArgWrapper::new(&cmd, &cmd.args[2]));
-        let binary_arg = Some(CmdArgWrapper::new(&cmd, &cmd.args[3]));
+        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]).unwrap());
+        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]).unwrap());
+        let byte_arg = Some(CmdArgWrapper::new(&cmd, &cmd.args[2]).unwrap());
+        let binary_arg = Some(CmdArgWrapper::new(&cmd, &cmd.args[3]).unwrap());
 
         let mut rng = rand::thread_rng();
         let random_bytes: Vec<u8> = (0..100).map(|_| rng.gen()).collect();
@@ -2681,7 +2551,7 @@ mod tests {
                 &arg1,
                 json!(1),
                 Err(ErrorData(
-                    "Invalid value type, expect [string] type value",
+                    "Invalid argument value: 'name' argument has invalid value type, expect [string] type value",
                     "1",
                     0,
                     1,
@@ -2691,7 +2561,7 @@ mod tests {
                 &arg1,
                 json!(true),
                 Err(ErrorData(
-                    "Invalid value type, expect [string] type value",
+                    "Invalid argument value: 'name' argument has invalid value type, expect [string] type value",
                     "true",
                     0,
                     4,
@@ -2701,7 +2571,7 @@ mod tests {
                 &arg1,
                 json!(false),
                 Err(ErrorData(
-                    "Invalid value type, expect [string] type value",
+                    "Invalid argument value: 'name' argument has invalid value type, expect [string] type value",
                     "false",
                     0,
                     5,
@@ -2711,7 +2581,7 @@ mod tests {
                 &arg1,
                 json!([1, 2, 3]),
                 Err(ErrorData(
-                    "Invalid value type, expect [string] type value",
+                    "Invalid argument value: 'name' argument has invalid value type, expect [string] type value",
                     "[1, 2, 3]",
                     0,
                     9,
@@ -2721,14 +2591,14 @@ mod tests {
                 &arg1,
                 json!({"a": "b"}),
                 Err(ErrorData(
-                    "Invalid value type, expect [string] type value",
+                    "Invalid argument value: 'name' argument has invalid value type, expect [string] type value",
                     "{\"a\":\"b\"}",
                     0,
                     9,
                 )),
             ),
-            (&arg2, json!("X"), Err(ErrorData("Invalid [string] value: Invalid value \"X\", accept enum items: sm, md, lg, none", "X", 0, 1))),
-            (&byte_arg, json!(null), Err(ErrorData("This argument is not allowed to be null", "null", 0, 4))),
+            (&arg2, json!("X"), Err(ErrorData("Invalid argument value: 'vcore' argument has invalid value: invalid value \"X\", accept enum items: sm, md, lg, none", "X", 0, 1))),
+            (&byte_arg, json!(null), Err(ErrorData("Invalid argument value: 'byte' argument is not allowed to be null", "null", 0, 4))),
         ] {
             let mut file = NamedTempFile::with_suffix(".json").expect("Failed to create temp file");
             writeln!(file, "{}", value).expect("Failed to write to temp file");
@@ -2838,8 +2708,8 @@ mod tests {
         any_arg.arg_type = Some(ArgType::AnyType(CmdAnyTypeArg::default()));
         cmd.args.push(any_arg);
 
-        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
-        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
+        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]).unwrap());
+        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]).unwrap());
 
         for (arg, value, expected) in [
             (&arg1, "null", Ok(Value::Null)),
@@ -2926,7 +2796,7 @@ mod tests {
             (&arg1, "{a:b,[:2}", Err(ErrorData("Failed to parse string, please wrap '[' character in single quotes", "{a:b,[:2}", 5, 1))),
             (&arg1, "[1, 2, 3]", Err(ErrorData("Failed to parse string, please wrap whitespace character in single quotes", "[1, 2, 3]", 3, 1))),
             (&arg1, "{a:1,c:2},3", Err(ErrorData("Redundant tail", "{a:1,c:2},3", 9, 2))),
-            (&arg2, "null", Err(ErrorData("This argument is not allowed to be null", "null", 0, 4))),
+            (&arg2, "null", Err(ErrorData("Invalid argument value: 'unNullableAny' argument is not allowed to be null", "null", 0, 4))),
         ] {
             match expected {
                 Ok(expected) => {
@@ -2983,8 +2853,8 @@ mod tests {
         any_arg.arg_type = Some(ArgType::AnyType(CmdAnyTypeArg::default()));
         cmd.args.push(any_arg);
 
-        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
-        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
+        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]).unwrap());
+        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]).unwrap());
 
         for (arg, value, expected) in [
             (&arg1, json!(null), Ok(Value::Null)),
@@ -3120,7 +2990,7 @@ mod tests {
                 &arg2,
                 json!(null),
                 Err(ErrorData(
-                    "This argument is not allowed to be null",
+                    "Invalid argument value: 'unNullableAny' argument is not allowed to be null",
                     "null",
                     0,
                     4,
@@ -3392,7 +3262,7 @@ mod tests {
         object_arg.arg_type = Some(ArgType::Object(Box::new(object_type)));
         cmd.args.push(object_arg);
 
-        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
+        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]).unwrap());
 
         for (arg, value, expected) in [
             (&arg1, "{str:abc,num:123,bool:true,array:[1,b,false,true,null],tags:{a:b,c:1,d:false,e:true,f:null},additional1:1,additional2:false,additional3:[1,b,false,true,null],additional4:{a:b,c:1,d:false,e:true,f:null},additional5:[{a:b,c:d}]}", Ok(Value::Object(
@@ -3431,8 +3301,8 @@ mod tests {
                 .clone()
             ))),
             // test error cases
-            (&arg1, "[1,2,3]", Err(ErrorData("Expect [object] type value, found list value", "[1,2,3]", 0, 1))),
-            (&arg1, "{num:abc}", Err(ErrorData("Invalid value type, expect [int] type value", "{num:abc}", 5, 4))),
+            (&arg1, "[1,2,3]", Err(ErrorData("Invalid argument value: 'object' argument has invalid value type, expect [object] type value", "[1,2,3]", 0, 1))),
+            (&arg1, "{num:abc}", Err(ErrorData("Invalid argument value: 'object.num' argument has invalid value type, expect [int] type value", "{num:abc}", 5, 4))),
             (&arg1, "{tags:{a:[1,2,3]}}", Err(ErrorData("Failed to parse string, please wrap '[' character in single quotes", "{tags:{a:[1,2,3]}}", 9, 1))),
             (&arg1, "{tags:{a:{a:b}}}", Err(ErrorData("Failed to parse string, please wrap '{' character in single quotes", "{tags:{a:{a:b}}}", 9, 1))),
         ] {
@@ -3539,7 +3409,7 @@ mod tests {
         object_arg.arg_type = Some(ArgType::Object(Box::new(object_type)));
         cmd.args.push(object_arg);
 
-        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
+        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]).unwrap());
 
         for (arg, value, expected) in [
             (
@@ -3612,7 +3482,7 @@ mod tests {
                 &arg1,
                 json!([1, 2, 3]),
                 Err(ErrorData(
-                    "Invalid value type, expect [object] type value",
+                    "Invalid argument value: 'object' argument has invalid value type, expect [object] type value",
                     "[1, 2, 3]",
                     0,
                     8,
@@ -3747,8 +3617,8 @@ mod tests {
         dict_arg.arg_type = Some(ArgType::Object(Box::new(dict_type)));
         cmd.args.push(dict_arg);
 
-        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
-        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
+        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]).unwrap());
+        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]).unwrap());
 
         for (arg, value, expected) in [
             (&arg1, "{a:b,c:1,d:true,e:null,f:[1,b,false,true,null],g:{a:b,c:1,d:false,e:true,f:null}}", Ok(Value::Object(
@@ -3772,8 +3642,8 @@ mod tests {
             // test error cases
             (&arg1, "{a:b,f:[1,g:{a:b,f:null}}", Err(ErrorData("Expect character ',' or ']'", "{a:b,f:[1,g:{a:b,f:null}}", 11, 1))),
             (&arg1, "{a:b,g:{a:b,f:[1,2,3]}", Err(ErrorData("Expect character ',' or '}'", "{a:b,g:{a:b,f:[1,2,3]}", 22, 1))),
-            (&arg2, "null", Err(ErrorData("This argument is not allowed to be null", "null", 0, 4))),
-            (&arg2, "{a:b,c:1,d:true,e:null}", Err(ErrorData("This argument is not allowed to be null", "{a:b,c:1,d:true,e:null}", 18, 5))),
+            (&arg2, "null", Err(ErrorData("Invalid argument value: 'dict2' argument is not allowed to be null", "null", 0, 4))),
+            (&arg2, "{a:b,c:1,d:true,e:null}", Err(ErrorData("Invalid argument value: 'dict2.e' argument is not allowed to be null", "{a:b,c:1,d:true,e:null}", 18, 5))),
             (&arg2, "{f:[1,2,3]}", Err(ErrorData("Failed to parse string, please wrap '[' character in single quotes", "{f:[1,2,3]}", 3, 1))),
             (&arg2, "{g:{a:b}}", Err(ErrorData("Failed to parse string, please wrap '{' character in single quotes", "{g:{a:b}}", 3, 1))),
             (&arg2, "{h:hello world}", Err(ErrorData("Failed to parse string, please wrap whitespace character in single quotes", "{h:hello world}", 8, 1))),
@@ -3842,8 +3712,8 @@ mod tests {
         arr_arg.arg_type = Some(ArgType::Array(Box::new(arr_type)));
         cmd.args.push(arr_arg);
 
-        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
-        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
+        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]).unwrap());
+        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]).unwrap());
 
         for (arg, value, expected) in [
             (&arg1, "[1,2,3]", Ok(Value::Array(json!([1,2,3]).as_array().unwrap().clone()))),
@@ -3857,9 +3727,9 @@ mod tests {
             // test error cases
             (&arg1, "[{a:b]", Err(ErrorData("Expect character ',' or '}'", "[{a:b]", 5, 1))),
             (&arg1, "[[1,2,3]", Err(ErrorData("Expect character ',' or ']'", "[[1,2,3]", 8, 1))),
-            (&arg2, "null", Err(ErrorData("This argument is not allowed to be null", "null", 0, 4))),
-            (&arg2, "{a:b}", Err(ErrorData("Expect [list] type value, found dict value", "{a:b}", 0, 1))),
-            (&arg2, "[a,null]", Err(ErrorData("This argument is not allowed to be null", "[a,null]", 3, 5))),
+            (&arg2, "null", Err(ErrorData("Invalid argument value: 'arr2' argument is not allowed to be null", "null", 0, 4))),
+            (&arg2, "{a:b}", Err(ErrorData("Invalid argument value: 'arr2' argument has invalid value type, expect [list] type value", "{a:b}", 0, 1))),
+            (&arg2, "[a,null]", Err(ErrorData("Invalid argument value: 'arr2[1]' argument is not allowed to be null", "[a,null]", 3, 5))),
         ] {
             match expected {
                 Ok(expected) => {
@@ -3925,8 +3795,8 @@ mod tests {
         arr_arg.arg_type = Some(ArgType::Array(Box::new(arr_type)));
         cmd.args.push(arr_arg);
 
-        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]));
-        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]));
+        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]).unwrap());
+        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]).unwrap());
 
         for (arg, value, expected) in [
             (&arg1, json!([1,2,3]), Ok(Value::Array(json!([1,2,3]).as_array().unwrap().clone()))),
@@ -3937,8 +3807,8 @@ mod tests {
             (&arg2, json!(["a","1","false","true","1.2","null","'","[1, 2, 3]","{\"a\":\"b\"}"]), Ok(Value::Array(json!(["a","1","false","true","1.2","null","'","[1, 2, 3]","{\"a\":\"b\"}"]).as_array().unwrap().clone()))),
             (&arg2, json!(["a","1","false","true","1.2"]), Ok(Value::Array(json!(["a","1","false","true","1.2"]).as_array().unwrap().clone()))),
             // test error cases
-            (&arg2, json!(null), Err(ErrorData("This argument is not allowed to be null", "null", 0, 4))),
-            (&arg2, json!({"a":"b"}), Err(ErrorData("Invalid value type, expect [list] type value", "{\"a\":\"b\"}", 0, 1))),
+            (&arg2, json!(null), Err(ErrorData("Invalid argument value: 'arr2' argument is not allowed to be null", "null", 0, 4))),
+            (&arg2, json!({"a":"b"}), Err(ErrorData("Invalid argument value: 'arr2' argument has invalid value type, expect [list] type value", "{\"a\":\"b\"}", 0, 1))),
             // TODO: add support for the internal value type validation for object value from file.
             // (&arg2, "[a,null]", Err(ErrorData("This argument is not allowed to be null", "[a,null]", 3, 5))),
         ] {

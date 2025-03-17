@@ -1,7 +1,10 @@
 use std::{fmt, sync::LazyLock};
 
+use rand::Error;
+use serde_json::Value;
+
 use crate::{
-    error::{AzInternalError, AzResult, AzUserUsageError},
+    error::{AzError, AzInternalError, AzResult, AzUserUsageError},
     pb::command,
 };
 
@@ -12,18 +15,24 @@ use super::partial::{SHPartialKeyPart, SHPartialKeys};
 pub struct CmdArgWrapper<'a> {
     cmd: &'a command::CmdCommand,
     inner: &'a command::CmdArg,
+    pub(super) unwrapped_arg_type: &'a command::cmd_arg::ArgType,
     pub(super) prefix_keys: SHPartialKeys,
 }
 
 impl<'a> CmdArgWrapper<'a> {
-    pub fn new(cmd: &'a command::CmdCommand, inner: &'a command::CmdArg) -> Self {
-        Self {
+    pub fn new(
+        cmd: &'a command::CmdCommand,
+        inner: &'a command::CmdArg,
+    ) -> Result<Self, AzInternalError> {
+        let arg_type = retrieve_cls_arg_type_in_command(cmd, inner)?;
+        Ok(Self {
             cmd,
             inner,
+            unwrapped_arg_type: arg_type,
             prefix_keys: SHPartialKeys {
                 parts: vec![SHPartialKeyPart::Name(inner.name.to_string())],
             },
-        }
+        })
     }
 }
 
@@ -55,30 +64,152 @@ impl CmdArgWrapper<'_> {
     }
 }
 
-impl<'a> CmdArgWrapper<'a> {
-    /// return the internal argument type without the cls type
-    pub fn arg_type_unwrap_cls_ok(&self) -> Result<&'a command::cmd_arg::ArgType, AzInternalError> {
-        match self.inner.arg_type_ok()? {
-            command::cmd_arg::ArgType::Cls(typ) => {
-                let cls_type = &typ.cls_type;
-                for arg in self.cmd.args.iter() {
-                    if let Some(arg_type) = retrieve_cls_arg_type(arg, cls_type)? {
-                        return Ok(arg_type);
+impl CmdArgWrapper<'_> {
+    /// Verify the value of the argument, apply enum transform if needed
+    pub fn verify_value(&self, mut value: Value) -> AzResult<Value> {
+        let arg_type = self.unwrapped_arg_type;
+
+        // apply enum transform
+        if let Some(v) = value.as_str() {
+            match arg_type {
+                command::cmd_arg::ArgType::Str(str_type) => {
+                    if let Some(e) = str_type.r#enum.as_ref() {
+                        if let Some(v) = e.find_value_by_name(v)? {
+                            value = v;
+                        }
                     }
                 }
-                Err(AzInternalError::InvalidArgumentDefinitionError(format!(
-                    "Missing argument definition for argument class: {}",
-                    cls_type
-                )))
+                command::cmd_arg::ArgType::Number(number_type) => {
+                    if let Some(e) = number_type.r#enum.as_ref() {
+                        if let Some(v) = e.find_value_by_name(v)? {
+                            value = v;
+                        }
+                    }
+                }
+                command::cmd_arg::ArgType::Boolean(_) => {
+                    if let Some(v) = BOOLEAN_ARG_ENUM_DEFAULT.find_value_by_name(v)? {
+                        value = v;
+                    }
+                }
+                command::cmd_arg::ArgType::AnyType(_)
+                | command::cmd_arg::ArgType::Object(_)
+                | command::cmd_arg::ArgType::Array(_) => {
+                    // do nothing
+                }
+                command::cmd_arg::ArgType::Cls(_) => {
+                    unreachable!("cls type should be unwrapped before");
+                }
             }
-            arg_type => Ok(arg_type),
         }
+
+        // verify value
+        if value.is_null() && !self.is_nullable() {
+            return Err(AzUserUsageError::InvalidArgumentValueError(format!(
+                "'{}' argument is not allowed to be null",
+                self.prefix_keys
+            ))
+            .into());
+        } else if !value.is_null() {
+            match arg_type {
+                command::cmd_arg::ArgType::AnyType(_) => {
+                    // do nothing
+                }
+                command::cmd_arg::ArgType::Str(str_type) => {
+                    if let Some(arg_enum) = str_type.r#enum.as_ref() {
+                        value = arg_enum.validate_value(value).map_err(|e| {
+                            if let AzError::UserUsage(
+                                AzUserUsageError::InvalidArgumentValueError(e),
+                            ) = e
+                            {
+                                AzUserUsageError::InvalidArgumentValueError(format!(
+                                    "'{}' argument has invalid value: {}",
+                                    self.prefix_keys, e
+                                ))
+                                .into()
+                            } else {
+                                e
+                            }
+                        })?;
+                    }
+                    if !value.is_string() {
+                        self.invalid_value_type()?;
+                    }
+                }
+                command::cmd_arg::ArgType::Number(number_type) => {
+                    if let Some(arg_enum) = number_type.r#enum.as_ref() {
+                        value = arg_enum.validate_value(value).map_err(|e| {
+                            if let AzError::UserUsage(
+                                AzUserUsageError::InvalidArgumentValueError(e),
+                            ) = e
+                            {
+                                AzUserUsageError::InvalidArgumentValueError(format!(
+                                    "'{}' argument has invalid value: {}",
+                                    self.prefix_keys, e
+                                ))
+                                .into()
+                            } else {
+                                e
+                            }
+                        })?;
+                    }
+                    if !value.is_number() {
+                        self.invalid_value_type()?;
+                    }
+                }
+                command::cmd_arg::ArgType::Boolean(_) => {
+                    value = BOOLEAN_ARG_ENUM_DEFAULT
+                        .validate_value(value)
+                        .map_err(|e| {
+                            if let AzError::UserUsage(
+                                AzUserUsageError::InvalidArgumentValueError(e),
+                            ) = e
+                            {
+                                AzUserUsageError::InvalidArgumentValueError(format!(
+                                    "'{}' argument has invalid value: {}",
+                                    self.prefix_keys, e
+                                ))
+                                .into()
+                            } else {
+                                e
+                            }
+                        })?;
+                    if !value.is_boolean() {
+                        self.invalid_value_type()?;
+                    }
+                }
+
+                command::cmd_arg::ArgType::Object(_) => {
+                    if !value.is_object() {
+                        self.invalid_value_type()?;
+                    }
+                }
+                command::cmd_arg::ArgType::Array(_) => {
+                    if !value.is_array() {
+                        self.invalid_value_type()?;
+                    }
+                }
+
+                command::cmd_arg::ArgType::Cls(_) => {
+                    unreachable!("cls type should be unwrapped before");
+                }
+            }
+        }
+        Ok(value)
     }
 
+    pub fn invalid_value_type(&self) -> Result<(), AzUserUsageError> {
+        Err(AzUserUsageError::InvalidArgumentValueError(format!(
+            "'{}' argument has invalid value type, expect {} type value",
+            self.prefix_keys, self.unwrapped_arg_type
+        )))
+    }
+}
+
+impl<'a> CmdArgWrapper<'a> {
     pub fn retrieve_internal_arg_by_keys(&self, keys: &SHPartialKeys) -> AzResult<Self> {
         let mut arg = self.inner;
         for (i, part) in keys.parts.iter().enumerate() {
-            match self.arg_type_unwrap_cls_ok()? {
+            match self.unwrapped_arg_type {
                 command::cmd_arg::ArgType::Object(obj) => match part {
                     SHPartialKeyPart::Name(name) => {
                         arg = obj
@@ -145,11 +276,34 @@ impl<'a> CmdArgWrapper<'a> {
             }
         }
 
+        let arg_type = retrieve_cls_arg_type_in_command(self.cmd, arg)?;
         Ok(Self {
             cmd: self.cmd,
             inner: arg,
+            unwrapped_arg_type: arg_type,
             prefix_keys: self.prefix_keys.to_owned().with_extend(keys.to_owned()),
         })
+    }
+}
+
+fn retrieve_cls_arg_type_in_command<'a>(
+    cmd: &'a command::CmdCommand,
+    arg: &'a command::CmdArg,
+) -> Result<&'a command::cmd_arg::ArgType, AzInternalError> {
+    match arg.arg_type_ok()? {
+        command::cmd_arg::ArgType::Cls(typ) => {
+            let cls_type = &typ.cls_type;
+            for arg in cmd.args.iter() {
+                if let Some(arg_type) = retrieve_cls_arg_type(arg, cls_type)? {
+                    return Ok(arg_type);
+                }
+            }
+            Err(AzInternalError::InvalidArgumentDefinitionError(format!(
+                "Missing argument definition for argument class: {}",
+                cls_type
+            )))
+        }
+        arg_type => Ok(arg_type),
     }
 }
 
