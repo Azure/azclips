@@ -182,10 +182,32 @@ impl CmdArgWrapper<'_> {
                     if !value.is_object() {
                         self.invalid_value_type()?;
                     }
+                    // verify internal properties
+                    let obj = value.as_object_mut().unwrap();
+                    for (k, v) in obj.iter_mut() {
+                        let keys = SHPartialKeys {
+                            parts: vec![SHPartialKeyPart::Name(k.clone())],
+                        };
+                        let sub_arg = self.retrieve_internal_arg_by_keys(&keys)?;
+                        // use take to get the value without cloning and replace it with the verified value
+                        let temp_value = std::mem::take(v);
+                        *v = sub_arg.verify_value(temp_value)?;
+                    }
                 }
                 command::cmd_arg::ArgType::Array(_) => {
                     if !value.is_array() {
                         self.invalid_value_type()?;
+                    }
+                    // verify internal items
+                    let arr = value.as_array_mut().unwrap();
+                    for (i, v) in arr.iter_mut().enumerate() {
+                        let keys = SHPartialKeys {
+                            parts: vec![SHPartialKeyPart::Index(i as u16)],
+                        };
+                        let sub_arg = self.retrieve_internal_arg_by_keys(&keys)?;
+                        // use take to get the value without cloning and replace it with the verified value
+                        let temp_value = std::mem::take(v);
+                        *v = sub_arg.verify_value(temp_value)?;
                     }
                 }
 

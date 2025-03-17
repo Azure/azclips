@@ -3488,37 +3488,36 @@ mod tests {
                     8,
                 )),
             ),
-            // TODO: add support for the internal value type validation for object value from file.
-            // (
-            //     &arg1,
-            //     json!({"num":"abc"}),
-            //     Err(ErrorData(
-            //         "Invalid value type, expect [int] type value",
-            //         "{\"num\":\"abc\"}",
-            //         5,
-            //         4,
-            //     )),
-            // ),
-            // (
-            //     &arg1,
-            //     json!({"tags":{"a":[1,2,3]}}),
-            //     Err(ErrorData(
-            //         "Failed to parse string, please wrap '[' character in single quotes",
-            //         "{\"tags\":{\"a\":[1,2,3]}}}",
-            //         9,
-            //         1,
-            //     )),
-            // ),
-            // (
-            //     &arg1,
-            //     json!({"tags":{"a":{"a":"b"}}}),
-            //     Err(ErrorData(
-            //         "Failed to parse string, please wrap '{' character in single quotes",
-            //         "{\"tags\":{\"a\":{\"a\":\"b\"}}}}",
-            //         9,
-            //         1,
-            //     )),
-            // ),
+            (
+                &arg1,
+                json!({"num":"abc"}),
+                Err(ErrorData(
+                    "Invalid argument value: 'object.num' argument has invalid value type, expect [int] type value",
+                    "{\"num\":\"abc\"}",
+                    0,
+                    4,
+                )),
+            ),
+            (
+                &arg1,
+                json!({"tags":{"a":[1,2,3]}}),
+                Err(ErrorData(
+                    "Invalid argument value: 'object.tags.a' argument has invalid value type, expect [string] type value",
+                    "{\"tags\":{\"a\":[1,2,3]}}}",
+                    0,
+                    1,
+                )),
+            ),
+            (
+                &arg1,
+                json!({"tags":{"a":{"a":"b"}}}),
+                Err(ErrorData(
+                    "Invalid argument value: 'object.tags.a' argument has invalid value type, expect [string] type value",
+                    "{\"tags\":{\"a\":{\"a\":\"b\"}}}}",
+                    0,
+                    1,
+                )),
+            ),
         ] {
             let mut file = NamedTempFile::with_suffix(".json").expect("Failed to create temp file");
             writeln!(file, "{}", value).expect("Failed to write to temp file");
@@ -3809,8 +3808,9 @@ mod tests {
             // test error cases
             (&arg2, json!(null), Err(ErrorData("Invalid argument value: 'arr2' argument is not allowed to be null", "null", 0, 4))),
             (&arg2, json!({"a":"b"}), Err(ErrorData("Invalid argument value: 'arr2' argument has invalid value type, expect [list] type value", "{\"a\":\"b\"}", 0, 1))),
-            // TODO: add support for the internal value type validation for object value from file.
-            // (&arg2, "[a,null]", Err(ErrorData("This argument is not allowed to be null", "[a,null]", 3, 5))),
+            (&arg2, json!(["a",null]), Err(ErrorData("Invalid argument value: 'arr2[1]' argument is not allowed to be null", "[a,null]", 0, 5))),
+            (&arg2, json!(["a",[1, 2, 3]]), Err(ErrorData("Invalid argument value: 'arr2[1]' argument has invalid value type, expect [string] type value", "[a,[1,2,3]]", 0, 5))),
+            (&arg2, json!(["a",{"b":"c"}]), Err(ErrorData("Invalid argument value: 'arr2[1]' argument has invalid value type, expect [string] type value", "[a,{b:c}]", 0, 5))),
         ] {
             let mut file = NamedTempFile::with_suffix(".json").expect("Failed to create temp file");
             writeln!(file, "{}", value).expect("Failed to write to temp file");
