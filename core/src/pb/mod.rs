@@ -161,7 +161,7 @@ impl command::CmdArgEnum {
             return Ok(value);
         }
         Err(AzUserUsageError::InvalidArgumentValueError(format!(
-            "Invalid value {}, accept enum items: {}",
+            "invalid value {}, accept enum items: {}",
             value, self
         ))
         .into())
