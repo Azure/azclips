@@ -1,6 +1,5 @@
 use std::{fmt, sync::LazyLock};
 
-use rand::Error;
 use serde_json::Value;
 
 use crate::{
@@ -47,6 +46,8 @@ impl CmdArgWrapper<'_> {
         return self.inner.nullable;
     }
 
+    // get the blank value of the argument
+    // if the argument is boolean type, use the default blank value which is "true"
     pub fn blank(&self) -> Option<&command::CmdArgBlank> {
         return self
             .inner
@@ -106,7 +107,7 @@ impl CmdArgWrapper<'_> {
         if value.is_null() && !self.is_nullable() {
             return Err(AzUserUsageError::InvalidArgumentValueError(format!(
                 "'{}' argument is not allowed to be null",
-                self.prefix_keys
+                self
             ))
             .into());
         } else if !value.is_null() {
@@ -123,7 +124,7 @@ impl CmdArgWrapper<'_> {
                             {
                                 AzUserUsageError::InvalidArgumentValueError(format!(
                                     "'{}' argument has invalid value: {}",
-                                    self.prefix_keys, e
+                                    self, e
                                 ))
                                 .into()
                             } else {
@@ -144,7 +145,7 @@ impl CmdArgWrapper<'_> {
                             {
                                 AzUserUsageError::InvalidArgumentValueError(format!(
                                     "'{}' argument has invalid value: {}",
-                                    self.prefix_keys, e
+                                    self, e
                                 ))
                                 .into()
                             } else {
@@ -166,7 +167,7 @@ impl CmdArgWrapper<'_> {
                             {
                                 AzUserUsageError::InvalidArgumentValueError(format!(
                                     "'{}' argument has invalid value: {}",
-                                    self.prefix_keys, e
+                                    self, e
                                 ))
                                 .into()
                             } else {
@@ -222,7 +223,7 @@ impl CmdArgWrapper<'_> {
     pub fn invalid_value_type(&self) -> Result<(), AzUserUsageError> {
         Err(AzUserUsageError::InvalidArgumentValueError(format!(
             "'{}' argument has invalid value type, expect {} type value",
-            self.prefix_keys, self.unwrapped_arg_type
+            self, self.unwrapped_arg_type
         )))
     }
 }
@@ -230,8 +231,9 @@ impl CmdArgWrapper<'_> {
 impl<'a> CmdArgWrapper<'a> {
     pub fn retrieve_internal_arg_by_keys(&self, keys: &SHPartialKeys) -> AzResult<Self> {
         let mut arg = self.inner;
+        let mut arg_type = self.unwrapped_arg_type;
         for (i, part) in keys.parts.iter().enumerate() {
-            match self.unwrapped_arg_type {
+            match arg_type {
                 command::cmd_arg::ArgType::Object(obj) => match part {
                     SHPartialKeyPart::Name(name) => {
                         arg = obj
@@ -296,9 +298,9 @@ impl<'a> CmdArgWrapper<'a> {
                     unreachable!("cls type should be unwrapped before");
                 }
             }
+            arg_type = retrieve_cls_arg_type_in_command(self.cmd, arg)?;
         }
 
-        let arg_type = retrieve_cls_arg_type_in_command(self.cmd, arg)?;
         Ok(Self {
             cmd: self.cmd,
             inner: arg,
