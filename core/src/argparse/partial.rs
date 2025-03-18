@@ -60,19 +60,28 @@ impl std::fmt::Display for SHPartialKeys {
         let mut first = true;
         for part in self.parts.iter() {
             match part {
-                SHPartialKeyPart::Name(name) => {
+                SHPartialKeyPart::Name(_) => {
                     if first {
-                        write!(f, "{}", name)?;
+                        write!(f, "{}", part)?;
                         first = false;
                     } else {
-                        write!(f, ".{}", name)?;
+                        write!(f, ".{}", part)?;
                     }
                 }
-                SHPartialKeyPart::Index(idx) => write!(f, "[{}]", idx)?,
-                SHPartialKeyPart::AppendIndex(idx) => write!(f, "[+{}]", idx)?,
+                _ => write!(f, "{}", part)?,
             }
         }
         Ok(())
+    }
+}
+
+impl std::fmt::Display for SHPartialKeyPart {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SHPartialKeyPart::Name(name) => write!(f, "{}", name),
+            SHPartialKeyPart::Index(idx) => write!(f, "[{}]", idx),
+            SHPartialKeyPart::AppendIndex(idx) => write!(f, "[+{}]", idx),
+        }
     }
 }
 
