@@ -8,6 +8,7 @@ service Module {
     rpc Metadata(MetadataRequest) returns (MetadataResponse);
     rpc Check(CheckRequest) returns (CheckResponse);
     rpc Interface(InterfaceRequest) returns (InterfaceResponse);
+    rpc Execute(ExecuteRequest) returns (ExecuteResponse);
 }
 
 service AzContext {
