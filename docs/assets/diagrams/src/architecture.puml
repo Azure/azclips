@@ -1,0 +1,107 @@
+@startuml  architecture
+
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Deployment.puml
+
+HIDE_STEREOTYPE()
+
+skinparam interface {
+    BorderColor DarkRed
+    Shadowing false
+
+    BackgroundColor<<core>> #Brown
+    BackgroundColor<<builtin>> #Brown
+    BackgroundColor<<plugin>> #Brown
+    BackgroundColor<<grpc>> #Brown
+}
+
+AddElementTag("Boundary", $bgColor="#f0f0f0")
+AddElementTag("BuiltinModule", $bgColor="#4764a8", $borderColor="#798ab0")
+AddElementTag("PluginModule", $bgColor="#4764a8", $borderColor="#798ab0")
+
+Boundary(azlite, "azlite") {
+    Container(core, "core", "")
+    note left of core
+    The core is the customer facing client of the azlite CLI.
+    It helps load the plugin modules, parse the command input, route the command to the correct module, and convert the command output to the correct format.
+    It is also responsible for manage user local context, such as downloaded plugin modules, auth token, config, etc.
+    end note
+    circle "AzContext" as az_context <<core>>
+    Boundary(builtin, "Builtin Modules") {
+        circle "Module Interface" as builtin_interface <<builtin>>
+        Container(auth, "auth", "",)
+        note bottom of auth
+        Contain commands for authentication.
+        end note
+
+        Container(config, "config", "",)
+        note bottom of config
+        Contain commands for configuration.
+        end note
+        Container(plugin, "plugin", "",)
+        note bottom of plugin
+        Contain commands for plugin module management.
+        end note
+    }
+    ' note left of builtins
+    ' The built-in modules are the modules provide the built-in commands for the azlite CLI.
+    ' end note
+}
+
+Lay_D(core, builtin)
+
+core -[#Green,thickness=2]d--> builtin_interface
+az_context <-[#Green,thickness=2]d-- builtin_interface
+
+core -[#Black,thickness=1]r-+ az_context
+
+builtin_interface +-[#Black,thickness=1]d- auth
+builtin_interface +-[#Black,thickness=1]d- config
+builtin_interface +-[#Black,thickness=1]d- plugin
+
+Lay_R(config, auth)
+Lay_R(auth, plugin)
+Lay_U(plugin, az_context)
+
+' builtin -[#DarkGreen,thickness=2]u--> az_context
+
+
+circle "gRPC protocol" as grpc_protocol <<grpc>>
+
+note right of grpc_protocol
+The grpc protocol is used to communicate between the core and the plugin modules.
+It provides a way to call the plugin modules implemented in different languages.
+end note
+
+core .[#Green,thickness=2]r.> grpc_protocol
+az_context <.[#Green,thickness=2]r. grpc_protocol
+
+Boundary(plugins, "Plugin Modules") {
+    circle "Module Interface" as plugin_interface <<plugin>>
+
+    Container(rest, "rest", "", $tags="PluginModule")
+    note bottom of rest
+    The plugin which maintain and run the atomic command scripts.
+    end note
+    ' Container(template, "template", "", $tags="PluginModule")
+    ' note bottom of template
+    ' The plugin which maintain and run the bicep template command scripts.
+    ' end note
+    Container(other_plugins, "...", "", $tags="PluginModule")
+    note bottom of other_plugins
+    Other plugin modules which implemented the module interface.
+    end note
+}
+
+Lay_D(grpc_protocol, plugins)
+
+grpc_protocol <.[#Green,thickness=2]d..> plugin_interface
+
+plugin_interface +-[#Black,thickness=1]d- rest
+' plugin_interface +-[#Black,thickness=1]d- template
+plugin_interface +-[#Black,thickness=1]d- other_plugins
+
+' Lay_R(rest, template)
+' Lay_R(template, other_plugins)
+Lay_R(rest, other_plugins)
+
+@enduml
