@@ -240,15 +240,16 @@ impl<'a> CmdArgWrapper<'a> {
                             .get_prop(name.as_str())
                             .or(obj.get_additional_item()?)
                             .ok_or(AzUserUsageError::InvalidArgumentValueError(format!(
-                                "Object type argument {} has no internal property named '{}'",
-                                keys.split_at(i),
+                                "'{}' argument is object type and has no internal property '{}'",
+                                self.prefix_keys.to_owned().with_extend(keys.split_at(i)),
                                 name
                             )))?;
                     }
                     SHPartialKeyPart::Index(_) | SHPartialKeyPart::AppendIndex(_) => {
                         return Err(AzUserUsageError::InvalidArgumentValueError(format!(
-                            "Object type argument {} cannot support internal access by index",
-                            keys.split_at(i)
+                            "'{}' argument is object type and cannot support internal access by index {}",
+                            self.prefix_keys.to_owned().with_extend(keys.split_at(i)),
+                            part
                         ))
                         .into());
                     }
@@ -259,8 +260,8 @@ impl<'a> CmdArgWrapper<'a> {
                     }
                     SHPartialKeyPart::Name(name) => {
                         return Err(AzUserUsageError::InvalidArgumentValueError(format!(
-                            "Array type argument {} has no internal property named '{}'",
-                            keys.split_at(i),
+                            "'{}' argument is array type and has no internal property '{}'",
+                            self.prefix_keys.to_owned().with_extend(keys.split_at(i)),
                             name
                         ))
                         .into());
@@ -268,29 +269,33 @@ impl<'a> CmdArgWrapper<'a> {
                 },
                 command::cmd_arg::ArgType::Str(_) => {
                     return Err(AzUserUsageError::InvalidArgumentValueError(format!(
-                        "String type argument {} cannot support internal access",
-                        keys.split_at(i)
+                        "'{}' argument is string type and cannot support internal access by '{}'",
+                        self.prefix_keys.to_owned().with_extend(keys.split_at(i)),
+                        part
                     ))
                     .into());
                 }
                 command::cmd_arg::ArgType::Number(_) => {
                     return Err(AzUserUsageError::InvalidArgumentValueError(format!(
-                        "Number type argument {} cannot support internal access",
-                        keys.split_at(i)
+                        "'{}' argument is number type and cannot support internal access by '{}'",
+                        self.prefix_keys.to_owned().with_extend(keys.split_at(i)),
+                        part
                     ))
                     .into());
                 }
                 command::cmd_arg::ArgType::Boolean(_) => {
                     return Err(AzUserUsageError::InvalidArgumentValueError(format!(
-                        "Boolean type argument {} cannot support internal access",
-                        keys.split_at(i)
+                        "'{}' argument is boolean type and cannot support internal access by '{}'",
+                        self.prefix_keys.to_owned().with_extend(keys.split_at(i)),
+                        part
                     ))
                     .into());
                 }
                 command::cmd_arg::ArgType::AnyType(_) => {
                     return Err(AzUserUsageError::InvalidArgumentValueError(format!(
-                        "Any type argument {} cannot support internal access",
-                        keys.split_at(i)
+                        "'{}' argument is any type and cannot support internal access by '{}'",
+                        self.prefix_keys.to_owned().with_extend(keys.split_at(i)),
+                        part
                     ))
                     .into());
                 }
