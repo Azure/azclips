@@ -1,0 +1,76 @@
+syntax = "proto3";
+package service;
+
+import "protos/command.proto";
+
+service Service {
+    rpc Metadata(MetadataRequest) returns (MetadataResponse);
+    rpc Check(CheckRequest) returns (CheckResponse);
+    rpc Interface(InterfaceRequest) returns (InterfaceResponse);
+    rpc Execute(ExecuteRequest) returns (ExecuteResponse);
+}
+
+message MetadataRequest {
+    uint32 az_ctx_server = 1;
+}
+
+message MetadataResponse {
+    ServiceMetadata metadata = 1;
+}
+
+message CheckRequest {
+    uint32 az_ctx_server = 1;
+    string uri = 2;
+}
+
+message CheckResponse {
+    string uri = 1;
+}
+
+message InterfaceRequest {
+    uint32 az_ctx_server = 1;
+    string uri = 2;
+}
+
+message InterfaceResponse {
+    command.CMDInterface interface = 1;
+}
+
+message ServiceMetadata {
+    string name = 1;
+    ServiceHelp help = 2;
+    string uri = 3;  // the unique uri for the service, this uri should be the cmd uri which starts with `cmd://azure/` and the following segments are composed by the top level command group name for the service. The uri should be unique across all the services.
+    oneof cls {
+        BuiltInService built_in = 4;
+        PluginService plugin = 5;
+    }
+    repeated command.CMDInterface groups = 11;
+    repeated command.CMDInterface commands = 12;
+}
+
+// ServiceHelp is the help message of the service
+message ServiceHelp {
+    string short = 1; // short description of the service
+    string long = 2; // long description of the service
+}
+
+// BuiltInService is the service that is built and released with the core
+message BuiltInService {
+}
+
+// PluginService is the service that is loaded as a plugin
+message PluginService {
+    string version = 1;
+}
+
+message ExecuteRequest {
+    uint32 az_ctx_server = 1;
+    string uri = 2;  // the cmd uri for the command to execute
+    command.CMDParams params = 3;
+    command.CMDOutputFormat output_format = 4;
+}
+
+message ExecuteResponse {
+    // bytes output = 1;
+    // string output_type = 2;
+}

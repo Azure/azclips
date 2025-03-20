@@ -7,7 +7,7 @@ pub struct MetadataRequest {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct MetadataResponse {
     #[prost(message, optional, tag = "1")]
-    pub metadata: ::core::option::Option<ModuleMetadata>,
+    pub metadata: ::core::option::Option<ServiceMetadata>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CheckRequest {
@@ -34,46 +34,47 @@ pub struct InterfaceResponse {
     pub interface: ::core::option::Option<super::command::CmdInterface>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ModuleMetadata {
+pub struct ServiceMetadata {
     #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,
     #[prost(message, optional, tag = "2")]
-    pub help: ::core::option::Option<ModuleHelp>,
-    #[prost(uint32, tag = "3")]
-    pub priority: u32,
-    #[prost(message, repeated, tag = "10")]
-    pub groups: ::prost::alloc::vec::Vec<super::command::CmdInterface>,
+    pub help: ::core::option::Option<ServiceHelp>,
+    /// the unique uri for the service, this uri should be the cmd uri which starts with `cmd://azure/` and the following segments are composed by the top level command group name for the service. The uri should be unique across all the services.
+    #[prost(string, tag = "3")]
+    pub uri: ::prost::alloc::string::String,
     #[prost(message, repeated, tag = "11")]
+    pub groups: ::prost::alloc::vec::Vec<super::command::CmdInterface>,
+    #[prost(message, repeated, tag = "12")]
     pub commands: ::prost::alloc::vec::Vec<super::command::CmdInterface>,
-    #[prost(oneof = "module_metadata::Cls", tags = "4, 5")]
-    pub cls: ::core::option::Option<module_metadata::Cls>,
+    #[prost(oneof = "service_metadata::Cls", tags = "4, 5")]
+    pub cls: ::core::option::Option<service_metadata::Cls>,
 }
-/// Nested message and enum types in `ModuleMetadata`.
-pub mod module_metadata {
+/// Nested message and enum types in `ServiceMetadata`.
+pub mod service_metadata {
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Cls {
         #[prost(message, tag = "4")]
-        BuiltIn(super::BuiltInModule),
+        BuiltIn(super::BuiltInService),
         #[prost(message, tag = "5")]
-        Plugin(super::PluginModule),
+        Plugin(super::PluginService),
     }
 }
-/// ModuleHelp is the help message of the module
+/// ServiceHelp is the help message of the service
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ModuleHelp {
-    /// short description of the module
+pub struct ServiceHelp {
+    /// short description of the service
     #[prost(string, tag = "1")]
     pub short: ::prost::alloc::string::String,
-    /// long description of the module
+    /// long description of the service
     #[prost(string, tag = "2")]
     pub long: ::prost::alloc::string::String,
 }
-/// BuiltInModule is the module that is built in to the core
+/// BuiltInService is the service that is built and released with the core
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
-pub struct BuiltInModule {}
-/// PluginModule is the module that is loaded from a plugin
+pub struct BuiltInService {}
+/// PluginService is the service that is loaded as a plugin
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct PluginModule {
+pub struct PluginService {
     #[prost(string, tag = "1")]
     pub version: ::prost::alloc::string::String,
 }
@@ -81,15 +82,20 @@ pub struct PluginModule {
 pub struct ExecuteRequest {
     #[prost(uint32, tag = "1")]
     pub az_ctx_server: u32,
+    /// the cmd uri for the command to execute
     #[prost(string, tag = "2")]
     pub uri: ::prost::alloc::string::String,
     #[prost(message, optional, tag = "3")]
     pub params: ::core::option::Option<super::command::CmdParams>,
+    #[prost(message, optional, tag = "4")]
+    pub output_format: ::core::option::Option<super::command::CmdOutputFormat>,
 }
+/// bytes output = 1;
+/// string output_type = 2;
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct ExecuteResponse {}
 /// Generated client implementations.
-pub mod module_client {
+pub mod service_client {
     #![allow(
         unused_variables,
         dead_code,
@@ -100,10 +106,10 @@ pub mod module_client {
     use tonic::codegen::*;
     use tonic::codegen::http::Uri;
     #[derive(Debug, Clone)]
-    pub struct ModuleClient<T> {
+    pub struct ServiceClient<T> {
         inner: tonic::client::Grpc<T>,
     }
-    impl ModuleClient<tonic::transport::Channel> {
+    impl ServiceClient<tonic::transport::Channel> {
         /// Attempt to create a new client by connecting to a given endpoint.
         pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
         where
@@ -114,7 +120,7 @@ pub mod module_client {
             Ok(Self::new(conn))
         }
     }
-    impl<T> ModuleClient<T>
+    impl<T> ServiceClient<T>
     where
         T: tonic::client::GrpcService<tonic::body::BoxBody>,
         T::Error: Into<StdError>,
@@ -132,7 +138,7 @@ pub mod module_client {
         pub fn with_interceptor<F>(
             inner: T,
             interceptor: F,
-        ) -> ModuleClient<InterceptedService<T, F>>
+        ) -> ServiceClient<InterceptedService<T, F>>
         where
             F: tonic::service::Interceptor,
             T::ResponseBody: Default,
@@ -146,7 +152,7 @@ pub mod module_client {
                 http::Request<tonic::body::BoxBody>,
             >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
         {
-            ModuleClient::new(InterceptedService::new(inner, interceptor))
+            ServiceClient::new(InterceptedService::new(inner, interceptor))
         }
         /// Compress requests with the given encoding.
         ///
@@ -195,9 +201,9 @@ pub mod module_client {
                     )
                 })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/module.Module/Metadata");
+            let path = http::uri::PathAndQuery::from_static("/service.Service/Metadata");
             let mut req = request.into_request();
-            req.extensions_mut().insert(GrpcMethod::new("module.Module", "Metadata"));
+            req.extensions_mut().insert(GrpcMethod::new("service.Service", "Metadata"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn check(
@@ -213,9 +219,9 @@ pub mod module_client {
                     )
                 })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/module.Module/Check");
+            let path = http::uri::PathAndQuery::from_static("/service.Service/Check");
             let mut req = request.into_request();
-            req.extensions_mut().insert(GrpcMethod::new("module.Module", "Check"));
+            req.extensions_mut().insert(GrpcMethod::new("service.Service", "Check"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn interface(
@@ -234,9 +240,11 @@ pub mod module_client {
                     )
                 })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/module.Module/Interface");
+            let path = http::uri::PathAndQuery::from_static(
+                "/service.Service/Interface",
+            );
             let mut req = request.into_request();
-            req.extensions_mut().insert(GrpcMethod::new("module.Module", "Interface"));
+            req.extensions_mut().insert(GrpcMethod::new("service.Service", "Interface"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn execute(
@@ -255,9 +263,9 @@ pub mod module_client {
                     )
                 })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/module.Module/Execute");
+            let path = http::uri::PathAndQuery::from_static("/service.Service/Execute");
             let mut req = request.into_request();
-            req.extensions_mut().insert(GrpcMethod::new("module.Module", "Execute"));
+            req.extensions_mut().insert(GrpcMethod::new("service.Service", "Execute"));
             self.inner.unary(req, path, codec).await
         }
     }

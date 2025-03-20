@@ -1,8 +1,8 @@
 [package]
-name = "azlite"
+name = "azure"
 version = "0.1.0"
 edition = "2021"
-description = "A lightweight Azure CLI implementation"
+description = "Azure CLI V3 implementation"
 license = "MIT"
 
 [dependencies]

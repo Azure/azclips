@@ -639,17 +639,20 @@ pub struct CmdObjectArg {
     /// the class implementation
     #[prost(string, optional, tag = "1")]
     pub cls_type: ::core::option::Option<::prost::alloc::string::String>,
+    /// whether this object is flattened for PowerShell Cmdlet
+    #[prost(bool, tag = "2")]
+    pub ps_flatten: bool,
+    /// the format of the object
+    #[prost(message, optional, tag = "3")]
+    pub format: ::core::option::Option<CmdObjectFormat>,
     /// the property arguments of the object
-    #[prost(message, repeated, tag = "2")]
+    #[prost(message, repeated, tag = "4")]
     pub props: ::prost::alloc::vec::Vec<CmdArg>,
     /// the additional properties of the object
-    #[prost(message, optional, boxed, tag = "3")]
+    #[prost(message, optional, boxed, tag = "5")]
     pub additional_props: ::core::option::Option<
         ::prost::alloc::boxed::Box<CmdObjectArgAdditionalProperties>,
     >,
-    /// the format of the object
-    #[prost(message, optional, tag = "4")]
-    pub format: ::core::option::Option<CmdObjectFormat>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CmdObjectArgAdditionalProperties {
@@ -702,4 +705,43 @@ pub struct CmdParams {
     /// means to extend the array properties.
     #[prost(string, repeated, tag = "2")]
     pub patch_keys: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct CmdOutputFormat {
+    /// the flatten mode of the output
+    #[prost(enumeration = "CmdOutputFlattenMode", tag = "1")]
+    pub flatten_mode: i32,
+}
+/// CMDOutputFlattenMode indicates the flatten mode of the output
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum CmdOutputFlattenMode {
+    /// return the output without any flatten applied
+    None = 0,
+    /// return the output with basic flatten applied (usually apply the x-ms-client-flatten definition in the swagger)
+    Basic = 1,
+    /// return the output with fully flatten applied (the fully flatten mode will be used for table like output such as the PowerShell output)
+    Full = 2,
+}
+impl CmdOutputFlattenMode {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::None => "NONE",
+            Self::Basic => "BASIC",
+            Self::Full => "FULL",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "NONE" => Some(Self::None),
+            "BASIC" => Some(Self::Basic),
+            "FULL" => Some(Self::Full),
+            _ => None,
+        }
+    }
 }

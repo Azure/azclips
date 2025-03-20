@@ -9,7 +9,7 @@ fn main() {
         .build_server(false)
         .out_dir("src/pb")
         .compile_protos(
-            &["../protos/module.proto", "../protos/command.proto"],
+            &["../protos/service.proto", "../protos/command.proto"],
             &[".."],
         )
         .unwrap_or_else(|e| panic!("Failed to compile protos {:?}", e));

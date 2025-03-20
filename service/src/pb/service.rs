@@ -7,7 +7,7 @@ pub struct MetadataRequest {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct MetadataResponse {
     #[prost(message, optional, tag = "1")]
-    pub metadata: ::core::option::Option<ModuleMetadata>,
+    pub metadata: ::core::option::Option<ServiceMetadata>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CheckRequest {
@@ -34,46 +34,47 @@ pub struct InterfaceResponse {
     pub interface: ::core::option::Option<super::command::CmdInterface>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ModuleMetadata {
+pub struct ServiceMetadata {
     #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,
     #[prost(message, optional, tag = "2")]
-    pub help: ::core::option::Option<ModuleHelp>,
-    #[prost(uint32, tag = "3")]
-    pub priority: u32,
-    #[prost(message, repeated, tag = "10")]
-    pub groups: ::prost::alloc::vec::Vec<super::command::CmdInterface>,
+    pub help: ::core::option::Option<ServiceHelp>,
+    /// the unique uri for the service, this uri should be the cmd uri which starts with `cmd://azure/` and the following segments are composed by the top level command group name for the service. The uri should be unique across all the services.
+    #[prost(string, tag = "3")]
+    pub uri: ::prost::alloc::string::String,
     #[prost(message, repeated, tag = "11")]
+    pub groups: ::prost::alloc::vec::Vec<super::command::CmdInterface>,
+    #[prost(message, repeated, tag = "12")]
     pub commands: ::prost::alloc::vec::Vec<super::command::CmdInterface>,
-    #[prost(oneof = "module_metadata::Cls", tags = "4, 5")]
-    pub cls: ::core::option::Option<module_metadata::Cls>,
+    #[prost(oneof = "service_metadata::Cls", tags = "4, 5")]
+    pub cls: ::core::option::Option<service_metadata::Cls>,
 }
-/// Nested message and enum types in `ModuleMetadata`.
-pub mod module_metadata {
+/// Nested message and enum types in `ServiceMetadata`.
+pub mod service_metadata {
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Cls {
         #[prost(message, tag = "4")]
-        BuiltIn(super::BuiltInModule),
+        BuiltIn(super::BuiltInService),
         #[prost(message, tag = "5")]
-        Plugin(super::PluginModule),
+        Plugin(super::PluginService),
     }
 }
-/// ModuleHelp is the help message of the module
+/// ServiceHelp is the help message of the service
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ModuleHelp {
-    /// short description of the module
+pub struct ServiceHelp {
+    /// short description of the service
     #[prost(string, tag = "1")]
     pub short: ::prost::alloc::string::String,
-    /// long description of the module
+    /// long description of the service
     #[prost(string, tag = "2")]
     pub long: ::prost::alloc::string::String,
 }
-/// BuiltInModule is the module that is built in to the core
+/// BuiltInService is the service that is built and released with the core
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
-pub struct BuiltInModule {}
-/// PluginModule is the module that is loaded from a plugin
+pub struct BuiltInService {}
+/// PluginService is the service that is loaded as a plugin
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct PluginModule {
+pub struct PluginService {
     #[prost(string, tag = "1")]
     pub version: ::prost::alloc::string::String,
 }
@@ -81,15 +82,20 @@ pub struct PluginModule {
 pub struct ExecuteRequest {
     #[prost(uint32, tag = "1")]
     pub az_ctx_server: u32,
+    /// the cmd uri for the command to execute
     #[prost(string, tag = "2")]
     pub uri: ::prost::alloc::string::String,
     #[prost(message, optional, tag = "3")]
     pub params: ::core::option::Option<super::command::CmdParams>,
+    #[prost(message, optional, tag = "4")]
+    pub output_format: ::core::option::Option<super::command::CmdOutputFormat>,
 }
+/// bytes output = 1;
+/// string output_type = 2;
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct ExecuteResponse {}
 /// Generated server implementations.
-pub mod module_server {
+pub mod service_server {
     #![allow(
         unused_variables,
         dead_code,
@@ -98,9 +104,9 @@ pub mod module_server {
         clippy::let_unit_value,
     )]
     use tonic::codegen::*;
-    /// Generated trait containing gRPC methods that should be implemented for use with ModuleServer.
+    /// Generated trait containing gRPC methods that should be implemented for use with ServiceServer.
     #[async_trait]
-    pub trait Module: std::marker::Send + std::marker::Sync + 'static {
+    pub trait Service: std::marker::Send + std::marker::Sync + 'static {
         async fn metadata(
             &self,
             request: tonic::Request<super::MetadataRequest>,
@@ -125,14 +131,14 @@ pub mod module_server {
         ) -> std::result::Result<tonic::Response<super::ExecuteResponse>, tonic::Status>;
     }
     #[derive(Debug)]
-    pub struct ModuleServer<T> {
+    pub struct ServiceServer<T> {
         inner: Arc<T>,
         accept_compression_encodings: EnabledCompressionEncodings,
         send_compression_encodings: EnabledCompressionEncodings,
         max_decoding_message_size: Option<usize>,
         max_encoding_message_size: Option<usize>,
     }
-    impl<T> ModuleServer<T> {
+    impl<T> ServiceServer<T> {
         pub fn new(inner: T) -> Self {
             Self::from_arc(Arc::new(inner))
         }
@@ -183,9 +189,9 @@ pub mod module_server {
             self
         }
     }
-    impl<T, B> tonic::codegen::Service<http::Request<B>> for ModuleServer<T>
+    impl<T, B> tonic::codegen::Service<http::Request<B>> for ServiceServer<T>
     where
-        T: Module,
+        T: Service,
         B: Body + std::marker::Send + 'static,
         B::Error: Into<StdError> + std::marker::Send + 'static,
     {
@@ -200,10 +206,10 @@ pub mod module_server {
         }
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             match req.uri().path() {
-                "/module.Module/Metadata" => {
+                "/service.Service/Metadata" => {
                     #[allow(non_camel_case_types)]
-                    struct MetadataSvc<T: Module>(pub Arc<T>);
-                    impl<T: Module> tonic::server::UnaryService<super::MetadataRequest>
+                    struct MetadataSvc<T: Service>(pub Arc<T>);
+                    impl<T: Service> tonic::server::UnaryService<super::MetadataRequest>
                     for MetadataSvc<T> {
                         type Response = super::MetadataResponse;
                         type Future = BoxFuture<
@@ -216,7 +222,7 @@ pub mod module_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as Module>::metadata(&inner, request).await
+                                <T as Service>::metadata(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -243,10 +249,10 @@ pub mod module_server {
                     };
                     Box::pin(fut)
                 }
-                "/module.Module/Check" => {
+                "/service.Service/Check" => {
                     #[allow(non_camel_case_types)]
-                    struct CheckSvc<T: Module>(pub Arc<T>);
-                    impl<T: Module> tonic::server::UnaryService<super::CheckRequest>
+                    struct CheckSvc<T: Service>(pub Arc<T>);
+                    impl<T: Service> tonic::server::UnaryService<super::CheckRequest>
                     for CheckSvc<T> {
                         type Response = super::CheckResponse;
                         type Future = BoxFuture<
@@ -259,7 +265,7 @@ pub mod module_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as Module>::check(&inner, request).await
+                                <T as Service>::check(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -286,10 +292,10 @@ pub mod module_server {
                     };
                     Box::pin(fut)
                 }
-                "/module.Module/Interface" => {
+                "/service.Service/Interface" => {
                     #[allow(non_camel_case_types)]
-                    struct InterfaceSvc<T: Module>(pub Arc<T>);
-                    impl<T: Module> tonic::server::UnaryService<super::InterfaceRequest>
+                    struct InterfaceSvc<T: Service>(pub Arc<T>);
+                    impl<T: Service> tonic::server::UnaryService<super::InterfaceRequest>
                     for InterfaceSvc<T> {
                         type Response = super::InterfaceResponse;
                         type Future = BoxFuture<
@@ -302,7 +308,7 @@ pub mod module_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as Module>::interface(&inner, request).await
+                                <T as Service>::interface(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -329,10 +335,10 @@ pub mod module_server {
                     };
                     Box::pin(fut)
                 }
-                "/module.Module/Execute" => {
+                "/service.Service/Execute" => {
                     #[allow(non_camel_case_types)]
-                    struct ExecuteSvc<T: Module>(pub Arc<T>);
-                    impl<T: Module> tonic::server::UnaryService<super::ExecuteRequest>
+                    struct ExecuteSvc<T: Service>(pub Arc<T>);
+                    impl<T: Service> tonic::server::UnaryService<super::ExecuteRequest>
                     for ExecuteSvc<T> {
                         type Response = super::ExecuteResponse;
                         type Future = BoxFuture<
@@ -345,7 +351,7 @@ pub mod module_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as Module>::execute(&inner, request).await
+                                <T as Service>::execute(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -392,7 +398,7 @@ pub mod module_server {
             }
         }
     }
-    impl<T> Clone for ModuleServer<T> {
+    impl<T> Clone for ServiceServer<T> {
         fn clone(&self) -> Self {
             let inner = self.inner.clone();
             Self {
@@ -405,8 +411,8 @@ pub mod module_server {
         }
     }
     /// Generated gRPC service name
-    pub const SERVICE_NAME: &str = "module.Module";
-    impl<T> tonic::server::NamedService for ModuleServer<T> {
+    pub const SERVICE_NAME: &str = "service.Service";
+    impl<T> tonic::server::NamedService for ServiceServer<T> {
         const NAME: &'static str = SERVICE_NAME;
     }
 }

@@ -1,9 +1,9 @@
 [workspace]
 members = [
-    "azlite",
+    "cli",
     "core", 
-    "module",
-    "rest",
+    "service",
+    "plugin", "ps",
 ]
 
 [workspace.package]
