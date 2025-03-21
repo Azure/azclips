@@ -7,6 +7,7 @@ pub(crate) mod config;
 pub(crate) mod service;
 pub(crate) mod utils;
 
+pub mod cmd_uri;
 pub mod error;
 pub mod pb;
 

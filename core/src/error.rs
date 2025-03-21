@@ -46,6 +46,9 @@ pub enum AzInternalError {
 
     #[error("Invalid argument definition: {0}")]
     InvalidArgumentDefinitionError(String),
+
+    #[error("Invalid command URI: {0}")]
+    InvalidCmdUriError(String),
 }
 
 #[derive(Error, Debug)]
