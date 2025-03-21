@@ -1,5 +1,5 @@
 [package]
-name = "azure-powershell"
+name = "az_ps"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -7,7 +7,7 @@ description.workspace = true
 license.workspace = true
 
 [dependencies]
-azlite-core = { path = "../core" }
+az_core = { path = "../core" }
 tokio = { version = "1", features = ["full"] }
 anyhow = "1.0"
 log = "0.4"

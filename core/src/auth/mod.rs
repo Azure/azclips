@@ -1,6 +1,4 @@
-//! Authentication module for Azure CLI Lite
-//!
-//! This module handles authentication with Azure services.
+
 
 use crate::error::{AzError, AzResult};
 

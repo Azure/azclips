@@ -1,20 +1,14 @@
-//! Configuration module for Azure CLI Lite
-//!
-//! This module handles configuration settings for the CLI.
-
-use std::path::PathBuf;
-use serde::{Deserialize, Serialize};
 use crate::error::{AzError, AzResult};
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 /// Configuration for Azure CLI Lite
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Config {
-}
+pub struct Config {}
 
 impl Default for Config {
     fn default() -> Self {
-        Self {
-        }
+        Self {}
     }
 }
 
@@ -37,10 +31,10 @@ impl Config {
     }
 }
 
-// TODO: may also need to parse the clouds.config file 
+// TODO: may also need to parse the clouds.config file
 /// Get the path to the configuration file
 fn get_config_path() -> AzResult<PathBuf> {
     let home = dirs::home_dir()
         .ok_or_else(|| AzError::Config("Could not determine home directory".to_string()))?;
     Ok(home.join(".azure").join("config"))
-} 
+}

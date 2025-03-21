@@ -61,6 +61,7 @@ impl CmdArgWrapper<'_> {
     }
 
     pub fn prompt(&self) -> Option<&command::CmdArgPromptInput> {
+        // TODO: check if the stdin is terminal
         return self.inner.prompt.as_ref();
     }
 }

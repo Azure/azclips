@@ -5,8 +5,12 @@ edition = "2021"
 description = "Azure CLI V3 implementation"
 license = "MIT"
 
+[lib]
+name = "az_cli"
+path = "src/lib.rs" 
+
 [dependencies]
-azlite-core = { path = "../core" }
+az_core = { path = "../core" }
 tokio = { version = "1", features = ["full"] }
 anyhow = "1.0"
 log = "0.4"

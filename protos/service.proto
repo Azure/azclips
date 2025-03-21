@@ -3,15 +3,15 @@ package service;
 
 import "protos/command.proto";
 
-service Service {
-    rpc Metadata(MetadataRequest) returns (MetadataResponse);
-    rpc Check(CheckRequest) returns (CheckResponse);
-    rpc Interface(InterfaceRequest) returns (InterfaceResponse);
-    rpc Execute(ExecuteRequest) returns (ExecuteResponse);
-}
+// service Service {
+//     rpc Metadata(MetadataRequest) returns (MetadataResponse);
+//     rpc Check(CheckRequest) returns (CheckResponse);
+//     rpc Interface(InterfaceRequest) returns (InterfaceResponse);
+//     rpc Execute(ExecuteRequest) returns (ExecuteResponse);
+// }
 
 message MetadataRequest {
-    uint32 az_ctx_server = 1;
+    reserved 1; // uint32 az_ctx_server = 1;
 }
 
 message MetadataResponse {
@@ -19,7 +19,7 @@ message MetadataResponse {
 }
 
 message CheckRequest {
-    uint32 az_ctx_server = 1;
+    reserved 1; // uint32 az_ctx_server = 1;
     string uri = 2;
 }
 
@@ -28,7 +28,7 @@ message CheckResponse {
 }
 
 message InterfaceRequest {
-    uint32 az_ctx_server = 1;
+    reserved 1; // uint32 az_ctx_server = 1;
     string uri = 2;
 }
 
@@ -64,7 +64,7 @@ message PluginService {
 }
 
 message ExecuteRequest {
-    uint32 az_ctx_server = 1;
+    reserved 1; // uint32 az_ctx_server = 1;
     string uri = 2;  // the cmd uri for the command to execute
     command.CMDParams params = 3;
     command.CMDOutputFormat output_format = 4;
@@ -73,4 +73,23 @@ message ExecuteRequest {
 message ExecuteResponse {
     // bytes output = 1;
     // string output_type = 2;
+}
+
+// the context for the service to run
+
+// service AzServiceCtx {
+//     rpc GetCoreInfo(GetCoreInfoRequest) returns (GetCoreInfoResponse);
+// }
+
+message GetCoreInfoRequest {
+    reserved 1;
+}
+
+message GetCoreInfoResponse {
+    CoreInfo core_info = 1;
+}
+
+// CoreInfo is the information of the core
+message CoreInfo {
+    string version = 1;
 }

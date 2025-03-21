@@ -1,20 +1,18 @@
 [workspace]
-members = [
-    "cli",
-    "core", 
-    "service",
-    "plugin", "ps",
-]
+members = ["core", "cli", "ps"]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
 authors = ["Azure CLI Lite Team"]
 description = "A lightweight Azure CLI implementation"
-license = "MIT" 
+license = "MIT"
 
 [workspace.dependencies]
 cargo-husky = { version = "1.5.0", default-features = false, features = [
-    "precommit-hook", "run-cargo-test", "run-cargo-clippy", "push-hook", "run-cargo-fmt"
-]}
-
+    "precommit-hook",
+    "run-cargo-test",
+    "run-cargo-clippy",
+    "push-hook",
+    "run-cargo-fmt",
+] }

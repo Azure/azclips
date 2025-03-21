@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-pub type AzResult<T, E = AzError> = Result<T, E>;
+pub(crate) type AzResult<T, E = AzError> = Result<T, E>;
 
 #[derive(Error, Debug)]
 pub enum AzUserUsageError {

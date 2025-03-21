@@ -1,11 +1,8 @@
-use anyhow::{Context, Result};
-use azlite_core as core;
+use az_cli::run;
 
-
-#[tokio::main]
-async fn main() -> Result<()> {
-    env_logger::init();    
-    
-    
-    Ok(())
+fn main() {
+    let mut args = std::env::args();
+    args.next()
+        .expect("application executable name is required"); // ignore the application executable name
+    run(args);
 }

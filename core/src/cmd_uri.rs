@@ -36,7 +36,7 @@ pub struct CmdUri {
     // the version of the cmds, it should be the save as the version of the command service
     version: Option<String>,
     // the command name parts
-    cmds: Vec<String>,
+    segments: Vec<String>,
     // whether the command is executable
     executable: bool,
     // the key should be in lower case
@@ -49,7 +49,7 @@ impl fmt::Display for CmdUri {
             f,
             "{}{}{}",
             CMD_URI_SCHEMA,
-            self.cmds.join("/"),
+            self.segments.join("/"),
             if self.executable { "" } else { "/" }
         )?;
         let mut query_parts = Vec::new();
@@ -132,7 +132,7 @@ impl FromStr for CmdUri {
 
         Ok(CmdUri {
             version,
-            cmds,
+            segments: cmds,
             executable,
             params,
         })
@@ -143,7 +143,7 @@ impl CmdUri {
     pub fn new(cmds: Vec<impl Into<String>>, executable: bool) -> Self {
         Self {
             version: None,
-            cmds: cmds.into_iter().map(Into::into).collect(),
+            segments: cmds.into_iter().map(Into::into).collect(),
             executable,
             params: HashMap::new(),
         }
@@ -180,6 +180,12 @@ impl CmdUri {
             (key, value)
         }));
         self
+    }
+}
+
+impl CmdUri {
+    pub fn segments(&self) -> impl Iterator<Item = &str> {
+        self.segments.iter().map(|s| s.as_str())
     }
 
     pub fn executable(&self) -> bool {
@@ -294,7 +300,7 @@ mod tests {
         let cmd_uri_str = "cmd://azure/network/vnet/create?bool=true&num=1&specialvalue=%3F%23%3D%2F%3A&version=1.0.0";
         let cmd_uri = CmdUri::from_str(cmd_uri_str).unwrap();
         assert_eq!(cmd_uri.to_string(), cmd_uri_str);
-        assert_eq!(cmd_uri.cmds, vec!["azure", "network", "vnet", "create"]);
+        assert_eq!(cmd_uri.segments, vec!["azure", "network", "vnet", "create"]);
         assert_eq!(cmd_uri.executable(), true);
         assert_eq!(cmd_uri.version(), Some("1.0.0"));
         assert_eq!(cmd_uri.get_param_str("num"), Some("1"));
@@ -306,7 +312,7 @@ mod tests {
         let cmd_uri_str = "cmd://azure/network/?version=1.0.0";
         let cmd_uri = CmdUri::from_str(cmd_uri_str).unwrap();
         assert_eq!(cmd_uri.to_string(), cmd_uri_str);
-        assert_eq!(cmd_uri.cmds, vec!["azure", "network"]);
+        assert_eq!(cmd_uri.segments, vec!["azure", "network"]);
         assert_eq!(cmd_uri.executable(), false);
         assert_eq!(cmd_uri.version(), Some("1.0.0"));
         assert_eq!(cmd_uri.get_param_str("num"), None);
