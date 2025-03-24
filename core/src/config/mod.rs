@@ -1,40 +1,32 @@
-use crate::error::{AzError, AzResult};
-use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+pub mod service;
 
-/// Configuration for Azure CLI Lite
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Config {}
+use std::{env, path::PathBuf, sync::OnceLock};
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {}
-    }
-}
+use crate::error::AzInternalError;
 
-impl Config {
-    /// Load configuration from the default location
-    pub fn load() -> AzResult<Self> {
-        let config_path = get_config_path()?;
-        if config_path.exists() {
-            // TODO: Implement config loading
-            Ok(Self::default())
-        } else {
-            Ok(Self::default())
-        }
-    }
+static CONFIG_DIR: OnceLock<PathBuf> = OnceLock::new();
 
-    /// Save configuration to the default location
-    pub fn save(&self) -> AzResult<()> {
-        // TODO: Implement config saving
-        Ok(())
-    }
-}
-
-// TODO: may also need to parse the clouds.config file
-/// Get the path to the configuration file
-fn get_config_path() -> AzResult<PathBuf> {
-    let home = dirs::home_dir()
-        .ok_or_else(|| AzError::Config("Could not determine home directory".to_string()))?;
-    Ok(home.join(".azure").join("config"))
+pub(crate) fn get_config_dir() -> PathBuf {
+    CONFIG_DIR
+        .get_or_init(|| {
+            let config_dir = env::var_os("AZURE_CONFIG_DIR")
+                .map(PathBuf::from)
+                .map_or_else(
+                    || {
+                        dirs::home_dir().map(|p| p.join(".azure")).ok_or(
+                            AzInternalError::InvalidPathError(
+                                "Could not determine home directory".to_string(),
+                            ),
+                        )
+                    },
+                    Ok,
+                )
+                .unwrap_or_else(|e| panic!("Failed to initialize config dir: {}", e));
+            if !config_dir.exists() {
+                std::fs::create_dir_all(&config_dir)
+                    .unwrap_or_else(|e| panic!("Failed to create config dir: {}", e));
+            }
+            config_dir
+        })
+        .clone()
 }

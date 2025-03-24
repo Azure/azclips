@@ -1,5 +1,6 @@
 use core::fmt;
 use percent_encoding::{percent_decode_str, utf8_percent_encode, AsciiSet, CONTROLS};
+use serde::Deserialize;
 use std::{collections::HashMap, str::FromStr};
 
 use crate::error::AzInternalError;
@@ -31,7 +32,7 @@ const COMPONENT_ENCODE_SET: &AsciiSet = &CONTROLS
     .add(b'+')
     .add(b',');
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CmdUri {
     // the version of the cmds, it should be the save as the version of the command service
     version: Option<String>,
@@ -188,6 +189,10 @@ impl CmdUri {
         self.segments.iter().map(|s| s.as_str())
     }
 
+    pub fn segments_str(&self) -> String {
+        self.segments.join("/")
+    }
+
     pub fn executable(&self) -> bool {
         self.executable
     }
@@ -214,6 +219,22 @@ impl CmdUri {
             .map(T::from_str)
             .transpose()
     }
+}
+
+pub(crate) fn serialize_cmd_uri<S>(cmd_uri: &CmdUri, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    serializer.serialize_str(&cmd_uri.to_string())
+}
+
+pub(crate) fn deserialize_cmd_uri<'de, D>(deserializer: D) -> Result<CmdUri, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    let cmd_uri = CmdUri::from_str(&s).map_err(serde::de::Error::custom)?;
+    Ok(cmd_uri)
 }
 
 #[cfg(test)]

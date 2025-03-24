@@ -1,4 +1,4 @@
-
+pub mod service;
 
 use crate::error::{AzError, AzResult};
 
@@ -9,12 +9,10 @@ pub struct AuthProvider {
     // client_id: Option<String>,
 }
 
-impl AuthProvider {
-    
-}
+impl AuthProvider {}
 
 impl Default for AuthProvider {
     fn default() -> Self {
         Self {}
     }
-} 
+}

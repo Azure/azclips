@@ -1,11 +1,10 @@
 //! Azure CLI Lite Core Library
 //!
 //! This library provides the core functionality for the Azure CLI Lite application.
+pub mod cmd_uri;
+pub mod error;
+pub mod pb;
 
-use cmd_uri::CmdUri;
-use error::AzResult;
-use std::sync::Arc;
-use tokio::sync::OnceCell;
 pub(crate) mod argparse;
 pub(crate) mod auth;
 pub(crate) mod config;
@@ -13,9 +12,10 @@ pub(crate) mod plugin;
 pub(crate) mod service;
 pub(crate) mod utils;
 
-pub mod cmd_uri;
-pub mod error;
-pub mod pb;
+use error::{AzInternalError, AzResult};
+use service::center::AzServiceCenter;
+use std::sync::{Arc, Weak};
+use tokio::sync::OnceCell;
 
 /// The version of the core library
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -25,6 +25,7 @@ pub const APPLICATION_NAME: &str = env!("CARGO_APPLICATION_NAME");
 
 pub struct AzCore {
     // Add fields as needed
+    service_center: AzServiceCenter<Weak<Self>>,
 }
 
 impl AzCore {
@@ -38,9 +39,13 @@ impl AzCore {
 
     /// Create a new instance of AzCore
     async fn new() -> Self {
+        let service_center = AzServiceCenter::<Weak<Self>>::new()
+            .await
+            .expect("failed to create service center");
         // Perform async initialization here
         Self {
             // Initialize fields as needed
+            service_center,
         }
     }
 }

@@ -49,6 +49,15 @@ pub enum AzInternalError {
 
     #[error("Invalid command URI: {0}")]
     InvalidCmdUriError(String),
+
+    #[error("Invalid path: {0}")]
+    InvalidPathError(String),
+
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("JSON error: {0}")]
+    Json(#[from] serde_json::Error),
 }
 
 #[derive(Error, Debug)]
@@ -61,9 +70,6 @@ pub enum AzError {
     Internal(#[from] AzInternalError),
     // #[error("An error occurred: {0}")]
     // GeneralError(String),
-
-    // #[error("IO error: {0}")]
-    // Io(#[from] std::io::Error),
 
     // #[error("Parse error: {0}")]
     // Parse(#[from] std::num::ParseIntError),

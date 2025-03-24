@@ -3,14 +3,14 @@ use std::sync::LazyLock;
 
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
-use log::debug;
 use regex::Regex;
 use serde_json::{Map, Value};
+use tracing::debug;
 
 use crate::error::{AzError, AzResult, AzUserUsageError};
 use crate::pb::command::{self, cmd_arg::ArgType};
 
-use super::arg::{CmdArgWrapper, BOOLEAN_ARG_ENUM_DEFAULT};
+use super::arg::CmdArgWrapper;
 use super::partial::{SHPartialKeyPart, SHPartialKeys};
 
 pub struct ShorthandSyntaxParser {
