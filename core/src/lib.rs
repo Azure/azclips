@@ -16,6 +16,7 @@ use error::{AzInternalError, AzResult};
 use service::center::AzServiceCenter;
 use std::sync::{Arc, Weak};
 use tokio::sync::OnceCell;
+use tokio::sync::RwLock;
 
 /// The version of the core library
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -25,7 +26,7 @@ pub const APPLICATION_NAME: &str = env!("CARGO_APPLICATION_NAME");
 
 pub struct AzCore {
     // Add fields as needed
-    service_center: AzServiceCenter<Weak<Self>>,
+    service_center: RwLock<AzServiceCenter<Weak<Self>>>,
 }
 
 impl AzCore {
@@ -45,7 +46,7 @@ impl AzCore {
         // Perform async initialization here
         Self {
             // Initialize fields as needed
-            service_center,
+            service_center: RwLock::new(service_center),
         }
     }
 }

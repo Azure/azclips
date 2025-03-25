@@ -25,7 +25,9 @@ pub struct AzPlugin {
 
 impl AzPlugin {
     /// load the login from file and construct the service
-    pub(crate) async fn load_service<T: AzServiceCtx>(&self) -> AzResult<Arc<dyn AzService<T>>> {
+    pub(crate) async fn load_service<T: AzServiceCtx>(
+        &self,
+    ) -> Result<Arc<dyn AzService<T>>, AzInternalError> {
         todo!()
     }
 
@@ -36,7 +38,11 @@ impl AzPlugin {
 
     pub(crate) fn get_plugin_paths() -> Result<Vec<PathBuf>, AzInternalError> {
         let mut plugin_paths = Vec::new();
-        for entry in std::fs::read_dir(get_plugin_dir())? {
+        let plugin_dir = get_plugin_dir();
+        if !plugin_dir.exists() {
+            return Ok(plugin_paths);
+        }
+        for entry in std::fs::read_dir(plugin_dir)? {
             let entry = entry?;
             let path = entry.path();
             if path.is_file() && path.extension() == Some(std::ffi::OsStr::new("plugin")) {

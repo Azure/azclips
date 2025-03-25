@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use crate::cmd_uri::CmdUri;
 use crate::error::AzInternalError;
 use crate::plugin::AzPlugin;
 
@@ -26,8 +27,12 @@ pub enum AzServiceInfo {
 }
 
 pub struct AzServiceCenter<T: AzServiceCtx> {
+    /// the route table using the service uri segments as the key, it is used to find the service based on the cmd_uri
     route_table: HashMap<String, AzServiceInfo>,
-    loaded_plugins: HashMap<String, Arc<dyn AzService<T>>>,
+    /// the built-in services that are loaded
+    built_ins: HashMap<AzBuildInService, Arc<dyn AzService<T>>>,
+    /// the plugins that are loaded, the key is the plugin name
+    plugins: HashMap<String, Arc<dyn AzService<T>>>,
 }
 
 impl<T: AzServiceCtx> AzServiceCenter<T> {
@@ -38,9 +43,11 @@ impl<T: AzServiceCtx> AzServiceCenter<T> {
             Some(route_table) => route_table,
             None => Self::rebuild_route_table().await?,
         };
+        // TODO: here we should init the built-in services
         Ok(Self {
             route_table,
-            loaded_plugins: HashMap::new(),
+            built_ins: HashMap::new(),
+            plugins: HashMap::new(),
         })
     }
 }
@@ -56,16 +63,17 @@ impl<T: AzServiceCtx> AzServiceCenter<T> {
     async fn rebuild_route_table() -> Result<HashMap<String, AzServiceInfo>, AzInternalError> {
         let mut route_table = HashMap::new();
         AzBuildInService::iter().for_each(|service| {
-            route_table.insert(
-                service.uri().segments_str(),
-                AzServiceInfo::BuiltIn(service),
-            );
+            // using the first reversed node to ignore the params in the uri
+            let node = service.uri().reversed_nodes().next().unwrap();
+            route_table.insert(node.to_string(), AzServiceInfo::BuiltIn(service));
         });
 
         let plugin_paths = AzPlugin::get_plugin_paths()?;
         for path in plugin_paths {
             let plugin = AzPlugin::from_path(path)?;
-            route_table.insert(plugin.uri.segments_str(), AzServiceInfo::Plugin(plugin));
+            // using the first reversed node to ignore the params in the uri
+            let node = plugin.uri.reversed_nodes().next().unwrap();
+            route_table.insert(node.to_string(), AzServiceInfo::Plugin(plugin));
         }
 
         if Self::save_route_table(&route_table).await.is_err() {
@@ -79,6 +87,41 @@ impl<T: AzServiceCtx> AzServiceCenter<T> {
     ) -> Result<(), AzInternalError> {
         fs::write(get_route_table_path(), serde_json::to_string(route_table)?).await?;
         Ok(())
+    }
+}
+
+impl<T: AzServiceCtx> AzServiceCenter<T> {
+    pub(crate) fn route(&self, cmd_uri: &CmdUri) -> Option<AzServiceInfo> {
+        for node in cmd_uri.reversed_nodes() {
+            if let Some(service_info) = self.route_table.get(&node.to_string()) {
+                return Some(service_info.to_owned());
+            }
+        }
+        None
+    }
+
+    pub(crate) async fn get_or_load_service(
+        &mut self,
+        service_info: &AzServiceInfo,
+    ) -> Result<Arc<dyn AzService<T>>, AzInternalError> {
+        let service = match service_info {
+            AzServiceInfo::BuiltIn(service) => self
+                .built_ins
+                .get(service)
+                // the build in services should be loaded when the service center is created
+                .expect("The built_in service is not loaded")
+                .to_owned(),
+            AzServiceInfo::Plugin(plugin) => match self.plugins.get(&plugin.name) {
+                Some(service) => service.to_owned(),
+                None => {
+                    let service = plugin.load_service::<T>().await?;
+                    self.plugins
+                        .insert(plugin.name.to_owned(), service.to_owned());
+                    service
+                }
+            },
+        };
+        Ok(service)
     }
 }
 
