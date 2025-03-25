@@ -1,11 +1,14 @@
 use std::collections::HashMap;
+use std::fmt;
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::cmd_uri::CmdUri;
 use crate::error::AzInternalError;
 use crate::plugin::AzPlugin;
 
+use futures::future::try_join_all;
 use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use tokio::fs;
@@ -39,47 +42,63 @@ impl<T: AzServiceCtx> AzServiceCenter<T> {
     /// Create a new instance of AzServiceCenter
     /// TODO: we can add `profile` content here to support the switch between different profiles for different clouds
     pub(crate) async fn new() -> Result<Self, AzInternalError> {
-        let route_table = match Self::load_route_table().await {
-            Some(route_table) => route_table,
-            None => Self::rebuild_route_table().await?,
+        let center = if let Some(route_table) = Self::load_route_table().await {
+            Self {
+                route_table,
+                built_ins: HashMap::new(),
+                plugins: HashMap::new(),
+            }
+        } else {
+            let mut center = Self {
+                route_table: HashMap::new(),
+                built_ins: HashMap::new(),
+                plugins: HashMap::new(),
+            };
+            center.rebuild_route_table().await?;
+            center
         };
         // TODO: here we should init the built-in services
-        Ok(Self {
-            route_table,
-            built_ins: HashMap::new(),
-            plugins: HashMap::new(),
-        })
+        Ok(center)
     }
 }
 
 impl<T: AzServiceCtx> AzServiceCenter<T> {
+    pub(crate) async fn rebuild_route_table(&mut self) -> Result<(), AzInternalError> {
+        self.route_table.clear();
+        AzBuildInService::iter().for_each(|service| {
+            // using the first reversed node to ignore the params in the uri
+            let node = service.uri().ascending_nodes().next().unwrap();
+            self.route_table
+                .insert(node.to_string(), AzServiceInfo::BuiltIn(service));
+        });
+
+        let plugin_paths = AzPlugin::get_plugin_paths()?;
+
+        let plugin_futures: Vec<_> = plugin_paths
+            .into_iter()
+            .map(|path| AzPlugin::from_path(path))
+            .collect();
+
+        let plugins = try_join_all(plugin_futures).await?;
+
+        for plugin in plugins {
+            // using the first reversed node to ignore the params in the uri
+            let node = plugin.uri.ascending_nodes().next().unwrap();
+            self.route_table
+                .insert(node.to_string(), AzServiceInfo::Plugin(plugin));
+        }
+
+        if Self::save_route_table(&self.route_table).await.is_err() {
+            error!("Failed to save route table");
+        }
+        Ok(())
+    }
+
     async fn load_route_table() -> Option<HashMap<String, AzServiceInfo>> {
         fs::read_to_string(get_route_table_path())
             .await
             .ok()
             .and_then(|s| serde_json::from_str(&s).ok())
-    }
-
-    async fn rebuild_route_table() -> Result<HashMap<String, AzServiceInfo>, AzInternalError> {
-        let mut route_table = HashMap::new();
-        AzBuildInService::iter().for_each(|service| {
-            // using the first reversed node to ignore the params in the uri
-            let node = service.uri().reversed_nodes().next().unwrap();
-            route_table.insert(node.to_string(), AzServiceInfo::BuiltIn(service));
-        });
-
-        let plugin_paths = AzPlugin::get_plugin_paths()?;
-        for path in plugin_paths {
-            let plugin = AzPlugin::from_path(path)?;
-            // using the first reversed node to ignore the params in the uri
-            let node = plugin.uri.reversed_nodes().next().unwrap();
-            route_table.insert(node.to_string(), AzServiceInfo::Plugin(plugin));
-        }
-
-        if Self::save_route_table(&route_table).await.is_err() {
-            error!("Failed to save route table");
-        }
-        Ok(route_table)
     }
 
     async fn save_route_table(
@@ -92,7 +111,7 @@ impl<T: AzServiceCtx> AzServiceCenter<T> {
 
 impl<T: AzServiceCtx> AzServiceCenter<T> {
     pub(crate) fn route(&self, cmd_uri: &CmdUri) -> Option<AzServiceInfo> {
-        for node in cmd_uri.reversed_nodes() {
+        for node in cmd_uri.ascending_nodes() {
             if let Some(service_info) = self.route_table.get(&node.to_string()) {
                 return Some(service_info.to_owned());
             }
@@ -122,6 +141,21 @@ impl<T: AzServiceCtx> AzServiceCenter<T> {
             },
         };
         Ok(service)
+    }
+
+    pub(crate) fn iter_service_uris(&self) -> impl Iterator<Item = CmdUri> + '_ {
+        self.route_table
+            .keys()
+            .map(|s| CmdUri::from_str(s).unwrap())
+    }
+}
+
+impl fmt::Display for AzServiceInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AzServiceInfo::BuiltIn(service) => write!(f, "BuiltIn({})", service),
+            AzServiceInfo::Plugin(plugin) => write!(f, "Plugin({})", plugin.name),
+        }
     }
 }
 

@@ -1,4 +1,4 @@
-pub mod service;
+pub(crate) mod service;
 
 use crate::error::{AzError, AzResult};
 

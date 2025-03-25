@@ -1,8 +1,10 @@
 use std::env::Args;
 
-use az_core::{cmd_uri::CmdUri, APPLICATION_NAME};
+use az_core::{cmd_uri::CmdUri, AzCore, APPLICATION_NAME};
 
+mod execute;
 mod help;
+mod interactive;
 
 pub(crate) const CMD_ARG_FLAG_PREFIX: char = '-';
 
@@ -60,11 +62,19 @@ pub fn run(mut args: Args) {
         raw_args.push(raw_arg);
     }
 
+    // run interactive if the interactive flag is present
+    // the interactive check should be before the help check, because the interactive mode will show the help info
+    if interactive::has_interactive_flag(&raw_args) {
+        interactive::run_interactive(&cmd_uri, &raw_args);
+        return;
+    }
+
     // show help if the help flag is present
     if help::has_help_flag(&raw_args) {
         help::show_command_help(&cmd_uri);
         return;
     }
 
-    
+    // execute the command
+    execute::execute_command(&cmd_uri, &raw_args);
 }

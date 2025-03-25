@@ -1,13 +1,13 @@
 use crate::cmd_uri::CmdUri;
 use serde::{de::Error, ser::SerializeMap, Deserialize};
 use std::str::FromStr;
-use strum_macros::EnumIter;
+use strum_macros::{Display, EnumIter};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, EnumIter)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, EnumIter, Display)]
 pub enum AzBuildInService {
-    /// The login, logout, version, upgrade commands etc.
-    Base,
-    /// Manage azure subscription information.
+    /// The top level commands for the azure commands.
+    Top,
+    /// Manage the authentication information.
     Account,
     /// Manage the registered Azure clouds.
     Cloud,
@@ -19,7 +19,7 @@ pub enum AzBuildInService {
 
 impl AzBuildInService {
     /// cmd_uri: `cmd://azure/`
-    const BASE_URI: &'static str = "cmd://azure/";
+    const TOP_URI: &'static str = "cmd://azure/";
     /// cmd_uri: `cmd://azure/account/`
     const ACCOUNT_URI: &'static str = "cmd://azure/account/";
     /// cmd_uri: `cmd://azure/cloud/`
@@ -29,13 +29,9 @@ impl AzBuildInService {
     /// cmd_uri: `cmd://azure/plugin/`
     const PLUGIN_URI: &'static str = "cmd://azure/plugin/";
 
-    // pub fn uri(&self) -> CmdUri {
-    //     CmdUri::new(self.segments().to_vec(), false)
-    // }
-
     pub fn uri(&self) -> CmdUri {
         match self {
-            AzBuildInService::Base => CmdUri::from_str(Self::BASE_URI).unwrap(),
+            AzBuildInService::Top => CmdUri::from_str(Self::TOP_URI).unwrap(),
             AzBuildInService::Account => CmdUri::from_str(Self::ACCOUNT_URI).unwrap(),
             AzBuildInService::Cloud => CmdUri::from_str(Self::CLOUD_URI).unwrap(),
             AzBuildInService::Config => CmdUri::from_str(Self::CONFIG_URI).unwrap(),
@@ -45,7 +41,7 @@ impl AzBuildInService {
 
     pub fn from_uri(uri: &CmdUri) -> Option<Self> {
         match uri.to_string().as_str() {
-            s if s == Self::BASE_URI => Some(Self::Base),
+            s if s == Self::TOP_URI => Some(Self::Top),
             s if s == Self::ACCOUNT_URI => Some(Self::Account),
             s if s == Self::CLOUD_URI => Some(Self::Cloud),
             s if s == Self::CONFIG_URI => Some(Self::Config),

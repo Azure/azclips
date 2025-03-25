@@ -2,12 +2,10 @@ use crate::pb::service::{CoreInfo, GetCoreInfoRequest, GetCoreInfoResponse};
 use crate::{error::AzError, AzCore, VERSION};
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::Weak;
 
 use super::AzServiceCtx;
 
-/// the context provided to the service
-impl AzServiceCtx for Weak<AzCore> {
+impl AzServiceCtx for AzCore {
     fn get_core_info<'a>(
         &'a self,
         _: GetCoreInfoRequest,

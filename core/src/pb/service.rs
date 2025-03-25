@@ -13,13 +13,17 @@ pub struct CheckRequest {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CheckResponse {
-    #[prost(string, tag = "1")]
-    pub uri: ::prost::alloc::string::String,
+    /// if the uri is not found return None;
+    #[prost(string, optional, tag = "1")]
+    pub uri: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct InterfaceRequest {
     #[prost(string, tag = "2")]
     pub uri: ::prost::alloc::string::String,
+    /// the depth of the interface to return, 0 means all the depth, 1 means the top level command group and command
+    #[prost(uint32, tag = "3")]
+    pub depth: u32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct InterfaceResponse {
@@ -28,48 +32,18 @@ pub struct InterfaceResponse {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ServiceMetadata {
+    /// the service name for installation and identification
     #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,
-    #[prost(message, optional, tag = "2")]
-    pub help: ::core::option::Option<ServiceHelp>,
+    /// the release version of the service, for built-in service, the version is the version of the core
+    #[prost(string, tag = "2")]
+    pub version: ::prost::alloc::string::String,
     /// the unique uri for the service, this uri should be the cmd uri which starts with `cmd://azure/` and the following segments are composed by the top level command group name for the service. The uri should be unique across all the services.
     #[prost(string, tag = "3")]
     pub uri: ::prost::alloc::string::String,
-    #[prost(message, repeated, tag = "11")]
-    pub groups: ::prost::alloc::vec::Vec<super::command::CmdInterface>,
-    #[prost(message, repeated, tag = "12")]
-    pub commands: ::prost::alloc::vec::Vec<super::command::CmdInterface>,
-    #[prost(oneof = "service_metadata::Cls", tags = "4, 5")]
-    pub cls: ::core::option::Option<service_metadata::Cls>,
-}
-/// Nested message and enum types in `ServiceMetadata`.
-pub mod service_metadata {
-    #[derive(Clone, PartialEq, ::prost::Oneof)]
-    pub enum Cls {
-        #[prost(message, tag = "4")]
-        BuiltIn(super::BuiltInService),
-        #[prost(message, tag = "5")]
-        Plugin(super::PluginService),
-    }
-}
-/// ServiceHelp is the help message of the service
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ServiceHelp {
-    /// short description of the service
-    #[prost(string, tag = "1")]
-    pub short: ::prost::alloc::string::String,
-    /// long description of the service
-    #[prost(string, tag = "2")]
-    pub long: ::prost::alloc::string::String,
-}
-/// BuiltInService is the service that is built and released with the core
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
-pub struct BuiltInService {}
-/// PluginService is the service that is loaded as a plugin
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct PluginService {
-    #[prost(string, tag = "1")]
-    pub version: ::prost::alloc::string::String,
+    /// the help information of the service
+    #[prost(message, optional, tag = "4")]
+    pub help: ::core::option::Option<super::command::CmdHelp>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ExecuteRequest {

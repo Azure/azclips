@@ -3,7 +3,7 @@ use percent_encoding::{percent_decode_str, utf8_percent_encode, AsciiSet, CONTRO
 use serde::Deserialize;
 use std::{collections::HashMap, str::FromStr};
 
-use crate::error::AzInternalError;
+use crate::{error::AzInternalError, APPLICATION_NAME};
 
 const CMD_URI_SCHEMA: &str = "cmd://";
 
@@ -117,16 +117,20 @@ impl FromStr for CmdUri {
             // for command group expression, remove the trailing slash
             path = &path[..path.len() - 1];
         }
-        let cmds = path
+        let segments = path
             .split('/')
             .map(|s| s.trim().to_string())
             .collect::<Vec<_>>();
 
-        if cmds.iter().any(|s| s.is_empty()) {
+        if segments.iter().any(|s| s.is_empty()) {
             return Err(AzInternalError::InvalidCmdUriError(value.to_string()));
         }
 
-        if cmds.is_empty() {
+        if segments.is_empty() {
+            return Err(AzInternalError::InvalidCmdUriError(value.to_string()));
+        }
+
+        if segments[0] != APPLICATION_NAME {
             return Err(AzInternalError::InvalidCmdUriError(value.to_string()));
         }
 
@@ -160,7 +164,7 @@ impl FromStr for CmdUri {
 
         Ok(CmdUri {
             version,
-            segments: cmds,
+            segments,
             executable,
             params,
         })
@@ -266,6 +270,10 @@ impl CmdUri {
         self.version.as_ref().map(|s| s.as_str())
     }
 
+    pub fn last_segment(&self) -> &str {
+        self.segments.last().unwrap()
+    }
+
     /// The key should be in lower case, otherwise it will convert to lower case
     pub fn get_param_str(&self, key: &str) -> Option<&str> {
         self.params
@@ -287,7 +295,7 @@ impl CmdUri {
 }
 
 impl CmdUri {
-    /// Return the nodes cmd uri from the tail to the head, if the cmd uri is not executable, the the first node is itself.
+    /// Return the nodes cmd uri from the tail to the head, if the cmd uri is not executable, the first node is itself.
     ///
     /// The nodes are not executable, and all the params and version are ignored.
     ///
@@ -296,7 +304,7 @@ impl CmdUri {
     /// ```
     /// use az_core::cmd_uri::CmdUri;
     /// let cmd_uri = CmdUri::new(vec!["azure", "network", "vnet", "create"], true);
-    /// let nodes = cmd_uri.reversed_nodes().collect::<Vec<_>>();
+    /// let nodes = cmd_uri.ascending_nodes().collect::<Vec<_>>();
     /// assert_eq!(nodes.len(), 3);
     /// assert_eq!(nodes[0].to_string(), "cmd://azure/network/vnet/");
     /// assert_eq!(nodes[0].executable(), false);
@@ -309,7 +317,7 @@ impl CmdUri {
     /// ```
     /// use az_core::cmd_uri::CmdUri;
     /// let cmd_uri = CmdUri::new(vec!["azure", "network", "vnet"], false);
-    /// let nodes = cmd_uri.reversed_nodes().collect::<Vec<_>>();
+    /// let nodes = cmd_uri.ascending_nodes().collect::<Vec<_>>();
     /// assert_eq!(nodes.len(), 3);
     /// assert_eq!(nodes[0].to_string(), "cmd://azure/network/vnet/");
     /// assert_eq!(nodes[0].executable(), false);
@@ -319,7 +327,7 @@ impl CmdUri {
     /// assert_eq!(nodes[2].executable(), false);
     /// ```
     ///
-    pub fn reversed_nodes(&self) -> impl Iterator<Item = CmdUri> + '_ {
+    pub fn ascending_nodes(&self) -> impl Iterator<Item = CmdUri> + '_ {
         let tail = if self.executable {
             self.segments.len() - 1
         } else {
@@ -330,6 +338,16 @@ impl CmdUri {
             let cmd_uri = CmdUri::new(segments, false);
             cmd_uri
         })
+    }
+
+    /// Check if the current command URI is a descendant of the given ancestor URI
+    /// at the specified hierarchical level
+    pub fn is_child_of(&self, parent: &CmdUri, level_depth: usize) -> bool {
+        assert!(level_depth > 0, "level_depth must be greater than 0");
+        if self.segments.len() != parent.segments.len() + level_depth {
+            return false;
+        }
+        self.segments[..parent.segments.len()] == parent.segments
     }
 }
 
@@ -364,7 +382,7 @@ mod tests {
             cmd_uri.to_string(),
             "cmd://azure/network/vnet/create?version=1.0.0"
         );
-        let nodes = cmd_uri.reversed_nodes().collect::<Vec<_>>();
+        let nodes = cmd_uri.ascending_nodes().collect::<Vec<_>>();
         assert_eq!(nodes.len(), 3);
         assert_eq!(nodes[0].to_string(), "cmd://azure/network/vnet/");
         assert_eq!(nodes[0].executable(), false);
@@ -409,7 +427,7 @@ mod tests {
             cmd_uri.to_string(),
             "cmd://azure/network/?num=1&version=1.0.0"
         );
-        let nodes = cmd_uri.reversed_nodes().collect::<Vec<_>>();
+        let nodes = cmd_uri.ascending_nodes().collect::<Vec<_>>();
         assert_eq!(nodes.len(), 2);
         assert_eq!(nodes[0].to_string(), "cmd://azure/network/");
         assert_eq!(nodes[0].executable(), false);
@@ -423,7 +441,7 @@ mod tests {
             cmd_url.to_string(),
             "cmd://azure/network/vnet/create?key=Value"
         );
-        let nodes = cmd_url.reversed_nodes().collect::<Vec<_>>();
+        let nodes = cmd_url.ascending_nodes().collect::<Vec<_>>();
         assert_eq!(nodes.len(), 3);
         assert_eq!(nodes[0].to_string(), "cmd://azure/network/vnet/");
         assert_eq!(nodes[0].executable(), false);
@@ -482,6 +500,12 @@ mod tests {
         }
 
         let cmd_uri_str = "cmd://";
+        match CmdUri::from_str(cmd_uri_str) {
+            Err(AzInternalError::InvalidCmdUriError(_)) => {}
+            _ => panic!("should be InvalidCmdUriError"),
+        }
+
+        let cmd_uri_str = "cmd://az/network/vnet/create";
         match CmdUri::from_str(cmd_uri_str) {
             Err(AzInternalError::InvalidCmdUriError(_)) => {}
             _ => panic!("should be InvalidCmdUriError"),

@@ -10,7 +10,7 @@ name = "az_cli"
 path = "src/lib.rs"
 
 [dependencies]
-az_core = { path = "../core" }
+az_core = { path = "../core", features = ["cli"] }
 anyhow = "1.0"
 dirs = "6.0"
 env_logger = "0.11"
