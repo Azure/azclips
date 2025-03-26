@@ -7,6 +7,9 @@ pub enum AzUserUsageError {
     #[error("Command not found: {0}")]
     CommandNotFoundError(String),
 
+    #[error("Command group is not executable")]
+    CommandGroupNotExecutableError,
+
     #[error("Unrecognized arguments: {0}")]
     UnrecognizedArgumentError(String),
 
@@ -46,6 +49,9 @@ pub enum AzInternalError {
 
     #[error("Invalid argument definition: {0}")]
     InvalidArgumentDefinitionError(String),
+
+    #[error("Invalid partial keys: {0}")]
+    InvalidPartialKeysError(String),
 
     #[error("Invalid command URI: {0}")]
     InvalidCmdUriError(String),

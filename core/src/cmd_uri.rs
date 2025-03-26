@@ -178,14 +178,14 @@ impl CmdUri {
     ///
     /// ```
     /// use az_core::cmd_uri::CmdUri;
-    /// let cmd_uri = CmdUri::new(vec!["azure", "network", "vnet", "create"], true);
+    /// let cmd_uri = CmdUri::new(["azure", "network", "vnet", "create"], true);
     /// ```
     ///
     /// ```
     /// use az_core::cmd_uri::CmdUri;
-    /// let cmd_uri = CmdUri::new(vec!["azure", "network", "vnet"], false);
+    /// let cmd_uri = CmdUri::new(["azure", "network", "vnet"], false);
     /// ```
-    pub fn new(cmds: Vec<impl Into<String>>, executable: bool) -> Self {
+    pub fn new(cmds: impl IntoIterator<Item = impl Into<String>>, executable: bool) -> Self {
         Self {
             version: None,
             segments: cmds.into_iter().map(Into::into).collect(),
@@ -200,7 +200,7 @@ impl CmdUri {
     ///
     /// ```
     /// use az_core::cmd_uri::CmdUri;
-    /// let cmd_uri = CmdUri::new(vec!["azure", "network", "vnet", "create"], true).with_version("1.0.0");
+    /// let cmd_uri = CmdUri::new(["azure", "network", "vnet", "create"], true).with_version("1.0.0");
     /// assert_eq!(cmd_uri.to_string(), "cmd://azure/network/vnet/create?version=1.0.0");
     /// ```
     pub fn with_version(mut self, version: impl Into<String>) -> Self {
@@ -216,7 +216,7 @@ impl CmdUri {
     ///
     /// ```
     /// use az_core::cmd_uri::CmdUri;
-    /// let cmd_uri = CmdUri::new(vec!["azure", "network", "vnet", "create"], true).with_param("num", 1);
+    /// let cmd_uri = CmdUri::new(["azure", "network", "vnet", "create"], true).with_param("num", 1);
     /// assert_eq!(cmd_uri.to_string(), "cmd://azure/network/vnet/create?num=1");
     /// ```
     ///
@@ -240,7 +240,7 @@ impl CmdUri {
     /// use az_core::cmd_uri::CmdUri;
     /// use std::collections::HashMap;
     /// let params = HashMap::from([("num", 1.to_string()), ("bool", false.to_string())]);
-    /// let cmd_uri = CmdUri::new(vec!["azure", "network", "vnet", "create"], true).with_params(params);
+    /// let cmd_uri = CmdUri::new(["azure", "network", "vnet", "create"], true).with_params(params);
     /// assert_eq!(cmd_uri.to_string(), "cmd://azure/network/vnet/create?bool=false&num=1");
     /// ```
     ///
@@ -303,7 +303,7 @@ impl CmdUri {
     ///
     /// ```
     /// use az_core::cmd_uri::CmdUri;
-    /// let cmd_uri = CmdUri::new(vec!["azure", "network", "vnet", "create"], true);
+    /// let cmd_uri = CmdUri::new(["azure", "network", "vnet", "create"], true);
     /// let nodes = cmd_uri.ascending_nodes().collect::<Vec<_>>();
     /// assert_eq!(nodes.len(), 3);
     /// assert_eq!(nodes[0].to_string(), "cmd://azure/network/vnet/");
@@ -316,7 +316,7 @@ impl CmdUri {
     ///
     /// ```
     /// use az_core::cmd_uri::CmdUri;
-    /// let cmd_uri = CmdUri::new(vec!["azure", "network", "vnet"], false);
+    /// let cmd_uri = CmdUri::new(["azure", "network", "vnet"], false);
     /// let nodes = cmd_uri.ascending_nodes().collect::<Vec<_>>();
     /// assert_eq!(nodes.len(), 3);
     /// assert_eq!(nodes[0].to_string(), "cmd://azure/network/vnet/");
@@ -373,7 +373,7 @@ mod tests {
 
     #[test]
     fn test_cmd_uri_build() {
-        let cmd_uri = CmdUri::new(vec!["azure", "network", "vnet", "create"], true);
+        let cmd_uri = CmdUri::new(["azure", "network", "vnet", "create"], true);
         assert_eq!(cmd_uri.to_string(), "cmd://azure/network/vnet/create");
         assert_eq!(cmd_uri.executable(), true);
 
@@ -414,7 +414,7 @@ mod tests {
         );
         assert_eq!(cmd_uri.get_param_str("specialvalue"), Some("?#=/:"));
 
-        let cmd_uri = CmdUri::new(vec!["azure", "network"], false);
+        let cmd_uri = CmdUri::new(["azure", "network"], false);
         assert_eq!(cmd_uri.to_string(), "cmd://azure/network/");
         assert_eq!(cmd_uri.executable(), false);
 
@@ -434,7 +434,7 @@ mod tests {
         assert_eq!(nodes[1].to_string(), "cmd://azure/");
         assert_eq!(nodes[1].executable(), false);
 
-        let cmd_url = CmdUri::new(vec!["azure", "network", "vnet", "create"], true);
+        let cmd_url = CmdUri::new(["azure", "network", "vnet", "create"], true);
         let params = HashMap::from([("KEY".to_string(), "Value".to_string())]);
         let cmd_url = cmd_url.with_params(params);
         assert_eq!(
@@ -452,13 +452,13 @@ mod tests {
 
         // test panic case
         let result = std::panic::catch_unwind(|| {
-            let cmd_uri = CmdUri::new(vec!["azure", "network", "vnet", "create"], true);
+            let cmd_uri = CmdUri::new(["azure", "network", "vnet", "create"], true);
             cmd_uri.with_param("version", "1.0.0");
         });
         assert!(result.is_err());
 
         let result = std::panic::catch_unwind(|| {
-            let cmd_uri = CmdUri::new(vec!["azure", "network", "vnet", "create"], true);
+            let cmd_uri = CmdUri::new(["azure", "network", "vnet", "create"], true);
             let params = HashMap::from([
                 ("key".to_string(), "value".to_string()),
                 ("version".to_string(), "1.0.0".to_string()),

@@ -65,16 +65,16 @@ pub fn run(mut args: Args) {
     // run interactive if the interactive flag is present
     // the interactive check should be before the help check, because the interactive mode will show the help info
     if interactive::has_interactive_flag(&raw_args) {
-        interactive::run_interactive(&cmd_uri, &raw_args);
+        interactive::run_interactive(cmd_uri, raw_args);
         return;
     }
 
     // show help if the help flag is present
     if help::has_help_flag(&raw_args) {
-        help::show_command_help(&cmd_uri);
+        help::show_command_help(cmd_uri);
         return;
     }
 
     // execute the command
-    execute::execute_command(&cmd_uri, &raw_args);
+    execute::execute_command(cmd_uri, raw_args);
 }

@@ -1,12 +1,12 @@
 //! Azure CLI Lite Core Library
 //!
 //! This library provides the core functionality for the Azure CLI Lite application.
+pub mod argparse;
 pub mod cmd_uri;
 pub mod error;
 pub mod pb;
 
 pub(crate) mod account;
-pub(crate) mod argparse;
 pub(crate) mod cloud;
 pub(crate) mod config;
 pub(crate) mod plugin;

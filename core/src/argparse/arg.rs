@@ -285,7 +285,6 @@ impl<'a> CmdArgWrapper<'a> {
         let mut arg_type = self.unwrapped_arg_type;
         let mut prefix_keys = self.prefix_keys.clone();
         for part in parts.into_iter() {
-            prefix_keys.push(part.to_owned());
             match arg_type {
                 command::cmd_arg::ArgType::Object(obj) => match part {
                     SHPartialKeyPart::Name(name) => {
@@ -351,6 +350,7 @@ impl<'a> CmdArgWrapper<'a> {
                 }
             }
             arg_type = get_unwrapped_arg_type(self.cmd, arg)?;
+            prefix_keys.push(part.to_owned());
         }
 
         Ok(Self {

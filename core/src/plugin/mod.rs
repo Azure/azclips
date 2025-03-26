@@ -40,7 +40,7 @@ impl AzPlugin {
 
     /// load the plugin info from the file path
     pub(crate) async fn from_path(path: PathBuf) -> Result<Self, AzInternalError> {
-        unimplemented!()
+        todo!()
     }
 
     pub(crate) fn get_plugin_paths() -> Result<Vec<PathBuf>, AzInternalError> {

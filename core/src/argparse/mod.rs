@@ -13,28 +13,32 @@ use self::shorthand::{SHResult, SHORTHAND_SYNTAX_PARSER};
 
 #[derive(Debug, PartialEq)]
 pub enum ArgOp {
-    PromptInput(ArgPromptInputOp),
-    ValueAssign(ArgValueAssignOp),
+    Value(ArgValueOp),
     Help(ArgHelpOp),
 }
 
 #[derive(Debug, PartialEq)]
-pub struct ArgPromptInputOp {
-    keys: SHPartialKeys,
-    prompt: command::CmdArgPromptInput,
+pub enum ArgValueOp {
+    PromptInput(ArgValuePromptInputOp),
+    Assign(ArgValueAssignOp),
+}
+#[derive(Debug, PartialEq)]
+pub struct ArgValuePromptInputOp {
+    pub keys: SHPartialKeys,
+    pub prompt: command::CmdArgPromptInput,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct ArgValueAssignOp {
-    keys: SHPartialKeys,
+    pub keys: SHPartialKeys,
     /// whether the value is filled from the blank value or not
-    from_blank: bool,
-    value: Value,
+    pub from_blank: bool,
+    pub value: Value,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct ArgHelpOp {
-    keys: SHPartialKeys,
+    pub keys: SHPartialKeys,
 }
 
 /// parse the argument
@@ -157,10 +161,12 @@ fn parse_arg_value_str(
     if value.is_none() {
         // allow prompt input
         if let Some(prompt) = arg.prompt() {
-            return Ok(ArgOp::PromptInput(ArgPromptInputOp {
-                keys: arg.prefix_keys().to_owned(),
-                prompt: prompt.to_owned(),
-            }));
+            return Ok(ArgOp::Value(ArgValueOp::PromptInput(
+                ArgValuePromptInputOp {
+                    keys: arg.prefix_keys().to_owned(),
+                    prompt: prompt.to_owned(),
+                },
+            )));
         }
 
         // else use blank value instead
@@ -173,11 +179,11 @@ fn parse_arg_value_str(
             .to_owned()
             .try_into()?;
         let value = arg.verify_value(blank)?;
-        return Ok(ArgOp::ValueAssign(ArgValueAssignOp {
+        return Ok(ArgOp::Value(ArgValueOp::Assign(ArgValueAssignOp {
             keys: arg.prefix_keys().to_owned(),
             from_blank: true,
             value,
-        }));
+        })));
     }
 
     let value = value.unwrap();
@@ -189,11 +195,11 @@ fn parse_arg_value_str(
             // try parse from json string
             if let Ok(v) = serde_json::from_str::<Value>(value) {
                 let value = arg.verify_value(v)?;
-                return Ok(ArgOp::ValueAssign(ArgValueAssignOp {
+                return Ok(ArgOp::Value(ArgValueOp::Assign(ArgValueAssignOp {
                     keys: arg.prefix_keys().to_owned(),
                     from_blank: false,
                     value,
-                }));
+                })));
             }
         }
         _ => {}
@@ -201,11 +207,11 @@ fn parse_arg_value_str(
 
     match SHORTHAND_SYNTAX_PARSER.parse(value, Some(arg.to_owned()))? {
         SHResult::Help(keys) => Ok(ArgOp::Help(ArgHelpOp { keys })),
-        SHResult::Value(value) => Ok(ArgOp::ValueAssign(ArgValueAssignOp {
+        SHResult::Value(value) => Ok(ArgOp::Value(ArgValueOp::Assign(ArgValueAssignOp {
             keys: arg.prefix_keys().to_owned(),
             from_blank: false,
             value,
-        })),
+        }))),
     }
 }
 
@@ -356,11 +362,11 @@ mod tests {
             assert_eq!(ops.len(), 1);
             assert_eq!(
                 ops[0],
-                ArgOp::ValueAssign(ArgValueAssignOp {
+                ArgOp::Value(ArgValueOp::Assign(ArgValueAssignOp {
                     keys: SHPartialKeys::new([SHPartialKeyPart::Name(name.to_string())]),
                     from_blank: expression.is_empty(),
                     value: expected,
-                })
+                }))
             );
         }
 
@@ -369,14 +375,14 @@ mod tests {
         assert_eq!(ops.len(), 1);
         assert_eq!(
             ops[0],
-            ArgOp::PromptInput(ArgPromptInputOp {
+            ArgOp::Value(ArgValueOp::PromptInput(ArgValuePromptInputOp {
                 keys: SHPartialKeys::new([SHPartialKeyPart::Name("secret".to_string())]),
                 prompt: command::CmdArgPromptInput {
                     prompt: "Enter your secret".to_string(),
                     secret: true,
                     confirm: true,
                 },
-            })
+            }))
         );
 
         // test argument not found
@@ -489,11 +495,11 @@ mod tests {
             assert_eq!(ops.len(), 1);
             assert_eq!(
                 ops[0],
-                ArgOp::ValueAssign(ArgValueAssignOp {
+                ArgOp::Value(ArgValueOp::Assign(ArgValueAssignOp {
                     keys: SHPartialKeys::new([SHPartialKeyPart::Name(name.to_string())]),
                     from_blank: false,
                     value: expected,
-                })
+                }))
             );
         }
     }
@@ -588,7 +594,7 @@ mod tests {
         assert_eq!(ops.len(), 1);
         assert_eq!(
             ops[0],
-            ArgOp::ValueAssign(ArgValueAssignOp {
+            ArgOp::Value(ArgValueOp::Assign(ArgValueAssignOp {
                 keys: SHPartialKeys::new([SHPartialKeyPart::Name("object".to_string())]),
                 from_blank: false,
                 value: Value::Object(
@@ -608,7 +614,7 @@ mod tests {
                     .unwrap()
                     .clone()
                 ),
-            })
+            }))
         );
 
         // test the json string
@@ -618,7 +624,7 @@ mod tests {
         assert_eq!(ops.len(), 1);
         assert_eq!(
             ops[0],
-            ArgOp::ValueAssign(ArgValueAssignOp {
+            ArgOp::Value(ArgValueOp::Assign(ArgValueAssignOp {
                 keys: SHPartialKeys::new([SHPartialKeyPart::Name("object".to_string())]),
                 from_blank: false,
                 value: Value::Object(
@@ -638,7 +644,7 @@ mod tests {
                     .unwrap()
                     .clone()
                 ),
-            })
+            }))
         );
 
         // test partial value assignment
@@ -659,7 +665,7 @@ mod tests {
         assert_eq!(ops.len(), 6);
         assert_eq!(
             ops[0],
-            ArgOp::ValueAssign(ArgValueAssignOp {
+            ArgOp::Value(ArgValueOp::Assign(ArgValueAssignOp {
                 keys: SHPartialKeys::new([
                     SHPartialKeyPart::Name("object".to_string()),
                     SHPartialKeyPart::Name("array".to_string()),
@@ -667,22 +673,22 @@ mod tests {
                 ]),
                 from_blank: false,
                 value: Value::String("1".to_string()),
-            })
+            }))
         );
         assert_eq!(
             ops[1],
-            ArgOp::ValueAssign(ArgValueAssignOp {
+            ArgOp::Value(ArgValueOp::Assign(ArgValueAssignOp {
                 keys: SHPartialKeys::new([
                     SHPartialKeyPart::Name("object".to_string()),
                     SHPartialKeyPart::Name("str".to_string())
                 ]),
                 from_blank: false,
                 value: Value::String("abc".to_string()),
-            })
+            }))
         );
         assert_eq!(
             ops[2],
-            ArgOp::ValueAssign(ArgValueAssignOp {
+            ArgOp::Value(ArgValueOp::Assign(ArgValueAssignOp {
                 keys: SHPartialKeys::new([
                     SHPartialKeyPart::Name("object".to_string()),
                     SHPartialKeyPart::Name("additional3".to_string())
@@ -694,11 +700,11 @@ mod tests {
                         .unwrap()
                         .clone()
                 ),
-            })
+            }))
         );
         assert_eq!(
             ops[3],
-            ArgOp::ValueAssign(ArgValueAssignOp {
+            ArgOp::Value(ArgValueOp::Assign(ArgValueAssignOp {
                 keys: SHPartialKeys::new([
                     SHPartialKeyPart::Name("object".to_string()),
                     SHPartialKeyPart::Name("tags".to_string()),
@@ -706,11 +712,11 @@ mod tests {
                 ]),
                 from_blank: false,
                 value: Value::String("true".to_string()),
-            })
+            }))
         );
         assert_eq!(
             ops[4],
-            ArgOp::ValueAssign(ArgValueAssignOp {
+            ArgOp::Value(ArgValueOp::Assign(ArgValueAssignOp {
                 keys: SHPartialKeys::new([
                     SHPartialKeyPart::Name("object".to_string()),
                     SHPartialKeyPart::Name("tags".to_string()),
@@ -718,12 +724,12 @@ mod tests {
                 ]),
                 from_blank: false,
                 value: Value::Null,
-            })
+            }))
         );
 
         assert_eq!(
             ops[5],
-            ArgOp::ValueAssign(ArgValueAssignOp {
+            ArgOp::Value(ArgValueOp::Assign(ArgValueAssignOp {
                 keys: SHPartialKeys::new([
                     SHPartialKeyPart::Name("object".to_string()),
                     SHPartialKeyPart::Name("tags".to_string()),
@@ -731,7 +737,7 @@ mod tests {
                 ]),
                 from_blank: false,
                 value: Value::String("null".to_string()),
-            })
+            }))
         );
 
         // test partial value with json
@@ -745,7 +751,7 @@ mod tests {
         assert_eq!(ops.len(), 1);
         assert_eq!(
             ops[0],
-            ArgOp::ValueAssign(ArgValueAssignOp {
+            ArgOp::Value(ArgValueOp::Assign(ArgValueAssignOp {
                 keys: SHPartialKeys::new([
                     SHPartialKeyPart::Name("object".to_string()),
                     SHPartialKeyPart::Name("additional3".to_string())
@@ -757,7 +763,7 @@ mod tests {
                         .unwrap()
                         .clone()
                 ),
-            })
+            }))
         );
 
         // test error cases
@@ -893,11 +899,11 @@ mod tests {
         assert_eq!(ops.len(), 1);
         assert_eq!(
             ops[0],
-            ArgOp::ValueAssign(ArgValueAssignOp {
+            ArgOp::Value(ArgValueOp::Assign(ArgValueAssignOp {
                 keys: SHPartialKeys::new([SHPartialKeyPart::Name("object".to_string())]),
                 from_blank: false,
                 value: Value::Object(value.as_object().unwrap().clone()),
-            })
+            }))
         );
 
         let value = json!("abc");
@@ -916,7 +922,7 @@ mod tests {
         assert_eq!(ops.len(), 1);
         assert_eq!(
             ops[0],
-            ArgOp::ValueAssign(ArgValueAssignOp {
+            ArgOp::Value(ArgValueOp::Assign(ArgValueAssignOp {
                 keys: SHPartialKeys::new([
                     SHPartialKeyPart::Name("object".to_string()),
                     SHPartialKeyPart::Name("tags".to_string()),
@@ -924,7 +930,7 @@ mod tests {
                 ]),
                 from_blank: false,
                 value: Value::String(value.as_str().unwrap().to_string()),
-            })
+            }))
         );
     }
 }
