@@ -1,5 +1,5 @@
 pub mod arg;
-mod partial;
+pub mod partial;
 mod shorthand;
 
 use arg::CmdArgWrapper;
@@ -55,7 +55,7 @@ fn parse_arg_values<'a>(
     arg: &CmdArgWrapper,
     values: impl IntoIterator<Item = &'a str>,
 ) -> AzResult<Vec<ArgOp>> {
-    match arg.unwrapped_arg_type {
+    match arg.unwrapped_arg_type() {
         command::cmd_arg::ArgType::Str(_)
         | command::cmd_arg::ArgType::Number(_)
         | command::cmd_arg::ArgType::Boolean(_) => parse_simple_arg(arg, values),
@@ -136,7 +136,7 @@ fn parse_composite_arg<'a>(
     while let Some(value) = next_value {
         if let Some((key, value)) = SHORTHAND_SYNTAX_PARSER.split_partial_value(value) {
             let keys = SHORTHAND_SYNTAX_PARSER.parse_partial_value_key_parts(key)?;
-            let sub_arg = arg.retrieve_internal_arg_by_keys(&keys)?;
+            let sub_arg = arg.retrieve_sub_arg(keys.parts())?;
             let op = parse_arg_value_str(&sub_arg, value)?;
             ops.push(op);
         } else {
@@ -158,7 +158,7 @@ fn parse_arg_value_str(
         // allow prompt input
         if let Some(prompt) = arg.prompt() {
             return Ok(ArgOp::PromptInput(ArgPromptInputOp {
-                keys: arg.prefix_keys.to_owned(),
+                keys: arg.prefix_keys().to_owned(),
                 prompt: prompt.to_owned(),
             }));
         }
@@ -174,7 +174,7 @@ fn parse_arg_value_str(
             .try_into()?;
         let value = arg.verify_value(blank)?;
         return Ok(ArgOp::ValueAssign(ArgValueAssignOp {
-            keys: arg.prefix_keys.to_owned(),
+            keys: arg.prefix_keys().to_owned(),
             from_blank: true,
             value,
         }));
@@ -182,7 +182,7 @@ fn parse_arg_value_str(
 
     let value = value.unwrap();
 
-    match arg.unwrapped_arg_type {
+    match arg.unwrapped_arg_type() {
         command::cmd_arg::ArgType::AnyType(_)
         | command::cmd_arg::ArgType::Array(_)
         | command::cmd_arg::ArgType::Object(_) => {
@@ -190,7 +190,7 @@ fn parse_arg_value_str(
             if let Ok(v) = serde_json::from_str::<Value>(value) {
                 let value = arg.verify_value(v)?;
                 return Ok(ArgOp::ValueAssign(ArgValueAssignOp {
-                    keys: arg.prefix_keys.to_owned(),
+                    keys: arg.prefix_keys().to_owned(),
                     from_blank: false,
                     value,
                 }));
@@ -202,7 +202,7 @@ fn parse_arg_value_str(
     match SHORTHAND_SYNTAX_PARSER.parse(value, Some(arg.to_owned()))? {
         SHResult::Help(keys) => Ok(ArgOp::Help(ArgHelpOp { keys })),
         SHResult::Value(value) => Ok(ArgOp::ValueAssign(ArgValueAssignOp {
-            keys: arg.prefix_keys.to_owned(),
+            keys: arg.prefix_keys().to_owned(),
             from_blank: false,
             value,
         })),
@@ -227,10 +227,10 @@ mod tests {
 
     use super::*;
 
-    fn parse_cmd_arg(
+    fn parse_cmd_arg<'a>(
         cmd: &command::CmdCommand,
         name_or_alias: &str,
-        values: &[&str],
+        values: impl IntoIterator<Item = &'a str>,
     ) -> AzResult<Option<Vec<ArgOp>>> {
         let mut matched_arg = None;
         for arg in cmd.args.iter() {
@@ -253,7 +253,7 @@ mod tests {
         }
         let matched_arg = matched_arg.unwrap();
 
-        let ops = parse_arg(Some(cmd), matched_arg, (*values).iter().copied())?;
+        let ops = parse_arg(Some(cmd), matched_arg, values)?;
         Ok(Some(ops))
     }
 
@@ -350,14 +350,14 @@ mod tests {
             ("enabled", vec!["false"], Value::Bool(false)),
             ("enabled", vec!["no"], Value::Bool(false)),
         ] {
-            let ops = parse_cmd_arg(&cmd, name, &expression).unwrap().unwrap();
+            let ops = parse_cmd_arg(&cmd, name, expression.clone())
+                .unwrap()
+                .unwrap();
             assert_eq!(ops.len(), 1);
             assert_eq!(
                 ops[0],
                 ArgOp::ValueAssign(ArgValueAssignOp {
-                    keys: SHPartialKeys {
-                        parts: vec![SHPartialKeyPart::Name(name.to_string())],
-                    },
+                    keys: SHPartialKeys::new([SHPartialKeyPart::Name(name.to_string())]),
                     from_blank: expression.is_empty(),
                     value: expected,
                 })
@@ -365,14 +365,12 @@ mod tests {
         }
 
         // test secret prompt input
-        let ops = parse_cmd_arg(&cmd, "secret", &vec![]).unwrap().unwrap();
+        let ops = parse_cmd_arg(&cmd, "secret", vec![]).unwrap().unwrap();
         assert_eq!(ops.len(), 1);
         assert_eq!(
             ops[0],
             ArgOp::PromptInput(ArgPromptInputOp {
-                keys: SHPartialKeys {
-                    parts: vec![SHPartialKeyPart::Name("secret".to_string())],
-                },
+                keys: SHPartialKeys::new([SHPartialKeyPart::Name("secret".to_string())]),
                 prompt: command::CmdArgPromptInput {
                     prompt: "Enter your secret".to_string(),
                     secret: true,
@@ -382,11 +380,11 @@ mod tests {
         );
 
         // test argument not found
-        let result = parse_cmd_arg(&cmd, "not_found", &vec![]).unwrap();
+        let result = parse_cmd_arg(&cmd, "not_found", vec![]).unwrap();
         assert_eq!(result, None);
 
         // test error cases
-        let result = parse_cmd_arg(&cmd, "name", &vec!["hello", "world"]);
+        let result = parse_cmd_arg(&cmd, "name", vec!["hello", "world"]);
         match result {
             Err(AzError::UserUsage(AzUserUsageError::InvalidArgumentValueError(msg))) => {
                 assert_eq!(msg, "Argument 'name' can't accept multiple values");
@@ -396,7 +394,7 @@ mod tests {
             }
         }
 
-        let result = parse_cmd_arg(&cmd, "size", &vec![]);
+        let result = parse_cmd_arg(&cmd, "size", vec![]);
         match result {
             Err(AzError::UserUsage(AzUserUsageError::InvalidArgumentValueError(msg))) => {
                 assert_eq!(
@@ -485,16 +483,14 @@ mod tests {
             file.flush().expect("Failed to flush temp file");
             let file_value = format!("file://{}", file.path().to_str().unwrap());
 
-            let ops = parse_cmd_arg(&cmd, name, &vec![file_value.as_str()])
+            let ops = parse_cmd_arg(&cmd, name, vec![file_value.as_str()])
                 .unwrap()
                 .unwrap();
             assert_eq!(ops.len(), 1);
             assert_eq!(
                 ops[0],
                 ArgOp::ValueAssign(ArgValueAssignOp {
-                    keys: SHPartialKeys {
-                        parts: vec![SHPartialKeyPart::Name(name.to_string())],
-                    },
+                    keys: SHPartialKeys::new([SHPartialKeyPart::Name(name.to_string())]),
                     from_blank: false,
                     value: expected,
                 })
@@ -585,7 +581,7 @@ mod tests {
         object_arg.arg_type = Some(ArgType::Object(Box::new(object_type)));
         cmd.args.push(object_arg);
 
-        let ops = parse_cmd_arg(&cmd, "object", &vec![
+        let ops = parse_cmd_arg(&cmd, "object", vec![
             "{str:abc,num:123,bool:true,array:[1,b,false,true,null],tags:{a:b,c:1,d:false,e:true,f:null},additional1:1,additional2:false,additional3:[1,b,false,true,null],additional4:{a:b,c:1,d:false,e:true,f:null},additional5:[{a:b,c:d}]}"
         ]).unwrap().unwrap();
 
@@ -593,9 +589,7 @@ mod tests {
         assert_eq!(
             ops[0],
             ArgOp::ValueAssign(ArgValueAssignOp {
-                keys: SHPartialKeys {
-                    parts: vec![SHPartialKeyPart::Name("object".to_string())]
-                },
+                keys: SHPartialKeys::new([SHPartialKeyPart::Name("object".to_string())]),
                 from_blank: false,
                 value: Value::Object(
                     json!({
@@ -618,16 +612,14 @@ mod tests {
         );
 
         // test the json string
-        let ops = parse_cmd_arg(&cmd, "object", &vec![
+        let ops = parse_cmd_arg(&cmd, "object", vec![
             "{\"str\": \"abc\", \"num\": 123, \"bool\": true, \"array\": [\"1\", \"b\", \"false\", \"true\", null], \"tags\": {\"a\": \"b\", \"c\": \"1\", \"d\": \"false\", \"e\": \"true\", \"f\":null}, \"additional1\":1, \"additional2\":false, \"additional3\":[1, \"b\", false, true, null], \"additional4\":{\"a\": \"b\", \"c\":1, \"d\":false, \"e\":true, \"f\":null}, \"additional5\":[{\"a\": \"b\", \"c\": \"d\"}]}"
         ]).unwrap().unwrap();
         assert_eq!(ops.len(), 1);
         assert_eq!(
             ops[0],
             ArgOp::ValueAssign(ArgValueAssignOp {
-                keys: SHPartialKeys {
-                    parts: vec![SHPartialKeyPart::Name("object".to_string())]
-                },
+                keys: SHPartialKeys::new([SHPartialKeyPart::Name("object".to_string())]),
                 from_blank: false,
                 value: Value::Object(
                     json!({
@@ -653,7 +645,7 @@ mod tests {
         let ops = parse_cmd_arg(
             &cmd,
             "object",
-            &vec![
+            vec![
                 "array[0]=1",
                 "str=abc",
                 "additional3=[1,b,false,true,null]",
@@ -668,13 +660,11 @@ mod tests {
         assert_eq!(
             ops[0],
             ArgOp::ValueAssign(ArgValueAssignOp {
-                keys: SHPartialKeys {
-                    parts: vec![
-                        SHPartialKeyPart::Name("object".to_string()),
-                        SHPartialKeyPart::Name("array".to_string()),
-                        SHPartialKeyPart::Index(0)
-                    ]
-                },
+                keys: SHPartialKeys::new([
+                    SHPartialKeyPart::Name("object".to_string()),
+                    SHPartialKeyPart::Name("array".to_string()),
+                    SHPartialKeyPart::Index(0)
+                ]),
                 from_blank: false,
                 value: Value::String("1".to_string()),
             })
@@ -682,12 +672,10 @@ mod tests {
         assert_eq!(
             ops[1],
             ArgOp::ValueAssign(ArgValueAssignOp {
-                keys: SHPartialKeys {
-                    parts: vec![
-                        SHPartialKeyPart::Name("object".to_string()),
-                        SHPartialKeyPart::Name("str".to_string())
-                    ]
-                },
+                keys: SHPartialKeys::new([
+                    SHPartialKeyPart::Name("object".to_string()),
+                    SHPartialKeyPart::Name("str".to_string())
+                ]),
                 from_blank: false,
                 value: Value::String("abc".to_string()),
             })
@@ -695,12 +683,10 @@ mod tests {
         assert_eq!(
             ops[2],
             ArgOp::ValueAssign(ArgValueAssignOp {
-                keys: SHPartialKeys {
-                    parts: vec![
-                        SHPartialKeyPart::Name("object".to_string()),
-                        SHPartialKeyPart::Name("additional3".to_string())
-                    ]
-                },
+                keys: SHPartialKeys::new([
+                    SHPartialKeyPart::Name("object".to_string()),
+                    SHPartialKeyPart::Name("additional3".to_string())
+                ]),
                 from_blank: false,
                 value: Value::Array(
                     json!([1, "b", false, true, null])
@@ -713,13 +699,11 @@ mod tests {
         assert_eq!(
             ops[3],
             ArgOp::ValueAssign(ArgValueAssignOp {
-                keys: SHPartialKeys {
-                    parts: vec![
-                        SHPartialKeyPart::Name("object".to_string()),
-                        SHPartialKeyPart::Name("tags".to_string()),
-                        SHPartialKeyPart::Name("e".to_string())
-                    ]
-                },
+                keys: SHPartialKeys::new([
+                    SHPartialKeyPart::Name("object".to_string()),
+                    SHPartialKeyPart::Name("tags".to_string()),
+                    SHPartialKeyPart::Name("e".to_string())
+                ]),
                 from_blank: false,
                 value: Value::String("true".to_string()),
             })
@@ -727,13 +711,11 @@ mod tests {
         assert_eq!(
             ops[4],
             ArgOp::ValueAssign(ArgValueAssignOp {
-                keys: SHPartialKeys {
-                    parts: vec![
-                        SHPartialKeyPart::Name("object".to_string()),
-                        SHPartialKeyPart::Name("tags".to_string()),
-                        SHPartialKeyPart::Name("f".to_string())
-                    ]
-                },
+                keys: SHPartialKeys::new([
+                    SHPartialKeyPart::Name("object".to_string()),
+                    SHPartialKeyPart::Name("tags".to_string()),
+                    SHPartialKeyPart::Name("f".to_string())
+                ]),
                 from_blank: false,
                 value: Value::Null,
             })
@@ -742,13 +724,11 @@ mod tests {
         assert_eq!(
             ops[5],
             ArgOp::ValueAssign(ArgValueAssignOp {
-                keys: SHPartialKeys {
-                    parts: vec![
-                        SHPartialKeyPart::Name("object".to_string()),
-                        SHPartialKeyPart::Name("tags".to_string()),
-                        SHPartialKeyPart::Name("g".to_string())
-                    ]
-                },
+                keys: SHPartialKeys::new([
+                    SHPartialKeyPart::Name("object".to_string()),
+                    SHPartialKeyPart::Name("tags".to_string()),
+                    SHPartialKeyPart::Name("g".to_string())
+                ]),
                 from_blank: false,
                 value: Value::String("null".to_string()),
             })
@@ -758,7 +738,7 @@ mod tests {
         let ops = parse_cmd_arg(
             &cmd,
             "object",
-            &vec!["additional3=[1, \"b\", false, \"true\", null, {\"a\": \"b\", \"c\": \"d\"}]"],
+            vec!["additional3=[1, \"b\", false, \"true\", null, {\"a\": \"b\", \"c\": \"d\"}]"],
         )
         .unwrap()
         .unwrap();
@@ -766,12 +746,10 @@ mod tests {
         assert_eq!(
             ops[0],
             ArgOp::ValueAssign(ArgValueAssignOp {
-                keys: SHPartialKeys {
-                    parts: vec![
-                        SHPartialKeyPart::Name("object".to_string()),
-                        SHPartialKeyPart::Name("additional3".to_string())
-                    ]
-                },
+                keys: SHPartialKeys::new([
+                    SHPartialKeyPart::Name("object".to_string()),
+                    SHPartialKeyPart::Name("additional3".to_string())
+                ]),
                 from_blank: false,
                 value: Value::Array(
                     json!([1, "b", false, "true", null, {"a": "b", "c": "d"}])
@@ -783,7 +761,7 @@ mod tests {
         );
 
         // test error cases
-        let result = parse_cmd_arg(&cmd, "object", &vec!["array[0].attr=abc"]);
+        let result = parse_cmd_arg(&cmd, "object", vec!["array[0].attr=abc"]);
 
         match result {
             Err(AzError::UserUsage(AzUserUsageError::InvalidArgumentValueError(msg))) => {
@@ -797,7 +775,7 @@ mod tests {
             }
         }
 
-        let result = parse_cmd_arg(&cmd, "object2", &vec!["notexistattr=1"]);
+        let result = parse_cmd_arg(&cmd, "object2", vec!["notexistattr=1"]);
 
         match result {
             Err(AzError::UserUsage(AzUserUsageError::InvalidArgumentValueError(msg))) => {
@@ -811,7 +789,7 @@ mod tests {
             }
         }
 
-        let result = parse_cmd_arg(&cmd, "object2", &vec!["null"]);
+        let result = parse_cmd_arg(&cmd, "object2", vec!["null"]);
 
         match result {
             Err(AzError::UserUsage(AzUserUsageError::InvalidArgumentValueError(msg))) => {
@@ -909,16 +887,14 @@ mod tests {
         file.flush().expect("Failed to flush temp file");
         let file_value = format!("file://{}", file.path().to_str().unwrap());
 
-        let ops = parse_cmd_arg(&cmd, "object", &vec![file_value.as_str()])
+        let ops = parse_cmd_arg(&cmd, "object", vec![file_value.as_str()])
             .unwrap()
             .unwrap();
         assert_eq!(ops.len(), 1);
         assert_eq!(
             ops[0],
             ArgOp::ValueAssign(ArgValueAssignOp {
-                keys: SHPartialKeys {
-                    parts: vec![SHPartialKeyPart::Name("object".to_string())],
-                },
+                keys: SHPartialKeys::new([SHPartialKeyPart::Name("object".to_string())]),
                 from_blank: false,
                 value: Value::Object(value.as_object().unwrap().clone()),
             })
@@ -933,7 +909,7 @@ mod tests {
         let ops = parse_cmd_arg(
             &cmd,
             "object",
-            &vec![format!("tags.x={}", file_value.as_str()).as_str()],
+            vec![format!("tags.x={}", file_value.as_str()).as_str()],
         )
         .unwrap()
         .unwrap();
@@ -941,13 +917,11 @@ mod tests {
         assert_eq!(
             ops[0],
             ArgOp::ValueAssign(ArgValueAssignOp {
-                keys: SHPartialKeys {
-                    parts: vec![
-                        SHPartialKeyPart::Name("object".to_string()),
-                        SHPartialKeyPart::Name("tags".to_string()),
-                        SHPartialKeyPart::Name("x".to_string())
-                    ]
-                },
+                keys: SHPartialKeys::new([
+                    SHPartialKeyPart::Name("object".to_string()),
+                    SHPartialKeyPart::Name("tags".to_string()),
+                    SHPartialKeyPart::Name("x".to_string())
+                ]),
                 from_blank: false,
                 value: Value::String(value.as_str().unwrap().to_string()),
             })

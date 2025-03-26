@@ -155,24 +155,26 @@ impl ShorthandSyntaxParser {
 
         let arg = arg.unwrap();
 
-        let arg_type = arg.unwrapped_arg_type;
+        let arg_type = arg.unwrapped_arg_type();
 
         match arg_type {
             ArgType::AnyType(_) => {
                 if str.starts_with(self.dict_start_char) {
                     match self.parse_dict(remain, None, depth)? {
                         // convert help prefix keys for any type inner, usually the returned keys from inner parse should be empty
-                        (SHResult::Help(keys), len) => {
-                            Ok((SHResult::Help(arg.prefix_keys.with_extend(keys)), len))
-                        }
+                        (SHResult::Help(keys), len) => Ok((
+                            SHResult::Help(arg.prefix_keys().with_extend(keys.parts())),
+                            len,
+                        )),
                         (result, len) => Ok((result, len)),
                     }
                 } else if str.starts_with(self.list_start_char) {
                     match self.parse_list(remain, None, depth)? {
                         // convert help prefix keys for any type inner, usually the returned keys from inner parse should be empty
-                        (SHResult::Help(keys), len) => {
-                            Ok((SHResult::Help(arg.prefix_keys.with_extend(keys)), len))
-                        }
+                        (SHResult::Help(keys), len) => Ok((
+                            SHResult::Help(arg.prefix_keys().with_extend(keys.parts())),
+                            len,
+                        )),
                         (result, len) => Ok((result, len)),
                     }
                 } else {
@@ -181,7 +183,7 @@ impl ShorthandSyntaxParser {
                     let mut value = match result {
                         Some(v) => v,
                         None => {
-                            return Ok((SHResult::Help(arg.prefix_keys), len));
+                            return Ok((SHResult::Help(arg.prefix_keys().to_owned()), len));
                         }
                     };
                     if let Some(v_str) = value.as_str() {
@@ -215,7 +217,7 @@ impl ShorthandSyntaxParser {
                 let mut value = match result {
                     Some(v) => v,
                     None => {
-                        return Ok((SHResult::Help(arg.prefix_keys), len));
+                        return Ok((SHResult::Help(arg.prefix_keys().to_owned()), len));
                     }
                 };
                 if let Some(v_str) = value.as_str() {
@@ -249,7 +251,7 @@ impl ShorthandSyntaxParser {
                 let mut value = match result {
                     Some(v) => v,
                     None => {
-                        return Ok((SHResult::Help(arg.prefix_keys), len));
+                        return Ok((SHResult::Help(arg.prefix_keys().to_owned()), len));
                     }
                 };
                 if let Some(v_str) = value.as_str() {
@@ -296,7 +298,7 @@ impl ShorthandSyntaxParser {
                     let mut value = match result {
                         Some(v) => v,
                         None => {
-                            return Ok((SHResult::Help(arg.prefix_keys), len));
+                            return Ok((SHResult::Help(arg.prefix_keys().to_owned()), len));
                         }
                     };
                     if let Some(v_str) = value.as_str() {
@@ -343,7 +345,7 @@ impl ShorthandSyntaxParser {
                     let mut value = match result {
                         Some(v) => v,
                         None => {
-                            return Ok((SHResult::Help(arg.prefix_keys), len));
+                            return Ok((SHResult::Help(arg.prefix_keys().to_owned()), len));
                         }
                     };
 
@@ -497,7 +499,9 @@ impl ShorthandSyntaxParser {
                 Some(value) => value.as_str().unwrap().to_string(),
                 None => {
                     return Ok((
-                        SHResult::Help(arg.map_or(SHPartialKeys::default(), |a| a.prefix_keys)),
+                        SHResult::Help(
+                            arg.map_or(SHPartialKeys::default(), |a| a.prefix_keys().to_owned()),
+                        ),
                         idx,
                     ));
                 }
@@ -542,11 +546,7 @@ impl ShorthandSyntaxParser {
             let key = SHPartialKeyPart::parse_name(&k)?;
             let sub_arg = arg
                 .as_ref()
-                .map(|a| {
-                    a.retrieve_internal_arg_by_keys(&SHPartialKeys {
-                        parts: vec![key.clone()],
-                    })
-                })
+                .map(|a| a.retrieve_sub_arg([&key]))
                 .transpose()?;
 
             let (v, len) = self
@@ -627,11 +627,7 @@ impl ShorthandSyntaxParser {
 
             let item_arg = arr_arg
                 .as_ref()
-                .map(|a| {
-                    a.retrieve_internal_arg_by_keys(&SHPartialKeys {
-                        parts: vec![key.clone()],
-                    })
-                })
+                .map(|a| a.retrieve_sub_arg([&key]))
                 .transpose()?;
 
             let (v, len) = self
@@ -847,7 +843,7 @@ impl ShorthandSyntaxParser {
             if str.starts_with(self.list_start_char) {
                 match self.parse_partial_value_idx_key(&mut remain) {
                     Ok((part, len)) => {
-                        keys.parts.push(part);
+                        keys.push(part);
                         idx += len;
                         str = remain.as_str();
                     }
@@ -869,7 +865,7 @@ impl ShorthandSyntaxParser {
             } else {
                 match self.parse_partial_value_prop_key(&mut remain) {
                     Ok((part, len)) => {
-                        keys.parts.push(part);
+                        keys.push(part);
                         idx += len;
                         str = remain.as_str();
                     }
@@ -4440,7 +4436,7 @@ mod tests {
             match expected {
                 Ok(parts) => {
                     let result = parser.parse_partial_value_key_parts(&value).unwrap();
-                    assert_eq!(result, SHPartialKeys { parts });
+                    assert_eq!(result, SHPartialKeys::new(parts));
                 }
                 Err(ErrorData(msg_target, data_target, at_target, range_target)) => {
                     let result = parser.parse_partial_value_key_parts(&value);
