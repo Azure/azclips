@@ -21,7 +21,7 @@ pub enum ArgOp {
 #[derive(Debug, PartialEq)]
 pub struct ArgPromptInputOp {
     keys: SHPartialKeys,
-    prompt: crate::pb::command::CmdArgPromptInput,
+    prompt: command::CmdArgPromptInput,
 }
 
 #[derive(Debug, PartialEq)]
@@ -37,40 +37,24 @@ pub struct ArgHelpOp {
     keys: SHPartialKeys,
 }
 
-/// convert the values into the argument operations, return None when the argument is not found
-pub fn parse_cmd_arg(
-    cmd: &command::CmdCommand,
-    name_or_alias: &str,
-    values: &[&str],
-) -> AzResult<Option<Vec<ArgOp>>> {
-    let mut matched_arg = None;
-    for arg in cmd.args.iter() {
-        if arg.name.eq_ignore_ascii_case(name_or_alias) {
-            matched_arg = Some(arg);
-            break;
-        }
-        if arg
-            .options
-            .iter()
-            .any(|o| o.eq_ignore_ascii_case(name_or_alias))
-        {
-            matched_arg = Some(arg);
-            break;
-        }
-    }
-
-    if matched_arg.is_none() {
-        return Ok(None);
-    }
-    let matched_arg = matched_arg.unwrap();
-
-    let arg = CmdArgWrapper::new(cmd, matched_arg)?;
+/// parse the argument
+///
+/// for the global argument, the cmd is None, otherwise the cmd is required to pass
+pub fn parse_arg<'a>(
+    cmd: Option<&command::CmdCommand>,
+    arg: &command::CmdArg,
+    values: impl IntoIterator<Item = &'a str>,
+) -> AzResult<Vec<ArgOp>> {
+    let arg = CmdArgWrapper::new(cmd, arg)?;
     let ops = parse_arg_values(&arg, values)?;
 
-    Ok(Some(ops))
+    Ok(ops)
 }
 
-fn parse_arg_values(arg: &CmdArgWrapper, values: &[&str]) -> AzResult<Vec<ArgOp>> {
+fn parse_arg_values<'a>(
+    arg: &CmdArgWrapper,
+    values: impl IntoIterator<Item = &'a str>,
+) -> AzResult<Vec<ArgOp>> {
     match arg.unwrapped_arg_type {
         command::cmd_arg::ArgType::Str(_)
         | command::cmd_arg::ArgType::Number(_)
@@ -88,22 +72,30 @@ fn parse_arg_values(arg: &CmdArgWrapper, values: &[&str]) -> AzResult<Vec<ArgOp>
     }
 }
 
-fn parse_simple_arg(arg: &CmdArgWrapper, values: &[&str]) -> AzResult<Vec<ArgOp>> {
-    if values.len() > 1 {
+fn parse_simple_arg<'a>(
+    arg: &CmdArgWrapper,
+    values: impl IntoIterator<Item = &'a str>,
+) -> AzResult<Vec<ArgOp>> {
+    let mut values = values.into_iter();
+    let value = values.next();
+    let op = parse_arg_value_str(arg, value)?;
+    if values.next().is_some() {
         return Err(AzUserUsageError::InvalidArgumentValueError(format!(
             "Argument '{}' can't accept multiple values",
             arg
         ))
         .into());
     }
-
-    let value = values.first().map(|v| *v);
-    let op = parse_arg_value_str(arg, value)?;
     Ok(vec![op])
 }
 
-fn parse_any_type_arg(arg: &CmdArgWrapper, values: &[&str]) -> AzResult<Vec<ArgOp>> {
-    if values.len() > 1 {
+fn parse_any_type_arg<'a>(
+    arg: &CmdArgWrapper,
+    values: impl IntoIterator<Item = &'a str>,
+) -> AzResult<Vec<ArgOp>> {
+    let mut values = values.into_iter();
+    let value = values.next();
+    if values.next().is_some() {
         return Err(AzUserUsageError::InvalidArgumentValueError(format!(
             "Argument '{}' can't accept multiple values",
             arg
@@ -111,12 +103,12 @@ fn parse_any_type_arg(arg: &CmdArgWrapper, values: &[&str]) -> AzResult<Vec<ArgO
         .into());
     }
 
-    if values.is_empty() {
+    if value.is_none() {
         let op = parse_arg_value_str(arg, None)?;
         return Ok(vec![op]);
     }
 
-    let value = values[0];
+    let value = value.unwrap();
     if SHORTHAND_SYNTAX_PARSER.split_partial_value(value).is_some() {
         return Err(AzUserUsageError::InvalidArgumentValueError(format!(
             "Argument '{}' is any type arg which only support full value shorthand syntax, please don't use partial value shorthand syntax. If it's a simple string, please wrap it with single quotes.",
@@ -129,14 +121,19 @@ fn parse_any_type_arg(arg: &CmdArgWrapper, values: &[&str]) -> AzResult<Vec<ArgO
     Ok(vec![op])
 }
 
-fn parse_composite_arg(arg: &CmdArgWrapper, values: &[&str]) -> AzResult<Vec<ArgOp>> {
-    if values.is_empty() {
+fn parse_composite_arg<'a>(
+    arg: &CmdArgWrapper,
+    values: impl IntoIterator<Item = &'a str>,
+) -> AzResult<Vec<ArgOp>> {
+    let mut values = values.into_iter();
+    let mut next_value = values.next();
+    if next_value.is_none() {
         let op = parse_arg_value_str(arg, None)?;
         return Ok(vec![op]);
     }
 
-    let mut ops = Vec::with_capacity(values.len());
-    for value in values {
+    let mut ops = Vec::new();
+    while let Some(value) = next_value {
         if let Some((key, value)) = SHORTHAND_SYNTAX_PARSER.split_partial_value(value) {
             let keys = SHORTHAND_SYNTAX_PARSER.parse_partial_value_key_parts(key)?;
             let sub_arg = arg.retrieve_internal_arg_by_keys(&keys)?;
@@ -146,6 +143,7 @@ fn parse_composite_arg(arg: &CmdArgWrapper, values: &[&str]) -> AzResult<Vec<Arg
             let op = parse_arg_value_str(arg, Some(value))?;
             ops.push(op);
         }
+        next_value = values.next();
     }
 
     Ok(ops)
@@ -228,6 +226,36 @@ mod tests {
     use tempfile::NamedTempFile;
 
     use super::*;
+
+    fn parse_cmd_arg(
+        cmd: &command::CmdCommand,
+        name_or_alias: &str,
+        values: &[&str],
+    ) -> AzResult<Option<Vec<ArgOp>>> {
+        let mut matched_arg = None;
+        for arg in cmd.args.iter() {
+            if arg.name.eq_ignore_ascii_case(name_or_alias) {
+                matched_arg = Some(arg);
+                break;
+            }
+            if arg
+                .options
+                .iter()
+                .any(|o| o.eq_ignore_ascii_case(name_or_alias))
+            {
+                matched_arg = Some(arg);
+                break;
+            }
+        }
+
+        if matched_arg.is_none() {
+            return Ok(None);
+        }
+        let matched_arg = matched_arg.unwrap();
+
+        let ops = parse_arg(Some(cmd), matched_arg, (*values).iter().copied())?;
+        Ok(Some(ops))
+    }
 
     #[test]
     fn test_parse_cmd_simple_arg() {

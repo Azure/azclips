@@ -12,18 +12,28 @@ use super::partial::{SHPartialKeyPart, SHPartialKeys};
 /// This wrapper support unwrapping the cls type of the argument
 #[derive(Debug, Clone)]
 pub struct CmdArgWrapper<'a> {
-    cmd: &'a command::CmdCommand,
+    cmd: Option<&'a command::CmdCommand>,
     inner: &'a command::CmdArg,
     pub(super) unwrapped_arg_type: &'a command::cmd_arg::ArgType,
     pub(super) prefix_keys: SHPartialKeys,
 }
 
 impl<'a> CmdArgWrapper<'a> {
-    pub fn new(
-        cmd: &'a command::CmdCommand,
+    /// create a new CmdArgWrapper
+    ///
+    /// # Arguments
+    ///
+    /// * `cmd` - The command to wrap, for the global argument, the cmd is None, otherwise it's the command to wrap
+    /// * `inner` - The inner argument to wrap
+    ///
+    /// # Returns
+    ///
+    /// A new CmdArgWrapper
+    pub(crate) fn new(
+        cmd: Option<&'a command::CmdCommand>,
         inner: &'a command::CmdArg,
     ) -> Result<Self, AzInternalError> {
-        let arg_type = retrieve_cls_arg_type_in_command(cmd, inner)?;
+        let arg_type = get_unwrapped_arg_type(cmd, inner)?;
         Ok(Self {
             cmd,
             inner,
@@ -304,7 +314,7 @@ impl<'a> CmdArgWrapper<'a> {
                     unreachable!("cls type should be unwrapped before");
                 }
             }
-            arg_type = retrieve_cls_arg_type_in_command(self.cmd, arg)?;
+            arg_type = get_unwrapped_arg_type(self.cmd, arg)?;
         }
 
         Ok(Self {
@@ -316,12 +326,17 @@ impl<'a> CmdArgWrapper<'a> {
     }
 }
 
-fn retrieve_cls_arg_type_in_command<'a>(
-    cmd: &'a command::CmdCommand,
+/// get the unwrapped arg type of the argument, when the argument is a class type, then cmd should be not None
+fn get_unwrapped_arg_type<'a>(
+    cmd: Option<&'a command::CmdCommand>,
     arg: &'a command::CmdArg,
 ) -> Result<&'a command::cmd_arg::ArgType, AzInternalError> {
     match arg.arg_type_ok()? {
         command::cmd_arg::ArgType::Cls(typ) => {
+            let cmd = cmd.ok_or(AzInternalError::InvalidArgumentDefinitionError(format!(
+                "Missing command definition to unwrap class type argument: {}",
+                typ.cls_type
+            )))?;
             let cls_type = &typ.cls_type;
             for arg in cmd.args.iter() {
                 if let Some(arg_type) = retrieve_cls_arg_type(arg, cls_type)? {
