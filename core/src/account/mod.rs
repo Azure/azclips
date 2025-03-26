@@ -1,6 +1,4 @@
-//! Authentication module for Azure CLI Lite
-//!
-//! This module handles authentication with Azure services.
+pub(crate) mod service;
 
 use crate::error::{AzError, AzResult};
 
@@ -11,12 +9,10 @@ pub struct AuthProvider {
     // client_id: Option<String>,
 }
 
-impl AuthProvider {
-    
-}
+impl AuthProvider {}
 
 impl Default for AuthProvider {
     fn default() -> Self {
         Self {}
     }
-} 
+}

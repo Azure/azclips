@@ -1,2 +1,4 @@
 [env]
 CARGO_MANIFEST_BUILD_PROTO = "true"
+CARGO_APPLICATION_NAME = "azure"
+

@@ -1,0 +1,59 @@
+use az_core::{
+    argparse::{arg::CmdArgWrapper, partial::SHPartialKeys},
+    cmd_uri::CmdUri,
+    error::AzError,
+    pb::command::cmd_interface,
+    AzCore,
+};
+
+use crate::CmdRawArg;
+
+/// check if the `-h` or `--help` flag is present in the raw args
+pub fn has_help_flag(raw_args: &[CmdRawArg]) -> bool {
+    raw_args
+        .iter()
+        .any(|arg| arg.flag == "-h" || arg.flag == "--help")
+}
+
+pub fn show_command_help(cmd_uri: CmdUri) {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        if let Err(e) = show_command_help_async(cmd_uri).await {
+            // TODO: handle the error, need to add error handler in the core
+            eprintln!("{}", e);
+            std::process::exit(1);
+        }
+    });
+}
+
+pub(crate) async fn show_command_help_async(cmd_uri: CmdUri) -> Result<(), AzError> {
+    let core = AzCore::instance().await;
+    let cmd_uri = core.check_cmd_uri(cmd_uri).await?;
+    if cmd_uri.executable() {
+        let cmd_interface = core.get_cmd_interface(&cmd_uri).await?;
+        todo!("show the help of the command interface")
+    } else {
+        let cmd_interface = core.get_cmd_interface(&cmd_uri).await?;
+        let sub_services = core.get_metadata_of_sub_services(&cmd_uri).await?;
+        todo!("show the help of the command group with the combined help of the sub services")
+    }
+}
+
+pub(crate) async fn show_command_arg_help_async(
+    cmd_uri: CmdUri,
+    keys: SHPartialKeys,
+) -> Result<(), AzError> {
+    let core = AzCore::instance().await;
+    let cmd_uri = core.check_cmd_uri(cmd_uri).await?;
+    let cmd_interface = core.get_cmd_interface(&cmd_uri).await?;
+    let cmd = match cmd_interface.level.unwrap() {
+        cmd_interface::Level::Command(cmd) => cmd,
+        _ => {
+            panic!("Show argument in the command group value is not supported");
+        }
+    };
+
+    let wrapper = CmdArgWrapper::build_by_keys(&cmd, &keys)?;
+    let arg = wrapper.arg();
+    todo!("show the help of the argument")
+}

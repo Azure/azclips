@@ -3,17 +3,17 @@ use std::sync::LazyLock;
 
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
-use log::debug;
 use regex::Regex;
 use serde_json::{Map, Value};
+use tracing::debug;
 
 use crate::error::{AzError, AzResult, AzUserUsageError};
 use crate::pb::command::{self, cmd_arg::ArgType};
 
-use super::arg::{CmdArgWrapper, BOOLEAN_ARG_ENUM_DEFAULT};
+use super::arg::CmdArgWrapper;
 use super::partial::{SHPartialKeyPart, SHPartialKeys};
 
-pub struct ShorthandSyntaxParser {
+pub(crate) struct ShorthandSyntaxParser {
     null_expr: &'static str,
     help_expr: &'static str,
     single_quote_char: char,
@@ -30,7 +30,7 @@ pub struct ShorthandSyntaxParser {
     partial_value_key_pattern: Regex,
 }
 
-pub(super) static SHORTHAND_SYNTAX_PARSER: LazyLock<ShorthandSyntaxParser> =
+pub(crate) static SHORTHAND_SYNTAX_PARSER: LazyLock<ShorthandSyntaxParser> =
     LazyLock::new(ShorthandSyntaxParser::default);
 
 /// The regex pattern for the partial value key, which is used to parse the partial value key from the input string.
@@ -83,18 +83,18 @@ impl Default for ShorthandSyntaxParser {
 
 /// TODO: using config or env to disable the file uri parse
 impl ShorthandSyntaxParser {
-    pub fn disable_file_uri_parse(&mut self) {
+    pub(crate) fn disable_file_uri_parse(&mut self) {
         self.file_uri_prefix = None;
     }
 
-    pub fn enable_file_uri_parse(&mut self) {
+    pub(crate) fn enable_file_uri_parse(&mut self) {
         self.file_uri_prefix = Some("file://");
     }
 }
 
 /// The result of the shorthand syntax parser, which is used to parse the shorthand syntax.
 #[derive(Debug, PartialEq)]
-pub enum SHResult {
+pub(crate) enum SHResult {
     /// contains the index keys for the help message in reverse order, should convert to the normal order in the caller
     Help(SHPartialKeys),
     Value(Value),
@@ -155,24 +155,26 @@ impl ShorthandSyntaxParser {
 
         let arg = arg.unwrap();
 
-        let arg_type = arg.unwrapped_arg_type;
+        let arg_type = arg.unwrapped_arg_type();
 
         match arg_type {
             ArgType::AnyType(_) => {
                 if str.starts_with(self.dict_start_char) {
                     match self.parse_dict(remain, None, depth)? {
                         // convert help prefix keys for any type inner, usually the returned keys from inner parse should be empty
-                        (SHResult::Help(keys), len) => {
-                            Ok((SHResult::Help(arg.prefix_keys.with_extend(keys)), len))
-                        }
+                        (SHResult::Help(keys), len) => Ok((
+                            SHResult::Help(arg.prefix_keys().with_extend(keys.parts())),
+                            len,
+                        )),
                         (result, len) => Ok((result, len)),
                     }
                 } else if str.starts_with(self.list_start_char) {
                     match self.parse_list(remain, None, depth)? {
                         // convert help prefix keys for any type inner, usually the returned keys from inner parse should be empty
-                        (SHResult::Help(keys), len) => {
-                            Ok((SHResult::Help(arg.prefix_keys.with_extend(keys)), len))
-                        }
+                        (SHResult::Help(keys), len) => Ok((
+                            SHResult::Help(arg.prefix_keys().with_extend(keys.parts())),
+                            len,
+                        )),
                         (result, len) => Ok((result, len)),
                     }
                 } else {
@@ -181,7 +183,7 @@ impl ShorthandSyntaxParser {
                     let mut value = match result {
                         Some(v) => v,
                         None => {
-                            return Ok((SHResult::Help(arg.prefix_keys), len));
+                            return Ok((SHResult::Help(arg.prefix_keys().to_owned()), len));
                         }
                     };
                     if let Some(v_str) = value.as_str() {
@@ -215,7 +217,7 @@ impl ShorthandSyntaxParser {
                 let mut value = match result {
                     Some(v) => v,
                     None => {
-                        return Ok((SHResult::Help(arg.prefix_keys), len));
+                        return Ok((SHResult::Help(arg.prefix_keys().to_owned()), len));
                     }
                 };
                 if let Some(v_str) = value.as_str() {
@@ -249,7 +251,7 @@ impl ShorthandSyntaxParser {
                 let mut value = match result {
                     Some(v) => v,
                     None => {
-                        return Ok((SHResult::Help(arg.prefix_keys), len));
+                        return Ok((SHResult::Help(arg.prefix_keys().to_owned()), len));
                     }
                 };
                 if let Some(v_str) = value.as_str() {
@@ -296,7 +298,7 @@ impl ShorthandSyntaxParser {
                     let mut value = match result {
                         Some(v) => v,
                         None => {
-                            return Ok((SHResult::Help(arg.prefix_keys), len));
+                            return Ok((SHResult::Help(arg.prefix_keys().to_owned()), len));
                         }
                     };
                     if let Some(v_str) = value.as_str() {
@@ -343,7 +345,7 @@ impl ShorthandSyntaxParser {
                     let mut value = match result {
                         Some(v) => v,
                         None => {
-                            return Ok((SHResult::Help(arg.prefix_keys), len));
+                            return Ok((SHResult::Help(arg.prefix_keys().to_owned()), len));
                         }
                     };
 
@@ -497,7 +499,9 @@ impl ShorthandSyntaxParser {
                 Some(value) => value.as_str().unwrap().to_string(),
                 None => {
                     return Ok((
-                        SHResult::Help(arg.map_or(SHPartialKeys::default(), |a| a.prefix_keys)),
+                        SHResult::Help(
+                            arg.map_or(SHPartialKeys::default(), |a| a.prefix_keys().to_owned()),
+                        ),
                         idx,
                     ));
                 }
@@ -542,11 +546,7 @@ impl ShorthandSyntaxParser {
             let key = SHPartialKeyPart::parse_name(&k)?;
             let sub_arg = arg
                 .as_ref()
-                .map(|a| {
-                    a.retrieve_internal_arg_by_keys(&SHPartialKeys {
-                        parts: vec![key.clone()],
-                    })
-                })
+                .map(|a| a.retrieve_sub_arg([&key]))
                 .transpose()?;
 
             let (v, len) = self
@@ -627,11 +627,7 @@ impl ShorthandSyntaxParser {
 
             let item_arg = arr_arg
                 .as_ref()
-                .map(|a| {
-                    a.retrieve_internal_arg_by_keys(&SHPartialKeys {
-                        parts: vec![key.clone()],
-                    })
-                })
+                .map(|a| a.retrieve_sub_arg([&key]))
                 .transpose()?;
 
             let (v, len) = self
@@ -847,7 +843,7 @@ impl ShorthandSyntaxParser {
             if str.starts_with(self.list_start_char) {
                 match self.parse_partial_value_idx_key(&mut remain) {
                     Ok((part, len)) => {
-                        keys.parts.push(part);
+                        keys.push(part);
                         idx += len;
                         str = remain.as_str();
                     }
@@ -869,7 +865,7 @@ impl ShorthandSyntaxParser {
             } else {
                 match self.parse_partial_value_prop_key(&mut remain) {
                     Ok((part, len)) => {
-                        keys.parts.push(part);
+                        keys.push(part);
                         idx += len;
                         str = remain.as_str();
                     }
@@ -1177,8 +1173,8 @@ mod tests {
         str_arg.arg_type = Some(ArgType::Str(str_type));
         cmd.args.push(str_arg);
 
-        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]).unwrap());
-        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]).unwrap());
+        let arg1 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
+        let arg2 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[1]).unwrap());
 
         for (arg, value, expected) in vec![
             (&arg1, "null", Ok(Value::Null)),
@@ -1354,9 +1350,9 @@ mod tests {
         bool_arg.arg_type = Some(ArgType::Boolean(bool_type));
         cmd.args.push(bool_arg);
 
-        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]).unwrap());
+        let arg1 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
 
-        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]).unwrap());
+        let arg2 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[1]).unwrap());
 
         for (arg, value, expected) in vec![
             (&arg1, "F", Ok(Value::Bool(false))),
@@ -1471,8 +1467,8 @@ mod tests {
         bool_arg.arg_type = Some(ArgType::Boolean(bool_type));
         cmd.args.push(bool_arg);
 
-        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]).unwrap());
-        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]).unwrap());
+        let arg1 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
+        let arg2 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[1]).unwrap());
 
         for (arg, value, expected) in vec![
             (&arg1, json!(false), Ok(Value::Bool(false))),
@@ -1695,9 +1691,9 @@ mod tests {
         num_arg.arg_type = Some(ArgType::Number(num_type));
         cmd.args.push(num_arg);
 
-        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]).unwrap());
-        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]).unwrap());
-        let arg3 = Some(CmdArgWrapper::new(&cmd, &cmd.args[2]).unwrap());
+        let arg1 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
+        let arg2 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[1]).unwrap());
+        let arg3 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[2]).unwrap());
 
         for (arg, value, expected) in vec![
             (&arg1, "0", Ok(Value::Number(serde_json::Number::from(0)))),
@@ -1927,9 +1923,9 @@ mod tests {
         num_arg.arg_type = Some(ArgType::Number(num_type));
         cmd.args.push(num_arg);
 
-        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]).unwrap());
-        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]).unwrap());
-        let arg3 = Some(CmdArgWrapper::new(&cmd, &cmd.args[2]).unwrap());
+        let arg1 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
+        let arg2 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[1]).unwrap());
+        let arg3 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[2]).unwrap());
 
         for (arg, value, expected) in vec![
             (
@@ -2302,9 +2298,9 @@ mod tests {
         str_arg.arg_type = Some(ArgType::Str(str_type));
         cmd.args.push(str_arg);
 
-        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]).unwrap());
-        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]).unwrap());
-        let arg3 = Some(CmdArgWrapper::new(&cmd, &cmd.args[2]).unwrap());
+        let arg1 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
+        let arg2 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[1]).unwrap());
+        let arg3 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[2]).unwrap());
 
         for (arg, value, expected) in [
             (&arg1, "'hello'", Ok(Value::String("hello".to_string()))),
@@ -2483,10 +2479,10 @@ mod tests {
         str_arg.arg_type = Some(ArgType::Str(str_type));
         cmd.args.push(str_arg);
 
-        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]).unwrap());
-        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]).unwrap());
-        let byte_arg = Some(CmdArgWrapper::new(&cmd, &cmd.args[2]).unwrap());
-        let binary_arg = Some(CmdArgWrapper::new(&cmd, &cmd.args[3]).unwrap());
+        let arg1 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
+        let arg2 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[1]).unwrap());
+        let byte_arg = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[2]).unwrap());
+        let binary_arg = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[3]).unwrap());
 
         let mut rng = rand::thread_rng();
         let random_bytes: Vec<u8> = (0..100).map(|_| rng.gen()).collect();
@@ -2708,8 +2704,8 @@ mod tests {
         any_arg.arg_type = Some(ArgType::AnyType(CmdAnyTypeArg::default()));
         cmd.args.push(any_arg);
 
-        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]).unwrap());
-        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]).unwrap());
+        let arg1 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
+        let arg2 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[1]).unwrap());
 
         for (arg, value, expected) in [
             (&arg1, "null", Ok(Value::Null)),
@@ -2853,8 +2849,8 @@ mod tests {
         any_arg.arg_type = Some(ArgType::AnyType(CmdAnyTypeArg::default()));
         cmd.args.push(any_arg);
 
-        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]).unwrap());
-        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]).unwrap());
+        let arg1 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
+        let arg2 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[1]).unwrap());
 
         for (arg, value, expected) in [
             (&arg1, json!(null), Ok(Value::Null)),
@@ -3262,7 +3258,7 @@ mod tests {
         object_arg.arg_type = Some(ArgType::Object(Box::new(object_type)));
         cmd.args.push(object_arg);
 
-        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]).unwrap());
+        let arg1 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
 
         for (arg, value, expected) in [
             (&arg1, "{str:abc,num:123,bool:true,array:[1,b,false,true,null],tags:{a:b,c:1,d:false,e:true,f:null},additional1:1,additional2:false,additional3:[1,b,false,true,null],additional4:{a:b,c:1,d:false,e:true,f:null},additional5:[{a:b,c:d}]}", Ok(Value::Object(
@@ -3409,7 +3405,7 @@ mod tests {
         object_arg.arg_type = Some(ArgType::Object(Box::new(object_type)));
         cmd.args.push(object_arg);
 
-        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]).unwrap());
+        let arg1 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
 
         for (arg, value, expected) in [
             (
@@ -3616,8 +3612,8 @@ mod tests {
         dict_arg.arg_type = Some(ArgType::Object(Box::new(dict_type)));
         cmd.args.push(dict_arg);
 
-        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]).unwrap());
-        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]).unwrap());
+        let arg1 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
+        let arg2 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[1]).unwrap());
 
         for (arg, value, expected) in [
             (&arg1, "{a:b,c:1,d:true,e:null,f:[1,b,false,true,null],g:{a:b,c:1,d:false,e:true,f:null}}", Ok(Value::Object(
@@ -3711,8 +3707,8 @@ mod tests {
         arr_arg.arg_type = Some(ArgType::Array(Box::new(arr_type)));
         cmd.args.push(arr_arg);
 
-        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]).unwrap());
-        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]).unwrap());
+        let arg1 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
+        let arg2 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[1]).unwrap());
 
         for (arg, value, expected) in [
             (&arg1, "[1,2,3]", Ok(Value::Array(json!([1,2,3]).as_array().unwrap().clone()))),
@@ -3794,8 +3790,8 @@ mod tests {
         arr_arg.arg_type = Some(ArgType::Array(Box::new(arr_type)));
         cmd.args.push(arr_arg);
 
-        let arg1 = Some(CmdArgWrapper::new(&cmd, &cmd.args[0]).unwrap());
-        let arg2 = Some(CmdArgWrapper::new(&cmd, &cmd.args[1]).unwrap());
+        let arg1 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
+        let arg2 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[1]).unwrap());
 
         for (arg, value, expected) in [
             (&arg1, json!([1,2,3]), Ok(Value::Array(json!([1,2,3]).as_array().unwrap().clone()))),
@@ -4440,7 +4436,7 @@ mod tests {
             match expected {
                 Ok(parts) => {
                     let result = parser.parse_partial_value_key_parts(&value).unwrap();
-                    assert_eq!(result, SHPartialKeys { parts });
+                    assert_eq!(result, SHPartialKeys::new(parts));
                 }
                 Err(ErrorData(msg_target, data_target, at_target, range_target)) => {
                     let result = parser.parse_partial_value_key_parts(&value);

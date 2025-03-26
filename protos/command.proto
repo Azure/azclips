@@ -1,13 +1,15 @@
 syntax = "proto3";
 package command;
 
-// The interface of the command / command group
+// The interface of the command / command group / service
 message CMDInterface {
   string name = 1;
   CMDHelp help = 2;
+  string uri = 3; // the uri of the command / command group / service, the uri should be unique across all the commands, command groups and services
   oneof level {
-    CMDCommandGroup group = 10;
-    CMDCommand command = 11;
+    CMDCommand command = 10;
+    CMDCommandGroup group = 11;
+    CMDService service = 12;
   }
 }
 
@@ -21,9 +23,15 @@ message CMDCommandGroup {
   repeated CMDInterface commands = 11;
 }
 
+message CMDService {
+  string version = 1; // the release version of the service
+  repeated CMDInterface groups = 10;
+  repeated CMDInterface commands = 11;
+}
+
 message CMDHelp {
   string short = 1; // short description of the command
-  string long = 2;  // long description of the command
+  optional string long = 2;  // long description of the command
 }
 
 message CMDArgGroup {
@@ -69,14 +77,9 @@ message CMDArgDefault {
   string value = 1;
 }
 
-message CMDCommandHelp {
-  string short = 1; // short description of the command
-  string long = 2;  // long description of the command
-}
-
 message CMDArgHelp {
   string short = 1; // short description of the argument
-  string long = 2;  // long description of the argument
+  optional string long = 2;  // long description of the argument
 }
 
 // The prompt input of the argument
@@ -270,10 +273,11 @@ message CMDAnyTypeArg {}
 
 message CMDObjectArg {
   optional string cls_type = 1;       // the class implementation
-  repeated CMDArg props = 2; // the property arguments of the object
+  bool ps_flatten = 2; // whether this object is flattened for PowerShell Cmdlet
+  CMDObjectFormat format = 3; // the format of the object
+  repeated CMDArg props = 4; // the property arguments of the object
   // the additional properties of the object
-  CMDObjectArgAdditionalProperties additional_props = 3;
-  CMDObjectFormat format = 4; // the format of the object
+  CMDObjectArgAdditionalProperties additional_props = 5;
 }
 
 message CMDObjectArgAdditionalProperties {
@@ -303,4 +307,15 @@ message CMDParams {
   // can be `param1.prop1[1].tags.a` or `param1.prop1+`. Here the `+`
   // means to extend the array properties.
   repeated string patch_keys = 2;
+}
+
+// CMDOutputFlattenMode indicates the flatten mode of the output
+enum CMDOutputFlattenMode {
+  NONE = 0;    // return the output without any flatten applied
+  BASIC = 1;   // return the output with basic flatten applied (usually apply the x-ms-client-flatten definition in the swagger)
+  FULL = 2;    // return the output with fully flatten applied (the fully flatten mode will be used for table like output such as the PowerShell output)
+}
+
+message CMDOutputFormat {
+  CMDOutputFlattenMode flatten_mode = 1; // the flatten mode of the output
 }

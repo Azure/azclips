@@ -1,15 +1,4 @@
-use std::str::{Chars, FromStr};
-use std::sync::LazyLock;
-
-use log::{debug, info};
-use regex::Regex;
-use serde::de::value;
-use serde_json::map::IntoIter;
-use serde_json::{json, Map, Value};
-
-use crate::error::{AzInternalError, AzResult, AzUserUsageError};
-use crate::pb::command::cmd_arg::ArgType;
-use crate::pb::command::{self, CmdArgEnum, CmdArgEnumItem};
+use crate::error::AzUserUsageError;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum SHPartialKeyPart {
@@ -22,7 +11,19 @@ pub enum SHPartialKeyPart {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct SHPartialKeys {
-    pub(super) parts: Vec<SHPartialKeyPart>,
+    parts: Vec<SHPartialKeyPart>,
+}
+
+impl SHPartialKeys {
+    pub fn new(parts: impl IntoIterator<Item = SHPartialKeyPart>) -> Self {
+        Self {
+            parts: parts.into_iter().collect(),
+        }
+    }
+
+    pub fn from_parts<'a>(parts: impl IntoIterator<Item = &'a SHPartialKeyPart>) -> Self {
+        Self::new(parts.into_iter().map(|p| p.to_owned()))
+    }
 }
 
 impl Default for SHPartialKeys {
@@ -36,22 +37,15 @@ impl SHPartialKeys {
         self.parts.push(part);
     }
 
-    pub fn extend(&mut self, other: impl IntoIterator<Item = SHPartialKeyPart>) {
-        self.parts.extend(other);
+    pub fn extend<'a>(&mut self, other: impl IntoIterator<Item = &'a SHPartialKeyPart>) {
+        self.parts.extend(other.into_iter().map(|p| p.to_owned()));
     }
 
-    pub fn with_extend(mut self, other: impl IntoIterator<Item = SHPartialKeyPart>) -> Self {
-        self.extend(other);
-        self
-    }
-}
-
-impl IntoIterator for SHPartialKeys {
-    type Item = SHPartialKeyPart;
-    type IntoIter = std::vec::IntoIter<SHPartialKeyPart>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.parts.into_iter()
+    /// create a new SHPartialKeys with the extended parts
+    pub fn with_extend<'a>(&self, other: impl IntoIterator<Item = &'a SHPartialKeyPart>) -> Self {
+        let mut result = self.clone();
+        result.extend(other);
+        result
     }
 }
 
@@ -86,15 +80,12 @@ impl std::fmt::Display for SHPartialKeyPart {
 }
 
 impl SHPartialKeys {
-    pub fn split_at(&self, at: usize) -> Self {
-        let mut result = Vec::new();
-        for (i, part) in self.parts.iter().enumerate() {
-            if i >= at {
-                break;
-            }
-            result.push(part.to_owned());
-        }
-        Self { parts: result }
+    pub fn is_empty(&self) -> bool {
+        self.parts.is_empty()
+    }
+
+    pub fn parts(&self) -> impl Iterator<Item = &SHPartialKeyPart> {
+        self.parts.iter()
     }
 }
 

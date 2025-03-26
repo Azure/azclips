@@ -5,19 +5,12 @@ fn main() {
 
     // compile the module and command proto
     tonic_build::configure()
-        .build_client(true)
-        .build_server(false)
+        // .build_client(true)
+        // .build_server(true)
         .out_dir("src/pb")
         .compile_protos(
-            &["../protos/module.proto", "../protos/command.proto"],
+            &["../protos/command.proto", "../protos/service.proto"],
             &[".."],
         )
-        .unwrap_or_else(|e| panic!("Failed to compile protos {:?}", e));
-
-    tonic_build::configure()
-        .build_client(false)
-        .build_server(true)
-        .out_dir("src/pb")
-        .compile_protos(&["../protos/context.proto"], &[".."])
         .unwrap_or_else(|e| panic!("Failed to compile protos {:?}", e));
 }

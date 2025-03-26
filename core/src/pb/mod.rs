@@ -1,6 +1,5 @@
 pub mod command;
-pub mod context;
-pub mod module;
+pub mod service;
 
 use core::fmt;
 use serde_json::Value;

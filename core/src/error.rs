@@ -1,11 +1,14 @@
 use thiserror::Error;
 
-pub type AzResult<T, E = AzError> = Result<T, E>;
+pub(crate) type AzResult<T, E = AzError> = Result<T, E>;
 
 #[derive(Error, Debug)]
 pub enum AzUserUsageError {
     #[error("Command not found: {0}")]
     CommandNotFoundError(String),
+
+    #[error("Command group is not executable")]
+    CommandGroupNotExecutableError,
 
     #[error("Unrecognized arguments: {0}")]
     UnrecognizedArgumentError(String),
@@ -46,6 +49,21 @@ pub enum AzInternalError {
 
     #[error("Invalid argument definition: {0}")]
     InvalidArgumentDefinitionError(String),
+
+    #[error("Invalid partial keys: {0}")]
+    InvalidPartialKeysError(String),
+
+    #[error("Invalid command URI: {0}")]
+    InvalidCmdUriError(String),
+
+    #[error("Invalid path: {0}")]
+    InvalidPathError(String),
+
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("JSON error: {0}")]
+    Json(#[from] serde_json::Error),
 }
 
 #[derive(Error, Debug)]
@@ -58,9 +76,6 @@ pub enum AzError {
     Internal(#[from] AzInternalError),
     // #[error("An error occurred: {0}")]
     // GeneralError(String),
-
-    // #[error("IO error: {0}")]
-    // Io(#[from] std::io::Error),
 
     // #[error("Parse error: {0}")]
     // Parse(#[from] std::num::ParseIntError),

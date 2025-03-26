@@ -12,26 +12,65 @@ use super::partial::{SHPartialKeyPart, SHPartialKeys};
 /// This wrapper support unwrapping the cls type of the argument
 #[derive(Debug, Clone)]
 pub struct CmdArgWrapper<'a> {
-    cmd: &'a command::CmdCommand,
+    cmd: Option<&'a command::CmdCommand>,
     inner: &'a command::CmdArg,
-    pub(super) unwrapped_arg_type: &'a command::cmd_arg::ArgType,
-    pub(super) prefix_keys: SHPartialKeys,
+    unwrapped_arg_type: &'a command::cmd_arg::ArgType,
+    prefix_keys: SHPartialKeys,
 }
 
 impl<'a> CmdArgWrapper<'a> {
-    pub fn new(
-        cmd: &'a command::CmdCommand,
+    /// create a new CmdArgWrapper
+    ///
+    /// # Arguments
+    ///
+    /// * `cmd` - The command to wrap, for the global argument, the cmd is None, otherwise it's the command to wrap
+    /// * `inner` - The inner argument to wrap
+    ///
+    /// # Returns
+    ///
+    /// A new CmdArgWrapper
+    pub(crate) fn new(
+        cmd: Option<&'a command::CmdCommand>,
         inner: &'a command::CmdArg,
     ) -> Result<Self, AzInternalError> {
-        let arg_type = retrieve_cls_arg_type_in_command(cmd, inner)?;
+        let arg_type = get_unwrapped_arg_type(cmd, inner)?;
         Ok(Self {
             cmd,
             inner,
             unwrapped_arg_type: arg_type,
-            prefix_keys: SHPartialKeys {
-                parts: vec![SHPartialKeyPart::Name(inner.name.to_string())],
-            },
+            prefix_keys: SHPartialKeys::from_parts(&[SHPartialKeyPart::Name(
+                inner.name.to_string(),
+            )]),
         })
+    }
+
+    pub fn build_by_keys(cmd: &'a command::CmdCommand, keys: &SHPartialKeys) -> AzResult<Self> {
+        let mut parts = keys.parts();
+        let key = parts
+            .next()
+            .ok_or(AzInternalError::InvalidPartialKeysError(format!(
+                "Partial keys is empty: {}",
+                keys
+            )))?;
+        let arg = match key {
+            SHPartialKeyPart::Name(name) => cmd
+                .args
+                .iter()
+                .find(|arg| arg.name.eq_ignore_ascii_case(name))
+                .ok_or(AzInternalError::InvalidPartialKeysError(format!(
+                    "Argument name not found: {}",
+                    name
+                )))?,
+            _ => {
+                return Err(AzInternalError::InvalidPartialKeysError(format!(
+                    "Partial keys is not supported: {}",
+                    keys
+                ))
+                .into());
+            }
+        };
+        let wrapper = Self::new(Some(cmd), arg)?;
+        wrapper.retrieve_sub_arg(parts)
     }
 }
 
@@ -61,7 +100,20 @@ impl CmdArgWrapper<'_> {
     }
 
     pub fn prompt(&self) -> Option<&command::CmdArgPromptInput> {
+        // TODO: check if the stdin is terminal
         return self.inner.prompt.as_ref();
+    }
+
+    pub fn unwrapped_arg_type(&self) -> &command::cmd_arg::ArgType {
+        self.unwrapped_arg_type
+    }
+
+    pub fn prefix_keys(&self) -> &SHPartialKeys {
+        &self.prefix_keys
+    }
+
+    pub fn arg(&self) -> &command::CmdArg {
+        self.inner
     }
 }
 
@@ -186,10 +238,8 @@ impl CmdArgWrapper<'_> {
                     // verify internal properties
                     let obj = value.as_object_mut().unwrap();
                     for (k, v) in obj.iter_mut() {
-                        let keys = SHPartialKeys {
-                            parts: vec![SHPartialKeyPart::Name(k.clone())],
-                        };
-                        let sub_arg = self.retrieve_internal_arg_by_keys(&keys)?;
+                        let sub_arg =
+                            self.retrieve_sub_arg([&SHPartialKeyPart::Name(k.clone())])?;
                         // use take to get the value without cloning and replace it with the verified value
                         let temp_value = std::mem::take(v);
                         *v = sub_arg.verify_value(temp_value)?;
@@ -202,10 +252,8 @@ impl CmdArgWrapper<'_> {
                     // verify internal items
                     let arr = value.as_array_mut().unwrap();
                     for (i, v) in arr.iter_mut().enumerate() {
-                        let keys = SHPartialKeys {
-                            parts: vec![SHPartialKeyPart::Index(i as u16)],
-                        };
-                        let sub_arg = self.retrieve_internal_arg_by_keys(&keys)?;
+                        let sub_arg =
+                            self.retrieve_sub_arg([&SHPartialKeyPart::Index(i as u16)])?;
                         // use take to get the value without cloning and replace it with the verified value
                         let temp_value = std::mem::take(v);
                         *v = sub_arg.verify_value(temp_value)?;
@@ -229,10 +277,14 @@ impl CmdArgWrapper<'_> {
 }
 
 impl<'a> CmdArgWrapper<'a> {
-    pub fn retrieve_internal_arg_by_keys(&self, keys: &SHPartialKeys) -> AzResult<Self> {
+    pub fn retrieve_sub_arg<'b>(
+        &self,
+        parts: impl IntoIterator<Item = &'b SHPartialKeyPart>,
+    ) -> AzResult<Self> {
         let mut arg = self.inner;
         let mut arg_type = self.unwrapped_arg_type;
-        for (i, part) in keys.parts.iter().enumerate() {
+        let mut prefix_keys = self.prefix_keys.clone();
+        for part in parts.into_iter() {
             match arg_type {
                 command::cmd_arg::ArgType::Object(obj) => match part {
                     SHPartialKeyPart::Name(name) => {
@@ -241,14 +293,13 @@ impl<'a> CmdArgWrapper<'a> {
                             .or(obj.get_additional_item()?)
                             .ok_or(AzUserUsageError::InvalidArgumentValueError(format!(
                                 "'{}' argument is object type and has no internal property '{}'",
-                                self.prefix_keys.to_owned().with_extend(keys.split_at(i)),
-                                name
+                                prefix_keys, name
                             )))?;
                     }
                     SHPartialKeyPart::Index(_) | SHPartialKeyPart::AppendIndex(_) => {
                         return Err(AzUserUsageError::InvalidArgumentValueError(format!(
                             "'{}' argument is object type and cannot support internal access by index {}",
-                            self.prefix_keys.to_owned().with_extend(keys.split_at(i)),
+                            prefix_keys,
                             part
                         ))
                         .into());
@@ -261,8 +312,7 @@ impl<'a> CmdArgWrapper<'a> {
                     SHPartialKeyPart::Name(name) => {
                         return Err(AzUserUsageError::InvalidArgumentValueError(format!(
                             "'{}' argument is array type and has no internal property '{}'",
-                            self.prefix_keys.to_owned().with_extend(keys.split_at(i)),
-                            name
+                            prefix_keys, name
                         ))
                         .into());
                     }
@@ -270,32 +320,28 @@ impl<'a> CmdArgWrapper<'a> {
                 command::cmd_arg::ArgType::Str(_) => {
                     return Err(AzUserUsageError::InvalidArgumentValueError(format!(
                         "'{}' argument is string type and cannot support internal access by '{}'",
-                        self.prefix_keys.to_owned().with_extend(keys.split_at(i)),
-                        part
+                        prefix_keys, part
                     ))
                     .into());
                 }
                 command::cmd_arg::ArgType::Number(_) => {
                     return Err(AzUserUsageError::InvalidArgumentValueError(format!(
                         "'{}' argument is number type and cannot support internal access by '{}'",
-                        self.prefix_keys.to_owned().with_extend(keys.split_at(i)),
-                        part
+                        prefix_keys, part
                     ))
                     .into());
                 }
                 command::cmd_arg::ArgType::Boolean(_) => {
                     return Err(AzUserUsageError::InvalidArgumentValueError(format!(
                         "'{}' argument is boolean type and cannot support internal access by '{}'",
-                        self.prefix_keys.to_owned().with_extend(keys.split_at(i)),
-                        part
+                        prefix_keys, part
                     ))
                     .into());
                 }
                 command::cmd_arg::ArgType::AnyType(_) => {
                     return Err(AzUserUsageError::InvalidArgumentValueError(format!(
                         "'{}' argument is any type and cannot support internal access by '{}'",
-                        self.prefix_keys.to_owned().with_extend(keys.split_at(i)),
-                        part
+                        prefix_keys, part
                     ))
                     .into());
                 }
@@ -303,24 +349,30 @@ impl<'a> CmdArgWrapper<'a> {
                     unreachable!("cls type should be unwrapped before");
                 }
             }
-            arg_type = retrieve_cls_arg_type_in_command(self.cmd, arg)?;
+            arg_type = get_unwrapped_arg_type(self.cmd, arg)?;
+            prefix_keys.push(part.to_owned());
         }
 
         Ok(Self {
             cmd: self.cmd,
             inner: arg,
             unwrapped_arg_type: arg_type,
-            prefix_keys: self.prefix_keys.to_owned().with_extend(keys.to_owned()),
+            prefix_keys,
         })
     }
 }
 
-fn retrieve_cls_arg_type_in_command<'a>(
-    cmd: &'a command::CmdCommand,
+/// get the unwrapped arg type of the argument, when the argument is a class type, then cmd should be not None
+fn get_unwrapped_arg_type<'a>(
+    cmd: Option<&'a command::CmdCommand>,
     arg: &'a command::CmdArg,
 ) -> Result<&'a command::cmd_arg::ArgType, AzInternalError> {
     match arg.arg_type_ok()? {
         command::cmd_arg::ArgType::Cls(typ) => {
+            let cmd = cmd.ok_or(AzInternalError::InvalidArgumentDefinitionError(format!(
+                "Missing command definition to unwrap class type argument: {}",
+                typ.cls_type
+            )))?;
             let cls_type = &typ.cls_type;
             for arg in cmd.args.iter() {
                 if let Some(arg_type) = retrieve_cls_arg_type(arg, cls_type)? {
