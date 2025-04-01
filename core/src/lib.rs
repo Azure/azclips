@@ -9,17 +9,22 @@ pub mod pb;
 pub(crate) mod account;
 pub(crate) mod cloud;
 pub(crate) mod config;
+pub(crate) mod param;
 pub(crate) mod plugin;
 pub(crate) mod service;
 /// The module defines the top level commands
 pub(crate) mod top;
 pub(crate) mod utils;
 
+use argparse::ArgValueAssignOp;
 use cmd_uri::CmdUri;
+use error::AzInternalError;
 use error::AzResult;
 use error::AzUserUsageError;
+use pb::command::cmd_interface;
 use pb::service::MetadataRequest;
 use pb::service::ServiceMetadata;
+use serde_json::Value;
 use service::center::AzServiceCenter;
 use service::center::AzServiceInfo;
 use service::AzService;
@@ -28,6 +33,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::OnceCell;
 use tokio::sync::RwLock;
+use tracing::error;
 
 /// The version of the core library
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -91,6 +97,56 @@ impl AzCore {
         )?;
 
         Ok(cmd_interface)
+    }
+
+    pub async fn execute_cmd(
+        &self,
+        cmd_uri: &CmdUri,
+        cmd_arg_ops: Vec<ArgValueAssignOp>,
+    ) -> AzResult<Option<Value>> {
+        let service = self.load_service(cmd_uri).await?;
+        let request = pb::service::InterfaceRequest {
+            uri: cmd_uri.to_string(),
+            depth: 1, // only the top level command group and command information
+        };
+
+        let cmd_interface = service.interface(self, request).await?.interface.ok_or(
+            AzUserUsageError::CommandNotFoundError(format!("command not found {}", cmd_uri)),
+        )?;
+
+        let cmd = cmd_interface
+            .level
+            .and_then(|level| match level {
+                cmd_interface::Level::Command(cmd) => Some(cmd),
+                _ => None,
+            })
+            .ok_or(AzUserUsageError::CommandGroupNotExecutableError)?;
+
+        let params = cmd_arg_ops
+            .into_iter()
+            .fold(param::CmdParamBuilder::default(), |builder, op| {
+                builder.apply(op)
+            })
+            .format_and_build(&cmd)?;
+
+        let output_format = pb::command::CmdOutputFormat {
+            flatten_mode: pb::command::CmdOutputFlattenMode::None as i32,
+        };
+        let request = pb::service::ExecuteRequest {
+            uri: cmd_uri.to_string(),
+            params: Some(params),
+            output_format: Some(output_format),
+        };
+        let response = service.execute(self, request).await?;
+        match response.data.expect("execute result should not be none") {
+            pb::service::execute_response::Data::None(_) => Ok(None),
+            pb::service::execute_response::Data::Json(data) => {
+                Ok(Some(serde_json::from_slice(&data).map_err(|e| {
+                    error!("failed to deserialize the execute result: {}", e);
+                    AzInternalError::Json(e)
+                })?))
+            }
+        }
     }
 }
 

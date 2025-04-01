@@ -1,7 +1,7 @@
 use az_core::{
-    argparse::{parse_arg, ArgHelpOp, ArgOp},
+    argparse::{self, arg::CmdArgWrapper, ArgOp, ArgValueAssignOp},
     cmd_uri::CmdUri,
-    error::{AzError, AzUserUsageError},
+    error::{AzError, AzInternalError, AzUserUsageError},
     pb::command::{cmd_interface, CmdArg, CmdCommand},
     AzCore,
 };
@@ -37,29 +37,98 @@ async fn execute_command_async(cmd_uri: CmdUri, raw_args: Vec<CmdRawArg>) -> Res
         }
     };
 
-    let mut cmd_arg_ops = Vec::new();
+    let mut cmd_value_ops = Vec::new();
 
-    for raw_arg in raw_args.iter() {
-        let arg_name = raw_arg.name_or_alias();
-        let values = raw_arg.values();
-
-        let ops = if let Some(arg) = find_arg_in_global(arg_name) {
-            parse_arg(None, arg, values)?
-        } else if let Some(arg) = find_arg_in_command(arg_name, &cmd) {
-            parse_arg(Some(&cmd), arg, values)?
-        } else {
-            return Err(AzUserUsageError::UnrecognizedArgumentError(raw_arg.flag.clone()).into());
-        };
+    // the positional arguments will be returned as params in uri query part by service
+    for (arg_name, values) in cmd_uri.params() {
+        let (arg, ops) = parse_arg_values(&cmd, arg_name, values)?;
 
         // show the help of the argument
         if let Some(ArgOp::Help(op)) = ops.iter().find(|op| matches!(op, ArgOp::Help(_))) {
-            return help::show_command_arg_help_async(cmd_uri, op.keys.to_owned()).await;
+            return help::show_command_arg_help_async(cmd_uri.clone(), op.arg_keys().to_owned())
+                .await;
         }
 
-        cmd_arg_ops.extend(ops);
+        let value_ops = retrieve_value_ops(&arg, ops)?;
+        cmd_value_ops.extend(value_ops);
     }
 
-    todo!()
+    for (arg_name, values) in raw_args
+        .iter()
+        .map(|raw_arg| (raw_arg.name_or_alias(), raw_arg.values()))
+    {
+        let (arg, ops) = parse_arg_values(&cmd, arg_name, values)?;
+
+        // show the help of the argument
+        if let Some(ArgOp::Help(op)) = ops.iter().find(|op| matches!(op, ArgOp::Help(_))) {
+            return help::show_command_arg_help_async(cmd_uri, op.arg_keys().to_owned()).await;
+        }
+
+        let value_ops = retrieve_value_ops(&arg, ops)?;
+        cmd_value_ops.extend(value_ops);
+    }
+
+    // TODO: filter some global args such as --output etc
+    let output = core.execute_cmd(&cmd_uri, cmd_value_ops).await?;
+
+    // TODO: format the output
+    if let Some(data) = output {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&data).map_err(AzInternalError::Json)?
+        );
+    }
+
+    Ok(())
+}
+
+fn parse_arg_values<'a, 'b>(
+    cmd: &'a CmdCommand,
+    arg_name: &str,
+    values: impl IntoIterator<Item = &'b str>,
+) -> Result<(CmdArgWrapper<'a>, Vec<ArgOp>), AzError> {
+    if let Some(arg) = find_arg_in_global(arg_name) {
+        let wrapper = CmdArgWrapper::new(None, arg)?;
+        let ops = argparse::parse_arg_values(&wrapper, values)?;
+        Ok((wrapper, ops))
+    } else if let Some(arg) = find_arg_in_command(arg_name, &cmd) {
+        let wrapper = CmdArgWrapper::new(Some(&cmd), arg)?;
+        let ops = argparse::parse_arg_values(&wrapper, values)?;
+        Ok((wrapper, ops))
+    } else {
+        Err(AzUserUsageError::UnrecognizedArgumentError(arg_name.to_string()).into())
+    }
+}
+
+/// This function will retrieve the value ops from the ArgOp
+/// When an operation is the prompt input operation, it will get value from stdin
+fn retrieve_value_ops(
+    arg: &CmdArgWrapper<'_>,
+    ops: Vec<ArgOp>,
+) -> Result<Vec<ArgValueAssignOp>, AzError> {
+    let mut value_ops = Vec::with_capacity(ops.len());
+    for op in ops.into_iter() {
+        let value_op = match op {
+            ArgOp::Prompt(op) => {
+                // TODO: customize the argument input and output
+                let mut input = std::io::stdin();
+                let mut output = std::io::stderr();
+                let parts = op.arg_keys().parts().collect::<Vec<_>>();
+                if parts.len() == 1 {
+                    op.prompt_input(&arg, &mut input, &mut output)?
+                } else {
+                    let wrapper = arg.retrieve_sub_arg(parts[1..].iter().map(|p| *p))?;
+                    op.prompt_input(&wrapper, &mut input, &mut output)?
+                }
+            }
+            ArgOp::Value(value_op) => value_op,
+            ArgOp::Help(_) => {
+                unreachable!()
+            }
+        };
+        value_ops.push(value_op);
+    }
+    Ok(value_ops)
 }
 
 fn find_arg_in_global(_: &str) -> Option<&'static CmdArg> {

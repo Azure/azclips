@@ -31,6 +31,9 @@ pub struct CmdCommand {
     pub version: ::prost::alloc::string::String,
     #[prost(message, repeated, tag = "10")]
     pub args: ::prost::alloc::vec::Vec<CmdArg>,
+    /// the array of positional argument names
+    #[prost(string, repeated, tag = "11")]
+    pub positional_args: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CmdCommandGroup {

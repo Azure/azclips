@@ -16,6 +16,7 @@ message CMDInterface {
 message CMDCommand {
   string version = 1; // the version of the command
   repeated CMDArg args = 10;
+  repeated string positional_args = 11;  // the array of positional argument names
 }
 
 message CMDCommandGroup {

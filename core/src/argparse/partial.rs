@@ -1,6 +1,6 @@
 use crate::error::AzUserUsageError;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Hash)]
 pub enum SHPartialKeyPart {
     Name(String),
     /// limit the index to a small range less than 65535

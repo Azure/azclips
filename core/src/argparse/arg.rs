@@ -29,7 +29,7 @@ impl<'a> CmdArgWrapper<'a> {
     /// # Returns
     ///
     /// A new CmdArgWrapper
-    pub(crate) fn new(
+    pub fn new(
         cmd: Option<&'a command::CmdCommand>,
         inner: &'a command::CmdArg,
     ) -> Result<Self, AzInternalError> {

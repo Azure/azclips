@@ -52,9 +52,14 @@ message ExecuteRequest {
     command.CMDOutputFormat output_format = 4;
 }
 
+
+message None {}
+
 message ExecuteResponse {
-    // bytes output = 1;
-    // string output_type = 2;
+    oneof data {
+        None none = 1;
+        bytes json = 2;
+    }
 }
 
 // the context for the service to run

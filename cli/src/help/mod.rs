@@ -31,6 +31,7 @@ pub(crate) async fn show_command_help_async(cmd_uri: CmdUri) -> Result<(), AzErr
     let cmd_uri = core.check_cmd_uri(cmd_uri).await?;
     if cmd_uri.executable() {
         let cmd_interface = core.get_cmd_interface(&cmd_uri).await?;
+        // global arguments
         todo!("show the help of the command interface")
     } else {
         let cmd_interface = core.get_cmd_interface(&cmd_uri).await?;

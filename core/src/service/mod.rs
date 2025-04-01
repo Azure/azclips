@@ -30,6 +30,7 @@ pub trait AzService<T: AzServiceCtx>: Send + Sync + 'static {
     >;
 
     /// check a cmd uri is available or not
+    /// if a cmd uri has positional arguments as segments part,it will be converted to params in the query part in the returned cmd uri
     fn check<'a>(
         &'a self,
         ctx: &'a T,

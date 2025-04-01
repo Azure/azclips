@@ -55,10 +55,23 @@ pub struct ExecuteRequest {
     #[prost(message, optional, tag = "4")]
     pub output_format: ::core::option::Option<super::command::CmdOutputFormat>,
 }
-/// bytes output = 1;
-/// string output_type = 2;
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
-pub struct ExecuteResponse {}
+pub struct None {}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ExecuteResponse {
+    #[prost(oneof = "execute_response::Data", tags = "1, 2")]
+    pub data: ::core::option::Option<execute_response::Data>,
+}
+/// Nested message and enum types in `ExecuteResponse`.
+pub mod execute_response {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Data {
+        #[prost(message, tag = "1")]
+        None(super::None),
+        #[prost(bytes, tag = "2")]
+        Json(::prost::alloc::vec::Vec<u8>),
+    }
+}
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct GetCoreInfoRequest {}
 #[derive(Clone, PartialEq, ::prost::Message)]
