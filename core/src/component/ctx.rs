@@ -1,11 +1,11 @@
-use crate::pb::service::{CoreInfo, GetCoreInfoRequest, GetCoreInfoResponse};
+use crate::pb::component::{CoreInfo, GetCoreInfoRequest, GetCoreInfoResponse};
 use crate::{error::AzError, AzCore, VERSION};
 use std::future::Future;
 use std::pin::Pin;
 
-use super::AzServiceCtx;
+use super::AzComponentCtx;
 
-impl AzServiceCtx for AzCore {
+impl AzComponentCtx for AzCore {
     fn get_core_info<'a>(
         &'a self,
         _: GetCoreInfoRequest,

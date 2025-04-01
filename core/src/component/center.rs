@@ -14,32 +14,33 @@ use strum::IntoEnumIterator;
 use tokio::fs;
 use tracing::error;
 
-use super::built_in::AzBuildInService;
-use super::built_in::{deserialize_az_build_in_service, serialize_az_build_in_service};
-use super::{get_service_dir, AzService, AzServiceCtx};
+use super::built_in::AzBuildIn;
+use super::built_in::{deserialize_az_build_in_component, serialize_az_build_in_component};
+use super::{get_component_dir, AzComponent, AzComponentCtx};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "info")]
-pub enum AzServiceInfo {
+pub enum AzComponentInfo {
     #[serde(
-        serialize_with = "serialize_az_build_in_service",
-        deserialize_with = "deserialize_az_build_in_service"
+        serialize_with = "serialize_az_build_in_component",
+        deserialize_with = "deserialize_az_build_in_component"
     )]
-    BuiltIn(AzBuildInService),
+    BuiltIn(AzBuildIn),
     Plugin(AzPlugin),
 }
 
-pub struct AzServiceCenter<T: AzServiceCtx> {
-    /// the route table using the service uri segments as the key, it is used to find the service based on the cmd_uri
-    route_table: HashMap<String, AzServiceInfo>,
-    /// the built-in services that are loaded
-    built_ins: HashMap<AzBuildInService, Arc<dyn AzService<T>>>,
+/// The center to manage the components
+pub struct AzComponentCenter<T: AzComponentCtx> {
+    /// the route table using the component uri segments as the key, it is used to find the component based on the cmd_uri
+    route_table: HashMap<String, AzComponentInfo>,
+    /// the built-in components that are loaded
+    built_ins: HashMap<AzBuildIn, Arc<dyn AzComponent<T>>>,
     /// the plugins that are loaded, the key is the plugin name
-    plugins: HashMap<String, Arc<dyn AzService<T>>>,
+    plugins: HashMap<String, Arc<dyn AzComponent<T>>>,
 }
 
-impl<T: AzServiceCtx> AzServiceCenter<T> {
-    /// Create a new instance of AzServiceCenter
+impl<T: AzComponentCtx> AzComponentCenter<T> {
+    /// Create a new instance of AzComponentCenter
     /// TODO: we can add `profile` content here to support the switch between different profiles for different clouds
     pub(crate) async fn new() -> Result<Self, AzInternalError> {
         let center = if let Some(route_table) = Self::load_route_table().await {
@@ -57,19 +58,19 @@ impl<T: AzServiceCtx> AzServiceCenter<T> {
             center.rebuild_route_table().await?;
             center
         };
-        // TODO: here we should init the built-in services
+        // TODO: here we should init the built-in components
         Ok(center)
     }
 }
 
-impl<T: AzServiceCtx> AzServiceCenter<T> {
+impl<T: AzComponentCtx> AzComponentCenter<T> {
     pub(crate) async fn rebuild_route_table(&mut self) -> Result<(), AzInternalError> {
         self.route_table.clear();
-        AzBuildInService::iter().for_each(|service| {
+        AzBuildIn::iter().for_each(|component| {
             // using the first reversed node to ignore the params in the uri
-            let node = service.uri().ascending_nodes().next().unwrap();
+            let node = component.uri().ascending_nodes().next().unwrap();
             self.route_table
-                .insert(node.to_string(), AzServiceInfo::BuiltIn(service));
+                .insert(node.to_string(), AzComponentInfo::BuiltIn(component));
         });
 
         let plugin_paths = AzPlugin::get_plugin_paths()?;
@@ -85,7 +86,7 @@ impl<T: AzServiceCtx> AzServiceCenter<T> {
             // using the first reversed node to ignore the params in the uri
             let node = plugin.uri.ascending_nodes().next().unwrap();
             self.route_table
-                .insert(node.to_string(), AzServiceInfo::Plugin(plugin));
+                .insert(node.to_string(), AzComponentInfo::Plugin(plugin));
         }
 
         if Self::save_route_table(&self.route_table).await.is_err() {
@@ -94,7 +95,7 @@ impl<T: AzServiceCtx> AzServiceCenter<T> {
         Ok(())
     }
 
-    async fn load_route_table() -> Option<HashMap<String, AzServiceInfo>> {
+    async fn load_route_table() -> Option<HashMap<String, AzComponentInfo>> {
         fs::read_to_string(get_route_table_path())
             .await
             .ok()
@@ -102,63 +103,63 @@ impl<T: AzServiceCtx> AzServiceCenter<T> {
     }
 
     async fn save_route_table(
-        route_table: &HashMap<String, AzServiceInfo>,
+        route_table: &HashMap<String, AzComponentInfo>,
     ) -> Result<(), AzInternalError> {
         fs::write(get_route_table_path(), serde_json::to_string(route_table)?).await?;
         Ok(())
     }
 }
 
-impl<T: AzServiceCtx> AzServiceCenter<T> {
-    pub(crate) fn route(&self, cmd_uri: &CmdUri) -> Option<AzServiceInfo> {
+impl<T: AzComponentCtx> AzComponentCenter<T> {
+    pub(crate) fn route(&self, cmd_uri: &CmdUri) -> Option<AzComponentInfo> {
         for node in cmd_uri.ascending_nodes() {
-            if let Some(service_info) = self.route_table.get(&node.to_string()) {
-                return Some(service_info.to_owned());
+            if let Some(info) = self.route_table.get(&node.to_string()) {
+                return Some(info.to_owned());
             }
         }
         None
     }
 
-    pub(crate) async fn get_or_load_service(
+    pub(crate) async fn get_or_load_component(
         &mut self,
-        service_info: &AzServiceInfo,
-    ) -> Result<Arc<dyn AzService<T>>, AzInternalError> {
-        let service = match service_info {
-            AzServiceInfo::BuiltIn(service) => self
+        info: &AzComponentInfo,
+    ) -> Result<Arc<dyn AzComponent<T>>, AzInternalError> {
+        let component = match info {
+            AzComponentInfo::BuiltIn(component) => self
                 .built_ins
-                .get(service)
-                // the build in services should be loaded when the service center is created
-                .expect("The built_in service is not loaded")
+                .get(component)
+                // the build in components should be loaded when the component center is created
+                .expect("The built_in component is not loaded")
                 .to_owned(),
-            AzServiceInfo::Plugin(plugin) => match self.plugins.get(&plugin.name) {
-                Some(service) => service.to_owned(),
+            AzComponentInfo::Plugin(plugin) => match self.plugins.get(&plugin.name) {
+                Some(component) => component.to_owned(),
                 None => {
-                    let service = plugin.load_service::<T>().await?;
+                    let component = plugin.load::<T>().await?;
                     self.plugins
-                        .insert(plugin.name.to_owned(), service.to_owned());
-                    service
+                        .insert(plugin.name.to_owned(), component.to_owned());
+                    component
                 }
             },
         };
-        Ok(service)
+        Ok(component)
     }
 
-    pub(crate) fn iter_service_uris(&self) -> impl Iterator<Item = CmdUri> + '_ {
+    pub(crate) fn iter_component_uris(&self) -> impl Iterator<Item = CmdUri> + '_ {
         self.route_table
             .keys()
             .map(|s| CmdUri::from_str(s).unwrap())
     }
 }
 
-impl fmt::Display for AzServiceInfo {
+impl fmt::Display for AzComponentInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            AzServiceInfo::BuiltIn(service) => write!(f, "BuiltIn({})", service),
-            AzServiceInfo::Plugin(plugin) => write!(f, "Plugin({})", plugin.name),
+            AzComponentInfo::BuiltIn(component) => write!(f, "BuiltIn({})", component),
+            AzComponentInfo::Plugin(plugin) => write!(f, "Plugin({})", plugin.name),
         }
     }
 }
 
 fn get_route_table_path() -> PathBuf {
-    get_service_dir().join("route.json")
+    get_component_dir().join("route.json")
 }

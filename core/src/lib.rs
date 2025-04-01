@@ -8,26 +8,26 @@ pub mod pb;
 
 pub(crate) mod account;
 pub(crate) mod cloud;
+pub(crate) mod component;
 pub(crate) mod config;
 pub(crate) mod param;
 pub(crate) mod plugin;
-pub(crate) mod service;
 /// The module defines the top level commands
 pub(crate) mod top;
 pub(crate) mod utils;
 
 use argparse::ArgValueAssignOp;
 use cmd_uri::CmdUri;
+use component::center::AzComponentCenter;
+use component::center::AzComponentInfo;
+use component::AzComponent;
 use error::AzInternalError;
 use error::AzResult;
 use error::AzUserUsageError;
 use pb::command::cmd_interface;
-use pb::service::MetadataRequest;
-use pb::service::ServiceMetadata;
+use pb::component::ComponentMetadata;
+use pb::component::MetadataRequest;
 use serde_json::Value;
-use service::center::AzServiceCenter;
-use service::center::AzServiceInfo;
-use service::AzService;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -43,7 +43,7 @@ pub const APPLICATION_NAME: &str = env!("CARGO_APPLICATION_NAME");
 
 pub struct AzCore {
     // Add fields as needed
-    service_center: RwLock<AzServiceCenter<Self>>,
+    component_center: RwLock<AzComponentCenter<Self>>,
 }
 
 impl AzCore {
@@ -57,13 +57,13 @@ impl AzCore {
 
     /// Create a new instance of AzCore
     async fn new() -> Self {
-        let service_center = AzServiceCenter::<Self>::new()
+        let component_center = AzComponentCenter::<Self>::new()
             .await
-            .expect("failed to create service center");
+            .expect("failed to create component center");
         // Perform async initialization here
         Self {
             // Initialize fields as needed
-            service_center: RwLock::new(service_center),
+            component_center: RwLock::new(component_center),
         }
     }
 }
@@ -71,14 +71,14 @@ impl AzCore {
 impl AzCore {
     pub async fn check_cmd_uri(&self, cmd_uri: CmdUri) -> AzResult<CmdUri> {
         // TODO: add auto installation of the plugin based on the configuration
-        let service = self.load_service(&cmd_uri).await?;
+        let component = self.load_component(&cmd_uri).await?;
 
-        let request = pb::service::CheckRequest {
+        let request = pb::component::CheckRequest {
             uri: cmd_uri.to_string(),
         };
 
         // TODO: add auto installation of the plugin based on the configuration
-        let cmd_uri = service.check(self, request).await?.uri.ok_or(
+        let cmd_uri = component.check(self, request).await?.uri.ok_or(
             AzUserUsageError::CommandNotFoundError(format!("command not found {}", cmd_uri)),
         )?;
         let cmd_uri = CmdUri::from_str(&cmd_uri)?;
@@ -86,13 +86,13 @@ impl AzCore {
     }
 
     pub async fn get_cmd_interface(&self, cmd_uri: &CmdUri) -> AzResult<pb::command::CmdInterface> {
-        let service = self.load_service(cmd_uri).await?;
-        let request = pb::service::InterfaceRequest {
+        let component = self.load_component(cmd_uri).await?;
+        let request = pb::component::InterfaceRequest {
             uri: cmd_uri.to_string(),
             depth: 1, // only the top level command group and command information
         };
 
-        let cmd_interface = service.interface(self, request).await?.interface.ok_or(
+        let cmd_interface = component.interface(self, request).await?.interface.ok_or(
             AzUserUsageError::CommandNotFoundError(format!("command not found {}", cmd_uri)),
         )?;
 
@@ -104,13 +104,13 @@ impl AzCore {
         cmd_uri: &CmdUri,
         cmd_arg_ops: Vec<ArgValueAssignOp>,
     ) -> AzResult<Option<Value>> {
-        let service = self.load_service(cmd_uri).await?;
-        let request = pb::service::InterfaceRequest {
+        let component = self.load_component(cmd_uri).await?;
+        let request = pb::component::InterfaceRequest {
             uri: cmd_uri.to_string(),
             depth: 1, // only the top level command group and command information
         };
 
-        let cmd_interface = service.interface(self, request).await?.interface.ok_or(
+        let cmd_interface = component.interface(self, request).await?.interface.ok_or(
             AzUserUsageError::CommandNotFoundError(format!("command not found {}", cmd_uri)),
         )?;
 
@@ -132,15 +132,15 @@ impl AzCore {
         let output_format = pb::command::CmdOutputFormat {
             flatten_mode: pb::command::CmdOutputFlattenMode::None as i32,
         };
-        let request = pb::service::ExecuteRequest {
+        let request = pb::component::ExecuteRequest {
             uri: cmd_uri.to_string(),
             params: Some(params),
             output_format: Some(output_format),
         };
-        let response = service.execute(self, request).await?;
+        let response = component.execute(self, request).await?;
         match response.data.expect("execute result should not be none") {
-            pb::service::execute_response::Data::None(_) => Ok(None),
-            pb::service::execute_response::Data::Json(data) => {
+            pb::component::execute_response::Data::None(_) => Ok(None),
+            pb::component::execute_response::Data::Json(data) => {
                 Ok(Some(serde_json::from_slice(&data).map_err(|e| {
                     error!("failed to deserialize the execute result: {}", e);
                     AzInternalError::Json(e)
@@ -153,45 +153,45 @@ impl AzCore {
 /// CLI only
 #[cfg(feature = "cli")]
 impl AzCore {
-    /// return the sub services of the given cmd uri
+    /// return the sub components of the given cmd uri
     ///
     /// This function is used for cli to display the full help of a given command group
-    pub async fn get_metadata_of_sub_services(
+    pub async fn get_metadata_of_sub_components(
         &self,
         uri: &CmdUri,
-    ) -> AzResult<HashMap<String, pb::service::ServiceMetadata>> {
-        let service_uris = self
-            .service_center
+    ) -> AzResult<HashMap<String, pb::component::ComponentMetadata>> {
+        let component_uris = self
+            .component_center
             .read()
             .await
-            .iter_service_uris()
-            .filter(|service_uri| service_uri.is_child_of(uri, 1))
+            .iter_component_uris()
+            .filter(|component_uri| component_uri.is_child_of(uri, 1))
             .collect::<Vec<_>>();
 
-        let mut sub_services = HashMap::new();
-        for service_uri in service_uris {
-            let service_info = self
-                .service_center
+        let mut sub_components = HashMap::new();
+        for component_uri in component_uris {
+            let info = self
+                .component_center
                 .read()
                 .await
-                .route(&service_uri)
+                .route(&component_uri)
                 .unwrap();
-            let metadata = match service_info {
-                AzServiceInfo::BuiltIn(_) => {
-                    let service = self
-                        .service_center
+            let metadata = match info {
+                AzComponentInfo::BuiltIn(_) => {
+                    let component = self
+                        .component_center
                         .write()
                         .await
-                        .get_or_load_service(&service_info)
+                        .get_or_load_component(&info)
                         .await?;
-                    service
+                    component
                         .metadata(self, MetadataRequest::default())
                         .await?
                         .metadata
-                        .expect("built-in service should have metadata")
+                        .expect("built-in component should have metadata")
                 }
                 // construct the metadata from the plugin info to avoid loading the plugins for performance
-                AzServiceInfo::Plugin(plugin) => ServiceMetadata {
+                AzComponentInfo::Plugin(plugin) => ComponentMetadata {
                     name: plugin.name.clone(),
                     uri: plugin.uri.to_string(),
                     version: plugin.version.clone(),
@@ -199,47 +199,53 @@ impl AzCore {
                 },
             };
 
-            sub_services.insert(service_uri.last_segment().to_string(), metadata);
+            sub_components.insert(component_uri.last_segment().to_string(), metadata);
         }
 
-        Ok(sub_services)
+        Ok(sub_components)
     }
 }
 
 /// PowerShell only
 #[cfg(feature = "ps")]
 impl AzCore {
-    /// return the service interface of the given cmd uri
+    /// return the component interface of the given cmd uri
     ///
-    /// This function is used for ps to dynamically generate the cmdlets for the given service
-    pub async fn get_service_interface(&self, uri: &CmdUri) -> AzResult<pb::command::CmdInterface> {
-        let service = self.load_service(uri).await?;
-        let request = pb::service::InterfaceRequest {
+    /// This function is used for ps to dynamically generate the cmdlets for the given component
+    pub async fn get_component_interface(
+        &self,
+        uri: &CmdUri,
+    ) -> AzResult<pb::command::CmdInterface> {
+        let component = self.load_component(uri).await?;
+        let request = pb::component::InterfaceRequest {
             uri: uri.to_string(),
             depth: 0, // all the depth
         };
-        let service_interface = service.interface(self, request).await?.interface.ok_or(
-            AzUserUsageError::CommandNotFoundError(format!("service interface not found {}", uri)),
+        let component_interface = component.interface(self, request).await?.interface.ok_or(
+            AzUserUsageError::CommandNotFoundError(format!(
+                "component interface not found {}",
+                uri
+            )),
         )?;
-        Ok(service_interface)
+        Ok(component_interface)
     }
 }
 
 impl AzCore {
-    async fn load_service(&self, cmd_uri: &CmdUri) -> AzResult<Arc<dyn AzService<Self>>> {
+    async fn load_component(&self, cmd_uri: &CmdUri) -> AzResult<Arc<dyn AzComponent<Self>>> {
         // TODO: add auto installation of the plugin based on the configuration
-        let route = self.service_center.read().await.route(&cmd_uri).ok_or(
+        let route = self.component_center.read().await.route(&cmd_uri).ok_or(
             AzUserUsageError::CommandNotFoundError(format!(
                 "No route available for cmd uri {}",
                 cmd_uri
             )),
         )?;
-        let service = self
-            .service_center
+        let component = self
+            .component_center
             .write()
             .await
-            .get_or_load_service(&route)
+            .get_or_load_component(&route)
             .await?;
-        Ok(service)
+        Ok(component)
     }
 }

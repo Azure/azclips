@@ -4,10 +4,10 @@ use std::str::FromStr;
 use strum_macros::{Display, EnumIter};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, EnumIter, Display)]
-pub enum AzBuildInService {
-    /// The top level commands for the azure commands.
+pub enum AzBuildIn {
+    /// The component for the top level commands for the azure commands.
     Top,
-    /// Manage the authentication information.
+    /// Manage the Account information.
     Account,
     /// Manage the registered Azure clouds.
     Cloud,
@@ -17,7 +17,7 @@ pub enum AzBuildInService {
     Plugin,
 }
 
-impl AzBuildInService {
+impl AzBuildIn {
     /// cmd_uri: `cmd://azure/`
     const TOP_URI: &'static str = "cmd://azure/";
     /// cmd_uri: `cmd://azure/account/`
@@ -31,11 +31,11 @@ impl AzBuildInService {
 
     pub fn uri(&self) -> CmdUri {
         match self {
-            AzBuildInService::Top => CmdUri::from_str(Self::TOP_URI).unwrap(),
-            AzBuildInService::Account => CmdUri::from_str(Self::ACCOUNT_URI).unwrap(),
-            AzBuildInService::Cloud => CmdUri::from_str(Self::CLOUD_URI).unwrap(),
-            AzBuildInService::Config => CmdUri::from_str(Self::CONFIG_URI).unwrap(),
-            AzBuildInService::Plugin => CmdUri::from_str(Self::PLUGIN_URI).unwrap(),
+            AzBuildIn::Top => CmdUri::from_str(Self::TOP_URI).unwrap(),
+            AzBuildIn::Account => CmdUri::from_str(Self::ACCOUNT_URI).unwrap(),
+            AzBuildIn::Cloud => CmdUri::from_str(Self::CLOUD_URI).unwrap(),
+            AzBuildIn::Config => CmdUri::from_str(Self::CONFIG_URI).unwrap(),
+            AzBuildIn::Plugin => CmdUri::from_str(Self::PLUGIN_URI).unwrap(),
         }
     }
 
@@ -51,21 +51,21 @@ impl AzBuildInService {
     }
 }
 
-pub(super) fn serialize_az_build_in_service<S>(
-    service: &AzBuildInService,
+pub(super) fn serialize_az_build_in_component<S>(
+    component: &AzBuildIn,
     serializer: S,
 ) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
 {
     let mut map = serializer.serialize_map(Some(1))?;
-    map.serialize_entry("uri", &service.uri().to_string())?;
+    map.serialize_entry("uri", &component.uri().to_string())?;
     map.end()
 }
 
-pub(super) fn deserialize_az_build_in_service<'de, D>(
+pub(super) fn deserialize_az_build_in_component<'de, D>(
     deserializer: D,
-) -> Result<AzBuildInService, D::Error>
+) -> Result<AzBuildIn, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
@@ -73,8 +73,8 @@ where
     let uri = value
         .get("uri")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| D::Error::custom("service uri is required"))?;
+        .ok_or_else(|| D::Error::custom("component uri is required"))?;
     let uri = CmdUri::from_str(uri).map_err(D::Error::custom)?;
 
-    AzBuildInService::from_uri(&uri).ok_or_else(|| D::Error::custom("invalid service uri"))
+    AzBuildIn::from_uri(&uri).ok_or_else(|| D::Error::custom("invalid component uri"))
 }

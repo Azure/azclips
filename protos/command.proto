@@ -1,15 +1,15 @@
 syntax = "proto3";
 package command;
 
-// The interface of the command / command group / service
+// The interface of the command / command group / component
 message CMDInterface {
   string name = 1;
   CMDHelp help = 2;
-  string uri = 3; // the uri of the command / command group / service, the uri should be unique across all the commands, command groups and services
+  string uri = 3; // the uri of the command / command group / component, the uri should be unique across all the commands, command groups and components
   oneof level {
     CMDCommand command = 10;
     CMDCommandGroup group = 11;
-    CMDService service = 12;
+    CMDComponent component = 12;
   }
 }
 
@@ -24,8 +24,8 @@ message CMDCommandGroup {
   repeated CMDInterface commands = 11;
 }
 
-message CMDService {
-  string version = 1; // the release version of the service
+message CMDComponent {
+  string version = 1; // the release version of the component
   repeated CMDInterface groups = 10;
   repeated CMDInterface commands = 11;
 }

@@ -1,4 +1,4 @@
-pub(crate) mod service;
+pub(crate) mod component;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -9,9 +9,9 @@ use serde_json::Map;
 
 use crate::cmd_uri::CmdUri;
 use crate::cmd_uri::{deserialize_cmd_uri, serialize_cmd_uri};
+use crate::component::{get_component_dir, AzComponent, AzComponentCtx};
 use crate::error::AzInternalError;
 use crate::pb::command::CmdHelp;
-use crate::service::{get_service_dir, AzService, AzServiceCtx};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AzPlugin {
@@ -31,10 +31,10 @@ pub struct AzPlugin {
 }
 
 impl AzPlugin {
-    /// load the login from file and construct the service
-    pub(crate) async fn load_service<T: AzServiceCtx>(
+    /// load the plugin from file and construct the component
+    pub(crate) async fn load<T: AzComponentCtx>(
         &self,
-    ) -> Result<Arc<dyn AzService<T>>, AzInternalError> {
+    ) -> Result<Arc<dyn AzComponent<T>>, AzInternalError> {
         todo!()
     }
 
@@ -61,7 +61,7 @@ impl AzPlugin {
 }
 
 fn get_plugin_dir() -> PathBuf {
-    get_service_dir().join("plugins")
+    get_component_dir().join("plugins")
 }
 
 pub(crate) fn serialize_cmd_help<S>(help: &CmdHelp, serializer: S) -> Result<S::Ok, S::Error>

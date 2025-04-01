@@ -36,7 +36,7 @@ const COMPONENT_ENCODE_SET: &AsciiSet = &CONTROLS
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CmdUri {
-    /// the version of the cmds, it should be the save as the version of the command service
+    /// the version of the cmds, it should be the save as the version of the command component
     version: Option<String>,
     /// the command name parts
     segments: Vec<String>,
