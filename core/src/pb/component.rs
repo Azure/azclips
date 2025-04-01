@@ -4,7 +4,7 @@ pub struct MetadataRequest {}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct MetadataResponse {
     #[prost(message, optional, tag = "1")]
-    pub metadata: ::core::option::Option<ServiceMetadata>,
+    pub metadata: ::core::option::Option<ComponentMetadata>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CheckRequest {
@@ -31,17 +31,17 @@ pub struct InterfaceResponse {
     pub interface: ::core::option::Option<super::command::CmdInterface>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ServiceMetadata {
-    /// the service name for installation and identification
+pub struct ComponentMetadata {
+    /// the component name for installation and identification
     #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,
-    /// the release version of the service, for built-in service, the version is the version of the core
+    /// the release version of the component, for built-in component, the version is the version of the core
     #[prost(string, tag = "2")]
     pub version: ::prost::alloc::string::String,
-    /// the unique uri for the service, this uri should be the cmd uri which starts with `cmd://azure/` and the following segments are composed by the top level command group name for the service. The uri should be unique across all the services.
+    /// the unique uri for the component, this uri should be the cmd uri which starts with `cmd://azure/` and the following segments are composed by the top level command group name for the component. The uri should be unique across all the components.
     #[prost(string, tag = "3")]
     pub uri: ::prost::alloc::string::String,
-    /// the help information of the service
+    /// the help information of the component
     #[prost(message, optional, tag = "4")]
     pub help: ::core::option::Option<super::command::CmdHelp>,
 }
@@ -55,10 +55,23 @@ pub struct ExecuteRequest {
     #[prost(message, optional, tag = "4")]
     pub output_format: ::core::option::Option<super::command::CmdOutputFormat>,
 }
-/// bytes output = 1;
-/// string output_type = 2;
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
-pub struct ExecuteResponse {}
+pub struct None {}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ExecuteResponse {
+    #[prost(oneof = "execute_response::Data", tags = "1, 2")]
+    pub data: ::core::option::Option<execute_response::Data>,
+}
+/// Nested message and enum types in `ExecuteResponse`.
+pub mod execute_response {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Data {
+        #[prost(message, tag = "1")]
+        None(super::None),
+        #[prost(bytes, tag = "2")]
+        Json(::prost::alloc::vec::Vec<u8>),
+    }
+}
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct GetCoreInfoRequest {}
 #[derive(Clone, PartialEq, ::prost::Message)]

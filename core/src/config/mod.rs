@@ -1,4 +1,4 @@
-pub(crate) mod service;
+pub(crate) mod component;
 
 use std::{env, path::PathBuf, sync::OnceLock};
 

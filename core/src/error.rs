@@ -19,6 +19,9 @@ pub enum AzUserUsageError {
     #[error("Invalid argument value: {0}")]
     InvalidArgumentValueError(String),
 
+    #[error("Invalid input: {0}")]
+    InvalidInputError(#[from] std::io::Error),
+
     // #[error("Unsupported feature: {0}")]
     // UnsupportedFeatureError(String),
 

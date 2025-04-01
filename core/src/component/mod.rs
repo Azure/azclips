@@ -6,9 +6,9 @@ use std::path::PathBuf;
 
 use crate::config;
 use crate::error::AzResult;
-use crate::pb::service as pb;
+use crate::pb::component as pb;
 
-pub trait AzServiceCtx: Send + Sync + 'static {
+pub trait AzComponentCtx: Send + Sync + 'static {
     /// get the core info
     fn get_core_info<'a>(
         &'a self,
@@ -18,9 +18,9 @@ pub trait AzServiceCtx: Send + Sync + 'static {
     >;
 }
 
-/// the trait of a service
-pub trait AzService<T: AzServiceCtx>: Send + Sync + 'static {
-    /// get the metadata of the service
+/// the trait of a component
+pub trait AzComponent<T: AzComponentCtx>: Send + Sync + 'static {
+    /// get the metadata of the component
     fn metadata<'a>(
         &'a self,
         ctx: &'a T,
@@ -30,6 +30,7 @@ pub trait AzService<T: AzServiceCtx>: Send + Sync + 'static {
     >;
 
     /// check a cmd uri is available or not
+    /// if a cmd uri has positional arguments as segments part,it will be converted to params in the query part in the returned cmd uri
     fn check<'a>(
         &'a self,
         ctx: &'a T,
@@ -55,7 +56,7 @@ pub trait AzService<T: AzServiceCtx>: Send + Sync + 'static {
     >;
 }
 
-pub fn get_service_dir() -> PathBuf {
+pub fn get_component_dir() -> PathBuf {
     let config_dir = config::get_config_dir();
-    config_dir.join("services")
+    config_dir.join("components")
 }
