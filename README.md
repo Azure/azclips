@@ -16,6 +16,8 @@ This repository contains multiple Rust projects:
 - Rust and Cargo (latest stable version)
 - An Azure account for testing
 - Install llvm
+- Install protobuf-compiler
+
 ### Building
 
 To build the project:
@@ -27,7 +29,7 @@ cargo build
 To run the CLI:
 
 ```bash
-cargo run -p azlite -- [COMMANDS]
+cargo run -p az_cli -- [COMMANDS]
 ```
 
 ### Project Status
