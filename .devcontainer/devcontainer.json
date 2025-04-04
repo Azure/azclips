@@ -1,6 +1,10 @@
 {
     "name": "Azure CLI Lite Dev Container",
-    "image": "mcr.microsoft.com/devcontainers/rust:latest",
+    "build": {
+        "dockerfile": "./Dockerfile",
+        "context": "."
+    },
+	"postCreateCommand": "rustc --version",
     "customizations": {
         "vscode": {
             "extensions": [
