@@ -29,7 +29,7 @@ cargo build
 To run the CLI:
 
 ```bash
-cargo run -p az_cli -- [COMMANDS]
+cargo run -p azure -- [COMMANDS]
 ```
 
 ### Project Status
