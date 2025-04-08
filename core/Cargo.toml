@@ -32,9 +32,10 @@ tracing = "0.1"
 tempfile = "3.18"
 
 [build-dependencies]
-tonic-build = "0.12"
+tonic-build = "0.13"
 
 [features]
-default = ["cli", "ps"]
+default = ["cli", "ps", "ansible"]
 cli = []
 ps = []
+ansible = []

@@ -1,5 +1,5 @@
 [workspace]
-members = ["core", "cli", "ps"]
+members = ["core", "cli", "ps", "ansible"]
 resolver = "2"
 
 [workspace.package]
