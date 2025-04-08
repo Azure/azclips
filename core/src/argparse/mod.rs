@@ -98,9 +98,10 @@ fn parse_composite_arg<'a>(
     let mut ops = Vec::new();
     while let Some(value) = next_value {
         if let Some((key, value)) = SHORTHAND_SYNTAX_PARSER.split_partial_value(value) {
-            let keys = SHORTHAND_SYNTAX_PARSER.parse_partial_value_key_parts(key)?;
+            let (keys, is_append) = SHORTHAND_SYNTAX_PARSER.parse_partial_value_key_parts(key)?;
             let sub_arg = arg.retrieve_sub_arg(keys.parts())?;
-            let op = parse_arg_value_str(&sub_arg, value)?;
+            let mut op = parse_arg_value_str(&sub_arg, value)?;
+            op.with_append_flag(is_append);
             ops.push(op);
         } else {
             let op = parse_arg_value_str(arg, Some(value))?;
@@ -123,6 +124,7 @@ fn parse_arg_value_str(
             return Ok(ArgOp::Prompt(ArgPromptInputOp {
                 keys: arg.prefix_keys().to_owned(),
                 prompt: prompt.to_owned(),
+                is_append: false,
             }));
         }
 
@@ -140,6 +142,7 @@ fn parse_arg_value_str(
             keys: arg.prefix_keys().to_owned(),
             from_blank: true,
             value,
+            is_append: false,
         }));
     }
 
@@ -151,12 +154,30 @@ fn parse_arg_value_str(
         | command::cmd_arg::ArgType::Object(_) => {
             // try parse from json string
             if let Ok(v) = serde_json::from_str::<Value>(value) {
-                let value = arg.verify_value(v)?;
-                return Ok(ArgOp::Value(ArgValueAssignOp {
-                    keys: arg.prefix_keys().to_owned(),
-                    from_blank: false,
-                    value,
-                }));
+                match arg.verify_value(v) {
+                    Ok(v) => {
+                        return Ok(ArgOp::Value(ArgValueAssignOp {
+                            keys: arg.prefix_keys().to_owned(),
+                            from_blank: false,
+                            value: v,
+                            is_append: false,
+                        }));
+                    }
+                    Err(e) => {
+                        // try parse from shorthand syntax, if still error, return the verify error
+                        // this if is for the case that a string can be valid for both json and shorthand syntax
+                        // for example:
+                        // [1,2,3] is valid for both json and shorthand syntax
+                        // while element is string type, it will be failed to pass arg.verify_value
+                        // but while it's parsed from shorthand syntax, the value `1` will be parsed as string based on the argument type.
+                        if SHORTHAND_SYNTAX_PARSER
+                            .parse(value, Some(arg.to_owned()))
+                            .is_err()
+                        {
+                            return Err(e);
+                        }
+                    }
+                }
             }
         }
         _ => {}
@@ -168,6 +189,7 @@ fn parse_arg_value_str(
             keys: arg.prefix_keys().to_owned(),
             from_blank: false,
             value,
+            is_append: false,
         })),
     }
 }
@@ -325,6 +347,7 @@ mod tests {
                     keys: SHPartialKeys::new([SHPartialKeyPart::Name(name.to_string())]),
                     from_blank: expression.is_empty(),
                     value: expected,
+                    is_append: false,
                 })
             );
         }
@@ -341,6 +364,7 @@ mod tests {
                     secret: true,
                     confirm: true,
                 },
+                is_append: false,
             })
         );
 
@@ -458,6 +482,7 @@ mod tests {
                     keys: SHPartialKeys::new([SHPartialKeyPart::Name(name.to_string())]),
                     from_blank: false,
                     value: expected,
+                    is_append: false,
                 })
             );
         }
@@ -546,6 +571,19 @@ mod tests {
         object_arg.arg_type = Some(ArgType::Object(Box::new(object_type)));
         cmd.args.push(object_arg);
 
+        // create a standalone array arg
+        let mut array_arg = CmdArg::default();
+        array_arg.name = "arr".to_string();
+        array_arg.options = vec!["arr".to_string()];
+        array_arg.nullable = true;
+        let mut array_type = CmdArrayArg::default();
+        let mut array_item_arg = CmdArg::default();
+        array_item_arg.nullable = true;
+        array_item_arg.arg_type = Some(ArgType::Str(CmdStringArg::default()));
+        array_type.item = Some(Box::new(array_item_arg));
+        array_arg.arg_type = Some(ArgType::Array(Box::new(array_type)));
+        cmd.args.push(array_arg);
+
         let ops = parse_cmd_arg(&cmd, "object", vec![
             "{str:abc,num:123,bool:true,array:[1,b,false,true,null],tags:{a:b,c:1,d:false,e:true,f:null},additional1:1,additional2:false,additional3:[1,b,false,true,null],additional4:{a:b,c:1,d:false,e:true,f:null},additional5:[{a:b,c:d}]}"
         ]).unwrap().unwrap();
@@ -573,6 +611,7 @@ mod tests {
                     .unwrap()
                     .clone()
                 ),
+                is_append: false,
             })
         );
 
@@ -603,6 +642,7 @@ mod tests {
                     .unwrap()
                     .clone()
                 ),
+                is_append: false,
             })
         );
 
@@ -632,6 +672,7 @@ mod tests {
                 ]),
                 from_blank: false,
                 value: Value::String("1".to_string()),
+                is_append: false,
             })
         );
         assert_eq!(
@@ -643,6 +684,7 @@ mod tests {
                 ]),
                 from_blank: false,
                 value: Value::String("abc".to_string()),
+                is_append: false,
             })
         );
         assert_eq!(
@@ -659,6 +701,7 @@ mod tests {
                         .unwrap()
                         .clone()
                 ),
+                is_append: false,
             })
         );
         assert_eq!(
@@ -671,6 +714,7 @@ mod tests {
                 ]),
                 from_blank: false,
                 value: Value::String("true".to_string()),
+                is_append: false,
             })
         );
         assert_eq!(
@@ -683,6 +727,7 @@ mod tests {
                 ]),
                 from_blank: false,
                 value: Value::Null,
+                is_append: false,
             })
         );
 
@@ -696,6 +741,39 @@ mod tests {
                 ]),
                 from_blank: false,
                 value: Value::String("null".to_string()),
+                is_append: false,
+            })
+        );
+
+        // test append value assignment
+        let ops = parse_cmd_arg(&cmd, "object", vec!["array+=[2,3,4]"])
+            .unwrap()
+            .unwrap();
+        assert_eq!(ops.len(), 1);
+        assert_eq!(
+            ops[0],
+            ArgOp::Value(ArgValueAssignOp {
+                keys: SHPartialKeys::new([
+                    SHPartialKeyPart::Name("object".to_string()),
+                    SHPartialKeyPart::Name("array".to_string()),
+                ]),
+                from_blank: false,
+                value: Value::Array(json!(["2", "3", "4"]).as_array().unwrap().clone()),
+                is_append: true,
+            })
+        );
+
+        let ops = parse_cmd_arg(&cmd, "arr", vec!["+=[2,3,4]"])
+            .unwrap()
+            .unwrap();
+        assert_eq!(ops.len(), 1);
+        assert_eq!(
+            ops[0],
+            ArgOp::Value(ArgValueAssignOp {
+                keys: SHPartialKeys::new([SHPartialKeyPart::Name("arr".to_string())]),
+                from_blank: false,
+                value: Value::Array(json!(["2", "3", "4"]).as_array().unwrap().clone()),
+                is_append: true,
             })
         );
 
@@ -722,6 +800,7 @@ mod tests {
                         .unwrap()
                         .clone()
                 ),
+                is_append: false,
             })
         );
 
@@ -862,6 +941,7 @@ mod tests {
                 keys: SHPartialKeys::new([SHPartialKeyPart::Name("object".to_string())]),
                 from_blank: false,
                 value: Value::Object(value.as_object().unwrap().clone()),
+                is_append: false,
             })
         );
 
@@ -889,6 +969,7 @@ mod tests {
                 ]),
                 from_blank: false,
                 value: Value::String(value.as_str().unwrap().to_string()),
+                is_append: false,
             })
         );
     }

@@ -12,6 +12,7 @@ use super::{ArgOp, ArgValueAssignOp};
 #[derive(Debug, PartialEq)]
 pub struct ArgPromptInputOp {
     pub(crate) keys: SHPartialKeys,
+    pub(crate) is_append: bool,
     pub(crate) prompt: command::CmdArgPromptInput,
 }
 
