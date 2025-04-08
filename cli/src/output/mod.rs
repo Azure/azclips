@@ -181,7 +181,7 @@ struct WrappedCell {
 
 struct Line {
     cells: Vec<Cell>,
-    sep: String,
+    seps: Vec<String>,
 }
 
 impl Display for Line {
@@ -213,10 +213,25 @@ impl Display for Line {
                         } else {
                             line_parts.push(" ".repeat(width));
                         }
+                    } else {
+                        if let Some(cell_line) = cell_line {
+                            line_parts.push(cell_line.to_string());
+                        } else {
+                            line_parts.push("".to_string());
+                        }
                     }
                 }
-                let line = line_parts.join(&self.sep);
-                writeln!(formatter, "{}", line)?;
+                for idx in 0..line_parts.len() {
+                    if idx > 0 {
+                        write!(formatter, "{}", self.seps.get(idx - 1).or_else(||self.seps.last()).unwrap_or(&" ".to_owned()))?;
+                    }
+                    let line = line_parts.get(idx).unwrap();
+                    if line.is_empty() {
+                        continue;
+                    }
+                    write!(formatter, "{}", line)?;
+                }
+                writeln!(formatter)?;
             }
         };
         Ok(())
@@ -396,7 +411,7 @@ mod tests {
 
         let line = Line {
             cells: vec![cell1, cell2, cell3],
-            sep: "|".to_string(),
+            seps: vec!["|".to_string()],
         };
 
         let expected_output = "Cell1     |  Cell2   |     Cell3\n";
@@ -424,7 +439,7 @@ mod tests {
 
         let line = Line {
             cells: vec![cell1, cell2, cell3],
-            sep: "|".to_string(),
+            seps: vec!["|".to_string()],
         };
 
         let expected_output = "Hello|Rust |  New\nWorld|     |Programming\n     |     | Lang\n";
