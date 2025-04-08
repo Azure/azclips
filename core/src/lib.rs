@@ -231,6 +231,12 @@ impl AzCore {
     }
 }
 
+/// Ansible only
+#[cfg(feature = "ansible")]
+impl AzCore {
+    // TODO: define the ansible specific interface
+}
+
 impl AzCore {
     async fn load_component(&self, cmd_uri: &CmdUri) -> AzResult<Arc<dyn AzComponent<Self>>> {
         // TODO: add auto installation of the plugin based on the configuration
