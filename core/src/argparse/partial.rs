@@ -5,8 +5,6 @@ pub enum SHPartialKeyPart {
     Name(String),
     /// limit the index to a small range less than 65535
     Index(u16),
-    /// the index is beyond the end of the array, the final index is the sum of the last element index and the append index value
-    AppendIndex(u16),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -65,6 +63,9 @@ impl std::fmt::Display for SHPartialKeys {
                 _ => write!(f, "{}", part)?,
             }
         }
+        // if self.is_append {
+        //     write!(f, "+")?;
+        // }
         Ok(())
     }
 }
@@ -74,7 +75,6 @@ impl std::fmt::Display for SHPartialKeyPart {
         match self {
             SHPartialKeyPart::Name(name) => write!(f, "{}", name),
             SHPartialKeyPart::Index(idx) => write!(f, "[{}]", idx),
-            SHPartialKeyPart::AppendIndex(idx) => write!(f, "[+{}]", idx),
         }
     }
 }
@@ -113,18 +113,21 @@ impl SHPartialKeyPart {
                         range: value.len(),
                     });
                 }
-                if value.starts_with("+") {
-                    Ok(SHPartialKeyPart::AppendIndex(idx as u16))
-                } else {
-                    Ok(SHPartialKeyPart::Index(idx as u16))
-                }
+                Ok(SHPartialKeyPart::Index(idx as u16))
             }
             Err(_) => Err(AzUserUsageError::InvalidShorthandSyntaxError {
-                msg: "Invalid index, support integer for direct index or integer with + for append index.".to_string(),
+                msg: "Invalid index, support integer for direct index.".to_string(),
                 data: value.to_string(),
                 at: 0,
                 range: value.len(),
             }),
+        }
+    }
+
+    pub fn as_name(&self) -> Option<&str> {
+        match self {
+            SHPartialKeyPart::Name(name) => Some(name),
+            _ => None,
         }
     }
 }

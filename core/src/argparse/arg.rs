@@ -296,7 +296,7 @@ impl<'a> CmdArgWrapper<'a> {
                                 prefix_keys, name
                             )))?;
                     }
-                    SHPartialKeyPart::Index(_) | SHPartialKeyPart::AppendIndex(_) => {
+                    SHPartialKeyPart::Index(_) => {
                         return Err(AzUserUsageError::InvalidArgumentValueError(format!(
                             "'{}' argument is object type and cannot support internal access by index {}",
                             prefix_keys,
@@ -306,7 +306,7 @@ impl<'a> CmdArgWrapper<'a> {
                     }
                 },
                 command::cmd_arg::ArgType::Array(arr) => match part {
-                    SHPartialKeyPart::Index(_) | SHPartialKeyPart::AppendIndex(_) => {
+                    SHPartialKeyPart::Index(_) => {
                         arg = arr.item_ok()?;
                     }
                     SHPartialKeyPart::Name(name) => {

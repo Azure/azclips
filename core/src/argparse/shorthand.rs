@@ -37,27 +37,32 @@ pub(crate) static SHORTHAND_SYNTAX_PARSER: LazyLock<ShorthandSyntaxParser> =
 const PARTIAL_VALUE_KEY_PATTERN: &'static str = concat!(
     "^",                               // start
     "(",                               // start of capture group 1 - key path
+    "(?:",                             //
     "(?:",                             // non-capturing group - first key
     "(?:[a-zA-Z0-9_\\-]+)",            // normal identifier
     "|",                               // or
     "(?:'(?:[^']*)'(?:/(?:[^']*)')*)", // quoted key
     "|",                               // or
-    "(?:\\[(?:(?:-|\\+)?[0-9]*)\\])", // array index, in the expression, match the [] and [-1], but raise error when part key, the index support [5], [+5] (for beyond the end of the array, +5 represent the index which is last element index of array plus 5)
+    "(?:\\[(?:[0-9]*)\\])", // array index, in the expression, match the [], but raise error when part key, the index support [5]
     ")",
-    "(?:\\[(?:(?:-|\\+)?[0-9]*)\\])*", // optional array index, in the expression, match the [] and [-1], but raise error when part key, the index support [5], [+5] (for beyond the end of the array, +5 represent the index which is last element index of array plus 5)
-    "(?:",                             // non-capturing group - subsequent keys
-    "\\.",                             // dot separator
-    "(?:",                             // non-capturing group
+    "(?:\\[(?:[0-9]*)\\])*", // array index, in the expression, match the [], but raise error when part key, the index support [5]
+    "(?:",                   // non-capturing group - subsequent keys
+    "\\.",                   // dot separator
+    "(?:",                   // non-capturing group
     "(?:[a-zA-Z0-9_\\-]*)", // normal identifier, in the expression, match the ., but raise error when part key
     "|",                    // or
     "(?:'(?:[^']*)'(?:/(?:[^']*)')*)", // quoted key
-    ")",
-    "(?:\\[(?:(?:-|\\+)?[0-9]*)\\])*", // optional array index, in the expression, match the [] and [-1], but raise error when part key, the index support [5], [+5] (for beyond the end of the array, +5 represent the index which is last element index of array plus 5)
-    ")*",                              // repeat zero or more times
-    ")",                               // end of capture group 1
-    "=",                               // equals separator
-    "(.*)",                            // capture group 2 - value part
-    "$"                                // end
+    ")",                    // end of capture group 2
+    "(?:\\[(?:[0-9]*)\\])*", // array index, in the expression, match the [], but raise error when part key, the index support [5]
+    ")*",                    // repeat zero or more times
+    "(?:\\+)?", // the tailing `+` means extend the array which support assign express like `array+=[1,2,3]` or "a.array+=[1,2,3]" or "matrix[0]+=[1,2,3]"
+    ")",        // end of capture group 1
+    "|",
+    "(?:\\+)", // the tailing `+` means extend the array which support assign express like `+=[1,2,3]`
+    ")",       // end of capture group 1
+    "=",       // equals separator
+    "(.*)",    // capture group 2 - value part
+    "$"        // end
 );
 
 impl Default for ShorthandSyntaxParser {
@@ -833,8 +838,13 @@ impl ShorthandSyntaxParser {
 
     pub(super) fn parse_partial_value_key_parts(
         &self,
-        key: &str,
-    ) -> Result<SHPartialKeys, AzUserUsageError> {
+        mut key: &str,
+    ) -> Result<(SHPartialKeys, bool), AzUserUsageError> {
+        let is_append = key.ends_with('+');
+        if is_append {
+            key = &key[..key.len() - 1];
+        }
+
         let mut keys = SHPartialKeys::default();
         let mut remain = key.chars();
         let mut idx = 0;
@@ -887,7 +897,7 @@ impl ShorthandSyntaxParser {
             }
         }
 
-        Ok(keys)
+        Ok((keys, is_append))
     }
 
     fn parse_partial_value_idx_key(
@@ -4190,12 +4200,19 @@ mod tests {
             ("a=", Some(("a", None))),
             ("a=''", Some(("a", Some("''")))),
             ("'a'/=b'[1].b=", Some(("'a'/=b'[1].b", None))),
-            ("a[+]={c:d}", Some(("a[+]", Some("{c:d}")))),
-            ("[+].b[+]='{c:d}'", Some(("[+].b[+]", Some("'{c:d}'")))),
+            ("a[]={c:d}", Some(("a[]", Some("{c:d}")))),
+            ("[0].b[0]='{c:d}'", Some(("[0].b[0]", Some("'{c:d}'")))),
+            ("+=[1,2,3]", Some(("+", Some("[1,2,3]")))),
             (
-                "[+][+].'a[+]'[+]='{c:d}'",
-                Some(("[+][+].'a[+]'[+]", Some("'{c:d}'"))),
+                "+=[{a:b},{b:c},{c:d}]",
+                Some(("+", Some("[{a:b},{b:c},{c:d}]"))),
             ),
+            (
+                "arr+=[{a:b},{b:c},{c:d}]",
+                Some(("arr+", Some("[{a:b},{b:c},{c:d}]"))),
+            ),
+            ("b[0].c+=[a,b,c]", Some(("b[0].c+", Some("[a,b,c]")))),
+            ("matrix[0]+=[1,2,3]", Some(("matrix[0]+", Some("[1,2,3]")))),
             ("a={c:d}", Some(("a", Some("{c:d}")))),
             ("a.b='{c:d}'", Some(("a.b", Some("'{c:d}'")))),
             ("a[1]={c:d}", Some(("a[1]", Some("{c:d}")))),
@@ -4209,7 +4226,6 @@ mod tests {
             ("'a=b'[1].b={c:d}", Some(("'a=b'[1].b", Some("{c:d}")))),
             ("'a'/=b'[1].b=", Some(("'a'/=b'[1].b", None))),
             ("a.b[1].d={c:d}", Some(("a.b[1].d", Some("{c:d}")))),
-            ("a.b[-1].d={c:d}", Some(("a.b[-1].d", Some("{c:d}")))),
             ("a.b[1][2].d={c:d}", Some(("a.b[1][2].d", Some("{c:d}")))),
             ("a.'b cd'.d={c:d}", Some(("a.'b cd'.d", Some("{c:d}")))),
             ("a.'b c'/d'.d={c:d}", Some(("a.'b c'/d'.d", Some("{c:d}")))),
@@ -4218,7 +4234,6 @@ mod tests {
             ("[1][2]={c:d}", Some(("[1][2]", Some("{c:d}")))),
             ("[1][2].b={c:d}", Some(("[1][2].b", Some("{c:d}")))),
             // test invalid cases which will not blocked by regex, but will raise error when parse partial key parts
-            ("a[-1]={c:d}", Some(("a[-1]", Some("{c:d}")))),
             ("a[]={c:d}", Some(("a[]", Some("{c:d}")))),
             ("[1]..b={c:d}", Some(("[1]..b", Some("{c:d}")))),
             ("[1].b.={c:d}", Some(("[1].b.", Some("{c:d}")))),
@@ -4239,180 +4254,260 @@ mod tests {
         let parser = ShorthandSyntaxParser::default();
 
         for (value, expected) in [
-            ("a", Ok(vec![SHPartialKeyPart::parse_name("a").unwrap()])),
+            (
+                "a",
+                Ok((vec![SHPartialKeyPart::parse_name("a").unwrap()], false)),
+            ),
             (
                 "a.b",
-                Ok(vec![
-                    SHPartialKeyPart::parse_name("a").unwrap(),
-                    SHPartialKeyPart::parse_name("b").unwrap(),
-                ]),
+                Ok((
+                    vec![
+                        SHPartialKeyPart::parse_name("a").unwrap(),
+                        SHPartialKeyPart::parse_name("b").unwrap(),
+                    ],
+                    false,
+                )),
             ),
             (
                 "a[1]",
-                Ok(vec![
-                    SHPartialKeyPart::parse_name("a").unwrap(),
-                    SHPartialKeyPart::parse_index("1").unwrap(),
-                ]),
+                Ok((
+                    vec![
+                        SHPartialKeyPart::parse_name("a").unwrap(),
+                        SHPartialKeyPart::parse_index("1").unwrap(),
+                    ],
+                    false,
+                )),
+            ),
+            ("+", Ok((vec![], true))),
+            (
+                "a[1].b+",
+                Ok((
+                    vec![
+                        SHPartialKeyPart::parse_name("a").unwrap(),
+                        SHPartialKeyPart::Index(1),
+                        SHPartialKeyPart::parse_name("b").unwrap(),
+                    ],
+                    true,
+                )),
             ),
             (
-                "a[+1].b",
-                Ok(vec![
-                    SHPartialKeyPart::parse_name("a").unwrap(),
-                    SHPartialKeyPart::AppendIndex(1),
-                    SHPartialKeyPart::parse_name("b").unwrap(),
-                ]),
+                "[2].b[0]+",
+                Ok((
+                    vec![
+                        SHPartialKeyPart::Index(2),
+                        SHPartialKeyPart::parse_name("b").unwrap(),
+                        SHPartialKeyPart::Index(0),
+                    ],
+                    true,
+                )),
             ),
             (
-                "[+2].b[+0]",
-                Ok(vec![
-                    SHPartialKeyPart::AppendIndex(2),
-                    SHPartialKeyPart::parse_name("b").unwrap(),
-                    SHPartialKeyPart::AppendIndex(0),
-                ]),
+                "[1][2].'a[1]+'",
+                Ok((
+                    vec![
+                        SHPartialKeyPart::Index(1),
+                        SHPartialKeyPart::Index(2),
+                        SHPartialKeyPart::parse_name("a[1]+").unwrap(),
+                    ],
+                    false,
+                )),
             ),
             (
-                "[+1][+2].'a[+1]'[+2]",
-                Ok(vec![
-                    SHPartialKeyPart::parse_index("+1").unwrap(),
-                    SHPartialKeyPart::parse_index("+2").unwrap(),
-                    SHPartialKeyPart::parse_name("a[+1]").unwrap(),
-                    SHPartialKeyPart::parse_index("+2").unwrap(),
-                ]),
+                "[1][2].'a[1]+'+",
+                Ok((
+                    vec![
+                        SHPartialKeyPart::Index(1),
+                        SHPartialKeyPart::Index(2),
+                        SHPartialKeyPart::parse_name("a[1]+").unwrap(),
+                    ],
+                    true,
+                )),
             ),
             (
                 "a[1].b",
-                Ok(vec![
-                    SHPartialKeyPart::parse_name("a").unwrap(),
-                    SHPartialKeyPart::parse_index("1").unwrap(),
-                    SHPartialKeyPart::parse_name("b").unwrap(),
-                ]),
+                Ok((
+                    vec![
+                        SHPartialKeyPart::parse_name("a").unwrap(),
+                        SHPartialKeyPart::parse_index("1").unwrap(),
+                        SHPartialKeyPart::parse_name("b").unwrap(),
+                    ],
+                    false,
+                )),
             ),
             (
                 "a[1][2]",
-                Ok(vec![
-                    SHPartialKeyPart::parse_name("a").unwrap(),
-                    SHPartialKeyPart::parse_index("1").unwrap(),
-                    SHPartialKeyPart::parse_index("2").unwrap(),
-                ]),
+                Ok((
+                    vec![
+                        SHPartialKeyPart::parse_name("a").unwrap(),
+                        SHPartialKeyPart::parse_index("1").unwrap(),
+                        SHPartialKeyPart::parse_index("2").unwrap(),
+                    ],
+                    false,
+                )),
             ),
             (
                 "'a b'",
-                Ok(vec![SHPartialKeyPart::parse_name("a b").unwrap()]),
+                Ok((vec![SHPartialKeyPart::parse_name("a b").unwrap()], false)),
             ),
             (
                 "'a '/'",
-                Ok(vec![SHPartialKeyPart::parse_name("a '").unwrap()]),
+                Ok((vec![SHPartialKeyPart::parse_name("a '").unwrap()], false)),
             ),
             (
                 "'a '/'.b",
-                Ok(vec![
-                    SHPartialKeyPart::parse_name("a '").unwrap(),
-                    SHPartialKeyPart::parse_name("b").unwrap(),
-                ]),
+                Ok((
+                    vec![
+                        SHPartialKeyPart::parse_name("a '").unwrap(),
+                        SHPartialKeyPart::parse_name("b").unwrap(),
+                    ],
+                    false,
+                )),
             ),
             (
                 "'a '/'[1]",
-                Ok(vec![
-                    SHPartialKeyPart::parse_name("a '").unwrap(),
-                    SHPartialKeyPart::parse_index("1").unwrap(),
-                ]),
+                Ok((
+                    vec![
+                        SHPartialKeyPart::parse_name("a '").unwrap(),
+                        SHPartialKeyPart::parse_index("1").unwrap(),
+                    ],
+                    false,
+                )),
             ),
             (
                 "'a //'[1]",
-                Ok(vec![
-                    SHPartialKeyPart::parse_name("a //").unwrap(),
-                    SHPartialKeyPart::parse_index("1").unwrap(),
-                ]),
+                Ok((
+                    vec![
+                        SHPartialKeyPart::parse_name("a //").unwrap(),
+                        SHPartialKeyPart::parse_index("1").unwrap(),
+                    ],
+                    false,
+                )),
             ),
             (
                 "'a=b'[1].b",
-                Ok(vec![
-                    SHPartialKeyPart::parse_name("a=b").unwrap(),
-                    SHPartialKeyPart::parse_index("1").unwrap(),
-                    SHPartialKeyPart::parse_name("b").unwrap(),
-                ]),
+                Ok((
+                    vec![
+                        SHPartialKeyPart::parse_name("a=b").unwrap(),
+                        SHPartialKeyPart::parse_index("1").unwrap(),
+                        SHPartialKeyPart::parse_name("b").unwrap(),
+                    ],
+                    false,
+                )),
             ),
             (
                 "'a'/=b'[1].b",
-                Ok(vec![
-                    SHPartialKeyPart::parse_name("a'=b").unwrap(),
-                    SHPartialKeyPart::parse_index("1").unwrap(),
-                    SHPartialKeyPart::parse_name("b").unwrap(),
-                ]),
+                Ok((
+                    vec![
+                        SHPartialKeyPart::parse_name("a'=b").unwrap(),
+                        SHPartialKeyPart::parse_index("1").unwrap(),
+                        SHPartialKeyPart::parse_name("b").unwrap(),
+                    ],
+                    false,
+                )),
             ),
             (
                 "a.b[1].d",
-                Ok(vec![
-                    SHPartialKeyPart::parse_name("a").unwrap(),
-                    SHPartialKeyPart::parse_name("b").unwrap(),
-                    SHPartialKeyPart::parse_index("1").unwrap(),
-                    SHPartialKeyPart::parse_name("d").unwrap(),
-                ]),
+                Ok((
+                    vec![
+                        SHPartialKeyPart::parse_name("a").unwrap(),
+                        SHPartialKeyPart::parse_name("b").unwrap(),
+                        SHPartialKeyPart::parse_index("1").unwrap(),
+                        SHPartialKeyPart::parse_name("d").unwrap(),
+                    ],
+                    false,
+                )),
             ),
             (
-                "a[+1].b",
-                Ok(vec![
-                    SHPartialKeyPart::parse_name("a").unwrap(),
-                    SHPartialKeyPart::AppendIndex(1),
-                    SHPartialKeyPart::parse_name("b").unwrap(),
-                ]),
+                "a[1].b+",
+                Ok((
+                    vec![
+                        SHPartialKeyPart::parse_name("a").unwrap(),
+                        SHPartialKeyPart::Index(1),
+                        SHPartialKeyPart::parse_name("b").unwrap(),
+                    ],
+                    true,
+                )),
             ),
             (
                 "a.b[1][2].d",
-                Ok(vec![
-                    SHPartialKeyPart::parse_name("a").unwrap(),
-                    SHPartialKeyPart::parse_name("b").unwrap(),
-                    SHPartialKeyPart::parse_index("1").unwrap(),
-                    SHPartialKeyPart::parse_index("2").unwrap(),
-                    SHPartialKeyPart::parse_name("d").unwrap(),
-                ]),
+                Ok((
+                    vec![
+                        SHPartialKeyPart::parse_name("a").unwrap(),
+                        SHPartialKeyPart::parse_name("b").unwrap(),
+                        SHPartialKeyPart::parse_index("1").unwrap(),
+                        SHPartialKeyPart::parse_index("2").unwrap(),
+                        SHPartialKeyPart::parse_name("d").unwrap(),
+                    ],
+                    false,
+                )),
             ),
             (
                 "a.'b cd'.d",
-                Ok(vec![
-                    SHPartialKeyPart::parse_name("a").unwrap(),
-                    SHPartialKeyPart::parse_name("b cd").unwrap(),
-                    SHPartialKeyPart::parse_name("d").unwrap(),
-                ]),
+                Ok((
+                    vec![
+                        SHPartialKeyPart::parse_name("a").unwrap(),
+                        SHPartialKeyPart::parse_name("b cd").unwrap(),
+                        SHPartialKeyPart::parse_name("d").unwrap(),
+                    ],
+                    false,
+                )),
             ),
             (
                 "a.'b c'/d'.d",
-                Ok(vec![
-                    SHPartialKeyPart::parse_name("a").unwrap(),
-                    SHPartialKeyPart::parse_name("b c'd").unwrap(),
-                    SHPartialKeyPart::parse_name("d").unwrap(),
-                ]),
+                Ok((
+                    vec![
+                        SHPartialKeyPart::parse_name("a").unwrap(),
+                        SHPartialKeyPart::parse_name("b c'd").unwrap(),
+                        SHPartialKeyPart::parse_name("d").unwrap(),
+                    ],
+                    false,
+                )),
             ),
-            ("[1]", Ok(vec![SHPartialKeyPart::parse_index("1").unwrap()])),
+            (
+                "[1]",
+                Ok((vec![SHPartialKeyPart::parse_index("1").unwrap()], false)),
+            ),
             (
                 "[1].b",
-                Ok(vec![
-                    SHPartialKeyPart::parse_index("1").unwrap(),
-                    SHPartialKeyPart::parse_name("b").unwrap(),
-                ]),
+                Ok((
+                    vec![
+                        SHPartialKeyPart::parse_index("1").unwrap(),
+                        SHPartialKeyPart::parse_name("b").unwrap(),
+                    ],
+                    false,
+                )),
             ),
             (
                 "[1][2]",
-                Ok(vec![
-                    SHPartialKeyPart::parse_index("1").unwrap(),
-                    SHPartialKeyPart::parse_index("2").unwrap(),
-                ]),
+                Ok((
+                    vec![
+                        SHPartialKeyPart::parse_index("1").unwrap(),
+                        SHPartialKeyPart::parse_index("2").unwrap(),
+                    ],
+                    false,
+                )),
             ),
             (
                 "[1][2].b",
-                Ok(vec![
-                    SHPartialKeyPart::parse_index("1").unwrap(),
-                    SHPartialKeyPart::parse_index("2").unwrap(),
-                    SHPartialKeyPart::parse_name("b").unwrap(),
-                ]),
+                Ok((
+                    vec![
+                        SHPartialKeyPart::parse_index("1").unwrap(),
+                        SHPartialKeyPart::parse_index("2").unwrap(),
+                        SHPartialKeyPart::parse_name("b").unwrap(),
+                    ],
+                    false,
+                )),
             ),
             (
                 "1.2.3",
-                Ok(vec![
-                    SHPartialKeyPart::parse_name("1").unwrap(),
-                    SHPartialKeyPart::parse_name("2").unwrap(),
-                    SHPartialKeyPart::parse_name("3").unwrap(),
-                ]),
+                Ok((
+                    vec![
+                        SHPartialKeyPart::parse_name("1").unwrap(),
+                        SHPartialKeyPart::parse_name("2").unwrap(),
+                        SHPartialKeyPart::parse_name("3").unwrap(),
+                    ],
+                    false,
+                )),
             ),
             // error cases
             (
@@ -4423,20 +4518,26 @@ mod tests {
                 "a.b[1.b",
                 Err(ErrorData("Expect character ']'", "a.b[1.b", 5, 1)),
             ),
-            ("a.b[-1].d", Err(ErrorData("Invalid index, support integer for direct index or integer with + for append index.", "a.b[-1].d", 3, 4))),
-            ("a[-1].b", Err(ErrorData("Invalid index, support integer for direct index or integer with + for append index.", "a[-1].b", 1, 4))),
             ("a[].b", Err(ErrorData("Miss prop name", "a[].b", 1, 2))),
             ("a.b[].c", Err(ErrorData("Miss prop name", "a.b[].c", 3, 2))),
             ("a.''.c", Err(ErrorData("Miss prop name", "a.''.c", 1, 3))),
             ("[1]..b", Err(ErrorData("Miss prop name", "[1]..b", 3, 1))),
             ("[1].b.", Err(ErrorData("Miss prop name", "[1].b.", 5, 1))),
             ("[1].[2]", Err(ErrorData("Miss prop name", "[1].[2]", 3, 1))),
-            ("b[a]", Err(ErrorData("Invalid index, support integer for direct index or integer with + for append index.", "b[a]", 1, 3))),
+            (
+                "b[a]",
+                Err(ErrorData(
+                    "Invalid index, support integer for direct index.",
+                    "b[a]",
+                    1,
+                    3,
+                )),
+            ),
         ] {
             match expected {
-                Ok(parts) => {
+                Ok((parts, is_append)) => {
                     let result = parser.parse_partial_value_key_parts(&value).unwrap();
-                    assert_eq!(result, SHPartialKeys::new(parts));
+                    assert_eq!(result, (SHPartialKeys::new(parts), is_append));
                 }
                 Err(ErrorData(msg_target, data_target, at_target, range_target)) => {
                     let result = parser.parse_partial_value_key_parts(&value);
