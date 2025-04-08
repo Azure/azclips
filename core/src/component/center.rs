@@ -37,7 +37,6 @@ pub struct AzComponentCenter<T: AzComponentCtx> {
     built_ins: HashMap<AzBuildIn, Arc<dyn AzComponent<T>>>,
     /// the plugins that are loaded, the key is the plugin name
     plugins: HashMap<String, Arc<dyn AzComponent<T>>>,
-    // wasm_engine: Engine,
 }
 
 impl<T: AzComponentCtx> AzComponentCenter<T> {
