@@ -179,6 +179,7 @@ struct WrappedCell {
     lines: Vec<StyledString>,
 }
 
+// TODO: Field Could be reference.
 struct Line {
     cells: Vec<Cell>,
     seps: Vec<String>,
@@ -222,15 +223,14 @@ impl Display for Line {
                     }
                 }
                 for idx in 0..line_parts.len() {
-                    if idx > 0 {
-                        write!(formatter, "{}", self.seps.get(idx - 1).or_else(||self.seps.last()).unwrap_or(&" ".to_owned()))?;
-                    }
+                    write!(formatter, "{}", self.seps.get(idx).or_else(||self.seps.last()).unwrap_or(&" ".to_owned()))?;
                     let line = line_parts.get(idx).unwrap();
                     if line.is_empty() {
                         continue;
                     }
                     write!(formatter, "{}", line)?;
                 }
+                write!(formatter, "{}", self.seps.get(line_parts.len()).or_else(||self.seps.last()).unwrap_or(&" ".to_owned()))?;
                 writeln!(formatter)?;
             }
         };
@@ -414,7 +414,7 @@ mod tests {
             seps: vec!["|".to_string()],
         };
 
-        let expected_output = "Cell1     |  Cell2   |     Cell3\n";
+        let expected_output = "|Cell1     |  Cell2   |     Cell3|\n";
         assert_eq!(line.to_string(), expected_output);
     }
 
@@ -442,7 +442,7 @@ mod tests {
             seps: vec!["|".to_string()],
         };
 
-        let expected_output = "Hello|Rust |  New\nWorld|     |Programming\n     |     | Lang\n";
+        let expected_output = "|Hello|Rust |  New|\n|World|     |Programming|\n|     |     | Lang|\n";
         assert_eq!(line.to_string(), expected_output);
     }
 }

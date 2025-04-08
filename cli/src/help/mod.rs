@@ -10,7 +10,6 @@ use az_core::{
 };
 
 use crate::CmdRawArg;
-pub use format::CmdHelpFormatter;
 
 /// check if the `-h` or `--help` flag is present in the raw args
 pub fn has_help_flag(raw_args: &[CmdRawArg]) -> bool {
