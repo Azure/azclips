@@ -17,3 +17,7 @@ env_logger = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
+crossterm = "0.29.0"
+# Calc String Width in Terminal.
+# By default, it uses the cjk features. But maybe we can close it in the future.
+unicode-width = "0.2.0"

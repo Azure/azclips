@@ -5,6 +5,7 @@ use az_core::{cmd_uri::CmdUri, APPLICATION_NAME};
 mod execute;
 mod help;
 mod interactive;
+mod output;
 
 pub(crate) const CMD_ARG_FLAG_PREFIX: char = '-';
 
