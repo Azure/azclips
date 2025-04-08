@@ -63,9 +63,6 @@ impl std::fmt::Display for SHPartialKeys {
                 _ => write!(f, "{}", part)?,
             }
         }
-        // if self.is_append {
-        //     write!(f, "+")?;
-        // }
         Ok(())
     }
 }
