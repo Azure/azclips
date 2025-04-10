@@ -182,38 +182,57 @@ impl HelpCmdTemplate {
         let group_lines = groups.iter().map(|group| HelpTableLine {
             short: vec![],
             name: self.name.render(CmdItem::CmdInterface(group)),
-            tag: vec![],
+            tag: self
+                .tag
+                .as_ref()
+                .map(|f| f.render(CmdItem::CmdInterface(group)))
+                .unwrap_or(vec![]),
             description: self
                 .description
                 .as_ref()
                 .map(|f| f.render(CmdItem::CmdInterface(group)))
                 .unwrap_or(vec![]),
-            detail: vec![],
+            detail: self.detail
+                .as_ref()
+                .map(|f| f.render(CmdItem::CmdInterface(group)))
+                .unwrap_or(vec![]),
         });
         table_groups.insert("Command Group".to_string(), group_lines.collect());
         let command_lines = commands.iter().map(|command| HelpTableLine {
             short: vec![],
             name: self.name.render(CmdItem::CmdInterface(command)),
-            tag: vec![],
+            tag: self.tag
+                .as_ref()
+                .map(|f| f.render(CmdItem::CmdInterface(command)))
+                .unwrap_or(vec![]),
             description: self
                 .description
                 .as_ref()
                 .map(|f| f.render(CmdItem::CmdInterface(command)))
                 .unwrap_or(vec![]),
-            detail: vec![],
+            detail: self.detail
+                .as_ref()
+                .map(|f| f.render(CmdItem::CmdInterface(command)))
+                .unwrap_or(vec![]),
         });
         table_groups.insert("Command".to_string(), command_lines.collect());
         if let Some(components) = components {
             let component_lines = components.map(|component| HelpTableLine {
                 short: vec![],
                 name: self.name.render(CmdItem::Component(&component)),
-                tag: vec![],
+                tag: self.tag
+                    .as_ref()
+                    .map(|f| f.render(CmdItem::Component(&component)))
+                    .unwrap_or(vec![]),
                 description: self
                     .description
                     .as_ref()
                     .map(|f| f.render(CmdItem::Component(&component)))
                     .unwrap_or(vec![]),
-                detail: vec![],
+                detail: self.detail
+                    .as_ref()
+                    .map(|f| f.render(CmdItem::Component(&component)))
+                    .unwrap_or(vec![]),
             });
             table_groups.insert("Component".to_string(), component_lines.collect());
         }
@@ -238,10 +257,6 @@ impl Default for HelpArgTemplate {
 }
 
 impl HelpArgTemplate {
-    fn calc_width(cell: &Vec<StyledString>) -> usize {
-        cell.iter().map(|s| s.term_len()).max().unwrap_or(0)
-    }
-
     pub fn render(&self, cmd: &CmdCommand, term_width: Option<usize>) -> Vec<StyledString> {
         let mut groups = HashMap::new();
         for arg in cmd.args.iter() {
@@ -364,11 +379,6 @@ mod tests {
                 },
             ],
             positional_args: vec![],
-        };
-
-        let app = ApplicationDetail {
-            executable: "az".to_string(),
-            version: "1.0.0".to_string(),
         };
 
         let template = HelpArgTemplate {
