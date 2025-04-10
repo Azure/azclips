@@ -10,7 +10,6 @@ use az_core::{
     AzCore,
 };
 use format::HelpFormatter;
-use template::default_usage_template;
 
 use crate::CmdRawArg;
 
@@ -39,7 +38,7 @@ pub fn show_command_help(cmd_uri: CmdUri) {
 
 pub(crate) async fn show_command_help_async(cmd_uri: CmdUri) -> Result<(), AzError> {
     let app = ApplicationDetail {
-        executable: "az".to_string(),
+        executable: az_core::APPLICATION_NAME.to_string(),
         version: az_core::VERSION.to_string(),
     };
     let term_width = crossterm::terminal::size().ok().map(|(w, _)| w as usize);

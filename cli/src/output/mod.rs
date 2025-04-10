@@ -1,4 +1,4 @@
-use std::{f32::consts::E, fmt::{Display, Write}, ops::Add};
+use std::{fmt::Display, ops::Add};
 
 use crossterm::style::StyledContent;
 use unicode_width::UnicodeWidthStr;
