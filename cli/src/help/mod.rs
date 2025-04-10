@@ -1,5 +1,6 @@
 pub mod format;
 mod template;
+mod field;
 
 use az_core::{
     argparse::{arg::CmdArgWrapper, partial::SHPartialKeys},
@@ -8,8 +9,15 @@ use az_core::{
     pb::command::cmd_interface,
     AzCore,
 };
+use format::HelpFormatter;
+use template::default_usage_template;
 
 use crate::CmdRawArg;
+
+pub struct ApplicationDetail {
+    pub executable: String,
+    pub version: String,
+}
 
 /// check if the `-h` or `--help` flag is present in the raw args
 pub fn has_help_flag(raw_args: &[CmdRawArg]) -> bool {
@@ -30,16 +38,27 @@ pub fn show_command_help(cmd_uri: CmdUri) {
 }
 
 pub(crate) async fn show_command_help_async(cmd_uri: CmdUri) -> Result<(), AzError> {
+    let app = ApplicationDetail {
+        executable: "az".to_string(),
+        version: az_core::VERSION.to_string(),
+    };
+    let term_width = crossterm::terminal::size().ok().map(|(w, _)| w as usize);
     let core = AzCore::instance().await;
     let cmd_uri = core.check_cmd_uri(cmd_uri).await?;
     if cmd_uri.executable() {
         let cmd_interface = core.get_cmd_interface(&cmd_uri).await?;
-        // global arguments
-        todo!("show the help of the command interface")
+        // TODO: global arguments
+        for line in HelpFormatter::default().format(&cmd_interface, &app, None, term_width) {
+            println!("{}", line);
+        }
+        Ok(())
     } else {
         let cmd_interface = core.get_cmd_interface(&cmd_uri).await?;
         let sub_services = core.get_metadata_of_sub_components(&cmd_uri).await?;
-        todo!("show the help of the command group with the combined help of the sub services")
+        for line in HelpFormatter::default().format(&cmd_interface, &app, Some(Box::new(sub_services.values())), term_width) {
+            println!("{}", line);
+        }
+        Ok(())
     }
 }
 

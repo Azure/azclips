@@ -1,5 +1,41 @@
 # Help Display
 
+## Sections Definition
+
+```text
+# Usage
+[Level Name]
+    [formatted uri] : [Short Help]
+        [Long Help]
+
+# Body
+[Sub Level] (In Arg/Cmd Group, the align is the same)
+    [Short Options(one per line)] [Long Options(one per line) or Arg Name] [Tags(one per line)] [:] [Short Help]
+        [More Information]
+
+# Example
+[Examples]
+    [Example Description]
+        [Example Command]
+
+# PostHelp
+[Global Comment(az find)]
+```
+
+### Section
+
+The help message is composed by sevral section. In the same section, tabled lines should be aligned.
+
+A section have several groups.
+
+### Group
+
+A group contains a header and several items.
+
+### Item
+
+A item contains a body and a detail.
+
 ## Service Properties
 
 - `name`
