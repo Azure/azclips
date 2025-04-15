@@ -67,6 +67,9 @@ pub enum AzInternalError {
 
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
+
+    #[error("Invalid param value: {0}")]
+    InvalidParamValueError(String),
 }
 
 #[derive(Error, Debug)]
