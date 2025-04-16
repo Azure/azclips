@@ -122,12 +122,11 @@ impl AzCore {
             })
             .ok_or(AzUserUsageError::CommandGroupNotExecutableError)?;
 
-        let params = cmd_arg_ops
-            .into_iter()
-            .fold(param::CmdParamBuilder::default(), |builder, op| {
-                builder.apply(op)
-            })
-            .format_and_build(&cmd)?;
+        let mut param_builder = param::CmdParamBuilder::default();
+        for op in cmd_arg_ops {
+            param_builder.apply(op)?;
+        }
+        let params = param_builder.format_and_build(&cmd)?;
 
         let output_format = pb::command::CmdOutputFormat {
             flatten_mode: pb::command::CmdOutputFlattenMode::None as i32,

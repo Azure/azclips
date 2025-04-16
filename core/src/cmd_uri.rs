@@ -286,6 +286,10 @@ impl CmdUri {
         self.version.as_ref().map(|s| s.as_str())
     }
 
+    pub fn segments(&self) -> impl Iterator<Item = &str> {
+        self.segments.iter().map(String::as_str)
+    }
+
     pub fn last_segment(&self) -> &str {
         self.segments.last().unwrap()
     }
