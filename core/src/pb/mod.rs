@@ -116,18 +116,6 @@ impl command::CmdArrayArg {
     }
 }
 
-impl command::CmdNumberArg {
-    pub fn format_ok(&self) -> Result<&command::cmd_number_arg::Format, AzInternalError> {
-        let format =
-            self.format
-                .as_ref()
-                .ok_or(AzInternalError::InvalidArgumentDefinitionError(
-                    "Missing format for number argument".to_string(),
-                ))?;
-        Ok(format)
-    }
-}
-
 impl command::CmdArgEnum {
     pub fn find_value_by_name(&self, str: &str) -> Result<Option<Value>, AzInternalError> {
         for item in self.items.iter() {

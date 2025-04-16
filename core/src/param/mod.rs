@@ -1,11 +1,25 @@
+mod arg_fmt;
+
 use std::collections::{hash_map::Entry, HashMap};
 
+use arg_fmt::{
+    format_array, format_number_double, format_number_float, format_number_int32,
+    format_number_int64, format_number_uint32, format_number_uint64, format_object,
+    format_str_binary, format_str_byte, format_str_date, format_str_datetime, format_str_duration,
+    format_str_password, format_str_resource_group_name, format_str_resource_id,
+    format_str_resource_location, format_str_string, format_str_subscription_id, format_str_time,
+    format_str_uuid,
+};
 use serde_json::{map::Entry as SerdeEntry, Map, Value};
 
 use crate::{
-    argparse::{partial::SHPartialKeyPart, ArgValueAssignOp},
+    argparse::{
+        arg::CmdArgWrapper,
+        partial::{SHPartialKeyPart, SHPartialKeys},
+        ArgValueAssignOp,
+    },
     error::AzUserUsageError,
-    pb::command::{self, CmdCommand},
+    pb::command::{self, cmd_arg::ArgType, CmdCommand},
     AzResult,
 };
 
@@ -249,35 +263,300 @@ impl CmdParamBuilder {
     /// The format process includes:
     /// 1. apply the default values
     /// 2. check values with format rules
-    /// 3. parse the file path as binary data if the argument is a binary type string
-    pub fn format_and_build(mut self, command: &CmdCommand) -> AzResult<command::CmdParams> {
-        // let mut cmd_params = command::CmdParams::default();
-        // let params_map = self.params.as_object_mut().unwrap();
-        // for (key, value) in params_map.iter_mut() {
-        //     // TODO: format value based on the command argument definition, the serde_json::to_vec should be done in the format function
-        //     let v = serde_json::to_vec(value).unwrap();
+    pub fn format_and_build(self, command: &CmdCommand) -> AzResult<command::CmdParams> {
+        let mut cmd_params = command::CmdParams::default();
 
-        //     cmd_params.params.insert(key.to_string(), v);
-        // }
+        let params_map = if let ParamValue::Partial(partial) = self.params {
+            partial
+        } else {
+            unreachable!();
+        };
 
-        // for patch_key in self.patch_keys {
-        //     let mut patch_key_str = String::new();
-        //     for (idx, part) in patch_key.iter().enumerate() {
-        //         match part {
-        //             PatchKeyPart::Partial(SHPartialKeyPart::Name(_)) => {
-        //                 if idx > 0 {
-        //                     patch_key_str.push_str(".");
-        //                 }
-        //             }
-        //             _ => {}
-        //         }
-        //         patch_key_str.push_str(&part.to_string());
-        //     }
-        //     cmd_params.patch_keys.push(patch_key_str);
-        // }
-        // Ok(cmd_params)
-        todo!()
+        for (key, value) in params_map.into_iter() {
+            let arg = CmdArgWrapper::build_by_keys(
+                command,
+                &SHPartialKeys::from_parts(&[SHPartialKeyPart::Name(key.to_string())]),
+            )
+            .unwrap();
+
+            if matches!(value, ParamValue::Assign(_)) {
+                cmd_params.patch_keys.push(arg.prefix_keys().to_string());
+            } else if matches!(value, ParamValue::Append(_)) {
+                cmd_params
+                    .patch_keys
+                    .push(format!("{}+", arg.prefix_keys()));
+            }
+            let v = format_param_value(value, &arg, &mut cmd_params.patch_keys)?;
+            let json_bytes = serde_json::to_vec(&v).unwrap();
+            cmd_params.params.insert(key.to_string(), json_bytes);
+        }
+
+        // apply default values if argument is not assigned
+        for arg in command.args.iter() {
+            if arg.default.is_none() {
+                continue;
+            }
+            if cmd_params.params.contains_key(&arg.name) {
+                continue;
+            }
+
+            let default: Value = arg.default.as_ref().unwrap().clone().try_into()?;
+            let value = ParamValue::Assign(default);
+            let key = arg.name.to_string();
+            let arg = CmdArgWrapper::new(Some(command), arg)?;
+            cmd_params.patch_keys.push(arg.prefix_keys().to_string());
+            let v = format_param_value(value, &arg, &mut cmd_params.patch_keys)?;
+            let json_bytes = serde_json::to_vec(&v).unwrap();
+            cmd_params.params.insert(key, json_bytes);
+        }
+
+        Ok(cmd_params)
     }
+}
+
+fn format_param_value(
+    value: ParamValue,
+    arg: &CmdArgWrapper,
+    patch_keys: &mut Vec<String>,
+) -> AzResult<Value> {
+    let arg_type = arg.unwrapped_arg_type();
+    let v = match arg_type {
+        ArgType::Str(str_arg) => {
+            let value = match value {
+                ParamValue::Assign(v) => v,
+                _ => {
+                    return Err(AzUserUsageError::InvalidArgumentValueError(
+                        "invalid value type for string argument".to_string(),
+                    )
+                    .into())
+                }
+            };
+
+            match str_arg.format.as_ref() {
+                None => value,
+                Some(command::cmd_string_arg::Format::Binary(fmt)) => {
+                    format_str_binary(value, fmt)?
+                }
+                Some(command::cmd_string_arg::Format::Byte(fmt)) => format_str_byte(value, fmt)?,
+                Some(command::cmd_string_arg::Format::String(fmt)) => {
+                    format_str_string(value, fmt)?
+                }
+                Some(command::cmd_string_arg::Format::Duration(fmt)) => {
+                    format_str_duration(value, fmt)?
+                }
+                Some(command::cmd_string_arg::Format::Date(fmt)) => format_str_date(value, fmt)?,
+                Some(command::cmd_string_arg::Format::DateTime(fmt)) => {
+                    format_str_datetime(value, fmt)?
+                }
+                Some(command::cmd_string_arg::Format::Time(fmt)) => format_str_time(value, fmt)?,
+                Some(command::cmd_string_arg::Format::Uuid(fmt)) => format_str_uuid(value, fmt)?,
+                Some(command::cmd_string_arg::Format::Password(fmt)) => {
+                    format_str_password(value, fmt)?
+                }
+                Some(command::cmd_string_arg::Format::SubscriptionId(fmt)) => {
+                    format_str_subscription_id(value, fmt)?
+                }
+                Some(command::cmd_string_arg::Format::ResourceGroupName(fmt)) => {
+                    format_str_resource_group_name(value, fmt)?
+                }
+                Some(command::cmd_string_arg::Format::ResourceId(fmt)) => {
+                    format_str_resource_id(value, fmt)?
+                }
+                Some(command::cmd_string_arg::Format::ResourceLocation(fmt)) => {
+                    format_str_resource_location(value, fmt)?
+                }
+            }
+        }
+        ArgType::Number(num_arg) => {
+            let value = match value {
+                ParamValue::Assign(v) => v,
+                _ => {
+                    return Err(AzUserUsageError::InvalidArgumentValueError(
+                        "invalid value type for string argument".to_string(),
+                    )
+                    .into())
+                }
+            };
+            match num_arg.format.as_ref() {
+                None => value,
+                Some(command::cmd_number_arg::Format::Int32(fmt)) => {
+                    format_number_int32(value, fmt)?
+                }
+                Some(command::cmd_number_arg::Format::Int64(fmt)) => {
+                    format_number_int64(value, fmt)?
+                }
+                Some(command::cmd_number_arg::Format::Uint32(fmt)) => {
+                    format_number_uint32(value, fmt)?
+                }
+                Some(command::cmd_number_arg::Format::Uint64(fmt)) => {
+                    format_number_uint64(value, fmt)?
+                }
+                Some(command::cmd_number_arg::Format::Float(fmt)) => {
+                    format_number_float(value, fmt)?
+                }
+                Some(command::cmd_number_arg::Format::Double(fmt)) => {
+                    format_number_double(value, fmt)?
+                }
+            }
+        }
+        ArgType::Boolean(_) => match value {
+            ParamValue::Assign(v) => v,
+            _ => {
+                return Err(AzUserUsageError::InvalidArgumentValueError(
+                    "invalid value type for string argument".to_string(),
+                )
+                .into())
+            }
+        },
+        ArgType::Object(object_arg) => match value {
+            ParamValue::Assign(v) => match v {
+                Value::Null => v,
+                Value::Object(object) => {
+                    let mut new_obj = serde_json::Map::with_capacity(object.len());
+                    for (key, value) in object.into_iter() {
+                        let sub_arg = arg
+                            .retrieve_sub_arg(&[SHPartialKeyPart::parse_name(&key).unwrap()])
+                            .expect(&format!("missing sub argument {} in object", key));
+                        let value =
+                            format_param_value(ParamValue::Assign(value), &sub_arg, patch_keys)?;
+                        new_obj.insert(key, value);
+                    }
+                    // apply default value
+                    for prop in object_arg.props.iter() {
+                        if prop.default.is_none() {
+                            continue;
+                        }
+                        if new_obj.contains_key(&prop.name) {
+                            continue;
+                        }
+
+                        let default: Value = prop.default.as_ref().unwrap().clone().try_into()?;
+                        let value = ParamValue::Assign(default);
+                        let key = prop.name.to_string();
+                        let sub_arg = arg
+                            .retrieve_sub_arg(&[SHPartialKeyPart::parse_name(&key).unwrap()])
+                            .expect(&format!("missing sub argument {} in object", key));
+                        let value = format_param_value(value, &sub_arg, patch_keys)?;
+                        new_obj.insert(key, value);
+                    }
+
+                    if let Some(format) = object_arg.format {
+                        format_object(Value::Object(new_obj), &format)?
+                    } else {
+                        Value::Object(new_obj)
+                    }
+                }
+                _ => {
+                    return Err(AzUserUsageError::InvalidArgumentValueError(
+                        "invalid value type for object argument".to_string(),
+                    )
+                    .into());
+                }
+            },
+            ParamValue::Partial(partial) => {
+                let mut partial_object = serde_json::Map::with_capacity(partial.len());
+                for (key, value) in partial.into_iter() {
+                    let sub_arg = arg
+                        .retrieve_sub_arg(&[SHPartialKeyPart::parse_name(&key).unwrap()])
+                        .unwrap();
+                    if matches!(value, ParamValue::Assign(_)) {
+                        patch_keys.push(sub_arg.prefix_keys().to_string());
+                    } else if matches!(value, ParamValue::Append(_)) {
+                        patch_keys.push(format!("{}+", sub_arg.prefix_keys()))
+                    }
+                    let v = format_param_value(value, &sub_arg, patch_keys)?;
+                    partial_object.insert(key.to_string(), v);
+                }
+                // apply default , for the update command the default value should not defined in the argument definition
+                for prop in object_arg.props.iter() {
+                    if prop.default.is_none() {
+                        continue;
+                    }
+                    if partial_object.contains_key(&prop.name) {
+                        continue;
+                    }
+
+                    let default: Value = prop.default.as_ref().unwrap().clone().try_into()?;
+                    let value = ParamValue::Assign(default);
+                    let key = prop.name.to_string();
+                    let sub_arg = arg
+                        .retrieve_sub_arg(&[SHPartialKeyPart::parse_name(&key).unwrap()])
+                        .expect(&format!("missing sub argument {} in object", key));
+                    patch_keys.push(sub_arg.prefix_keys().to_string());
+                    let value = format_param_value(value, &sub_arg, patch_keys)?;
+                    partial_object.insert(key, value);
+                }
+                Value::Object(partial_object)
+            }
+            ParamValue::Append(_) => {
+                return Err(AzUserUsageError::InvalidArgumentValueError(
+                    "object argument does not support append".to_string(),
+                )
+                .into())
+            }
+        },
+        ArgType::Array(array_arg) => match value {
+            ParamValue::Assign(v) | ParamValue::Append(v) => match v {
+                Value::Null => v,
+                Value::Array(array) => {
+                    let mut new_arr = Vec::with_capacity(array.len());
+                    for (idx, item) in array.into_iter().enumerate() {
+                        let sub_arg = arg
+                            .retrieve_sub_arg(&[SHPartialKeyPart::Index(idx as u16)])
+                            .unwrap();
+                        let item =
+                            format_param_value(ParamValue::Assign(item), &sub_arg, patch_keys)?;
+                        new_arr.push(item);
+                    }
+                    if let Some(format) = array_arg.format {
+                        format_array(Value::Array(new_arr), &format)?
+                    } else {
+                        Value::Array(new_arr)
+                    }
+                }
+                _ => {
+                    return Err(AzUserUsageError::InvalidArgumentValueError(
+                        "invalid value type for array argument".to_string(),
+                    )
+                    .into());
+                }
+            },
+            ParamValue::Partial(partial) => {
+                let mut partial_array = serde_json::Map::with_capacity(partial.len());
+                for (key, value) in partial.into_iter() {
+                    let sub_arg = arg
+                        .retrieve_sub_arg(&[SHPartialKeyPart::parse_index(
+                            &key[1..key.len() - 1], // escape the brackets
+                        )
+                        .unwrap()])
+                        .unwrap();
+                    if matches!(value, ParamValue::Assign(_)) {
+                        patch_keys.push(sub_arg.prefix_keys().to_string())
+                    } else if matches!(value, ParamValue::Append(_)) {
+                        patch_keys.push(format!("{}+", sub_arg.prefix_keys()))
+                    }
+                    let v = format_param_value(value, &sub_arg, patch_keys)?;
+
+                    partial_array.insert(key, v);
+                }
+                Value::Object(partial_array)
+            }
+        },
+        ArgType::AnyType(_) => match value {
+            ParamValue::Assign(v) | ParamValue::Append(v) => v,
+            ParamValue::Partial(_) => {
+                return Err(AzUserUsageError::InvalidArgumentValueError(
+                    "any type argument does not support partial".to_string(),
+                )
+                .into())
+            }
+        },
+        ArgType::Cls(_) => {
+            unreachable!()
+        }
+    };
+
+    Ok(v)
 }
 
 #[cfg(test)]
@@ -298,8 +577,8 @@ mod test {
     use crate::{
         argparse::{arg::CmdArgWrapper, parse_arg_values, ArgOp},
         pb::command::{
-            cmd_arg::ArgType, CmdAnyTypeArg, CmdArg, CmdArrayArg, CmdBooleanArg, CmdNumberArg,
-            CmdObjectArg, CmdObjectArgAdditionalProperties, CmdStringArg,
+            cmd_arg::ArgType, CmdAnyTypeArg, CmdArg, CmdArgDefault, CmdArrayArg, CmdBooleanArg,
+            CmdNumberArg, CmdObjectArg, CmdObjectArgAdditionalProperties, CmdStringArg,
         },
     };
 
@@ -553,6 +832,201 @@ mod test {
                 }
             }
             assert_eq!(builder.params, expected);
+        }
+    }
+
+    #[test]
+    fn test_format_and_build() {
+        let mut cmd = CmdCommand::default();
+
+        // object arg
+        let mut object_arg = CmdArg::default();
+        object_arg.var_name = "$Instance.object".to_string();
+        object_arg.name = "object".to_string();
+        object_arg.options = vec!["object".to_string()];
+        object_arg.nullable = true;
+        let object_type = {
+            let mut object_type = CmdObjectArg::default();
+            // default string property
+            let mut porp_str = CmdArg::default();
+            porp_str.name = "prop_df".to_string();
+            porp_str.options = vec!["prop_df".to_string()];
+            porp_str.nullable = true;
+            porp_str.arg_type = Some(ArgType::Str(CmdStringArg::default()));
+            porp_str.default = Some(CmdArgDefault {
+                value: "\"default_str\"".to_string(),
+            });
+            object_type.props.push(porp_str);
+            // internal object
+            let mut prop_obj = CmdArg::default();
+            prop_obj.name = "prop_obj".to_string();
+            prop_obj.options = vec!["prop_obj".to_string()];
+            prop_obj.nullable = true;
+            let prop_obj_type = {
+                let mut object_type = CmdObjectArg::default();
+                // define the string property type
+                let mut str_arg = CmdArg::default();
+                str_arg.name = "str".to_string();
+                str_arg.options = vec!["str".to_string()];
+                str_arg.nullable = true;
+                str_arg.arg_type = Some(ArgType::Str(CmdStringArg::default()));
+                object_type.props.push(str_arg);
+                // define the number property type
+                let mut num_arg = CmdArg::default();
+                num_arg.name = "num".to_string();
+                num_arg.options = vec!["num".to_string()];
+                num_arg.nullable = true;
+                num_arg.arg_type = Some(ArgType::Number(CmdNumberArg::default()));
+                object_type.props.push(num_arg);
+                // define the bool property type
+                let mut bool_arg = CmdArg::default();
+                bool_arg.name = "bool".to_string();
+                bool_arg.options = vec!["bool".to_string()];
+                bool_arg.nullable = true;
+                bool_arg.arg_type = Some(ArgType::Boolean(CmdBooleanArg::default()));
+                object_type.props.push(bool_arg);
+                // define the array property type
+                let mut array_arg = CmdArg::default();
+                array_arg.name = "array".to_string();
+                array_arg.options = vec!["array".to_string()];
+                array_arg.nullable = true;
+                let mut array_type = CmdArrayArg::default();
+                let mut array_item_arg = CmdArg::default();
+                array_item_arg.nullable = true;
+                let array_item_type = {
+                    let mut object_type = CmdObjectArg::default();
+                    let mut str_arg = CmdArg::default();
+                    str_arg.name = "str".to_string();
+                    str_arg.options = vec!["str".to_string()];
+                    str_arg.nullable = true;
+                    str_arg.arg_type = Some(ArgType::Str(CmdStringArg::default()));
+                    object_type.props.push(str_arg);
+                    let mut num_arg = CmdArg::default();
+                    num_arg.name = "default_num".to_string();
+                    num_arg.options = vec!["default_num".to_string()];
+                    num_arg.nullable = true;
+                    num_arg.arg_type = Some(ArgType::Number(CmdNumberArg::default()));
+                    num_arg.default = Some(CmdArgDefault {
+                        value: "1".to_string(),
+                    });
+                    object_type.props.push(num_arg);
+                    object_type
+                };
+                array_item_arg.arg_type = Some(ArgType::Object(Box::new(array_item_type)));
+                array_type.item = Some(Box::new(array_item_arg));
+                array_arg.arg_type = Some(ArgType::Array(Box::new(array_type)));
+                object_type.props.push(array_arg);
+                object_type
+            };
+            prop_obj.arg_type = Some(ArgType::Object(Box::new(prop_obj_type)));
+            object_type.props.push(prop_obj);
+
+            object_type
+        };
+
+        // define the object type
+        object_arg.arg_type = Some(ArgType::Object(Box::new(object_type)));
+        cmd.args.push(object_arg);
+
+        // define the default arg
+        let mut default_arg = CmdArg::default();
+        default_arg.name = "default".to_string();
+        default_arg.options = vec!["default".to_string()];
+        default_arg.nullable = true;
+        default_arg.arg_type = Some(ArgType::Str(CmdStringArg::default()));
+        default_arg.default = Some(CmdArgDefault {
+            value: "\"default_arg\"".to_string(),
+        });
+        cmd.args.push(default_arg);
+
+        for (arg, values, mut expected, mut patch_keys) in [
+            (
+                "object",
+                vec!["prop_obj.str=abc", "prop_obj.array[2].str=bcd"],
+                json!({
+                    "object": {
+                        "prop_df": "default_str",
+                        "prop_obj": {
+                            "str": "abc",
+                            "array": {"[2]": {"str": "bcd", "default_num": 1}}
+                        }
+                    },
+                    "default": "default_arg"
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+                vec![
+                    "object.prop_df",
+                    "object.prop_obj.str",
+                    "object.prop_obj.array[2].str",
+                    "object.prop_obj.array[2].default_num",
+                    "default",
+                ],
+            ),
+            (
+                "object",
+                vec!["{prop_obj:{str:abc,array:[{str:bcd}]}}"],
+                json!({
+                    "object": {
+                        "prop_df": "default_str",
+                        "prop_obj": {
+                            "str": "abc",
+                            "array": [{"str": "bcd", "default_num": 1}]
+                        }
+                    },
+                    "default": "default_arg"
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+                vec!["object", "default"],
+            ),
+            (
+                "object",
+                vec!["prop_obj.array+=[{str:bcd}]"],
+                json!({
+                    "object": {
+                        "prop_df": "default_str",
+                        "prop_obj": {
+                            "array": [{"str": "bcd", "default_num": 1}]
+                        }
+                    },
+                    "default": "default_arg"
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+                vec!["object.prop_df", "object.prop_obj.array+", "default"],
+            ),
+        ] {
+            let mut builder = CmdParamBuilder::default();
+            let mut ops = parse_cmd_arg(&cmd, arg, values)
+                .unwrap()
+                .unwrap()
+                .into_iter();
+            while let Some(op) = ops.next() {
+                if let ArgOp::Value(op) = op {
+                    builder.apply(op).unwrap();
+                } else {
+                    panic!("no value op");
+                }
+            }
+            let params = builder.format_and_build(&cmd).unwrap();
+            for (key, v) in params.params.iter() {
+                let v = serde_json::from_slice::<Value>(v).unwrap();
+                assert_eq!(v, expected.remove(key).unwrap());
+            }
+            assert!(expected.is_empty());
+
+            for key in params.patch_keys {
+                if let Some(index) = patch_keys.iter().position(|k| k.eq(&key)) {
+                    patch_keys.remove(index);
+                } else {
+                    panic!("key {} not found in patch_keys", key);
+                }
+            }
+            assert!(patch_keys.is_empty());
         }
     }
 }
