@@ -1,6 +1,6 @@
 # Azure Cirrus Project
 
-A lightweight implementation of the Azure CLI in Rust.
+A unified framework for Azure CLI, Azure PowerShell and Azure Ansible products.
 
 ## Project Structure
 
