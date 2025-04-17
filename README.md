@@ -1,4 +1,4 @@
-# Azure CLI Lite
+# Azure Cirrus Project
 
 A lightweight implementation of the Azure CLI in Rust.
 
@@ -6,8 +6,10 @@ A lightweight implementation of the Azure CLI in Rust.
 
 This repository contains multiple Rust projects:
 
-- **azlite**: The main executable CLI application
-- **core**: A library containing the core functionality
+- **azure**: The main executable CLI lite application
+- **core**: A cirrus core library containing the core functionality
+- **ps**: A library to glue the cirrus core with PowerShell Modules
+- **ansible**: A library to glue the cirrus core with Ansible Azure Collection.
 
 ## Development
 
@@ -35,13 +37,6 @@ cargo run -p azure -- [COMMANDS]
 ### Project Status
 
 This project is in early development and not ready for production use.
-
-## Features
-
-- Authentication with Azure
-- Resource management
-- Subscription management
-- Resource group operations
 
 ## License
 
