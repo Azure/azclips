@@ -1,20 +1,37 @@
 use std::str::FromStr;
 
+use serde_json::{Map, Value};
+use tracing::error;
+
 use crate::{
     cmd_uri::CmdUri,
     component::AzComponentCtx,
     error::AzError,
-    pb::command::{cmd_interface, CmdCommand, CmdHelp, CmdInterface, CmdParams},
+    pb::command::{
+        cmd_arg, cmd_interface, CmdAnyTypeArg, CmdArg, CmdArgHelp, CmdCommand, CmdHelp,
+        CmdInterface, CmdObjectArg, CmdObjectArgAdditionalProperties, CmdParams,
+    },
+    VERSION,
 };
 
+#[derive(Debug, Default)]
 pub(super) struct SetConfig {
-    key: String,
-    value: String,
+    // the value will be any type
+    value: Map<String, Value>,
+
+    // internal property which will not exposed
+    _patch_keys: Vec<String>,
 }
 
 impl SetConfig {
-    pub(super) async fn run<T: AzComponentCtx>(&self, ctx: &T) -> Result<(), AzError> {
-        todo!()
+    pub(super) async fn run<T: AzComponentCtx>(&self, ctx: &T) -> Result<Option<Value>, AzError> {
+        println!("set config: {:?}", self.value);
+        println!("patch keys: {:?}", self._patch_keys);
+        let mut config = Map::new();
+        for (k, v) in self.value.iter() {
+            config.insert(k.to_string(), v.clone());
+        }
+        Ok(Some(Value::Object(config)))
     }
 }
 
@@ -35,14 +52,53 @@ impl SetConfig {
             }),
             uri: Self::uri().to_string(),
             level: Some(cmd_interface::Level::Command(CmdCommand {
-                version: "1.0.0".to_string(),
-                args: vec![],
-                positional_args: vec![],
+                version: VERSION.to_string(),
+                args: Self::args(),
+                positional_args: vec!["value".to_string()],
             })),
         }
     }
 
+    fn args() -> Vec<CmdArg> {
+        vec![CmdArg {
+            var_name: "value".to_string(),
+            name: "value".to_string(),
+            options: vec!["value".to_string()],
+            required: true,
+            nullable: true,
+            help: Some(CmdArgHelp {
+                short: "The configuration to set, support partial update with `<key>=<value>`, if directly apply from a json file, please use `file://<path>` as the value".to_string(),
+                ..Default::default()
+            }),
+            arg_type: Some(cmd_arg::ArgType::Object(Box::new(CmdObjectArg {
+                additional_props: Some(Box::new(CmdObjectArgAdditionalProperties {
+                    item: Some(Box::new( CmdArg {
+                        var_name: "value{}".to_string(),
+                        nullable: true,
+                        arg_type: Some(cmd_arg::ArgType::AnyType(CmdAnyTypeArg::default())),
+                        ..Default::default()
+                    })),
+                    ..Default::default()
+                })),
+                ..Default::default()
+            }))),
+            ..Default::default()
+        }]
+    }
+
     pub fn try_from(params: &Option<CmdParams>) -> Result<Self, AzError> {
-        todo!()
+        let mut set = Self::default();
+        if let Some(params) = params {
+            for (name, v) in params.params.iter() {
+                match name.as_str() {
+                    "value" => set.value = serde_json::from_slice(v).expect("failed to parse json"),
+                    _ => {
+                        error!("unknown argument: {}", name);
+                    }
+                }
+            }
+            set._patch_keys = params.patch_keys.to_owned();
+        }
+        Ok(set)
     }
 }

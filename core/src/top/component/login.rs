@@ -32,14 +32,14 @@ pub(super) struct Login {
 }
 
 impl Login {
-    pub(super) async fn run<T: AzComponentCtx>(&self, ctx: &T) -> Result<(), AzError> {
+    pub(super) async fn run<T: AzComponentCtx>(&self, ctx: &T) -> Result<Option<String>, AzError> {
         println!("login");
         println!("username: {:?}", self.username);
         println!("scope: {:?}", self.scope);
         println!("use_device_code: {:?}", self.use_device_code);
         println!("service_principal: {:?}", self.service_principal);
         println!("tenant_id: {:?}", self.tenant_id);
-        Ok(())
+        Ok(Some("login success".to_string()))
     }
 }
 

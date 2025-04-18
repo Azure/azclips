@@ -106,15 +106,31 @@ impl<T: AzComponentCtx> AzComponent<T> for TopComponent {
         match segments.as_str() {
             "login" => Box::pin(async move {
                 let result = Login::try_from(&request.params)?.run(ctx).await?;
-                Ok(ExecuteResponse {
-                    data: Some(execute_response::Data::None(pb::component::None {})),
-                })
+                if let Some(result) = result {
+                    Ok(ExecuteResponse {
+                        data: Some(execute_response::Data::Json(
+                            serde_json::to_vec(&result).unwrap(),
+                        )),
+                    })
+                } else {
+                    Ok(ExecuteResponse {
+                        data: Some(execute_response::Data::None(pb::component::None {})),
+                    })
+                }
             }),
             "logout" => Box::pin(async move {
                 let result = Logout::try_from(&request.params)?.run(ctx).await?;
-                Ok(ExecuteResponse {
-                    data: Some(execute_response::Data::None(pb::component::None {})),
-                })
+                if let Some(result) = result {
+                    Ok(ExecuteResponse {
+                        data: Some(execute_response::Data::Json(
+                            serde_json::to_vec(&result).unwrap(),
+                        )),
+                    })
+                } else {
+                    Ok(ExecuteResponse {
+                        data: Some(execute_response::Data::None(pb::component::None {})),
+                    })
+                }
             }),
             _ => Box::pin(async move {
                 Err(AzInternalError::InvalidCmdUriError(request.uri.to_string()).into())

@@ -1,19 +1,28 @@
 use std::str::FromStr;
 
+use serde_json::Value;
+use tracing::error;
+
 use crate::{
     cmd_uri::CmdUri,
     component::AzComponentCtx,
     error::AzError,
-    pb::command::{cmd_interface, CmdCommand, CmdHelp, CmdInterface, CmdParams},
+    pb::command::{
+        cmd_arg, cmd_interface, cmd_string_arg, CmdArg, CmdArgHelp, CmdCommand, CmdHelp,
+        CmdInterface, CmdParams, CmdStringArg, CmdStringFormat,
+    },
+    VERSION,
 };
 
+#[derive(Debug, Default)]
 pub(super) struct GetConfig {
-    key: String,
+    key: Option<String>,
 }
 
 impl GetConfig {
-    pub(super) async fn run<T: AzComponentCtx>(&self, ctx: &T) -> Result<(), AzError> {
-        todo!()
+    pub(super) async fn run<T: AzComponentCtx>(&self, ctx: &T) -> Result<Option<Value>, AzError> {
+        println!("get config: {:?}", self.key);
+        Ok(Some(Value::String("test".to_string())))
     }
 }
 
@@ -34,14 +43,42 @@ impl GetConfig {
             }),
             uri: Self::uri().to_string(),
             level: Some(cmd_interface::Level::Command(CmdCommand {
-                version: "1.0.0".to_string(),
-                args: vec![],
+                version: VERSION.to_string(),
+                args: Self::args(),
                 positional_args: vec![],
             })),
         }
     }
 
+    fn args() -> Vec<CmdArg> {
+        vec![CmdArg {
+            var_name: "key".to_string(),
+            name: "key".to_string(),
+            options: vec!["key".to_string()],
+            help: Some(CmdArgHelp {
+                short: "The configuration to get.".to_string(),
+                long: Some(" If not provided, all sections and configurations will be listed. If `section` is provided, all configurations under the section will be listed. If `<section>.<key>` is provided, only the corresponding configuration is shown.".to_string())
+            }),
+            arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
+                ..Default::default()
+            })),
+            ..Default::default()
+        }]
+    }
+
     pub fn try_from(params: &Option<CmdParams>) -> Result<Self, AzError> {
-        todo!()
+        let mut get = Self::default();
+        if let Some(params) = params {
+            for (name, v) in params.params.iter() {
+                match name.as_str() {
+                    "key" => get.key = serde_json::from_slice(v).expect("failed to parse json"),
+                    _ => {
+                        error!("unknown argument: {}", name);
+                    }
+                }
+            }
+        }
+        Ok(get)
     }
 }

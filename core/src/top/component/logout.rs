@@ -19,10 +19,10 @@ pub(super) struct Logout {
 }
 
 impl Logout {
-    pub(super) async fn run<T: AzComponentCtx>(&self, ctx: &T) -> Result<(), AzError> {
+    pub(super) async fn run<T: AzComponentCtx>(&self, ctx: &T) -> Result<Option<String>, AzError> {
         println!("logout");
         println!("username: {:?}", self.username);
-        Ok(())
+        Ok(Some("logout success".to_string()))
     }
 }
 
