@@ -5,8 +5,10 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::cmd_uri::CmdUri;
+use crate::config::component::ConfigComponent;
 use crate::error::AzInternalError;
 use crate::plugin::AzPlugin;
+use crate::top::TopComponent;
 
 use futures::future::try_join_all;
 use serde::{Deserialize, Serialize};
@@ -14,7 +16,7 @@ use strum::IntoEnumIterator;
 use tokio::fs;
 use tracing::error;
 
-use super::built_in::AzBuildIn;
+use super::built_in::{self, AzBuildIn};
 use super::built_in::{deserialize_az_build_in_component, serialize_az_build_in_component};
 use super::{get_component_dir, AzComponent, AzComponentCtx};
 
@@ -34,16 +36,16 @@ pub struct AzComponentCenter<T: AzComponentCtx> {
     /// the route table using the component uri segments as the key, it is used to find the component based on the cmd_uri
     route_table: HashMap<String, AzComponentInfo>,
     /// the built-in components that are loaded
-    built_ins: HashMap<AzBuildIn, Arc<dyn AzComponent<T>>>,
+    built_ins: HashMap<AzBuildIn, Arc<Box<dyn AzComponent<T>>>>,
     /// the plugins that are loaded, the key is the plugin name
-    plugins: HashMap<String, Arc<dyn AzComponent<T>>>,
+    plugins: HashMap<String, Arc<Box<dyn AzComponent<T>>>>,
 }
 
 impl<T: AzComponentCtx> AzComponentCenter<T> {
     /// Create a new instance of AzComponentCenter
     /// TODO: we can add `profile` content here to support the switch between different profiles for different clouds
     pub(crate) async fn new() -> Result<Self, AzInternalError> {
-        let center = if let Some(route_table) = Self::load_route_table().await {
+        let mut center = if let Some(route_table) = Self::load_route_table().await {
             Self {
                 route_table,
                 built_ins: HashMap::new(),
@@ -58,7 +60,15 @@ impl<T: AzComponentCtx> AzComponentCenter<T> {
             center.rebuild_route_table().await?;
             center
         };
-        // TODO: here we should init the built-in components
+
+        center
+            .built_ins
+            .insert(AzBuildIn::Top, Arc::new(Box::new(TopComponent::default())));
+        center.built_ins.insert(
+            AzBuildIn::Config,
+            Arc::new(Box::new(ConfigComponent::default())),
+        );
+
         Ok(center)
     }
 }
@@ -123,7 +133,7 @@ impl<T: AzComponentCtx> AzComponentCenter<T> {
     pub(crate) async fn get_or_load_component(
         &mut self,
         info: &AzComponentInfo,
-    ) -> Result<Arc<dyn AzComponent<T>>, AzInternalError> {
+    ) -> Result<Arc<Box<dyn AzComponent<T>>>, AzInternalError> {
         let component = match info {
             AzComponentInfo::BuiltIn(component) => self
                 .built_ins

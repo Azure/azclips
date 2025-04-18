@@ -1,6 +1,6 @@
 use std::env::Args;
 
-use az_core::{cmd_uri::CmdUri, AzCore, APPLICATION_NAME};
+use az_core::{cmd_uri::CmdUri, APPLICATION_NAME};
 
 mod execute;
 mod help;
@@ -31,7 +31,7 @@ pub fn run(mut args: Args) {
 
     // retrieve the cmd uri
     let mut cmd_uri = vec![APPLICATION_NAME.to_string()];
-    while let Some(arg) = next.take() {
+    while let Some(arg) = next.as_ref() {
         if arg.starts_with(CMD_ARG_FLAG_PREFIX) {
             break;
         }

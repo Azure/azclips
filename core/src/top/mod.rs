@@ -1,1 +1,2 @@
-pub(crate) mod component;
+mod component;
+pub(crate) use component::TopComponent;
