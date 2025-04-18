@@ -1,12 +1,19 @@
 use std::str::FromStr;
 
+use tracing::error;
+
 use crate::{
     cmd_uri::CmdUri,
     component::AzComponentCtx,
     error::AzError,
-    pb::command::{cmd_interface, CmdCommand, CmdHelp, CmdInterface, CmdParams},
+    pb::command::{
+        cmd_arg, cmd_interface, cmd_string_arg, CmdArg, CmdArgHelp, CmdCommand, CmdHelp,
+        CmdInterface, CmdParams, CmdStringArg, CmdStringFormat,
+    },
+    VERSION,
 };
 
+#[derive(Debug, Default)]
 pub(super) struct Logout {
     username: Option<String>,
 }
@@ -23,24 +30,56 @@ impl Logout {
             name: "logout".to_string(),
             help: Some(CmdHelp {
                 short: "Log out to remove access to Azure subscriptions.".to_string(),
-                long: None,
+                ..Default::default()
             }),
-            uri: Self::URI.to_string(),
+            uri: Self::uri().to_string(),
             level: Some(cmd_interface::Level::Command(CmdCommand {
-                version: "1.0.0".to_string(),
-                args: vec![],
+                version: VERSION.to_string(),
+                args: Self::args(),
                 positional_args: vec![],
             })),
         }
     }
 
+    fn args() -> Vec<CmdArg> {
+        vec![CmdArg {
+            var_name: "username".to_string(),
+            name: "username".to_string(),
+            options: vec!["username".to_string()],
+            help: Some(CmdArgHelp {
+                short: "The username to log out from Azure.".to_string(),
+                ..Default::default()
+            }),
+            arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
+                ..Default::default()
+            })),
+            ..Default::default()
+        }]
+    }
+
     pub fn try_from(params: &Option<CmdParams>) -> Result<Self, AzError> {
-        todo!()
+        let mut logout = Self::default();
+        if let Some(params) = params {
+            for (name, v) in params.params.iter() {
+                match name.as_str() {
+                    "username" => {
+                        logout.username = serde_json::from_slice(v).expect("failed to parse json")
+                    }
+                    _ => {
+                        error!("unknown argument: {}", name);
+                    }
+                }
+            }
+        }
+        Ok(logout)
     }
 }
 
 impl Logout {
     pub(super) async fn run<T: AzComponentCtx>(&self, ctx: &T) -> Result<(), AzError> {
-        todo!()
+        println!("logout");
+        println!("username: {:?}", self.username);
+        Ok(())
     }
 }
