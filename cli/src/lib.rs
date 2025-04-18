@@ -1,6 +1,6 @@
 use std::env::Args;
 
-use az_core::{cmd_uri::CmdUri, AzCore, APPLICATION_NAME};
+use az_core::{cmd_uri::CmdUri, APPLICATION_NAME};
 
 mod execute;
 mod help;
