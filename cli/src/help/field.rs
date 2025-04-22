@@ -1,9 +1,9 @@
-use std::{result, vec};
+use std::vec;
 
 use super::ApplicationDetail;
 use crate::output::StyledString;
 use az_core::pb::{command::{cmd_interface::Level, CmdArg, CmdInterface}, component::ComponentMetadata};
-use crossterm::style::{StyledContent, Stylize};
+use crossterm::style::Stylize;
 
 pub trait UsageTemplateFieldRender {
     fn render(&self, cmd: &CmdInterface, app: &ApplicationDetail) -> Option<StyledString>;
@@ -24,11 +24,10 @@ impl UsageTemplateFieldRender for UsageHeaderRenderer {
 
 pub struct UsageBodyRenderer;
 impl UsageTemplateFieldRender for UsageBodyRenderer {
-    fn render(&self, cmd: &CmdInterface, app: &ApplicationDetail) -> Option<StyledString> {
+    fn render(&self, cmd: &CmdInterface, _app: &ApplicationDetail) -> Option<StyledString> {
         let uri = &cmd.uri;
-        let exe = &app.executable;
-        let uri_parts = uri.split('/').filter(|s| !s.is_empty());
-        let cmd_sig = format!("{} {}", exe, uri_parts.collect::<Vec<_>>().join(" "));
+        let uri_parts = uri.split('/').filter(|s| !s.is_empty()).skip(1);
+        let cmd_sig = uri_parts.collect::<Vec<_>>().join(" ");
         let styled_cmd = cmd_sig.bold();
         let mut result = vec![styled_cmd];
         let short = cmd.help.as_ref().map(|help| &help.short);
@@ -92,8 +91,8 @@ impl ArgTemplateFieldRender for ArgShortFlagRenderer {
     fn render(&self, arg: &CmdArg) -> Vec<StyledString> {
         arg.options
             .iter()
-            .filter(|o| o.len() == 2)
-            .map(|s| s.clone().bold())
+            .filter(|o| o.len() == 1)
+            .map(|s| format!("-{}", s).bold())
             .map(|s| StyledString::from_vec(vec![s]))
             .collect::<Vec<_>>()
     }
@@ -104,14 +103,14 @@ impl ArgTemplateFieldRender for ArgOptionRenderer {
     fn render(&self, arg: &CmdArg) -> Vec<StyledString> {
         let mut args = arg.options
             .iter()
-            .filter(|o| o.len() != 2)
+            .filter(|o| o.len() != 1)
             .collect::<Vec<_>>();
         if args.is_empty() {
             args.push(&arg.name);
         }
         let result = args
             .iter()
-            .map(|s| (*s).clone().bold())
+            .map(|s| format!("--{}", s).bold())
             .map(|s| StyledString::from_vec(vec![s]))
             .collect::<Vec<_>>();
         if result.is_empty() {

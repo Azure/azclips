@@ -119,7 +119,7 @@ impl HelpTableLine {
             .unwrap_or(0);
         let mut result = vec![];
         for (group_name, group) in groups {
-            let group_header = StyledString::from(format!("{}", group_name));
+            let group_header = StyledString::from(if group_name.is_empty() {"Default".to_owned()} else {format!("{}", group_name)});
             result.push(group_header);
             for line in group {
                 let mut row = Row::new();
