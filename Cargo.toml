@@ -1,5 +1,11 @@
 [workspace]
-members = ["core", "cli", "ps", "ansible"]
+members = [
+    "core", 
+    "cli", 
+    "ps", 
+    "ansible",
+    "core/src/top/auth/vendored_sdks/azure_identity"
+]
 resolver = "2"
 
 [workspace.package]
