@@ -5,41 +5,61 @@ use tracing::error;
 use crate::{
     cmd_uri::CmdUri,
     component::AzComponentCtx,
-    error::AzError,
+    error::{AzError, AuthenticationError},
     pb::command::{
         cmd_arg, cmd_interface, cmd_string_arg, CmdArg, CmdArgHelp, CmdArgPromptInput,
         CmdBooleanArg, CmdCommand, CmdHelp, CmdInterface, CmdParams, CmdStringArg, CmdStringFormat,
     },
     VERSION,
+    top::auth::profile::{Profile, Authority},
 };
 
 #[derive(Debug, Default)]
 pub(super) struct Login {
+    scope: Option<String>,
+    tenant_id: Option<String>,
     username: Option<String>,
     password: Option<String>,
-    scope: Option<String>,
-    service_principal: bool,
-    tenant_id: Option<String>,
-    user_cert_sn_issuer: bool,
     use_device_code: bool,
     allow_no_subscriptions: bool,
-    certificate_path: Option<String>,
-    federated_token: Option<String>,
+    service_principal: bool,
     identity: bool,
     client_id: Option<String>,
     object_id: Option<String>,
     resource_id: Option<String>,
+    certificate_path: Option<String>,
+    user_cert_sn_issuer: bool,
+    federated_token: Option<String>,
 }
 
 impl Login {
     pub(super) async fn run<T: AzComponentCtx>(&self, ctx: &T) -> Result<Option<String>, AzError> {
         println!("login");
-        println!("username: {:?}", self.username);
         println!("scope: {:?}", self.scope);
-        println!("use_device_code: {:?}", self.use_device_code);
-        println!("service_principal: {:?}", self.service_principal);
         println!("tenant_id: {:?}", self.tenant_id);
-        Ok(Some("login success".to_string()))
+        println!("username: {:?}", self.username);
+
+        let interactive: bool = self.username.is_none();
+        
+        let authority: Authority = Authority::new(
+            None,
+            self.tenant_id.clone(),
+        );
+        
+        let mut profile: Profile = Profile::new(
+            authority,
+            self.scope.clone(),
+        );
+        
+        match profile.login(interactive, Some(self.use_device_code)) {
+            Ok(_) => {
+                Ok(Some("Login successful".to_string()))
+            },
+            Err(e) => {
+                println!("Login failed: {}", e);
+                Err(AzError::Authentication(AuthenticationError::AuthenticationFailed(e.to_string())))
+            }
+        }
     }
 }
 

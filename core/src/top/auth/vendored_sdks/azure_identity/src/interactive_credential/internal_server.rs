@@ -99,6 +99,7 @@ fn start_webserver() -> Option<String> {
     println!("Waiting for authentication response...");
     
     let listener = TcpListener::bind(("127.0.0.1", LOCAL_SERVER_PORT)).ok()?;
+
     listener.set_nonblocking(true).ok()?;
     
     let start_time = std::time::Instant::now();
@@ -200,7 +201,6 @@ async fn is_command_available(cmd: &str) -> bool {
 #[cfg(test)]
 mod test_internal_server {
     use super::*;
-    use tracing::debug;
     use tracing::Level;
     use tracing_subscriber::FmtSubscriber;
     fn init_logger() {
@@ -213,6 +213,9 @@ mod test_internal_server {
     #[tokio::test]
     async fn test_valid_command() {
         init_logger();
+        #[cfg(windows)]
+        assert!(is_command_available("cmd").await);
+        #[cfg(not(windows))]
         assert!(is_command_available("ls").await);
     }
 

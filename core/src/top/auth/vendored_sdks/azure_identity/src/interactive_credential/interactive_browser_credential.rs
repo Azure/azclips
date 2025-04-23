@@ -107,6 +107,7 @@ impl InteractiveBrowserCredential {
     vcpkg install openssl
     vcpkg install openssl:x64-windows-static-md
 */ 
+// Don't run it in the CI
 #[cfg(test)]
 mod tests {
     use super::*;
