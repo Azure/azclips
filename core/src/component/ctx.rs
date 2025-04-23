@@ -1,21 +1,20 @@
+use async_trait::async_trait;
+
 use crate::pb::component::{CoreInfo, GetCoreInfoRequest, GetCoreInfoResponse};
 use crate::{error::AzError, AzCore, VERSION};
-use std::future::Future;
-use std::pin::Pin;
 
 use super::AzComponentCtx;
 
+#[async_trait]
 impl AzComponentCtx for AzCore {
-    fn get_core_info<'a>(
-        &'a self,
+    async fn get_core_info(
+        &self,
         _: GetCoreInfoRequest,
-    ) -> Pin<Box<dyn Future<Output = Result<GetCoreInfoResponse, AzError>> + Send + 'a>> {
-        Box::pin(async move {
-            Ok(GetCoreInfoResponse {
-                core_info: Some(CoreInfo {
+    ) -> Result<GetCoreInfoResponse, AzError> {
+        Ok(GetCoreInfoResponse {
+            core_info: Some(CoreInfo {
                     version: VERSION.to_string(),
                 }),
             })
-        })
     }
 }

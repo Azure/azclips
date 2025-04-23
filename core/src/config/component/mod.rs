@@ -3,6 +3,7 @@ mod set;
 
 use std::{future::Future, str::FromStr};
 
+use async_trait::async_trait;
 use get::GetConfig;
 use set::SetConfig;
 
@@ -54,13 +55,13 @@ impl ConfigComponent {
     }
 }
 
+#[async_trait]
 impl<T: AzComponentCtx> AzComponent<T> for ConfigComponent {
-    fn interface<'a>(
-        &'a self,
-        ctx: &'a T,
+    async fn interface(
+        &self,
+        ctx: &T,
         request: InterfaceRequest,
-    ) -> std::pin::Pin<Box<dyn Future<Output = Result<InterfaceResponse, AzError>> + Send + 'a>>
-    {
+    ) -> Result<InterfaceResponse, AzError> {
         let skip = ConfigComponent::uri().segments().count();
         let cmd_uri = CmdUri::from_str(&request.uri).unwrap();
         let depth = match request.depth {
@@ -75,19 +76,19 @@ impl<T: AzComponentCtx> AzComponent<T> for ConfigComponent {
             "set" => Some(SetConfig::get_cmd_interface()),
             _ => None, // not found
         };
-        Box::pin(async move { Ok(InterfaceResponse { interface }) })
+        Ok(InterfaceResponse { interface })
     }
 
-    fn execute<'a>(
-        &'a self,
-        ctx: &'a T,
+    async fn execute(
+        &self,
+        ctx: &T,
         request: ExecuteRequest,
-    ) -> std::pin::Pin<Box<dyn Future<Output = Result<ExecuteResponse, AzError>> + Send + 'a>> {
+    ) -> Result<ExecuteResponse, AzError> {
         let skip = ConfigComponent::uri().segments().count();
         let cmd_uri = CmdUri::from_str(&request.uri).unwrap();
         let segments = cmd_uri.segments().skip(skip).collect::<Vec<_>>().join("/");
         match segments.as_str() {
-            "get" => Box::pin(async move {
+            "get" => {
                 let result = GetConfig::try_from(&request.params)?.run(ctx).await?;
                 if let Some(result) = result {
                     Ok(ExecuteResponse {
@@ -100,8 +101,8 @@ impl<T: AzComponentCtx> AzComponent<T> for ConfigComponent {
                         data: Some(execute_response::Data::None(pb::component::None {})),
                     })
                 }
-            }),
-            "set" => Box::pin(async move {
+            }
+            "set" => {
                 let result = SetConfig::try_from(&request.params)?.run(ctx).await?;
                 if let Some(result) = result {
                     Ok(ExecuteResponse {
@@ -114,39 +115,34 @@ impl<T: AzComponentCtx> AzComponent<T> for ConfigComponent {
                         data: Some(execute_response::Data::None(pb::component::None {})),
                     })
                 }
-            }),
-            _ => Box::pin(async move {
-                Err(AzInternalError::InvalidCmdUriError(request.uri.to_string()).into())
-            }),
+            }
+            _ => Err(AzInternalError::InvalidCmdUriError(request.uri.to_string()).into()),
         }
     }
 
-    fn metadata<'a>(
-        &'a self,
-        _: &'a T,
+    async fn metadata(
+        &self,
+        _: &T,
         _: MetadataRequest,
-    ) -> std::pin::Pin<Box<dyn Future<Output = Result<MetadataResponse, AzError>> + Send + 'a>>
-    {
-        Box::pin(async move {
-            Ok(MetadataResponse {
-                metadata: Some(ComponentMetadata {
-                    name: "config".to_string(),
-                    version: VERSION.to_string(),
-                    uri: Self::uri().to_string(),
-                    help: Some(CmdHelp {
+    ) -> Result<MetadataResponse, AzError> {
+        Ok(MetadataResponse {
+            metadata: Some(ComponentMetadata {
+                name: "config".to_string(),
+                version: VERSION.to_string(),
+                uri: Self::uri().to_string(),
+                help: Some(CmdHelp {
                         short: "Manage Azure configuration".to_string(),
                         long: None,
                     }),
                 }),
             })
-        })
     }
 
-    fn check<'a>(
-        &'a self,
-        _: &'a T,
+    async fn check(
+        &self,
+        _: &T,
         request: CheckRequest,
-    ) -> std::pin::Pin<Box<dyn Future<Output = Result<CheckResponse, AzError>> + Send + 'a>> {
+    ) -> Result<CheckResponse, AzError> {
         let skip = ConfigComponent::uri().segments().count();
         let cmd_uri = CmdUri::from_str(&request.uri).unwrap();
         let mut segments = cmd_uri.segments().skip(skip);
@@ -164,10 +160,8 @@ impl<T: AzComponentCtx> AzComponent<T> for ConfigComponent {
             ),
             _ => None,
         };
-        Box::pin(async move {
-            Ok(CheckResponse {
-                uri: uri.map(|u| u.to_string()),
-            })
+        Ok(CheckResponse {
+            uri: uri.map(|u| u.to_string()),
         })
     }
 }
