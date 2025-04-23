@@ -1,5 +1,7 @@
 use std::str::FromStr;
 
+use async_trait::async_trait;
+
 use crate::{
     cmd_uri::CmdUri,
     component::{AzComponent, AzComponentCtx},
@@ -14,46 +16,39 @@ use crate::{
 };
 
 /// The built-in component for managing the account
-pub enum AccountComponent {}
+pub struct AccountComponent {}
 
+#[async_trait]
 impl<T: AzComponentCtx> AzComponent<T> for AccountComponent {
-    fn interface<'a>(
-        &'a self,
-        ctx: &'a T,
+    async fn interface(
+        &self,
+        ctx: &T,
         request: InterfaceRequest,
-    ) -> std::pin::Pin<
-        Box<dyn std::future::Future<Output = Result<InterfaceResponse, AzError>> + Send + 'a>,
-    > {
+    ) -> Result<InterfaceResponse, AzError> {
         todo!()
     }
 
-    fn execute<'a>(
-        &'a self,
-        ctx: &'a T,
+    async fn execute(
+        &self,
+        ctx: &T,
         request: ExecuteRequest,
-    ) -> std::pin::Pin<
-        Box<dyn std::future::Future<Output = Result<ExecuteResponse, AzError>> + Send + 'a>,
-    > {
+    ) -> Result<ExecuteResponse, AzError> {
         todo!()
     }
 
-    fn metadata<'a>(
-        &'a self,
-        ctx: &'a T,
+    async fn metadata(
+        &self,
+        ctx: &T,
         request: MetadataRequest,
-    ) -> std::pin::Pin<
-        Box<dyn std::future::Future<Output = Result<MetadataResponse, AzError>> + Send + 'a>,
-    > {
+    ) -> Result<MetadataResponse, AzError> {
         todo!()
     }
 
-    fn check<'a>(
-        &'a self,
-        ctx: &'a T,
+    async fn check(
+        &self,
+        ctx: &T,
         request: CheckRequest,
-    ) -> std::pin::Pin<
-        Box<dyn std::future::Future<Output = Result<CheckResponse, AzError>> + Send + 'a>,
-    > {
+    ) -> Result<CheckResponse, AzError> {
         todo!()
     }
 }

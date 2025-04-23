@@ -4,56 +4,52 @@ pub mod ctx;
 
 use std::path::PathBuf;
 
+use async_trait::async_trait;
+
 use crate::config;
-use crate::error::AzResult;
+use crate::error::{AzError, AzResult};
 use crate::pb::component as pb;
 
+#[async_trait]
 pub trait AzComponentCtx: Send + Sync + 'static {
     /// get the core info
-    fn get_core_info<'a>(
+    async fn get_core_info<'a>(
         &'a self,
         request: pb::GetCoreInfoRequest,
-    ) -> std::pin::Pin<
-        Box<dyn std::future::Future<Output = AzResult<pb::GetCoreInfoResponse>> + Send + 'a>,
-    >;
+    ) -> AzResult<pb::GetCoreInfoResponse>;
 }
 
 /// the trait of a component
+#[async_trait]
 pub trait AzComponent<T: AzComponentCtx>: Send + Sync + 'static {
     /// get the metadata of the component
-    fn metadata<'a>(
-        &'a self,
-        ctx: &'a T,
+    async fn metadata(
+        &self,
+        ctx: &T,
         request: pb::MetadataRequest,
-    ) -> std::pin::Pin<
-        Box<dyn std::future::Future<Output = AzResult<pb::MetadataResponse>> + Send + 'a>,
-    >;
+    ) -> Result<pb::MetadataResponse, AzError>;
 
     /// check a cmd uri is available or not
     /// if a cmd uri has positional arguments as segments part,it will be converted to params in the query part in the returned cmd uri
-    fn check<'a>(
-        &'a self,
-        ctx: &'a T,
+    async fn check(
+        &self,
+        ctx: &T,
         request: pb::CheckRequest,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = AzResult<pb::CheckResponse>> + Send + 'a>>;
+    ) -> Result<pb::CheckResponse, AzError>;
 
     /// get the interface of a cmd uri
-    fn interface<'a>(
-        &'a self,
-        ctx: &'a T,
+    async fn interface(
+        &self,
+        ctx: &T,
         request: pb::InterfaceRequest,
-    ) -> std::pin::Pin<
-        Box<dyn std::future::Future<Output = AzResult<pb::InterfaceResponse>> + Send + 'a>,
-    >;
+    ) -> Result<pb::InterfaceResponse, AzError>;
 
     /// run a executable cmd uri
-    fn execute<'a>(
-        &'a self,
-        ctx: &'a T,
+    async fn execute(
+        &self,
+        ctx: &T,
         request: pb::ExecuteRequest,
-    ) -> std::pin::Pin<
-        Box<dyn std::future::Future<Output = AzResult<pb::ExecuteResponse>> + Send + 'a>,
-    >;
+    ) -> Result<pb::ExecuteResponse, AzError>;
 }
 
 pub fn get_component_dir() -> PathBuf {
