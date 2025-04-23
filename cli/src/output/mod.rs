@@ -1,4 +1,4 @@
-use std::{fmt::Display, ops::Add};
+use std::{fmt::Display, mem, ops::Add};
 
 use crossterm::style::StyledContent;
 use unicode_width::UnicodeWidthStr;
@@ -49,6 +49,7 @@ impl StyledString {
                     lines[0].to_string(),
                 ));
                 for line in &lines[1..] {
+                    cur_line.optimize_style();
                     result.push(cur_line);
                     cur_line = StyledString(vec![StyledContent::new(
                         part.style().clone(),
@@ -60,6 +61,7 @@ impl StyledString {
             }
         }
         if !cur_line.is_empty() {
+            cur_line.optimize_style();
             result.push(cur_line);
         }
         return result;
@@ -83,6 +85,7 @@ impl StyledString {
                 for word in part.content().split_whitespace() {
                     let word_width = word.width_cjk();
                     if cur_width > 0 && cur_width + word_width + 1 > limit {
+                        cur_line.optimize_style();
                         result.push(cur_line);
                         cur_line = StyledString(vec![]);
                         cur_width = 0;
@@ -102,6 +105,7 @@ impl StyledString {
                 }
             }
             if !cur_line.is_empty() {
+                cur_line.optimize_style();
                 result.push(cur_line);
             }
             return result;
@@ -115,6 +119,24 @@ impl StyledString {
             .into_iter()
             .flat_map(|line| line.soft_wrap_paragraph(width))
             .collect()
+    }
+
+    fn optimize_style(&mut self) {
+        let old = mem::replace(&mut self.0, vec![]);
+        for part in old {
+            if let Some(last) = self.0.last_mut() {
+                if last.style() == part.style() {
+                    *last = StyledContent::new(
+                        last.style().clone(),
+                        format!("{}{}", last.content(), part.content()),
+                    );
+                } else {
+                    self.0.push(part);
+                }
+            } else {
+                self.0.push(part);
+            }
+        }
     }
 }
 
