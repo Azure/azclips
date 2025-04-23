@@ -13,7 +13,7 @@ This repository contains multiple Rust projects:
 
 ## Development
 
-### Prerequisites in ubuntu
+### Prerequisites in Ubuntu
 
 - install dependencies
 ```bash
