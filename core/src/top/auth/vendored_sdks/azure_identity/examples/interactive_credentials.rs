@@ -29,7 +29,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // let test_tenant_id = "72f988bf-86f1-41af-91ab-2d7cd011db47".to_string(); // Microsoft
     // let test_tenant_id = "b5ee6c06-c2c2-4e3c-8606-5f170cee077a".to_string(); // Azure Client Tools (MFA enabled)
     // let test_tenant_id = "0ab32e5f-a697-43a7-862f-f980ad4cdbde".to_string();
-    let test_tenant_id = "consumers".to_string();
+    let test_tenant_id = "origanizations".to_string();
 
     let _ = run_app_inter(test_tenant_id).await?;
     Ok(())

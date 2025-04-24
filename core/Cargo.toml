@@ -27,6 +27,8 @@ thiserror = "2.0"
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 # tonic = {version = "0.12", features = ["default",]}  # tonic is for grpc service
+azure_identity = { path = "src/top/auth/vendored_sdks/azure_identity" }
+oauth2 = { version = "5.0.0", default-features = false }
 
 [dev-dependencies]
 tempfile = "3.18"

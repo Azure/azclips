@@ -51,7 +51,7 @@ impl Login {
             self.scope.clone(),
         );
         
-        match profile.login(interactive, Some(self.use_device_code)) {
+        match profile.login(interactive, Some(self.use_device_code)).await {
             Ok(_) => {
                 Ok(Some("Login successful".to_string()))
             },

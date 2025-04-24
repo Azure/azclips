@@ -39,7 +39,7 @@ impl Profile {
         }
     }
 
-    pub fn login(&mut self,
+    pub async fn login(&mut self,
         interactive: bool,
         use_device_code: Option<bool>,
     ) -> Result<(), &'static str> {
@@ -53,7 +53,7 @@ impl Profile {
             if use_device_code {
                 self.login_with_device_code()?;
             } else {
-                self.login_with_auth_code()?;
+                self.login_with_auth_code().await?;
             }
         } else {
             // Todo: Implement non-interactive login logic
@@ -65,9 +65,27 @@ impl Profile {
         Ok(())
     }
 
-    fn login_with_auth_code(&mut self) -> Result<(), &'static str> {
+    async fn login_with_auth_code(&mut self) -> Result<(), &'static str> {
         println!("Logging in interactively...");
-        Ok(())
+        
+        let username = std::env::var("USERNAME").unwrap_or_else(|_| "user".to_string());
+        let user_credential = crate::top::auth::credentials::UserCredential::new(Some(username));
+        
+        // No block_on needed, just await
+        let token_result = user_credential.acquire_token().await;
+        
+        match token_result {
+            Ok(token) => {
+                println!("Successfully authenticated. Token expires on: {}", token.expires_on);
+                // Store the token for later use, possibly in self or some other storage
+                // self.token = Some(token);  // You would need to add a token field to Profile
+                Ok(())
+            },
+            Err(e) => {
+                eprintln!("Authentication failed: {}", e);
+                Err("Failed to acquire authentication token")
+            }
+        }
     }
 
     fn login_with_device_code(&mut self) -> Result<(), &'static str> {
@@ -86,8 +104,9 @@ impl Profile {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_login_logout() {
+    // Use tokio's async test framework
+    #[tokio::test]
+    async fn test_login_logout() {
         // Create Authority using the new method
         let authority = Authority::new(
             Some("https://authority.example.com".to_string()),
@@ -101,15 +120,18 @@ mod tests {
         );
         
         // Test login (both interactive and non-interactive)
-        assert!(profile.login(true, None).is_ok());
+        // Now we can await the async function
+        assert!(profile.login(true, None).await.is_ok());
+        
         // For thorough testing, we could reset and try non-interactive mode
         assert!(profile.logout().is_ok());
-        assert!(profile.login(false, None).is_ok());
+        assert!(profile.login(false, None).await.is_ok());
         
         // Test logout
         assert!(profile.logout().is_ok());
     }
     
+    // This test doesn't involve async code, so it can remain as is
     #[test]
     fn test_authority_new() {
         // Test with default values
