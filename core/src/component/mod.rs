@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use async_trait::async_trait;
 
 use crate::config;
-use crate::error::{AzError, AzResult};
+use crate::error::AzError;
 use crate::pb::component as pb;
 
 #[async_trait]
@@ -16,7 +16,7 @@ pub trait AzComponentCtx: Send + Sync + 'static {
     async fn get_core_info<'a>(
         &'a self,
         request: pb::GetCoreInfoRequest,
-    ) -> AzResult<pb::GetCoreInfoResponse>;
+    ) -> Result<pb::GetCoreInfoResponse, AzError>;
 }
 
 /// the trait of a component
@@ -31,11 +31,8 @@ pub trait AzComponent<T: AzComponentCtx>: Send + Sync + 'static {
 
     /// check a cmd uri is available or not
     /// if a cmd uri has positional arguments as segments part,it will be converted to params in the query part in the returned cmd uri
-    async fn check(
-        &self,
-        ctx: &T,
-        request: pb::CheckRequest,
-    ) -> Result<pb::CheckResponse, AzError>;
+    async fn check(&self, ctx: &T, request: pb::CheckRequest)
+        -> Result<pb::CheckResponse, AzError>;
 
     /// get the interface of a cmd uri
     async fn interface(

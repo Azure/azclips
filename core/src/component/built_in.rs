@@ -1,7 +1,12 @@
-use crate::{cmd_uri::CmdUri, config::component::ConfigComponent, top::TopComponent};
+use crate::{
+    account::component::AccountComponent, cmd_uri::CmdUri, config::component::ConfigComponent,
+    top::TopComponent,
+};
 use serde::{de::Error, ser::SerializeMap, Deserialize};
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr, sync::Arc};
 use strum_macros::{Display, EnumIter};
+
+use super::{center::AzComponentCenter, AzComponent, AzComponentCtx};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, EnumIter, Display)]
 pub enum AzBuildIn {
@@ -9,15 +14,13 @@ pub enum AzBuildIn {
     Top,
     /// Manage the configuration.
     Config,
-    // /// Manage the Account information.
-    // Account,
+    /// Manage the Account information.
+    Account,
     // /// Manage the plugins.
     // Plugin,
 }
 
 impl AzBuildIn {
-    // /// cmd_uri: `cmd://azure/account/`
-    // const ACCOUNT_URI: &'static str = "cmd://azure/account/";
     // /// cmd_uri: `cmd://azure/plugin/`
     // const PLUGIN_URI: &'static str = "cmd://azure/plugin/";
 
@@ -25,7 +28,7 @@ impl AzBuildIn {
         match self {
             AzBuildIn::Top => TopComponent::uri(),
             AzBuildIn::Config => ConfigComponent::uri(),
-            // AzBuildIn::Account => CmdUri::from_str(Self::ACCOUNT_URI).unwrap(),
+            AzBuildIn::Account => AccountComponent::uri(),
             // AzBuildIn::Plugin => CmdUri::from_str(Self::PLUGIN_URI).unwrap(),
         }
     }
@@ -34,10 +37,25 @@ impl AzBuildIn {
         match uri.to_string().as_str() {
             s if s == TopComponent::URI => Some(Self::Top),
             s if s == ConfigComponent::URI => Some(Self::Config),
-            // s if s == Self::ACCOUNT_URI => Some(Self::Account),
+            s if s == AccountComponent::URI => Some(Self::Account),
             // s if s == Self::PLUGIN_URI => Some(Self::Plugin),
             _ => None,
         }
+    }
+}
+
+impl<T: AzComponentCtx> AzComponentCenter<T> {
+    pub(super) fn load_built_in_components(&mut self) {
+        self.built_ins
+            .insert(AzBuildIn::Top, Arc::new(Box::new(TopComponent::default())));
+        self.built_ins.insert(
+            AzBuildIn::Config,
+            Arc::new(Box::new(ConfigComponent::default())),
+        );
+        self.built_ins.insert(
+            AzBuildIn::Account,
+            Arc::new(Box::new(AccountComponent::default())),
+        );
     }
 }
 
