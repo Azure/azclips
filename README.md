@@ -13,12 +13,14 @@ This repository contains multiple Rust projects:
 
 ## Development
 
-### Prerequisites
+### Prerequisites in Ubuntu
 
-- Rust and Cargo (latest stable version)
-- An Azure account for testing
-- Install llvm
-- Install protobuf-compiler
+- install dependencies
+```bash
+sudo apt install -y build-essential libssl-dev pkg-config llvm protobuf-compiler
+```
+- [Install Rust](https://www.rust-lang.org/tools/install)
+
 
 ### Building
 
