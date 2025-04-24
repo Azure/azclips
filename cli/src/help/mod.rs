@@ -1,5 +1,6 @@
 pub mod format;
-mod template;
+mod table;
+mod templates;
 
 use az_core::{
     argparse::{arg::CmdArgWrapper, partial::SHPartialKeys},
@@ -11,6 +12,13 @@ use az_core::{
 use format::default_help_formatter;
 
 use crate::CmdRawArg;
+
+
+/// Minimum width for the detail content
+/// This is used after considering the intent
+/// Use infinite when the width is not available
+pub const MIN_DETAIL_WIDTH: usize = 20;
+
 
 /// check if the `-h` or `--help` flag is present in the raw args
 pub fn has_help_flag(raw_args: &[CmdRawArg]) -> bool {

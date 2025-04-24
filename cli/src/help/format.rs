@@ -2,7 +2,7 @@ use az_core::pb::{command::{CmdArg, CmdInterface}, component::ComponentMetadata}
 
 use crate::output::StyledString;
 
-use super::template::{ArgTemplate, CmdTemplate, HardCodeArgTemplate, HardCodeCmdTemplate};
+use super::templates::{ArgTemplate, CmdTemplate, HardCodeArgTemplate, HardCodeCmdTemplate};
 
 pub fn default_help_formatter() -> HelpFormatter<HardCodeCmdTemplate, HardCodeArgTemplate> {
     HelpFormatter {

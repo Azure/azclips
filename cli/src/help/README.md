@@ -1,12 +1,24 @@
 # Help Display
 
-## Sections Definition
+## Arg Help Design
 
 ```text
 # Usage
-[Level Name]
-    [formatted uri] : [Short Help]
+Argument
+    Arg Name - [Type] : [Short Help]
+                        Default: [default]
+    [Options] [Options]
+    [Tag] [Tag]
         [Long Help]
+
+[Type] - [Format]
+    Enum
+        [Enum Key] : [Enum Value]
+    Protocol : XXX
+
+Props - [Group]
+
+Additional Props = [Group]
 
 # Body
 [Sub Level] (In Arg/Cmd Group, the align is the same)
@@ -21,20 +33,6 @@
 # PostHelp
 [Global Comment(az find)]
 ```
-
-### Section
-
-The help message is composed by several section. In the same section, tabled lines should be aligned.
-
-A section have several groups.
-
-### Group
-
-A group contains a header and several items.
-
-### Item
-
-A item contains a body and a detail.
 
 ## Service Properties
 
@@ -159,50 +157,6 @@ A item contains a body and a detail.
 - `level/args/arg_type(array)/format/max_length`
 - `level/args/arg_type(any_type)`
 
-## Arg Help Design
-
-```text
-# Usage
-Argument
-    Arg Name - [Type] : [Short Help]
-    [Options] [Options]
-    [Tag] [Tag]
-        [Long Help]
-
-[Type] - [Format]
-    Enum
-        [Enum Key] : [Enum Value]
-    Protocol : XXX
-
-Props - [Group]
-
-Additional Props = [Group]
-
-# Body
-[Sub Level] (In Arg/Cmd Group, the align is the same)
-    [Short Options(one per line)] [Long Options(one per line) or Arg Name] [Tags(one per line)] [:] [Short Help]
-        [More Information]
-
-# Example
-[Examples]
-    [Example Description]
-        [Example Command]
-
-# PostHelp
-[Global Comment(az find)]
-```
-
-## API Design
-
-CmdTemplate
-
-CmdTemplate.render(cmd, terminal width)
-
-ArgTemplate
-
-ArgTemplate.render(arg, terminal width)
-
 ## TODO
 
-- Positional Arguments
 - Global Arguments
