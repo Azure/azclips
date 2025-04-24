@@ -28,6 +28,7 @@ pub fn authorize(
     redirect_url: Url,
     scopes: &[&str],
     prompt: Option<&str>,
+    login_hint: Option<&str>,
 ) -> AuthorizationCodeFlow {
     let auth_url = oauth2::AuthUrl::from_url(
         Url::parse(&format!(
@@ -69,6 +70,10 @@ pub fn authorize(
 
     if let Some(prompt_value) = prompt {
         auth_url_builder = auth_url_builder.add_extra_param("prompt", prompt_value);
+    }
+
+    if let Some(login_hint_value) = login_hint {
+        auth_url_builder = auth_url_builder.add_extra_param("login_hint", login_hint_value);
     }
 
     let (authorize_url, csrf_state) = auth_url_builder.url();

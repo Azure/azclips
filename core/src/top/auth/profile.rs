@@ -3,6 +3,7 @@
 use oauth2::AccessToken;
 
 use crate::top::auth::util::can_launch_browser;
+use crate::top::auth::credentials::UserCredential;
 
 // Define Azure cloud host endpoints, not support by azure_identity yet
 // pub const AZURE_US_GOVERNMENT: &str = "login.microsoftonline.us";
@@ -83,8 +84,7 @@ impl Profile {
     ) -> Result<(), &'static str> {
         println!("Logging in interactively...");
         
-        let username = std::env::var("USERNAME").unwrap_or_else(|_| "user".to_string());
-        let user_credential = crate::top::auth::credentials::UserCredential::new(Some(username));
+        let user_credential = UserCredential::new(None);
         
         let token_result = user_credential.acquire_token(scopes, tenant_id).await;
         

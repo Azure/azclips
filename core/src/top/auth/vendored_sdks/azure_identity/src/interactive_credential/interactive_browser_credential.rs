@@ -60,6 +60,7 @@ impl InteractiveBrowserCredential {
         &self,
         scopes: Option<&[&str]>,
         prompt: Option<&str>,
+        login_hint: Option<&str>,
     ) -> azure_core::Result<StandardTokenResponse<EmptyExtraTokenFields, BasicTokenType>> {
         let mut combined_scopes = DEFAULT_SCOPE_ARR.to_vec();
 
@@ -81,6 +82,7 @@ impl InteractiveBrowserCredential {
             self.redirect_url.clone(),
             &combined_scopes,
             prompt,
+            login_hint,
         );
 
         println!("Waiting for authentication in browser. If the browser doesn't open automatically, please go to: {}", 
@@ -132,7 +134,7 @@ mod tests {
         let credential = InteractiveBrowserCredential::new(None, None, None)
             .expect("Failed to create credential");
 
-        let token_response = credential.get_token(None, None).await;
+        let token_response = credential.get_token(None, None, None).await;
         debug!("Authentication result: {:#?}", token_response);
         assert!(token_response.is_ok());
     }
