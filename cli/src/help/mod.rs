@@ -37,14 +37,14 @@ pub(crate) async fn show_command_help_async(cmd_uri: CmdUri) -> Result<(), AzErr
     if cmd_uri.executable() {
         let cmd_interface = core.get_cmd_interface(&cmd_uri).await?;
         // TODO: global arguments
-        for line in default_help_formatter().format(&cmd_interface, None, term_width) {
+        for line in default_help_formatter().format_cmd(&cmd_interface, None, term_width) {
             println!("{}", line);
         }
         Ok(())
     } else {
         let cmd_interface = core.get_cmd_interface(&cmd_uri).await?;
         let sub_services = core.get_metadata_of_sub_components(&cmd_uri).await?;
-        for line in default_help_formatter().format(&cmd_interface, Some(Box::new(sub_services.values())), term_width) {
+        for line in default_help_formatter().format_cmd(&cmd_interface, Some(Box::new(sub_services.values())), term_width) {
             println!("{}", line);
         }
         Ok(())
@@ -67,5 +67,9 @@ pub(crate) async fn show_command_arg_help_async(
 
     let wrapper = CmdArgWrapper::build_by_keys(&cmd, &keys)?;
     let arg = wrapper.arg();
-    todo!("show the help of the argument")
+    let term_width = crossterm::terminal::size().ok().map(|(w, _)| w as usize);
+    for line in default_help_formatter().format_arg(arg, term_width) {
+        println!("{}", line);
+    }
+    Ok(())
 }

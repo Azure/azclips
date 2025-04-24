@@ -1,24 +1,27 @@
-use az_core::pb::{command::CmdInterface, component::ComponentMetadata};
+use az_core::pb::{command::{CmdArg, CmdInterface}, component::ComponentMetadata};
 
 use crate::output::StyledString;
 
-use super::template::{CmdTemplate, HardCodeCmdTemplate};
+use super::template::{ArgTemplate, CmdTemplate, HardCodeArgTemplate, HardCodeCmdTemplate};
 
-pub fn default_help_formatter() -> HelpFormatter<HardCodeCmdTemplate> {
+pub fn default_help_formatter() -> HelpFormatter<HardCodeCmdTemplate, HardCodeArgTemplate> {
     HelpFormatter {
         usage_template: HardCodeCmdTemplate {
+            intent: 2,
+        },
+        arg_template: HardCodeArgTemplate {
             intent: 2,
         },
     }
 }
 
-pub struct HelpFormatter<CMD> where CMD: CmdTemplate {
+pub struct HelpFormatter<CMD, ARG> where CMD: CmdTemplate, ARG: ArgTemplate {
     pub usage_template: CMD,
+    pub arg_template: ARG,
 }
 
-impl<CMD> HelpFormatter<CMD> where CMD: CmdTemplate {
-    // pub fn format(&self) -> AzResult<String> {
-    pub fn format<'a>(
+impl<CMD, ARG> HelpFormatter<CMD, ARG> where CMD: CmdTemplate, ARG: ArgTemplate {
+    pub fn format_cmd<'a>(
         &self,
         cmd: &CmdInterface,
         components: Option<Box<dyn Iterator<Item = &'a ComponentMetadata> + 'a>>,
@@ -26,6 +29,15 @@ impl<CMD> HelpFormatter<CMD> where CMD: CmdTemplate {
     ) -> Vec<StyledString> {
         self.usage_template
             .render(cmd, components, term_width)
+    }
+
+    pub fn format_arg(
+        &self,
+        arg: &CmdArg,
+        term_width: Option<usize>,
+    ) -> Vec<StyledString> {
+        self.arg_template
+            .render(arg, term_width)
     }
 }
 
@@ -92,7 +104,7 @@ mod tests {
         };
 
         let formatter = default_help_formatter();
-        let formatted = formatter.format(&cmd, None, None);
+        let formatted = formatter.format_cmd(&cmd, None, None);
 
         for line in &formatted {
             println!("{}", line);
