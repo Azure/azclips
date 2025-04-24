@@ -78,7 +78,7 @@ impl CmdTemplate for HardCodeCmdTemplate {
             let short_help_lines = short_help.split_lines();
             let version_len = version.as_ref().map(|v| v.len() + 3).unwrap_or(0);
             let width = term_width
-                .map(|tw| tw.saturating_sub(self.intent + cmd_sig.len() + version_len + 3))
+                .map(|tw| tw.saturating_sub(self.intent + cmd_sig.len() + version_len + 6))
                 .filter(|w| *w > MIN_DETAIL_WIDTH);
             sig_row.append_styled(short_help_lines, width);
         };
