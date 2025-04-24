@@ -28,7 +28,8 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 azure_identity = { path = "src/top/auth/vendored_sdks/azure_identity" }
-oauth2 = { version = "5.0.0", default-features = false }
+oauth2 = { workspace = true }
+chrono = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3.18"

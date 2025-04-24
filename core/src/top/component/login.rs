@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{str::FromStr, vec};
 
 use tracing::error;
 
@@ -16,7 +16,7 @@ use crate::{
 
 #[derive(Debug, Default)]
 pub(super) struct Login {
-    scope: Option<String>,
+    scope: Option<Vec<String>>,
     tenant_id: Option<String>,
     username: Option<String>,
     password: Option<String>,
@@ -48,10 +48,10 @@ impl Login {
         
         let mut profile: Profile = Profile::new(
             authority,
-            self.scope.clone(),
+            None,
         );
         
-        match profile.login(interactive, Some(self.use_device_code)).await {
+        match profile.login(interactive, Some(self.use_device_code), self.tenant_id.clone(), self.scope.clone()).await {
             Ok(_) => {
                 Ok(Some("Login successful".to_string()))
             },

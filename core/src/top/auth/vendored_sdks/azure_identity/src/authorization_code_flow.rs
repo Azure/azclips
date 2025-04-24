@@ -12,7 +12,7 @@ use azure_core::{
     error::{ErrorKind, ResultExt},
     http::{HttpClient, Url},
 };
-use oauth2::{basic::BasicClient, AsyncHttpClient, EndpointNotSet, EndpointSet, HttpRequest, Scope};
+use oauth2::{basic::BasicClient, EndpointNotSet, EndpointSet, HttpRequest, Scope};
 use oauth2::{ClientId, ClientSecret};
 use std::sync::Arc;
 
@@ -105,10 +105,6 @@ impl AuthorizationCodeFlow {
     ) -> azure_core::Result<
         oauth2::StandardTokenResponse<oauth2::EmptyExtraTokenFields, oauth2::basic::BasicTokenType>,
     > {
-        //        let oauth_http_client = Oauth2HttpClient::new(http_client.clone());
-        //        let client = |request: HttpRequest| oauth_http_client.request(request);
-
-        //improve problem with implementing the `send`
         let oauth_http_client = Arc::new(Oauth2HttpClient::new(http_client.clone()));
         let client = {
             let oauth_http_client = oauth_http_client.clone();
