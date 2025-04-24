@@ -210,6 +210,17 @@ impl CmdTemplate for HardCodeCmdTemplate {
             vec![StyledString::from_content(&cmd_sig.clone().bold())],
             None,
         );
+        if let Some(Level::Command(cmd)) = &cmd.level {
+            if !cmd.positional_args.is_empty() {
+                sig_row.append_one_line(" ");
+                let p_args = cmd.positional_args.iter().map(|arg| format!("<{}>", arg)).collect::<Vec<_>>()
+                    .join(" ");
+                sig_row.append_styled(
+                    vec![StyledString::from_content(&p_args.bold())],
+                    None,
+                );
+            }
+        }
         let version = match &cmd.level {
             Some(Level::Command(cmd)) => Some(cmd.version.clone()),
             Some(Level::Group(_)) => None,
@@ -442,11 +453,19 @@ impl ArgTemplate for HardCodeArgTemplate {
             .unwrap_or(0);
         if let Some(short) = arg.help.as_ref().map(|help| &help.short) {
             arg_name_row.append_one_line(" - ");
+            let mut description = vec![];
             let short_help = StyledString::from_content(&short.clone().italic());
             let width = term_width
                 .map(|tw| tw.saturating_sub(self.intent + arg_name_len + type_len + 3))
                 .filter(|w| *w > MIN_TERM_WIDTH);
-            arg_name_row.append_styled(short_help.split_lines(), width);
+            description.append(&mut short_help.split_lines());
+            if let Some(default) = &arg.default {
+                let value = default.value.clone().blue().on_yellow();
+                let styled_default =
+                    StyledString::from_vec(vec!["Default: ".to_owned().stylize(), value]);
+                description.push(styled_default);
+            }
+            arg_name_row.append_styled(description, width);
         }
         result.append(&mut arg_name_row.render());
 
