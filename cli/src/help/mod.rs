@@ -52,7 +52,7 @@ pub(crate) async fn show_command_help_async(cmd_uri: CmdUri) -> Result<(), AzErr
     } else {
         let cmd_interface = core.get_cmd_interface(&cmd_uri).await?;
         let sub_components= core.get_metadata_of_sub_components(&cmd_uri).await?;
-        for line in default_help_formatter().format_cmd(&cmd_interface, Some(Box::new(sub_services.values())), term_width) {
+        for line in default_help_formatter().format_cmd(&cmd_interface, Some(Box::new(sub_components.values())), term_width) {
             println!("{}", line);
         }
         Ok(())
