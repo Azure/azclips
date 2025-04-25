@@ -39,7 +39,7 @@ pub fn run(mut args: Args) {
         cmd_uri.push(arg.to_lowercase());
         next = args.next();
     }
-    let cmd_uri = CmdUri::new(cmd_uri, false); // here we assume the command is executable, and the service will correct it if it's not a executable command
+    let cmd_uri = CmdUri::new(cmd_uri, false); // here we assume the command is not executable, and the service will correct it if it's a executable command
 
     // parse cmd args
     let mut raw_args = Vec::new();
