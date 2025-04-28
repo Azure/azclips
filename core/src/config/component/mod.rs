@@ -1,7 +1,7 @@
 mod get;
 mod set;
 
-use std::{future::Future, str::FromStr};
+use std::str::FromStr;
 
 use async_trait::async_trait;
 use get::GetConfig;
@@ -59,7 +59,7 @@ impl ConfigComponent {
 impl<T: AzComponentCtx> AzComponent<T> for ConfigComponent {
     async fn interface(
         &self,
-        ctx: &T,
+        _: &T,
         request: InterfaceRequest,
     ) -> Result<InterfaceResponse, AzError> {
         let skip = ConfigComponent::uri().segments().count();
@@ -79,11 +79,7 @@ impl<T: AzComponentCtx> AzComponent<T> for ConfigComponent {
         Ok(InterfaceResponse { interface })
     }
 
-    async fn execute(
-        &self,
-        ctx: &T,
-        request: ExecuteRequest,
-    ) -> Result<ExecuteResponse, AzError> {
+    async fn execute(&self, ctx: &T, request: ExecuteRequest) -> Result<ExecuteResponse, AzError> {
         let skip = ConfigComponent::uri().segments().count();
         let cmd_uri = CmdUri::from_str(&request.uri).unwrap();
         let segments = cmd_uri.segments().skip(skip).collect::<Vec<_>>().join("/");
@@ -120,29 +116,21 @@ impl<T: AzComponentCtx> AzComponent<T> for ConfigComponent {
         }
     }
 
-    async fn metadata(
-        &self,
-        _: &T,
-        _: MetadataRequest,
-    ) -> Result<MetadataResponse, AzError> {
+    async fn metadata(&self, _: &T, _: MetadataRequest) -> Result<MetadataResponse, AzError> {
         Ok(MetadataResponse {
             metadata: Some(ComponentMetadata {
                 name: "config".to_string(),
                 version: VERSION.to_string(),
                 uri: Self::uri().to_string(),
                 help: Some(CmdHelp {
-                        short: "Manage Azure configuration".to_string(),
-                        long: None,
-                    }),
+                    short: "Manage Azure configuration".to_string(),
+                    long: None,
                 }),
-            })
+            }),
+        })
     }
 
-    async fn check(
-        &self,
-        _: &T,
-        request: CheckRequest,
-    ) -> Result<CheckResponse, AzError> {
+    async fn check(&self, _: &T, request: CheckRequest) -> Result<CheckResponse, AzError> {
         let skip = ConfigComponent::uri().segments().count();
         let cmd_uri = CmdUri::from_str(&request.uri).unwrap();
         let mut segments = cmd_uri.segments().skip(skip);

@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
+use crate::account::component::AccountComponent;
 use crate::cmd_uri::CmdUri;
 use crate::config::component::ConfigComponent;
 use crate::error::AzInternalError;
@@ -16,7 +17,7 @@ use strum::IntoEnumIterator;
 use tokio::fs;
 use tracing::error;
 
-use super::built_in::{self, AzBuildIn};
+use super::built_in::AzBuildIn;
 use super::built_in::{deserialize_az_build_in_component, serialize_az_build_in_component};
 use super::{get_component_dir, AzComponent, AzComponentCtx};
 
@@ -34,11 +35,11 @@ pub enum AzComponentInfo {
 /// The center to manage the components
 pub struct AzComponentCenter<T: AzComponentCtx> {
     /// the route table using the component uri segments as the key, it is used to find the component based on the cmd_uri
-    route_table: HashMap<String, AzComponentInfo>,
+    pub(super) route_table: HashMap<String, AzComponentInfo>,
     /// the built-in components that are loaded
-    built_ins: HashMap<AzBuildIn, Arc<Box<dyn AzComponent<T>>>>,
+    pub(super) built_ins: HashMap<AzBuildIn, Arc<Box<dyn AzComponent<T>>>>,
     /// the plugins that are loaded, the key is the plugin name
-    plugins: HashMap<String, Arc<Box<dyn AzComponent<T>>>>,
+    pub(super) plugins: HashMap<String, Arc<Box<dyn AzComponent<T>>>>,
 }
 
 impl<T: AzComponentCtx> AzComponentCenter<T> {
@@ -60,14 +61,7 @@ impl<T: AzComponentCtx> AzComponentCenter<T> {
             center.rebuild_route_table().await?;
             center
         };
-
-        center
-            .built_ins
-            .insert(AzBuildIn::Top, Arc::new(Box::new(TopComponent::default())));
-        center.built_ins.insert(
-            AzBuildIn::Config,
-            Arc::new(Box::new(ConfigComponent::default())),
-        );
+        center.load_built_in_components();
 
         Ok(center)
     }
