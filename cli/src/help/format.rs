@@ -24,7 +24,7 @@ impl<CMD, ARG> HelpFormatter<CMD, ARG> where CMD: CmdTemplate, ARG: ArgTemplate 
     pub fn format_cmd<'a>(
         &self,
         cmd: &CmdInterface,
-        components: Option<Box<dyn Iterator<Item = &'a ComponentMetadata> + 'a>>,
+        components: impl IntoIterator<Item = &'a ComponentMetadata>,
         term_width: Option<usize>,
     ) -> Vec<StyledString> {
         self.usage_template

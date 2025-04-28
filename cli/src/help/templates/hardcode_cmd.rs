@@ -23,7 +23,7 @@ impl CmdTemplate for HardCodeCmdTemplate {
     fn render<'a>(
         &self,
         cmd: &CmdInterface,
-        components: Option<Box<dyn Iterator<Item = &'a ComponentMetadata> + 'a>>,
+        components: impl IntoIterator<Item = &'a ComponentMetadata>,
         term_width: Option<usize>,
     ) -> Vec<StyledString> {
         let mut result = vec![];
@@ -193,26 +193,25 @@ impl CmdTemplate for HardCodeCmdTemplate {
                 if !group_rows.is_empty() {
                     help_table_groups.insert("Command Group".to_string(), group_rows);
                 }
-                if let Some(components) = components {
-                    let component_rows = components
-                        .map(|component| HelpTableLine {
-                            short: vec![],
-                            name: vec![StyledString::from_content(&component.name.clone().bold())],
-                            tags: vec![],
-                            description: component
-                                .help
-                                .as_ref()
-                                .map(|help| &help.short)
-                                .map(|desc| {
-                                    StyledString::from_content(&desc.clone().italic()).split_lines()
-                                })
-                                .unwrap_or(vec![]),
-                            detail: vec![],
-                        })
-                        .collect::<Vec<_>>();
-                    if !component_rows.is_empty() {
-                        help_table_groups.insert("Service".to_string(), component_rows);
-                    }
+                let component_rows = components
+                    .into_iter()
+                    .map(|component| HelpTableLine {
+                        short: vec![],
+                        name: vec![StyledString::from_content(&component.name.clone().bold())],
+                        tags: vec![],
+                        description: component
+                            .help
+                            .as_ref()
+                            .map(|help| &help.short)
+                            .map(|desc| {
+                                StyledString::from_content(&desc.clone().italic()).split_lines()
+                            })
+                            .unwrap_or(vec![]),
+                        detail: vec![],
+                    })
+                    .collect::<Vec<_>>();
+                if !component_rows.is_empty() {
+                    help_table_groups.insert("Service".to_string(), component_rows);
                 }
             }
             None => {}
