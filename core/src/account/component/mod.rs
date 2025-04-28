@@ -1,16 +1,21 @@
+mod get_access_token;
+
 use std::str::FromStr;
 
 use async_trait::async_trait;
+use get_access_token::GetAccessToken;
 
 use crate::{
     cmd_uri::CmdUri,
     component::{AzComponent, AzComponentCtx},
-    error::AzError,
+    error::{AzError, AzInternalError},
     pb::{
+        self,
         command::{cmd_interface, CmdComponent, CmdHelp, CmdInterface},
         component::{
-            CheckRequest, CheckResponse, ExecuteRequest, ExecuteResponse, InterfaceRequest,
-            InterfaceResponse, MetadataRequest, MetadataResponse,
+            execute_response, CheckRequest, CheckResponse, ComponentMetadata, ExecuteRequest,
+            ExecuteResponse, InterfaceRequest, InterfaceResponse, MetadataRequest,
+            MetadataResponse,
         },
     },
     VERSION,
@@ -27,16 +32,16 @@ impl AccountComponent {
         CmdUri::from_str(Self::URI).unwrap()
     }
 
-    pub fn get_cmd_interface(depth: Option<u32>) -> CmdInterface {
+    pub fn get_cmd_interface(_: Option<u32>) -> CmdInterface {
         let groups = vec![];
-        let commands = vec![];
+        let commands = vec![GetAccessToken::get_cmd_interface()];
         CmdInterface {
             name: "account".to_string(),
             help: Some(CmdHelp {
                 short: "Manage Azure subscription information.".to_string(),
                 long: None,
             }),
-            uri: Self::URI.to_string(),
+            uri: Self::uri().to_string(),
             level: Some(cmd_interface::Level::Component(CmdComponent {
                 version: VERSION.to_string(),
                 groups,
@@ -50,25 +55,73 @@ impl AccountComponent {
 impl<T: AzComponentCtx> AzComponent<T> for AccountComponent {
     async fn interface(
         &self,
-        ctx: &T,
+        _: &T,
         request: InterfaceRequest,
     ) -> Result<InterfaceResponse, AzError> {
-        todo!()
+        let skip = AccountComponent::uri().segments().count();
+        let cmd_uri = CmdUri::from_str(&request.uri).unwrap();
+        let depth = match request.depth {
+            0 => None, // None means all the depth
+            _ => Some(request.depth),
+        };
+
+        let segments = cmd_uri.segments().skip(skip).collect::<Vec<_>>().join("/");
+        let interface = match segments.as_str() {
+            "" => Some(AccountComponent::get_cmd_interface(depth)),
+            "get-access-token" => Some(GetAccessToken::get_cmd_interface()),
+            _ => None, // not found
+        };
+        Ok(InterfaceResponse { interface })
     }
 
     async fn execute(&self, ctx: &T, request: ExecuteRequest) -> Result<ExecuteResponse, AzError> {
-        todo!()
+        let skip = AccountComponent::uri().segments().count();
+        let cmd_uri = CmdUri::from_str(&request.uri).unwrap();
+        let segments = cmd_uri.segments().skip(skip).collect::<Vec<_>>().join("/");
+        match segments.as_str() {
+            "get-access-token" => {
+                let result = GetAccessToken::try_from(&request.params)?.run(ctx).await?;
+                if let Some(result) = result {
+                    Ok(ExecuteResponse {
+                        data: Some(execute_response::Data::Json(
+                            serde_json::to_vec(&result).unwrap(),
+                        )),
+                    })
+                } else {
+                    Ok(ExecuteResponse {
+                        data: Some(execute_response::Data::None(pb::component::None {})),
+                    })
+                }
+            }
+            _ => Err(AzInternalError::InvalidCmdUriError(request.uri.to_string()).into()),
+        }
     }
 
-    async fn metadata(
-        &self,
-        ctx: &T,
-        request: MetadataRequest,
-    ) -> Result<MetadataResponse, AzError> {
-        todo!()
+    async fn metadata(&self, _: &T, _: MetadataRequest) -> Result<MetadataResponse, AzError> {
+        Ok(MetadataResponse {
+            metadata: Some(ComponentMetadata {
+                name: "account".to_string(),
+                version: VERSION.to_string(),
+                uri: Self::uri().to_string(),
+                help: Some(CmdHelp {
+                    short: "Manage Azure subscription information.".to_string(),
+                    long: None,
+                }),
+            }),
+        })
     }
 
-    async fn check(&self, ctx: &T, request: CheckRequest) -> Result<CheckResponse, AzError> {
-        todo!()
+    async fn check(&self, _: &T, request: CheckRequest) -> Result<CheckResponse, AzError> {
+        let skip = AccountComponent::uri().segments().count();
+        let cmd_uri = CmdUri::from_str(&request.uri).unwrap();
+        let mut segments = cmd_uri.segments().skip(skip);
+        let uri = match segments.next() {
+            None => Some(AccountComponent::uri().with_version(VERSION)),
+            Some("get-access-token") => Some(GetAccessToken::uri().with_version(VERSION)),
+            _ => None,
+        };
+        Ok(CheckResponse {
+            uri: uri.map(|u| u.to_string()),
+        })
     }
 }
