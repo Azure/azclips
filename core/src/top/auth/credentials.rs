@@ -12,6 +12,7 @@ pub struct UserCredential {
 
 #[derive(Debug, Clone)]
 pub struct Token {
+    // Todo: Adjust the fields with Azure SDK's TokenResponse struct
     pub access_token: String,
     pub expires_on: String,
     pub expires_on_readable: String,
@@ -29,7 +30,7 @@ impl UserCredential {
     }
 
     pub async fn acquire_token(&self,
-        scopes: &[&str],
+        scopes: Vec<String>,
         tenant_id: String,
     ) -> Result<Token, AuthenticationError> {
         
@@ -41,9 +42,10 @@ impl UserCredential {
             AuthenticationError::AuthenticationFailed(format!("Failed to create interactive browser credential: {}", e))
         })?;
 
+        let scopes_as_str: Vec<&str> = scopes.iter().map(|s| s.as_str()).collect();
         let token_response = interactive_credentials
             .get_token(
-                Some(scopes),
+                Some(&scopes_as_str),
                 Some("select_account"),
                 self.username.as_deref()
             )
