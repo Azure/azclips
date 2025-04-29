@@ -1,24 +1,20 @@
-use std::{fmt::Display, mem, ops::Add};
+use std::{
+    fmt::Display,
+    mem,
+    ops::{Add, AddAssign},
+};
 
 use crossterm::style::StyledContent;
 use unicode_width::UnicodeWidthStr;
 
+pub use crossterm::style::{Attribute, Color, Stylize};
+
 #[derive(Debug, Clone)]
-pub struct StyledString(pub Vec<StyledContent<String>>);
+pub struct StyledString(Vec<StyledContent<String>>);
 
 impl StyledString {
     pub fn new() -> Self {
         StyledString(vec![])
-    }
-
-    pub fn from_content<S>(content: &StyledContent<S>) -> Self
-    where
-        S: Into<String> + Display,
-    {
-        StyledString(vec![StyledContent::new(
-            content.style().clone(),
-            content.content().to_string(),
-        )])
     }
 
     pub fn from_vec(vec: Vec<StyledContent<String>>) -> Self {
@@ -41,10 +37,10 @@ impl StyledString {
         self.0.push(part);
     }
 
-    pub fn split_lines(&self) -> Vec<Self> {
+    pub fn split_lines(self) -> Vec<Self> {
         let mut result = vec![];
         let mut cur_line = StyledString(vec![]);
-        for part in &self.0 {
+        for part in self.0 {
             let lines = part.content().lines().collect::<Vec<_>>();
             if lines.len() > 1 {
                 cur_line.append(StyledContent::new(
@@ -60,7 +56,7 @@ impl StyledString {
                     )]);
                 }
             } else {
-                cur_line.append(part.clone());
+                cur_line.append(part);
             }
         }
         if !cur_line.is_empty() {
@@ -111,7 +107,7 @@ impl StyledString {
         }
     }
 
-    pub fn soft_wrap(&self, width: Option<usize>) -> Vec<Self> {
+    pub fn soft_wrap(self, width: Option<usize>) -> Vec<Self> {
         self.split_lines()
             .into_iter()
             .flat_map(|line| line.soft_wrap_paragraph(width))
@@ -137,25 +133,118 @@ impl StyledString {
     }
 }
 
-impl<S> From<S> for StyledString
-where
-    S: Into<String>,
-{
-    fn from(value: S) -> Self {
+impl From<StyledContent<String>> for StyledString {
+    fn from(value: StyledContent<String>) -> Self {
+        StyledString(vec![value])
+    }
+}
+
+impl From<StyledContent<&str>> for StyledString {
+    fn from(value: StyledContent<&str>) -> Self {
         StyledString(vec![StyledContent::new(
-            crossterm::style::ContentStyle::default(),
-            value.into(),
+            *value.style(),
+            value.content().to_string(),
         )])
+    }
+}
+
+impl From<String> for StyledString {
+    fn from(value: String) -> Self {
+        StyledString(vec![value.stylize()])
+    }
+}
+
+impl From<&String> for StyledString {
+    fn from(value: &String) -> Self {
+        StyledString(vec![value.clone().stylize()])
+    }
+}
+
+impl From<&str> for StyledString {
+    fn from(value: &str) -> Self {
+        StyledString(vec![value.to_string().stylize()])
     }
 }
 
 impl Add for StyledString {
     type Output = Self;
 
-    fn add(self, rhs: Self) -> Self::Output {
-        let mut result = self.clone();
-        result.0.extend(rhs.0);
-        result
+    fn add(mut self, rhs: Self) -> Self::Output {
+        self.0.extend(rhs.0);
+        self
+    }
+}
+
+impl<T> Add<StyledContent<T>> for StyledString
+where
+    T: AsRef<str> + std::fmt::Display,
+{
+    type Output = Self;
+
+    fn add(mut self, rhs: StyledContent<T>) -> Self::Output {
+        let content = StyledContent::new(rhs.style().clone(), rhs.content().to_string());
+        self.0.push(content);
+        self
+    }
+}
+
+impl Add<String> for StyledString {
+    type Output = Self;
+
+    fn add(mut self, rhs: String) -> Self::Output {
+        self.0.push(rhs.stylize());
+        self
+    }
+}
+
+impl Add<&String> for StyledString {
+    type Output = Self;
+
+    fn add(self, rhs: &String) -> Self::Output {
+        self + rhs.clone()
+    }
+}
+
+impl Add<&str> for StyledString {
+    type Output = Self;
+
+    fn add(mut self, rhs: &str) -> Self::Output {
+        self.0.push(rhs.to_string().stylize());
+        self
+    }
+}
+
+impl AddAssign for StyledString {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0.extend(rhs.0);
+    }
+}
+
+impl<T> AddAssign<StyledContent<T>> for StyledString
+where
+    T: AsRef<str> + std::fmt::Display,
+{
+    fn add_assign(&mut self, rhs: StyledContent<T>) {
+        let content = StyledContent::new(rhs.style().clone(), rhs.content().to_string());
+        self.0.push(content);
+    }
+}
+
+impl AddAssign<String> for StyledString {
+    fn add_assign(&mut self, rhs: String) {
+        self.0.push(rhs.stylize());
+    }
+}
+
+impl AddAssign<&String> for StyledString {
+    fn add_assign(&mut self, rhs: &String) {
+        self.0.push(rhs.clone().stylize());
+    }
+}
+
+impl AddAssign<&str> for StyledString {
+    fn add_assign(&mut self, rhs: &str) {
+        self.0.push(rhs.to_string().stylize());
     }
 }
 
@@ -204,6 +293,7 @@ impl Display for StyledString {
         Ok(())
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -211,9 +301,8 @@ mod tests {
 
     #[test]
     fn test_styled_string_display() {
-        let style = ContentStyle::default();
-        let styled_content1 = StyledContent::new(style.clone(), "Hello".to_string());
-        let styled_content2 = StyledContent::new(style.clone(), " World".to_string());
+        let styled_content1 = "Hello".to_string().stylize();
+        let styled_content2 = " World".to_string().stylize();
         let styled_string = StyledString(vec![styled_content1, styled_content2]);
 
         assert_eq!(styled_string.to_string(), "Hello World");

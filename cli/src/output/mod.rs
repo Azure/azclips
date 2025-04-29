@@ -1,5 +1,5 @@
-pub mod styled;
-pub mod row;
+pub mod style;
+mod row;
 
-pub use styled::StyledString;
+pub use style::StyledString;
 pub use row::{Row, RowCell, Alignment};

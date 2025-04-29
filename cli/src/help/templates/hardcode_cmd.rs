@@ -1,13 +1,16 @@
 use std::collections::HashMap;
 
-use az_core::pb::{command::{cmd_interface::Level, CmdCommandGroup, CmdComponent, CmdInterface}, component::ComponentMetadata};
-use crossterm::style::Stylize;
+use az_core::pb::{
+    command::{cmd_interface::Level, CmdCommandGroup, CmdComponent, CmdInterface},
+    component::ComponentMetadata,
+};
 
-use crate::{help::{table::HelpTableLine, MIN_DETAIL_WIDTH}, output::{Row, StyledString}};
+use crate::{
+    help::{table::HelpTableLine, MIN_DETAIL_WIDTH},
+    output::{style::Stylize, Row, StyledString},
+};
 
 use super::CmdTemplate;
-
-
 
 pub struct HardCodeCmdTemplate {
     pub intent: usize,
@@ -41,10 +44,7 @@ impl CmdTemplate for HardCodeCmdTemplate {
         sig_row.append_sep(" ".repeat(self.intent));
         let uri_parts = cmd.uri.split('/').filter(|s| !s.is_empty()).skip(1);
         let cmd_sig = uri_parts.collect::<Vec<_>>().join(" ");
-        sig_row.append_styled(
-            vec![StyledString::from_content(&cmd_sig.clone().bold())],
-            None,
-        );
+        sig_row.append_styled(vec![cmd_sig.bold().into()], None);
         if let Some(Level::Command(cmd)) = &cmd.level {
             if !cmd.positional_args.is_empty() {
                 sig_row.append_one_line(" ");
@@ -54,7 +54,7 @@ impl CmdTemplate for HardCodeCmdTemplate {
                     .map(|arg| format!("<{}>", arg))
                     .collect::<Vec<_>>()
                     .join(" ");
-                sig_row.append_styled(vec![StyledString::from_content(&p_args.bold())], None);
+                sig_row.append_styled(vec![p_args.bold().into()], None);
             }
         }
         let version = match &cmd.level {
@@ -63,22 +63,18 @@ impl CmdTemplate for HardCodeCmdTemplate {
             Some(Level::Component(cmd)) => Some(cmd.version.clone()),
             None => None,
         };
-        if let Some(version) = &version {
+        if let Some(version) = version {
             sig_row.append_one_line(" - ");
-            sig_row.append_styled(
-                vec![StyledString::from_content(&version.clone().stylize())],
-                None,
-            );
+            sig_row.append_styled(vec![version.stylize().into()], None);
         }
 
         let short = cmd.help.as_ref().map(|help| &help.short);
         if let Some(short) = short {
             sig_row.append_one_line(" : ");
-            let short_help = StyledString::from_content(&short.clone().italic());
+            let short_help: StyledString = short.clone().italic().into();
             let short_help_lines = short_help.split_lines();
-            let version_len = version.as_ref().map(|v| v.len() + 3).unwrap_or(0);
             let width = term_width
-                .map(|tw| tw.saturating_sub(self.intent + cmd_sig.len() + version_len + 6))
+                .map(|tw| tw.saturating_sub(sig_row.term_len()))
                 .filter(|w| *w > MIN_DETAIL_WIDTH);
             sig_row.append_styled(short_help_lines, width);
         };
@@ -87,7 +83,7 @@ impl CmdTemplate for HardCodeCmdTemplate {
         if let Some(long) = cmd.help.as_ref().and_then(|help| help.long.as_ref()) {
             let mut long_help_row = Row::new();
             long_help_row.append_sep(" ".repeat(self.intent * 2));
-            let long_help = StyledString::from(long);
+            let long_help: StyledString = long.into();
             let long_help_lines = long_help.split_lines();
             let width = term_width
                 .map(|tw| tw.saturating_sub(self.intent * 2))
@@ -96,7 +92,7 @@ impl CmdTemplate for HardCodeCmdTemplate {
             result.append(&mut long_help_row.render());
         }
 
-        result.push(StyledString::from(""));
+        result.push("".into());
 
         let mut help_table_groups = HashMap::new();
         match &cmd.level {
@@ -107,21 +103,21 @@ impl CmdTemplate for HardCodeCmdTemplate {
                         .iter()
                         .filter(|o| o.len() == 1)
                         .map(|s| format!("-{}", s).bold())
-                        .map(|s| StyledString::from_vec(vec![s]))
+                        .map(|s| s.into())
                         .collect::<Vec<_>>();
                     let args = if arg.options.is_empty() {
-                        vec![StyledString::from(format!("<{}>", arg.var_name))]
+                        vec![format!("<{}>", arg.var_name).into()]
                     } else {
                         arg.options
                             .iter()
                             .filter(|o| o.len() != 1)
                             .map(|s| format!("--{}", s).bold())
-                            .map(|s| StyledString::from_vec(vec![s]))
+                            .map(|s| s.into())
                             .collect::<Vec<_>>()
                     };
                     let mut tags = vec![];
                     if arg.required {
-                        tags.push(StyledString::from_content(&"[Required]".yellow()));
+                        tags.push("[Required]".yellow().into());
                     }
                     let mut description = vec![];
                     if let Some(help) = &arg.help {
@@ -130,8 +126,7 @@ impl CmdTemplate for HardCodeCmdTemplate {
                     }
                     if let Some(default) = &arg.default {
                         let value = default.value.clone().blue().on_yellow();
-                        let styled_default =
-                            StyledString::from_vec(vec!["Default: ".to_owned().stylize(), value]);
+                        let styled_default = StyledString::from("Default: ".stylize()) + value;
                         description.push(styled_default);
                     }
                     let line = HelpTableLine {
@@ -157,15 +152,13 @@ impl CmdTemplate for HardCodeCmdTemplate {
                     .iter()
                     .map(|cmd| HelpTableLine {
                         short: vec![],
-                        name: vec![StyledString::from_content(&cmd.name.clone().bold())],
+                        name: vec![cmd.name.clone().bold().into()],
                         tags: vec![],
                         description: cmd
                             .help
                             .as_ref()
                             .map(|help| &help.short)
-                            .map(|desc| {
-                                StyledString::from_content(&desc.clone().italic()).split_lines()
-                            })
+                            .map(|desc| StyledString::from(desc.clone().italic()).split_lines())
                             .unwrap_or(vec![]),
                         detail: vec![],
                     })
@@ -177,15 +170,13 @@ impl CmdTemplate for HardCodeCmdTemplate {
                     .iter()
                     .map(|group| HelpTableLine {
                         short: vec![],
-                        name: vec![StyledString::from_content(&group.name.clone().bold())],
+                        name: vec![group.name.clone().bold().into()],
                         tags: vec![],
                         description: group
                             .help
                             .as_ref()
                             .map(|help| &help.short)
-                            .map(|desc| {
-                                StyledString::from_content(&desc.clone().italic()).split_lines()
-                            })
+                            .map(|desc| StyledString::from(desc.clone().italic()).split_lines())
                             .unwrap_or(vec![]),
                         detail: vec![],
                     })
@@ -197,14 +188,14 @@ impl CmdTemplate for HardCodeCmdTemplate {
                     .into_iter()
                     .map(|component| HelpTableLine {
                         short: vec![],
-                        name: vec![StyledString::from_content(&component.name.clone().bold())],
+                        name: vec![component.name.clone().bold().into()],
                         tags: vec![],
                         description: component
                             .help
                             .as_ref()
                             .map(|help| &help.short)
                             .map(|desc| {
-                                StyledString::from_content(&desc.clone().italic()).split_lines()
+                                StyledString::from(desc.clone().italic()).split_lines()
                             })
                             .unwrap_or(vec![]),
                         detail: vec![],
@@ -217,7 +208,7 @@ impl CmdTemplate for HardCodeCmdTemplate {
             None => {}
         }
         result.append(&mut HelpTableLine::render_groups(
-            &help_table_groups,
+            help_table_groups,
             term_width,
             self.intent,
         ));

@@ -23,33 +23,54 @@ pub enum RowCell {
 }
 
 impl RowCell {
-    pub fn from_string<S>(content: S) -> Self where S: ToString {
+    pub fn from_string<S>(content: S) -> Self
+    where
+        S: ToString,
+    {
         RowCell::OneLine(content.to_string())
     }
 
     pub fn from_styled(content: Vec<StyledString>, width: Option<usize>) -> Self {
         RowCell::Layout {
             align: Alignment::LEFT,
-            width: width,
+            width,
             content,
         }
     }
 
-    pub fn from_sep<S>(content: S) -> Self where S: ToString {
+    pub fn from_sep<S>(content: S) -> Self
+    where
+        S: ToString,
+    {
         RowCell::Sep(content.to_string())
     }
 }
 
-
 #[derive(Debug, Clone)]
-pub struct Row(pub Vec<RowCell>);
+pub struct Row(Vec<RowCell>);
 
 impl Row {
     pub fn new() -> Self {
         Row(vec![])
     }
 
-    pub fn append(&mut self, cell: RowCell) {
+    pub fn append(&mut self, mut cell: RowCell) {
+        if let RowCell::Layout {
+            align,
+            width,
+            content,
+        } = cell
+        {
+            let content = content
+                .into_iter()
+                .flat_map(|line| line.soft_wrap(width))
+                .collect();
+            cell = RowCell::Layout {
+                align,
+                width,
+                content,
+            };
+        }
         self.0.push(cell);
     }
 
@@ -57,86 +78,113 @@ impl Row {
         self.0.push(RowCell::from_styled(content, width));
     }
 
-    pub fn append_one_line<S>(&mut self, content: S) where S: ToString {
+    pub fn append_one_line<S>(&mut self, content: S)
+    where
+        S: ToString,
+    {
         self.0.push(RowCell::from_string(content));
     }
 
-    pub fn append_sep<S>(&mut self, content: S) where S: ToString {
+    pub fn append_sep<S>(&mut self, content: S)
+    where
+        S: ToString,
+    {
         self.0.push(RowCell::from_sep(content));
     }
 
-    pub fn soft_wrap(&self) -> Self {
-        let cells: Vec<RowCell> = self.0.iter().map(|cell| {
-            match cell {
-                RowCell::Layout { align, width, content } => {
-                    RowCell::Layout { align: *align, width: *width, content: content.iter().flat_map(|line| line.soft_wrap(*width)).collect() }
-                },
-                _ => {
-                    cell.clone()
-                }
-            }
-        }).collect();
-        Row(cells)
-    }
-
     pub fn line_num(&self) -> usize {
-        self.0.iter().filter_map(|cell| {
-            match cell {
-                RowCell::Layout { align: _align, width: _width, content } => {
-                    Some(content.len())
-                },
+        self.0
+            .iter()
+            .filter_map(|cell| match cell {
+                RowCell::Layout {
+                    align: _align,
+                    width: _width,
+                    content,
+                } => Some(content.len()),
                 _ => None,
-            }
-        }).max().unwrap_or(1)
+            })
+            .max()
+            .unwrap_or(1)
     }
 
-    pub fn render(&self) -> Vec<StyledString> {
-        let mut result = vec![];
-        let wrapped = self.soft_wrap();
-        let line_num = wrapped.line_num();
-        for i in 0..line_num {
-            let mut line = StyledString::new();
-            for cell in &wrapped.0 {
-                match cell {
-                    RowCell::Layout { align, width, content } => {
-                        if let Some(width) = width {
-                            if let Some(cell_line) = content.get(i) {
+    pub fn term_len(&self) -> usize {
+        self.0
+            .iter()
+            .map(|cell| match cell {
+                RowCell::Layout {
+                    align: _align,
+                    width: _width,
+                    content,
+                } => content.iter().map(|s| s.term_len()).sum(),
+                RowCell::OneLine(content) => content.width_cjk(),
+                RowCell::Sep(content) => content.width_cjk(),
+            })
+            .sum()
+    }
+
+    pub fn render(self) -> Vec<StyledString> {
+        let line_num = self.line_num();
+        let mut result = vec![StyledString::new(); line_num];
+        for cell in self.0 {
+            match cell {
+                RowCell::Layout {
+                    align,
+                    width,
+                    content,
+                } => {
+                    let content_height = content.len();
+                    content
+                        .into_iter()
+                        .enumerate()
+                        .for_each(|(idx, cell_line)| {
+                            let line = &mut result[idx];
+                            if let Some(width) = width {
                                 let padding = width.saturating_sub(cell_line.term_len());
                                 match align {
                                     Alignment::CENTER => {
                                         let left_padding = padding / 2;
                                         let right_padding = padding - left_padding;
-                                        line = line + " ".repeat(left_padding).into() + cell_line.clone() + " ".repeat(right_padding).into();
-                                    },
+                                        *line += " ".repeat(left_padding);
+                                        *line += cell_line;
+                                        *line += " ".repeat(right_padding);
+                                    }
                                     Alignment::LEFT => {
-                                        line = line + cell_line.clone() + " ".repeat(padding).into();
-                                    },
+                                        *line += cell_line;
+                                        *line += " ".repeat(padding);
+                                    }
                                     Alignment::RIGHT => {
-                                        line = line + " ".repeat(padding).into() + cell_line.clone();
-                                    },
+                                        *line += " ".repeat(padding);
+                                        *line += cell_line;
+                                    }
                                 }
                             } else {
-                                line = line + " ".repeat(*width).into();
+                                *line += cell_line;
                             }
-                        } else {
-                            if let Some(cell_line) = content.get(i) {
-                                line = line + cell_line.clone();
-                            }
+                        });
+                    if let Some(width) = width {
+                        for i in content_height..line_num {
+                            let line = &mut result[i];
+                            *line += " ".repeat(width);
                         }
-                    },
-                    RowCell::OneLine(content) => {
+                    }
+                }
+                RowCell::OneLine(content) => {
+                    for i in 0..line_num {
+                        let line = &mut result[i];
                         if i == 0 {
-                            line = line + content.clone().into();
+                            *line += content.clone();
                         } else {
-                            line = line + " ".repeat(content.width_cjk()).into();
+                            *line += " ".repeat(content.width_cjk());
                         }
-                    },
-                    RowCell::Sep(content) => {
-                        line = line + content.clone().into();
-                    },
+                    }
+                }
+                RowCell::Sep(content) => {
+                    for i in 0..line_num {
+                        let line = &mut result[i];
+                        *line += content.clone();
+                    }
                 }
             }
-            result.push(line);
         }
         result
     }
@@ -144,25 +192,28 @@ impl Row {
 
 impl Display for Row {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let wrapped = self.soft_wrap();
-        let line_num = wrapped.line_num();
+        let line_num = self.line_num();
         for num in 0..line_num {
-            for cell in &wrapped.0 {
+            for cell in &self.0 {
                 match cell {
-                    RowCell::Layout { align, width, content } => {
+                    RowCell::Layout {
+                        align,
+                        width,
+                        content,
+                    } => {
                         let cell_line = content.get(num);
                         if let Some(width) = width.as_ref() {
                             if let Some(cell_line) = cell_line {
                                 match align {
                                     Alignment::CENTER => {
                                         write!(formatter, "{:^width$}", cell_line, width = width)?;
-                                    },
+                                    }
                                     Alignment::LEFT => {
                                         write!(formatter, "{:<width$}", cell_line, width = width)?;
-                                    },
+                                    }
                                     Alignment::RIGHT => {
                                         write!(formatter, "{:>width$}", cell_line, width = width)?;
-                                    },
+                                    }
                                 }
                             } else {
                                 write!(formatter, "{}", " ".repeat(*width))?;
@@ -179,10 +230,10 @@ impl Display for Row {
                         } else {
                             write!(formatter, "{}", " ".repeat(content.width_cjk()))?;
                         }
-                    },
+                    }
                     RowCell::Sep(content) => {
                         write!(formatter, "{}", content)?;
-                    },
+                    }
                 }
             }
             writeln!(formatter)?;
@@ -193,32 +244,35 @@ impl Display for Row {
 
 #[cfg(test)]
 mod tests {
-    use crossterm::style::{ContentStyle, StyledContent};
-
     use super::*;
-    use crate::output::StyledString;
-    
 
     #[test]
     fn test_line_display() {
-        let style = ContentStyle::default();
         let cell1 = RowCell::Layout {
             align: Alignment::LEFT,
             width: Some(10),
-            content: vec![StyledString(vec![StyledContent::new(style.clone(), "Cell1".to_string())])],
+            content: vec!["Cell1".to_string().into()],
         };
         let cell2 = RowCell::Layout {
             align: Alignment::CENTER,
             width: Some(10),
-            content: vec![StyledString(vec![StyledContent::new(style.clone(), "Cell2".to_string())])],
+            content: vec!["Cell2".to_string().into()],
         };
         let cell3 = RowCell::Layout {
             align: Alignment::RIGHT,
             width: Some(10),
-            content: vec![StyledString(vec![StyledContent::new(style.clone(), "Cell3".to_string())])],
+            content: vec!["Cell3".to_string().into()],
         };
 
-        let line = Row(vec![RowCell::from_string("|"), cell1, RowCell::from_string("|"), cell2, RowCell::from_string("|"), cell3, RowCell::from_string("|")]);
+        let line = Row(vec![
+            RowCell::from_string("|"),
+            cell1,
+            RowCell::from_string("|"),
+            cell2,
+            RowCell::from_string("|"),
+            cell3,
+            RowCell::from_string("|"),
+        ]);
 
         let expected_output = "|Cell1     |  Cell2   |     Cell3|\n";
         assert_eq!(line.to_string(), expected_output);
@@ -230,26 +284,33 @@ mod tests {
 
     #[test]
     fn test_line_display_with_wrapping() {
-        let style = ContentStyle::default();
         let cell1 = RowCell::Layout {
             align: Alignment::LEFT,
             width: Some(5),
-            content: vec![StyledString(vec![StyledContent::new(style.clone(), "Hello\nWorld".to_string())])],
+            content: vec!["Hello\nWorld".into()],
         };
         let cell2 = RowCell::Layout {
             align: Alignment::CENTER,
             width: Some(5),
-            content: vec![StyledString(vec![StyledContent::new(style.clone(), "Rust".to_string())])],
+            content: vec!["Rust".into()],
         };
         let cell3 = RowCell::Layout {
             align: Alignment::RIGHT,
             width: Some(5),
-            content: vec![StyledString(vec![StyledContent::new(style.clone(), "New Programming Lang".to_string())])],
+            content: vec!["New Programming Lang".into()],
         };
 
-        let line = Row(vec![RowCell::from_sep("|"), cell1, RowCell::from_sep("|"), cell2, RowCell::from_sep("|"), cell3, RowCell::from_sep("|")]);
+        let mut line = Row::new();
+        line.append_sep("|");
+        line.append(cell1);
+        line.append_sep("|");
+        line.append(cell2);
+        line.append_sep("|");
+        line.append(cell3);
+        line.append_sep("|");
 
-        let expected_output = "|Hello|Rust |  New|\n|World|     |Programming|\n|     |     | Lang|\n";
+        let expected_output =
+            "|Hello|Rust |  New|\n|World|     |Programming|\n|     |     | Lang|\n";
         assert_eq!(line.to_string(), expected_output);
 
         let lines = line.render();

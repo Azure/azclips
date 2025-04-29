@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 
 use az_core::pb::command::{cmd_arg::ArgType, cmd_number_arg, cmd_string_arg, CmdArg, CmdNumberArg, CmdStringArg};
-use crossterm::style::Stylize;
 
-use crate::{help::{table::HelpTableLine, MIN_DETAIL_WIDTH}, output::{Row, StyledString}};
+use crate::{help::{table::HelpTableLine, MIN_DETAIL_WIDTH}, output::{Row, StyledString, style::Stylize}};
 
 use super::ArgTemplate;
 
@@ -40,10 +39,10 @@ impl Default for HardCodeArgTemplate {
 }
 
 fn handle_prop(prop: &CmdArg) -> HelpTableLine {
-    let name = vec![StyledString::from_content(&prop.name.clone().bold())];
+    let name = vec![prop.name.clone().bold().into()];
     let mut tags = vec![];
     if prop.required {
-        tags.push(StyledString::from_content(&"[Required]".yellow()));
+        tags.push("[Required]".yellow().into());
     }
     let mut description = vec![];
     if let Some(help) = &prop.help {
@@ -52,7 +51,7 @@ fn handle_prop(prop: &CmdArg) -> HelpTableLine {
     }
     if let Some(default) = &prop.default {
         let value = default.value.clone().blue().on_yellow();
-        let styled_default = StyledString::from_vec(vec!["Default: ".to_owned().stylize(), value]);
+        let styled_default = StyledString::new() + "Default: ".stylize() + value;
         description.push(styled_default);
     }
     HelpTableLine {
@@ -72,32 +71,25 @@ impl ArgTemplate for HardCodeArgTemplate {
         let mut arg_name_row = Row::new();
         arg_name_row.append_sep(" ".repeat(self.intent));
         arg_name_row.append_styled(
-            vec![StyledString::from_content(&arg.name.clone().bold())],
+            vec![arg.name.clone().bold().into()],
             None,
         );
-        let arg_name_len = arg.name.len();
         if let Some(arg_type) = &arg.arg_type {
             arg_name_row.append_one_line(" : ");
-            let arg_type = StyledString::from_content(&format!("{}", arg_type).italic());
-            arg_name_row.append_styled(arg_type.split_lines(), None);
+            let arg_type = format!("{}", arg_type).italic().into();
+            arg_name_row.append_styled(vec![arg_type], None);
         }
-        let type_len = arg
-            .arg_type
-            .as_ref()
-            .map(|t| t.to_string().len() + 3)
-            .unwrap_or(0);
         if let Some(short) = arg.help.as_ref().map(|help| &help.short) {
             arg_name_row.append_one_line(" - ");
             let mut description = vec![];
-            let short_help = StyledString::from_content(&short.clone().italic());
-            let width = term_width
-                .map(|tw| tw.saturating_sub(self.intent + arg_name_len + type_len + 3))
+            let short_help: StyledString = short.clone().italic().into();
+            let width: Option<usize> = term_width
+                .map(|tw| tw.saturating_sub(arg_name_row.term_len()))
                 .filter(|w| *w > MIN_DETAIL_WIDTH);
             description.append(&mut short_help.split_lines());
             if let Some(default) = &arg.default {
                 let value = default.value.clone().blue().on_yellow();
-                let styled_default =
-                    StyledString::from_vec(vec!["Default: ".to_owned().stylize(), value]);
+                let styled_default = StyledString::new() + "Default: ".stylize() + value;
                 description.push(styled_default);
             }
             arg_name_row.append_styled(description, width);
@@ -117,8 +109,7 @@ impl ArgTemplate for HardCodeArgTemplate {
                 })
                 .collect::<Vec<_>>();
             options.sort_by_key(|o| o.len());
-            let options_line = options.join(" ");
-            let options_line = StyledString::from_content(&options_line.bold());
+            let options_line = options.join(" ").bold().into();
             let mut options_row = Row::new();
             options_row.append_sep(" ".repeat(self.intent));
             options_row.append_styled(
@@ -168,7 +159,7 @@ impl ArgTemplate for HardCodeArgTemplate {
                     if let Some(enum_type) = r#enum {
                         for item in &enum_type.items {
                             enum_lines.push(HelpTableLine {
-                                name: vec![StyledString::from_content(&item.name.clone().bold())],
+                                name: vec![item.name.clone().bold().into()],
                                 description: vec![StyledString::from(&item.value)],
                                 ..Default::default()
                             });
@@ -541,7 +532,7 @@ impl ArgTemplate for HardCodeArgTemplate {
                     " ".repeat(self.intent)
                 )));
                 let mut enum_table = HelpTableLine::render_table(
-                    &enum_lines,
+                    enum_lines,
                     term_width,
                     self.intent * 2,
                     self.intent,
@@ -550,7 +541,7 @@ impl ArgTemplate for HardCodeArgTemplate {
             }
             if !property_lines.is_empty() {
                 result.append(&mut HelpTableLine::render_table(
-                    &property_lines,
+                    property_lines,
                     term_width,
                     self.intent,
                     self.intent,
@@ -583,7 +574,7 @@ impl ArgTemplate for HardCodeArgTemplate {
             if !props_groups.is_empty() {
                 result.push(StyledString::from(""));
                 result.append(&mut HelpTableLine::render_groups(
-                    &props_groups,
+                    props_groups,
                     term_width,
                     self.intent,
                 ));
