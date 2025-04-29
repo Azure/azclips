@@ -68,6 +68,12 @@ pub enum AzInternalError {
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
 
+    #[error("TOML deserialization error: {0}")]
+    TomlDe(#[from] toml::de::Error),
+
+    #[error("TOML serialization error: {0}")]
+    TomlSer(#[from] toml::ser::Error),
+
     #[error("Invalid param value: {0}")]
     InvalidParamValueError(String),
 }

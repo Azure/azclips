@@ -1,0 +1,82 @@
+use core::fmt;
+use std::{fmt::Display, str::FromStr};
+
+pub(crate) mod component;
+
+#[derive(Debug, PartialEq, Eq)]
+pub(super) enum AzCloud {
+    AzureCloud,
+    AzureChinaCloud,
+    AzureUSGovernment,
+    AzureGermanCloud,
+    Custom(String),
+}
+
+impl Default for AzCloud {
+    fn default() -> Self {
+        AzCloud::AzureCloud
+    }
+}
+
+impl Display for AzCloud {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AzCloud::AzureCloud => write!(f, "AzureCloud"),
+            AzCloud::AzureChinaCloud => write!(f, "AzureChinaCloud"),
+            AzCloud::AzureUSGovernment => write!(f, "AzureUSGovernment"),
+            AzCloud::AzureGermanCloud => write!(f, "AzureGermanCloud"),
+            AzCloud::Custom(name) => write!(f, "{}", name),
+        }
+    }
+}
+
+impl FromStr for AzCloud {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "AzureCloud" => Ok(AzCloud::AzureCloud),
+            "AzureChinaCloud" => Ok(AzCloud::AzureChinaCloud),
+            "AzureUSGovernment" => Ok(AzCloud::AzureUSGovernment),
+            "AzureGermanCloud" => Ok(AzCloud::AzureGermanCloud),
+            _ => Ok(AzCloud::Custom(s.to_string())),
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::str::FromStr;
+
+    use super::AzCloud;
+
+    #[test]
+    fn test_az_cloud() {
+        let cloud = AzCloud::AzureCloud;
+        assert_eq!(cloud.to_string(), "AzureCloud");
+        let cloud = AzCloud::AzureChinaCloud;
+        assert_eq!(cloud.to_string(), "AzureChinaCloud");
+        let cloud = AzCloud::AzureUSGovernment;
+        assert_eq!(cloud.to_string(), "AzureUSGovernment");
+        let cloud = AzCloud::AzureGermanCloud;
+        assert_eq!(cloud.to_string(), "AzureGermanCloud");
+        let cloud = AzCloud::Custom("CustomCloud".to_string());
+        assert_eq!(cloud.to_string(), "CustomCloud");
+    }
+
+    #[test]
+    fn test_az_cloud_from_str() {
+        let cloud = AzCloud::from_str("AzureCloud").unwrap();
+        assert_eq!(cloud, AzCloud::AzureCloud);
+        let cloud = AzCloud::from_str("AzureChinaCloud").unwrap();
+        assert_eq!(cloud, AzCloud::AzureChinaCloud);
+        let cloud = AzCloud::from_str("AzureUSGovernment").unwrap();
+        assert_eq!(cloud, AzCloud::AzureUSGovernment);
+        let cloud = AzCloud::from_str("AzureGermanCloud").unwrap();
+        assert_eq!(cloud, AzCloud::AzureGermanCloud);
+        let cloud = AzCloud::from_str("CustomCloud").unwrap();
+        assert_eq!(cloud, AzCloud::Custom("CustomCloud".to_string()));
+        let cloud2 = AzCloud::from_str("CustomCloud2").unwrap();
+        assert_ne!(cloud, cloud2);
+    }
+}

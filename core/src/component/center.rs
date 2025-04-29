@@ -4,9 +4,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use crate::account::component::AccountComponent;
 use crate::cmd_uri::CmdUri;
-use crate::config::component::ConfigComponent;
 use crate::error::AzInternalError;
 use crate::plugin::AzPlugin;
 use crate::top::component::TopComponent;
@@ -62,7 +60,6 @@ impl<T: AzComponentCtx> AzComponentCenter<T> {
             center
         };
         center.load_built_in_components();
-
         Ok(center)
     }
 }

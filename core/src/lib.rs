@@ -7,6 +7,7 @@ pub mod error;
 pub mod pb;
 
 pub(crate) mod account;
+pub(crate) mod cloud;
 pub(crate) mod component;
 pub(crate) mod config;
 pub(crate) mod param;

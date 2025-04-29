@@ -1,12 +1,12 @@
 use crate::{
-    account::component::AccountComponent, cmd_uri::CmdUri, config::component::ConfigComponent,
-    top::component::TopComponent,
+    account::component::AccountComponent, cloud::component::CloudComponent, cmd_uri::CmdUri,
+    config::component::ConfigComponent, top::component::TopComponent,
 };
 use serde::{de::Error, ser::SerializeMap, Deserialize};
-use std::{collections::HashMap, str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc};
 use strum_macros::{Display, EnumIter};
 
-use super::{center::AzComponentCenter, AzComponent, AzComponentCtx};
+use super::{center::AzComponentCenter, AzComponentCtx};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, EnumIter, Display)]
 pub enum AzBuildIn {
@@ -16,6 +16,8 @@ pub enum AzBuildIn {
     Config,
     /// Manage the Account information.
     Account,
+    /// Manage the cloud information.
+    Cloud,
     // /// Manage the plugins.
     // Plugin,
 }
@@ -29,6 +31,7 @@ impl AzBuildIn {
             AzBuildIn::Top => TopComponent::uri(),
             AzBuildIn::Config => ConfigComponent::uri(),
             AzBuildIn::Account => AccountComponent::uri(),
+            AzBuildIn::Cloud => CloudComponent::uri(),
             // AzBuildIn::Plugin => CmdUri::from_str(Self::PLUGIN_URI).unwrap(),
         }
     }
@@ -38,6 +41,7 @@ impl AzBuildIn {
             s if s == TopComponent::URI => Some(Self::Top),
             s if s == ConfigComponent::URI => Some(Self::Config),
             s if s == AccountComponent::URI => Some(Self::Account),
+            s if s == CloudComponent::URI => Some(Self::Cloud),
             // s if s == Self::PLUGIN_URI => Some(Self::Plugin),
             _ => None,
         }
@@ -55,6 +59,10 @@ impl<T: AzComponentCtx> AzComponentCenter<T> {
         self.built_ins.insert(
             AzBuildIn::Account,
             Arc::new(Box::new(AccountComponent::default())),
+        );
+        self.built_ins.insert(
+            AzBuildIn::Cloud,
+            Arc::new(Box::new(CloudComponent::default())),
         );
     }
 }
