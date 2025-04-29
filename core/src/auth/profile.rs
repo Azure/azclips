@@ -28,10 +28,10 @@ pub struct Profile {
 }
 
 impl Profile {
-    pub fn new(authority_url: Option<String>, arm_scope: Option<String>) -> Self {
+    pub fn new(authority_url: Option<&str>, arm_scope: Option<&str>) -> Self {
         Profile {
-            authority_url: authority_url.unwrap_or_else(|| WORLD_WIDE.to_string()),
-            arm_scope: arm_scope.unwrap_or_else(|| "https://management.core.windows.net/.default".to_string()),
+            authority_url: authority_url.unwrap_or(WORLD_WIDE).to_string(),
+            arm_scope: arm_scope.unwrap_or("https://management.core.windows.net/.default").to_string(),
         }
     }
 
