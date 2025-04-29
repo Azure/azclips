@@ -41,12 +41,16 @@ impl Login {
 
         let interactive: bool = self.username.is_none();
         
-        let mut profile: Profile = Profile::new(
+        let profile: Profile = Profile::new(
             None,
             None,
         );
         
-        match profile.login(interactive, Some(self.use_device_code), self.tenant_id.clone(), self.scope.clone()).await {
+        let tenant_id_ref: Option<&str> = self.tenant_id.as_deref();
+        let scope_vec: Option<Vec<&str>> = self.scope.as_ref().map(|s| s.iter().map(|s| s.as_str()).collect());
+        let scope_ref: Option<&[&str]>= scope_vec.as_deref();
+        
+        match profile.login(interactive, Some(self.use_device_code), tenant_id_ref, scope_ref).await {
             Ok(_) => {
                 Ok(Some("Login successful".to_string()))
             },

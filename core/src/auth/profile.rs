@@ -4,6 +4,12 @@ use crate::error::AuthenticationError;
 use crate::auth::util::can_launch_browser;
 use crate::auth::credentials::UserCredential;
 use crate::auth::credentials::Token;
+use reqwest::{Client, Url};
+use serde_json::Value;
+use std::io::Write;
+use std::io::Read;
+use serde_json::{json, to_string_pretty};
+use std::fs::File;
 
 // Todo: Define Azure cloud host endpoints, not support by azure_identity yet
 // pub const AZURE_US_GOVERNMENT: &str = "login.microsoftonline.us";
@@ -13,7 +19,6 @@ use crate::auth::credentials::Token;
 // Default cloud endpoint
 // Todo: Move this part to cloud.rs, and implement the cloud management logic
 pub const WORLD_WIDE: &str = "login.microsoftonline.com";
-
 
 pub struct Profile {
     authority_url: String, /* It should be of the format `https://login.microsoftonline.com/<tenant_id>`
@@ -30,20 +35,20 @@ impl Profile {
         }
     }
 
-    pub async fn login(&mut self,
+    pub async fn login(&self,
         interactive: bool,
         use_device_code: Option<bool>,
-        tenant_id: Option<String>,
-        scopes: Option<Vec<String>>,
+        tenant_id: Option<&str>,
+        scopes: Option<&[&str]>,
     ) -> Result<(), AuthenticationError> {
         let mut use_device_code = use_device_code.unwrap_or(false);
         
-        let scopes_vec: Vec<String> = match &scopes {
-            Some(scope_strings) => scope_strings.iter().map(|s| s.clone()).collect(),
-            None => vec![self.arm_scope.clone()],
+        let scopes = match scopes {
+            Some(s) => s,
+            None => &[self.arm_scope.as_str()],
         };
         
-        let tenant_id = tenant_id.unwrap_or_else(|| "organizations".to_string());
+        let tenant_id = tenant_id.unwrap_or_else(|| "organizations");
         
         if interactive {
             if !use_device_code && !can_launch_browser() {
@@ -53,7 +58,7 @@ impl Profile {
             if use_device_code {
                 self.login_with_device_code()?;
             } else {
-                self.login_with_auth_code(scopes_vec, tenant_id).await?;
+                self.login_with_auth_code(scopes, tenant_id).await?;
             }
         } else {
             // Todo: Implement non-interactive login logic
@@ -63,9 +68,9 @@ impl Profile {
         Ok(())
     }
 
-    async fn login_with_auth_code(&mut self, 
-        scopes: Vec<String>,
-        tenant_id: String,
+    async fn login_with_auth_code(&self, 
+        scopes: &[&str],
+        tenant_id: &str,
     ) -> Result<(), AuthenticationError> {
         println!("Logging in interactively...");
         
@@ -73,11 +78,11 @@ impl Profile {
         
         let token_result = user_credential.acquire_token(scopes, tenant_id).await;
         
-        match &token_result {
+        match token_result {
             Ok(token) => {
                 println!("Token acquired successfully. Token expires on: {}\n", token.expires_on_readable);
                 
-                if let Err(e) = self.save_token_to_file(token.clone()) {
+                if let Err(e) = self.save_token_to_file(token) {
                     eprintln!("Warning: Failed to save token to file: {}", e);
                 }
                 
@@ -95,10 +100,6 @@ impl Profile {
 
     // Todo: Store token cache instead of plaintext
     fn save_token_to_file(&self, token: Token) -> Result<(), String> {
-        use std::fs::File;
-        use std::io::Write;
-        use serde_json::{json, to_string_pretty};
-        
         let token_data = json!({
             "access_token": token.access_token,
             "expires_on": token.expires_on,
@@ -129,21 +130,59 @@ impl Profile {
         Ok(())
     }
 
-    fn login_with_device_code(&mut self) -> Result<(), AuthenticationError> {
+    pub fn read_token_from_file(&self) -> Result<(String, u64), String> {
+        let home_dir = dirs::home_dir()
+            .ok_or_else(|| "Could not determine home directory".to_string())?;
+        
+        let token_path = home_dir.join(".cirrus").join("azure_token.json");
+        if !token_path.exists() {
+            return Err(format!("No cached token found at {}", token_path.display()));
+        }
+        
+        let mut file = File::open(&token_path)
+            .map_err(|e| format!("Could not open token file: {}", e))?;
+        
+        let mut contents = String::new();
+        file.read_to_string(&mut contents)
+            .map_err(|e| format!("Could not read token file: {}", e))?;
+        
+        let token_data: Value = serde_json::from_str(&contents)
+            .map_err(|e| format!("Could not parse token file: {}", e))?;
+        
+        let access_token = token_data.get("access_token")
+            .and_then(|t| t.as_str())
+            .ok_or_else(|| "No access token found in token file".to_string())?
+            .to_string();
+        
+        let expires_on = token_data.get("expires_on")
+            .and_then(|e| e.as_u64())
+            .ok_or_else(|| "No expiration time found in token file".to_string())?;
+        
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+            
+        if expires_on <= now {
+            return Err("Token is expired".to_string());
+        }
+        
+        Ok((access_token, expires_on))
+    }
+
+    fn login_with_device_code(&self) -> Result<(), AuthenticationError> {
+        // Todo: Login with device code
         println!("Logging in with device code...");
         Ok(())
     }
 
-    pub fn logout(&mut self) -> Result<(), AuthenticationError> {
+    pub fn logout(&self) -> Result<(), AuthenticationError> {
         // Todo: Implement logout logic
         println!("Logging out...");
         Ok(())
     }
 
     async fn fake_get_subscriptions(&self, access_token: String) -> Result<Vec<String>, &'static str> {
-        use reqwest::{Client, Url};
-        use serde_json::Value;
-
         let url = match Url::parse("https://management.azure.com/subscriptions?api-version=2022-12-01") {
             Ok(url) => url,
             Err(_) => return Err("Failed to parse URL"),
@@ -212,14 +251,11 @@ impl Profile {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs::File;
-    use std::io::Read;
-    use serde_json::Value;
 
     #[tokio::test]
     async fn test_login_logout() {
         // Don't run this test in CI, as it requires a browser to be available
-        let mut profile = Profile::new(
+        let profile = Profile::new(
             None,
             None
         );
@@ -232,63 +268,15 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_subscriptions_from_cached_token() {
-        let home_dir = match dirs::home_dir() {
-            Some(dir) => dir,
-            None => {
-                println!("Could not determine home directory, skipping test");
-                return;
-            }
-        };
-        
-        let token_path = home_dir.join(".cirrus").join("azure_token.json");
-        if !token_path.exists() {
-            println!("No cached token found at {}, skipping test", token_path.display());
-            return;
-        }
-        
-        let mut file = match File::open(&token_path) {
-            Ok(file) => file,
-            Err(e) => {
-                println!("Could not open token file: {}, skipping test", e);
-                return;
-            }
-        };
-        
-        let mut contents = String::new();
-        if let Err(e) = file.read_to_string(&mut contents) {
-            println!("Could not read token file: {}, skipping test", e);
-            return;
-        }
-        
-        let token_data: Value = match serde_json::from_str(&contents) {
-            Ok(data) => data,
-            Err(e) => {
-                println!("Could not parse token file: {}, skipping test", e);
-                return;
-            }
-        };
-        
-        let access_token = match token_data.get("access_token").and_then(|t| t.as_str()) {
-            Some(token) => token.to_string(),
-            None => {
-                println!("No access token found in token file, skipping test");
-                return;
-            }
-        };
-        
-        if let Some(expires_on) = token_data.get("expires_on").and_then(|e| e.as_u64()) {
-            let now = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs();
-                
-            if expires_on <= now {
-                println!("Token is expired, skipping test");
-                return;
-            }
-        }
-        
         let profile = Profile::new(None, None);
+        
+        let (access_token, _) = match profile.read_token_from_file() {
+            Ok(token_info) => token_info,
+            Err(e) => {
+                println!("{}, skipping test", e);
+                return;
+            }
+        };
         
         println!("Attempting to list subscriptions with cached token...");
         match profile.fake_list_subscriptions(access_token).await {

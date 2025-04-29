@@ -72,7 +72,7 @@ impl InteractiveBrowserCredential {
             }
         }
 
-        println!("Initiating device login...");
+        println!("Initiating interactive login...");
         println!("A web browser will open for you to authenticate.");
 
         let authorization_code_flow = authorization_code_flow::authorize(

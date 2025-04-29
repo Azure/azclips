@@ -4,7 +4,7 @@ members = [
     "cli", 
     "ps", 
     "ansible",
-    "core/src/auth/vendored_sdks/azure_identity"
+    "vendored_sdks/azure_identity"
 ]
 resolver = "2"
 

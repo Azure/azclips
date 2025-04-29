@@ -30,22 +30,21 @@ impl UserCredential {
     }
 
     pub async fn acquire_token(&self,
-        scopes: Vec<String>,
-        tenant_id: String,
+        scopes: &[&str],
+        tenant_id: &str,
     ) -> Result<Token, AuthenticationError> {
         
         let interactive_credentials = InteractiveBrowserCredential::new(
             Some(oauth2::ClientId::new(AZURE_CLI_CLIENT_ID.to_string())),
-            Some(tenant_id), 
+            Some(tenant_id.to_string()), 
             None // Use default redirect URL
         ).map_err(|e| {
             AuthenticationError::AuthenticationFailed(format!("Failed to create interactive browser credential: {}", e))
         })?;
 
-        let scopes_as_str: Vec<&str> = scopes.iter().map(|s| s.as_str()).collect();
         let token_response = interactive_credentials
             .get_token(
-                Some(&scopes_as_str),
+                Some(&scopes),
                 Some("select_account"),
                 self.username.as_deref()
             )
