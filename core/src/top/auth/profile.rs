@@ -11,34 +11,21 @@ use crate::top::auth::credentials::Token;
 // pub const AZURE_PUBLIC: &str = "login.microsoftonline.com";
 
 // Default cloud endpoint
+// Todo: Move this part to cloud.rs, and implement the cloud management logic
 pub const WORLD_WIDE: &str = "login.microsoftonline.com";
 
-pub struct Authority {
-    authority_url: String, /* It should be of the format `https://login.microsoftonline.com/<tenant_id>`
-    By default, we will use `https://login.microsoftonline.com/organizations` */
-    // More fields will be added later
-}
-
-impl Authority {
-    pub fn new(host: Option<String>, tenant_id: Option<String>) -> Self {
-        let host = host.unwrap_or_else(|| WORLD_WIDE.to_string());
-        let tenant = tenant_id.unwrap_or_else(|| "organizations".to_string());
-        
-        Authority {
-            authority_url: format!("{}/{}", host, tenant),
-        }
-    }
-}
 
 pub struct Profile {
-    authority: Authority, //Todo: Modify the API for azure identity to use different authority urls, will be finished when implementing soverign cloud support
+    authority_url: String, /* It should be of the format `https://login.microsoftonline.com/<tenant_id>`
+    By default, we will use `https://login.microsoftonline.com/organizations` 
+    Todo: Modify the API for azure identity to use different authority urls, will be finished when implementing soverign cloud support */
     arm_scope: String, //Todo: For the `az cloud register` param: endpoint-active-directory-resource-id: The resource ID to obtain AD token for. Users can use this to specify a different custom ARM endpoint for the cloud. e.g. For the public Azure cloud, it might be https://management.core.windows.net/; for Azure China cloud, it would be:https://management.core.chinacloudapi.cn/
 }
 
 impl Profile {
-    pub fn new(authority: Authority, arm_scope: Option<String>) -> Self {
+    pub fn new(authority_url: Option<String>, arm_scope: Option<String>) -> Self {
         Profile {
-            authority,
+            authority_url: authority_url.unwrap_or_else(|| WORLD_WIDE.to_string()),
             arm_scope: arm_scope.unwrap_or_else(|| "https://management.core.windows.net/.default".to_string()),
         }
     }
@@ -97,6 +84,7 @@ impl Profile {
                 Ok(())
             },
             Err(e) => {
+                //Todo: Improve the error handling
                 eprintln!("Authentication failed: {}", e);
                 Err(AuthenticationError::AuthenticationFailed(format!(
                     "Authentication failed with Auth Code: {}", e
@@ -231,13 +219,8 @@ mod tests {
     #[tokio::test]
     async fn test_login_logout() {
         // Don't run this test in CI, as it requires a browser to be available
-        let authority = Authority::new(
-            None,
-            None
-        );
-        
         let mut profile = Profile::new(
-            authority,
+            None,
             None
         );
         
@@ -245,20 +228,6 @@ mod tests {
         assert!(profile.logout().is_ok());
         assert!(profile.login(false, None, None, None).await.is_ok());
         assert!(profile.logout().is_ok());
-    }
-    
-    #[test]
-    fn test_authority_new() {
-        let default_authority = Authority::new(None, None);
-        assert_eq!(default_authority.authority_url, format!("{}/{}", WORLD_WIDE, "organizations"));
-        
-        let custom_host = "custom.host.example.com".to_string();
-        let custom_tenant = "custom-tenant".to_string();
-        let custom_authority = Authority::new(
-            Some(custom_host.clone()),
-            Some(custom_tenant.clone())
-        );
-        assert_eq!(custom_authority.authority_url, format!("{}/{}", custom_host, custom_tenant));
     }
 
     #[tokio::test]
@@ -319,8 +288,7 @@ mod tests {
             }
         }
         
-        let authority = Authority::new(None, None);
-        let profile = Profile::new(authority, None);
+        let profile = Profile::new(None, None);
         
         println!("Attempting to list subscriptions with cached token...");
         match profile.fake_list_subscriptions(access_token).await {

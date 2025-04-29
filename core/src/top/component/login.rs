@@ -8,10 +8,10 @@ use crate::{
     error::{AzError, AuthenticationError},
     pb::command::{
         cmd_arg, cmd_interface, cmd_string_arg, CmdArg, CmdArgHelp, CmdArgPromptInput,
-        CmdBooleanArg, CmdCommand, CmdHelp, CmdInterface, CmdParams, CmdStringArg, CmdStringFormat,
+        CmdBooleanArg, CmdCommand, CmdHelp, CmdInterface, CmdParams, CmdStringArg, CmdStringFormat, CmdArrayArg, CmdArrayFormat,
     },
     VERSION,
-    top::auth::profile::{Profile, Authority},
+    top::auth::profile::Profile,
 };
 
 #[derive(Debug, Default)]
@@ -41,13 +41,8 @@ impl Login {
 
         let interactive: bool = self.username.is_none();
         
-        let authority: Authority = Authority::new(
-            None,
-            self.tenant_id.clone(),
-        );
-        
         let mut profile: Profile = Profile::new(
-            authority,
+            None,
             None,
         );
         
@@ -128,15 +123,26 @@ impl Login {
                 name: "scope".to_string(),
                 options: vec!["scope".to_string()],
                 help: Some(CmdArgHelp {
-                    short: "Used in the /authorize request. It can cover only one static resource."
-                        .to_string(),
+                    short: "Used in the /authorize request. It can cover only one static resource with multiple space-separated scopes.".to_string(),
                     ..Default::default()
                 }),
                 prompt: None,
-                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
-                    format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
+                arg_type: Some(cmd_arg::ArgType::Array(Box::new(CmdArrayArg {
+                    item: Some(Box::new(CmdArg {
+                        var_name: "scope_item".to_string(),
+                        name: "scope_item".to_string(),
+                        arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                            format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
+                            ..Default::default()
+                        })),
+                        ..Default::default()
+                    })),
+                    format: Some(CmdArrayFormat {
+                        unique: true,
+                        ..Default::default()
+                    }),
                     ..Default::default()
-                })),
+                }))),
                 ..Default::default()
             },
             CmdArg {
