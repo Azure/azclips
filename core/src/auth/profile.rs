@@ -1,9 +1,9 @@
 // This module defines the Profile structures for managing authentication
 
 use crate::error::AuthenticationError;
-use crate::top::auth::util::can_launch_browser;
-use crate::top::auth::credentials::UserCredential;
-use crate::top::auth::credentials::Token;
+use crate::auth::util::can_launch_browser;
+use crate::auth::credentials::UserCredential;
+use crate::auth::credentials::Token;
 
 // Todo: Define Azure cloud host endpoints, not support by azure_identity yet
 // pub const AZURE_US_GOVERNMENT: &str = "login.microsoftonline.us";

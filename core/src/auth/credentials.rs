@@ -1,7 +1,7 @@
 use azure_identity::interactive_credential::interactive_browser_credential::InteractiveBrowserCredential;
 use crate::error::AuthenticationError;
 use oauth2::TokenResponse;
-use crate::top::auth::util::format_token_expires_on;
+use crate::auth::util::format_token_expires_on;
 
 pub const AZURE_CLI_CLIENT_ID: &str = "04b07795-8ddb-461a-bbee-02f9e1bf7b46";
 

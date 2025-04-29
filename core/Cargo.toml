@@ -27,7 +27,7 @@ strum_macros = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
-azure_identity = { path = "src/top/auth/vendored_sdks/azure_identity" }
+azure_identity = { path = "src/auth/vendored_sdks/azure_identity" }
 oauth2 = { workspace = true }
 chrono = { workspace = true }
 

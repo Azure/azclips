@@ -11,7 +11,7 @@ use crate::{
         CmdBooleanArg, CmdCommand, CmdHelp, CmdInterface, CmdParams, CmdStringArg, CmdStringFormat, CmdArrayArg, CmdArrayFormat,
     },
     VERSION,
-    top::auth::profile::Profile,
+    auth::profile::Profile,
 };
 
 #[derive(Debug, Default)]
