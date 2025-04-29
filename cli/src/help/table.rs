@@ -4,24 +4,13 @@ use crate::output::{Row, RowCell, StyledString};
 
 use super::MIN_DETAIL_WIDTH;
 
+#[derive(Debug, Clone, Default)]
 pub struct HelpTableLine {
     pub short: Vec<StyledString>,
     pub name: Vec<StyledString>,
     pub tags: Vec<StyledString>,
     pub description: Vec<StyledString>,
     pub detail: Vec<StyledString>,
-}
-
-impl Default for HelpTableLine {
-    fn default() -> Self {
-        HelpTableLine {
-            short: vec![],
-            name: vec![],
-            tags: vec![],
-            description: vec![],
-            detail: vec![],
-        }
-    }
 }
 
 macro_rules! col_width {

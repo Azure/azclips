@@ -9,12 +9,12 @@ use unicode_width::UnicodeWidthStr;
 
 pub use crossterm::style::{Attribute, Color, Stylize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct StyledString(Vec<StyledContent<String>>);
 
 impl StyledString {
     pub fn new() -> Self {
-        StyledString(vec![])
+        Self::default()
     }
 
     pub fn from_vec(vec: Vec<StyledContent<String>>) -> Self {
