@@ -75,21 +75,21 @@ impl Row {
     }
 
     pub fn append_styled(&mut self, content: Vec<StyledString>, width: Option<usize>) {
-        self.0.push(RowCell::from_styled(content, width));
+        self.append(RowCell::from_styled(content, width));
     }
 
     pub fn append_one_line<S>(&mut self, content: S)
     where
         S: ToString,
     {
-        self.0.push(RowCell::from_string(content));
+        self.append(RowCell::from_string(content));
     }
 
     pub fn append_sep<S>(&mut self, content: S)
     where
         S: ToString,
     {
-        self.0.push(RowCell::from_sep(content));
+        self.append(RowCell::from_sep(content));
     }
 
     pub fn line_num(&self) -> usize {

@@ -6,7 +6,7 @@ use az_core::pb::{
 };
 
 use crate::{
-    help::{table::HelpTableLine, MIN_DETAIL_WIDTH},
+    help::{table::{CmdArgDisplayConfig, HelpLineDisplay, HelpTableLine}, MIN_DETAIL_WIDTH},
     output::{style::Stylize, Row, StyledString},
 };
 
@@ -98,44 +98,10 @@ impl CmdTemplate for HardCodeCmdTemplate {
         match &cmd.level {
             Some(Level::Command(cmd)) => {
                 for arg in cmd.args.iter() {
-                    let short = arg
-                        .options
-                        .iter()
-                        .filter(|o| o.len() == 1)
-                        .map(|s| format!("-{}", s).bold())
-                        .map(|s| s.into())
-                        .collect::<Vec<_>>();
-                    let args = if arg.options.is_empty() {
-                        vec![format!("<{}>", arg.var_name).into()]
-                    } else {
-                        arg.options
-                            .iter()
-                            .filter(|o| o.len() != 1)
-                            .map(|s| format!("--{}", s).bold())
-                            .map(|s| s.into())
-                            .collect::<Vec<_>>()
-                    };
-                    let mut tags = vec![];
-                    if arg.required {
-                        tags.push("[Required]".yellow().into());
-                    }
-                    let mut description = vec![];
-                    if let Some(help) = &arg.help {
-                        let styled_help: StyledString = help.short.clone().into();
-                        description.append(&mut styled_help.split_lines());
-                    }
-                    if let Some(default) = &arg.default {
-                        let value = default.value.clone().blue().on_yellow();
-                        let styled_default = StyledString::from("Default: ".stylize()) + value;
-                        description.push(styled_default);
-                    }
-                    let line = HelpTableLine {
-                        short,
-                        name: args,
-                        tags,
-                        description,
-                        detail: vec![],
-                    };
+                    let line = arg.help_line(CmdArgDisplayConfig {
+                        show_options: true,
+                        positions: Some(&cmd.positional_args[..]),
+                    });
                     let group = help_table_groups
                         .entry(arg.group.clone())
                         .or_insert_with(|| vec![]);
@@ -150,56 +116,21 @@ impl CmdTemplate for HardCodeCmdTemplate {
             })) => {
                 let command_rows = commands
                     .iter()
-                    .map(|cmd| HelpTableLine {
-                        short: vec![],
-                        name: vec![cmd.name.clone().bold().into()],
-                        tags: vec![],
-                        description: cmd
-                            .help
-                            .as_ref()
-                            .map(|help| &help.short)
-                            .map(|desc| StyledString::from(desc.clone().italic()).split_lines())
-                            .unwrap_or(vec![]),
-                        detail: vec![],
-                    })
+                    .map(|cmd| cmd.help_line(()))
                     .collect::<Vec<_>>();
                 if !command_rows.is_empty() {
                     help_table_groups.insert("Command".to_string(), command_rows);
                 }
                 let group_rows = groups
                     .iter()
-                    .map(|group| HelpTableLine {
-                        short: vec![],
-                        name: vec![group.name.clone().bold().into()],
-                        tags: vec![],
-                        description: group
-                            .help
-                            .as_ref()
-                            .map(|help| &help.short)
-                            .map(|desc| StyledString::from(desc.clone().italic()).split_lines())
-                            .unwrap_or(vec![]),
-                        detail: vec![],
-                    })
+                    .map(|group| group.help_line(()))
                     .collect::<Vec<_>>();
                 if !group_rows.is_empty() {
                     help_table_groups.insert("Command Group".to_string(), group_rows);
                 }
                 let component_rows = components
                     .into_iter()
-                    .map(|component| HelpTableLine {
-                        short: vec![],
-                        name: vec![component.name.clone().bold().into()],
-                        tags: vec![],
-                        description: component
-                            .help
-                            .as_ref()
-                            .map(|help| &help.short)
-                            .map(|desc| {
-                                StyledString::from(desc.clone().italic()).split_lines()
-                            })
-                            .unwrap_or(vec![]),
-                        detail: vec![],
-                    })
+                    .map(|component| component.help_line(()))
                     .collect::<Vec<_>>();
                 if !component_rows.is_empty() {
                     help_table_groups.insert("Service".to_string(), component_rows);

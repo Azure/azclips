@@ -1,14 +1,17 @@
-use std::collections::HashMap;
+use az_core::pb::command::CmdArg;
 
-use az_core::pb::command::{cmd_arg::ArgType, cmd_number_arg, cmd_string_arg, CmdArg, CmdNumberArg, CmdStringArg};
-
-use crate::{help::{table::HelpTableLine, MIN_DETAIL_WIDTH}, output::{Row, StyledString, style::Stylize}};
+use crate::{
+    help::{
+        table::{arg_enum_table, arg_format_table, arg_props_tables, HelpTableLine},
+        MIN_DETAIL_WIDTH,
+    },
+    output::{style::Stylize, Row, StyledString},
+};
 
 use super::ArgTemplate;
 
-
 /// A hardcoded template for rendering argument.
-/// 
+///
 /// ## Example
 /// ```text
 /// # Usage
@@ -70,10 +73,7 @@ impl ArgTemplate for HardCodeArgTemplate {
 
         let mut arg_name_row = Row::new();
         arg_name_row.append_sep(" ".repeat(self.intent));
-        arg_name_row.append_styled(
-            vec![arg.name.clone().bold().into()],
-            None,
-        );
+        arg_name_row.append_styled(vec![arg.name.clone().bold().into()], None);
         if let Some(arg_type) = &arg.arg_type {
             arg_name_row.append_one_line(" : ");
             let arg_type = format!("{}", arg_type).italic().into();
@@ -152,377 +152,10 @@ impl ArgTemplate for HardCodeArgTemplate {
         }
 
         if let Some(arg_type) = &arg.arg_type {
-            let mut enum_lines = vec![];
-            match &arg_type {
-                ArgType::Str(CmdStringArg { r#enum, format: _ })
-                | ArgType::Number(CmdNumberArg { r#enum, format: _ }) => {
-                    if let Some(enum_type) = r#enum {
-                        for item in &enum_type.items {
-                            enum_lines.push(HelpTableLine {
-                                name: vec![item.name.clone().bold().into()],
-                                description: vec![StyledString::from(&item.value)],
-                                ..Default::default()
-                            });
-                        }
-                    }
-                }
-                _ => {}
-            }
+            let enum_lines = arg_enum_table(arg_type);
+            let format_lines = arg_format_table(arg_type);
 
-            let mut property_lines = vec![];
-            match &arg_type {
-                ArgType::Str(str_arg) => match &str_arg.format {
-                    Some(cmd_string_arg::Format::String(str)) => {
-                        if let Some(pattern) = &str.pattern {
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Pattern")],
-                                description: vec![StyledString::from(pattern)],
-                                ..Default::default()
-                            });
-                        }
-                        if let Some(length) = &str.max_length {
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Max Length")],
-                                description: vec![StyledString::from(&length.to_string())],
-                                ..Default::default()
-                            });
-                        }
-                        if let Some(length) = &str.min_length {
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Min Length")],
-                                description: vec![StyledString::from(&length.to_string())],
-                                ..Default::default()
-                            });
-                        }
-                    }
-                    Some(cmd_string_arg::Format::Duration(duration)) => {
-                        property_lines.push(HelpTableLine {
-                            name: vec![StyledString::from("Protocol")],
-                            description: vec![StyledString::from(
-                                duration.protocol().as_str_name(),
-                            )],
-                            ..Default::default()
-                        });
-                    }
-                    Some(cmd_string_arg::Format::Date(date)) => {
-                        property_lines.push(HelpTableLine {
-                            name: vec![StyledString::from("Protocol")],
-                            description: vec![StyledString::from(date.protocol().as_str_name())],
-                            ..Default::default()
-                        });
-                    }
-                    Some(cmd_string_arg::Format::DateTime(date_time)) => {
-                        property_lines.push(HelpTableLine {
-                            name: vec![StyledString::from("Protocol")],
-                            description: vec![StyledString::from(
-                                date_time.protocol().as_str_name(),
-                            )],
-                            ..Default::default()
-                        });
-                        if let Some(ms_length) = &date_time.ms_length {
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("MS Length")],
-                                description: vec![StyledString::from(&ms_length.to_string())],
-                                ..Default::default()
-                            });
-                        }
-                    }
-                    Some(cmd_string_arg::Format::Time(time)) => {
-                        property_lines.push(HelpTableLine {
-                            name: vec![StyledString::from("Protocol")],
-                            description: vec![StyledString::from(time.protocol().as_str_name())],
-                            ..Default::default()
-                        });
-                        if let Some(ms_length) = &time.ms_length {
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("MS Length")],
-                                description: vec![StyledString::from(&ms_length.to_string())],
-                                ..Default::default()
-                            });
-                        }
-                    }
-                    Some(cmd_string_arg::Format::Uuid(uuid)) => {
-                        property_lines.push(HelpTableLine {
-                            name: vec![StyledString::from("Case")],
-                            description: vec![StyledString::from(uuid.case().as_str_name())],
-                            ..Default::default()
-                        });
-                        property_lines.push(HelpTableLine {
-                            name: vec![StyledString::from("No Hyphen")],
-                            description: vec![StyledString::from(uuid.no_hyphen.to_string())],
-                            ..Default::default()
-                        });
-                        property_lines.push(HelpTableLine {
-                            name: vec![StyledString::from("With Braces")],
-                            description: vec![StyledString::from(uuid.with_braces.to_string())],
-                            ..Default::default()
-                        });
-                    }
-                    Some(cmd_string_arg::Format::ResourceId(resource_id)) => {
-                        if !resource_id.templates.is_empty() {
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Templates")],
-                                description: resource_id
-                                    .templates
-                                    .iter()
-                                    .map(|t| StyledString::from(t))
-                                    .collect(),
-                                ..Default::default()
-                            });
-                        }
-                    }
-                    Some(cmd_string_arg::Format::ResourceLocation(resource_location)) => {
-                        property_lines.push(HelpTableLine {
-                            name: vec![StyledString::from("No Resource Group Default")],
-                            description: vec![StyledString::from(
-                                resource_location.no_rg_default.to_string(),
-                            )],
-                            ..Default::default()
-                        });
-                    }
-                    _ => {}
-                },
-                ArgType::Number(number_arg) => match &number_arg.format {
-                    Some(cmd_number_arg::Format::Int32(int32)) => {
-                        if let Some(maximum) = &int32.maximum {
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Maximum")],
-                                description: vec![StyledString::from(&maximum.to_string())],
-                                ..Default::default()
-                            });
-                        }
-                        if let Some(minimum) = &int32.minimum {
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Minimum")],
-                                description: vec![StyledString::from(&minimum.to_string())],
-                                ..Default::default()
-                            });
-                        }
-                        if let Some(multiple_of) = &int32.multiple_of {
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Multiple")],
-                                description: vec![StyledString::from(&multiple_of.to_string())],
-                                ..Default::default()
-                            });
-                        }
-                    }
-                    Some(cmd_number_arg::Format::Int64(int64)) => {
-                        if let Some(maximum) = &int64.maximum {
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Maximum")],
-                                description: vec![StyledString::from(&maximum.to_string())],
-                                ..Default::default()
-                            });
-                        }
-                        if let Some(minimum) = &int64.minimum {
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Minimum")],
-                                description: vec![StyledString::from(&minimum.to_string())],
-                                ..Default::default()
-                            });
-                        }
-                        if let Some(multiple_of) = &int64.multiple_of {
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Multiple")],
-                                description: vec![StyledString::from(&multiple_of.to_string())],
-                                ..Default::default()
-                            });
-                        }
-                    }
-                    Some(cmd_number_arg::Format::Uint32(uint32)) => {
-                        if let Some(maximum) = &uint32.maximum {
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Maximum")],
-                                description: vec![StyledString::from(&maximum.to_string())],
-                                ..Default::default()
-                            });
-                        }
-                        if let Some(minimum) = &uint32.minimum {
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Minimum")],
-                                description: vec![StyledString::from(&minimum.to_string())],
-                                ..Default::default()
-                            });
-                        }
-                        if let Some(multiple_of) = &uint32.multiple_of {
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Multiple")],
-                                description: vec![StyledString::from(&multiple_of.to_string())],
-                                ..Default::default()
-                            });
-                        }
-                    }
-                    Some(cmd_number_arg::Format::Uint64(uint64)) => {
-                        if let Some(maximum) = &uint64.maximum {
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Maximum")],
-                                description: vec![StyledString::from(&maximum.to_string())],
-                                ..Default::default()
-                            });
-                        }
-                        if let Some(minimum) = &uint64.minimum {
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Minimum")],
-                                description: vec![StyledString::from(&minimum.to_string())],
-                                ..Default::default()
-                            });
-                        }
-                        if let Some(multiple_of) = &uint64.multiple_of {
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Multiple")],
-                                description: vec![StyledString::from(&multiple_of.to_string())],
-                                ..Default::default()
-                            });
-                        }
-                    }
-                    Some(cmd_number_arg::Format::Float(float)) => {
-                        if let Some(maximum) = &float.maximum {
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Maximum")],
-                                description: vec![StyledString::from(&maximum.to_string())],
-                                ..Default::default()
-                            });
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Maximum Exclusive")],
-                                description: vec![StyledString::from(
-                                    &float.exclusive_maximum.to_string(),
-                                )],
-                                ..Default::default()
-                            });
-                        }
-                        if let Some(minimum) = &float.minimum {
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Minimum")],
-                                description: vec![StyledString::from(&minimum.to_string())],
-                                ..Default::default()
-                            });
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Minimum Exclusive")],
-                                description: vec![StyledString::from(
-                                    &float.exclusive_minimum.to_string(),
-                                )],
-                                ..Default::default()
-                            });
-                        }
-                        if let Some(multiple_of) = &float.multiple_of {
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Multiple")],
-                                description: vec![StyledString::from(&multiple_of.to_string())],
-                                ..Default::default()
-                            });
-                        }
-                    }
-                    Some(cmd_number_arg::Format::Double(double)) => {
-                        if let Some(maximum) = &double.maximum {
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Maximum")],
-                                description: vec![StyledString::from(&maximum.to_string())],
-                                ..Default::default()
-                            });
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Maximum Exclusive")],
-                                description: vec![StyledString::from(
-                                    &double.exclusive_maximum.to_string(),
-                                )],
-                                ..Default::default()
-                            });
-                        }
-                        if let Some(minimum) = &double.minimum {
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Minimum")],
-                                description: vec![StyledString::from(&minimum.to_string())],
-                                ..Default::default()
-                            });
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Minimum Exclusive")],
-                                description: vec![StyledString::from(
-                                    &double.exclusive_minimum.to_string(),
-                                )],
-                                ..Default::default()
-                            });
-                        }
-                        if let Some(multiple_of) = &double.multiple_of {
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Multiple")],
-                                description: vec![StyledString::from(&multiple_of.to_string())],
-                                ..Default::default()
-                            });
-                        }
-                    }
-                    _ => {}
-                },
-                ArgType::Boolean(bool_arg) => {
-                    if !bool_arg.reverse_options.is_empty() {
-                        property_lines.push(HelpTableLine {
-                            name: vec![StyledString::from("Reverse Options")],
-                            description: bool_arg
-                                .reverse_options
-                                .iter()
-                                .map(|s| StyledString::from(s))
-                                .collect(),
-                            ..Default::default()
-                        });
-                    }
-                }
-                ArgType::Object(object_arg) => {
-                    if let Some(cls_type) = &object_arg.cls_type {
-                        property_lines.push(HelpTableLine {
-                            name: vec![StyledString::from("Class Type")],
-                            description: vec![StyledString::from(cls_type)],
-                            ..Default::default()
-                        });
-                    }
-                    if let Some(format) = &object_arg.format {
-                        if let Some(min_length) = &format.min_length {
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Min Length")],
-                                description: vec![StyledString::from(&min_length.to_string())],
-                                ..Default::default()
-                            });
-                        }
-                        if let Some(max_length) = &format.max_length {
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Max Length")],
-                                description: vec![StyledString::from(&max_length.to_string())],
-                                ..Default::default()
-                            });
-                        }
-                    }
-                }
-                ArgType::Array(array_arg) => {
-                    if let Some(cls_type) = &array_arg.cls_type {
-                        property_lines.push(HelpTableLine {
-                            name: vec![StyledString::from("Class Type")],
-                            description: vec![StyledString::from(cls_type)],
-                            ..Default::default()
-                        });
-                    }
-                    if let Some(format) = &array_arg.format {
-                        property_lines.push(HelpTableLine {
-                            name: vec![StyledString::from("Unique")],
-                            description: vec![StyledString::from(format.unique.to_string())],
-                            ..Default::default()
-                        });
-                        if let Some(min_length) = &format.min_length {
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Min Length")],
-                                description: vec![StyledString::from(&min_length.to_string())],
-                                ..Default::default()
-                            });
-                        }
-                        if let Some(max_length) = &format.max_length {
-                            property_lines.push(HelpTableLine {
-                                name: vec![StyledString::from("Max Length")],
-                                description: vec![StyledString::from(&max_length.to_string())],
-                                ..Default::default()
-                            });
-                        }
-                    }
-                }
-                _ => {}
-            };
-
-            if !(enum_lines.is_empty() && property_lines.is_empty()) {
+            if !(enum_lines.is_empty() && format_lines.is_empty()) {
                 result.push(StyledString::from(""));
                 result.push(StyledString::from(format!("{}", arg_type)));
             }
@@ -539,37 +172,16 @@ impl ArgTemplate for HardCodeArgTemplate {
                 );
                 result.append(&mut enum_table);
             }
-            if !property_lines.is_empty() {
+            if !format_lines.is_empty() {
                 result.append(&mut HelpTableLine::render_table(
-                    property_lines,
+                    format_lines,
                     term_width,
                     self.intent,
                     self.intent,
                 ));
             }
 
-            let mut props_groups = HashMap::new();
-            match arg_type {
-                ArgType::Object(object_arg) => {
-                    for prop in &object_arg.props {
-                        let line = handle_prop(prop);
-                        let group = props_groups
-                            .entry(prop.group.clone())
-                            .or_insert_with(|| vec![]);
-                        group.push(line);
-                    }
-                    if let Some(additional_props) = &object_arg.additional_props {
-                        if let Some(prop) = &additional_props.item {
-                            let line = handle_prop(prop);
-                            let group = props_groups
-                                .entry("Additional Properties".to_string())
-                                .or_insert_with(|| vec![]);
-                            group.push(line);
-                        }
-                    }
-                }
-                _ => {}
-            }
+            let props_groups = arg_props_tables(arg_type);
 
             if !props_groups.is_empty() {
                 result.push(StyledString::from(""));
@@ -584,4 +196,3 @@ impl ArgTemplate for HardCodeArgTemplate {
         result
     }
 }
-
