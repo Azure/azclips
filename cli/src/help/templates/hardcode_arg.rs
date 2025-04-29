@@ -41,30 +41,6 @@ impl Default for HardCodeArgTemplate {
     }
 }
 
-fn handle_prop(prop: &CmdArg) -> HelpTableLine {
-    let name = vec![prop.name.clone().bold().into()];
-    let mut tags = vec![];
-    if prop.required {
-        tags.push("[Required]".yellow().into());
-    }
-    let mut description = vec![];
-    if let Some(help) = &prop.help {
-        let styled_help: StyledString = help.short.clone().into();
-        description.append(&mut styled_help.split_lines());
-    }
-    if let Some(default) = &prop.default {
-        let value = default.value.clone().blue().on_yellow();
-        let styled_default = StyledString::new() + "Default: ".stylize() + value;
-        description.push(styled_default);
-    }
-    HelpTableLine {
-        name,
-        tags,
-        description,
-        ..Default::default()
-    }
-}
-
 impl ArgTemplate for HardCodeArgTemplate {
     fn render<'a>(&self, arg: &CmdArg, term_width: Option<usize>) -> Vec<StyledString> {
         let mut result = vec![];
