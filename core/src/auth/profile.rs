@@ -1,6 +1,6 @@
 // This module defines the Profile structures for managing authentication
 
-use crate::error::AuthenticationError;
+use crate::error::{AuthenticationError, AzInternalError, AzError};
 use crate::auth::util::can_launch_browser;
 use crate::auth::credentials::UserCredential;
 use crate::auth::credentials::Token;
@@ -99,7 +99,7 @@ impl Profile {
     }
 
     // Todo: Store token cache instead of plaintext
-    fn save_token_to_file(&self, token: Token) -> Result<(), String> {
+    fn save_token_to_file(&self, token: Token) -> Result<(), AzInternalError> {
         let token_data = json!({
             "access_token": token.access_token,
             "expires_on": token.expires_on,
@@ -108,66 +108,87 @@ impl Profile {
         });
         
         let json_string = to_string_pretty(&token_data)
-            .map_err(|e| format!("Failed to serialize token data: {}", e))?;
+            .map_err(|e| AzInternalError::Json(e))?;
         
         let home_dir = dirs::home_dir()
-            .ok_or_else(|| "Could not determine home directory".to_string())?;
+            .ok_or_else(|| AzInternalError::InvalidPathError("Could not determine home directory".to_string()))?;
         
         let token_dir = home_dir.join(".cirrus");
         std::fs::create_dir_all(&token_dir)
-            .map_err(|e| format!("Failed to create token directory: {}", e))?;
+            .map_err(|e| AzInternalError::Io(e))?;
+        
         let file_path = token_dir.join("azure_token.json");
         
-
         let mut file = File::create(&file_path)
-            .map_err(|e| format!("Failed to create token file: {}", e))?;
+            .map_err(|e| AzInternalError::Io(e))?;
         
         file.write_all(json_string.as_bytes())
-            .map_err(|e| format!("Failed to write token data to file: {}", e))?;
+            .map_err(|e| AzInternalError::Io(e))?;
         
         println!("Token saved to {}", file_path.display());
         
         Ok(())
     }
 
-    pub fn read_token_from_file(&self) -> Result<(String, u64), String> {
+    pub fn read_token_from_file(&self) -> Result<Token, AzError> {
         let home_dir = dirs::home_dir()
-            .ok_or_else(|| "Could not determine home directory".to_string())?;
+            .ok_or_else(|| AzError::Internal(AzInternalError::InvalidPathError("Could not determine home directory".to_string())))?;
         
         let token_path = home_dir.join(".cirrus").join("azure_token.json");
         if !token_path.exists() {
-            return Err(format!("No cached token found at {}", token_path.display()));
+            return Err(AzError::Internal(AzInternalError::InvalidPathError(
+                format!("No cached token found at {}", token_path.display())
+            )));
         }
         
         let mut file = File::open(&token_path)
-            .map_err(|e| format!("Could not open token file: {}", e))?;
+            .map_err(|e| AzInternalError::Io(e))?;
         
         let mut contents = String::new();
         file.read_to_string(&mut contents)
-            .map_err(|e| format!("Could not read token file: {}", e))?;
+            .map_err(|e| AzInternalError::Io(e))?;
         
         let token_data: Value = serde_json::from_str(&contents)
-            .map_err(|e| format!("Could not parse token file: {}", e))?;
+            .map_err(|e| AzInternalError::Json(e))?;
         
         let access_token = token_data.get("access_token")
             .and_then(|t| t.as_str())
-            .ok_or_else(|| "No access token found in token file".to_string())?
+            .ok_or_else(|| AzError::Authentication(AuthenticationError::InvalidToken("No access token found in token file".to_string())))?
             .to_string();
         
         let expires_on = token_data.get("expires_on")
-            .and_then(|e| e.as_u64())
-            .ok_or_else(|| "No expiration time found in token file".to_string())?;
+            .and_then(|e| e.as_str())
+            .ok_or_else(|| AzError::Authentication(AuthenticationError::InvalidToken("No expiration time found in token file".to_string())))?
+            .to_string();
+            
+        let expires_on_readable = token_data.get("expires_on_readable")
+            .and_then(|e| e.as_str())
+            .ok_or_else(|| AzError::Authentication(AuthenticationError::InvalidToken("No readable expiration time found in token file".to_string())))?
+            .to_string();
         
+        let refresh_token = token_data.get("refresh_token")
+            .and_then(|t| t.as_str())
+            .map(|s| s.to_string());
+        
+        // Check if token is expired
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
+            .map_err(|_| AzError::GeneralError("Failed to get current time".to_string()))?
             .as_secs();
-            
-        if expires_on <= now {
-            return Err("Token is expired".to_string());
+        
+        let expires_on_secs = expires_on.parse::<u64>()
+            .map_err(|_| AzError::Authentication(AuthenticationError::InvalidToken("Invalid expiration time format".to_string())))?;
+        
+        if expires_on_secs <= now {
+            return Err(AzError::Authentication(AuthenticationError::TokenExpired));
         }
         
-        Ok((access_token, expires_on))
+        Ok(Token {
+            access_token,
+            refresh_token,
+            expires_on,
+            expires_on_readable,
+        })
     }
 
     fn login_with_device_code(&self) -> Result<(), AuthenticationError> {
@@ -271,7 +292,7 @@ mod tests {
         let profile = Profile::new(None, None);
         
         let (access_token, _) = match profile.read_token_from_file() {
-            Ok(token_info) => token_info,
+            Ok(token_info) => (token_info.access_token, token_info.expires_on),
             Err(e) => {
                 println!("{}, skipping test", e);
                 return;

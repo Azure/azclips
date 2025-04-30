@@ -80,8 +80,9 @@ pub enum AzError {
 
     #[error("Internal error: {0}")]
     Internal(#[from] AzInternalError),
-    // #[error("An error occurred: {0}")]
-    // GeneralError(String),
+
+    #[error("An error occurred: {0}")]
+    GeneralError(String),
 
     // #[error("Parse error: {0}")]
     // Parse(#[from] std::num::ParseIntError),
@@ -99,9 +100,14 @@ pub enum AuthenticationError {
     
     #[error("Token expired")]
     TokenExpired,
+
+    #[error("Invalid token: {0}")]
+    InvalidToken(String),
     
     #[error("Invalid tenant")]
     InvalidTenant,
+
+
 }
 
 // You can add more error variants as needed.
