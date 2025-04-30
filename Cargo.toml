@@ -43,3 +43,4 @@ cargo-husky = { version = "1.5.0", default-features = false, features = [
 ] }
 oauth2 = "5.0.0"
 chrono = "0.4"
+webbrowser = "1.0.4"

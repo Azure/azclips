@@ -3,6 +3,7 @@ use std::net::{Shutdown, TcpListener, TcpStream};
 use std::process::Command;
 use std::time::Duration;
 use tracing::error;
+use webbrowser;
 
 ///The port where the local server is listening on the auth_code
 #[allow(dead_code)]
@@ -11,71 +12,21 @@ pub const LOCAL_SERVER_PORT: u16 = 47828;
 /// to receive the authorization code.
 #[allow(dead_code)]
 pub async fn open_url(url: &str) -> Option<String> {
-    // Try to open the browser using a more reliable approach based on the Python code
     if !try_open_browser(url) {
         tracing::error!("Failed to open browser for URL: {}", url);
         return None;
     }
-
-    // Continue with the existing code to listen for the response
     start_webserver()
 }
 
 fn try_open_browser(url: &str) -> bool {
-    // First try the platform's default browser opening mechanism
-    #[cfg(target_os = "windows")]
-    {
-        // First try the most reliable Windows method
-        match Command::new("rundll32")
-            .args(["url.dll,FileProtocolHandler", url])
-            .spawn()
-        {
-            Ok(_) => return true,
-            Err(e) => {
-                tracing::warn!("Failed to open browser with rundll32: {}", e);
-                // Fall through to try other methods
-            }
+    match webbrowser::open(url) {
+        Ok(_) => return true,
+        Err(e) => {
+            tracing::warn!("Failed to open browser: {}", e);
+            false
         }
     }
-
-    #[cfg(all(unix, not(target_os = "macos")))]
-    {
-        // First try xdg-open
-        match Command::new("xdg-open").arg(url).spawn() {
-            Ok(_) => return true,
-            Err(e) => {
-                tracing::warn!("Failed to open browser with xdg-open: {}", e);
-            }
-        }
-
-        // Check if running under WSL
-        let is_wsl = std::fs::read_to_string("/proc/version")
-            .map(|v| v.to_lowercase().contains("microsoft"))
-            .unwrap_or(false);
-
-        if is_wsl {
-            // Try the WSL-specific method with PowerShell
-            match Command::new("powershell.exe")
-                .args([
-                    "-NoProfile",
-                    "-Command",
-                    &format!("Start-Process \"{}\"", url),
-                ])
-                .spawn()
-            {
-                Ok(_) => return true,
-                Err(e) => {
-                    tracing::error!("Failed to open browser under WSL: {}", e);
-                    return false;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    #[allow(unreachable_code)]
-    true
 }
 
 /// starting the browser if the browser could be started, then the webserver should be started to

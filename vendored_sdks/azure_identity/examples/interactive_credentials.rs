@@ -26,15 +26,15 @@ impl Error for NoRefreshTokenError {}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let test_tenant_id = "origanizations".to_string();
+    let test_tenant_id = "organizations";
 
     let _ = run_app_inter(test_tenant_id).await?;
     Ok(())
 }
 
-async fn run_app_inter(tenant_id: String) -> Result<(), Box<dyn Error>> {
+async fn run_app_inter(tenant_id: &str) -> Result<(), Box<dyn Error>> {
     let interactive_credentials =
-        InteractiveBrowserCredential::new(None, Some(tenant_id.clone()), None)?;
+        InteractiveBrowserCredential::new(None, Some(tenant_id.to_string()), None)?;
 
     let token_response = interactive_credentials
         .get_token(Some(&["https://management.core.windows.net/.default"]), Some("select_account"), None)
