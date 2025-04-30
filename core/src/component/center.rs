@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
+use crate::cloud::AzCloud;
 use crate::cmd_uri::CmdUri;
 use crate::error::AzInternalError;
 use crate::plugin::AzPlugin;
@@ -11,7 +12,6 @@ use crate::top::component::TopComponent;
 
 use futures::future::try_join_all;
 use serde::{Deserialize, Serialize};
-use strum::IntoEnumIterator;
 use tokio::fs;
 use tracing::error;
 
@@ -42,42 +42,58 @@ pub struct AzComponentCenter<T: AzComponentCtx> {
 
 impl<T: AzComponentCtx> AzComponentCenter<T> {
     /// Create a new instance of AzComponentCenter
-    /// TODO: we can add `profile` content here to support the switch between different profiles for different clouds
-    pub(crate) async fn new() -> Result<Self, AzInternalError> {
-        let mut center = if let Some(route_table) = Self::load_route_table().await {
-            Self {
-                route_table,
-                built_ins: HashMap::new(),
-                plugins: HashMap::new(),
-            }
-        } else {
-            let mut center = Self {
-                route_table: HashMap::new(),
-                built_ins: HashMap::new(),
-                plugins: HashMap::new(),
-            };
-            center.rebuild_route_table().await?;
-            center
+    /// We use the cloud name to control the plugin components loading
+    pub(crate) async fn new(cloud: &AzCloud) -> Result<Self, AzInternalError> {
+        let mut center = Self {
+            route_table: HashMap::new(),
+            built_ins: HashMap::new(),
+            plugins: HashMap::new(),
         };
         center.load_built_in_components();
+        center.rebuild_route_table(cloud).await?;
         Ok(center)
+    }
+
+    /// It will rebuild the route table according to the cloud
+    /// The route table will combine the built-in components and the plugins components
+    /// It will also clear the loaded plugins
+    pub(crate) async fn rebuild_route_table(
+        &mut self,
+        cloud: &AzCloud,
+    ) -> Result<(), AzInternalError> {
+        self.route_table =
+            if let Some(plugin_route_table) = Self::load_plugin_route_table(cloud).await {
+                plugin_route_table
+            } else {
+                Self::build_plugin_route_table(cloud).await?
+            };
+        self.built_ins.keys().for_each(|component| {
+            // using the first reversed node to ignore the params in the uri
+            let node = component.uri().ascending_nodes().next().unwrap();
+            self.route_table.insert(
+                node.to_string(),
+                AzComponentInfo::BuiltIn(component.clone()),
+            );
+        });
+        self.plugins.clear();
+        Ok(())
     }
 }
 
 impl<T: AzComponentCtx> AzComponentCenter<T> {
-    pub(crate) async fn rebuild_route_table(&mut self) -> Result<(), AzInternalError> {
-        self.route_table.clear();
-        AzBuildIn::iter().for_each(|component| {
-            // using the first reversed node to ignore the params in the uri
-            let node = component.uri().ascending_nodes().next().unwrap();
-            self.route_table
-                .insert(node.to_string(), AzComponentInfo::BuiltIn(component));
-        });
+    /// Build the plugin components route table for the given cloud and save it to the file
+    async fn build_plugin_route_table(
+        cloud: &AzCloud,
+    ) -> Result<HashMap<String, AzComponentInfo>, AzInternalError> {
+        let mut route_table = HashMap::new();
 
-        let plugin_paths = AzPlugin::get_plugin_paths()?;
+        let common_plugin_paths = AzPlugin::get_plugin_paths(None)?;
+        // load cloud plugin paths later so that it can override the common plugins when creating the route table
+        let cloud_plugin_paths = AzPlugin::get_plugin_paths(Some(cloud))?;
 
-        let plugin_futures: Vec<_> = plugin_paths
+        let plugin_futures: Vec<_> = common_plugin_paths
             .into_iter()
+            .chain(cloud_plugin_paths.into_iter())
             .map(|path| AzPlugin::from_path(path))
             .collect();
 
@@ -86,27 +102,38 @@ impl<T: AzComponentCtx> AzComponentCenter<T> {
         for plugin in plugins {
             // using the first reversed node to ignore the params in the uri
             let node = plugin.uri.ascending_nodes().next().unwrap();
-            self.route_table
-                .insert(node.to_string(), AzComponentInfo::Plugin(plugin));
+            route_table.insert(node.to_string(), AzComponentInfo::Plugin(plugin));
         }
 
-        if Self::save_route_table(&self.route_table).await.is_err() {
-            error!("Failed to save route table");
+        if Self::save_plugin_route_table(cloud, &route_table)
+            .await
+            .is_err()
+        {
+            error!("Failed to save route table for cloud: {}", cloud);
         }
-        Ok(())
+        Ok(route_table)
     }
 
-    async fn load_route_table() -> Option<HashMap<String, AzComponentInfo>> {
-        fs::read_to_string(get_route_table_path())
+    /// Load the plugin components route table from the file
+    /// The file is different for different clouds
+    async fn load_plugin_route_table(cloud: &AzCloud) -> Option<HashMap<String, AzComponentInfo>> {
+        fs::read_to_string(get_route_table_path(cloud))
             .await
             .ok()
             .and_then(|s| serde_json::from_str(&s).ok())
     }
 
-    async fn save_route_table(
+    /// Save the plugin components route table to the file
+    /// The file is different for different clouds
+    async fn save_plugin_route_table(
+        cloud: &AzCloud,
         route_table: &HashMap<String, AzComponentInfo>,
     ) -> Result<(), AzInternalError> {
-        fs::write(get_route_table_path(), serde_json::to_string(route_table)?).await?;
+        fs::write(
+            get_route_table_path(cloud),
+            serde_json::to_string(route_table)?,
+        )
+        .await?;
         Ok(())
     }
 }
@@ -161,6 +188,6 @@ impl fmt::Display for AzComponentInfo {
     }
 }
 
-fn get_route_table_path() -> PathBuf {
-    get_component_dir().join("route.json")
+fn get_route_table_path(cloud: &AzCloud) -> PathBuf {
+    get_component_dir().join(format!("{}.json", cloud))
 }

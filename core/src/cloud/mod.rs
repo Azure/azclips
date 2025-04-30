@@ -3,7 +3,7 @@ use std::{fmt::Display, str::FromStr};
 
 pub(crate) mod component;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub(super) enum AzCloud {
     AzureCloud,
     AzureChinaCloud,

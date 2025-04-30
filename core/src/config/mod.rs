@@ -5,20 +5,25 @@ use std::{env, path::PathBuf, sync::OnceLock};
 
 use cloud_cfg::AzCloudCfg;
 use serde::{Deserialize, Serialize};
+use toml::{map::Map, Value};
 
 use crate::error::AzInternalError;
 
+const ENV_CONFIG_DIR: &str = "AZURE_CONFIG_DIR";
+const DEFAULT_CONFIG_DIR: &str = ".cirrus";
+
 #[derive(Debug, Default, Serialize, Deserialize)]
-pub(crate) struct AzConfig {
+pub(crate) struct AzCfg {
     pub(crate) cloud: AzCloudCfg,
+    custom: Map<String, Value>,
 }
 
-impl AzConfig {
+impl AzCfg {
     pub(crate) fn load() -> Result<Self, AzInternalError> {
         let config_dir = get_config_dir();
         let config_file = config_dir.join("config.toml");
         if !config_file.exists() {
-            let config = AzConfig::default();
+            let config = AzCfg::default();
             config.save()?;
             return Ok(config);
         }
@@ -40,11 +45,11 @@ static CONFIG_DIR: OnceLock<PathBuf> = OnceLock::new();
 pub(crate) fn get_config_dir() -> PathBuf {
     CONFIG_DIR
         .get_or_init(|| {
-            let config_dir = env::var_os("AZURE_CONFIG_DIR")
+            let config_dir = env::var_os(ENV_CONFIG_DIR)
                 .map(PathBuf::from)
                 .map_or_else(
                     || {
-                        dirs::home_dir().map(|p| p.join(".cirrus")).ok_or(
+                        dirs::home_dir().map(|p| p.join(DEFAULT_CONFIG_DIR)).ok_or(
                             AzInternalError::InvalidPathError(
                                 "Could not determine home directory".to_string(),
                             ),

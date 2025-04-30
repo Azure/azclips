@@ -7,11 +7,15 @@ use serde::ser::SerializeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Map;
 
+use crate::cloud::AzCloud;
 use crate::cmd_uri::CmdUri;
 use crate::cmd_uri::{deserialize_cmd_uri, serialize_cmd_uri};
 use crate::component::{get_component_dir, AzComponent, AzComponentCtx};
 use crate::error::AzInternalError;
 use crate::pb::command::CmdHelp;
+
+const PLUGIN_FILE_EXTENSION: &str = "plugin";
+const PLUGIN_DIR_NAME: &str = "plugins";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AzPlugin {
@@ -43,16 +47,22 @@ impl AzPlugin {
         todo!()
     }
 
-    pub(crate) fn get_plugin_paths() -> Result<Vec<PathBuf>, AzInternalError> {
+    /// If the cloud is specified, it will iterate over the sub directory with cloud specified in the plugin directory,
+    /// otherwise, it will iterate over the root plugin directory.
+    pub(crate) fn get_plugin_paths(
+        cloud: Option<&AzCloud>,
+    ) -> Result<Vec<PathBuf>, AzInternalError> {
         let mut plugin_paths = Vec::new();
-        let plugin_dir = get_plugin_dir();
+        let plugin_dir = get_plugin_dir(cloud);
         if !plugin_dir.exists() {
             return Ok(plugin_paths);
         }
         for entry in std::fs::read_dir(plugin_dir)? {
             let entry = entry?;
             let path = entry.path();
-            if path.is_file() && path.extension() == Some(std::ffi::OsStr::new("plugin")) {
+            if path.is_file()
+                && path.extension() == Some(std::ffi::OsStr::new(PLUGIN_FILE_EXTENSION))
+            {
                 plugin_paths.push(path);
             }
         }
@@ -60,8 +70,13 @@ impl AzPlugin {
     }
 }
 
-fn get_plugin_dir() -> PathBuf {
-    get_component_dir().join("plugins")
+fn get_plugin_dir(cloud: Option<&AzCloud>) -> PathBuf {
+    let plugin_dir = get_component_dir().join(PLUGIN_DIR_NAME);
+    if let Some(cloud) = cloud {
+        plugin_dir.join(cloud.to_string())
+    } else {
+        plugin_dir
+    }
 }
 
 pub(crate) fn serialize_cmd_help<S>(help: &CmdHelp, serializer: S) -> Result<S::Ok, S::Error>
