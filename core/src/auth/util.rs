@@ -2,11 +2,7 @@ use webbrowser;
 
 
 pub fn can_launch_browser() -> bool {
-    if webbrowser::Browser::is_available() {
-        return true;
-    } else {
-        return false;
-    }
+    webbrowser::Browser::is_available()
 }
 
 pub fn format_token_expires_on(expires_in: std::time::Duration) -> (String, String) {
