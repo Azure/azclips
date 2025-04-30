@@ -127,7 +127,7 @@ impl Login {
                 name: "scope".to_string(),
                 options: vec!["scope".to_string()],
                 help: Some(CmdArgHelp {
-                    short: "Used in the /authorize request. It can cover only one static resource with multiple space-separated scopes.".to_string(),
+                    short: "Used in the /authorize request. It can cover only one static resource with multiple scopes displayed in a list.".to_string(),
                     ..Default::default()
                 }),
                 prompt: None,
