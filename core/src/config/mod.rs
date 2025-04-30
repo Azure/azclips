@@ -1,11 +1,11 @@
-pub(crate) mod cloud_cfg;
+pub(crate) mod cloud;
 pub(crate) mod component;
 
 use std::{env, path::PathBuf, sync::OnceLock};
 
-use cloud_cfg::AzCloudCfg;
+pub(crate) use cloud::AzCloud;
+use cloud::AzCloudCfg;
 use serde::{Deserialize, Serialize};
-use toml::{map::Map, Value};
 
 use crate::error::AzInternalError;
 
@@ -15,7 +15,6 @@ const DEFAULT_CONFIG_DIR: &str = ".cirrus";
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub(crate) struct AzCfg {
     pub(crate) cloud: AzCloudCfg,
-    custom: Map<String, Value>,
 }
 
 impl AzCfg {

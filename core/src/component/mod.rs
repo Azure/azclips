@@ -1,5 +1,6 @@
 pub mod built_in;
 pub mod center;
+pub mod command;
 pub mod ctx;
 
 use std::path::PathBuf;

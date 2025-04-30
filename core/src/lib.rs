@@ -7,7 +7,6 @@ pub mod error;
 pub mod pb;
 
 pub(crate) mod account;
-pub(crate) mod cloud;
 pub(crate) mod component;
 pub(crate) mod config;
 pub(crate) mod param;
@@ -17,12 +16,11 @@ pub(crate) mod top;
 pub(crate) mod utils;
 
 use argparse::ArgValueAssignOp;
-use cloud::AzCloud;
 use cmd_uri::CmdUri;
 use component::center::AzComponentCenter;
 use component::center::AzComponentInfo;
 use component::AzComponent;
-use config::AzCfg;
+use config::{AzCfg, AzCloud};
 use error::AzInternalError;
 use error::AzResult;
 use error::AzUserUsageError;

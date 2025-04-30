@@ -4,8 +4,8 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use crate::cloud::AzCloud;
 use crate::cmd_uri::CmdUri;
+use crate::config::AzCloud;
 use crate::error::AzInternalError;
 use crate::plugin::AzPlugin;
 use crate::top::component::TopComponent;

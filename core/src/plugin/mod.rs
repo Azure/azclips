@@ -7,10 +7,10 @@ use serde::ser::SerializeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Map;
 
-use crate::cloud::AzCloud;
 use crate::cmd_uri::CmdUri;
 use crate::cmd_uri::{deserialize_cmd_uri, serialize_cmd_uri};
 use crate::component::{get_component_dir, AzComponent, AzComponentCtx};
+use crate::config::AzCloud;
 use crate::error::AzInternalError;
 use crate::pb::command::CmdHelp;
 

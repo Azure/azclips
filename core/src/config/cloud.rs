@@ -1,10 +1,12 @@
-use core::fmt;
-use std::{fmt::Display, str::FromStr};
+use std::{
+    fmt::{self, Display},
+    str::FromStr,
+};
 
-pub(crate) mod component;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub(super) enum AzCloud {
+pub(crate) enum AzCloud {
     AzureCloud,
     AzureChinaCloud,
     AzureUSGovernment,
@@ -42,6 +44,31 @@ impl FromStr for AzCloud {
             _ => Ok(AzCloud::Custom(s.to_string())),
         }
     }
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub(crate) struct AzCloudCfg {
+    /// The current active cloud name
+    #[serde(
+        serialize_with = "serialize_az_cloud",
+        deserialize_with = "deserialize_az_cloud"
+    )]
+    pub(crate) name: AzCloud,
+}
+
+fn serialize_az_cloud<S>(cloud: &AzCloud, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    serializer.serialize_str(&cloud.to_string())
+}
+
+fn deserialize_az_cloud<'de, D>(deserializer: D) -> Result<AzCloud, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    Ok(AzCloud::from_str(&s).unwrap())
 }
 
 #[cfg(test)]
