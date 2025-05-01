@@ -5,33 +5,29 @@ mod show;
 mod unregister;
 mod update;
 
-use std::str::FromStr;
-
 use async_trait::async_trait;
 use list::ListClouds;
 
 use crate::{
     cmd_uri::CmdUri,
     component::{
-        command::{AzCmdGroup, AzCmdRoute},
-        AzComponent, AzComponentCtx,
+        cmd::{AzCmd, AzCmdGroup},
+        AzComponentCtx,
     },
     error::{AzError, AzInternalError},
     pb::{
-        self,
-        command::{cmd_interface, CmdCommandGroup, CmdComponent, CmdHelp, CmdInterface},
-        component::{
-            execute_response, CheckRequest, CheckResponse, ComponentMetadata, ExecuteRequest,
-            ExecuteResponse, InterfaceRequest, InterfaceResponse, MetadataRequest,
-            MetadataResponse,
+        command::{
+            cmd_interface, CmdCommandGroup, CmdHelp, CmdInterface, CmdOutputFormat, CmdParams,
         },
+        component::execute_response::Data,
     },
 };
 
 #[derive(Debug, Default)]
 pub(super) struct CloudCommandGroup {}
 
-impl AzCmdRoute for CloudCommandGroup {
+#[async_trait]
+impl AzCmdGroup for CloudCommandGroup {
     const URI: &'static str = "cmd://azure/config/cloud/";
 
     fn cmd_interface(depth: Option<u32>) -> CmdInterface {
@@ -54,25 +50,35 @@ impl AzCmdRoute for CloudCommandGroup {
             })),
         }
     }
-}
 
-impl AzCmdGroup for CloudCommandGroup {
     fn get_interface(
         depth: Option<u32>,
-        segments: &mut dyn Iterator<Item = &str>,
+        mut segments: impl Iterator<Item = String>,
     ) -> Option<CmdInterface> {
-        match segments.next() {
+        match segments.next().as_deref() {
             None => Some(CloudCommandGroup::cmd_interface(depth)),
             Some("list") => Some(ListClouds::cmd_interface(depth)),
             _ => None,
         }
     }
 
-    fn check_uri(segments: &mut dyn Iterator<Item = &str>) -> Option<CmdUri> {
-        match segments.next() {
+    fn check_uri(mut segments: impl Iterator<Item = String>) -> Option<CmdUri> {
+        match segments.next().as_deref() {
             None => Some(CloudCommandGroup::uri()),
             Some("list") => Some(ListClouds::uri()),
             _ => None,
+        }
+    }
+
+    async fn execute_group<T: AzComponentCtx>(
+        ctx: &T,
+        mut segments: impl Iterator<Item = String> + Send,
+        params: Option<CmdParams>,
+        output_format: Option<CmdOutputFormat>,
+    ) -> Result<Data, AzError> {
+        match segments.next().as_deref() {
+            Some("list") => ListClouds::execute(ctx, params, output_format).await,
+            _ => Err(AzInternalError::InvalidCmdUriError(Self::uri().to_string()).into()),
         }
     }
 }

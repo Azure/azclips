@@ -6,7 +6,7 @@ use serde::{de::Error, ser::SerializeMap, Deserialize};
 use std::{str::FromStr, sync::Arc};
 use strum_macros::{Display, EnumIter};
 
-use super::{center::AzComponentCenter, command::AzCmdRoute, AzComponentCtx};
+use super::{center::AzComponentCenter, cmd::AzCmdGroup, AzComponentCtx};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, EnumIter, Display)]
 pub enum AzBuildIn {
