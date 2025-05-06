@@ -1,0 +1,167 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
+mod authorization_code_flow;
+pub mod interactive_credential;
+mod oauth2_http_client;
+pub mod refresh_token;
+
+use azure_core::{error::ErrorKind, Error, Result};
+use serde::Deserialize;
+use std::borrow::Cow;
+use typespec_client_core::http::Model;
+
+#[derive(Debug, Default, Deserialize, Model)]
+#[serde(default)]
+struct EntraIdErrorResponse {
+    error_description: String,
+}
+
+#[derive(Debug, Default, Deserialize, Model)]
+#[serde(default)]
+struct EntraIdTokenResponse {
+    token_type: String,
+    expires_in: u64,
+    ext_expires_in: u64,
+    access_token: String,
+}
+
+fn validate_not_empty<C>(value: &str, message: C) -> Result<()>
+where
+    C: Into<Cow<'static, str>>,
+{
+    if value.is_empty() {
+        return Err(Error::message(ErrorKind::Credential, message));
+    }
+
+    Ok(())
+}
+
+#[test]
+fn test_validate_not_empty() {
+    assert!(validate_not_empty("", "it's empty").is_err());
+    assert!(validate_not_empty(" ", "it's not empty").is_ok());
+    assert!(validate_not_empty("not empty", "it's not empty").is_ok());
+}
+
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+fn validate_scope(scope: &str) -> Result<()> {
+    if scope.is_empty()
+        || !scope.chars().all(|c| {
+            c.is_alphanumeric() || c == '.' || c == '-' || c == '_' || c == ':' || c == '/'
+        })
+    {
+        return Err(Error::message(
+            ErrorKind::Credential,
+            format!("invalid scope {scope}"),
+        ));
+    }
+
+    Ok(())
+}
+
+#[test]
+fn test_validate_scope() {
+    assert!(validate_scope("").is_err());
+    assert!(validate_scope("invalid_scope@id").is_err());
+    assert!(validate_scope("A-1b_2c:3d/4.z").is_ok());
+    assert!(validate_scope("http://vault.azure.net").is_ok());
+}
+
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+fn validate_subscription(subscription: &str) -> Result<()> {
+    if subscription.is_empty()
+        || !subscription
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '.' || c == '-' || c == '_' || c == ' ')
+    {
+        return Err(Error::message(
+            ErrorKind::Credential,
+            format!("invalid subscription {subscription}. If this is the name of a subscription, use its ID instead"),
+        ));
+    }
+
+    Ok(())
+}
+
+#[test]
+fn test_validate_subscription() {
+    assert!(validate_subscription("").is_err());
+    assert!(validate_subscription("invalid_subscription@id").is_err());
+    assert!(validate_subscription("A-1b_2c 3.z").is_ok());
+    assert!(validate_subscription("7b795fb9-09d3-42f4-a494-38864f99ba3c").is_ok());
+}
+
+fn validate_tenant_id(tenant_id: &str) -> Result<()> {
+    if tenant_id.is_empty()
+        || !tenant_id
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '.' || c == '-')
+    {
+        return Err(Error::message(
+            ErrorKind::Credential,
+            format!("invalid tenant ID {tenant_id}. You can locate your tenantID by following the instructions listed here: https://learn.microsoft.com/partner-center/find-ids-and-domain-names"),
+        ));
+    }
+
+    Ok(())
+}
+
+#[test]
+fn test_validate_tenant_id() {
+    assert!(validate_tenant_id("").is_err());
+    assert!(validate_tenant_id("invalid_tenant@id").is_err());
+    assert!(validate_tenant_id("A-1.z").is_ok());
+    assert!(validate_tenant_id("7b795fb9-09d3-42f4-a494-38864f99ba3c").is_ok());
+}
+
+#[cfg(test)]
+mod tests {
+    use azure_core::{
+        error::ErrorKind,
+        http::{Request, Response},
+        Error, Result,
+    };
+    use std::sync::{Arc, Mutex};
+
+    pub const FAKE_CLIENT_ID: &str = "fake-client";
+    pub const FAKE_TENANT_ID: &str = "fake-tenant";
+    pub const FAKE_TOKEN: &str = "***";
+    pub const LIVE_TEST_RESOURCE: &str = "https://management.azure.com";
+    pub const LIVE_TEST_SCOPES: &[&str] = &["https://management.azure.com/.default"];
+
+    pub type RequestCallback = Arc<dyn Fn(&Request) -> Result<()> + Send + Sync>;
+
+    pub struct MockSts {
+        responses: Mutex<Vec<Response>>,
+        on_request: Option<RequestCallback>,
+    }
+
+    impl std::fmt::Debug for MockSts {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.debug_struct("MockSts").finish()
+        }
+    }
+
+    impl MockSts {
+        pub fn new(responses: Vec<Response>, on_request: Option<RequestCallback>) -> Self {
+            Self {
+                responses: Mutex::new(responses),
+                on_request,
+            }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl azure_core::http::HttpClient for MockSts {
+        async fn execute_request(&self, request: &Request) -> Result<Response> {
+            self.on_request.as_ref().map_or(Ok(()), |f| f(request))?;
+            let mut responses = self.responses.lock().unwrap();
+            if responses.is_empty() {
+                Err(Error::message(ErrorKind::Other, "No more mock responses"))
+            } else {
+                Ok(responses.remove(0)) // Use remove(0) to return responses in the correct order
+            }
+        }
+    }
+}

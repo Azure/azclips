@@ -1,5 +1,11 @@
 [workspace]
-members = ["core", "cli", "ps", "ansible"]
+members = [
+    "core", 
+    "cli", 
+    "ps", 
+    "ansible",
+    "vendored_sdks/azure_identity"
+]
 resolver = "2"
 
 [workspace.package]
@@ -39,3 +45,6 @@ cargo-husky = { version = "1.5.0", default-features = false, features = [
     "push-hook",
     "run-cargo-fmt",
 ] }
+oauth2 = "5.0.0"
+chrono = "0.4"
+webbrowser = "1.0.4"

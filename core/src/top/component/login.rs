@@ -1,45 +1,64 @@
-use std::str::FromStr;
+use std::{str::FromStr, vec};
 
 use tracing::error;
 
 use crate::{
     cmd_uri::CmdUri,
     component::AzComponentCtx,
-    error::AzError,
+    error::{AzError, AuthenticationError},
     pb::command::{
         cmd_arg, cmd_interface, cmd_string_arg, CmdArg, CmdArgHelp, CmdArgPromptInput,
-        CmdBooleanArg, CmdCommand, CmdHelp, CmdInterface, CmdParams, CmdStringArg, CmdStringFormat,
+        CmdBooleanArg, CmdCommand, CmdHelp, CmdInterface, CmdParams, CmdStringArg, CmdStringFormat, CmdArrayArg, CmdArrayFormat,
     },
     VERSION,
+    auth::profile::Profile,
 };
 
 #[derive(Debug, Default)]
 pub(super) struct Login {
+    scope: Option<Vec<String>>,
+    tenant_id: Option<String>,
     username: Option<String>,
     password: Option<String>,
-    scope: Option<String>,
-    service_principal: bool,
-    tenant_id: Option<String>,
-    user_cert_sn_issuer: bool,
     use_device_code: bool,
     allow_no_subscriptions: bool,
-    certificate_path: Option<String>,
-    federated_token: Option<String>,
+    service_principal: bool,
     identity: bool,
     client_id: Option<String>,
     object_id: Option<String>,
     resource_id: Option<String>,
+    certificate_path: Option<String>,
+    user_cert_sn_issuer: bool,
+    federated_token: Option<String>,
 }
 
 impl Login {
     pub(super) async fn run<T: AzComponentCtx>(&self, ctx: &T) -> Result<Option<String>, AzError> {
         println!("login");
-        println!("username: {:?}", self.username);
         println!("scope: {:?}", self.scope);
-        println!("use_device_code: {:?}", self.use_device_code);
-        println!("service_principal: {:?}", self.service_principal);
         println!("tenant_id: {:?}", self.tenant_id);
-        Ok(Some("login success".to_string()))
+        println!("username: {:?}", self.username);
+
+        let interactive: bool = self.username.is_none();
+        
+        let profile: Profile = Profile::new(
+            None,
+            None,
+        );
+        
+        let tenant_id_ref: Option<&str> = self.tenant_id.as_deref();
+        let scope_vec: Option<Vec<&str>> = self.scope.as_ref().map(|s| s.iter().map(|s| s.as_str()).collect());
+        let scope_ref: Option<&[&str]>= scope_vec.as_deref();
+        
+        match profile.login(interactive, Some(self.use_device_code), tenant_id_ref, scope_ref).await {
+            Ok(_) => {
+                Ok(Some("Login successful".to_string()))
+            },
+            Err(e) => {
+                println!("Login failed: {}", e);
+                Err(AzError::Authentication(AuthenticationError::AuthenticationFailed(e.to_string())))
+            }
+        }
     }
 }
 
@@ -108,15 +127,26 @@ impl Login {
                 name: "scope".to_string(),
                 options: vec!["scope".to_string()],
                 help: Some(CmdArgHelp {
-                    short: "Used in the /authorize request. It can cover only one static resource."
-                        .to_string(),
+                    short: "Used in the /authorize request. It can cover only one static resource with multiple scopes displayed in a list.".to_string(),
                     ..Default::default()
                 }),
                 prompt: None,
-                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
-                    format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
+                arg_type: Some(cmd_arg::ArgType::Array(Box::new(CmdArrayArg {
+                    item: Some(Box::new(CmdArg {
+                        var_name: "scope_item".to_string(),
+                        name: "scope_item".to_string(),
+                        arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                            format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
+                            ..Default::default()
+                        })),
+                        ..Default::default()
+                    })),
+                    format: Some(CmdArrayFormat {
+                        unique: true,
+                        ..Default::default()
+                    }),
                     ..Default::default()
-                })),
+                }))),
                 ..Default::default()
             },
             CmdArg {

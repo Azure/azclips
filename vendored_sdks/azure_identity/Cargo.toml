@@ -1,0 +1,57 @@
+[package]
+name = "azure_identity"
+version = "0.24.0"
+description = "Rust wrappers around Microsoft Azure REST APIs - Azure identity helper crate"
+readme = "README.md"
+authors = ["Microsoft"]
+license = "MIT"
+repository = "https://github.com/azure/azure-sdk-for-rust"
+homepage = "https://github.com/azure/azure-sdk-for-rust"
+documentation = "https://docs.rs/azure_identity"
+keywords = ["sdk", "azure", "rest", "iot", "cloud"]
+categories = ["api-bindings"]
+edition = "2021"
+rust-version = "1.80"
+
+[dependencies]
+async-lock = "3.0"
+async-trait = "0.1"
+azure_core = "0.23.0"
+futures = "0.3"
+oauth2 = { version = "5.0.0", default-features = false }
+openssl = { version = "0.10.72", optional = true }
+pin-project = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+time = { version = "0.3.10", features = ["serde-well-known", "macros", "wasm-bindgen"] }
+tokio = { version = "1.0", features = ["full"] }
+tracing = "0.1.40"
+typespec_client_core = { version = "0.2.0", features = ["derive"] }
+url = "2.2"
+webbrowser = "1.0.4"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+async-process = "2.3.0"
+
+[dev-dependencies]
+# Optional for development/testing - can be commented out if not needed
+clap = { version = "4.4.16", features = ["derive"] }
+reqwest = { version = "0.12", features = ["json", "stream"], default-features = false }
+serde_test = "1"
+serial_test = "3.0"
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+tracing-subscriber = "0.3"
+
+[features]
+default = ["reqwest"]
+reqwest = ["azure_core/reqwest"]
+reqwest_rustls = ["azure_core/reqwest_rustls"]
+tokio = ["azure_core/tokio"]
+client_certificate = ["openssl"]
+
+[package.metadata.docs.rs]
+features = [
+  "client_certificate",
+  "reqwest",
+  "reqwest_rustls",
+  "tokio",
+]
