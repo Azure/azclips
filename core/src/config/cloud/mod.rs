@@ -1,3 +1,6 @@
+mod cfg;
+mod metadata;
+
 use std::{
     fmt::{self, Display},
     str::FromStr,
@@ -5,7 +8,9 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+pub(crate) use cfg::AzCloudCfg;
+
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub(crate) enum AzCloud {
     AzureCloud,
     AzureChinaCloud,
@@ -46,29 +51,21 @@ impl FromStr for AzCloud {
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
-pub(crate) struct AzCloudCfg {
-    /// The current active cloud name
-    #[serde(
-        serialize_with = "serialize_az_cloud",
-        deserialize_with = "deserialize_az_cloud"
-    )]
-    pub(crate) name: AzCloud,
-}
+impl AzCloud {
+    pub fn serialize_az_cloud<S>(cloud: &AzCloud, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&cloud.to_string())
+    }
 
-fn serialize_az_cloud<S>(cloud: &AzCloud, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    serializer.serialize_str(&cloud.to_string())
-}
-
-fn deserialize_az_cloud<'de, D>(deserializer: D) -> Result<AzCloud, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let s = String::deserialize(deserializer)?;
-    Ok(AzCloud::from_str(&s).unwrap())
+    pub fn deserialize_az_cloud<'de, D>(deserializer: D) -> Result<AzCloud, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(AzCloud::from_str(&s).unwrap())
+    }
 }
 
 #[cfg(test)]
