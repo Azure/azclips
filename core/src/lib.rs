@@ -14,7 +14,6 @@ pub(crate) mod plugin;
 /// The module defines the top level commands
 pub(crate) mod top;
 pub(crate) mod utils;
-pub(crate) mod auth;
 
 use argparse::ArgValueAssignOp;
 use cmd_uri::CmdUri;

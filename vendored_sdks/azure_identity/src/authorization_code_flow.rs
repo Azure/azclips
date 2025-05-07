@@ -76,6 +76,9 @@ pub fn authorize(
         auth_url_builder = auth_url_builder.add_extra_param("login_hint", login_hint_value);
     }
 
+    // Todo: Enable CAE
+    // auth_url_builder = auth_url_builder.add_extra_param("claims", "{\"access_token\":{\"xms_cc\":{\"values\":[\"cp1\"]}}}");
+
     let (authorize_url, csrf_state) = auth_url_builder.url();
 
     AuthorizationCodeFlow {
