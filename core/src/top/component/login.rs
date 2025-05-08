@@ -38,11 +38,11 @@ impl Login {
         println!("login");
         println!("scope: {:?}", self.scope);
         println!("tenant_id: {:?}", self.tenant_id);
-        // Todo: Add parameter for audience and change 'scope' to 'scopes'
 
         let interactive: bool = self.username.is_none(); 
         let mut use_device_code = self.use_device_code;
 
+        // Todo: Set arm_scope for different clouds
         let arm_scope = "https://management.core.windows.net/.default";
         let scopes = match &self.scope {
             Some(s) => s.iter().map(|s| s.as_str()).collect::<Vec<&str>>(),
