@@ -1,11 +1,5 @@
 [workspace]
-members = [
-    "core", 
-    "cli", 
-    "ps", 
-    "ansible",
-    "vendored_sdks/azure_identity"
-]
+members = ["core", "cli", "ps", "ansible", "vendored_sdks/azure_identity"]
 resolver = "2"
 
 [workspace.package]
@@ -19,9 +13,20 @@ license = "MIT"
 anyhow = "1.0"
 async-trait = "0.1"
 base64 = "0.22"
+cargo-husky = { version = "1.5.0", default-features = false, features = [
+    "precommit-hook",
+    "run-cargo-test",
+    "run-cargo-clippy",
+    "push-hook",
+    "run-cargo-fmt",
+] }
+chrono = "0.4"
+crossterm = "0.29.0"
 dirs = "6.0"
 env_logger = "0.11"
 futures = "0.3"
+oauth2 = "5.0.0"
+once_cell = "1.21.3"
 percent-encoding = "2.3"
 prost = "0.13"
 rand = "0.8"
@@ -35,17 +40,7 @@ thiserror = "2.0"
 tokio = { version = "1", features = ["full"] }
 toml = "0.8"
 tracing = "0.1"
-crossterm = "0.29.0"
 # Calc String Width in Terminal.
 # By default, it uses the cjk features. But maybe we can close it in the future.
 unicode-width = "0.2.0"
-cargo-husky = { version = "1.5.0", default-features = false, features = [
-    "precommit-hook",
-    "run-cargo-test",
-    "run-cargo-clippy",
-    "push-hook",
-    "run-cargo-fmt",
-] }
-oauth2 = "5.0.0"
-chrono = "0.4"
 webbrowser = "1.0.4"

@@ -1,7 +1,19 @@
-#[derive(Clone, Eq, PartialEq, Hash)]
+use once_cell::sync::Lazy;
+use serde::de::{MapAccess, Visitor};
+use serde::ser::SerializeMap;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::collections::HashMap;
+use std::fmt;
+
+use crate::AzCloud;
+
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct EndpointName {
     inner: Repr,
 }
+
+#[derive(Debug, Default)]
+pub(crate) struct EndpointMap(HashMap<EndpointName, String>);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum Repr {
@@ -170,6 +182,93 @@ macro_rules! standard_suffixes {
         };
     }
 
+impl EndpointName {
+    pub fn as_str(&self) -> &str {
+        match &self.inner {
+            Repr::Endpoint(endpoint) => endpoint.as_str(),
+            Repr::Suffix(suffix) => suffix.as_str(),
+            Repr::Custom(name) => name,
+        }
+    }
+
+    pub fn from_str(name: &str) -> Self {
+        if let Some(endpoint) = StandardEndpoint::from_bytes(name.as_bytes()) {
+            Self {
+                inner: Repr::Endpoint(endpoint),
+            }
+        } else if let Some(suffix) = StandardSuffix::from_bytes(name.as_bytes()) {
+            Self {
+                inner: Repr::Suffix(suffix),
+            }
+        } else {
+            Self {
+                inner: Repr::Custom(name.to_string()),
+            }
+        }
+    }
+}
+
+impl EndpointMap {
+    pub fn get(&self, endpoint: &EndpointName) -> Option<&str> {
+        self.0.get(endpoint).map(|s| s.as_str())
+    }
+
+    pub fn insert(&mut self, endpoint: EndpointName, value: &str) -> Option<String> {
+        self.0.insert(endpoint, value.to_string())
+    }
+
+    pub fn from<'a>(iter: impl IntoIterator<Item = (&'a EndpointName, &'a str)>) -> Self {
+        Self(
+            iter.into_iter()
+                .map(|(k, v)| (k.clone(), v.to_string()))
+                .collect(),
+        )
+    }
+}
+
+impl Serialize for EndpointMap {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut map = serializer.serialize_map(Some(self.0.len()))?;
+        for (k, v) in &self.0 {
+            map.serialize_entry(k.as_str(), v)?;
+        }
+        map.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for EndpointMap {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct EndpointMapVisitor;
+
+        impl<'de> Visitor<'de> for EndpointMapVisitor {
+            type Value = EndpointMap;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a map of endpoint names to strings")
+            }
+
+            fn visit_map<M>(self, mut access: M) -> Result<Self::Value, M::Error>
+            where
+                M: MapAccess<'de>,
+            {
+                let mut map = HashMap::with_capacity(access.size_hint().unwrap_or(0));
+                while let Some((key, value)) = access.next_entry::<String, String>()? {
+                    map.insert(EndpointName::from_str(&key), value);
+                }
+                Ok(EndpointMap(map))
+            }
+        }
+
+        deserializer.deserialize_map(EndpointMapVisitor)
+    }
+}
+
 standard_endpoints! {
     /// The Active Directory data lake endpoint.
     (ActiveDirectoryDataLake, ACTIVE_DIRECTORY_DATALAKE, b"activeDirectoryDataLake", b"activeDirectoryDataLake");
@@ -223,3 +322,122 @@ standard_suffixes! {
     /// The synapse analytics endpoint.
     (SynapseAnalytics, SYNAPSE_ANALYTICS, b"synapseAnalytics", b"suffixes.synapseAnalytics");
 }
+
+/// This map contains the built-in endpoint maps for the Azure clouds.
+pub(super) static BUILTIN_ENDPOINT_MAPS: Lazy<HashMap<AzCloud, EndpointMap>> = Lazy::new(|| {
+    HashMap::from([
+        (
+            AzCloud::AzureCloud,
+            EndpointMap::from([
+                (&ACTIVE_DIRECTORY_DATALAKE, "https://datalake.azure.net/"),
+                (&ACR_LOGIN_SERVER, "azurecr.io"),
+                (&ATTESTATION, "attest.azure.net"),
+                (&AUTHENTICATION, "https://login.microsoftonline.com"),
+                (
+                    &AZURE_DATALAKE_ANALYTICS_CATALOG_AND_JOB,
+                    "azuredatalakeanalytics.net",
+                ),
+                (&AZURE_DATALAKE_STORE_FILE_SYSTEM, "azuredatalakestore.net"),
+                (&AZURE_FRONT_DOOR, "azurefd.net"),
+                (&BATCH, "https://batch.core.windows.net/"),
+                (&GALLERY, "https://gallery.azure.com/"),
+                (&GRAPH, "https://graph.windows.net/"),
+                (&KEY_VAULT_DNS, "vault.azure.net"),
+                (&MARIADB_SERVER, "mariadb.database.azure.com"),
+                (&MEDIA, "https://rest.media.azure.net"),
+                (&MHSM_DNS, "managedhsm.azure.net"),
+                (&MYSQL_SERVER, "mysql.database.azure.com"),
+                (&PORTAL, "https://portal.azure.com"),
+                (&POSTGRESQL_SERVER, "postgres.database.azure.com"),
+                (&RESOURCE_MANAGER, "https://management.azure.com/"),
+                (&SQL_MANAGEMENT, "https://management.core.windows.net:8443/"),
+                (&SQL_SERVER_HOSTNAME, "database.windows.net"),
+                (&STORAGE, "core.windows.net"),
+                (&STORAGE_SYNC, "afs.azure.net"),
+                (&SYNAPSE_ANALYTICS, "dev.azuresynapse.net"),
+                (&VM_IMAGE_ALIAS_DOC, "https://raw.githubusercontent.com/Azure/azure-rest-api-specs/main/arm-compute/quickstart-templates/aliases.json"),
+            ]),
+        ),
+        (
+            AzCloud::AzureChinaCloud,
+            EndpointMap::from([
+                (&ACR_LOGIN_SERVER, "azurecr.cn"),
+                (&AUTHENTICATION, "https://login.chinacloudapi.cn"),
+                (&BATCH, "https://batch.chinacloudapi.cn/"),
+                (&GALLERY, "https://gallery.chinacloudapi.cn/"),
+                (&GRAPH, "https://graph.chinacloudapi.cn/"),
+                (&KEY_VAULT_DNS, "vault.azure.cn"),
+                (&MARIADB_SERVER, "mariadb.database.chinacloudapi.cn"),
+                (&MEDIA, "https://rest.media.chinacloudapi.cn"),
+                (&MHSM_DNS, "managedhsm.azure.cn"),
+                (&MYSQL_SERVER, "mysql.database.chinacloudapi.cn"),
+                (&PORTAL, "https://portal.azure.cn"),
+                (&POSTGRESQL_SERVER, "postgres.database.chinacloudapi.cn"),
+                (&RESOURCE_MANAGER, "https://management.chinacloudapi.cn"),
+                (
+                    &SQL_MANAGEMENT,
+                    "https://management.core.chinacloudapi.cn:8443/",
+                ),
+                (&SQL_SERVER_HOSTNAME, "database.chinacloudapi.cn"),
+                (&STORAGE, "core.chinacloudapi.cn"),
+
+                (&SYNAPSE_ANALYTICS, "dev.azuresynapse.azure.cn"),
+                (&VM_IMAGE_ALIAS_DOC, "https://raw.githubusercontent.com/Azure/azure-rest-api-specs/main/arm-compute/quickstart-templates/aliases.json"),
+
+            ]),
+        ),
+        (
+            AzCloud::AzureUSGovernment,
+            EndpointMap::from([
+                (&ACR_LOGIN_SERVER, "azurecr.us"),
+                (&AUTHENTICATION, "https://login.microsoftonline.us"),
+                (&BATCH, "https://batch.core.usgovcloudapi.net/"),
+                (&GALLERY, "https://gallery.usgovcloudapi.net/"),
+                (&GRAPH, "https://graph.windows.net/"),
+                (&KEY_VAULT_DNS, "vault.usgovcloudapi.net"),
+                (&MARIADB_SERVER, "mariadb.database.usgovcloudapi.net"),
+                (&MEDIA, "https://rest.media.usgovcloudapi.net"),
+                (&MHSM_DNS, "managedhsm.usgovcloudapi.net"),
+                (&MYSQL_SERVER, "mysql.database.usgovcloudapi.net"),
+                (&PORTAL, "https://portal.azure.us"),
+                (&POSTGRESQL_SERVER, "postgres.database.usgovcloudapi.net"),
+                (&RESOURCE_MANAGER, "https://management.usgovcloudapi.net/"),
+                (
+                    &SQL_MANAGEMENT,
+                    "https://management.core.usgovcloudapi.net:8443/",
+                ),
+                (&SQL_SERVER_HOSTNAME, "database.usgovcloudapi.net"),
+                (&STORAGE, "core.usgovcloudapi.net"),
+                (&STORAGE_SYNC, "afs.azure.us"),
+
+                (
+                    &SYNAPSE_ANALYTICS,
+                    "dev.azuresynapse.usgovcloudapi.net",
+                ),
+                (&VM_IMAGE_ALIAS_DOC, "https://raw.githubusercontent.com/Azure/azure-rest-api-specs/main/arm-compute/quickstart-templates/aliases.json"),
+
+            ]),
+        ),
+        (
+            AzCloud::AzureGermanCloud,
+            EndpointMap::from([
+                (&AUTHENTICATION, "https://login.microsoftonline.de"),
+                (&BATCH, "https://batch.cloudapi.de/"),
+                (&GALLERY, "https://gallery.cloudapi.de/"),
+                (&GRAPH, "https://graph.cloudapi.de/"),
+                (&KEY_VAULT_DNS, "vault.microsoftazure.de"),
+                (&MARIADB_SERVER, "mariadb.database.cloudapi.de"),
+                (&MEDIA, "https://rest.media.cloudapi.de"),
+                (&MHSM_DNS, "managedhsm.microsoftazure.de"),
+                (&MYSQL_SERVER, "mysql.database.cloudapi.de"),
+                (&PORTAL, "https://portal.microsoftazure.de"),
+                (&POSTGRESQL_SERVER, "postgres.database.cloudapi.de"),
+                (&RESOURCE_MANAGER, "https://management.microsoftazure.de"),
+                (&SQL_MANAGEMENT, "https://management.core.cloudapi.de:8443/"),
+                (&SQL_SERVER_HOSTNAME, "database.cloudapi.de"),
+                (&STORAGE, "core.cloudapi.de"),
+                (&VM_IMAGE_ALIAS_DOC, "https://raw.githubusercontent.com/Azure/azure-rest-api-specs/main/arm-compute/quickstart-templates/aliases.json"),
+            ]),
+        ),
+    ])
+});

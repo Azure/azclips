@@ -12,9 +12,13 @@ path = "src/lib.rs"
 
 [dependencies]
 async-trait = { workspace = true }
+azure_identity = { path = "../vendored_sdks/azure_identity" }
 base64 = { workspace = true }
+chrono = { workspace = true }
 dirs = { workspace = true }
 futures = { workspace = true }
+oauth2 = { workspace = true }
+once_cell = { workspace = true }
 percent-encoding = { workspace = true }
 prost = { workspace = true }
 rand = { workspace = true }
@@ -28,9 +32,6 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 toml = { workspace = true }
 tracing = { workspace = true }
-azure_identity = { path = "../vendored_sdks/azure_identity" }
-oauth2 = { workspace = true }
-chrono = { workspace = true }
 webbrowser = { workspace = true }
 
 [dev-dependencies]

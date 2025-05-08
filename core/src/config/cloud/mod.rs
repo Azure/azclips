@@ -6,11 +6,11 @@ use std::{
     str::FromStr,
 };
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 pub(crate) use cfg::AzCloudCfg;
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub(crate) enum AzCloud {
     AzureCloud,
     AzureChinaCloud,
@@ -51,20 +51,22 @@ impl FromStr for AzCloud {
     }
 }
 
-impl AzCloud {
-    pub fn serialize_az_cloud<S>(cloud: &AzCloud, serializer: S) -> Result<S::Ok, S::Error>
+impl Serialize for AzCloud {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer,
+        S: Serializer,
     {
-        serializer.serialize_str(&cloud.to_string())
+        serializer.serialize_str(&self.to_string())
     }
+}
 
-    pub fn deserialize_az_cloud<'de, D>(deserializer: D) -> Result<AzCloud, D::Error>
+impl<'de> Deserialize<'de> for AzCloud {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de>,
+        D: Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        Ok(AzCloud::from_str(&s).unwrap())
+        Ok(Self::from_str(&s).unwrap())
     }
 }
 
