@@ -9,7 +9,7 @@ use crate::cmd_uri::CmdUri;
 use crate::config::component::ConfigComponent;
 use crate::error::AzInternalError;
 use crate::plugin::AzPlugin;
-use crate::top::TopComponent;
+use crate::top::component::TopComponent;
 
 use futures::future::try_join_all;
 use serde::{Deserialize, Serialize};

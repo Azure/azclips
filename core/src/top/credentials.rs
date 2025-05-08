@@ -78,7 +78,7 @@ pub struct ManagedIdentityCredential {
     object_id: Option<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Token {
     // Todo: Adjust the fields with Azure SDK's TokenResponse struct
     pub access_token: String,
