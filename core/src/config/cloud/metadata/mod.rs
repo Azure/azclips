@@ -20,12 +20,12 @@ pub struct AzCloudMetadata {
 
 impl AzCloudMetadata {
     pub async fn get_endpoint(&self, name: &EndpointName) -> Option<String> {
-        if let Some(endpoint) = self.endpoints.get(name).await {
+        if let Some(endpoint) = self.endpoints.get(name) {
             // from custom configuration
             return Some(endpoint);
         }
         if let Some(build_in_map) = BUILTIN_ENDPOINT_MAPS.get(&self.name) {
-            if let Some(endpoint) = build_in_map.get(name).await {
+            if let Some(endpoint) = build_in_map.get(name) {
                 // from built-in configuration
                 return Some(endpoint);
             }
@@ -35,12 +35,12 @@ impl AzCloudMetadata {
     }
 
     pub async fn get_resource_id(&self, name: &ResourceIdName) -> Option<String> {
-        if let Some(resource_id) = self.resource_ids.get(name).await {
+        if let Some(resource_id) = self.resource_ids.get(name) {
             // from custom configuration
             return Some(resource_id);
         }
         if let Some(build_in_map) = BUILTIN_RESOURCE_ID_MAPS.get(&self.name) {
-            if let Some(resource_id) = build_in_map.get(name).await {
+            if let Some(resource_id) = build_in_map.get(name) {
                 // from built-in configuration
                 return Some(resource_id);
             }
@@ -60,7 +60,7 @@ impl Serialize for AzCloudMetadata {
 
         {
             // Only serialize non-empty endpoints
-            let endpoints = self.endpoints.0.blocking_read();
+            let endpoints = self.endpoints.0.read().unwrap();
             if !endpoints.is_empty() {
                 map.serialize_entry("endpoints", &self.endpoints)?;
             }
@@ -68,7 +68,7 @@ impl Serialize for AzCloudMetadata {
 
         {
             // Only serialize non-empty resource_ids
-            let resource_ids = self.resource_ids.0.blocking_read();
+            let resource_ids = self.resource_ids.0.read().unwrap();
             if !resource_ids.is_empty() {
                 map.serialize_entry("resource_ids", &self.resource_ids)?;
             }
@@ -203,7 +203,8 @@ mod tests {
             metadata
                 .endpoints
                 .0
-                .blocking_read()
+                .read()
+                .unwrap()
                 .get(&endpoint::AUTHENTICATION)
                 .unwrap(),
             "https://test.endpoint.com"
@@ -212,7 +213,8 @@ mod tests {
             metadata
                 .resource_ids
                 .0
-                .blocking_read()
+                .read()
+                .unwrap()
                 .get(&resource_id::AUTHENTICATION)
                 .unwrap(),
             "https://test.resource.com/"

@@ -25,7 +25,7 @@ pub(super) struct ListClouds {}
 impl AzCmdExecute for ListClouds {
     type Output = Value;
 
-    async fn run<T: AzComponentCtx>(&self, _: &T) -> Result<Option<Self::Output>, AzError> {
+    async fn run<T: AzComponentCtx>(&self, ctx: &T) -> Result<Option<Self::Output>, AzError> {
         Ok(Some(Value::String("list clouds".to_string())))
     }
 }

@@ -5,7 +5,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use std::sync::RwLock;
 
 use crate::AzCloud;
 
@@ -123,12 +123,12 @@ impl ResourceIdName {
 }
 
 impl ResourceIdMap {
-    pub async fn get(&self, name: &ResourceIdName) -> Option<String> {
-        self.0.read().await.get(name).map(|s| s.clone())
+    pub fn get(&self, name: &ResourceIdName) -> Option<String> {
+        self.0.read().unwrap().get(name).map(|s| s.clone())
     }
 
-    pub async fn insert(&mut self, name: ResourceIdName, value: &str) -> Option<String> {
-        self.0.write().await.insert(name, value.to_string())
+    pub fn insert(&mut self, name: ResourceIdName, value: &str) -> Option<String> {
+        self.0.write().unwrap().insert(name, value.to_string())
     }
 
     pub fn from<'a>(iter: impl IntoIterator<Item = (&'a ResourceIdName, &'a str)>) -> Self {
@@ -145,7 +145,7 @@ impl Serialize for ResourceIdMap {
     where
         S: Serializer,
     {
-        let map = self.0.blocking_read();
+        let map = self.0.read().unwrap();
         let mut serializer = serializer.serialize_map(Some(map.len()))?;
         for (k, v) in map.iter() {
             serializer.serialize_entry(k.as_str(), v)?;

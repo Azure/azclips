@@ -1,6 +1,7 @@
 pub mod cloud;
 pub(crate) mod component;
 use fs2::FileExt;
+use serde_json::{Map, Value};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::{env, path::PathBuf, sync::OnceLock};
@@ -17,6 +18,7 @@ const DEFAULT_CONFIG_DIR: &str = ".cirrus";
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub(crate) struct AzCfg {
     pub(crate) cloud: AzCloudCfg,
+    pub(crate) settings: Map<String, Value>,
 }
 
 impl AzCfg {

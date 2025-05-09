@@ -68,19 +68,25 @@ impl fmt::Display for CmdUri {
                 utf8_percent_encode(version, COMPONENT_ENCODE_SET)
             ));
         }
-        query_parts.extend(self.params.iter().map(|(k, values)| {
-            values
+
+        query_parts.extend(
+            self.params
                 .iter()
-                .map(|v| {
-                    format!(
-                        "{}={}",
-                        utf8_percent_encode(k, COMPONENT_ENCODE_SET),
-                        utf8_percent_encode(v, COMPONENT_ENCODE_SET)
-                    )
+                .map(|(k, values)| {
+                    values
+                        .iter()
+                        .map(|v| {
+                            format!(
+                                "{}={}",
+                                utf8_percent_encode(k, COMPONENT_ENCODE_SET),
+                                utf8_percent_encode(v, COMPONENT_ENCODE_SET)
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                        .join("&") // join the parts with the same key before sort to keep the order of the values
                 })
-                .collect::<Vec<_>>()
-                .join("&") // join the parts with the same key before sort to keep the order of the values
-        }));
+                .filter(|s| !s.is_empty()),
+        );
         if !query_parts.is_empty() {
             query_parts.sort();
             write!(f, "?{}", query_parts.join("&"))?;
