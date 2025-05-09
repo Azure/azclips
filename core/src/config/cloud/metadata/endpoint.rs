@@ -4,6 +4,8 @@ use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashMap;
 use std::fmt;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 use crate::AzCloud;
 
@@ -12,8 +14,8 @@ pub struct EndpointName {
     inner: Repr,
 }
 
-#[derive(Debug, Default)]
-pub(crate) struct EndpointMap(HashMap<EndpointName, String>);
+#[derive(Debug, Default, Clone)]
+pub(crate) struct EndpointMap(pub(crate) Arc<RwLock<HashMap<EndpointName, String>>>);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum Repr {
@@ -209,20 +211,20 @@ impl EndpointName {
 }
 
 impl EndpointMap {
-    pub fn get(&self, endpoint: &EndpointName) -> Option<&str> {
-        self.0.get(endpoint).map(|s| s.as_str())
+    pub async fn get(&self, name: &EndpointName) -> Option<String> {
+        self.0.read().await.get(name).map(|s| s.clone())
     }
 
-    pub fn insert(&mut self, endpoint: EndpointName, value: &str) -> Option<String> {
-        self.0.insert(endpoint, value.to_string())
+    pub async fn insert(&mut self, name: EndpointName, value: &str) -> Option<String> {
+        self.0.write().await.insert(name, value.to_string())
     }
 
     pub fn from<'a>(iter: impl IntoIterator<Item = (&'a EndpointName, &'a str)>) -> Self {
-        Self(
-            iter.into_iter()
-                .map(|(k, v)| (k.clone(), v.to_string()))
-                .collect(),
-        )
+        let map = iter
+            .into_iter()
+            .map(|(k, v)| (k.clone(), v.to_string()))
+            .collect();
+        Self(Arc::new(RwLock::new(map)))
     }
 }
 
@@ -231,11 +233,12 @@ impl Serialize for EndpointMap {
     where
         S: Serializer,
     {
-        let mut map = serializer.serialize_map(Some(self.0.len()))?;
-        for (k, v) in &self.0 {
-            map.serialize_entry(k.as_str(), v)?;
+        let map = self.0.blocking_read();
+        let mut serializer = serializer.serialize_map(Some(map.len()))?;
+        for (k, v) in map.iter() {
+            serializer.serialize_entry(k.as_str(), v)?;
         }
-        map.end()
+        serializer.end()
     }
 }
 
@@ -261,7 +264,7 @@ impl<'de> Deserialize<'de> for EndpointMap {
                 while let Some((key, value)) = access.next_entry::<String, String>()? {
                     map.insert(EndpointName::from_str(&key), value);
                 }
-                Ok(EndpointMap(map))
+                Ok(EndpointMap(Arc::new(RwLock::new(map))))
             }
         }
 

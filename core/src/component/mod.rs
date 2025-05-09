@@ -7,17 +7,28 @@ use std::path::PathBuf;
 
 use async_trait::async_trait;
 
-use crate::config;
 use crate::error::AzError;
 use crate::pb::component as pb;
+use crate::{config, AzCfg};
 
 #[async_trait]
 pub trait AzComponentCtx: Send + Sync + 'static {
     /// get the core info
-    async fn get_core_info<'a>(
-        &'a self,
+    async fn get_core_info(
+        &self,
         request: pb::GetCoreInfoRequest,
     ) -> Result<pb::GetCoreInfoResponse, AzError>;
+
+    /// get a clone of the core config
+    ///
+    /// # Example get the active cloud and its endpoint and resource id for authentication
+    /// ```rust
+    /// let cfg = ctx.get_cfg();
+    /// let cloud = cfg.cloud.get_active();
+    /// let endpoint = cloud.get_endpoint(endpoint::AUTHENTICATION).await;
+    /// let resource_id = cloud.get_resource_id(resource_id::AUTHENTICATION).await;
+    /// ```
+    async fn get_cfg(&self) -> AzCfg;
 }
 
 /// the trait of a component

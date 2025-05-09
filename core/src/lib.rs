@@ -7,6 +7,7 @@ pub mod error;
 pub mod pb;
 
 pub(crate) mod account;
+pub(crate) mod auth;
 pub(crate) mod component;
 pub(crate) mod config;
 pub(crate) mod param;
@@ -58,7 +59,7 @@ impl AzCore {
     /// Create a new instance of AzCore
     async fn new() -> Self {
         let cfg = AzCfg::load().expect("failed to load config");
-        let component_center = AzComponentCenter::<Self>::new(&cfg.cloud.name)
+        let component_center = AzComponentCenter::<Self>::new(&cfg.cloud.active)
             .await
             .expect("failed to create component center");
         // Perform async initialization here
@@ -256,18 +257,12 @@ impl AzCore {
         Ok(component)
     }
 
-    /// Get the current active cloud
-    async fn get_cloud(&self) -> AzResult<AzCloud> {
-        let cfg = self.cfg.read().await;
-        Ok(cfg.cloud.name.clone())
-    }
-
     /// Switch the active cloud
     /// The switch will also rebuild the component center route table for the cloud
     async fn switch_cloud(&self, cloud: &AzCloud) -> AzResult<()> {
         {
             let mut cfg = self.cfg.write().await;
-            cfg.cloud.name = cloud.clone();
+            _ = cfg.cloud.set_active(cloud.clone());
             cfg.save()?;
         }
         self.component_center

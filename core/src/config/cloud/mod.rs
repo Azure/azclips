@@ -8,7 +8,8 @@ use std::{
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-pub(crate) use cfg::AzCloudCfg;
+pub use cfg::AzCloudCfg;
+pub use metadata::{endpoint, resource_id, AzCloudMetadata};
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub(crate) enum AzCloud {
@@ -17,12 +18,6 @@ pub(crate) enum AzCloud {
     AzureUSGovernment,
     AzureGermanCloud,
     Custom(String),
-}
-
-impl Default for AzCloud {
-    fn default() -> Self {
-        AzCloud::AzureCloud
-    }
 }
 
 impl Display for AzCloud {
