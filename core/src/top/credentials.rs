@@ -41,7 +41,7 @@ impl UserCredential {
             )
             .await
             .map_err(|e| {
-                AuthenticationError::AuthenticationFailed(format!("Failed to acquire token: {}", e))
+                AuthenticationError::AuthenticationFailed(format!("Failed to acquire token for user credential: {}", e))
             })?;
 
         let access_token = token_response.access_token().secret().to_string();
@@ -52,12 +52,19 @@ impl UserCredential {
         let expires_in = token_response.expires_in().unwrap_or(std::time::Duration::from_secs(0));
         let (expires_on, expires_on_readable) = format_token_expires_on(expires_in);
         
-        Ok(Token {
+        let token = Token {
             access_token,
             expires_on,
             expires_on_readable,
             refresh_token,
-        })
+        };
+
+        // Save the token to a file
+        token.write_token_to_file().map_err(|e| {
+            AuthenticationError::AuthenticationFailed(format!("Failed to write token to file after token acquired for user credential: {}", e))
+        })?;
+
+        Ok(token)
     }
 }
 
@@ -89,6 +96,8 @@ pub struct Token {
 
 impl Token {
     pub fn write_token_to_file(&self) -> Result<(), AzInternalError> {
+        //TODO: Store token in cache
+        //TODO: Store access token for different scopes, tenants, and users 
         let token_data = json!({
             "access_token": self.access_token,
             "expires_on": self.expires_on,

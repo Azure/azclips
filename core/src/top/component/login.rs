@@ -60,7 +60,7 @@ impl Login {
             if use_device_code {
                 self.login_with_device_code().map_err(AzError::from)?;
             } else {
-                self.login_with_auth_code(&scopes, tenant_id).await.map_err(AzError::from)?;
+                self.login_with_auth_code(&scopes, tenant_id).await?;
             }
         } else {
             // Todo: Implement non-interactive login logic
@@ -80,9 +80,6 @@ impl Login {
         let token = user_credential.acquire_token(scopes, tenant_id).await?;
         
         println!("Token acquired successfully. Token expires on: {}\n", token.expires_on_readable);
-        if let Err(e) = token.write_token_to_file() {
-            eprintln!("Warning: Failed to save token to file: {}", e);
-        }
         Ok(())
     }
 
@@ -418,8 +415,8 @@ mod tests {
         
         let token = Token::default();
             
-        let (access_token, _) = match token.read_token_from_file() {
-            Ok(token_info) => (token_info.access_token, token_info.expires_on),
+        let access_token = match token.read_token_from_file() {
+            Ok(token_info) => token_info.access_token,
             Err(e) => {
                 println!("{}, skipping test", e);
                 return;
