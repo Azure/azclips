@@ -67,8 +67,12 @@ async fn run_app_inter(tenant_id: &str) -> Result<(), Box<dyn Error>> {
         AZURE_CLI_CLIENT_ID,
         None,
         &refresh_token_secret,
+        Some("https://vault.azure.net/.default"),
     )
     .await?;
+
+    println!("\n--- New token ---\n");
+    println!("Access token: {}", new_token_response.access_token().secret());
 
     let new_expires_in = Duration::from_secs(new_token_response.expires_in());
     let new_expiration = SystemTime::now()
@@ -89,7 +93,7 @@ async fn run_app_inter(tenant_id: &str) -> Result<(), Box<dyn Error>> {
 
     let access_token_secret = new_token_response.access_token().secret();
 
-    let url = Url::parse("https://management.azure.com/subscriptions?api-version=2022-12-01")?;
+    let url = Url::parse("https://cirrus-test-kv.vault.azure.net/secrets?api-version=7.4")?;
 
     let resp = Client::new()
         .get(url)

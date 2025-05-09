@@ -96,23 +96,19 @@ impl Token {
             "refresh_token": self.refresh_token,
         });
         
-        let json_string = to_string_pretty(&token_data)
-            .map_err(|e| AzInternalError::Json(e))?;
+        let json_string = to_string_pretty(&token_data)?;
         
         let home_dir = dirs::home_dir()
             .ok_or_else(|| AzInternalError::InvalidPathError("Could not determine home directory".to_string()))?;
         
         let token_dir = home_dir.join(".cirrus");
-        std::fs::create_dir_all(&token_dir)
-            .map_err(|e| AzInternalError::Io(e))?;
+        std::fs::create_dir_all(&token_dir)?;
         
         let file_path = token_dir.join("azure_token.json");
         
-        let mut file = File::create(&file_path)
-            .map_err(|e| AzInternalError::Io(e))?;
+        let mut file = File::create(&file_path)?;
         
-        file.write_all(json_string.as_bytes())
-            .map_err(|e| AzInternalError::Io(e))?;
+        file.write_all(json_string.as_bytes())?;
         
         println!("Token saved to {}", file_path.display());
         
@@ -125,9 +121,9 @@ impl Token {
         
         let token_path = home_dir.join(".cirrus").join("azure_token.json");
         if !token_path.exists() {
-            return Err(AzError::Internal(AzInternalError::InvalidPathError(
+            return Err(AzInternalError::InvalidPathError(
                 format!("No cached token found at {}", token_path.display())
-            )));
+            ).into());
         }
         
         let mut file = File::open(&token_path)
@@ -142,17 +138,17 @@ impl Token {
         
         let access_token = token_data.get("access_token")
             .and_then(|t| t.as_str())
-            .ok_or_else(|| AzError::Authentication(AuthenticationError::InvalidToken("No access token found in token file".to_string())))?
+            .ok_or_else(|| AuthenticationError::InvalidToken("No access token found in token file".to_string()))?
             .to_string();
         
         let expires_on = token_data.get("expires_on")
             .and_then(|e| e.as_str())
-            .ok_or_else(|| AzError::Authentication(AuthenticationError::InvalidToken("No expiration time found in token file".to_string())))?
+            .ok_or_else(|| AuthenticationError::InvalidToken("No expiration time found in token file".to_string()))?
             .to_string();
             
         let expires_on_readable = token_data.get("expires_on_readable")
             .and_then(|e| e.as_str())
-            .ok_or_else(|| AzError::Authentication(AuthenticationError::InvalidToken("No readable expiration time found in token file".to_string())))?
+            .ok_or_else(|| AuthenticationError::InvalidToken("No readable expiration time found in token file".to_string()))?
             .to_string();
         
         let refresh_token = token_data.get("refresh_token")

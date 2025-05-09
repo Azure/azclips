@@ -97,7 +97,7 @@ pub enum AzError {
 pub enum AuthenticationError {
     #[error("Failed to authenticate: {0}")]
     AuthenticationFailed(String),
-    
+
     #[error("Token expired")]
     TokenExpired,
 
@@ -106,8 +106,6 @@ pub enum AuthenticationError {
     
     #[error("Invalid tenant")]
     InvalidTenant,
-
-
 }
 
 // You can add more error variants as needed.

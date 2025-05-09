@@ -77,24 +77,13 @@ impl Login {
         println!("Logging in interactively...");
         
         let user_credential = UserCredential::new(None);
-        let token_result = user_credential.acquire_token(scopes, tenant_id).await;
+        let token = user_credential.acquire_token(scopes, tenant_id).await?;
         
-        match token_result {
-            Ok(token) => {
-                println!("Token acquired successfully. Token expires on: {}\n", token.expires_on_readable);
-                if let Err(e) = token.write_token_to_file() {
-                    eprintln!("Warning: Failed to save token to file: {}", e);
-                }
-                Ok(())
-            },
-            Err(e) => {
-                //Todo: Improve the error handling
-                eprintln!("Authentication failed: {}", e);
-                Err(AuthenticationError::AuthenticationFailed(format!(
-                    "Authentication failed with Auth Code: {}", e
-                )))
-            }
+        println!("Token acquired successfully. Token expires on: {}\n", token.expires_on_readable);
+        if let Err(e) = token.write_token_to_file() {
+            eprintln!("Warning: Failed to save token to file: {}", e);
         }
+        Ok(())
     }
 
     fn login_with_device_code(&self) -> Result<(), AuthenticationError> {
