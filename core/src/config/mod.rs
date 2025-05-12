@@ -30,20 +30,22 @@ impl AzCfg {
             return Ok(config);
         }
         let mut buf = String::new();
-        let mut file = File::open(&config_file)?;
-        file.lock_shared()?;
-        file.read_to_string(&mut buf)?;
-        file.unlock()?;
+        {
+            let mut file = File::open(&config_file)?;
+            file.lock_shared()?;
+            file.read_to_string(&mut buf)?;
+        }
         let config = toml::from_str(&buf)?;
         Ok(config)
     }
 
     pub(crate) fn save(&self) -> Result<(), AzInternalError> {
         let config_str = toml::to_string(self)?;
-        let mut file = File::create(Self::config_file_path())?;
-        file.lock_exclusive()?;
-        file.write_all(config_str.as_bytes())?;
-        file.unlock()?;
+        {
+            let mut file = File::create(Self::config_file_path())?;
+            file.lock_exclusive()?;
+            file.write_all(config_str.as_bytes())?;
+        }
         Ok(())
     }
 

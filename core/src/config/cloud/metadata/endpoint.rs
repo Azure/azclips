@@ -9,6 +9,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::RwLock;
 
+use crate::pb::command::{cmd_arg, CmdArg, CmdArgHelp, CmdStringArg};
 use crate::AzCloud;
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
@@ -33,24 +34,25 @@ enum Repr {
 /// * `$konst` - The constant identifier for the endpoint
 /// * `$upcase` - The uppercase constant name
 /// * `$name_bytes` - The byte string literal for the endpoint name
+/// * `$kebab_bytes` - The byte string literal for the kebab case endpoint name
 /// * `$var_bytes` - The byte string literal for the index path to retrieve the value from [metadata api](https://management.azure.com/metadata/endpoints?api-version=2025-01-01)
 ///
 /// # Examples
 ///
 /// ```
 /// standard_endpoints! {
-///     (ActiveDirectory, ACTIVE_DIRECTORY, b"activeDirectory", b"authentication.loginEndpoint");
+///     (Authentication, AUTHENTICATION, b"authentication", b"authentication", b"authentication.loginEndpoint");
 /// }
 /// ```
 macro_rules! standard_endpoints {
         (
             $(
                 $(#[$docs:meta])*
-                ($konst:ident, $upcase:ident, $name_bytes:literal, $var_bytes:literal);
+                ($konst:ident, $upcase:ident, $name_bytes:literal, $kebab_bytes:literal, $var_bytes:literal);
             )+
         ) => {
             #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-            enum StandardEndpoint {
+            pub(crate) enum StandardEndpoint {
                 $(
                     $konst,
                 )+
@@ -102,7 +104,30 @@ macro_rules! standard_endpoints {
                         _ => None,
                     }
                 }
+
+                pub fn list_args(nullable: bool) -> Vec<CmdArg> {
+                    vec![
+                        $(
+                            CmdArg {
+                                name: unsafe { std::str::from_utf8_unchecked($name_bytes) }.to_string(),
+                                help: Some(CmdArgHelp {
+                                    short: format!("{} service.", unsafe { std::str::from_utf8_unchecked($name_bytes) }),
+                                    long: None,
+                                }),
+                                group: "Endpoint Url".to_string(),
+                                options: vec![unsafe { std::str::from_utf8_unchecked($kebab_bytes) }.to_string()],
+                                required: false,
+                                nullable,
+                                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                                    ..Default::default()
+                                })),
+                                ..Default::default()
+                            },
+                        )+
+                    ]
+                }
             }
+
         };
     }
 
@@ -113,24 +138,25 @@ macro_rules! standard_endpoints {
 /// * `$konst` - The constant identifier for the suffix
 /// * `$upcase` - The uppercase constant name
 /// * `$name_bytes` - The byte string literal for the suffix name
+/// * `$kebab_bytes` - The byte string literal for the kebab case suffix name
 /// * `$var_bytes` - The byte string literal for the index path to retrieve the value from [metadata api](https://management.azure.com/metadata/endpoints?api-version=2025-01-01)
 ///
 /// # Examples
 ///
 /// ```
 /// standard_suffixes! {
-///     (AcrLoginServer, ACR_LOGIN_SERVER, b"acrLoginServer", b"suffixes.acrLoginServer");
+///     (AcrLoginServer, ACR_LOGIN_SERVER, b"acrLoginServer", b"acr-login-server", b"suffixes.acrLoginServer");
 /// }
 /// ```
 macro_rules! standard_suffixes {
         (
             $(
                 $(#[$docs:meta])*
-                ($konst:ident, $upcase:ident, $name_bytes:literal, $var_bytes:literal);
+                ($konst:ident, $upcase:ident, $name_bytes:literal, $kebab_bytes:literal, $var_bytes:literal);
             )+
         ) => {
             #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-            enum StandardSuffix {
+            pub(crate) enum StandardSuffix {
                 $(
                     $konst,
                 )+
@@ -181,6 +207,28 @@ macro_rules! standard_suffixes {
                         )+
                         _ => None,
                     }
+                }
+
+                pub fn list_args(nullable: bool) -> Vec<CmdArg> {
+                    vec![
+                        $(
+                            CmdArg {
+                                name: unsafe { std::str::from_utf8_unchecked($name_bytes) }.to_string(),
+                                help: Some(CmdArgHelp {
+                                    short: format!("{} service.", unsafe { std::str::from_utf8_unchecked($name_bytes) }),
+                                    long: None,
+                                }),
+                                group: "Endpoint Suffix".to_string(),
+                                options: vec![unsafe { std::str::from_utf8_unchecked($kebab_bytes) }.to_string()],
+                                required: false,
+                                nullable,
+                                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                                    ..Default::default()
+                                })),
+                                ..Default::default()
+                            },
+                        )+
+                    ]
                 }
             }
         };
@@ -288,56 +336,56 @@ impl<'de> Deserialize<'de> for EndpointMap {
 
 standard_endpoints! {
     /// The Active Directory data lake endpoint.
-    (ActiveDirectoryDataLake, ACTIVE_DIRECTORY_DATALAKE, b"activeDirectoryDataLake", b"activeDirectoryDataLake");
+    (ActiveDirectoryDataLake, ACTIVE_DIRECTORY_DATALAKE, b"activeDirectoryDataLake", b"active-directory-data-lake", b"activeDirectoryDataLake");
     /// The Authentication login endpoint
-    (Authentication, AUTHENTICATION, b"authentication", b"authentication.loginEndpoint");
+    (Authentication, AUTHENTICATION, b"authentication", b"authentication", b"authentication.loginEndpoint");
     /// The Azure Batch endpoint.
-    (Batch, BATCH, b"batch", b"batch");
+    (Batch, BATCH, b"batch", b"batch", b"batch");
     /// The template gallery endpoint.
-    (Gallery, GALLERY, b"gallery", b"gallery");
+    (Gallery, GALLERY, b"gallery", b"gallery", b"gallery");
     /// The Active Directory resource identifier.
-    (Graph, GRAPH, b"graph", b"graph");
+    (Graph, GRAPH, b"graph", b"graph", b"graph");
     /// The media endpoint.
-    (Media, MEDIA, b"media", b"media");
+    (Media, MEDIA, b"media", b"media", b"media");
     /// The portal endpoint.
-    (Portal, PORTAL, b"portal", b"portal");
+    (Portal, PORTAL, b"portal", b"portal", b"portal");
     /// The resource management endpoint.
-    (ResourceManager, RESOURCE_MANAGER, b"resourceManager", b"resourceManager");
+    (ResourceManager, RESOURCE_MANAGER, b"resourceManager", b"resource-manager", b"resourceManager");
     /// The sql server management endpoint.
-    (SqlManagement, SQL_MANAGEMENT, b"sqlManagement", b"sqlManagement");
+    (SqlManagement, SQL_MANAGEMENT, b"sqlManagement", b"sql-management", b"sqlManagement");
     /// The uri of the document which caches commonly used virtual machine images.
-    (VmImageAliasDoc, VM_IMAGE_ALIAS_DOC, b"vmImageAliasDoc", b"vmImageAliasDoc");
+    (VmImageAliasDoc, VM_IMAGE_ALIAS_DOC, b"vmImageAliasDoc", b"vm-image-alias-doc", b"vmImageAliasDoc");
 }
 
 standard_suffixes! {
     /// The Azure Container Registry login server suffix
-    (AcrLoginServer, ACR_LOGIN_SERVER, b"acrLoginServer", b"suffixes.acrLoginServer");
+    (AcrLoginServer, ACR_LOGIN_SERVER, b"acrLoginServer", b"acr-login-server", b"suffixes.acrLoginServer");
     /// The attestation endpoint.
-    (Attestation, ATTESTATION, b"attestation", b"suffixes.attestationEndpoint");
+    (Attestation, ATTESTATION, b"attestation", b"attestation", b"suffixes.attestationEndpoint");
     /// The Data Lake analytics job and catalog service dns suffix.
-    (AzureDatalakeAnalyticsCatalogAndJob, AZURE_DATALAKE_ANALYTICS_CATALOG_AND_JOB, b"azureDatalakeAnalyticsCatalogAndJob", b"suffixes.azureDataLakeAnalyticsCatalogAndJob");
+    (AzureDatalakeAnalyticsCatalogAndJob, AZURE_DATALAKE_ANALYTICS_CATALOG_AND_JOB, b"azureDatalakeAnalyticsCatalogAndJob", b"azure-datalake-analytics-catalog-and-job", b"suffixes.azureDataLakeAnalyticsCatalogAndJob");
     /// The Data Lake store filesystem service dns suffix.
-    (AzureDatalakeStoreFileSystem, AZURE_DATALAKE_STORE_FILE_SYSTEM, b"azureDatalakeStoreFileSystem", b"suffixes.azureDataLakeStoreFileSystem");
+    (AzureDatalakeStoreFileSystem, AZURE_DATALAKE_STORE_FILE_SYSTEM, b"azureDatalakeStoreFileSystem", b"azure-datalake-store-file-system", b"suffixes.azureDataLakeStoreFileSystem");
     /// The Azure Front Door service dns suffix.
-    (AzureFrontDoor, AZURE_FRONT_DOOR, b"azureFrontDoor", b"suffixes.azureFrontDoorEndpointSuffix");
+    (AzureFrontDoor, AZURE_FRONT_DOOR, b"azureFrontDoor", b"azure-front-door", b"suffixes.azureFrontDoorEndpointSuffix");
     /// The Key Vault service dns suffix.
-    (KeyVaultDns, KEY_VAULT_DNS, b"keyVaultDns", b"suffixes.keyVaultDns");
+    (KeyVaultDns, KEY_VAULT_DNS, b"keyVaultDns", b"key-vault-dns", b"suffixes.keyVaultDns");
     /// The mariadb server endpoint.
-    (MariadbServer, MARIADB_SERVER, b"mariadbServer", b"suffixes.mariadbServerEndpoint");
+    (MariadbServer, MARIADB_SERVER, b"mariadbServer", b"mariadb-server", b"suffixes.mariadbServerEndpoint");
     /// The mhsm dns.
-    (MhsmDns, MHSM_DNS, b"mhsmDns", b"suffixes.mhsmDns");
+    (MhsmDns, MHSM_DNS, b"mhsmDns", b"mhsm-dns", b"suffixes.mhsmDns");
     /// The mysql server endpoint.
-    (MysqlServer, MYSQL_SERVER, b"mysqlServer", b"suffixes.mysqlServerEndpoint");
+    (MysqlServer, MYSQL_SERVER, b"mysqlServer", b"mysql-server", b"suffixes.mysqlServerEndpoint");
     /// The postgres server endpoint.
-    (PostgresqlServer, POSTGRESQL_SERVER, b"postgresqlServer", b"suffixes.postgresqlServerEndpoint");
+    (PostgresqlServer, POSTGRESQL_SERVER, b"postgresqlServer", b"postgresql-server", b"suffixes.postgresqlServerEndpoint");
     /// The dns suffix for sql servers.
-    (SqlServerHostname, SQL_SERVER_HOSTNAME, b"sqlServerHostname", b"suffixes.sqlServerHostname");
+    (SqlServerHostname, SQL_SERVER_HOSTNAME, b"sqlServerHostname", b"sql-server-hostname", b"suffixes.sqlServerHostname");
     /// The endpoint suffix for storage accounts.
-    (Storage, STORAGE, b"storage", b"suffixes.storage");
+    (Storage, STORAGE, b"storage", b"storage", b"suffixes.storage");
     /// The storage sync endpoint.
-    (StorageSync, STORAGE_SYNC, b"storageSync", b"suffixes.storageSyncEndpointSuffix");
+    (StorageSync, STORAGE_SYNC, b"storageSync", b"storage-sync", b"suffixes.storageSyncEndpointSuffix");
     /// The synapse analytics endpoint.
-    (SynapseAnalytics, SYNAPSE_ANALYTICS, b"synapseAnalytics", b"suffixes.synapseAnalytics");
+    (SynapseAnalytics, SYNAPSE_ANALYTICS, b"synapseAnalytics", b"synapse-analytics", b"suffixes.synapseAnalytics");
 }
 
 /// This map contains the built-in endpoint maps for the Azure clouds.

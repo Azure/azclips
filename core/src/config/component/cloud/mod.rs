@@ -7,6 +7,7 @@ mod update;
 
 use activate::ActivateCloud;
 use async_trait::async_trait;
+use create::CreateCloud;
 use delete::DeleteCloud;
 use list::ListClouds;
 use show::ShowCloud;
@@ -61,6 +62,7 @@ impl AzCmdGroup for CloudCommandGroup {
         match segments.next().as_deref() {
             None => Some(CloudCommandGroup::cmd_interface(depth)),
             Some("activate") => Some(ActivateCloud::cmd_interface(depth)),
+            Some("create") => Some(CreateCloud::cmd_interface(depth)),
             Some("show") => Some(ShowCloud::cmd_interface(depth)),
             Some("delete") => Some(DeleteCloud::cmd_interface(depth)),
             Some("list") => Some(ListClouds::cmd_interface(depth)),
@@ -72,6 +74,7 @@ impl AzCmdGroup for CloudCommandGroup {
         match segments.next().as_deref() {
             None => Some(CloudCommandGroup::uri()),
             Some("activate") => Some(ActivateCloud::uri()),
+            Some("create") => Some(CreateCloud::uri()),
             Some("show") => Some(ShowCloud::uri()),
             Some("delete") => Some(DeleteCloud::uri()),
             Some("list") => Some(ListClouds::uri()),
@@ -87,6 +90,7 @@ impl AzCmdGroup for CloudCommandGroup {
     ) -> Result<Data, AzError> {
         match segments.next().as_deref() {
             Some("activate") => ActivateCloud::execute(ctx, params, output_format).await,
+            Some("create") => CreateCloud::execute(ctx, params, output_format).await,
             Some("show") => ShowCloud::execute(ctx, params, output_format).await,
             Some("delete") => DeleteCloud::execute(ctx, params, output_format).await,
             Some("list") => ListClouds::execute(ctx, params, output_format).await,

@@ -1,18 +1,27 @@
 use std::{collections::HashMap, str::FromStr};
 
+use async_trait::async_trait;
 use serde_json::Value;
 use tracing::error;
 
 use crate::{
     cmd_uri::CmdUri,
-    component::AzComponentCtx,
-    config::cloud::{endpoint::EndpointMap, resource_id::ResourceIdMap},
+    component::{
+        cmd::{AzCmd, AzCmdExecute},
+        AzComponentCtx,
+    },
+    config::cloud::{
+        endpoint::{self, EndpointMap, EndpointName},
+        resource_id::{self, ResourceIdMap, ResourceIdName},
+        AzCloudMetadata,
+    },
     error::AzError,
     pb::command::{
         cmd_arg, cmd_interface, cmd_string_arg, CmdArg, CmdArgHelp, CmdCommand, CmdHelp,
-        CmdInterface, CmdParams, CmdStringArg, CmdStringFormat,
+        CmdInterface, CmdObjectArg, CmdObjectArgAdditionalProperties, CmdParams, CmdStringArg,
+        CmdStringFormat,
     },
-    AzCloud, VERSION,
+    AzCloud, AzCore, VERSION,
 };
 
 #[derive(Debug, Default)]
@@ -22,4 +31,158 @@ pub(super) struct CreateCloud {
     resource_ids: ResourceIdMap,
 }
 
-// impl CreateCloud {}
+#[async_trait]
+impl AzCmdExecute for CreateCloud {
+    type Output = AzCloudMetadata;
+
+    async fn run<T: AzComponentCtx>(&self, ctx: &T) -> Result<Option<Self::Output>, AzError> {
+        let cloud_metadata = AzCloudMetadata {
+            name: self.name.to_owned(),
+            endpoints: self.endpoints.to_owned(),
+            resource_ids: self.resource_ids.to_owned(),
+        };
+
+        {
+            let core = AzCore::instance().await;
+            let mut cfg = core.cfg.write().await;
+            cfg.cloud
+                .clouds
+                .insert(self.name.to_owned(), cloud_metadata);
+            cfg.save()?;
+        }
+
+        let cfg = ctx.get_cfg().await;
+        let cloud = cfg.cloud.get_cloud(&self.name)?;
+        Ok(Some(cloud))
+    }
+}
+
+impl AzCmd for CreateCloud {
+    const URI: &'static str = "cmd://azure/config/cloud/create";
+
+    fn cmd_interface(_: Option<u32>) -> CmdInterface {
+        CmdInterface {
+            name: "create".to_string(),
+            help: Some(CmdHelp {
+                short: "create a cloud config".to_string(),
+                long: None,
+            }),
+            uri: Self::uri().to_string(),
+            level: Some(cmd_interface::Level::Command(CmdCommand {
+                version: VERSION.to_string(),
+                args: Self::args(),
+                positional_args: vec![],
+            })),
+        }
+    }
+
+    fn args() -> Vec<CmdArg> {
+        let mut endpoints = endpoint::StandardEndpoint::list_args(false);
+        endpoints.extend(endpoint::StandardSuffix::list_args(false));
+        let resource_ids = resource_id::StandardResourceId::list_args(false);
+        vec![
+            CmdArg {
+                var_name: "name".to_string(),
+                name: "name".to_string(),
+                help: Some(CmdArgHelp {
+                    short: "The name of the cloud".to_string(),
+                    long: None,
+                }),
+                options: vec!["name".to_string()],
+                required: true,
+                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                    ..Default::default()
+                })),
+                ..Default::default()
+            },
+            CmdArg {
+                var_name: "endpoints".to_string(),
+                name: "endpoints".to_string(),
+                help: Some(CmdArgHelp {
+                    short: "The endpoints used by the cloud".to_string(),
+                    long: None,
+                }),
+                options: vec!["endpoints".to_string()],
+                required: true,
+                arg_type: Some(cmd_arg::ArgType::Object(Box::new(CmdObjectArg {
+                    props: endpoints,
+                    additional_props: Some(Box::new(CmdObjectArgAdditionalProperties {
+                        item: Some(Box::new(CmdArg {
+                            var_name: "endpoints{}".to_string(),
+                            name: "endpoint".to_string(),
+                            help: Some(CmdArgHelp {
+                                short: "The custom endpoint used in the cloud".to_string(),
+                                long: None,
+                            }),
+                            arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                                ..Default::default()
+                            })),
+                            ..Default::default()
+                        })),
+                    })),
+                    ..Default::default()
+                }))),
+                ..Default::default()
+            },
+            CmdArg {
+                var_name: "resource_ids".to_string(),
+                name: "resource_ids".to_string(),
+                help: Some(CmdArgHelp {
+                    short: "The resource ids used by the cloud".to_string(),
+                    long: None,
+                }),
+                options: vec!["resource-ids".to_string()],
+                required: true,
+                arg_type: Some(cmd_arg::ArgType::Object(Box::new(CmdObjectArg {
+                    props: resource_ids,
+                    additional_props: Some(Box::new(CmdObjectArgAdditionalProperties {
+                        item: Some(Box::new(CmdArg {
+                            var_name: "resource_ids{}".to_string(),
+                            name: "resource_id".to_string(),
+                            help: Some(CmdArgHelp {
+                                short: "The custom resource id used in the cloud".to_string(),
+                                long: None,
+                            }),
+                            arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                                ..Default::default()
+                            })),
+                            ..Default::default()
+                        })),
+                    })),
+                    ..Default::default()
+                }))),
+                ..Default::default()
+            },
+        ]
+    }
+
+    fn try_from(params: Option<CmdParams>) -> Result<Self, AzError> {
+        let mut create_cloud = Self::default();
+        if let Some(params) = params {
+            for (name, v) in params.params.iter() {
+                match name.as_str() {
+                    "name" => {
+                        create_cloud.name = serde_json::from_slice::<String>(v)
+                            .expect("failed to parse json")
+                            .parse()
+                            .expect("failed to convert to AzCloud");
+                    }
+                    "endpoints" => {
+                        create_cloud.endpoints = serde_json::from_slice::<EndpointMap>(v)
+                            .expect("failed to parse json")
+                            .into();
+                    }
+                    "resource_ids" => {
+                        create_cloud.resource_ids = serde_json::from_slice::<ResourceIdMap>(v)
+                            .expect("failed to parse json")
+                            .into();
+                    }
+                    _ => {
+                        error!("unknown argument: {}", name);
+                    }
+                }
+            }
+        }
+        Ok(create_cloud)
+    }
+}

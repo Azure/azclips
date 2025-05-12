@@ -7,6 +7,7 @@ use std::fmt;
 use std::sync::Arc;
 use std::sync::RwLock;
 
+use crate::pb::command::{cmd_arg, CmdArg, CmdArgHelp, CmdStringArg};
 use crate::AzCloud;
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
@@ -29,24 +30,25 @@ pub(crate) struct ResourceIdMap(pub(super) Arc<RwLock<HashMap<ResourceIdName, St
 /// * `$konst` - The constant identifier for the resource id
 /// * `$upcase` - The uppercase constant name
 /// * `$name_bytes` - The byte string literal for the resource id name
+/// * `$kebab_bytes` - The byte string literal for the kebab case resource id name
 /// * `$var_bytes` - The byte string literal for the index path to retrieve the resource id from [metadata api](https://management.azure.com/metadata/endpoints?api-version=2025-01-01)
 ///
 /// # Examples
 ///
 /// ```
 /// standard_resource_ids! {
-///     (ActiveDirectoryDataLake, ACTIVE_DIRECTORY_DATALAKE, b"activeDirectoryDataLake", b"activeDirectoryDataLake");
+///     (Authentication, AUTHENTICATION, b"authentication", b"authentication", b"authentication.resource_ids[0]");
 /// }
 /// ```
 macro_rules! standard_resource_ids {
     (
         $(
             $(#[$docs:meta])*
-            ($konst:ident, $upcase:ident, $name_bytes:literal, $var_bytes:literal);
+            ($konst:ident, $upcase:ident, $name_bytes:literal, $kebab_bytes:literal, $var_bytes:literal);
         )+
     ) => {
         #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-        pub(super) enum StandardResourceId {
+        pub(crate) enum StandardResourceId {
             $(
                 $konst,
             )+
@@ -96,6 +98,28 @@ macro_rules! standard_resource_ids {
                     )+
                     _ => None,
                 }
+            }
+
+            pub fn list_args(nullable: bool) -> Vec<CmdArg> {
+                vec![
+                    $(
+                        CmdArg {
+                            name: unsafe { std::str::from_utf8_unchecked($name_bytes) }.to_string(),
+                            help: Some(CmdArgHelp {
+                                short: format!("{} service.", unsafe { std::str::from_utf8_unchecked($name_bytes) }),
+                                long: None,
+                            }),
+                            group: "Standard Resource Id".to_string(),
+                            options: vec![unsafe { std::str::from_utf8_unchecked($kebab_bytes) }.to_string()],
+                            required: false,
+                            nullable,
+                            arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                                ..Default::default()
+                            })),
+                            ..Default::default()
+                        },
+                    )+
+                ]
             }
         }
     };
@@ -192,35 +216,32 @@ impl<'de> Deserialize<'de> for ResourceIdMap {
 }
 
 standard_resource_ids! {
-
     /// The Active Directory resource identifier for data lake services.
-    (ActiveDirectoryDataLake, ACTIVE_DIRECTORY_DATALAKE, b"activeDirectoryDataLake", b"activeDirectoryDataLake");
+    (ActiveDirectoryDataLake, ACTIVE_DIRECTORY_DATALAKE, b"activeDirectoryDataLake", b"active-directory-data-lake", b"activeDirectoryDataLake");
     /// The resource identifier of the App Insights resource.
-    (AppInsights, APP_INSIGHTS, b"appInsights", b"appInsightsResourceId");
+    (AppInsights, APP_INSIGHTS, b"appInsights", b"app-insights", b"appInsightsResourceId");
     /// The resource identifier of the App Insights telemetry channel.
-    (AppInsightsTelemetryChannel, APP_INSIGHTS_TELEMETRY_CHANNEL, b"appInsightsTelemetryChannel", b"appInsightsTelemetryChannelResourceId");
+    (AppInsightsTelemetryChannel, APP_INSIGHTS_TELEMETRY_CHANNEL, b"appInsightsTelemetryChannel", b"app-insights-telemetry-channel", b"appInsightsTelemetryChannelResourceId");
     /// The resource identifier of the attestation resource.
-    (Attestation, ATTESTATION, b"attestation", b"attestationResourceId");
+    (Attestation, ATTESTATION, b"attestation", b"attestation", b"attestationResourceId");
     /// The resource identifier to obtain login tokens for.
-    (Authentication, AUTHENTICATION, b"authentication", b"authentication.resource_ids[0]");
-    // /// The resource identifier of the azmirror storage account.
-    // (AzmirrorStorageAccount, AZMIRROR_STORAGE_ACCOUNT, b"azmirrorStorageAccount", b"azmirrorStorageAccountResourceId");  // Not found in metadata
+    (Authentication, AUTHENTICATION, b"authentication", b"authentication", b"authentication.resource_ids[0]");
     /// The resource identifier of the Azure Batch service that is the recipient of the requested token.
-    (Batch, BATCH, b"batch", b"batch");
+    (Batch, BATCH, b"batch", b"batch", b"batch");
     /// The Active Directory resource identifier.
-    (Graph, GRAPH, b"graph", b"graphResourceId");
+    (Graph, GRAPH, b"graph", b"graph", b"graphResourceId");
     /// The resource identifier of the log analytics resource.
-    (LogAnalytics, LOG_ANALYTICS, b"logAnalytics", b"logAnalyticsResourceId");
+    (LogAnalytics, LOG_ANALYTICS, b"logAnalytics", b"log-analytics", b"logAnalyticsResourceId");
     /// The resource identifier of the media resource.
-    (Media, MEDIA, b"media", b"media");
+    (Media, MEDIA, b"media", b"media", b"media");
     /// The resource identifier of the Microsoft Graph resource.
-    (MicrosoftGraph, MICROSOFT_GRAPH, b"microsoftGraph", b"microsoftGraphResourceId");
+    (MicrosoftGraph, MICROSOFT_GRAPH, b"microsoftGraph", b"microsoft-graph", b"microsoftGraphResourceId");
     /// The resource identifier of the ossrdbms resource.
-    (Ossrdbms, OSSRDBMS, b"ossrdbms", b"ossrdbmsResourceId");
+    (Ossrdbms, OSSRDBMS, b"ossrdbms", b"ossrdbms", b"ossrdbmsResourceId");
     /// The resource identifier of the resource manager resource.
-    (ResourceManager, RESOURCE_MANAGER, b"resourceManager", b"authentication.resource_ids[0]");  // or use resourceManager
+    (ResourceManager, RESOURCE_MANAGER, b"resourceManager", b"resource-manager", b"authentication.resource_ids[0]");
     /// The resource identifier of the synapse analytics resource.
-    (SynapseAnalytics, SYNAPSE_ANALYTICS, b"synapseAnalytics", b"synapseAnalyticsResourceId");
+    (SynapseAnalytics, SYNAPSE_ANALYTICS, b"synapseAnalytics", b"synapse-analytics", b"synapseAnalyticsResourceId");
 }
 
 /// This map contains the built-in resource_id maps for the Azure clouds.

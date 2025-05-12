@@ -5,7 +5,7 @@ use crate::{
         cmd::{AzCmd, AzCmdExecute},
         AzComponentCtx,
     },
-    config::cloud::AzCloudMetadata,
+    config::cloud::{endpoint, resource_id, AzCloudMetadata},
     error::AzError,
     pb::command::{cmd_interface, CmdArg, CmdCommand, CmdHelp, CmdInterface, CmdParams},
     AzCloud, VERSION,
@@ -32,6 +32,8 @@ impl AzCmdExecute for ListClouds {
                 result.push(cloud_metadata.clone());
             }
         }
+        endpoint::ATTESTATION;
+        resource_id::ATTESTATION;
         Ok(Some(result))
     }
 }
