@@ -3,6 +3,7 @@ use azure_identity::{
     interactive_credential::interactive_browser_credential::InteractiveBrowserCredential,
     refresh_token,
 };
+use oauth2::ClientId;
 use oauth2::TokenResponse;
 use reqwest::Client;
 use std::error::Error;
@@ -34,7 +35,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
 async fn run_app_inter(tenant_id: &str) -> Result<(), Box<dyn Error>> {
     let interactive_credentials =
-        InteractiveBrowserCredential::new(None, Some(tenant_id.to_string()), None)?;
+        InteractiveBrowserCredential::new(Some(ClientId::new(AZURE_CLI_CLIENT_ID.to_string())), Some(tenant_id.to_string()), None)?;
 
     let token_response = interactive_credentials
         .get_token(Some(&["https://management.core.windows.net/.default"]), Some("select_account"), None)
@@ -44,6 +45,9 @@ async fn run_app_inter(tenant_id: &str) -> Result<(), Box<dyn Error>> {
     let original_expiration = SystemTime::now()
         .checked_add(original_expires_in)
         .unwrap_or(UNIX_EPOCH);
+
+    println!("\n--- Original token ---\n");
+    println!("Access token: {}", token_response.access_token().secret());
     
     println!("Original token expires in: {} seconds (at {:?})", 
              original_expires_in.as_secs(), 
@@ -63,8 +67,12 @@ async fn run_app_inter(tenant_id: &str) -> Result<(), Box<dyn Error>> {
         AZURE_CLI_CLIENT_ID,
         None,
         &refresh_token_secret,
+        Some("https://vault.azure.net/.default"),
     )
     .await?;
+
+    println!("\n--- New token ---\n");
+    println!("Access token: {}", new_token_response.access_token().secret());
 
     let new_expires_in = Duration::from_secs(new_token_response.expires_in());
     let new_expiration = SystemTime::now()
@@ -85,7 +93,7 @@ async fn run_app_inter(tenant_id: &str) -> Result<(), Box<dyn Error>> {
 
     let access_token_secret = new_token_response.access_token().secret();
 
-    let url = Url::parse("https://management.azure.com/subscriptions?api-version=2022-12-01")?;
+    let url = Url::parse("https://cirrus-test-kv.vault.azure.net/secrets?api-version=7.4")?;
 
     let resp = Client::new()
         .get(url)

@@ -11,7 +11,8 @@ use crate::{
         CmdBooleanArg, CmdCommand, CmdHelp, CmdInterface, CmdParams, CmdStringArg, CmdStringFormat, CmdArrayArg, CmdArrayFormat,
     },
     VERSION,
-    auth::profile::Profile,
+    top::utils::{can_launch_browser, format_token_expires_on_readable},
+    top::credentials::UserCredential,
 };
 
 #[derive(Debug, Default)]
@@ -37,28 +38,55 @@ impl Login {
         println!("login");
         println!("scope: {:?}", self.scope);
         println!("tenant_id: {:?}", self.tenant_id);
-        println!("username: {:?}", self.username);
 
-        let interactive: bool = self.username.is_none();
+        let interactive: bool = self.username.is_none(); 
+        let mut use_device_code = self.use_device_code;
+
+        // Todo: Set arm_scope for different clouds
+        let arm_scope = "https://management.core.windows.net/.default";
+        let scopes = match &self.scope {
+            Some(s) => s.iter().map(|s| s.as_str()).collect::<Vec<&str>>(),
+            None => vec![arm_scope],
+        };
+        let tenant_id = self.tenant_id.as_deref().unwrap_or("organizations");
         
-        let profile: Profile = Profile::new(
-            None,
-            None,
-        );
+        // Todo: Set authority_url for different clouds
         
-        let tenant_id_ref: Option<&str> = self.tenant_id.as_deref();
-        let scope_vec: Option<Vec<&str>> = self.scope.as_ref().map(|s| s.iter().map(|s| s.as_str()).collect());
-        let scope_ref: Option<&[&str]>= scope_vec.as_deref();
-        
-        match profile.login(interactive, Some(self.use_device_code), tenant_id_ref, scope_ref).await {
-            Ok(_) => {
-                Ok(Some("Login successful".to_string()))
-            },
-            Err(e) => {
-                println!("Login failed: {}", e);
-                Err(AzError::Authentication(AuthenticationError::AuthenticationFailed(e.to_string())))
+        if interactive {
+            if !use_device_code && !can_launch_browser() {
+                println!("No web browser is available. Falling back to device code.");
+                use_device_code = true;
             }
+            if use_device_code {
+                self.login_with_device_code().map_err(AzError::from)?;
+            } else {
+                self.login_with_auth_code(&scopes, tenant_id).await?;
+            }
+        } else {
+            // Todo: Implement non-interactive login logic
+            println!("Logging in non-interactively...");
         }
+        
+        Ok(None)
+    }
+
+    async fn login_with_auth_code(&self, 
+        scopes: &[&str],
+        tenant_id: &str,
+    ) -> Result<(), AuthenticationError> {
+        println!("Logging in interactively...");
+        
+        let user_credential = UserCredential::new(None);
+        let token = user_credential.acquire_token(scopes, tenant_id).await?;
+        
+        println!("Token acquired successfully. Token expires on: {}\n", format_token_expires_on_readable(token.expires_on));
+        Ok(())
+    }
+
+    fn login_with_device_code(&self) -> Result<(), AuthenticationError> {
+        // Todo: Login with device code
+        println!("Logging in with device code...");
+        Ok(())
     }
 }
 
@@ -355,5 +383,50 @@ impl Login {
             }
         }
         Ok(login)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+    use crate::top::credentials::Token;
+    use crate::top::utils::fake_list_subscriptions;
+
+    fn is_ci_environment() -> bool {
+        env::var("CI").is_ok()
+    }
+
+    const ARM_SCOPE: &str = "https://management.core.windows.net/.default";
+    const SCOPES: [&str; 1] = [ARM_SCOPE];
+    const TENANT_ID: &str = "organizations";
+
+    #[tokio::test]
+    async fn test_login_with_auth_code() {
+        if is_ci_environment() {
+            println!("Skipping interactive test in CI environment");
+            return;
+        }
+        
+        let login = Login::default();
+        let result = login.login_with_auth_code(&SCOPES, TENANT_ID).await;
+            
+        assert!(result.is_ok(), "Login failed: {:?}", result.err());
+        
+        let token = Token::default();
+            
+        let access_token = match token.read_token_from_file() {
+            Ok(token_info) => token_info.access_token,
+            Err(e) => {
+                println!("{}, skipping test", e);
+                return;
+            }
+        };
+            
+        println!("Attempting to list subscriptions with cached token...");
+        match fake_list_subscriptions(access_token).await {
+            Ok(_) => println!("Successfully listed subscriptions"),
+            Err(e) => println!("Failed to list subscriptions: {}", e),
+        }
     }
 }

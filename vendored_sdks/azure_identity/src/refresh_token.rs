@@ -25,6 +25,7 @@ pub async fn exchange(
     client_id: &str,
     client_secret: Option<&str>,
     refresh_token: &Secret,
+    scope: Option<&str>,
 ) -> azure_core::Result<RefreshTokenResponse> {
     let encoded = {
         let mut encoded = &mut form_urlencoded::Serializer::new(String::new());
@@ -35,6 +36,9 @@ pub async fn exchange(
         // optionally add the client secret
         if let Some(client_secret) = client_secret {
             encoded = encoded.append_pair("client_secret", client_secret);
+        };
+        if let Some(scope) = scope {
+            encoded = encoded.append_pair("scope", scope);
         };
         encoded.finish()
     };
@@ -157,6 +161,7 @@ mod tests {
             "UNUSED",
             None,
             &Secret::new("UNUSED"),
+            None,
         ));
     }
 }

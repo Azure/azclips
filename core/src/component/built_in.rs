@@ -1,6 +1,6 @@
 use crate::{
     account::component::AccountComponent, cmd_uri::CmdUri, config::component::ConfigComponent,
-    top::TopComponent,
+    top::component::TopComponent,
 };
 use serde::{de::Error, ser::SerializeMap, Deserialize};
 use std::{collections::HashMap, str::FromStr, sync::Arc};
