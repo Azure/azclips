@@ -6,19 +6,20 @@ use tracing::error;
 use crate::{
     cmd_uri::CmdUri,
     component::AzComponentCtx,
+    config::cloud::{endpoint::EndpointMap, resource_id::ResourceIdMap},
     error::AzError,
     pb::command::{
         cmd_arg, cmd_interface, cmd_string_arg, CmdArg, CmdArgHelp, CmdCommand, CmdHelp,
         CmdInterface, CmdParams, CmdStringArg, CmdStringFormat,
     },
-    VERSION,
+    AzCloud, VERSION,
 };
 
 #[derive(Debug, Default)]
 pub(super) struct CreateCloud {
-    name: String,
-    endpoints: HashMap<String, String>,
-    resource_ids: HashMap<String, String>,
+    name: AzCloud,
+    endpoints: EndpointMap,
+    resource_ids: ResourceIdMap,
 }
 
-impl CreateCloud {}
+// impl CreateCloud {}

@@ -3,7 +3,9 @@ use serde::de::{MapAccess, Visitor};
 use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashMap;
+use std::convert::Infallible;
 use std::fmt;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::RwLock;
 
@@ -193,27 +195,31 @@ impl EndpointName {
         }
     }
 
-    pub fn from_str(name: &str) -> Self {
-        if let Some(endpoint) = StandardEndpoint::from_bytes(name.as_bytes()) {
-            Self {
-                inner: Repr::Endpoint(endpoint),
-            }
-        } else if let Some(suffix) = StandardSuffix::from_bytes(name.as_bytes()) {
-            Self {
-                inner: Repr::Suffix(suffix),
-            }
-        } else {
-            Self {
-                inner: Repr::Custom(name.to_string()),
-            }
-        }
-    }
-
     pub(crate) fn get_var_str(&self) -> Option<&str> {
         match &self.inner {
             Repr::Endpoint(endpoint) => Some(endpoint.var_str()),
             Repr::Suffix(suffix) => Some(suffix.var_str()),
             Repr::Custom(_) => None,
+        }
+    }
+}
+
+impl FromStr for EndpointName {
+    type Err = Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Some(endpoint) = StandardEndpoint::from_bytes(s.to_lowercase().as_bytes()) {
+            Ok(Self {
+                inner: Repr::Endpoint(endpoint),
+            })
+        } else if let Some(suffix) = StandardSuffix::from_bytes(s.to_lowercase().as_bytes()) {
+            Ok(Self {
+                inner: Repr::Suffix(suffix),
+            })
+        } else {
+            Ok(Self {
+                inner: Repr::Custom(s.to_string()),
+            })
         }
     }
 }
@@ -270,7 +276,7 @@ impl<'de> Deserialize<'de> for EndpointMap {
             {
                 let mut map = HashMap::with_capacity(access.size_hint().unwrap_or(0));
                 while let Some((key, value)) = access.next_entry::<String, String>()? {
-                    map.insert(EndpointName::from_str(&key), value);
+                    map.insert(EndpointName::from_str(&key).unwrap(), value);
                 }
                 Ok(EndpointMap(Arc::new(RwLock::new(map))))
             }

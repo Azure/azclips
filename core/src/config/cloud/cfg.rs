@@ -7,7 +7,6 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::error::AzUserUsageError;
 
-use super::metadata;
 use super::{metadata::AzCloudMetadata, AzCloud};
 
 #[derive(Debug, Clone)]

@@ -19,7 +19,7 @@ use crate::{
 
 #[derive(Debug, Default)]
 pub(super) struct ShowCloud {
-    name: String,
+    name: AzCloud,
 }
 
 #[async_trait]
@@ -28,8 +28,7 @@ impl AzCmdExecute for ShowCloud {
 
     async fn run<T: AzComponentCtx>(&self, ctx: &T) -> Result<Option<Self::Output>, AzError> {
         let cfg = ctx.get_cfg().await;
-        let name = AzCloud::from_str(&self.name).unwrap();
-        let cloud = cfg.cloud.get_cloud(&name)?;
+        let cloud = cfg.cloud.get_cloud(&self.name)?;
         Ok(Some(cloud))
     }
 }
@@ -78,7 +77,10 @@ impl AzCmd for ShowCloud {
             for (name, v) in params.params.iter() {
                 match name.as_str() {
                     "name" => {
-                        show_cloud.name = serde_json::from_slice(v).expect("failed to parse json");
+                        show_cloud.name = serde_json::from_slice::<String>(v)
+                            .expect("failed to parse json")
+                            .parse()
+                            .expect("failed to convert to AzCloud");
                     }
                     _ => {
                         error!("unknown argument: {}", name);

@@ -19,7 +19,7 @@ use crate::{
 
 #[derive(Debug, Default)]
 pub(super) struct ActivateCloud {
-    name: String,
+    name: AzCloud,
 }
 
 #[async_trait]
@@ -28,8 +28,7 @@ impl AzCmdExecute for ActivateCloud {
 
     async fn run<T: AzComponentCtx>(&self, ctx: &T) -> Result<Option<Self::Output>, AzError> {
         let core = AzCore::instance().await;
-        let name = AzCloud::from_str(&self.name).unwrap();
-        core.switch_cloud(&name).await?;
+        core.switch_cloud(&self.name).await?;
         let cfg = ctx.get_cfg().await;
         Ok(Some(cfg.cloud.get_active().to_owned()))
     }
@@ -79,8 +78,10 @@ impl AzCmd for ActivateCloud {
             for (name, v) in params.params.iter() {
                 match name.as_str() {
                     "name" => {
-                        activate_cloud.name =
-                            serde_json::from_slice(v).expect("failed to parse json")
+                        activate_cloud.name = serde_json::from_slice::<String>(v)
+                            .expect("failed to parse json")
+                            .parse()
+                            .expect("failed to convert to AzCloud");
                     }
                     _ => {
                         error!("unknown argument: {}", name);

@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use async_trait::async_trait;
 use tracing::error;
 
@@ -18,7 +16,7 @@ use crate::{
 
 #[derive(Debug, Default)]
 pub(super) struct DeleteCloud {
-    name: String,
+    name: AzCloud,
 }
 
 #[async_trait]
@@ -27,8 +25,7 @@ impl AzCmdExecute for DeleteCloud {
 
     async fn run<T: AzComponentCtx>(&self, _: &T) -> Result<Option<Self::Output>, AzError> {
         let core = AzCore::instance().await;
-        let name = AzCloud::from_str(&self.name).unwrap();
-        core.cfg.write().await.cloud.clouds.remove(&name);
+        core.cfg.write().await.cloud.clouds.remove(&self.name);
         Ok(None)
     }
 }
@@ -75,7 +72,10 @@ impl AzCmd for DeleteCloud {
             for (name, v) in params.params.iter() {
                 match name.as_str() {
                     "name" => {
-                        delete_cloud.name = serde_json::from_slice(v).expect("failed to parse json")
+                        delete_cloud.name = serde_json::from_slice::<String>(v)
+                            .expect("failed to parse json")
+                            .parse()
+                            .expect("failed to convert to AzCloud");
                     }
                     _ => {
                         error!("unknown argument: {}", name);
