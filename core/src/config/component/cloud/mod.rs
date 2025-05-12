@@ -11,6 +11,7 @@ use create::CreateCloud;
 use delete::DeleteCloud;
 use list::ListClouds;
 use show::ShowCloud;
+use update::UpdateCloud;
 
 use crate::{
     cmd_uri::CmdUri,
@@ -40,6 +41,11 @@ impl AzCmdGroup for CloudCommandGroup {
         if depth.is_none() || depth.unwrap() > 0 {
             let depth = depth.map(|d| d - 1);
             commands.push(ListClouds::cmd_interface(depth));
+            commands.push(ShowCloud::cmd_interface(depth));
+            commands.push(DeleteCloud::cmd_interface(depth));
+            commands.push(ActivateCloud::cmd_interface(depth));
+            commands.push(CreateCloud::cmd_interface(depth));
+            commands.push(UpdateCloud::cmd_interface(depth));
         }
         CmdInterface {
             name: "cloud".to_string(),
@@ -63,6 +69,7 @@ impl AzCmdGroup for CloudCommandGroup {
             None => Some(CloudCommandGroup::cmd_interface(depth)),
             Some("activate") => Some(ActivateCloud::cmd_interface(depth)),
             Some("create") => Some(CreateCloud::cmd_interface(depth)),
+            Some("update") => Some(UpdateCloud::cmd_interface(depth)),
             Some("show") => Some(ShowCloud::cmd_interface(depth)),
             Some("delete") => Some(DeleteCloud::cmd_interface(depth)),
             Some("list") => Some(ListClouds::cmd_interface(depth)),
@@ -75,6 +82,7 @@ impl AzCmdGroup for CloudCommandGroup {
             None => Some(CloudCommandGroup::uri()),
             Some("activate") => Some(ActivateCloud::uri()),
             Some("create") => Some(CreateCloud::uri()),
+            Some("update") => Some(UpdateCloud::uri()),
             Some("show") => Some(ShowCloud::uri()),
             Some("delete") => Some(DeleteCloud::uri()),
             Some("list") => Some(ListClouds::uri()),
@@ -91,6 +99,7 @@ impl AzCmdGroup for CloudCommandGroup {
         match segments.next().as_deref() {
             Some("activate") => ActivateCloud::execute(ctx, params, output_format).await,
             Some("create") => CreateCloud::execute(ctx, params, output_format).await,
+            Some("update") => UpdateCloud::execute(ctx, params, output_format).await,
             Some("show") => ShowCloud::execute(ctx, params, output_format).await,
             Some("delete") => DeleteCloud::execute(ctx, params, output_format).await,
             Some("list") => ListClouds::execute(ctx, params, output_format).await,

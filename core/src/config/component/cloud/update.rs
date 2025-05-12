@@ -1,26 +1,22 @@
-use std::{collections::HashMap, str::FromStr};
+use std::collections::HashMap;
 
 use async_trait::async_trait;
-use serde_json::Value;
 use tracing::error;
 
 use crate::{
-    cmd_uri::CmdUri,
     component::{
         cmd::{AzCmd, AzCmdExecute},
         AzComponentCtx,
     },
     config::cloud::{
-        self,
         endpoint::{self, EndpointMap, EndpointName},
         resource_id::{self, ResourceIdMap, ResourceIdName},
         AzCloudMetadata,
     },
     error::AzError,
     pb::command::{
-        cmd_arg, cmd_interface, cmd_string_arg, CmdArg, CmdArgHelp, CmdCommand, CmdHelp,
-        CmdInterface, CmdObjectArg, CmdObjectArgAdditionalProperties, CmdParams, CmdStringArg,
-        CmdStringFormat,
+        cmd_arg, cmd_interface, CmdArg, CmdArgHelp, CmdCommand, CmdHelp, CmdInterface,
+        CmdObjectArg, CmdObjectArgAdditionalProperties, CmdParams, CmdStringArg,
     },
     AzCloud, AzCore, VERSION,
 };
@@ -62,7 +58,7 @@ impl AzCmdExecute for UpdateCloud {
             }
         }
 
-        if self._patch_keys.is_empty() || self._patch_keys.contains(&"resource_ids".to_string()) {
+        if self._patch_keys.is_empty() || self._patch_keys.contains(&"resourceIds".to_string()) {
             let resource_ids = self
                 .resource_ids
                 .iter()
@@ -223,6 +219,7 @@ impl AzCmd for UpdateCloud {
                     }
                 }
             }
+            update_cloud._patch_keys = params.patch_keys;
         }
         Ok(update_cloud)
     }
