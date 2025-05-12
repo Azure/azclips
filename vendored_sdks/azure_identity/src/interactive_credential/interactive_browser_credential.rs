@@ -88,18 +88,15 @@ impl InteractiveBrowserCredential {
         println!("Waiting for authentication in browser. If the browser doesn't open automatically, please go to: {}", 
                  authorization_code_flow.authorize_url.as_ref());
 
-        let auth_code = open_url(authorization_code_flow.authorize_url.as_ref()).await;
-
-        match auth_code {
-            Some(code) => {
+        match open_url(authorization_code_flow.authorize_url.as_ref()).await {
+            Ok(code) => {
                 authorization_code_flow
                     .exchange(new_http_client(), AuthorizationCode::new(code))
                     .await
             }
-            None => Err(Error::message(
-                ErrorKind::Other,
-                "Failed to retrieve authorization code.",
-            )),
+            Err(error) => {
+                Err(Error::new(ErrorKind::Credential, format!("Failed to retrieve authorization code. {}", error)))
+            }
         }
     }
 }
