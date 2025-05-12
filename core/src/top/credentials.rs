@@ -88,7 +88,7 @@ pub struct ManagedIdentityCredential {
 pub struct Token {
     // Todo: Adjust the fields with Azure SDK's TokenResponse struct
     pub access_token: String,
-    pub expires_on: String,
+    pub expires_on: u64,
     pub refresh_token: Option<String>,
 }
 
@@ -148,9 +148,8 @@ impl Token {
             .to_string();
         
         let expires_on = token_data.get("expires_on")
-            .and_then(|e| e.as_str())
-            .ok_or_else(|| AuthenticationError::InvalidToken("No expiration time found in token file".to_string()))?
-            .to_string();
+            .and_then(|e| e.as_u64())
+            .ok_or_else(|| AuthenticationError::InvalidToken("No expiration time found in token file or invalid format".to_string()))?;
         
         let refresh_token = token_data.get("refresh_token")
             .and_then(|t| t.as_str())
@@ -162,12 +161,9 @@ impl Token {
             .map_err(|_| AzError::GeneralError("Failed to get current time".to_string()))?
             .as_secs();
         
-        let expires_on_secs = expires_on.parse::<u64>()
-            .map_err(|_| AzError::Authentication(AuthenticationError::InvalidToken("Invalid expiration time format".to_string())))?;
-        
-        if expires_on_secs <= now {
-            return Err(AzError::Authentication(AuthenticationError::TokenExpired));
-        }
+            if expires_on <= now {
+                return Err(AzError::Authentication(AuthenticationError::TokenExpired));
+            }
         
         Ok(Token {
             access_token,

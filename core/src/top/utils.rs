@@ -7,33 +7,26 @@ pub fn can_launch_browser() -> bool {
     webbrowser::Browser::is_available()
 }
 
-pub fn format_token_expires_on(expires_in: std::time::Duration) -> String {
+pub fn format_token_expires_on(expires_in: std::time::Duration) -> u64 {
     let now = std::time::SystemTime::now();
     
     now.checked_add(expires_in)
         .and_then(|expires_at| expires_at.duration_since(std::time::UNIX_EPOCH).ok())
-        .map(|duration| duration.as_secs().to_string())
-        .unwrap_or_else(|| "unknown".to_string())
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0)
 }
 
-pub fn format_token_expires_on_readable(expires_on: &str) -> String {
-    match expires_on.parse::<u64>() {
-        Ok(timestamp) => {
-            match chrono::DateTime::<chrono::Utc>::from_timestamp(timestamp as i64, 0) {
-                Some(utc) => {
-                    let local = utc.with_timezone(&chrono::Local);
-                    local.format("%Y-%m-%d %H:%M:%S %Z").to_string()
-                },
-                None => "invalid timestamp".to_string()
-            }
+pub fn format_token_expires_on_readable(expires_on: u64) -> String {
+    if expires_on == 0 {
+        return "unknown".to_string();
+    }
+
+    match chrono::DateTime::<chrono::Utc>::from_timestamp(expires_on as i64, 0) {
+        Some(utc) => {
+            let local = utc.with_timezone(&chrono::Local);
+            local.format("%Y-%m-%d %H:%M:%S %Z").to_string()
         },
-        Err(_) => {
-            if expires_on == "unknown" {
-                "unknown".to_string()
-            } else {
-                "invalid timestamp format".to_string()
-            }
-        }
+        None => "invalid timestamp".to_string()
     }
 }
 

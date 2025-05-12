@@ -79,7 +79,7 @@ impl Login {
         let user_credential = UserCredential::new(None);
         let token = user_credential.acquire_token(scopes, tenant_id).await?;
         
-        println!("Token acquired successfully. Token expires on: {}\n", format_token_expires_on_readable(&token.expires_on));
+        println!("Token acquired successfully. Token expires on: {}\n", format_token_expires_on_readable(token.expires_on));
         Ok(())
     }
 
