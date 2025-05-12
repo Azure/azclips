@@ -50,12 +50,11 @@ impl UserCredential {
             .map(|token| token.secret().to_string());
 
         let expires_in = token_response.expires_in().unwrap_or(std::time::Duration::from_secs(0));
-        let (expires_on, expires_on_readable) = format_token_expires_on(expires_in);
+        let expires_on = format_token_expires_on(expires_in);
         
         let token = Token {
             access_token,
             expires_on,
-            expires_on_readable,
             refresh_token,
         };
 
@@ -90,7 +89,6 @@ pub struct Token {
     // Todo: Adjust the fields with Azure SDK's TokenResponse struct
     pub access_token: String,
     pub expires_on: String,
-    pub expires_on_readable: String,
     pub refresh_token: Option<String>,
 }
 
@@ -101,7 +99,6 @@ impl Token {
         let token_data = json!({
             "access_token": self.access_token,
             "expires_on": self.expires_on,
-            "expires_on_readable": self.expires_on_readable,
             "refresh_token": self.refresh_token,
         });
         
@@ -154,11 +151,6 @@ impl Token {
             .and_then(|e| e.as_str())
             .ok_or_else(|| AuthenticationError::InvalidToken("No expiration time found in token file".to_string()))?
             .to_string();
-            
-        let expires_on_readable = token_data.get("expires_on_readable")
-            .and_then(|e| e.as_str())
-            .ok_or_else(|| AuthenticationError::InvalidToken("No readable expiration time found in token file".to_string()))?
-            .to_string();
         
         let refresh_token = token_data.get("refresh_token")
             .and_then(|t| t.as_str())
@@ -181,7 +173,6 @@ impl Token {
             access_token,
             refresh_token,
             expires_on,
-            expires_on_readable,
         })
     }
 }

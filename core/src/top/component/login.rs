@@ -11,7 +11,7 @@ use crate::{
         CmdBooleanArg, CmdCommand, CmdHelp, CmdInterface, CmdParams, CmdStringArg, CmdStringFormat, CmdArrayArg, CmdArrayFormat,
     },
     VERSION,
-    top::utils::can_launch_browser,
+    top::utils::{can_launch_browser, format_token_expires_on_readable},
     top::credentials::UserCredential,
 };
 
@@ -79,7 +79,7 @@ impl Login {
         let user_credential = UserCredential::new(None);
         let token = user_credential.acquire_token(scopes, tenant_id).await?;
         
-        println!("Token acquired successfully. Token expires on: {}\n", token.expires_on_readable);
+        println!("Token acquired successfully. Token expires on: {}\n", format_token_expires_on_readable(&token.expires_on));
         Ok(())
     }
 
