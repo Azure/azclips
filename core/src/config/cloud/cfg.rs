@@ -271,7 +271,7 @@ mod tests {
                     "endpoints": {
                         "authentication": "https://test.resource.com"
                     },
-                    "resource_ids": {
+                    "resourceIds": {
                         "authentication": "https://test.resource.com/"
                     }
                 }
@@ -303,7 +303,7 @@ mod tests {
                     "endpoints": {
                         "authentication": "https://test.custom.resource.com"
                     },
-                    "resource_ids": {
+                    "resourceIds": {
                         "authentication": "https://test.custom.resource.com/"
                     }
                 }
@@ -362,7 +362,7 @@ mod tests {
                     "AzureCloud": {
                         "name": "AzureCloud",
                         "endpoints": {},
-                        "resource_ids": {},
+                        "resourceIds": {},
                     }
                 }
             })
@@ -378,12 +378,12 @@ mod tests {
                     "AzureCloud": {
                         "name": "AzureCloud",
                         "endpoints": {},
-                        "resource_ids": {},
+                        "resourceIds": {},
                     },
                     "AzureChinaCloud": {
                         "name": "AzureChinaCloud",
                         "endpoints": {},
-                        "resource_ids": {},
+                        "resourceIds": {},
                     }
                 }
             })
@@ -424,7 +424,7 @@ mod tests {
                         "endpoints": {
                             "authentication": "https://test.endpoint.com"
                         },
-                        "resource_ids": {
+                        "resourceIds": {
                             "authentication": "https://test.resource.com/"
                         }
                     }

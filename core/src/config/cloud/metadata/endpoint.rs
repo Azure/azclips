@@ -1,10 +1,8 @@
 use once_cell::sync::Lazy;
-use serde::de::{MapAccess, Visitor};
 use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashMap;
 use std::convert::Infallible;
-use std::fmt;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -281,6 +279,10 @@ impl EndpointMap {
         self.0.write().unwrap().insert(name, value.to_string())
     }
 
+    pub fn remove(&mut self, name: &EndpointName) -> Option<String> {
+        self.0.write().unwrap().remove(name)
+    }
+
     pub fn from<'a>(iter: impl IntoIterator<Item = (&'a EndpointName, &'a str)>) -> Self {
         let map = iter
             .into_iter()
@@ -304,33 +306,23 @@ impl Serialize for EndpointMap {
     }
 }
 
+impl<'de> Deserialize<'de> for EndpointName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(EndpointName::from_str(&s).unwrap())
+    }
+}
+
 impl<'de> Deserialize<'de> for EndpointMap {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        struct EndpointMapVisitor;
-
-        impl<'de> Visitor<'de> for EndpointMapVisitor {
-            type Value = EndpointMap;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("a map of endpoint names to strings")
-            }
-
-            fn visit_map<M>(self, mut access: M) -> Result<Self::Value, M::Error>
-            where
-                M: MapAccess<'de>,
-            {
-                let mut map = HashMap::with_capacity(access.size_hint().unwrap_or(0));
-                while let Some((key, value)) = access.next_entry::<String, String>()? {
-                    map.insert(EndpointName::from_str(&key).unwrap(), value);
-                }
-                Ok(EndpointMap(Arc::new(RwLock::new(map))))
-            }
-        }
-
-        deserializer.deserialize_map(EndpointMapVisitor)
+        let map = HashMap::<EndpointName, String>::deserialize(deserializer)?;
+        Ok(EndpointMap(Arc::new(RwLock::new(map))))
     }
 }
 

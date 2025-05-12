@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use tracing::error;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AzCloudMetadata {
     // When serialize into cfg file the name will be ignored, so use the default value of AzCloud.
     // The actual value will be set during AzCloudCfg during deserialization.
@@ -136,7 +137,7 @@ mod tests {
             "endpoints": {
                 "authentication": "https://test.endpoint.com"
             },
-            "resource_ids": {
+            "resourceIds": {
                 "authentication": "https://test.resource.com/"
             }
         });
@@ -193,7 +194,7 @@ mod tests {
     fn test_deserialize_metadata_without_endpoints() {
         let json = json!({
             "name": "AzureChinaCloud",
-            "resource_ids": {
+            "resourceIds": {
                 "authentication": "https://test.resource.com/"
             }
         });

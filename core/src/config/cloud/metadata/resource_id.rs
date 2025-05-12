@@ -1,9 +1,9 @@
 use once_cell::sync::Lazy;
-use serde::de::{MapAccess, Visitor};
 use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashMap;
-use std::fmt;
+use std::convert::Infallible;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::RwLock;
 
@@ -133,22 +133,26 @@ impl ResourceIdName {
         }
     }
 
-    pub fn from_str(name: &str) -> Self {
-        if let Some(resource) = StandardResourceId::from_bytes(name.as_bytes()) {
-            Self {
-                inner: Repr::Standard(resource),
-            }
-        } else {
-            Self {
-                inner: Repr::Custom(name.to_string()),
-            }
-        }
-    }
-
     pub(crate) fn get_var_str(&self) -> Option<&str> {
         match &self.inner {
             Repr::Standard(resource) => Some(resource.var_str()),
             Repr::Custom(_) => None,
+        }
+    }
+}
+
+impl FromStr for ResourceIdName {
+    type Err = Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Some(resource) = StandardResourceId::from_bytes(s.to_lowercase().as_bytes()) {
+            Ok(ResourceIdName {
+                inner: Repr::Standard(resource),
+            })
+        } else {
+            Ok(ResourceIdName {
+                inner: Repr::Custom(s.to_string()),
+            })
         }
     }
 }
@@ -160,6 +164,10 @@ impl ResourceIdMap {
 
     pub fn insert(&mut self, name: ResourceIdName, value: &str) -> Option<String> {
         self.0.write().unwrap().insert(name, value.to_string())
+    }
+
+    pub fn remove(&mut self, name: &ResourceIdName) -> Option<String> {
+        self.0.write().unwrap().remove(name)
     }
 
     pub fn from<'a>(iter: impl IntoIterator<Item = (&'a ResourceIdName, &'a str)>) -> Self {
@@ -185,33 +193,23 @@ impl Serialize for ResourceIdMap {
     }
 }
 
+impl<'de> Deserialize<'de> for ResourceIdName {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(ResourceIdName::from_str(&s).unwrap())
+    }
+}
+
 impl<'de> Deserialize<'de> for ResourceIdMap {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        struct ResourceIdMapVisitor;
-
-        impl<'de> Visitor<'de> for ResourceIdMapVisitor {
-            type Value = ResourceIdMap;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("a map of resource ids to strings")
-            }
-
-            fn visit_map<M>(self, mut access: M) -> Result<Self::Value, M::Error>
-            where
-                M: MapAccess<'de>,
-            {
-                let mut map = HashMap::with_capacity(access.size_hint().unwrap_or(0));
-                while let Some((key, value)) = access.next_entry::<String, String>()? {
-                    map.insert(ResourceIdName::from_str(&key), value);
-                }
-                Ok(ResourceIdMap(Arc::new(RwLock::new(map))))
-            }
-        }
-
-        deserializer.deserialize_map(ResourceIdMapVisitor)
+        let map = HashMap::<ResourceIdName, String>::deserialize(deserializer)?;
+        Ok(ResourceIdMap(Arc::new(RwLock::new(map))))
     }
 }
 

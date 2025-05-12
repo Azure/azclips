@@ -1,25 +1,20 @@
-use std::{collections::HashMap, str::FromStr};
-
 use async_trait::async_trait;
-use serde_json::Value;
 use tracing::error;
 
 use crate::{
-    cmd_uri::CmdUri,
     component::{
         cmd::{AzCmd, AzCmdExecute},
         AzComponentCtx,
     },
     config::cloud::{
-        endpoint::{self, EndpointMap, EndpointName},
-        resource_id::{self, ResourceIdMap, ResourceIdName},
+        endpoint::{self, EndpointMap},
+        resource_id::{self, ResourceIdMap},
         AzCloudMetadata,
     },
     error::AzError,
     pb::command::{
-        cmd_arg, cmd_interface, cmd_string_arg, CmdArg, CmdArgHelp, CmdCommand, CmdHelp,
-        CmdInterface, CmdObjectArg, CmdObjectArgAdditionalProperties, CmdParams, CmdStringArg,
-        CmdStringFormat,
+        cmd_arg, cmd_interface, CmdArg, CmdArgHelp, CmdCommand, CmdHelp, CmdInterface,
+        CmdObjectArg, CmdObjectArgAdditionalProperties, CmdParams, CmdStringArg,
     },
     AzCloud, AzCore, VERSION,
 };
@@ -125,8 +120,8 @@ impl AzCmd for CreateCloud {
                 ..Default::default()
             },
             CmdArg {
-                var_name: "resource_ids".to_string(),
-                name: "resource_ids".to_string(),
+                var_name: "resourceIds".to_string(),
+                name: "resourceIds".to_string(),
                 help: Some(CmdArgHelp {
                     short: "The resource ids used by the cloud".to_string(),
                     long: None,
@@ -137,8 +132,8 @@ impl AzCmd for CreateCloud {
                     props: resource_ids,
                     additional_props: Some(Box::new(CmdObjectArgAdditionalProperties {
                         item: Some(Box::new(CmdArg {
-                            var_name: "resource_ids{}".to_string(),
-                            name: "resource_id".to_string(),
+                            var_name: "resourceIds{}".to_string(),
+                            name: "resourceId".to_string(),
                             help: Some(CmdArgHelp {
                                 short: "The custom resource id used in the cloud".to_string(),
                                 long: None,
@@ -172,7 +167,7 @@ impl AzCmd for CreateCloud {
                             .expect("failed to parse json")
                             .into();
                     }
-                    "resource_ids" => {
+                    "resourceIds" => {
                         create_cloud.resource_ids = serde_json::from_slice::<ResourceIdMap>(v)
                             .expect("failed to parse json")
                             .into();
