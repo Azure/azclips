@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr};
 
 use serde_json::Value;
 use tracing::error;
@@ -15,8 +15,10 @@ use crate::{
 };
 
 #[derive(Debug, Default)]
-pub(super) struct RegisterCloud {
+pub(super) struct CreateCloud {
     name: String,
+    endpoints: HashMap<String, String>,
+    resource_ids: HashMap<String, String>,
 }
 
-impl RegisterCloud {}
+impl CreateCloud {}

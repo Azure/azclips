@@ -38,7 +38,8 @@ webbrowser = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
-cargo-husky = { workspace = true }
+# TODO: enable cargo-husky
+# cargo-husky = { workspace = true }
 
 [build-dependencies]
 tonic-build = { workspace = true }

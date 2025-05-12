@@ -120,6 +120,13 @@ impl ResourceIdName {
             }
         }
     }
+
+    pub(crate) fn get_var_str(&self) -> Option<&str> {
+        match &self.inner {
+            Repr::Standard(resource) => Some(resource.var_str()),
+            Repr::Custom(_) => None,
+        }
+    }
 }
 
 impl ResourceIdMap {

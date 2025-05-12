@@ -7,7 +7,6 @@ pub mod error;
 pub mod pb;
 
 pub(crate) mod account;
-pub(crate) mod auth;
 pub(crate) mod component;
 pub(crate) mod config;
 pub(crate) mod param;
@@ -258,11 +257,13 @@ impl AzCore {
     }
 
     /// Switch the active cloud
+    ///
+    /// If a customized cloud is not registered before, it will raise an error
     /// The switch will also rebuild the component center route table for the cloud
-    async fn switch_cloud(&self, cloud: &AzCloud) -> AzResult<()> {
+    async fn switch_cloud<'a>(&'a self, cloud: &AzCloud) -> AzResult<()> {
         {
             let mut cfg = self.cfg.write().await;
-            _ = cfg.cloud.set_active(cloud.clone());
+            _ = cfg.cloud.set_active(cloud.clone())?;
             cfg.save()?;
         }
         self.component_center

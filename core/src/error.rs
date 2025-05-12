@@ -4,6 +4,9 @@ pub(crate) type AzResult<T, E = AzError> = Result<T, E>;
 
 #[derive(Error, Debug)]
 pub enum AzUserUsageError {
+    #[error("The cloud name `{0}` is not registered.")]
+    CloudUnregisteredError(String),
+
     #[error("Command not found: {0}")]
     CommandNotFoundError(String),
 
@@ -109,7 +112,7 @@ pub enum AuthenticationError {
 
     #[error("Invalid token: {0}")]
     InvalidToken(String),
-    
+
     #[error("Invalid tenant")]
     InvalidTenant,
 }

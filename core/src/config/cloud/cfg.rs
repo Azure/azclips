@@ -5,6 +5,9 @@ use serde::de::{self, MapAccess, Visitor};
 use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::error::AzUserUsageError;
+
+use super::metadata;
 use super::{metadata::AzCloudMetadata, AzCloud};
 
 #[derive(Debug, Clone)]
@@ -46,17 +49,41 @@ impl AzCloudCfg {
         }
     }
 
+    pub(crate) fn get_cloud(&self, name: &AzCloud) -> Result<AzCloudMetadata, AzUserUsageError> {
+        if matches!(name, AzCloud::Custom(_)) && !self.clouds.contains_key(&name) {
+            return Err(AzUserUsageError::CloudUnregisteredError(name.to_string()));
+        }
+        let metadata = self.clouds.get(name).map_or(
+            AzCloudMetadata {
+                name: name.clone(),
+                endpoints: Default::default(),
+                resource_ids: Default::default(),
+            },
+            |metadata| metadata.clone(),
+        );
+        Ok(metadata)
+    }
+
     /// This function should only be called by the AzCore, don't call it in other places
     /// If you want to switch the cloud, please use the `switch_cloud` function in the AzCore
-    pub(crate) fn set_active(&mut self, active: AzCloud) -> &AzCloudMetadata {
+    pub(crate) fn set_active(
+        &mut self,
+        active: AzCloud,
+    ) -> Result<&AzCloudMetadata, AzUserUsageError> {
+        if matches!(active, AzCloud::Custom(_)) && !self.clouds.contains_key(&active) {
+            return Err(AzUserUsageError::CloudUnregisteredError(active.to_string()));
+        }
+
         self.active = active.clone();
-        self.clouds
+        let metadata = self
+            .clouds
             .entry(active.clone())
             .or_insert(AzCloudMetadata {
                 name: active.clone(),
                 endpoints: Default::default(),
                 resource_ids: Default::default(),
-            })
+            });
+        Ok(metadata)
     }
 
     pub fn get_active(&self) -> &AzCloudMetadata {
@@ -180,7 +207,7 @@ mod tests {
             );
         }
         {
-            let active = cfg.set_active(AzCloud::AzureChinaCloud);
+            let active = cfg.set_active(AzCloud::AzureChinaCloud).unwrap();
             assert_eq!(active.name, AzCloud::AzureChinaCloud);
             let endpoint = active.get_endpoint(&endpoint::AUTHENTICATION).await;
             assert_eq!(endpoint.as_ref().unwrap(), "https://login.chinacloudapi.cn");
@@ -189,6 +216,13 @@ mod tests {
                 resource_id.as_ref().unwrap(),
                 "https://management.core.chinacloudapi.cn/"
             );
+        }
+        {
+            let result = cfg.set_active(AzCloud::Custom("NewCloud".to_string()));
+            assert!(matches!(
+                result,
+                Err(AzUserUsageError::CloudUnregisteredError(_))
+            ))
         }
     }
 
@@ -297,7 +331,7 @@ mod tests {
         }
 
         {
-            let active = cfg.set_active(AzCloud::AzureCloud);
+            let active = cfg.set_active(AzCloud::AzureCloud).unwrap();
             assert_eq!(active.name, AzCloud::AzureCloud);
             let endpoint = active.get_endpoint(&endpoint::AUTHENTICATION).await;
             assert_eq!(endpoint.as_ref().unwrap(), "https://test.resource.com");
@@ -319,27 +353,39 @@ mod tests {
         assert_eq!(json["active"], "AzureCloud");
         assert!(!json.as_object().unwrap().contains_key("clouds"));
 
-        cfg.set_active(AzCloud::AzureCloud);
+        cfg.set_active(AzCloud::AzureCloud).unwrap();
         let json = serde_json::to_value(&cfg).unwrap();
         assert_eq!(
             json,
             json!({
                 "active": "AzureCloud",
                 "clouds": {
-                    "AzureCloud": {}
+                    "AzureCloud": {
+                        "name": "AzureCloud",
+                        "endpoints": {},
+                        "resource_ids": {},
+                    }
                 }
             })
         );
 
-        cfg.set_active(AzCloud::AzureChinaCloud);
+        cfg.set_active(AzCloud::AzureChinaCloud).unwrap();
         let json = serde_json::to_value(&cfg).unwrap();
         assert_eq!(
             json,
             json!({
                 "active": "AzureChinaCloud",
                 "clouds": {
-                    "AzureCloud": {},
-                    "AzureChinaCloud": {}
+                    "AzureCloud": {
+                        "name": "AzureCloud",
+                        "endpoints": {},
+                        "resource_ids": {},
+                    },
+                    "AzureChinaCloud": {
+                        "name": "AzureChinaCloud",
+                        "endpoints": {},
+                        "resource_ids": {},
+                    }
                 }
             })
         );
@@ -375,6 +421,7 @@ mod tests {
                 "active": "AzureCloud",
                 "clouds": {
                     "AzureCloud": {
+                        "name": "AzureCloud",
                         "endpoints": {
                             "authentication": "https://test.endpoint.com"
                         },

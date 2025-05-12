@@ -1,21 +1,14 @@
-use std::str::FromStr;
-
 use async_trait::async_trait;
-use serde_json::Value;
-use tracing::error;
 
 use crate::{
-    cmd_uri::CmdUri,
     component::{
         cmd::{AzCmd, AzCmdExecute},
         AzComponentCtx,
     },
+    config::cloud::AzCloudMetadata,
     error::AzError,
-    pb::command::{
-        cmd_arg, cmd_interface, cmd_string_arg, CmdArg, CmdArgHelp, CmdCommand, CmdHelp,
-        CmdInterface, CmdParams, CmdStringArg, CmdStringFormat,
-    },
-    VERSION,
+    pb::command::{cmd_interface, CmdArg, CmdCommand, CmdHelp, CmdInterface, CmdParams},
+    AzCloud, VERSION,
 };
 
 #[derive(Debug, Default)]
@@ -23,10 +16,23 @@ pub(super) struct ListClouds {}
 
 #[async_trait]
 impl AzCmdExecute for ListClouds {
-    type Output = Value;
+    type Output = Vec<AzCloudMetadata>;
 
     async fn run<T: AzComponentCtx>(&self, ctx: &T) -> Result<Option<Self::Output>, AzError> {
-        Ok(Some(Value::String("list clouds".to_string())))
+        let cfg = ctx.get_cfg().await;
+        let mut result = vec![];
+        let builtin_clouds = AzCloud::list_builtin();
+        builtin_clouds.iter().for_each(|cloud| {
+            let cloud_metadata = cfg.cloud.get_cloud(&cloud).unwrap();
+            result.push(cloud_metadata);
+        });
+        for cloud in cfg.cloud.clouds.keys() {
+            if !builtin_clouds.contains(cloud) {
+                let cloud_metadata = cfg.cloud.get_cloud(&cloud).unwrap();
+                result.push(cloud_metadata.clone());
+            }
+        }
+        Ok(Some(result))
     }
 }
 

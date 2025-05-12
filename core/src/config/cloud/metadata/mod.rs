@@ -5,21 +5,61 @@ use endpoint::{EndpointName, BUILTIN_ENDPOINT_MAPS};
 use resource_id::{ResourceIdName, BUILTIN_RESOURCE_ID_MAPS};
 
 use super::AzCloud;
+use serde::{Deserialize, Serialize};
+use tracing::error;
 
-use serde::de::{MapAccess, Visitor};
-use serde::ser::SerializeMap;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::fmt;
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AzCloudMetadata {
+    // When serialize into cfg file the name will be ignored, so use the default value of AzCloud.
+    // The actual value will be set during AzCloudCfg during deserialization.
+    #[serde(default)]
     pub name: AzCloud,
+    #[serde(default)]
     pub(crate) endpoints: endpoint::EndpointMap,
+    #[serde(default)]
     pub(crate) resource_ids: resource_id::ResourceIdMap,
 }
 
 impl AzCloudMetadata {
     pub async fn get_endpoint(&self, name: &EndpointName) -> Option<String> {
+        let endpoint = self.get_endpoint_from_custom_or_builtin(name);
+        if endpoint.is_some() {
+            return endpoint;
+        }
+        if let Some(var_str) = name.get_var_str() {
+            return self.get_value_from_metadata_api(var_str).await;
+        }
+        None
+    }
+
+    pub async fn get_resource_id(&self, name: &ResourceIdName) -> Option<String> {
+        let resource_id = self.get_resource_id_from_custom_or_builtin(name);
+        if resource_id.is_some() {
+            return resource_id;
+        }
+        if let Some(var_str) = name.get_var_str() {
+            return self.get_value_from_metadata_api(var_str).await;
+        }
+        None
+    }
+
+    pub async fn get_value_from_metadata_api(&self, _: &str) -> Option<String> {
+        if let Some(mut endpoint) =
+            self.get_endpoint_from_custom_or_builtin(&endpoint::RESOURCE_MANAGER)
+        {
+            if endpoint.ends_with("/") {
+                endpoint.pop();
+            }
+            let _ = format!("{}/metadata/endpoints?api-version=2025-01-01", endpoint);
+            // TODO: make request to the metadata api and parse the response
+            // using the var_str to get the value
+        } else {
+            error!("No resource manager endpoint found cloud: {}", self.name);
+        }
+        None
+    }
+
+    fn get_endpoint_from_custom_or_builtin(&self, name: &EndpointName) -> Option<String> {
         if let Some(endpoint) = self.endpoints.get(name) {
             // from custom configuration
             return Some(endpoint);
@@ -30,11 +70,10 @@ impl AzCloudMetadata {
                 return Some(endpoint);
             }
         }
-        // TODO: get endpoint from metadata endpoint
         None
     }
 
-    pub async fn get_resource_id(&self, name: &ResourceIdName) -> Option<String> {
+    fn get_resource_id_from_custom_or_builtin(&self, name: &ResourceIdName) -> Option<String> {
         if let Some(resource_id) = self.resource_ids.get(name) {
             // from custom configuration
             return Some(resource_id);
@@ -45,102 +84,7 @@ impl AzCloudMetadata {
                 return Some(resource_id);
             }
         }
-        // TODO: get resource id from metadata endpoint
         None
-    }
-}
-
-// Custom serialization implementation for AzCloudMetadata
-impl Serialize for AzCloudMetadata {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut map = serializer.serialize_map(Some(2))?;
-
-        {
-            // Only serialize non-empty endpoints
-            let endpoints = self.endpoints.0.read().unwrap();
-            if !endpoints.is_empty() {
-                map.serialize_entry("endpoints", &self.endpoints)?;
-            }
-        }
-
-        {
-            // Only serialize non-empty resource_ids
-            let resource_ids = self.resource_ids.0.read().unwrap();
-            if !resource_ids.is_empty() {
-                map.serialize_entry("resource_ids", &self.resource_ids)?;
-            }
-        }
-
-        map.end()
-    }
-}
-
-impl<'de> Deserialize<'de> for AzCloudMetadata {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        #[serde(field_identifier, rename_all = "snake_case")]
-        enum Field {
-            Name,
-            Endpoints,
-            ResourceIds,
-        }
-
-        struct AzCloudMetadataVisitor;
-
-        impl<'de> Visitor<'de> for AzCloudMetadataVisitor {
-            type Value = AzCloudMetadata;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("struct AzCloudMetadata")
-            }
-
-            fn visit_map<V>(self, mut map: V) -> Result<AzCloudMetadata, V::Error>
-            where
-                V: MapAccess<'de>,
-            {
-                let mut endpoints = None;
-                let mut resource_ids = None;
-
-                while let Some(key) = map.next_key()? {
-                    match key {
-                        Field::Name => {
-                            // Ignore name field
-                            let _: serde::de::IgnoredAny = map.next_value()?;
-                        }
-                        Field::Endpoints => {
-                            if endpoints.is_some() {
-                                return Err(serde::de::Error::duplicate_field("endpoints"));
-                            }
-                            endpoints = Some(map.next_value()?);
-                        }
-                        Field::ResourceIds => {
-                            if resource_ids.is_some() {
-                                return Err(serde::de::Error::duplicate_field("resource_ids"));
-                            }
-                            resource_ids = Some(map.next_value()?);
-                        }
-                    }
-                }
-
-                Ok(AzCloudMetadata {
-                    name: AzCloud::AzureCloud, // Default value, actual value will be set during AzCloudCfg deserialization
-                    endpoints: endpoints.unwrap_or_default(),
-                    resource_ids: resource_ids.unwrap_or_default(),
-                })
-            }
-        }
-
-        deserializer.deserialize_struct(
-            "AzCloudMetadata",
-            &["name", "endpoints", "resource_ids"],
-            AzCloudMetadataVisitor,
-        )
     }
 }
 
@@ -166,7 +110,7 @@ mod tests {
         };
 
         let json = serde_json::to_value(&metadata).unwrap();
-        assert!(!json.as_object().unwrap().contains_key("name"));
+        assert!(json["name"] == "AzureCloud");
         assert!(json["endpoints"]["authentication"] == "https://test.endpoint.com");
         assert!(json["resource_ids"]["authentication"] == "https://test.resource.com/");
     }
@@ -181,9 +125,9 @@ mod tests {
         };
 
         let json = serde_json::to_value(&metadata).unwrap();
-        assert!(!json.as_object().unwrap().contains_key("name"));
-        assert!(!json.as_object().unwrap().contains_key("endpoints"));
-        assert!(!json.as_object().unwrap().contains_key("resource_ids"));
+        assert!(json["name"] == "AzureCloud");
+        assert!(json.as_object().unwrap().contains_key("endpoints"));
+        assert!(json.as_object().unwrap().contains_key("resource_ids"));
     }
 
     #[test]
@@ -219,5 +163,53 @@ mod tests {
                 .unwrap(),
             "https://test.resource.com/"
         );
+    }
+
+    #[test]
+    fn test_deserialize_metadata_without_resource_ids() {
+        let json = json!({
+            "name": "AzureChinaCloud",
+            "endpoints": {
+                "authentication": "https://test.endpoint.com"
+            },
+        });
+
+        let metadata: AzCloudMetadata = serde_json::from_value(json).unwrap();
+        assert_eq!(metadata.name, AzCloud::AzureChinaCloud); // Default value, the name field will be set during AzCloudCfg deserialization based on the hashmap key
+        assert_eq!(
+            metadata
+                .endpoints
+                .0
+                .read()
+                .unwrap()
+                .get(&endpoint::AUTHENTICATION)
+                .unwrap(),
+            "https://test.endpoint.com"
+        );
+        assert!(metadata.resource_ids.0.read().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_deserialize_metadata_without_endpoints() {
+        let json = json!({
+            "name": "AzureChinaCloud",
+            "resource_ids": {
+                "authentication": "https://test.resource.com/"
+            }
+        });
+
+        let metadata: AzCloudMetadata = serde_json::from_value(json).unwrap();
+        assert_eq!(metadata.name, AzCloud::AzureChinaCloud); // Default value, the name field will be set during AzCloudCfg deserialization based on the hashmap key
+        assert_eq!(
+            metadata
+                .resource_ids
+                .0
+                .read()
+                .unwrap()
+                .get(&resource_id::AUTHENTICATION)
+                .unwrap(),
+            "https://test.resource.com/"
+        );
+        assert!(metadata.endpoints.0.read().unwrap().is_empty());
     }
 }

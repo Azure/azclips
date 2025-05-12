@@ -208,6 +208,14 @@ impl EndpointName {
             }
         }
     }
+
+    pub(crate) fn get_var_str(&self) -> Option<&str> {
+        match &self.inner {
+            Repr::Endpoint(endpoint) => Some(endpoint.var_str()),
+            Repr::Suffix(suffix) => Some(suffix.var_str()),
+            Repr::Custom(_) => None,
+        }
+    }
 }
 
 impl EndpointMap {

@@ -1,12 +1,15 @@
+mod activate;
+mod create;
+mod delete;
 mod list;
-mod register;
-mod set;
 mod show;
-mod unregister;
 mod update;
 
+use activate::ActivateCloud;
 use async_trait::async_trait;
+use delete::DeleteCloud;
 use list::ListClouds;
+use show::ShowCloud;
 
 use crate::{
     cmd_uri::CmdUri,
@@ -57,6 +60,9 @@ impl AzCmdGroup for CloudCommandGroup {
     ) -> Option<CmdInterface> {
         match segments.next().as_deref() {
             None => Some(CloudCommandGroup::cmd_interface(depth)),
+            Some("activate") => Some(ActivateCloud::cmd_interface(depth)),
+            Some("show") => Some(ShowCloud::cmd_interface(depth)),
+            Some("delete") => Some(DeleteCloud::cmd_interface(depth)),
             Some("list") => Some(ListClouds::cmd_interface(depth)),
             _ => None,
         }
@@ -65,6 +71,9 @@ impl AzCmdGroup for CloudCommandGroup {
     fn check_uri(mut segments: impl Iterator<Item = String>) -> Option<CmdUri> {
         match segments.next().as_deref() {
             None => Some(CloudCommandGroup::uri()),
+            Some("activate") => Some(ActivateCloud::uri()),
+            Some("show") => Some(ShowCloud::uri()),
+            Some("delete") => Some(DeleteCloud::uri()),
             Some("list") => Some(ListClouds::uri()),
             _ => None,
         }
@@ -77,6 +86,9 @@ impl AzCmdGroup for CloudCommandGroup {
         output_format: Option<CmdOutputFormat>,
     ) -> Result<Data, AzError> {
         match segments.next().as_deref() {
+            Some("activate") => ActivateCloud::execute(ctx, params, output_format).await,
+            Some("show") => ShowCloud::execute(ctx, params, output_format).await,
+            Some("delete") => DeleteCloud::execute(ctx, params, output_format).await,
             Some("list") => ListClouds::execute(ctx, params, output_format).await,
             _ => Err(AzInternalError::InvalidCmdUriError(Self::uri().to_string()).into()),
         }
