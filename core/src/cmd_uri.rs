@@ -107,13 +107,14 @@ impl FromStr for CmdUri {
     /// ```
     /// use az_core::cmd_uri::CmdUri;
     /// use std::str::FromStr;
-    /// let cmd_uri = CmdUri::from_str("cmd://azure/network/vnet/create?version=1.0.0&bool=true&num=1&specialvalue=%3F%23%3D%2F%3A").unwrap();
-    /// assert_eq!(cmd_uri.to_string(), "cmd://azure/network/vnet/create?bool=true&num=1&specialvalue=%3F%23%3D%2F%3A&version=1.0.0");
+    /// let cmd_uri = CmdUri::from_str("cmd://azure/network/vnet/create?VERSION=1.0.0&v=1.2&bool=true&num=1&specialvalue=%3F%23%3D%2F%3A").unwrap();
+    /// assert_eq!(cmd_uri.to_string(), "cmd://azure/network/vnet/create?VERSION=1.0.0&bool=true&num=1&specialvalue=%3F%23%3D%2F%3A&v=1.2");
     /// assert_eq!(cmd_uri.executable(), true);
     /// assert_eq!(cmd_uri.version(), Some("1.0.0"));
-    /// assert_eq!(cmd_uri.get_param_str("num"), Some("1"));
-    /// assert_eq!(cmd_uri.get_param_str("bool"), Some("true"));
-    /// assert_eq!(cmd_uri.get_param_str("specialvalue"), Some("?#=/:"));
+    /// assert_eq!(cmd_uri.param_values("num").unwrap().next().unwrap(), "1");
+    /// assert_eq!(cmd_uri.param_values("bool").unwrap().next().unwrap(), "true");
+    /// assert_eq!(cmd_uri.param_values("specialvalue").unwrap().next().unwrap(), "?#=/:");
+    /// assert_eq!(cmd_uri.param_values("v").unwrap().next().unwrap(), "1.2");
     /// ```
     ///
     /// ```
@@ -123,7 +124,7 @@ impl FromStr for CmdUri {
     /// assert_eq!(cmd_uri.to_string(), "cmd://azure/network/vnet/");
     /// assert_eq!(cmd_uri.executable(), false);
     /// assert_eq!(cmd_uri.version(), None);
-    /// assert_eq!(cmd_uri.get_param_str("num"), None);
+    /// assert_eq!(cmd_uri.param_values("num").is_none(), true);
     /// ```
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         if !value.starts_with(CMD_URI_SCHEMA) {

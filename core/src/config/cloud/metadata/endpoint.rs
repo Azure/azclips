@@ -37,12 +37,10 @@ enum Repr {
 ///
 /// # Examples
 ///
-/// ```no_run
-/// use super::standard_endpoints;
 /// standard_endpoints! {
 ///     (Authentication, AUTHENTICATION, b"authentication", b"authentication", b"authentication.loginEndpoint");
 /// }
-/// ```
+///
 macro_rules! standard_endpoints {
         (
             $(
@@ -142,12 +140,10 @@ macro_rules! standard_endpoints {
 ///
 /// # Examples
 ///
-/// ```no_run
-/// use super::standard_suffixes;
 /// standard_suffixes! {
 ///     (AcrLoginServer, ACR_LOGIN_SERVER, b"acrLoginServer", b"acr-login-server", b"suffixes.acrLoginServer");
 /// }
-/// ```
+///
 macro_rules! standard_suffixes {
         (
             $(

@@ -3,12 +3,12 @@
 //! This library provides the core functionality for the Azure CLI Lite application.
 pub mod argparse;
 pub mod cmd_uri;
+pub mod component;
 pub mod config;
 pub mod error;
 pub mod pb;
 
 mod account;
-mod component;
 mod core;
 mod param;
 mod plugin;

@@ -35,12 +35,10 @@ pub(crate) struct ResourceIdMap(pub(super) Arc<RwLock<HashMap<ResourceIdName, St
 ///
 /// # Examples
 ///
-/// ```no_run
-/// use super::standard_resource_ids;
 /// standard_resource_ids! {
 ///     (Authentication, AUTHENTICATION, b"authentication", b"authentication", b"authentication.resource_ids[0]");
 /// }
-/// ```
+///
 macro_rules! standard_resource_ids {
     (
         $(
