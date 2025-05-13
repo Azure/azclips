@@ -400,8 +400,10 @@ mod tests {
     const ARM_SCOPE: &str = "https://management.core.windows.net/.default";
     const SCOPES: [&str; 1] = [ARM_SCOPE];
     const TENANT_ID: &str = "organizations";
+    const FAKE_SCOPES: [&str; 1] = ["fake_scope"];
 
     #[tokio::test]
+    #[ignore = "Interactive test requiring browser authentication"]
     async fn test_login_with_auth_code() {
         if is_ci_environment() {
             println!("Skipping interactive test in CI environment");
@@ -427,6 +429,25 @@ mod tests {
         match fake_list_subscriptions(access_token).await {
             Ok(_) => println!("Successfully listed subscriptions"),
             Err(e) => println!("Failed to list subscriptions: {}", e),
+        }
+    }
+
+    #[tokio::test]
+    #[ignore = "Interactive test requiring browser authentication"]
+    async fn test_login_with_auth_code_with_fake_scope() {
+        if is_ci_environment() {
+            println!("Skipping interactive test in CI environment");
+            return;
+        }
+        
+        let login = Login::default();
+        let result = login.login_with_auth_code(&FAKE_SCOPES, TENANT_ID).await;
+        
+        match result {
+            Ok(_) => assert!(false, "Login should have failed with invalid scope, but succeeded"),
+            Err(e) => {
+                println!("Expected authentication error received: {}", e);
+            }
         }
     }
 }

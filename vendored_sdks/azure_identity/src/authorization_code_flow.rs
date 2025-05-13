@@ -128,9 +128,11 @@ impl AuthorizationCodeFlow {
             .set_pkce_verifier(self.pkce_code_verifier)
             .request_async(&client)
             .await
-            .context(
-                ErrorKind::Credential,
-                "exchanging an authorization code for a token failed",
-            )
+            .map_err(|e| {
+                azure_core::Error::new(
+                    ErrorKind::Credential,
+                    format!("Authorization code exchange failed: {}", e)
+                )   
+        })
     }
 }

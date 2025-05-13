@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Azure CLI - Authentication Failed</title>
+    <style>
+        :root {
+            --azure-blue: #0078D4;
+            --azure-red: #D13438;
+            --text-primary: #323130;
+            --background-gray: #F3F2F1;
+            --divider-color: #EDEBE9;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--text-primary);
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .header {
+            margin-bottom: 24px;
+        }
+
+        h1 {
+            color: var(--azure-red);
+            font-size: 24px;
+            font-weight: 600;
+            margin: 0 0 16px 0;
+        }
+
+        .card {
+            border-radius: 4px;
+            border: 1px solid #EDEBE9;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        code {
+            font-family: Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+            display: inline-block;
+            background-color: var(--background-gray);
+            padding: 12px 16px;
+            margin: 8px 0;
+            border-radius: 4px;
+            overflow-x: auto;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .help-section {
+            border-top: 1px solid var(--divider-color);
+            margin-top: 24px;
+            padding-top: 16px;
+        }
+
+        a {
+            color: var(--azure-blue);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .action-button {
+            display: inline-block;
+            background-color: var(--azure-blue);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            margin-top: 8px;
+            font-weight: 500;
+        }
+
+        .action-button:hover {
+            background-color: #106EBE;
+            text-decoration: none;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                margin: 0;
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Authentication Failed</h1>
+    </div>
+    
+    <div class="card">
+        <p>We encountered an issue while authenticating with Azure. The error details are:</p>
+        
+        <p>Error:</span> $error_code</p>
+        <p>Description:</p>
+        <div><code>$error_description</code></div>
+        <p><span>More Info:</span> <a href="$error_url" target="_blank">$error_url</a></p>
+        
+        <div class="help-section">
+            <p>Need additional help? Report this issue to Azure CLI GitHub Repository:</p>
+            <a href="https://github.com/azure/azure-cli/issues" class="action-button" target="_blank">Open Issue on GitHub</a>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p>Return to your terminal window to continue using the Azure CLI.</p>
+    </div>
+</body>
+</html>
