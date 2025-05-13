@@ -30,6 +30,13 @@ pub fn format_token_expires_on_readable(expires_on: u64) -> String {
     }
 }
 
+pub fn load_landing_page_templates() -> (String, String) {
+    let success_template = include_str!("landing_pages/success.html").to_string();
+    let error_template = include_str!("landing_pages/error.html").to_string();
+    
+    (success_template, error_template)
+}
+
 // This is a fake function for `az account list` to simulate the behavior of getting subscriptions.
 // Todo: Move it to account folder
 async fn fake_get_subscriptions(access_token: String) -> Result<Vec<String>, &'static str> {
