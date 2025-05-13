@@ -21,6 +21,7 @@ pub struct AzCfg {
 }
 
 impl AzCfg {
+    #[allow(unstable_name_collisions)]
     pub(crate) fn load() -> Result<Self, AzInternalError> {
         let config_file = Self::config_file_path();
         if !config_file.exists() {

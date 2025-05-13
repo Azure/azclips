@@ -270,7 +270,7 @@ impl FromStr for EndpointName {
 
 impl EndpointMap {
     pub fn get(&self, name: &EndpointName) -> Option<String> {
-        self.0.read().unwrap().get(name).map(|s| s.clone())
+        self.0.read().unwrap().get(name).cloned()
     }
 
     pub fn insert(&mut self, name: EndpointName, value: &str) -> Option<String> {

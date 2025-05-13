@@ -158,7 +158,7 @@ impl FromStr for ResourceIdName {
 
 impl ResourceIdMap {
     pub fn get(&self, name: &ResourceIdName) -> Option<String> {
-        self.0.read().unwrap().get(name).map(|s| s.clone())
+        self.0.read().unwrap().get(name).cloned()
     }
 
     pub fn insert(&mut self, name: ResourceIdName, value: &str) -> Option<String> {

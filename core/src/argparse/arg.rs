@@ -74,7 +74,7 @@ impl<'a> CmdArgWrapper<'a> {
     }
 }
 
-impl<'a> fmt::Display for CmdArgWrapper<'a> {
+impl fmt::Display for CmdArgWrapper<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.prefix_keys)
     }
@@ -82,13 +82,13 @@ impl<'a> fmt::Display for CmdArgWrapper<'a> {
 
 impl CmdArgWrapper<'_> {
     pub fn is_nullable(&self) -> bool {
-        return self.inner.nullable;
+        self.inner.nullable
     }
 
     // get the blank value of the argument
     // if the argument is boolean type, use the default blank value which is "true"
     pub fn blank(&self) -> Option<&CmdArgBlank> {
-        return self
+        self
             .inner
             .blank
             .as_ref()
@@ -96,12 +96,12 @@ impl CmdArgWrapper<'_> {
                 // apply default blank value for boolean type
                 Some(cmd_arg::ArgType::Boolean(_)) => Some(&BOOLEAN_ARG_BLANK_DEFAULT),
                 _ => None,
-            });
+            })
     }
 
     pub fn prompt(&self) -> Option<&CmdArgPromptInput> {
         // TODO: check if the stdin is terminal
-        return self.inner.prompt.as_ref();
+        self.inner.prompt.as_ref()
     }
 
     pub fn unwrapped_arg_type(&self) -> &cmd_arg::ArgType {
@@ -276,7 +276,7 @@ impl CmdArgWrapper<'_> {
     }
 }
 
-impl<'a> CmdArgWrapper<'a> {
+impl CmdArgWrapper<'_> {
     pub fn retrieve_sub_arg<'b>(
         &self,
         parts: impl IntoIterator<Item = &'b SHPartialKeyPart>,
@@ -450,7 +450,7 @@ fn retrieve_cls_arg_type<'a>(
         }
         _ => {}
     }
-    return Ok(None);
+    Ok(None)
 }
 
 static BOOLEAN_ARG_BLANK_DEFAULT: LazyLock<CmdArgBlank> = LazyLock::new(|| CmdArgBlank {

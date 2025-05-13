@@ -67,7 +67,7 @@ impl ArgPromptInputOp {
             }
         }
 
-        let value = parse_arg_value_str(&arg, Some(&buffer))?;
+        let value = parse_arg_value_str(arg, Some(&buffer))?;
         let value = match value {
             ArgOp::Value(value) => value,
             _ => {

@@ -91,12 +91,7 @@ impl command::CmdObjectArg {
     /// return the property argument by given the name or alias, if not found, return None
     /// This method will not check the additional properties
     pub fn get_prop<'a>(&'a self, name_or_alias: &'_ str) -> Option<&'a command::CmdArg> {
-        for prop in self.props.iter() {
-            if prop.name == name_or_alias || prop.options.iter().any(|o| o == name_or_alias) {
-                return Some(prop);
-            }
-        }
-        None
+        self.props.iter().find(|&prop| prop.name == name_or_alias || prop.options.iter().any(|o| o == name_or_alias))
     }
     /// return the item argument for the additional properties
     pub fn get_additional_item(&self) -> Result<Option<&command::CmdArg>, AzInternalError> {
@@ -112,9 +107,7 @@ impl command::CmdArrayArg {
         let item = self
             .item
             .as_ref()
-            .ok_or(AzInternalError::InvalidArgumentDefinitionError(format!(
-                "Missing item for array"
-            )))?;
+            .ok_or(AzInternalError::InvalidArgumentDefinitionError("Missing item for array".to_string()))?;
         Ok(item)
     }
 }
@@ -137,13 +130,10 @@ impl command::CmdArgEnum {
                 return Ok(v);
             }
             // case insensitive match
-            match (&v, &value) {
-                (Value::String(s), Value::String(t)) => {
-                    if !self.case_sensitive && s.eq_ignore_ascii_case(t) {
-                        return Ok(v);
-                    }
+            if let (Value::String(s), Value::String(t)) = (&v, &value) {
+                if !self.case_sensitive && s.eq_ignore_ascii_case(t) {
+                    return Ok(v);
                 }
-                _ => (),
             }
         }
 

@@ -87,7 +87,7 @@ impl CmdParamBuilder {
                                     // extend the existing array with the new value
                                     let mut new_value = v.as_array().unwrap().clone();
                                     if let Value::Array(extend_array) = value_op.value {
-                                        new_value.extend(extend_array.into_iter());
+                                        new_value.extend(extend_array);
                                     } else {
                                         unreachable!(); // verified in the head of function
                                     }
@@ -103,7 +103,7 @@ impl CmdParamBuilder {
                                     // extend the existing array with the new value
                                     let mut new_value = v.as_array().unwrap().clone();
                                     if let Value::Array(extend_array) = value_op.value {
-                                        new_value.extend(extend_array.into_iter());
+                                        new_value.extend(extend_array);
                                     } else {
                                         unreachable!(); // verified in the head of function
                                     }
@@ -191,7 +191,7 @@ impl CmdParamBuilder {
                                     if let Value::Array(array) = entry.get() {
                                         let mut array = array.clone();
                                         if let Value::Array(extend_array) = value_op.value {
-                                            array.extend(extend_array.into_iter());
+                                            array.extend(extend_array);
                                             Value::Array(array)
                                         } else {
                                             unreachable!(); // verified in the head of function
@@ -231,7 +231,7 @@ impl CmdParamBuilder {
                                 // extend the existing array with the new value
                                 let mut array = array.clone();
                                 if let Value::Array(extend_array) = value_op.value {
-                                    array.extend(extend_array.into_iter());
+                                    array.extend(extend_array);
                                     Value::Array(array)
                                 } else {
                                     unreachable!(); // verified in the head of function
@@ -389,7 +389,7 @@ fn format_param_value(
                     for (key, value) in object.into_iter() {
                         let sub_arg = arg
                             .retrieve_sub_arg(&[SHPartialKeyPart::parse_name(&key).unwrap()])
-                            .expect(&format!("missing sub argument {} in object", key));
+                            .unwrap_or_else(|_| panic!("missing sub argument {} in object", key));
                         let value =
                             format_param_value(ParamValue::Assign(value), &sub_arg, patch_keys)?;
                         new_obj.insert(key, value);
@@ -408,7 +408,7 @@ fn format_param_value(
                         let key = prop.name.to_string();
                         let sub_arg = arg
                             .retrieve_sub_arg(&[SHPartialKeyPart::parse_name(&key).unwrap()])
-                            .expect(&format!("missing sub argument {} in object", key));
+                            .unwrap_or_else(|_| panic!("missing sub argument {} in object", key));
                         let value = format_param_value(value, &sub_arg, patch_keys)?;
                         new_obj.insert(key, value);
                     }
@@ -454,7 +454,7 @@ fn format_param_value(
                     let key = prop.name.to_string();
                     let sub_arg = arg
                         .retrieve_sub_arg(&[SHPartialKeyPart::parse_name(&key).unwrap()])
-                        .expect(&format!("missing sub argument {} in object", key));
+                        .unwrap_or_else(|_| panic!("missing sub argument {} in object", key));
                     patch_keys.push(sub_arg.prefix_keys().to_string());
                     let value = format_param_value(value, &sub_arg, patch_keys)?;
                     partial_object.insert(key, value);
@@ -797,7 +797,7 @@ mod test {
             ),
         ] {
             let mut ops = parse_cmd_arg(&cmd, arg, values).unwrap().unwrap().into_iter();
-            while let Some(op) = ops.next() {
+            for op in ops {
                 if let ArgOp::Value(op) = op {
                     builder.apply(op).unwrap();
                 } else {
@@ -978,7 +978,7 @@ mod test {
                 .unwrap()
                 .unwrap()
                 .into_iter();
-            while let Some(op) = ops.next() {
+            for op in ops {
                 if let ArgOp::Value(op) = op {
                     builder.apply(op).unwrap();
                 } else {

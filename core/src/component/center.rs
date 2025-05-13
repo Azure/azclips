@@ -88,7 +88,7 @@ impl<T: AzComponentCtx> AzComponentCenter<T> {
         let plugin_futures: Vec<_> = common_plugin_paths
             .into_iter()
             .chain(cloud_plugin_paths.into_iter())
-            .map(|path| AzPlugin::from_path(path))
+            .map(AzPlugin::from_path)
             .collect();
 
         let plugins = try_join_all(plugin_futures).await?;

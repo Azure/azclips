@@ -34,7 +34,7 @@ pub(crate) static SHORTHAND_SYNTAX_PARSER: LazyLock<ShorthandSyntaxParser> =
     LazyLock::new(ShorthandSyntaxParser::default);
 
 /// The regex pattern for the partial value key, which is used to parse the partial value key from the input string.
-const PARTIAL_VALUE_KEY_PATTERN: &'static str = concat!(
+const PARTIAL_VALUE_KEY_PATTERN: &str = concat!(
     "^",                               // start
     "(",                               // start of capture group 1 - key path
     "(?:",                             //
@@ -80,20 +80,9 @@ impl Default for ShorthandSyntaxParser {
             key_value_separator: ':',
             prop_name_separator: '.',
             item_separator: ',',
-            file_uri_prefix: Some("file://"),
+            file_uri_prefix: Some("file://"), // TODO: use config or env to disable the file uri parse
             partial_value_key_pattern: Regex::new(PARTIAL_VALUE_KEY_PATTERN).unwrap(),
         }
-    }
-}
-
-/// TODO: using config or env to disable the file uri parse
-impl ShorthandSyntaxParser {
-    pub(crate) fn disable_file_uri_parse(&mut self) {
-        self.file_uri_prefix = None;
-    }
-
-    pub(crate) fn enable_file_uri_parse(&mut self) {
-        self.file_uri_prefix = Some("file://");
     }
 }
 
@@ -109,7 +98,7 @@ impl ShorthandSyntaxParser {
     pub(super) fn parse(&self, value: &str, arg: Option<CmdArgWrapper>) -> AzResult<SHResult> {
         let mut remain = value.chars();
         let (result, len) = self.parse_value(&mut remain, arg, 0)?;
-        if remain.as_str().len() > 0 {
+        if !remain.as_str().is_empty() {
             Err(AzUserUsageError::InvalidShorthandSyntaxError {
                 msg: "Redundant tail".to_string(),
                 data: value.to_string(),
@@ -147,7 +136,7 @@ impl ShorthandSyntaxParser {
                 if let Some(v_str) = value.as_str() {
                     if self
                         .file_uri_prefix
-                        .map_or(false, |prefix| v_str.starts_with(prefix))
+                        .is_some_and(|prefix| v_str.starts_with(prefix))
                     {
                         if let Some(file_value) = self.parse_file_uri(v_str, None)? {
                             value = file_value;
@@ -194,7 +183,7 @@ impl ShorthandSyntaxParser {
                     if let Some(v_str) = value.as_str() {
                         if self
                             .file_uri_prefix
-                            .map_or(false, |prefix| v_str.starts_with(prefix))
+                            .is_some_and(|prefix| v_str.starts_with(prefix))
                         {
                             if let Some(file_value) = self.parse_file_uri(v_str, None)? {
                                 value = file_value;
@@ -228,7 +217,7 @@ impl ShorthandSyntaxParser {
                 if let Some(v_str) = value.as_str() {
                     if self
                         .file_uri_prefix
-                        .map_or(false, |prefix| v_str.starts_with(prefix))
+                        .is_some_and(|prefix| v_str.starts_with(prefix))
                     {
                         if let Some(file_value) = self.parse_file_uri(v_str, None)? {
                             value = file_value;
@@ -262,7 +251,7 @@ impl ShorthandSyntaxParser {
                 if let Some(v_str) = value.as_str() {
                     if self
                         .file_uri_prefix
-                        .map_or(false, |prefix| v_str.starts_with(prefix))
+                        .is_some_and(|prefix| v_str.starts_with(prefix))
                     {
                         if let Some(file_value) =
                             self.parse_file_uri(v_str, str_type.format.as_ref())?
@@ -309,7 +298,7 @@ impl ShorthandSyntaxParser {
                     if let Some(v_str) = value.as_str() {
                         if self
                             .file_uri_prefix
-                            .map_or(false, |prefix| v_str.starts_with(prefix))
+                            .is_some_and(|prefix| v_str.starts_with(prefix))
                         {
                             if let Some(file_value) = self.parse_file_uri(v_str, None)? {
                                 value = file_value;
@@ -335,13 +324,13 @@ impl ShorthandSyntaxParser {
             }
             cmd_arg::ArgType::Array(_) => {
                 if str.starts_with(self.dict_start_char) {
-                    return Err(AzUserUsageError::InvalidShorthandSyntaxError {
+                    Err(AzUserUsageError::InvalidShorthandSyntaxError {
                         msg: arg.invalid_value_type().err().unwrap().to_string(),
                         data: str.to_string(),
                         at: 0,
                         range: 1,
                     }
-                    .into());
+                    .into())
                 } else if str.starts_with(self.list_start_char) {
                     self.parse_list(remain, Some(arg), depth)
                 } else {
@@ -357,7 +346,7 @@ impl ShorthandSyntaxParser {
                     if let Some(v_str) = value.as_str() {
                         if self
                             .file_uri_prefix
-                            .map_or(false, |prefix| v_str.starts_with(prefix))
+                            .is_some_and(|prefix| v_str.starts_with(prefix))
                         {
                             if let Some(file_value) = self.parse_file_uri(v_str, None)? {
                                 value = file_value;
@@ -476,7 +465,7 @@ impl ShorthandSyntaxParser {
         let mut str = remain.as_str();
         let mut result = Map::new();
 
-        while str.len() > 0 {
+        while !str.is_empty() {
             if str.starts_with(self.dict_end_char) {
                 _ = remain.next().unwrap();
                 idx += 1;
@@ -538,7 +527,7 @@ impl ShorthandSyntaxParser {
             _ = remain.next().unwrap();
             str = remain.as_str();
 
-            if str.len() == 0 {
+            if str.is_empty() {
                 return Err(AzUserUsageError::InvalidShorthandSyntaxError {
                     msg: "Cannot parse empty".to_string(),
                     data: data.to_string(),
@@ -621,7 +610,7 @@ impl ShorthandSyntaxParser {
         let mut str = remain.as_str();
         let mut result = Vec::new();
 
-        while str.len() > 0 {
+        while !str.is_empty() {
             if str.starts_with(self.list_end_char) {
                 _ = remain.next().unwrap();
                 idx += 1;
@@ -705,7 +694,7 @@ impl ShorthandSyntaxParser {
         let mut result = String::new();
 
         if internal {
-            while str.len() > 0 {
+            while !str.is_empty() {
                 if str.starts_with(self.dict_end_char)
                     || str.starts_with(self.list_end_char)
                     || str.starts_with(self.item_separator)
@@ -745,7 +734,7 @@ impl ShorthandSyntaxParser {
             }
         } else {
             result.reserve(str.len());
-            while str.len() > 0 {
+            while !str.is_empty() {
                 let c = remain.next().unwrap();
                 idx += 1;
                 result.push(c);
@@ -849,7 +838,7 @@ impl ShorthandSyntaxParser {
         let mut remain = key.chars();
         let mut idx = 0;
         let mut str = remain.as_str();
-        while str.len() > 0 {
+        while !str.is_empty() {
             if str.starts_with(self.list_start_char) {
                 match self.parse_partial_value_idx_key(&mut remain) {
                     Ok((part, len)) => {
@@ -910,7 +899,7 @@ impl ShorthandSyntaxParser {
         let mut idx = 1;
 
         let mut part = String::new();
-        while str.len() > 0 {
+        while !str.is_empty() {
             if str.starts_with(self.list_end_char) || str.starts_with(self.prop_name_separator) {
                 break;
             }
@@ -974,7 +963,7 @@ impl ShorthandSyntaxParser {
             part
         } else {
             let mut part = String::new();
-            while str.len() > 0 {
+            while !str.is_empty() {
                 if str.starts_with(self.prop_name_separator)
                     || str.starts_with(self.list_start_char)
                 {
@@ -1041,12 +1030,12 @@ impl ShorthandSyntaxParser {
             }
         })?;
 
-        return Err(AzUserUsageError::InvalidShorthandSyntaxError {
+        Err(AzUserUsageError::InvalidShorthandSyntaxError {
             msg: "yaml file input is not supported yet, please use json file instead".to_string(),
             data: file_path.to_string(),
             at: 0,
             range: file_path.len(),
-        });
+        })
     }
 
     fn read_file_content_as_str(file_path: &str) -> Result<Value, AzUserUsageError> {
@@ -1074,7 +1063,7 @@ impl ShorthandSyntaxParser {
         let trimmed_content = content.trim_ascii();
 
         // Check if the content is already a base64 encoded string
-        let encoded = if let Ok(_) = BASE64_STANDARD.decode(trimmed_content) {
+        let encoded = if BASE64_STANDARD.decode(trimmed_content).is_ok() {
             String::from_utf8(trimmed_content.to_vec()).unwrap()
         } else {
             BASE64_STANDARD.encode(&content)
@@ -3566,7 +3555,7 @@ mod tests {
 
         // test invalid json file
         let mut file = NamedTempFile::with_suffix(".json").expect("Failed to create temp file");
-        writeln!(file, "{}", "{\"a\": \"b").expect("Failed to write to temp file");
+        writeln!(file, "{{\"a\": \"b").expect("Failed to write to temp file");
         file.flush().expect("Failed to flush temp file");
         let file_value = format!("file://{}", file.path().to_str().unwrap());
         let result = parser.parse(file_value.as_str(), arg1.to_owned());
@@ -3859,7 +3848,7 @@ mod tests {
 
         // test invalid json file
         let mut file = NamedTempFile::with_suffix(".json").expect("Failed to create temp file");
-        writeln!(file, "{}", "[\"a\", \"b").expect("Failed to write to temp file");
+        writeln!(file, "[\"a\", \"b").expect("Failed to write to temp file");
         file.flush().expect("Failed to flush temp file");
         let file_value = format!("file://{}", file.path().to_str().unwrap());
         let result = parser.parse(file_value.as_str(), arg1.to_owned());
@@ -4244,7 +4233,7 @@ mod tests {
             ("a[1]b={c:d}", None),
             (".a={c:d}", None),
         ] {
-            let result = parser.split_partial_value(&value);
+            let result = parser.split_partial_value(value);
             assert_eq!(result, expected);
         }
     }
@@ -4536,11 +4525,11 @@ mod tests {
         ] {
             match expected {
                 Ok((parts, is_append)) => {
-                    let result = parser.parse_partial_value_key_parts(&value).unwrap();
+                    let result = parser.parse_partial_value_key_parts(value).unwrap();
                     assert_eq!(result, (SHPartialKeys::new(parts), is_append));
                 }
                 Err(ErrorData(msg_target, data_target, at_target, range_target)) => {
-                    let result = parser.parse_partial_value_key_parts(&value);
+                    let result = parser.parse_partial_value_key_parts(value);
                     match result {
                         Err(AzUserUsageError::InvalidShorthandSyntaxError {
                             msg,

@@ -159,13 +159,11 @@ impl AzCmd for CreateCloud {
                     }
                     "endpoints" => {
                         create_cloud.endpoints = serde_json::from_slice::<EndpointMap>(v)
-                            .expect("failed to parse json")
-                            .into();
+                            .expect("failed to parse json");
                     }
                     "resourceIds" => {
                         create_cloud.resource_ids = serde_json::from_slice::<ResourceIdMap>(v)
-                            .expect("failed to parse json")
-                            .into();
+                            .expect("failed to parse json");
                     }
                     _ => {
                         error!("unknown argument: {}", name);

@@ -7,7 +7,7 @@ pub enum SHPartialKeyPart {
     Index(u16),
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Default)]
 pub struct SHPartialKeys {
     parts: Vec<SHPartialKeyPart>,
 }
@@ -21,12 +21,6 @@ impl SHPartialKeys {
 
     pub fn from_parts<'a>(parts: impl IntoIterator<Item = &'a SHPartialKeyPart>) -> Self {
         Self::new(parts.into_iter().map(|p| p.to_owned()))
-    }
-}
-
-impl Default for SHPartialKeys {
-    fn default() -> Self {
-        Self { parts: vec![] }
     }
 }
 
@@ -88,7 +82,7 @@ impl SHPartialKeys {
 
 impl SHPartialKeyPart {
     pub fn parse_name(value: &str) -> Result<Self, AzUserUsageError> {
-        if value.len() == 0 {
+        if value.is_empty() {
             return Err(AzUserUsageError::InvalidShorthandSyntaxError {
                 msg: "Miss prop name".to_string(),
                 data: value.to_string(),

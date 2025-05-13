@@ -20,12 +20,12 @@ impl AzCmdExecute for ListClouds {
         let mut result = vec![];
         let builtin_clouds = AzCloud::list_builtin();
         builtin_clouds.iter().for_each(|cloud| {
-            let cloud_metadata = cfg.clouds.get_cloud(&cloud).unwrap();
+            let cloud_metadata = cfg.clouds.get_cloud(cloud).unwrap();
             result.push(cloud_metadata);
         });
         for cloud in cfg.clouds.0.keys() {
             if !builtin_clouds.contains(cloud) {
-                let cloud_metadata = cfg.clouds.get_cloud(&cloud).unwrap();
+                let cloud_metadata = cfg.clouds.get_cloud(cloud).unwrap();
                 result.push(cloud_metadata.clone());
             }
         }

@@ -35,7 +35,7 @@ pub(super) struct Login {
 }
 
 impl Login {
-    pub(super) async fn run<T: AzComponentCtx>(&self, ctx: &T) -> Result<Option<String>, AzError> {
+    pub(super) async fn run<T: AzComponentCtx>(&self, _: &T) -> Result<Option<String>, AzError> {
         println!("login");
         println!("scope: {:?}", self.scope);
         println!("tenant_id: {:?}", self.tenant_id);
@@ -444,12 +444,15 @@ mod tests {
             println!("Skipping interactive test in CI environment");
             return;
         }
-        
+
         let login = Login::default();
         let result = login.login_with_auth_code(&FAKE_SCOPES, TENANT_ID).await;
-        
+
         match result {
-            Ok(_) => assert!(false, "Login should have failed with invalid scope, but succeeded"),
+            Ok(_) => assert!(
+                false,
+                "Login should have failed with invalid scope, but succeeded"
+            ),
             Err(e) => {
                 println!("Expected authentication error received: {}", e);
             }

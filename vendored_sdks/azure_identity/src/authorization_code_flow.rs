@@ -9,7 +9,7 @@
 
 use crate::oauth2_http_client::Oauth2HttpClient;
 use azure_core::{
-    error::{ErrorKind, ResultExt},
+    error::ErrorKind,
     http::{HttpClient, Url},
 };
 use oauth2::{basic::BasicClient, EndpointNotSet, EndpointSet, HttpRequest, Scope};
@@ -131,8 +131,8 @@ impl AuthorizationCodeFlow {
             .map_err(|e| {
                 azure_core::Error::new(
                     ErrorKind::Credential,
-                    format!("Authorization code exchange failed: {}", e)
-                )   
-        })
+                    format!("Authorization code exchange failed: {}", e),
+                )
+            })
     }
 }
