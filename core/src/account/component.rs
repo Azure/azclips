@@ -33,7 +33,7 @@ impl AzCmdGroup for AccountComponent {
     fn cmd_interface(depth: Option<u32>) -> CmdInterface {
         let groups = vec![];
         let mut commands = vec![];
-        if !depth.is_some_and(|d| d == 0) {
+        if depth.is_none_or(|d| d > 0) {
             let depth = depth.map(|d| d - 1);
             commands.push(GetAccessToken::cmd_interface(depth));
             commands.push(Login::cmd_interface(depth));

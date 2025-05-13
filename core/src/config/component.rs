@@ -32,7 +32,7 @@ impl AzCmdGroup for ConfigComponent {
     fn cmd_interface(depth: Option<u32>) -> CmdInterface {
         let mut groups = vec![];
         let mut commands = vec![];
-        if !depth.is_some_and(|d| d == 0) {
+        if depth.is_none_or(|d| d > 0) {
             let depth = depth.map(|d| d - 1);
             groups.push(CloudCommandGroup::cmd_interface(depth));
             commands.push(GetConfig::cmd_interface(depth));
@@ -58,7 +58,7 @@ impl AzCmdGroup for ConfigComponent {
         mut segments: impl Iterator<Item = String>,
     ) -> Option<CmdInterface> {
         match segments.next().as_deref() {
-            None => Some(ConfigComponent::cmd_interface(depth)),
+            None => Some(Self::cmd_interface(depth)),
             Some("get") => Some(GetConfig::cmd_interface(depth)),
             Some("set") => Some(SetConfig::cmd_interface(depth)),
             Some("cloud") => CloudCommandGroup::get_interface(depth, segments),
@@ -68,7 +68,7 @@ impl AzCmdGroup for ConfigComponent {
 
     fn resolve_cmd_uri(mut segments: impl Iterator<Item = String>) -> Option<CmdUri> {
         match segments.next().as_deref() {
-            None => Some(ConfigComponent::uri()),
+            None => Some(Self::uri()),
             Some("get") => {
                 Some(GetConfig::uri().with_param_values("key", segments.collect::<Vec<_>>()))
             }
