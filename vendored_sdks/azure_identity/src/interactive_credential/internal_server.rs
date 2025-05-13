@@ -269,27 +269,22 @@ fn extract_auth_error(request: &str) -> Option<(String, String, String)> {
 }
 
 fn format_error_description(error_description: &str) -> String {    
-    let with_spaces = error_description.replace('+', " ");
+    let parts: Vec<&str> = error_description.split('+').collect();
     
-    let formatted = if with_spaces.contains("Trace ID:") {
-        let parts: Vec<&str> = with_spaces.split('+').collect();
-        let mut result = String::new();
-        
-        for part in parts {
-            if part.starts_with("Trace ID:") || 
-               part.starts_with("Correlation ID:") || 
-               part.starts_with("Timestamp:") {
-                  result.push_str("\n");
-               }
-            result.push_str(part);
-            result.push_str(" ");
+    let mut result = String::new();
+    
+    for part in parts {
+        let part_with_spaces = part.replace('+', " ");
+        if part_with_spaces.starts_with("Trace ID:") || 
+           part_with_spaces.starts_with("Correlation ID:") || 
+           part_with_spaces.starts_with("Timestamp:") {
+              result.push_str("\n");
         }
-        result
-    } else {
-        with_spaces
-    };
+        result.push_str(&part_with_spaces);
+        result.push_str(" ");
+    }
     
-    formatted
+    result.trim_end().to_string()
 }
 
 // Add this new function for tests
