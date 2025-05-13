@@ -1,12 +1,14 @@
 use std::collections::HashMap;
 
 use az_core::pb::{
-    command::{cmd_interface::Level, CmdCommandGroup, CmdComponent, CmdInterface},
-    component::ComponentMetadata,
+    cmd_interface::Level, CmdCommandGroup, CmdComponent, CmdInterface, ComponentMetadata,
 };
 
 use crate::{
-    help::{table::{CmdArgDisplayConfig, HelpLineDisplay, HelpTableLine}, MIN_DETAIL_WIDTH},
+    help::{
+        table::{CmdArgDisplayConfig, HelpLineDisplay, HelpTableLine},
+        MIN_DETAIL_WIDTH,
+    },
     output::{style::Stylize, Row, StyledString},
 };
 
@@ -150,59 +152,57 @@ impl CmdTemplate for HardCodeCmdTemplate {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use az_core::pb::command::{CmdArgHelp, CmdHelp, CmdInterface};
+    use az_core::pb::{cmd_interface, CmdArg, CmdArgHelp, CmdCommand, CmdHelp, CmdInterface};
 
     #[test]
     fn test_help_cmd_template_render() {
         let cmd = CmdInterface {
             name: "command".to_string(),
             uri: "cmd://azure/group/command".to_string(),
-            level: Some(az_core::pb::command::cmd_interface::Level::Command(
-                az_core::pb::command::CmdCommand {
-                    version: "1.0.0".to_string(),
-                    args: vec![
-                        az_core::pb::command::CmdArg {
-                            var_name: "arg1".to_string(),
-                            options: vec![
-                                "a".to_string(),
-                                "arg1".to_string(),
-                                "arg1option".to_string(),
-                            ],
-                            name: "Argument 1".to_string(),
-                            group: "Group 1".to_string(),
-                            internal: false,
-                            required: true,
-                            default: None,
-                            help: Some(CmdArgHelp {
-                                short: "Short description".to_string(),
-                                long: Some("Long description of the argument.".to_string()),
-                            }),
-                            nullable: false,
-                            blank: None,
-                            prompt: None,
-                            arg_type: None,
-                        },
-                        az_core::pb::command::CmdArg {
-                            var_name: "arg2".to_string(),
-                            options: vec!["b".to_string(), "arg2".to_string()],
-                            name: "Argument 2".to_string(),
-                            group: "Group 1".to_string(),
-                            internal: false,
-                            required: false,
-                            default: None,
-                            help: Some(CmdArgHelp {
-                                short: "Short description".to_string(),
-                                long: Some("Long description of the argument.".to_string()),
-                            }),
-                            nullable: false,
-                            blank: None,
-                            prompt: None,
-                            arg_type: None,
-                        },
-                    ],
-                    positional_args: vec![],
-                },
-            )),
+            level: Some(cmd_interface::Level::Command(CmdCommand {
+                version: "1.0.0".to_string(),
+                args: vec![
+                    CmdArg {
+                        var_name: "arg1".to_string(),
+                        options: vec![
+                            "a".to_string(),
+                            "arg1".to_string(),
+                            "arg1option".to_string(),
+                        ],
+                        name: "Argument 1".to_string(),
+                        group: "Group 1".to_string(),
+                        internal: false,
+                        required: true,
+                        default: None,
+                        help: Some(CmdArgHelp {
+                            short: "Short description".to_string(),
+                            long: Some("Long description of the argument.".to_string()),
+                        }),
+                        nullable: false,
+                        blank: None,
+                        prompt: None,
+                        arg_type: None,
+                    },
+                    CmdArg {
+                        var_name: "arg2".to_string(),
+                        options: vec!["b".to_string(), "arg2".to_string()],
+                        name: "Argument 2".to_string(),
+                        group: "Group 1".to_string(),
+                        internal: false,
+                        required: false,
+                        default: None,
+                        help: Some(CmdArgHelp {
+                            short: "Short description".to_string(),
+                            long: Some("Long description of the argument.".to_string()),
+                        }),
+                        nullable: false,
+                        blank: None,
+                        prompt: None,
+                        arg_type: None,
+                    },
+                ],
+                positional_args: vec![],
+            })),
             help: Some(CmdHelp {
                 short: "Short description".to_string(),
                 long: Some("Long description of the command. ".repeat(3)),

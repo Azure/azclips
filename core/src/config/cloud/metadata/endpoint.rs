@@ -7,8 +7,8 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::RwLock;
 
-use crate::pb::command::{cmd_arg, CmdArg, CmdArgHelp, CmdStringArg};
-use crate::AzCloud;
+use super::AzCloud;
+use crate::pb::{cmd_arg, CmdArg, CmdArgHelp, CmdStringArg};
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct EndpointName {
@@ -16,7 +16,7 @@ pub struct EndpointName {
 }
 
 #[derive(Debug, Default, Clone)]
-pub(crate) struct EndpointMap(pub(crate) Arc<RwLock<HashMap<EndpointName, String>>>);
+pub(crate) struct EndpointMap(pub(super) Arc<RwLock<HashMap<EndpointName, String>>>);
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum Repr {
@@ -37,11 +37,10 @@ enum Repr {
 ///
 /// # Examples
 ///
-/// ```
 /// standard_endpoints! {
 ///     (Authentication, AUTHENTICATION, b"authentication", b"authentication", b"authentication.loginEndpoint");
 /// }
-/// ```
+///
 macro_rules! standard_endpoints {
         (
             $(
@@ -93,15 +92,15 @@ macro_rules! standard_endpoints {
                     }
                 }
 
-                #[inline]
-                const fn from_var_bytes(var_bytes: &[u8]) -> Option<Self> {
-                    match var_bytes {
-                        $(
-                            $var_bytes => Some(Self::$konst),
-                        )+
-                        _ => None,
-                    }
-                }
+                // #[inline]
+                // const fn from_var_bytes(var_bytes: &[u8]) -> Option<Self> {
+                //     match var_bytes {
+                //         $(
+                //             $var_bytes => Some(Self::$konst),
+                //         )+
+                //         _ => None,
+                //     }
+                // }
 
                 pub fn list_args(nullable: bool) -> Vec<CmdArg> {
                     vec![
@@ -141,11 +140,10 @@ macro_rules! standard_endpoints {
 ///
 /// # Examples
 ///
-/// ```
 /// standard_suffixes! {
 ///     (AcrLoginServer, ACR_LOGIN_SERVER, b"acrLoginServer", b"acr-login-server", b"suffixes.acrLoginServer");
 /// }
-/// ```
+///
 macro_rules! standard_suffixes {
         (
             $(
@@ -197,15 +195,15 @@ macro_rules! standard_suffixes {
                     }
                 }
 
-                #[inline]
-                const fn from_var_bytes(var_bytes: &[u8]) -> Option<Self> {
-                    match var_bytes {
-                        $(
-                            $var_bytes => Some(Self::$konst),
-                        )+
-                        _ => None,
-                    }
-                }
+                // #[inline]
+                // const fn from_var_bytes(var_bytes: &[u8]) -> Option<Self> {
+                //     match var_bytes {
+                //         $(
+                //             $var_bytes => Some(Self::$konst),
+                //         )+
+                //         _ => None,
+                //     }
+                // }
 
                 pub fn list_args(nullable: bool) -> Vec<CmdArg> {
                     vec![
@@ -281,10 +279,6 @@ impl EndpointMap {
 
     pub fn remove(&mut self, name: &EndpointName) -> Option<String> {
         self.0.write().unwrap().remove(name)
-    }
-
-    pub fn clear(&mut self) {
-        self.0.write().unwrap().clear();
     }
 
     pub fn from<'a>(iter: impl IntoIterator<Item = (&'a EndpointName, &'a str)>) -> Self {

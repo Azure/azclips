@@ -16,11 +16,11 @@ pub struct AzCloudMetadata {
     #[serde(default)]
     pub name: AzCloud,
     #[serde(default)]
-    pub active: bool,
+    pub(crate) active: bool,
     #[serde(default)]
-    pub endpoints: endpoint::EndpointMap,
+    pub(crate) endpoints: endpoint::EndpointMap,
     #[serde(default)]
-    pub resource_ids: resource_id::ResourceIdMap,
+    pub(crate) resource_ids: resource_id::ResourceIdMap,
 }
 
 impl AzCloudMetadata {

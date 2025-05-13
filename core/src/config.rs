@@ -1,24 +1,23 @@
 pub mod cloud;
+
 pub(crate) mod component;
+
+use crate::error::AzInternalError;
+use cloud::AzCloudsCfg;
 use fs2::FileExt;
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::{env, path::PathBuf, sync::OnceLock};
 
-pub(crate) use cloud::AzCloud;
-use cloud::AzCloudsCfg;
-use serde::{Deserialize, Serialize};
-
-use crate::error::AzInternalError;
-
 const ENV_CONFIG_DIR: &str = "AZURE_CONFIG_DIR";
 const DEFAULT_CONFIG_DIR: &str = ".cirrus";
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub(crate) struct AzCfg {
-    pub(crate) clouds: AzCloudsCfg,
-    pub(crate) settings: Map<String, Value>,
+pub struct AzCfg {
+    pub clouds: AzCloudsCfg,
+    pub settings: Map<String, Value>,
 }
 
 impl AzCfg {

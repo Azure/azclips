@@ -5,14 +5,15 @@ use tracing::error;
 use crate::{
     cmd_uri::CmdUri,
     component::AzComponentCtx,
-    error::{AzError, AuthenticationError},
-    pb::command::{
-        cmd_arg, cmd_interface, cmd_string_arg, CmdArg, CmdArgHelp, CmdArgPromptInput,
-        CmdBooleanArg, CmdCommand, CmdHelp, CmdInterface, CmdParams, CmdStringArg, CmdStringFormat, CmdArrayArg, CmdArrayFormat,
+    error::{AuthenticationError, AzError},
+    pb::{
+        cmd_arg, cmd_interface, cmd_string_arg, CmdArg, CmdArgHelp, CmdArgPromptInput, CmdArrayArg,
+        CmdArrayFormat, CmdBooleanArg, CmdCommand, CmdHelp, CmdInterface, CmdParams, CmdStringArg,
+        CmdStringFormat,
     },
-    VERSION,
-    top::utils::{can_launch_browser, format_token_expires_on_readable},
     top::credentials::UserCredential,
+    top::utils::{can_launch_browser, format_token_expires_on_readable},
+    VERSION,
 };
 
 #[derive(Debug, Default)]
@@ -39,7 +40,7 @@ impl Login {
         println!("scope: {:?}", self.scope);
         println!("tenant_id: {:?}", self.tenant_id);
 
-        let interactive: bool = self.username.is_none(); 
+        let interactive: bool = self.username.is_none();
         let mut use_device_code = self.use_device_code;
 
         // Todo: Set arm_scope for different clouds
@@ -49,9 +50,9 @@ impl Login {
             None => vec![arm_scope],
         };
         let tenant_id = self.tenant_id.as_deref().unwrap_or("organizations");
-        
+
         // Todo: Set authority_url for different clouds
-        
+
         if interactive {
             if !use_device_code && !can_launch_browser() {
                 println!("No web browser is available. Falling back to device code.");
@@ -66,20 +67,24 @@ impl Login {
             // Todo: Implement non-interactive login logic
             println!("Logging in non-interactively...");
         }
-        
+
         Ok(None)
     }
 
-    async fn login_with_auth_code(&self, 
+    async fn login_with_auth_code(
+        &self,
         scopes: &[&str],
         tenant_id: &str,
     ) -> Result<(), AuthenticationError> {
         println!("Logging in interactively...");
-        
+
         let user_credential = UserCredential::new(None);
         let token = user_credential.acquire_token(scopes, tenant_id).await?;
-        
-        println!("Token acquired successfully. Token expires on: {}\n", format_token_expires_on_readable(token.expires_on));
+
+        println!(
+            "Token acquired successfully. Token expires on: {}\n",
+            format_token_expires_on_readable(token.expires_on)
+        );
         Ok(())
     }
 
@@ -389,9 +394,9 @@ impl Login {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
     use crate::top::credentials::Token;
     use crate::top::utils::fake_list_subscriptions;
+    use std::env;
 
     fn is_ci_environment() -> bool {
         env::var("CI").is_ok()
@@ -409,14 +414,14 @@ mod tests {
             println!("Skipping interactive test in CI environment");
             return;
         }
-        
+
         let login = Login::default();
         let result = login.login_with_auth_code(&SCOPES, TENANT_ID).await;
-            
+
         assert!(result.is_ok(), "Login failed: {:?}", result.err());
-        
+
         let token = Token::default();
-            
+
         let access_token = match token.read_token_from_file() {
             Ok(token_info) => token_info.access_token,
             Err(e) => {
@@ -424,7 +429,7 @@ mod tests {
                 return;
             }
         };
-            
+
         println!("Attempting to list subscriptions with cached token...");
         match fake_list_subscriptions(access_token).await {
             Ok(_) => println!("Successfully listed subscriptions"),

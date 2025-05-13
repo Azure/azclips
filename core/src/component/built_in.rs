@@ -2,7 +2,7 @@ use crate::{
     account::component::AccountComponent, cmd_uri::CmdUri, config::component::ConfigComponent,
     top::component::TopComponent,
 };
-use serde::{de::Error, ser::SerializeMap, Deserialize};
+use serde::{de::Error, ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 use std::{str::FromStr, sync::Arc};
 use strum_macros::{Display, EnumIter};
 
@@ -24,7 +24,7 @@ impl AzBuildIn {
     // /// cmd_uri: `cmd://azure/plugin/`
     // const PLUGIN_URI: &'static str = "cmd://azure/plugin/";
 
-    pub fn uri(&self) -> CmdUri {
+    pub(crate) fn uri(&self) -> CmdUri {
         match self {
             AzBuildIn::Top => TopComponent::uri(),
             AzBuildIn::Config => ConfigComponent::uri(),
@@ -33,7 +33,7 @@ impl AzBuildIn {
         }
     }
 
-    pub fn from_uri(uri: &CmdUri) -> Option<Self> {
+    pub(crate) fn from_uri(uri: &CmdUri) -> Option<Self> {
         match uri.to_string().as_str() {
             s if s == TopComponent::URI => Some(Self::Top),
             s if s == ConfigComponent::URI => Some(Self::Config),
@@ -59,30 +59,28 @@ impl<T: AzComponentCtx> AzComponentCenter<T> {
     }
 }
 
-pub(super) fn serialize_az_build_in_component<S>(
-    component: &AzBuildIn,
-    serializer: S,
-) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    let mut map = serializer.serialize_map(Some(1))?;
-    map.serialize_entry("uri", &component.uri().to_string())?;
-    map.end()
+impl Serialize for AzBuildIn {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut map = serializer.serialize_map(Some(1))?;
+        map.serialize_entry("uri", &self.uri().to_string())?;
+        map.end()
+    }
 }
 
-pub(super) fn deserialize_az_build_in_component<'de, D>(
-    deserializer: D,
-) -> Result<AzBuildIn, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let value = serde_json::Value::deserialize(deserializer)?;
-    let uri = value
-        .get("uri")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| D::Error::custom("component uri is required"))?;
-    let uri = CmdUri::from_str(uri).map_err(D::Error::custom)?;
-
-    AzBuildIn::from_uri(&uri).ok_or_else(|| D::Error::custom("invalid component uri"))
+impl<'de> Deserialize<'de> for AzBuildIn {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let uri = value
+            .get("uri")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| D::Error::custom("component uri is required"))?;
+        let uri = CmdUri::from_str(uri).map_err(D::Error::custom)?;
+        AzBuildIn::from_uri(&uri).ok_or_else(|| D::Error::custom("invalid component uri"))
+    }
 }

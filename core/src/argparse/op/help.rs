@@ -1,4 +1,4 @@
-use crate::argparse::partial::SHPartialKeys;
+use crate::argparse::SHPartialKeys;
 
 #[derive(Debug, PartialEq)]
 pub struct ArgHelpOp {

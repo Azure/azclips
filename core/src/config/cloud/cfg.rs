@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use serde::de::{self, MapAccess, Visitor};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::de::{MapAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize};
 use tracing::warn;
 
 use crate::error::AzUserUsageError;
@@ -10,7 +10,7 @@ use crate::error::AzUserUsageError;
 use super::{metadata::AzCloudMetadata, AzCloud};
 
 #[derive(Debug, Clone, Serialize)]
-pub struct AzCloudsCfg(pub HashMap<AzCloud, AzCloudMetadata>);
+pub struct AzCloudsCfg(pub(crate) HashMap<AzCloud, AzCloudMetadata>);
 
 impl Default for AzCloudsCfg {
     fn default() -> Self {
@@ -29,18 +29,19 @@ impl Default for AzCloudsCfg {
 }
 
 impl AzCloudsCfg {
-    pub fn forbid_telemetry(&self) -> bool {
-        match &self.get_active().name {
-            // Add names of clouds that don't allow telemetry data collection here such as some air-gapped clouds.
-            AzCloud::Custom(custom_name) => {
-                custom_name.eq_ignore_ascii_case("USSec")
-                    || custom_name.eq_ignore_ascii_case("USNat")
-            }
-            _ => false,
-        }
-    }
+    // Will be used in the future
+    // pub fn forbid_telemetry(&self) -> bool {
+    //     match &self.get_active().name {
+    //         // Add names of clouds that don't allow telemetry data collection here such as some air-gapped clouds.
+    //         AzCloud::Custom(custom_name) => {
+    //             custom_name.eq_ignore_ascii_case("USSec")
+    //                 || custom_name.eq_ignore_ascii_case("USNat")
+    //         }
+    //         _ => false,
+    //     }
+    // }
 
-    pub(crate) fn get_cloud(&self, name: &AzCloud) -> Result<AzCloudMetadata, AzUserUsageError> {
+    pub fn get_cloud(&self, name: &AzCloud) -> Result<AzCloudMetadata, AzUserUsageError> {
         if matches!(name, AzCloud::Custom(_)) && !self.0.contains_key(&name) {
             return Err(AzUserUsageError::CloudUnregisteredError(name.to_string()));
         }
@@ -66,10 +67,7 @@ impl AzCloudsCfg {
 
     /// This function should only be called by the AzCore, don't call it in other places
     /// If you want to switch the cloud, please use the `switch_cloud` function in the AzCore
-    pub(crate) fn set_active(
-        &mut self,
-        active: AzCloud,
-    ) -> Result<&AzCloudMetadata, AzUserUsageError> {
+    pub fn set_active(&mut self, active: AzCloud) -> Result<&AzCloudMetadata, AzUserUsageError> {
         if matches!(active, AzCloud::Custom(_)) && !self.0.contains_key(&active) {
             return Err(AzUserUsageError::CloudUnregisteredError(active.to_string()));
         }

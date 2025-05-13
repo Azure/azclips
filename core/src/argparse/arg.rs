@@ -4,17 +4,20 @@ use serde_json::Value;
 
 use crate::{
     error::{AzError, AzInternalError, AzResult, AzUserUsageError},
-    pb::command,
+    pb::{
+        cmd_arg, CmdArg, CmdArgBlank, CmdArgEnum, CmdArgEnumItem, CmdArgPromptInput, CmdArrayArg,
+        CmdCommand, CmdObjectArg,
+    },
 };
 
-use super::partial::{SHPartialKeyPart, SHPartialKeys};
+use super::{SHPartialKeyPart, SHPartialKeys};
 
 /// This wrapper support unwrapping the cls type of the argument
 #[derive(Debug, Clone)]
 pub struct CmdArgWrapper<'a> {
-    cmd: Option<&'a command::CmdCommand>,
-    inner: &'a command::CmdArg,
-    unwrapped_arg_type: &'a command::cmd_arg::ArgType,
+    cmd: Option<&'a CmdCommand>,
+    inner: &'a CmdArg,
+    unwrapped_arg_type: &'a cmd_arg::ArgType,
     prefix_keys: SHPartialKeys,
 }
 
@@ -29,10 +32,7 @@ impl<'a> CmdArgWrapper<'a> {
     /// # Returns
     ///
     /// A new CmdArgWrapper
-    pub fn new(
-        cmd: Option<&'a command::CmdCommand>,
-        inner: &'a command::CmdArg,
-    ) -> Result<Self, AzInternalError> {
+    pub fn new(cmd: Option<&'a CmdCommand>, inner: &'a CmdArg) -> Result<Self, AzInternalError> {
         let arg_type = get_unwrapped_arg_type(cmd, inner)?;
         Ok(Self {
             cmd,
@@ -44,7 +44,7 @@ impl<'a> CmdArgWrapper<'a> {
         })
     }
 
-    pub fn build_by_keys(cmd: &'a command::CmdCommand, keys: &SHPartialKeys) -> AzResult<Self> {
+    pub fn build_by_keys(cmd: &'a CmdCommand, keys: &SHPartialKeys) -> AzResult<Self> {
         let mut parts = keys.parts();
         let key = parts
             .next()
@@ -87,24 +87,24 @@ impl CmdArgWrapper<'_> {
 
     // get the blank value of the argument
     // if the argument is boolean type, use the default blank value which is "true"
-    pub fn blank(&self) -> Option<&command::CmdArgBlank> {
+    pub fn blank(&self) -> Option<&CmdArgBlank> {
         return self
             .inner
             .blank
             .as_ref()
             .or_else(|| match self.inner.arg_type {
                 // apply default blank value for boolean type
-                Some(command::cmd_arg::ArgType::Boolean(_)) => Some(&BOOLEAN_ARG_BLANK_DEFAULT),
+                Some(cmd_arg::ArgType::Boolean(_)) => Some(&BOOLEAN_ARG_BLANK_DEFAULT),
                 _ => None,
             });
     }
 
-    pub fn prompt(&self) -> Option<&command::CmdArgPromptInput> {
+    pub fn prompt(&self) -> Option<&CmdArgPromptInput> {
         // TODO: check if the stdin is terminal
         return self.inner.prompt.as_ref();
     }
 
-    pub fn unwrapped_arg_type(&self) -> &command::cmd_arg::ArgType {
+    pub fn unwrapped_arg_type(&self) -> &cmd_arg::ArgType {
         self.unwrapped_arg_type
     }
 
@@ -112,7 +112,7 @@ impl CmdArgWrapper<'_> {
         &self.prefix_keys
     }
 
-    pub fn arg(&self) -> &command::CmdArg {
+    pub fn arg(&self) -> &CmdArg {
         self.inner
     }
 }
@@ -125,31 +125,31 @@ impl CmdArgWrapper<'_> {
         // apply enum transform
         if let Some(v) = value.as_str() {
             match arg_type {
-                command::cmd_arg::ArgType::Str(str_type) => {
+                cmd_arg::ArgType::Str(str_type) => {
                     if let Some(e) = str_type.r#enum.as_ref() {
                         if let Some(v) = e.find_value_by_name(v)? {
                             value = v;
                         }
                     }
                 }
-                command::cmd_arg::ArgType::Number(number_type) => {
+                cmd_arg::ArgType::Number(number_type) => {
                     if let Some(e) = number_type.r#enum.as_ref() {
                         if let Some(v) = e.find_value_by_name(v)? {
                             value = v;
                         }
                     }
                 }
-                command::cmd_arg::ArgType::Boolean(_) => {
+                cmd_arg::ArgType::Boolean(_) => {
                     if let Some(v) = BOOLEAN_ARG_ENUM_DEFAULT.find_value_by_name(v)? {
                         value = v;
                     }
                 }
-                command::cmd_arg::ArgType::AnyType(_)
-                | command::cmd_arg::ArgType::Object(_)
-                | command::cmd_arg::ArgType::Array(_) => {
+                cmd_arg::ArgType::AnyType(_)
+                | cmd_arg::ArgType::Object(_)
+                | cmd_arg::ArgType::Array(_) => {
                     // do nothing
                 }
-                command::cmd_arg::ArgType::Cls(_) => {
+                cmd_arg::ArgType::Cls(_) => {
                     unreachable!("cls type should be unwrapped before");
                 }
             }
@@ -164,10 +164,10 @@ impl CmdArgWrapper<'_> {
             .into());
         } else if !value.is_null() {
             match arg_type {
-                command::cmd_arg::ArgType::AnyType(_) => {
+                cmd_arg::ArgType::AnyType(_) => {
                     // do nothing
                 }
-                command::cmd_arg::ArgType::Str(str_type) => {
+                cmd_arg::ArgType::Str(str_type) => {
                     if let Some(arg_enum) = str_type.r#enum.as_ref() {
                         value = arg_enum.validate_value(value).map_err(|e| {
                             if let AzError::UserUsage(
@@ -188,7 +188,7 @@ impl CmdArgWrapper<'_> {
                         self.invalid_value_type()?;
                     }
                 }
-                command::cmd_arg::ArgType::Number(number_type) => {
+                cmd_arg::ArgType::Number(number_type) => {
                     if let Some(arg_enum) = number_type.r#enum.as_ref() {
                         value = arg_enum.validate_value(value).map_err(|e| {
                             if let AzError::UserUsage(
@@ -209,7 +209,7 @@ impl CmdArgWrapper<'_> {
                         self.invalid_value_type()?;
                     }
                 }
-                command::cmd_arg::ArgType::Boolean(_) => {
+                cmd_arg::ArgType::Boolean(_) => {
                     value = BOOLEAN_ARG_ENUM_DEFAULT
                         .validate_value(value)
                         .map_err(|e| {
@@ -231,7 +231,7 @@ impl CmdArgWrapper<'_> {
                     }
                 }
 
-                command::cmd_arg::ArgType::Object(_) => {
+                cmd_arg::ArgType::Object(_) => {
                     if !value.is_object() {
                         self.invalid_value_type()?;
                     }
@@ -245,7 +245,7 @@ impl CmdArgWrapper<'_> {
                         *v = sub_arg.verify_value(temp_value)?;
                     }
                 }
-                command::cmd_arg::ArgType::Array(_) => {
+                cmd_arg::ArgType::Array(_) => {
                     if !value.is_array() {
                         self.invalid_value_type()?;
                     }
@@ -260,7 +260,7 @@ impl CmdArgWrapper<'_> {
                     }
                 }
 
-                command::cmd_arg::ArgType::Cls(_) => {
+                cmd_arg::ArgType::Cls(_) => {
                     unreachable!("cls type should be unwrapped before");
                 }
             }
@@ -286,7 +286,7 @@ impl<'a> CmdArgWrapper<'a> {
         let mut prefix_keys = self.prefix_keys.clone();
         for part in parts.into_iter() {
             match arg_type {
-                command::cmd_arg::ArgType::Object(obj) => match part {
+                cmd_arg::ArgType::Object(obj) => match part {
                     SHPartialKeyPart::Name(name) => {
                         arg = obj
                             .get_prop(name.as_str())
@@ -305,7 +305,7 @@ impl<'a> CmdArgWrapper<'a> {
                         .into());
                     }
                 },
-                command::cmd_arg::ArgType::Array(arr) => match part {
+                cmd_arg::ArgType::Array(arr) => match part {
                     SHPartialKeyPart::Index(_) => {
                         arg = arr.item_ok()?;
                     }
@@ -317,35 +317,35 @@ impl<'a> CmdArgWrapper<'a> {
                         .into());
                     }
                 },
-                command::cmd_arg::ArgType::Str(_) => {
+                cmd_arg::ArgType::Str(_) => {
                     return Err(AzUserUsageError::InvalidArgumentValueError(format!(
                         "'{}' argument is string type and cannot support internal access by '{}'",
                         prefix_keys, part
                     ))
                     .into());
                 }
-                command::cmd_arg::ArgType::Number(_) => {
+                cmd_arg::ArgType::Number(_) => {
                     return Err(AzUserUsageError::InvalidArgumentValueError(format!(
                         "'{}' argument is number type and cannot support internal access by '{}'",
                         prefix_keys, part
                     ))
                     .into());
                 }
-                command::cmd_arg::ArgType::Boolean(_) => {
+                cmd_arg::ArgType::Boolean(_) => {
                     return Err(AzUserUsageError::InvalidArgumentValueError(format!(
                         "'{}' argument is boolean type and cannot support internal access by '{}'",
                         prefix_keys, part
                     ))
                     .into());
                 }
-                command::cmd_arg::ArgType::AnyType(_) => {
+                cmd_arg::ArgType::AnyType(_) => {
                     return Err(AzUserUsageError::InvalidArgumentValueError(format!(
                         "'{}' argument is any type and cannot support internal access by '{}'",
                         prefix_keys, part
                     ))
                     .into());
                 }
-                command::cmd_arg::ArgType::Cls(_) => {
+                cmd_arg::ArgType::Cls(_) => {
                     unreachable!("cls type should be unwrapped before");
                 }
             }
@@ -364,11 +364,11 @@ impl<'a> CmdArgWrapper<'a> {
 
 /// get the unwrapped arg type of the argument, when the argument is a class type, then cmd should be not None
 fn get_unwrapped_arg_type<'a>(
-    cmd: Option<&'a command::CmdCommand>,
-    arg: &'a command::CmdArg,
-) -> Result<&'a command::cmd_arg::ArgType, AzInternalError> {
+    cmd: Option<&'a CmdCommand>,
+    arg: &'a CmdArg,
+) -> Result<&'a cmd_arg::ArgType, AzInternalError> {
     match arg.arg_type_ok()? {
-        command::cmd_arg::ArgType::Cls(typ) => {
+        cmd_arg::ArgType::Cls(typ) => {
             let cmd = cmd.ok_or(AzInternalError::InvalidArgumentDefinitionError(format!(
                 "Missing command definition to unwrap class type argument: {}",
                 typ.cls_type
@@ -389,9 +389,9 @@ fn get_unwrapped_arg_type<'a>(
 }
 
 fn retrieve_cls_arg_type_in_obj<'a>(
-    obj: &'a command::CmdObjectArg,
+    obj: &'a CmdObjectArg,
     cls_type: &'_ str,
-) -> Result<Option<&'a command::cmd_arg::ArgType>, AzInternalError> {
+) -> Result<Option<&'a cmd_arg::ArgType>, AzInternalError> {
     for arg in obj.props.iter() {
         if let Some(arg_type) = retrieve_cls_arg_type(arg, cls_type)? {
             return Ok(Some(arg_type));
@@ -408,9 +408,9 @@ fn retrieve_cls_arg_type_in_obj<'a>(
 }
 
 fn retrieve_cls_arg_type_in_array<'a>(
-    array: &'a command::CmdArrayArg,
+    array: &'a CmdArrayArg,
     cls_type: &'_ str,
-) -> Result<Option<&'a command::cmd_arg::ArgType>, AzInternalError> {
+) -> Result<Option<&'a cmd_arg::ArgType>, AzInternalError> {
     let item = array.item_ok()?;
     if let Some(arg_type) = retrieve_cls_arg_type(item, cls_type)? {
         return Ok(Some(arg_type));
@@ -419,12 +419,12 @@ fn retrieve_cls_arg_type_in_array<'a>(
 }
 
 fn retrieve_cls_arg_type<'a>(
-    arg: &'a command::CmdArg,
+    arg: &'a CmdArg,
     cls_type: &'_ str,
-) -> Result<Option<&'a command::cmd_arg::ArgType>, AzInternalError> {
+) -> Result<Option<&'a cmd_arg::ArgType>, AzInternalError> {
     let arg_type = arg.arg_type_ok()?;
     match arg_type {
-        command::cmd_arg::ArgType::Object(obj) => {
+        cmd_arg::ArgType::Object(obj) => {
             if obj
                 .cls_type
                 .as_ref()
@@ -436,7 +436,7 @@ fn retrieve_cls_arg_type<'a>(
                 return Ok(Some(arg_type));
             }
         }
-        command::cmd_arg::ArgType::Array(array) => {
+        cmd_arg::ArgType::Array(array) => {
             if array
                 .cls_type
                 .as_ref()
@@ -453,55 +453,53 @@ fn retrieve_cls_arg_type<'a>(
     return Ok(None);
 }
 
-pub(crate) static BOOLEAN_ARG_BLANK_DEFAULT: LazyLock<command::CmdArgBlank> =
-    LazyLock::new(|| command::CmdArgBlank {
-        value: "true".to_string(),
-    });
+static BOOLEAN_ARG_BLANK_DEFAULT: LazyLock<CmdArgBlank> = LazyLock::new(|| CmdArgBlank {
+    value: "true".to_string(),
+});
 
-pub(crate) static BOOLEAN_ARG_ENUM_DEFAULT: LazyLock<command::CmdArgEnum> =
-    LazyLock::new(|| command::CmdArgEnum {
-        items: vec![
-            command::CmdArgEnumItem {
-                name: "true".to_string(),
-                value: "true".to_string(),
-                internal: false,
-            },
-            command::CmdArgEnumItem {
-                name: "t".to_string(),
-                value: "true".to_string(),
-                internal: false,
-            },
-            command::CmdArgEnumItem {
-                name: "yes".to_string(),
-                value: "true".to_string(),
-                internal: false,
-            },
-            command::CmdArgEnumItem {
-                name: "y".to_string(),
-                value: "true".to_string(),
-                internal: false,
-            },
-            command::CmdArgEnumItem {
-                name: "false".to_string(),
-                value: "false".to_string(),
-                internal: false,
-            },
-            command::CmdArgEnumItem {
-                name: "f".to_string(),
-                value: "false".to_string(),
-                internal: false,
-            },
-            command::CmdArgEnumItem {
-                name: "no".to_string(),
-                value: "false".to_string(),
-                internal: false,
-            },
-            command::CmdArgEnumItem {
-                name: "n".to_string(),
-                value: "false".to_string(),
-                internal: false,
-            },
-        ],
-        support_extension: false,
-        case_sensitive: false,
-    });
+static BOOLEAN_ARG_ENUM_DEFAULT: LazyLock<CmdArgEnum> = LazyLock::new(|| CmdArgEnum {
+    items: vec![
+        CmdArgEnumItem {
+            name: "true".to_string(),
+            value: "true".to_string(),
+            internal: false,
+        },
+        CmdArgEnumItem {
+            name: "t".to_string(),
+            value: "true".to_string(),
+            internal: false,
+        },
+        CmdArgEnumItem {
+            name: "yes".to_string(),
+            value: "true".to_string(),
+            internal: false,
+        },
+        CmdArgEnumItem {
+            name: "y".to_string(),
+            value: "true".to_string(),
+            internal: false,
+        },
+        CmdArgEnumItem {
+            name: "false".to_string(),
+            value: "false".to_string(),
+            internal: false,
+        },
+        CmdArgEnumItem {
+            name: "f".to_string(),
+            value: "false".to_string(),
+            internal: false,
+        },
+        CmdArgEnumItem {
+            name: "no".to_string(),
+            value: "false".to_string(),
+            internal: false,
+        },
+        CmdArgEnumItem {
+            name: "n".to_string(),
+            value: "false".to_string(),
+            internal: false,
+        },
+    ],
+    support_extension: false,
+    case_sensitive: false,
+});

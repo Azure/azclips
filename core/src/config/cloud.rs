@@ -12,7 +12,7 @@ pub use cfg::AzCloudsCfg;
 pub use metadata::{endpoint, resource_id, AzCloudMetadata};
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
-pub(crate) enum AzCloud {
+pub enum AzCloud {
     AzureCloud,
     AzureChinaCloud,
     AzureUSGovernment,

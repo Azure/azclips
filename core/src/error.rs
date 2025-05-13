@@ -1,7 +1,5 @@
 use thiserror::Error;
 
-pub(crate) type AzResult<T, E = AzError> = Result<T, E>;
-
 #[derive(Error, Debug)]
 pub enum AzUserUsageError {
     #[error("The cloud name `{0}` is not registered.")]
@@ -121,3 +119,5 @@ pub enum AuthenticationError {
 }
 
 // You can add more error variants as needed.
+
+pub(crate) type AzResult<T, E = AzError> = Result<T, E>;

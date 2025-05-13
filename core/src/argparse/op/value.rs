@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-use crate::argparse::partial::SHPartialKeys;
+use crate::argparse::SHPartialKeys;
 
 #[derive(Debug, PartialEq)]
 pub struct ArgValueAssignOp {

@@ -8,7 +8,7 @@ use serde_json::{Map, Value};
 use tracing::debug;
 
 use crate::error::{AzError, AzResult, AzUserUsageError};
-use crate::pb::command::{self, cmd_arg::ArgType};
+use crate::pb::{cmd_arg, cmd_string_arg};
 
 use super::arg::CmdArgWrapper;
 use super::partial::{SHPartialKeyPart, SHPartialKeys};
@@ -163,7 +163,7 @@ impl ShorthandSyntaxParser {
         let arg_type = arg.unwrapped_arg_type();
 
         match arg_type {
-            ArgType::AnyType(_) => {
+            cmd_arg::ArgType::AnyType(_) => {
                 if str.starts_with(self.dict_start_char) {
                     match self.parse_dict(remain, None, depth)? {
                         // convert help prefix keys for any type inner, usually the returned keys from inner parse should be empty
@@ -217,7 +217,7 @@ impl ShorthandSyntaxParser {
                     Ok((SHResult::Value(value), len))
                 }
             }
-            ArgType::Number(_) | ArgType::Boolean(_) => {
+            cmd_arg::ArgType::Number(_) | cmd_arg::ArgType::Boolean(_) => {
                 let (result, len) = self.parse_string(remain, true, depth > 0)?;
                 let mut value = match result {
                     Some(v) => v,
@@ -251,7 +251,7 @@ impl ShorthandSyntaxParser {
                 })?;
                 Ok((SHResult::Value(value), len))
             }
-            ArgType::Str(str_type) => {
+            cmd_arg::ArgType::Str(str_type) => {
                 let (result, len) = self.parse_string(remain, false, depth > 0)?;
                 let mut value = match result {
                     Some(v) => v,
@@ -286,7 +286,7 @@ impl ShorthandSyntaxParser {
                 })?;
                 Ok((SHResult::Value(value), len))
             }
-            ArgType::Object(_) => {
+            cmd_arg::ArgType::Object(_) => {
                 if str.starts_with(self.dict_start_char) {
                     self.parse_dict(remain, Some(arg), depth)
                 } else if str.starts_with(self.list_start_char) {
@@ -333,7 +333,7 @@ impl ShorthandSyntaxParser {
                     Ok((SHResult::Value(value), len))
                 }
             }
-            ArgType::Array(_) => {
+            cmd_arg::ArgType::Array(_) => {
                 if str.starts_with(self.dict_start_char) {
                     return Err(AzUserUsageError::InvalidShorthandSyntaxError {
                         msg: arg.invalid_value_type().err().unwrap().to_string(),
@@ -381,7 +381,7 @@ impl ShorthandSyntaxParser {
                     Ok((SHResult::Value(value), len))
                 }
             }
-            ArgType::Cls(_) => {
+            cmd_arg::ArgType::Cls(_) => {
                 unreachable!()
             }
         }
@@ -394,7 +394,7 @@ impl ShorthandSyntaxParser {
     fn parse_file_uri(
         &self,
         uri: &str,
-        str_format: Option<&command::cmd_string_arg::Format>,
+        str_format: Option<&cmd_string_arg::Format>,
     ) -> Result<Option<Value>, AzUserUsageError> {
         if self.file_uri_prefix.is_none() {
             return Ok(None);
@@ -439,14 +439,14 @@ impl ShorthandSyntaxParser {
             }
         } else {
             match str_format {
-                Some(command::cmd_string_arg::Format::Binary(_)) => {
+                Some(cmd_string_arg::Format::Binary(_)) => {
                     debug!("Convert to binary file path {}", file_path);
                     // for binary format data, it return file path as value
                     // we should not read any binary files because those files can be huge,
                     // they should be handled in the command logic.
                     Ok(Some(Value::String(file_path.to_string())))
                 }
-                Some(command::cmd_string_arg::Format::Byte(_)) => {
+                Some(cmd_string_arg::Format::Byte(_)) => {
                     debug!("Read file content as base64 encoded string {}", file_path);
                     // the value of bytes are base64 encoded string
                     let content = ShorthandSyntaxParser::read_file_content_as_bytes(file_path)?;
@@ -1092,7 +1092,7 @@ mod tests {
     use std::io::Write;
     use tempfile::NamedTempFile;
 
-    use crate::pb::command::{
+    use crate::pb::{
         cmd_number_arg, cmd_string_arg, CmdAnyTypeArg, CmdArg, CmdArgEnum, CmdArgEnumItem,
         CmdArrayArg, CmdBinaryFormat, CmdBooleanArg, CmdByteFormat, CmdCommand, CmdInt32Format,
         CmdNumberArg, CmdObjectArg, CmdObjectArgAdditionalProperties, CmdStringArg,
@@ -1171,7 +1171,7 @@ mod tests {
         str_arg.options = vec!["alais".to_string()];
         let mut str_type = CmdStringArg::default();
         str_type.format = Some(cmd_string_arg::Format::String(CmdStringFormat::default()));
-        str_arg.arg_type = Some(ArgType::Str(str_type));
+        str_arg.arg_type = Some(cmd_arg::ArgType::Str(str_type));
         cmd.args.push(str_arg);
         // Not nullable arg
         let mut str_arg = CmdArg::default();
@@ -1180,7 +1180,7 @@ mod tests {
         str_arg.options = vec!["name".to_string(), "n".to_string()];
         let mut str_type = CmdStringArg::default();
         str_type.format = Some(cmd_string_arg::Format::String(CmdStringFormat::default()));
-        str_arg.arg_type = Some(ArgType::Str(str_type));
+        str_arg.arg_type = Some(cmd_arg::ArgType::Str(str_type));
         cmd.args.push(str_arg);
 
         let arg1 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
@@ -1348,7 +1348,7 @@ mod tests {
         bool_arg.options = vec!["enabled".to_string()];
         bool_arg.nullable = true;
         let bool_type = CmdBooleanArg::default();
-        bool_arg.arg_type = Some(ArgType::Boolean(bool_type));
+        bool_arg.arg_type = Some(cmd_arg::ArgType::Boolean(bool_type));
         cmd.args.push(bool_arg);
 
         // test not nullable arg
@@ -1357,7 +1357,7 @@ mod tests {
         bool_arg.name = "unnullable".to_string();
         bool_arg.options = vec!["unnullable".to_string()];
         let bool_type = CmdBooleanArg::default();
-        bool_arg.arg_type = Some(ArgType::Boolean(bool_type));
+        bool_arg.arg_type = Some(cmd_arg::ArgType::Boolean(bool_type));
         cmd.args.push(bool_arg);
 
         let arg1 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
@@ -1466,7 +1466,7 @@ mod tests {
         bool_arg.options = vec!["enabled".to_string()];
         bool_arg.nullable = true;
         let bool_type = CmdBooleanArg::default();
-        bool_arg.arg_type = Some(ArgType::Boolean(bool_type));
+        bool_arg.arg_type = Some(cmd_arg::ArgType::Boolean(bool_type));
         cmd.args.push(bool_arg);
         // test not nullable arg
         let mut bool_arg = CmdArg::default();
@@ -1474,7 +1474,7 @@ mod tests {
         bool_arg.name = "enabled2".to_string();
         bool_arg.options = vec!["enabled2".to_string()];
         let bool_type = CmdBooleanArg::default();
-        bool_arg.arg_type = Some(ArgType::Boolean(bool_type));
+        bool_arg.arg_type = Some(cmd_arg::ArgType::Boolean(bool_type));
         cmd.args.push(bool_arg);
 
         let arg1 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
@@ -1655,7 +1655,7 @@ mod tests {
         num_arg.nullable = true;
         let mut num_type = CmdNumberArg::default();
         num_type.format = Some(cmd_number_arg::Format::Int32(CmdInt32Format::default()));
-        num_arg.arg_type = Some(ArgType::Number(num_type));
+        num_arg.arg_type = Some(cmd_arg::ArgType::Number(num_type));
         cmd.args.push(num_arg);
         // test arg with enum
         let mut num_arg = CmdArg::default();
@@ -1689,7 +1689,7 @@ mod tests {
             },
         ];
         num_type.r#enum = Some(enum_type);
-        num_arg.arg_type = Some(ArgType::Number(num_type));
+        num_arg.arg_type = Some(cmd_arg::ArgType::Number(num_type));
         cmd.args.push(num_arg);
         // test not nullable arg
         let mut num_arg = CmdArg::default();
@@ -1698,7 +1698,7 @@ mod tests {
         num_arg.options = vec!["unnullable".to_string()];
         let mut num_type = CmdNumberArg::default();
         num_type.format = Some(cmd_number_arg::Format::Int32(CmdInt32Format::default()));
-        num_arg.arg_type = Some(ArgType::Number(num_type));
+        num_arg.arg_type = Some(cmd_arg::ArgType::Number(num_type));
         cmd.args.push(num_arg);
 
         let arg1 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
@@ -1887,7 +1887,7 @@ mod tests {
         num_arg.nullable = true;
         let mut num_type = CmdNumberArg::default();
         num_type.format = Some(cmd_number_arg::Format::Int32(CmdInt32Format::default()));
-        num_arg.arg_type = Some(ArgType::Number(num_type));
+        num_arg.arg_type = Some(cmd_arg::ArgType::Number(num_type));
         cmd.args.push(num_arg);
         // test arg with enum
         let mut num_arg = CmdArg::default();
@@ -1921,7 +1921,7 @@ mod tests {
             },
         ];
         num_type.r#enum = Some(enum_type);
-        num_arg.arg_type = Some(ArgType::Number(num_type));
+        num_arg.arg_type = Some(cmd_arg::ArgType::Number(num_type));
         cmd.args.push(num_arg);
         // test not nullable arg
         let mut num_arg = CmdArg::default();
@@ -1930,7 +1930,7 @@ mod tests {
         num_arg.options = vec!["unnullable".to_string()];
         let mut num_type = CmdNumberArg::default();
         num_type.format = Some(cmd_number_arg::Format::Int32(CmdInt32Format::default()));
-        num_arg.arg_type = Some(ArgType::Number(num_type));
+        num_arg.arg_type = Some(cmd_arg::ArgType::Number(num_type));
         cmd.args.push(num_arg);
 
         let arg1 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
@@ -2259,7 +2259,7 @@ mod tests {
         str_arg.nullable = true;
         let mut str_type = CmdStringArg::default();
         str_type.format = Some(cmd_string_arg::Format::String(CmdStringFormat::default()));
-        str_arg.arg_type = Some(ArgType::Str(str_type));
+        str_arg.arg_type = Some(cmd_arg::ArgType::Str(str_type));
         cmd.args.push(str_arg);
 
         // test str arg with enum
@@ -2294,7 +2294,7 @@ mod tests {
             },
         ];
         str_type.r#enum = Some(enum_type);
-        str_arg.arg_type = Some(ArgType::Str(str_type));
+        str_arg.arg_type = Some(cmd_arg::ArgType::Str(str_type));
         cmd.args.push(str_arg);
 
         // test str not allow null
@@ -2305,7 +2305,7 @@ mod tests {
         str_arg.nullable = false;
         let mut str_type = CmdStringArg::default();
         str_type.format = Some(cmd_string_arg::Format::String(CmdStringFormat::default()));
-        str_arg.arg_type = Some(ArgType::Str(str_type));
+        str_arg.arg_type = Some(cmd_arg::ArgType::Str(str_type));
         cmd.args.push(str_arg);
 
         let arg1 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
@@ -2431,7 +2431,7 @@ mod tests {
         str_arg.nullable = true;
         let mut str_type = CmdStringArg::default();
         str_type.format = Some(cmd_string_arg::Format::String(CmdStringFormat::default()));
-        str_arg.arg_type = Some(ArgType::Str(str_type));
+        str_arg.arg_type = Some(cmd_arg::ArgType::Str(str_type));
         cmd.args.push(str_arg);
 
         // test str arg with enum
@@ -2466,7 +2466,7 @@ mod tests {
             },
         ];
         str_type.r#enum = Some(enum_type);
-        str_arg.arg_type = Some(ArgType::Str(str_type));
+        str_arg.arg_type = Some(cmd_arg::ArgType::Str(str_type));
         cmd.args.push(str_arg);
 
         // test bytes arg
@@ -2476,7 +2476,7 @@ mod tests {
         str_arg.options = vec!["byte".to_string()];
         let mut str_type = CmdStringArg::default();
         str_type.format = Some(cmd_string_arg::Format::Byte(CmdByteFormat::default()));
-        str_arg.arg_type = Some(ArgType::Str(str_type));
+        str_arg.arg_type = Some(cmd_arg::ArgType::Str(str_type));
         cmd.args.push(str_arg);
 
         // test binary arg
@@ -2486,7 +2486,7 @@ mod tests {
         str_arg.options = vec!["binary".to_string()];
         let mut str_type = CmdStringArg::default();
         str_type.format = Some(cmd_string_arg::Format::Binary(CmdBinaryFormat::default()));
-        str_arg.arg_type = Some(ArgType::Str(str_type));
+        str_arg.arg_type = Some(cmd_arg::ArgType::Str(str_type));
         cmd.args.push(str_arg);
 
         let arg1 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
@@ -2704,14 +2704,14 @@ mod tests {
         any_arg.name = "any".to_string();
         any_arg.nullable = true;
         any_arg.options = vec!["any".to_string()];
-        any_arg.arg_type = Some(ArgType::AnyType(CmdAnyTypeArg::default()));
+        any_arg.arg_type = Some(cmd_arg::ArgType::AnyType(CmdAnyTypeArg::default()));
         cmd.args.push(any_arg);
         // test not nullable any type arg
         let mut any_arg = CmdArg::default();
         any_arg.var_name = "$Instance.unNullableAny".to_string();
         any_arg.name = "unNullableAny".to_string();
         any_arg.options = vec!["unnullable-any".to_string()];
-        any_arg.arg_type = Some(ArgType::AnyType(CmdAnyTypeArg::default()));
+        any_arg.arg_type = Some(cmd_arg::ArgType::AnyType(CmdAnyTypeArg::default()));
         cmd.args.push(any_arg);
 
         let arg1 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
@@ -2849,14 +2849,14 @@ mod tests {
         any_arg.name = "any".to_string();
         any_arg.nullable = true;
         any_arg.options = vec!["any".to_string()];
-        any_arg.arg_type = Some(ArgType::AnyType(CmdAnyTypeArg::default()));
+        any_arg.arg_type = Some(cmd_arg::ArgType::AnyType(CmdAnyTypeArg::default()));
         cmd.args.push(any_arg);
         // test not nullable any type arg
         let mut any_arg = CmdArg::default();
         any_arg.var_name = "$Instance.unNullableAny".to_string();
         any_arg.name = "unNullableAny".to_string();
         any_arg.options = vec!["unnullable-any".to_string()];
-        any_arg.arg_type = Some(ArgType::AnyType(CmdAnyTypeArg::default()));
+        any_arg.arg_type = Some(cmd_arg::ArgType::AnyType(CmdAnyTypeArg::default()));
         cmd.args.push(any_arg);
 
         let arg1 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
@@ -3216,21 +3216,21 @@ mod tests {
         str_arg.name = "str".to_string();
         str_arg.options = vec!["str".to_string()];
         str_arg.nullable = true;
-        str_arg.arg_type = Some(ArgType::Str(CmdStringArg::default()));
+        str_arg.arg_type = Some(cmd_arg::ArgType::Str(CmdStringArg::default()));
         object_type.props.push(str_arg);
         // define the number property type
         let mut num_arg = CmdArg::default();
         num_arg.name = "num".to_string();
         num_arg.options = vec!["num".to_string()];
         num_arg.nullable = true;
-        num_arg.arg_type = Some(ArgType::Number(CmdNumberArg::default()));
+        num_arg.arg_type = Some(cmd_arg::ArgType::Number(CmdNumberArg::default()));
         object_type.props.push(num_arg);
         // define the bool property type
         let mut bool_arg = CmdArg::default();
         bool_arg.name = "bool".to_string();
         bool_arg.options = vec!["bool".to_string()];
         bool_arg.nullable = true;
-        bool_arg.arg_type = Some(ArgType::Boolean(CmdBooleanArg::default()));
+        bool_arg.arg_type = Some(cmd_arg::ArgType::Boolean(CmdBooleanArg::default()));
         object_type.props.push(bool_arg);
         // define the array property type
         let mut array_arg = CmdArg::default();
@@ -3240,9 +3240,9 @@ mod tests {
         let mut array_type = CmdArrayArg::default();
         let mut array_item_arg = CmdArg::default();
         array_item_arg.nullable = true;
-        array_item_arg.arg_type = Some(ArgType::Str(CmdStringArg::default()));
+        array_item_arg.arg_type = Some(cmd_arg::ArgType::Str(CmdStringArg::default()));
         array_type.item = Some(Box::new(array_item_arg));
-        array_arg.arg_type = Some(ArgType::Array(Box::new(array_type)));
+        array_arg.arg_type = Some(cmd_arg::ArgType::Array(Box::new(array_type)));
         object_type.props.push(array_arg);
         // define the dict property type
         let mut dict_arg = CmdArg::default();
@@ -3252,20 +3252,20 @@ mod tests {
         let mut dict_type = CmdObjectArg::default();
         let mut tag_arg = CmdArg::default();
         tag_arg.nullable = true;
-        tag_arg.arg_type = Some(ArgType::Str(CmdStringArg::default()));
+        tag_arg.arg_type = Some(cmd_arg::ArgType::Str(CmdStringArg::default()));
         dict_type.additional_props = Some(Box::new(CmdObjectArgAdditionalProperties {
             item: Some(Box::new(tag_arg)),
         }));
-        dict_arg.arg_type = Some(ArgType::Object(Box::new(dict_type)));
+        dict_arg.arg_type = Some(cmd_arg::ArgType::Object(Box::new(dict_type)));
         object_type.props.push(dict_arg);
         // define the additional properties
         let mut additional_props = CmdArg::default();
         additional_props.nullable = true;
-        additional_props.arg_type = Some(ArgType::AnyType(CmdAnyTypeArg::default()));
+        additional_props.arg_type = Some(cmd_arg::ArgType::AnyType(CmdAnyTypeArg::default()));
         object_type.additional_props = Some(Box::new(CmdObjectArgAdditionalProperties {
             item: Some(Box::new(additional_props)),
         }));
-        object_arg.arg_type = Some(ArgType::Object(Box::new(object_type)));
+        object_arg.arg_type = Some(cmd_arg::ArgType::Object(Box::new(object_type)));
         cmd.args.push(object_arg);
 
         let arg1 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
@@ -3363,21 +3363,21 @@ mod tests {
         str_arg.name = "str".to_string();
         str_arg.options = vec!["str".to_string()];
         str_arg.nullable = true;
-        str_arg.arg_type = Some(ArgType::Str(CmdStringArg::default()));
+        str_arg.arg_type = Some(cmd_arg::ArgType::Str(CmdStringArg::default()));
         object_type.props.push(str_arg);
         // define the number property type
         let mut num_arg = CmdArg::default();
         num_arg.name = "num".to_string();
         num_arg.options = vec!["num".to_string()];
         num_arg.nullable = true;
-        num_arg.arg_type = Some(ArgType::Number(CmdNumberArg::default()));
+        num_arg.arg_type = Some(cmd_arg::ArgType::Number(CmdNumberArg::default()));
         object_type.props.push(num_arg);
         // define the bool property type
         let mut bool_arg = CmdArg::default();
         bool_arg.name = "bool".to_string();
         bool_arg.options = vec!["bool".to_string()];
         bool_arg.nullable = true;
-        bool_arg.arg_type = Some(ArgType::Boolean(CmdBooleanArg::default()));
+        bool_arg.arg_type = Some(cmd_arg::ArgType::Boolean(CmdBooleanArg::default()));
         object_type.props.push(bool_arg);
         // define the array property type
         let mut array_arg = CmdArg::default();
@@ -3387,9 +3387,9 @@ mod tests {
         let mut array_type = CmdArrayArg::default();
         let mut array_item_arg = CmdArg::default();
         array_item_arg.nullable = true;
-        array_item_arg.arg_type = Some(ArgType::Str(CmdStringArg::default()));
+        array_item_arg.arg_type = Some(cmd_arg::ArgType::Str(CmdStringArg::default()));
         array_type.item = Some(Box::new(array_item_arg));
-        array_arg.arg_type = Some(ArgType::Array(Box::new(array_type)));
+        array_arg.arg_type = Some(cmd_arg::ArgType::Array(Box::new(array_type)));
         object_type.props.push(array_arg);
         // define the dict property type
         let mut dict_arg = CmdArg::default();
@@ -3399,20 +3399,20 @@ mod tests {
         let mut dict_type = CmdObjectArg::default();
         let mut tag_arg = CmdArg::default();
         tag_arg.nullable = true;
-        tag_arg.arg_type = Some(ArgType::Str(CmdStringArg::default()));
+        tag_arg.arg_type = Some(cmd_arg::ArgType::Str(CmdStringArg::default()));
         dict_type.additional_props = Some(Box::new(CmdObjectArgAdditionalProperties {
             item: Some(Box::new(tag_arg)),
         }));
-        dict_arg.arg_type = Some(ArgType::Object(Box::new(dict_type)));
+        dict_arg.arg_type = Some(cmd_arg::ArgType::Object(Box::new(dict_type)));
         object_type.props.push(dict_arg);
         // define the additional properties
         let mut additional_props = CmdArg::default();
         additional_props.nullable = true;
-        additional_props.arg_type = Some(ArgType::AnyType(CmdAnyTypeArg::default()));
+        additional_props.arg_type = Some(cmd_arg::ArgType::AnyType(CmdAnyTypeArg::default()));
         object_type.additional_props = Some(Box::new(CmdObjectArgAdditionalProperties {
             item: Some(Box::new(additional_props)),
         }));
-        object_arg.arg_type = Some(ArgType::Object(Box::new(object_type)));
+        object_arg.arg_type = Some(cmd_arg::ArgType::Object(Box::new(object_type)));
         cmd.args.push(object_arg);
 
         let arg1 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
@@ -3602,11 +3602,11 @@ mod tests {
         let mut dict_type = CmdObjectArg::default();
         let mut key_arg = CmdArg::default();
         key_arg.nullable = true;
-        key_arg.arg_type = Some(ArgType::AnyType(CmdAnyTypeArg::default()));
+        key_arg.arg_type = Some(cmd_arg::ArgType::AnyType(CmdAnyTypeArg::default()));
         dict_type.additional_props = Some(Box::new(CmdObjectArgAdditionalProperties {
             item: Some(Box::new(key_arg)),
         }));
-        dict_arg.arg_type = Some(ArgType::Object(Box::new(dict_type)));
+        dict_arg.arg_type = Some(cmd_arg::ArgType::Object(Box::new(dict_type)));
         cmd.args.push(dict_arg);
         // not allowed to be null
         let mut dict_arg = CmdArg::default();
@@ -3615,11 +3615,11 @@ mod tests {
         dict_arg.options = vec!["dict2".to_string()];
         let mut dict_type = CmdObjectArg::default();
         let mut key_arg = CmdArg::default();
-        key_arg.arg_type = Some(ArgType::Str(CmdStringArg::default()));
+        key_arg.arg_type = Some(cmd_arg::ArgType::Str(CmdStringArg::default()));
         dict_type.additional_props = Some(Box::new(CmdObjectArgAdditionalProperties {
             item: Some(Box::new(key_arg)),
         }));
-        dict_arg.arg_type = Some(ArgType::Object(Box::new(dict_type)));
+        dict_arg.arg_type = Some(cmd_arg::ArgType::Object(Box::new(dict_type)));
         cmd.args.push(dict_arg);
 
         let arg1 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
@@ -3701,9 +3701,9 @@ mod tests {
         let mut arr_type = CmdArrayArg::default();
         let mut arr_item_arg = CmdArg::default();
         arr_item_arg.nullable = true;
-        arr_item_arg.arg_type = Some(ArgType::AnyType(CmdAnyTypeArg::default()));
+        arr_item_arg.arg_type = Some(cmd_arg::ArgType::AnyType(CmdAnyTypeArg::default()));
         arr_type.item = Some(Box::new(arr_item_arg));
-        arr_arg.arg_type = Some(ArgType::Array(Box::new(arr_type)));
+        arr_arg.arg_type = Some(cmd_arg::ArgType::Array(Box::new(arr_type)));
         cmd.args.push(arr_arg);
 
         let mut arr_arg = CmdArg::default();
@@ -3712,9 +3712,9 @@ mod tests {
         arr_arg.options = vec!["arr2".to_string()];
         let mut arr_type = CmdArrayArg::default();
         let mut arr_item_arg = CmdArg::default();
-        arr_item_arg.arg_type = Some(ArgType::Str(CmdStringArg::default()));
+        arr_item_arg.arg_type = Some(cmd_arg::ArgType::Str(CmdStringArg::default()));
         arr_type.item = Some(Box::new(arr_item_arg));
-        arr_arg.arg_type = Some(ArgType::Array(Box::new(arr_type)));
+        arr_arg.arg_type = Some(cmd_arg::ArgType::Array(Box::new(arr_type)));
         cmd.args.push(arr_arg);
 
         let arg1 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
@@ -3784,9 +3784,9 @@ mod tests {
         let mut arr_type = CmdArrayArg::default();
         let mut arr_item_arg = CmdArg::default();
         arr_item_arg.nullable = true;
-        arr_item_arg.arg_type = Some(ArgType::AnyType(CmdAnyTypeArg::default()));
+        arr_item_arg.arg_type = Some(cmd_arg::ArgType::AnyType(CmdAnyTypeArg::default()));
         arr_type.item = Some(Box::new(arr_item_arg));
-        arr_arg.arg_type = Some(ArgType::Array(Box::new(arr_type)));
+        arr_arg.arg_type = Some(cmd_arg::ArgType::Array(Box::new(arr_type)));
         cmd.args.push(arr_arg);
 
         let mut arr_arg = CmdArg::default();
@@ -3795,9 +3795,9 @@ mod tests {
         arr_arg.options = vec!["arr2".to_string()];
         let mut arr_type = CmdArrayArg::default();
         let mut arr_item_arg = CmdArg::default();
-        arr_item_arg.arg_type = Some(ArgType::Str(CmdStringArg::default()));
+        arr_item_arg.arg_type = Some(cmd_arg::ArgType::Str(CmdStringArg::default()));
         arr_type.item = Some(Box::new(arr_item_arg));
-        arr_arg.arg_type = Some(ArgType::Array(Box::new(arr_type)));
+        arr_arg.arg_type = Some(cmd_arg::ArgType::Array(Box::new(arr_type)));
         cmd.args.push(arr_arg);
 
         let arg1 = Some(CmdArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());

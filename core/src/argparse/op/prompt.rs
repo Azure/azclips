@@ -1,10 +1,9 @@
 use std::io::{Read, Write};
 
 use crate::{
-    argparse::{arg::CmdArgWrapper, parse_arg_value_str, partial::SHPartialKeys},
-    error::AzUserUsageError,
-    pb::command,
-    AzResult,
+    argparse::{parse_arg_value_str, CmdArgWrapper, SHPartialKeys},
+    error::{AzResult, AzUserUsageError},
+    pb::CmdArgPromptInput,
 };
 
 use super::{ArgOp, ArgValueAssignOp};
@@ -13,7 +12,7 @@ use super::{ArgOp, ArgValueAssignOp};
 pub struct ArgPromptInputOp {
     pub(crate) keys: SHPartialKeys,
     pub(crate) is_append: bool,
-    pub(crate) prompt: command::CmdArgPromptInput,
+    pub(crate) prompt: CmdArgPromptInput,
 }
 
 impl ArgPromptInputOp {

@@ -2,25 +2,22 @@ use async_trait::async_trait;
 use tracing::error;
 
 use crate::{
-    component::{
-        cmd::{AzCmd, AzCmdExecute},
-        AzComponentCtx,
-    },
+    component::{AzCmd, AzCmdExecute, AzComponentCtx},
     config::cloud::{
         endpoint::{self, EndpointMap},
         resource_id::{self, ResourceIdMap},
-        AzCloudMetadata,
+        AzCloud, AzCloudMetadata,
     },
     error::AzError,
-    pb::command::{
+    pb::{
         cmd_arg, cmd_interface, CmdArg, CmdArgHelp, CmdCommand, CmdHelp, CmdInterface,
         CmdObjectArg, CmdObjectArgAdditionalProperties, CmdParams, CmdStringArg,
     },
-    AzCloud, AzCore, VERSION,
+    AzCore, VERSION,
 };
 
 #[derive(Debug, Default)]
-pub(super) struct CreateCloud {
+pub struct CreateCloud {
     name: AzCloud,
     endpoints: EndpointMap,
     resource_ids: ResourceIdMap,

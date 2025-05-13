@@ -3,12 +3,9 @@ use serde_json::Value;
 use tracing::error;
 
 use crate::{
-    component::{
-        cmd::{AzCmd, AzCmdExecute},
-        AzComponentCtx,
-    },
+    component::{AzCmd, AzCmdExecute, AzComponentCtx},
     error::AzError,
-    pb::command::{
+    pb::{
         cmd_arg, cmd_interface, cmd_string_arg, CmdArg, CmdArgHelp, CmdCommand, CmdHelp,
         CmdInterface, CmdParams, CmdStringArg, CmdStringFormat,
     },
@@ -16,7 +13,7 @@ use crate::{
 };
 
 #[derive(Debug, Default)]
-pub(super) struct GetConfig {
+pub struct GetConfig {
     key: Option<String>,
 }
 

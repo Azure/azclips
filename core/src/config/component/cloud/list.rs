@@ -1,18 +1,15 @@
 use async_trait::async_trait;
 
 use crate::{
-    component::{
-        cmd::{AzCmd, AzCmdExecute},
-        AzComponentCtx,
-    },
-    config::cloud::{endpoint, resource_id, AzCloudMetadata},
+    component::{AzCmd, AzCmdExecute, AzComponentCtx},
+    config::cloud::{AzCloud, AzCloudMetadata},
     error::AzError,
-    pb::command::{cmd_interface, CmdArg, CmdCommand, CmdHelp, CmdInterface, CmdParams},
-    AzCloud, VERSION,
+    pb::{cmd_interface, CmdArg, CmdCommand, CmdHelp, CmdInterface, CmdParams},
+    VERSION,
 };
 
 #[derive(Debug, Default)]
-pub(super) struct ListClouds {}
+pub struct ListClouds {}
 
 #[async_trait]
 impl AzCmdExecute for ListClouds {

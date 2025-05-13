@@ -1,24 +1,19 @@
-use std::str::FromStr;
-
 use async_trait::async_trait;
 use tracing::error;
 
 use crate::{
-    component::{
-        cmd::{AzCmd, AzCmdExecute},
-        AzComponentCtx,
-    },
-    config::cloud::AzCloudMetadata,
+    component::{AzCmd, AzCmdExecute, AzComponentCtx},
+    config::cloud::{AzCloud, AzCloudMetadata},
     error::AzError,
-    pb::command::{
+    pb::{
         cmd_arg, cmd_interface, CmdArg, CmdArgHelp, CmdCommand, CmdHelp, CmdInterface, CmdParams,
         CmdStringArg,
     },
-    AzCloud, VERSION,
+    VERSION,
 };
 
 #[derive(Debug, Default)]
-pub(super) struct ShowCloud {
+pub struct ShowCloud {
     name: AzCloud,
 }
 

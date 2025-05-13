@@ -3,22 +3,20 @@ mod table;
 mod templates;
 
 use az_core::{
-    argparse::{arg::CmdArgWrapper, partial::SHPartialKeys},
+    argparse::{CmdArgWrapper, SHPartialKeys},
     cmd_uri::CmdUri,
     error::AzError,
-    pb::command::cmd_interface,
+    pb::cmd_interface,
     AzCore,
 };
 use format::default_help_formatter;
 
 use crate::CmdRawArg;
 
-
 /// Minimum width for the detail content
 /// This is used after considering the intent
 /// Use infinite when the width is not available
 pub const MIN_DETAIL_WIDTH: usize = 20;
-
 
 /// check if the `-h` or `--help` flag is present in the raw args
 pub fn has_help_flag(raw_args: &[CmdRawArg]) -> bool {
@@ -52,7 +50,9 @@ pub(crate) async fn show_command_help_async(cmd_uri: CmdUri) -> Result<(), AzErr
     } else {
         let cmd_interface = core.get_cmd_interface(&cmd_uri).await?;
         let sub_components = core.get_metadata_of_sub_components(&cmd_uri).await?;
-        for line in default_help_formatter().format_cmd(&cmd_interface, sub_components.values(), term_width) {
+        for line in
+            default_help_formatter().format_cmd(&cmd_interface, sub_components.values(), term_width)
+        {
             println!("{}", line);
         }
         Ok(())

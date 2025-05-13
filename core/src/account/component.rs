@@ -10,13 +10,9 @@ use crate::{
     component::{AzComponent, AzComponentCtx},
     error::{AzError, AzInternalError},
     pb::{
-        self,
-        command::{cmd_interface, CmdComponent, CmdHelp, CmdInterface},
-        component::{
-            execute_response, CheckRequest, CheckResponse, ComponentMetadata, ExecuteRequest,
-            ExecuteResponse, InterfaceRequest, InterfaceResponse, MetadataRequest,
-            MetadataResponse,
-        },
+        cmd_interface, execute_response, CheckRequest, CheckResponse, CmdComponent, CmdHelp,
+        CmdInterface, ComponentMetadata, ExecuteRequest, ExecuteResponse, InterfaceRequest,
+        InterfaceResponse, MetadataRequest, MetadataResponse, None,
     },
     VERSION,
 };
@@ -89,7 +85,7 @@ impl<T: AzComponentCtx> AzComponent<T> for AccountComponent {
                     })
                 } else {
                     Ok(ExecuteResponse {
-                        data: Some(execute_response::Data::None(pb::component::None {})),
+                        data: Some(execute_response::Data::None(None {})),
                     })
                 }
             }

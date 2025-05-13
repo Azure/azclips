@@ -1,9 +1,9 @@
-use az_core::pb::command::CmdArg;
+use az_core::pb::CmdArg;
 
 use crate::output::StyledString;
 
 /// Trait for rendering argument help templates.
-/// 
+///
 /// We have the following properties for the argument help template:
 /// ## Argument Properties
 ///

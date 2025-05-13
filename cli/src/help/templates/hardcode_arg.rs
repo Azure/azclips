@@ -1,4 +1,4 @@
-use az_core::pb::command::CmdArg;
+use az_core::pb::CmdArg;
 
 use crate::{
     help::{

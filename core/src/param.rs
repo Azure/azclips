@@ -13,26 +13,21 @@ use arg_fmt::{
 use serde_json::{map::Entry as SerdeEntry, Map, Value};
 
 use crate::{
-    argparse::{
-        arg::CmdArgWrapper,
-        partial::{SHPartialKeyPart, SHPartialKeys},
-        ArgValueAssignOp,
-    },
-    error::AzUserUsageError,
-    pb::command::{self, cmd_arg::ArgType, CmdCommand},
-    AzResult,
+    argparse::{ArgValueAssignOp, CmdArgWrapper, SHPartialKeyPart, SHPartialKeys},
+    error::{AzResult, AzUserUsageError},
+    pb::{cmd_arg, cmd_number_arg, cmd_string_arg, CmdCommand, CmdParams},
 };
+
+pub struct CmdParamBuilder {
+    // the binary parameters will be stored as a file path in the value and converted to a binary data when building the command
+    params: ParamValue,
+}
 
 #[derive(Debug, PartialEq, Eq)]
 enum ParamValue {
     Assign(Value),
     Append(Value),
     Partial(HashMap<String, ParamValue>),
-}
-
-pub(crate) struct CmdParamBuilder {
-    // the binary parameters will be stored as a file path in the value and converted to a binary data when building the command
-    params: ParamValue,
 }
 
 impl Default for CmdParamBuilder {
@@ -263,8 +258,8 @@ impl CmdParamBuilder {
     /// The format process includes:
     /// 1. apply the default values
     /// 2. check values with format rules
-    pub fn format_and_build(self, command: &CmdCommand) -> AzResult<command::CmdParams> {
-        let mut cmd_params = command::CmdParams::default();
+    pub fn format_and_build(self, command: &CmdCommand) -> AzResult<CmdParams> {
+        let mut cmd_params = CmdParams::default();
 
         let params_map = if let ParamValue::Partial(partial) = self.params {
             partial
@@ -321,7 +316,7 @@ fn format_param_value(
 ) -> AzResult<Value> {
     let arg_type = arg.unwrapped_arg_type();
     let v = match arg_type {
-        ArgType::Str(str_arg) => {
+        cmd_arg::ArgType::Str(str_arg) => {
             let value = match value {
                 ParamValue::Assign(v) => v,
                 _ => {
@@ -334,40 +329,30 @@ fn format_param_value(
 
             match str_arg.format.as_ref() {
                 None => value,
-                Some(command::cmd_string_arg::Format::Binary(fmt)) => {
-                    format_str_binary(value, fmt)?
-                }
-                Some(command::cmd_string_arg::Format::Byte(fmt)) => format_str_byte(value, fmt)?,
-                Some(command::cmd_string_arg::Format::String(fmt)) => {
-                    format_str_string(value, fmt)?
-                }
-                Some(command::cmd_string_arg::Format::Duration(fmt)) => {
-                    format_str_duration(value, fmt)?
-                }
-                Some(command::cmd_string_arg::Format::Date(fmt)) => format_str_date(value, fmt)?,
-                Some(command::cmd_string_arg::Format::DateTime(fmt)) => {
-                    format_str_datetime(value, fmt)?
-                }
-                Some(command::cmd_string_arg::Format::Time(fmt)) => format_str_time(value, fmt)?,
-                Some(command::cmd_string_arg::Format::Uuid(fmt)) => format_str_uuid(value, fmt)?,
-                Some(command::cmd_string_arg::Format::Password(fmt)) => {
-                    format_str_password(value, fmt)?
-                }
-                Some(command::cmd_string_arg::Format::SubscriptionId(fmt)) => {
+                Some(cmd_string_arg::Format::Binary(fmt)) => format_str_binary(value, fmt)?,
+                Some(cmd_string_arg::Format::Byte(fmt)) => format_str_byte(value, fmt)?,
+                Some(cmd_string_arg::Format::String(fmt)) => format_str_string(value, fmt)?,
+                Some(cmd_string_arg::Format::Duration(fmt)) => format_str_duration(value, fmt)?,
+                Some(cmd_string_arg::Format::Date(fmt)) => format_str_date(value, fmt)?,
+                Some(cmd_string_arg::Format::DateTime(fmt)) => format_str_datetime(value, fmt)?,
+                Some(cmd_string_arg::Format::Time(fmt)) => format_str_time(value, fmt)?,
+                Some(cmd_string_arg::Format::Uuid(fmt)) => format_str_uuid(value, fmt)?,
+                Some(cmd_string_arg::Format::Password(fmt)) => format_str_password(value, fmt)?,
+                Some(cmd_string_arg::Format::SubscriptionId(fmt)) => {
                     format_str_subscription_id(value, fmt)?
                 }
-                Some(command::cmd_string_arg::Format::ResourceGroupName(fmt)) => {
+                Some(cmd_string_arg::Format::ResourceGroupName(fmt)) => {
                     format_str_resource_group_name(value, fmt)?
                 }
-                Some(command::cmd_string_arg::Format::ResourceId(fmt)) => {
+                Some(cmd_string_arg::Format::ResourceId(fmt)) => {
                     format_str_resource_id(value, fmt)?
                 }
-                Some(command::cmd_string_arg::Format::ResourceLocation(fmt)) => {
+                Some(cmd_string_arg::Format::ResourceLocation(fmt)) => {
                     format_str_resource_location(value, fmt)?
                 }
             }
         }
-        ArgType::Number(num_arg) => {
+        cmd_arg::ArgType::Number(num_arg) => {
             let value = match value {
                 ParamValue::Assign(v) => v,
                 _ => {
@@ -379,27 +364,15 @@ fn format_param_value(
             };
             match num_arg.format.as_ref() {
                 None => value,
-                Some(command::cmd_number_arg::Format::Int32(fmt)) => {
-                    format_number_int32(value, fmt)?
-                }
-                Some(command::cmd_number_arg::Format::Int64(fmt)) => {
-                    format_number_int64(value, fmt)?
-                }
-                Some(command::cmd_number_arg::Format::Uint32(fmt)) => {
-                    format_number_uint32(value, fmt)?
-                }
-                Some(command::cmd_number_arg::Format::Uint64(fmt)) => {
-                    format_number_uint64(value, fmt)?
-                }
-                Some(command::cmd_number_arg::Format::Float(fmt)) => {
-                    format_number_float(value, fmt)?
-                }
-                Some(command::cmd_number_arg::Format::Double(fmt)) => {
-                    format_number_double(value, fmt)?
-                }
+                Some(cmd_number_arg::Format::Int32(fmt)) => format_number_int32(value, fmt)?,
+                Some(cmd_number_arg::Format::Int64(fmt)) => format_number_int64(value, fmt)?,
+                Some(cmd_number_arg::Format::Uint32(fmt)) => format_number_uint32(value, fmt)?,
+                Some(cmd_number_arg::Format::Uint64(fmt)) => format_number_uint64(value, fmt)?,
+                Some(cmd_number_arg::Format::Float(fmt)) => format_number_float(value, fmt)?,
+                Some(cmd_number_arg::Format::Double(fmt)) => format_number_double(value, fmt)?,
             }
         }
-        ArgType::Boolean(_) => match value {
+        cmd_arg::ArgType::Boolean(_) => match value {
             ParamValue::Assign(v) => v,
             _ => {
                 return Err(AzUserUsageError::InvalidArgumentValueError(
@@ -408,7 +381,7 @@ fn format_param_value(
                 .into())
             }
         },
-        ArgType::Object(object_arg) => match value {
+        cmd_arg::ArgType::Object(object_arg) => match value {
             ParamValue::Assign(v) => match v {
                 Value::Null => v,
                 Value::Object(object) => {
@@ -495,7 +468,7 @@ fn format_param_value(
                 .into())
             }
         },
-        ArgType::Array(array_arg) => match value {
+        cmd_arg::ArgType::Array(array_arg) => match value {
             ParamValue::Assign(v) | ParamValue::Append(v) => match v {
                 Value::Null => v,
                 Value::Array(array) => {
@@ -542,7 +515,7 @@ fn format_param_value(
                 Value::Object(partial_array)
             }
         },
-        ArgType::AnyType(_) => match value {
+        cmd_arg::ArgType::AnyType(_) => match value {
             ParamValue::Assign(v) | ParamValue::Append(v) => v,
             ParamValue::Partial(_) => {
                 return Err(AzUserUsageError::InvalidArgumentValueError(
@@ -551,7 +524,7 @@ fn format_param_value(
                 .into())
             }
         },
-        ArgType::Cls(_) => {
+        cmd_arg::ArgType::Cls(_) => {
             unreachable!()
         }
     };
@@ -575,8 +548,8 @@ mod test {
     use serde_json::json;
 
     use crate::{
-        argparse::{arg::CmdArgWrapper, parse_arg_values, ArgOp},
-        pb::command::{
+        argparse::{parse_arg_values, ArgOp, CmdArgWrapper},
+        pb::{
             cmd_arg::ArgType, CmdAnyTypeArg, CmdArg, CmdArgDefault, CmdArrayArg, CmdBooleanArg,
             CmdNumberArg, CmdObjectArg, CmdObjectArgAdditionalProperties, CmdStringArg,
         },
@@ -585,7 +558,7 @@ mod test {
     use super::*;
 
     fn parse_cmd_arg<'a>(
-        cmd: &command::CmdCommand,
+        cmd: &CmdCommand,
         name_or_alias: &str,
         values: impl IntoIterator<Item = &'a str>,
     ) -> AzResult<Option<Vec<ArgOp>>> {

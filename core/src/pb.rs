@@ -1,10 +1,13 @@
-pub mod command;
-pub mod component;
+mod command;
+mod component;
 
 use core::fmt;
 use serde_json::Value;
 
 use crate::error::{AzInternalError, AzResult, AzUserUsageError};
+
+pub use command::*;
+pub use component::*;
 
 impl command::CmdArg {
     pub fn arg_type_ok(&self) -> Result<&command::cmd_arg::ArgType, AzInternalError> {
