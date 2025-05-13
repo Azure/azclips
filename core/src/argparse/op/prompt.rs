@@ -1,7 +1,7 @@
 use std::io::{Read, Write};
 
 use crate::{
-    argparse::{arg::CmdArgWrapper, parse_arg_value_str, partial::SHPartialKeys},
+    argparse::{parse_arg_value_str, CmdArgWrapper, SHPartialKeys},
     error::AzUserUsageError,
     pb::command,
     AzResult,

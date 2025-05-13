@@ -7,7 +7,7 @@ use crate::{
     pb::command,
 };
 
-use super::partial::{SHPartialKeyPart, SHPartialKeys};
+use super::{SHPartialKeyPart, SHPartialKeys};
 
 /// This wrapper support unwrapping the cls type of the argument
 #[derive(Debug, Clone)]
@@ -453,12 +453,12 @@ fn retrieve_cls_arg_type<'a>(
     return Ok(None);
 }
 
-pub(crate) static BOOLEAN_ARG_BLANK_DEFAULT: LazyLock<command::CmdArgBlank> =
+static BOOLEAN_ARG_BLANK_DEFAULT: LazyLock<command::CmdArgBlank> =
     LazyLock::new(|| command::CmdArgBlank {
         value: "true".to_string(),
     });
 
-pub(crate) static BOOLEAN_ARG_ENUM_DEFAULT: LazyLock<command::CmdArgEnum> =
+static BOOLEAN_ARG_ENUM_DEFAULT: LazyLock<command::CmdArgEnum> =
     LazyLock::new(|| command::CmdArgEnum {
         items: vec![
             command::CmdArgEnumItem {

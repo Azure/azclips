@@ -11,10 +11,7 @@ use set::SetConfig;
 
 use crate::{
     cmd_uri::CmdUri,
-    component::{
-        cmd::{AzCmd, AzCmdGroup},
-        AzComponent, AzComponentCtx,
-    },
+    component::{AzCmd, AzCmdGroup, AzComponent, AzComponentCtx},
     error::{AzError, AzInternalError},
     pb::{
         command::{cmd_interface, CmdComponent, CmdHelp, CmdInterface, CmdOutputFormat, CmdParams},

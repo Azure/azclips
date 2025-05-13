@@ -4,10 +4,7 @@ use async_trait::async_trait;
 use tracing::error;
 
 use crate::{
-    component::{
-        cmd::{AzCmd, AzCmdExecute},
-        AzComponentCtx,
-    },
+    component::{AzCmd, AzCmdExecute, AzComponentCtx},
     config::cloud::{
         endpoint::{self, EndpointMap, EndpointName},
         resource_id::{self, ResourceIdMap, ResourceIdName},

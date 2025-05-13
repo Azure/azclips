@@ -1,11 +1,8 @@
 use async_trait::async_trait;
 
 use crate::{
-    component::{
-        cmd::{AzCmd, AzCmdExecute},
-        AzComponentCtx,
-    },
-    config::cloud::{endpoint, resource_id, AzCloudMetadata},
+    component::{AzCmd, AzCmdExecute, AzComponentCtx},
+    config::cloud::AzCloudMetadata,
     error::AzError,
     pb::command::{cmd_interface, CmdArg, CmdCommand, CmdHelp, CmdInterface, CmdParams},
     AzCloud, VERSION,

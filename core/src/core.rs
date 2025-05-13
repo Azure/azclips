@@ -1,12 +1,8 @@
 use crate::argparse::ArgValueAssignOp;
 use crate::cmd_uri::CmdUri;
-use crate::component::center::AzComponentCenter;
-use crate::component::center::AzComponentInfo;
-use crate::component::AzComponent;
+use crate::component::{AzComponent, AzComponentCenter, AzComponentInfo};
 use crate::config::{AzCfg, AzCloud};
-use crate::error::AzInternalError;
-use crate::error::AzResult;
-use crate::error::AzUserUsageError;
+use crate::error::{AzInternalError, AzResult, AzUserUsageError};
 use crate::param::CmdParamBuilder;
 use crate::pb::command::cmd_interface;
 use crate::pb::command::CmdInterface;

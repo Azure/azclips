@@ -1,13 +1,8 @@
-use std::str::FromStr;
-
 use async_trait::async_trait;
 use tracing::error;
 
 use crate::{
-    component::{
-        cmd::{AzCmd, AzCmdExecute},
-        AzComponentCtx,
-    },
+    component::{AzCmd, AzCmdExecute, AzComponentCtx},
     config::cloud::AzCloudMetadata,
     error::AzError,
     pb::command::{

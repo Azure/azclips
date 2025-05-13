@@ -2,10 +2,7 @@ use async_trait::async_trait;
 use tracing::error;
 
 use crate::{
-    component::{
-        cmd::{AzCmd, AzCmdExecute},
-        AzComponentCtx,
-    },
+    component::{AzCmd, AzCmdExecute, AzComponentCtx},
     error::{AzError, AzUserUsageError},
     pb::command::{
         cmd_arg, cmd_interface, CmdArg, CmdArgHelp, CmdCommand, CmdHelp, CmdInterface, CmdParams,

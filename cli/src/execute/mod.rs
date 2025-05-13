@@ -1,5 +1,5 @@
 use az_core::{
-    argparse::{self, arg::CmdArgWrapper, ArgOp, ArgValueAssignOp},
+    argparse::{self, ArgOp, ArgValueAssignOp, CmdArgWrapper},
     cmd_uri::CmdUri,
     error::{AzError, AzInternalError, AzUserUsageError},
     pb::command::{cmd_interface, CmdArg, CmdCommand},

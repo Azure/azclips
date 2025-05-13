@@ -1,9 +1,21 @@
 use core::fmt;
 use percent_encoding::{percent_decode_str, utf8_percent_encode, AsciiSet, CONTROLS};
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{collections::HashMap, str::FromStr};
 
 use crate::{error::AzInternalError, APPLICATION_NAME};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CmdUri {
+    /// the version of the cmds, it should be the save as the version of the command component
+    version: Option<String>,
+    /// the command name parts
+    segments: Vec<String>,
+    /// whether the command is executable
+    executable: bool,
+    /// the key is case sensitive, the value is stored as a list of strings if multiple values are assigned then the query part will has duplicate keys
+    params: HashMap<String, Vec<String>>,
+}
 
 const CMD_URI_SCHEMA: &str = "cmd://";
 
@@ -33,18 +45,6 @@ const COMPONENT_ENCODE_SET: &AsciiSet = &CONTROLS
     .add(b'&')
     .add(b'+')
     .add(b',');
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CmdUri {
-    /// the version of the cmds, it should be the save as the version of the command component
-    version: Option<String>,
-    /// the command name parts
-    segments: Vec<String>,
-    /// whether the command is executable
-    executable: bool,
-    /// the key is case sensitive, the value is stored as a list of strings if multiple values are assigned then the query part will has duplicate keys
-    params: HashMap<String, Vec<String>>,
-}
 
 impl fmt::Display for CmdUri {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -372,20 +372,23 @@ impl CmdUri {
     }
 }
 
-pub(crate) fn serialize_cmd_uri<S>(cmd_uri: &CmdUri, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    serializer.serialize_str(&cmd_uri.to_string())
+impl Serialize for CmdUri {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
 }
 
-pub(crate) fn deserialize_cmd_uri<'de, D>(deserializer: D) -> Result<CmdUri, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let s = String::deserialize(deserializer)?;
-    let cmd_uri = CmdUri::from_str(&s).map_err(serde::de::Error::custom)?;
-    Ok(cmd_uri)
+impl<'de> Deserialize<'de> for CmdUri {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        CmdUri::from_str(&s).map_err(serde::de::Error::custom)
+    }
 }
 
 #[cfg(test)]

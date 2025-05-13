@@ -15,10 +15,7 @@ use update::UpdateCloud;
 
 use crate::{
     cmd_uri::CmdUri,
-    component::{
-        cmd::{AzCmd, AzCmdGroup},
-        AzComponentCtx,
-    },
+    component::{AzCmd, AzCmdGroup, AzComponentCtx},
     error::{AzError, AzInternalError},
     pb::{
         command::{

@@ -1,14 +1,9 @@
-use std::collections::HashMap;
-
 use async_trait::async_trait;
 use serde_json::{Map, Value};
 use tracing::error;
 
 use crate::{
-    component::{
-        cmd::{AzCmd, AzCmdExecute},
-        AzComponentCtx,
-    },
+    component::{AzCmd, AzCmdExecute, AzComponentCtx},
     error::AzError,
     pb::command::{
         cmd_arg, cmd_interface, CmdAnyTypeArg, CmdArg, CmdArgHelp, CmdCommand, CmdHelp,

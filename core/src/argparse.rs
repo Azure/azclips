@@ -1,17 +1,16 @@
-pub mod arg;
-pub mod op;
-pub mod partial;
+mod arg;
+mod op;
+mod partial;
 mod shorthand;
-
-use arg::CmdArgWrapper;
-use serde_json::Value;
 
 use crate::error::{AzResult, AzUserUsageError};
 use crate::pb::command;
+use serde_json::Value;
+use shorthand::{SHResult, SHORTHAND_SYNTAX_PARSER};
 
-use self::shorthand::{SHResult, SHORTHAND_SYNTAX_PARSER};
-
+pub use arg::CmdArgWrapper;
 pub use op::{ArgHelpOp, ArgOp, ArgPromptInputOp, ArgValueAssignOp};
+pub use partial::{SHPartialKeyPart, SHPartialKeys};
 
 /// parse the argument values into the argument operations
 pub fn parse_arg_values<'a>(

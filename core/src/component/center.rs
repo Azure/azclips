@@ -8,7 +8,6 @@ use crate::cmd_uri::CmdUri;
 use crate::config::AzCloud;
 use crate::error::AzInternalError;
 use crate::plugin::AzPlugin;
-use crate::top::component::TopComponent;
 
 use futures::future::try_join_all;
 use serde::{Deserialize, Serialize};
@@ -16,16 +15,11 @@ use tokio::fs;
 use tracing::error;
 
 use super::built_in::AzBuildIn;
-use super::built_in::{deserialize_az_build_in_component, serialize_az_build_in_component};
 use super::{get_component_dir, AzComponent, AzComponentCtx};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "info")]
 pub enum AzComponentInfo {
-    #[serde(
-        serialize_with = "serialize_az_build_in_component",
-        deserialize_with = "deserialize_az_build_in_component"
-    )]
     BuiltIn(AzBuildIn),
     Plugin(AzPlugin),
 }

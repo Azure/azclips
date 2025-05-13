@@ -13,26 +13,22 @@ use arg_fmt::{
 use serde_json::{map::Entry as SerdeEntry, Map, Value};
 
 use crate::{
-    argparse::{
-        arg::CmdArgWrapper,
-        partial::{SHPartialKeyPart, SHPartialKeys},
-        ArgValueAssignOp,
-    },
+    argparse::{ArgValueAssignOp, CmdArgWrapper, SHPartialKeyPart, SHPartialKeys},
     error::AzUserUsageError,
     pb::command::{self, cmd_arg::ArgType, CmdCommand},
     AzResult,
 };
+
+pub struct CmdParamBuilder {
+    // the binary parameters will be stored as a file path in the value and converted to a binary data when building the command
+    params: ParamValue,
+}
 
 #[derive(Debug, PartialEq, Eq)]
 enum ParamValue {
     Assign(Value),
     Append(Value),
     Partial(HashMap<String, ParamValue>),
-}
-
-pub(crate) struct CmdParamBuilder {
-    // the binary parameters will be stored as a file path in the value and converted to a binary data when building the command
-    params: ParamValue,
 }
 
 impl Default for CmdParamBuilder {
@@ -575,7 +571,7 @@ mod test {
     use serde_json::json;
 
     use crate::{
-        argparse::{arg::CmdArgWrapper, parse_arg_values, ArgOp},
+        argparse::{parse_arg_values, ArgOp, CmdArgWrapper},
         pb::command::{
             cmd_arg::ArgType, CmdAnyTypeArg, CmdArg, CmdArgDefault, CmdArrayArg, CmdBooleanArg,
             CmdNumberArg, CmdObjectArg, CmdObjectArgAdditionalProperties, CmdStringArg,
