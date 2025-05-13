@@ -7,7 +7,7 @@ use crate::{error::AzInternalError, APPLICATION_NAME};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CmdUri {
-    /// the version of the cmds, it should be the save as the version of the command component
+    /// the version of the cmds, it should be the same as the version of the command component
     version: Option<String>,
     /// the command name parts
     segments: Vec<String>,
