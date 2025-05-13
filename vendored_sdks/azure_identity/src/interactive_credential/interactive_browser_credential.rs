@@ -61,6 +61,8 @@ impl InteractiveBrowserCredential {
         scopes: Option<&[&str]>,
         prompt: Option<&str>,
         login_hint: Option<&str>,
+        success_template: Option<&str>, 
+        error_template: Option<&str>
     ) -> azure_core::Result<StandardTokenResponse<EmptyExtraTokenFields, BasicTokenType>> {
         let mut combined_scopes = DEFAULT_SCOPE_ARR.to_vec();
 
@@ -88,7 +90,7 @@ impl InteractiveBrowserCredential {
         println!("Waiting for authentication in browser. If the browser doesn't open automatically, please go to: {}", 
                  authorization_code_flow.authorize_url.as_ref());
 
-        match open_url(authorization_code_flow.authorize_url.as_ref()).await {
+        match open_url(authorization_code_flow.authorize_url.as_ref(), success_template, error_template).await {
             Ok(code) => {
                 authorization_code_flow
                     .exchange(new_http_client(), AuthorizationCode::new(code))
@@ -117,13 +119,14 @@ mod tests {
 
     fn init_tracing() {
         INIT.call_once(|| {
-            tracing_subscriber::fmt()
+            let _ = tracing_subscriber::fmt()
                 .with_max_level(Level::DEBUG)
-                .init();
+                .try_init();
         });
     }
 
     #[tokio::test]
+    #[ignore = "Interactive test requiring browser authentication"]
     async fn interactive_auth_flow_should_return_token() {
         init_tracing();
         debug!("Starting interactive authentication test");
@@ -131,7 +134,7 @@ mod tests {
         let credential = InteractiveBrowserCredential::new(None, None, None)
             .expect("Failed to create credential");
 
-        let token_response = credential.get_token(None, None, None).await;
+        let token_response = credential.get_token(None, None, None, None, None).await;
         debug!("Authentication result: {:#?}", token_response);
         assert!(token_response.is_ok());
     }

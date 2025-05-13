@@ -1,25 +1,127 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="refresh" content="60;url=https://learn.microsoft.com/cli/azure/">
-    <title>Login successfully</title>
+    <title>Azure CLI - Login Successful</title>
     <style>
+        :root {
+            --azure-blue: #0078D4;
+            --azure-green: #107C10;
+            --text-primary: #323130;
+            --background-gray: #F3F2F1;
+        }
+        
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--text-primary);
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .header {
+            margin-bottom: 24px;
+        }
+
+        h1 {
+            color: var(--azure-green);
+            font-size: 24px;
+            font-weight: 600;
+            margin: 0 0 16px 0;
+        }
+
+        .main-content {
+            background-color: white;
+            border-radius: 4px;
+        }
+
+        .success-icon {
+            color: var(--azure-green);
+            font-size: 24px;
+            margin-right: 8px;
+        }
+
+        .card {
+            border-radius: 4px;
+            border: 1px solid #EDEBE9;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
         }
 
         code {
             font-family: Consolas, 'Liberation Mono', Menlo, Courier, monospace;
             display: inline-block;
-            background-color: rgb(242, 242, 242);
+            background-color: var(--background-gray);
             padding: 12px 16px;
-            margin: 8px 0px;
+            margin: 8px 0;
+            border-radius: 4px;
+            overflow-x: auto;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        a {
+            color: var(--azure-blue);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+        
+        .footer {
+            margin-top: 32px;
+            font-size: 14px;
+            color: #605E5C;
+        }
+        
+        .countdown {
+            font-weight: 600;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                margin: 0;
+                padding: 16px;
+            }
         }
     </style>
 </head>
 <body>
-    <h3>You have logged into Microsoft Azure!</h3>
-    <p>You can close this window, or we will redirect you to the <a href="https://learn.microsoft.com/cli/azure/">Azure CLI documentation</a> in 1 minute.</p>
+    <div class="header">
+        <h1><span class="success-icon">✓</span> Successfully logged in to Microsoft Azure</h1>
+    </div>
+    
+    <div class="card main-content">
+        <p>You've successfully authenticated with the Azure CLI. Your terminal is now authorized to interact with Azure resources.</p>
+        
+        <p>Next steps:</p>
+        <ul>
+            <li>Return to your terminal to continue working with Azure CLI</li>
+            <li>To view your current subscription<code>az account show</code></li>
+            <li>To explore available commands<code>az --help</code></li>
+        </ul>
+    </div>
+    
+    <div class="footer">
+        <p>You can close this window now, or we'll redirect you to the <a href="https://learn.microsoft.com/cli/azure/">Azure CLI documentation</a> in <span id="countdown" class="countdown">60</span> seconds.</p>
+    </div>
+    
+    <script>
+        let seconds = 60;
+        const countdownElement = document.getElementById('countdown');
+        
+        const countdownTimer = setInterval(() => {
+            seconds--;
+            countdownElement.textContent = seconds;
+            if (seconds <= 0) {
+                clearInterval(countdownTimer);
+            }
+        }, 1000);
+    </script>
 </body>
 </html>

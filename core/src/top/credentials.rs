@@ -1,7 +1,7 @@
 use azure_identity::interactive_credential::interactive_browser_credential::InteractiveBrowserCredential;
 use crate::error::{AuthenticationError, AzInternalError, AzError};
 use oauth2::TokenResponse;
-use crate::top::utils::format_token_expires_on;
+use crate::top::utils::{format_token_expires_on, load_landing_page_templates};
 use serde_json::{json, Value, to_string_pretty};
 use std::fs::File;
 use std::io::{Read,Write};
@@ -33,11 +33,19 @@ impl UserCredential {
             AuthenticationError::AuthenticationFailed(format!("Failed to create interactive browser credential: {}", e))
         })?;
 
+        let (success_template, error_template) = load_landing_page_templates();
+
+        if success_template.is_empty() || error_template.is_empty() {
+            return Err(AuthenticationError::AuthenticationFailed("Failed to load landing page templates".to_string()));
+        }
+        
         let token_response = interactive_credentials
             .get_token(
                 Some(&scopes),
                 Some("select_account"),
-                self.username.as_deref()
+                self.username.as_deref(),
+                Some(&success_template),
+                Some(&error_template),
             )
             .await
             .map_err(|e| {

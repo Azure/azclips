@@ -2,7 +2,6 @@ use std::io::{BufRead, BufReader, Write};
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::process::Command;
 use std::time::Duration;
-use std::borrow::Cow;
 use webbrowser;
 use azure_core::Error;
 use azure_core::error::ErrorKind;
@@ -15,7 +14,7 @@ pub const LOCAL_SERVER_PORT: u16 = 47828;
 /// Opens the given URL in the default system browser and starts a local web server
 /// to receive the authorization code.
 #[allow(dead_code)]
-pub async fn open_url(url: &str) -> Result<String, Error> {
+pub async fn open_url(url: &str, success_template: Option<&str>, error_template: Option<&str>) -> Result<String, Error> {
     if !try_open_browser(url) {
         tracing::error!("Failed to open browser for URL: {}", url);
         return Err(Error::new(
@@ -24,7 +23,7 @@ pub async fn open_url(url: &str) -> Result<String, Error> {
         ));
     }
     
-    start_webserver()
+    start_webserver(success_template, error_template)
 }
 
 fn try_open_browser(url: &str) -> bool {
@@ -39,7 +38,7 @@ fn try_open_browser(url: &str) -> bool {
 
 /// Starts the webserver on `http://localhost`. Returns the authorization code or an error if the server fails to start or times out.
 #[allow(dead_code)]
-fn start_webserver() -> Result<String, Error> {
+fn start_webserver(success_template: Option<&str>, error_template: Option<&str>) -> Result<String, Error> {
     println!("Waiting for authentication response...");
     
     let listener = TcpListener::bind(("127.0.0.1", LOCAL_SERVER_PORT))
@@ -76,7 +75,7 @@ fn start_webserver() -> Result<String, Error> {
         }
         
         match listener.accept() {
-            Ok((stream, _)) => return handle_client(stream),
+            Ok((stream, _)) => return handle_client(stream, success_template, error_template),
             Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                 std::thread::sleep(std::time::Duration::from_millis(100));
                 continue;
@@ -97,7 +96,7 @@ fn start_webserver() -> Result<String, Error> {
 /// if the stream could be opened, we read the whole request and try to extract the auth_code
 /// Returns also the html code to show if it worked
 #[allow(dead_code)]
-fn handle_client(mut stream: TcpStream) -> Result<String, Error> {
+fn handle_client(mut stream: TcpStream, success_template: Option<&str>, error_template: Option<&str>) -> Result<String, Error> {
     stream
         .set_read_timeout(Some(Duration::from_secs(10)))
         .map_err(|e| Error::new(
@@ -115,15 +114,16 @@ fn handle_client(mut stream: TcpStream) -> Result<String, Error> {
     }
 
     let request = request_lines.join("\n");
+
     
-    // check if the request contains an error response
-    if let Some((error_code, error_description)) = extract_auth_error(&request) {
-        // Send a response to the browser showing the error
-        send_error_response(&mut stream, &error_code, &error_description)?;
+    // Check for errors in the OAuth response
+    if let Some((error_code, error_description, error_uri)) = extract_auth_error(&request) {
+        let formatted_description = format_error_description(&error_description);
+        send_error_response(&mut stream, &error_code, &formatted_description, &error_uri, error_template)?;
         
         return Err(Error::new(
             ErrorKind::Credential, 
-            format!("Authentication error: {} - {}", error_code, error_description)
+            format!("Error response: {} - {}", error_code, formatted_description)
         ));
     }
 
@@ -132,31 +132,69 @@ fn handle_client(mut stream: TcpStream) -> Result<String, Error> {
         "Failed to extract authorization code from response"
     ))?;
     
-    send_success_response(&mut stream)?;
+    send_success_response(&mut stream, success_template)?;
 
     Ok(auth_code)
 }
 
-fn send_success_response(stream: &mut TcpStream) -> Result<(), Error> {
-    let response_body = r#"<!DOCTYPE html>
-<html><head><title>Auth Complete</title></head>
-<body><p>Authentication complete. You may close this tab.</p></body>
-</html>"#;
+/// Sends a success response to the client using the provided HTML template
+/// If no template is provided, uses a default template
+fn send_success_response(
+    stream: &mut TcpStream, 
+    template: Option<&str>
+) -> Result<(), Error> {
+    let response_body = template.unwrap_or(
+        r#"<!DOCTYPE html>
+<html>
+<head>
+    <title>Authentication Success</title>
+</head>
+<body>
+    <h2>Authentication Complete</h2>
+    <p>You have successfully authenticated with Azure. You may close this browser tab.</p>
+</body>
+</html>"#
+    );
 
     send_response(stream, "200 OK", response_body)
 }
 
-fn send_error_response(stream: &mut TcpStream, error_code: &str, error_description: &str) -> Result<(), Error> {
-    let response_body = format!(r#"<!DOCTYPE html>
+/// Sends an error response to the client using the provided HTML template
+/// If no template is provided, uses a default template
+/// 
+/// # Arguments
+/// * `stream` - The TCP stream to write the response to
+/// * `error_code` - The OAuth error
+/// * `error_description` - The detailed error description
+/// * `template` - Optional HTML template
+fn send_error_response(
+    stream: &mut TcpStream, 
+    error_code: &str, 
+    error_description: &str,
+    error_url: &str,
+    template: Option<&str>
+) -> Result<(), Error> {
+    let response_body = if let Some(template) = template {
+        template
+            .replace("$error_code", error_code)
+            .replace("$error_description", error_description)
+            .replace("$error_url", error_url)
+    } else {
+        format!(r#"<!DOCTYPE html>
 <html>
-<head><title>Login Failed</title></head>
+<head>
+    <title>Authentication Failed</title>
+</head>
 <body>
-    <h2>Login Failed</h2>
-    <p>Error: {}</p>
-    <p>Details: {}</p>
+    <h2>Authentication Failed</h2>
+    <p><span class="error">Error:</span>{}</p>
+    <p><strong>Details:</strong></p>
+    <div>{}</div>
+    <div>Error url: <a href="{}" target="_blank">{}</a></div>
     <p>You may close this tab and try again.</p>
 </body>
-</html>"#, error_code, error_description);
+</html>"#, error_code, error_description, error_url, error_url)
+    };
 
     send_response(stream, "400 Bad Request", &response_body)
 }
@@ -197,7 +235,7 @@ fn extract_auth_code(request: &str) -> Option<String> {
 }
 
 /// Extracts error information from an OAuth error response.
-fn extract_auth_error(request: &str) -> Option<(String, String)> {
+fn extract_auth_error(request: &str) -> Option<(String, String, String)> {
     let error_start = request.find("error=")?;
     let error_code_start = error_start + 6; // "error=" is 6 chars
     let error_code_end = request[error_code_start..].find('&')
@@ -211,12 +249,47 @@ fn extract_auth_error(request: &str) -> Option<(String, String)> {
         let desc_value_end = request[desc_value_start..].find('&')
             .map(|pos| desc_value_start + pos)
             .unwrap_or(request.len());
-        error_description = urlencoding::decode(&request[desc_value_start..desc_value_end])
-            .unwrap_or_else(|_| Cow::from("Failed to decode error description"))
-            .to_string();
+        error_description = urlencoding::decode(&request[desc_value_start..desc_value_end])  
+            .map(|s| s.into_owned())  
+            .unwrap_or("Failed to decode error description".to_string());  
     }
     
-    Some((error_code.to_string(), error_description))
+    let mut error_uri = String::new();
+    if let Some(uri_start) = request.find("error_uri=") {
+        let uri_value_start = uri_start + 10; // "error_uri=" is 10 chars
+        let uri_value_end = request[uri_value_start..].find('&')
+            .map(|pos| uri_value_start + pos)
+            .unwrap_or(request.len());
+        error_uri = urlencoding::decode(&request[uri_value_start..uri_value_end])
+            .map(|s| s.into_owned())
+            .unwrap_or("Failed to decode error url".to_string());
+    }
+    
+    Some((error_code.to_string(), error_description, error_uri))
+}
+
+fn format_error_description(error_description: &str) -> String {    
+    let with_spaces = error_description.replace('+', " ");
+    
+    let formatted = if with_spaces.contains("Trace ID:") {
+        let parts: Vec<&str> = with_spaces.split('+').collect();
+        let mut result = String::new();
+        
+        for part in parts {
+            if part.starts_with("Trace ID:") || 
+               part.starts_with("Correlation ID:") || 
+               part.starts_with("Timestamp:") {
+                  result.push_str("\n");
+               }
+            result.push_str(part);
+            result.push_str(" ");
+        }
+        result
+    } else {
+        with_spaces
+    };
+    
+    formatted
 }
 
 // Add this new function for tests

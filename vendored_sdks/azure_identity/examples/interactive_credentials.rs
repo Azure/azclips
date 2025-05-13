@@ -38,7 +38,7 @@ async fn run_app_inter(tenant_id: &str) -> Result<(), Box<dyn Error>> {
         InteractiveBrowserCredential::new(Some(ClientId::new(AZURE_CLI_CLIENT_ID.to_string())), Some(tenant_id.to_string()), None)?;
 
     let token_response = interactive_credentials
-        .get_token(Some(&["fake"]), Some("select_account"), None)
+        .get_token(Some(&["fake"]), Some("select_account"), None, None, None)
         .await?;
     
     let original_expires_in = token_response.expires_in().unwrap_or(Duration::from_secs(0));
