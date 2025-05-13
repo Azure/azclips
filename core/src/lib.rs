@@ -20,6 +20,7 @@ use cmd_uri::CmdUri;
 use component::center::AzComponentCenter;
 use component::center::AzComponentInfo;
 use component::AzComponent;
+use config::{AzCfg, AzCloud};
 use error::AzInternalError;
 use error::AzResult;
 use error::AzUserUsageError;
@@ -41,8 +42,8 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const APPLICATION_NAME: &str = env!("CARGO_APPLICATION_NAME");
 
 pub struct AzCore {
-    // Add fields as needed
-    component_center: RwLock<AzComponentCenter<Self>>,
+    pub(crate) cfg: RwLock<AzCfg>,
+    pub(crate) component_center: RwLock<AzComponentCenter<Self>>,
 }
 
 impl AzCore {
@@ -56,11 +57,13 @@ impl AzCore {
 
     /// Create a new instance of AzCore
     async fn new() -> Self {
-        let component_center = AzComponentCenter::<Self>::new()
+        let cfg = AzCfg::load().expect("failed to load config");
+        let component_center = AzComponentCenter::<Self>::new(&cfg.clouds.get_active().name)
             .await
             .expect("failed to create component center");
         // Perform async initialization here
         Self {
+            cfg: RwLock::new(cfg),
             // Initialize fields as needed
             component_center: RwLock::new(component_center),
         }
@@ -251,5 +254,23 @@ impl AzCore {
             .get_or_load_component(&route)
             .await?;
         Ok(component)
+    }
+
+    /// Switch the active cloud
+    ///
+    /// If a customized cloud is not registered before, it will raise an error
+    /// The switch will also rebuild the component center route table for the cloud
+    async fn switch_cloud<'a>(&'a self, cloud: &AzCloud) -> AzResult<()> {
+        {
+            let mut cfg = self.cfg.write().await;
+            _ = cfg.clouds.set_active(cloud.clone())?;
+            cfg.save()?;
+        }
+        self.component_center
+            .write()
+            .await
+            .rebuild_route_table(cloud)
+            .await?;
+        Ok(())
     }
 }
