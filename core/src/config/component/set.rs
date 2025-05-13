@@ -5,7 +5,7 @@ use tracing::error;
 use crate::{
     component::{AzCmd, AzCmdExecute, AzComponentCtx},
     error::AzError,
-    pb::command::{
+    pb::{
         cmd_arg, cmd_interface, CmdAnyTypeArg, CmdArg, CmdArgHelp, CmdCommand, CmdHelp,
         CmdInterface, CmdObjectArg, CmdObjectArgAdditionalProperties, CmdParams,
     },
@@ -13,7 +13,7 @@ use crate::{
 };
 
 #[derive(Debug, Default)]
-pub(super) struct SetConfig {
+pub struct SetConfig {
     // the value will be any type
     value: Map<String, Value>,
 

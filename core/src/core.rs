@@ -1,19 +1,3 @@
-use crate::argparse::ArgValueAssignOp;
-use crate::cmd_uri::CmdUri;
-use crate::component::{AzComponent, AzComponentCenter, AzComponentInfo};
-use crate::config::{AzCfg, AzCloud};
-use crate::error::{AzInternalError, AzResult, AzUserUsageError};
-use crate::param::CmdParamBuilder;
-use crate::pb::command::cmd_interface;
-use crate::pb::command::CmdInterface;
-use crate::pb::command::CmdOutputFlattenMode;
-use crate::pb::command::CmdOutputFormat;
-use crate::pb::component::execute_response;
-use crate::pb::component::CheckRequest;
-use crate::pb::component::ComponentMetadata;
-use crate::pb::component::ExecuteRequest;
-use crate::pb::component::InterfaceRequest;
-use crate::pb::component::MetadataRequest;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -21,6 +5,17 @@ use std::sync::Arc;
 use tokio::sync::OnceCell;
 use tokio::sync::RwLock;
 use tracing::error;
+
+use crate::argparse::ArgValueAssignOp;
+use crate::cmd_uri::CmdUri;
+use crate::component::{AzComponent, AzComponentCenter, AzComponentInfo};
+use crate::config::{cloud::AzCloud, AzCfg};
+use crate::error::{AzInternalError, AzResult, AzUserUsageError};
+use crate::param::CmdParamBuilder;
+use crate::pb::{
+    cmd_interface, execute_response, CheckRequest, CmdInterface, CmdOutputFlattenMode,
+    CmdOutputFormat, ComponentMetadata, ExecuteRequest, InterfaceRequest, MetadataRequest,
+};
 
 pub struct AzCore {
     pub(crate) cfg: RwLock<AzCfg>,

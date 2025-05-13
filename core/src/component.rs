@@ -3,13 +3,15 @@ mod center;
 mod cmd;
 mod ctx;
 
+use async_trait::async_trait;
 use std::path::PathBuf;
 
-use async_trait::async_trait;
-
-use crate::config;
 use crate::error::AzError;
-use crate::pb::component as pb;
+use crate::pb::{
+    CheckRequest, CheckResponse, ExecuteRequest, ExecuteResponse, InterfaceRequest,
+    InterfaceResponse, MetadataResponse,
+};
+use crate::{config, pb::MetadataRequest};
 
 pub use center::{AzComponentCenter, AzComponentInfo};
 pub use cmd::{AzCmd, AzCmdExecute, AzCmdGroup};
@@ -22,27 +24,22 @@ pub trait AzComponent<T: AzComponentCtx>: Send + Sync + 'static {
     async fn metadata(
         &self,
         ctx: &T,
-        request: pb::MetadataRequest,
-    ) -> Result<pb::MetadataResponse, AzError>;
+        request: MetadataRequest,
+    ) -> Result<MetadataResponse, AzError>;
 
     /// check a cmd uri is available or not
     /// if a cmd uri has positional arguments as segments part,it will be converted to params in the query part in the returned cmd uri
-    async fn check(&self, ctx: &T, request: pb::CheckRequest)
-        -> Result<pb::CheckResponse, AzError>;
+    async fn check(&self, ctx: &T, request: CheckRequest) -> Result<CheckResponse, AzError>;
 
     /// get the interface of a cmd uri
     async fn interface(
         &self,
         ctx: &T,
-        request: pb::InterfaceRequest,
-    ) -> Result<pb::InterfaceResponse, AzError>;
+        request: InterfaceRequest,
+    ) -> Result<InterfaceResponse, AzError>;
 
     /// run a executable cmd uri
-    async fn execute(
-        &self,
-        ctx: &T,
-        request: pb::ExecuteRequest,
-    ) -> Result<pb::ExecuteResponse, AzError>;
+    async fn execute(&self, ctx: &T, request: ExecuteRequest) -> Result<ExecuteResponse, AzError>;
 }
 
 pub fn get_component_dir() -> PathBuf {

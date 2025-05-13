@@ -7,8 +7,8 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::RwLock;
 
-use crate::pb::command::{cmd_arg, CmdArg, CmdArgHelp, CmdStringArg};
-use crate::AzCloud;
+use super::AzCloud;
+use crate::pb::{cmd_arg, CmdArg, CmdArgHelp, CmdStringArg};
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct ResourceIdName {
@@ -35,7 +35,8 @@ pub(crate) struct ResourceIdMap(pub(super) Arc<RwLock<HashMap<ResourceIdName, St
 ///
 /// # Examples
 ///
-/// ```
+/// ```no_run
+/// use super::standard_resource_ids;
 /// standard_resource_ids! {
 ///     (Authentication, AUTHENTICATION, b"authentication", b"authentication", b"authentication.resource_ids[0]");
 /// }
@@ -90,15 +91,15 @@ macro_rules! standard_resource_ids {
                 }
             }
 
-            #[inline]
-            const fn from_var_bytes(var_bytes: &[u8]) -> Option<Self> {
-                match var_bytes {
-                    $(
-                        $var_bytes => Some(Self::$konst),
-                    )+
-                    _ => None,
-                }
-            }
+            // #[inline]
+            // const fn from_var_bytes(var_bytes: &[u8]) -> Option<Self> {
+            //     match var_bytes {
+            //         $(
+            //             $var_bytes => Some(Self::$konst),
+            //         )+
+            //         _ => None,
+            //     }
+            // }
 
             pub fn list_args(nullable: bool) -> Vec<CmdArg> {
                 vec![
@@ -168,10 +169,6 @@ impl ResourceIdMap {
 
     pub fn remove(&mut self, name: &ResourceIdName) -> Option<String> {
         self.0.write().unwrap().remove(name)
-    }
-
-    pub fn clear(&mut self) {
-        self.0.write().unwrap().clear();
     }
 
     pub fn from<'a>(iter: impl IntoIterator<Item = (&'a ResourceIdName, &'a str)>) -> Self {

@@ -7,15 +7,15 @@ use logout::Logout;
 use std::str::FromStr;
 
 use crate::{
-    cmd_uri::CmdUri, component::{AzComponent, AzComponentCtx}, error::{AzError, AzInternalError}, pb::{
-        self,
-        command::{cmd_interface, CmdComponent, CmdHelp, CmdInterface},
-        component::{
-            execute_response, CheckRequest, CheckResponse, ComponentMetadata, ExecuteRequest,
-            ExecuteResponse, InterfaceRequest, InterfaceResponse, MetadataRequest,
-            MetadataResponse,
-        },
-    }, VERSION
+    cmd_uri::CmdUri,
+    component::{AzComponent, AzComponentCtx},
+    error::{AzError, AzInternalError},
+    pb::{
+        cmd_interface, execute_response, CheckRequest, CheckResponse, CmdComponent, CmdHelp,
+        CmdInterface, ComponentMetadata, ExecuteRequest, ExecuteResponse, InterfaceRequest,
+        InterfaceResponse, MetadataRequest, MetadataResponse, None,
+    },
+    VERSION,
 };
 
 #[derive(Debug, Default)]
@@ -84,11 +84,7 @@ impl<T: AzComponentCtx> AzComponent<T> for TopComponent {
         Ok(InterfaceResponse { interface })
     }
 
-    async fn execute(
-        &self,
-        ctx: &T,
-        request: ExecuteRequest,
-    ) -> Result<ExecuteResponse, AzError> {
+    async fn execute(&self, ctx: &T, request: ExecuteRequest) -> Result<ExecuteResponse, AzError> {
         let skip = TopComponent::uri().segments().count();
         let cmd_uri = CmdUri::from_str(&request.uri).unwrap();
         if !cmd_uri.executable() {
@@ -96,7 +92,7 @@ impl<T: AzComponentCtx> AzComponent<T> for TopComponent {
         }
         let segments = cmd_uri.segments().skip(skip).collect::<Vec<_>>().join("/");
         match segments.as_str() {
-                "login" => {
+            "login" => {
                 let result = Login::try_from(&request.params)?.run(ctx).await?;
                 if let Some(result) = result {
                     Ok(ExecuteResponse {
@@ -106,7 +102,7 @@ impl<T: AzComponentCtx> AzComponent<T> for TopComponent {
                     })
                 } else {
                     Ok(ExecuteResponse {
-                        data: Some(execute_response::Data::None(pb::component::None {})),
+                        data: Some(execute_response::Data::None(None {})),
                     })
                 }
             }
@@ -120,7 +116,7 @@ impl<T: AzComponentCtx> AzComponent<T> for TopComponent {
                     })
                 } else {
                     Ok(ExecuteResponse {
-                        data: Some(execute_response::Data::None(pb::component::None {})),
+                        data: Some(execute_response::Data::None(None {})),
                     })
                 }
             }
@@ -128,29 +124,21 @@ impl<T: AzComponentCtx> AzComponent<T> for TopComponent {
         }
     }
 
-    async fn metadata(
-        &self,
-        _: &T,
-        _: MetadataRequest,
-    ) -> Result<MetadataResponse, AzError> {
+    async fn metadata(&self, _: &T, _: MetadataRequest) -> Result<MetadataResponse, AzError> {
         Ok(MetadataResponse {
-                metadata: Some(ComponentMetadata {
-                    name: "azure".to_string(),
-                    version: VERSION.to_string(),
-                    uri: Self::uri().to_string(),
-                    help: Some(CmdHelp {
-                        short: "".to_string(),
-                        long: Some(COMPONENT_LONG_SUMMARY.to_string()),
+            metadata: Some(ComponentMetadata {
+                name: "azure".to_string(),
+                version: VERSION.to_string(),
+                uri: Self::uri().to_string(),
+                help: Some(CmdHelp {
+                    short: "".to_string(),
+                    long: Some(COMPONENT_LONG_SUMMARY.to_string()),
                 }),
             }),
         })
     }
 
-    async fn check(
-        &self,
-        _: &T,
-        request: CheckRequest,
-    ) -> Result<CheckResponse, AzError> {
+    async fn check(&self, _: &T, request: CheckRequest) -> Result<CheckResponse, AzError> {
         let skip = TopComponent::uri().segments().count();
         let cmd_uri = CmdUri::from_str(&request.uri).unwrap();
         let segments = cmd_uri.segments().skip(skip).collect::<Vec<_>>().join("/");

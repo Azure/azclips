@@ -3,17 +3,17 @@ use tracing::error;
 
 use crate::{
     component::{AzCmd, AzCmdExecute, AzComponentCtx},
-    config::cloud::AzCloudMetadata,
+    config::cloud::{AzCloud, AzCloudMetadata},
     error::AzError,
-    pb::command::{
+    pb::{
         cmd_arg, cmd_interface, CmdArg, CmdArgHelp, CmdCommand, CmdHelp, CmdInterface, CmdParams,
         CmdStringArg,
     },
-    AzCloud, AzCore, VERSION,
+    AzCore, VERSION,
 };
 
 #[derive(Debug, Default)]
-pub(super) struct ActivateCloud {
+pub struct ActivateCloud {
     name: AzCloud,
 }
 

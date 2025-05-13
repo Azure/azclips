@@ -5,7 +5,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::cmd_uri::CmdUri;
-use crate::config::AzCloud;
+use crate::config::cloud::AzCloud;
 use crate::error::AzInternalError;
 use crate::plugin::AzPlugin;
 

@@ -9,9 +9,9 @@ use serde_json::Map;
 
 use crate::cmd_uri::CmdUri;
 use crate::component::{get_component_dir, AzComponent, AzComponentCtx};
-use crate::config::AzCloud;
+use crate::config::cloud::AzCloud;
 use crate::error::AzInternalError;
-use crate::pb::command::CmdHelp;
+use crate::pb::CmdHelp;
 
 const PLUGIN_FILE_EXTENSION: &str = "plugin";
 const PLUGIN_DIR_NAME: &str = "plugins";

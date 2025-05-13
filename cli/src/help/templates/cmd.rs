@@ -1,9 +1,9 @@
-use az_core::pb::{command::CmdInterface, component::ComponentMetadata};
+use az_core::pb::{CmdInterface, ComponentMetadata};
 
 use crate::output::StyledString;
 
 /// Trait for rendering command help templates.
-/// 
+///
 /// We have the following properties for the command help template:
 /// ## Service Properties
 ///

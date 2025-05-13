@@ -3,16 +3,17 @@ use tracing::error;
 
 use crate::{
     component::{AzCmd, AzCmdExecute, AzComponentCtx},
+    config::cloud::AzCloud,
     error::{AzError, AzUserUsageError},
-    pb::command::{
+    pb::{
         cmd_arg, cmd_interface, CmdArg, CmdArgHelp, CmdCommand, CmdHelp, CmdInterface, CmdParams,
         CmdStringArg,
     },
-    AzCloud, AzCore, VERSION,
+    AzCore, VERSION,
 };
 
 #[derive(Debug, Default)]
-pub(super) struct DeleteCloud {
+pub struct DeleteCloud {
     name: AzCloud,
 }
 

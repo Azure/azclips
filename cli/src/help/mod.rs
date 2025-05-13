@@ -6,7 +6,7 @@ use az_core::{
     argparse::{CmdArgWrapper, SHPartialKeys},
     cmd_uri::CmdUri,
     error::AzError,
-    pb::command::cmd_interface,
+    pb::cmd_interface,
     AzCore,
 };
 use format::default_help_formatter;

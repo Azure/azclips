@@ -8,18 +8,18 @@ use crate::{
     config::cloud::{
         endpoint::{self, EndpointMap, EndpointName},
         resource_id::{self, ResourceIdMap, ResourceIdName},
-        AzCloudMetadata,
+        AzCloud, AzCloudMetadata,
     },
     error::AzError,
-    pb::command::{
+    pb::{
         cmd_arg, cmd_interface, CmdArg, CmdArgHelp, CmdCommand, CmdHelp, CmdInterface,
         CmdObjectArg, CmdObjectArgAdditionalProperties, CmdParams, CmdStringArg,
     },
-    AzCloud, AzCore, VERSION,
+    AzCore, VERSION,
 };
 
 #[derive(Debug, Default)]
-pub(super) struct UpdateCloud {
+pub struct UpdateCloud {
     name: AzCloud,
     endpoints: HashMap<EndpointName, Option<String>>,
     resource_ids: HashMap<ResourceIdName, Option<String>>,

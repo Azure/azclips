@@ -1,13 +1,12 @@
 use std::collections::HashMap;
 
-use az_core::pb::command::{
-    cmd_arg::ArgType, cmd_number_arg, cmd_string_arg, CmdArg, CmdArgEnum, CmdArrayArg,
-    CmdArrayFormat, CmdBooleanArg, CmdDateFormat, CmdDateTimeFormat, CmdDoubleFormat,
-    CmdDurationFormat, CmdFloatFormat, CmdInt32Format, CmdInt64Format, CmdInterface, CmdNumberArg,
-    CmdObjectArg, CmdObjectFormat, CmdResourceIdFormat, CmdResourceLocationFormat, CmdStringArg,
-    CmdStringFormat, CmdTimeFormat, CmdUint32Format, CmdUint64Format, CmdUuidFormat,
+use az_core::pb::{
+    cmd_arg, cmd_number_arg, cmd_string_arg, CmdArg, CmdArgEnum, CmdArrayArg, CmdArrayFormat,
+    CmdBooleanArg, CmdDateFormat, CmdDateTimeFormat, CmdDoubleFormat, CmdDurationFormat,
+    CmdFloatFormat, CmdInt32Format, CmdInt64Format, CmdInterface, CmdNumberArg, CmdObjectArg,
+    CmdObjectFormat, CmdResourceIdFormat, CmdResourceLocationFormat, CmdStringArg, CmdStringFormat,
+    CmdTimeFormat, CmdUint32Format, CmdUint64Format, CmdUuidFormat, ComponentMetadata,
 };
-use az_core::pb::component::ComponentMetadata;
 
 use crate::output::{style::Stylize, Row, RowCell, StyledString};
 
@@ -254,48 +253,48 @@ fn append_table(table: &mut Vec<HelpTableLine>, key: impl ToString, value: &Opti
     }
 }
 
-pub fn arg_format_table(arg_type: &ArgType) -> Vec<HelpTableLine> {
+pub fn arg_format_table(arg_type: &cmd_arg::ArgType) -> Vec<HelpTableLine> {
     match arg_type {
-        ArgType::Str(arg) => arg.help_table(),
-        ArgType::Number(arg) => arg.help_table(),
-        ArgType::Boolean(arg) => arg.help_table(),
-        ArgType::Object(arg) => arg.help_table(),
-        ArgType::Array(arg) => arg.help_table(),
-        ArgType::Cls(_) => vec![],
-        ArgType::AnyType(_) => vec![],
+        cmd_arg::ArgType::Str(arg) => arg.help_table(),
+        cmd_arg::ArgType::Number(arg) => arg.help_table(),
+        cmd_arg::ArgType::Boolean(arg) => arg.help_table(),
+        cmd_arg::ArgType::Object(arg) => arg.help_table(),
+        cmd_arg::ArgType::Array(arg) => arg.help_table(),
+        cmd_arg::ArgType::Cls(_) => vec![],
+        cmd_arg::ArgType::AnyType(_) => vec![],
     }
 }
 
-pub fn arg_enum_table(arg_type: &ArgType) -> Vec<HelpTableLine> {
+pub fn arg_enum_table(arg_type: &cmd_arg::ArgType) -> Vec<HelpTableLine> {
     match arg_type {
-        ArgType::Str(CmdStringArg {
+        cmd_arg::ArgType::Str(CmdStringArg {
             r#enum: Some(enum_type),
             format: _,
         })
-        | ArgType::Number(CmdNumberArg {
+        | cmd_arg::ArgType::Number(CmdNumberArg {
             r#enum: Some(enum_type),
             format: _,
         }) => enum_type.help_table(),
-        ArgType::Str(CmdStringArg {
+        cmd_arg::ArgType::Str(CmdStringArg {
             r#enum: None,
             format: _,
         }) => vec![],
-        ArgType::Number(CmdNumberArg {
+        cmd_arg::ArgType::Number(CmdNumberArg {
             r#enum: None,
             format: _,
         }) => vec![],
-        ArgType::Boolean(_) => vec![],
-        ArgType::Object(_) => vec![],
-        ArgType::Array(_) => vec![],
-        ArgType::Cls(_) => vec![],
-        ArgType::AnyType(_) => vec![],
+        cmd_arg::ArgType::Boolean(_) => vec![],
+        cmd_arg::ArgType::Object(_) => vec![],
+        cmd_arg::ArgType::Array(_) => vec![],
+        cmd_arg::ArgType::Cls(_) => vec![],
+        cmd_arg::ArgType::AnyType(_) => vec![],
     }
 }
 
-pub fn arg_props_tables(arg_type: &ArgType) -> HashMap<String, Vec<HelpTableLine>> {
+pub fn arg_props_tables(arg_type: &cmd_arg::ArgType) -> HashMap<String, Vec<HelpTableLine>> {
     let mut props_groups = HashMap::new();
     match arg_type {
-        ArgType::Object(object_arg) => {
+        cmd_arg::ArgType::Object(object_arg) => {
             for prop in &object_arg.props {
                 let line = prop.help_line(CmdArgDisplayConfig {
                     show_options: false,
@@ -319,12 +318,12 @@ pub fn arg_props_tables(arg_type: &ArgType) -> HashMap<String, Vec<HelpTableLine
                 }
             }
         }
-        ArgType::Array(_) => {}
-        ArgType::Str(_) => {}
-        ArgType::Number(_) => {}
-        ArgType::Boolean(_) => {}
-        ArgType::Cls(_) => {}
-        ArgType::AnyType(_) => {}
+        cmd_arg::ArgType::Array(_) => {}
+        cmd_arg::ArgType::Str(_) => {}
+        cmd_arg::ArgType::Number(_) => {}
+        cmd_arg::ArgType::Boolean(_) => {}
+        cmd_arg::ArgType::Cls(_) => {}
+        cmd_arg::ArgType::AnyType(_) => {}
     }
     props_groups
 }

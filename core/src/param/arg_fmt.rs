@@ -2,7 +2,7 @@ use serde_json::Value;
 
 use crate::{
     error::AzUserUsageError,
-    pb::command::{
+    pb::{
         CmdArrayFormat, CmdBinaryFormat, CmdByteFormat, CmdDateFormat, CmdDateTimeFormat,
         CmdDoubleFormat, CmdDurationFormat, CmdFloatFormat, CmdInt32Format, CmdInt64Format,
         CmdObjectFormat, CmdPasswordFormat, CmdResourceGroupNameFormat, CmdResourceIdFormat,

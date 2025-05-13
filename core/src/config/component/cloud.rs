@@ -5,8 +5,9 @@ mod list;
 mod show;
 mod update;
 
-use activate::ActivateCloud;
 use async_trait::async_trait;
+
+use activate::ActivateCloud;
 use create::CreateCloud;
 use delete::DeleteCloud;
 use list::ListClouds;
@@ -18,15 +19,13 @@ use crate::{
     component::{AzCmd, AzCmdGroup, AzComponentCtx},
     error::{AzError, AzInternalError},
     pb::{
-        command::{
-            cmd_interface, CmdCommandGroup, CmdHelp, CmdInterface, CmdOutputFormat, CmdParams,
-        },
-        component::execute_response::Data,
+        cmd_interface, execute_response, CmdCommandGroup, CmdHelp, CmdInterface, CmdOutputFormat,
+        CmdParams,
     },
 };
 
 #[derive(Debug, Default)]
-pub(super) struct CloudCommandGroup {}
+pub struct CloudCommandGroup {}
 
 #[async_trait]
 impl AzCmdGroup for CloudCommandGroup {
@@ -92,7 +91,7 @@ impl AzCmdGroup for CloudCommandGroup {
         mut segments: impl Iterator<Item = String> + Send,
         params: Option<CmdParams>,
         output_format: Option<CmdOutputFormat>,
-    ) -> Result<Data, AzError> {
+    ) -> Result<execute_response::Data, AzError> {
         match segments.next().as_deref() {
             Some("activate") => ActivateCloud::execute(ctx, params, output_format).await,
             Some("create") => CreateCloud::execute(ctx, params, output_format).await,

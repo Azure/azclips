@@ -6,11 +6,7 @@ use serde::Serialize;
 use crate::{
     cmd_uri::CmdUri,
     error::AzError,
-    pb::{
-        self,
-        command::{CmdArg, CmdInterface, CmdOutputFormat, CmdParams},
-        component::execute_response::Data,
-    },
+    pb::{execute_response, CmdArg, CmdInterface, CmdOutputFormat, CmdParams, None},
 };
 
 use super::AzComponentCtx;
@@ -42,15 +38,17 @@ pub trait AzCmd: Sized {
         ctx: &T,
         params: Option<CmdParams>,
         _: Option<CmdOutputFormat>,
-    ) -> Result<Data, AzError>
+    ) -> Result<execute_response::Data, AzError>
     where
         Self: AzCmdExecute,
     {
         let result = Self::try_from(params)?.run(ctx).await?;
         if let Some(result) = result {
-            Ok(Data::Json(serde_json::to_vec(&result).unwrap()))
+            Ok(execute_response::Data::Json(
+                serde_json::to_vec(&result).unwrap(),
+            ))
         } else {
-            Ok(Data::None(pb::component::None {}))
+            Ok(execute_response::Data::None(None {}))
         }
     }
 }
@@ -77,5 +75,5 @@ pub trait AzCmdGroup {
         segments: impl Iterator<Item = String> + Send,
         params: Option<CmdParams>,
         output_format: Option<CmdOutputFormat>,
-    ) -> Result<Data, AzError>;
+    ) -> Result<execute_response::Data, AzError>;
 }

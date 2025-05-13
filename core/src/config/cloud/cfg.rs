@@ -10,7 +10,7 @@ use crate::error::AzUserUsageError;
 use super::{metadata::AzCloudMetadata, AzCloud};
 
 #[derive(Debug, Clone, Serialize)]
-pub struct AzCloudsCfg(pub HashMap<AzCloud, AzCloudMetadata>);
+pub struct AzCloudsCfg(pub(crate) HashMap<AzCloud, AzCloudMetadata>);
 
 impl Default for AzCloudsCfg {
     fn default() -> Self {
