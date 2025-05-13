@@ -35,7 +35,7 @@ impl AzCmdExecute for UpdateCloud {
     type Output = AzCloudMetadata;
 
     async fn run<T: AzComponentCtx>(&self, ctx: &T) -> Result<Option<Self::Output>, AzError> {
-        let mut cloud_metadata = ctx.get_cfg().await.cloud.get_cloud(&self.name)?;
+        let mut cloud_metadata = ctx.get_cfg().await.clouds.get_cloud(&self.name)?;
 
         if self._patch_keys.is_empty() || self._patch_keys.contains(&"endpoints".to_string()) {
             let endpoints = self
@@ -82,14 +82,12 @@ impl AzCmdExecute for UpdateCloud {
         {
             let core = AzCore::instance().await;
             let mut cfg = core.cfg.write().await;
-            cfg.cloud
-                .clouds
-                .insert(self.name.to_owned(), cloud_metadata);
+            cfg.clouds.0.insert(self.name.to_owned(), cloud_metadata);
             cfg.save()?;
         }
 
         let cfg = ctx.get_cfg().await;
-        let cloud_metadata = cfg.cloud.get_cloud(&self.name)?;
+        let cloud_metadata = cfg.clouds.get_cloud(&self.name)?;
         Ok(Some(cloud_metadata))
     }
 }

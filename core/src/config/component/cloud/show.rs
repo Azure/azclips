@@ -28,7 +28,7 @@ impl AzCmdExecute for ShowCloud {
 
     async fn run<T: AzComponentCtx>(&self, ctx: &T) -> Result<Option<Self::Output>, AzError> {
         let cfg = ctx.get_cfg().await;
-        let cloud = cfg.cloud.get_cloud(&self.name)?;
+        let cloud = cfg.clouds.get_cloud(&self.name)?;
         Ok(Some(cloud))
     }
 }

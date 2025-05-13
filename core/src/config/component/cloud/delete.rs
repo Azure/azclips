@@ -6,7 +6,7 @@ use crate::{
         cmd::{AzCmd, AzCmdExecute},
         AzComponentCtx,
     },
-    error::AzError,
+    error::{AzError, AzUserUsageError},
     pb::command::{
         cmd_arg, cmd_interface, CmdArg, CmdArgHelp, CmdCommand, CmdHelp, CmdInterface, CmdParams,
         CmdStringArg,
@@ -25,7 +25,13 @@ impl AzCmdExecute for DeleteCloud {
 
     async fn run<T: AzComponentCtx>(&self, _: &T) -> Result<Option<Self::Output>, AzError> {
         let core = AzCore::instance().await;
-        core.cfg.write().await.cloud.clouds.remove(&self.name);
+        let mut cfg = core.cfg.write().await;
+        let is_active = cfg.clouds.get_active().name == self.name;
+        if is_active {
+            return Err(AzUserUsageError::CloudActiveError(self.name.to_string()).into());
+        }
+        cfg.clouds.0.remove(&self.name);
+        cfg.save()?;
         Ok(None)
     }
 }

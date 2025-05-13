@@ -2,43 +2,35 @@ use std::collections::HashMap;
 use std::fmt;
 
 use serde::de::{self, MapAccess, Visitor};
-use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use tracing::warn;
 
 use crate::error::AzUserUsageError;
 
 use super::{metadata::AzCloudMetadata, AzCloud};
 
-#[derive(Debug, Clone)]
-pub struct AzCloudCfg {
-    /// The current active cloud name
-    pub(crate) active: AzCloud,
+#[derive(Debug, Clone, Serialize)]
+pub struct AzCloudsCfg(pub HashMap<AzCloud, AzCloudMetadata>);
 
-    /// Customized cloud configurations
-    pub(crate) clouds: HashMap<AzCloud, AzCloudMetadata>,
-}
-
-impl Default for AzCloudCfg {
+impl Default for AzCloudsCfg {
     fn default() -> Self {
         let mut clouds = HashMap::new();
         clouds.insert(
             AzCloud::AzureCloud,
             AzCloudMetadata {
                 name: AzCloud::AzureCloud,
+                active: true,
                 endpoints: Default::default(),
                 resource_ids: Default::default(),
             },
         );
-        Self {
-            active: AzCloud::AzureCloud,
-            clouds,
-        }
+        Self(clouds)
     }
 }
 
-impl AzCloudCfg {
+impl AzCloudsCfg {
     pub fn forbid_telemetry(&self) -> bool {
-        match &self.active {
+        match &self.get_active().name {
             // Add names of clouds that don't allow telemetry data collection here such as some air-gapped clouds.
             AzCloud::Custom(custom_name) => {
                 custom_name.eq_ignore_ascii_case("USSec")
@@ -49,12 +41,13 @@ impl AzCloudCfg {
     }
 
     pub(crate) fn get_cloud(&self, name: &AzCloud) -> Result<AzCloudMetadata, AzUserUsageError> {
-        if matches!(name, AzCloud::Custom(_)) && !self.clouds.contains_key(&name) {
+        if matches!(name, AzCloud::Custom(_)) && !self.0.contains_key(&name) {
             return Err(AzUserUsageError::CloudUnregisteredError(name.to_string()));
         }
-        let metadata = self.clouds.get(name).map_or(
+        let metadata = self.0.get(name).map_or(
             AzCloudMetadata {
                 name: name.clone(),
+                active: false,
                 endpoints: Default::default(),
                 resource_ids: Default::default(),
             },
@@ -63,122 +56,103 @@ impl AzCloudCfg {
         Ok(metadata)
     }
 
+    pub fn get_active(&self) -> &AzCloudMetadata {
+        self.0
+            .iter()
+            .find(|(_, metadata)| metadata.active)
+            .map(|(_, metadata)| metadata)
+            .expect("active cloud should be in the clouds map due to the deserializer")
+    }
+
     /// This function should only be called by the AzCore, don't call it in other places
     /// If you want to switch the cloud, please use the `switch_cloud` function in the AzCore
     pub(crate) fn set_active(
         &mut self,
         active: AzCloud,
     ) -> Result<&AzCloudMetadata, AzUserUsageError> {
-        if matches!(active, AzCloud::Custom(_)) && !self.clouds.contains_key(&active) {
+        if matches!(active, AzCloud::Custom(_)) && !self.0.contains_key(&active) {
             return Err(AzUserUsageError::CloudUnregisteredError(active.to_string()));
         }
 
-        self.active = active.clone();
-        let metadata = self
-            .clouds
-            .entry(active.clone())
-            .or_insert(AzCloudMetadata {
-                name: active.clone(),
-                endpoints: Default::default(),
-                resource_ids: Default::default(),
-            });
+        self.0.iter_mut().for_each(|(_, metadata)| {
+            metadata.active = false;
+        });
+
+        let metadata = self.0.entry(active.clone()).or_insert(AzCloudMetadata {
+            name: active.clone(),
+            active: false,
+            endpoints: Default::default(),
+            resource_ids: Default::default(),
+        });
+
+        metadata.active = true;
+
         Ok(metadata)
     }
-
-    pub fn get_active(&self) -> &AzCloudMetadata {
-        self.clouds
-            .get(&self.active)
-            .expect("active cloud should be in the clouds map due to the deserializer")
-    }
 }
 
-impl Serialize for AzCloudCfg {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut map = serializer.serialize_map(Some(2))?;
-        map.serialize_entry("active", &self.active)?;
-
-        // Only serialize clouds if it's not empty
-        if !self.clouds.is_empty() {
-            map.serialize_entry("clouds", &self.clouds)?;
-        }
-
-        map.end()
-    }
-}
-
-impl<'de> Deserialize<'de> for AzCloudCfg {
+impl<'de> Deserialize<'de> for AzCloudsCfg {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        #[derive(Deserialize)]
-        #[serde(field_identifier, rename_all = "lowercase")]
-        enum Field {
-            Active,
-            Clouds,
-        }
+        struct AzCloudsCfgVisitor;
 
-        struct AzCloudCfgVisitor;
-
-        impl<'de> Visitor<'de> for AzCloudCfgVisitor {
-            type Value = AzCloudCfg;
+        impl<'de> Visitor<'de> for AzCloudsCfgVisitor {
+            type Value = AzCloudsCfg;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("struct AzCloudCfg")
+                formatter.write_str("a map of cloud configurations")
             }
 
-            fn visit_map<V>(self, mut map: V) -> Result<AzCloudCfg, V::Error>
+            fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
             where
-                V: MapAccess<'de>,
+                M: MapAccess<'de>,
             {
-                let mut active: Option<AzCloud> = None;
-                let mut clouds: Option<HashMap<AzCloud, AzCloudMetadata>> = None;
+                let mut clouds = HashMap::new();
+                let mut found_active = false;
 
-                while let Some(key) = map.next_key()? {
-                    match key {
-                        Field::Active => {
-                            if active.is_some() {
-                                return Err(de::Error::duplicate_field("active"));
-                            }
-                            active = Some(map.next_value()?);
-                        }
-                        Field::Clouds => {
-                            if clouds.is_some() {
-                                return Err(de::Error::duplicate_field("clouds"));
-                            }
-                            clouds = Some(map.next_value()?);
-                        }
+                while let Some((cloud, mut metadata)) =
+                    map.next_entry::<AzCloud, AzCloudMetadata>()?
+                {
+                    // If we already found an active cloud, set this one to inactive
+                    if metadata.active && found_active {
+                        warn!(
+                            "Warning: Multiple active clouds found. Setting {} to inactive.",
+                            cloud
+                        );
+                        metadata.active = false;
+                    }
+                    if metadata.active {
+                        found_active = true;
+                    }
+                    clouds.insert(cloud, metadata);
+                }
+
+                // If no active cloud was found, set AzureCloud as active
+                if !found_active {
+                    warn!("Warning: No active cloud found. Setting AzureCloud as active.");
+                    if let Some(metadata) = clouds.get_mut(&AzCloud::AzureCloud) {
+                        metadata.active = true;
+                    } else {
+                        // If AzureCloud doesn't exist, create it
+                        clouds.insert(
+                            AzCloud::AzureCloud,
+                            AzCloudMetadata {
+                                name: AzCloud::AzureCloud,
+                                active: true,
+                                endpoints: Default::default(),
+                                resource_ids: Default::default(),
+                            },
+                        );
                     }
                 }
 
-                let active = active.unwrap_or(AzCloud::AzureCloud);
-                let mut clouds = clouds.unwrap_or_default();
-
-                // Ensure the active cloud is in the clouds map
-                if !clouds.contains_key(&active) {
-                    clouds.insert(
-                        active.clone(),
-                        AzCloudMetadata {
-                            name: active.clone(),
-                            endpoints: Default::default(),
-                            resource_ids: Default::default(),
-                        },
-                    );
-                }
-
-                // Fill in the name field for each cloud metadata
-                for (cloud_name, metadata) in clouds.iter_mut() {
-                    metadata.name = cloud_name.clone();
-                }
-
-                Ok(AzCloudCfg { active, clouds })
+                Ok(AzCloudsCfg(clouds))
             }
         }
 
-        deserializer.deserialize_struct("AzCloudCfg", &["active", "clouds"], AzCloudCfgVisitor)
+        deserializer.deserialize_map(AzCloudsCfgVisitor)
     }
 }
 
@@ -190,7 +164,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_active() {
-        let mut cfg = AzCloudCfg::default();
+        let mut cfg = AzCloudsCfg::default();
         {
             let active = cfg.get_active();
             assert_eq!(active.name, AzCloud::AzureCloud);
@@ -228,9 +202,9 @@ mod tests {
     #[tokio::test]
     async fn test_deserialize_with_missing_every_field() {
         let json = json!({});
-        let cfg: AzCloudCfg = serde_json::from_value(json).unwrap();
-        assert_eq!(cfg.active, AzCloud::AzureCloud);
-        assert!(cfg.clouds.contains_key(&AzCloud::AzureCloud));
+        let cfg: AzCloudsCfg = serde_json::from_value(json).unwrap();
+        assert_eq!(cfg.get_active().name, AzCloud::AzureCloud);
+        assert!(cfg.0.contains_key(&AzCloud::AzureCloud));
         let active = cfg.get_active();
         let endpoint = active.get_endpoint(&endpoint::AUTHENTICATION).await;
         assert_eq!(
@@ -247,11 +221,14 @@ mod tests {
     #[tokio::test]
     async fn test_deserialize_with_missing_clouds() {
         let json = json!({
-            "active": "AzureChinaCloud"
+            "AzureChinaCloud": {
+                "name": "AzureChinaCloud",
+                "active": true,
+            }
         });
-        let cfg: AzCloudCfg = serde_json::from_value(json).unwrap();
-        assert_eq!(cfg.active, AzCloud::AzureChinaCloud);
-        assert!(cfg.clouds.contains_key(&AzCloud::AzureChinaCloud));
+        let cfg: AzCloudsCfg = serde_json::from_value(json).unwrap();
+        assert_eq!(cfg.get_active().name, AzCloud::AzureChinaCloud);
+        assert!(cfg.0.contains_key(&AzCloud::AzureChinaCloud));
         let active = cfg.get_active();
         let endpoint = active.get_endpoint(&endpoint::AUTHENTICATION).await;
         assert_eq!(endpoint.as_ref().unwrap(), "https://login.chinacloudapi.cn");
@@ -265,21 +242,20 @@ mod tests {
     #[tokio::test]
     async fn test_deserialize_with_all_fields() {
         let json = json!({
-            "active": "AzureCloud",
-            "clouds": {
-                "AzureCloud": {
-                    "endpoints": {
-                        "authentication": "https://test.resource.com"
-                    },
-                    "resourceIds": {
-                        "authentication": "https://test.resource.com/"
-                    }
+            "AzureCloud": {
+                "name": "AzureCloud",
+                "active": true,
+                "endpoints": {
+                    "authentication": "https://test.resource.com"
+                },
+                "resourceIds": {
+                    "authentication": "https://test.resource.com/"
                 }
             }
         });
-        let cfg: AzCloudCfg = serde_json::from_value(json).unwrap();
-        assert_eq!(cfg.active, AzCloud::AzureCloud);
-        assert!(cfg.clouds.contains_key(&AzCloud::AzureCloud));
+        let cfg: AzCloudsCfg = serde_json::from_value(json).unwrap();
+        assert_eq!(cfg.get_active().name, AzCloud::AzureCloud);
+        assert!(cfg.0.contains_key(&AzCloud::AzureCloud));
         let active = cfg.get_active();
         let endpoint = active.get_endpoint(&endpoint::AUTHENTICATION).await;
         assert_eq!(endpoint.as_ref().unwrap(), "https://test.resource.com");
@@ -290,29 +266,30 @@ mod tests {
     #[tokio::test]
     async fn test_deserialize_with_custom_cloud() {
         let json = json!({
-            "active": "CustomCloud",
-            "clouds": {
-                "AzureCloud": {
-                    "name": "AzureCloud",
-                    "endpoints": {
-                        "authentication": "https://test.resource.com"
-                    },
+            "AzureCloud": {
+                "name": "AzureCloud",
+                "endpoints": {
+                    "authentication": "https://test.resource.com"
                 },
-                "CustomCloud": {
-                    "name": "CustomCloud",
-                    "endpoints": {
-                        "authentication": "https://test.custom.resource.com"
-                    },
-                    "resourceIds": {
-                        "authentication": "https://test.custom.resource.com/"
-                    }
+            },
+            "CustomCloud": {
+                "name": "CustomCloud",
+                "active": true,
+                "endpoints": {
+                    "authentication": "https://test.custom.resource.com"
+                },
+                "resourceIds": {
+                    "authentication": "https://test.custom.resource.com/"
                 }
             }
         });
-        let mut cfg: AzCloudCfg = serde_json::from_value(json).unwrap();
-        assert_eq!(cfg.active, AzCloud::Custom("CustomCloud".to_string()));
+        let mut cfg: AzCloudsCfg = serde_json::from_value(json).unwrap();
+        assert_eq!(
+            cfg.get_active().name,
+            AzCloud::Custom("CustomCloud".to_string())
+        );
         assert!(cfg
-            .clouds
+            .0
             .contains_key(&AzCloud::Custom("CustomCloud".to_string())));
 
         {
@@ -344,26 +321,25 @@ mod tests {
 
     #[test]
     fn test_serialize_empty_clouds() {
-        let mut cfg = AzCloudCfg {
-            active: AzCloud::AzureCloud,
-            clouds: HashMap::new(),
-        };
+        let mut cfg = AzCloudsCfg::default();
         let json = serde_json::to_value(&cfg).unwrap();
-        assert_eq!(json["active"], "AzureCloud");
-        assert!(!json.as_object().unwrap().contains_key("clouds"));
-
+        assert_eq!(
+            json,
+            json!({
+                "AzureCloud": {
+                    "name": "AzureCloud",
+                    "active": true,
+                }
+            })
+        );
         cfg.set_active(AzCloud::AzureCloud).unwrap();
         let json = serde_json::to_value(&cfg).unwrap();
         assert_eq!(
             json,
             json!({
-                "active": "AzureCloud",
-                "clouds": {
-                    "AzureCloud": {
-                        "name": "AzureCloud",
-                        "endpoints": {},
-                        "resourceIds": {},
-                    }
+                "AzureCloud": {
+                    "name": "AzureCloud",
+                    "active": true,
                 }
             })
         );
@@ -373,18 +349,12 @@ mod tests {
         assert_eq!(
             json,
             json!({
-                "active": "AzureChinaCloud",
-                "clouds": {
-                    "AzureCloud": {
-                        "name": "AzureCloud",
-                        "endpoints": {},
-                        "resourceIds": {},
-                    },
-                    "AzureChinaCloud": {
-                        "name": "AzureChinaCloud",
-                        "endpoints": {},
-                        "resourceIds": {},
-                    }
+                "AzureCloud": {
+                    "name": "AzureCloud",
+                },
+                "AzureChinaCloud": {
+                    "name": "AzureChinaCloud",
+                    "active": true,
                 }
             })
         );
@@ -397,6 +367,7 @@ mod tests {
             AzCloud::AzureCloud,
             AzCloudMetadata {
                 name: AzCloud::AzureCloud,
+                active: true,
                 endpoints: endpoint::EndpointMap::from([(
                     &endpoint::AUTHENTICATION,
                     "https://test.endpoint.com",
@@ -408,28 +379,83 @@ mod tests {
             },
         );
 
-        let cfg = AzCloudCfg {
-            active: AzCloud::AzureCloud,
-            clouds,
-        };
+        let cfg = AzCloudsCfg(clouds);
 
         let json = serde_json::to_value(&cfg).unwrap();
         assert_eq!(
             json,
             json!({
-                "active": "AzureCloud",
-                "clouds": {
-                    "AzureCloud": {
-                        "name": "AzureCloud",
-                        "endpoints": {
-                            "authentication": "https://test.endpoint.com"
-                        },
-                        "resourceIds": {
-                            "authentication": "https://test.resource.com/"
-                        }
+                "AzureCloud": {
+                    "name": "AzureCloud",
+                    "active": true,
+                    "endpoints": {
+                        "authentication": "https://test.endpoint.com"
+                    },
+                    "resourceIds": {
+                        "authentication": "https://test.resource.com/"
                     }
                 }
             })
         )
+    }
+
+    #[tokio::test]
+    async fn test_deserialize_multiple_active_clouds() {
+        let json = json!({
+            "AzureCloud": {
+                "name": "AzureCloud",
+                "active": true,
+                "endpoints": {
+                    "authentication": "https://test.resource.com"
+                }
+            },
+            "AzureChinaCloud": {
+                "name": "AzureChinaCloud",
+                "active": true,
+                "endpoints": {
+                    "authentication": "https://test.china.resource.com"
+                }
+            }
+        });
+        let cfg: AzCloudsCfg = serde_json::from_value(json).unwrap();
+        assert_eq!(cfg.get_active().name, AzCloud::AzureChinaCloud);
+        assert!(!cfg.0.get(&AzCloud::AzureCloud).unwrap().active);
+    }
+
+    #[tokio::test]
+    async fn test_deserialize_no_active_cloud() {
+        let json = json!({
+            "AzureCloud": {
+                "name": "AzureCloud",
+                "active": false,
+                "endpoints": {
+                    "authentication": "https://test.resource.com"
+                }
+            },
+            "AzureChinaCloud": {
+                "name": "AzureChinaCloud",
+                "active": false,
+                "endpoints": {
+                    "authentication": "https://test.china.resource.com"
+                }
+            }
+        });
+        let cfg: AzCloudsCfg = serde_json::from_value(json).unwrap();
+        assert_eq!(cfg.get_active().name, AzCloud::AzureCloud);
+        assert!(cfg.0.get(&AzCloud::AzureCloud).unwrap().active);
+
+        // will insert AzureCloud as active cloud
+        let json = json!({
+            "AzureChinaCloud": {
+                "name": "AzureChinaCloud",
+                "active": false,
+                "endpoints": {
+                    "authentication": "https://test.china.resource.com"
+                }
+            }
+        });
+        let cfg: AzCloudsCfg = serde_json::from_value(json).unwrap();
+        assert_eq!(cfg.get_active().name, AzCloud::AzureCloud);
+        assert!(cfg.0.get(&AzCloud::AzureCloud).unwrap().active);
     }
 }

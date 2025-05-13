@@ -8,7 +8,7 @@ use std::{
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-pub use cfg::AzCloudCfg;
+pub use cfg::AzCloudsCfg;
 pub use metadata::{endpoint, resource_id, AzCloudMetadata};
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]

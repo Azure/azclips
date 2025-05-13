@@ -7,7 +7,7 @@ use std::io::{Read, Write};
 use std::{env, path::PathBuf, sync::OnceLock};
 
 pub(crate) use cloud::AzCloud;
-use cloud::AzCloudCfg;
+use cloud::AzCloudsCfg;
 use serde::{Deserialize, Serialize};
 
 use crate::error::AzInternalError;
@@ -17,7 +17,7 @@ const DEFAULT_CONFIG_DIR: &str = ".cirrus";
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub(crate) struct AzCfg {
-    pub(crate) cloud: AzCloudCfg,
+    pub(crate) clouds: AzCloudsCfg,
     pub(crate) settings: Map<String, Value>,
 }
 

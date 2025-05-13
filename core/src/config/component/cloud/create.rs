@@ -31,23 +31,21 @@ impl AzCmdExecute for CreateCloud {
     type Output = AzCloudMetadata;
 
     async fn run<T: AzComponentCtx>(&self, ctx: &T) -> Result<Option<Self::Output>, AzError> {
-        let cloud_metadata = AzCloudMetadata {
+        let mut cloud_metadata = AzCloudMetadata {
             name: self.name.to_owned(),
+            active: false,
             endpoints: self.endpoints.to_owned(),
             resource_ids: self.resource_ids.to_owned(),
         };
-
         {
             let core = AzCore::instance().await;
             let mut cfg = core.cfg.write().await;
-            cfg.cloud
-                .clouds
-                .insert(self.name.to_owned(), cloud_metadata);
+            cloud_metadata.active = cfg.clouds.get_active().name == self.name;
+            cfg.clouds.0.insert(self.name.to_owned(), cloud_metadata);
             cfg.save()?;
         }
-
         let cfg = ctx.get_cfg().await;
-        let cloud = cfg.cloud.get_cloud(&self.name)?;
+        let cloud = cfg.clouds.get_cloud(&self.name)?;
         Ok(Some(cloud))
     }
 }

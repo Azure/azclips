@@ -170,6 +170,10 @@ impl ResourceIdMap {
         self.0.write().unwrap().remove(name)
     }
 
+    pub fn clear(&mut self) {
+        self.0.write().unwrap().clear();
+    }
+
     pub fn from<'a>(iter: impl IntoIterator<Item = (&'a ResourceIdName, &'a str)>) -> Self {
         let map = iter
             .into_iter()

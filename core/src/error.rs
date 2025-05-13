@@ -7,6 +7,9 @@ pub enum AzUserUsageError {
     #[error("The cloud name `{0}` is not registered.")]
     CloudUnregisteredError(String),
 
+    #[error("The cloud `{0}` is active, please switch the active cloud first.")]
+    CloudActiveError(String),
+
     #[error("Command not found: {0}")]
     CommandNotFoundError(String),
 

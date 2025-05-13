@@ -30,7 +30,7 @@ impl AzCmdExecute for ActivateCloud {
         let core = AzCore::instance().await;
         core.switch_cloud(&self.name).await?;
         let cfg = ctx.get_cfg().await;
-        Ok(Some(cfg.cloud.get_active().to_owned()))
+        Ok(Some(cfg.clouds.get_active().to_owned()))
     }
 }
 

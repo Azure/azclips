@@ -58,7 +58,7 @@ impl AzCore {
     /// Create a new instance of AzCore
     async fn new() -> Self {
         let cfg = AzCfg::load().expect("failed to load config");
-        let component_center = AzComponentCenter::<Self>::new(&cfg.cloud.active)
+        let component_center = AzComponentCenter::<Self>::new(&cfg.clouds.get_active().name)
             .await
             .expect("failed to create component center");
         // Perform async initialization here
@@ -263,7 +263,7 @@ impl AzCore {
     async fn switch_cloud<'a>(&'a self, cloud: &AzCloud) -> AzResult<()> {
         {
             let mut cfg = self.cfg.write().await;
-            _ = cfg.cloud.set_active(cloud.clone())?;
+            _ = cfg.clouds.set_active(cloud.clone())?;
             cfg.save()?;
         }
         self.component_center

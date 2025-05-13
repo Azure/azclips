@@ -5,10 +5,10 @@ use endpoint::{EndpointName, BUILTIN_ENDPOINT_MAPS};
 use resource_id::{ResourceIdName, BUILTIN_RESOURCE_ID_MAPS};
 
 use super::AzCloud;
-use serde::{Deserialize, Serialize};
+use serde::{ser::SerializeMap, Deserialize, Serialize, Serializer};
 use tracing::error;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AzCloudMetadata {
     // When serialize into cfg file the name will be ignored, so use the default value of AzCloud.
@@ -16,9 +16,11 @@ pub struct AzCloudMetadata {
     #[serde(default)]
     pub name: AzCloud,
     #[serde(default)]
-    pub(crate) endpoints: endpoint::EndpointMap,
+    pub active: bool,
     #[serde(default)]
-    pub(crate) resource_ids: resource_id::ResourceIdMap,
+    pub endpoints: endpoint::EndpointMap,
+    #[serde(default)]
+    pub resource_ids: resource_id::ResourceIdMap,
 }
 
 impl AzCloudMetadata {
@@ -89,6 +91,37 @@ impl AzCloudMetadata {
     }
 }
 
+impl Serialize for AzCloudMetadata {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut map = serializer.serialize_map(None)?;
+
+        // Always serialize name
+        map.serialize_entry("name", &self.name)?;
+
+        // Only serialize active if it's true
+        if self.active {
+            map.serialize_entry("active", &self.active)?;
+        }
+
+        // Only serialize endpoints if it's not empty
+        let endpoints = self.endpoints.0.read().unwrap();
+        if !endpoints.is_empty() {
+            map.serialize_entry("endpoints", &self.endpoints)?;
+        }
+
+        // Only serialize resourceIds if it's not empty
+        let resource_ids = self.resource_ids.0.read().unwrap();
+        if !resource_ids.is_empty() {
+            map.serialize_entry("resourceIds", &self.resource_ids)?;
+        }
+
+        map.end()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -100,6 +133,7 @@ mod tests {
         // the name field should be ignored in the serialization as the hashmap key is the cloud name
         let metadata = AzCloudMetadata {
             name: AzCloud::AzureCloud,
+            active: true,
             endpoints: endpoint::EndpointMap::from([(
                 &endpoint::AUTHENTICATION,
                 "https://test.endpoint.com",
@@ -112,8 +146,9 @@ mod tests {
 
         let json = serde_json::to_value(&metadata).unwrap();
         assert!(json["name"] == "AzureCloud");
+        assert!(json["active"] == true);
         assert!(json["endpoints"]["authentication"] == "https://test.endpoint.com");
-        assert!(json["resource_ids"]["authentication"] == "https://test.resource.com/");
+        assert!(json["resourceIds"]["authentication"] == "https://test.resource.com/");
     }
 
     #[test]
@@ -121,14 +156,16 @@ mod tests {
         // the empty endpoints and resource_ids should not be ignored
         let metadata = AzCloudMetadata {
             name: AzCloud::AzureCloud,
+            active: false,
             endpoints: Default::default(),
             resource_ids: Default::default(),
         };
 
         let json = serde_json::to_value(&metadata).unwrap();
         assert!(json["name"] == "AzureCloud");
-        assert!(json.as_object().unwrap().contains_key("endpoints"));
-        assert!(json.as_object().unwrap().contains_key("resource_ids"));
+        assert!(!json.as_object().unwrap().contains_key("active"));
+        assert!(!json.as_object().unwrap().contains_key("endpoints"));
+        assert!(!json.as_object().unwrap().contains_key("resourceIds"));
     }
 
     #[test]
@@ -144,6 +181,7 @@ mod tests {
 
         let metadata: AzCloudMetadata = serde_json::from_value(json).unwrap();
         assert_eq!(metadata.name, AzCloud::AzureCloud); // Default value, the name field will be set during AzCloudCfg deserialization based on the hashmap key
+        assert!(metadata.active == false);
         assert_eq!(
             metadata
                 .endpoints
@@ -170,6 +208,7 @@ mod tests {
     fn test_deserialize_metadata_without_resource_ids() {
         let json = json!({
             "name": "AzureChinaCloud",
+            "active": true,
             "endpoints": {
                 "authentication": "https://test.endpoint.com"
             },
@@ -177,6 +216,7 @@ mod tests {
 
         let metadata: AzCloudMetadata = serde_json::from_value(json).unwrap();
         assert_eq!(metadata.name, AzCloud::AzureChinaCloud); // Default value, the name field will be set during AzCloudCfg deserialization based on the hashmap key
+        assert!(metadata.active == true);
         assert_eq!(
             metadata
                 .endpoints
@@ -194,6 +234,7 @@ mod tests {
     fn test_deserialize_metadata_without_endpoints() {
         let json = json!({
             "name": "AzureChinaCloud",
+            "active": false,
             "resourceIds": {
                 "authentication": "https://test.resource.com/"
             }
@@ -201,6 +242,7 @@ mod tests {
 
         let metadata: AzCloudMetadata = serde_json::from_value(json).unwrap();
         assert_eq!(metadata.name, AzCloud::AzureChinaCloud); // Default value, the name field will be set during AzCloudCfg deserialization based on the hashmap key
+        assert!(metadata.active == false);
         assert_eq!(
             metadata
                 .resource_ids
