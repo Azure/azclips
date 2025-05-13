@@ -15,10 +15,9 @@ use crate::{
     component::{AzCmd, AzCmdGroup, AzComponent, AzComponentCtx},
     error::{AzError, AzInternalError},
     pb::{
-        cmd_interface, execute_response::Data, CmdComponent, CmdHelp, CmdInterface,
-        CmdOutputFormat, CmdParams, ComponentMetadata, ExecuteRequest, ExecuteResponse,
-        InterfaceRequest, InterfaceResponse, MetadataRequest, MetadataResponse, ValidateRequest,
-        ValidateResponse,
+        cmd_interface, execute_response, CmdComponent, CmdHelp, CmdInterface, CmdOutputFormat,
+        CmdParams, ComponentMetadata, ExecuteRequest, ExecuteResponse, InterfaceRequest,
+        InterfaceResponse, MetadataRequest, MetadataResponse, ValidateRequest, ValidateResponse,
     },
     VERSION,
 };
@@ -33,7 +32,7 @@ impl AzCmdGroup for ConfigComponent {
     fn cmd_interface(depth: Option<u32>) -> CmdInterface {
         let mut groups = vec![];
         let mut commands = vec![];
-        if depth.is_none() || depth.unwrap() > 0 {
+        if !depth.is_some_and(|d| d == 0) {
             let depth = depth.map(|d| d - 1);
             groups.push(CloudCommandGroup::cmd_interface(depth));
             commands.push(GetConfig::cmd_interface(depth));
@@ -86,7 +85,7 @@ impl AzCmdGroup for ConfigComponent {
         mut segments: impl Iterator<Item = String> + Send,
         params: Option<CmdParams>,
         output_format: Option<CmdOutputFormat>,
-    ) -> Result<Data, AzError> {
+    ) -> Result<execute_response::Data, AzError> {
         match segments.next().as_deref() {
             Some("get") => GetConfig::execute(ctx, params, output_format).await,
             Some("set") => SetConfig::execute(ctx, params, output_format).await,
