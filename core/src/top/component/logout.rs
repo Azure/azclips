@@ -58,7 +58,7 @@ impl Logout {
                 short: "The username to log out from Azure.".to_string(),
                 ..Default::default()
             }),
-            arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+            arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                 format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
                 ..Default::default()
             })),

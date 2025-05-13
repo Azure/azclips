@@ -122,7 +122,7 @@ impl AzCmd for UpdateCloud {
                 }),
                 options: vec!["name".to_string()],
                 required: true,
-                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                     ..Default::default()
                 })),
                 ..Default::default()
@@ -146,7 +146,7 @@ impl AzCmd for UpdateCloud {
                                 short: "The custom endpoint used in the cloud".to_string(),
                                 long: None,
                             }),
-                            arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                            arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                                 ..Default::default()
                             })),
                             ..Default::default()
@@ -175,7 +175,7 @@ impl AzCmd for UpdateCloud {
                                 short: "The custom resource id used in the cloud".to_string(),
                                 long: None,
                             }),
-                            arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                            arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                                 ..Default::default()
                             })),
                             ..Default::default()

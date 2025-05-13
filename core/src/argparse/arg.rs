@@ -125,7 +125,7 @@ impl CmdArgWrapper<'_> {
         // apply enum transform
         if let Some(v) = value.as_str() {
             match arg_type {
-                cmd_arg::ArgType::Str(str_type) => {
+                cmd_arg::ArgType::String(str_type) => {
                     if let Some(e) = str_type.r#enum.as_ref() {
                         if let Some(v) = e.find_value_by_name(v)? {
                             value = v;
@@ -167,7 +167,7 @@ impl CmdArgWrapper<'_> {
                 cmd_arg::ArgType::AnyType(_) => {
                     // do nothing
                 }
-                cmd_arg::ArgType::Str(str_type) => {
+                cmd_arg::ArgType::String(str_type) => {
                     if let Some(arg_enum) = str_type.r#enum.as_ref() {
                         value = arg_enum.validate_value(value).map_err(|e| {
                             if let AzError::UserUsage(
@@ -317,7 +317,7 @@ impl<'a> CmdArgWrapper<'a> {
                         .into());
                     }
                 },
-                cmd_arg::ArgType::Str(_) => {
+                cmd_arg::ArgType::String(_) => {
                     return Err(AzUserUsageError::InvalidArgumentValueError(format!(
                         "'{}' argument is string type and cannot support internal access by '{}'",
                         prefix_keys, part

@@ -69,7 +69,7 @@ impl GetAccessToken {
                     short: "Name or ID of subscription.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                     format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
                     ..Default::default()
                 })),
@@ -83,7 +83,7 @@ impl GetAccessToken {
                     short: "Azure resource endpoints in Microsoft Entra v1.0.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                     format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
                     ..Default::default()
                 })),
@@ -97,7 +97,7 @@ impl GetAccessToken {
                     short: "Type of well-known resource.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                     format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
                     ..Default::default()
                 })),
@@ -111,7 +111,7 @@ impl GetAccessToken {
                     short: "Scope of the resource to access.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                     format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
                     ..Default::default()
                 })),
@@ -125,7 +125,7 @@ impl GetAccessToken {
                     short: "Tenant ID of the resource to access.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                     format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
                     ..Default::default()
                 })),

@@ -255,7 +255,7 @@ fn append_table(table: &mut Vec<HelpTableLine>, key: impl ToString, value: &Opti
 
 pub fn arg_format_table(arg_type: &cmd_arg::ArgType) -> Vec<HelpTableLine> {
     match arg_type {
-        cmd_arg::ArgType::Str(arg) => arg.help_table(),
+        cmd_arg::ArgType::String(arg) => arg.help_table(),
         cmd_arg::ArgType::Number(arg) => arg.help_table(),
         cmd_arg::ArgType::Boolean(arg) => arg.help_table(),
         cmd_arg::ArgType::Object(arg) => arg.help_table(),
@@ -267,7 +267,7 @@ pub fn arg_format_table(arg_type: &cmd_arg::ArgType) -> Vec<HelpTableLine> {
 
 pub fn arg_enum_table(arg_type: &cmd_arg::ArgType) -> Vec<HelpTableLine> {
     match arg_type {
-        cmd_arg::ArgType::Str(CmdStringArg {
+        cmd_arg::ArgType::String(CmdStringArg {
             r#enum: Some(enum_type),
             format: _,
         })
@@ -275,7 +275,7 @@ pub fn arg_enum_table(arg_type: &cmd_arg::ArgType) -> Vec<HelpTableLine> {
             r#enum: Some(enum_type),
             format: _,
         }) => enum_type.help_table(),
-        cmd_arg::ArgType::Str(CmdStringArg {
+        cmd_arg::ArgType::String(CmdStringArg {
             r#enum: None,
             format: _,
         }) => vec![],
@@ -319,7 +319,7 @@ pub fn arg_props_tables(arg_type: &cmd_arg::ArgType) -> HashMap<String, Vec<Help
             }
         }
         cmd_arg::ArgType::Array(_) => {}
-        cmd_arg::ArgType::Str(_) => {}
+        cmd_arg::ArgType::String(_) => {}
         cmd_arg::ArgType::Number(_) => {}
         cmd_arg::ArgType::Boolean(_) => {}
         cmd_arg::ArgType::Cls(_) => {}

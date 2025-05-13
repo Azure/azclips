@@ -56,7 +56,7 @@ message CMDArg {
   CMDArgPromptInput prompt = 11; // prompt input of the argument
   oneof arg_type {
     CMDClsArg cls = 31;
-    CMDStringArg str = 32;
+    CMDStringArg string = 32;
     CMDNumberArg number = 33;
     CMDBooleanArg boolean = 34;
     CMDObjectArg object = 35;

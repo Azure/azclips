@@ -115,7 +115,7 @@ macro_rules! standard_endpoints {
                                 options: vec![unsafe { std::str::from_utf8_unchecked($kebab_bytes) }.to_string()],
                                 required: false,
                                 nullable,
-                                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                                     ..Default::default()
                                 })),
                                 ..Default::default()
@@ -218,7 +218,7 @@ macro_rules! standard_suffixes {
                                 options: vec![unsafe { std::str::from_utf8_unchecked($kebab_bytes) }.to_string()],
                                 required: false,
                                 nullable,
-                                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                                     ..Default::default()
                                 })),
                                 ..Default::default()

@@ -25,7 +25,7 @@ impl command::CmdArg {
 impl fmt::Display for command::cmd_arg::ArgType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            command::cmd_arg::ArgType::Str(str_type) => match &str_type.format {
+            command::cmd_arg::ArgType::String(str_type) => match &str_type.format {
                 None => write!(f, "[string]"),
                 Some(format) => match format {
                     command::cmd_string_arg::Format::Binary(_) => write!(f, "[file]"),

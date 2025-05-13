@@ -115,7 +115,7 @@ pub mod cmd_arg {
         #[prost(message, tag = "31")]
         Cls(super::CmdClsArg),
         #[prost(message, tag = "32")]
-        Str(super::CmdStringArg),
+        String(super::CmdStringArg),
         #[prost(message, tag = "33")]
         Number(super::CmdNumberArg),
         #[prost(message, tag = "34")]

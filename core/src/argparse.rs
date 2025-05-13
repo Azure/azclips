@@ -20,9 +20,9 @@ pub fn parse_arg_values<'a>(
     values: impl IntoIterator<Item = &'a str>,
 ) -> AzResult<Vec<ArgOp>> {
     match arg.unwrapped_arg_type() {
-        cmd_arg::ArgType::Str(_) | cmd_arg::ArgType::Number(_) | cmd_arg::ArgType::Boolean(_) => {
-            parse_simple_arg(arg, values)
-        }
+        cmd_arg::ArgType::String(_)
+        | cmd_arg::ArgType::Number(_)
+        | cmd_arg::ArgType::Boolean(_) => parse_simple_arg(arg, values),
 
         cmd_arg::ArgType::AnyType(_) => parse_any_type_arg(arg, values),
 
@@ -258,7 +258,7 @@ mod tests {
         str_arg.nullable = true;
         let mut str_type = CmdStringArg::default();
         str_type.format = Some(cmd_string_arg::Format::String(CmdStringFormat::default()));
-        str_arg.arg_type = Some(cmd_arg::ArgType::Str(str_type));
+        str_arg.arg_type = Some(cmd_arg::ArgType::String(str_type));
         cmd.args.push(str_arg);
 
         // prompt input arg
@@ -273,7 +273,7 @@ mod tests {
         });
         let mut str_type = CmdStringArg::default();
         str_type.format = Some(cmd_string_arg::Format::String(CmdStringFormat::default()));
-        prompt_input_arg.arg_type = Some(cmd_arg::ArgType::Str(str_type));
+        prompt_input_arg.arg_type = Some(cmd_arg::ArgType::String(str_type));
         cmd.args.push(prompt_input_arg);
 
         // size arg
@@ -411,7 +411,7 @@ mod tests {
         str_arg.nullable = true;
         let mut str_type = CmdStringArg::default();
         str_type.format = Some(cmd_string_arg::Format::String(CmdStringFormat::default()));
-        str_arg.arg_type = Some(cmd_arg::ArgType::Str(str_type));
+        str_arg.arg_type = Some(cmd_arg::ArgType::String(str_type));
         cmd.args.push(str_arg);
 
         // prompt input arg
@@ -426,7 +426,7 @@ mod tests {
         });
         let mut str_type = CmdStringArg::default();
         str_type.format = Some(cmd_string_arg::Format::String(CmdStringFormat::default()));
-        prompt_input_arg.arg_type = Some(cmd_arg::ArgType::Str(str_type));
+        prompt_input_arg.arg_type = Some(cmd_arg::ArgType::String(str_type));
         cmd.args.push(prompt_input_arg);
 
         // size arg
@@ -504,7 +504,7 @@ mod tests {
         str_arg.name = "str".to_string();
         str_arg.options = vec!["str".to_string()];
         str_arg.nullable = true;
-        str_arg.arg_type = Some(cmd_arg::ArgType::Str(CmdStringArg::default()));
+        str_arg.arg_type = Some(cmd_arg::ArgType::String(CmdStringArg::default()));
         object_type.props.push(str_arg);
         // define the number property type
         let mut num_arg = CmdArg::default();
@@ -528,7 +528,7 @@ mod tests {
         let mut array_type = CmdArrayArg::default();
         let mut array_item_arg = CmdArg::default();
         array_item_arg.nullable = true;
-        array_item_arg.arg_type = Some(cmd_arg::ArgType::Str(CmdStringArg::default()));
+        array_item_arg.arg_type = Some(cmd_arg::ArgType::String(CmdStringArg::default()));
         array_type.item = Some(Box::new(array_item_arg));
         array_arg.arg_type = Some(cmd_arg::ArgType::Array(Box::new(array_type)));
         object_type.props.push(array_arg);
@@ -540,7 +540,7 @@ mod tests {
         let mut dict_type = CmdObjectArg::default();
         let mut tag_arg = CmdArg::default();
         tag_arg.nullable = true;
-        tag_arg.arg_type = Some(cmd_arg::ArgType::Str(CmdStringArg::default()));
+        tag_arg.arg_type = Some(cmd_arg::ArgType::String(CmdStringArg::default()));
         dict_type.additional_props = Some(Box::new(CmdObjectArgAdditionalProperties {
             item: Some(Box::new(tag_arg)),
         }));
@@ -566,7 +566,7 @@ mod tests {
         str_arg.name = "str".to_string();
         str_arg.options = vec!["str".to_string()];
         str_arg.nullable = true;
-        str_arg.arg_type = Some(cmd_arg::ArgType::Str(CmdStringArg::default()));
+        str_arg.arg_type = Some(cmd_arg::ArgType::String(CmdStringArg::default()));
         object_type.props.push(str_arg);
         object_arg.arg_type = Some(cmd_arg::ArgType::Object(Box::new(object_type)));
         cmd.args.push(object_arg);
@@ -579,7 +579,7 @@ mod tests {
         let mut array_type = CmdArrayArg::default();
         let mut array_item_arg = CmdArg::default();
         array_item_arg.nullable = true;
-        array_item_arg.arg_type = Some(cmd_arg::ArgType::Str(CmdStringArg::default()));
+        array_item_arg.arg_type = Some(cmd_arg::ArgType::String(CmdStringArg::default()));
         array_type.item = Some(Box::new(array_item_arg));
         array_arg.arg_type = Some(cmd_arg::ArgType::Array(Box::new(array_type)));
         cmd.args.push(array_arg);
@@ -861,7 +861,7 @@ mod tests {
         str_arg.name = "str".to_string();
         str_arg.options = vec!["str".to_string()];
         str_arg.nullable = true;
-        str_arg.arg_type = Some(cmd_arg::ArgType::Str(CmdStringArg::default()));
+        str_arg.arg_type = Some(cmd_arg::ArgType::String(CmdStringArg::default()));
         object_type.props.push(str_arg);
         // define the number property type
         let mut num_arg = CmdArg::default();
@@ -885,7 +885,7 @@ mod tests {
         let mut array_type = CmdArrayArg::default();
         let mut array_item_arg = CmdArg::default();
         array_item_arg.nullable = true;
-        array_item_arg.arg_type = Some(cmd_arg::ArgType::Str(CmdStringArg::default()));
+        array_item_arg.arg_type = Some(cmd_arg::ArgType::String(CmdStringArg::default()));
         array_type.item = Some(Box::new(array_item_arg));
         array_arg.arg_type = Some(cmd_arg::ArgType::Array(Box::new(array_type)));
         object_type.props.push(array_arg);
@@ -897,7 +897,7 @@ mod tests {
         let mut dict_type = CmdObjectArg::default();
         let mut tag_arg = CmdArg::default();
         tag_arg.nullable = true;
-        tag_arg.arg_type = Some(cmd_arg::ArgType::Str(CmdStringArg::default()));
+        tag_arg.arg_type = Some(cmd_arg::ArgType::String(CmdStringArg::default()));
         dict_type.additional_props = Some(Box::new(CmdObjectArgAdditionalProperties {
             item: Some(Box::new(tag_arg)),
         }));

@@ -129,7 +129,7 @@ impl Login {
                         .to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                     format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
                     ..Default::default()
                 })),
@@ -149,7 +149,7 @@ impl Login {
                     secret: true,
                     confirm: false,
                 }),
-                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                     format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
                     ..Default::default()
                 })),
@@ -168,7 +168,7 @@ impl Login {
                     item: Some(Box::new(CmdArg {
                         var_name: "scope_item".to_string(),
                         name: "scope_item".to_string(),
-                        arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                        arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                             format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
                             ..Default::default()
                         })),
@@ -201,7 +201,7 @@ impl Login {
                     short: "The Microsoft Entra tenant, must be provided when using a service principal.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                     format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
                     ..Default::default()
                 })),
@@ -248,7 +248,7 @@ impl Login {
                     short: "PEM certificate content. You can use `file://path/to/cert.pem` to pass from a file.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                     format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
                     ..Default::default()
                 })),
@@ -262,7 +262,7 @@ impl Login {
                     short: "Federated token that can be used for OIDC token exchange.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                     format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
                     ..Default::default()
                 })),
@@ -289,7 +289,7 @@ impl Login {
                     short: "Client ID of the user-assigned managed identity.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                     format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
                     ..Default::default()
                 })),
@@ -304,7 +304,7 @@ impl Login {
                     short: "Object ID of the user-assigned managed identity.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                     format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
                     ..Default::default()
                 })),
@@ -319,7 +319,7 @@ impl Login {
                     short: "Resource ID of the user-assigned managed identity.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                     format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
                     ..Default::default()
                 })),

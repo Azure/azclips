@@ -67,7 +67,7 @@ impl AzCmd for GetConfig {
                 short: "The configuration to get.".to_string(),
                 long: Some(" If not provided, all sections and configurations will be listed. If `section` is provided, all configurations under the section will be listed. If `<section>.<key>` is provided, only the corresponding configuration is shown.".to_string())
             }),
-            arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+            arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                 format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
                 ..Default::default()
             })),
