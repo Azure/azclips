@@ -39,17 +39,19 @@ pub fn show_command_help(cmd_uri: CmdUri) {
 pub(crate) async fn show_command_help_async(cmd_uri: CmdUri) -> Result<(), AzError> {
     let term_width = crossterm::terminal::size().ok().map(|(w, _)| w as usize);
     let core = AzCore::instance().await;
-    let cmd_uri = core.check_cmd_uri(cmd_uri).await?;
-    if cmd_uri.executable() {
-        let cmd_interface = core.get_cmd_interface(&cmd_uri).await?;
+    let invocation = core.resolve_cmd_invocation(cmd_uri).await?;
+    if invocation.cmd_uri.executable() {
+        let cmd_interface = core.get_cmd_interface(&invocation).await?;
         // TODO: global arguments
         for line in default_help_formatter().format_cmd(&cmd_interface, None, term_width) {
             println!("{}", line);
         }
         Ok(())
     } else {
-        let cmd_interface = core.get_cmd_interface(&cmd_uri).await?;
-        let sub_components = core.get_metadata_of_sub_components(&cmd_uri).await?;
+        let cmd_interface = core.get_cmd_interface(&invocation).await?;
+        let sub_components = core
+            .get_metadata_of_sub_components(&invocation.cmd_uri)
+            .await?;
         for line in
             default_help_formatter().format_cmd(&cmd_interface, sub_components.values(), term_width)
         {
@@ -64,8 +66,8 @@ pub(crate) async fn show_command_arg_help_async(
     keys: SHPartialKeys,
 ) -> Result<(), AzError> {
     let core = AzCore::instance().await;
-    let cmd_uri = core.check_cmd_uri(cmd_uri).await?;
-    let cmd_interface = core.get_cmd_interface(&cmd_uri).await?;
+    let invocation = core.resolve_cmd_invocation(cmd_uri).await?;
+    let cmd_interface = core.get_cmd_interface(&invocation).await?;
     let cmd = match cmd_interface.level.unwrap() {
         cmd_interface::Level::Command(cmd) => cmd,
         _ => {
