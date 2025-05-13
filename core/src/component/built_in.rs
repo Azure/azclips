@@ -47,15 +47,11 @@ impl AzBuildIn {
 impl<T: AzComponentCtx> AzComponentCenter<T> {
     pub(super) fn load_built_in_components(&mut self) {
         self.built_ins
-            .insert(AzBuildIn::Top, Arc::new(Box::new(TopComponent::default())));
-        self.built_ins.insert(
-            AzBuildIn::Config,
-            Arc::new(Box::new(ConfigComponent::default())),
-        );
-        self.built_ins.insert(
-            AzBuildIn::Account,
-            Arc::new(Box::new(AccountComponent::default())),
-        );
+            .insert(AzBuildIn::Top, Arc::new(TopComponent::default()));
+        self.built_ins
+            .insert(AzBuildIn::Config, Arc::new(ConfigComponent::default()));
+        self.built_ins
+            .insert(AzBuildIn::Account, Arc::new(AccountComponent::default()));
     }
 }
 

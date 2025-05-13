@@ -212,7 +212,7 @@ impl AzCore {
 }
 
 impl AzCore {
-    async fn load_component(&self, cmd_uri: &CmdUri) -> AzResult<Arc<Box<dyn AzComponent<Self>>>> {
+    async fn load_component(&self, cmd_uri: &CmdUri) -> AzResult<Arc<dyn AzComponent<Self>>> {
         // TODO: add auto installation of the plugin based on the configuration
         let route = self.component_center.read().await.route(&cmd_uri).ok_or(
             AzUserUsageError::CommandNotFoundError(format!(
