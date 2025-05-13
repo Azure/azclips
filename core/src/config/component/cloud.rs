@@ -73,7 +73,7 @@ impl AzCmdGroup for CloudCommandGroup {
         }
     }
 
-    fn check_uri(mut segments: impl Iterator<Item = String>) -> Option<CmdUri> {
+    fn resolve_cmd_uri(mut segments: impl Iterator<Item = String>) -> Option<CmdUri> {
         match segments.next().as_deref() {
             None => Some(CloudCommandGroup::uri()),
             Some("activate") => Some(ActivateCloud::uri()),

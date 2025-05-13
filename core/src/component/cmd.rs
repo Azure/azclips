@@ -68,7 +68,7 @@ pub trait AzCmdGroup {
         segments: impl Iterator<Item = String>,
     ) -> Option<CmdInterface>;
 
-    fn check_uri(segments: impl Iterator<Item = String>) -> Option<CmdUri>;
+    fn resolve_cmd_uri(segments: impl Iterator<Item = String>) -> Option<CmdUri>;
 
     async fn execute_group<T: AzComponentCtx>(
         ctx: &T,

@@ -14,8 +14,8 @@ use crate::config::{cloud::AzCloud, AzCfg};
 use crate::error::{AzInternalError, AzResult, AzUserUsageError};
 use crate::param::CmdParamBuilder;
 use crate::pb::{
-    cmd_interface, execute_response, CheckRequest, CmdInterface, CmdOutputFlattenMode,
-    CmdOutputFormat, ComponentMetadata, ExecuteRequest, InterfaceRequest, MetadataRequest,
+    cmd_interface, execute_response, CmdInterface, CmdOutputFlattenMode, CmdOutputFormat,
+    ComponentMetadata, ExecuteRequest, InterfaceRequest, MetadataRequest, ValidateRequest,
 };
 
 pub struct AzCore {
@@ -57,12 +57,12 @@ impl AzCore {
         // TODO: add auto installation of the plugin based on the configuration
         let component = self.load_component(&cmd_uri).await?;
 
-        let request = CheckRequest {
+        let request = ValidateRequest {
             uri: cmd_uri.to_string(),
         };
 
         // TODO: add auto installation of the plugin based on the configuration
-        let cmd_uri = component.check(self, request).await?.uri.ok_or(
+        let cmd_uri = component.validate(self, request).await?.uri.ok_or(
             AzUserUsageError::CommandNotFoundError(format!("command not found {}", cmd_uri)),
         )?;
         let cmd_uri = CmdUri::from_str(&cmd_uri)?;

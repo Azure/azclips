@@ -11,9 +11,9 @@ use crate::{
     component::{AzComponent, AzComponentCtx},
     error::{AzError, AzInternalError},
     pb::{
-        cmd_interface, execute_response, CheckRequest, CheckResponse, CmdComponent, CmdHelp,
-        CmdInterface, ComponentMetadata, ExecuteRequest, ExecuteResponse, InterfaceRequest,
-        InterfaceResponse, MetadataRequest, MetadataResponse, None,
+        cmd_interface, execute_response, CmdComponent, CmdHelp, CmdInterface, ComponentMetadata,
+        ExecuteRequest, ExecuteResponse, InterfaceRequest, InterfaceResponse, MetadataRequest,
+        MetadataResponse, None, ValidateRequest, ValidateResponse,
     },
     VERSION,
 };
@@ -138,7 +138,7 @@ impl<T: AzComponentCtx> AzComponent<T> for TopComponent {
         })
     }
 
-    async fn check(&self, _: &T, request: CheckRequest) -> Result<CheckResponse, AzError> {
+    async fn validate(&self, _: &T, request: ValidateRequest) -> Result<ValidateResponse, AzError> {
         let skip = TopComponent::uri().segments().count();
         let cmd_uri = CmdUri::from_str(&request.uri).unwrap();
         let segments = cmd_uri.segments().skip(skip).collect::<Vec<_>>().join("/");
@@ -148,7 +148,7 @@ impl<T: AzComponentCtx> AzComponent<T> for TopComponent {
             "logout" => Some(Logout::uri().with_version(VERSION)),
             _ => None,
         };
-        Ok(CheckResponse {
+        Ok(ValidateResponse {
             uri: uri.map(|u| u.to_string()),
         })
     }
