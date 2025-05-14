@@ -2,8 +2,6 @@ mod cloud;
 mod get;
 mod set;
 
-use std::str::FromStr;
-
 use async_trait::async_trait;
 
 use cloud::CloudCommandGroup;
@@ -12,13 +10,11 @@ use set::SetConfig;
 
 use crate::{
     cmd_uri::CmdUri,
-    component::{AzCmd, AzCmdGroup, AzComponent, AzComponentCtx},
+    component::{AzCmd, AzCmdComponent, AzCmdGroup, AzComponentCtx},
     error::{AzError, AzInternalError},
     pb::{
-        cmd_interface, execute_response::Data, CmdComponent, CmdHelp, CmdInterface,
-        CmdOutputFormat, CmdParams, ComponentMetadata, ExecuteRequest, ExecuteResponse,
-        InterfaceRequest, InterfaceResponse, MetadataRequest, MetadataResponse, ValidateRequest,
-        ValidateResponse,
+        cmd_interface, execute_response, CmdComponent, CmdHelp, CmdInterface, CmdOutputFormat,
+        CmdParams,
     },
     VERSION,
 };
@@ -33,7 +29,7 @@ impl AzCmdGroup for ConfigComponent {
     fn cmd_interface(depth: Option<u32>) -> CmdInterface {
         let mut groups = vec![];
         let mut commands = vec![];
-        if depth.is_none() || depth.unwrap() > 0 {
+        if depth.is_none_or(|d| d > 0) {
             let depth = depth.map(|d| d - 1);
             groups.push(CloudCommandGroup::cmd_interface(depth));
             commands.push(GetConfig::cmd_interface(depth));
@@ -59,7 +55,7 @@ impl AzCmdGroup for ConfigComponent {
         mut segments: impl Iterator<Item = String>,
     ) -> Option<CmdInterface> {
         match segments.next().as_deref() {
-            None => Some(ConfigComponent::cmd_interface(depth)),
+            None => Some(Self::cmd_interface(depth)),
             Some("get") => Some(GetConfig::cmd_interface(depth)),
             Some("set") => Some(SetConfig::cmd_interface(depth)),
             Some("cloud") => CloudCommandGroup::get_interface(depth, segments),
@@ -69,7 +65,7 @@ impl AzCmdGroup for ConfigComponent {
 
     fn resolve_cmd_uri(mut segments: impl Iterator<Item = String>) -> Option<CmdUri> {
         match segments.next().as_deref() {
-            None => Some(ConfigComponent::uri()),
+            None => Some(Self::uri()),
             Some("get") => {
                 Some(GetConfig::uri().with_param_values("key", segments.collect::<Vec<_>>()))
             }
@@ -86,7 +82,7 @@ impl AzCmdGroup for ConfigComponent {
         mut segments: impl Iterator<Item = String> + Send,
         params: Option<CmdParams>,
         output_format: Option<CmdOutputFormat>,
-    ) -> Result<Data, AzError> {
+    ) -> Result<execute_response::Data, AzError> {
         match segments.next().as_deref() {
             Some("get") => GetConfig::execute(ctx, params, output_format).await,
             Some("set") => SetConfig::execute(ctx, params, output_format).await,
@@ -99,57 +95,4 @@ impl AzCmdGroup for ConfigComponent {
     }
 }
 
-#[async_trait]
-impl<T: AzComponentCtx> AzComponent<T> for ConfigComponent {
-    async fn metadata(&self, _: &T, _: MetadataRequest) -> Result<MetadataResponse, AzError> {
-        let interface = Self::cmd_interface(Some(0));
-        Ok(MetadataResponse {
-            metadata: Some(ComponentMetadata {
-                name: interface.name,
-                version: VERSION.to_string(),
-                uri: interface.uri,
-                help: interface.help,
-            }),
-        })
-    }
-
-    async fn interface(
-        &self,
-        _: &T,
-        request: InterfaceRequest,
-    ) -> Result<InterfaceResponse, AzError> {
-        let skip = Self::uri().segments().count();
-        let cmd_uri = CmdUri::from_str(&request.uri).unwrap();
-        let depth = match request.depth {
-            0 => None, // None means all the depth
-            _ => Some(request.depth),
-        };
-        let segments = cmd_uri.segments().skip(skip).map(|s| s.to_string());
-        let interface = Self::get_interface(depth, segments);
-        Ok(InterfaceResponse { interface })
-    }
-
-    async fn execute(&self, ctx: &T, request: ExecuteRequest) -> Result<ExecuteResponse, AzError> {
-        let skip = Self::uri().segments().count();
-        let cmd_uri = CmdUri::from_str(&request.uri).unwrap();
-        let segments = cmd_uri.segments().skip(skip).map(|s| s.to_string());
-        let result =
-            Self::execute_group(ctx, segments, request.params, request.output_format).await?;
-        Ok(ExecuteResponse { data: Some(result) })
-    }
-
-    async fn validate(&self, _: &T, request: ValidateRequest) -> Result<ValidateResponse, AzError> {
-        let skip = Self::uri().segments().count();
-        let cmd_uri = CmdUri::from_str(&request.uri).unwrap();
-        let segments = cmd_uri.segments().skip(skip).map(|s| s.to_string());
-        let uri = Self::resolve_cmd_uri(segments).map(|u| {
-            // add version and params from the cmd_uri
-            let mut uri = u.with_version(VERSION);
-            for (key, value) in cmd_uri.params() {
-                uri = uri.with_param_values(key, value.collect::<Vec<_>>());
-            }
-            uri.to_string()
-        });
-        Ok(ValidateResponse { uri })
-    }
-}
+impl<T: AzComponentCtx> AzCmdComponent<T> for ConfigComponent {}

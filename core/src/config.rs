@@ -21,6 +21,9 @@ pub struct AzCfg {
 }
 
 impl AzCfg {
+    // The file lock feature in Rust is still unstable: https://github.com/rust-lang/rust/issues/130994.
+    // The `fs2::FileExt::lock_shared` function conflicts with `std::fs::File::lock_shared`.
+    // The `#[allow(unstable_name_collisions)]` attribute is used to suppress the Clippy warning.
     #[allow(unstable_name_collisions)]
     pub(crate) fn load() -> Result<Self, AzInternalError> {
         let config_file = Self::config_file_path();
