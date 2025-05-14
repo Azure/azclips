@@ -33,7 +33,7 @@ impl AzPlugin {
     /// load the plugin from file and construct the component
     pub(crate) async fn load<T: AzComponentCtx>(
         &self,
-    ) -> Result<Arc<Box<dyn AzComponent<T>>>, AzInternalError> {
+    ) -> Result<Arc<dyn AzComponent<T>>, AzInternalError> {
         todo!()
     }
 

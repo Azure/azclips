@@ -1,11 +1,11 @@
+use azure_core::error::ErrorKind;
+use azure_core::Error;
 use std::io::{BufRead, BufReader, Write};
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::process::Command;
 use std::time::Duration;
-use webbrowser;
-use azure_core::Error;
-use azure_core::error::ErrorKind;
 use urlencoding;
+use webbrowser;
 
 ///The port where the local server is listening on the auth_code
 #[allow(dead_code)]
@@ -14,21 +14,25 @@ pub const LOCAL_SERVER_PORT: u16 = 47828;
 /// Opens the given URL in the default system browser and starts a local web server
 /// to receive the authorization code.
 #[allow(dead_code)]
-pub async fn open_url(url: &str, success_template: Option<&str>, error_template: Option<&str>) -> Result<String, Error> {
+pub async fn open_url(
+    url: &str,
+    success_template: Option<&str>,
+    error_template: Option<&str>,
+) -> Result<String, Error> {
     if !try_open_browser(url) {
         tracing::error!("Failed to open browser for URL: {}", url);
         return Err(Error::new(
             ErrorKind::Credential,
-            format!("Failed to open web browser for authentication URL: {}", url)
+            format!("Failed to open web browser for authentication URL: {}", url),
         ));
     }
-    
+
     start_webserver(success_template, error_template)
 }
 
 fn try_open_browser(url: &str) -> bool {
     match webbrowser::open(url) {
-        Ok(_) => return true,
+        Ok(_) => true,
         Err(e) => {
             tracing::warn!("Failed to open browser: {}", e);
             false
@@ -38,42 +42,47 @@ fn try_open_browser(url: &str) -> bool {
 
 /// Starts the webserver on `http://localhost`. Returns the authorization code or an error if the server fails to start or times out.
 #[allow(dead_code)]
-fn start_webserver(success_template: Option<&str>, error_template: Option<&str>) -> Result<String, Error> {
+fn start_webserver(
+    success_template: Option<&str>,
+    error_template: Option<&str>,
+) -> Result<String, Error> {
     println!("Waiting for authentication response...");
-    
-    let listener = TcpListener::bind(("127.0.0.1", LOCAL_SERVER_PORT))
-        .map_err(|e| Error::new(
-            ErrorKind::Credential,
-            format!("Failed to start local authentication server: {}", e)
-        ))?;
 
-    listener.set_nonblocking(true)
-        .map_err(|e| Error::new(
-            ErrorKind::Credential, 
-            format!("Failed to set server to non-blocking mode: {}", e)
-        ))?;
-    
+    let listener = TcpListener::bind(("127.0.0.1", LOCAL_SERVER_PORT)).map_err(|e| {
+        Error::new(
+            ErrorKind::Credential,
+            format!("Failed to start local authentication server: {}", e),
+        )
+    })?;
+
+    listener.set_nonblocking(true).map_err(|e| {
+        Error::new(
+            ErrorKind::Credential,
+            format!("Failed to set server to non-blocking mode: {}", e),
+        )
+    })?;
+
     let start_time = std::time::Instant::now();
     let timeout = std::time::Duration::from_secs(300); // 5-minute timeout
-    
+
     // Progress indicator (optional)
     let mut last_indicator_time = start_time;
     let indicator_interval = std::time::Duration::from_secs(30);
-    
+
     loop {
         if start_time.elapsed() > timeout {
             return Err(Error::new(
                 ErrorKind::Credential,
-                "Authentication timed out after waiting 5 minutes"
+                "Authentication timed out after waiting 5 minutes",
             ));
         }
-        
+
         // Print periodic waiting message
         if last_indicator_time.elapsed() >= indicator_interval {
             println!("Still waiting for authentication response... (press Ctrl+C to cancel)");
             last_indicator_time = std::time::Instant::now();
         }
-        
+
         match listener.accept() {
             Ok((stream, _)) => return handle_client(stream, success_template, error_template),
             Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
@@ -84,7 +93,7 @@ fn start_webserver(success_template: Option<&str>, error_template: Option<&str>)
                 tracing::error!("Error accepting connection: {}", e);
                 return Err(Error::new(
                     ErrorKind::Credential,
-                    format!("Error accepting connection: {}", e)
+                    format!("Error accepting connection: {}", e),
                 ));
             }
         }
@@ -96,13 +105,19 @@ fn start_webserver(success_template: Option<&str>, error_template: Option<&str>)
 /// if the stream could be opened, we read the whole request and try to extract the auth_code
 /// Returns also the html code to show if it worked
 #[allow(dead_code)]
-fn handle_client(mut stream: TcpStream, success_template: Option<&str>, error_template: Option<&str>) -> Result<String, Error> {
+fn handle_client(
+    mut stream: TcpStream,
+    success_template: Option<&str>,
+    error_template: Option<&str>,
+) -> Result<String, Error> {
     stream
         .set_read_timeout(Some(Duration::from_secs(10)))
-        .map_err(|e| Error::new(
-            ErrorKind::Credential,
-            format!("Failed to set read timeout: {}", e)
-        ))?;
+        .map_err(|e| {
+            Error::new(
+                ErrorKind::Credential,
+                format!("Failed to set read timeout: {}", e),
+            )
+        })?;
 
     let buf_reader = BufReader::new(&stream);
     let mut request_lines = vec![];
@@ -115,23 +130,30 @@ fn handle_client(mut stream: TcpStream, success_template: Option<&str>, error_te
 
     let request = request_lines.join("\n");
 
-    
     // Check for errors in the OAuth response
     if let Some((error_code, error_description, error_uri)) = extract_auth_error(&request) {
         let formatted_description = format_error_description(&error_description);
-        send_error_response(&mut stream, &error_code, &formatted_description, &error_uri, error_template)?;
-        
+        send_error_response(
+            &mut stream,
+            &error_code,
+            &formatted_description,
+            &error_uri,
+            error_template,
+        )?;
+
         return Err(Error::new(
-            ErrorKind::Credential, 
-            format!("Error response: {} - {}", error_code, formatted_description)
+            ErrorKind::Credential,
+            format!("Error response: {} - {}", error_code, formatted_description),
         ));
     }
 
-    let auth_code = extract_auth_code(&request).ok_or_else(|| Error::new(
-        ErrorKind::Credential,
-        "Failed to extract authorization code from response"
-    ))?;
-    
+    let auth_code = extract_auth_code(&request).ok_or_else(|| {
+        Error::new(
+            ErrorKind::Credential,
+            "Failed to extract authorization code from response",
+        )
+    })?;
+
     send_success_response(&mut stream, success_template)?;
 
     Ok(auth_code)
@@ -139,10 +161,7 @@ fn handle_client(mut stream: TcpStream, success_template: Option<&str>, error_te
 
 /// Sends a success response to the client using the provided HTML template
 /// If no template is provided, uses a default template
-fn send_success_response(
-    stream: &mut TcpStream, 
-    template: Option<&str>
-) -> Result<(), Error> {
+fn send_success_response(stream: &mut TcpStream, template: Option<&str>) -> Result<(), Error> {
     let response_body = template.unwrap_or(
         r#"<!DOCTYPE html>
 <html>
@@ -153,7 +172,7 @@ fn send_success_response(
     <h2>Authentication Complete</h2>
     <p>You have successfully authenticated with Azure. You may close this browser tab.</p>
 </body>
-</html>"#
+</html>"#,
     );
 
     send_response(stream, "200 OK", response_body)
@@ -161,18 +180,18 @@ fn send_success_response(
 
 /// Sends an error response to the client using the provided HTML template
 /// If no template is provided, uses a default template
-/// 
+///
 /// # Arguments
 /// * `stream` - The TCP stream to write the response to
 /// * `error_code` - The OAuth error
 /// * `error_description` - The detailed error description
 /// * `template` - Optional HTML template
 fn send_error_response(
-    stream: &mut TcpStream, 
-    error_code: &str, 
+    stream: &mut TcpStream,
+    error_code: &str,
     error_description: &str,
     error_url: &str,
-    template: Option<&str>
+    template: Option<&str>,
 ) -> Result<(), Error> {
     let response_body = if let Some(template) = template {
         template
@@ -180,7 +199,8 @@ fn send_error_response(
             .replace("$error_description", error_description)
             .replace("$error_url", error_url)
     } else {
-        format!(r#"<!DOCTYPE html>
+        format!(
+            r#"<!DOCTYPE html>
 <html>
 <head>
     <title>Authentication Failed</title>
@@ -193,7 +213,9 @@ fn send_error_response(
     <div>Error url: <a href="{}" target="_blank">{}</a></div>
     <p>You may close this tab and try again.</p>
 </body>
-</html>"#, error_code, error_description, error_url, error_url)
+</html>"#,
+            error_code, error_description, error_url, error_url
+        )
     };
 
     send_response(stream, "400 Bad Request", &response_body)
@@ -207,21 +229,27 @@ fn send_response(stream: &mut TcpStream, status: &str, body: &str) -> Result<(),
         body
     );
 
-    stream.write_all(response.as_bytes()).map_err(|e| Error::new(
-        ErrorKind::Credential, 
-        format!("Failed to write response: {}", e)
-    ))?;
-    
-    stream.flush().map_err(|e| Error::new(
-        ErrorKind::Credential,
-        format!("Failed to flush response: {}", e)
-    ))?;
-    
-    stream.shutdown(Shutdown::Both).map_err(|e| Error::new(
-        ErrorKind::Credential,
-        format!("Failed to shutdown connection: {}", e)
-    ))?;
-    
+    stream.write_all(response.as_bytes()).map_err(|e| {
+        Error::new(
+            ErrorKind::Credential,
+            format!("Failed to write response: {}", e),
+        )
+    })?;
+
+    stream.flush().map_err(|e| {
+        Error::new(
+            ErrorKind::Credential,
+            format!("Failed to flush response: {}", e),
+        )
+    })?;
+
+    stream.shutdown(Shutdown::Both).map_err(|e| {
+        Error::new(
+            ErrorKind::Credential,
+            format!("Failed to shutdown connection: {}", e),
+        )
+    })?;
+
     Ok(())
 }
 
@@ -238,52 +266,56 @@ fn extract_auth_code(request: &str) -> Option<String> {
 fn extract_auth_error(request: &str) -> Option<(String, String, String)> {
     let error_start = request.find("error=")?;
     let error_code_start = error_start + 6; // "error=" is 6 chars
-    let error_code_end = request[error_code_start..].find('&')
+    let error_code_end = request[error_code_start..]
+        .find('&')
         .map(|pos| error_code_start + pos)
         .unwrap_or(request.len());
     let error_code = &request[error_code_start..error_code_end];
-    
+
     let mut error_description = String::new();
     if let Some(desc_start) = request.find("error_description=") {
         let desc_value_start = desc_start + 18; // "error_description=" is 18 chars
-        let desc_value_end = request[desc_value_start..].find('&')
+        let desc_value_end = request[desc_value_start..]
+            .find('&')
             .map(|pos| desc_value_start + pos)
             .unwrap_or(request.len());
-        error_description = urlencoding::decode(&request[desc_value_start..desc_value_end])  
-            .map(|s| s.into_owned())  
-            .unwrap_or("Failed to decode error description".to_string());  
+        error_description = urlencoding::decode(&request[desc_value_start..desc_value_end])
+            .map(|s| s.into_owned())
+            .unwrap_or("Failed to decode error description".to_string());
     }
-    
+
     let mut error_uri = String::new();
     if let Some(uri_start) = request.find("error_uri=") {
         let uri_value_start = uri_start + 10; // "error_uri=" is 10 chars
-        let uri_value_end = request[uri_value_start..].find('&')
+        let uri_value_end = request[uri_value_start..]
+            .find('&')
             .map(|pos| uri_value_start + pos)
             .unwrap_or(request.len());
         error_uri = urlencoding::decode(&request[uri_value_start..uri_value_end])
             .map(|s| s.into_owned())
             .unwrap_or("Failed to decode error url".to_string());
     }
-    
+
     Some((error_code.to_string(), error_description, error_uri))
 }
 
-fn format_error_description(error_description: &str) -> String {    
+fn format_error_description(error_description: &str) -> String {
     let parts: Vec<&str> = error_description.split('+').collect();
-    
+
     let mut result = String::new();
-    
+
     for part in parts {
         let part_with_spaces = part.replace('+', " ");
-        if part_with_spaces.starts_with("Trace ID:") || 
-           part_with_spaces.starts_with("Correlation ID:") || 
-           part_with_spaces.starts_with("Timestamp:") {
-              result.push_str("\n");
+        if part_with_spaces.starts_with("Trace ID:")
+            || part_with_spaces.starts_with("Correlation ID:")
+            || part_with_spaces.starts_with("Timestamp:")
+        {
+            result.push('\n');
         }
         result.push_str(&part_with_spaces);
-        result.push_str(" ");
+        result.push(' ');
     }
-    
+
     result.trim_end().to_string()
 }
 

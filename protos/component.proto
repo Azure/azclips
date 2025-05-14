@@ -3,13 +3,6 @@ package component;
 
 import "protos/command.proto";
 
-// service Component {
-//     rpc Metadata(MetadataRequest) returns (MetadataResponse);
-//     rpc Check(CheckRequest) returns (CheckResponse);
-//     rpc Interface(InterfaceRequest) returns (InterfaceResponse);
-//     rpc Execute(ExecuteRequest) returns (ExecuteResponse);
-// }
-
 message MetadataRequest {
     reserved 1; // uint32 az_ctx_server = 1;
 }
@@ -18,12 +11,12 @@ message MetadataResponse {
     ComponentMetadata metadata = 1;
 }
 
-message CheckRequest {
+message ValidateRequest {
     reserved 1; // uint32 az_ctx_server = 1;
     string uri = 2;
 }
 
-message CheckResponse {
+message ValidateResponse {
     // if the uri is not found return None;
     optional string uri = 1;
 }
@@ -61,12 +54,6 @@ message ExecuteResponse {
         bytes json = 2;
     }
 }
-
-// the context for the component to run
-
-// service AzComponentCtx {
-//     rpc GetCoreInfo(GetCoreInfoRequest) returns (GetCoreInfoResponse);
-// }
 
 message GetCoreInfoRequest {
     reserved 1;

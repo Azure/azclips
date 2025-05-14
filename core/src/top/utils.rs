@@ -1,4 +1,3 @@
-use webbrowser;
 use reqwest::{Client, Url};
 use serde_json::Value;
 

@@ -29,9 +29,9 @@ pub struct AzComponentCenter<T: AzComponentCtx> {
     /// the route table using the component uri segments as the key, it is used to find the component based on the cmd_uri
     pub(super) route_table: HashMap<String, AzComponentInfo>,
     /// the built-in components that are loaded
-    pub(super) built_ins: HashMap<AzBuildIn, Arc<Box<dyn AzComponent<T>>>>,
+    pub(super) built_ins: HashMap<AzBuildIn, Arc<dyn AzComponent<T>>>,
     /// the plugins that are loaded, the key is the plugin name
-    pub(super) plugins: HashMap<String, Arc<Box<dyn AzComponent<T>>>>,
+    pub(super) plugins: HashMap<String, Arc<dyn AzComponent<T>>>,
 }
 
 impl<T: AzComponentCtx> AzComponentCenter<T> {
@@ -88,7 +88,7 @@ impl<T: AzComponentCtx> AzComponentCenter<T> {
         let plugin_futures: Vec<_> = common_plugin_paths
             .into_iter()
             .chain(cloud_plugin_paths.into_iter())
-            .map(|path| AzPlugin::from_path(path))
+            .map(AzPlugin::from_path)
             .collect();
 
         let plugins = try_join_all(plugin_futures).await?;
@@ -145,7 +145,7 @@ impl<T: AzComponentCtx> AzComponentCenter<T> {
     pub(crate) async fn get_or_load_component(
         &mut self,
         info: &AzComponentInfo,
-    ) -> Result<Arc<Box<dyn AzComponent<T>>>, AzInternalError> {
+    ) -> Result<Arc<dyn AzComponent<T>>, AzInternalError> {
         let component = match info {
             AzComponentInfo::BuiltIn(component) => self
                 .built_ins

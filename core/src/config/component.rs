@@ -15,9 +15,10 @@ use crate::{
     component::{AzCmd, AzCmdGroup, AzComponent, AzComponentCtx},
     error::{AzError, AzInternalError},
     pb::{
-        cmd_interface, execute_response::Data, CheckRequest, CheckResponse, CmdComponent, CmdHelp,
-        CmdInterface, CmdOutputFormat, CmdParams, ComponentMetadata, ExecuteRequest,
-        ExecuteResponse, InterfaceRequest, InterfaceResponse, MetadataRequest, MetadataResponse,
+        cmd_interface, execute_response::Data, CmdComponent, CmdHelp, CmdInterface,
+        CmdOutputFormat, CmdParams, ComponentMetadata, ExecuteRequest, ExecuteResponse,
+        InterfaceRequest, InterfaceResponse, MetadataRequest, MetadataResponse, ValidateRequest,
+        ValidateResponse,
     },
     VERSION,
 };
@@ -66,7 +67,7 @@ impl AzCmdGroup for ConfigComponent {
         }
     }
 
-    fn check_uri(mut segments: impl Iterator<Item = String>) -> Option<CmdUri> {
+    fn resolve_cmd_uri(mut segments: impl Iterator<Item = String>) -> Option<CmdUri> {
         match segments.next().as_deref() {
             None => Some(ConfigComponent::uri()),
             Some("get") => {
@@ -75,7 +76,7 @@ impl AzCmdGroup for ConfigComponent {
             Some("set") => {
                 Some(SetConfig::uri().with_param_values("value", segments.collect::<Vec<_>>()))
             }
-            Some("cloud") => CloudCommandGroup::check_uri(segments),
+            Some("cloud") => CloudCommandGroup::resolve_cmd_uri(segments),
             _ => None,
         }
     }
@@ -137,11 +138,11 @@ impl<T: AzComponentCtx> AzComponent<T> for ConfigComponent {
         Ok(ExecuteResponse { data: Some(result) })
     }
 
-    async fn check(&self, _: &T, request: CheckRequest) -> Result<CheckResponse, AzError> {
+    async fn validate(&self, _: &T, request: ValidateRequest) -> Result<ValidateResponse, AzError> {
         let skip = Self::uri().segments().count();
         let cmd_uri = CmdUri::from_str(&request.uri).unwrap();
         let segments = cmd_uri.segments().skip(skip).map(|s| s.to_string());
-        let uri = Self::check_uri(segments).map(|u| {
+        let uri = Self::resolve_cmd_uri(segments).map(|u| {
             // add version and params from the cmd_uri
             let mut uri = u.with_version(VERSION);
             for (key, value) in cmd_uri.params() {
@@ -149,6 +150,6 @@ impl<T: AzComponentCtx> AzComponent<T> for ConfigComponent {
             }
             uri.to_string()
         });
-        Ok(CheckResponse { uri })
+        Ok(ValidateResponse { uri })
     }
 }

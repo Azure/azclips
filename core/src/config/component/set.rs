@@ -77,7 +77,6 @@ impl AzCmd for SetConfig {
                         arg_type: Some(cmd_arg::ArgType::AnyType(CmdAnyTypeArg::default())),
                         ..Default::default()
                     })),
-                    ..Default::default()
                 })),
                 ..Default::default()
             }))),

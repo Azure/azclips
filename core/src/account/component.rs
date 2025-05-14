@@ -10,7 +10,7 @@ use crate::{
     component::{AzComponent, AzComponentCtx},
     error::{AzError, AzInternalError},
     pb::{
-        cmd_interface, execute_response, CheckRequest, CheckResponse, CmdComponent, CmdHelp,
+        cmd_interface, execute_response, ValidateRequest, ValidateResponse, CmdComponent, CmdHelp,
         CmdInterface, ComponentMetadata, ExecuteRequest, ExecuteResponse, InterfaceRequest,
         InterfaceResponse, MetadataRequest, MetadataResponse, None,
     },
@@ -107,7 +107,7 @@ impl<T: AzComponentCtx> AzComponent<T> for AccountComponent {
         })
     }
 
-    async fn check(&self, _: &T, request: CheckRequest) -> Result<CheckResponse, AzError> {
+    async fn validate(&self, _: &T, request: ValidateRequest) -> Result<ValidateResponse, AzError> {
         let skip = AccountComponent::uri().segments().count();
         let cmd_uri = CmdUri::from_str(&request.uri).unwrap();
         let mut segments = cmd_uri.segments().skip(skip);
@@ -116,7 +116,7 @@ impl<T: AzComponentCtx> AzComponent<T> for AccountComponent {
             Some("get-access-token") => Some(GetAccessToken::uri().with_version(VERSION)),
             _ => None,
         };
-        Ok(CheckResponse {
+        Ok(ValidateResponse {
             uri: uri.map(|u| u.to_string()),
         })
     }

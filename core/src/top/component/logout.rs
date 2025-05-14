@@ -19,7 +19,7 @@ pub(super) struct Logout {
 }
 
 impl Logout {
-    pub(super) async fn run<T: AzComponentCtx>(&self, ctx: &T) -> Result<Option<String>, AzError> {
+    pub(super) async fn run<T: AzComponentCtx>(&self, _: &T) -> Result<Option<String>, AzError> {
         println!("logout");
         println!("username: {:?}", self.username);
         Ok(Some("logout success".to_string()))
@@ -58,7 +58,7 @@ impl Logout {
                 short: "The username to log out from Azure.".to_string(),
                 ..Default::default()
             }),
-            arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+            arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                 format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
                 ..Default::default()
             })),

@@ -63,7 +63,7 @@ impl AzCmd for DeleteCloud {
             options: vec!["name".to_string()],
             required: true,
             nullable: false,
-            arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+            arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                 ..Default::default()
             })),
             ..Default::default()

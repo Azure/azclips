@@ -87,7 +87,7 @@ impl CmdParamBuilder {
                                     // extend the existing array with the new value
                                     let mut new_value = v.as_array().unwrap().clone();
                                     if let Value::Array(extend_array) = value_op.value {
-                                        new_value.extend(extend_array.into_iter());
+                                        new_value.extend(extend_array);
                                     } else {
                                         unreachable!(); // verified in the head of function
                                     }
@@ -103,7 +103,7 @@ impl CmdParamBuilder {
                                     // extend the existing array with the new value
                                     let mut new_value = v.as_array().unwrap().clone();
                                     if let Value::Array(extend_array) = value_op.value {
-                                        new_value.extend(extend_array.into_iter());
+                                        new_value.extend(extend_array);
                                     } else {
                                         unreachable!(); // verified in the head of function
                                     }
@@ -191,7 +191,7 @@ impl CmdParamBuilder {
                                     if let Value::Array(array) = entry.get() {
                                         let mut array = array.clone();
                                         if let Value::Array(extend_array) = value_op.value {
-                                            array.extend(extend_array.into_iter());
+                                            array.extend(extend_array);
                                             Value::Array(array)
                                         } else {
                                             unreachable!(); // verified in the head of function
@@ -231,7 +231,7 @@ impl CmdParamBuilder {
                                 // extend the existing array with the new value
                                 let mut array = array.clone();
                                 if let Value::Array(extend_array) = value_op.value {
-                                    array.extend(extend_array.into_iter());
+                                    array.extend(extend_array);
                                     Value::Array(array)
                                 } else {
                                     unreachable!(); // verified in the head of function
@@ -316,7 +316,7 @@ fn format_param_value(
 ) -> AzResult<Value> {
     let arg_type = arg.unwrapped_arg_type();
     let v = match arg_type {
-        cmd_arg::ArgType::Str(str_arg) => {
+        cmd_arg::ArgType::String(str_arg) => {
             let value = match value {
                 ParamValue::Assign(v) => v,
                 _ => {
@@ -389,7 +389,7 @@ fn format_param_value(
                     for (key, value) in object.into_iter() {
                         let sub_arg = arg
                             .retrieve_sub_arg(&[SHPartialKeyPart::parse_name(&key).unwrap()])
-                            .expect(&format!("missing sub argument {} in object", key));
+                            .unwrap_or_else(|_| panic!("missing sub argument {} in object", key));
                         let value =
                             format_param_value(ParamValue::Assign(value), &sub_arg, patch_keys)?;
                         new_obj.insert(key, value);
@@ -408,7 +408,7 @@ fn format_param_value(
                         let key = prop.name.to_string();
                         let sub_arg = arg
                             .retrieve_sub_arg(&[SHPartialKeyPart::parse_name(&key).unwrap()])
-                            .expect(&format!("missing sub argument {} in object", key));
+                            .unwrap_or_else(|_| panic!("missing sub argument {} in object", key));
                         let value = format_param_value(value, &sub_arg, patch_keys)?;
                         new_obj.insert(key, value);
                     }
@@ -454,7 +454,7 @@ fn format_param_value(
                     let key = prop.name.to_string();
                     let sub_arg = arg
                         .retrieve_sub_arg(&[SHPartialKeyPart::parse_name(&key).unwrap()])
-                        .expect(&format!("missing sub argument {} in object", key));
+                        .unwrap_or_else(|_| panic!("missing sub argument {} in object", key));
                     patch_keys.push(sub_arg.prefix_keys().to_string());
                     let value = format_param_value(value, &sub_arg, patch_keys)?;
                     partial_object.insert(key, value);
@@ -607,7 +607,7 @@ mod test {
         str_arg.name = "str".to_string();
         str_arg.options = vec!["str".to_string()];
         str_arg.nullable = true;
-        str_arg.arg_type = Some(ArgType::Str(CmdStringArg::default()));
+        str_arg.arg_type = Some(ArgType::String(CmdStringArg::default()));
         object_type.props.push(str_arg);
         // define the number property type
         let mut num_arg = CmdArg::default();
@@ -631,7 +631,7 @@ mod test {
         let mut array_type = CmdArrayArg::default();
         let mut array_item_arg = CmdArg::default();
         array_item_arg.nullable = true;
-        array_item_arg.arg_type = Some(ArgType::Str(CmdStringArg::default()));
+        array_item_arg.arg_type = Some(ArgType::String(CmdStringArg::default()));
         array_type.item = Some(Box::new(array_item_arg));
         array_arg.arg_type = Some(ArgType::Array(Box::new(array_type)));
         object_type.props.push(array_arg);
@@ -643,7 +643,7 @@ mod test {
         let mut dict_type = CmdObjectArg::default();
         let mut tag_arg = CmdArg::default();
         tag_arg.nullable = true;
-        tag_arg.arg_type = Some(ArgType::Str(CmdStringArg::default()));
+        tag_arg.arg_type = Some(ArgType::String(CmdStringArg::default()));
         dict_type.additional_props = Some(Box::new(CmdObjectArgAdditionalProperties {
             item: Some(Box::new(tag_arg)),
         }));
@@ -669,7 +669,7 @@ mod test {
         str_arg.name = "str".to_string();
         str_arg.options = vec!["str".to_string()];
         str_arg.nullable = true;
-        str_arg.arg_type = Some(ArgType::Str(CmdStringArg::default()));
+        str_arg.arg_type = Some(ArgType::String(CmdStringArg::default()));
         object_type.props.push(str_arg);
         object_arg.arg_type = Some(ArgType::Object(Box::new(object_type)));
         cmd.args.push(object_arg);
@@ -682,7 +682,7 @@ mod test {
         let mut array_type = CmdArrayArg::default();
         let mut array_item_arg = CmdArg::default();
         array_item_arg.nullable = true;
-        array_item_arg.arg_type = Some(ArgType::Str(CmdStringArg::default()));
+        array_item_arg.arg_type = Some(ArgType::String(CmdStringArg::default()));
         array_type.item = Some(Box::new(array_item_arg));
         array_arg.arg_type = Some(ArgType::Array(Box::new(array_type)));
         cmd.args.push(array_arg);
@@ -797,7 +797,7 @@ mod test {
             ),
         ] {
             let mut ops = parse_cmd_arg(&cmd, arg, values).unwrap().unwrap().into_iter();
-            while let Some(op) = ops.next() {
+            for op in ops {
                 if let ArgOp::Value(op) = op {
                     builder.apply(op).unwrap();
                 } else {
@@ -825,7 +825,7 @@ mod test {
             porp_str.name = "prop_df".to_string();
             porp_str.options = vec!["prop_df".to_string()];
             porp_str.nullable = true;
-            porp_str.arg_type = Some(ArgType::Str(CmdStringArg::default()));
+            porp_str.arg_type = Some(ArgType::String(CmdStringArg::default()));
             porp_str.default = Some(CmdArgDefault {
                 value: "\"default_str\"".to_string(),
             });
@@ -842,7 +842,7 @@ mod test {
                 str_arg.name = "str".to_string();
                 str_arg.options = vec!["str".to_string()];
                 str_arg.nullable = true;
-                str_arg.arg_type = Some(ArgType::Str(CmdStringArg::default()));
+                str_arg.arg_type = Some(ArgType::String(CmdStringArg::default()));
                 object_type.props.push(str_arg);
                 // define the number property type
                 let mut num_arg = CmdArg::default();
@@ -872,7 +872,7 @@ mod test {
                     str_arg.name = "str".to_string();
                     str_arg.options = vec!["str".to_string()];
                     str_arg.nullable = true;
-                    str_arg.arg_type = Some(ArgType::Str(CmdStringArg::default()));
+                    str_arg.arg_type = Some(ArgType::String(CmdStringArg::default()));
                     object_type.props.push(str_arg);
                     let mut num_arg = CmdArg::default();
                     num_arg.name = "default_num".to_string();
@@ -906,7 +906,7 @@ mod test {
         default_arg.name = "default".to_string();
         default_arg.options = vec!["default".to_string()];
         default_arg.nullable = true;
-        default_arg.arg_type = Some(ArgType::Str(CmdStringArg::default()));
+        default_arg.arg_type = Some(ArgType::String(CmdStringArg::default()));
         default_arg.default = Some(CmdArgDefault {
             value: "\"default_arg\"".to_string(),
         });
@@ -978,7 +978,7 @@ mod test {
                 .unwrap()
                 .unwrap()
                 .into_iter();
-            while let Some(op) = ops.next() {
+            for op in ops {
                 if let ArgOp::Value(op) = op {
                     builder.apply(op).unwrap();
                 } else {

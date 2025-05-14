@@ -21,15 +21,15 @@ pub fn execute_command(cmd_uri: CmdUri, raw_args: Vec<CmdRawArg>) {
 
 async fn execute_command_async(cmd_uri: CmdUri, raw_args: Vec<CmdRawArg>) -> Result<(), AzError> {
     let core = AzCore::instance().await;
-    let cmd_uri = core.check_cmd_uri(cmd_uri).await?;
+    let invocation = core.resolve_cmd_invocation(cmd_uri).await?;
 
-    if !cmd_uri.executable() {
+    if !invocation.cmd_uri.executable() {
         // if it's a command group, then show the help of it instead of executing it
-        help::show_command_help_async(cmd_uri).await?;
+        help::show_command_help_async(invocation.cmd_uri).await?;
         return Err(AzUserUsageError::CommandGroupNotExecutableError.into());
     }
 
-    let cmd_interface = core.get_cmd_interface(&cmd_uri).await?;
+    let cmd_interface = core.get_cmd_interface(&invocation).await?;
     let cmd = match cmd_interface.level.unwrap() {
         cmd_interface::Level::Command(cmd) => cmd,
         _ => {
@@ -40,13 +40,16 @@ async fn execute_command_async(cmd_uri: CmdUri, raw_args: Vec<CmdRawArg>) -> Res
     let mut cmd_value_ops = Vec::new();
 
     // the positional arguments will be returned as params in uri query part by service
-    for (arg_name, values) in cmd_uri.params() {
+    for (arg_name, values) in invocation.cmd_uri.params() {
         let (arg, ops) = parse_arg_values(&cmd, arg_name, values)?;
 
         // show the help of the argument
         if let Some(ArgOp::Help(op)) = ops.iter().find(|op| matches!(op, ArgOp::Help(_))) {
-            return help::show_command_arg_help_async(cmd_uri.clone(), op.arg_keys().to_owned())
-                .await;
+            return help::show_command_arg_help_async(
+                invocation.cmd_uri.clone(),
+                op.arg_keys().to_owned(),
+            )
+            .await;
         }
 
         let value_ops = retrieve_value_ops(&arg, ops)?;
@@ -61,7 +64,11 @@ async fn execute_command_async(cmd_uri: CmdUri, raw_args: Vec<CmdRawArg>) -> Res
 
         // show the help of the argument
         if let Some(ArgOp::Help(op)) = ops.iter().find(|op| matches!(op, ArgOp::Help(_))) {
-            return help::show_command_arg_help_async(cmd_uri, op.arg_keys().to_owned()).await;
+            return help::show_command_arg_help_async(
+                invocation.cmd_uri.clone(),
+                op.arg_keys().to_owned(),
+            )
+            .await;
         }
 
         let value_ops = retrieve_value_ops(&arg, ops)?;
@@ -69,7 +76,7 @@ async fn execute_command_async(cmd_uri: CmdUri, raw_args: Vec<CmdRawArg>) -> Res
     }
 
     // TODO: filter some global args such as --output etc
-    let output = core.execute_cmd(&cmd_uri, cmd_value_ops).await?;
+    let output = core.execute_cmd(&invocation, cmd_value_ops).await?;
 
     // TODO: format the output
     if let Some(data) = output {

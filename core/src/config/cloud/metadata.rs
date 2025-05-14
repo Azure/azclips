@@ -181,7 +181,7 @@ mod tests {
 
         let metadata: AzCloudMetadata = serde_json::from_value(json).unwrap();
         assert_eq!(metadata.name, AzCloud::AzureCloud); // Default value, the name field will be set during AzCloudCfg deserialization based on the hashmap key
-        assert!(metadata.active == false);
+        assert!(!metadata.active);
         assert_eq!(
             metadata
                 .endpoints
@@ -216,7 +216,7 @@ mod tests {
 
         let metadata: AzCloudMetadata = serde_json::from_value(json).unwrap();
         assert_eq!(metadata.name, AzCloud::AzureChinaCloud); // Default value, the name field will be set during AzCloudCfg deserialization based on the hashmap key
-        assert!(metadata.active == true);
+        assert!(metadata.active);
         assert_eq!(
             metadata
                 .endpoints
@@ -242,7 +242,7 @@ mod tests {
 
         let metadata: AzCloudMetadata = serde_json::from_value(json).unwrap();
         assert_eq!(metadata.name, AzCloud::AzureChinaCloud); // Default value, the name field will be set during AzCloudCfg deserialization based on the hashmap key
-        assert!(metadata.active == false);
+        assert!(!metadata.active);
         assert_eq!(
             metadata
                 .resource_ids

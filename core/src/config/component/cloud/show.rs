@@ -58,7 +58,7 @@ impl AzCmd for ShowCloud {
             options: vec!["name".to_string()],
             required: true,
             nullable: false,
-            arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+            arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                 // format: Some(CmdStringFormat::Enum(vec!["name".to_string()])),
                 ..Default::default()
             })),

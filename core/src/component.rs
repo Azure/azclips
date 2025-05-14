@@ -8,8 +8,8 @@ use std::path::PathBuf;
 
 use crate::error::AzError;
 use crate::pb::{
-    CheckRequest, CheckResponse, ExecuteRequest, ExecuteResponse, InterfaceRequest,
-    InterfaceResponse, MetadataResponse,
+    ExecuteRequest, ExecuteResponse, InterfaceRequest, InterfaceResponse, MetadataResponse,
+    ValidateRequest, ValidateResponse,
 };
 use crate::{config, pb::MetadataRequest};
 
@@ -27,9 +27,13 @@ pub trait AzComponent<T: AzComponentCtx>: Send + Sync + 'static {
         request: MetadataRequest,
     ) -> Result<MetadataResponse, AzError>;
 
-    /// check a cmd uri is available or not
+    /// validate a cmd uri
     /// if a cmd uri has positional arguments as segments part,it will be converted to params in the query part in the returned cmd uri
-    async fn check(&self, ctx: &T, request: CheckRequest) -> Result<CheckResponse, AzError>;
+    async fn validate(
+        &self,
+        ctx: &T,
+        request: ValidateRequest,
+    ) -> Result<ValidateResponse, AzError>;
 
     /// get the interface of a cmd uri
     async fn interface(

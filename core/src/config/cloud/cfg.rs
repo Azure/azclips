@@ -42,7 +42,7 @@ impl AzCloudsCfg {
     // }
 
     pub fn get_cloud(&self, name: &AzCloud) -> Result<AzCloudMetadata, AzUserUsageError> {
-        if matches!(name, AzCloud::Custom(_)) && !self.0.contains_key(&name) {
+        if matches!(name, AzCloud::Custom(_)) && !self.0.contains_key(name) {
             return Err(AzUserUsageError::CloudUnregisteredError(name.to_string()));
         }
         let metadata = self.0.get(name).map_or(

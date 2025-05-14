@@ -80,7 +80,7 @@ impl AzCmd for CreateCloud {
                 }),
                 options: vec!["name".to_string()],
                 required: true,
-                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                     ..Default::default()
                 })),
                 ..Default::default()
@@ -104,7 +104,7 @@ impl AzCmd for CreateCloud {
                                 short: "The custom endpoint used in the cloud".to_string(),
                                 long: None,
                             }),
-                            arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                            arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                                 ..Default::default()
                             })),
                             ..Default::default()
@@ -133,7 +133,7 @@ impl AzCmd for CreateCloud {
                                 short: "The custom resource id used in the cloud".to_string(),
                                 long: None,
                             }),
-                            arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                            arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                                 ..Default::default()
                             })),
                             ..Default::default()
@@ -159,13 +159,11 @@ impl AzCmd for CreateCloud {
                     }
                     "endpoints" => {
                         create_cloud.endpoints = serde_json::from_slice::<EndpointMap>(v)
-                            .expect("failed to parse json")
-                            .into();
+                            .expect("failed to parse json");
                     }
                     "resourceIds" => {
                         create_cloud.resource_ids = serde_json::from_slice::<ResourceIdMap>(v)
-                            .expect("failed to parse json")
-                            .into();
+                            .expect("failed to parse json");
                     }
                     _ => {
                         error!("unknown argument: {}", name);

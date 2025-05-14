@@ -255,7 +255,7 @@ impl CmdUri {
             panic!("please use with_version to set the version");
         }
         let value = value.into();
-        self.params.entry(key).or_insert_with(Vec::new).push(value);
+        self.params.entry(key).or_default().push(value);
         self
     }
 
@@ -290,7 +290,7 @@ impl CmdUri {
     }
 
     pub fn version(&self) -> Option<&str> {
-        self.version.as_ref().map(|s| s.as_str())
+        self.version.as_deref()
     }
 
     pub fn segments(&self) -> impl Iterator<Item = &str> {
@@ -357,8 +357,8 @@ impl CmdUri {
         };
         (0..tail).rev().map(|i| {
             let segments = self.segments[..=i].to_vec();
-            let cmd_uri = CmdUri::new(segments, false);
-            cmd_uri
+            
+            CmdUri::new(segments, false)
         })
     }
 
@@ -400,7 +400,7 @@ mod tests {
     fn test_cmd_uri_build() {
         let cmd_uri = CmdUri::new(["azure", "network", "vnet", "create"], true);
         assert_eq!(cmd_uri.to_string(), "cmd://azure/network/vnet/create");
-        assert_eq!(cmd_uri.executable(), true);
+        assert!(cmd_uri.executable());
 
         let cmd_uri = cmd_uri.with_version("1.0.0");
         assert_eq!(
@@ -410,11 +410,11 @@ mod tests {
         let nodes = cmd_uri.ascending_nodes().collect::<Vec<_>>();
         assert_eq!(nodes.len(), 3);
         assert_eq!(nodes[0].to_string(), "cmd://azure/network/vnet/");
-        assert_eq!(nodes[0].executable(), false);
+        assert!(!nodes[0].executable());
         assert_eq!(nodes[1].to_string(), "cmd://azure/network/");
-        assert_eq!(nodes[1].executable(), false);
+        assert!(!nodes[1].executable());
         assert_eq!(nodes[2].to_string(), "cmd://azure/");
-        assert_eq!(nodes[2].executable(), false);
+        assert!(!nodes[2].executable());
         assert_eq!(cmd_uri.version(), Some("1.0.0"));
 
         let cmd_uri = cmd_uri
@@ -460,7 +460,7 @@ mod tests {
 
         let cmd_uri = CmdUri::new(["azure", "network"], false);
         assert_eq!(cmd_uri.to_string(), "cmd://azure/network/");
-        assert_eq!(cmd_uri.executable(), false);
+        assert!(!cmd_uri.executable());
 
         let cmd_uri = cmd_uri.with_version("1.0.0");
         assert_eq!(cmd_uri.to_string(), "cmd://azure/network/?VERSION=1.0.0");
@@ -474,9 +474,9 @@ mod tests {
         let nodes = cmd_uri.ascending_nodes().collect::<Vec<_>>();
         assert_eq!(nodes.len(), 2);
         assert_eq!(nodes[0].to_string(), "cmd://azure/network/");
-        assert_eq!(nodes[0].executable(), false);
+        assert!(!nodes[0].executable());
         assert_eq!(nodes[1].to_string(), "cmd://azure/");
-        assert_eq!(nodes[1].executable(), false);
+        assert!(!nodes[1].executable());
 
         let cmd_url = CmdUri::new(["azure", "network", "vnet", "create"], true);
         let cmd_url = cmd_url.with_param_values(
@@ -501,11 +501,11 @@ mod tests {
         let nodes = cmd_url.ascending_nodes().collect::<Vec<_>>();
         assert_eq!(nodes.len(), 3);
         assert_eq!(nodes[0].to_string(), "cmd://azure/network/vnet/");
-        assert_eq!(nodes[0].executable(), false);
+        assert!(!nodes[0].executable());
         assert_eq!(nodes[1].to_string(), "cmd://azure/network/");
-        assert_eq!(nodes[1].executable(), false);
+        assert!(!nodes[1].executable());
         assert_eq!(nodes[2].to_string(), "cmd://azure/");
-        assert_eq!(nodes[2].executable(), false);
+        assert!(!nodes[2].executable());
 
         // test cmd uri with positional arguments
         // this format is used only when executable command is not checked
@@ -546,7 +546,7 @@ mod tests {
         let cmd_uri = CmdUri::from_str(cmd_uri_str).unwrap();
         assert_eq!(cmd_uri.to_string(), cmd_uri_str);
         assert_eq!(cmd_uri.segments, vec!["azure", "network", "vnet", "create"]);
-        assert_eq!(cmd_uri.executable(), true);
+        assert!(cmd_uri.executable());
         assert_eq!(cmd_uri.version(), Some("1.0.0"));
         assert_eq!(
             cmd_uri.param_values("num").unwrap().collect::<Vec<_>>(),
@@ -574,7 +574,7 @@ mod tests {
         let cmd_uri = CmdUri::from_str(cmd_uri_str).unwrap();
         assert_eq!(cmd_uri.to_string(), cmd_uri_str);
         assert_eq!(cmd_uri.segments, vec!["azure", "network"]);
-        assert_eq!(cmd_uri.executable(), false);
+        assert!(!cmd_uri.executable());
         assert_eq!(cmd_uri.version(), Some("1.0.0"));
         assert!(cmd_uri.param_values("num").is_none());
 
@@ -592,7 +592,7 @@ mod tests {
                 "defaults.group=MyResourceGroup"
             ]
         );
-        assert_eq!(cmd_uri.executable(), true);
+        assert!(cmd_uri.executable());
         assert_eq!(cmd_uri.version(), None);
 
         // test error cases

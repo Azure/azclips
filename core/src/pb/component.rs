@@ -7,12 +7,12 @@ pub struct MetadataResponse {
     pub metadata: ::core::option::Option<ComponentMetadata>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct CheckRequest {
+pub struct ValidateRequest {
     #[prost(string, tag = "2")]
     pub uri: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct CheckResponse {
+pub struct ValidateResponse {
     /// if the uri is not found return None;
     #[prost(string, optional, tag = "1")]
     pub uri: ::core::option::Option<::prost::alloc::string::String>,

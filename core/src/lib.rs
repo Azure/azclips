@@ -22,4 +22,4 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// The application name will be used the the host part of cmd uri
 pub const APPLICATION_NAME: &str = env!("CARGO_APPLICATION_NAME");
 
-pub use core::AzCore;
+pub use core::{AzCore, CmdInvocation};

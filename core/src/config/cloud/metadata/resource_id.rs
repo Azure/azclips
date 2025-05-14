@@ -112,7 +112,7 @@ macro_rules! standard_resource_ids {
                             options: vec![unsafe { std::str::from_utf8_unchecked($kebab_bytes) }.to_string()],
                             required: false,
                             nullable,
-                            arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                            arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                                 ..Default::default()
                             })),
                             ..Default::default()
@@ -158,7 +158,7 @@ impl FromStr for ResourceIdName {
 
 impl ResourceIdMap {
     pub fn get(&self, name: &ResourceIdName) -> Option<String> {
-        self.0.read().unwrap().get(name).map(|s| s.clone())
+        self.0.read().unwrap().get(name).cloned()
     }
 
     pub fn insert(&mut self, name: ResourceIdName, value: &str) -> Option<String> {

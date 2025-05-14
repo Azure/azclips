@@ -35,7 +35,7 @@ pub(super) struct Login {
 }
 
 impl Login {
-    pub(super) async fn run<T: AzComponentCtx>(&self, ctx: &T) -> Result<Option<String>, AzError> {
+    pub(super) async fn run<T: AzComponentCtx>(&self, _: &T) -> Result<Option<String>, AzError> {
         println!("login");
         println!("scope: {:?}", self.scope);
         println!("tenant_id: {:?}", self.tenant_id);
@@ -129,7 +129,7 @@ impl Login {
                         .to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                     format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
                     ..Default::default()
                 })),
@@ -149,7 +149,7 @@ impl Login {
                     secret: true,
                     confirm: false,
                 }),
-                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                     format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
                     ..Default::default()
                 })),
@@ -168,7 +168,7 @@ impl Login {
                     item: Some(Box::new(CmdArg {
                         var_name: "scope_item".to_string(),
                         name: "scope_item".to_string(),
-                        arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                        arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                             format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
                             ..Default::default()
                         })),
@@ -201,7 +201,7 @@ impl Login {
                     short: "The Microsoft Entra tenant, must be provided when using a service principal.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                     format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
                     ..Default::default()
                 })),
@@ -248,7 +248,7 @@ impl Login {
                     short: "PEM certificate content. You can use `file://path/to/cert.pem` to pass from a file.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                     format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
                     ..Default::default()
                 })),
@@ -262,7 +262,7 @@ impl Login {
                     short: "Federated token that can be used for OIDC token exchange.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                     format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
                     ..Default::default()
                 })),
@@ -289,7 +289,7 @@ impl Login {
                     short: "Client ID of the user-assigned managed identity.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                     format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
                     ..Default::default()
                 })),
@@ -304,7 +304,7 @@ impl Login {
                     short: "Object ID of the user-assigned managed identity.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                     format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
                     ..Default::default()
                 })),
@@ -319,7 +319,7 @@ impl Login {
                     short: "Resource ID of the user-assigned managed identity.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::Str(CmdStringArg {
+                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
                     format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
                     ..Default::default()
                 })),
@@ -444,12 +444,15 @@ mod tests {
             println!("Skipping interactive test in CI environment");
             return;
         }
-        
+
         let login = Login::default();
         let result = login.login_with_auth_code(&FAKE_SCOPES, TENANT_ID).await;
-        
+
         match result {
-            Ok(_) => assert!(false, "Login should have failed with invalid scope, but succeeded"),
+            Ok(_) => assert!(
+                false,
+                "Login should have failed with invalid scope, but succeeded"
+            ),
             Err(e) => {
                 println!("Expected authentication error received: {}", e);
             }

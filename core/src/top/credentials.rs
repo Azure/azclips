@@ -41,7 +41,7 @@ impl UserCredential {
         
         let token_response = interactive_credentials
             .get_token(
-                Some(&scopes),
+                Some(scopes),
                 Some("select_account"),
                 self.username.as_deref(),
                 Some(&success_template),
@@ -141,14 +141,14 @@ impl Token {
         }
         
         let mut file = File::open(&token_path)
-            .map_err(|e| AzInternalError::Io(e))?;
+            .map_err(AzInternalError::Io)?;
         
         let mut contents = String::new();
         file.read_to_string(&mut contents)
-            .map_err(|e| AzInternalError::Io(e))?;
+            .map_err(AzInternalError::Io)?;
         
         let token_data: Value = serde_json::from_str(&contents)
-            .map_err(|e| AzInternalError::Json(e))?;
+            .map_err(AzInternalError::Json)?;
         
         let access_token = token_data.get("access_token")
             .and_then(|t| t.as_str())

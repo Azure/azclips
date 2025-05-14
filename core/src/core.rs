@@ -8,18 +8,24 @@ use tracing::error;
 
 use crate::argparse::ArgValueAssignOp;
 use crate::cmd_uri::CmdUri;
+use crate::component::AzComponentCtx;
 use crate::component::{AzComponent, AzComponentCenter, AzComponentInfo};
 use crate::config::{cloud::AzCloud, AzCfg};
 use crate::error::{AzInternalError, AzResult, AzUserUsageError};
 use crate::param::CmdParamBuilder;
 use crate::pb::{
-    cmd_interface, execute_response, CheckRequest, CmdInterface, CmdOutputFlattenMode,
-    CmdOutputFormat, ComponentMetadata, ExecuteRequest, InterfaceRequest, MetadataRequest,
+    cmd_interface, execute_response, CmdInterface, CmdOutputFlattenMode, CmdOutputFormat,
+    ComponentMetadata, ExecuteRequest, InterfaceRequest, MetadataRequest, ValidateRequest,
 };
 
 pub struct AzCore {
     pub(crate) cfg: RwLock<AzCfg>,
     pub(crate) component_center: RwLock<AzComponentCenter<Self>>,
+}
+
+pub struct CmdInvocation<T: AzComponentCtx> {
+    pub cmd_uri: CmdUri,
+    component: Arc<dyn AzComponent<T>>,
 }
 
 impl AzCore {
@@ -47,24 +53,28 @@ impl AzCore {
 }
 
 impl AzCore {
-    pub async fn check_cmd_uri(&self, cmd_uri: CmdUri) -> AzResult<CmdUri> {
+    pub async fn resolve_cmd_invocation(&self, cmd_uri: CmdUri) -> AzResult<CmdInvocation<Self>> {
         // TODO: add auto installation of the plugin based on the configuration
         let component = self.load_component(&cmd_uri).await?;
 
-        let request = CheckRequest {
+        let request = ValidateRequest {
             uri: cmd_uri.to_string(),
         };
 
         // TODO: add auto installation of the plugin based on the configuration
-        let cmd_uri = component.check(self, request).await?.uri.ok_or(
+        let cmd_uri = component.validate(self, request).await?.uri.ok_or(
             AzUserUsageError::CommandNotFoundError(format!("command not found {}", cmd_uri)),
         )?;
         let cmd_uri = CmdUri::from_str(&cmd_uri)?;
-        Ok(cmd_uri)
+        Ok(CmdInvocation { cmd_uri, component })
     }
 
-    pub async fn get_cmd_interface(&self, cmd_uri: &CmdUri) -> AzResult<CmdInterface> {
-        let component = self.load_component(cmd_uri).await?;
+    pub async fn get_cmd_interface(
+        &self,
+        invocation: &CmdInvocation<Self>,
+    ) -> AzResult<CmdInterface> {
+        let cmd_uri = &invocation.cmd_uri;
+        let component = &invocation.component;
         let request = InterfaceRequest {
             uri: cmd_uri.to_string(),
             depth: 1, // only the top level command group and command information
@@ -79,10 +89,11 @@ impl AzCore {
 
     pub async fn execute_cmd(
         &self,
-        cmd_uri: &CmdUri,
+        invocation: &CmdInvocation<Self>,
         cmd_arg_ops: Vec<ArgValueAssignOp>,
     ) -> AzResult<Option<Value>> {
-        let component = self.load_component(cmd_uri).await?;
+        let cmd_uri = &invocation.cmd_uri;
+        let component = &invocation.component;
         let request = InterfaceRequest {
             uri: cmd_uri.to_string(),
             depth: 1, // only the top level command group and command information
@@ -212,9 +223,9 @@ impl AzCore {
 }
 
 impl AzCore {
-    async fn load_component(&self, cmd_uri: &CmdUri) -> AzResult<Arc<Box<dyn AzComponent<Self>>>> {
+    async fn load_component(&self, cmd_uri: &CmdUri) -> AzResult<Arc<dyn AzComponent<Self>>> {
         // TODO: add auto installation of the plugin based on the configuration
-        let route = self.component_center.read().await.route(&cmd_uri).ok_or(
+        let route = self.component_center.read().await.route(cmd_uri).ok_or(
             AzUserUsageError::CommandNotFoundError(format!(
                 "No route available for cmd uri {}",
                 cmd_uri
@@ -233,7 +244,7 @@ impl AzCore {
     ///
     /// If a customized cloud is not registered before, it will raise an error
     /// The switch will also rebuild the component center route table for the cloud
-    pub(crate) async fn switch_cloud<'a>(&'a self, cloud: &AzCloud) -> AzResult<()> {
+    pub(crate) async fn switch_cloud(&self, cloud: &AzCloud) -> AzResult<()> {
         {
             let mut cfg = self.cfg.write().await;
             _ = cfg.clouds.set_active(cloud.clone())?;
