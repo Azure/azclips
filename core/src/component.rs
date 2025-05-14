@@ -1,4 +1,5 @@
-mod built_in;
+pub(crate) mod built_in;
+
 mod center;
 mod cmd;
 mod ctx;
@@ -14,7 +15,7 @@ use crate::pb::{
 use crate::{config, pb::MetadataRequest};
 
 pub use center::{AzComponentCenter, AzComponentInfo};
-pub use cmd::{AzCmd, AzCmdExecute, AzCmdGroup};
+pub use cmd::{AzCmd, AzCmdComponent, AzCmdExecute, AzCmdGroup};
 pub use ctx::AzComponentCtx;
 
 /// the trait of a component
