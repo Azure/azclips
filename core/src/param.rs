@@ -18,9 +18,10 @@ use crate::{
     pb::{cmd_arg, cmd_number_arg, cmd_string_arg, CmdCommand, CmdParams},
 };
 
-pub struct CmdParamBuilder {
+pub struct CmdParamBuilder<'a> {
     // the binary parameters will be stored as a file path in the value and converted to a binary data when building the command
     params: ParamValue,
+    command: &'a CmdCommand,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -30,15 +31,19 @@ enum ParamValue {
     Partial(HashMap<String, ParamValue>),
 }
 
-impl Default for CmdParamBuilder {
-    fn default() -> Self {
+impl<'a> CmdParamBuilder<'a> {
+    pub fn new(command: &'a CmdCommand) -> Self {
         Self {
             params: ParamValue::Partial(HashMap::new()),
+            command,
         }
     }
 }
 
-impl CmdParamBuilder {
+impl CmdParamBuilder<'_> {
+    /// apply all the value operation into a param value tree
+    ///
+    /// using the argument name as the key and replace all the alias
     pub fn apply(&mut self, value_op: ArgValueAssignOp) -> Result<(), AzUserUsageError> {
         if value_op.is_append && !value_op.value.is_array() {
             // append value should be an array
@@ -49,18 +54,24 @@ impl CmdParamBuilder {
         }
 
         let mut keys = value_op.keys.parts();
-
         let mut parent = &mut self.params;
         let mut key = keys.next().unwrap();
+        let mut arg = CmdArgWrapper::build_by_keys(
+            self.command,
+            &SHPartialKeys::from_parts(&[key.to_owned()]),
+        )
+        .unwrap();
         let mut keys_next = keys.next();
 
         while let Some(next_key) = keys_next {
             match parent {
                 ParamValue::Partial(partial) => {
+                    let entry_name = arg.param_name_or(key);
                     parent = partial
-                        .entry(key.to_string())
+                        .entry(entry_name)
                         .or_insert(ParamValue::Partial(HashMap::new()));
                     key = next_key;
+                    arg = arg.retrieve_sub_arg(&[key.to_owned()]).unwrap();
                     keys_next = keys.next();
                 }
                 _ => {
@@ -70,58 +81,65 @@ impl CmdParamBuilder {
         }
 
         match parent {
-            ParamValue::Partial(partial) => match partial.entry(key.to_string()) {
-                Entry::Vacant(entry) => {
-                    if value_op.is_append {
-                        entry.insert(ParamValue::Append(value_op.value));
-                    } else {
-                        entry.insert(ParamValue::Assign(value_op.value));
+            ParamValue::Partial(partial) => {
+                let value = value_op.value;
+                let is_append = value_op.is_append;
+                let value = arg.format_value_param_name(value);
+                let entry_name = arg.param_name_or(key);
+                match partial.entry(entry_name) {
+                    Entry::Vacant(entry) => {
+                        if is_append {
+                            entry.insert(ParamValue::Append(value));
+                        } else {
+                            entry.insert(ParamValue::Assign(value));
+                        }
+                    }
+                    Entry::Occupied(mut entry) => {
+                        if is_append {
+                            let new_value = match entry.get() {
+                                ParamValue::Partial(_) => ParamValue::Append(value), // directly replace the partial value
+                                ParamValue::Assign(v) => {
+                                    if v.is_array() {
+                                        // extend the existing array with the new value
+                                        let mut new_value = v.as_array().unwrap().clone();
+                                        if let Value::Array(extend_array) = value {
+                                            new_value.extend(extend_array);
+                                        } else {
+                                            unreachable!(); // verified in the head of function
+                                        }
+                                        ParamValue::Assign(Value::Array(new_value))
+                                    } else {
+                                        // the previous value assignment already replace the old array by others,
+                                        // so the append value is the same as the assign value
+                                        ParamValue::Assign(value)
+                                    }
+                                }
+                                ParamValue::Append(v) => {
+                                    if v.is_array() {
+                                        // extend the existing array with the new value
+                                        let mut new_value = v.as_array().unwrap().clone();
+                                        if let Value::Array(extend_array) = value {
+                                            new_value.extend(extend_array);
+                                        } else {
+                                            unreachable!(); // verified in the head of function
+                                        }
+                                        ParamValue::Append(Value::Array(new_value))
+                                    } else {
+                                        ParamValue::Append(value)
+                                    }
+                                }
+                            };
+                            entry.insert(new_value);
+                        } else {
+                            entry.insert(ParamValue::Assign(value));
+                        }
                     }
                 }
-                Entry::Occupied(mut entry) => {
-                    if value_op.is_append {
-                        let new_value = match entry.get() {
-                            ParamValue::Partial(_) => ParamValue::Append(value_op.value), // directly replace the partial value
-                            ParamValue::Assign(v) => {
-                                if v.is_array() {
-                                    // extend the existing array with the new value
-                                    let mut new_value = v.as_array().unwrap().clone();
-                                    if let Value::Array(extend_array) = value_op.value {
-                                        new_value.extend(extend_array);
-                                    } else {
-                                        unreachable!(); // verified in the head of function
-                                    }
-                                    ParamValue::Assign(Value::Array(new_value))
-                                } else {
-                                    // the previous value assignment already replace the old array by others,
-                                    // so the append value is the same as the assign value
-                                    ParamValue::Assign(value_op.value)
-                                }
-                            }
-                            ParamValue::Append(v) => {
-                                if v.is_array() {
-                                    // extend the existing array with the new value
-                                    let mut new_value = v.as_array().unwrap().clone();
-                                    if let Value::Array(extend_array) = value_op.value {
-                                        new_value.extend(extend_array);
-                                    } else {
-                                        unreachable!(); // verified in the head of function
-                                    }
-                                    ParamValue::Append(Value::Array(new_value))
-                                } else {
-                                    ParamValue::Append(value_op.value)
-                                }
-                            }
-                        };
-                        entry.insert(new_value);
-                    } else {
-                        entry.insert(ParamValue::Assign(value_op.value));
-                    }
-                }
-            },
+            }
             ParamValue::Assign(v) | ParamValue::Append(v) => {
                 // Patch on the value
-                let mut remain_keys = vec![key];
+                // already inherent the key and arg from the previous loop
+                let mut remain_keys = vec![];
                 if let Some(next_key) = keys_next {
                     remain_keys.push(next_key);
                 }
@@ -129,18 +147,18 @@ impl CmdParamBuilder {
 
                 // continue find the parent in the value
                 let mut parent = v;
-                for idx in 0..remain_keys.len() - 1 {
-                    let key = remain_keys[idx];
+                for idx in 0..remain_keys.len() {
                     let next_key = remain_keys[idx + 1];
                     match key {
-                        SHPartialKeyPart::Name(name) => {
+                        SHPartialKeyPart::Name(_) => {
                             if !parent.is_object() {
                                 return Err(AzUserUsageError::InvalidArgumentValueError(
                                     // TODO: improve the error message
                                     format!("the patch key is invalid: {}", key),
                                 ));
                             }
-                            if !parent.as_object().unwrap().contains_key(name) {
+                            let name = arg.param_name_or(key);
+                            if !parent.as_object().unwrap().contains_key(&name) {
                                 // insert a new object
                                 let append_value = if matches!(next_key, SHPartialKeyPart::Index(_))
                                 {
@@ -153,7 +171,7 @@ impl CmdParamBuilder {
                                     .unwrap()
                                     .insert(name.to_owned(), append_value);
                             }
-                            parent = parent.as_object_mut().unwrap().get_mut(name).unwrap();
+                            parent = parent.as_object_mut().unwrap().get_mut(&name).unwrap();
                         }
                         SHPartialKeyPart::Index(index) => {
                             if !parent.is_array() {
@@ -173,17 +191,20 @@ impl CmdParamBuilder {
                             parent = parent.as_array_mut().unwrap().get_mut(index).unwrap();
                         }
                     }
+
+                    key = next_key;
+                    arg = arg.retrieve_sub_arg(&[key.to_owned()]).unwrap();
                 }
 
-                let key = remain_keys[remain_keys.len() - 1];
                 match key {
-                    SHPartialKeyPart::Name(name) => {
+                    SHPartialKeyPart::Name(_) => {
                         if !parent.is_object() {
                             return Err(AzUserUsageError::InvalidArgumentValueError(
                                 // TODO: improve the error message
                                 format!("the patch key is invalid: {}", key),
                             ));
                         }
+                        let name = arg.param_name_or(key);
                         let new_value = if value_op.is_append {
                             match parent.as_object_mut().unwrap().entry(name.to_owned()) {
                                 SerdeEntry::Vacant(_) => value_op.value,
@@ -205,6 +226,7 @@ impl CmdParamBuilder {
                         } else {
                             value_op.value
                         };
+                        let new_value = arg.format_value_param_name(new_value);
                         parent
                             .as_object_mut()
                             .unwrap()
@@ -244,6 +266,7 @@ impl CmdParamBuilder {
                             // directly replace the value
                             value_op.value
                         };
+                        let new_value = arg.format_value_param_name(new_value);
                         parent.as_array_mut().unwrap()[index] = new_value;
                     }
                 }
@@ -258,7 +281,7 @@ impl CmdParamBuilder {
     /// The format process includes:
     /// 1. apply the default values
     /// 2. check values with format rules
-    pub fn format_and_build(self, command: &CmdCommand) -> AzResult<CmdParams> {
+    pub fn format_and_build(self) -> AzResult<CmdParams> {
         let mut cmd_params = CmdParams::default();
 
         let params_map = if let ParamValue::Partial(partial) = self.params {
@@ -269,10 +292,13 @@ impl CmdParamBuilder {
 
         for (key, value) in params_map.into_iter() {
             let arg = CmdArgWrapper::build_by_keys(
-                command,
+                self.command,
                 &SHPartialKeys::from_parts(&[SHPartialKeyPart::Name(key.to_string())]),
             )
             .unwrap();
+
+            // // replace the key with the argument name to avoid the option alias
+            // let key = arg.arg().name.to_string();
 
             if matches!(value, ParamValue::Assign(_)) {
                 cmd_params.patch_keys.push(arg.prefix_keys().to_string());
@@ -283,11 +309,11 @@ impl CmdParamBuilder {
             }
             let v = format_param_value(value, &arg, &mut cmd_params.patch_keys)?;
             let json_bytes = serde_json::to_vec(&v).unwrap();
-            cmd_params.params.insert(key.to_string(), json_bytes);
+            cmd_params.params.insert(key, json_bytes);
         }
 
         // apply default values if argument is not assigned
-        for arg in command.args.iter() {
+        for arg in self.command.args.iter() {
             if arg.default.is_none() {
                 continue;
             }
@@ -298,7 +324,7 @@ impl CmdParamBuilder {
             let default: Value = arg.default.as_ref().unwrap().clone().try_into()?;
             let value = ParamValue::Assign(default);
             let key = arg.name.to_string();
-            let arg = CmdArgWrapper::new(Some(command), arg)?;
+            let arg = CmdArgWrapper::new(Some(self.command), arg)?;
             cmd_params.patch_keys.push(arg.prefix_keys().to_string());
             let v = format_param_value(value, &arg, &mut cmd_params.patch_keys)?;
             let json_bytes = serde_json::to_vec(&v).unwrap();
@@ -390,6 +416,8 @@ fn format_param_value(
                         let sub_arg = arg
                             .retrieve_sub_arg(&[SHPartialKeyPart::parse_name(&key).unwrap()])
                             .unwrap_or_else(|_| panic!("missing sub argument {} in object", key));
+                        // // replace the key with the argument name to avoid the option alias
+                        // let key = sub_arg.arg().name.to_string();
                         let value =
                             format_param_value(ParamValue::Assign(value), &sub_arg, patch_keys)?;
                         new_obj.insert(key, value);
@@ -437,8 +465,10 @@ fn format_param_value(
                     } else if matches!(value, ParamValue::Append(_)) {
                         patch_keys.push(format!("{}+", sub_arg.prefix_keys()))
                     }
+                    // // replace the key with the argument name to avoid the option alias
+                    // let key = sub_arg.arg().name.to_string();
                     let v = format_param_value(value, &sub_arg, patch_keys)?;
-                    partial_object.insert(key.to_string(), v);
+                    partial_object.insert(key, v);
                 }
                 // apply default , for the update command the default value should not defined in the argument definition
                 for prop in object_arg.props.iter() {
@@ -509,7 +539,6 @@ fn format_param_value(
                         patch_keys.push(format!("{}+", sub_arg.prefix_keys()))
                     }
                     let v = format_param_value(value, &sub_arg, patch_keys)?;
-
                     partial_array.insert(key, v);
                 }
                 Value::Object(partial_array)
@@ -591,21 +620,19 @@ mod test {
 
     #[test]
     fn test_apply_builder() {
-        let mut builder = CmdParamBuilder::default();
-
         let mut cmd = CmdCommand::default();
 
         // object arg
         let mut object_arg = CmdArg::default();
         object_arg.var_name = "$Instance.object".to_string();
         object_arg.name = "object".to_string();
-        object_arg.options = vec!["object".to_string()];
+        object_arg.options = vec!["object-alias".to_string()];
         object_arg.nullable = true;
         let mut object_type = CmdObjectArg::default();
         // define the string property type
         let mut str_arg = CmdArg::default();
         str_arg.name = "str".to_string();
-        str_arg.options = vec!["str".to_string()];
+        str_arg.options = vec!["str-alias".to_string()];
         str_arg.nullable = true;
         str_arg.arg_type = Some(ArgType::String(CmdStringArg::default()));
         object_type.props.push(str_arg);
@@ -687,6 +714,8 @@ mod test {
         array_arg.arg_type = Some(ArgType::Array(Box::new(array_type)));
         cmd.args.push(array_arg);
 
+        let mut builder = CmdParamBuilder::new(&cmd);
+
         for (arg, values, expected) in [
             ("arr", vec!["[5]=f"], 
             ParamValue::new_partial(
@@ -730,7 +759,7 @@ mod test {
                     ]))
                 ])), ("arr", ParamValue::Assign(Value::Null))]
             )),
-            ("object", vec!["str=abc", "tags={a:b,c:1,d:false,e:true,f:null}", "additional1=1", "array=[c,d]"],
+            ("object-alias", vec!["str-alias=abc", "tags={a:b,c:1,d:false,e:true,f:null}", "additional1=1", "array=[c,d]"],
             ParamValue::new_partial(
                 vec![("object", ParamValue::new_partial(vec![
                     ("str", ParamValue::Assign(Value::String("abc".to_string()))),
@@ -776,7 +805,7 @@ mod test {
                     ("array", ParamValue::Assign(Value::Array(json!(["c", "d", "a", "f"]).as_array().unwrap().clone())))
                 ])), ("arr", ParamValue::Assign(Value::Null))]
             )),
-            ("object", vec!["{str:abc,num:123,bool:true,array:[1,b,false,true,null],tags:{a:b,c:1,d:false,e:true,f:null},additional1:1,additional2:false,additional3:[1,b,false,true,null],additional4:{a:b,c:1,d:false,e:true,f:null},additional5:[{a:b,c:d}]}"],                
+            ("object", vec!["{str-alias:abc,num:123,bool:true,array:[1,b,false,true,null],tags:{a:b,c:1,d:false,e:true,f:null},additional1:1,additional2:false,additional3:[1,b,false,true,null],additional4:{a:b,c:1,d:false,e:true,f:null},additional5:[{a:b,c:d}]}"],                
                 ParamValue::new_partial(vec![("object", ParamValue::Assign(Value::Object(
                     json!({
                         "str": "abc",
@@ -973,7 +1002,7 @@ mod test {
                 vec!["object.prop_df", "object.prop_obj.array+", "default"],
             ),
         ] {
-            let mut builder = CmdParamBuilder::default();
+            let mut builder = CmdParamBuilder::new(&cmd);
             let mut ops = parse_cmd_arg(&cmd, arg, values)
                 .unwrap()
                 .unwrap()
@@ -985,7 +1014,7 @@ mod test {
                     panic!("no value op");
                 }
             }
-            let params = builder.format_and_build(&cmd).unwrap();
+            let params = builder.format_and_build().unwrap();
             for (key, v) in params.params.iter() {
                 let v = serde_json::from_slice::<Value>(v).unwrap();
                 assert_eq!(v, expected.remove(key).unwrap());
