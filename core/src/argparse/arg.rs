@@ -19,9 +19,7 @@ pub struct CmdArgWrapper<'a> {
     inner: &'a CmdArg,
     unwrapped_arg_type: &'a cmd_arg::ArgType,
     prefix_keys: SHPartialKeys,
-    /// the name of the param value, it will using the argument name instead of the option alias,
-    /// if inner is part of item of array type or object type, it will be null
-    param_name: Option<String>,
+    normalized_name: Option<String>,
 }
 
 impl<'a> CmdArgWrapper<'a> {
@@ -44,7 +42,7 @@ impl<'a> CmdArgWrapper<'a> {
             prefix_keys: SHPartialKeys::from_parts(&[SHPartialKeyPart::Name(
                 inner.name.to_string(),
             )]),
-            param_name: Some(inner.name.to_string()),
+            normalized_name: Some(inner.name.to_string()),
         })
     }
 
@@ -119,8 +117,10 @@ impl CmdArgWrapper<'_> {
         self.inner
     }
 
-    pub fn param_name_or(&self, default: impl ToString) -> String {
-        self.param_name
+    /// the normalized name of the argument, it uses the argument name instead of the option alias,
+    /// for name of additional property or array item, it's null and the default value will be used
+    pub fn normalized_name_or(&self, default: impl ToString) -> String {
+        self.normalized_name
             .as_deref()
             .map(|name| name.to_string())
             .unwrap_or_else(|| default.to_string())
@@ -294,7 +294,7 @@ impl CmdArgWrapper<'_> {
         let mut arg = self.inner;
         let mut arg_type = self.unwrapped_arg_type;
         let mut prefix_keys = self.prefix_keys.clone();
-        let mut param_name = self.param_name.clone();
+        let mut param_name = self.normalized_name.clone();
         for part in parts.into_iter() {
             match arg_type {
                 cmd_arg::ArgType::Object(obj) => match part {
@@ -378,11 +378,16 @@ impl CmdArgWrapper<'_> {
             inner: arg,
             unwrapped_arg_type: arg_type,
             prefix_keys,
-            param_name,
+            normalized_name: param_name,
         })
     }
 
-    pub fn format_value_param_name(&self, value: Value) -> Value {
+    /// Normalizes the property names in a JSON value according to the argument definition.
+    ///
+    /// This function recursively processes JSON values to ensure that object keys match the defined
+    /// argument name instead of the option alias. For additional properties or array items, it will
+    /// keep the original name.
+    pub fn normalize_value_names(&self, value: Value) -> Value {
         match value {
             Value::Object(obj) => {
                 if matches!(self.inner.arg_type, Some(cmd_arg::ArgType::Object(_))) {
@@ -391,8 +396,8 @@ impl CmdArgWrapper<'_> {
                         let sub_arg = self
                             .retrieve_sub_arg([&SHPartialKeyPart::Name(k.clone())])
                             .unwrap();
-                        let sub_arg_name = sub_arg.param_name_or(k);
-                        let v = sub_arg.format_value_param_name(v);
+                        let sub_arg_name = sub_arg.normalized_name_or(k);
+                        let v = sub_arg.normalize_value_names(v);
                         new_obj.insert(sub_arg_name, v);
                     }
                     Value::Object(new_obj)
@@ -407,7 +412,7 @@ impl CmdArgWrapper<'_> {
                         let sub_arg = self
                             .retrieve_sub_arg([&SHPartialKeyPart::Index(i as u16)])
                             .unwrap();
-                        let v = sub_arg.format_value_param_name(v);
+                        let v = sub_arg.normalize_value_names(v);
                         new_arr.push(v);
                     }
                     Value::Array(new_arr)
