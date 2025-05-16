@@ -50,6 +50,9 @@ impl Oauth2HttpClient {
         let headers = try_from_headers(response.headers())?;
         let body = response.into_raw_body().collect().await?.to_vec();
 
+        println!("Response body: {:?}", String::from_utf8_lossy(&body));
+        println!("Response status code: {:?}", status_code);
+
         let mut oauth_response = oauth2::HttpResponse::new(body);
         *oauth_response.headers_mut() = headers;
         *oauth_response.status_mut() = status_code;

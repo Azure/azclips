@@ -13,7 +13,7 @@ use azure_core::{
     http::{HttpClient, Url},
 };
 use oauth2::{basic::BasicClient, EndpointNotSet, EndpointSet, HttpRequest, Scope};
-use oauth2::{ClientId, ClientSecret};
+use oauth2::{ClientId, ClientSecret, TokenResponse};
 use std::sync::Arc;
 
 /// Start an authorization code flow.
@@ -134,5 +134,71 @@ impl AuthorizationCodeFlow {
                     format!("Authorization code exchange failed: {}", e),
                 )
             })
+    }
+    
+    /// Exchange an authorization code for a token, also returning the id_token if present.
+    pub async fn exchange_with_id_token(
+        self,
+        http_client: Arc<dyn HttpClient>,
+        code: oauth2::AuthorizationCode,
+    ) -> azure_core::Result<
+        crate::token_response::EntraIdTokenResponse<oauth2::basic::BasicTokenType>,
+    > {
+        // Create HTTP client that preserves the raw response
+        let oauth_http_client = Arc::new(Oauth2HttpClient::new(http_client.clone()));
+        
+        // Build request and perform exchange
+        let token_request = self.client
+            .exchange_code(code)
+            .set_pkce_verifier(self.pkce_code_verifier);
+            
+        let client = {
+            let oauth_http_client = oauth_http_client.clone();
+            move |request: HttpRequest| {
+                let oauth_http_client = oauth_http_client.clone();
+                async move { oauth_http_client.request(request).await }
+            }
+        };
+        
+        // Execute the standard token request
+        let standard_response = token_request
+            .request_async(&client)
+            .await
+            .map_err(|e| {
+                azure_core::Error::new(
+                    ErrorKind::Credential,
+                    format!("Authorization code exchange failed: {}", e),
+                )
+            })?;
+            
+        // Get the raw response if available
+        if let Some(raw_response) = oauth_http_client.get_raw_response() {
+            match crate::token_response::EntraIdTokenResponse::from_json(raw_response) {
+                Ok(response_with_id_token) => Ok(response_with_id_token),
+                Err(_) => {
+                    // If parsing with id_token fails, construct a response without it
+                    let standard_response = standard_response;
+                    let custom_response = serde_json::json!({
+                        "access_token": standard_response.access_token().secret(),
+                        "token_type": "Bearer",
+                        "expires_in": standard_response.expires_in().map(|d| d.as_secs()),
+                        "refresh_token": standard_response.refresh_token().map(|t| t.secret()),
+                        "scope": standard_response.scopes().map(|s| s.iter().map(|scope| scope.to_string()).collect::<Vec<_>>().join(" "))
+                    });
+                    
+                    serde_json::from_value(custom_response).map_err(|e| {
+                        azure_core::Error::new(
+                            ErrorKind::Credential,
+                            format!("Failed to parse token response: {}", e),
+                        )
+                    })
+                }
+            }
+        } else {
+            Err(azure_core::Error::new(
+                ErrorKind::Credential,
+                "Failed to capture raw HTTP response".to_string(),
+            ))
+        }
     }
 }
