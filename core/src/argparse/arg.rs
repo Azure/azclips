@@ -1,6 +1,6 @@
 use std::{fmt, sync::LazyLock};
 
-use serde_json::Value;
+use serde_json::{Map, Value};
 
 use crate::{
     error::{AzError, AzInternalError, AzResult, AzUserUsageError},
@@ -19,6 +19,7 @@ pub struct CmdArgWrapper<'a> {
     inner: &'a CmdArg,
     unwrapped_arg_type: &'a cmd_arg::ArgType,
     prefix_keys: SHPartialKeys,
+    normalized_name: Option<String>,
 }
 
 impl<'a> CmdArgWrapper<'a> {
@@ -41,6 +42,7 @@ impl<'a> CmdArgWrapper<'a> {
             prefix_keys: SHPartialKeys::from_parts(&[SHPartialKeyPart::Name(
                 inner.name.to_string(),
             )]),
+            normalized_name: Some(inner.name.to_string()),
         })
     }
 
@@ -88,8 +90,7 @@ impl CmdArgWrapper<'_> {
     // get the blank value of the argument
     // if the argument is boolean type, use the default blank value which is "true"
     pub fn blank(&self) -> Option<&CmdArgBlank> {
-        self
-            .inner
+        self.inner
             .blank
             .as_ref()
             .or_else(|| match self.inner.arg_type {
@@ -114,6 +115,15 @@ impl CmdArgWrapper<'_> {
 
     pub fn arg(&self) -> &CmdArg {
         self.inner
+    }
+
+    /// the normalized name of the argument, it uses the argument name instead of the option alias,
+    /// for name of additional property or array item, it's null and the default value will be used
+    pub fn normalized_name_or(&self, default: impl ToString) -> String {
+        self.normalized_name
+            .as_deref()
+            .map(|name| name.to_string())
+            .unwrap_or_else(|| default.to_string())
     }
 }
 
@@ -284,17 +294,25 @@ impl CmdArgWrapper<'_> {
         let mut arg = self.inner;
         let mut arg_type = self.unwrapped_arg_type;
         let mut prefix_keys = self.prefix_keys.clone();
+        let mut param_name = self.normalized_name.clone();
         for part in parts.into_iter() {
             match arg_type {
                 cmd_arg::ArgType::Object(obj) => match part {
                     SHPartialKeyPart::Name(name) => {
-                        arg = obj
-                            .get_prop(name.as_str())
-                            .or(obj.get_additional_item()?)
-                            .ok_or(AzUserUsageError::InvalidArgumentValueError(format!(
+                        if let Some(prop) = obj.get_prop(name.as_str()) {
+                            arg = prop;
+                            param_name = Some(arg.name.to_string());
+                        } else if let Some(item) = obj.get_additional_item()? {
+                            arg = item;
+                            // the param name for item should be null, it should be provided by the user
+                            param_name = None;
+                        } else {
+                            return Err(AzUserUsageError::InvalidArgumentValueError(format!(
                                 "'{}' argument is object type and has no internal property '{}'",
                                 prefix_keys, name
-                            )))?;
+                            ))
+                            .into());
+                        }
                     }
                     SHPartialKeyPart::Index(_) => {
                         return Err(AzUserUsageError::InvalidArgumentValueError(format!(
@@ -308,6 +326,8 @@ impl CmdArgWrapper<'_> {
                 cmd_arg::ArgType::Array(arr) => match part {
                     SHPartialKeyPart::Index(_) => {
                         arg = arr.item_ok()?;
+                        // the param name for item should be null, it should be provided by the user
+                        param_name = None;
                     }
                     SHPartialKeyPart::Name(name) => {
                         return Err(AzUserUsageError::InvalidArgumentValueError(format!(
@@ -358,7 +378,50 @@ impl CmdArgWrapper<'_> {
             inner: arg,
             unwrapped_arg_type: arg_type,
             prefix_keys,
+            normalized_name: param_name,
         })
+    }
+
+    /// Normalizes the property names in a JSON value according to the argument definition.
+    ///
+    /// This function recursively processes JSON values to ensure that object keys match the defined
+    /// argument name instead of the option alias. For additional properties or array items, it will
+    /// keep the original name.
+    pub fn normalize_value_names(&self, value: Value) -> Value {
+        match value {
+            Value::Object(obj) => {
+                if matches!(self.inner.arg_type, Some(cmd_arg::ArgType::Object(_))) {
+                    let mut new_obj = Map::new();
+                    for (k, v) in obj.into_iter() {
+                        let sub_arg = self
+                            .retrieve_sub_arg([&SHPartialKeyPart::Name(k.clone())])
+                            .unwrap();
+                        let sub_arg_name = sub_arg.normalized_name_or(k);
+                        let v = sub_arg.normalize_value_names(v);
+                        new_obj.insert(sub_arg_name, v);
+                    }
+                    Value::Object(new_obj)
+                } else {
+                    Value::Object(obj)
+                }
+            }
+            Value::Array(arr) => {
+                if matches!(self.inner.arg_type, Some(cmd_arg::ArgType::Array(_))) {
+                    let mut new_arr = Vec::new();
+                    for (i, v) in arr.into_iter().enumerate() {
+                        let sub_arg = self
+                            .retrieve_sub_arg([&SHPartialKeyPart::Index(i as u16)])
+                            .unwrap();
+                        let v = sub_arg.normalize_value_names(v);
+                        new_arr.push(v);
+                    }
+                    Value::Array(new_arr)
+                } else {
+                    Value::Array(arr)
+                }
+            }
+            _ => value,
+        }
     }
 }
 
