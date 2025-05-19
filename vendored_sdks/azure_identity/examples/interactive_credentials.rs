@@ -38,7 +38,7 @@ async fn run_app_inter(tenant_id: &str) -> Result<(), Box<dyn Error>> {
         InteractiveBrowserCredential::new(Some(ClientId::new(AZURE_CLI_CLIENT_ID.to_string())), Some(tenant_id.to_string()), None)?;
 
     let token_response = interactive_credentials
-        .get_token(Some(&["fake"]), Some("select_account"), None, None, None)
+        .get_token(Some(&["https://management.core.windows.net/.default"]), Some("select_account"), None, None, None)
         .await?;
     
     let original_expires_in = token_response.expires_in().unwrap_or(Duration::from_secs(0));
@@ -47,7 +47,7 @@ async fn run_app_inter(tenant_id: &str) -> Result<(), Box<dyn Error>> {
         .unwrap_or(UNIX_EPOCH);
 
     println!("\n--- Original token ---\n");
-    println!("Access token: {}", token_response.access_token().secret());
+    println!("Access token: {}", token_response.access_token());
     
     println!("Original token expires in: {} seconds (at {:?})", 
              original_expires_in.as_secs(), 
@@ -57,6 +57,10 @@ async fn run_app_inter(tenant_id: &str) -> Result<(), Box<dyn Error>> {
         .ok_or_else(|| NoRefreshTokenError)?; // Return an error if refresh token is missing
 
     let refresh_token_secret = Secret::new(refresh_token.secret().to_string());
+
+    if let Some(id_token) = token_response.id_token() {
+        println!("ID token: {}", id_token);
+    }
 
     println!("\n--- Refreshing the token using refresh_token ---\n");
 

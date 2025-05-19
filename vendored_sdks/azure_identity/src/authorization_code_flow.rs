@@ -7,13 +7,15 @@
 
 #![allow(dead_code)]
 
-use crate::oauth2_http_client::Oauth2HttpClient;
+use crate::oauth2_http_client::{Oauth2HttpClient, CaptureResponseOauth2HttpClient};
+use crate::token_response::ExtendedTokenResponse;
 use azure_core::{
     error::ErrorKind,
     http::{HttpClient, Url},
 };
 use oauth2::{basic::BasicClient, EndpointNotSet, EndpointSet, HttpRequest, Scope};
 use oauth2::{ClientId, ClientSecret};
+use serde_json::Value;
 use std::sync::Arc;
 
 /// Start an authorization code flow.
@@ -104,27 +106,27 @@ pub struct AuthorizationCodeFlow {
 }
 
 #[allow(dead_code)]
-impl AuthorizationCodeFlow {
-    /// Exchange an authorization code for a token.
+impl AuthorizationCodeFlow {    /// Exchange an authorization code for a token.    
     pub async fn exchange(
         self,
         http_client: Arc<dyn HttpClient>,
         code: oauth2::AuthorizationCode,
-    ) -> azure_core::Result<
-        oauth2::StandardTokenResponse<oauth2::EmptyExtraTokenFields, oauth2::basic::BasicTokenType>,
-    > {
-        let oauth_http_client = Arc::new(Oauth2HttpClient::new(http_client.clone()));
+    ) -> azure_core::Result<ExtendedTokenResponse> {
+        // Use our custom client that captures the raw response body
+        let capture_client = Arc::new(CaptureResponseOauth2HttpClient::new(http_client.clone()));
+        
+        // Create an adapter function for the oauth2 crate
         let client = {
-            let oauth_http_client = oauth_http_client.clone();
+            let capture_client = capture_client.clone();
             move |request: HttpRequest| {
-                let oauth_http_client = oauth_http_client.clone();
-                async move { oauth_http_client.request(request).await }
+                let capture_client = capture_client.clone();
+                async move { capture_client.request(request).await }
             }
         };
 
-        self.client
+        // Make the token request
+        let token_response = self.client
             .exchange_code(code)
-            // Send the PKCE code verifier in the token request
             .set_pkce_verifier(self.pkce_code_verifier)
             .request_async(&client)
             .await
@@ -133,6 +135,22 @@ impl AuthorizationCodeFlow {
                     ErrorKind::Credential,
                     format!("Authorization code exchange failed: {}", e),
                 )
-            })
+            })?;
+        
+        // Get the ID token from the captured response body
+        let id_token = if let Some(response_body) = capture_client.last_response_body() {
+            let json_response: Result<serde_json::Value, _> = serde_json::from_str(&response_body);
+            if let Ok(json) = json_response {
+                json.get("id_token")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        
+        Ok(ExtendedTokenResponse::new(token_response, id_token))
     }
 }

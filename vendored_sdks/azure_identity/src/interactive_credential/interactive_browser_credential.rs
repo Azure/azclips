@@ -1,9 +1,9 @@
 use super::internal_server::*;
 use crate::authorization_code_flow;
+use crate::token_response::ExtendedTokenResponse;
 use azure_core::{error::ErrorKind, http::new_http_client, http::Url, Error};
 use oauth2::{
-    basic::BasicTokenType, AuthorizationCode, ClientId, EmptyExtraTokenFields,
-    StandardTokenResponse,
+    AuthorizationCode, ClientId,
 };
 use std::{str::FromStr, sync::Arc};
 
@@ -53,8 +53,10 @@ impl InteractiveBrowserCredential {
     }
 
     /// Starts the interactive browser authentication flow and returns an access token.
-    ///
-    /// If no scopes are provided, default scopes will be used.
+    ///    /// If no scopes are provided, default scopes will be used.
+    /// 
+    /// Returns an extended token response that includes both the standard OAuth2 token information
+    /// and the ID token if one was provided.
     #[allow(dead_code)]
     pub async fn get_token(
         &self,
@@ -63,7 +65,7 @@ impl InteractiveBrowserCredential {
         login_hint: Option<&str>,
         success_template: Option<&str>, 
         error_template: Option<&str>
-    ) -> azure_core::Result<StandardTokenResponse<EmptyExtraTokenFields, BasicTokenType>> {
+    ) -> azure_core::Result<ExtendedTokenResponse> {
         let mut combined_scopes = DEFAULT_SCOPE_ARR.to_vec();
 
         if let Some(user_scopes) = scopes {
