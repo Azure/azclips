@@ -50,11 +50,11 @@ impl InteractiveBrowserCredential {
             tenant_id,
             redirect_url,
         }))
-    }    /// Starts the interactive browser authentication flow and returns an access token.
-    ///    /// If no scopes are provided, default scopes will be used.
+    }    
+    /// Starts the interactive browser authentication flow and returns an access token.
+    /// If no scopes are provided, default scopes will be used.
     /// 
-    /// Returns a token response that includes standard OAuth2 token information
-    /// and additional fields like the ID token.
+    /// Returns a token response that includes standard OAuth2 token information and additional ID token.
     #[allow(dead_code)]
     pub async fn get_token(
         &self,

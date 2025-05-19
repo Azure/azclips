@@ -20,12 +20,9 @@ use std::{
 };
 use tracing::warn;
 
-/// An OAuth2 HTTP client that captures the raw response body.
-/// This is used to extract additional fields like ID tokens which
-/// aren't exposed through the standard OAuth2 response types.
 pub(crate) struct Oauth2HttpClient {
     http_client: Arc<dyn HttpClient>,
-    raw_response_body: Arc<std::sync::Mutex<Option<String>>>,
+    raw_response_body: Arc<std::sync::Mutex<Option<String>>>, // Store the raw response body for id_token extraction
 }
 
 impl Oauth2HttpClient {
@@ -64,7 +61,6 @@ impl Oauth2HttpClient {
         let headers = try_from_headers(response.headers())?;
         let body = response.into_raw_body().collect().await?.to_vec();
         
-        // Store the raw response body for id_token extraction
         if !body.is_empty() {
             let response_str = String::from_utf8_lossy(&body).to_string();
             if let Ok(mut guard) = self.raw_response_body.lock() {
