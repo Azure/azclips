@@ -185,7 +185,7 @@ impl HelpLineDisplay for CmdInterface {
 }
 
 pub struct CmdArgDisplayConfig<'a> {
-    pub show_options: bool,
+    pub prepend_dash: bool,
     pub positions: Option<&'a [String]>,
 }
 
@@ -193,7 +193,7 @@ impl HelpLineDisplay for CmdArg {
     type Config<'a> = CmdArgDisplayConfig<'a>;
 
     fn help_line<'a>(&self, config: CmdArgDisplayConfig<'a>) -> HelpTableLine {
-        let short = if config.show_options {
+        let short = if config.prepend_dash {
             self.options
                 .iter()
                 .filter(|o| o.len() == 1)
@@ -207,14 +207,20 @@ impl HelpLineDisplay for CmdArg {
             .positions
             .map(|positions| positions.contains(&self.name))
             .unwrap_or(false);
-        let name = if config.show_options && !self.options.is_empty() {
+        let name = if !self.options.is_empty() {
             self.options
                 .iter()
                 .filter(|o| o.len() != 1)
-                .map(|s| format!("--{}", s).bold())
+                .map(|s| {
+                    if config.prepend_dash {
+                        format!("--{}", s).bold()
+                    } else {
+                        format!("{}", s).bold()
+                    }
+                })
                 .map(|s| s.into())
                 .collect::<Vec<_>>()
-        } else if config.show_options && is_positional {
+        } else if is_positional {
             vec![format!("<{}>", self.name.to_uppercase()).bold().into()]
         } else {
             vec![self.name.clone().bold().into()]
@@ -297,7 +303,7 @@ pub fn arg_props_tables(arg_type: &cmd_arg::ArgType) -> HashMap<String, Vec<Help
         cmd_arg::ArgType::Object(object_arg) => {
             for prop in &object_arg.props {
                 let line = prop.help_line(CmdArgDisplayConfig {
-                    show_options: false,
+                    prepend_dash: false,
                     positions: None,
                 });
                 let group = props_groups
@@ -308,7 +314,7 @@ pub fn arg_props_tables(arg_type: &cmd_arg::ArgType) -> HashMap<String, Vec<Help
             if let Some(additional_props) = &object_arg.additional_props {
                 if let Some(prop) = &additional_props.item {
                     let line = prop.help_line(CmdArgDisplayConfig {
-                        show_options: false,
+                        prepend_dash: false,
                         positions: None,
                     });
                     let group = props_groups

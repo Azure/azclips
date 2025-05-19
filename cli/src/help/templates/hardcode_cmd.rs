@@ -101,7 +101,7 @@ impl CmdTemplate for HardCodeCmdTemplate {
             Some(Level::Command(cmd)) => {
                 for arg in cmd.args.iter() {
                     let line = arg.help_line(CmdArgDisplayConfig {
-                        show_options: true,
+                        prepend_dash: true,
                         positions: Some(&cmd.positional_args[..]),
                     });
                     let group = help_table_groups
