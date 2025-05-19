@@ -47,7 +47,7 @@ async fn run_app_inter(tenant_id: &str) -> Result<(), Box<dyn Error>> {
         .unwrap_or(UNIX_EPOCH);
 
     println!("\n--- Original token ---\n");
-    println!("Access token: {}", token_response.access_token());
+    println!("Access token: {}", token_response.access_token().secret());
     
     println!("Original token expires in: {} seconds (at {:?})", 
              original_expires_in.as_secs(), 
@@ -58,7 +58,7 @@ async fn run_app_inter(tenant_id: &str) -> Result<(), Box<dyn Error>> {
 
     let refresh_token_secret = Secret::new(refresh_token.secret().to_string());
 
-    if let Some(id_token) = token_response.id_token() {
+    if let Some(id_token) = token_response.extra_fields().id_token.clone() {
         println!("ID token: {}", id_token);
     }
 

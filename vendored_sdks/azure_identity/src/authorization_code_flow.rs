@@ -5,24 +5,20 @@
 //!
 //! You can learn more about the `OAuth2` authorization code flow [here](https://learn.microsoft.com/azure/active-directory/develop/v2-oauth2-auth-code-flow).
 
-#![allow(dead_code)]
-
-use crate::oauth2_http_client::{Oauth2HttpClient, CaptureResponseOauth2HttpClient};
-use crate::token_response::ExtendedTokenResponse;
+use crate::custom_token_fields::CustomTokenFields;
 use azure_core::{
     error::ErrorKind,
     http::{HttpClient, Url},
 };
 use oauth2::{basic::BasicClient, EndpointNotSet, EndpointSet, HttpRequest, Scope};
-use oauth2::{ClientId, ClientSecret};
-use serde_json::Value;
+use oauth2::{ClientId, ClientSecret, TokenResponse};
+use serde_json;
 use std::sync::Arc;
 
 /// Start an authorization code flow.
 ///
 /// The values for `client_id`, `client_secret`, `tenant_id`, and `redirect_url` can all be found
 /// inside of the Azure portal.
-#[allow(dead_code)]
 pub fn authorize(
     client_id: ClientId,
     client_secret: Option<ClientSecret>,
@@ -105,30 +101,30 @@ pub struct AuthorizationCodeFlow {
     pub pkce_code_verifier: oauth2::PkceCodeVerifier,
 }
 
-#[allow(dead_code)]
-impl AuthorizationCodeFlow {    /// Exchange an authorization code for a token.    
+impl AuthorizationCodeFlow {    /// Exchange an authorization code for a token.      
     pub async fn exchange(
         self,
         http_client: Arc<dyn HttpClient>,
-        code: oauth2::AuthorizationCode,
-    ) -> azure_core::Result<ExtendedTokenResponse> {
-        // Use our custom client that captures the raw response body
-        let capture_client = Arc::new(CaptureResponseOauth2HttpClient::new(http_client.clone()));
+        code: oauth2::AuthorizationCode,    ) -> azure_core::Result<oauth2::StandardTokenResponse<CustomTokenFields, oauth2::basic::BasicTokenType>> {
+        // We need to use a CaptureResponseOauth2HttpClient to capture the raw response
+        use crate::oauth2_http_client::Oauth2HttpClient;
+        let capture_client = Arc::new(Oauth2HttpClient::new(http_client));
         
-        // Create an adapter function for the oauth2 crate
-        let client = {
+        // Create a closure that will capture the raw response for us
+        let client_with_capture = {
             let capture_client = capture_client.clone();
             move |request: HttpRequest| {
                 let capture_client = capture_client.clone();
                 async move { capture_client.request(request).await }
             }
         };
-
-        // Make the token request
-        let token_response = self.client
+        
+        let token_request = self.client
             .exchange_code(code)
-            .set_pkce_verifier(self.pkce_code_verifier)
-            .request_async(&client)
+            .set_pkce_verifier(self.pkce_code_verifier);
+        
+        let standard_response = token_request
+            .request_async(&client_with_capture)
             .await
             .map_err(|e| {
                 azure_core::Error::new(
@@ -137,20 +133,41 @@ impl AuthorizationCodeFlow {    /// Exchange an authorization code for a token.
                 )
             })?;
         
-        // Get the ID token from the captured response body
-        let id_token = if let Some(response_body) = capture_client.last_response_body() {
-            let json_response: Result<serde_json::Value, _> = serde_json::from_str(&response_body);
-            if let Ok(json) = json_response {
-                json.get("id_token")
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string())
-            } else {
-                None
-            }
-        } else {
-            None
-        };
+        let raw_json_str = capture_client.raw_response().ok_or_else(|| {
+            azure_core::Error::new(
+                ErrorKind::Credential,
+                "Failed to capture token response".to_string(),
+            )
+        })?;
         
-        Ok(ExtendedTokenResponse::new(token_response, id_token))
+        let json_value: serde_json::Value = serde_json::from_str(&raw_json_str).map_err(|e| {
+            azure_core::Error::new(
+                ErrorKind::Credential,
+                format!("Failed to parse token response as JSON: {}", e),
+            )
+        })?;
+        
+        let id_token = json_value.get("id_token").and_then(|v| v.as_str()).map(|s| s.to_string());
+        let custom_fields = CustomTokenFields { id_token };
+        let mut token_response = oauth2::StandardTokenResponse::new(
+            standard_response.access_token().clone(),
+            standard_response.token_type().clone(),
+            custom_fields,
+        );
+        
+        // Copy over other fields from the standard response
+        if let Some(expires_in) = standard_response.expires_in() {
+            token_response.set_expires_in(Some(&expires_in));
+        }
+        
+        if let Some(refresh_token) = standard_response.refresh_token() {
+            token_response.set_refresh_token(Some(refresh_token.clone()));
+        }
+        
+        if let Some(scopes) = standard_response.scopes() {
+            token_response.set_scopes(Some(scopes.clone()));
+        }
+        
+        Ok(token_response)
     }
 }
