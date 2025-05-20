@@ -6,8 +6,8 @@ use crate::{
     component::{AzCommand, AzCommandExecute, AzComponentCtx},
     error::AzError,
     pb::{
-        cmd_arg, cmd_interface, cmd_string_arg, CmdArg, CmdArgHelp, CmdCommand, CmdHelp,
-        CmdInterface, CmdParams, CmdStringArg, CmdStringFormat,
+        crs_arg, crs_interface, crs_string_arg, CrsArg, CrsArgHelp, CrsCommand, CrsHelp,
+        CrsInterface, CrsParams, CrsStringArg, CrsStringFormat,
     },
     VERSION,
 };
@@ -42,13 +42,13 @@ impl AzCommandExecute for GetConfig {
 impl AzCommand for GetConfig {
     const URI: &'static str = "cmd://azure/config/get";
 
-    fn build_interface(_: Option<u32>) -> CmdInterface {
-        CmdInterface {
-            level: Some(cmd_interface::Level::Command(CmdCommand {
+    fn build_interface(_: Option<u32>) -> CrsInterface {
+        CrsInterface {
+            level: Some(crs_interface::Level::Command(CrsCommand {
                 name: "get".to_string(),
                 uri: Self::uri().to_string(),
                 version: VERSION.to_string(),
-                help: Some(CmdHelp {
+                help: Some(CrsHelp {
                     short: "Get a configuration value".to_string(),
                     long: None,
                 }),
@@ -58,24 +58,24 @@ impl AzCommand for GetConfig {
         }
     }
 
-    fn args() -> Vec<CmdArg> {
-        vec![CmdArg {
+    fn args() -> Vec<CrsArg> {
+        vec![CrsArg {
             var_name: "key".to_string(),
             name: "key".to_string(),
             options: vec!["key".to_string()],
-            help: Some(CmdArgHelp {
+            help: Some(CrsArgHelp {
                 short: "The configuration to get.".to_string(),
                 long: Some(" If not provided, all sections and configurations will be listed. If `section` is provided, all configurations under the section will be listed. If `<section>.<key>` is provided, only the corresponding configuration is shown.".to_string())
             }),
-            arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
-                format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
+            arg_type: Some(crs_arg::ArgType::String(CrsStringArg {
+                format: Some(crs_string_arg::Format::String(CrsStringFormat::default())),
                 ..Default::default()
             })),
             ..Default::default()
         }]
     }
 
-    fn try_from(params: Option<CmdParams>) -> Result<Self, AzError> {
+    fn try_from(params: Option<CrsParams>) -> Result<Self, AzError> {
         let mut get = Self::default();
         if let Some(params) = params {
             for (name, v) in params.params.iter() {

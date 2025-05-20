@@ -3,10 +3,10 @@ mod table;
 mod templates;
 
 use az_core::{
-    argparse::{CmdArgWrapper, SHPartialKeys},
+    argparse::{CrsArgWrapper, SHPartialKeys},
     cmd_uri::CmdUri,
     error::AzError,
-    pb::cmd_interface,
+    pb::crs_interface,
     AzCore,
 };
 use format::default_help_formatter;
@@ -41,19 +41,19 @@ pub(crate) async fn show_command_help_async(cmd_uri: CmdUri) -> Result<(), AzErr
     let core = AzCore::instance().await;
     let invocation = core.resolve_cmd_invocation(cmd_uri).await?;
     if invocation.cmd_uri.executable() {
-        let cmd_interface = core.get_cmd_interface(&invocation).await?;
+        let crs_interface = core.get_crs_interface(&invocation).await?;
         // TODO: global arguments
-        for line in default_help_formatter().format_cmd(&cmd_interface, None, term_width) {
+        for line in default_help_formatter().format_cmd(&crs_interface, None, term_width) {
             println!("{}", line);
         }
         Ok(())
     } else {
-        let cmd_interface = core.get_cmd_interface(&invocation).await?;
+        let crs_interface = core.get_crs_interface(&invocation).await?;
         let sub_components = core
             .get_metadata_of_sub_components(&invocation.cmd_uri)
             .await?;
         for line in
-            default_help_formatter().format_cmd(&cmd_interface, sub_components.values(), term_width)
+            default_help_formatter().format_cmd(&crs_interface, sub_components.values(), term_width)
         {
             println!("{}", line);
         }
@@ -67,15 +67,15 @@ pub(crate) async fn show_command_arg_help_async(
 ) -> Result<(), AzError> {
     let core = AzCore::instance().await;
     let invocation = core.resolve_cmd_invocation(cmd_uri).await?;
-    let cmd_interface = core.get_cmd_interface(&invocation).await?;
-    let cmd = match cmd_interface.level.unwrap() {
-        cmd_interface::Level::Command(cmd) => cmd,
+    let crs_interface = core.get_crs_interface(&invocation).await?;
+    let cmd = match crs_interface.level.unwrap() {
+        crs_interface::Level::Command(cmd) => cmd,
         _ => {
             panic!("Show argument in the command group value is not supported");
         }
     };
 
-    let wrapper = CmdArgWrapper::build_by_keys(&cmd, &keys)?;
+    let wrapper = CrsArgWrapper::build_by_keys(&cmd, &keys)?;
     let arg = wrapper.arg();
     let term_width = crossterm::terminal::size().ok().map(|(w, _)| w as usize);
     for line in default_help_formatter().format_arg(arg, term_width) {

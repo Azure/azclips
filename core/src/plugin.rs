@@ -11,7 +11,7 @@ use crate::cmd_uri::CmdUri;
 use crate::component::{get_component_dir, AzComponent, AzComponentCtx};
 use crate::config::cloud::AzCloud;
 use crate::error::AzInternalError;
-use crate::pb::CmdHelp;
+use crate::pb::CrsHelp;
 
 const PLUGIN_FILE_EXTENSION: &str = "plugin";
 const PLUGIN_DIR_NAME: &str = "plugins";
@@ -26,7 +26,7 @@ pub struct AzPlugin {
         deserialize_with = "deserialize_cmd_help"
     )]
     /// The short summary of the plugin
-    pub(crate) help: CmdHelp,
+    pub(crate) help: CrsHelp,
 }
 
 impl AzPlugin {
@@ -74,7 +74,7 @@ fn get_plugin_dir(cloud: Option<&AzCloud>) -> PathBuf {
     }
 }
 
-pub(crate) fn serialize_cmd_help<S>(help: &CmdHelp, serializer: S) -> Result<S::Ok, S::Error>
+pub(crate) fn serialize_cmd_help<S>(help: &CrsHelp, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
 {
@@ -86,13 +86,13 @@ where
     map.end()
 }
 
-pub(crate) fn deserialize_cmd_help<'de, D>(deserializer: D) -> Result<CmdHelp, D::Error>
+pub(crate) fn deserialize_cmd_help<'de, D>(deserializer: D) -> Result<CrsHelp, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
     let s = Map::deserialize(deserializer)?;
 
-    Ok(CmdHelp {
+    Ok(CrsHelp {
         short: s
             .get("short")
             .and_then(|v| v.as_str())

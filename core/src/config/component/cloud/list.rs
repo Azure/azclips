@@ -4,7 +4,7 @@ use crate::{
     component::{AzCommand, AzCommandExecute, AzComponentCtx},
     config::cloud::{AzCloud, AzCloudMetadata},
     error::AzError,
-    pb::{cmd_interface, CmdArg, CmdCommand, CmdHelp, CmdInterface, CmdParams},
+    pb::{crs_interface, CrsArg, CrsCommand, CrsHelp, CrsInterface, CrsParams},
     VERSION,
 };
 
@@ -37,13 +37,13 @@ impl AzCommandExecute for ListClouds {
 impl AzCommand for ListClouds {
     const URI: &'static str = "cmd://azure/config/cloud/list";
 
-    fn build_interface(_: Option<u32>) -> CmdInterface {
-        CmdInterface {
-            level: Some(cmd_interface::Level::Command(CmdCommand {
+    fn build_interface(_: Option<u32>) -> CrsInterface {
+        CrsInterface {
+            level: Some(crs_interface::Level::Command(CrsCommand {
                 name: "list".to_string(),
                 uri: Self::uri().to_string(),
                 version: VERSION.to_string(),
-                help: Some(CmdHelp {
+                help: Some(CrsHelp {
                     short: "List registered clouds.".to_string(),
                     long: None,
                 }),
@@ -53,11 +53,11 @@ impl AzCommand for ListClouds {
         }
     }
 
-    fn args() -> Vec<CmdArg> {
+    fn args() -> Vec<CrsArg> {
         vec![]
     }
 
-    fn try_from(_: Option<CmdParams>) -> Result<Self, AzError> {
+    fn try_from(_: Option<CrsParams>) -> Result<Self, AzError> {
         Ok(Self::default())
     }
 }

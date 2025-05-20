@@ -14,7 +14,7 @@ use crate::config::{cloud::AzCloud, AzCfg};
 use crate::error::{AzInternalError, AzResult, AzUserUsageError};
 use crate::param::CmdParamBuilder;
 use crate::pb::{
-    cmd_interface, execute_response, CmdInterface, CmdOutputFlattenMode, CmdOutputFormat,
+    crs_interface, execute_response, CrsInterface, CrsOutputFlattenMode, CrsOutputFormat,
     ComponentMetadata, ExecuteRequest, InterfaceRequest, MetadataRequest, ValidateRequest,
 };
 
@@ -69,10 +69,10 @@ impl AzCore {
         Ok(CmdInvocation { cmd_uri, component })
     }
 
-    pub async fn get_cmd_interface(
+    pub async fn get_crs_interface(
         &self,
         invocation: &CmdInvocation<Self>,
-    ) -> AzResult<CmdInterface> {
+    ) -> AzResult<CrsInterface> {
         let cmd_uri = &invocation.cmd_uri;
         let component = &invocation.component;
         let request = InterfaceRequest {
@@ -80,17 +80,17 @@ impl AzCore {
             depth: 1, // only the top level command group and command information
         };
 
-        let cmd_interface = component.interface(self, request).await?.interface.ok_or(
+        let crs_interface = component.interface(self, request).await?.interface.ok_or(
             AzUserUsageError::CommandNotFoundError(format!("command not found {}", cmd_uri)),
         )?;
 
-        Ok(cmd_interface)
+        Ok(crs_interface)
     }
 
     pub async fn execute_cmd(
         &self,
         invocation: &CmdInvocation<Self>,
-        cmd_arg_ops: Vec<ArgValueAssignOp>,
+        crs_arg_ops: Vec<ArgValueAssignOp>,
     ) -> AzResult<Option<Value>> {
         let cmd_uri = &invocation.cmd_uri;
         let component = &invocation.component;
@@ -99,26 +99,26 @@ impl AzCore {
             depth: 1, // only the top level command group and command information
         };
 
-        let cmd_interface = component.interface(self, request).await?.interface.ok_or(
+        let crs_interface = component.interface(self, request).await?.interface.ok_or(
             AzUserUsageError::CommandNotFoundError(format!("command not found {}", cmd_uri)),
         )?;
 
-        let cmd = cmd_interface
+        let cmd = crs_interface
             .level
             .and_then(|level| match level {
-                cmd_interface::Level::Command(cmd) => Some(cmd),
+                crs_interface::Level::Command(cmd) => Some(cmd),
                 _ => None,
             })
             .ok_or(AzUserUsageError::CommandGroupNotExecutableError)?;
 
         let mut param_builder = CmdParamBuilder::new(&cmd);
-        for op in cmd_arg_ops {
+        for op in crs_arg_ops {
             param_builder.apply(op)?;
         }
         let params = param_builder.format_and_build()?;
 
-        let output_format = CmdOutputFormat {
-            flatten_mode: CmdOutputFlattenMode::None as i32,
+        let output_format = CrsOutputFormat {
+            flatten_mode: CrsOutputFlattenMode::None as i32,
         };
         let request = ExecuteRequest {
             uri: cmd_uri.to_string(),
@@ -200,7 +200,7 @@ impl AzCore {
     /// return the component interface of the given cmd uri
     ///
     /// This function is used for ps to dynamically generate the cmdlets for the given component
-    pub async fn get_component_interface(&self, uri: &CmdUri) -> AzResult<CmdInterface> {
+    pub async fn get_component_interface(&self, uri: &CmdUri) -> AzResult<CrsInterface> {
         let component = self.load_component(uri).await?;
         let request = InterfaceRequest {
             uri: uri.to_string(),

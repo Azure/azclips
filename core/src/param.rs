@@ -13,15 +13,15 @@ use arg_fmt::{
 use serde_json::{map::Entry as SerdeEntry, Map, Value};
 
 use crate::{
-    argparse::{ArgValueAssignOp, CmdArgWrapper, SHPartialKeyPart, SHPartialKeys},
+    argparse::{ArgValueAssignOp, CrsArgWrapper, SHPartialKeyPart, SHPartialKeys},
     error::{AzResult, AzUserUsageError},
-    pb::{cmd_arg, cmd_number_arg, cmd_string_arg, CmdCommand, CmdParams},
+    pb::{crs_arg, crs_number_arg, crs_string_arg, CrsCommand, CrsParams},
 };
 
 pub struct CmdParamBuilder<'a> {
     // the binary parameters will be stored as a file path in the value and converted to a binary data when building the command
     params: ParamValue,
-    command: &'a CmdCommand,
+    command: &'a CrsCommand,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -32,7 +32,7 @@ enum ParamValue {
 }
 
 impl<'a> CmdParamBuilder<'a> {
-    pub fn new(command: &'a CmdCommand) -> Self {
+    pub fn new(command: &'a CrsCommand) -> Self {
         Self {
             params: ParamValue::Partial(HashMap::new()),
             command,
@@ -56,7 +56,7 @@ impl CmdParamBuilder<'_> {
         let mut keys = value_op.keys.parts();
         let mut parent = &mut self.params;
         let mut key = keys.next().unwrap();
-        let mut arg = CmdArgWrapper::build_by_keys(
+        let mut arg = CrsArgWrapper::build_by_keys(
             self.command,
             &SHPartialKeys::from_parts(&[key.to_owned()]),
         )
@@ -281,8 +281,8 @@ impl CmdParamBuilder<'_> {
     /// The format process includes:
     /// 1. apply the default values
     /// 2. check values with format rules
-    pub fn format_and_build(self) -> AzResult<CmdParams> {
-        let mut cmd_params = CmdParams::default();
+    pub fn format_and_build(self) -> AzResult<CrsParams> {
+        let mut cmd_params = CrsParams::default();
 
         let params_map = if let ParamValue::Partial(partial) = self.params {
             partial
@@ -291,7 +291,7 @@ impl CmdParamBuilder<'_> {
         };
 
         for (key, value) in params_map.into_iter() {
-            let arg = CmdArgWrapper::build_by_keys(
+            let arg = CrsArgWrapper::build_by_keys(
                 self.command,
                 &SHPartialKeys::from_parts(&[SHPartialKeyPart::Name(key.to_string())]),
             )
@@ -321,7 +321,7 @@ impl CmdParamBuilder<'_> {
             let default: Value = arg.default.as_ref().unwrap().clone().try_into()?;
             let value = ParamValue::Assign(default);
             let key = arg.name.to_string();
-            let arg = CmdArgWrapper::new(Some(self.command), arg)?;
+            let arg = CrsArgWrapper::new(Some(self.command), arg)?;
             cmd_params.patch_keys.push(arg.prefix_keys().to_string());
             let v = format_param_value(value, &arg, &mut cmd_params.patch_keys)?;
             let json_bytes = serde_json::to_vec(&v).unwrap();
@@ -334,12 +334,12 @@ impl CmdParamBuilder<'_> {
 
 fn format_param_value(
     value: ParamValue,
-    arg: &CmdArgWrapper,
+    arg: &CrsArgWrapper,
     patch_keys: &mut Vec<String>,
 ) -> AzResult<Value> {
     let arg_type = arg.unwrapped_arg_type();
     let v = match arg_type {
-        cmd_arg::ArgType::String(str_arg) => {
+        crs_arg::ArgType::String(str_arg) => {
             let value = match value {
                 ParamValue::Assign(v) => v,
                 _ => {
@@ -352,30 +352,30 @@ fn format_param_value(
 
             match str_arg.format.as_ref() {
                 None => value,
-                Some(cmd_string_arg::Format::Binary(fmt)) => format_str_binary(value, fmt)?,
-                Some(cmd_string_arg::Format::Byte(fmt)) => format_str_byte(value, fmt)?,
-                Some(cmd_string_arg::Format::String(fmt)) => format_str_string(value, fmt)?,
-                Some(cmd_string_arg::Format::Duration(fmt)) => format_str_duration(value, fmt)?,
-                Some(cmd_string_arg::Format::Date(fmt)) => format_str_date(value, fmt)?,
-                Some(cmd_string_arg::Format::DateTime(fmt)) => format_str_datetime(value, fmt)?,
-                Some(cmd_string_arg::Format::Time(fmt)) => format_str_time(value, fmt)?,
-                Some(cmd_string_arg::Format::Uuid(fmt)) => format_str_uuid(value, fmt)?,
-                Some(cmd_string_arg::Format::Password(fmt)) => format_str_password(value, fmt)?,
-                Some(cmd_string_arg::Format::SubscriptionId(fmt)) => {
+                Some(crs_string_arg::Format::Binary(fmt)) => format_str_binary(value, fmt)?,
+                Some(crs_string_arg::Format::Byte(fmt)) => format_str_byte(value, fmt)?,
+                Some(crs_string_arg::Format::String(fmt)) => format_str_string(value, fmt)?,
+                Some(crs_string_arg::Format::Duration(fmt)) => format_str_duration(value, fmt)?,
+                Some(crs_string_arg::Format::Date(fmt)) => format_str_date(value, fmt)?,
+                Some(crs_string_arg::Format::DateTime(fmt)) => format_str_datetime(value, fmt)?,
+                Some(crs_string_arg::Format::Time(fmt)) => format_str_time(value, fmt)?,
+                Some(crs_string_arg::Format::Uuid(fmt)) => format_str_uuid(value, fmt)?,
+                Some(crs_string_arg::Format::Password(fmt)) => format_str_password(value, fmt)?,
+                Some(crs_string_arg::Format::SubscriptionId(fmt)) => {
                     format_str_subscription_id(value, fmt)?
                 }
-                Some(cmd_string_arg::Format::ResourceGroupName(fmt)) => {
+                Some(crs_string_arg::Format::ResourceGroupName(fmt)) => {
                     format_str_resource_group_name(value, fmt)?
                 }
-                Some(cmd_string_arg::Format::ResourceId(fmt)) => {
+                Some(crs_string_arg::Format::ResourceId(fmt)) => {
                     format_str_resource_id(value, fmt)?
                 }
-                Some(cmd_string_arg::Format::ResourceLocation(fmt)) => {
+                Some(crs_string_arg::Format::ResourceLocation(fmt)) => {
                     format_str_resource_location(value, fmt)?
                 }
             }
         }
-        cmd_arg::ArgType::Number(num_arg) => {
+        crs_arg::ArgType::Number(num_arg) => {
             let value = match value {
                 ParamValue::Assign(v) => v,
                 _ => {
@@ -387,15 +387,15 @@ fn format_param_value(
             };
             match num_arg.format.as_ref() {
                 None => value,
-                Some(cmd_number_arg::Format::Int32(fmt)) => format_number_int32(value, fmt)?,
-                Some(cmd_number_arg::Format::Int64(fmt)) => format_number_int64(value, fmt)?,
-                Some(cmd_number_arg::Format::Uint32(fmt)) => format_number_uint32(value, fmt)?,
-                Some(cmd_number_arg::Format::Uint64(fmt)) => format_number_uint64(value, fmt)?,
-                Some(cmd_number_arg::Format::Float(fmt)) => format_number_float(value, fmt)?,
-                Some(cmd_number_arg::Format::Double(fmt)) => format_number_double(value, fmt)?,
+                Some(crs_number_arg::Format::Int32(fmt)) => format_number_int32(value, fmt)?,
+                Some(crs_number_arg::Format::Int64(fmt)) => format_number_int64(value, fmt)?,
+                Some(crs_number_arg::Format::Uint32(fmt)) => format_number_uint32(value, fmt)?,
+                Some(crs_number_arg::Format::Uint64(fmt)) => format_number_uint64(value, fmt)?,
+                Some(crs_number_arg::Format::Float(fmt)) => format_number_float(value, fmt)?,
+                Some(crs_number_arg::Format::Double(fmt)) => format_number_double(value, fmt)?,
             }
         }
-        cmd_arg::ArgType::Boolean(_) => match value {
+        crs_arg::ArgType::Boolean(_) => match value {
             ParamValue::Assign(v) => v,
             _ => {
                 return Err(AzUserUsageError::InvalidArgumentValueError(
@@ -404,7 +404,7 @@ fn format_param_value(
                 .into())
             }
         },
-        cmd_arg::ArgType::Object(object_arg) => match value {
+        crs_arg::ArgType::Object(object_arg) => match value {
             ParamValue::Assign(v) => match v {
                 Value::Null => v,
                 Value::Object(object) => {
@@ -491,7 +491,7 @@ fn format_param_value(
                 .into())
             }
         },
-        cmd_arg::ArgType::Array(array_arg) => match value {
+        crs_arg::ArgType::Array(array_arg) => match value {
             ParamValue::Assign(v) | ParamValue::Append(v) => match v {
                 Value::Null => v,
                 Value::Array(array) => {
@@ -537,7 +537,7 @@ fn format_param_value(
                 Value::Object(partial_array)
             }
         },
-        cmd_arg::ArgType::AnyType(_) => match value {
+        crs_arg::ArgType::AnyType(_) => match value {
             ParamValue::Assign(v) | ParamValue::Append(v) => v,
             ParamValue::Partial(_) => {
                 return Err(AzUserUsageError::InvalidArgumentValueError(
@@ -546,7 +546,7 @@ fn format_param_value(
                 .into())
             }
         },
-        cmd_arg::ArgType::Cls(_) => {
+        crs_arg::ArgType::Cls(_) => {
             unreachable!()
         }
     };
@@ -570,17 +570,17 @@ mod test {
     use serde_json::json;
 
     use crate::{
-        argparse::{parse_arg_values, ArgOp, CmdArgWrapper},
+        argparse::{parse_arg_values, ArgOp, CrsArgWrapper},
         pb::{
-            cmd_arg::ArgType, CmdAnyTypeArg, CmdArg, CmdArgDefault, CmdArrayArg, CmdBooleanArg,
-            CmdNumberArg, CmdObjectArg, CmdObjectArgAdditionalProperties, CmdStringArg,
+            crs_arg::ArgType, CrsAnyTypeArg, CrsArg, CrsArgDefault, CrsArrayArg, CrsBooleanArg,
+            CrsNumberArg, CrsObjectArg, CrsObjectArgAdditionalProperties, CrsStringArg,
         },
     };
 
     use super::*;
 
-    fn parse_cmd_arg<'a>(
-        cmd: &CmdCommand,
+    fn parse_crs_arg<'a>(
+        cmd: &CrsCommand,
         name_or_alias: &str,
         values: impl IntoIterator<Item = &'a str>,
     ) -> AzResult<Option<Vec<ArgOp>>> {
@@ -605,7 +605,7 @@ mod test {
         }
         let matched_arg = matched_arg.unwrap();
 
-        let wrapper = CmdArgWrapper::new(Some(cmd), matched_arg)?;
+        let wrapper = CrsArgWrapper::new(Some(cmd), matched_arg)?;
 
         let ops = parse_arg_values(&wrapper, values)?;
         Ok(Some(ops))
@@ -613,67 +613,67 @@ mod test {
 
     #[test]
     fn test_apply_builder() {
-        let mut cmd = CmdCommand::default();
+        let mut cmd = CrsCommand::default();
 
         // object arg
-        let object_arg = CmdArg {
+        let object_arg = CrsArg {
             var_name: "$Instance.object".to_string(),
             name: "object".to_string(),
             options: vec!["object-alias".to_string()],
             nullable: true,
-            arg_type: Some(ArgType::Object(Box::new(CmdObjectArg {
+            arg_type: Some(ArgType::Object(Box::new(CrsObjectArg {
                 props: vec![
-                    CmdArg {
+                    CrsArg {
                         var_name: "$Instance.object.str".to_string(),
                         name: "str".to_string(),
                         options: vec!["str-alias".to_string()],
                         nullable: true,
-                        arg_type: Some(ArgType::String(CmdStringArg::default())),
+                        arg_type: Some(ArgType::String(CrsStringArg::default())),
                         ..Default::default()
                     },
-                    CmdArg {
+                    CrsArg {
                         var_name: "$Instance.object.num".to_string(),
                         name: "num".to_string(),
                         options: vec!["num".to_string()],
                         nullable: true,
-                        arg_type: Some(ArgType::Number(CmdNumberArg::default())),
+                        arg_type: Some(ArgType::Number(CrsNumberArg::default())),
                         ..Default::default()
                     },
-                    CmdArg {
+                    CrsArg {
                         var_name: "$Instance.object.bool".to_string(),
                         name: "bool".to_string(),
                         options: vec!["bool".to_string()],
                         nullable: true,
-                        arg_type: Some(ArgType::Boolean(CmdBooleanArg::default())),
+                        arg_type: Some(ArgType::Boolean(CrsBooleanArg::default())),
                         ..Default::default()
                     },
-                    CmdArg {
+                    CrsArg {
                         var_name: "$Instance.object.array".to_string(),
                         name: "array".to_string(),
                         options: vec!["array".to_string()],
                         nullable: true,
-                        arg_type: Some(ArgType::Array(Box::new(CmdArrayArg {
-                            item: Some(Box::new(CmdArg {
+                        arg_type: Some(ArgType::Array(Box::new(CrsArrayArg {
+                            item: Some(Box::new(CrsArg {
                                 var_name: "$Instance.object.array[]".to_string(),
                                 nullable: true,
-                                arg_type: Some(ArgType::String(CmdStringArg::default())),
+                                arg_type: Some(ArgType::String(CrsStringArg::default())),
                                 ..Default::default()
                             })),
                             ..Default::default()
                         }))),
                         ..Default::default()
                     },
-                    CmdArg {
+                    CrsArg {
                         var_name: "$Instance.object.tags".to_string(),
                         name: "tags".to_string(),
                         options: vec!["tags".to_string()],
                         nullable: true,
-                        arg_type: Some(ArgType::Object(Box::new(CmdObjectArg {
-                            additional_props: Some(Box::new(CmdObjectArgAdditionalProperties {
-                                item: Some(Box::new(CmdArg {
+                        arg_type: Some(ArgType::Object(Box::new(CrsObjectArg {
+                            additional_props: Some(Box::new(CrsObjectArgAdditionalProperties {
+                                item: Some(Box::new(CrsArg {
                                     var_name: "$Instance.object.tags{}".to_string(),
                                     nullable: true,
-                                    arg_type: Some(ArgType::String(CmdStringArg::default())),
+                                    arg_type: Some(ArgType::String(CrsStringArg::default())),
                                     ..Default::default()
                                 })),
                                 ..Default::default()
@@ -683,11 +683,11 @@ mod test {
                         ..Default::default()
                     },
                 ],
-                additional_props: Some(Box::new(CmdObjectArgAdditionalProperties {
-                    item: Some(Box::new(CmdArg {
+                additional_props: Some(Box::new(CrsObjectArgAdditionalProperties {
+                    item: Some(Box::new(CrsArg {
                         var_name: "$Instance.object{}".to_string(),
                         nullable: true,
-                        arg_type: Some(ArgType::AnyType(CmdAnyTypeArg::default())),
+                        arg_type: Some(ArgType::AnyType(CrsAnyTypeArg::default())),
                         ..Default::default()
                     })),
                     ..Default::default()
@@ -698,49 +698,49 @@ mod test {
         };
         cmd.args.push(object_arg);
         // create object without additional properties
-        let object_arg = CmdArg {
+        let object_arg = CrsArg {
             var_name: "$Instance.object2".to_string(),
             name: "object2".to_string(),
             options: vec!["object2".to_string()],
-            arg_type: Some(ArgType::Object(Box::new(CmdObjectArg {
+            arg_type: Some(ArgType::Object(Box::new(CrsObjectArg {
                 props: vec![
-                    CmdArg {
+                    CrsArg {
                         var_name: "$Instance.object2.str".to_string(),
                         name: "str".to_string(),
                         options: vec!["str".to_string()],
                         nullable: true,
-                        arg_type: Some(ArgType::String(CmdStringArg::default())),
+                        arg_type: Some(ArgType::String(CrsStringArg::default())),
                         ..Default::default()
                     },
-                    CmdArg {
+                    CrsArg {
                         var_name: "$Instance.object2.propObj".to_string(),
                         name: "propObj".to_string(),
                         options: vec!["prop-obj".to_string()],
                         nullable: true,
-                        arg_type: Some(ArgType::Object(Box::new(CmdObjectArg {
-                            props: vec![CmdArg {
+                        arg_type: Some(ArgType::Object(Box::new(CrsObjectArg {
+                            props: vec![CrsArg {
                                 var_name: "$Instance.object2.propObj.nameAlias".to_string(),
                                 name: "nameAlias".to_string(),
                                 options: vec!["name-alias".to_string()],
                                 nullable: true,
-                                arg_type: Some(ArgType::String(CmdStringArg::default())),
+                                arg_type: Some(ArgType::String(CrsStringArg::default())),
                                 ..Default::default()
                             }],
-                            additional_props: Some(Box::new(CmdObjectArgAdditionalProperties {
-                                item: Some(Box::new(CmdArg {
+                            additional_props: Some(Box::new(CrsObjectArgAdditionalProperties {
+                                item: Some(Box::new(CrsArg {
                                     var_name: "$Instance.object2.propObj{}".to_string(),
                                     nullable: true,
-                                    arg_type: Some(ArgType::Array(Box::new(CmdArrayArg {
-                                        item: Some(Box::new(CmdArg {
+                                    arg_type: Some(ArgType::Array(Box::new(CrsArrayArg {
+                                        item: Some(Box::new(CrsArg {
                                             var_name: "$Instance.object2.propObj{}[]".to_string(),
                                             nullable: true,
-                                            arg_type: Some(ArgType::Object(Box::new(CmdObjectArg {
-                                                props: vec![CmdArg {
+                                            arg_type: Some(ArgType::Object(Box::new(CrsObjectArg {
+                                                props: vec![CrsArg {
                                                     var_name: "$Instance.object2.propObj{}[].nameAlias".to_string(),
                                                     name: "nameAlias".to_string(),
                                                     options: vec!["name-alias".to_string()],
                                                     nullable: true,
-                                                    arg_type: Some(ArgType::String(CmdStringArg::default())),
+                                                    arg_type: Some(ArgType::String(CrsStringArg::default())),
                                                     ..Default::default()
                                                 }],
                                                 ..Default::default()
@@ -765,16 +765,16 @@ mod test {
         cmd.args.push(object_arg);
 
         // create a standalone array arg
-        let array_arg = CmdArg {
+        let array_arg = CrsArg {
             var_name: "$Instance.arr".to_string(),
             name: "arr".to_string(),
             options: vec!["arr".to_string()],
             nullable: true,
-            arg_type: Some(ArgType::Array(Box::new(CmdArrayArg {
-                item: Some(Box::new(CmdArg {
+            arg_type: Some(ArgType::Array(Box::new(CrsArrayArg {
+                item: Some(Box::new(CrsArg {
                     var_name: "$Instance.arr[]".to_string(),
                     nullable: true,
-                    arg_type: Some(ArgType::String(CmdStringArg::default())),
+                    arg_type: Some(ArgType::String(CrsStringArg::default())),
                     ..Default::default()
                 })),
                 ..Default::default()
@@ -922,7 +922,7 @@ mod test {
                 ("object", ParamValue::Assign(Value::Null))]
             ))
         ] {
-            let ops = parse_cmd_arg(&cmd, arg, values).unwrap().unwrap().into_iter();
+            let ops = parse_crs_arg(&cmd, arg, values).unwrap().unwrap().into_iter();
             for op in ops {
                 if let ArgOp::Value(op) = op {
                     builder.apply(op).unwrap();
@@ -936,76 +936,76 @@ mod test {
 
     #[test]
     fn test_format_and_build() {
-        let mut cmd = CmdCommand::default();
+        let mut cmd = CrsCommand::default();
 
         // object arg
-        let mut object_arg = CmdArg::default();
+        let mut object_arg = CrsArg::default();
         object_arg.var_name = "$Instance.object".to_string();
         object_arg.name = "object".to_string();
         object_arg.options = vec!["object".to_string()];
         object_arg.nullable = true;
         let object_type = {
-            let mut object_type = CmdObjectArg::default();
+            let mut object_type = CrsObjectArg::default();
             // default string property
-            let mut porp_str = CmdArg::default();
+            let mut porp_str = CrsArg::default();
             porp_str.name = "prop_df".to_string();
             porp_str.options = vec!["prop_df".to_string()];
             porp_str.nullable = true;
-            porp_str.arg_type = Some(ArgType::String(CmdStringArg::default()));
-            porp_str.default = Some(CmdArgDefault {
+            porp_str.arg_type = Some(ArgType::String(CrsStringArg::default()));
+            porp_str.default = Some(CrsArgDefault {
                 value: "\"default_str\"".to_string(),
             });
             object_type.props.push(porp_str);
             // internal object
-            let mut prop_obj = CmdArg::default();
+            let mut prop_obj = CrsArg::default();
             prop_obj.name = "prop_obj".to_string();
             prop_obj.options = vec!["prop_obj".to_string()];
             prop_obj.nullable = true;
             let prop_obj_type = {
-                let mut object_type = CmdObjectArg::default();
+                let mut object_type = CrsObjectArg::default();
                 // define the string property type
-                let mut str_arg = CmdArg::default();
+                let mut str_arg = CrsArg::default();
                 str_arg.name = "str".to_string();
                 str_arg.options = vec!["str".to_string()];
                 str_arg.nullable = true;
-                str_arg.arg_type = Some(ArgType::String(CmdStringArg::default()));
+                str_arg.arg_type = Some(ArgType::String(CrsStringArg::default()));
                 object_type.props.push(str_arg);
                 // define the number property type
-                let mut num_arg = CmdArg::default();
+                let mut num_arg = CrsArg::default();
                 num_arg.name = "num".to_string();
                 num_arg.options = vec!["num".to_string()];
                 num_arg.nullable = true;
-                num_arg.arg_type = Some(ArgType::Number(CmdNumberArg::default()));
+                num_arg.arg_type = Some(ArgType::Number(CrsNumberArg::default()));
                 object_type.props.push(num_arg);
                 // define the bool property type
-                let mut bool_arg = CmdArg::default();
+                let mut bool_arg = CrsArg::default();
                 bool_arg.name = "bool".to_string();
                 bool_arg.options = vec!["bool".to_string()];
                 bool_arg.nullable = true;
-                bool_arg.arg_type = Some(ArgType::Boolean(CmdBooleanArg::default()));
+                bool_arg.arg_type = Some(ArgType::Boolean(CrsBooleanArg::default()));
                 object_type.props.push(bool_arg);
                 // define the array property type
-                let mut array_arg = CmdArg::default();
+                let mut array_arg = CrsArg::default();
                 array_arg.name = "array".to_string();
                 array_arg.options = vec!["array".to_string()];
                 array_arg.nullable = true;
-                let mut array_type = CmdArrayArg::default();
-                let mut array_item_arg = CmdArg::default();
+                let mut array_type = CrsArrayArg::default();
+                let mut array_item_arg = CrsArg::default();
                 array_item_arg.nullable = true;
                 let array_item_type = {
-                    let mut object_type = CmdObjectArg::default();
-                    let mut str_arg = CmdArg::default();
+                    let mut object_type = CrsObjectArg::default();
+                    let mut str_arg = CrsArg::default();
                     str_arg.name = "str".to_string();
                     str_arg.options = vec!["str".to_string()];
                     str_arg.nullable = true;
-                    str_arg.arg_type = Some(ArgType::String(CmdStringArg::default()));
+                    str_arg.arg_type = Some(ArgType::String(CrsStringArg::default()));
                     object_type.props.push(str_arg);
-                    let mut num_arg = CmdArg::default();
+                    let mut num_arg = CrsArg::default();
                     num_arg.name = "default_num".to_string();
                     num_arg.options = vec!["default_num".to_string()];
                     num_arg.nullable = true;
-                    num_arg.arg_type = Some(ArgType::Number(CmdNumberArg::default()));
-                    num_arg.default = Some(CmdArgDefault {
+                    num_arg.arg_type = Some(ArgType::Number(CrsNumberArg::default()));
+                    num_arg.default = Some(CrsArgDefault {
                         value: "1".to_string(),
                     });
                     object_type.props.push(num_arg);
@@ -1028,12 +1028,12 @@ mod test {
         cmd.args.push(object_arg);
 
         // define the default arg
-        let mut default_arg = CmdArg::default();
+        let mut default_arg = CrsArg::default();
         default_arg.name = "default".to_string();
         default_arg.options = vec!["default".to_string()];
         default_arg.nullable = true;
-        default_arg.arg_type = Some(ArgType::String(CmdStringArg::default()));
-        default_arg.default = Some(CmdArgDefault {
+        default_arg.arg_type = Some(ArgType::String(CrsStringArg::default()));
+        default_arg.default = Some(CrsArgDefault {
             value: "\"default_arg\"".to_string(),
         });
         cmd.args.push(default_arg);
@@ -1100,7 +1100,7 @@ mod test {
             ),
         ] {
             let mut builder = CmdParamBuilder::new(&cmd);
-            let ops = parse_cmd_arg(&cmd, arg, values)
+            let ops = parse_crs_arg(&cmd, arg, values)
                 .unwrap()
                 .unwrap()
                 .into_iter();

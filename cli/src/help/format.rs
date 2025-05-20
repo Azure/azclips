@@ -1,4 +1,4 @@
-use az_core::pb::{CmdArg, CmdInterface, ComponentMetadata};
+use az_core::pb::{CrsArg, CrsInterface, ComponentMetadata};
 
 use crate::output::StyledString;
 
@@ -27,14 +27,14 @@ where
 {
     pub fn format_cmd<'a>(
         &self,
-        cmd: &CmdInterface,
+        cmd: &CrsInterface,
         components: impl IntoIterator<Item = &'a ComponentMetadata>,
         term_width: Option<usize>,
     ) -> Vec<StyledString> {
         self.usage_template.render(cmd, components, term_width)
     }
 
-    pub fn format_arg(&self, arg: &CmdArg, term_width: Option<usize>) -> Vec<StyledString> {
+    pub fn format_arg(&self, arg: &CrsArg, term_width: Option<usize>) -> Vec<StyledString> {
         self.arg_template.render(arg, term_width)
     }
 }
@@ -42,21 +42,21 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use az_core::pb::{cmd_interface, CmdArg, CmdArgHelp, CmdCommand, CmdHelp, CmdInterface};
+    use az_core::pb::{crs_interface, CrsArg, CrsArgHelp, CrsCommand, CrsHelp, CrsInterface};
 
     #[test]
     fn test_command_help_format() {
-        let cmd = CmdInterface {
-            level: Some(cmd_interface::Level::Command(CmdCommand {
+        let cmd = CrsInterface {
+            level: Some(crs_interface::Level::Command(CrsCommand {
                 name: "command".to_string(),
                 uri: "/group/command".to_string(),
                 version: "1.0.0".to_string(),
-                help: Some(CmdHelp {
+                help: Some(CrsHelp {
                     short: "Short description".to_string(),
                     long: Some("Long description of the command. ".repeat(3)),
                 }),
                 args: vec![
-                    CmdArg {
+                    CrsArg {
                         var_name: "arg1".to_string(),
                         options: vec![
                             "-a".to_string(),
@@ -68,7 +68,7 @@ mod tests {
                         internal: false,
                         required: true,
                         default: None,
-                        help: Some(CmdArgHelp {
+                        help: Some(CrsArgHelp {
                             short: "Short description".to_string(),
                             long: Some("Long description of the argument.".to_string()),
                         }),
@@ -77,7 +77,7 @@ mod tests {
                         prompt: None,
                         arg_type: None,
                     },
-                    CmdArg {
+                    CrsArg {
                         var_name: "arg2".to_string(),
                         options: vec!["-b".to_string(), "--arg2".to_string()],
                         name: "Argument 2".to_string(),
@@ -85,7 +85,7 @@ mod tests {
                         internal: false,
                         required: false,
                         default: None,
-                        help: Some(CmdArgHelp {
+                        help: Some(CrsArgHelp {
                             short: "Short description".to_string(),
                             long: Some("Long description of the argument.".to_string()),
                         }),

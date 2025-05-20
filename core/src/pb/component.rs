@@ -28,7 +28,7 @@ pub struct InterfaceRequest {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct InterfaceResponse {
     #[prost(message, optional, tag = "1")]
-    pub interface: ::core::option::Option<super::command::CmdInterface>,
+    pub interface: ::core::option::Option<super::command::CrsInterface>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ComponentMetadata {
@@ -43,7 +43,7 @@ pub struct ComponentMetadata {
     pub uri: ::prost::alloc::string::String,
     /// the help information of the component
     #[prost(message, optional, tag = "4")]
-    pub help: ::core::option::Option<super::command::CmdHelp>,
+    pub help: ::core::option::Option<super::command::CrsHelp>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ExecuteRequest {
@@ -51,9 +51,9 @@ pub struct ExecuteRequest {
     #[prost(string, tag = "2")]
     pub uri: ::prost::alloc::string::String,
     #[prost(message, optional, tag = "3")]
-    pub params: ::core::option::Option<super::command::CmdParams>,
+    pub params: ::core::option::Option<super::command::CrsParams>,
     #[prost(message, optional, tag = "4")]
-    pub output_format: ::core::option::Option<super::command::CmdOutputFormat>,
+    pub output_format: ::core::option::Option<super::command::CrsOutputFormat>,
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct None {}

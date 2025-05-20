@@ -19,8 +19,8 @@ use crate::{
     component::{AzCommand, AzCommandGroup, AzComponentCtx},
     error::{AzError, AzInternalError},
     pb::{
-        cmd_interface, execute_response, CmdCommandGroup, CmdHelp, CmdInterface, CmdOutputFormat,
-        CmdParams,
+        crs_interface, execute_response, CrsCommandGroup, CrsHelp, CrsInterface, CrsOutputFormat,
+        CrsParams,
     },
 };
 
@@ -31,7 +31,7 @@ pub struct CloudCommandGroup {}
 impl AzCommandGroup for CloudCommandGroup {
     const URI: &'static str = "cmd://azure/config/cloud/";
 
-    fn build_interface(depth: Option<u32>) -> CmdInterface {
+    fn build_interface(depth: Option<u32>) -> CrsInterface {
         let groups = vec![];
         let mut commands = vec![];
         if depth.is_none() || depth.unwrap() > 0 {
@@ -63,11 +63,11 @@ impl AzCommandGroup for CloudCommandGroup {
                     .to_owned(),
             );
         }
-        CmdInterface {
-            level: Some(cmd_interface::Level::CommandGroup(CmdCommandGroup {
+        CrsInterface {
+            level: Some(crs_interface::Level::CommandGroup(CrsCommandGroup {
                 name: "cloud".to_string(),
                 uri: Self::uri().to_string(),
-                help: Some(CmdHelp {
+                help: Some(CrsHelp {
                     short: "Manage registered Azure clouds configuration".to_string(),
                     long: None,
                 }),
@@ -80,7 +80,7 @@ impl AzCommandGroup for CloudCommandGroup {
     fn find_interface(
         depth: Option<u32>,
         mut segments: impl Iterator<Item = String>,
-    ) -> Option<CmdInterface> {
+    ) -> Option<CrsInterface> {
         match segments.next().as_deref() {
             None => Some(CloudCommandGroup::build_interface(depth)),
             Some("activate") => Some(ActivateCloud::build_interface(depth)),
@@ -109,8 +109,8 @@ impl AzCommandGroup for CloudCommandGroup {
     async fn execute_group<T: AzComponentCtx>(
         ctx: &T,
         mut segments: impl Iterator<Item = String> + Send,
-        params: Option<CmdParams>,
-        output_format: Option<CmdOutputFormat>,
+        params: Option<CrsParams>,
+        output_format: Option<CrsOutputFormat>,
     ) -> Result<execute_response::Data, AzError> {
         match segments.next().as_deref() {
             Some("activate") => ActivateCloud::execute(ctx, params, output_format).await,

@@ -10,9 +10,9 @@ use crate::{
     component::{AzCommand, AzCommandExecute, AzComponentCtx},
     error::{AuthenticationError, AzError},
     pb::{
-        cmd_arg, cmd_interface, cmd_string_arg, CmdArg, CmdArgHelp, CmdArgPromptInput, CmdArrayArg,
-        CmdArrayFormat, CmdBooleanArg, CmdCommand, CmdHelp, CmdInterface, CmdParams, CmdStringArg,
-        CmdStringFormat,
+        crs_arg, crs_interface, crs_string_arg, CrsArg, CrsArgHelp, CrsArgPromptInput, CrsArrayArg,
+        CrsArrayFormat, CrsBooleanArg, CrsCommand, CrsHelp, CrsInterface, CrsParams, CrsStringArg,
+        CrsStringFormat,
     },
     VERSION,
 };
@@ -105,13 +105,13 @@ impl Login {
 impl AzCommand for Login {
     const URI: &'static str = "cmd://azure/account/login";
 
-    fn build_interface(_: Option<u32>) -> CmdInterface {
-        CmdInterface {
-            level: Some(cmd_interface::Level::Command(CmdCommand {
+    fn build_interface(_: Option<u32>) -> CrsInterface {
+        CrsInterface {
+            level: Some(crs_interface::Level::Command(CrsCommand {
                 name: "login".to_string(),
                 uri: Self::uri().to_string(),
                 version: VERSION.to_string(),
-                help: Some(CmdHelp {
+                help: Some(CrsHelp {
                     short: "Log in to Azure.".to_string(),
                     long: Some("By default, this command logs in with a user account.\nTo log in with a service principal, specify --service-principal.\nTo log in with a managed identity, specify --identity.\nFor more details, see https://learn.microsoft.com/cli/azure/authenticate-azure-cli.".to_string()),
                 }),
@@ -121,63 +121,63 @@ impl AzCommand for Login {
         }
     }
 
-    fn args() -> Vec<CmdArg> {
+    fn args() -> Vec<CrsArg> {
         vec![
-            CmdArg {
+            CrsArg {
                 var_name: "username".to_string(),
                 name: "username".to_string(),
                 options: vec!["username".to_string(), "u".to_string()],
-                help: Some(CmdArgHelp {
+                help: Some(CrsArgHelp {
                     short: "User name, service principal client ID, or managed identity ID."
                         .to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
-                    format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
+                arg_type: Some(crs_arg::ArgType::String(CrsStringArg {
+                    format: Some(crs_string_arg::Format::String(CrsStringFormat::default())),
                     ..Default::default()
                 })),
                 ..Default::default()
             },
-            CmdArg {
+            CrsArg {
                 var_name: "password".to_string(),
                 name: "password".to_string(),
                 options: vec!["password".to_string(), "p".to_string()],
-                help: Some(CmdArgHelp {
+                help: Some(CrsArgHelp {
                     short: "User password or service principal secret. Will prompt if not given."
                         .to_string(),
                     ..Default::default()
                 }),
-                prompt: Some(CmdArgPromptInput {
+                prompt: Some(CrsArgPromptInput {
                     prompt: "Enter password: ".to_string(),
                     secret: true,
                     confirm: false,
                 }),
-                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
-                    format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
+                arg_type: Some(crs_arg::ArgType::String(CrsStringArg {
+                    format: Some(crs_string_arg::Format::String(CrsStringFormat::default())),
                     ..Default::default()
                 })),
                 ..Default::default()
             },
-            CmdArg {
+            CrsArg {
                 var_name: "scope".to_string(),
                 name: "scope".to_string(),
                 options: vec!["scope".to_string()],
-                help: Some(CmdArgHelp {
+                help: Some(CrsArgHelp {
                     short: "Used in the /authorize request. It can cover only one static resource with multiple scopes displayed in a list.".to_string(),
                     ..Default::default()
                 }),
                 prompt: None,
-                arg_type: Some(cmd_arg::ArgType::Array(Box::new(CmdArrayArg {
-                    item: Some(Box::new(CmdArg {
+                arg_type: Some(crs_arg::ArgType::Array(Box::new(CrsArrayArg {
+                    item: Some(Box::new(CrsArg {
                         var_name: "scope_item".to_string(),
                         name: "scope_item".to_string(),
-                        arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
-                            format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
+                        arg_type: Some(crs_arg::ArgType::String(CrsStringArg {
+                            format: Some(crs_string_arg::Format::String(CrsStringFormat::default())),
                             ..Default::default()
                         })),
                         ..Default::default()
                     })),
-                    format: Some(CmdArrayFormat {
+                    format: Some(CrsArrayFormat {
                         unique: true,
                         ..Default::default()
                     }),
@@ -185,145 +185,145 @@ impl AzCommand for Login {
                 }))),
                 ..Default::default()
             },
-            CmdArg {
+            CrsArg {
                 var_name: "servicePrincipal".to_string(),
                 name: "servicePrincipal".to_string(),
                 options: vec!["service-principal".to_string()],
-                help: Some(CmdArgHelp {
+                help: Some(CrsArgHelp {
                     short: "Log in with a service principal.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::Boolean(CmdBooleanArg::default())),
+                arg_type: Some(crs_arg::ArgType::Boolean(CrsBooleanArg::default())),
                 ..Default::default()
             },
-            CmdArg {
+            CrsArg {
                 var_name: "tenant".to_string(),
                 name: "tenant".to_string(),
                 options: vec!["tenant".to_string(), "t".to_string()],
-                help: Some(CmdArgHelp {
+                help: Some(CrsArgHelp {
                     short: "The Microsoft Entra tenant, must be provided when using a service principal.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
-                    format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
+                arg_type: Some(crs_arg::ArgType::String(CrsStringArg {
+                    format: Some(crs_string_arg::Format::String(CrsStringFormat::default())),
                     ..Default::default()
                 })),
                 ..Default::default()
             },
-            CmdArg {
+            CrsArg {
                 var_name: "userCertSnIssuer".to_string(),
                 name: "userCertSnIssuer".to_string(),
                 options: vec!["user-cert-sn-issuer".to_string()],
-                help: Some(CmdArgHelp {
+                help: Some(CrsArgHelp {
                     short: "Use Subject Name + Issuer (SN+I) authentication in order to support automatic certificate rolls.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::Boolean(CmdBooleanArg::default())),
+                arg_type: Some(crs_arg::ArgType::Boolean(CrsBooleanArg::default())),
                 ..Default::default()
             },
-            CmdArg {
+            CrsArg {
                 var_name: "useDeviceCode".to_string(),
                 name: "useDeviceCode".to_string(),
                 options: vec!["use-device-code".to_string()],
-                help: Some(CmdArgHelp {
+                help: Some(CrsArgHelp {
                     short: "Use device code flow. Azure CLI will also use this if it can't launch a browser, e.g. in remote SSH or Cloud Shell.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::Boolean(CmdBooleanArg::default())),
+                arg_type: Some(crs_arg::ArgType::Boolean(CrsBooleanArg::default())),
                 ..Default::default()
             },
-            CmdArg {
+            CrsArg {
                 var_name: "allowNoSubscriptions".to_string(),
                 name: "allowNoSubscriptions".to_string(),
                 options: vec!["allow-no-subscriptions".to_string()],
-                help: Some(CmdArgHelp {
+                help: Some(CrsArgHelp {
                     short: "Support accessing tenants without subscriptions. It's useful to run tenant-level commands, such as 'azure ad'.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::Boolean(CmdBooleanArg::default())),
+                arg_type: Some(crs_arg::ArgType::Boolean(CrsBooleanArg::default())),
                 ..Default::default()
             },
-            CmdArg {
+            CrsArg {
                 var_name: "certificate".to_string(),
                 name: "certificate".to_string(),
                 options: vec!["certificate".to_string()],
-                help: Some(CmdArgHelp {
+                help: Some(CrsArgHelp {
                     short: "PEM certificate content. You can use `file://path/to/cert.pem` to pass from a file.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
-                    format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
+                arg_type: Some(crs_arg::ArgType::String(CrsStringArg {
+                    format: Some(crs_string_arg::Format::String(CrsStringFormat::default())),
                     ..Default::default()
                 })),
                 ..Default::default()
             },
-            CmdArg {
+            CrsArg {
                 var_name: "federatedToken".to_string(),
                 name: "federatedToken".to_string(),
                 options: vec!["federated-token".to_string()],
-                help: Some(CmdArgHelp {
+                help: Some(CrsArgHelp {
                     short: "Federated token that can be used for OIDC token exchange.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
-                    format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
+                arg_type: Some(crs_arg::ArgType::String(CrsStringArg {
+                    format: Some(crs_string_arg::Format::String(CrsStringFormat::default())),
                     ..Default::default()
                 })),
                 ..Default::default()
             },
-            CmdArg {
+            CrsArg {
                 var_name: "identity".to_string(),
                 name: "identity".to_string(),
                 options: vec!["identity".to_string()],
                 group: "Managed Identity".to_string(),
-                help: Some(CmdArgHelp {
+                help: Some(CrsArgHelp {
                     short: "Log in using managed identity.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::Boolean(CmdBooleanArg::default())),
+                arg_type: Some(crs_arg::ArgType::Boolean(CrsBooleanArg::default())),
                 ..Default::default()
             },
-            CmdArg {
+            CrsArg {
                 var_name: "clientId".to_string(),
                 name: "clientId".to_string(),
                 options: vec!["client-id".to_string()],
                 group: "Managed Identity".to_string(),
-                help: Some(CmdArgHelp {
+                help: Some(CrsArgHelp {
                     short: "Client ID of the user-assigned managed identity.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
-                    format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
+                arg_type: Some(crs_arg::ArgType::String(CrsStringArg {
+                    format: Some(crs_string_arg::Format::String(CrsStringFormat::default())),
                     ..Default::default()
                 })),
                 ..Default::default()
             },
-            CmdArg {
+            CrsArg {
                 var_name: "objectId".to_string(),
                 name: "objectId".to_string(),
                 options: vec!["object-id".to_string()],
                 group: "Managed Identity".to_string(),
-                help: Some(CmdArgHelp {
+                help: Some(CrsArgHelp {
                     short: "Object ID of the user-assigned managed identity.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
-                    format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
+                arg_type: Some(crs_arg::ArgType::String(CrsStringArg {
+                    format: Some(crs_string_arg::Format::String(CrsStringFormat::default())),
                     ..Default::default()
                 })),
                 ..Default::default()
             },
-            CmdArg {
+            CrsArg {
                 var_name: "resourceId".to_string(),
                 name: "resourceId".to_string(),
                 options: vec!["resource-id".to_string()],
                 group: "Managed Identity".to_string(),
-                help: Some(CmdArgHelp {
+                help: Some(CrsArgHelp {
                     short: "Resource ID of the user-assigned managed identity.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
-                    format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
+                arg_type: Some(crs_arg::ArgType::String(CrsStringArg {
+                    format: Some(crs_string_arg::Format::String(CrsStringFormat::default())),
                     ..Default::default()
                 })),
                 ..Default::default()
@@ -331,7 +331,7 @@ impl AzCommand for Login {
         ]
     }
 
-    fn try_from(params: Option<CmdParams>) -> Result<Self, AzError> {
+    fn try_from(params: Option<CrsParams>) -> Result<Self, AzError> {
         let mut login = Self::default();
         if let Some(params) = params {
             for (name, v) in params.params.iter() {

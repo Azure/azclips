@@ -6,8 +6,8 @@ use crate::{
     component::{AzCommand, AzCommandExecute, AzComponentCtx},
     error::AzError,
     pb::{
-        cmd_arg, cmd_interface, cmd_string_arg, CmdArg, CmdArgHelp, CmdCommand, CmdHelp,
-        CmdInterface, CmdParams, CmdStringArg, CmdStringFormat,
+        crs_arg, crs_interface, crs_string_arg, CrsArg, CrsArgHelp, CrsCommand, CrsHelp,
+        CrsInterface, CrsParams, CrsStringArg, CrsStringFormat,
     },
     VERSION,
 };
@@ -35,13 +35,13 @@ impl AzCommandExecute for GetAccessToken {
 impl AzCommand for GetAccessToken {
     const URI: &'static str = "cmd://azure/account/get-access-token";
 
-    fn build_interface(_: Option<u32>) -> CmdInterface {
-        CmdInterface {
-            level: Some(cmd_interface::Level::Command(CmdCommand {
+    fn build_interface(_: Option<u32>) -> CrsInterface {
+        CrsInterface {
+            level: Some(crs_interface::Level::Command(CrsCommand {
                 name: "get-access-token".to_string(),
                 uri: Self::uri().to_string(),
                 version: VERSION.to_string(),
-                help: Some(CmdHelp {
+                help: Some(CrsHelp {
                     short: "Get a token for utilities to access Azure.".to_string(),
                     long: Some("The token will be valid for at least 5 minutes with the maximum at 60 minutes. If the subscription argument isn't specified, the current account is used.\n\nIn the output, `expires_on` represents a POSIX timestamp and `expiresOn` represents a local datetime. It is recommended for downstream applications to use `expires_on` because it is in UTC.".to_string()),
                 }),
@@ -51,9 +51,9 @@ impl AzCommand for GetAccessToken {
         }
     }
 
-    fn args() -> Vec<CmdArg> {
+    fn args() -> Vec<CrsArg> {
         vec![
-            CmdArg {
+            CrsArg {
                 var_name: "nameOrSubscriptionId".to_string(),
                 name: "nameOrSubscriptionId".to_string(),
                 options: vec![
@@ -62,68 +62,68 @@ impl AzCommand for GetAccessToken {
                     "n".to_string(),
                     "s".to_string(),
                 ],
-                help: Some(CmdArgHelp {
+                help: Some(CrsArgHelp {
                     short: "Name or ID of subscription.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
-                    format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
+                arg_type: Some(crs_arg::ArgType::String(CrsStringArg {
+                    format: Some(crs_string_arg::Format::String(CrsStringFormat::default())),
                     ..Default::default()
                 })),
                 ..Default::default()
             },
-            CmdArg {
+            CrsArg {
                 var_name: "resource".to_string(),
                 name: "resource".to_string(),
                 options: vec!["resource".to_string()],
-                help: Some(CmdArgHelp {
+                help: Some(CrsArgHelp {
                     short: "Azure resource endpoints in Microsoft Entra v1.0.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
-                    format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
+                arg_type: Some(crs_arg::ArgType::String(CrsStringArg {
+                    format: Some(crs_string_arg::Format::String(CrsStringFormat::default())),
                     ..Default::default()
                 })),
                 ..Default::default()
             },
-            CmdArg {
+            CrsArg {
                 var_name: "resourceType".to_string(),
                 name: "resourceType".to_string(),
                 options: vec!["resource-type".to_string()],
-                help: Some(CmdArgHelp {
+                help: Some(CrsArgHelp {
                     short: "Type of well-known resource.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
-                    format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
+                arg_type: Some(crs_arg::ArgType::String(CrsStringArg {
+                    format: Some(crs_string_arg::Format::String(CrsStringFormat::default())),
                     ..Default::default()
                 })),
                 ..Default::default()
             },
-            CmdArg {
+            CrsArg {
                 var_name: "scope".to_string(),
                 name: "scope".to_string(),
                 options: vec!["scope".to_string()],
-                help: Some(CmdArgHelp {
+                help: Some(CrsArgHelp {
                     short: "Scope of the resource to access.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
-                    format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
+                arg_type: Some(crs_arg::ArgType::String(CrsStringArg {
+                    format: Some(crs_string_arg::Format::String(CrsStringFormat::default())),
                     ..Default::default()
                 })),
                 ..Default::default()
             },
-            CmdArg {
+            CrsArg {
                 var_name: "tenant".to_string(),
                 name: "tenant".to_string(),
                 options: vec!["tenant".to_string(), "t".to_string()],
-                help: Some(CmdArgHelp {
+                help: Some(CrsArgHelp {
                     short: "Tenant ID of the resource to access.".to_string(),
                     ..Default::default()
                 }),
-                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
-                    format: Some(cmd_string_arg::Format::String(CmdStringFormat::default())),
+                arg_type: Some(crs_arg::ArgType::String(CrsStringArg {
+                    format: Some(crs_string_arg::Format::String(CrsStringFormat::default())),
                     ..Default::default()
                 })),
                 ..Default::default()
@@ -131,7 +131,7 @@ impl AzCommand for GetAccessToken {
         ]
     }
 
-    fn try_from(params: Option<CmdParams>) -> Result<Self, AzError> {
+    fn try_from(params: Option<CrsParams>) -> Result<Self, AzError> {
         let mut get = Self::default();
         if let Some(params) = params {
             for (name, v) in params.params.iter() {

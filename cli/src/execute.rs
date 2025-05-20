@@ -1,8 +1,8 @@
 use az_core::{
-    argparse::{self, ArgOp, ArgValueAssignOp, CmdArgWrapper},
+    argparse::{self, ArgOp, ArgValueAssignOp, CrsArgWrapper},
     cmd_uri::CmdUri,
     error::{AzError, AzInternalError, AzUserUsageError},
-    pb::{cmd_interface, CmdArg, CmdCommand},
+    pb::{crs_interface, CrsArg, CrsCommand},
     AzCore,
 };
 
@@ -29,9 +29,9 @@ async fn execute_command_async(cmd_uri: CmdUri, raw_args: Vec<CmdRawArg>) -> Res
         return Err(AzUserUsageError::CommandGroupNotExecutableError.into());
     }
 
-    let cmd_interface = core.get_cmd_interface(&invocation).await?;
-    let cmd = match cmd_interface.level.unwrap() {
-        cmd_interface::Level::Command(cmd) => cmd,
+    let crs_interface = core.get_crs_interface(&invocation).await?;
+    let cmd = match crs_interface.level.unwrap() {
+        crs_interface::Level::Command(cmd) => cmd,
         _ => {
             unreachable!()
         }
@@ -90,16 +90,16 @@ async fn execute_command_async(cmd_uri: CmdUri, raw_args: Vec<CmdRawArg>) -> Res
 }
 
 fn parse_arg_values<'a, 'b>(
-    cmd: &'a CmdCommand,
+    cmd: &'a CrsCommand,
     arg_name: &str,
     values: impl IntoIterator<Item = &'b str>,
-) -> Result<(CmdArgWrapper<'a>, Vec<ArgOp>), AzError> {
+) -> Result<(CrsArgWrapper<'a>, Vec<ArgOp>), AzError> {
     if let Some(arg) = find_arg_in_global(arg_name) {
-        let wrapper = CmdArgWrapper::new(None, arg)?;
+        let wrapper = CrsArgWrapper::new(None, arg)?;
         let ops = argparse::parse_arg_values(&wrapper, values)?;
         Ok((wrapper, ops))
     } else if let Some(arg) = find_arg_in_command(arg_name, &cmd) {
-        let wrapper = CmdArgWrapper::new(Some(&cmd), arg)?;
+        let wrapper = CrsArgWrapper::new(Some(&cmd), arg)?;
         let ops = argparse::parse_arg_values(&wrapper, values)?;
         Ok((wrapper, ops))
     } else {
@@ -110,7 +110,7 @@ fn parse_arg_values<'a, 'b>(
 /// This function will retrieve the value ops from the ArgOp
 /// When an operation is the prompt input operation, it will get value from stdin
 fn retrieve_value_ops(
-    arg: &CmdArgWrapper<'_>,
+    arg: &CrsArgWrapper<'_>,
     ops: Vec<ArgOp>,
 ) -> Result<Vec<ArgValueAssignOp>, AzError> {
     let mut value_ops = Vec::with_capacity(ops.len());
@@ -138,12 +138,12 @@ fn retrieve_value_ops(
     Ok(value_ops)
 }
 
-fn find_arg_in_global(_: &str) -> Option<&'static CmdArg> {
+fn find_arg_in_global(_: &str) -> Option<&'static CrsArg> {
     // TODO: support global args definition
     return None;
 }
 
-fn find_arg_in_command<'a>(name_or_alias: &str, cmd: &'a CmdCommand) -> Option<&'a CmdArg> {
+fn find_arg_in_command<'a>(name_or_alias: &str, cmd: &'a CrsCommand) -> Option<&'a CrsArg> {
     for arg in cmd.args.iter() {
         if arg.name.eq_ignore_ascii_case(name_or_alias) {
             return Some(arg);

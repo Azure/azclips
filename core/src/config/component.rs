@@ -13,8 +13,8 @@ use crate::{
     component::{AzCommand, AzCommandGroup, AzComponentCtx, AzComponentImpl},
     error::{AzError, AzInternalError},
     pb::{
-        cmd_interface, execute_response, CmdComponent, CmdHelp, CmdInterface, CmdOutputFormat,
-        CmdParams,
+        crs_interface, execute_response, CrsComponent, CrsHelp, CrsInterface, CrsOutputFormat,
+        CrsParams,
     },
     VERSION,
 };
@@ -26,7 +26,7 @@ pub struct ConfigComponent {}
 #[async_trait]
 impl AzCommandGroup for ConfigComponent {
     const URI: &'static str = "cmd://azure/config/";
-    fn build_interface(depth: Option<u32>) -> CmdInterface {
+    fn build_interface(depth: Option<u32>) -> CrsInterface {
         let mut groups = vec![];
         let mut commands = vec![];
         if depth.is_none_or(|d| d > 0) {
@@ -39,10 +39,10 @@ impl AzCommandGroup for ConfigComponent {
             commands.push(GetConfig::build_interface(depth).as_command_ok().to_owned());
             commands.push(SetConfig::build_interface(depth).as_command_ok().to_owned());
         }
-        CmdInterface {
-            level: Some(cmd_interface::Level::Component(CmdComponent {
+        CrsInterface {
+            level: Some(crs_interface::Level::Component(CrsComponent {
                 name: "config".to_string(),
-                help: Some(CmdHelp {
+                help: Some(CrsHelp {
                     short: "Manage Azure configuration".to_string(),
                     long: None,
                 }),
@@ -57,7 +57,7 @@ impl AzCommandGroup for ConfigComponent {
     fn find_interface(
         depth: Option<u32>,
         mut segments: impl Iterator<Item = String>,
-    ) -> Option<CmdInterface> {
+    ) -> Option<CrsInterface> {
         match segments.next().as_deref() {
             None => Some(Self::build_interface(depth)),
             Some("get") => Some(GetConfig::build_interface(depth)),
@@ -84,8 +84,8 @@ impl AzCommandGroup for ConfigComponent {
     async fn execute_group<T: AzComponentCtx>(
         ctx: &T,
         mut segments: impl Iterator<Item = String> + Send,
-        params: Option<CmdParams>,
-        output_format: Option<CmdOutputFormat>,
+        params: Option<CrsParams>,
+        output_format: Option<CrsOutputFormat>,
     ) -> Result<execute_response::Data, AzError> {
         match segments.next().as_deref() {
             Some("get") => GetConfig::execute(ctx, params, output_format).await,

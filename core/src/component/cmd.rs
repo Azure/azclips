@@ -7,7 +7,7 @@ use crate::{
     cmd_uri::CmdUri,
     error::AzError,
     pb::{
-        execute_response, CmdArg, CmdInterface, CmdOutputFormat, CmdParams, ComponentMetadata,
+        execute_response, CrsArg, CrsInterface, CrsOutputFormat, CrsParams, ComponentMetadata,
         ExecuteRequest, ExecuteResponse, InterfaceRequest, InterfaceResponse, MetadataRequest,
         MetadataResponse, None, ValidateRequest, ValidateResponse,
     },
@@ -31,18 +31,18 @@ pub trait AzCommand: Sized {
         CmdUri::from_str(Self::URI).unwrap()
     }
 
-    fn build_interface(depth: Option<u32>) -> CmdInterface;
+    fn build_interface(depth: Option<u32>) -> CrsInterface;
 
-    fn args() -> Vec<CmdArg>;
+    fn args() -> Vec<CrsArg>;
 
-    fn try_from(params: Option<CmdParams>) -> Result<Self, AzError>
+    fn try_from(params: Option<CrsParams>) -> Result<Self, AzError>
     where
         Self: AzCommandExecute;
 
     async fn execute<T: AzComponentCtx>(
         ctx: &T,
-        params: Option<CmdParams>,
-        _: Option<CmdOutputFormat>,
+        params: Option<CrsParams>,
+        _: Option<CrsOutputFormat>,
     ) -> Result<execute_response::Data, AzError>
     where
         Self: AzCommandExecute,
@@ -66,20 +66,20 @@ pub trait AzCommandGroup {
         CmdUri::from_str(Self::URI).unwrap()
     }
 
-    fn build_interface(depth: Option<u32>) -> CmdInterface;
+    fn build_interface(depth: Option<u32>) -> CrsInterface;
 
     fn find_interface(
         depth: Option<u32>,
         segments: impl Iterator<Item = String>,
-    ) -> Option<CmdInterface>;
+    ) -> Option<CrsInterface>;
 
     fn resolve_cmd_uri(segments: impl Iterator<Item = String>) -> Option<CmdUri>;
 
     async fn execute_group<T: AzComponentCtx>(
         ctx: &T,
         segments: impl Iterator<Item = String> + Send,
-        params: Option<CmdParams>,
-        output_format: Option<CmdOutputFormat>,
+        params: Option<CrsParams>,
+        output_format: Option<CrsOutputFormat>,
     ) -> Result<execute_response::Data, AzError>;
 }
 
