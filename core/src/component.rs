@@ -54,12 +54,10 @@ pub trait AzComponent<T: AzComponentCtx>: Send + Sync + 'static {
     async fn execute(&self, ctx: &T, request: ExecuteRequest) -> Result<ExecuteResponse, AzError>;
 }
 
-pub trait Versioned {
+/// The trait which implemented the AzComponent trait automatically when the type implements the AzCommandGroup trait
+pub trait AzComponentImpl<T: AzComponentCtx>: AzCommandGroup + Send + Sync + 'static {
     const VERSION: &'static str;
 }
-
-/// The trait which implemented the AzComponent trait automatically when the type implements the AzCommandGroup trait
-pub trait AzComponentImpl<T: AzComponentCtx>: AzCommandGroup + Versioned + Send + Sync + 'static {}
 
 #[async_trait]
 impl<T: AzComponentCtx, C: AzComponentImpl<T>> AzComponent<T> for C {
