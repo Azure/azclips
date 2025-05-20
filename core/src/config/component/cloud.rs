@@ -38,38 +38,28 @@ impl AzCommandGroup for CloudCommandGroup {
             let depth = depth.map(|d| d - 1);
             commands.push(
                 ListClouds::build_interface(depth)
-                    .as_command()
-                    .unwrap()
+                    .as_command_ok()
                     .to_owned(),
             );
-            commands.push(
-                ShowCloud::build_interface(depth)
-                    .as_command()
-                    .unwrap()
-                    .to_owned(),
-            );
+            commands.push(ShowCloud::build_interface(depth).as_command_ok().to_owned());
             commands.push(
                 DeleteCloud::build_interface(depth)
-                    .as_command()
-                    .unwrap()
+                    .as_command_ok()
                     .to_owned(),
             );
             commands.push(
                 ActivateCloud::build_interface(depth)
-                    .as_command()
-                    .unwrap()
+                    .as_command_ok()
                     .to_owned(),
             );
             commands.push(
                 CreateCloud::build_interface(depth)
-                    .as_command()
-                    .unwrap()
+                    .as_command_ok()
                     .to_owned(),
             );
             commands.push(
                 UpdateCloud::build_interface(depth)
-                    .as_command()
-                    .unwrap()
+                    .as_command_ok()
                     .to_owned(),
             );
         }

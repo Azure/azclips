@@ -89,7 +89,7 @@ pub trait AzComponentImpl<T: AzComponentCtx>: AzCommandGroup + Send + Sync + 'st
 impl<T: AzComponentCtx, C: AzComponentImpl<T>> AzComponent<T> for C {
     async fn metadata(&self, _: &T, _: MetadataRequest) -> Result<MetadataResponse, AzError> {
         let interface = Self::build_interface(Some(0));
-        let interface = interface.as_component().unwrap().to_owned();
+        let interface = interface.as_component_ok().to_owned();
         Ok(MetadataResponse {
             metadata: Some(ComponentMetadata {
                 name: interface.name,

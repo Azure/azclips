@@ -35,22 +35,11 @@ impl AzCommandGroup for AccountComponent {
             let depth = depth.map(|d| d - 1);
             commands.push(
                 GetAccessToken::build_interface(depth)
-                    .as_command()
-                    .unwrap()
+                    .as_command_ok()
                     .to_owned(),
             );
-            commands.push(
-                Login::build_interface(depth)
-                    .as_command()
-                    .unwrap()
-                    .to_owned(),
-            );
-            commands.push(
-                Logout::build_interface(depth)
-                    .as_command()
-                    .unwrap()
-                    .to_owned(),
-            );
+            commands.push(Login::build_interface(depth).as_command_ok().to_owned());
+            commands.push(Logout::build_interface(depth).as_command_ok().to_owned());
         }
         CmdInterface {
             level: Some(cmd_interface::Level::Component(CmdComponent {

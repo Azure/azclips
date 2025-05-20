@@ -30,8 +30,7 @@ impl AzCommandGroup for TopComponent {
             let depth = depth.map(|d| d - 1);
             commands.push(
                 ShowVersion::build_interface(depth)
-                    .as_command()
-                    .unwrap()
+                    .as_command_ok()
                     .to_owned(),
             );
         }

@@ -44,12 +44,7 @@ impl CmdTemplate for HardCodeCmdTemplate {
 
         let mut sig_row = Row::new();
         sig_row.append_sep(" ".repeat(self.intent));
-        let uri_parts = cmd
-            .get_uri()
-            .unwrap()
-            .split('/')
-            .filter(|s| !s.is_empty())
-            .skip(1);
+        let uri_parts = cmd.uri().split('/').filter(|s| !s.is_empty()).skip(1);
         let cmd_sig = uri_parts.collect::<Vec<_>>().join(" ");
         sig_row.append_styled(vec![cmd_sig.bold().into()], None);
         if let Some(Level::Command(cmd)) = &cmd.level {
@@ -75,7 +70,7 @@ impl CmdTemplate for HardCodeCmdTemplate {
             sig_row.append_styled(vec![version.stylize().into()], None);
         }
 
-        let short = cmd.get_help().map(|help| &help.short);
+        let short = cmd.help().map(|help| &help.short);
         if let Some(short) = short {
             sig_row.append_one_line(" : ");
             let short_help: StyledString = short.clone().italic().into();
@@ -87,7 +82,7 @@ impl CmdTemplate for HardCodeCmdTemplate {
         };
         result.append(&mut sig_row.render());
 
-        if let Some(long) = cmd.get_help().and_then(|help| help.long.as_ref()) {
+        if let Some(long) = cmd.help().and_then(|help| help.long.as_ref()) {
             let mut long_help_row = Row::new();
             long_help_row.append_sep(" ".repeat(self.intent * 2));
             let long_help: StyledString = long.into();

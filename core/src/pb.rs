@@ -206,55 +206,48 @@ impl TryFrom<command::CmdArgEnumItem> for Value {
 }
 
 impl command::CmdInterface {
-    pub fn as_command(&self) -> Option<&command::CmdCommand> {
-        match &self.level {
-            Some(cmd_interface::Level::Command(command)) => Some(command),
-            _ => None,
+    pub fn as_command_ok(&self) -> &command::CmdCommand {
+        match &self.level.as_ref().expect("Level not found") {
+            cmd_interface::Level::Command(command) => command,
+            _ => panic!("Command not found"),
         }
     }
 
-    pub fn as_command_group(&self) -> Option<&command::CmdCommandGroup> {
-        match &self.level {
-            Some(cmd_interface::Level::CommandGroup(command_group)) => Some(command_group),
-            _ => None,
+    pub fn as_command_group_ok(&self) -> &command::CmdCommandGroup {
+        match &self.level.as_ref().expect("Level not found") {
+            cmd_interface::Level::CommandGroup(command_group) => command_group,
+            _ => panic!("Command group not found"),
         }
     }
 
-    pub fn as_component(&self) -> Option<&command::CmdComponent> {
-        match &self.level {
-            Some(cmd_interface::Level::Component(component)) => Some(component),
-            _ => None,
+    pub fn as_component_ok(&self) -> &command::CmdComponent {
+        match &self.level.as_ref().expect("Level not found") {
+            cmd_interface::Level::Component(component) => component,
+            _ => panic!("Component not found"),
         }
     }
 
-    pub fn get_name(&self) -> Option<&str> {
-        match &self.level {
-            Some(cmd_interface::Level::Command(command)) => Some(command.name.as_str()),
-            Some(cmd_interface::Level::CommandGroup(command_group)) => {
-                Some(command_group.name.as_str())
-            }
-            Some(cmd_interface::Level::Component(component)) => Some(component.name.as_str()),
-            _ => None,
+    pub fn name(&self) -> &str {
+        match &self.level.as_ref().expect("Level not found") {
+            cmd_interface::Level::Command(command) => command.name.as_str(),
+            cmd_interface::Level::CommandGroup(command_group) => command_group.name.as_str(),
+            cmd_interface::Level::Component(component) => component.name.as_str(),
         }
     }
 
-    pub fn get_help(&self) -> Option<&command::CmdHelp> {
-        match &self.level {
-            Some(cmd_interface::Level::Command(command)) => command.help.as_ref(),
-            Some(cmd_interface::Level::CommandGroup(command_group)) => command_group.help.as_ref(),
-            Some(cmd_interface::Level::Component(component)) => component.help.as_ref(),
-            _ => None,
+    pub fn uri(&self) -> &str {
+        match &self.level.as_ref().expect("Level not found") {
+            cmd_interface::Level::Command(command) => command.uri.as_str(),
+            cmd_interface::Level::CommandGroup(command_group) => command_group.uri.as_str(),
+            cmd_interface::Level::Component(component) => component.uri.as_str(),
         }
     }
 
-    pub fn get_uri(&self) -> Option<&str> {
-        match &self.level {
-            Some(cmd_interface::Level::Command(command)) => Some(command.uri.as_str()),
-            Some(cmd_interface::Level::CommandGroup(command_group)) => {
-                Some(command_group.uri.as_str())
-            }
-            Some(cmd_interface::Level::Component(component)) => Some(component.uri.as_str()),
-            _ => None,
+    pub fn help(&self) -> Option<&command::CmdHelp> {
+        match &self.level.as_ref().expect("Level not found") {
+            cmd_interface::Level::Command(command) => command.help.as_ref(),
+            cmd_interface::Level::CommandGroup(command_group) => command_group.help.as_ref(),
+            cmd_interface::Level::Component(component) => component.help.as_ref(),
         }
     }
 }

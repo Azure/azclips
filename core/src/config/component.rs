@@ -33,22 +33,11 @@ impl AzCommandGroup for ConfigComponent {
             let depth = depth.map(|d| d - 1);
             groups.push(
                 CloudCommandGroup::build_interface(depth)
-                    .as_command_group()
-                    .unwrap()
+                    .as_command_group_ok()
                     .to_owned(),
             );
-            commands.push(
-                GetConfig::build_interface(depth)
-                    .as_command()
-                    .unwrap()
-                    .to_owned(),
-            );
-            commands.push(
-                SetConfig::build_interface(depth)
-                    .as_command()
-                    .unwrap()
-                    .to_owned(),
-            );
+            commands.push(GetConfig::build_interface(depth).as_command_ok().to_owned());
+            commands.push(SetConfig::build_interface(depth).as_command_ok().to_owned());
         }
         CmdInterface {
             level: Some(cmd_interface::Level::Component(CmdComponent {
