@@ -44,7 +44,12 @@ impl CmdTemplate for HardCodeCmdTemplate {
 
         let mut sig_row = Row::new();
         sig_row.append_sep(" ".repeat(self.intent));
-        let uri_parts = cmd.get_uri().unwrap().split('/').filter(|s| !s.is_empty()).skip(1);
+        let uri_parts = cmd
+            .get_uri()
+            .unwrap()
+            .split('/')
+            .filter(|s| !s.is_empty())
+            .skip(1);
         let cmd_sig = uri_parts.collect::<Vec<_>>().join(" ");
         sig_row.append_styled(vec![cmd_sig.bold().into()], None);
         if let Some(Level::Command(cmd)) = &cmd.level {
@@ -110,11 +115,11 @@ impl CmdTemplate for HardCodeCmdTemplate {
                     group.push(line);
                 }
             }
-            Some(Level::CommandGroup(CmdCommandGroup { commands, groups, ..}))
+            Some(Level::CommandGroup(CmdCommandGroup {
+                commands, groups, ..
+            }))
             | Some(Level::Component(CmdComponent {
-                commands,
-                groups,
-                ..
+                commands, groups, ..
             })) => {
                 let command_rows = commands
                     .iter()
@@ -157,7 +162,6 @@ mod tests {
     #[test]
     fn test_help_cmd_template_render() {
         let cmd = CmdInterface {
-            
             level: Some(cmd_interface::Level::Command(CmdCommand {
                 name: "command".to_string(),
                 uri: "cmd://azure/group/command".to_string(),
@@ -208,7 +212,6 @@ mod tests {
                 ],
                 positional_args: vec![],
             })),
-            
         };
 
         let template = HardCodeCmdTemplate { intent: 2 };

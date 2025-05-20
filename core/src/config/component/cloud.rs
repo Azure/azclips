@@ -36,12 +36,42 @@ impl AzCommandGroup for CloudCommandGroup {
         let mut commands = vec![];
         if depth.is_none() || depth.unwrap() > 0 {
             let depth = depth.map(|d| d - 1);
-            commands.push(ListClouds::build_interface(depth).as_command().unwrap().to_owned());
-            commands.push(ShowCloud::build_interface(depth).as_command().unwrap().to_owned());
-            commands.push(DeleteCloud::build_interface(depth).as_command().unwrap().to_owned());
-            commands.push(ActivateCloud::build_interface(depth).as_command().unwrap().to_owned());
-            commands.push(CreateCloud::build_interface(depth).as_command().unwrap().to_owned());
-            commands.push(UpdateCloud::build_interface(depth).as_command().unwrap().to_owned());
+            commands.push(
+                ListClouds::build_interface(depth)
+                    .as_command()
+                    .unwrap()
+                    .to_owned(),
+            );
+            commands.push(
+                ShowCloud::build_interface(depth)
+                    .as_command()
+                    .unwrap()
+                    .to_owned(),
+            );
+            commands.push(
+                DeleteCloud::build_interface(depth)
+                    .as_command()
+                    .unwrap()
+                    .to_owned(),
+            );
+            commands.push(
+                ActivateCloud::build_interface(depth)
+                    .as_command()
+                    .unwrap()
+                    .to_owned(),
+            );
+            commands.push(
+                CreateCloud::build_interface(depth)
+                    .as_command()
+                    .unwrap()
+                    .to_owned(),
+            );
+            commands.push(
+                UpdateCloud::build_interface(depth)
+                    .as_command()
+                    .unwrap()
+                    .to_owned(),
+            );
         }
         CmdInterface {
             level: Some(cmd_interface::Level::CommandGroup(CmdCommandGroup {

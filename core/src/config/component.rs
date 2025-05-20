@@ -10,7 +10,7 @@ use set::SetConfig;
 
 use crate::{
     cmd_uri::CmdUri,
-    component::{AzCommand, AzComponentImpl, AzCommandGroup, AzComponentCtx},
+    component::{AzCommand, AzCommandGroup, AzComponentCtx, AzComponentImpl},
     error::{AzError, AzInternalError},
     pb::{
         cmd_interface, execute_response, CmdComponent, CmdHelp, CmdInterface, CmdOutputFormat,
@@ -31,9 +31,24 @@ impl AzCommandGroup for ConfigComponent {
         let mut commands = vec![];
         if depth.is_none_or(|d| d > 0) {
             let depth = depth.map(|d| d - 1);
-            groups.push(CloudCommandGroup::build_interface(depth).as_command_group().unwrap().to_owned());
-            commands.push(GetConfig::build_interface(depth).as_command().unwrap().to_owned());
-            commands.push(SetConfig::build_interface(depth).as_command().unwrap().to_owned());
+            groups.push(
+                CloudCommandGroup::build_interface(depth)
+                    .as_command_group()
+                    .unwrap()
+                    .to_owned(),
+            );
+            commands.push(
+                GetConfig::build_interface(depth)
+                    .as_command()
+                    .unwrap()
+                    .to_owned(),
+            );
+            commands.push(
+                SetConfig::build_interface(depth)
+                    .as_command()
+                    .unwrap()
+                    .to_owned(),
+            );
         }
         CmdInterface {
             level: Some(cmd_interface::Level::Component(CmdComponent {

@@ -1,7 +1,7 @@
-mod cmd;
-mod hardcode_cmd;
 mod arg;
+mod cmd;
 mod hardcode_arg;
+mod hardcode_cmd;
 
 pub use cmd::CmdTemplate;
 pub use hardcode_cmd::HardCodeCmdTemplate;

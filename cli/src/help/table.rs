@@ -1,7 +1,12 @@
 use std::collections::HashMap;
 
 use az_core::pb::{
-    cmd_arg, cmd_number_arg, cmd_string_arg, CmdArg, CmdArgEnum, CmdArrayArg, CmdArrayFormat, CmdBooleanArg, CmdCommand, CmdCommandGroup, CmdComponent, CmdDateFormat, CmdDateTimeFormat, CmdDoubleFormat, CmdDurationFormat, CmdFloatFormat, CmdInt32Format, CmdInt64Format, CmdInterface, CmdNumberArg, CmdObjectArg, CmdObjectFormat, CmdResourceIdFormat, CmdResourceLocationFormat, CmdStringArg, CmdStringFormat, CmdTimeFormat, CmdUint32Format, CmdUint64Format, CmdUuidFormat, ComponentMetadata
+    cmd_arg, cmd_number_arg, cmd_string_arg, CmdArg, CmdArgEnum, CmdArrayArg, CmdArrayFormat,
+    CmdBooleanArg, CmdCommand, CmdCommandGroup, CmdComponent, CmdDateFormat, CmdDateTimeFormat,
+    CmdDoubleFormat, CmdDurationFormat, CmdFloatFormat, CmdInt32Format, CmdInt64Format,
+    CmdInterface, CmdNumberArg, CmdObjectArg, CmdObjectFormat, CmdResourceIdFormat,
+    CmdResourceLocationFormat, CmdStringArg, CmdStringFormat, CmdTimeFormat, CmdUint32Format,
+    CmdUint64Format, CmdUuidFormat, ComponentMetadata,
 };
 
 use crate::output::{style::Stylize, Row, RowCell, StyledString};

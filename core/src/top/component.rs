@@ -11,7 +11,8 @@ use crate::{
     pb::{
         cmd_interface, execute_response, CmdComponent, CmdHelp, CmdInterface, CmdOutputFormat,
         CmdParams,
-    }, VERSION,
+    },
+    VERSION,
 };
 
 #[derive(Debug, Default)]
@@ -27,7 +28,12 @@ impl AzCommandGroup for TopComponent {
         let mut commands = vec![];
         if depth.is_none_or(|d| d > 0) {
             let depth = depth.map(|d| d - 1);
-            commands.push(ShowVersion::build_interface(depth).as_command().unwrap().to_owned());
+            commands.push(
+                ShowVersion::build_interface(depth)
+                    .as_command()
+                    .unwrap()
+                    .to_owned(),
+            );
         }
         CmdInterface {
             level: Some(cmd_interface::Level::Component(CmdComponent {

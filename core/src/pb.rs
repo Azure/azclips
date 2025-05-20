@@ -91,7 +91,9 @@ impl command::CmdObjectArg {
     /// return the property argument by given the name or alias, if not found, return None
     /// This method will not check the additional properties
     pub fn get_prop<'a>(&'a self, name_or_alias: &'_ str) -> Option<&'a command::CmdArg> {
-        self.props.iter().find(|&prop| prop.name == name_or_alias || prop.options.iter().any(|o| o == name_or_alias))
+        self.props.iter().find(|&prop| {
+            prop.name == name_or_alias || prop.options.iter().any(|o| o == name_or_alias)
+        })
     }
     /// return the item argument for the additional properties
     pub fn get_additional_item(&self) -> Result<Option<&command::CmdArg>, AzInternalError> {
@@ -107,7 +109,9 @@ impl command::CmdArrayArg {
         let item = self
             .item
             .as_ref()
-            .ok_or(AzInternalError::InvalidArgumentDefinitionError("Missing item for array".to_string()))?;
+            .ok_or(AzInternalError::InvalidArgumentDefinitionError(
+                "Missing item for array".to_string(),
+            ))?;
         Ok(item)
     }
 }
@@ -201,7 +205,6 @@ impl TryFrom<command::CmdArgEnumItem> for Value {
     }
 }
 
-
 impl command::CmdInterface {
     pub fn as_command(&self) -> Option<&command::CmdCommand> {
         match &self.level {
@@ -227,7 +230,9 @@ impl command::CmdInterface {
     pub fn get_name(&self) -> Option<&str> {
         match &self.level {
             Some(cmd_interface::Level::Command(command)) => Some(command.name.as_str()),
-            Some(cmd_interface::Level::CommandGroup(command_group)) => Some(command_group.name.as_str()),
+            Some(cmd_interface::Level::CommandGroup(command_group)) => {
+                Some(command_group.name.as_str())
+            }
             Some(cmd_interface::Level::Component(component)) => Some(component.name.as_str()),
             _ => None,
         }
@@ -245,10 +250,11 @@ impl command::CmdInterface {
     pub fn get_uri(&self) -> Option<&str> {
         match &self.level {
             Some(cmd_interface::Level::Command(command)) => Some(command.uri.as_str()),
-            Some(cmd_interface::Level::CommandGroup(command_group)) => Some(command_group.uri.as_str()),
+            Some(cmd_interface::Level::CommandGroup(command_group)) => {
+                Some(command_group.uri.as_str())
+            }
             Some(cmd_interface::Level::Component(component)) => Some(component.uri.as_str()),
             _ => None,
         }
     }
-    
 }

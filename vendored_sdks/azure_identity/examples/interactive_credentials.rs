@@ -8,8 +8,8 @@ use oauth2::TokenResponse;
 use reqwest::Client;
 use std::error::Error;
 use std::fmt;
-use url::Url;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use url::Url;
 
 pub const AZURE_CLI_CLIENT_ID: &str = "04b07795-8ddb-461a-bbee-02f9e1bf7b46";
 
@@ -19,7 +19,10 @@ struct NoRefreshTokenError;
 
 impl fmt::Display for NoRefreshTokenError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "No refresh token was provided, cannot refresh access token")
+        write!(
+            f,
+            "No refresh token was provided, cannot refresh access token"
+        )
     }
 }
 
@@ -34,26 +37,34 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 
 async fn run_app_inter(tenant_id: &str) -> Result<(), Box<dyn Error>> {
-    let interactive_credentials =
-        InteractiveBrowserCredential::new(Some(ClientId::new(AZURE_CLI_CLIENT_ID.to_string())), Some(tenant_id.to_string()), None)?;
+    let interactive_credentials = InteractiveBrowserCredential::new(
+        Some(ClientId::new(AZURE_CLI_CLIENT_ID.to_string())),
+        Some(tenant_id.to_string()),
+        None,
+    )?;
 
     let token_response = interactive_credentials
         .get_token(Some(&["fake"]), Some("select_account"), None, None, None)
         .await?;
-    
-    let original_expires_in = token_response.expires_in().unwrap_or(Duration::from_secs(0));
+
+    let original_expires_in = token_response
+        .expires_in()
+        .unwrap_or(Duration::from_secs(0));
     let original_expiration = SystemTime::now()
         .checked_add(original_expires_in)
         .unwrap_or(UNIX_EPOCH);
 
     println!("\n--- Original token ---\n");
     println!("Access token: {}", token_response.access_token().secret());
-    
-    println!("Original token expires in: {} seconds (at {:?})", 
-             original_expires_in.as_secs(), 
-             original_expiration);
 
-    let refresh_token = token_response.refresh_token()
+    println!(
+        "Original token expires in: {} seconds (at {:?})",
+        original_expires_in.as_secs(),
+        original_expiration
+    );
+
+    let refresh_token = token_response
+        .refresh_token()
         .ok_or_else(|| NoRefreshTokenError)?; // Return an error if refresh token is missing
 
     let refresh_token_secret = Secret::new(refresh_token.secret().to_string());
@@ -72,24 +83,28 @@ async fn run_app_inter(tenant_id: &str) -> Result<(), Box<dyn Error>> {
     .await?;
 
     println!("\n--- New token ---\n");
-    println!("Access token: {}", new_token_response.access_token().secret());
+    println!(
+        "Access token: {}",
+        new_token_response.access_token().secret()
+    );
 
     let new_expires_in = Duration::from_secs(new_token_response.expires_in());
     let new_expiration = SystemTime::now()
         .checked_add(new_expires_in)
         .unwrap_or(UNIX_EPOCH);
-    
-    println!("New token expires in: {} seconds (at {:?})", 
-             new_expires_in.as_secs(), 
-             new_expiration);
-    
+
+    println!(
+        "New token expires in: {} seconds (at {:?})",
+        new_expires_in.as_secs(),
+        new_expiration
+    );
+
     // Check if the new token has a more recent expiration time
     if new_expiration > original_expiration {
         println!("✅ New token has a more recent expiration time");
     } else {
         println!("❌ New token does NOT have a more recent expiration time. It is accepted, because the token duration is random.");
     }
-    
 
     let access_token_secret = new_token_response.access_token().secret();
 

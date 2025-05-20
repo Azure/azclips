@@ -61,8 +61,8 @@ impl InteractiveBrowserCredential {
         scopes: Option<&[&str]>,
         prompt: Option<&str>,
         login_hint: Option<&str>,
-        success_template: Option<&str>, 
-        error_template: Option<&str>
+        success_template: Option<&str>,
+        error_template: Option<&str>,
     ) -> azure_core::Result<StandardTokenResponse<EmptyExtraTokenFields, BasicTokenType>> {
         let mut combined_scopes = DEFAULT_SCOPE_ARR.to_vec();
 
@@ -90,24 +90,31 @@ impl InteractiveBrowserCredential {
         println!("Waiting for authentication in browser. If the browser doesn't open automatically, please go to: {}", 
                  authorization_code_flow.authorize_url.as_ref());
 
-        match open_url(authorization_code_flow.authorize_url.as_ref(), success_template, error_template).await {
+        match open_url(
+            authorization_code_flow.authorize_url.as_ref(),
+            success_template,
+            error_template,
+        )
+        .await
+        {
             Ok(code) => {
                 authorization_code_flow
                     .exchange(new_http_client(), AuthorizationCode::new(code))
                     .await
             }
-            Err(error) => {
-                Err(Error::new(ErrorKind::Credential, format!("Failed to retrieve authorization code. {}", error)))
-            }
+            Err(error) => Err(Error::new(
+                ErrorKind::Credential,
+                format!("Failed to retrieve authorization code. {}", error),
+            )),
         }
     }
 }
 
-/* 
+/*
     vcpkg integrate install
     vcpkg install openssl
     vcpkg install openssl:x64-windows-static-md
-*/ 
+*/
 // Don't run it in the CI
 #[cfg(test)]
 mod tests {

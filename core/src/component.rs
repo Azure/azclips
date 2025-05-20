@@ -15,7 +15,7 @@ use crate::pb::{
 use crate::{config, pb::MetadataRequest};
 
 pub use center::{AzComponentCenter, AzComponentInfo};
-pub use cmd::{AzCommand, AzComponentImpl, AzCommandExecute, AzCommandGroup};
+pub use cmd::{AzCommand, AzCommandExecute, AzCommandGroup, AzComponentImpl};
 pub use ctx::AzComponentCtx;
 
 /// the trait of a component

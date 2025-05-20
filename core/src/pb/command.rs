@@ -287,17 +287,7 @@ pub struct CmdDurationFormat {
 }
 /// Nested message and enum types in `CMDDurationFormat`.
 pub mod cmd_duration_format {
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash,
-        PartialOrd,
-        Ord,
-        ::prost::Enumeration
-    )]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
     #[repr(i32)]
     pub enum Protocol {
         /// PnYnMnDTnHnMnS
@@ -330,17 +320,7 @@ pub struct CmdDateFormat {
 }
 /// Nested message and enum types in `CMDDateFormat`.
 pub mod cmd_date_format {
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash,
-        PartialOrd,
-        Ord,
-        ::prost::Enumeration
-    )]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
     #[repr(i32)]
     pub enum Protocol {
         /// yyyy-mm-dd
@@ -376,17 +356,7 @@ pub struct CmdTimeFormat {
 }
 /// Nested message and enum types in `CMDTimeFormat`.
 pub mod cmd_time_format {
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash,
-        PartialOrd,
-        Ord,
-        ::prost::Enumeration
-    )]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
     #[repr(i32)]
     pub enum Protocol {
         /// hh:mm:ss.xxx
@@ -422,17 +392,7 @@ pub struct CmdDateTimeFormat {
 }
 /// Nested message and enum types in `CMDDateTimeFormat`.
 pub mod cmd_date_time_format {
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash,
-        PartialOrd,
-        Ord,
-        ::prost::Enumeration
-    )]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
     #[repr(i32)]
     pub enum Protocol {
         /// 2024-03-19T08:30:00.123+00:00
@@ -475,17 +435,7 @@ pub struct CmdUuidFormat {
 }
 /// Nested message and enum types in `CMDUuidFormat`.
 pub mod cmd_uuid_format {
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash,
-        PartialOrd,
-        Ord,
-        ::prost::Enumeration
-    )]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
     #[repr(i32)]
     pub enum Case {
         Lower = 0,
@@ -673,9 +623,8 @@ pub struct CmdObjectArg {
     pub props: ::prost::alloc::vec::Vec<CmdArg>,
     /// the additional properties of the object
     #[prost(message, optional, boxed, tag = "5")]
-    pub additional_props: ::core::option::Option<
-        ::prost::alloc::boxed::Box<CmdObjectArgAdditionalProperties>,
-    >,
+    pub additional_props:
+        ::core::option::Option<::prost::alloc::boxed::Box<CmdObjectArgAdditionalProperties>>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CmdObjectArgAdditionalProperties {
@@ -719,10 +668,8 @@ pub struct CmdArrayFormat {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CmdParams {
     #[prost(map = "string, bytes", tag = "1")]
-    pub params: ::std::collections::HashMap<
-        ::prost::alloc::string::String,
-        ::prost::alloc::vec::Vec<u8>,
-    >,
+    pub params:
+        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::vec::Vec<u8>>,
     /// the keys of the params which are assigned as patch value, the value
     /// can be `param1.prop1\[1\].tags.a` or `param1.prop1+`. Here the `+`
     /// means to extend the array properties.

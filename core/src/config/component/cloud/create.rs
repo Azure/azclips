@@ -158,8 +158,8 @@ impl AzCommand for CreateCloud {
                             .expect("failed to convert to AzCloud");
                     }
                     "endpoints" => {
-                        create_cloud.endpoints = serde_json::from_slice::<EndpointMap>(v)
-                            .expect("failed to parse json");
+                        create_cloud.endpoints =
+                            serde_json::from_slice::<EndpointMap>(v).expect("failed to parse json");
                     }
                     "resourceIds" => {
                         create_cloud.resource_ids = serde_json::from_slice::<ResourceIdMap>(v)

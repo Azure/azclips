@@ -43,7 +43,7 @@ impl AzCommand for SetConfig {
     const URI: &'static str = "cmd://azure/config/set";
 
     fn build_interface(_: Option<u32>) -> CmdInterface {
-        CmdInterface {            
+        CmdInterface {
             level: Some(cmd_interface::Level::Command(CmdCommand {
                 name: "set".to_string(),
                 uri: Self::uri().to_string(),

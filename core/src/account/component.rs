@@ -10,7 +10,7 @@ use logout::Logout;
 
 use crate::{
     cmd_uri::CmdUri,
-    component::{AzCommand, AzComponentImpl, AzCommandGroup, AzComponentCtx},
+    component::{AzCommand, AzCommandGroup, AzComponentCtx, AzComponentImpl},
     error::{AzError, AzInternalError},
     pb::{
         cmd_interface, execute_response, CmdComponent, CmdHelp, CmdInterface, CmdOutputFormat,
@@ -33,9 +33,24 @@ impl AzCommandGroup for AccountComponent {
         let mut commands = vec![];
         if depth.is_none_or(|d| d > 0) {
             let depth = depth.map(|d| d - 1);
-            commands.push(GetAccessToken::build_interface(depth).as_command().unwrap().to_owned());
-            commands.push(Login::build_interface(depth).as_command().unwrap().to_owned());
-            commands.push(Logout::build_interface(depth).as_command().unwrap().to_owned());
+            commands.push(
+                GetAccessToken::build_interface(depth)
+                    .as_command()
+                    .unwrap()
+                    .to_owned(),
+            );
+            commands.push(
+                Login::build_interface(depth)
+                    .as_command()
+                    .unwrap()
+                    .to_owned(),
+            );
+            commands.push(
+                Logout::build_interface(depth)
+                    .as_command()
+                    .unwrap()
+                    .to_owned(),
+            );
         }
         CmdInterface {
             level: Some(cmd_interface::Level::Component(CmdComponent {
