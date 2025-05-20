@@ -1,11 +1,7 @@
 use std::collections::HashMap;
 
 use az_core::pb::{
-    cmd_arg, cmd_number_arg, cmd_string_arg, CmdArg, CmdArgEnum, CmdArrayArg, CmdArrayFormat,
-    CmdBooleanArg, CmdDateFormat, CmdDateTimeFormat, CmdDoubleFormat, CmdDurationFormat,
-    CmdFloatFormat, CmdInt32Format, CmdInt64Format, CmdInterface, CmdNumberArg, CmdObjectArg,
-    CmdObjectFormat, CmdResourceIdFormat, CmdResourceLocationFormat, CmdStringArg, CmdStringFormat,
-    CmdTimeFormat, CmdUint32Format, CmdUint64Format, CmdUuidFormat, ComponentMetadata,
+    cmd_arg, cmd_number_arg, cmd_string_arg, CmdArg, CmdArgEnum, CmdArrayArg, CmdArrayFormat, CmdBooleanArg, CmdCommand, CmdCommandGroup, CmdComponent, CmdDateFormat, CmdDateTimeFormat, CmdDoubleFormat, CmdDurationFormat, CmdFloatFormat, CmdInt32Format, CmdInt64Format, CmdInterface, CmdNumberArg, CmdObjectArg, CmdObjectFormat, CmdResourceIdFormat, CmdResourceLocationFormat, CmdStringArg, CmdStringFormat, CmdTimeFormat, CmdUint32Format, CmdUint64Format, CmdUuidFormat, ComponentMetadata
 };
 
 use crate::output::{style::Stylize, Row, RowCell, StyledString};
@@ -167,7 +163,41 @@ impl HelpLineDisplay for ComponentMetadata {
     }
 }
 
-impl HelpLineDisplay for CmdInterface {
+impl HelpLineDisplay for CmdCommand {
+    type Config<'a> = ();
+
+    fn help_line<'a>(&self, _: Self::Config<'a>) -> HelpTableLine {
+        HelpTableLine {
+            name: vec![self.name.clone().bold().into()],
+            description: self
+                .help
+                .as_ref()
+                .map(|help| &help.short)
+                .map(|desc| StyledString::from(desc.clone().italic()).split_lines())
+                .unwrap_or(vec![]),
+            ..Default::default()
+        }
+    }
+}
+
+impl HelpLineDisplay for CmdCommandGroup {
+    type Config<'a> = ();
+
+    fn help_line<'a>(&self, _: Self::Config<'a>) -> HelpTableLine {
+        HelpTableLine {
+            name: vec![self.name.clone().bold().into()],
+            description: self
+                .help
+                .as_ref()
+                .map(|help| &help.short)
+                .map(|desc| StyledString::from(desc.clone().italic()).split_lines())
+                .unwrap_or(vec![]),
+            ..Default::default()
+        }
+    }
+}
+
+impl HelpLineDisplay for CmdComponent {
     type Config<'a> = ();
 
     fn help_line<'a>(&self, _: Self::Config<'a>) -> HelpTableLine {

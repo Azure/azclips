@@ -16,7 +16,7 @@ use update::UpdateCloud;
 
 use crate::{
     cmd_uri::CmdUri,
-    component::{AzCmd, AzCmdGroup, AzComponentCtx},
+    component::{AzCommand, AzCommandGroup, AzComponentCtx},
     error::{AzError, AzInternalError},
     pb::{
         cmd_interface, execute_response, CmdCommandGroup, CmdHelp, CmdInterface, CmdOutputFormat,
@@ -28,47 +28,47 @@ use crate::{
 pub struct CloudCommandGroup {}
 
 #[async_trait]
-impl AzCmdGroup for CloudCommandGroup {
+impl AzCommandGroup for CloudCommandGroup {
     const URI: &'static str = "cmd://azure/config/cloud/";
 
-    fn cmd_interface(depth: Option<u32>) -> CmdInterface {
+    fn build_interface(depth: Option<u32>) -> CmdInterface {
         let groups = vec![];
         let mut commands = vec![];
         if depth.is_none() || depth.unwrap() > 0 {
             let depth = depth.map(|d| d - 1);
-            commands.push(ListClouds::cmd_interface(depth));
-            commands.push(ShowCloud::cmd_interface(depth));
-            commands.push(DeleteCloud::cmd_interface(depth));
-            commands.push(ActivateCloud::cmd_interface(depth));
-            commands.push(CreateCloud::cmd_interface(depth));
-            commands.push(UpdateCloud::cmd_interface(depth));
+            commands.push(ListClouds::build_interface(depth).as_command().unwrap().to_owned());
+            commands.push(ShowCloud::build_interface(depth).as_command().unwrap().to_owned());
+            commands.push(DeleteCloud::build_interface(depth).as_command().unwrap().to_owned());
+            commands.push(ActivateCloud::build_interface(depth).as_command().unwrap().to_owned());
+            commands.push(CreateCloud::build_interface(depth).as_command().unwrap().to_owned());
+            commands.push(UpdateCloud::build_interface(depth).as_command().unwrap().to_owned());
         }
         CmdInterface {
-            name: "cloud".to_string(),
-            help: Some(CmdHelp {
-                short: "Manage registered Azure clouds configuration".to_string(),
-                long: None,
-            }),
-            uri: Self::uri().to_string(),
-            level: Some(cmd_interface::Level::Group(CmdCommandGroup {
+            level: Some(cmd_interface::Level::CommandGroup(CmdCommandGroup {
+                name: "cloud".to_string(),
+                uri: Self::uri().to_string(),
+                help: Some(CmdHelp {
+                    short: "Manage registered Azure clouds configuration".to_string(),
+                    long: None,
+                }),
                 groups,
                 commands,
             })),
         }
     }
 
-    fn get_interface(
+    fn find_interface(
         depth: Option<u32>,
         mut segments: impl Iterator<Item = String>,
     ) -> Option<CmdInterface> {
         match segments.next().as_deref() {
-            None => Some(CloudCommandGroup::cmd_interface(depth)),
-            Some("activate") => Some(ActivateCloud::cmd_interface(depth)),
-            Some("create") => Some(CreateCloud::cmd_interface(depth)),
-            Some("update") => Some(UpdateCloud::cmd_interface(depth)),
-            Some("show") => Some(ShowCloud::cmd_interface(depth)),
-            Some("delete") => Some(DeleteCloud::cmd_interface(depth)),
-            Some("list") => Some(ListClouds::cmd_interface(depth)),
+            None => Some(CloudCommandGroup::build_interface(depth)),
+            Some("activate") => Some(ActivateCloud::build_interface(depth)),
+            Some("create") => Some(CreateCloud::build_interface(depth)),
+            Some("update") => Some(UpdateCloud::build_interface(depth)),
+            Some("show") => Some(ShowCloud::build_interface(depth)),
+            Some("delete") => Some(DeleteCloud::build_interface(depth)),
+            Some("list") => Some(ListClouds::build_interface(depth)),
             _ => None,
         }
     }

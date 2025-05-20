@@ -16,29 +16,28 @@ use crate::{
 
 use super::{AzComponent, AzComponentCtx};
 
-
 #[async_trait]
-pub trait AzCmdExecute {
+pub trait AzCommandExecute {
     type Output: Serialize;
 
     async fn run<T: AzComponentCtx>(&self, ctx: &T) -> Result<Option<Self::Output>, AzError>;
 }
 
 #[async_trait]
-pub trait AzCmd: Sized {
+pub trait AzCommand: Sized {
     const URI: &'static str;
 
     fn uri() -> CmdUri {
         CmdUri::from_str(Self::URI).unwrap()
     }
 
-    fn cmd_interface(depth: Option<u32>) -> CmdInterface;
+    fn build_interface(depth: Option<u32>) -> CmdInterface;
 
     fn args() -> Vec<CmdArg>;
 
     fn try_from(params: Option<CmdParams>) -> Result<Self, AzError>
     where
-        Self: AzCmdExecute;
+        Self: AzCommandExecute;
 
     async fn execute<T: AzComponentCtx>(
         ctx: &T,
@@ -46,7 +45,7 @@ pub trait AzCmd: Sized {
         _: Option<CmdOutputFormat>,
     ) -> Result<execute_response::Data, AzError>
     where
-        Self: AzCmdExecute,
+        Self: AzCommandExecute,
     {
         let result = Self::try_from(params)?.run(ctx).await?;
         if let Some(result) = result {
@@ -60,16 +59,16 @@ pub trait AzCmd: Sized {
 }
 
 #[async_trait]
-pub trait AzCmdGroup {
+pub trait AzCommandGroup {
     const URI: &'static str;
 
     fn uri() -> CmdUri {
         CmdUri::from_str(Self::URI).unwrap()
     }
 
-    fn cmd_interface(depth: Option<u32>) -> CmdInterface;
+    fn build_interface(depth: Option<u32>) -> CmdInterface;
 
-    fn get_interface(
+    fn find_interface(
         depth: Option<u32>,
         segments: impl Iterator<Item = String>,
     ) -> Option<CmdInterface>;
@@ -84,16 +83,17 @@ pub trait AzCmdGroup {
     ) -> Result<execute_response::Data, AzError>;
 }
 
-pub trait AzCmdComponent<T: AzComponentCtx>: AzCmdGroup + Send + Sync + 'static {}
+pub trait AzComponentImpl<T: AzComponentCtx>: AzCommandGroup + Send + Sync + 'static {}
 
 #[async_trait]
-impl<T: AzComponentCtx, C: AzCmdComponent<T>> AzComponent<T> for C {
+impl<T: AzComponentCtx, C: AzComponentImpl<T>> AzComponent<T> for C {
     async fn metadata(&self, _: &T, _: MetadataRequest) -> Result<MetadataResponse, AzError> {
-        let interface = Self::cmd_interface(Some(0));
+        let interface = Self::build_interface(Some(0));
+        let interface = interface.as_component().unwrap().to_owned();
         Ok(MetadataResponse {
             metadata: Some(ComponentMetadata {
                 name: interface.name,
-                version: VERSION.to_string(),
+                version: interface.version,
                 uri: interface.uri,
                 help: interface.help,
             }),
@@ -112,7 +112,7 @@ impl<T: AzComponentCtx, C: AzCmdComponent<T>> AzComponent<T> for C {
             _ => Some(request.depth),
         };
         let segments = cmd_uri.segments().skip(skip).map(|s| s.to_string());
-        let interface = Self::get_interface(depth, segments);
+        let interface = Self::find_interface(depth, segments);
         Ok(InterfaceResponse { interface })
     }
 

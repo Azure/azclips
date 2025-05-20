@@ -18,13 +18,13 @@ pub trait AzComponentCtx: Send + Sync + 'static {
     /// ```
     /// use async_trait::async_trait;
     /// use az_core::error::AzError;
-    /// use az_core::component::{AzCmdExecute, AzComponentCtx};
+    /// use az_core::component::{AzCommandExecute, AzComponentCtx};
     /// use az_core::config::cloud::{endpoint, resource_id};
     ///
     /// struct MyCmd {}
     ///
     /// #[async_trait]
-    /// impl AzCmdExecute for MyCmd {
+    /// impl AzCommandExecute for MyCmd {
     ///     type Output = ();
     ///
     ///     async fn run<T: AzComponentCtx>(&self, ctx: &T) -> Result<Option<Self::Output>, AzError> {

@@ -223,4 +223,32 @@ impl command::CmdInterface {
             _ => None,
         }
     }
+
+    pub fn get_name(&self) -> Option<&str> {
+        match &self.level {
+            Some(cmd_interface::Level::Command(command)) => Some(command.name.as_str()),
+            Some(cmd_interface::Level::CommandGroup(command_group)) => Some(command_group.name.as_str()),
+            Some(cmd_interface::Level::Component(component)) => Some(component.name.as_str()),
+            _ => None,
+        }
+    }
+
+    pub fn get_help(&self) -> Option<&command::CmdHelp> {
+        match &self.level {
+            Some(cmd_interface::Level::Command(command)) => command.help.as_ref(),
+            Some(cmd_interface::Level::CommandGroup(command_group)) => command_group.help.as_ref(),
+            Some(cmd_interface::Level::Component(component)) => component.help.as_ref(),
+            _ => None,
+        }
+    }
+
+    pub fn get_uri(&self) -> Option<&str> {
+        match &self.level {
+            Some(cmd_interface::Level::Command(command)) => Some(command.uri.as_str()),
+            Some(cmd_interface::Level::CommandGroup(command_group)) => Some(command_group.uri.as_str()),
+            Some(cmd_interface::Level::Component(component)) => Some(component.uri.as_str()),
+            _ => None,
+        }
+    }
+    
 }
