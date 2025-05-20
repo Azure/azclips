@@ -4,10 +4,10 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use crate::cmd_uri::CmdUri;
 use crate::config::cloud::AzCloud;
 use crate::error::AzInternalError;
 use crate::plugin::AzPlugin;
+use crate::uri::CrsUri;
 
 use futures::future::try_join_all;
 use serde::{Deserialize, Serialize};
@@ -26,7 +26,7 @@ pub enum AzComponentInfo {
 
 /// The center to manage the components
 pub struct AzComponentCenter<T: AzComponentCtx> {
-    /// the route table using the component uri segments as the key, it is used to find the component based on the cmd_uri
+    /// the route table using the component uri segments as the key, it is used to find the component based on the uri
     pub(super) route_table: HashMap<String, AzComponentInfo>,
     /// the built-in components that are loaded
     pub(super) built_ins: HashMap<AzBuildIn, Arc<dyn AzComponent<T>>>,
@@ -133,8 +133,8 @@ impl<T: AzComponentCtx> AzComponentCenter<T> {
 }
 
 impl<T: AzComponentCtx> AzComponentCenter<T> {
-    pub(crate) fn route(&self, cmd_uri: &CmdUri) -> Option<AzComponentInfo> {
-        for node in cmd_uri.ascending_nodes() {
+    pub(crate) fn route(&self, uri: &CrsUri) -> Option<AzComponentInfo> {
+        for node in uri.ascending_nodes() {
             if let Some(info) = self.route_table.get(&node.to_string()) {
                 return Some(info.to_owned());
             }
@@ -166,10 +166,10 @@ impl<T: AzComponentCtx> AzComponentCenter<T> {
         Ok(component)
     }
 
-    pub(crate) fn iter_component_uris(&self) -> impl Iterator<Item = CmdUri> + '_ {
+    pub(crate) fn iter_component_uris(&self) -> impl Iterator<Item = CrsUri> + '_ {
         self.route_table
             .keys()
-            .map(|s| CmdUri::from_str(s).unwrap())
+            .map(|s| CrsUri::from_str(s).unwrap())
     }
 }
 

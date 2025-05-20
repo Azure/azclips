@@ -1,17 +1,17 @@
 use az_core::{
-    argparse::{self, ArgOp, ArgValueAssignOp, CmdArgWrapper},
-    cmd_uri::CmdUri,
+    argparse::{self, ArgOp, ArgValueAssignOp, CrsArgWrapper},
     error::{AzError, AzInternalError, AzUserUsageError},
-    pb::{cmd_interface, CmdArg, CmdCommand},
+    pb::{CrsArg, CrsCommand},
+    uri::CrsUri,
     AzCore,
 };
 
-use crate::{help, CmdRawArg};
+use crate::{help, ArgRaw};
 
-pub fn execute_command(cmd_uri: CmdUri, raw_args: Vec<CmdRawArg>) {
+pub fn execute_command(uri: CrsUri, raw_args: Vec<ArgRaw>) {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
-        if let Err(e) = execute_command_async(cmd_uri, raw_args).await {
+        if let Err(e) = execute_command_async(uri, raw_args).await {
             // TODO: handle the error, need to add error handler in the core
             eprintln!("{}", e);
             std::process::exit(1);
@@ -19,34 +19,29 @@ pub fn execute_command(cmd_uri: CmdUri, raw_args: Vec<CmdRawArg>) {
     });
 }
 
-async fn execute_command_async(cmd_uri: CmdUri, raw_args: Vec<CmdRawArg>) -> Result<(), AzError> {
+async fn execute_command_async(uri: CrsUri, raw_args: Vec<ArgRaw>) -> Result<(), AzError> {
     let core = AzCore::instance().await;
-    let invocation = core.resolve_cmd_invocation(cmd_uri).await?;
+    let invocation = core.resolve_invocation(uri).await?;
 
-    if !invocation.cmd_uri.executable() {
+    if !invocation.uri.executable() {
         // if it's a command group, then show the help of it instead of executing it
-        help::show_command_help_async(invocation.cmd_uri).await?;
+        help::show_command_help_async(invocation.uri).await?;
         return Err(AzUserUsageError::CommandGroupNotExecutableError.into());
     }
 
-    let cmd_interface = core.get_cmd_interface(&invocation).await?;
-    let cmd = match cmd_interface.level.unwrap() {
-        cmd_interface::Level::Command(cmd) => cmd,
-        _ => {
-            unreachable!()
-        }
-    };
+    let crs_interface = core.get_interface(&invocation).await?;
+    let command = crs_interface.as_command_ok().to_owned();
 
     let mut cmd_value_ops = Vec::new();
 
     // the positional arguments will be returned as params in uri query part by service
-    for (arg_name, values) in invocation.cmd_uri.params() {
-        let (arg, ops) = parse_arg_values(&cmd, arg_name, values)?;
+    for (arg_name, values) in invocation.uri.params() {
+        let (arg, ops) = parse_arg_values(&command, arg_name, values)?;
 
         // show the help of the argument
         if let Some(ArgOp::Help(op)) = ops.iter().find(|op| matches!(op, ArgOp::Help(_))) {
             return help::show_command_arg_help_async(
-                invocation.cmd_uri.clone(),
+                invocation.uri.clone(),
                 op.arg_keys().to_owned(),
             )
             .await;
@@ -60,12 +55,12 @@ async fn execute_command_async(cmd_uri: CmdUri, raw_args: Vec<CmdRawArg>) -> Res
         .iter()
         .map(|raw_arg| (raw_arg.name_or_alias(), raw_arg.values()))
     {
-        let (arg, ops) = parse_arg_values(&cmd, arg_name, values)?;
+        let (arg, ops) = parse_arg_values(&command, arg_name, values)?;
 
         // show the help of the argument
         if let Some(ArgOp::Help(op)) = ops.iter().find(|op| matches!(op, ArgOp::Help(_))) {
             return help::show_command_arg_help_async(
-                invocation.cmd_uri.clone(),
+                invocation.uri.clone(),
                 op.arg_keys().to_owned(),
             )
             .await;
@@ -76,7 +71,7 @@ async fn execute_command_async(cmd_uri: CmdUri, raw_args: Vec<CmdRawArg>) -> Res
     }
 
     // TODO: filter some global args such as --output etc
-    let output = core.execute_cmd(&invocation, cmd_value_ops).await?;
+    let output = core.execute_command(&invocation, cmd_value_ops).await?;
 
     // TODO: format the output
     if let Some(data) = output {
@@ -90,16 +85,16 @@ async fn execute_command_async(cmd_uri: CmdUri, raw_args: Vec<CmdRawArg>) -> Res
 }
 
 fn parse_arg_values<'a, 'b>(
-    cmd: &'a CmdCommand,
+    command: &'a CrsCommand,
     arg_name: &str,
     values: impl IntoIterator<Item = &'b str>,
-) -> Result<(CmdArgWrapper<'a>, Vec<ArgOp>), AzError> {
+) -> Result<(CrsArgWrapper<'a>, Vec<ArgOp>), AzError> {
     if let Some(arg) = find_arg_in_global(arg_name) {
-        let wrapper = CmdArgWrapper::new(None, arg)?;
+        let wrapper = CrsArgWrapper::new(None, arg)?;
         let ops = argparse::parse_arg_values(&wrapper, values)?;
         Ok((wrapper, ops))
-    } else if let Some(arg) = find_arg_in_command(arg_name, &cmd) {
-        let wrapper = CmdArgWrapper::new(Some(&cmd), arg)?;
+    } else if let Some(arg) = find_arg_in_command(arg_name, &command) {
+        let wrapper = CrsArgWrapper::new(Some(&command), arg)?;
         let ops = argparse::parse_arg_values(&wrapper, values)?;
         Ok((wrapper, ops))
     } else {
@@ -110,7 +105,7 @@ fn parse_arg_values<'a, 'b>(
 /// This function will retrieve the value ops from the ArgOp
 /// When an operation is the prompt input operation, it will get value from stdin
 fn retrieve_value_ops(
-    arg: &CmdArgWrapper<'_>,
+    arg: &CrsArgWrapper<'_>,
     ops: Vec<ArgOp>,
 ) -> Result<Vec<ArgValueAssignOp>, AzError> {
     let mut value_ops = Vec::with_capacity(ops.len());
@@ -138,13 +133,13 @@ fn retrieve_value_ops(
     Ok(value_ops)
 }
 
-fn find_arg_in_global(_: &str) -> Option<&'static CmdArg> {
+fn find_arg_in_global(_: &str) -> Option<&'static CrsArg> {
     // TODO: support global args definition
     return None;
 }
 
-fn find_arg_in_command<'a>(name_or_alias: &str, cmd: &'a CmdCommand) -> Option<&'a CmdArg> {
-    for arg in cmd.args.iter() {
+fn find_arg_in_command<'a>(name_or_alias: &str, command: &'a CrsCommand) -> Option<&'a CrsArg> {
+    for arg in command.args.iter() {
         if arg.name.eq_ignore_ascii_case(name_or_alias) {
             return Some(arg);
         }

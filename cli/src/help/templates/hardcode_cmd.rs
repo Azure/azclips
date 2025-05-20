@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
 use az_core::pb::{
-    cmd_interface::Level, CmdCommandGroup, CmdComponent, CmdInterface, ComponentMetadata,
+    crs_interface::Level, ComponentMetadata, CrsCommandGroup, CrsComponent, CrsInterface,
 };
 
 use crate::{
     help::{
-        table::{CmdArgDisplayConfig, HelpLineDisplay, HelpTableLine},
+        table::{CrsArgDisplayConfig, HelpLineDisplay, HelpTableLine},
         MIN_DETAIL_WIDTH,
     },
     output::{style::Stylize, Row, StyledString},
@@ -27,7 +27,7 @@ impl Default for HardCodeCmdTemplate {
 impl CmdTemplate for HardCodeCmdTemplate {
     fn render<'a>(
         &self,
-        cmd: &CmdInterface,
+        cmd: &CrsInterface,
         components: impl IntoIterator<Item = &'a ComponentMetadata>,
         term_width: Option<usize>,
     ) -> Vec<StyledString> {
@@ -100,7 +100,7 @@ impl CmdTemplate for HardCodeCmdTemplate {
         match &cmd.level {
             Some(Level::Command(cmd)) => {
                 for arg in cmd.args.iter() {
-                    let line = arg.help_line(CmdArgDisplayConfig {
+                    let line = arg.help_line(CrsArgDisplayConfig {
                         prepend_dash: true,
                         positions: Some(&cmd.positional_args[..]),
                     });
@@ -110,10 +110,10 @@ impl CmdTemplate for HardCodeCmdTemplate {
                     group.push(line);
                 }
             }
-            Some(Level::CommandGroup(CmdCommandGroup {
+            Some(Level::CommandGroup(CrsCommandGroup {
                 commands, groups, ..
             }))
-            | Some(Level::Component(CmdComponent {
+            | Some(Level::Component(CrsComponent {
                 commands, groups, ..
             })) => {
                 let command_rows = commands
@@ -152,21 +152,21 @@ impl CmdTemplate for HardCodeCmdTemplate {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use az_core::pb::{cmd_interface, CmdArg, CmdArgHelp, CmdCommand, CmdHelp, CmdInterface};
+    use az_core::pb::{crs_interface, CrsArg, CrsArgHelp, CrsCommand, CrsHelp, CrsInterface};
 
     #[test]
     fn test_help_cmd_template_render() {
-        let cmd = CmdInterface {
-            level: Some(cmd_interface::Level::Command(CmdCommand {
+        let cmd = CrsInterface {
+            level: Some(crs_interface::Level::Command(CrsCommand {
                 name: "command".to_string(),
-                uri: "cmd://azure/group/command".to_string(),
+                uri: "crs://azure/group/command".to_string(),
                 version: "1.0.0".to_string(),
-                help: Some(CmdHelp {
+                help: Some(CrsHelp {
                     short: "Short description".to_string(),
                     long: Some("Long description of the command. ".repeat(3)),
                 }),
                 args: vec![
-                    CmdArg {
+                    CrsArg {
                         var_name: "arg1".to_string(),
                         options: vec![
                             "a".to_string(),
@@ -178,7 +178,7 @@ mod tests {
                         internal: false,
                         required: true,
                         default: None,
-                        help: Some(CmdArgHelp {
+                        help: Some(CrsArgHelp {
                             short: "Short description".to_string(),
                             long: Some("Long description of the argument.".to_string()),
                         }),
@@ -187,7 +187,7 @@ mod tests {
                         prompt: None,
                         arg_type: None,
                     },
-                    CmdArg {
+                    CrsArg {
                         var_name: "arg2".to_string(),
                         options: vec!["b".to_string(), "arg2".to_string()],
                         name: "Argument 2".to_string(),
@@ -195,7 +195,7 @@ mod tests {
                         internal: false,
                         required: false,
                         default: None,
-                        help: Some(CmdArgHelp {
+                        help: Some(CrsArgHelp {
                             short: "Short description".to_string(),
                             long: Some("Long description of the argument.".to_string()),
                         }),

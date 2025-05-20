@@ -3,15 +3,14 @@ mod table;
 mod templates;
 
 use az_core::{
-    argparse::{CmdArgWrapper, SHPartialKeys},
-    cmd_uri::CmdUri,
+    argparse::{CrsArgWrapper, SHPartialKeys},
     error::AzError,
-    pb::cmd_interface,
+    uri::CrsUri,
     AzCore,
 };
 use format::default_help_formatter;
 
-use crate::CmdRawArg;
+use crate::ArgRaw;
 
 /// Minimum width for the detail content
 /// This is used after considering the intent
@@ -19,16 +18,16 @@ use crate::CmdRawArg;
 pub const MIN_DETAIL_WIDTH: usize = 20;
 
 /// check if the `-h` or `--help` flag is present in the raw args
-pub fn has_help_flag(raw_args: &[CmdRawArg]) -> bool {
+pub fn has_help_flag(raw_args: &[ArgRaw]) -> bool {
     raw_args
         .iter()
         .any(|arg| arg.flag == "-h" || arg.flag == "--help")
 }
 
-pub fn show_command_help(cmd_uri: CmdUri) {
+pub fn show_command_help(uri: CrsUri) {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
-        if let Err(e) = show_command_help_async(cmd_uri).await {
+        if let Err(e) = show_command_help_async(uri).await {
             // TODO: handle the error, need to add error handler in the core
             eprintln!("{}", e);
             std::process::exit(1);
@@ -36,24 +35,22 @@ pub fn show_command_help(cmd_uri: CmdUri) {
     });
 }
 
-pub(crate) async fn show_command_help_async(cmd_uri: CmdUri) -> Result<(), AzError> {
+pub(crate) async fn show_command_help_async(uri: CrsUri) -> Result<(), AzError> {
     let term_width = crossterm::terminal::size().ok().map(|(w, _)| w as usize);
     let core = AzCore::instance().await;
-    let invocation = core.resolve_cmd_invocation(cmd_uri).await?;
-    if invocation.cmd_uri.executable() {
-        let cmd_interface = core.get_cmd_interface(&invocation).await?;
+    let invocation = core.resolve_invocation(uri).await?;
+    if invocation.uri.executable() {
+        let crs_interface = core.get_interface(&invocation).await?;
         // TODO: global arguments
-        for line in default_help_formatter().format_cmd(&cmd_interface, None, term_width) {
+        for line in default_help_formatter().format_cmd(&crs_interface, None, term_width) {
             println!("{}", line);
         }
         Ok(())
     } else {
-        let cmd_interface = core.get_cmd_interface(&invocation).await?;
-        let sub_components = core
-            .get_metadata_of_sub_components(&invocation.cmd_uri)
-            .await?;
+        let crs_interface = core.get_interface(&invocation).await?;
+        let sub_components = core.get_metadata_of_sub_components(&invocation.uri).await?;
         for line in
-            default_help_formatter().format_cmd(&cmd_interface, sub_components.values(), term_width)
+            default_help_formatter().format_cmd(&crs_interface, sub_components.values(), term_width)
         {
             println!("{}", line);
         }
@@ -62,20 +59,15 @@ pub(crate) async fn show_command_help_async(cmd_uri: CmdUri) -> Result<(), AzErr
 }
 
 pub(crate) async fn show_command_arg_help_async(
-    cmd_uri: CmdUri,
+    uri: CrsUri,
     keys: SHPartialKeys,
 ) -> Result<(), AzError> {
     let core = AzCore::instance().await;
-    let invocation = core.resolve_cmd_invocation(cmd_uri).await?;
-    let cmd_interface = core.get_cmd_interface(&invocation).await?;
-    let cmd = match cmd_interface.level.unwrap() {
-        cmd_interface::Level::Command(cmd) => cmd,
-        _ => {
-            panic!("Show argument in the command group value is not supported");
-        }
-    };
+    let invocation = core.resolve_invocation(uri).await?;
+    let crs_interface = core.get_interface(&invocation).await?;
+    let command = crs_interface.as_command_ok().to_owned();
 
-    let wrapper = CmdArgWrapper::build_by_keys(&cmd, &keys)?;
+    let wrapper = CrsArgWrapper::build_by_keys(&command, &keys)?;
     let arg = wrapper.arg();
     let term_width = crossterm::terminal::size().ok().map(|(w, _)| w as usize);
     for line in default_help_formatter().format_arg(arg, term_width) {

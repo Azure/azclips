@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use crate::{
     component::{AzCommand, AzCommandExecute, AzComponentCtx},
     error::AzError,
-    pb::{cmd_interface, CmdArg, CmdCommand, CmdHelp, CmdInterface, CmdParams},
+    pb::{crs_interface, CrsArg, CrsCommand, CrsHelp, CrsInterface, CrsParams},
     VERSION,
 };
 
@@ -20,15 +20,15 @@ impl AzCommandExecute for ShowVersion {
 }
 
 impl AzCommand for ShowVersion {
-    const URI: &'static str = "cmd://azure/version";
+    const URI: &'static str = "crs://azure/version";
 
-    fn build_interface(_: Option<u32>) -> CmdInterface {
-        CmdInterface {
-            level: Some(cmd_interface::Level::Command(CmdCommand {
+    fn build_interface(_: Option<u32>) -> CrsInterface {
+        CrsInterface {
+            level: Some(crs_interface::Level::Command(CrsCommand {
                 name: "version".to_string(),
                 uri: Self::uri().to_string(),
                 version: VERSION.to_string(),
-                help: Some(CmdHelp {
+                help: Some(CrsHelp {
                     short: "Show the version of the Azure CLI.".to_string(),
                     long: None,
                 }),
@@ -38,11 +38,11 @@ impl AzCommand for ShowVersion {
         }
     }
 
-    fn args() -> Vec<CmdArg> {
+    fn args() -> Vec<CrsArg> {
         vec![]
     }
 
-    fn try_from(_params: Option<CmdParams>) -> Result<Self, AzError> {
+    fn try_from(_params: Option<CrsParams>) -> Result<Self, AzError> {
         Ok(Self::default())
     }
 }

@@ -1,4 +1,4 @@
-use az_core::pb::CmdArg;
+use az_core::pb::CrsArg;
 
 use crate::{
     help::{
@@ -42,7 +42,7 @@ impl Default for HardCodeArgTemplate {
 }
 
 impl ArgTemplate for HardCodeArgTemplate {
-    fn render<'a>(&self, arg: &CmdArg, term_width: Option<usize>) -> Vec<StyledString> {
+    fn render<'a>(&self, arg: &CrsArg, term_width: Option<usize>) -> Vec<StyledString> {
         let mut result = vec![];
 
         result.push(StyledString::from("Argument"));

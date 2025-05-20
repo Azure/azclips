@@ -5,39 +5,39 @@ mod shorthand;
 
 use crate::{
     error::{AzResult, AzUserUsageError},
-    pb::cmd_arg,
+    pb::crs_arg,
 };
 use serde_json::Value;
 use shorthand::{SHResult, SHORTHAND_SYNTAX_PARSER};
 
-pub use arg::CmdArgWrapper;
+pub use arg::CrsArgWrapper;
 pub use op::{ArgHelpOp, ArgOp, ArgPromptInputOp, ArgValueAssignOp};
 pub use partial::{SHPartialKeyPart, SHPartialKeys};
 
 /// parse the argument values into the argument operations
 pub fn parse_arg_values<'a>(
-    arg: &CmdArgWrapper,
+    arg: &CrsArgWrapper,
     values: impl IntoIterator<Item = &'a str>,
 ) -> AzResult<Vec<ArgOp>> {
     match arg.unwrapped_arg_type() {
-        cmd_arg::ArgType::String(_)
-        | cmd_arg::ArgType::Number(_)
-        | cmd_arg::ArgType::Boolean(_) => parse_simple_arg(arg, values),
+        crs_arg::ArgType::String(_)
+        | crs_arg::ArgType::Number(_)
+        | crs_arg::ArgType::Boolean(_) => parse_simple_arg(arg, values),
 
-        cmd_arg::ArgType::AnyType(_) => parse_any_type_arg(arg, values),
+        crs_arg::ArgType::AnyType(_) => parse_any_type_arg(arg, values),
 
-        cmd_arg::ArgType::Object(_) | cmd_arg::ArgType::Array(_) => {
+        crs_arg::ArgType::Object(_) | crs_arg::ArgType::Array(_) => {
             parse_composite_arg(arg, values)
         }
 
-        cmd_arg::ArgType::Cls(_) => {
+        crs_arg::ArgType::Cls(_) => {
             unreachable!()
         }
     }
 }
 
 fn parse_simple_arg<'a>(
-    arg: &CmdArgWrapper,
+    arg: &CrsArgWrapper,
     values: impl IntoIterator<Item = &'a str>,
 ) -> AzResult<Vec<ArgOp>> {
     let mut values = values.into_iter();
@@ -54,7 +54,7 @@ fn parse_simple_arg<'a>(
 }
 
 fn parse_any_type_arg<'a>(
-    arg: &CmdArgWrapper,
+    arg: &CrsArgWrapper,
     values: impl IntoIterator<Item = &'a str>,
 ) -> AzResult<Vec<ArgOp>> {
     let mut values = values.into_iter();
@@ -86,7 +86,7 @@ fn parse_any_type_arg<'a>(
 }
 
 fn parse_composite_arg<'a>(
-    arg: &CmdArgWrapper,
+    arg: &CrsArgWrapper,
     values: impl IntoIterator<Item = &'a str>,
 ) -> AzResult<Vec<ArgOp>> {
     let mut values = values.into_iter();
@@ -115,7 +115,7 @@ fn parse_composite_arg<'a>(
 }
 
 fn parse_arg_value_str(
-    arg: &CmdArgWrapper,
+    arg: &CrsArgWrapper,
     value: Option<&str>, // None for the blank input
 ) -> AzResult<ArgOp> {
     // handle the blank input
@@ -150,7 +150,7 @@ fn parse_arg_value_str(
     let value = value.unwrap();
 
     match arg.unwrapped_arg_type() {
-        cmd_arg::ArgType::AnyType(_) | cmd_arg::ArgType::Array(_) | cmd_arg::ArgType::Object(_) => {
+        crs_arg::ArgType::AnyType(_) | crs_arg::ArgType::Array(_) | crs_arg::ArgType::Object(_) => {
             // try parse from json string
             if let Ok(v) = serde_json::from_str::<Value>(value) {
                 match arg.verify_value(v) {
@@ -201,10 +201,10 @@ mod tests {
         argparse::partial::{SHPartialKeyPart, SHPartialKeys},
         error::AzError,
         pb::{
-            cmd_arg, cmd_number_arg, cmd_string_arg, CmdAnyTypeArg, CmdArg, CmdArgBlank,
-            CmdArgPromptInput, CmdArrayArg, CmdBooleanArg, CmdCommand, CmdInt64Format,
-            CmdNumberArg, CmdObjectArg, CmdObjectArgAdditionalProperties, CmdStringArg,
-            CmdStringFormat,
+            crs_arg, crs_number_arg, crs_string_arg, CrsAnyTypeArg, CrsArg, CrsArgBlank,
+            CrsArgPromptInput, CrsArrayArg, CrsBooleanArg, CrsCommand, CrsInt64Format,
+            CrsNumberArg, CrsObjectArg, CrsObjectArgAdditionalProperties, CrsStringArg,
+            CrsStringFormat,
         },
     };
     use serde_json::json;
@@ -212,13 +212,13 @@ mod tests {
 
     use super::*;
 
-    fn parse_cmd_arg<'a>(
-        cmd: &CmdCommand,
+    fn parse_arg<'a>(
+        command: &CrsCommand,
         name_or_alias: &str,
         values: impl IntoIterator<Item = &'a str>,
     ) -> AzResult<Option<Vec<ArgOp>>> {
         let mut matched_arg = None;
-        for arg in cmd.args.iter() {
+        for arg in command.args.iter() {
             if arg.name.eq_ignore_ascii_case(name_or_alias) {
                 matched_arg = Some(arg);
                 break;
@@ -238,62 +238,62 @@ mod tests {
         }
         let matched_arg = matched_arg.unwrap();
 
-        let wrapper = CmdArgWrapper::new(Some(cmd), matched_arg)?;
+        let wrapper = CrsArgWrapper::new(Some(command), matched_arg)?;
 
         let ops = parse_arg_values(&wrapper, values)?;
         Ok(Some(ops))
     }
 
     #[test]
-    fn test_parse_cmd_simple_arg() {
-        let mut cmd = CmdCommand::default();
+    fn test_parse_simple_arg() {
+        let mut command = CrsCommand::default();
         // string arg
-        let mut str_arg = CmdArg::default();
+        let mut str_arg = CrsArg::default();
         str_arg.var_name = "$Path.name".to_string();
         str_arg.name = "name".to_string();
         str_arg.options = vec!["name".to_string()];
-        str_arg.blank = Some(CmdArgBlank {
+        str_arg.blank = Some(CrsArgBlank {
             value: "\"autoname\"".to_string(),
         });
         str_arg.nullable = true;
-        let mut str_type = CmdStringArg::default();
-        str_type.format = Some(cmd_string_arg::Format::String(CmdStringFormat::default()));
-        str_arg.arg_type = Some(cmd_arg::ArgType::String(str_type));
-        cmd.args.push(str_arg);
+        let mut str_type = CrsStringArg::default();
+        str_type.format = Some(crs_string_arg::Format::String(CrsStringFormat::default()));
+        str_arg.arg_type = Some(crs_arg::ArgType::String(str_type));
+        command.args.push(str_arg);
 
         // prompt input arg
-        let mut prompt_input_arg = CmdArg::default();
+        let mut prompt_input_arg = CrsArg::default();
         prompt_input_arg.var_name = "$Path.secret".to_string();
         prompt_input_arg.name = "secret".to_string();
         prompt_input_arg.options = vec!["secret".to_string()];
-        prompt_input_arg.prompt = Some(CmdArgPromptInput {
+        prompt_input_arg.prompt = Some(CrsArgPromptInput {
             prompt: "Enter your secret".to_string(),
             secret: true,
             confirm: true,
         });
-        let mut str_type = CmdStringArg::default();
-        str_type.format = Some(cmd_string_arg::Format::String(CmdStringFormat::default()));
-        prompt_input_arg.arg_type = Some(cmd_arg::ArgType::String(str_type));
-        cmd.args.push(prompt_input_arg);
+        let mut str_type = CrsStringArg::default();
+        str_type.format = Some(crs_string_arg::Format::String(CrsStringFormat::default()));
+        prompt_input_arg.arg_type = Some(crs_arg::ArgType::String(str_type));
+        command.args.push(prompt_input_arg);
 
         // size arg
-        let mut size_arg = CmdArg::default();
+        let mut size_arg = CrsArg::default();
         size_arg.var_name = "$Path.size".to_string();
         size_arg.name = "size".to_string();
         size_arg.options = vec!["size".to_string()];
-        let mut number_type = CmdNumberArg::default();
-        number_type.format = Some(cmd_number_arg::Format::Int64(CmdInt64Format::default()));
-        size_arg.arg_type = Some(cmd_arg::ArgType::Number(number_type));
-        cmd.args.push(size_arg);
+        let mut number_type = CrsNumberArg::default();
+        number_type.format = Some(crs_number_arg::Format::Int64(CrsInt64Format::default()));
+        size_arg.arg_type = Some(crs_arg::ArgType::Number(number_type));
+        command.args.push(size_arg);
 
         // bool arg
-        let mut bool_arg = CmdArg::default();
+        let mut bool_arg = CrsArg::default();
         bool_arg.var_name = "$Path.enabled".to_string();
         bool_arg.name = "enabled".to_string();
         bool_arg.options = vec!["enabled".to_string()];
-        let bool_type = CmdBooleanArg::default();
-        bool_arg.arg_type = Some(cmd_arg::ArgType::Boolean(bool_type));
-        cmd.args.push(bool_arg);
+        let bool_type = CrsBooleanArg::default();
+        bool_arg.arg_type = Some(crs_arg::ArgType::Boolean(bool_type));
+        command.args.push(bool_arg);
 
         for (name, expression, expected) in vec![
             ("name", vec![], Value::String("autoname".to_string())),
@@ -337,7 +337,7 @@ mod tests {
             ("enabled", vec!["false"], Value::Bool(false)),
             ("enabled", vec!["no"], Value::Bool(false)),
         ] {
-            let ops = parse_cmd_arg(&cmd, name, expression.clone())
+            let ops = parse_arg(&command, name, expression.clone())
                 .unwrap()
                 .unwrap();
             assert_eq!(ops.len(), 1);
@@ -353,13 +353,13 @@ mod tests {
         }
 
         // test secret prompt input
-        let ops = parse_cmd_arg(&cmd, "secret", vec![]).unwrap().unwrap();
+        let ops = parse_arg(&command, "secret", vec![]).unwrap().unwrap();
         assert_eq!(ops.len(), 1);
         assert_eq!(
             ops[0],
             ArgOp::Prompt(ArgPromptInputOp {
                 keys: SHPartialKeys::new([SHPartialKeyPart::Name("secret".to_string())]),
-                prompt: CmdArgPromptInput {
+                prompt: CrsArgPromptInput {
                     prompt: "Enter your secret".to_string(),
                     secret: true,
                     confirm: true,
@@ -369,11 +369,11 @@ mod tests {
         );
 
         // test argument not found
-        let result = parse_cmd_arg(&cmd, "not_found", vec![]).unwrap();
+        let result = parse_arg(&command, "not_found", vec![]).unwrap();
         assert_eq!(result, None);
 
         // test error cases
-        let result = parse_cmd_arg(&cmd, "name", vec!["hello", "world"]);
+        let result = parse_arg(&command, "name", vec!["hello", "world"]);
         match result {
             Err(AzError::UserUsage(AzUserUsageError::InvalidArgumentValueError(msg))) => {
                 assert_eq!(msg, "Argument 'name' can't accept multiple values");
@@ -383,7 +383,7 @@ mod tests {
             }
         }
 
-        let result = parse_cmd_arg(&cmd, "size", vec![]);
+        let result = parse_arg(&command, "size", vec![]);
         match result {
             Err(AzError::UserUsage(AzUserUsageError::InvalidArgumentValueError(msg))) => {
                 assert_eq!(
@@ -398,55 +398,55 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_cmd_simple_arg_by_file() {
-        let mut cmd = CmdCommand::default();
+    fn test_parse_simple_arg_by_file() {
+        let mut command = CrsCommand::default();
         // string arg
-        let mut str_arg = CmdArg::default();
+        let mut str_arg = CrsArg::default();
         str_arg.var_name = "$Path.name".to_string();
         str_arg.name = "name".to_string();
         str_arg.options = vec!["name".to_string()];
-        str_arg.blank = Some(CmdArgBlank {
+        str_arg.blank = Some(CrsArgBlank {
             value: "\"autoname\"".to_string(),
         });
         str_arg.nullable = true;
-        let mut str_type = CmdStringArg::default();
-        str_type.format = Some(cmd_string_arg::Format::String(CmdStringFormat::default()));
-        str_arg.arg_type = Some(cmd_arg::ArgType::String(str_type));
-        cmd.args.push(str_arg);
+        let mut str_type = CrsStringArg::default();
+        str_type.format = Some(crs_string_arg::Format::String(CrsStringFormat::default()));
+        str_arg.arg_type = Some(crs_arg::ArgType::String(str_type));
+        command.args.push(str_arg);
 
         // prompt input arg
-        let mut prompt_input_arg = CmdArg::default();
+        let mut prompt_input_arg = CrsArg::default();
         prompt_input_arg.var_name = "$Path.secret".to_string();
         prompt_input_arg.name = "secret".to_string();
         prompt_input_arg.options = vec!["secret".to_string()];
-        prompt_input_arg.prompt = Some(CmdArgPromptInput {
+        prompt_input_arg.prompt = Some(CrsArgPromptInput {
             prompt: "Enter your secret".to_string(),
             secret: true,
             confirm: true,
         });
-        let mut str_type = CmdStringArg::default();
-        str_type.format = Some(cmd_string_arg::Format::String(CmdStringFormat::default()));
-        prompt_input_arg.arg_type = Some(cmd_arg::ArgType::String(str_type));
-        cmd.args.push(prompt_input_arg);
+        let mut str_type = CrsStringArg::default();
+        str_type.format = Some(crs_string_arg::Format::String(CrsStringFormat::default()));
+        prompt_input_arg.arg_type = Some(crs_arg::ArgType::String(str_type));
+        command.args.push(prompt_input_arg);
 
         // size arg
-        let mut size_arg = CmdArg::default();
+        let mut size_arg = CrsArg::default();
         size_arg.var_name = "$Path.size".to_string();
         size_arg.name = "size".to_string();
         size_arg.options = vec!["size".to_string()];
-        let mut number_type = CmdNumberArg::default();
-        number_type.format = Some(cmd_number_arg::Format::Int64(CmdInt64Format::default()));
-        size_arg.arg_type = Some(cmd_arg::ArgType::Number(number_type));
-        cmd.args.push(size_arg);
+        let mut number_type = CrsNumberArg::default();
+        number_type.format = Some(crs_number_arg::Format::Int64(CrsInt64Format::default()));
+        size_arg.arg_type = Some(crs_arg::ArgType::Number(number_type));
+        command.args.push(size_arg);
 
         // bool arg
-        let mut bool_arg = CmdArg::default();
+        let mut bool_arg = CrsArg::default();
         bool_arg.var_name = "$Path.enabled".to_string();
         bool_arg.name = "enabled".to_string();
         bool_arg.options = vec!["enabled".to_string()];
-        let bool_type = CmdBooleanArg::default();
-        bool_arg.arg_type = Some(cmd_arg::ArgType::Boolean(bool_type));
-        cmd.args.push(bool_arg);
+        let bool_type = CrsBooleanArg::default();
+        bool_arg.arg_type = Some(crs_arg::ArgType::Boolean(bool_type));
+        command.args.push(bool_arg);
 
         for (name, value, expected) in vec![
             (
@@ -472,7 +472,7 @@ mod tests {
             file.flush().expect("Failed to flush temp file");
             let file_value = format!("file://{}", file.path().to_str().unwrap());
 
-            let ops = parse_cmd_arg(&cmd, name, vec![file_value.as_str()])
+            let ops = parse_arg(&command, name, vec![file_value.as_str()])
                 .unwrap()
                 .unwrap();
             assert_eq!(ops.len(), 1);
@@ -489,102 +489,102 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_cmd_composite_arg() {
-        let mut cmd = CmdCommand::default();
+    fn test_parse_composite_arg() {
+        let mut command = CrsCommand::default();
 
         // object arg
-        let mut object_arg = CmdArg::default();
+        let mut object_arg = CrsArg::default();
         object_arg.var_name = "$Instance.object".to_string();
         object_arg.name = "object".to_string();
         object_arg.options = vec!["object".to_string()];
         object_arg.nullable = true;
-        let mut object_type = CmdObjectArg::default();
+        let mut object_type = CrsObjectArg::default();
         // define the string property type
-        let mut str_arg = CmdArg::default();
+        let mut str_arg = CrsArg::default();
         str_arg.name = "str".to_string();
         str_arg.options = vec!["str".to_string()];
         str_arg.nullable = true;
-        str_arg.arg_type = Some(cmd_arg::ArgType::String(CmdStringArg::default()));
+        str_arg.arg_type = Some(crs_arg::ArgType::String(CrsStringArg::default()));
         object_type.props.push(str_arg);
         // define the number property type
-        let mut num_arg = CmdArg::default();
+        let mut num_arg = CrsArg::default();
         num_arg.name = "num".to_string();
         num_arg.options = vec!["num".to_string()];
         num_arg.nullable = true;
-        num_arg.arg_type = Some(cmd_arg::ArgType::Number(CmdNumberArg::default()));
+        num_arg.arg_type = Some(crs_arg::ArgType::Number(CrsNumberArg::default()));
         object_type.props.push(num_arg);
         // define the bool property type
-        let mut bool_arg = CmdArg::default();
+        let mut bool_arg = CrsArg::default();
         bool_arg.name = "bool".to_string();
         bool_arg.options = vec!["bool".to_string()];
         bool_arg.nullable = true;
-        bool_arg.arg_type = Some(cmd_arg::ArgType::Boolean(CmdBooleanArg::default()));
+        bool_arg.arg_type = Some(crs_arg::ArgType::Boolean(CrsBooleanArg::default()));
         object_type.props.push(bool_arg);
         // define the array property type
-        let mut array_arg = CmdArg::default();
+        let mut array_arg = CrsArg::default();
         array_arg.name = "array".to_string();
         array_arg.options = vec!["array".to_string()];
         array_arg.nullable = true;
-        let mut array_type = CmdArrayArg::default();
-        let mut array_item_arg = CmdArg::default();
+        let mut array_type = CrsArrayArg::default();
+        let mut array_item_arg = CrsArg::default();
         array_item_arg.nullable = true;
-        array_item_arg.arg_type = Some(cmd_arg::ArgType::String(CmdStringArg::default()));
+        array_item_arg.arg_type = Some(crs_arg::ArgType::String(CrsStringArg::default()));
         array_type.item = Some(Box::new(array_item_arg));
-        array_arg.arg_type = Some(cmd_arg::ArgType::Array(Box::new(array_type)));
+        array_arg.arg_type = Some(crs_arg::ArgType::Array(Box::new(array_type)));
         object_type.props.push(array_arg);
         // define the dict property type
-        let mut dict_arg = CmdArg::default();
+        let mut dict_arg = CrsArg::default();
         dict_arg.name = "tags".to_string();
         dict_arg.options = vec!["tags".to_string()];
         dict_arg.nullable = true;
-        let mut dict_type = CmdObjectArg::default();
-        let mut tag_arg = CmdArg::default();
+        let mut dict_type = CrsObjectArg::default();
+        let mut tag_arg = CrsArg::default();
         tag_arg.nullable = true;
-        tag_arg.arg_type = Some(cmd_arg::ArgType::String(CmdStringArg::default()));
-        dict_type.additional_props = Some(Box::new(CmdObjectArgAdditionalProperties {
+        tag_arg.arg_type = Some(crs_arg::ArgType::String(CrsStringArg::default()));
+        dict_type.additional_props = Some(Box::new(CrsObjectArgAdditionalProperties {
             item: Some(Box::new(tag_arg)),
         }));
-        dict_arg.arg_type = Some(cmd_arg::ArgType::Object(Box::new(dict_type)));
+        dict_arg.arg_type = Some(crs_arg::ArgType::Object(Box::new(dict_type)));
         object_type.props.push(dict_arg);
         // define the additional properties
-        let mut additional_props = CmdArg::default();
+        let mut additional_props = CrsArg::default();
         additional_props.nullable = true;
-        additional_props.arg_type = Some(cmd_arg::ArgType::AnyType(CmdAnyTypeArg::default()));
-        object_type.additional_props = Some(Box::new(CmdObjectArgAdditionalProperties {
+        additional_props.arg_type = Some(crs_arg::ArgType::AnyType(CrsAnyTypeArg::default()));
+        object_type.additional_props = Some(Box::new(CrsObjectArgAdditionalProperties {
             item: Some(Box::new(additional_props)),
         }));
-        object_arg.arg_type = Some(cmd_arg::ArgType::Object(Box::new(object_type)));
-        cmd.args.push(object_arg);
+        object_arg.arg_type = Some(crs_arg::ArgType::Object(Box::new(object_type)));
+        command.args.push(object_arg);
         // create object without additional properties
-        let mut object_arg = CmdArg::default();
+        let mut object_arg = CrsArg::default();
         object_arg.var_name = "$Instance.object2".to_string();
         object_arg.name = "object2".to_string();
         object_arg.options = vec!["object2".to_string()];
-        let mut object_type = CmdObjectArg::default();
+        let mut object_type = CrsObjectArg::default();
         // define the string property type
-        let mut str_arg = CmdArg::default();
+        let mut str_arg = CrsArg::default();
         str_arg.name = "str".to_string();
         str_arg.options = vec!["str".to_string()];
         str_arg.nullable = true;
-        str_arg.arg_type = Some(cmd_arg::ArgType::String(CmdStringArg::default()));
+        str_arg.arg_type = Some(crs_arg::ArgType::String(CrsStringArg::default()));
         object_type.props.push(str_arg);
-        object_arg.arg_type = Some(cmd_arg::ArgType::Object(Box::new(object_type)));
-        cmd.args.push(object_arg);
+        object_arg.arg_type = Some(crs_arg::ArgType::Object(Box::new(object_type)));
+        command.args.push(object_arg);
 
         // create a standalone array arg
-        let mut array_arg = CmdArg::default();
+        let mut array_arg = CrsArg::default();
         array_arg.name = "arr".to_string();
         array_arg.options = vec!["arr".to_string()];
         array_arg.nullable = true;
-        let mut array_type = CmdArrayArg::default();
-        let mut array_item_arg = CmdArg::default();
+        let mut array_type = CrsArrayArg::default();
+        let mut array_item_arg = CrsArg::default();
         array_item_arg.nullable = true;
-        array_item_arg.arg_type = Some(cmd_arg::ArgType::String(CmdStringArg::default()));
+        array_item_arg.arg_type = Some(crs_arg::ArgType::String(CrsStringArg::default()));
         array_type.item = Some(Box::new(array_item_arg));
-        array_arg.arg_type = Some(cmd_arg::ArgType::Array(Box::new(array_type)));
-        cmd.args.push(array_arg);
+        array_arg.arg_type = Some(crs_arg::ArgType::Array(Box::new(array_type)));
+        command.args.push(array_arg);
 
-        let ops = parse_cmd_arg(&cmd, "object", vec![
+        let ops = parse_arg(&command, "object", vec![
             "{str:abc,num:123,bool:true,array:[1,b,false,true,null],tags:{a:b,c:1,d:false,e:true,f:null},additional1:1,additional2:false,additional3:[1,b,false,true,null],additional4:{a:b,c:1,d:false,e:true,f:null},additional5:[{a:b,c:d}]}"
         ]).unwrap().unwrap();
 
@@ -616,7 +616,7 @@ mod tests {
         );
 
         // test the json string
-        let ops = parse_cmd_arg(&cmd, "object", vec![
+        let ops = parse_arg(&command, "object", vec![
             "{\"str\": \"abc\", \"num\": 123, \"bool\": true, \"array\": [\"1\", \"b\", \"false\", \"true\", null], \"tags\": {\"a\": \"b\", \"c\": \"1\", \"d\": \"false\", \"e\": \"true\", \"f\":null}, \"additional1\":1, \"additional2\":false, \"additional3\":[1, \"b\", false, true, null], \"additional4\":{\"a\": \"b\", \"c\":1, \"d\":false, \"e\":true, \"f\":null}, \"additional5\":[{\"a\": \"b\", \"c\": \"d\"}]}"
         ]).unwrap().unwrap();
         assert_eq!(ops.len(), 1);
@@ -647,8 +647,8 @@ mod tests {
         );
 
         // test partial value assignment
-        let ops = parse_cmd_arg(
-            &cmd,
+        let ops = parse_arg(
+            &command,
             "object",
             vec![
                 "array[0]=1",
@@ -746,7 +746,7 @@ mod tests {
         );
 
         // test append value assignment
-        let ops = parse_cmd_arg(&cmd, "object", vec!["array+=[2,3,4]"])
+        let ops = parse_arg(&command, "object", vec!["array+=[2,3,4]"])
             .unwrap()
             .unwrap();
         assert_eq!(ops.len(), 1);
@@ -763,7 +763,7 @@ mod tests {
             })
         );
 
-        let ops = parse_cmd_arg(&cmd, "arr", vec!["+=[2,3,4]"])
+        let ops = parse_arg(&command, "arr", vec!["+=[2,3,4]"])
             .unwrap()
             .unwrap();
         assert_eq!(ops.len(), 1);
@@ -778,8 +778,8 @@ mod tests {
         );
 
         // test partial value with json
-        let ops = parse_cmd_arg(
-            &cmd,
+        let ops = parse_arg(
+            &command,
             "object",
             vec!["additional3=[1, \"b\", false, \"true\", null, {\"a\": \"b\", \"c\": \"d\"}]"],
         )
@@ -805,7 +805,7 @@ mod tests {
         );
 
         // test error cases
-        let result = parse_cmd_arg(&cmd, "object", vec!["array[0].attr=abc"]);
+        let result = parse_arg(&command, "object", vec!["array[0].attr=abc"]);
 
         match result {
             Err(AzError::UserUsage(AzUserUsageError::InvalidArgumentValueError(msg))) => {
@@ -819,7 +819,7 @@ mod tests {
             }
         }
 
-        let result = parse_cmd_arg(&cmd, "object2", vec!["notexistattr=1"]);
+        let result = parse_arg(&command, "object2", vec!["notexistattr=1"]);
 
         match result {
             Err(AzError::UserUsage(AzUserUsageError::InvalidArgumentValueError(msg))) => {
@@ -833,7 +833,7 @@ mod tests {
             }
         }
 
-        let result = parse_cmd_arg(&cmd, "object2", vec!["null"]);
+        let result = parse_arg(&command, "object2", vec!["null"]);
 
         match result {
             Err(AzError::UserUsage(AzUserUsageError::InvalidArgumentValueError(msg))) => {
@@ -846,72 +846,72 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_cmd_composite_arg_by_file() {
-        let mut cmd = CmdCommand::default();
+    fn test_parse_composite_arg_by_file() {
+        let mut command = CrsCommand::default();
 
         // object arg
-        let mut object_arg = CmdArg::default();
+        let mut object_arg = CrsArg::default();
         object_arg.var_name = "$Instance.object".to_string();
         object_arg.name = "object".to_string();
         object_arg.options = vec!["object".to_string()];
         object_arg.nullable = true;
-        let mut object_type = CmdObjectArg::default();
+        let mut object_type = CrsObjectArg::default();
         // define the string property type
-        let mut str_arg = CmdArg::default();
+        let mut str_arg = CrsArg::default();
         str_arg.name = "str".to_string();
         str_arg.options = vec!["str".to_string()];
         str_arg.nullable = true;
-        str_arg.arg_type = Some(cmd_arg::ArgType::String(CmdStringArg::default()));
+        str_arg.arg_type = Some(crs_arg::ArgType::String(CrsStringArg::default()));
         object_type.props.push(str_arg);
         // define the number property type
-        let mut num_arg = CmdArg::default();
+        let mut num_arg = CrsArg::default();
         num_arg.name = "num".to_string();
         num_arg.options = vec!["num".to_string()];
         num_arg.nullable = true;
-        num_arg.arg_type = Some(cmd_arg::ArgType::Number(CmdNumberArg::default()));
+        num_arg.arg_type = Some(crs_arg::ArgType::Number(CrsNumberArg::default()));
         object_type.props.push(num_arg);
         // define the bool property type
-        let mut bool_arg = CmdArg::default();
+        let mut bool_arg = CrsArg::default();
         bool_arg.name = "bool".to_string();
         bool_arg.options = vec!["bool".to_string()];
         bool_arg.nullable = true;
-        bool_arg.arg_type = Some(cmd_arg::ArgType::Boolean(CmdBooleanArg::default()));
+        bool_arg.arg_type = Some(crs_arg::ArgType::Boolean(CrsBooleanArg::default()));
         object_type.props.push(bool_arg);
         // define the array property type
-        let mut array_arg = CmdArg::default();
+        let mut array_arg = CrsArg::default();
         array_arg.name = "array".to_string();
         array_arg.options = vec!["array".to_string()];
         array_arg.nullable = true;
-        let mut array_type = CmdArrayArg::default();
-        let mut array_item_arg = CmdArg::default();
+        let mut array_type = CrsArrayArg::default();
+        let mut array_item_arg = CrsArg::default();
         array_item_arg.nullable = true;
-        array_item_arg.arg_type = Some(cmd_arg::ArgType::String(CmdStringArg::default()));
+        array_item_arg.arg_type = Some(crs_arg::ArgType::String(CrsStringArg::default()));
         array_type.item = Some(Box::new(array_item_arg));
-        array_arg.arg_type = Some(cmd_arg::ArgType::Array(Box::new(array_type)));
+        array_arg.arg_type = Some(crs_arg::ArgType::Array(Box::new(array_type)));
         object_type.props.push(array_arg);
         // define the dict property type
-        let mut dict_arg = CmdArg::default();
+        let mut dict_arg = CrsArg::default();
         dict_arg.name = "tags".to_string();
         dict_arg.options = vec!["tags".to_string()];
         dict_arg.nullable = true;
-        let mut dict_type = CmdObjectArg::default();
-        let mut tag_arg = CmdArg::default();
+        let mut dict_type = CrsObjectArg::default();
+        let mut tag_arg = CrsArg::default();
         tag_arg.nullable = true;
-        tag_arg.arg_type = Some(cmd_arg::ArgType::String(CmdStringArg::default()));
-        dict_type.additional_props = Some(Box::new(CmdObjectArgAdditionalProperties {
+        tag_arg.arg_type = Some(crs_arg::ArgType::String(CrsStringArg::default()));
+        dict_type.additional_props = Some(Box::new(CrsObjectArgAdditionalProperties {
             item: Some(Box::new(tag_arg)),
         }));
-        dict_arg.arg_type = Some(cmd_arg::ArgType::Object(Box::new(dict_type)));
+        dict_arg.arg_type = Some(crs_arg::ArgType::Object(Box::new(dict_type)));
         object_type.props.push(dict_arg);
         // define the additional properties
-        let mut additional_props = CmdArg::default();
+        let mut additional_props = CrsArg::default();
         additional_props.nullable = true;
-        additional_props.arg_type = Some(cmd_arg::ArgType::AnyType(CmdAnyTypeArg::default()));
-        object_type.additional_props = Some(Box::new(CmdObjectArgAdditionalProperties {
+        additional_props.arg_type = Some(crs_arg::ArgType::AnyType(CrsAnyTypeArg::default()));
+        object_type.additional_props = Some(Box::new(CrsObjectArgAdditionalProperties {
             item: Some(Box::new(additional_props)),
         }));
-        object_arg.arg_type = Some(cmd_arg::ArgType::Object(Box::new(object_type)));
-        cmd.args.push(object_arg);
+        object_arg.arg_type = Some(crs_arg::ArgType::Object(Box::new(object_type)));
+        command.args.push(object_arg);
 
         let value = json!({
             "str": "abc",
@@ -931,7 +931,7 @@ mod tests {
         file.flush().expect("Failed to flush temp file");
         let file_value = format!("file://{}", file.path().to_str().unwrap());
 
-        let ops = parse_cmd_arg(&cmd, "object", vec![file_value.as_str()])
+        let ops = parse_arg(&command, "object", vec![file_value.as_str()])
             .unwrap()
             .unwrap();
         assert_eq!(ops.len(), 1);
@@ -951,8 +951,8 @@ mod tests {
         file.flush().expect("Failed to flush temp file");
         let file_value = format!("file://{}", file.path().to_str().unwrap());
 
-        let ops = parse_cmd_arg(
-            &cmd,
+        let ops = parse_arg(
+            &command,
             "object",
             vec![format!("tags.x={}", file_value.as_str()).as_str()],
         )

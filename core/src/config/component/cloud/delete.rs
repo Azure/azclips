@@ -6,8 +6,8 @@ use crate::{
     config::cloud::AzCloud,
     error::{AzError, AzUserUsageError},
     pb::{
-        cmd_arg, cmd_interface, CmdArg, CmdArgHelp, CmdCommand, CmdHelp, CmdInterface, CmdParams,
-        CmdStringArg,
+        crs_arg, crs_interface, CrsArg, CrsArgHelp, CrsCommand, CrsHelp, CrsInterface, CrsParams,
+        CrsStringArg,
     },
     AzCore, VERSION,
 };
@@ -35,15 +35,15 @@ impl AzCommandExecute for DeleteCloud {
 }
 
 impl AzCommand for DeleteCloud {
-    const URI: &'static str = "cmd://azure/config/cloud/delete";
+    const URI: &'static str = "crs://azure/config/cloud/delete";
 
-    fn build_interface(_: Option<u32>) -> CmdInterface {
-        CmdInterface {
-            level: Some(cmd_interface::Level::Command(CmdCommand {
+    fn build_interface(_: Option<u32>) -> CrsInterface {
+        CrsInterface {
+            level: Some(crs_interface::Level::Command(CrsCommand {
                 name: "delete".to_string(),
                 uri: Self::uri().to_string(),
                 version: VERSION.to_string(),
-                help: Some(CmdHelp {
+                help: Some(CrsHelp {
                     short: "delete a cloud.".to_string(),
                     long: None,
                 }),
@@ -53,24 +53,24 @@ impl AzCommand for DeleteCloud {
         }
     }
 
-    fn args() -> Vec<CmdArg> {
-        vec![CmdArg {
+    fn args() -> Vec<CrsArg> {
+        vec![CrsArg {
             name: "name".to_string(),
-            help: Some(CmdArgHelp {
+            help: Some(CrsArgHelp {
                 short: "The name of the cloud to delete.".to_string(),
                 long: None,
             }),
             options: vec!["name".to_string()],
             required: true,
             nullable: false,
-            arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
+            arg_type: Some(crs_arg::ArgType::String(CrsStringArg {
                 ..Default::default()
             })),
             ..Default::default()
         }]
     }
 
-    fn try_from(params: Option<CmdParams>) -> Result<Self, crate::error::AzError> {
+    fn try_from(params: Option<CrsParams>) -> Result<Self, crate::error::AzError> {
         let mut delete_cloud = Self::default();
         if let Some(params) = params {
             for (name, v) in params.params.iter() {

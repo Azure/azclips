@@ -7,24 +7,24 @@ use tokio::sync::RwLock;
 use tracing::error;
 
 use crate::argparse::ArgValueAssignOp;
-use crate::cmd_uri::CmdUri;
 use crate::component::AzComponentCtx;
 use crate::component::{AzComponent, AzComponentCenter, AzComponentInfo};
 use crate::config::{cloud::AzCloud, AzCfg};
 use crate::error::{AzInternalError, AzResult, AzUserUsageError};
-use crate::param::CmdParamBuilder;
+use crate::param::CrsParamBuilder;
 use crate::pb::{
-    cmd_interface, execute_response, CmdInterface, CmdOutputFlattenMode, CmdOutputFormat,
-    ComponentMetadata, ExecuteRequest, InterfaceRequest, MetadataRequest, ValidateRequest,
+    crs_interface, execute_response, ComponentMetadata, CrsInterface, CrsOutputFlattenMode,
+    CrsOutputFormat, ExecuteRequest, InterfaceRequest, MetadataRequest, ValidateRequest,
 };
+use crate::uri::CrsUri;
 
 pub struct AzCore {
     pub(crate) cfg: RwLock<AzCfg>,
     pub(crate) component_center: RwLock<AzComponentCenter<Self>>,
 }
 
-pub struct CmdInvocation<T: AzComponentCtx> {
-    pub cmd_uri: CmdUri,
+pub struct AzInvocation<T: AzComponentCtx> {
+    pub uri: CrsUri,
     component: Arc<dyn AzComponent<T>>,
 }
 
@@ -53,75 +53,72 @@ impl AzCore {
 }
 
 impl AzCore {
-    pub async fn resolve_cmd_invocation(&self, cmd_uri: CmdUri) -> AzResult<CmdInvocation<Self>> {
+    pub async fn resolve_invocation(&self, uri: CrsUri) -> AzResult<AzInvocation<Self>> {
         // TODO: add auto installation of the plugin based on the configuration
-        let component = self.load_component(&cmd_uri).await?;
+        let component = self.load_component(&uri).await?;
 
         let request = ValidateRequest {
-            uri: cmd_uri.to_string(),
+            uri: uri.to_string(),
         };
 
         // TODO: add auto installation of the plugin based on the configuration
-        let cmd_uri = component.validate(self, request).await?.uri.ok_or(
-            AzUserUsageError::CommandNotFoundError(format!("command not found {}", cmd_uri)),
+        let uri = component.validate(self, request).await?.uri.ok_or(
+            AzUserUsageError::CommandNotFoundError(format!("command not found {}", uri)),
         )?;
-        let cmd_uri = CmdUri::from_str(&cmd_uri)?;
-        Ok(CmdInvocation { cmd_uri, component })
+        let uri = CrsUri::from_str(&uri)?;
+        Ok(AzInvocation { uri, component })
     }
 
-    pub async fn get_cmd_interface(
-        &self,
-        invocation: &CmdInvocation<Self>,
-    ) -> AzResult<CmdInterface> {
-        let cmd_uri = &invocation.cmd_uri;
+    pub async fn get_interface(&self, invocation: &AzInvocation<Self>) -> AzResult<CrsInterface> {
+        let uri = &invocation.uri;
         let component = &invocation.component;
         let request = InterfaceRequest {
-            uri: cmd_uri.to_string(),
+            uri: uri.to_string(),
             depth: 1, // only the top level command group and command information
         };
 
-        let cmd_interface = component.interface(self, request).await?.interface.ok_or(
-            AzUserUsageError::CommandNotFoundError(format!("command not found {}", cmd_uri)),
+        let crs_interface = component.interface(self, request).await?.interface.ok_or(
+            AzUserUsageError::CommandNotFoundError(format!("command not found {}", uri)),
         )?;
 
-        Ok(cmd_interface)
+        Ok(crs_interface)
     }
 
-    pub async fn execute_cmd(
+    pub async fn execute_command(
         &self,
-        invocation: &CmdInvocation<Self>,
-        cmd_arg_ops: Vec<ArgValueAssignOp>,
+        invocation: &AzInvocation<Self>,
+        arg_ops: Vec<ArgValueAssignOp>,
     ) -> AzResult<Option<Value>> {
-        let cmd_uri = &invocation.cmd_uri;
+        let uri = &invocation.uri;
         let component = &invocation.component;
         let request = InterfaceRequest {
-            uri: cmd_uri.to_string(),
+            uri: uri.to_string(),
             depth: 1, // only the top level command group and command information
         };
 
-        let cmd_interface = component.interface(self, request).await?.interface.ok_or(
-            AzUserUsageError::CommandNotFoundError(format!("command not found {}", cmd_uri)),
+        let crs_interface = component.interface(self, request).await?.interface.ok_or(
+            AzUserUsageError::CommandNotFoundError(format!("command not found {}", uri)),
         )?;
 
-        let cmd = cmd_interface
+        let command = crs_interface
             .level
             .and_then(|level| match level {
-                cmd_interface::Level::Command(cmd) => Some(cmd),
+                crs_interface::Level::Command(command) => Some(command),
                 _ => None,
             })
             .ok_or(AzUserUsageError::CommandGroupNotExecutableError)?;
 
-        let mut param_builder = CmdParamBuilder::new(&cmd);
-        for op in cmd_arg_ops {
+        let mut param_builder = CrsParamBuilder::new(&command);
+        for op in arg_ops {
             param_builder.apply(op)?;
         }
         let params = param_builder.format_and_build()?;
 
-        let output_format = CmdOutputFormat {
-            flatten_mode: CmdOutputFlattenMode::None as i32,
+        let output_format = CrsOutputFormat {
+            flatten_mode: CrsOutputFlattenMode::None as i32,
         };
         let request = ExecuteRequest {
-            uri: cmd_uri.to_string(),
+            uri: uri.to_string(),
             params: Some(params),
             output_format: Some(output_format),
         };
@@ -141,12 +138,12 @@ impl AzCore {
 /// CLI only
 #[cfg(feature = "cli")]
 impl AzCore {
-    /// return the sub components of the given cmd uri
+    /// return the sub components of the given uri
     ///
     /// This function is used for cli to display the full help of a given command group
     pub async fn get_metadata_of_sub_components(
         &self,
-        uri: &CmdUri,
+        uri: &CrsUri,
     ) -> AzResult<HashMap<String, ComponentMetadata>> {
         let component_uris = self
             .component_center
@@ -197,10 +194,10 @@ impl AzCore {
 /// PowerShell only
 #[cfg(feature = "ps")]
 impl AzCore {
-    /// return the component interface of the given cmd uri
+    /// return the component interface of the given uri
     ///
     /// This function is used for ps to dynamically generate the cmdlets for the given component
-    pub async fn get_component_interface(&self, uri: &CmdUri) -> AzResult<CmdInterface> {
+    pub async fn get_component_interface(&self, uri: &CrsUri) -> AzResult<CrsInterface> {
         let component = self.load_component(uri).await?;
         let request = InterfaceRequest {
             uri: uri.to_string(),
@@ -223,13 +220,10 @@ impl AzCore {
 }
 
 impl AzCore {
-    async fn load_component(&self, cmd_uri: &CmdUri) -> AzResult<Arc<dyn AzComponent<Self>>> {
+    async fn load_component(&self, uri: &CrsUri) -> AzResult<Arc<dyn AzComponent<Self>>> {
         // TODO: add auto installation of the plugin based on the configuration
-        let route = self.component_center.read().await.route(cmd_uri).ok_or(
-            AzUserUsageError::CommandNotFoundError(format!(
-                "No route available for cmd uri {}",
-                cmd_uri
-            )),
+        let route = self.component_center.read().await.route(uri).ok_or(
+            AzUserUsageError::CommandNotFoundError(format!("No route available for uri {}", uri)),
         )?;
         let component = self
             .component_center

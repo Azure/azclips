@@ -1,9 +1,9 @@
 use std::io::{Read, Write};
 
 use crate::{
-    argparse::{parse_arg_value_str, CmdArgWrapper, SHPartialKeys},
+    argparse::{parse_arg_value_str, CrsArgWrapper, SHPartialKeys},
     error::{AzResult, AzUserUsageError},
-    pb::CmdArgPromptInput,
+    pb::CrsArgPromptInput,
 };
 
 use super::{ArgOp, ArgValueAssignOp};
@@ -12,7 +12,7 @@ use super::{ArgOp, ArgValueAssignOp};
 pub struct ArgPromptInputOp {
     pub(crate) keys: SHPartialKeys,
     pub(crate) is_append: bool,
-    pub(crate) prompt: CmdArgPromptInput,
+    pub(crate) prompt: CrsArgPromptInput,
 }
 
 impl ArgPromptInputOp {
@@ -31,7 +31,7 @@ impl ArgPromptInputOp {
     /// The space trim should be handled in the input reader
     pub fn prompt_input<R: Read, W: Write>(
         &self,
-        arg: &CmdArgWrapper,
+        arg: &CrsArgWrapper,
         input: &mut R,
         output: &mut W,
     ) -> AzResult<ArgValueAssignOp> {

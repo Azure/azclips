@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
 use az_core::pb::{
-    cmd_arg, cmd_number_arg, cmd_string_arg, CmdArg, CmdArgEnum, CmdArrayArg, CmdArrayFormat,
-    CmdBooleanArg, CmdCommand, CmdCommandGroup, CmdComponent, CmdDateFormat, CmdDateTimeFormat,
-    CmdDoubleFormat, CmdDurationFormat, CmdFloatFormat, CmdInt32Format, CmdInt64Format,
-    CmdInterface, CmdNumberArg, CmdObjectArg, CmdObjectFormat, CmdResourceIdFormat,
-    CmdResourceLocationFormat, CmdStringArg, CmdStringFormat, CmdTimeFormat, CmdUint32Format,
-    CmdUint64Format, CmdUuidFormat, ComponentMetadata,
+    crs_arg, crs_number_arg, crs_string_arg, ComponentMetadata, CrsArg, CrsArgEnum, CrsArrayArg,
+    CrsArrayFormat, CrsBooleanArg, CrsCommand, CrsCommandGroup, CrsComponent, CrsDateFormat,
+    CrsDateTimeFormat, CrsDoubleFormat, CrsDurationFormat, CrsFloatFormat, CrsInt32Format,
+    CrsInt64Format, CrsInterface, CrsNumberArg, CrsObjectArg, CrsObjectFormat, CrsResourceIdFormat,
+    CrsResourceLocationFormat, CrsStringArg, CrsStringFormat, CrsTimeFormat, CrsUint32Format,
+    CrsUint64Format, CrsUuidFormat,
 };
 
 use crate::output::{style::Stylize, Row, RowCell, StyledString};
@@ -168,7 +168,7 @@ impl HelpLineDisplay for ComponentMetadata {
     }
 }
 
-impl HelpLineDisplay for CmdCommand {
+impl HelpLineDisplay for CrsCommand {
     type Config<'a> = ();
 
     fn help_line<'a>(&self, _: Self::Config<'a>) -> HelpTableLine {
@@ -185,7 +185,7 @@ impl HelpLineDisplay for CmdCommand {
     }
 }
 
-impl HelpLineDisplay for CmdCommandGroup {
+impl HelpLineDisplay for CrsCommandGroup {
     type Config<'a> = ();
 
     fn help_line<'a>(&self, _: Self::Config<'a>) -> HelpTableLine {
@@ -202,7 +202,7 @@ impl HelpLineDisplay for CmdCommandGroup {
     }
 }
 
-impl HelpLineDisplay for CmdComponent {
+impl HelpLineDisplay for CrsComponent {
     type Config<'a> = ();
 
     fn help_line<'a>(&self, _: Self::Config<'a>) -> HelpTableLine {
@@ -219,15 +219,15 @@ impl HelpLineDisplay for CmdComponent {
     }
 }
 
-pub struct CmdArgDisplayConfig<'a> {
+pub struct CrsArgDisplayConfig<'a> {
     pub prepend_dash: bool,
     pub positions: Option<&'a [String]>,
 }
 
-impl HelpLineDisplay for CmdArg {
-    type Config<'a> = CmdArgDisplayConfig<'a>;
+impl HelpLineDisplay for CrsArg {
+    type Config<'a> = CrsArgDisplayConfig<'a>;
 
-    fn help_line<'a>(&self, config: CmdArgDisplayConfig<'a>) -> HelpTableLine {
+    fn help_line<'a>(&self, config: CrsArgDisplayConfig<'a>) -> HelpTableLine {
         let short = if config.prepend_dash {
             self.options
                 .iter()
@@ -294,50 +294,50 @@ fn append_table(table: &mut Vec<HelpTableLine>, key: impl ToString, value: &Opti
     }
 }
 
-pub fn arg_format_table(arg_type: &cmd_arg::ArgType) -> Vec<HelpTableLine> {
+pub fn arg_format_table(arg_type: &crs_arg::ArgType) -> Vec<HelpTableLine> {
     match arg_type {
-        cmd_arg::ArgType::String(arg) => arg.help_table(),
-        cmd_arg::ArgType::Number(arg) => arg.help_table(),
-        cmd_arg::ArgType::Boolean(arg) => arg.help_table(),
-        cmd_arg::ArgType::Object(arg) => arg.help_table(),
-        cmd_arg::ArgType::Array(arg) => arg.help_table(),
-        cmd_arg::ArgType::Cls(_) => vec![],
-        cmd_arg::ArgType::AnyType(_) => vec![],
+        crs_arg::ArgType::String(arg) => arg.help_table(),
+        crs_arg::ArgType::Number(arg) => arg.help_table(),
+        crs_arg::ArgType::Boolean(arg) => arg.help_table(),
+        crs_arg::ArgType::Object(arg) => arg.help_table(),
+        crs_arg::ArgType::Array(arg) => arg.help_table(),
+        crs_arg::ArgType::Cls(_) => vec![],
+        crs_arg::ArgType::AnyType(_) => vec![],
     }
 }
 
-pub fn arg_enum_table(arg_type: &cmd_arg::ArgType) -> Vec<HelpTableLine> {
+pub fn arg_enum_table(arg_type: &crs_arg::ArgType) -> Vec<HelpTableLine> {
     match arg_type {
-        cmd_arg::ArgType::String(CmdStringArg {
+        crs_arg::ArgType::String(CrsStringArg {
             r#enum: Some(enum_type),
             format: _,
         })
-        | cmd_arg::ArgType::Number(CmdNumberArg {
+        | crs_arg::ArgType::Number(CrsNumberArg {
             r#enum: Some(enum_type),
             format: _,
         }) => enum_type.help_table(),
-        cmd_arg::ArgType::String(CmdStringArg {
+        crs_arg::ArgType::String(CrsStringArg {
             r#enum: None,
             format: _,
         }) => vec![],
-        cmd_arg::ArgType::Number(CmdNumberArg {
+        crs_arg::ArgType::Number(CrsNumberArg {
             r#enum: None,
             format: _,
         }) => vec![],
-        cmd_arg::ArgType::Boolean(_) => vec![],
-        cmd_arg::ArgType::Object(_) => vec![],
-        cmd_arg::ArgType::Array(_) => vec![],
-        cmd_arg::ArgType::Cls(_) => vec![],
-        cmd_arg::ArgType::AnyType(_) => vec![],
+        crs_arg::ArgType::Boolean(_) => vec![],
+        crs_arg::ArgType::Object(_) => vec![],
+        crs_arg::ArgType::Array(_) => vec![],
+        crs_arg::ArgType::Cls(_) => vec![],
+        crs_arg::ArgType::AnyType(_) => vec![],
     }
 }
 
-pub fn arg_props_tables(arg_type: &cmd_arg::ArgType) -> HashMap<String, Vec<HelpTableLine>> {
+pub fn arg_props_tables(arg_type: &crs_arg::ArgType) -> HashMap<String, Vec<HelpTableLine>> {
     let mut props_groups = HashMap::new();
     match arg_type {
-        cmd_arg::ArgType::Object(object_arg) => {
+        crs_arg::ArgType::Object(object_arg) => {
             for prop in &object_arg.props {
-                let line = prop.help_line(CmdArgDisplayConfig {
+                let line = prop.help_line(CrsArgDisplayConfig {
                     prepend_dash: false,
                     positions: None,
                 });
@@ -348,7 +348,7 @@ pub fn arg_props_tables(arg_type: &cmd_arg::ArgType) -> HashMap<String, Vec<Help
             }
             if let Some(additional_props) = &object_arg.additional_props {
                 if let Some(prop) = &additional_props.item {
-                    let line = prop.help_line(CmdArgDisplayConfig {
+                    let line = prop.help_line(CrsArgDisplayConfig {
                         prepend_dash: false,
                         positions: None,
                     });
@@ -359,17 +359,17 @@ pub fn arg_props_tables(arg_type: &cmd_arg::ArgType) -> HashMap<String, Vec<Help
                 }
             }
         }
-        cmd_arg::ArgType::Array(_) => {}
-        cmd_arg::ArgType::String(_) => {}
-        cmd_arg::ArgType::Number(_) => {}
-        cmd_arg::ArgType::Boolean(_) => {}
-        cmd_arg::ArgType::Cls(_) => {}
-        cmd_arg::ArgType::AnyType(_) => {}
+        crs_arg::ArgType::Array(_) => {}
+        crs_arg::ArgType::String(_) => {}
+        crs_arg::ArgType::Number(_) => {}
+        crs_arg::ArgType::Boolean(_) => {}
+        crs_arg::ArgType::Cls(_) => {}
+        crs_arg::ArgType::AnyType(_) => {}
     }
     props_groups
 }
 
-impl HelpTableDisplay for CmdArgEnum {
+impl HelpTableDisplay for CrsArgEnum {
     fn help_table(&self) -> Vec<HelpTableLine> {
         self.items
             .iter()
@@ -382,42 +382,42 @@ impl HelpTableDisplay for CmdArgEnum {
     }
 }
 
-impl HelpTableDisplay for CmdStringArg {
+impl HelpTableDisplay for CrsStringArg {
     fn help_table(&self) -> Vec<HelpTableLine> {
         match &self.format {
-            Some(cmd_string_arg::Format::Binary(_)) => vec![],
-            Some(cmd_string_arg::Format::Byte(_)) => vec![],
-            Some(cmd_string_arg::Format::String(format)) => format.help_table(),
-            Some(cmd_string_arg::Format::DateTime(format)) => format.help_table(),
-            Some(cmd_string_arg::Format::Date(format)) => format.help_table(),
-            Some(cmd_string_arg::Format::Time(format)) => format.help_table(),
-            Some(cmd_string_arg::Format::Duration(format)) => format.help_table(),
-            Some(cmd_string_arg::Format::Uuid(format)) => format.help_table(),
-            Some(cmd_string_arg::Format::ResourceId(format)) => format.help_table(),
-            Some(cmd_string_arg::Format::ResourceLocation(format)) => format.help_table(),
-            Some(cmd_string_arg::Format::SubscriptionId(_)) => vec![],
-            Some(cmd_string_arg::Format::ResourceGroupName(_)) => vec![],
-            Some(cmd_string_arg::Format::Password(_)) => vec![],
+            Some(crs_string_arg::Format::Binary(_)) => vec![],
+            Some(crs_string_arg::Format::Byte(_)) => vec![],
+            Some(crs_string_arg::Format::String(format)) => format.help_table(),
+            Some(crs_string_arg::Format::DateTime(format)) => format.help_table(),
+            Some(crs_string_arg::Format::Date(format)) => format.help_table(),
+            Some(crs_string_arg::Format::Time(format)) => format.help_table(),
+            Some(crs_string_arg::Format::Duration(format)) => format.help_table(),
+            Some(crs_string_arg::Format::Uuid(format)) => format.help_table(),
+            Some(crs_string_arg::Format::ResourceId(format)) => format.help_table(),
+            Some(crs_string_arg::Format::ResourceLocation(format)) => format.help_table(),
+            Some(crs_string_arg::Format::SubscriptionId(_)) => vec![],
+            Some(crs_string_arg::Format::ResourceGroupName(_)) => vec![],
+            Some(crs_string_arg::Format::Password(_)) => vec![],
             None => vec![],
         }
     }
 }
 
-impl HelpTableDisplay for CmdNumberArg {
+impl HelpTableDisplay for CrsNumberArg {
     fn help_table(&self) -> Vec<HelpTableLine> {
         match &self.format {
-            Some(cmd_number_arg::Format::Int32(format)) => format.help_table(),
-            Some(cmd_number_arg::Format::Int64(format)) => format.help_table(),
-            Some(cmd_number_arg::Format::Uint32(format)) => format.help_table(),
-            Some(cmd_number_arg::Format::Uint64(format)) => format.help_table(),
-            Some(cmd_number_arg::Format::Float(format)) => format.help_table(),
-            Some(cmd_number_arg::Format::Double(format)) => format.help_table(),
+            Some(crs_number_arg::Format::Int32(format)) => format.help_table(),
+            Some(crs_number_arg::Format::Int64(format)) => format.help_table(),
+            Some(crs_number_arg::Format::Uint32(format)) => format.help_table(),
+            Some(crs_number_arg::Format::Uint64(format)) => format.help_table(),
+            Some(crs_number_arg::Format::Float(format)) => format.help_table(),
+            Some(crs_number_arg::Format::Double(format)) => format.help_table(),
             None => vec![],
         }
     }
 }
 
-impl HelpTableDisplay for CmdBooleanArg {
+impl HelpTableDisplay for CrsBooleanArg {
     fn help_table(&self) -> Vec<HelpTableLine> {
         let mut table = vec![];
         if !self.reverse_options.is_empty() {
@@ -435,7 +435,7 @@ impl HelpTableDisplay for CmdBooleanArg {
     }
 }
 
-impl HelpTableDisplay for CmdObjectArg {
+impl HelpTableDisplay for CrsObjectArg {
     fn help_table(&self) -> Vec<HelpTableLine> {
         let mut table = vec![];
         append_table(&mut table, "Class Type", &self.cls_type);
@@ -446,7 +446,7 @@ impl HelpTableDisplay for CmdObjectArg {
     }
 }
 
-impl HelpTableDisplay for CmdArrayArg {
+impl HelpTableDisplay for CrsArrayArg {
     fn help_table(&self) -> Vec<HelpTableLine> {
         let mut table = vec![];
         append_table(&mut table, "Class Type", &self.cls_type);
@@ -457,7 +457,7 @@ impl HelpTableDisplay for CmdArrayArg {
     }
 }
 
-impl HelpTableDisplay for CmdStringFormat {
+impl HelpTableDisplay for CrsStringFormat {
     fn help_table(&self) -> Vec<HelpTableLine> {
         let mut table = vec![];
         append_table(&mut table, "Pattern", &self.pattern);
@@ -467,7 +467,7 @@ impl HelpTableDisplay for CmdStringFormat {
     }
 }
 
-impl HelpTableDisplay for CmdDurationFormat {
+impl HelpTableDisplay for CrsDurationFormat {
     fn help_table(&self) -> Vec<HelpTableLine> {
         let mut table = vec![];
         table.push(HelpTableLine::new_kv(
@@ -478,7 +478,7 @@ impl HelpTableDisplay for CmdDurationFormat {
     }
 }
 
-impl HelpTableDisplay for CmdDateFormat {
+impl HelpTableDisplay for CrsDateFormat {
     fn help_table(&self) -> Vec<HelpTableLine> {
         let mut table = vec![];
         table.push(HelpTableLine::new_kv(
@@ -489,19 +489,7 @@ impl HelpTableDisplay for CmdDateFormat {
     }
 }
 
-impl HelpTableDisplay for CmdDateTimeFormat {
-    fn help_table(&self) -> Vec<HelpTableLine> {
-        let mut table = vec![];
-        table.push(HelpTableLine::new_kv(
-            "Protocol",
-            self.protocol().as_str_name(),
-        ));
-        append_table(&mut table, "MS Length", &self.ms_length);
-        table
-    }
-}
-
-impl HelpTableDisplay for CmdTimeFormat {
+impl HelpTableDisplay for CrsDateTimeFormat {
     fn help_table(&self) -> Vec<HelpTableLine> {
         let mut table = vec![];
         table.push(HelpTableLine::new_kv(
@@ -513,7 +501,19 @@ impl HelpTableDisplay for CmdTimeFormat {
     }
 }
 
-impl HelpTableDisplay for CmdUuidFormat {
+impl HelpTableDisplay for CrsTimeFormat {
+    fn help_table(&self) -> Vec<HelpTableLine> {
+        let mut table = vec![];
+        table.push(HelpTableLine::new_kv(
+            "Protocol",
+            self.protocol().as_str_name(),
+        ));
+        append_table(&mut table, "MS Length", &self.ms_length);
+        table
+    }
+}
+
+impl HelpTableDisplay for CrsUuidFormat {
     fn help_table(&self) -> Vec<HelpTableLine> {
         let mut table = vec![];
         table.push(HelpTableLine::new_kv("Case", self.case().as_str_name()));
@@ -529,7 +529,7 @@ impl HelpTableDisplay for CmdUuidFormat {
     }
 }
 
-impl HelpTableDisplay for CmdResourceIdFormat {
+impl HelpTableDisplay for CrsResourceIdFormat {
     fn help_table(&self) -> Vec<HelpTableLine> {
         let mut table = vec![];
         if !self.templates.is_empty() {
@@ -547,7 +547,7 @@ impl HelpTableDisplay for CmdResourceIdFormat {
     }
 }
 
-impl HelpTableDisplay for CmdResourceLocationFormat {
+impl HelpTableDisplay for CrsResourceLocationFormat {
     fn help_table(&self) -> Vec<HelpTableLine> {
         let mut table = vec![];
         table.push(HelpTableLine::new_kv(
@@ -572,10 +572,10 @@ macro_rules! impl_help_table_integer {
     };
 }
 
-impl_help_table_integer!(CmdInt32Format);
-impl_help_table_integer!(CmdInt64Format);
-impl_help_table_integer!(CmdUint32Format);
-impl_help_table_integer!(CmdUint64Format);
+impl_help_table_integer!(CrsInt32Format);
+impl_help_table_integer!(CrsInt64Format);
+impl_help_table_integer!(CrsUint32Format);
+impl_help_table_integer!(CrsUint64Format);
 
 macro_rules! impl_help_table_float {
     ($name:ident) => {
@@ -603,10 +603,10 @@ macro_rules! impl_help_table_float {
     };
 }
 
-impl_help_table_float!(CmdFloatFormat);
-impl_help_table_float!(CmdDoubleFormat);
+impl_help_table_float!(CrsFloatFormat);
+impl_help_table_float!(CrsDoubleFormat);
 
-impl HelpTableDisplay for CmdObjectFormat {
+impl HelpTableDisplay for CrsObjectFormat {
     fn help_table(&self) -> Vec<HelpTableLine> {
         let mut table = vec![];
         append_table(&mut table, "Max Length", &self.max_length);
@@ -615,7 +615,7 @@ impl HelpTableDisplay for CmdObjectFormat {
     }
 }
 
-impl HelpTableDisplay for CmdArrayFormat {
+impl HelpTableDisplay for CrsArrayFormat {
     fn help_table(&self) -> Vec<HelpTableLine> {
         let mut table = vec![];
         table.push(HelpTableLine::new_kv("Unique", self.unique.to_string()));
