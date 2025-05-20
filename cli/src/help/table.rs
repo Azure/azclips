@@ -2,11 +2,10 @@ use std::collections::HashMap;
 
 use az_core::pb::{
     crs_arg, crs_number_arg, crs_string_arg, ComponentMetadata, CrsArg, CrsArgEnum, CrsArrayArg,
-    CrsArrayFormat, CrsBooleanArg, CrsCommand, CrsCommandGroup, CrsComponent, CrsDateFormat,
-    CrsDateTimeFormat, CrsDoubleFormat, CrsDurationFormat, CrsFloatFormat, CrsInt32Format,
-    CrsInt64Format, CrsInterface, CrsNumberArg, CrsObjectArg, CrsObjectFormat, CrsResourceIdFormat,
-    CrsResourceLocationFormat, CrsStringArg, CrsStringFormat, CrsTimeFormat, CrsUint32Format,
-    CrsUint64Format, CrsUuidFormat,
+    CrsArrayFormat, CrsBooleanArg, CrsCommand, CrsCommandGroup, CrsDateFormat, CrsDateTimeFormat,
+    CrsDoubleFormat, CrsDurationFormat, CrsFloatFormat, CrsInt32Format, CrsInt64Format,
+    CrsNumberArg, CrsObjectArg, CrsObjectFormat, CrsResourceIdFormat, CrsResourceLocationFormat,
+    CrsStringArg, CrsStringFormat, CrsTimeFormat, CrsUint32Format, CrsUint64Format, CrsUuidFormat,
 };
 
 use crate::output::{style::Stylize, Row, RowCell, StyledString};
@@ -186,23 +185,6 @@ impl HelpLineDisplay for CrsCommand {
 }
 
 impl HelpLineDisplay for CrsCommandGroup {
-    type Config<'a> = ();
-
-    fn help_line<'a>(&self, _: Self::Config<'a>) -> HelpTableLine {
-        HelpTableLine {
-            name: vec![self.name.clone().bold().into()],
-            description: self
-                .help
-                .as_ref()
-                .map(|help| &help.short)
-                .map(|desc| StyledString::from(desc.clone().italic()).split_lines())
-                .unwrap_or(vec![]),
-            ..Default::default()
-        }
-    }
-}
-
-impl HelpLineDisplay for CrsComponent {
     type Config<'a> = ();
 
     fn help_line<'a>(&self, _: Self::Config<'a>) -> HelpTableLine {

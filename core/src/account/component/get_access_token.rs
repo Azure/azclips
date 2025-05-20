@@ -6,8 +6,8 @@ use crate::{
     component::{AzCommand, AzCommandExecute, AzComponentCtx},
     error::AzError,
     pb::{
-        crs_arg, crs_interface, crs_string_arg, CrsArg, CrsArgHelp, CrsCommand, CrsHelp,
-        CrsInterface, CrsParams, CrsStringArg, CrsStringFormat,
+        crs_arg, crs_string_arg, CrsArg, CrsArgHelp, CrsCommand, CrsHelp, CrsParams, CrsStringArg,
+        CrsStringFormat,
     },
     VERSION,
 };
@@ -35,9 +35,8 @@ impl AzCommandExecute for GetAccessToken {
 impl AzCommand for GetAccessToken {
     const URI: &'static str = "crs://azure/account/get-access-token";
 
-    fn build_interface(_: Option<u32>) -> CrsInterface {
-        CrsInterface {
-            level: Some(crs_interface::Level::Command(CrsCommand {
+    fn build_interface(_: Option<u32>) -> CrsCommand {
+        CrsCommand {
                 name: "get-access-token".to_string(),
                 uri: Self::uri().to_string(),
                 version: VERSION.to_string(),
@@ -47,7 +46,6 @@ impl AzCommand for GetAccessToken {
                 }),
                 args: Self::args(),
                 positional_args: vec![],
-            })),
         }
     }
 

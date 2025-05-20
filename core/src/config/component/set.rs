@@ -6,8 +6,8 @@ use crate::{
     component::{AzCommand, AzCommandExecute, AzComponentCtx},
     error::AzError,
     pb::{
-        crs_arg, crs_interface, CrsAnyTypeArg, CrsArg, CrsArgHelp, CrsCommand, CrsHelp,
-        CrsInterface, CrsObjectArg, CrsObjectArgAdditionalProperties, CrsParams,
+        crs_arg, CrsAnyTypeArg, CrsArg, CrsArgHelp, CrsCommand, CrsHelp, CrsObjectArg,
+        CrsObjectArgAdditionalProperties, CrsParams,
     },
     AzCore, VERSION,
 };
@@ -42,19 +42,17 @@ impl AzCommandExecute for SetConfig {
 impl AzCommand for SetConfig {
     const URI: &'static str = "crs://azure/config/set";
 
-    fn build_interface(_: Option<u32>) -> CrsInterface {
-        CrsInterface {
-            level: Some(crs_interface::Level::Command(CrsCommand {
-                name: "set".to_string(),
-                uri: Self::uri().to_string(),
-                version: VERSION.to_string(),
-                help: Some(CrsHelp {
-                    short: "Set a configuration value".to_string(),
-                    long: None,
-                }),
-                args: Self::args(),
-                positional_args: vec!["value".to_string()],
-            })),
+    fn build_interface(_: Option<u32>) -> CrsCommand {
+        CrsCommand {
+            name: "set".to_string(),
+            uri: Self::uri().to_string(),
+            version: VERSION.to_string(),
+            help: Some(CrsHelp {
+                short: "Set a configuration value".to_string(),
+                long: None,
+            }),
+            args: Self::args(),
+            positional_args: vec!["value".to_string()],
         }
     }
 

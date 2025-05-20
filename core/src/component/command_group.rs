@@ -4,7 +4,7 @@ use async_trait::async_trait;
 
 use crate::{
     error::AzError,
-    pb::{execute_response, CrsInterface, CrsOutputFormat, CrsParams},
+    pb::{execute_response, CrsCommandGroup, CrsInterface, CrsOutputFormat, CrsParams},
     uri::CrsUri,
 };
 
@@ -18,7 +18,7 @@ pub trait AzCommandGroup {
         CrsUri::from_str(Self::URI).unwrap()
     }
 
-    fn build_interface(depth: Option<u32>) -> CrsInterface;
+    fn build_interface(depth: Option<u32>) -> CrsCommandGroup;
 
     fn find_interface(
         depth: Option<u32>,

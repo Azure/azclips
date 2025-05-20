@@ -54,18 +54,21 @@ pub trait AzComponent<T: AzComponentCtx>: Send + Sync + 'static {
     async fn execute(&self, ctx: &T, request: ExecuteRequest) -> Result<ExecuteResponse, AzError>;
 }
 
+pub trait Versioned {
+    const VERSION: &'static str;
+}
+
 /// The trait which implemented the AzComponent trait automatically when the type implements the AzCommandGroup trait
-pub trait AzComponentImpl<T: AzComponentCtx>: AzCommandGroup + Send + Sync + 'static {}
+pub trait AzComponentImpl<T: AzComponentCtx>: AzCommandGroup + Versioned + Send + Sync + 'static {}
 
 #[async_trait]
 impl<T: AzComponentCtx, C: AzComponentImpl<T>> AzComponent<T> for C {
     async fn metadata(&self, _: &T, _: MetadataRequest) -> Result<MetadataResponse, AzError> {
         let interface = Self::build_interface(Some(0));
-        let interface = interface.as_component_ok().to_owned();
         Ok(MetadataResponse {
             metadata: Some(ComponentMetadata {
                 name: interface.name,
-                version: interface.version,
+                version: Self::VERSION.to_owned(),
                 uri: interface.uri,
                 help: interface.help,
             }),

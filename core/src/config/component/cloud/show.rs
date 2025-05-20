@@ -5,10 +5,7 @@ use crate::{
     component::{AzCommand, AzCommandExecute, AzComponentCtx},
     config::cloud::{AzCloud, AzCloudMetadata},
     error::AzError,
-    pb::{
-        crs_arg, crs_interface, CrsArg, CrsArgHelp, CrsCommand, CrsHelp, CrsInterface, CrsParams,
-        CrsStringArg,
-    },
+    pb::{crs_arg, CrsArg, CrsArgHelp, CrsCommand, CrsHelp, CrsParams, CrsStringArg},
     VERSION,
 };
 
@@ -32,19 +29,17 @@ impl AzCommandExecute for ShowCloud {
 impl AzCommand for ShowCloud {
     const URI: &'static str = "crs://azure/config/cloud/show";
 
-    fn build_interface(_: Option<u32>) -> CrsInterface {
-        CrsInterface {
-            level: Some(crs_interface::Level::Command(CrsCommand {
-                name: "show".to_string(),
-                uri: Self::uri().to_string(),
-                version: VERSION.to_string(),
-                help: Some(CrsHelp {
-                    short: "Get the details of a registered cloud.".to_string(),
-                    long: None,
-                }),
-                args: Self::args(),
-                positional_args: vec![],
-            })),
+    fn build_interface(_: Option<u32>) -> CrsCommand {
+        CrsCommand {
+            name: "show".to_string(),
+            uri: Self::uri().to_string(),
+            version: VERSION.to_string(),
+            help: Some(CrsHelp {
+                short: "Get the details of a registered cloud.".to_string(),
+                long: None,
+            }),
+            args: Self::args(),
+            positional_args: vec![],
         }
     }
 

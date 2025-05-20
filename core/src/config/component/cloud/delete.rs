@@ -5,10 +5,7 @@ use crate::{
     component::{AzCommand, AzCommandExecute, AzComponentCtx},
     config::cloud::AzCloud,
     error::{AzError, AzUserUsageError},
-    pb::{
-        crs_arg, crs_interface, CrsArg, CrsArgHelp, CrsCommand, CrsHelp, CrsInterface, CrsParams,
-        CrsStringArg,
-    },
+    pb::{crs_arg, CrsArg, CrsArgHelp, CrsCommand, CrsHelp, CrsParams, CrsStringArg},
     AzCore, VERSION,
 };
 
@@ -37,19 +34,17 @@ impl AzCommandExecute for DeleteCloud {
 impl AzCommand for DeleteCloud {
     const URI: &'static str = "crs://azure/config/cloud/delete";
 
-    fn build_interface(_: Option<u32>) -> CrsInterface {
-        CrsInterface {
-            level: Some(crs_interface::Level::Command(CrsCommand {
-                name: "delete".to_string(),
-                uri: Self::uri().to_string(),
-                version: VERSION.to_string(),
-                help: Some(CrsHelp {
-                    short: "delete a cloud.".to_string(),
-                    long: None,
-                }),
-                args: Self::args(),
-                positional_args: vec![],
-            })),
+    fn build_interface(_: Option<u32>) -> CrsCommand {
+        CrsCommand {
+            name: "delete".to_string(),
+            uri: Self::uri().to_string(),
+            version: VERSION.to_string(),
+            help: Some(CrsHelp {
+                short: "delete a cloud.".to_string(),
+                long: None,
+            }),
+            args: Self::args(),
+            positional_args: vec![],
         }
     }
 

@@ -17,10 +17,7 @@ use update::UpdateCloud;
 use crate::{
     component::{AzCommand, AzCommandGroup, AzComponentCtx},
     error::{AzError, AzInternalError},
-    pb::{
-        crs_interface, execute_response, CrsCommandGroup, CrsHelp, CrsInterface, CrsOutputFormat,
-        CrsParams,
-    },
+    pb::{execute_response, CrsCommandGroup, CrsHelp, CrsInterface, CrsOutputFormat, CrsParams},
     uri::CrsUri,
 };
 
@@ -31,49 +28,27 @@ pub struct CloudCommandGroup {}
 impl AzCommandGroup for CloudCommandGroup {
     const URI: &'static str = "crs://azure/config/cloud/";
 
-    fn build_interface(depth: Option<u32>) -> CrsInterface {
+    fn build_interface(depth: Option<u32>) -> CrsCommandGroup {
         let groups = vec![];
         let mut commands = vec![];
         if depth.is_none() || depth.unwrap() > 0 {
             let depth = depth.map(|d| d - 1);
-            commands.push(
-                ListClouds::build_interface(depth)
-                    .as_command_ok()
-                    .to_owned(),
-            );
-            commands.push(ShowCloud::build_interface(depth).as_command_ok().to_owned());
-            commands.push(
-                DeleteCloud::build_interface(depth)
-                    .as_command_ok()
-                    .to_owned(),
-            );
-            commands.push(
-                ActivateCloud::build_interface(depth)
-                    .as_command_ok()
-                    .to_owned(),
-            );
-            commands.push(
-                CreateCloud::build_interface(depth)
-                    .as_command_ok()
-                    .to_owned(),
-            );
-            commands.push(
-                UpdateCloud::build_interface(depth)
-                    .as_command_ok()
-                    .to_owned(),
-            );
+            commands.push(ListClouds::build_interface(depth));
+            commands.push(ShowCloud::build_interface(depth));
+            commands.push(DeleteCloud::build_interface(depth));
+            commands.push(ActivateCloud::build_interface(depth));
+            commands.push(CreateCloud::build_interface(depth));
+            commands.push(UpdateCloud::build_interface(depth));
         }
-        CrsInterface {
-            level: Some(crs_interface::Level::CommandGroup(CrsCommandGroup {
-                name: "cloud".to_string(),
-                uri: Self::uri().to_string(),
-                help: Some(CrsHelp {
-                    short: "Manage registered Azure clouds configuration".to_string(),
-                    long: None,
-                }),
-                groups,
-                commands,
-            })),
+        CrsCommandGroup {
+            name: "cloud".to_string(),
+            uri: Self::uri().to_string(),
+            help: Some(CrsHelp {
+                short: "Manage registered Azure clouds configuration".to_string(),
+                long: None,
+            }),
+            groups,
+            commands,
         }
     }
 
@@ -82,13 +57,13 @@ impl AzCommandGroup for CloudCommandGroup {
         mut segments: impl Iterator<Item = String>,
     ) -> Option<CrsInterface> {
         match segments.next().as_deref() {
-            None => Some(CloudCommandGroup::build_interface(depth)),
-            Some("activate") => Some(ActivateCloud::build_interface(depth)),
-            Some("create") => Some(CreateCloud::build_interface(depth)),
-            Some("update") => Some(UpdateCloud::build_interface(depth)),
-            Some("show") => Some(ShowCloud::build_interface(depth)),
-            Some("delete") => Some(DeleteCloud::build_interface(depth)),
-            Some("list") => Some(ListClouds::build_interface(depth)),
+            None => Some(CloudCommandGroup::build_interface(depth).into()),
+            Some("activate") => Some(ActivateCloud::build_interface(depth).into()),
+            Some("create") => Some(CreateCloud::build_interface(depth).into()),
+            Some("update") => Some(UpdateCloud::build_interface(depth).into()),
+            Some("show") => Some(ShowCloud::build_interface(depth).into()),
+            Some("delete") => Some(DeleteCloud::build_interface(depth).into()),
+            Some("list") => Some(ListClouds::build_interface(depth).into()),
             _ => None,
         }
     }

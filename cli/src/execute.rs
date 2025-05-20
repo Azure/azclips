@@ -41,7 +41,7 @@ async fn execute_command_async(uri: CrsUri, raw_args: Vec<ArgRaw>) -> Result<(),
         // show the help of the argument
         if let Some(ArgOp::Help(op)) = ops.iter().find(|op| matches!(op, ArgOp::Help(_))) {
             return help::show_command_arg_help_async(
-                invocation.uri.clone(),
+                &command,
                 op.arg_keys().to_owned(),
             )
             .await;
@@ -60,7 +60,7 @@ async fn execute_command_async(uri: CrsUri, raw_args: Vec<ArgRaw>) -> Result<(),
         // show the help of the argument
         if let Some(ArgOp::Help(op)) = ops.iter().find(|op| matches!(op, ArgOp::Help(_))) {
             return help::show_command_arg_help_async(
-                invocation.uri.clone(),
+                &command,
                 op.arg_keys().to_owned(),
             )
             .await;
