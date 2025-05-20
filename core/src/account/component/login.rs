@@ -107,15 +107,15 @@ impl AzCommand for Login {
 
     fn build_interface(_: Option<u32>) -> CrsCommand {
         CrsCommand {
-                name: "login".to_string(),
-                uri: Self::uri().to_string(),
-                version: VERSION.to_string(),
-                help: Some(CrsHelp {
-                    short: "Log in to Azure.".to_string(),
-                    long: Some("By default, this command logs in with a user account.\nTo log in with a service principal, specify --service-principal.\nTo log in with a managed identity, specify --identity.\nFor more details, see https://learn.microsoft.com/cli/azure/authenticate-azure-cli.".to_string()),
-                }),
-                args: Self::args(),
-                positional_args: vec![],
+            name: "login".to_string(),
+            uri: Self::uri().to_string(),
+            version: VERSION.to_string(),
+            help: Some(CrsHelp {
+                short: "Log in to Azure.".to_string(),
+                long: Some("By default, this command logs in with a user account.\nTo log in with a service principal, specify --service-principal.\nTo log in with a managed identity, specify --identity.\nFor more details, see https://learn.microsoft.com/cli/azure/authenticate-azure-cli.".to_string()),
+            }),
+            args: Self::args(),
+            positional_args: vec![],
         }
     }
 
