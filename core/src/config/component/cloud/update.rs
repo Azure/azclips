@@ -90,7 +90,7 @@ impl AzCommandExecute for UpdateCloud {
 }
 
 impl AzCommand for UpdateCloud {
-    const URI: &'static str = "cmd://azure/config/cloud/update";
+    const URI: &'static str = "crs://azure/config/cloud/update";
 
     fn build_interface(_: Option<u32>) -> CrsInterface {
         CrsInterface {

@@ -579,13 +579,13 @@ mod test {
 
     use super::*;
 
-    fn parse_crs_arg<'a>(
-        cmd: &CrsCommand,
+    fn parse_arg<'a>(
+        command: &CrsCommand,
         name_or_alias: &str,
         values: impl IntoIterator<Item = &'a str>,
     ) -> AzResult<Option<Vec<ArgOp>>> {
         let mut matched_arg = None;
-        for arg in cmd.args.iter() {
+        for arg in command.args.iter() {
             if arg.name.eq_ignore_ascii_case(name_or_alias) {
                 matched_arg = Some(arg);
                 break;
@@ -605,7 +605,7 @@ mod test {
         }
         let matched_arg = matched_arg.unwrap();
 
-        let wrapper = CrsArgWrapper::new(Some(cmd), matched_arg)?;
+        let wrapper = CrsArgWrapper::new(Some(command), matched_arg)?;
 
         let ops = parse_arg_values(&wrapper, values)?;
         Ok(Some(ops))
@@ -613,7 +613,7 @@ mod test {
 
     #[test]
     fn test_apply_builder() {
-        let mut cmd = CrsCommand::default();
+        let mut command = CrsCommand::default();
 
         // object arg
         let object_arg = CrsArg {
@@ -696,7 +696,7 @@ mod test {
             }))),
             ..Default::default()
         };
-        cmd.args.push(object_arg);
+        command.args.push(object_arg);
         // create object without additional properties
         let object_arg = CrsArg {
             var_name: "$Instance.object2".to_string(),
@@ -762,7 +762,7 @@ mod test {
             }))),
             ..Default::default()
         };
-        cmd.args.push(object_arg);
+        command.args.push(object_arg);
 
         // create a standalone array arg
         let array_arg = CrsArg {
@@ -781,9 +781,9 @@ mod test {
             }))),
             ..Default::default()
         };
-        cmd.args.push(array_arg);
+        command.args.push(array_arg);
 
-        let mut builder = CrsParamBuilder::new(&cmd);
+        let mut builder = CrsParamBuilder::new(&command);
 
         for (arg, values, expected) in [
             ("arr", vec!["[5]=f"], 
@@ -922,7 +922,7 @@ mod test {
                 ("object", ParamValue::Assign(Value::Null))]
             ))
         ] {
-            let ops = parse_crs_arg(&cmd, arg, values).unwrap().unwrap().into_iter();
+            let ops = parse_arg(&command, arg, values).unwrap().unwrap().into_iter();
             for op in ops {
                 if let ArgOp::Value(op) = op {
                     builder.apply(op).unwrap();
@@ -936,7 +936,7 @@ mod test {
 
     #[test]
     fn test_format_and_build() {
-        let mut cmd = CrsCommand::default();
+        let mut command = CrsCommand::default();
 
         // object arg
         let mut object_arg = CrsArg::default();
@@ -1025,7 +1025,7 @@ mod test {
 
         // define the object type
         object_arg.arg_type = Some(ArgType::Object(Box::new(object_type)));
-        cmd.args.push(object_arg);
+        command.args.push(object_arg);
 
         // define the default arg
         let mut default_arg = CrsArg::default();
@@ -1036,7 +1036,7 @@ mod test {
         default_arg.default = Some(CrsArgDefault {
             value: "\"default_arg\"".to_string(),
         });
-        cmd.args.push(default_arg);
+        command.args.push(default_arg);
 
         for (arg, values, mut expected, mut patch_keys) in [
             (
@@ -1099,8 +1099,8 @@ mod test {
                 vec!["object.prop_df", "object.prop_obj.array+", "default"],
             ),
         ] {
-            let mut builder = CrsParamBuilder::new(&cmd);
-            let ops = parse_crs_arg(&cmd, arg, values)
+            let mut builder = CrsParamBuilder::new(&command);
+            let ops = parse_arg(&command, arg, values)
                 .unwrap()
                 .unwrap()
                 .into_iter();

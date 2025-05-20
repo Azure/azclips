@@ -1150,7 +1150,7 @@ mod tests {
     fn test_parse_nullable_arg() {
         let parser = ShorthandSyntaxParser::default();
 
-        let mut cmd = CrsCommand::default();
+        let mut command = CrsCommand::default();
 
         // nullable arg
         let mut str_arg = CrsArg::default();
@@ -1161,7 +1161,7 @@ mod tests {
         let mut str_type = CrsStringArg::default();
         str_type.format = Some(crs_string_arg::Format::String(CrsStringFormat::default()));
         str_arg.arg_type = Some(crs_arg::ArgType::String(str_type));
-        cmd.args.push(str_arg);
+        command.args.push(str_arg);
         // Not nullable arg
         let mut str_arg = CrsArg::default();
         str_arg.var_name = "$Path.name".to_string();
@@ -1170,10 +1170,10 @@ mod tests {
         let mut str_type = CrsStringArg::default();
         str_type.format = Some(crs_string_arg::Format::String(CrsStringFormat::default()));
         str_arg.arg_type = Some(crs_arg::ArgType::String(str_type));
-        cmd.args.push(str_arg);
+        command.args.push(str_arg);
 
-        let arg1 = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
-        let arg2 = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[1]).unwrap());
+        let arg1 = Some(CrsArgWrapper::new(Some(&command), &command.args[0]).unwrap());
+        let arg2 = Some(CrsArgWrapper::new(Some(&command), &command.args[1]).unwrap());
 
         for (arg, value, expected) in vec![
             (&arg1, "null", Ok(Value::Null)),
@@ -1329,7 +1329,7 @@ mod tests {
     fn test_parse_bool_arg() {
         let parser = ShorthandSyntaxParser::default();
 
-        let mut cmd = CrsCommand::default();
+        let mut command = CrsCommand::default();
 
         let mut bool_arg = CrsArg::default();
         bool_arg.var_name = "$Instance.enabled".to_string();
@@ -1338,7 +1338,7 @@ mod tests {
         bool_arg.nullable = true;
         let bool_type = CrsBooleanArg::default();
         bool_arg.arg_type = Some(crs_arg::ArgType::Boolean(bool_type));
-        cmd.args.push(bool_arg);
+        command.args.push(bool_arg);
 
         // test not nullable arg
         let mut bool_arg = CrsArg::default();
@@ -1347,11 +1347,11 @@ mod tests {
         bool_arg.options = vec!["unnullable".to_string()];
         let bool_type = CrsBooleanArg::default();
         bool_arg.arg_type = Some(crs_arg::ArgType::Boolean(bool_type));
-        cmd.args.push(bool_arg);
+        command.args.push(bool_arg);
 
-        let arg1 = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
+        let arg1 = Some(CrsArgWrapper::new(Some(&command), &command.args[0]).unwrap());
 
-        let arg2 = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[1]).unwrap());
+        let arg2 = Some(CrsArgWrapper::new(Some(&command), &command.args[1]).unwrap());
 
         for (arg, value, expected) in vec![
             (&arg1, "F", Ok(Value::Bool(false))),
@@ -1447,7 +1447,7 @@ mod tests {
     fn test_parse_bool_arg_from_file() {
         let parser = ShorthandSyntaxParser::default();
 
-        let mut cmd = CrsCommand::default();
+        let mut command = CrsCommand::default();
         // test nullable arg
         let mut bool_arg = CrsArg::default();
         bool_arg.var_name = "$Instance.enabled".to_string();
@@ -1456,7 +1456,7 @@ mod tests {
         bool_arg.nullable = true;
         let bool_type = CrsBooleanArg::default();
         bool_arg.arg_type = Some(crs_arg::ArgType::Boolean(bool_type));
-        cmd.args.push(bool_arg);
+        command.args.push(bool_arg);
         // test not nullable arg
         let mut bool_arg = CrsArg::default();
         bool_arg.var_name = "$Instance.enabled2".to_string();
@@ -1464,10 +1464,10 @@ mod tests {
         bool_arg.options = vec!["enabled2".to_string()];
         let bool_type = CrsBooleanArg::default();
         bool_arg.arg_type = Some(crs_arg::ArgType::Boolean(bool_type));
-        cmd.args.push(bool_arg);
+        command.args.push(bool_arg);
 
-        let arg1 = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
-        let arg2 = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[1]).unwrap());
+        let arg1 = Some(CrsArgWrapper::new(Some(&command), &command.args[0]).unwrap());
+        let arg2 = Some(CrsArgWrapper::new(Some(&command), &command.args[1]).unwrap());
 
         for (arg, value, expected) in vec![
             (&arg1, json!(false), Ok(Value::Bool(false))),
@@ -1636,7 +1636,7 @@ mod tests {
     #[test]
     fn test_parse_number_with_arg() {
         let parser = ShorthandSyntaxParser::default();
-        let mut cmd = CrsCommand::default();
+        let mut command = CrsCommand::default();
         let mut num_arg = CrsArg::default();
         num_arg.var_name = "$Instance.size".to_string();
         num_arg.name = "size".to_string();
@@ -1645,7 +1645,7 @@ mod tests {
         let mut num_type = CrsNumberArg::default();
         num_type.format = Some(crs_number_arg::Format::Int32(CrsInt32Format::default()));
         num_arg.arg_type = Some(crs_arg::ArgType::Number(num_type));
-        cmd.args.push(num_arg);
+        command.args.push(num_arg);
         // test arg with enum
         let mut num_arg = CrsArg::default();
         num_arg.var_name = "$Instance.vcore".to_string();
@@ -1679,7 +1679,7 @@ mod tests {
         ];
         num_type.r#enum = Some(enum_type);
         num_arg.arg_type = Some(crs_arg::ArgType::Number(num_type));
-        cmd.args.push(num_arg);
+        command.args.push(num_arg);
         // test not nullable arg
         let mut num_arg = CrsArg::default();
         num_arg.var_name = "$Instance.unnullable".to_string();
@@ -1688,11 +1688,11 @@ mod tests {
         let mut num_type = CrsNumberArg::default();
         num_type.format = Some(crs_number_arg::Format::Int32(CrsInt32Format::default()));
         num_arg.arg_type = Some(crs_arg::ArgType::Number(num_type));
-        cmd.args.push(num_arg);
+        command.args.push(num_arg);
 
-        let arg1 = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
-        let arg2 = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[1]).unwrap());
-        let arg3 = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[2]).unwrap());
+        let arg1 = Some(CrsArgWrapper::new(Some(&command), &command.args[0]).unwrap());
+        let arg2 = Some(CrsArgWrapper::new(Some(&command), &command.args[1]).unwrap());
+        let arg3 = Some(CrsArgWrapper::new(Some(&command), &command.args[2]).unwrap());
 
         for (arg, value, expected) in vec![
             (&arg1, "0", Ok(Value::Number(serde_json::Number::from(0)))),
@@ -1868,7 +1868,7 @@ mod tests {
     #[test]
     fn test_parse_number_arg_from_file() {
         let parser = ShorthandSyntaxParser::default();
-        let mut cmd = CrsCommand::default();
+        let mut command = CrsCommand::default();
         let mut num_arg = CrsArg::default();
         num_arg.var_name = "$Instance.size".to_string();
         num_arg.name = "size".to_string();
@@ -1877,7 +1877,7 @@ mod tests {
         let mut num_type = CrsNumberArg::default();
         num_type.format = Some(crs_number_arg::Format::Int32(CrsInt32Format::default()));
         num_arg.arg_type = Some(crs_arg::ArgType::Number(num_type));
-        cmd.args.push(num_arg);
+        command.args.push(num_arg);
         // test arg with enum
         let mut num_arg = CrsArg::default();
         num_arg.var_name = "$Instance.vcore".to_string();
@@ -1911,7 +1911,7 @@ mod tests {
         ];
         num_type.r#enum = Some(enum_type);
         num_arg.arg_type = Some(crs_arg::ArgType::Number(num_type));
-        cmd.args.push(num_arg);
+        command.args.push(num_arg);
         // test not nullable arg
         let mut num_arg = CrsArg::default();
         num_arg.var_name = "$Instance.unnullable".to_string();
@@ -1920,11 +1920,11 @@ mod tests {
         let mut num_type = CrsNumberArg::default();
         num_type.format = Some(crs_number_arg::Format::Int32(CrsInt32Format::default()));
         num_arg.arg_type = Some(crs_arg::ArgType::Number(num_type));
-        cmd.args.push(num_arg);
+        command.args.push(num_arg);
 
-        let arg1 = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
-        let arg2 = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[1]).unwrap());
-        let arg3 = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[2]).unwrap());
+        let arg1 = Some(CrsArgWrapper::new(Some(&command), &command.args[0]).unwrap());
+        let arg2 = Some(CrsArgWrapper::new(Some(&command), &command.args[1]).unwrap());
+        let arg3 = Some(CrsArgWrapper::new(Some(&command), &command.args[2]).unwrap());
 
         for (arg, value, expected) in vec![
             (
@@ -2240,7 +2240,7 @@ mod tests {
     fn test_parse_string_arg() {
         let parser = ShorthandSyntaxParser::default();
 
-        let mut cmd = CrsCommand::default();
+        let mut command = CrsCommand::default();
         let mut str_arg = CrsArg::default();
         str_arg.var_name = "$Path.name".to_string();
         str_arg.name = "name".to_string();
@@ -2249,7 +2249,7 @@ mod tests {
         let mut str_type = CrsStringArg::default();
         str_type.format = Some(crs_string_arg::Format::String(CrsStringFormat::default()));
         str_arg.arg_type = Some(crs_arg::ArgType::String(str_type));
-        cmd.args.push(str_arg);
+        command.args.push(str_arg);
 
         // test str arg with enum
         let mut str_arg = CrsArg::default();
@@ -2284,7 +2284,7 @@ mod tests {
         ];
         str_type.r#enum = Some(enum_type);
         str_arg.arg_type = Some(crs_arg::ArgType::String(str_type));
-        cmd.args.push(str_arg);
+        command.args.push(str_arg);
 
         // test str not allow null
         let mut str_arg = CrsArg::default();
@@ -2295,11 +2295,11 @@ mod tests {
         let mut str_type = CrsStringArg::default();
         str_type.format = Some(crs_string_arg::Format::String(CrsStringFormat::default()));
         str_arg.arg_type = Some(crs_arg::ArgType::String(str_type));
-        cmd.args.push(str_arg);
+        command.args.push(str_arg);
 
-        let arg1 = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
-        let arg2 = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[1]).unwrap());
-        let arg3 = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[2]).unwrap());
+        let arg1 = Some(CrsArgWrapper::new(Some(&command), &command.args[0]).unwrap());
+        let arg2 = Some(CrsArgWrapper::new(Some(&command), &command.args[1]).unwrap());
+        let arg3 = Some(CrsArgWrapper::new(Some(&command), &command.args[2]).unwrap());
 
         for (arg, value, expected) in [
             (&arg1, "'hello'", Ok(Value::String("hello".to_string()))),
@@ -2412,7 +2412,7 @@ mod tests {
     fn test_parse_string_arg_from_file() {
         let parser = ShorthandSyntaxParser::default();
 
-        let mut cmd = CrsCommand::default();
+        let mut command = CrsCommand::default();
         let mut str_arg = CrsArg::default();
         str_arg.var_name = "$Path.name".to_string();
         str_arg.name = "name".to_string();
@@ -2421,7 +2421,7 @@ mod tests {
         let mut str_type = CrsStringArg::default();
         str_type.format = Some(crs_string_arg::Format::String(CrsStringFormat::default()));
         str_arg.arg_type = Some(crs_arg::ArgType::String(str_type));
-        cmd.args.push(str_arg);
+        command.args.push(str_arg);
 
         // test str arg with enum
         let mut str_arg = CrsArg::default();
@@ -2456,7 +2456,7 @@ mod tests {
         ];
         str_type.r#enum = Some(enum_type);
         str_arg.arg_type = Some(crs_arg::ArgType::String(str_type));
-        cmd.args.push(str_arg);
+        command.args.push(str_arg);
 
         // test bytes arg
         let mut str_arg = CrsArg::default();
@@ -2466,7 +2466,7 @@ mod tests {
         let mut str_type = CrsStringArg::default();
         str_type.format = Some(crs_string_arg::Format::Byte(CrsByteFormat::default()));
         str_arg.arg_type = Some(crs_arg::ArgType::String(str_type));
-        cmd.args.push(str_arg);
+        command.args.push(str_arg);
 
         // test binary arg
         let mut str_arg = CrsArg::default();
@@ -2476,12 +2476,12 @@ mod tests {
         let mut str_type = CrsStringArg::default();
         str_type.format = Some(crs_string_arg::Format::Binary(CrsBinaryFormat::default()));
         str_arg.arg_type = Some(crs_arg::ArgType::String(str_type));
-        cmd.args.push(str_arg);
+        command.args.push(str_arg);
 
-        let arg1 = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
-        let arg2 = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[1]).unwrap());
-        let byte_arg = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[2]).unwrap());
-        let binary_arg = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[3]).unwrap());
+        let arg1 = Some(CrsArgWrapper::new(Some(&command), &command.args[0]).unwrap());
+        let arg2 = Some(CrsArgWrapper::new(Some(&command), &command.args[1]).unwrap());
+        let byte_arg = Some(CrsArgWrapper::new(Some(&command), &command.args[2]).unwrap());
+        let binary_arg = Some(CrsArgWrapper::new(Some(&command), &command.args[3]).unwrap());
 
         let mut rng = rand::thread_rng();
         let random_bytes: Vec<u8> = (0..100).map(|_| rng.gen()).collect();
@@ -2687,24 +2687,24 @@ mod tests {
     fn test_parse_any_type_arg() {
         let parser = ShorthandSyntaxParser::default();
 
-        let mut cmd = CrsCommand::default();
+        let mut command = CrsCommand::default();
         let mut any_arg = CrsArg::default();
         any_arg.var_name = "$Instance.any".to_string();
         any_arg.name = "any".to_string();
         any_arg.nullable = true;
         any_arg.options = vec!["any".to_string()];
         any_arg.arg_type = Some(crs_arg::ArgType::AnyType(CrsAnyTypeArg::default()));
-        cmd.args.push(any_arg);
+        command.args.push(any_arg);
         // test not nullable any type arg
         let mut any_arg = CrsArg::default();
         any_arg.var_name = "$Instance.unNullableAny".to_string();
         any_arg.name = "unNullableAny".to_string();
         any_arg.options = vec!["unnullable-any".to_string()];
         any_arg.arg_type = Some(crs_arg::ArgType::AnyType(CrsAnyTypeArg::default()));
-        cmd.args.push(any_arg);
+        command.args.push(any_arg);
 
-        let arg1 = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
-        let arg2 = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[1]).unwrap());
+        let arg1 = Some(CrsArgWrapper::new(Some(&command), &command.args[0]).unwrap());
+        let arg2 = Some(CrsArgWrapper::new(Some(&command), &command.args[1]).unwrap());
 
         for (arg, value, expected) in [
             (&arg1, "null", Ok(Value::Null)),
@@ -2832,24 +2832,24 @@ mod tests {
     fn test_parse_any_type_arg_from_file() {
         let parser = ShorthandSyntaxParser::default();
 
-        let mut cmd = CrsCommand::default();
+        let mut command = CrsCommand::default();
         let mut any_arg = CrsArg::default();
         any_arg.var_name = "$Instance.any".to_string();
         any_arg.name = "any".to_string();
         any_arg.nullable = true;
         any_arg.options = vec!["any".to_string()];
         any_arg.arg_type = Some(crs_arg::ArgType::AnyType(CrsAnyTypeArg::default()));
-        cmd.args.push(any_arg);
+        command.args.push(any_arg);
         // test not nullable any type arg
         let mut any_arg = CrsArg::default();
         any_arg.var_name = "$Instance.unNullableAny".to_string();
         any_arg.name = "unNullableAny".to_string();
         any_arg.options = vec!["unnullable-any".to_string()];
         any_arg.arg_type = Some(crs_arg::ArgType::AnyType(CrsAnyTypeArg::default()));
-        cmd.args.push(any_arg);
+        command.args.push(any_arg);
 
-        let arg1 = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
-        let arg2 = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[1]).unwrap());
+        let arg1 = Some(CrsArgWrapper::new(Some(&command), &command.args[0]).unwrap());
+        let arg2 = Some(CrsArgWrapper::new(Some(&command), &command.args[1]).unwrap());
 
         for (arg, value, expected) in [
             (&arg1, json!(null), Ok(Value::Null)),
@@ -3193,7 +3193,7 @@ mod tests {
     fn test_parse_object_arg() {
         let parser = ShorthandSyntaxParser::default();
 
-        let mut cmd = CrsCommand::default();
+        let mut command = CrsCommand::default();
         let mut object_arg = CrsArg::default();
         object_arg.var_name = "$Instance.object".to_string();
         object_arg.name = "object".to_string();
@@ -3255,9 +3255,9 @@ mod tests {
             item: Some(Box::new(additional_props)),
         }));
         object_arg.arg_type = Some(crs_arg::ArgType::Object(Box::new(object_type)));
-        cmd.args.push(object_arg);
+        command.args.push(object_arg);
 
-        let arg1 = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
+        let arg1 = Some(CrsArgWrapper::new(Some(&command), &command.args[0]).unwrap());
 
         for (arg, value, expected) in [
             (&arg1, "{str:abc,num:123,bool:true,array:[1,b,false,true,null],tags:{a:b,c:1,d:false,e:true,f:null},additional1:1,additional2:false,additional3:[1,b,false,true,null],additional4:{a:b,c:1,d:false,e:true,f:null},additional5:[{a:b,c:d}]}", Ok(Value::Object(
@@ -3340,7 +3340,7 @@ mod tests {
     fn test_parse_object_arg_from_file() {
         let parser = ShorthandSyntaxParser::default();
 
-        let mut cmd = CrsCommand::default();
+        let mut command = CrsCommand::default();
         let mut object_arg = CrsArg::default();
         object_arg.var_name = "$Instance.object".to_string();
         object_arg.name = "object".to_string();
@@ -3402,9 +3402,9 @@ mod tests {
             item: Some(Box::new(additional_props)),
         }));
         object_arg.arg_type = Some(crs_arg::ArgType::Object(Box::new(object_type)));
-        cmd.args.push(object_arg);
+        command.args.push(object_arg);
 
-        let arg1 = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
+        let arg1 = Some(CrsArgWrapper::new(Some(&command), &command.args[0]).unwrap());
 
         for (arg, value, expected) in [
             (
@@ -3582,7 +3582,7 @@ mod tests {
     fn test_parse_dict_arg() {
         let parser = ShorthandSyntaxParser::default();
 
-        let mut cmd = CrsCommand::default();
+        let mut command = CrsCommand::default();
         let mut dict_arg = CrsArg::default();
         dict_arg.var_name = "$Instance.dict".to_string();
         dict_arg.name = "dict".to_string();
@@ -3596,7 +3596,7 @@ mod tests {
             item: Some(Box::new(key_arg)),
         }));
         dict_arg.arg_type = Some(crs_arg::ArgType::Object(Box::new(dict_type)));
-        cmd.args.push(dict_arg);
+        command.args.push(dict_arg);
         // not allowed to be null
         let mut dict_arg = CrsArg::default();
         dict_arg.var_name = "$Instance.dict2".to_string();
@@ -3609,10 +3609,10 @@ mod tests {
             item: Some(Box::new(key_arg)),
         }));
         dict_arg.arg_type = Some(crs_arg::ArgType::Object(Box::new(dict_type)));
-        cmd.args.push(dict_arg);
+        command.args.push(dict_arg);
 
-        let arg1 = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
-        let arg2 = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[1]).unwrap());
+        let arg1 = Some(CrsArgWrapper::new(Some(&command), &command.args[0]).unwrap());
+        let arg2 = Some(CrsArgWrapper::new(Some(&command), &command.args[1]).unwrap());
 
         for (arg, value, expected) in [
             (&arg1, "{a:b,c:1,d:true,e:null,f:[1,b,false,true,null],g:{a:b,c:1,d:false,e:true,f:null}}", Ok(Value::Object(
@@ -3681,7 +3681,7 @@ mod tests {
     fn test_parse_array_arg() {
         let parser = ShorthandSyntaxParser::default();
 
-        let mut cmd = CrsCommand::default();
+        let mut command = CrsCommand::default();
         let mut arr_arg = CrsArg::default();
         arr_arg.var_name = "$Instance.arr".to_string();
         arr_arg.name = "arr".to_string();
@@ -3693,7 +3693,7 @@ mod tests {
         arr_item_arg.arg_type = Some(crs_arg::ArgType::AnyType(CrsAnyTypeArg::default()));
         arr_type.item = Some(Box::new(arr_item_arg));
         arr_arg.arg_type = Some(crs_arg::ArgType::Array(Box::new(arr_type)));
-        cmd.args.push(arr_arg);
+        command.args.push(arr_arg);
 
         let mut arr_arg = CrsArg::default();
         arr_arg.var_name = "$Instance.arr2".to_string();
@@ -3704,10 +3704,10 @@ mod tests {
         arr_item_arg.arg_type = Some(crs_arg::ArgType::String(CrsStringArg::default()));
         arr_type.item = Some(Box::new(arr_item_arg));
         arr_arg.arg_type = Some(crs_arg::ArgType::Array(Box::new(arr_type)));
-        cmd.args.push(arr_arg);
+        command.args.push(arr_arg);
 
-        let arg1 = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
-        let arg2 = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[1]).unwrap());
+        let arg1 = Some(CrsArgWrapper::new(Some(&command), &command.args[0]).unwrap());
+        let arg2 = Some(CrsArgWrapper::new(Some(&command), &command.args[1]).unwrap());
 
         for (arg, value, expected) in [
             (&arg1, "[1,2,3]", Ok(Value::Array(json!([1,2,3]).as_array().unwrap().clone()))),
@@ -3764,7 +3764,7 @@ mod tests {
     fn test_parse_array_arg_from_file() {
         let parser = ShorthandSyntaxParser::default();
 
-        let mut cmd = CrsCommand::default();
+        let mut command = CrsCommand::default();
         let mut arr_arg = CrsArg::default();
         arr_arg.var_name = "$Instance.arr".to_string();
         arr_arg.name = "arr".to_string();
@@ -3776,7 +3776,7 @@ mod tests {
         arr_item_arg.arg_type = Some(crs_arg::ArgType::AnyType(CrsAnyTypeArg::default()));
         arr_type.item = Some(Box::new(arr_item_arg));
         arr_arg.arg_type = Some(crs_arg::ArgType::Array(Box::new(arr_type)));
-        cmd.args.push(arr_arg);
+        command.args.push(arr_arg);
 
         let mut arr_arg = CrsArg::default();
         arr_arg.var_name = "$Instance.arr2".to_string();
@@ -3787,10 +3787,10 @@ mod tests {
         arr_item_arg.arg_type = Some(crs_arg::ArgType::String(CrsStringArg::default()));
         arr_type.item = Some(Box::new(arr_item_arg));
         arr_arg.arg_type = Some(crs_arg::ArgType::Array(Box::new(arr_type)));
-        cmd.args.push(arr_arg);
+        command.args.push(arr_arg);
 
-        let arg1 = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[0]).unwrap());
-        let arg2 = Some(CrsArgWrapper::new(Some(&cmd), &cmd.args[1]).unwrap());
+        let arg1 = Some(CrsArgWrapper::new(Some(&command), &command.args[0]).unwrap());
+        let arg2 = Some(CrsArgWrapper::new(Some(&command), &command.args[1]).unwrap());
 
         for (arg, value, expected) in [
             (&arg1, json!([1,2,3]), Ok(Value::Array(json!([1,2,3]).as_array().unwrap().clone()))),

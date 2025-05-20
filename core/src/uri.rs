@@ -7,7 +7,7 @@ use crate::{error::AzInternalError, APPLICATION_NAME};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CrsUri {
-    /// the version of the cmds, it should be the same as the version of the command component
+    /// the version of the commands, it should be the same as the version of the command component
     version: Option<String>,
     /// the command name parts
     segments: Vec<String>,
@@ -17,7 +17,7 @@ pub struct CrsUri {
     params: HashMap<String, Vec<String>>,
 }
 
-const URI_SCHEMA: &str = "cmd://";
+const URI_SCHEMA: &str = "crs://";
 
 const VERSION_KEY: &str = "VERSION";
 
@@ -54,7 +54,7 @@ impl fmt::Display for CrsUri {
             URI_SCHEMA,
             self.segments
                 .iter()
-                // if a cmd with positional arguments the cli wrapper will put the positional argument as tailing segments before check with the components
+                // if a command with positional arguments the cli wrapper will put the positional argument as tailing segments before check with the components
                 // so we need to percent encode the segments as the value may include special characters
                 .map(|s| utf8_percent_encode(s, COMPONENT_ENCODE_SET).to_string())
                 .collect::<Vec<_>>()
@@ -107,8 +107,8 @@ impl FromStr for CrsUri {
     /// ```
     /// use az_core::uri::CrsUri;
     /// use std::str::FromStr;
-    /// let uri = CrsUri::from_str("cmd://azure/network/vnet/create?VERSION=1.0.0&v=1.2&bool=true&num=1&specialvalue=%3F%23%3D%2F%3A").unwrap();
-    /// assert_eq!(uri.to_string(), "cmd://azure/network/vnet/create?VERSION=1.0.0&bool=true&num=1&specialvalue=%3F%23%3D%2F%3A&v=1.2");
+    /// let uri = CrsUri::from_str("crs://azure/network/vnet/create?VERSION=1.0.0&v=1.2&bool=true&num=1&specialvalue=%3F%23%3D%2F%3A").unwrap();
+    /// assert_eq!(uri.to_string(), "crs://azure/network/vnet/create?VERSION=1.0.0&bool=true&num=1&specialvalue=%3F%23%3D%2F%3A&v=1.2");
     /// assert_eq!(uri.executable(), true);
     /// assert_eq!(uri.version(), Some("1.0.0"));
     /// assert_eq!(uri.param_values("num").unwrap().next().unwrap(), "1");
@@ -120,8 +120,8 @@ impl FromStr for CrsUri {
     /// ```
     /// use az_core::uri::CrsUri;
     /// use std::str::FromStr;
-    /// let uri = CrsUri::from_str("cmd://azure/network/vnet/").unwrap();
-    /// assert_eq!(uri.to_string(), "cmd://azure/network/vnet/");
+    /// let uri = CrsUri::from_str("crs://azure/network/vnet/").unwrap();
+    /// assert_eq!(uri.to_string(), "crs://azure/network/vnet/");
     /// assert_eq!(uri.executable(), false);
     /// assert_eq!(uri.version(), None);
     /// assert_eq!(uri.param_values("num").is_none(), true);
@@ -216,10 +216,10 @@ impl CrsUri {
     /// use az_core::uri::CrsUri;
     /// let uri = CrsUri::new(["azure", "network", "vnet"], false);
     /// ```
-    pub fn new(cmds: impl IntoIterator<Item = impl Into<String>>, executable: bool) -> Self {
+    pub fn new(segments: impl IntoIterator<Item = impl Into<String>>, executable: bool) -> Self {
         Self {
             version: None,
-            segments: cmds.into_iter().map(Into::into).collect(),
+            segments: segments.into_iter().map(Into::into).collect(),
             executable,
             params: HashMap::new(),
         }
@@ -232,7 +232,7 @@ impl CrsUri {
     /// ```
     /// use az_core::uri::CrsUri;
     /// let uri = CrsUri::new(["azure", "network", "vnet", "create"], true).with_version("1.0.0");
-    /// assert_eq!(uri.to_string(), "cmd://azure/network/vnet/create?VERSION=1.0.0");
+    /// assert_eq!(uri.to_string(), "crs://azure/network/vnet/create?VERSION=1.0.0");
     /// ```
     pub fn with_version(mut self, version: impl Into<String>) -> Self {
         self.version = Some(version.into());
@@ -246,7 +246,7 @@ impl CrsUri {
     /// ```
     /// use az_core::uri::CrsUri;
     /// let uri = CrsUri::new(["azure", "network", "vnet", "create"], true).with_param("num", "1");
-    /// assert_eq!(uri.to_string(), "cmd://azure/network/vnet/create?num=1");
+    /// assert_eq!(uri.to_string(), "crs://azure/network/vnet/create?num=1");
     /// ```
     ///
     pub fn with_param(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
@@ -267,7 +267,7 @@ impl CrsUri {
     /// ```
     /// use az_core::uri::CrsUri;
     /// let uri = CrsUri::new(["azure", "network", "vnet", "create"], true).with_param_values("num", vec!["1", "2"]);
-    /// assert_eq!(uri.to_string(), "cmd://azure/network/vnet/create?num=1&num=2");
+    /// assert_eq!(uri.to_string(), "crs://azure/network/vnet/create?num=1&num=2");
     /// ```
     pub fn with_param_values(
         mut self,
@@ -317,7 +317,7 @@ impl CrsUri {
 }
 
 impl CrsUri {
-    /// Return the nodes cmd uri from the tail to the head, if the cmd uri is not executable, the first node is itself.
+    /// Return the nodes uri from the tail to the head, if the uri is not executable, the first node is itself.
     ///
     /// The nodes are not executable, and all the params and version are ignored.
     ///
@@ -328,11 +328,11 @@ impl CrsUri {
     /// let uri = CrsUri::new(["azure", "network", "vnet", "create"], true);
     /// let nodes = uri.ascending_nodes().collect::<Vec<_>>();
     /// assert_eq!(nodes.len(), 3);
-    /// assert_eq!(nodes[0].to_string(), "cmd://azure/network/vnet/");
+    /// assert_eq!(nodes[0].to_string(), "crs://azure/network/vnet/");
     /// assert_eq!(nodes[0].executable(), false);
-    /// assert_eq!(nodes[1].to_string(), "cmd://azure/network/");
+    /// assert_eq!(nodes[1].to_string(), "crs://azure/network/");
     /// assert_eq!(nodes[1].executable(), false);
-    /// assert_eq!(nodes[2].to_string(), "cmd://azure/");
+    /// assert_eq!(nodes[2].to_string(), "crs://azure/");
     /// assert_eq!(nodes[2].executable(), false);
     /// ```
     ///
@@ -341,11 +341,11 @@ impl CrsUri {
     /// let uri = CrsUri::new(["azure", "network", "vnet"], false);
     /// let nodes = uri.ascending_nodes().collect::<Vec<_>>();
     /// assert_eq!(nodes.len(), 3);
-    /// assert_eq!(nodes[0].to_string(), "cmd://azure/network/vnet/");
+    /// assert_eq!(nodes[0].to_string(), "crs://azure/network/vnet/");
     /// assert_eq!(nodes[0].executable(), false);
-    /// assert_eq!(nodes[1].to_string(), "cmd://azure/network/");
+    /// assert_eq!(nodes[1].to_string(), "crs://azure/network/");
     /// assert_eq!(nodes[1].executable(), false);
-    /// assert_eq!(nodes[2].to_string(), "cmd://azure/");
+    /// assert_eq!(nodes[2].to_string(), "crs://azure/");
     /// assert_eq!(nodes[2].executable(), false);
     /// ```
     ///
@@ -399,21 +399,21 @@ mod tests {
     #[test]
     fn test_uri_build() {
         let uri = CrsUri::new(["azure", "network", "vnet", "create"], true);
-        assert_eq!(uri.to_string(), "cmd://azure/network/vnet/create");
+        assert_eq!(uri.to_string(), "crs://azure/network/vnet/create");
         assert!(uri.executable());
 
         let uri = uri.with_version("1.0.0");
         assert_eq!(
             uri.to_string(),
-            "cmd://azure/network/vnet/create?VERSION=1.0.0"
+            "crs://azure/network/vnet/create?VERSION=1.0.0"
         );
         let nodes = uri.ascending_nodes().collect::<Vec<_>>();
         assert_eq!(nodes.len(), 3);
-        assert_eq!(nodes[0].to_string(), "cmd://azure/network/vnet/");
+        assert_eq!(nodes[0].to_string(), "crs://azure/network/vnet/");
         assert!(!nodes[0].executable());
-        assert_eq!(nodes[1].to_string(), "cmd://azure/network/");
+        assert_eq!(nodes[1].to_string(), "crs://azure/network/");
         assert!(!nodes[1].executable());
-        assert_eq!(nodes[2].to_string(), "cmd://azure/");
+        assert_eq!(nodes[2].to_string(), "crs://azure/");
         assert!(!nodes[2].executable());
         assert_eq!(uri.version(), Some("1.0.0"));
 
@@ -422,7 +422,7 @@ mod tests {
             .with_param("num", 2.to_string());
         assert_eq!(
             uri.to_string(),
-            "cmd://azure/network/vnet/create?VERSION=1.0.0&num=1&num=2"
+            "crs://azure/network/vnet/create?VERSION=1.0.0&num=1&num=2"
         );
         assert_eq!(
             uri.param_values("num").unwrap().collect::<Vec<_>>(),
@@ -432,7 +432,7 @@ mod tests {
         let uri = uri.with_param("bool", true.to_string());
         assert_eq!(
             uri.to_string(),
-            "cmd://azure/network/vnet/create?VERSION=1.0.0&bool=true&num=1&num=2"
+            "crs://azure/network/vnet/create?VERSION=1.0.0&bool=true&num=1&num=2"
         );
         assert_eq!(
             uri.param_values("bool").unwrap().collect::<Vec<_>>(),
@@ -442,11 +442,10 @@ mod tests {
         let uri = uri.with_param("specialvalue", "?#=/:");
         assert_eq!(
             uri.to_string(),
-            "cmd://azure/network/vnet/create?VERSION=1.0.0&bool=true&num=1&num=2&specialvalue=%3F%23%3D%2F%3A"
+            "crs://azure/network/vnet/create?VERSION=1.0.0&bool=true&num=1&num=2&specialvalue=%3F%23%3D%2F%3A"
         );
         assert_eq!(
-            uri
-                .param_values("specialvalue")
+            uri.param_values("specialvalue")
                 .unwrap()
                 .collect::<Vec<_>>(),
             vec!["?#=/:"]
@@ -455,31 +454,28 @@ mod tests {
         let uri = uri.with_param_values("num", vec!["3"]);
         assert_eq!(
             uri.to_string(),
-            "cmd://azure/network/vnet/create?VERSION=1.0.0&bool=true&num=3&specialvalue=%3F%23%3D%2F%3A"
+            "crs://azure/network/vnet/create?VERSION=1.0.0&bool=true&num=3&specialvalue=%3F%23%3D%2F%3A"
         );
 
         let uri = CrsUri::new(["azure", "network"], false);
-        assert_eq!(uri.to_string(), "cmd://azure/network/");
+        assert_eq!(uri.to_string(), "crs://azure/network/");
         assert!(!uri.executable());
 
         let uri = uri.with_version("1.0.0");
-        assert_eq!(uri.to_string(), "cmd://azure/network/?VERSION=1.0.0");
+        assert_eq!(uri.to_string(), "crs://azure/network/?VERSION=1.0.0");
 
         // make sure the key is case sensitive
         let uri = uri.with_param("NUM", 1.to_string());
-        assert_eq!(
-            uri.to_string(),
-            "cmd://azure/network/?NUM=1&VERSION=1.0.0"
-        );
+        assert_eq!(uri.to_string(), "crs://azure/network/?NUM=1&VERSION=1.0.0");
         let nodes = uri.ascending_nodes().collect::<Vec<_>>();
         assert_eq!(nodes.len(), 2);
-        assert_eq!(nodes[0].to_string(), "cmd://azure/network/");
+        assert_eq!(nodes[0].to_string(), "crs://azure/network/");
         assert!(!nodes[0].executable());
-        assert_eq!(nodes[1].to_string(), "cmd://azure/");
+        assert_eq!(nodes[1].to_string(), "crs://azure/");
         assert!(!nodes[1].executable());
 
-        let cmd_url = CrsUri::new(["azure", "network", "vnet", "create"], true);
-        let cmd_url = cmd_url.with_param_values(
+        let uri = CrsUri::new(["azure", "network", "vnet", "create"], true);
+        let uri = uri.with_param_values(
             "Key",
             vec![
                 "Value1".to_string(),
@@ -488,26 +484,26 @@ mod tests {
             ],
         );
         assert_eq!(
-            cmd_url.to_string(),
-            "cmd://azure/network/vnet/create?Key=Value1&Key=Value2&Key=Value3"
+            uri.to_string(),
+            "crs://azure/network/vnet/create?Key=Value1&Key=Value2&Key=Value3"
         );
-        let cmd_url = cmd_url
+        let uri = uri
             .with_param_values("Key", vec!["Value".to_string()])
             .with_param_values("key", vec!["value".to_string()]);
         assert_eq!(
-            cmd_url.to_string(),
-            "cmd://azure/network/vnet/create?Key=Value&key=value"
+            uri.to_string(),
+            "crs://azure/network/vnet/create?Key=Value&key=value"
         );
-        let nodes = cmd_url.ascending_nodes().collect::<Vec<_>>();
+        let nodes = uri.ascending_nodes().collect::<Vec<_>>();
         assert_eq!(nodes.len(), 3);
-        assert_eq!(nodes[0].to_string(), "cmd://azure/network/vnet/");
+        assert_eq!(nodes[0].to_string(), "crs://azure/network/vnet/");
         assert!(!nodes[0].executable());
-        assert_eq!(nodes[1].to_string(), "cmd://azure/network/");
+        assert_eq!(nodes[1].to_string(), "crs://azure/network/");
         assert!(!nodes[1].executable());
-        assert_eq!(nodes[2].to_string(), "cmd://azure/");
+        assert_eq!(nodes[2].to_string(), "crs://azure/");
         assert!(!nodes[2].executable());
 
-        // test cmd uri with positional arguments
+        // test command uri with positional arguments
         // this format is used only when executable command is not checked
         // for component response command, the positional arguments will be converted to params in the query part
         let uri = CrsUri::new(
@@ -522,7 +518,7 @@ mod tests {
             true,
         );
 
-        assert_eq!(uri.to_string(), "cmd://azure/config/set/logging.log_dir%3D~%2Faz-logs/defaults.location%3Dwestus2/defaults.group%3DMyResourceGroup");
+        assert_eq!(uri.to_string(), "crs://azure/config/set/logging.log_dir%3D~%2Faz-logs/defaults.location%3Dwestus2/defaults.group%3DMyResourceGroup");
 
         // test panic case
         let result = std::panic::catch_unwind(|| {
@@ -533,8 +529,7 @@ mod tests {
 
         let result = std::panic::catch_unwind(|| {
             let uri = CrsUri::new(["azure", "network", "vnet", "create"], true);
-            uri
-                .with_param_values("key", vec!["value".to_string()])
+            uri.with_param_values("key", vec!["value".to_string()])
                 .with_param_values(VERSION_KEY, vec!["1.0.0".to_string()]);
         });
         assert!(result.is_err());
@@ -542,7 +537,7 @@ mod tests {
 
     #[test]
     fn test_uri_parse() {
-        let uri_str = "cmd://azure/network/vnet/create?Num=0&VERSION=1.0.0&bool=true&num=3&num=1&num=2&specialvalue=%3F%23%3D%2F%3A";
+        let uri_str = "crs://azure/network/vnet/create?Num=0&VERSION=1.0.0&bool=true&num=3&num=1&num=2&specialvalue=%3F%23%3D%2F%3A";
         let uri = CrsUri::from_str(uri_str).unwrap();
         assert_eq!(uri.to_string(), uri_str);
         assert_eq!(uri.segments, vec!["azure", "network", "vnet", "create"]);
@@ -557,8 +552,7 @@ mod tests {
             vec!["true"]
         );
         assert_eq!(
-            uri
-                .param_values("specialvalue")
+            uri.param_values("specialvalue")
                 .unwrap()
                 .collect::<Vec<_>>(),
             vec!["?#=/:"]
@@ -570,7 +564,7 @@ mod tests {
             vec!["0"]
         );
 
-        let uri_str = "cmd://azure/network/?VERSION=1.0.0";
+        let uri_str = "crs://azure/network/?VERSION=1.0.0";
         let uri = CrsUri::from_str(uri_str).unwrap();
         assert_eq!(uri.to_string(), uri_str);
         assert_eq!(uri.segments, vec!["azure", "network"]);
@@ -578,7 +572,7 @@ mod tests {
         assert_eq!(uri.version(), Some("1.0.0"));
         assert!(uri.param_values("num").is_none());
 
-        let uri_str = "cmd://azure/config/set/logging.log_dir%3D~%2Faz-logs/defaults.location%3Dwestus2/defaults.group%3DMyResourceGroup";
+        let uri_str = "crs://azure/config/set/logging.log_dir%3D~%2Faz-logs/defaults.location%3Dwestus2/defaults.group%3DMyResourceGroup";
         let uri = CrsUri::from_str(uri_str).unwrap();
         assert_eq!(uri.to_string(), uri_str);
         assert_eq!(
@@ -604,19 +598,19 @@ mod tests {
             _ => panic!("should be InvalidCrsUriError"),
         }
 
-        let uri_str = "cmd://";
+        let uri_str = "crs://";
         match CrsUri::from_str(uri_str) {
             Err(AzInternalError::InvalidCrsUriError(_)) => {}
             _ => panic!("should be InvalidCrsUriError"),
         }
 
-        let uri_str = "cmd://az/network/vnet/create";
+        let uri_str = "crs://az/network/vnet/create";
         match CrsUri::from_str(uri_str) {
             Err(AzInternalError::InvalidCrsUriError(_)) => {}
             _ => panic!("should be InvalidCrsUriError"),
         }
 
-        let uri_str = "cmd://azure/network/vnet//create";
+        let uri_str = "crs://azure/network/vnet//create";
         match CrsUri::from_str(uri_str) {
             Err(AzInternalError::InvalidCrsUriError(_)) => {}
             _ => panic!("should be InvalidCrsUriError"),

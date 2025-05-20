@@ -35,7 +35,7 @@ impl AzCommandExecute for DeleteCloud {
 }
 
 impl AzCommand for DeleteCloud {
-    const URI: &'static str = "cmd://azure/config/cloud/delete";
+    const URI: &'static str = "crs://azure/config/cloud/delete";
 
     fn build_interface(_: Option<u32>) -> CrsInterface {
         CrsInterface {

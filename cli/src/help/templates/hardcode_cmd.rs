@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use az_core::pb::{
-    crs_interface::Level, CrsCommandGroup, CrsComponent, CrsInterface, ComponentMetadata,
+    crs_interface::Level, ComponentMetadata, CrsCommandGroup, CrsComponent, CrsInterface,
 };
 
 use crate::{
@@ -159,7 +159,7 @@ mod tests {
         let cmd = CrsInterface {
             level: Some(crs_interface::Level::Command(CrsCommand {
                 name: "command".to_string(),
-                uri: "cmd://azure/group/command".to_string(),
+                uri: "crs://azure/group/command".to_string(),
                 version: "1.0.0".to_string(),
                 help: Some(CrsHelp {
                     short: "Short description".to_string(),

@@ -20,7 +20,7 @@ impl AzCommandExecute for ShowVersion {
 }
 
 impl AzCommand for ShowVersion {
-    const URI: &'static str = "cmd://azure/version";
+    const URI: &'static str = "crs://azure/version";
 
     fn build_interface(_: Option<u32>) -> CrsInterface {
         CrsInterface {

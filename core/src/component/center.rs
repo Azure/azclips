@@ -4,10 +4,10 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use crate::uri::CrsUri;
 use crate::config::cloud::AzCloud;
 use crate::error::AzInternalError;
 use crate::plugin::AzPlugin;
+use crate::uri::CrsUri;
 
 use futures::future::try_join_all;
 use serde::{Deserialize, Serialize};

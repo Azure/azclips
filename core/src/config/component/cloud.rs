@@ -15,13 +15,13 @@ use show::ShowCloud;
 use update::UpdateCloud;
 
 use crate::{
-    uri::CrsUri,
     component::{AzCommand, AzCommandGroup, AzComponentCtx},
     error::{AzError, AzInternalError},
     pb::{
         crs_interface, execute_response, CrsCommandGroup, CrsHelp, CrsInterface, CrsOutputFormat,
         CrsParams,
     },
+    uri::CrsUri,
 };
 
 #[derive(Debug, Default)]
@@ -29,7 +29,7 @@ pub struct CloudCommandGroup {}
 
 #[async_trait]
 impl AzCommandGroup for CloudCommandGroup {
-    const URI: &'static str = "cmd://azure/config/cloud/";
+    const URI: &'static str = "crs://azure/config/cloud/";
 
     fn build_interface(depth: Option<u32>) -> CrsInterface {
         let groups = vec![];

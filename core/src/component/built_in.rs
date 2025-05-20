@@ -1,12 +1,12 @@
 use crate::{
-    account::component::AccountComponent, uri::CrsUri, config::component::ConfigComponent,
-    top::component::TopComponent,
+    account::component::AccountComponent, config::component::ConfigComponent,
+    top::component::TopComponent, uri::CrsUri,
 };
 use serde::{de::Error, ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 use std::{str::FromStr, sync::Arc};
 use strum_macros::{Display, EnumIter};
 
-use super::{center::AzComponentCenter, cmd::AzCommandGroup, AzComponentCtx};
+use super::{center::AzComponentCenter, AzCommandGroup, AzComponentCtx};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, EnumIter, Display)]
 pub enum AzBuildIn {
@@ -21,8 +21,8 @@ pub enum AzBuildIn {
 }
 
 impl AzBuildIn {
-    // /// uri: `cmd://azure/plugin/`
-    // const PLUGIN_URI: &'static str = "cmd://azure/plugin/";
+    // /// uri: `crs://azure/plugin/`
+    // const PLUGIN_URI: &'static str = "crs://azure/plugin/";
 
     pub(crate) fn uri(&self) -> CrsUri {
         match self {

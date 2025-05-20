@@ -21,10 +21,10 @@ pub trait AzComponentCtx: Send + Sync + 'static {
     /// use az_core::component::{AzCommandExecute, AzComponentCtx};
     /// use az_core::config::cloud::{endpoint, resource_id};
     ///
-    /// struct MyCmd {}
+    /// struct MyCommand {}
     ///
     /// #[async_trait]
-    /// impl AzCommandExecute for MyCmd {
+    /// impl AzCommandExecute for MyCommand {
     ///     type Output = ();
     ///
     ///     async fn run<T: AzComponentCtx>(&self, ctx: &T) -> Result<Option<Self::Output>, AzError> {

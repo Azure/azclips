@@ -1,13 +1,13 @@
-use az_core::{uri::CrsUri, error::AzError, AzCore};
+use az_core::{error::AzError, uri::CrsUri, AzCore};
 
-use crate::CmdRawArg;
+use crate::ArgRaw;
 
 /// check if the `-h` or `--help` flag is present in the raw args
-pub fn has_interactive_flag(raw_args: &[CmdRawArg]) -> bool {
+pub fn has_interactive_flag(raw_args: &[ArgRaw]) -> bool {
     raw_args.iter().any(|arg| arg.flag == "--cli-interactive")
 }
 
-pub fn run_interactive(uri: CrsUri, raw_args: Vec<CmdRawArg>) {
+pub fn run_interactive(uri: CrsUri, raw_args: Vec<ArgRaw>) {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         if let Err(e) = run_interactive_async(uri, raw_args).await {
@@ -18,7 +18,7 @@ pub fn run_interactive(uri: CrsUri, raw_args: Vec<CmdRawArg>) {
     });
 }
 
-async fn run_interactive_async(uri: CrsUri, raw_args: Vec<CmdRawArg>) -> Result<(), AzError> {
+async fn run_interactive_async(uri: CrsUri, raw_args: Vec<ArgRaw>) -> Result<(), AzError> {
     let core = AzCore::instance().await;
 
     todo!()

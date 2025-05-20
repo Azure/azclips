@@ -48,7 +48,7 @@ impl AzCommandExecute for CreateCloud {
 }
 
 impl AzCommand for CreateCloud {
-    const URI: &'static str = "cmd://azure/config/cloud/create";
+    const URI: &'static str = "crs://azure/config/cloud/create";
 
     fn build_interface(_: Option<u32>) -> CrsInterface {
         CrsInterface {

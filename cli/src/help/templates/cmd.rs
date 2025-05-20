@@ -1,4 +1,4 @@
-use az_core::pb::{CrsInterface, ComponentMetadata};
+use az_core::pb::{ComponentMetadata, CrsInterface};
 
 use crate::output::StyledString;
 

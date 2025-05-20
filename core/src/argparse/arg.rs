@@ -15,7 +15,7 @@ use super::{SHPartialKeyPart, SHPartialKeys};
 /// This wrapper support unwrapping the cls type of the argument
 #[derive(Debug, Clone)]
 pub struct CrsArgWrapper<'a> {
-    cmd: Option<&'a CrsCommand>,
+    command: Option<&'a CrsCommand>,
     inner: &'a CrsArg,
     unwrapped_arg_type: &'a crs_arg::ArgType,
     prefix_keys: SHPartialKeys,
@@ -27,16 +27,19 @@ impl<'a> CrsArgWrapper<'a> {
     ///
     /// # Arguments
     ///
-    /// * `cmd` - The command to wrap, for the global argument, the cmd is None, otherwise it's the command to wrap
+    /// * `command` - The command to wrap, for the global argument, the command is None, otherwise it's the command to wrap
     /// * `inner` - The inner argument to wrap
     ///
     /// # Returns
     ///
     /// A new CrsArgWrapper
-    pub fn new(cmd: Option<&'a CrsCommand>, inner: &'a CrsArg) -> Result<Self, AzInternalError> {
-        let arg_type = get_unwrapped_arg_type(cmd, inner)?;
+    pub fn new(
+        command: Option<&'a CrsCommand>,
+        inner: &'a CrsArg,
+    ) -> Result<Self, AzInternalError> {
+        let arg_type = get_unwrapped_arg_type(command, inner)?;
         Ok(Self {
-            cmd,
+            command,
             inner,
             unwrapped_arg_type: arg_type,
             prefix_keys: SHPartialKeys::from_parts(&[SHPartialKeyPart::Name(
@@ -46,7 +49,7 @@ impl<'a> CrsArgWrapper<'a> {
         })
     }
 
-    pub fn build_by_keys(cmd: &'a CrsCommand, keys: &SHPartialKeys) -> AzResult<Self> {
+    pub fn build_by_keys(command: &'a CrsCommand, keys: &SHPartialKeys) -> AzResult<Self> {
         let mut parts = keys.parts();
         let key = parts
             .next()
@@ -55,7 +58,7 @@ impl<'a> CrsArgWrapper<'a> {
                 keys
             )))?;
         let arg = match key {
-            SHPartialKeyPart::Name(name) => cmd
+            SHPartialKeyPart::Name(name) => command
                 .args
                 .iter()
                 .find(|arg| arg.name.eq_ignore_ascii_case(name))
@@ -71,7 +74,7 @@ impl<'a> CrsArgWrapper<'a> {
                 .into());
             }
         };
-        let wrapper = Self::new(Some(cmd), arg)?;
+        let wrapper = Self::new(Some(command), arg)?;
         wrapper.retrieve_sub_arg(parts)
     }
 }
@@ -369,12 +372,12 @@ impl CrsArgWrapper<'_> {
                     unreachable!("cls type should be unwrapped before");
                 }
             }
-            arg_type = get_unwrapped_arg_type(self.cmd, arg)?;
+            arg_type = get_unwrapped_arg_type(self.command, arg)?;
             prefix_keys.push(part.to_owned());
         }
 
         Ok(Self {
-            cmd: self.cmd,
+            command: self.command,
             inner: arg,
             unwrapped_arg_type: arg_type,
             prefix_keys,
@@ -425,19 +428,20 @@ impl CrsArgWrapper<'_> {
     }
 }
 
-/// get the unwrapped arg type of the argument, when the argument is a class type, then cmd should be not None
+/// get the unwrapped arg type of the argument, when the argument is a class type, then command should be not None
 fn get_unwrapped_arg_type<'a>(
-    cmd: Option<&'a CrsCommand>,
+    command: Option<&'a CrsCommand>,
     arg: &'a CrsArg,
 ) -> Result<&'a crs_arg::ArgType, AzInternalError> {
     match arg.arg_type_ok()? {
         crs_arg::ArgType::Cls(typ) => {
-            let cmd = cmd.ok_or(AzInternalError::InvalidArgumentDefinitionError(format!(
-                "Missing command definition to unwrap class type argument: {}",
-                typ.cls_type
-            )))?;
+            let command =
+                command.ok_or(AzInternalError::InvalidArgumentDefinitionError(format!(
+                    "Missing command definition to unwrap class type argument: {}",
+                    typ.cls_type
+                )))?;
             let cls_type = &typ.cls_type;
-            for arg in cmd.args.iter() {
+            for arg in command.args.iter() {
                 if let Some(arg_type) = retrieve_cls_arg_type(arg, cls_type)? {
                     return Ok(arg_type);
                 }

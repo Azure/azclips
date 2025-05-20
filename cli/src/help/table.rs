@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
 use az_core::pb::{
-    crs_arg, crs_number_arg, crs_string_arg, CrsArg, CrsArgEnum, CrsArrayArg, CrsArrayFormat,
-    CrsBooleanArg, CrsCommand, CrsCommandGroup, CrsComponent, CrsDateFormat, CrsDateTimeFormat,
-    CrsDoubleFormat, CrsDurationFormat, CrsFloatFormat, CrsInt32Format, CrsInt64Format,
-    CrsInterface, CrsNumberArg, CrsObjectArg, CrsObjectFormat, CrsResourceIdFormat,
+    crs_arg, crs_number_arg, crs_string_arg, ComponentMetadata, CrsArg, CrsArgEnum, CrsArrayArg,
+    CrsArrayFormat, CrsBooleanArg, CrsCommand, CrsCommandGroup, CrsComponent, CrsDateFormat,
+    CrsDateTimeFormat, CrsDoubleFormat, CrsDurationFormat, CrsFloatFormat, CrsInt32Format,
+    CrsInt64Format, CrsInterface, CrsNumberArg, CrsObjectArg, CrsObjectFormat, CrsResourceIdFormat,
     CrsResourceLocationFormat, CrsStringArg, CrsStringFormat, CrsTimeFormat, CrsUint32Format,
-    CrsUint64Format, CrsUuidFormat, ComponentMetadata,
+    CrsUint64Format, CrsUuidFormat,
 };
 
 use crate::output::{style::Stylize, Row, RowCell, StyledString};

@@ -7,17 +7,17 @@ mod help;
 mod interactive;
 mod output;
 
-pub(crate) const CMD_ARG_FLAG_PREFIX: char = '-';
+pub(crate) const ARG_FLAG_PREFIX: char = '-';
 
 #[derive(Debug)]
-pub(crate) struct CmdRawArg {
+pub(crate) struct ArgRaw {
     // the flag used in the input
     flag: String,
     // the raw values of the parameter
     values: Vec<String>,
 }
 
-impl CmdRawArg {
+impl ArgRaw {
     pub fn name_or_alias(&self) -> &str {
         self.flag.trim_start_matches('-')
     }
@@ -33,7 +33,7 @@ pub fn run(mut args: Args) {
     // retrieve the cmd uri
     let mut uri = vec![APPLICATION_NAME.to_string()];
     while let Some(arg) = next.as_ref() {
-        if arg.starts_with(CMD_ARG_FLAG_PREFIX) {
+        if arg.starts_with(ARG_FLAG_PREFIX) {
             break;
         }
         uri.push(arg.to_lowercase());
@@ -45,15 +45,15 @@ pub fn run(mut args: Args) {
     let mut raw_args = Vec::new();
     while let Some(flag) = next.take() {
         // parse as cmd arg
-        if !flag.starts_with(CMD_ARG_FLAG_PREFIX) {
+        if !flag.starts_with(ARG_FLAG_PREFIX) {
             unreachable!("argument flag should always start with '-' when parsing cmd args");
         }
-        let mut raw_arg = CmdRawArg {
+        let mut raw_arg = ArgRaw {
             flag,
             values: Vec::new(),
         };
         while let Some(value) = args.next() {
-            if value.starts_with(CMD_ARG_FLAG_PREFIX) {
+            if value.starts_with(ARG_FLAG_PREFIX) {
                 next.replace(value);
                 break;
             } else {

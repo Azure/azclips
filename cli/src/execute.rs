@@ -1,14 +1,14 @@
 use az_core::{
     argparse::{self, ArgOp, ArgValueAssignOp, CrsArgWrapper},
-    uri::CrsUri,
     error::{AzError, AzInternalError, AzUserUsageError},
-    pb::{crs_interface, CrsArg, CrsCommand},
+    pb::{CrsArg, CrsCommand},
+    uri::CrsUri,
     AzCore,
 };
 
-use crate::{help, CmdRawArg};
+use crate::{help, ArgRaw};
 
-pub fn execute_command(uri: CrsUri, raw_args: Vec<CmdRawArg>) {
+pub fn execute_command(uri: CrsUri, raw_args: Vec<ArgRaw>) {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         if let Err(e) = execute_command_async(uri, raw_args).await {
@@ -19,9 +19,9 @@ pub fn execute_command(uri: CrsUri, raw_args: Vec<CmdRawArg>) {
     });
 }
 
-async fn execute_command_async(uri: CrsUri, raw_args: Vec<CmdRawArg>) -> Result<(), AzError> {
+async fn execute_command_async(uri: CrsUri, raw_args: Vec<ArgRaw>) -> Result<(), AzError> {
     let core = AzCore::instance().await;
-    let invocation = core.resolve_cmd_invocation(uri).await?;
+    let invocation = core.resolve_invocation(uri).await?;
 
     if !invocation.uri.executable() {
         // if it's a command group, then show the help of it instead of executing it
@@ -29,19 +29,14 @@ async fn execute_command_async(uri: CrsUri, raw_args: Vec<CmdRawArg>) -> Result<
         return Err(AzUserUsageError::CommandGroupNotExecutableError.into());
     }
 
-    let crs_interface = core.get_crs_interface(&invocation).await?;
-    let cmd = match crs_interface.level.unwrap() {
-        crs_interface::Level::Command(cmd) => cmd,
-        _ => {
-            unreachable!()
-        }
-    };
+    let crs_interface = core.get_interface(&invocation).await?;
+    let command = crs_interface.as_command_ok().to_owned();
 
     let mut cmd_value_ops = Vec::new();
 
     // the positional arguments will be returned as params in uri query part by service
     for (arg_name, values) in invocation.uri.params() {
-        let (arg, ops) = parse_arg_values(&cmd, arg_name, values)?;
+        let (arg, ops) = parse_arg_values(&command, arg_name, values)?;
 
         // show the help of the argument
         if let Some(ArgOp::Help(op)) = ops.iter().find(|op| matches!(op, ArgOp::Help(_))) {
@@ -60,7 +55,7 @@ async fn execute_command_async(uri: CrsUri, raw_args: Vec<CmdRawArg>) -> Result<
         .iter()
         .map(|raw_arg| (raw_arg.name_or_alias(), raw_arg.values()))
     {
-        let (arg, ops) = parse_arg_values(&cmd, arg_name, values)?;
+        let (arg, ops) = parse_arg_values(&command, arg_name, values)?;
 
         // show the help of the argument
         if let Some(ArgOp::Help(op)) = ops.iter().find(|op| matches!(op, ArgOp::Help(_))) {
@@ -76,7 +71,7 @@ async fn execute_command_async(uri: CrsUri, raw_args: Vec<CmdRawArg>) -> Result<
     }
 
     // TODO: filter some global args such as --output etc
-    let output = core.execute_cmd(&invocation, cmd_value_ops).await?;
+    let output = core.execute_command(&invocation, cmd_value_ops).await?;
 
     // TODO: format the output
     if let Some(data) = output {
@@ -90,7 +85,7 @@ async fn execute_command_async(uri: CrsUri, raw_args: Vec<CmdRawArg>) -> Result<
 }
 
 fn parse_arg_values<'a, 'b>(
-    cmd: &'a CrsCommand,
+    command: &'a CrsCommand,
     arg_name: &str,
     values: impl IntoIterator<Item = &'b str>,
 ) -> Result<(CrsArgWrapper<'a>, Vec<ArgOp>), AzError> {
@@ -98,8 +93,8 @@ fn parse_arg_values<'a, 'b>(
         let wrapper = CrsArgWrapper::new(None, arg)?;
         let ops = argparse::parse_arg_values(&wrapper, values)?;
         Ok((wrapper, ops))
-    } else if let Some(arg) = find_arg_in_command(arg_name, &cmd) {
-        let wrapper = CrsArgWrapper::new(Some(&cmd), arg)?;
+    } else if let Some(arg) = find_arg_in_command(arg_name, &command) {
+        let wrapper = CrsArgWrapper::new(Some(&command), arg)?;
         let ops = argparse::parse_arg_values(&wrapper, values)?;
         Ok((wrapper, ops))
     } else {
@@ -143,8 +138,8 @@ fn find_arg_in_global(_: &str) -> Option<&'static CrsArg> {
     return None;
 }
 
-fn find_arg_in_command<'a>(name_or_alias: &str, cmd: &'a CrsCommand) -> Option<&'a CrsArg> {
-    for arg in cmd.args.iter() {
+fn find_arg_in_command<'a>(name_or_alias: &str, command: &'a CrsCommand) -> Option<&'a CrsArg> {
+    for arg in command.args.iter() {
         if arg.name.eq_ignore_ascii_case(name_or_alias) {
             return Some(arg);
         }

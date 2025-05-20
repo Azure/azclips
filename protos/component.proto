@@ -34,13 +34,13 @@ message InterfaceResponse {
 message ComponentMetadata {
     string name = 1;  // the component name for installation and identification
     string version = 2; // the release version of the component, for built-in component, the version is the version of the core
-    string uri = 3;  // the unique uri for the component, this uri should be the cmd uri which starts with `cmd://azure/` and the following segments are composed by the top level command group name for the component. The uri should be unique across all the components.
+    string uri = 3;  // the unique uri for the component, this uri should be the crs uri which starts with `crs://azure/` and the following segments are composed by the top level command group name for the component. The uri should be unique across all the components.
     command.CrsHelp help = 4;  // the help information of the component
 }
 
 message ExecuteRequest {
     reserved 1; // uint32 az_ctx_server = 1;
-    string uri = 2;  // the cmd uri for the command to execute
+    string uri = 2;  // the crs uri for the command to execute
     command.CrsParams params = 3;
     command.CrsOutputFormat output_format = 4;
 }

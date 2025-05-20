@@ -7,11 +7,11 @@ use serde::ser::SerializeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Map;
 
-use crate::uri::CrsUri;
 use crate::component::{get_component_dir, AzComponent, AzComponentCtx};
 use crate::config::cloud::AzCloud;
 use crate::error::AzInternalError;
 use crate::pb::CrsHelp;
+use crate::uri::CrsUri;
 
 const PLUGIN_FILE_EXTENSION: &str = "plugin";
 const PLUGIN_DIR_NAME: &str = "plugins";
