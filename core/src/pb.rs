@@ -2,6 +2,7 @@ mod command;
 mod component;
 
 use core::fmt;
+use serde::ser::SerializeMap;
 use serde_json::Value;
 
 use crate::error::{AzInternalError, AzResult, AzUserUsageError};
@@ -249,5 +250,37 @@ impl command::CrsInterface {
             crs_interface::Level::CommandGroup(command_group) => command_group.help.as_ref(),
             crs_interface::Level::Component(component) => component.help.as_ref(),
         }
+    }
+}
+
+impl serde::Serialize for command::CrsHelp {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut map = serializer.serialize_map(Some(2))?;
+        map.serialize_entry("short", &self.short)?;
+        if let Some(long) = &self.long {
+            map.serialize_entry("long", &long)?;
+        }
+        map.end()
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for command::CrsHelp {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = serde_json::Map::deserialize(deserializer)?;
+
+        Ok(Self {
+            short: s
+                .get("short")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| serde::de::Error::missing_field("short"))?
+                .to_string(),
+            long: s.get("long").and_then(|v| v.as_str()).map(String::from),
+        })
     }
 }

@@ -3,9 +3,7 @@ pub(crate) mod component;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use serde::ser::SerializeMap;
 use serde::{Deserialize, Serialize};
-use serde_json::Map;
 
 use crate::component::{get_component_dir, AzComponent, AzComponentCtx};
 use crate::config::cloud::AzCloud;
@@ -21,10 +19,6 @@ pub struct AzPlugin {
     pub(crate) name: String,
     pub(crate) uri: CrsUri,
     pub(crate) version: String,
-    #[serde(
-        serialize_with = "serialize_cmd_help",
-        deserialize_with = "deserialize_cmd_help"
-    )]
     /// The short summary of the plugin
     pub(crate) help: CrsHelp,
 }
@@ -72,32 +66,4 @@ fn get_plugin_dir(cloud: Option<&AzCloud>) -> PathBuf {
     } else {
         plugin_dir
     }
-}
-
-pub(crate) fn serialize_cmd_help<S>(help: &CrsHelp, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    let mut map = serializer.serialize_map(Some(2))?;
-    map.serialize_entry("short", &help.short)?;
-    if let Some(long) = &help.long {
-        map.serialize_entry("long", &long)?;
-    }
-    map.end()
-}
-
-pub(crate) fn deserialize_cmd_help<'de, D>(deserializer: D) -> Result<CrsHelp, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let s = Map::deserialize(deserializer)?;
-
-    Ok(CrsHelp {
-        short: s
-            .get("short")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| serde::de::Error::missing_field("short"))?
-            .to_string(),
-        long: s.get("long").and_then(|v| v.as_str()).map(String::from),
-    })
 }
