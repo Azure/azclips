@@ -200,3 +200,27 @@ impl TryFrom<command::CmdArgEnumItem> for Value {
         Ok(value)
     }
 }
+
+
+impl command::CmdInterface {
+    pub fn as_command(&self) -> Option<&command::CmdCommand> {
+        match &self.level {
+            Some(cmd_interface::Level::Command(command)) => Some(command),
+            _ => None,
+        }
+    }
+
+    pub fn as_command_group(&self) -> Option<&command::CmdCommandGroup> {
+        match &self.level {
+            Some(cmd_interface::Level::CommandGroup(command_group)) => Some(command_group),
+            _ => None,
+        }
+    }
+
+    pub fn as_component(&self) -> Option<&command::CmdComponent> {
+        match &self.level {
+            Some(cmd_interface::Level::Component(component)) => Some(component),
+            _ => None,
+        }
+    }
+}

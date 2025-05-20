@@ -2,13 +2,6 @@
 /// The interface of the command / command group / component
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CmdInterface {
-    #[prost(string, tag = "1")]
-    pub name: ::prost::alloc::string::String,
-    #[prost(message, optional, tag = "2")]
-    pub help: ::core::option::Option<CmdHelp>,
-    /// the uri of the command / command group / component, the uri should be unique across all the commands, command groups and components
-    #[prost(string, tag = "3")]
-    pub uri: ::prost::alloc::string::String,
     #[prost(oneof = "cmd_interface::Level", tags = "10, 11, 12")]
     pub level: ::core::option::Option<cmd_interface::Level>,
 }
@@ -19,16 +12,23 @@ pub mod cmd_interface {
         #[prost(message, tag = "10")]
         Command(super::CmdCommand),
         #[prost(message, tag = "11")]
-        Group(super::CmdCommandGroup),
+        CommandGroup(super::CmdCommandGroup),
         #[prost(message, tag = "12")]
         Component(super::CmdComponent),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CmdCommand {
-    /// the version of the command
     #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    /// the uri of the command / command group / component, the uri should be unique across all the commands, command groups and components
+    #[prost(string, tag = "2")]
+    pub uri: ::prost::alloc::string::String,
+    /// the version of the command
+    #[prost(string, tag = "3")]
     pub version: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "4")]
+    pub help: ::core::option::Option<CmdHelp>,
     #[prost(message, repeated, tag = "10")]
     pub args: ::prost::alloc::vec::Vec<CmdArg>,
     /// the array of positional argument names
@@ -37,20 +37,34 @@ pub struct CmdCommand {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CmdCommandGroup {
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    /// the uri of the command / command group / component, the uri should be unique across all the commands, command groups and components
+    #[prost(string, tag = "2")]
+    pub uri: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "4")]
+    pub help: ::core::option::Option<CmdHelp>,
     #[prost(message, repeated, tag = "10")]
-    pub groups: ::prost::alloc::vec::Vec<CmdInterface>,
+    pub groups: ::prost::alloc::vec::Vec<CmdCommandGroup>,
     #[prost(message, repeated, tag = "11")]
-    pub commands: ::prost::alloc::vec::Vec<CmdInterface>,
+    pub commands: ::prost::alloc::vec::Vec<CmdCommand>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CmdComponent {
-    /// the release version of the component
     #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    /// the uri of the command / command group / component, the uri should be unique across all the commands, command groups and components
+    #[prost(string, tag = "2")]
+    pub uri: ::prost::alloc::string::String,
+    /// the release version of the component
+    #[prost(string, tag = "3")]
     pub version: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "4")]
+    pub help: ::core::option::Option<CmdHelp>,
     #[prost(message, repeated, tag = "10")]
-    pub groups: ::prost::alloc::vec::Vec<CmdInterface>,
+    pub groups: ::prost::alloc::vec::Vec<CmdCommandGroup>,
     #[prost(message, repeated, tag = "11")]
-    pub commands: ::prost::alloc::vec::Vec<CmdInterface>,
+    pub commands: ::prost::alloc::vec::Vec<CmdCommand>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CmdHelp {

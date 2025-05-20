@@ -16,6 +16,7 @@ use crate::{
 
 use super::{AzComponent, AzComponentCtx};
 
+
 #[async_trait]
 pub trait AzCmdExecute {
     type Output: Serialize;

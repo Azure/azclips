@@ -3,31 +3,37 @@ package command;
 
 // The interface of the command / command group / component
 message CMDInterface {
-  string name = 1;
-  CMDHelp help = 2;
-  string uri = 3; // the uri of the command / command group / component, the uri should be unique across all the commands, command groups and components
   oneof level {
     CMDCommand command = 10;
-    CMDCommandGroup group = 11;
+    CMDCommandGroup command_group = 11;
     CMDComponent component = 12;
   }
 }
 
 message CMDCommand {
-  string version = 1; // the version of the command
+  string name = 1;
+  string uri = 2; // the uri of the command / command group / component, the uri should be unique across all the commands, command groups and components
+  string version = 3; // the version of the command
+  CMDHelp help = 4;
   repeated CMDArg args = 10;
   repeated string positional_args = 11;  // the array of positional argument names
 }
 
 message CMDCommandGroup {
-  repeated CMDInterface groups = 10;
-  repeated CMDInterface commands = 11;
+  string name = 1;
+  string uri = 2; // the uri of the command / command group / component, the uri should be unique across all the commands, command groups and components
+  CMDHelp help = 4;
+  repeated CMDCommandGroup groups = 10;
+  repeated CMDCommand commands = 11;
 }
 
 message CMDComponent {
-  string version = 1; // the release version of the component
-  repeated CMDInterface groups = 10;
-  repeated CMDInterface commands = 11;
+  string name = 1;
+  string uri = 2; // the uri of the command / command group / component, the uri should be unique across all the commands, command groups and components
+  string version = 3; // the release version of the component
+  CMDHelp help = 4;
+  repeated CMDCommandGroup groups = 10;
+  repeated CMDCommand commands = 11;
 }
 
 message CMDHelp {
