@@ -221,18 +221,10 @@ impl command::CrsInterface {
         }
     }
 
-    pub fn as_component_ok(&self) -> &command::CrsComponent {
-        match &self.level.as_ref().expect("Level not found") {
-            crs_interface::Level::Component(component) => component,
-            _ => panic!("Component not found"),
-        }
-    }
-
     pub fn name(&self) -> &str {
         match &self.level.as_ref().expect("Level not found") {
             crs_interface::Level::Command(command) => command.name.as_str(),
             crs_interface::Level::CommandGroup(command_group) => command_group.name.as_str(),
-            crs_interface::Level::Component(component) => component.name.as_str(),
         }
     }
 
@@ -240,7 +232,6 @@ impl command::CrsInterface {
         match &self.level.as_ref().expect("Level not found") {
             crs_interface::Level::Command(command) => command.uri.as_str(),
             crs_interface::Level::CommandGroup(command_group) => command_group.uri.as_str(),
-            crs_interface::Level::Component(component) => component.uri.as_str(),
         }
     }
 
@@ -248,7 +239,6 @@ impl command::CrsInterface {
         match &self.level.as_ref().expect("Level not found") {
             crs_interface::Level::Command(command) => command.help.as_ref(),
             crs_interface::Level::CommandGroup(command_group) => command_group.help.as_ref(),
-            crs_interface::Level::Component(component) => component.help.as_ref(),
         }
     }
 }
@@ -282,5 +272,21 @@ impl<'de> serde::Deserialize<'de> for command::CrsHelp {
                 .to_string(),
             long: s.get("long").and_then(|v| v.as_str()).map(String::from),
         })
+    }
+}
+
+impl From<command::CrsCommand> for command::CrsInterface {
+    fn from(command: command::CrsCommand) -> Self {
+        Self {
+            level: Some(crs_interface::Level::Command(command)),
+        }
+    }
+}
+
+impl From<command::CrsCommandGroup> for command::CrsInterface {
+    fn from(command_group: command::CrsCommandGroup) -> Self {
+        Self {
+            level: Some(crs_interface::Level::CommandGroup(command_group)),
+        }
     }
 }

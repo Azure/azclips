@@ -2,7 +2,7 @@
 /// The interface of the command / command group / component
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CrsInterface {
-    #[prost(oneof = "crs_interface::Level", tags = "10, 11, 12")]
+    #[prost(oneof = "crs_interface::Level", tags = "10, 11")]
     pub level: ::core::option::Option<crs_interface::Level>,
 }
 /// Nested message and enum types in `CrsInterface`.
@@ -13,8 +13,6 @@ pub mod crs_interface {
         Command(super::CrsCommand),
         #[prost(message, tag = "11")]
         CommandGroup(super::CrsCommandGroup),
-        #[prost(message, tag = "12")]
-        Component(super::CrsComponent),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -42,23 +40,6 @@ pub struct CrsCommandGroup {
     /// the uri of the command / command group / component, the uri should be unique across all the commands, command groups and components
     #[prost(string, tag = "2")]
     pub uri: ::prost::alloc::string::String,
-    #[prost(message, optional, tag = "4")]
-    pub help: ::core::option::Option<CrsHelp>,
-    #[prost(message, repeated, tag = "10")]
-    pub groups: ::prost::alloc::vec::Vec<CrsCommandGroup>,
-    #[prost(message, repeated, tag = "11")]
-    pub commands: ::prost::alloc::vec::Vec<CrsCommand>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct CrsComponent {
-    #[prost(string, tag = "1")]
-    pub name: ::prost::alloc::string::String,
-    /// the uri of the command / command group / component, the uri should be unique across all the commands, command groups and components
-    #[prost(string, tag = "2")]
-    pub uri: ::prost::alloc::string::String,
-    /// the release version of the component
-    #[prost(string, tag = "3")]
-    pub version: ::prost::alloc::string::String,
     #[prost(message, optional, tag = "4")]
     pub help: ::core::option::Option<CrsHelp>,
     #[prost(message, repeated, tag = "10")]

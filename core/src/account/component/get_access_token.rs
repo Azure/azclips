@@ -6,8 +6,8 @@ use crate::{
     component::{AzCommand, AzCommandExecute, AzComponentCtx},
     error::AzError,
     pb::{
-        crs_arg, crs_interface, crs_string_arg, CrsArg, CrsArgHelp, CrsCommand, CrsHelp,
-        CrsInterface, CrsParams, CrsStringArg, CrsStringFormat,
+        crs_arg, crs_string_arg, CrsArg, CrsArgHelp, CrsCommand, CrsHelp, CrsParams, CrsStringArg,
+        CrsStringFormat,
     },
     VERSION,
 };
@@ -35,19 +35,17 @@ impl AzCommandExecute for GetAccessToken {
 impl AzCommand for GetAccessToken {
     const URI: &'static str = "crs://azure/account/get-access-token";
 
-    fn build_interface(_: Option<u32>) -> CrsInterface {
-        CrsInterface {
-            level: Some(crs_interface::Level::Command(CrsCommand {
-                name: "get-access-token".to_string(),
-                uri: Self::uri().to_string(),
-                version: VERSION.to_string(),
-                help: Some(CrsHelp {
-                    short: "Get a token for utilities to access Azure.".to_string(),
-                    long: Some("The token will be valid for at least 5 minutes with the maximum at 60 minutes. If the subscription argument isn't specified, the current account is used.\n\nIn the output, `expires_on` represents a POSIX timestamp and `expiresOn` represents a local datetime. It is recommended for downstream applications to use `expires_on` because it is in UTC.".to_string()),
-                }),
-                args: Self::args(),
-                positional_args: vec![],
-            })),
+    fn build_interface(_: Option<u32>) -> CrsCommand {
+        CrsCommand {
+            name: "get-access-token".to_string(),
+            uri: Self::uri().to_string(),
+            version: VERSION.to_string(),
+            help: Some(CrsHelp {
+                short: "Get a token for utilities to access Azure.".to_string(),
+                long: Some("The token will be valid for at least 5 minutes with the maximum at 60 minutes. If the subscription argument isn't specified, the current account is used.\n\nIn the output, `expires_on` represents a POSIX timestamp and `expiresOn` represents a local datetime. It is recommended for downstream applications to use `expires_on` because it is in UTC.".to_string()),
+            }),
+            args: Self::args(),
+            positional_args: vec![],
         }
     }
 

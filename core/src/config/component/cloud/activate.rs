@@ -5,10 +5,7 @@ use crate::{
     component::{AzCommand, AzCommandExecute, AzComponentCtx},
     config::cloud::{AzCloud, AzCloudMetadata},
     error::AzError,
-    pb::{
-        crs_arg, crs_interface, CrsArg, CrsArgHelp, CrsCommand, CrsHelp, CrsInterface, CrsParams,
-        CrsStringArg,
-    },
+    pb::{crs_arg, CrsArg, CrsArgHelp, CrsCommand, CrsHelp, CrsParams, CrsStringArg},
     AzCore, VERSION,
 };
 
@@ -33,19 +30,17 @@ impl AzCommandExecute for ActivateCloud {
 impl AzCommand for ActivateCloud {
     const URI: &'static str = "crs://azure/config/cloud/activate";
 
-    fn build_interface(_: Option<u32>) -> CrsInterface {
-        CrsInterface {
-            level: Some(crs_interface::Level::Command(CrsCommand {
-                name: "activate".to_string(),
-                uri: Self::uri().to_string(),
-                version: VERSION.to_string(),
-                help: Some(CrsHelp {
-                    short: "activate a cloud.".to_string(),
-                    long: None,
-                }),
-                args: Self::args(),
-                positional_args: vec![],
-            })),
+    fn build_interface(_: Option<u32>) -> CrsCommand {
+        CrsCommand {
+            name: "activate".to_string(),
+            uri: Self::uri().to_string(),
+            version: VERSION.to_string(),
+            help: Some(CrsHelp {
+                short: "activate a cloud.".to_string(),
+                long: None,
+            }),
+            args: Self::args(),
+            positional_args: vec![],
         }
     }
 

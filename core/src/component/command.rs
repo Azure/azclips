@@ -5,7 +5,7 @@ use serde::Serialize;
 
 use crate::{
     error::AzError,
-    pb::{execute_response, CrsArg, CrsInterface, CrsOutputFormat, CrsParams, None},
+    pb::{execute_response, CrsArg, CrsCommand, CrsOutputFormat, CrsParams, None},
     uri::CrsUri,
 };
 
@@ -26,7 +26,7 @@ pub trait AzCommand: Sized {
         CrsUri::from_str(Self::URI).unwrap()
     }
 
-    fn build_interface(depth: Option<u32>) -> CrsInterface;
+    fn build_interface(depth: Option<u32>) -> CrsCommand;
 
     fn args() -> Vec<CrsArg>;
 

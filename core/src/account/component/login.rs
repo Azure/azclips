@@ -10,8 +10,8 @@ use crate::{
     component::{AzCommand, AzCommandExecute, AzComponentCtx},
     error::{AuthenticationError, AzError},
     pb::{
-        crs_arg, crs_interface, crs_string_arg, CrsArg, CrsArgHelp, CrsArgPromptInput, CrsArrayArg,
-        CrsArrayFormat, CrsBooleanArg, CrsCommand, CrsHelp, CrsInterface, CrsParams, CrsStringArg,
+        crs_arg, crs_string_arg, CrsArg, CrsArgHelp, CrsArgPromptInput, CrsArrayArg,
+        CrsArrayFormat, CrsBooleanArg, CrsCommand, CrsHelp, CrsParams, CrsStringArg,
         CrsStringFormat,
     },
     VERSION,
@@ -105,19 +105,17 @@ impl Login {
 impl AzCommand for Login {
     const URI: &'static str = "crs://azure/account/login";
 
-    fn build_interface(_: Option<u32>) -> CrsInterface {
-        CrsInterface {
-            level: Some(crs_interface::Level::Command(CrsCommand {
-                name: "login".to_string(),
-                uri: Self::uri().to_string(),
-                version: VERSION.to_string(),
-                help: Some(CrsHelp {
-                    short: "Log in to Azure.".to_string(),
-                    long: Some("By default, this command logs in with a user account.\nTo log in with a service principal, specify --service-principal.\nTo log in with a managed identity, specify --identity.\nFor more details, see https://learn.microsoft.com/cli/azure/authenticate-azure-cli.".to_string()),
-                }),
-                args: Self::args(),
-                positional_args: vec![],
-            })),
+    fn build_interface(_: Option<u32>) -> CrsCommand {
+        CrsCommand {
+            name: "login".to_string(),
+            uri: Self::uri().to_string(),
+            version: VERSION.to_string(),
+            help: Some(CrsHelp {
+                short: "Log in to Azure.".to_string(),
+                long: Some("By default, this command logs in with a user account.\nTo log in with a service principal, specify --service-principal.\nTo log in with a managed identity, specify --identity.\nFor more details, see https://learn.microsoft.com/cli/azure/authenticate-azure-cli.".to_string()),
+            }),
+            args: Self::args(),
+            positional_args: vec![],
         }
     }
 

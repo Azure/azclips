@@ -3,10 +3,7 @@ mod table;
 mod templates;
 
 use az_core::{
-    argparse::{CrsArgWrapper, SHPartialKeys},
-    error::AzError,
-    uri::CrsUri,
-    AzCore,
+    argparse::{CrsArgWrapper, SHPartialKeys}, error::AzError, pb::CrsCommand, uri::CrsUri, AzCore
 };
 use format::default_help_formatter;
 
@@ -59,15 +56,10 @@ pub(crate) async fn show_command_help_async(uri: CrsUri) -> Result<(), AzError> 
 }
 
 pub(crate) async fn show_command_arg_help_async(
-    uri: CrsUri,
+    command: &CrsCommand,
     keys: SHPartialKeys,
 ) -> Result<(), AzError> {
-    let core = AzCore::instance().await;
-    let invocation = core.resolve_invocation(uri).await?;
-    let crs_interface = core.get_interface(&invocation).await?;
-    let command = crs_interface.as_command_ok().to_owned();
-
-    let wrapper = CrsArgWrapper::build_by_keys(&command, &keys)?;
+    let wrapper = CrsArgWrapper::build_by_keys(command, &keys)?;
     let arg = wrapper.arg();
     let term_width = crossterm::terminal::size().ok().map(|(w, _)| w as usize);
     for line in default_help_formatter().format_arg(arg, term_width) {

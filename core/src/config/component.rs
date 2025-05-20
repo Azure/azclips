@@ -11,12 +11,8 @@ use set::SetConfig;
 use crate::{
     component::{AzCommand, AzCommandGroup, AzComponentCtx, AzComponentImpl},
     error::{AzError, AzInternalError},
-    pb::{
-        crs_interface, execute_response, CrsComponent, CrsHelp, CrsInterface, CrsOutputFormat,
-        CrsParams,
-    },
+    pb::{execute_response, CrsCommandGroup, CrsHelp, CrsInterface, CrsOutputFormat, CrsParams},
     uri::CrsUri,
-    VERSION,
 };
 
 #[derive(Debug, Default)]
@@ -26,31 +22,24 @@ pub struct ConfigComponent {}
 #[async_trait]
 impl AzCommandGroup for ConfigComponent {
     const URI: &'static str = "crs://azure/config/";
-    fn build_interface(depth: Option<u32>) -> CrsInterface {
+    fn build_interface(depth: Option<u32>) -> CrsCommandGroup {
         let mut groups = vec![];
         let mut commands = vec![];
         if depth.is_none_or(|d| d > 0) {
             let depth = depth.map(|d| d - 1);
-            groups.push(
-                CloudCommandGroup::build_interface(depth)
-                    .as_command_group_ok()
-                    .to_owned(),
-            );
-            commands.push(GetConfig::build_interface(depth).as_command_ok().to_owned());
-            commands.push(SetConfig::build_interface(depth).as_command_ok().to_owned());
+            groups.push(CloudCommandGroup::build_interface(depth));
+            commands.push(GetConfig::build_interface(depth));
+            commands.push(SetConfig::build_interface(depth));
         }
-        CrsInterface {
-            level: Some(crs_interface::Level::Component(CrsComponent {
-                name: "config".to_string(),
-                help: Some(CrsHelp {
-                    short: "Manage Azure configuration".to_string(),
-                    long: None,
-                }),
-                uri: Self::uri().to_string(),
-                version: VERSION.to_string(),
-                groups,
-                commands,
-            })),
+        CrsCommandGroup {
+            name: "config".to_string(),
+            help: Some(CrsHelp {
+                short: "Manage Azure configuration".to_string(),
+                long: None,
+            }),
+            uri: Self::uri().to_string(),
+            groups,
+            commands,
         }
     }
 
@@ -59,9 +48,9 @@ impl AzCommandGroup for ConfigComponent {
         mut segments: impl Iterator<Item = String>,
     ) -> Option<CrsInterface> {
         match segments.next().as_deref() {
-            None => Some(Self::build_interface(depth)),
-            Some("get") => Some(GetConfig::build_interface(depth)),
-            Some("set") => Some(SetConfig::build_interface(depth)),
+            None => Some(Self::build_interface(depth).into()),
+            Some("get") => Some(GetConfig::build_interface(depth).into()),
+            Some("set") => Some(SetConfig::build_interface(depth).into()),
             Some("cloud") => CloudCommandGroup::find_interface(depth, segments),
             _ => None, // not found
         }
@@ -99,4 +88,6 @@ impl AzCommandGroup for ConfigComponent {
     }
 }
 
-impl<T: AzComponentCtx> AzComponentImpl<T> for ConfigComponent {}
+impl<T: AzComponentCtx> AzComponentImpl<T> for ConfigComponent {
+    const VERSION: &'static str = crate::VERSION;
+}

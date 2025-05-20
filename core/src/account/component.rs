@@ -11,12 +11,8 @@ use logout::Logout;
 use crate::{
     component::{AzCommand, AzCommandGroup, AzComponentCtx, AzComponentImpl},
     error::{AzError, AzInternalError},
-    pb::{
-        crs_interface, execute_response, CrsComponent, CrsHelp, CrsInterface, CrsOutputFormat,
-        CrsParams,
-    },
+    pb::{execute_response, CrsCommandGroup, CrsHelp, CrsInterface, CrsOutputFormat, CrsParams},
     uri::CrsUri,
-    VERSION,
 };
 
 /// The built-in component for managing the account
@@ -28,31 +24,24 @@ pub struct AccountComponent {}
 impl AzCommandGroup for AccountComponent {
     const URI: &'static str = "crs://azure/account/";
 
-    fn build_interface(depth: Option<u32>) -> CrsInterface {
+    fn build_interface(depth: Option<u32>) -> CrsCommandGroup {
         let groups = vec![];
         let mut commands = vec![];
         if depth.is_none_or(|d| d > 0) {
             let depth = depth.map(|d| d - 1);
-            commands.push(
-                GetAccessToken::build_interface(depth)
-                    .as_command_ok()
-                    .to_owned(),
-            );
-            commands.push(Login::build_interface(depth).as_command_ok().to_owned());
-            commands.push(Logout::build_interface(depth).as_command_ok().to_owned());
+            commands.push(GetAccessToken::build_interface(depth));
+            commands.push(Login::build_interface(depth));
+            commands.push(Logout::build_interface(depth));
         }
-        CrsInterface {
-            level: Some(crs_interface::Level::Component(CrsComponent {
-                name: "account".to_string(),
-                uri: Self::uri().to_string(),
-                version: VERSION.to_string(),
-                help: Some(CrsHelp {
-                    short: "Manage Azure subscription information.".to_string(),
-                    long: None,
-                }),
-                groups,
-                commands,
-            })),
+        CrsCommandGroup {
+            name: "account".to_string(),
+            uri: Self::uri().to_string(),
+            help: Some(CrsHelp {
+                short: "Manage Azure subscription information.".to_string(),
+                long: None,
+            }),
+            groups,
+            commands,
         }
     }
 
@@ -61,10 +50,10 @@ impl AzCommandGroup for AccountComponent {
         mut segments: impl Iterator<Item = String>,
     ) -> Option<CrsInterface> {
         match segments.next().as_deref() {
-            None => Some(Self::build_interface(depth)),
-            Some("get-access-token") => Some(GetAccessToken::build_interface(depth)),
-            Some("login") => Some(Login::build_interface(depth)),
-            Some("logout") => Some(Logout::build_interface(depth)),
+            None => Some(Self::build_interface(depth).into()),
+            Some("get-access-token") => Some(GetAccessToken::build_interface(depth).into()),
+            Some("login") => Some(Login::build_interface(depth).into()),
+            Some("logout") => Some(Logout::build_interface(depth).into()),
             _ => None,
         }
     }
@@ -95,4 +84,6 @@ impl AzCommandGroup for AccountComponent {
     }
 }
 
-impl<T: AzComponentCtx> AzComponentImpl<T> for AccountComponent {}
+impl<T: AzComponentCtx> AzComponentImpl<T> for AccountComponent {
+    const VERSION: &'static str = crate::VERSION;
+}

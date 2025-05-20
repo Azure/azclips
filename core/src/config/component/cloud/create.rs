@@ -10,8 +10,8 @@ use crate::{
     },
     error::AzError,
     pb::{
-        crs_arg, crs_interface, CrsArg, CrsArgHelp, CrsCommand, CrsHelp, CrsInterface,
-        CrsObjectArg, CrsObjectArgAdditionalProperties, CrsParams, CrsStringArg,
+        crs_arg, CrsArg, CrsArgHelp, CrsCommand, CrsHelp, CrsObjectArg,
+        CrsObjectArgAdditionalProperties, CrsParams, CrsStringArg,
     },
     AzCore, VERSION,
 };
@@ -50,19 +50,17 @@ impl AzCommandExecute for CreateCloud {
 impl AzCommand for CreateCloud {
     const URI: &'static str = "crs://azure/config/cloud/create";
 
-    fn build_interface(_: Option<u32>) -> CrsInterface {
-        CrsInterface {
-            level: Some(crs_interface::Level::Command(CrsCommand {
-                name: "create".to_string(),
-                uri: Self::uri().to_string(),
-                version: VERSION.to_string(),
-                help: Some(CrsHelp {
-                    short: "create a cloud config".to_string(),
-                    long: None,
-                }),
-                args: Self::args(),
-                positional_args: vec![],
-            })),
+    fn build_interface(_: Option<u32>) -> CrsCommand {
+        CrsCommand {
+            name: "create".to_string(),
+            uri: Self::uri().to_string(),
+            version: VERSION.to_string(),
+            help: Some(CrsHelp {
+                short: "create a cloud config".to_string(),
+                long: None,
+            }),
+            args: Self::args(),
+            positional_args: vec![],
         }
     }
 

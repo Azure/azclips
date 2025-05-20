@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-use az_core::pb::{
-    crs_interface::Level, ComponentMetadata, CrsCommandGroup, CrsComponent, CrsInterface,
-};
+use az_core::pb::{crs_interface::Level, ComponentMetadata, CrsCommandGroup, CrsInterface};
 
 use crate::{
     help::{
@@ -36,7 +34,6 @@ impl CmdTemplate for HardCodeCmdTemplate {
         let header = match cmd.level {
             Some(Level::Command(_)) => "Command",
             Some(Level::CommandGroup(_)) => "Group",
-            Some(Level::Component(_)) => "Service",
             None => "Azure",
         };
         let header_line = StyledString::from(header);
@@ -62,7 +59,6 @@ impl CmdTemplate for HardCodeCmdTemplate {
         let version = match &cmd.level {
             Some(Level::Command(cmd)) => Some(cmd.version.clone()),
             Some(Level::CommandGroup(_)) => None,
-            Some(Level::Component(cmd)) => Some(cmd.version.clone()),
             None => None,
         };
         if let Some(version) = version {
@@ -111,9 +107,6 @@ impl CmdTemplate for HardCodeCmdTemplate {
                 }
             }
             Some(Level::CommandGroup(CrsCommandGroup {
-                commands, groups, ..
-            }))
-            | Some(Level::Component(CrsComponent {
                 commands, groups, ..
             })) => {
                 let command_rows = commands

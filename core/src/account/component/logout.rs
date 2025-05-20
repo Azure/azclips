@@ -5,8 +5,8 @@ use crate::{
     component::{AzCommand, AzCommandExecute, AzComponentCtx},
     error::AzError,
     pb::{
-        crs_arg, crs_interface, crs_string_arg, CrsArg, CrsArgHelp, CrsCommand, CrsHelp,
-        CrsInterface, CrsParams, CrsStringArg, CrsStringFormat,
+        crs_arg, crs_string_arg, CrsArg, CrsArgHelp, CrsCommand, CrsHelp, CrsParams, CrsStringArg,
+        CrsStringFormat,
     },
     VERSION,
 };
@@ -32,19 +32,17 @@ impl AzCommandExecute for Logout {
 impl AzCommand for Logout {
     const URI: &'static str = "crs://azure/account/logout";
 
-    fn build_interface(_: Option<u32>) -> CrsInterface {
-        CrsInterface {
-            level: Some(crs_interface::Level::Command(CrsCommand {
-                name: "logout".to_string(),
-                uri: Self::uri().to_string(),
-                version: VERSION.to_string(),
-                help: Some(CrsHelp {
-                    short: "Log out to remove access to Azure subscriptions.".to_string(),
-                    ..Default::default()
-                }),
-                args: Self::args(),
-                positional_args: vec![],
-            })),
+    fn build_interface(_: Option<u32>) -> CrsCommand {
+        CrsCommand {
+            name: "logout".to_string(),
+            uri: Self::uri().to_string(),
+            version: VERSION.to_string(),
+            help: Some(CrsHelp {
+                short: "Log out to remove access to Azure subscriptions.".to_string(),
+                ..Default::default()
+            }),
+            args: Self::args(),
+            positional_args: vec![],
         }
     }
 
