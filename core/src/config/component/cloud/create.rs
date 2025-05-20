@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use tracing::error;
 
 use crate::{
-    component::{AzCmd, AzCmdExecute, AzComponentCtx},
+    component::{AzCommand, AzCommandExecute, AzComponentCtx},
     config::cloud::{
         endpoint::{self, EndpointMap},
         resource_id::{self, ResourceIdMap},
@@ -24,7 +24,7 @@ pub struct CreateCloud {
 }
 
 #[async_trait]
-impl AzCmdExecute for CreateCloud {
+impl AzCommandExecute for CreateCloud {
     type Output = AzCloudMetadata;
 
     async fn run<T: AzComponentCtx>(&self, ctx: &T) -> Result<Option<Self::Output>, AzError> {
@@ -47,19 +47,19 @@ impl AzCmdExecute for CreateCloud {
     }
 }
 
-impl AzCmd for CreateCloud {
+impl AzCommand for CreateCloud {
     const URI: &'static str = "cmd://azure/config/cloud/create";
 
-    fn cmd_interface(_: Option<u32>) -> CmdInterface {
+    fn build_interface(_: Option<u32>) -> CmdInterface {
         CmdInterface {
-            name: "create".to_string(),
-            help: Some(CmdHelp {
-                short: "create a cloud config".to_string(),
-                long: None,
-            }),
-            uri: Self::uri().to_string(),
             level: Some(cmd_interface::Level::Command(CmdCommand {
+                name: "create".to_string(),
+                uri: Self::uri().to_string(),
                 version: VERSION.to_string(),
+                help: Some(CmdHelp {
+                    short: "create a cloud config".to_string(),
+                    long: None,
+                }),
                 args: Self::args(),
                 positional_args: vec![],
             })),
@@ -158,8 +158,8 @@ impl AzCmd for CreateCloud {
                             .expect("failed to convert to AzCloud");
                     }
                     "endpoints" => {
-                        create_cloud.endpoints = serde_json::from_slice::<EndpointMap>(v)
-                            .expect("failed to parse json");
+                        create_cloud.endpoints =
+                            serde_json::from_slice::<EndpointMap>(v).expect("failed to parse json");
                     }
                     "resourceIds" => {
                         create_cloud.resource_ids = serde_json::from_slice::<ResourceIdMap>(v)

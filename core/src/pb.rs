@@ -91,7 +91,9 @@ impl command::CmdObjectArg {
     /// return the property argument by given the name or alias, if not found, return None
     /// This method will not check the additional properties
     pub fn get_prop<'a>(&'a self, name_or_alias: &'_ str) -> Option<&'a command::CmdArg> {
-        self.props.iter().find(|&prop| prop.name == name_or_alias || prop.options.iter().any(|o| o == name_or_alias))
+        self.props.iter().find(|&prop| {
+            prop.name == name_or_alias || prop.options.iter().any(|o| o == name_or_alias)
+        })
     }
     /// return the item argument for the additional properties
     pub fn get_additional_item(&self) -> Result<Option<&command::CmdArg>, AzInternalError> {
@@ -107,7 +109,9 @@ impl command::CmdArrayArg {
         let item = self
             .item
             .as_ref()
-            .ok_or(AzInternalError::InvalidArgumentDefinitionError("Missing item for array".to_string()))?;
+            .ok_or(AzInternalError::InvalidArgumentDefinitionError(
+                "Missing item for array".to_string(),
+            ))?;
         Ok(item)
     }
 }
@@ -198,5 +202,52 @@ impl TryFrom<command::CmdArgEnumItem> for Value {
             ),
         ))?;
         Ok(value)
+    }
+}
+
+impl command::CmdInterface {
+    pub fn as_command_ok(&self) -> &command::CmdCommand {
+        match &self.level.as_ref().expect("Level not found") {
+            cmd_interface::Level::Command(command) => command,
+            _ => panic!("Command not found"),
+        }
+    }
+
+    pub fn as_command_group_ok(&self) -> &command::CmdCommandGroup {
+        match &self.level.as_ref().expect("Level not found") {
+            cmd_interface::Level::CommandGroup(command_group) => command_group,
+            _ => panic!("Command group not found"),
+        }
+    }
+
+    pub fn as_component_ok(&self) -> &command::CmdComponent {
+        match &self.level.as_ref().expect("Level not found") {
+            cmd_interface::Level::Component(component) => component,
+            _ => panic!("Component not found"),
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        match &self.level.as_ref().expect("Level not found") {
+            cmd_interface::Level::Command(command) => command.name.as_str(),
+            cmd_interface::Level::CommandGroup(command_group) => command_group.name.as_str(),
+            cmd_interface::Level::Component(component) => component.name.as_str(),
+        }
+    }
+
+    pub fn uri(&self) -> &str {
+        match &self.level.as_ref().expect("Level not found") {
+            cmd_interface::Level::Command(command) => command.uri.as_str(),
+            cmd_interface::Level::CommandGroup(command_group) => command_group.uri.as_str(),
+            cmd_interface::Level::Component(component) => component.uri.as_str(),
+        }
+    }
+
+    pub fn help(&self) -> Option<&command::CmdHelp> {
+        match &self.level.as_ref().expect("Level not found") {
+            cmd_interface::Level::Command(command) => command.help.as_ref(),
+            cmd_interface::Level::CommandGroup(command_group) => command_group.help.as_ref(),
+            cmd_interface::Level::Component(component) => component.help.as_ref(),
+        }
     }
 }

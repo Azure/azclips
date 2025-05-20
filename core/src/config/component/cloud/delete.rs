@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use tracing::error;
 
 use crate::{
-    component::{AzCmd, AzCmdExecute, AzComponentCtx},
+    component::{AzCommand, AzCommandExecute, AzComponentCtx},
     config::cloud::AzCloud,
     error::{AzError, AzUserUsageError},
     pb::{
@@ -18,7 +18,7 @@ pub struct DeleteCloud {
 }
 
 #[async_trait]
-impl AzCmdExecute for DeleteCloud {
+impl AzCommandExecute for DeleteCloud {
     type Output = ();
 
     async fn run<T: AzComponentCtx>(&self, _: &T) -> Result<Option<Self::Output>, AzError> {
@@ -34,19 +34,19 @@ impl AzCmdExecute for DeleteCloud {
     }
 }
 
-impl AzCmd for DeleteCloud {
+impl AzCommand for DeleteCloud {
     const URI: &'static str = "cmd://azure/config/cloud/delete";
 
-    fn cmd_interface(_: Option<u32>) -> CmdInterface {
+    fn build_interface(_: Option<u32>) -> CmdInterface {
         CmdInterface {
-            name: "delete".to_string(),
-            help: Some(CmdHelp {
-                short: "delete a cloud.".to_string(),
-                long: None,
-            }),
-            uri: Self::uri().to_string(),
             level: Some(cmd_interface::Level::Command(CmdCommand {
+                name: "delete".to_string(),
+                uri: Self::uri().to_string(),
                 version: VERSION.to_string(),
+                help: Some(CmdHelp {
+                    short: "delete a cloud.".to_string(),
+                    long: None,
+                }),
                 args: Self::args(),
                 positional_args: vec![],
             })),

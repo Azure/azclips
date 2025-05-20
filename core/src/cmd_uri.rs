@@ -357,7 +357,7 @@ impl CmdUri {
         };
         (0..tail).rev().map(|i| {
             let segments = self.segments[..=i].to_vec();
-            
+
             CmdUri::new(segments, false)
         })
     }
