@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use serde::Serialize;
 
 use crate::{
-    cmd_uri::CmdUri,
+    uri::CrsUri,
     error::AzError,
     pb::{
         execute_response, CrsArg, CrsInterface, CrsOutputFormat, CrsParams, ComponentMetadata,
@@ -27,8 +27,8 @@ pub trait AzCommandExecute {
 pub trait AzCommand: Sized {
     const URI: &'static str;
 
-    fn uri() -> CmdUri {
-        CmdUri::from_str(Self::URI).unwrap()
+    fn uri() -> CrsUri {
+        CrsUri::from_str(Self::URI).unwrap()
     }
 
     fn build_interface(depth: Option<u32>) -> CrsInterface;
@@ -62,8 +62,8 @@ pub trait AzCommand: Sized {
 pub trait AzCommandGroup {
     const URI: &'static str;
 
-    fn uri() -> CmdUri {
-        CmdUri::from_str(Self::URI).unwrap()
+    fn uri() -> CrsUri {
+        CrsUri::from_str(Self::URI).unwrap()
     }
 
     fn build_interface(depth: Option<u32>) -> CrsInterface;
@@ -73,7 +73,7 @@ pub trait AzCommandGroup {
         segments: impl Iterator<Item = String>,
     ) -> Option<CrsInterface>;
 
-    fn resolve_cmd_uri(segments: impl Iterator<Item = String>) -> Option<CmdUri>;
+    fn resolve_uri(segments: impl Iterator<Item = String>) -> Option<CrsUri>;
 
     async fn execute_group<T: AzComponentCtx>(
         ctx: &T,
@@ -106,20 +106,20 @@ impl<T: AzComponentCtx, C: AzComponentImpl<T>> AzComponent<T> for C {
         request: InterfaceRequest,
     ) -> Result<InterfaceResponse, AzError> {
         let skip = Self::uri().segments().count();
-        let cmd_uri = CmdUri::from_str(&request.uri).unwrap();
+        let uri = CrsUri::from_str(&request.uri).unwrap();
         let depth = match request.depth {
             0 => None, // None means all the depth
             _ => Some(request.depth),
         };
-        let segments = cmd_uri.segments().skip(skip).map(|s| s.to_string());
+        let segments = uri.segments().skip(skip).map(|s| s.to_string());
         let interface = Self::find_interface(depth, segments);
         Ok(InterfaceResponse { interface })
     }
 
     async fn execute(&self, ctx: &T, request: ExecuteRequest) -> Result<ExecuteResponse, AzError> {
         let skip = Self::uri().segments().count();
-        let cmd_uri = CmdUri::from_str(&request.uri).unwrap();
-        let segments = cmd_uri.segments().skip(skip).map(|s| s.to_string());
+        let uri = CrsUri::from_str(&request.uri).unwrap();
+        let segments = uri.segments().skip(skip).map(|s| s.to_string());
         let result =
             Self::execute_group(ctx, segments, request.params, request.output_format).await?;
         Ok(ExecuteResponse { data: Some(result) })
@@ -127,16 +127,16 @@ impl<T: AzComponentCtx, C: AzComponentImpl<T>> AzComponent<T> for C {
 
     async fn validate(&self, _: &T, request: ValidateRequest) -> Result<ValidateResponse, AzError> {
         let skip = Self::uri().segments().count();
-        let cmd_uri = CmdUri::from_str(&request.uri).unwrap();
-        let segments = cmd_uri.segments().skip(skip).map(|s| s.to_string());
-        let uri = Self::resolve_cmd_uri(segments).map(|u| {
-            // add version and params from the cmd_uri
-            let mut uri = u.with_version(VERSION);
-            for (key, value) in cmd_uri.params() {
-                uri = uri.with_param_values(key, value.collect::<Vec<_>>());
+        let uri = CrsUri::from_str(&request.uri).unwrap();
+        let segments = uri.segments().skip(skip).map(|s| s.to_string());
+        let new_uri = Self::resolve_uri(segments).map(|u| {
+            // add version and params from the uri
+            let mut new_uri = u.with_version(VERSION);
+            for (key, value) in uri.params() {
+                new_uri = new_uri.with_param_values(key, value.collect::<Vec<_>>());
             }
-            uri.to_string()
+            new_uri.to_string()
         });
-        Ok(ValidateResponse { uri })
+        Ok(ValidateResponse { uri: new_uri })
     }
 }

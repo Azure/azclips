@@ -9,7 +9,7 @@ use login::Login;
 use logout::Logout;
 
 use crate::{
-    cmd_uri::CmdUri,
+    uri::CrsUri,
     component::{AzCommand, AzCommandGroup, AzComponentCtx, AzComponentImpl},
     error::{AzError, AzInternalError},
     pb::{
@@ -69,7 +69,7 @@ impl AzCommandGroup for AccountComponent {
         }
     }
 
-    fn resolve_cmd_uri(mut segments: impl Iterator<Item = String>) -> Option<CmdUri> {
+    fn resolve_uri(mut segments: impl Iterator<Item = String>) -> Option<CrsUri> {
         match segments.next().as_deref() {
             None => Some(Self::uri()),
             Some("get-access-token") => Some(GetAccessToken::uri()),
@@ -89,8 +89,8 @@ impl AzCommandGroup for AccountComponent {
             Some("get-access-token") => GetAccessToken::execute(ctx, params, output_format).await,
             Some("login") => Login::execute(ctx, params, output_format).await,
             Some("logout") => Logout::execute(ctx, params, output_format).await,
-            Some(other) => Err(AzInternalError::InvalidCmdUriError(other.to_string()).into()),
-            None => Err(AzInternalError::InvalidCmdUriError(Self::uri().to_string()).into()),
+            Some(other) => Err(AzInternalError::InvalidCrsUriError(other.to_string()).into()),
+            None => Err(AzInternalError::InvalidCrsUriError(Self::uri().to_string()).into()),
         }
     }
 }

@@ -61,7 +61,7 @@ pub enum AzInternalError {
     InvalidPartialKeysError(String),
 
     #[error("Invalid command URI: {0}")]
-    InvalidCmdUriError(String),
+    InvalidCrsUriError(String),
 
     #[error("Invalid path: {0}")]
     InvalidPathError(String),

@@ -18,7 +18,7 @@ use crate::{
     pb::{crs_arg, crs_number_arg, crs_string_arg, CrsCommand, CrsParams},
 };
 
-pub struct CmdParamBuilder<'a> {
+pub struct CrsParamBuilder<'a> {
     // the binary parameters will be stored as a file path in the value and converted to a binary data when building the command
     params: ParamValue,
     command: &'a CrsCommand,
@@ -31,7 +31,7 @@ enum ParamValue {
     Partial(HashMap<String, ParamValue>),
 }
 
-impl<'a> CmdParamBuilder<'a> {
+impl<'a> CrsParamBuilder<'a> {
     pub fn new(command: &'a CrsCommand) -> Self {
         Self {
             params: ParamValue::Partial(HashMap::new()),
@@ -40,7 +40,7 @@ impl<'a> CmdParamBuilder<'a> {
     }
 }
 
-impl CmdParamBuilder<'_> {
+impl CrsParamBuilder<'_> {
     /// apply all the value operation into a param value tree
     ///
     /// using the argument name as the key and replace all the alias
@@ -282,7 +282,7 @@ impl CmdParamBuilder<'_> {
     /// 1. apply the default values
     /// 2. check values with format rules
     pub fn format_and_build(self) -> AzResult<CrsParams> {
-        let mut cmd_params = CrsParams::default();
+        let mut crs_params = CrsParams::default();
 
         let params_map = if let ParamValue::Partial(partial) = self.params {
             partial
@@ -298,15 +298,15 @@ impl CmdParamBuilder<'_> {
             .unwrap();
 
             if matches!(value, ParamValue::Assign(_)) {
-                cmd_params.patch_keys.push(arg.prefix_keys().to_string());
+                crs_params.patch_keys.push(arg.prefix_keys().to_string());
             } else if matches!(value, ParamValue::Append(_)) {
-                cmd_params
+                crs_params
                     .patch_keys
                     .push(format!("{}+", arg.prefix_keys()));
             }
-            let v = format_param_value(value, &arg, &mut cmd_params.patch_keys)?;
+            let v = format_param_value(value, &arg, &mut crs_params.patch_keys)?;
             let json_bytes = serde_json::to_vec(&v).unwrap();
-            cmd_params.params.insert(key, json_bytes);
+            crs_params.params.insert(key, json_bytes);
         }
 
         // apply default values if argument is not assigned
@@ -314,7 +314,7 @@ impl CmdParamBuilder<'_> {
             if arg.default.is_none() {
                 continue;
             }
-            if cmd_params.params.contains_key(&arg.name) {
+            if crs_params.params.contains_key(&arg.name) {
                 continue;
             }
 
@@ -322,13 +322,13 @@ impl CmdParamBuilder<'_> {
             let value = ParamValue::Assign(default);
             let key = arg.name.to_string();
             let arg = CrsArgWrapper::new(Some(self.command), arg)?;
-            cmd_params.patch_keys.push(arg.prefix_keys().to_string());
-            let v = format_param_value(value, &arg, &mut cmd_params.patch_keys)?;
+            crs_params.patch_keys.push(arg.prefix_keys().to_string());
+            let v = format_param_value(value, &arg, &mut crs_params.patch_keys)?;
             let json_bytes = serde_json::to_vec(&v).unwrap();
-            cmd_params.params.insert(key, json_bytes);
+            crs_params.params.insert(key, json_bytes);
         }
 
-        Ok(cmd_params)
+        Ok(crs_params)
     }
 }
 
@@ -783,7 +783,7 @@ mod test {
         };
         cmd.args.push(array_arg);
 
-        let mut builder = CmdParamBuilder::new(&cmd);
+        let mut builder = CrsParamBuilder::new(&cmd);
 
         for (arg, values, expected) in [
             ("arr", vec!["[5]=f"], 
@@ -1099,7 +1099,7 @@ mod test {
                 vec!["object.prop_df", "object.prop_obj.array+", "default"],
             ),
         ] {
-            let mut builder = CmdParamBuilder::new(&cmd);
+            let mut builder = CrsParamBuilder::new(&cmd);
             let ops = parse_crs_arg(&cmd, arg, values)
                 .unwrap()
                 .unwrap()

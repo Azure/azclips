@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use version::ShowVersion;
 
 use crate::{
-    cmd_uri::CmdUri,
+    uri::CrsUri,
     component::{AzCommand, AzCommandGroup, AzComponentCtx, AzComponentImpl},
     error::{AzError, AzInternalError},
     pb::{
@@ -14,6 +14,7 @@ use crate::{
     },
     VERSION,
 };
+
 
 #[derive(Debug, Default)]
 pub struct TopComponent {}
@@ -60,7 +61,7 @@ impl AzCommandGroup for TopComponent {
         }
     }
 
-    fn resolve_cmd_uri(mut segments: impl Iterator<Item = String>) -> Option<CmdUri> {
+    fn resolve_uri(mut segments: impl Iterator<Item = String>) -> Option<CrsUri> {
         match segments.next().as_deref() {
             None => Some(Self::uri()),
             Some("version") => Some(ShowVersion::uri()),
@@ -76,8 +77,8 @@ impl AzCommandGroup for TopComponent {
     ) -> Result<execute_response::Data, AzError> {
         match segments.next().as_deref() {
             Some("version") => ShowVersion::execute(ctx, params, output_format).await,
-            Some(other) => Err(AzInternalError::InvalidCmdUriError(other.to_string()).into()),
-            None => Err(AzInternalError::InvalidCmdUriError(Self::uri().to_string()).into()),
+            Some(other) => Err(AzInternalError::InvalidCrsUriError(other.to_string()).into()),
+            None => Err(AzInternalError::InvalidCrsUriError(Self::uri().to_string()).into()),
         }
     }
 }

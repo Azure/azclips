@@ -7,7 +7,7 @@ use serde::ser::SerializeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Map;
 
-use crate::cmd_uri::CmdUri;
+use crate::uri::CrsUri;
 use crate::component::{get_component_dir, AzComponent, AzComponentCtx};
 use crate::config::cloud::AzCloud;
 use crate::error::AzInternalError;
@@ -19,7 +19,7 @@ const PLUGIN_DIR_NAME: &str = "plugins";
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AzPlugin {
     pub(crate) name: String,
-    pub(crate) uri: CmdUri,
+    pub(crate) uri: CrsUri,
     pub(crate) version: String,
     #[serde(
         serialize_with = "serialize_cmd_help",

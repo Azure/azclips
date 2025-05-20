@@ -1,5 +1,5 @@
 use crate::{
-    account::component::AccountComponent, cmd_uri::CmdUri, config::component::ConfigComponent,
+    account::component::AccountComponent, uri::CrsUri, config::component::ConfigComponent,
     top::component::TopComponent,
 };
 use serde::{de::Error, ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
@@ -21,19 +21,19 @@ pub enum AzBuildIn {
 }
 
 impl AzBuildIn {
-    // /// cmd_uri: `cmd://azure/plugin/`
+    // /// uri: `cmd://azure/plugin/`
     // const PLUGIN_URI: &'static str = "cmd://azure/plugin/";
 
-    pub(crate) fn uri(&self) -> CmdUri {
+    pub(crate) fn uri(&self) -> CrsUri {
         match self {
             AzBuildIn::Top => TopComponent::uri(),
             AzBuildIn::Config => ConfigComponent::uri(),
             AzBuildIn::Account => AccountComponent::uri(),
-            // AzBuildIn::Plugin => CmdUri::from_str(Self::PLUGIN_URI).unwrap(),
+            // AzBuildIn::Plugin => CrsUri::from_str(Self::PLUGIN_URI).unwrap(),
         }
     }
 
-    pub(crate) fn from_uri(uri: &CmdUri) -> Option<Self> {
+    pub(crate) fn from_uri(uri: &CrsUri) -> Option<Self> {
         match uri.to_string().as_str() {
             s if s == TopComponent::URI => Some(Self::Top),
             s if s == ConfigComponent::URI => Some(Self::Config),
@@ -76,7 +76,7 @@ impl<'de> Deserialize<'de> for AzBuildIn {
             .get("uri")
             .and_then(|v| v.as_str())
             .ok_or_else(|| D::Error::custom("component uri is required"))?;
-        let uri = CmdUri::from_str(uri).map_err(D::Error::custom)?;
+        let uri = CrsUri::from_str(uri).map_err(D::Error::custom)?;
         AzBuildIn::from_uri(&uri).ok_or_else(|| D::Error::custom("invalid component uri"))
     }
 }

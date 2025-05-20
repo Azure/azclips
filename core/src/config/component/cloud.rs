@@ -15,7 +15,7 @@ use show::ShowCloud;
 use update::UpdateCloud;
 
 use crate::{
-    cmd_uri::CmdUri,
+    uri::CrsUri,
     component::{AzCommand, AzCommandGroup, AzComponentCtx},
     error::{AzError, AzInternalError},
     pb::{
@@ -93,7 +93,7 @@ impl AzCommandGroup for CloudCommandGroup {
         }
     }
 
-    fn resolve_cmd_uri(mut segments: impl Iterator<Item = String>) -> Option<CmdUri> {
+    fn resolve_uri(mut segments: impl Iterator<Item = String>) -> Option<CrsUri> {
         match segments.next().as_deref() {
             None => Some(CloudCommandGroup::uri()),
             Some("activate") => Some(ActivateCloud::uri()),
@@ -119,7 +119,7 @@ impl AzCommandGroup for CloudCommandGroup {
             Some("show") => ShowCloud::execute(ctx, params, output_format).await,
             Some("delete") => DeleteCloud::execute(ctx, params, output_format).await,
             Some("list") => ListClouds::execute(ctx, params, output_format).await,
-            _ => Err(AzInternalError::InvalidCmdUriError(Self::uri().to_string()).into()),
+            _ => Err(AzInternalError::InvalidCrsUriError(Self::uri().to_string()).into()),
         }
     }
 }

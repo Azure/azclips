@@ -1,6 +1,6 @@
 use az_core::{
     argparse::{self, ArgOp, ArgValueAssignOp, CrsArgWrapper},
-    cmd_uri::CmdUri,
+    uri::CrsUri,
     error::{AzError, AzInternalError, AzUserUsageError},
     pb::{crs_interface, CrsArg, CrsCommand},
     AzCore,
@@ -8,10 +8,10 @@ use az_core::{
 
 use crate::{help, CmdRawArg};
 
-pub fn execute_command(cmd_uri: CmdUri, raw_args: Vec<CmdRawArg>) {
+pub fn execute_command(uri: CrsUri, raw_args: Vec<CmdRawArg>) {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
-        if let Err(e) = execute_command_async(cmd_uri, raw_args).await {
+        if let Err(e) = execute_command_async(uri, raw_args).await {
             // TODO: handle the error, need to add error handler in the core
             eprintln!("{}", e);
             std::process::exit(1);
@@ -19,13 +19,13 @@ pub fn execute_command(cmd_uri: CmdUri, raw_args: Vec<CmdRawArg>) {
     });
 }
 
-async fn execute_command_async(cmd_uri: CmdUri, raw_args: Vec<CmdRawArg>) -> Result<(), AzError> {
+async fn execute_command_async(uri: CrsUri, raw_args: Vec<CmdRawArg>) -> Result<(), AzError> {
     let core = AzCore::instance().await;
-    let invocation = core.resolve_cmd_invocation(cmd_uri).await?;
+    let invocation = core.resolve_cmd_invocation(uri).await?;
 
-    if !invocation.cmd_uri.executable() {
+    if !invocation.uri.executable() {
         // if it's a command group, then show the help of it instead of executing it
-        help::show_command_help_async(invocation.cmd_uri).await?;
+        help::show_command_help_async(invocation.uri).await?;
         return Err(AzUserUsageError::CommandGroupNotExecutableError.into());
     }
 
@@ -40,13 +40,13 @@ async fn execute_command_async(cmd_uri: CmdUri, raw_args: Vec<CmdRawArg>) -> Res
     let mut cmd_value_ops = Vec::new();
 
     // the positional arguments will be returned as params in uri query part by service
-    for (arg_name, values) in invocation.cmd_uri.params() {
+    for (arg_name, values) in invocation.uri.params() {
         let (arg, ops) = parse_arg_values(&cmd, arg_name, values)?;
 
         // show the help of the argument
         if let Some(ArgOp::Help(op)) = ops.iter().find(|op| matches!(op, ArgOp::Help(_))) {
             return help::show_command_arg_help_async(
-                invocation.cmd_uri.clone(),
+                invocation.uri.clone(),
                 op.arg_keys().to_owned(),
             )
             .await;
@@ -65,7 +65,7 @@ async fn execute_command_async(cmd_uri: CmdUri, raw_args: Vec<CmdRawArg>) -> Res
         // show the help of the argument
         if let Some(ArgOp::Help(op)) = ops.iter().find(|op| matches!(op, ArgOp::Help(_))) {
             return help::show_command_arg_help_async(
-                invocation.cmd_uri.clone(),
+                invocation.uri.clone(),
                 op.arg_keys().to_owned(),
             )
             .await;

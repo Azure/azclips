@@ -9,7 +9,7 @@ use get::GetConfig;
 use set::SetConfig;
 
 use crate::{
-    cmd_uri::CmdUri,
+    uri::CrsUri,
     component::{AzCommand, AzCommandGroup, AzComponentCtx, AzComponentImpl},
     error::{AzError, AzInternalError},
     pb::{
@@ -67,7 +67,7 @@ impl AzCommandGroup for ConfigComponent {
         }
     }
 
-    fn resolve_cmd_uri(mut segments: impl Iterator<Item = String>) -> Option<CmdUri> {
+    fn resolve_uri(mut segments: impl Iterator<Item = String>) -> Option<CrsUri> {
         match segments.next().as_deref() {
             None => Some(Self::uri()),
             Some("get") => {
@@ -76,7 +76,7 @@ impl AzCommandGroup for ConfigComponent {
             Some("set") => {
                 Some(SetConfig::uri().with_param_values("value", segments.collect::<Vec<_>>()))
             }
-            Some("cloud") => CloudCommandGroup::resolve_cmd_uri(segments),
+            Some("cloud") => CloudCommandGroup::resolve_uri(segments),
             _ => None,
         }
     }
@@ -93,8 +93,8 @@ impl AzCommandGroup for ConfigComponent {
             Some("cloud") => {
                 CloudCommandGroup::execute_group(ctx, segments, params, output_format).await
             }
-            Some(other) => Err(AzInternalError::InvalidCmdUriError(other.to_string()).into()),
-            None => Err(AzInternalError::InvalidCmdUriError(Self::uri().to_string()).into()),
+            Some(other) => Err(AzInternalError::InvalidCrsUriError(other.to_string()).into()),
+            None => Err(AzInternalError::InvalidCrsUriError(Self::uri().to_string()).into()),
         }
     }
 }
