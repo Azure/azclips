@@ -1,4 +1,5 @@
 mod add;
+mod demo;
 mod list;
 mod remove;
 mod show;
@@ -6,6 +7,7 @@ mod upgrade;
 
 use add::AddPlugin;
 use async_trait::async_trait;
+use demo::DemoCommandGroup;
 use list::ListPlugins;
 use remove::RemovePlugin;
 use show::ShowPlugin;
@@ -28,7 +30,7 @@ impl AzCommandGroup for PluginComponent {
     const URI: &'static str = "crs://azure/plugin/";
 
     fn build_interface(depth: Option<u32>) -> CrsCommandGroup {
-        let groups = vec![];
+        let mut groups = vec![];
         let mut commands = vec![];
         if depth.is_none_or(|d| d > 0) {
             let depth = depth.map(|d| d - 1);
@@ -37,6 +39,8 @@ impl AzCommandGroup for PluginComponent {
             commands.push(RemovePlugin::build_interface(depth));
             commands.push(ShowPlugin::build_interface(depth));
             commands.push(UpgradePlugin::build_interface(depth));
+
+            groups.push(DemoCommandGroup::build_interface(depth));
         }
         CrsCommandGroup {
             name: "plugin".to_string(),
@@ -56,6 +60,7 @@ impl AzCommandGroup for PluginComponent {
     ) -> Option<CrsInterface> {
         match segments.next().as_deref() {
             None => Some(Self::build_interface(depth).into()),
+            Some("demo") => Some(DemoCommandGroup::build_interface(depth).into()),
             Some("add") => Some(AddPlugin::build_interface(depth).into()),
             Some("list") => Some(ListPlugins::build_interface(depth).into()),
             Some("remove") => Some(RemovePlugin::build_interface(depth).into()),
@@ -68,6 +73,7 @@ impl AzCommandGroup for PluginComponent {
     fn resolve_uri(mut segments: impl Iterator<Item = String>) -> Option<CrsUri> {
         match segments.next().as_deref() {
             None => Some(Self::uri()),
+            Some("demo") => Some(DemoCommandGroup::uri()),
             Some("add") => Some(AddPlugin::uri()),
             Some("list") => Some(ListPlugins::uri()),
             Some("remove") => Some(RemovePlugin::uri()),
@@ -84,6 +90,9 @@ impl AzCommandGroup for PluginComponent {
         output_format: Option<CrsOutputFormat>,
     ) -> Result<execute_response::Data, AzError> {
         match segments.next().as_deref() {
+            Some("demo") => {
+                DemoCommandGroup::execute_group(ctx, segments, params, output_format).await
+            }
             Some("add") => AddPlugin::execute(ctx, params, output_format).await,
             Some("list") => ListPlugins::execute(ctx, params, output_format).await,
             Some("remove") => RemovePlugin::execute(ctx, params, output_format).await,
