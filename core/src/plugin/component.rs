@@ -60,7 +60,7 @@ impl AzCommandGroup for PluginComponent {
     ) -> Option<CrsInterface> {
         match segments.next().as_deref() {
             None => Some(Self::build_interface(depth).into()),
-            Some("demo") => Some(DemoCommandGroup::build_interface(depth).into()),
+            Some("demo") => DemoCommandGroup::find_interface(depth, segments),
             Some("add") => Some(AddPlugin::build_interface(depth).into()),
             Some("list") => Some(ListPlugins::build_interface(depth).into()),
             Some("remove") => Some(RemovePlugin::build_interface(depth).into()),
@@ -73,7 +73,7 @@ impl AzCommandGroup for PluginComponent {
     fn resolve_uri(mut segments: impl Iterator<Item = String>) -> Option<CrsUri> {
         match segments.next().as_deref() {
             None => Some(Self::uri()),
-            Some("demo") => Some(DemoCommandGroup::uri()),
+            Some("demo") => DemoCommandGroup::resolve_uri(segments),
             Some("add") => Some(AddPlugin::uri()),
             Some("list") => Some(ListPlugins::uri()),
             Some("remove") => Some(RemovePlugin::uri()),

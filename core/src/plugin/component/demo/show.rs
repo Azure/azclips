@@ -5,18 +5,27 @@ use tracing::error;
 use crate::{
     component::{AzCommand, AzCommandExecute, AzComponentCtx},
     error::AzError,
-    pb::{CrsArg, CrsCommand, CrsHelp, CrsParams},
+    pb::{crs_arg, crs_string_arg, CrsArg, CrsArgHelp, CrsCommand, CrsHelp, CrsParams, CrsStringArg, CrsStringFormat, CrsSubscriptionIdFormat},
     VERSION,
 };
 
 #[derive(Debug, Default)]
-pub struct ShowDemo {}
+pub struct ShowDemo {
+    resource_group_name: String,
+    subscription: Option<String>,
+}
 
 #[async_trait]
 impl AzCommandExecute for ShowDemo {
     type Output = Value;
 
-    async fn run<T: AzComponentCtx>(&self, _: &T) -> Result<Option<Self::Output>, AzError> {
+    async fn run<T: AzComponentCtx>(&self, ctx: &T) -> Result<Option<Self::Output>, AzError> {
+        let subscription = match self.subscription.as_ref() {
+            Some(s) => s.to_owned(),
+            None => ctx.get_default_subscription().await?,
+        };
+        println!("subscription: {}", subscription);
+        println!("resource_group_name: {}", self.resource_group_name);
         Ok(Some(json!({})))
     }
 }
@@ -39,7 +48,38 @@ impl AzCommand for ShowDemo {
     }
 
     fn args() -> Vec<CrsArg> {
-        vec![]
+        vec![
+            CrsArg {
+                var_name: "$Path.resourceGroupName".to_string(),
+                name: "resourceGroupName".to_string(),
+                options: vec!["name".to_string(), "n".to_string(), "g".to_string(), "resource-group".to_string()],
+                help: Some(CrsArgHelp {
+                    short: "Name of resource group.".to_string(),
+                    ..Default::default()
+                }),
+                required: true,
+                arg_type: Some(crs_arg::ArgType::String(CrsStringArg {
+                    format: Some(crs_string_arg::Format::String(CrsStringFormat::default())),
+                    ..Default::default()
+                })),
+                ..Default::default()
+            },
+            CrsArg {
+                var_name: "$Path.subscriptionId".to_string(),
+                name: "subscription".to_string(),
+                options: vec!["subscription".to_string()],
+                help: Some(CrsArgHelp {
+                    short: "Name or ID of subscription.".to_string(),
+                    ..Default::default()
+                }),
+                required: false,
+                arg_type: Some(crs_arg::ArgType::String(CrsStringArg {
+                    format: Some(crs_string_arg::Format::SubscriptionId(CrsSubscriptionIdFormat::default())),
+                    ..Default::default()
+                })),
+                ..Default::default()
+            },
+        ]
     }
 
     fn try_from(params: Option<CrsParams>) -> Result<Self, AzError> {
@@ -47,9 +87,12 @@ impl AzCommand for ShowDemo {
         if let Some(params) = params {
             for (name, v) in params.params.iter() {
                 match name.as_str() {
-                    // "name" => {
-                    //     create.name = serde_json::from_slice(v).expect("failed to parse json");
-                    // }
+                    "resourceGroupName" => {
+                        show.resource_group_name = serde_json::from_slice(v).expect("failed to parse json");
+                    }
+                    "subscription" => {
+                        show.subscription = serde_json::from_slice(v).expect("failed to parse json");
+                    }
                     _ => {
                         error!("unknown argument: {}", name);
                     }

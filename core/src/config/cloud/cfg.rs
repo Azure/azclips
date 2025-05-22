@@ -20,8 +20,7 @@ impl Default for AzCloudsCfg {
             AzCloudMetadata {
                 name: AzCloud::AzureCloud,
                 active: true,
-                endpoints: Default::default(),
-                resource_ids: Default::default(),
+                ..Default::default()
             },
         );
         Self(clouds)
@@ -48,9 +47,7 @@ impl AzCloudsCfg {
         let metadata = self.0.get(name).map_or(
             AzCloudMetadata {
                 name: name.clone(),
-                active: false,
-                endpoints: Default::default(),
-                resource_ids: Default::default(),
+                ..Default::default()
             },
             |metadata| metadata.clone(),
         );
@@ -78,9 +75,7 @@ impl AzCloudsCfg {
 
         let metadata = self.0.entry(active.clone()).or_insert(AzCloudMetadata {
             name: active.clone(),
-            active: false,
-            endpoints: Default::default(),
-            resource_ids: Default::default(),
+            ..Default::default()
         });
 
         metadata.active = true;
@@ -139,8 +134,7 @@ impl<'de> Deserialize<'de> for AzCloudsCfg {
                             AzCloudMetadata {
                                 name: AzCloud::AzureCloud,
                                 active: true,
-                                endpoints: Default::default(),
-                                resource_ids: Default::default(),
+                                ..Default::default()
                             },
                         );
                     }
@@ -374,6 +368,7 @@ mod tests {
                     &resource_id::AUTHENTICATION,
                     "https://test.resource.com/",
                 )]),
+                ..Default::default()
             },
         );
 

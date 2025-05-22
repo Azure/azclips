@@ -17,6 +17,8 @@ pub struct AzCloudMetadata {
     pub name: AzCloud,
     #[serde(default)]
     pub(crate) active: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) subscription: Option<String>,
     #[serde(default)]
     pub(crate) endpoints: endpoint::EndpointMap,
     #[serde(default)]
@@ -134,6 +136,7 @@ mod tests {
         let metadata = AzCloudMetadata {
             name: AzCloud::AzureCloud,
             active: true,
+            subscription: None,
             endpoints: endpoint::EndpointMap::from([(
                 &endpoint::AUTHENTICATION,
                 "https://test.endpoint.com",
@@ -156,6 +159,7 @@ mod tests {
         // the empty endpoints and resource_ids should not be ignored
         let metadata = AzCloudMetadata {
             name: AzCloud::AzureCloud,
+            subscription: None,
             active: false,
             endpoints: Default::default(),
             resource_ids: Default::default(),
