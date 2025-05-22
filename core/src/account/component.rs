@@ -78,8 +78,7 @@ impl AzCommandGroup for AccountComponent {
             Some("get-access-token") => GetAccessToken::execute(ctx, params, output_format).await,
             Some("login") => Login::execute(ctx, params, output_format).await,
             Some("logout") => Logout::execute(ctx, params, output_format).await,
-            Some(other) => Err(AzInternalError::InvalidCrsUriError(other.to_string()).into()),
-            None => Err(AzInternalError::InvalidCrsUriError(Self::uri().to_string()).into()),
+            _ => Err(AzInternalError::InvalidCrsUriError(Self::uri().to_string()).into()),
         }
     }
 }

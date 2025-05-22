@@ -65,8 +65,7 @@ impl AzCommandGroup for TopComponent {
     ) -> Result<execute_response::Data, AzError> {
         match segments.next().as_deref() {
             Some("version") => ShowVersion::execute(ctx, params, output_format).await,
-            Some(other) => Err(AzInternalError::InvalidCrsUriError(other.to_string()).into()),
-            None => Err(AzInternalError::InvalidCrsUriError(Self::uri().to_string()).into()),
+            _ => Err(AzInternalError::InvalidCrsUriError(Self::uri().to_string()).into()),
         }
     }
 }
