@@ -4,7 +4,7 @@ use az_core::pb::{CrsArg, CrsCommand};
 use serde::{Deserialize, Serialize};
 
 /// See: https://docs.ansible.com/ansible/latest/dev_guide/developing_modules_documenting.html#documentation-block
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct Document {
     module: String,
     short_description: String,
@@ -18,7 +18,7 @@ pub struct Document {
     options: HashMap<String, Opt>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 struct Deprecation {
     removed_in: String,
     removed_by_date: String,
@@ -26,7 +26,7 @@ struct Deprecation {
     alternative: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 struct Opt {
     #[serde(skip)]
     name: String,
@@ -46,8 +46,8 @@ struct Opt {
     aliases: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     version_added: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    suboptions: Option<HashMap<String, Opt>>,
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
+    suboptions: HashMap<String, Opt>,
     // Additional fields that's less interesting
     // requirements
     // seealso
@@ -56,9 +56,10 @@ struct Opt {
 }
 
 /// See: https://docs.ansible.com/ansible/latest/dev_guide/developing_program_flow_modules.html#argument-spec
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
 enum Type {
+    #[default]
     Unknown,
     Str,
     List,
@@ -74,8 +75,8 @@ enum Type {
     Bits,
 }
 
-impl Document {
-    pub fn from_cmd(cmd: &CrsCommand) -> Self {
+impl From<&CrsCommand> for Document {
+    fn from(cmd: &CrsCommand) -> Self {
         let help = cmd.help.clone().unwrap_or_default();
         Self {
             module: cmd.name.clone(),
@@ -88,7 +89,7 @@ impl Document {
                 .args
                 .iter()
                 .map(|arg| {
-                    let opt = Opt::from_cmd_arg(arg);
+                    let opt = Opt::from(arg);
                     (opt.name.clone(), opt)
                 })
                 .collect(),
@@ -135,12 +136,14 @@ impl Opt {
         }
         typ
     }
+}
 
-    fn from_cmd_arg(arg: &CrsArg) -> Self {
+impl From<&CrsArg> for Opt {
+    fn from(arg: &CrsArg) -> Self {
         let mut choices: Option<Vec<String>> = None;
         let mut typ = Type::Unknown;
         let mut elements = None;
-        let mut suboptions = None;
+        let mut suboptions = HashMap::new();
         if let Some(ref at) = arg.arg_type {
             typ = Self::arg_type(at);
             match at {
@@ -159,9 +162,9 @@ impl Opt {
                     let m: HashMap<String, Opt> = v
                         .props
                         .iter()
-                        .map(|p| (p.name.clone(), Opt::from_cmd_arg(p)))
+                        .map(|p| (p.name.clone(), Opt::from(p)))
                         .collect();
-                    suboptions = Some(m);
+                    suboptions = m;
                 }
                 az_core::pb::crs_arg::ArgType::Array(v) => {
                     if let Some(ref vv) = v.item {
@@ -188,6 +191,312 @@ impl Opt {
             aliases: None,
             version_added: None,
             suboptions,
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    use super::*;
+    use az_core::pb::crs_number_arg::Format;
+    use az_core::pb::{crs_arg::*, *};
+
+    #[test]
+    fn test_opt_arg_type() {
+        struct TestCase {
+            input: ArgType,
+            expect: Type,
+        }
+
+        let cases = vec![
+            TestCase {
+                input: ArgType::Cls(CrsClsArg::default()),
+                expect: Type::Raw,
+            },
+            TestCase {
+                input: ArgType::String(CrsStringArg::default()),
+                expect: Type::Str,
+            },
+            TestCase {
+                input: ArgType::Number(CrsNumberArg {
+                    r#enum: None,
+                    format: Some(Format::Int32(CrsInt32Format::default())),
+                }),
+                expect: Type::Int,
+            },
+            TestCase {
+                input: ArgType::Number(CrsNumberArg {
+                    r#enum: None,
+                    format: Some(Format::Float(CrsFloatFormat::default())),
+                }),
+                expect: Type::Float,
+            },
+            TestCase {
+                input: ArgType::Boolean(CrsBooleanArg::default()),
+                expect: Type::Bool,
+            },
+            TestCase {
+                input: ArgType::Object(Box::default()),
+                expect: Type::Dict,
+            },
+            TestCase {
+                input: ArgType::Array(Box::default()),
+                expect: Type::List,
+            },
+            TestCase {
+                input: ArgType::AnyType(CrsAnyTypeArg {}),
+                expect: Type::Raw,
+            },
+        ];
+
+        for case in cases {
+            assert_eq!(Opt::arg_type(&case.input), case.expect);
+        }
+    }
+
+    #[test]
+    fn test_opt_from() {
+        struct TestCase {
+            input: CrsArg,
+            expect: Opt,
+        }
+
+        let default_arg = CrsArg::default();
+        let default_opt = Opt::default();
+
+        let cases = vec![
+            // String
+            TestCase {
+                input: CrsArg {
+                    arg_type: Some(ArgType::String(CrsStringArg::default())),
+                    ..default_arg.clone()
+                },
+                expect: Opt {
+                    typ: Type::Str,
+                    ..default_opt.clone()
+                },
+            },
+            // String with enum
+            TestCase {
+                input: CrsArg {
+                    arg_type: Some(ArgType::String(CrsStringArg {
+                        r#enum: Some(CrsArgEnum {
+                            items: vec![
+                                CrsArgEnumItem {
+                                    name: "foo".into(),
+                                    value: "foo".into(),
+                                    internal: false,
+                                },
+                                CrsArgEnumItem {
+                                    name: "bar".into(),
+                                    value: "bar".into(),
+                                    internal: false,
+                                },
+                            ],
+                            support_extension: false,
+                            case_sensitive: true,
+                        }),
+                        format: None,
+                    })),
+                    ..default_arg.clone()
+                },
+                expect: Opt {
+                    typ: Type::Str,
+                    choices: Some(vec!["foo".into(), "bar".into()]),
+                    ..default_opt.clone()
+                },
+            },
+            // Number
+            TestCase {
+                input: CrsArg {
+                    arg_type: Some(ArgType::Number(CrsNumberArg::default())),
+                    ..default_arg.clone()
+                },
+                expect: Opt {
+                    typ: Type::Int,
+                    ..default_opt.clone()
+                },
+            },
+            // Number - Float with enum
+            TestCase {
+                input: CrsArg {
+                    arg_type: Some(ArgType::Number(CrsNumberArg {
+                        r#enum: Some(CrsArgEnum {
+                            items: vec![
+                                CrsArgEnumItem {
+                                    name: "1".into(),
+                                    value: "1".into(),
+                                    internal: false,
+                                },
+                                CrsArgEnumItem {
+                                    name: "2".into(),
+                                    value: "2".into(),
+                                    internal: false,
+                                },
+                            ],
+                            support_extension: false,
+                            case_sensitive: true,
+                        }),
+                        format: Some(Format::Float(CrsFloatFormat::default())),
+                    })),
+                    ..default_arg.clone()
+                },
+                expect: Opt {
+                    typ: Type::Float,
+                    choices: Some(vec!["1".into(), "2".into()]),
+                    ..default_opt.clone()
+                },
+            },
+            // Boolean
+            TestCase {
+                input: CrsArg {
+                    arg_type: Some(ArgType::Boolean(CrsBooleanArg::default())),
+                    ..default_arg.clone()
+                },
+                expect: Opt {
+                    typ: Type::Bool,
+                    ..default_opt.clone()
+                },
+            },
+            // Array of bool
+            TestCase {
+                input: CrsArg {
+                    arg_type: Some(ArgType::Array(Box::new(CrsArrayArg {
+                        cls_type: None,
+                        item: Some(Box::new(CrsArg {
+                            arg_type: Some(ArgType::Boolean(CrsBooleanArg::default())),
+                            ..default_arg.clone()
+                        })),
+                        format: None,
+                    }))),
+                    ..default_arg.clone()
+                },
+                expect: Opt {
+                    typ: Type::List,
+                    elements: Some(Type::Bool),
+                    ..default_opt.clone()
+                },
+            },
+            // AnyType
+            TestCase {
+                input: CrsArg {
+                    arg_type: Some(ArgType::AnyType(CrsAnyTypeArg {})),
+                    ..default_arg.clone()
+                },
+                expect: Opt {
+                    typ: Type::Raw,
+                    ..default_opt.clone()
+                },
+            },
+            // Cls
+            TestCase {
+                input: CrsArg {
+                    arg_type: Some(ArgType::Cls(CrsClsArg::default())),
+                    ..default_arg.clone()
+                },
+                expect: Opt {
+                    typ: Type::Raw,
+                    ..default_opt.clone()
+                },
+            },
+            // Object of no args
+            TestCase {
+                input: CrsArg {
+                    arg_type: Some(ArgType::Object(Box::new(CrsObjectArg {
+                        cls_type: None,
+                        ps_flatten: false,
+                        format: None,
+                        props: vec![],
+                        additional_props: None,
+                    }))),
+                    ..default_arg.clone()
+                },
+                expect: Opt {
+                    typ: Type::Dict,
+                    ..default_opt.clone()
+                },
+            },
+            // Object of primitive args
+            TestCase {
+                input: CrsArg {
+                    arg_type: Some(ArgType::Object(Box::new(CrsObjectArg {
+                        cls_type: None,
+                        ps_flatten: false,
+                        format: None,
+                        props: vec![CrsArg {
+                            arg_type: Some(ArgType::Boolean(CrsBooleanArg::default())),
+                            ..default_arg.clone()
+                        }],
+                        additional_props: None,
+                    }))),
+                    ..default_arg.clone()
+                },
+                expect: Opt {
+                    typ: Type::Dict,
+                    suboptions: [(
+                        "".into(),
+                        Opt {
+                            typ: Type::Bool,
+                            ..default_opt.clone()
+                        },
+                    )]
+                    .into_iter()
+                    .collect(),
+                    ..default_opt.clone()
+                },
+            },
+            // Object of nested object of primitive args
+            TestCase {
+                input: CrsArg {
+                    arg_type: Some(ArgType::Object(Box::new(CrsObjectArg {
+                        cls_type: None,
+                        ps_flatten: false,
+                        format: None,
+                        props: vec![CrsArg {
+                            arg_type: Some(ArgType::Object(Box::new(CrsObjectArg {
+                                cls_type: None,
+                                ps_flatten: false,
+                                format: None,
+                                props: vec![CrsArg {
+                                    arg_type: Some(ArgType::Boolean(CrsBooleanArg::default())),
+                                    ..default_arg.clone()
+                                }],
+                                additional_props: None,
+                            }))),
+                            ..default_arg.clone()
+                        }],
+                        additional_props: None,
+                    }))),
+                    ..default_arg.clone()
+                },
+                expect: Opt {
+                    typ: Type::Dict,
+                    suboptions: [(
+                        "".into(),
+                        Opt {
+                            typ: Type::Dict,
+                            suboptions: [(
+                                "".into(),
+                                Opt {
+                                    typ: Type::Bool,
+                                    ..default_opt.clone()
+                                },
+                            )]
+                            .into_iter()
+                            .collect(),
+                            ..default_opt.clone()
+                        },
+                    )]
+                    .into_iter()
+                    .collect(),
+                    ..default_opt.clone()
+                },
+            },
+        ];
+
+        for case in cases {
+            assert_eq!(Opt::from(&case.input), case.expect);
         }
     }
 }

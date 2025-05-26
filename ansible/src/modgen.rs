@@ -48,7 +48,7 @@ impl ActionModule {
         if let Some(level) = itf.level {
             match level {
                 Command(cmd) => {
-                    let doc = docgen::Document::from_cmd(&cmd);
+                    let doc = docgen::Document::from(&cmd);
                     Ok(serde_yaml::to_string(&doc)?)
                 }
                 CommandGroup(_) => bail!("unexpected CommandGroup interface"),
