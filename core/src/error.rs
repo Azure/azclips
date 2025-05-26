@@ -141,4 +141,4 @@ pub enum AuthenticationError {
 
 // You can add more error variants as needed.
 
-pub(crate) type AzResult<T, E = AzError> = Result<T, E>;
+pub type AzResult<T, E = AzError> = Result<T, E>;

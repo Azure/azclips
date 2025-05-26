@@ -6,6 +6,9 @@ authors.workspace = true
 description.workspace = true
 license.workspace = true
 
+[lib]
+crate-type = ["cdylib"]
+
 [dependencies]
 az_core = { path = "../core", features = ["ps"] }
 anyhow = { workspace = true }

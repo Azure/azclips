@@ -1,13 +1,14 @@
 use crate::error::AzUserUsageError;
+use serde::{Serialize, Deserialize};
 
-#[derive(Debug, PartialEq, Clone, Hash)]
+#[derive(Debug, PartialEq, Clone, Hash, Serialize, Deserialize)]
 pub enum SHPartialKeyPart {
     Name(String),
     /// limit the index to a small range less than 65535
     Index(u16),
 }
 
-#[derive(Debug, PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Clone, Default, Serialize, Deserialize)]
 pub struct SHPartialKeys {
     parts: Vec<SHPartialKeyPart>,
 }
