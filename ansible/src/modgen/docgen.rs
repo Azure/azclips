@@ -9,9 +9,12 @@ pub struct Document {
     module: String,
     short_description: String,
     description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     version_added: Option<String>,
     author: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     deprecated: Option<Deprecation>,
+    #[serde(skip_serializing_if = "HashMap::is_empty")]
     options: HashMap<String, Opt>,
 }
 
@@ -28,15 +31,22 @@ struct Opt {
     #[serde(skip)]
     name: String,
     description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     required: Option<bool>,
     // default value here is the string representation of the value
+    #[serde(skip_serializing_if = "Option::is_none")]
     default: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     choices: Option<Vec<String>>,
     #[serde(rename = "type")]
     typ: Type,
+    #[serde(skip_serializing_if = "Option::is_none")]
     elements: Option<Type>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     aliases: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     version_added: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     suboptions: Option<HashMap<String, Opt>>,
     // Additional fields that's less interesting
     // requirements
@@ -47,6 +57,7 @@ struct Opt {
 
 /// See: https://docs.ansible.com/ansible/latest/dev_guide/developing_program_flow_modules.html#argument-spec
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 enum Type {
     Unknown,
     Str,
