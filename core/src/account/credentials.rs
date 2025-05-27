@@ -1,13 +1,13 @@
 use super::utils::{
     format_token_expires_on, 
     load_landing_page_templates,
-    decode_id_token
+    decode_part_id_token
 };
 use crate::error::{AuthenticationError, AzError, AzInternalError};
 use azure_identity::interactive_credential::interactive_browser_credential::InteractiveBrowserCredential;
 use oauth2::TokenResponse;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, to_string_pretty, Value};
+use serde_json::{to_string_pretty};
 use std::fs::File;
 use std::io::{Read, Write};
 
@@ -68,34 +68,56 @@ impl UserCredential {
 
         let refresh_token = token_response
             .refresh_token()
-            .map(|token| token.secret().to_string());
-
+            .map(|token| token.secret().to_string());        
+        
         let expires_in = token_response
             .expires_in()
             .unwrap_or(std::time::Duration::from_secs(0));
         let expires_on = format_token_expires_on(expires_in);
 
         let id_token = token_response.extra_fields().id_token.clone();
-        let id_token_claims = id_token
-            .as_deref()
-            .map(decode_id_token)
-            .and_then(|result| result.ok());
         
-        let (username, tenant_id, object_id) = if let Some(claims) = &id_token_claims {
-            (
-                claims.preferred_username.clone(),
-                claims.tid.clone(),
-                claims.oid.clone(),
-            )
-        } else {
-            (None, None, None)
-        };
+        let mut username = None;
+        let mut tenant_id = None;
+        let mut object_id = None;
+        
+        if let Some(token) = &id_token {
+            let parts: Vec<&str> = token.split('.').collect();
+            if parts.len() == 3 {
+                // Decode the payload part (middle part) of the JWT
+                match decode_part_id_token(parts[1], Some("utf-8")) {
+                    Ok(payload_json) => {
+                        match serde_json::from_str::<serde_json::Value>(&payload_json) {
+                            Ok(payload_value) => {
+                                username = payload_value.get("preferred_username")
+                                    .and_then(|v| v.as_str())
+                                    .map(|s| s.to_string());
+                                
+                                tenant_id = payload_value.get("tid")
+                                    .and_then(|v| v.as_str())
+                                    .map(|s| s.to_string());
+                                
+                                object_id = payload_value.get("oid")
+                                    .and_then(|v| v.as_str())
+                                    .map(|s| s.to_string());
+                            },
+                            Err(_) => {
+                                return Err(AuthenticationError::InvalidIdToken);
+                            }
+                        }
+                    },
+                    Err(_) => {
+                        return Err(AuthenticationError::InvalidIdToken);
+                    }
+                }
+            }
+        }
 
         let token = Token {
             access_token,
             expires_on,
             refresh_token,
-            id_token: id_token.clone(),
+            id_token: id_token,
             tenant_id: tenant_id,
             user_object_id: object_id,
             user_preferred_username: username,
