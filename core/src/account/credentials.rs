@@ -1,4 +1,8 @@
-use super::utils::{format_token_expires_on, load_landing_page_templates};
+use super::utils::{
+    format_token_expires_on, 
+    load_landing_page_templates,
+    decode_id_token
+};
 use crate::error::{AuthenticationError, AzError, AzInternalError};
 use azure_identity::interactive_credential::interactive_browser_credential::InteractiveBrowserCredential;
 use oauth2::TokenResponse;
@@ -70,10 +74,31 @@ impl UserCredential {
             .unwrap_or(std::time::Duration::from_secs(0));
         let expires_on = format_token_expires_on(expires_in);
 
+        let id_token = token_response.extra_fields().id_token.clone();
+        let id_token_claims = id_token
+            .as_deref()
+            .map(decode_id_token)
+            .and_then(|result| result.ok());
+        
+        let (username, tenant_id, object_id) = if let Some(claims) = &id_token_claims {
+            (
+                claims.preferred_username.clone(),
+                claims.tid.clone(),
+                claims.oid.clone(),
+            )
+        } else {
+            (None, None, None)
+        };
+
         let token = Token {
             access_token,
             expires_on,
             refresh_token,
+            id_token: id_token.clone(),
+            tenant_id: tenant_id,
+            user_object_id: object_id,
+            user_preferred_username: username,
+            scopes: Some(scopes.iter().map(|s| s.to_string()).collect()),
         };
 
         // Save the token to a file
@@ -107,16 +132,24 @@ pub struct Token {
     pub access_token: String,
     pub expires_on: u64,
     pub refresh_token: Option<String>,
+    pub id_token: Option<String>,
+    pub tenant_id: Option<String>,
+    pub user_object_id: Option<String>,
+    pub user_preferred_username: Option<String>,
+    pub scopes: Option<Vec<String>>,
 }
 
 impl Token {
     pub fn write_token_to_file(&self) -> Result<(), AzInternalError> {
-        //TODO: Store token in cache
-        //TODO: Store access token for different scopes, tenants, and users
         let token_data = json!({
             "access_token": self.access_token,
             "expires_on": self.expires_on,
             "refresh_token": self.refresh_token,
+            "id_token": self.id_token,
+            "tenant_id": self.tenant_id,
+            "user_object_id": self.user_object_id,
+            "user_preferred_username": self.user_preferred_username,
+            "scopes": self.scopes,
         });
 
         let json_string = to_string_pretty(&token_data)?;
@@ -195,10 +228,36 @@ impl Token {
             return Err(AzError::Authentication(AuthenticationError::TokenExpired));
         }
 
+        let id_token = token_data
+            .get("id_token")
+            .and_then(|t| t.as_str())
+            .map(String::from);
+        let tenant_id = token_data
+            .get("tenant_id")
+            .and_then(|t| t.as_str())
+            .map(String::from);
+        let user_object_id = token_data
+            .get("user_object_id")
+            .and_then(|t| t.as_str())
+            .map(String::from);
+        let user_preferred_username = token_data
+            .get("user_preferred_username")
+            .and_then(|t| t.as_str())
+            .map(String::from);
+        let scopes = token_data
+            .get("scopes")
+            .and_then(|s| s.as_array())
+            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect());
+
         Ok(Token {
             access_token,
             refresh_token,
-            expires_on,
+            expires_on,            
+            id_token,
+            tenant_id,
+            user_object_id,
+            user_preferred_username,
+            scopes,
         })
     }
 }

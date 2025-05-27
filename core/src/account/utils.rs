@@ -1,5 +1,8 @@
 use reqwest::{Client, Url};
 use serde_json::Value;
+use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
+use serde::{Deserialize, Serialize};
+use crate::error::{AuthenticationError};
 
 pub fn can_launch_browser() -> bool {
     webbrowser::Browser::is_available()
@@ -25,6 +28,34 @@ pub fn format_token_expires_on_readable(expires_on: u64) -> String {
             local.format("%Y-%m-%d %H:%M:%S %Z").to_string()
         }
         None => "invalid timestamp".to_string(),
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct IdTokenClaims {
+    pub tid: Option<String>,
+    pub preferred_username: Option<String>,
+    pub oid: Option<String>,
+}
+
+pub fn decode_id_token(
+    token: &str,
+) -> Result<IdTokenClaims, AuthenticationError> {
+    let mut validation = Validation::new(Algorithm::RS256);
+    // Disable validation checks since we're only interested in the claims
+    validation.insecure_disable_signature_validation();
+    validation.validate_exp = false;
+    validation.validate_nbf = false;
+    validation.validate_aud = false;
+
+    // Use a dummy key since we're not validating the signature
+    let key = DecodingKey::from_secret(&[]);
+
+    match decode::<IdTokenClaims>(token, &key, &validation) {
+        Ok(token_data) => Ok(token_data.claims),
+        Err(_) => {
+            Err(AuthenticationError::InvalidIdToken)
+        }
     }
 }
 

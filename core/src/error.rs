@@ -116,6 +116,9 @@ pub enum AuthenticationError {
 
     #[error("Invalid tenant")]
     InvalidTenant,
+
+    #[error("Invalid id token")]
+    InvalidIdToken,
 }
 
 // You can add more error variants as needed.
