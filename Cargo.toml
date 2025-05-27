@@ -47,4 +47,3 @@ tracing = "0.1"
 # By default, it uses the cjk features. But maybe we can close it in the future.
 unicode-width = "0.2.0"
 webbrowser = "1.0.4"
-jsonwebtoken = "9.0"
