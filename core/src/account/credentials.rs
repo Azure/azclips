@@ -6,6 +6,7 @@ use super::utils::{
 use crate::error::{AuthenticationError, AzError, AzInternalError};
 use azure_identity::interactive_credential::interactive_browser_credential::InteractiveBrowserCredential;
 use oauth2::TokenResponse;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, to_string_pretty, Value};
 use std::fs::File;
 use std::io::{Read, Write};
@@ -126,7 +127,7 @@ pub struct ManagedIdentityCredential {
     object_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Token {
     // Todo: Adjust the fields with Azure SDK's TokenResponse struct
     pub access_token: String,
@@ -139,20 +140,9 @@ pub struct Token {
     pub scopes: Option<Vec<String>>,
 }
 
-impl Token {
+impl Token {    
     pub fn write_token_to_file(&self) -> Result<(), AzInternalError> {
-        let token_data = json!({
-            "access_token": self.access_token,
-            "expires_on": self.expires_on,
-            "refresh_token": self.refresh_token,
-            "id_token": self.id_token,
-            "tenant_id": self.tenant_id,
-            "user_object_id": self.user_object_id,
-            "user_preferred_username": self.user_preferred_username,
-            "scopes": self.scopes,
-        });
-
-        let json_string = to_string_pretty(&token_data)?;
+        let json_string = to_string_pretty(&self)?;
 
         let home_dir = dirs::home_dir().ok_or_else(|| {
             AzInternalError::InvalidPathError("Could not determine home directory".to_string())
@@ -194,29 +184,9 @@ impl Token {
         file.read_to_string(&mut contents)
             .map_err(AzInternalError::Io)?;
 
-        let token_data: Value = serde_json::from_str(&contents).map_err(AzInternalError::Json)?;
-
-        let access_token = token_data
-            .get("access_token")
-            .and_then(|t| t.as_str())
-            .ok_or_else(|| {
-                AuthenticationError::InvalidToken("No access token found in token file".to_string())
-            })?
-            .to_string();
-
-        let expires_on = token_data
-            .get("expires_on")
-            .and_then(|e| e.as_u64())
-            .ok_or_else(|| {
-                AuthenticationError::InvalidToken(
-                    "No expiration time found in token file or invalid format".to_string(),
-                )
-            })?;
-
-        let refresh_token = token_data
-            .get("refresh_token")
-            .and_then(|t| t.as_str())
-            .map(|s| s.to_string());
+        let mut token: Token = serde_json::from_str(&contents).map_err(|e| {
+            AzInternalError::Json(e)
+        })?;
 
         // Check if token is expired
         let now = std::time::SystemTime::now()
@@ -224,40 +194,15 @@ impl Token {
             .map_err(|_| AzError::GeneralError("Failed to get current time".to_string()))?
             .as_secs();
 
-        if expires_on <= now {
+        if token.expires_on <= now {
             return Err(AzError::Authentication(AuthenticationError::TokenExpired));
         }
+        if token.access_token.is_empty() {
+            return Err(AzError::Authentication(
+                AuthenticationError::InvalidToken("No access token found in token file".to_string())
+            ));
+        }
 
-        let id_token = token_data
-            .get("id_token")
-            .and_then(|t| t.as_str())
-            .map(String::from);
-        let tenant_id = token_data
-            .get("tenant_id")
-            .and_then(|t| t.as_str())
-            .map(String::from);
-        let user_object_id = token_data
-            .get("user_object_id")
-            .and_then(|t| t.as_str())
-            .map(String::from);
-        let user_preferred_username = token_data
-            .get("user_preferred_username")
-            .and_then(|t| t.as_str())
-            .map(String::from);
-        let scopes = token_data
-            .get("scopes")
-            .and_then(|s| s.as_array())
-            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect());
-
-        Ok(Token {
-            access_token,
-            refresh_token,
-            expires_on,            
-            id_token,
-            tenant_id,
-            user_object_id,
-            user_preferred_username,
-            scopes,
-        })
+        Ok(token)
     }
 }

@@ -17,8 +17,3 @@ pub struct CustomTokenFields {
 // The ExtraTokenFields trait is just a marker trait with bounds
 // DeserializeOwned + Debug + Serialize, no methods to implement
 impl ExtraTokenFields for CustomTokenFields {}
-
-/// Create a new `CustomTokenFields` instance.
-pub fn custom_token_fields(id_token: Option<String>) -> CustomTokenFields {
-    CustomTokenFields { id_token }
-}

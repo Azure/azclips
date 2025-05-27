@@ -33,8 +33,14 @@ impl Oauth2HttpClient {
         }
     }
 
-    pub fn raw_response(&self) -> Option<String> {
-        self.raw_response_body.lock().unwrap().clone()
+    pub fn raw_response(&self) -> Result<Option<String>, azure_core::error::Error> {
+        match self.raw_response_body.lock() {
+            Ok(guard) => Ok(guard.clone()),
+            Err(_) => Err(Error::message(
+                ErrorKind::Other,
+                "Failed to acquire lock on raw_response_body due to poisoning",
+            )),
+        }
     }
 
     pub async fn request(

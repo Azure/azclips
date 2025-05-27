@@ -131,10 +131,15 @@ impl AuthorizationCodeFlow {
                 )
             })?;
         
-        let raw_response = oauth_http_client.raw_response().ok_or_else(|| {
+        let raw_response = oauth_http_client.raw_response().map_err(|_| {
             azure_core::Error::new(
                 ErrorKind::Credential,
                 "Failed to capture token response".to_string(),
+            )
+        })?.ok_or_else(|| {
+            azure_core::Error::new(
+                ErrorKind::Credential,
+                "Token response was empty".to_string(),
             )
         })?;
         
