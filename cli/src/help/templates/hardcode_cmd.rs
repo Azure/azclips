@@ -1,12 +1,10 @@
 use std::collections::HashMap;
 
-use az_core::pb::{
-    cmd_interface::Level, CmdCommandGroup, CmdComponent, CmdInterface, ComponentMetadata,
-};
+use az_core::pb::{crs_interface::Level, ComponentMetadata, CrsCommandGroup, CrsInterface};
 
 use crate::{
     help::{
-        table::{CmdArgDisplayConfig, HelpLineDisplay, HelpTableLine},
+        table::{CrsArgDisplayConfig, HelpLineDisplay, HelpTableLine},
         MIN_DETAIL_WIDTH,
     },
     output::{style::Stylize, Row, StyledString},
@@ -27,7 +25,7 @@ impl Default for HardCodeCmdTemplate {
 impl CmdTemplate for HardCodeCmdTemplate {
     fn render<'a>(
         &self,
-        cmd: &CmdInterface,
+        cmd: &CrsInterface,
         components: impl IntoIterator<Item = &'a ComponentMetadata>,
         term_width: Option<usize>,
     ) -> Vec<StyledString> {
@@ -35,8 +33,7 @@ impl CmdTemplate for HardCodeCmdTemplate {
 
         let header = match cmd.level {
             Some(Level::Command(_)) => "Command",
-            Some(Level::Group(_)) => "Group",
-            Some(Level::Component(_)) => "Service",
+            Some(Level::CommandGroup(_)) => "Group",
             None => "Azure",
         };
         let header_line = StyledString::from(header);
@@ -44,7 +41,7 @@ impl CmdTemplate for HardCodeCmdTemplate {
 
         let mut sig_row = Row::new();
         sig_row.append_sep(" ".repeat(self.intent));
-        let uri_parts = cmd.uri.split('/').filter(|s| !s.is_empty()).skip(1);
+        let uri_parts = cmd.uri().split('/').filter(|s| !s.is_empty()).skip(1);
         let cmd_sig = uri_parts.collect::<Vec<_>>().join(" ");
         sig_row.append_styled(vec![cmd_sig.bold().into()], None);
         if let Some(Level::Command(cmd)) = &cmd.level {
@@ -61,8 +58,7 @@ impl CmdTemplate for HardCodeCmdTemplate {
         }
         let version = match &cmd.level {
             Some(Level::Command(cmd)) => Some(cmd.version.clone()),
-            Some(Level::Group(_)) => None,
-            Some(Level::Component(cmd)) => Some(cmd.version.clone()),
+            Some(Level::CommandGroup(_)) => None,
             None => None,
         };
         if let Some(version) = version {
@@ -70,7 +66,7 @@ impl CmdTemplate for HardCodeCmdTemplate {
             sig_row.append_styled(vec![version.stylize().into()], None);
         }
 
-        let short = cmd.help.as_ref().map(|help| &help.short);
+        let short = cmd.help().map(|help| &help.short);
         if let Some(short) = short {
             sig_row.append_one_line(" : ");
             let short_help: StyledString = short.clone().italic().into();
@@ -82,7 +78,7 @@ impl CmdTemplate for HardCodeCmdTemplate {
         };
         result.append(&mut sig_row.render());
 
-        if let Some(long) = cmd.help.as_ref().and_then(|help| help.long.as_ref()) {
+        if let Some(long) = cmd.help().and_then(|help| help.long.as_ref()) {
             let mut long_help_row = Row::new();
             long_help_row.append_sep(" ".repeat(self.intent * 2));
             let long_help: StyledString = long.into();
@@ -100,8 +96,8 @@ impl CmdTemplate for HardCodeCmdTemplate {
         match &cmd.level {
             Some(Level::Command(cmd)) => {
                 for arg in cmd.args.iter() {
-                    let line = arg.help_line(CmdArgDisplayConfig {
-                        show_options: true,
+                    let line = arg.help_line(CrsArgDisplayConfig {
+                        prepend_dash: true,
                         positions: Some(&cmd.positional_args[..]),
                     });
                     let group = help_table_groups
@@ -110,11 +106,8 @@ impl CmdTemplate for HardCodeCmdTemplate {
                     group.push(line);
                 }
             }
-            Some(Level::Group(CmdCommandGroup { commands, groups }))
-            | Some(Level::Component(CmdComponent {
-                version: _,
-                commands,
-                groups,
+            Some(Level::CommandGroup(CrsCommandGroup {
+                commands, groups, ..
             })) => {
                 let command_rows = commands
                     .iter()
@@ -152,17 +145,21 @@ impl CmdTemplate for HardCodeCmdTemplate {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use az_core::pb::{cmd_interface, CmdArg, CmdArgHelp, CmdCommand, CmdHelp, CmdInterface};
+    use az_core::pb::{crs_interface, CrsArg, CrsArgHelp, CrsCommand, CrsHelp, CrsInterface};
 
     #[test]
     fn test_help_cmd_template_render() {
-        let cmd = CmdInterface {
-            name: "command".to_string(),
-            uri: "cmd://azure/group/command".to_string(),
-            level: Some(cmd_interface::Level::Command(CmdCommand {
+        let cmd = CrsInterface {
+            level: Some(crs_interface::Level::Command(CrsCommand {
+                name: "command".to_string(),
+                uri: "crs://azure/group/command".to_string(),
                 version: "1.0.0".to_string(),
+                help: Some(CrsHelp {
+                    short: "Short description".to_string(),
+                    long: Some("Long description of the command. ".repeat(3)),
+                }),
                 args: vec![
-                    CmdArg {
+                    CrsArg {
                         var_name: "arg1".to_string(),
                         options: vec![
                             "a".to_string(),
@@ -174,7 +171,7 @@ mod tests {
                         internal: false,
                         required: true,
                         default: None,
-                        help: Some(CmdArgHelp {
+                        help: Some(CrsArgHelp {
                             short: "Short description".to_string(),
                             long: Some("Long description of the argument.".to_string()),
                         }),
@@ -183,7 +180,7 @@ mod tests {
                         prompt: None,
                         arg_type: None,
                     },
-                    CmdArg {
+                    CrsArg {
                         var_name: "arg2".to_string(),
                         options: vec!["b".to_string(), "arg2".to_string()],
                         name: "Argument 2".to_string(),
@@ -191,7 +188,7 @@ mod tests {
                         internal: false,
                         required: false,
                         default: None,
-                        help: Some(CmdArgHelp {
+                        help: Some(CrsArgHelp {
                             short: "Short description".to_string(),
                             long: Some("Long description of the argument.".to_string()),
                         }),
@@ -203,10 +200,6 @@ mod tests {
                 ],
                 positional_args: vec![],
             })),
-            help: Some(CmdHelp {
-                short: "Short description".to_string(),
-                long: Some("Long description of the command. ".repeat(3)),
-            }),
         };
 
         let template = HardCodeCmdTemplate { intent: 2 };

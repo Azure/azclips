@@ -1,4 +1,4 @@
-use az_core::pb::CmdArg;
+use az_core::pb::CrsArg;
 
 use crate::output::StyledString;
 
@@ -99,5 +99,5 @@ use crate::output::StyledString;
 /// - `arg_type(array)/format/max_length`
 /// - `arg_type(any_type)`
 pub trait ArgTemplate {
-    fn render<'a>(&self, arg: &CmdArg, term_width: Option<usize>) -> Vec<StyledString>;
+    fn render<'a>(&self, arg: &CrsArg, term_width: Option<usize>) -> Vec<StyledString>;
 }

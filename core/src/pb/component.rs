@@ -28,7 +28,7 @@ pub struct InterfaceRequest {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct InterfaceResponse {
     #[prost(message, optional, tag = "1")]
-    pub interface: ::core::option::Option<super::command::CmdInterface>,
+    pub interface: ::core::option::Option<super::command::CrsInterface>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ComponentMetadata {
@@ -38,22 +38,22 @@ pub struct ComponentMetadata {
     /// the release version of the component, for built-in component, the version is the version of the core
     #[prost(string, tag = "2")]
     pub version: ::prost::alloc::string::String,
-    /// the unique uri for the component, this uri should be the cmd uri which starts with `cmd://azure/` and the following segments are composed by the top level command group name for the component. The uri should be unique across all the components.
+    /// the unique uri for the component, this uri should be the crs uri which starts with `crs://azure/` and the following segments are composed by the top level command group name for the component. The uri should be unique across all the components.
     #[prost(string, tag = "3")]
     pub uri: ::prost::alloc::string::String,
     /// the help information of the component
     #[prost(message, optional, tag = "4")]
-    pub help: ::core::option::Option<super::command::CmdHelp>,
+    pub help: ::core::option::Option<super::command::CrsHelp>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ExecuteRequest {
-    /// the cmd uri for the command to execute
+    /// the crs uri for the command to execute
     #[prost(string, tag = "2")]
     pub uri: ::prost::alloc::string::String,
     #[prost(message, optional, tag = "3")]
-    pub params: ::core::option::Option<super::command::CmdParams>,
+    pub params: ::core::option::Option<super::command::CrsParams>,
     #[prost(message, optional, tag = "4")]
-    pub output_format: ::core::option::Option<super::command::CmdOutputFormat>,
+    pub output_format: ::core::option::Option<super::command::CrsOutputFormat>,
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct None {}

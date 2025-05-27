@@ -15,65 +15,60 @@ use show::ShowCloud;
 use update::UpdateCloud;
 
 use crate::{
-    cmd_uri::CmdUri,
-    component::{AzCmd, AzCmdGroup, AzComponentCtx},
+    component::{AzCommand, AzCommandGroup, AzComponentCtx},
     error::{AzError, AzInternalError},
-    pb::{
-        cmd_interface, execute_response, CmdCommandGroup, CmdHelp, CmdInterface, CmdOutputFormat,
-        CmdParams,
-    },
+    pb::{execute_response, CrsCommandGroup, CrsHelp, CrsInterface, CrsOutputFormat, CrsParams},
+    uri::CrsUri,
 };
 
 #[derive(Debug, Default)]
 pub struct CloudCommandGroup {}
 
 #[async_trait]
-impl AzCmdGroup for CloudCommandGroup {
-    const URI: &'static str = "cmd://azure/config/cloud/";
+impl AzCommandGroup for CloudCommandGroup {
+    const URI: &'static str = "crs://azure/config/cloud/";
 
-    fn cmd_interface(depth: Option<u32>) -> CmdInterface {
+    fn build_interface(depth: Option<u32>) -> CrsCommandGroup {
         let groups = vec![];
         let mut commands = vec![];
         if depth.is_none() || depth.unwrap() > 0 {
             let depth = depth.map(|d| d - 1);
-            commands.push(ListClouds::cmd_interface(depth));
-            commands.push(ShowCloud::cmd_interface(depth));
-            commands.push(DeleteCloud::cmd_interface(depth));
-            commands.push(ActivateCloud::cmd_interface(depth));
-            commands.push(CreateCloud::cmd_interface(depth));
-            commands.push(UpdateCloud::cmd_interface(depth));
+            commands.push(ListClouds::build_interface(depth));
+            commands.push(ShowCloud::build_interface(depth));
+            commands.push(DeleteCloud::build_interface(depth));
+            commands.push(ActivateCloud::build_interface(depth));
+            commands.push(CreateCloud::build_interface(depth));
+            commands.push(UpdateCloud::build_interface(depth));
         }
-        CmdInterface {
+        CrsCommandGroup {
             name: "cloud".to_string(),
-            help: Some(CmdHelp {
+            uri: Self::uri().to_string(),
+            help: Some(CrsHelp {
                 short: "Manage registered Azure clouds configuration".to_string(),
                 long: None,
             }),
-            uri: Self::uri().to_string(),
-            level: Some(cmd_interface::Level::Group(CmdCommandGroup {
-                groups,
-                commands,
-            })),
+            groups,
+            commands,
         }
     }
 
-    fn get_interface(
+    fn find_interface(
         depth: Option<u32>,
         mut segments: impl Iterator<Item = String>,
-    ) -> Option<CmdInterface> {
+    ) -> Option<CrsInterface> {
         match segments.next().as_deref() {
-            None => Some(CloudCommandGroup::cmd_interface(depth)),
-            Some("activate") => Some(ActivateCloud::cmd_interface(depth)),
-            Some("create") => Some(CreateCloud::cmd_interface(depth)),
-            Some("update") => Some(UpdateCloud::cmd_interface(depth)),
-            Some("show") => Some(ShowCloud::cmd_interface(depth)),
-            Some("delete") => Some(DeleteCloud::cmd_interface(depth)),
-            Some("list") => Some(ListClouds::cmd_interface(depth)),
+            None => Some(CloudCommandGroup::build_interface(depth).into()),
+            Some("activate") => Some(ActivateCloud::build_interface(depth).into()),
+            Some("create") => Some(CreateCloud::build_interface(depth).into()),
+            Some("update") => Some(UpdateCloud::build_interface(depth).into()),
+            Some("show") => Some(ShowCloud::build_interface(depth).into()),
+            Some("delete") => Some(DeleteCloud::build_interface(depth).into()),
+            Some("list") => Some(ListClouds::build_interface(depth).into()),
             _ => None,
         }
     }
 
-    fn resolve_cmd_uri(mut segments: impl Iterator<Item = String>) -> Option<CmdUri> {
+    fn resolve_uri(mut segments: impl Iterator<Item = String>) -> Option<CrsUri> {
         match segments.next().as_deref() {
             None => Some(CloudCommandGroup::uri()),
             Some("activate") => Some(ActivateCloud::uri()),
@@ -89,8 +84,8 @@ impl AzCmdGroup for CloudCommandGroup {
     async fn execute_group<T: AzComponentCtx>(
         ctx: &T,
         mut segments: impl Iterator<Item = String> + Send,
-        params: Option<CmdParams>,
-        output_format: Option<CmdOutputFormat>,
+        params: Option<CrsParams>,
+        output_format: Option<CrsOutputFormat>,
     ) -> Result<execute_response::Data, AzError> {
         match segments.next().as_deref() {
             Some("activate") => ActivateCloud::execute(ctx, params, output_format).await,
@@ -99,7 +94,7 @@ impl AzCmdGroup for CloudCommandGroup {
             Some("show") => ShowCloud::execute(ctx, params, output_format).await,
             Some("delete") => DeleteCloud::execute(ctx, params, output_format).await,
             Some("list") => ListClouds::execute(ctx, params, output_format).await,
-            _ => Err(AzInternalError::InvalidCmdUriError(Self::uri().to_string()).into()),
+            _ => Err(AzInternalError::InvalidCrsUriError(Self::uri().to_string()).into()),
         }
     }
 }

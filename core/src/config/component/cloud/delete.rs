@@ -2,13 +2,10 @@ use async_trait::async_trait;
 use tracing::error;
 
 use crate::{
-    component::{AzCmd, AzCmdExecute, AzComponentCtx},
+    component::{AzCommand, AzCommandExecute, AzComponentCtx},
     config::cloud::AzCloud,
     error::{AzError, AzUserUsageError},
-    pb::{
-        cmd_arg, cmd_interface, CmdArg, CmdArgHelp, CmdCommand, CmdHelp, CmdInterface, CmdParams,
-        CmdStringArg,
-    },
+    pb::{crs_arg, CrsArg, CrsArgHelp, CrsCommand, CrsHelp, CrsParams, CrsStringArg},
     AzCore, VERSION,
 };
 
@@ -18,7 +15,7 @@ pub struct DeleteCloud {
 }
 
 #[async_trait]
-impl AzCmdExecute for DeleteCloud {
+impl AzCommandExecute for DeleteCloud {
     type Output = ();
 
     async fn run<T: AzComponentCtx>(&self, _: &T) -> Result<Option<Self::Output>, AzError> {
@@ -34,43 +31,41 @@ impl AzCmdExecute for DeleteCloud {
     }
 }
 
-impl AzCmd for DeleteCloud {
-    const URI: &'static str = "cmd://azure/config/cloud/delete";
+impl AzCommand for DeleteCloud {
+    const URI: &'static str = "crs://azure/config/cloud/delete";
 
-    fn cmd_interface(_: Option<u32>) -> CmdInterface {
-        CmdInterface {
+    fn build_interface(_: Option<u32>) -> CrsCommand {
+        CrsCommand {
             name: "delete".to_string(),
-            help: Some(CmdHelp {
+            uri: Self::uri().to_string(),
+            version: VERSION.to_string(),
+            help: Some(CrsHelp {
                 short: "delete a cloud.".to_string(),
                 long: None,
             }),
-            uri: Self::uri().to_string(),
-            level: Some(cmd_interface::Level::Command(CmdCommand {
-                version: VERSION.to_string(),
-                args: Self::args(),
-                positional_args: vec![],
-            })),
+            args: Self::args(),
+            positional_args: vec![],
         }
     }
 
-    fn args() -> Vec<CmdArg> {
-        vec![CmdArg {
+    fn args() -> Vec<CrsArg> {
+        vec![CrsArg {
             name: "name".to_string(),
-            help: Some(CmdArgHelp {
+            help: Some(CrsArgHelp {
                 short: "The name of the cloud to delete.".to_string(),
                 long: None,
             }),
             options: vec!["name".to_string()],
             required: true,
             nullable: false,
-            arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
+            arg_type: Some(crs_arg::ArgType::String(CrsStringArg {
                 ..Default::default()
             })),
             ..Default::default()
         }]
     }
 
-    fn try_from(params: Option<CmdParams>) -> Result<Self, crate::error::AzError> {
+    fn try_from(params: Option<CrsParams>) -> Result<Self, crate::error::AzError> {
         let mut delete_cloud = Self::default();
         if let Some(params) = params {
             for (name, v) in params.params.iter() {

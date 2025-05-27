@@ -1,9 +1,9 @@
 use async_trait::async_trait;
 
 use crate::{
-    component::{AzCmd, AzCmdExecute, AzComponentCtx},
+    component::{AzCommand, AzCommandExecute, AzComponentCtx},
     error::AzError,
-    pb::{cmd_interface, CmdArg, CmdCommand, CmdHelp, CmdInterface, CmdParams},
+    pb::{CrsArg, CrsCommand, CrsHelp, CrsParams},
     VERSION,
 };
 
@@ -11,7 +11,7 @@ use crate::{
 pub struct ShowVersion {}
 
 #[async_trait]
-impl AzCmdExecute for ShowVersion {
+impl AzCommandExecute for ShowVersion {
     type Output = String;
 
     async fn run<T: AzComponentCtx>(&self, _: &T) -> Result<Option<Self::Output>, AzError> {
@@ -19,30 +19,28 @@ impl AzCmdExecute for ShowVersion {
     }
 }
 
-impl AzCmd for ShowVersion {
-    const URI: &'static str = "cmd://azure/version";
+impl AzCommand for ShowVersion {
+    const URI: &'static str = "crs://azure/version";
 
-    fn cmd_interface(_: Option<u32>) -> CmdInterface {
-        CmdInterface {
+    fn build_interface(_: Option<u32>) -> CrsCommand {
+        CrsCommand {
             name: "version".to_string(),
-            help: Some(CmdHelp {
+            uri: Self::uri().to_string(),
+            version: VERSION.to_string(),
+            help: Some(CrsHelp {
                 short: "Show the version of the Azure CLI.".to_string(),
                 long: None,
             }),
-            uri: Self::uri().to_string(),
-            level: Some(cmd_interface::Level::Command(CmdCommand {
-                version: VERSION.to_string(),
-                args: Self::args(),
-                positional_args: vec![],
-            })),
+            args: Self::args(),
+            positional_args: vec![],
         }
     }
 
-    fn args() -> Vec<CmdArg> {
+    fn args() -> Vec<CrsArg> {
         vec![]
     }
 
-    fn try_from(_params: Option<CmdParams>) -> Result<Self, AzError> {
+    fn try_from(_params: Option<CrsParams>) -> Result<Self, AzError> {
         Ok(Self::default())
     }
 }

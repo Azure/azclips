@@ -2,6 +2,7 @@ mod command;
 mod component;
 
 use core::fmt;
+use serde::ser::SerializeMap;
 use serde_json::Value;
 
 use crate::error::{AzInternalError, AzResult, AzUserUsageError};
@@ -9,8 +10,8 @@ use crate::error::{AzInternalError, AzResult, AzUserUsageError};
 pub use command::*;
 pub use component::*;
 
-impl command::CmdArg {
-    pub fn arg_type_ok(&self) -> Result<&command::cmd_arg::ArgType, AzInternalError> {
+impl command::CrsArg {
+    pub fn arg_type_ok(&self) -> Result<&command::crs_arg::ArgType, AzInternalError> {
         let arg_type =
             self.arg_type
                 .as_ref()
@@ -22,61 +23,61 @@ impl command::CmdArg {
     }
 }
 
-impl fmt::Display for command::cmd_arg::ArgType {
+impl fmt::Display for command::crs_arg::ArgType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            command::cmd_arg::ArgType::String(str_type) => match &str_type.format {
+            command::crs_arg::ArgType::String(str_type) => match &str_type.format {
                 None => write!(f, "[string]"),
                 Some(format) => match format {
-                    command::cmd_string_arg::Format::Binary(_) => write!(f, "[file]"),
-                    command::cmd_string_arg::Format::Byte(_) => write!(f, "[base64-string]"),
-                    command::cmd_string_arg::Format::String(_) => write!(f, "[string]"),
-                    command::cmd_string_arg::Format::Duration(_) => write!(f, "[duration]"),
-                    command::cmd_string_arg::Format::Date(_) => write!(f, "[date]"),
-                    command::cmd_string_arg::Format::DateTime(_) => write!(f, "[datetime]"),
-                    command::cmd_string_arg::Format::Time(_) => write!(f, "[time]"),
-                    command::cmd_string_arg::Format::Uuid(_) => write!(f, "[uuid]"),
-                    command::cmd_string_arg::Format::Password(_) => write!(f, "[secret-string]"),
-                    command::cmd_string_arg::Format::SubscriptionId(_) => {
+                    command::crs_string_arg::Format::Binary(_) => write!(f, "[file]"),
+                    command::crs_string_arg::Format::Byte(_) => write!(f, "[base64-string]"),
+                    command::crs_string_arg::Format::String(_) => write!(f, "[string]"),
+                    command::crs_string_arg::Format::Duration(_) => write!(f, "[duration]"),
+                    command::crs_string_arg::Format::Date(_) => write!(f, "[date]"),
+                    command::crs_string_arg::Format::DateTime(_) => write!(f, "[datetime]"),
+                    command::crs_string_arg::Format::Time(_) => write!(f, "[time]"),
+                    command::crs_string_arg::Format::Uuid(_) => write!(f, "[uuid]"),
+                    command::crs_string_arg::Format::Password(_) => write!(f, "[secret-string]"),
+                    command::crs_string_arg::Format::SubscriptionId(_) => {
                         write!(f, "[subscription]")
                     }
-                    command::cmd_string_arg::Format::ResourceGroupName(_) => {
+                    command::crs_string_arg::Format::ResourceGroupName(_) => {
                         write!(f, "[string]")
                     }
-                    command::cmd_string_arg::Format::ResourceId(_) => write!(f, "[id]"),
-                    command::cmd_string_arg::Format::ResourceLocation(_) => write!(f, "[location]"),
+                    command::crs_string_arg::Format::ResourceId(_) => write!(f, "[id]"),
+                    command::crs_string_arg::Format::ResourceLocation(_) => write!(f, "[location]"),
                 },
             },
-            command::cmd_arg::ArgType::Number(number_type) => match &number_type.format {
+            command::crs_arg::ArgType::Number(number_type) => match &number_type.format {
                 None => write!(f, "[int]"),
                 Some(format) => match format {
-                    command::cmd_number_arg::Format::Int32(_) => write!(f, "[int]"),
-                    command::cmd_number_arg::Format::Int64(_) => write!(f, "[int]"),
-                    command::cmd_number_arg::Format::Uint32(_) => write!(f, "[uint]"),
-                    command::cmd_number_arg::Format::Uint64(_) => write!(f, "[uint]"),
-                    command::cmd_number_arg::Format::Float(_) => write!(f, "[float]"),
-                    command::cmd_number_arg::Format::Double(_) => write!(f, "[float]"),
+                    command::crs_number_arg::Format::Int32(_) => write!(f, "[int]"),
+                    command::crs_number_arg::Format::Int64(_) => write!(f, "[int]"),
+                    command::crs_number_arg::Format::Uint32(_) => write!(f, "[uint]"),
+                    command::crs_number_arg::Format::Uint64(_) => write!(f, "[uint]"),
+                    command::crs_number_arg::Format::Float(_) => write!(f, "[float]"),
+                    command::crs_number_arg::Format::Double(_) => write!(f, "[float]"),
                 },
             },
-            command::cmd_arg::ArgType::Boolean(_) => write!(f, "boolean"),
-            command::cmd_arg::ArgType::Object(object_type) => {
+            command::crs_arg::ArgType::Boolean(_) => write!(f, "boolean"),
+            command::crs_arg::ArgType::Object(object_type) => {
                 if object_type.props.is_empty() && object_type.additional_props.is_some() {
                     write!(f, "[dict]")
                 } else {
                     write!(f, "[object]")
                 }
             }
-            command::cmd_arg::ArgType::Array(_) => write!(f, "[list]"),
-            command::cmd_arg::ArgType::AnyType(_) => write!(f, "[any]"),
-            command::cmd_arg::ArgType::Cls(cls_type) => {
+            command::crs_arg::ArgType::Array(_) => write!(f, "[list]"),
+            command::crs_arg::ArgType::AnyType(_) => write!(f, "[any]"),
+            command::crs_arg::ArgType::Cls(cls_type) => {
                 write!(f, "[{}]", cls_type.cls_type)
             }
         }
     }
 }
 
-impl command::CmdObjectArgAdditionalProperties {
-    pub fn item_ok(&self) -> Result<&command::CmdArg, AzInternalError> {
+impl command::CrsObjectArgAdditionalProperties {
+    pub fn item_ok(&self) -> Result<&command::CrsArg, AzInternalError> {
         let item = self
             .item
             .as_ref()
@@ -87,14 +88,16 @@ impl command::CmdObjectArgAdditionalProperties {
     }
 }
 
-impl command::CmdObjectArg {
+impl command::CrsObjectArg {
     /// return the property argument by given the name or alias, if not found, return None
     /// This method will not check the additional properties
-    pub fn get_prop<'a>(&'a self, name_or_alias: &'_ str) -> Option<&'a command::CmdArg> {
-        self.props.iter().find(|&prop| prop.name == name_or_alias || prop.options.iter().any(|o| o == name_or_alias))
+    pub fn get_prop<'a>(&'a self, name_or_alias: &'_ str) -> Option<&'a command::CrsArg> {
+        self.props.iter().find(|&prop| {
+            prop.name == name_or_alias || prop.options.iter().any(|o| o == name_or_alias)
+        })
     }
     /// return the item argument for the additional properties
-    pub fn get_additional_item(&self) -> Result<Option<&command::CmdArg>, AzInternalError> {
+    pub fn get_additional_item(&self) -> Result<Option<&command::CrsArg>, AzInternalError> {
         match self.additional_props.as_ref() {
             Some(additional) => Ok(Some(additional.item_ok()?)),
             None => Ok(None),
@@ -102,17 +105,19 @@ impl command::CmdObjectArg {
     }
 }
 
-impl command::CmdArrayArg {
-    pub fn item_ok(&self) -> Result<&command::CmdArg, AzInternalError> {
+impl command::CrsArrayArg {
+    pub fn item_ok(&self) -> Result<&command::CrsArg, AzInternalError> {
         let item = self
             .item
             .as_ref()
-            .ok_or(AzInternalError::InvalidArgumentDefinitionError("Missing item for array".to_string()))?;
+            .ok_or(AzInternalError::InvalidArgumentDefinitionError(
+                "Missing item for array".to_string(),
+            ))?;
         Ok(item)
     }
 }
 
-impl command::CmdArgEnum {
+impl command::CrsArgEnum {
     pub fn find_value_by_name(&self, str: &str) -> Result<Option<Value>, AzInternalError> {
         for item in self.items.iter() {
             if item.name == str || (!self.case_sensitive && item.name.eq_ignore_ascii_case(str)) {
@@ -148,7 +153,7 @@ impl command::CmdArgEnum {
     }
 }
 
-impl fmt::Display for command::CmdArgEnum {
+impl fmt::Display for command::CrsArgEnum {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -162,10 +167,10 @@ impl fmt::Display for command::CmdArgEnum {
     }
 }
 
-impl TryFrom<command::CmdArgBlank> for Value {
+impl TryFrom<command::CrsArgBlank> for Value {
     type Error = AzInternalError;
 
-    fn try_from(value: command::CmdArgBlank) -> Result<Self, Self::Error> {
+    fn try_from(value: command::CrsArgBlank) -> Result<Self, Self::Error> {
         let value = serde_json::from_str(value.value.as_str()).or(Err(
             AzInternalError::InvalidArgumentDefinitionError(
                 "Failed to parse value from the blank value".to_string(),
@@ -175,10 +180,10 @@ impl TryFrom<command::CmdArgBlank> for Value {
     }
 }
 
-impl TryFrom<command::CmdArgDefault> for Value {
+impl TryFrom<command::CrsArgDefault> for Value {
     type Error = AzInternalError;
 
-    fn try_from(value: command::CmdArgDefault) -> Result<Self, Self::Error> {
+    fn try_from(value: command::CrsArgDefault) -> Result<Self, Self::Error> {
         let value = serde_json::from_str(value.value.as_str()).or(Err(
             AzInternalError::InvalidArgumentDefinitionError(
                 "Failed to parse value from the default value".to_string(),
@@ -188,15 +193,100 @@ impl TryFrom<command::CmdArgDefault> for Value {
     }
 }
 
-impl TryFrom<command::CmdArgEnumItem> for Value {
+impl TryFrom<command::CrsArgEnumItem> for Value {
     type Error = AzInternalError;
 
-    fn try_from(value: command::CmdArgEnumItem) -> Result<Self, Self::Error> {
+    fn try_from(value: command::CrsArgEnumItem) -> Result<Self, Self::Error> {
         let value = serde_json::from_str(value.value.as_str()).or(Err(
             AzInternalError::InvalidArgumentDefinitionError(
                 "Failed to parse value from the enum item".to_string(),
             ),
         ))?;
         Ok(value)
+    }
+}
+
+impl command::CrsInterface {
+    pub fn as_command_ok(&self) -> &command::CrsCommand {
+        match &self.level.as_ref().expect("Level not found") {
+            crs_interface::Level::Command(command) => command,
+            _ => panic!("Command not found"),
+        }
+    }
+
+    pub fn as_command_group_ok(&self) -> &command::CrsCommandGroup {
+        match &self.level.as_ref().expect("Level not found") {
+            crs_interface::Level::CommandGroup(command_group) => command_group,
+            _ => panic!("Command group not found"),
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        match &self.level.as_ref().expect("Level not found") {
+            crs_interface::Level::Command(command) => command.name.as_str(),
+            crs_interface::Level::CommandGroup(command_group) => command_group.name.as_str(),
+        }
+    }
+
+    pub fn uri(&self) -> &str {
+        match &self.level.as_ref().expect("Level not found") {
+            crs_interface::Level::Command(command) => command.uri.as_str(),
+            crs_interface::Level::CommandGroup(command_group) => command_group.uri.as_str(),
+        }
+    }
+
+    pub fn help(&self) -> Option<&command::CrsHelp> {
+        match &self.level.as_ref().expect("Level not found") {
+            crs_interface::Level::Command(command) => command.help.as_ref(),
+            crs_interface::Level::CommandGroup(command_group) => command_group.help.as_ref(),
+        }
+    }
+}
+
+impl serde::Serialize for command::CrsHelp {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut map = serializer.serialize_map(Some(2))?;
+        map.serialize_entry("short", &self.short)?;
+        if let Some(long) = &self.long {
+            map.serialize_entry("long", &long)?;
+        }
+        map.end()
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for command::CrsHelp {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = serde_json::Map::deserialize(deserializer)?;
+
+        Ok(Self {
+            short: s
+                .get("short")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| serde::de::Error::missing_field("short"))?
+                .to_string(),
+            long: s.get("long").and_then(|v| v.as_str()).map(String::from),
+        })
+    }
+}
+
+impl From<command::CrsCommand> for command::CrsInterface {
+    fn from(command: command::CrsCommand) -> Self {
+        Self {
+            level: Some(crs_interface::Level::Command(command)),
+        }
+    }
+}
+
+impl From<command::CrsCommandGroup> for command::CrsInterface {
+    fn from(command_group: command::CrsCommandGroup) -> Self {
+        Self {
+            level: Some(crs_interface::Level::CommandGroup(command_group)),
+        }
     }
 }

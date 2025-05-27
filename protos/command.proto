@@ -2,45 +2,41 @@ syntax = "proto3";
 package command;
 
 // The interface of the command / command group / component
-message CMDInterface {
-  string name = 1;
-  CMDHelp help = 2;
-  string uri = 3; // the uri of the command / command group / component, the uri should be unique across all the commands, command groups and components
+message CrsInterface {
   oneof level {
-    CMDCommand command = 10;
-    CMDCommandGroup group = 11;
-    CMDComponent component = 12;
+    CrsCommand command = 10;
+    CrsCommandGroup command_group = 11;
   }
 }
 
-message CMDCommand {
-  string version = 1; // the version of the command
-  repeated CMDArg args = 10;
+message CrsCommand {
+  string name = 1;
+  string uri = 2; // the uri of the command / command group / component, the uri should be unique across all the commands, command groups and components
+  string version = 3; // the version of the command
+  CrsHelp help = 4;
+  repeated CrsArg args = 10;
   repeated string positional_args = 11;  // the array of positional argument names
 }
 
-message CMDCommandGroup {
-  repeated CMDInterface groups = 10;
-  repeated CMDInterface commands = 11;
+message CrsCommandGroup {
+  string name = 1;
+  string uri = 2; // the uri of the command / command group / component, the uri should be unique across all the commands, command groups and components
+  CrsHelp help = 4;
+  repeated CrsCommandGroup groups = 10;
+  repeated CrsCommand commands = 11;
 }
 
-message CMDComponent {
-  string version = 1; // the release version of the component
-  repeated CMDInterface groups = 10;
-  repeated CMDInterface commands = 11;
-}
-
-message CMDHelp {
+message CrsHelp {
   string short = 1; // short description of the command
   optional string long = 2;  // long description of the command
 }
 
-message CMDArgGroup {
+message CrsArgGroup {
   string name = 1;
-  repeated CMDArg args = 2;
+  repeated CrsArg args = 2;
 }
 
-message CMDArg {
+message CrsArg {
   string var_name = 1;         // the variable name of the argument
   string name = 2;             // the formal name of the argument in the struct
   repeated string options = 3; // the options value of the argument
@@ -50,55 +46,55 @@ message CMDArg {
   bool required = 6; // whether the argument is required
   bool nullable = 7; // whether can accept null value or not.
   // blank value is used when argument don't have any value
-  CMDArgBlank blank = 8;
-  CMDArgDefault default = 9;     // default value of the argument
-  CMDArgHelp help = 10;          // help message of the argument
-  CMDArgPromptInput prompt = 11; // prompt input of the argument
+  CrsArgBlank blank = 8;
+  CrsArgDefault default = 9;     // default value of the argument
+  CrsArgHelp help = 10;          // help message of the argument
+  CrsArgPromptInput prompt = 11; // prompt input of the argument
   oneof arg_type {
-    CMDClsArg cls = 31;
-    CMDStringArg string = 32;
-    CMDNumberArg number = 33;
-    CMDBooleanArg boolean = 34;
-    CMDObjectArg object = 35;
-    CMDArrayArg array = 36;
-    CMDAnyTypeArg any_type = 37;
+    CrsClsArg cls = 31;
+    CrsStringArg string = 32;
+    CrsNumberArg number = 33;
+    CrsBooleanArg boolean = 34;
+    CrsObjectArg object = 35;
+    CrsArrayArg array = 36;
+    CrsAnyTypeArg any_type = 37;
     // TODO: add blob arg
   }
 }
 
 // The argument value if an argument is assigned empty
-message CMDArgBlank {
+message CrsArgBlank {
   // json formatted string, support null
   string value = 1;
 }
 
 // The default value of the argument
-message CMDArgDefault {
+message CrsArgDefault {
   // json formatted string, support null
   string value = 1;
 }
 
-message CMDArgHelp {
+message CrsArgHelp {
   string short = 1; // short description of the argument
   optional string long = 2;  // long description of the argument
 }
 
 // The prompt input of the argument
-message CMDArgPromptInput {
+message CrsArgPromptInput {
   string prompt = 1; // The prompt string, if given, is printed to standard
                      // output without a trailing newline before reading input.
   bool secret = 2;   // Whether to hide the input value as a password
   bool confirm = 3;  // Whether need user to input value twice for confirmation
 }
 
-message CMDArgEnum {
-  repeated CMDArgEnumItem items = 1; // the items of the enum
+message CrsArgEnum {
+  repeated CrsArgEnumItem items = 1; // the items of the enum
   // whether value outside of the enum items is allowed
   bool support_extension = 2;
   bool case_sensitive = 3; // whether the enum is case sensitive
 }
 
-message CMDArgEnumItem {
+message CrsArgEnumItem {
   string name = 1;   // the name of the enum item
   string value = 2;  // json formatted string, support null
   bool internal = 3; // whether is internal enum item only which will not be
@@ -107,60 +103,60 @@ message CMDArgEnumItem {
 
 // Cls Argument is used to defined a pattern as class so that it can be used
 // internally to avoid reference cycle
-message CMDClsArg {
+message CrsClsArg {
   string cls_type = 1; // the class name of the argument
 }
 
 // String Argument
-message CMDStringArg {
-  CMDArgEnum enum = 1; // the enum of the string
+message CrsStringArg {
+  CrsArgEnum enum = 1; // the enum of the string
   oneof format {
     // The binary file should not be handled when arg
     // parse, they should be handled by command.
     // reference
     // https://swagger.io/docs/specification/v3_0/describing-request-body/file-upload/
     // for file upload.
-    CMDBinaryFormat binary = 8;
-    CMDByteFormat byte = 9; // base64 encoded characters
-    CMDStringFormat string = 10;
-    CMDDurationFormat duration = 11;
-    CMDDateFormat date = 12;
-    CMDDateTimeFormat date_time = 13;
-    CMDTimeFormat time = 14;
-    CMDUuidFormat uuid = 15;
-    CMDPasswordFormat password = 16;
-    CMDSubscriptionIdFormat subscription_id = 17;
-    CMDResourceGroupNameFormat resource_group_name = 18;
-    CMDResourceIdFormat resource_id = 19;
-    CMDResourceLocationFormat resource_location = 20;
+    CrsBinaryFormat binary = 8;
+    CrsByteFormat byte = 9; // base64 encoded characters
+    CrsStringFormat string = 10;
+    CrsDurationFormat duration = 11;
+    CrsDateFormat date = 12;
+    CrsDateTimeFormat date_time = 13;
+    CrsTimeFormat time = 14;
+    CrsUuidFormat uuid = 15;
+    CrsPasswordFormat password = 16;
+    CrsSubscriptionIdFormat subscription_id = 17;
+    CrsResourceGroupNameFormat resource_group_name = 18;
+    CrsResourceIdFormat resource_id = 19;
+    CrsResourceLocationFormat resource_location = 20;
   }
 }
 
-message CMDByteFormat {}
+message CrsByteFormat {}
 
-message CMDBinaryFormat {}
+message CrsBinaryFormat {}
 
-message CMDStringFormat {
+message CrsStringFormat {
   optional string pattern = 1; // the regular expression pattern of the string
   optional uint32 max_length = 2; // the maximum length of the string
   optional uint32 min_length = 3; // the minimum length of the string
 }
 
-message CMDDurationFormat {
+message CrsDurationFormat {
   enum Protocol {
     ISO8601 = 0; // PnYnMnDTnHnMnS
   }
   Protocol protocol = 1; // the protocol of the duration
 }
 
-message CMDDateFormat {
+message CrsDateFormat {
   enum Protocol {
     ISO8601 = 0; // yyyy-mm-dd
   }
   Protocol protocol = 1; // the protocol of the date
 }
 
-message CMDTimeFormat {
+message CrsTimeFormat {
   enum Protocol {
     ISO8601 = 0; // hh:mm:ss.xxx
   }
@@ -169,7 +165,7 @@ message CMDTimeFormat {
   optional uint32 ms_length = 2;
 }
 
-message CMDDateTimeFormat {
+message CrsDateTimeFormat {
   enum Protocol {
     ISO8601 = 0; // 2024-03-19T08:30:00.123+00:00
     RFC1123 = 1; // Tue, 19 Mar 2024 08:30:00 GMT
@@ -179,7 +175,7 @@ message CMDDateTimeFormat {
   optional uint32 ms_length = 2;
 }
 
-message CMDUuidFormat {
+message CrsUuidFormat {
   enum Case {
     LOWER = 0;
     UPPER = 1;
@@ -189,65 +185,65 @@ message CMDUuidFormat {
   bool with_braces = 3; // whether to use braces in the uuid
 }
 
-// CMDPasswordFormat indicates the string should be treated as a password
+// CrsPasswordFormat indicates the string should be treated as a password
 // This is an empty message used only for type discrimination
-message CMDPasswordFormat {}
+message CrsPasswordFormat {}
 
-// CMDSubscriptionIdFormat indicates the string should be treated as an Azure
+// CrsSubscriptionIdFormat indicates the string should be treated as an Azure
 // subscription ID This is an empty message used only for type discrimination
-message CMDSubscriptionIdFormat {}
+message CrsSubscriptionIdFormat {}
 
-// CMDResourceGroupNameFormat indicates the string should be treated as an Azure
+// CrsResourceGroupNameFormat indicates the string should be treated as an Azure
 // resource group name This is an empty message used only for type
 // discrimination
-message CMDResourceGroupNameFormat {}
+message CrsResourceGroupNameFormat {}
 
-message CMDResourceIdFormat {
+message CrsResourceIdFormat {
   repeated string templates = 1; // the supported templates of the resource id
 }
 
-message CMDResourceLocationFormat {
+message CrsResourceLocationFormat {
   bool no_rg_default = 1; // whether to not use the location value of resource
                           // group as default value
 }
 
-message CMDNumberArg {
-  CMDArgEnum enum = 1; // the enum of the number
+message CrsNumberArg {
+  CrsArgEnum enum = 1; // the enum of the number
   oneof format {
-    CMDInt32Format int32 = 10;
-    CMDInt64Format int64 = 11;
-    CMDUint32Format uint32 = 20;
-    CMDUint64Format uint64 = 21;
-    CMDFloatFormat float = 30;
-    CMDDoubleFormat double = 31;
+    CrsInt32Format int32 = 10;
+    CrsInt64Format int64 = 11;
+    CrsUint32Format uint32 = 20;
+    CrsUint64Format uint64 = 21;
+    CrsFloatFormat float = 30;
+    CrsDoubleFormat double = 31;
   }
 }
 
-message CMDInt32Format {
+message CrsInt32Format {
   optional int32 minimum = 1;     // the minimum value of the integer
   optional int32 maximum = 2;     // the maximum value of the integer
   optional int32 multiple_of = 3; // the multiple of the integer
 }
 
-message CMDInt64Format {
+message CrsInt64Format {
   optional int64 minimum = 1;     // the minimum value of the integer
   optional int64 maximum = 2;     // the maximum value of the integer
   optional int64 multiple_of = 3; // the multiple of the integer
 }
 
-message CMDUint32Format {
+message CrsUint32Format {
   optional uint32 minimum = 1;     // the minimum value of the integer
   optional uint32 maximum = 2;     // the maximum value of the integer
   optional uint32 multiple_of = 3; // the multiple of the integer
 }
 
-message CMDUint64Format {
+message CrsUint64Format {
   optional uint64 minimum = 1;     // the minimum value of the integer
   optional uint64 maximum = 2;     // the maximum value of the integer
   optional uint64 multiple_of = 3; // the multiple of the integer
 }
 
-message CMDFloatFormat {
+message CrsFloatFormat {
   optional float minimum = 1;     // the minimum value of the float
   optional float maximum = 2;     // the maximum value of the float
   bool exclusive_minimum = 3;     // whether the minimum value is exclusive
@@ -255,7 +251,7 @@ message CMDFloatFormat {
   optional float multiple_of = 5; // the multiple of the float
 }
 
-message CMDDoubleFormat {
+message CrsDoubleFormat {
   optional double minimum = 1;     // the minimum value of the float
   optional double maximum = 2;     // the maximum value of the float
   bool exclusive_minimum = 3;      // whether the minimum value is exclusive
@@ -263,46 +259,46 @@ message CMDDoubleFormat {
   optional double multiple_of = 5; // the multiple of the float
 }
 
-message CMDBooleanArg {
+message CrsBooleanArg {
   // the reverse flag of the boolean
   repeated string reverse_options = 1;
 }
 
-// CMDAnyTypeArg can accept any data type, such as numbers, strings, objects,
+// CrsAnyTypeArg can accept any data type, such as numbers, strings, objects,
 // and so on. This is an empty message used only for type discrimination
-message CMDAnyTypeArg {}
+message CrsAnyTypeArg {}
 
-message CMDObjectArg {
+message CrsObjectArg {
   optional string cls_type = 1;       // the class implementation
   bool ps_flatten = 2; // whether this object is flattened for PowerShell Cmdlet
-  CMDObjectFormat format = 3; // the format of the object
-  repeated CMDArg props = 4; // the property arguments of the object
+  CrsObjectFormat format = 3; // the format of the object
+  repeated CrsArg props = 4; // the property arguments of the object
   // the additional properties of the object
-  CMDObjectArgAdditionalProperties additional_props = 5;
+  CrsObjectArgAdditionalProperties additional_props = 5;
 }
 
-message CMDObjectArgAdditionalProperties {
-  CMDArg item = 1; // the item argument of the additional properties
+message CrsObjectArgAdditionalProperties {
+  CrsArg item = 1; // the item argument of the additional properties
 }
 
-message CMDObjectFormat {
+message CrsObjectFormat {
   optional uint32 min_length = 1; // the minimum length of the object
   optional uint32 max_length = 2; // the maximum length of the object
 }
 
-message CMDArrayArg {
+message CrsArrayArg {
   optional string cls_type = 1;       // the class implementation
-  CMDArg item = 2;           // the item argument of the array
-  CMDArrayFormat format = 3; // the format of the array
+  CrsArg item = 2;           // the item argument of the array
+  CrsArrayFormat format = 3; // the format of the array
 }
 
-message CMDArrayFormat {
+message CrsArrayFormat {
   bool unique = 1;                // whether the array should be unique
   optional uint32 min_length = 2; // the minimum length of the array
   optional uint32 max_length = 3; // the maximum length of the array
 }
 
-message CMDParams {
+message CrsParams {
   map<string, bytes> params = 1;
   // the keys of the params which are assigned as patch value, the value
   // can be `param1.prop1[1].tags.a` or `param1.prop1+`. Here the `+`
@@ -310,13 +306,13 @@ message CMDParams {
   repeated string patch_keys = 2;
 }
 
-// CMDOutputFlattenMode indicates the flatten mode of the output
-enum CMDOutputFlattenMode {
+// CrsOutputFlattenMode indicates the flatten mode of the output
+enum CrsOutputFlattenMode {
   NONE = 0;    // return the output without any flatten applied
   BASIC = 1;   // return the output with basic flatten applied (usually apply the x-ms-client-flatten definition in the swagger)
   FULL = 2;    // return the output with fully flatten applied (the fully flatten mode will be used for table like output such as the PowerShell output)
 }
 
-message CMDOutputFormat {
-  CMDOutputFlattenMode flatten_mode = 1; // the flatten mode of the output
+message CrsOutputFormat {
+  CrsOutputFlattenMode flatten_mode = 1; // the flatten mode of the output
 }

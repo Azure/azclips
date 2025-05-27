@@ -1,4 +1,4 @@
-use az_core::pb::{CmdInterface, ComponentMetadata};
+use az_core::pb::{ComponentMetadata, CrsInterface};
 
 use crate::output::StyledString;
 
@@ -34,7 +34,7 @@ use crate::output::StyledString;
 /// - `help/short`
 /// - `help/long`
 /// - `level/version`
-/// - `level/args(CmdArg)`
+/// - `level/args(CrsArg)`
 /// - `level/positional_args(string)`
 /// - `level/args/var_name`
 /// - `level/args/name`
@@ -58,7 +58,7 @@ use crate::output::StyledString;
 pub trait CmdTemplate {
     fn render<'a>(
         &self,
-        cmd: &CmdInterface,
+        cmd: &CrsInterface,
         components: impl IntoIterator<Item = &'a ComponentMetadata>,
         term_width: Option<usize>,
     ) -> Vec<StyledString>;

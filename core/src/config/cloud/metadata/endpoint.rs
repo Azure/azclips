@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::sync::RwLock;
 
 use super::AzCloud;
-use crate::pb::{cmd_arg, CmdArg, CmdArgHelp, CmdStringArg};
+use crate::pb::{crs_arg, CrsArg, CrsArgHelp, CrsStringArg};
 
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct EndpointName {
@@ -102,12 +102,12 @@ macro_rules! standard_endpoints {
                 //     }
                 // }
 
-                pub fn list_args(nullable: bool) -> Vec<CmdArg> {
+                pub fn list_args(nullable: bool) -> Vec<CrsArg> {
                     vec![
                         $(
-                            CmdArg {
+                            CrsArg {
                                 name: unsafe { std::str::from_utf8_unchecked($name_bytes) }.to_string(),
-                                help: Some(CmdArgHelp {
+                                help: Some(CrsArgHelp {
                                     short: format!("{} service.", unsafe { std::str::from_utf8_unchecked($name_bytes) }),
                                     long: None,
                                 }),
@@ -115,7 +115,7 @@ macro_rules! standard_endpoints {
                                 options: vec![unsafe { std::str::from_utf8_unchecked($kebab_bytes) }.to_string()],
                                 required: false,
                                 nullable,
-                                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
+                                arg_type: Some(crs_arg::ArgType::String(CrsStringArg {
                                     ..Default::default()
                                 })),
                                 ..Default::default()
@@ -205,12 +205,12 @@ macro_rules! standard_suffixes {
                 //     }
                 // }
 
-                pub fn list_args(nullable: bool) -> Vec<CmdArg> {
+                pub fn list_args(nullable: bool) -> Vec<CrsArg> {
                     vec![
                         $(
-                            CmdArg {
+                            CrsArg {
                                 name: unsafe { std::str::from_utf8_unchecked($name_bytes) }.to_string(),
-                                help: Some(CmdArgHelp {
+                                help: Some(CrsArgHelp {
                                     short: format!("{} service.", unsafe { std::str::from_utf8_unchecked($name_bytes) }),
                                     long: None,
                                 }),
@@ -218,7 +218,7 @@ macro_rules! standard_suffixes {
                                 options: vec![unsafe { std::str::from_utf8_unchecked($kebab_bytes) }.to_string()],
                                 required: false,
                                 nullable,
-                                arg_type: Some(cmd_arg::ArgType::String(CmdStringArg {
+                                arg_type: Some(crs_arg::ArgType::String(CrsStringArg {
                                     ..Default::default()
                                 })),
                                 ..Default::default()
