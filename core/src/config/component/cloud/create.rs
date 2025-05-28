@@ -66,7 +66,10 @@ impl AzCommand for CreateCloud {
 
     fn args() -> Vec<CrsArg> {
         let mut endpoints = endpoint::StandardEndpoint::list_args("$Body.endpoints", false);
-        endpoints.extend(endpoint::StandardSuffix::list_args("$Body.endpoints", false));
+        endpoints.extend(endpoint::StandardSuffix::list_args(
+            "$Body.endpoints",
+            false,
+        ));
         let resource_ids = resource_id::StandardResourceId::list_args("$Body.resourceIds", false);
         vec![
             CrsArg {
