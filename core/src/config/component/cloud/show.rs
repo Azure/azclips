@@ -45,6 +45,7 @@ impl AzCommand for ShowCloud {
 
     fn args() -> Vec<CrsArg> {
         vec![CrsArg {
+            var_name: "$Body.name".to_string(),
             name: "name".to_string(),
             help: Some(CrsArgHelp {
                 short: "Name of a registered cloud.".to_string(),

@@ -52,7 +52,7 @@ impl AzCommand for GetAccessToken {
     fn args() -> Vec<CrsArg> {
         vec![
             CrsArg {
-                var_name: "nameOrSubscriptionId".to_string(),
+                var_name: "$Body.nameOrSubscriptionId".to_string(),
                 name: "nameOrSubscriptionId".to_string(),
                 options: vec![
                     "name".to_string(),
@@ -71,7 +71,7 @@ impl AzCommand for GetAccessToken {
                 ..Default::default()
             },
             CrsArg {
-                var_name: "resource".to_string(),
+                var_name: "$Body.resource".to_string(),
                 name: "resource".to_string(),
                 options: vec!["resource".to_string()],
                 help: Some(CrsArgHelp {
@@ -85,7 +85,7 @@ impl AzCommand for GetAccessToken {
                 ..Default::default()
             },
             CrsArg {
-                var_name: "resourceType".to_string(),
+                var_name: "$Body.resourceType".to_string(),
                 name: "resourceType".to_string(),
                 options: vec!["resource-type".to_string()],
                 help: Some(CrsArgHelp {
@@ -99,7 +99,7 @@ impl AzCommand for GetAccessToken {
                 ..Default::default()
             },
             CrsArg {
-                var_name: "scope".to_string(),
+                var_name: "$Body.scope".to_string(),
                 name: "scope".to_string(),
                 options: vec!["scope".to_string()],
                 help: Some(CrsArgHelp {
@@ -113,7 +113,7 @@ impl AzCommand for GetAccessToken {
                 ..Default::default()
             },
             CrsArg {
-                var_name: "tenant".to_string(),
+                var_name: "$Body.tenant".to_string(),
                 name: "tenant".to_string(),
                 options: vec!["tenant".to_string(), "t".to_string()],
                 help: Some(CrsArgHelp {

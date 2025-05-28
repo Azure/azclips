@@ -107,12 +107,12 @@ impl AzCommand for UpdateCloud {
     }
 
     fn args() -> Vec<CrsArg> {
-        let mut endpoints = endpoint::StandardEndpoint::list_args(true);
-        endpoints.extend(endpoint::StandardSuffix::list_args(true));
-        let resource_ids = resource_id::StandardResourceId::list_args(true);
+        let mut endpoints = endpoint::StandardEndpoint::list_args("$Body.endpoints", true);
+        endpoints.extend(endpoint::StandardSuffix::list_args("$Body.endpoints", true));
+        let resource_ids = resource_id::StandardResourceId::list_args("$Body.resourceIds", true);
         vec![
             CrsArg {
-                var_name: "name".to_string(),
+                var_name: "$Body.name".to_string(),
                 name: "name".to_string(),
                 help: Some(CrsArgHelp {
                     short: "The name of the cloud".to_string(),
@@ -126,7 +126,7 @@ impl AzCommand for UpdateCloud {
                 ..Default::default()
             },
             CrsArg {
-                var_name: "endpoints".to_string(),
+                var_name: "$Body.endpoints".to_string(),
                 name: "endpoints".to_string(),
                 help: Some(CrsArgHelp {
                     short: "The endpoints of the cloud".to_string(),
@@ -138,7 +138,7 @@ impl AzCommand for UpdateCloud {
                     props: endpoints,
                     additional_props: Some(Box::new(CrsObjectArgAdditionalProperties {
                         item: Some(Box::new(CrsArg {
-                            var_name: "endpoints{}".to_string(),
+                            var_name: "$Body.endpoints{}".to_string(),
                             name: "endpoint".to_string(),
                             help: Some(CrsArgHelp {
                                 short: "The custom endpoint used in the cloud".to_string(),
@@ -155,7 +155,7 @@ impl AzCommand for UpdateCloud {
                 ..Default::default()
             },
             CrsArg {
-                var_name: "resourceIds".to_string(),
+                var_name: "$Body.resourceIds".to_string(),
                 name: "resourceIds".to_string(),
                 help: Some(CrsArgHelp {
                     short: "The resource ids of the cloud".to_string(),
@@ -167,7 +167,7 @@ impl AzCommand for UpdateCloud {
                     props: resource_ids,
                     additional_props: Some(Box::new(CrsObjectArgAdditionalProperties {
                         item: Some(Box::new(CrsArg {
-                            var_name: "resourceIds{}".to_string(),
+                            var_name: "$Body.resourceIds{}".to_string(),
                             name: "resourceId".to_string(),
                             help: Some(CrsArgHelp {
                                 short: "The custom resource id used in the cloud".to_string(),

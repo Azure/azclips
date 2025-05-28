@@ -48,7 +48,7 @@ impl AzCommand for Logout {
 
     fn args() -> Vec<CrsArg> {
         vec![CrsArg {
-            var_name: "username".to_string(),
+            var_name: "$Body.username".to_string(),
             name: "username".to_string(),
             options: vec!["username".to_string()],
             help: Some(CrsArgHelp {
