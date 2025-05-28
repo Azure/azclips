@@ -44,7 +44,13 @@ async fn run_app_inter(tenant_id: &str) -> Result<(), Box<dyn Error>> {
     )?;
 
     let token_response = interactive_credentials
-        .get_token(Some(&["fake"]), Some("select_account"), None, None, None)
+        .get_token(
+            Some(&["https://management.core.windows.net/.default"]),
+            Some("select_account"),
+            None,
+            None,
+            None,
+        )
         .await?;
 
     let original_expires_in = token_response
@@ -68,6 +74,10 @@ async fn run_app_inter(tenant_id: &str) -> Result<(), Box<dyn Error>> {
         .ok_or_else(|| NoRefreshTokenError)?; // Return an error if refresh token is missing
 
     let refresh_token_secret = Secret::new(refresh_token.secret().to_string());
+
+    if let Some(id_token) = token_response.extra_fields().id_token.clone() {
+        println!("ID token: {}", id_token);
+    }
 
     println!("\n--- Refreshing the token using refresh_token ---\n");
 

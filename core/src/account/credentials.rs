@@ -1,8 +1,9 @@
-use super::utils::{format_token_expires_on, load_landing_page_templates};
+use super::utils::{decode_part_id_token, format_token_expires_on, load_landing_page_templates};
 use crate::error::{AuthenticationError, AzError, AzInternalError};
 use azure_identity::interactive_credential::interactive_browser_credential::InteractiveBrowserCredential;
 use oauth2::TokenResponse;
-use serde_json::{json, to_string_pretty, Value};
+use serde::{Deserialize, Serialize};
+use serde_json::to_string_pretty;
 use std::fs::File;
 use std::io::{Read, Write};
 
@@ -70,10 +71,49 @@ impl UserCredential {
             .unwrap_or(std::time::Duration::from_secs(0));
         let expires_on = format_token_expires_on(expires_in);
 
+        let id_token = token_response.extra_fields().id_token.clone();
+
+        let mut username = None;
+        let mut tenant_id = None;
+        let mut user_object_id = None;
+
+        if let Some(token) = &id_token {
+            let parts: Vec<&str> = token.split('.').collect();
+            if parts.len() == 3 {
+                // Decode the payload part (middle part) of the JWT
+                let payload_json = decode_part_id_token(parts[1], Some("utf-8"))?;
+                
+                let payload_value = serde_json::from_str::<serde_json::Value>(&payload_json)
+                    .map_err(|_| AuthenticationError::InvalidIdToken(
+                        "Failed to parse ID token payload".to_string()
+                    ))?;
+                
+                username = payload_value
+                    .get("preferred_username")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+
+                tenant_id = payload_value
+                    .get("tid")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+
+                user_object_id = payload_value
+                    .get("oid")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+            }
+        }
+
         let token = Token {
             access_token,
             expires_on,
             refresh_token,
+            id_token: id_token,
+            tenant_id: tenant_id,
+            user_object_id: user_object_id,
+            user_preferred_username: username,
+            scopes: Some(scopes.iter().map(|s| s.to_string()).collect()),
         };
 
         // Save the token to a file
@@ -101,25 +141,22 @@ pub struct ManagedIdentityCredential {
     object_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Token {
     // Todo: Adjust the fields with Azure SDK's TokenResponse struct
     pub access_token: String,
     pub expires_on: u64,
     pub refresh_token: Option<String>,
+    pub id_token: Option<String>,
+    pub tenant_id: Option<String>,
+    pub user_object_id: Option<String>,
+    pub user_preferred_username: Option<String>,
+    pub scopes: Option<Vec<String>>,
 }
 
 impl Token {
     pub fn write_token_to_file(&self) -> Result<(), AzInternalError> {
-        //TODO: Store token in cache
-        //TODO: Store access token for different scopes, tenants, and users
-        let token_data = json!({
-            "access_token": self.access_token,
-            "expires_on": self.expires_on,
-            "refresh_token": self.refresh_token,
-        });
-
-        let json_string = to_string_pretty(&token_data)?;
+        let json_string = to_string_pretty(&self)?;
 
         let home_dir = dirs::home_dir().ok_or_else(|| {
             AzInternalError::InvalidPathError("Could not determine home directory".to_string())
@@ -161,29 +198,7 @@ impl Token {
         file.read_to_string(&mut contents)
             .map_err(AzInternalError::Io)?;
 
-        let token_data: Value = serde_json::from_str(&contents).map_err(AzInternalError::Json)?;
-
-        let access_token = token_data
-            .get("access_token")
-            .and_then(|t| t.as_str())
-            .ok_or_else(|| {
-                AuthenticationError::InvalidToken("No access token found in token file".to_string())
-            })?
-            .to_string();
-
-        let expires_on = token_data
-            .get("expires_on")
-            .and_then(|e| e.as_u64())
-            .ok_or_else(|| {
-                AuthenticationError::InvalidToken(
-                    "No expiration time found in token file or invalid format".to_string(),
-                )
-            })?;
-
-        let refresh_token = token_data
-            .get("refresh_token")
-            .and_then(|t| t.as_str())
-            .map(|s| s.to_string());
+        let token: Token = serde_json::from_str(&contents).map_err(|e| AzInternalError::Json(e))?;
 
         // Check if token is expired
         let now = std::time::SystemTime::now()
@@ -191,14 +206,17 @@ impl Token {
             .map_err(|_| AzError::GeneralError("Failed to get current time".to_string()))?
             .as_secs();
 
-        if expires_on <= now {
+        if token.expires_on <= now {
             return Err(AzError::Authentication(AuthenticationError::TokenExpired));
         }
+        if token.access_token.is_empty() {
+            return Err(AzError::Authentication(
+                AuthenticationError::InvalidAccessToken(
+                    "No access token found in token file".to_string(),
+                ),
+            ));
+        }
 
-        Ok(Token {
-            access_token,
-            refresh_token,
-            expires_on,
-        })
+        Ok(token)
     }
 }

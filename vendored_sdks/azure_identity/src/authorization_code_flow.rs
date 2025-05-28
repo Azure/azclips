@@ -5,22 +5,20 @@
 //!
 //! You can learn more about the `OAuth2` authorization code flow [here](https://learn.microsoft.com/azure/active-directory/develop/v2-oauth2-auth-code-flow).
 
-#![allow(dead_code)]
-
-use crate::oauth2_http_client::Oauth2HttpClient;
+use crate::custom_token_fields::CustomTokenFields;
 use azure_core::{
     error::ErrorKind,
     http::{HttpClient, Url},
 };
 use oauth2::{basic::BasicClient, EndpointNotSet, EndpointSet, HttpRequest, Scope};
-use oauth2::{ClientId, ClientSecret};
+use oauth2::{ClientId, ClientSecret, TokenResponse};
+use serde_json;
 use std::sync::Arc;
 
 /// Start an authorization code flow.
 ///
 /// The values for `client_id`, `client_secret`, `tenant_id`, and `redirect_url` can all be found
 /// inside of the Azure portal.
-#[allow(dead_code)]
 pub fn authorize(
     client_id: ClientId,
     client_secret: Option<ClientSecret>,
@@ -103,17 +101,17 @@ pub struct AuthorizationCodeFlow {
     pub pkce_code_verifier: oauth2::PkceCodeVerifier,
 }
 
-#[allow(dead_code)]
 impl AuthorizationCodeFlow {
-    /// Exchange an authorization code for a token.
     pub async fn exchange(
         self,
         http_client: Arc<dyn HttpClient>,
         code: oauth2::AuthorizationCode,
     ) -> azure_core::Result<
-        oauth2::StandardTokenResponse<oauth2::EmptyExtraTokenFields, oauth2::basic::BasicTokenType>,
+        oauth2::StandardTokenResponse<CustomTokenFields, oauth2::basic::BasicTokenType>,
     > {
-        let oauth_http_client = Arc::new(Oauth2HttpClient::new(http_client.clone()));
+        use crate::oauth2_http_client::Oauth2HttpClient;
+        let oauth_http_client = Arc::new(Oauth2HttpClient::new(http_client));
+
         let client = {
             let oauth_http_client = oauth_http_client.clone();
             move |request: HttpRequest| {
@@ -122,17 +120,64 @@ impl AuthorizationCodeFlow {
             }
         };
 
-        self.client
+        let token_request = self
+            .client
             .exchange_code(code)
-            // Send the PKCE code verifier in the token request
-            .set_pkce_verifier(self.pkce_code_verifier)
-            .request_async(&client)
-            .await
-            .map_err(|e| {
+            .set_pkce_verifier(self.pkce_code_verifier);
+
+        let standard_response = token_request.request_async(&client).await.map_err(|e| {
+            azure_core::Error::new(
+                ErrorKind::Credential,
+                format!("Authorization code exchange failed: {}", e),
+            )
+        })?;
+
+        let raw_response = oauth_http_client
+            .raw_response()
+            .map_err(|_| {
                 azure_core::Error::new(
                     ErrorKind::Credential,
-                    format!("Authorization code exchange failed: {}", e),
+                    "Failed to capture token response".to_string(),
                 )
-            })
+            })?
+            .ok_or_else(|| {
+                azure_core::Error::new(
+                    ErrorKind::Credential,
+                    "Token response was empty".to_string(),
+                )
+            })?;
+
+        let raw_response_json: serde_json::Value =
+            serde_json::from_str(&raw_response).map_err(|e| {
+                azure_core::Error::new(
+                    ErrorKind::Credential,
+                    format!("Failed to parse token response as JSON: {}", e),
+                )
+            })?;
+
+        let id_token = raw_response_json
+            .get("id_token")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        let custom_fields = CustomTokenFields { id_token };
+        let mut token_response = oauth2::StandardTokenResponse::new(
+            standard_response.access_token().clone(),
+            standard_response.token_type().clone(),
+            custom_fields,
+        );
+
+        if let Some(expires_in) = standard_response.expires_in() {
+            token_response.set_expires_in(Some(&expires_in));
+        }
+
+        if let Some(refresh_token) = standard_response.refresh_token() {
+            token_response.set_refresh_token(Some(refresh_token.clone()));
+        }
+
+        if let Some(scopes) = standard_response.scopes() {
+            token_response.set_scopes(Some(scopes.clone()));
+        }
+
+        Ok(token_response)
     }
 }

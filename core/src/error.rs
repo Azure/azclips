@@ -111,11 +111,14 @@ pub enum AuthenticationError {
     #[error("Token expired")]
     TokenExpired,
 
-    #[error("Invalid token: {0}")]
-    InvalidToken(String),
+    #[error("Invalid access token: {0}")]
+    InvalidAccessToken(String),
 
     #[error("Invalid tenant")]
     InvalidTenant,
+
+    #[error("Invalid id token: {0}")]
+    InvalidIdToken(String),
 }
 
 // You can add more error variants as needed.

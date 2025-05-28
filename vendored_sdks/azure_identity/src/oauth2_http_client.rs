@@ -18,15 +18,28 @@ use tracing::warn;
 
 pub(crate) struct Oauth2HttpClient {
     http_client: Arc<dyn HttpClient>,
+    raw_response_body: Arc<std::sync::Mutex<Option<String>>>, // Store the raw response body for id_token extraction
 }
 
 impl Oauth2HttpClient {
-    /// Create a new `Oauth2HttpClient`.
     pub fn new(http_client: Arc<dyn HttpClient>) -> Self {
-        Self { http_client }
+        Self {
+            http_client,
+            raw_response_body: Arc::new(std::sync::Mutex::new(None)),
+        }
     }
 
-    pub(crate) async fn request(
+    pub fn raw_response(&self) -> Result<Option<String>, azure_core::error::Error> {
+        match self.raw_response_body.lock() {
+            Ok(guard) => Ok(guard.clone()),
+            Err(_) => Err(Error::message(
+                ErrorKind::Other,
+                "Failed to acquire lock on raw_response_body due to poisoning",
+            )),
+        }
+    }
+
+    pub async fn request(
         &self,
         oauth2_request: oauth2::HttpRequest,
     ) -> Result<oauth2::HttpResponse, azure_core::error::Error> {
@@ -49,6 +62,13 @@ impl Oauth2HttpClient {
         let status_code = try_from_status(response.status())?;
         let headers = try_from_headers(response.headers())?;
         let body = response.into_raw_body().collect().await?.to_vec();
+
+        if !body.is_empty() {
+            let response_str = String::from_utf8_lossy(&body).to_string();
+            if let Ok(mut guard) = self.raw_response_body.lock() {
+                *guard = Some(response_str);
+            }
+        }
 
         let mut oauth_response = oauth2::HttpResponse::new(body);
         *oauth_response.headers_mut() = headers;

@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 mod authorization_code_flow;
+pub mod custom_token_fields;
 pub mod interactive_credential;
 mod oauth2_http_client;
 pub mod refresh_token;
