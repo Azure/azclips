@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use azure_core::http::ClientOptions;
 use serde_json::{json, Value};
 use tracing::error;
 
@@ -26,6 +27,7 @@ impl AzCommandExecute for ShowDemo {
         };
         println!("subscription: {}", subscription);
         println!("resource_group_name: {}", self.resource_group_name);
+
         Ok(Some(json!({})))
     }
 }

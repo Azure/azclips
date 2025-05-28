@@ -165,10 +165,10 @@ mod tests {
                 endpoint.as_ref().unwrap(),
                 "https://login.microsoftonline.com"
             );
-            let resource_id = active.get_resource_id(&resource_id::AUTHENTICATION).await;
+            let resource_id = active.get_credential_scope(&resource_id::AUTHENTICATION).await;
             assert_eq!(
                 resource_id.as_ref().unwrap(),
-                "https://management.core.windows.net/"
+                "https://management.core.windows.net//.default"
             );
         }
         {
@@ -176,10 +176,10 @@ mod tests {
             assert_eq!(active.name, AzCloud::AzureChinaCloud);
             let endpoint = active.get_endpoint(&endpoint::AUTHENTICATION).await;
             assert_eq!(endpoint.as_ref().unwrap(), "https://login.chinacloudapi.cn");
-            let resource_id = active.get_resource_id(&resource_id::AUTHENTICATION).await;
+            let resource_id = active.get_credential_scope(&resource_id::AUTHENTICATION).await;
             assert_eq!(
                 resource_id.as_ref().unwrap(),
-                "https://management.core.chinacloudapi.cn/"
+                "https://management.core.chinacloudapi.cn//.default"
             );
         }
         {
@@ -203,10 +203,10 @@ mod tests {
             endpoint.as_ref().unwrap(),
             "https://login.microsoftonline.com"
         );
-        let resource_id = active.get_resource_id(&resource_id::AUTHENTICATION).await;
+        let resource_id = active.get_credential_scope(&resource_id::AUTHENTICATION).await;
         assert_eq!(
             resource_id.as_ref().unwrap(),
-            "https://management.core.windows.net/"
+            "https://management.core.windows.net//.default"
         );
     }
 
@@ -224,10 +224,10 @@ mod tests {
         let active = cfg.get_active();
         let endpoint = active.get_endpoint(&endpoint::AUTHENTICATION).await;
         assert_eq!(endpoint.as_ref().unwrap(), "https://login.chinacloudapi.cn");
-        let resource_id = active.get_resource_id(&resource_id::AUTHENTICATION).await;
+        let resource_id = active.get_credential_scope(&resource_id::AUTHENTICATION).await;
         assert_eq!(
             resource_id.as_ref().unwrap(),
-            "https://management.core.chinacloudapi.cn/"
+            "https://management.core.chinacloudapi.cn//.default"
         );
     }
 
@@ -251,8 +251,8 @@ mod tests {
         let active = cfg.get_active();
         let endpoint = active.get_endpoint(&endpoint::AUTHENTICATION).await;
         assert_eq!(endpoint.as_ref().unwrap(), "https://test.resource.com");
-        let resource_id = active.get_resource_id(&resource_id::AUTHENTICATION).await;
-        assert_eq!(resource_id.as_ref().unwrap(), "https://test.resource.com/");
+        let resource_id = active.get_credential_scope(&resource_id::AUTHENTICATION).await;
+        assert_eq!(resource_id.as_ref().unwrap(), "https://test.resource.com//.default");
     }
 
     #[tokio::test]
@@ -291,10 +291,10 @@ mod tests {
                 endpoint.as_ref().unwrap(),
                 "https://test.custom.resource.com"
             );
-            let resource_id = active.get_resource_id(&resource_id::AUTHENTICATION).await;
+            let resource_id = active.get_credential_scope(&resource_id::AUTHENTICATION).await;
             assert_eq!(
                 resource_id.as_ref().unwrap(),
-                "https://test.custom.resource.com/"
+                "https://test.custom.resource.com//.default"
             );
         }
 
@@ -303,10 +303,10 @@ mod tests {
             assert_eq!(active.name, AzCloud::AzureCloud);
             let endpoint = active.get_endpoint(&endpoint::AUTHENTICATION).await;
             assert_eq!(endpoint.as_ref().unwrap(), "https://test.resource.com");
-            let resource_id = active.get_resource_id(&resource_id::AUTHENTICATION).await;
+            let resource_id = active.get_credential_scope(&resource_id::AUTHENTICATION).await;
             assert_eq!(
                 resource_id.as_ref().unwrap(),
-                "https://management.core.windows.net/"
+                "https://management.core.windows.net//.default"
             );
         }
     }

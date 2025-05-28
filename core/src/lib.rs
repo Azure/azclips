@@ -7,6 +7,7 @@ pub mod config;
 pub mod error;
 pub mod pb;
 pub mod uri;
+pub mod client;
 
 mod account;
 mod core;

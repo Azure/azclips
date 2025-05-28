@@ -37,7 +37,13 @@ impl AzCloudMetadata {
         None
     }
 
-    pub async fn get_resource_id(&self, name: &ResourceIdName) -> Option<String> {
+    pub async fn get_credential_scope(&self, name: &ResourceIdName) -> Option<String> {
+        let resource_id = self.get_resource_id(name).await?;
+        let scopes = vec![format!("{}/.default", resource_id)];
+        Some(scopes.join(" "))
+    }
+
+    async fn get_resource_id(&self, name: &ResourceIdName) -> Option<String> {
         let resource_id = self.get_resource_id_from_custom_or_builtin(name);
         if resource_id.is_some() {
             return resource_id;

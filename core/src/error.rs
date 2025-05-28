@@ -83,6 +83,12 @@ pub enum AzInternalError {
 
     #[error("Invalid param value: {0}")]
     InvalidParamValueError(String),
+
+    #[error("The endpoint `{0}` is not registered.")]
+    EndpointUnregisteredError(String),
+
+    #[error("The resource id `{0}` is not registered.")]
+    ResourceIdUnregisteredError(String),
 }
 
 #[derive(Error, Debug)]
