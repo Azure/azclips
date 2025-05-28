@@ -105,10 +105,13 @@ impl AuthorizationCodeFlow {
     pub async fn exchange(
         self,
         http_client: Arc<dyn HttpClient>,
-        code: oauth2::AuthorizationCode,    ) -> azure_core::Result<oauth2::StandardTokenResponse<CustomTokenFields, oauth2::basic::BasicTokenType>> {
+        code: oauth2::AuthorizationCode,
+    ) -> azure_core::Result<
+        oauth2::StandardTokenResponse<CustomTokenFields, oauth2::basic::BasicTokenType>,
+    > {
         use crate::oauth2_http_client::Oauth2HttpClient;
         let oauth_http_client = Arc::new(Oauth2HttpClient::new(http_client));
-        
+
         let client = {
             let oauth_http_client = oauth_http_client.clone();
             move |request: HttpRequest| {
@@ -116,60 +119,65 @@ impl AuthorizationCodeFlow {
                 async move { oauth_http_client.request(request).await }
             }
         };
-        
-        let token_request = self.client
+
+        let token_request = self
+            .client
             .exchange_code(code)
             .set_pkce_verifier(self.pkce_code_verifier);
-        
-        let standard_response = token_request
-            .request_async(&client)
-            .await
-            .map_err(|e| {
+
+        let standard_response = token_request.request_async(&client).await.map_err(|e| {
+            azure_core::Error::new(
+                ErrorKind::Credential,
+                format!("Authorization code exchange failed: {}", e),
+            )
+        })?;
+
+        let raw_response = oauth_http_client
+            .raw_response()
+            .map_err(|_| {
                 azure_core::Error::new(
                     ErrorKind::Credential,
-                    format!("Authorization code exchange failed: {}", e),
+                    "Failed to capture token response".to_string(),
+                )
+            })?
+            .ok_or_else(|| {
+                azure_core::Error::new(
+                    ErrorKind::Credential,
+                    "Token response was empty".to_string(),
                 )
             })?;
-        
-        let raw_response = oauth_http_client.raw_response().map_err(|_| {
-            azure_core::Error::new(
-                ErrorKind::Credential,
-                "Failed to capture token response".to_string(),
-            )
-        })?.ok_or_else(|| {
-            azure_core::Error::new(
-                ErrorKind::Credential,
-                "Token response was empty".to_string(),
-            )
-        })?;
-        
-        let raw_response_json: serde_json::Value = serde_json::from_str(&raw_response).map_err(|e| {
-            azure_core::Error::new(
-                ErrorKind::Credential,
-                format!("Failed to parse token response as JSON: {}", e),
-            )
-        })?;
-        
-        let id_token = raw_response_json.get("id_token").and_then(|v| v.as_str()).map(|s| s.to_string());
+
+        let raw_response_json: serde_json::Value =
+            serde_json::from_str(&raw_response).map_err(|e| {
+                azure_core::Error::new(
+                    ErrorKind::Credential,
+                    format!("Failed to parse token response as JSON: {}", e),
+                )
+            })?;
+
+        let id_token = raw_response_json
+            .get("id_token")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
         let custom_fields = CustomTokenFields { id_token };
         let mut token_response = oauth2::StandardTokenResponse::new(
             standard_response.access_token().clone(),
             standard_response.token_type().clone(),
             custom_fields,
         );
-        
+
         if let Some(expires_in) = standard_response.expires_in() {
             token_response.set_expires_in(Some(&expires_in));
         }
-        
+
         if let Some(refresh_token) = standard_response.refresh_token() {
             token_response.set_refresh_token(Some(refresh_token.clone()));
         }
-        
+
         if let Some(scopes) = standard_response.scopes() {
             token_response.set_scopes(Some(scopes.clone()));
         }
-        
+
         Ok(token_response)
     }
 }

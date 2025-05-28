@@ -1,8 +1,8 @@
+use crate::error::AuthenticationError;
 use base64::engine::general_purpose::URL_SAFE;
 use base64::Engine as _;
 use reqwest::{Client, Url};
 use serde_json::Value;
-use std::str;
 
 pub fn can_launch_browser() -> bool {
     webbrowser::Browser::is_available()
@@ -35,20 +35,34 @@ pub fn format_token_expires_on_readable(expires_on: u64) -> String {
 pub fn decode_part_id_token(
     raw: &str,
     encoding: Option<&str>,
-) -> Result<String, Box<dyn std::error::Error>> {
+) -> Result<String, AuthenticationError> {
     let rem = raw.len() % 4;
     let mut b64 = raw.to_string();
     if rem != 0 {
         b64.push_str(&"=".repeat(4 - rem));
     }
-    let bytes = URL_SAFE.decode(&b64)?;
+    let bytes = URL_SAFE.decode(&b64).map_err(|e| {
+        AuthenticationError::InvalidIdToken(format!(
+            "Base64 is not decoded correctly for error {}",
+            e
+        ))
+    })?;
 
     match encoding {
         Some(enc) => {
             if enc.to_lowercase() == "utf-8" {
-                Ok(str::from_utf8(&bytes)?.to_owned())
+                Ok(std::str::from_utf8(&bytes)
+                    .map_err(|e| {
+                        AuthenticationError::InvalidIdToken(format!(
+                            "Invalid UTF-8 sequence: {}",
+                            e
+                        ))
+                    })?
+                    .to_owned())
             } else {
-                Err(format!("Encoding '{}' not supported", enc).into())
+                Err(AuthenticationError::InvalidIdToken(
+                    "Unsupported encoding for ID token payload".to_string(),
+                ))
             }
         }
         None => Ok(format!("{:02x?}", bytes)),

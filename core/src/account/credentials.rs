@@ -1,13 +1,9 @@
-use super::utils::{
-    format_token_expires_on, 
-    load_landing_page_templates,
-    decode_part_id_token
-};
+use super::utils::{decode_part_id_token, format_token_expires_on, load_landing_page_templates};
 use crate::error::{AuthenticationError, AzError, AzInternalError};
 use azure_identity::interactive_credential::interactive_browser_credential::InteractiveBrowserCredential;
 use oauth2::TokenResponse;
 use serde::{Deserialize, Serialize};
-use serde_json::{to_string_pretty};
+use serde_json::to_string_pretty;
 use std::fs::File;
 use std::io::{Read, Write};
 
@@ -68,19 +64,19 @@ impl UserCredential {
 
         let refresh_token = token_response
             .refresh_token()
-            .map(|token| token.secret().to_string());        
-        
+            .map(|token| token.secret().to_string());
+
         let expires_in = token_response
             .expires_in()
             .unwrap_or(std::time::Duration::from_secs(0));
         let expires_on = format_token_expires_on(expires_in);
 
         let id_token = token_response.extra_fields().id_token.clone();
-        
+
         let mut username = None;
         let mut tenant_id = None;
         let mut object_id = None;
-        
+
         if let Some(token) = &id_token {
             let parts: Vec<&str> = token.split('.').collect();
             if parts.len() == 3 {
@@ -89,25 +85,32 @@ impl UserCredential {
                     Ok(payload_json) => {
                         match serde_json::from_str::<serde_json::Value>(&payload_json) {
                             Ok(payload_value) => {
-                                username = payload_value.get("preferred_username")
+                                username = payload_value
+                                    .get("preferred_username")
                                     .and_then(|v| v.as_str())
                                     .map(|s| s.to_string());
-                                
-                                tenant_id = payload_value.get("tid")
+
+                                tenant_id = payload_value
+                                    .get("tid")
                                     .and_then(|v| v.as_str())
                                     .map(|s| s.to_string());
-                                
-                                object_id = payload_value.get("oid")
+
+                                object_id = payload_value
+                                    .get("oid")
                                     .and_then(|v| v.as_str())
                                     .map(|s| s.to_string());
-                            },
+                            }
                             Err(_) => {
-                                return Err(AuthenticationError::InvalidIdToken);
+                                return Err(AuthenticationError::InvalidIdToken(
+                                    "Failed to parse ID token payload".to_string(),
+                                ));
                             }
                         }
-                    },
+                    }
                     Err(_) => {
-                        return Err(AuthenticationError::InvalidIdToken);
+                        return Err(AuthenticationError::InvalidIdToken(
+                            "Failed to decode ID token payload".to_string(),
+                        ));
                     }
                 }
             }
@@ -162,7 +165,7 @@ pub struct Token {
     pub scopes: Option<Vec<String>>,
 }
 
-impl Token {    
+impl Token {
     pub fn write_token_to_file(&self) -> Result<(), AzInternalError> {
         let json_string = to_string_pretty(&self)?;
 
@@ -206,9 +209,7 @@ impl Token {
         file.read_to_string(&mut contents)
             .map_err(AzInternalError::Io)?;
 
-        let mut token: Token = serde_json::from_str(&contents).map_err(|e| {
-            AzInternalError::Json(e)
-        })?;
+        let token: Token = serde_json::from_str(&contents).map_err(|e| AzInternalError::Json(e))?;
 
         // Check if token is expired
         let now = std::time::SystemTime::now()
@@ -221,7 +222,9 @@ impl Token {
         }
         if token.access_token.is_empty() {
             return Err(AzError::Authentication(
-                AuthenticationError::InvalidToken("No access token found in token file".to_string())
+                AuthenticationError::InvalidAccessToken(
+                    "No access token found in token file".to_string(),
+                ),
             ));
         }
 

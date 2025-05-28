@@ -44,7 +44,13 @@ async fn run_app_inter(tenant_id: &str) -> Result<(), Box<dyn Error>> {
     )?;
 
     let token_response = interactive_credentials
-        .get_token(Some(&["https://management.core.windows.net/.default"]), Some("select_account"), None, None, None)
+        .get_token(
+            Some(&["https://management.core.windows.net/.default"]),
+            Some("select_account"),
+            None,
+            None,
+            None,
+        )
         .await?;
 
     let original_expires_in = token_response

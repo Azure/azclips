@@ -13,11 +13,7 @@ use azure_core::{
     },
     Bytes,
 };
-use std::{
-    collections::HashMap, 
-    str::FromStr, 
-    sync::Arc
-};
+use std::{collections::HashMap, str::FromStr, sync::Arc};
 use tracing::warn;
 
 pub(crate) struct Oauth2HttpClient {
@@ -27,7 +23,7 @@ pub(crate) struct Oauth2HttpClient {
 
 impl Oauth2HttpClient {
     pub fn new(http_client: Arc<dyn HttpClient>) -> Self {
-        Self { 
+        Self {
             http_client,
             raw_response_body: Arc::new(std::sync::Mutex::new(None)),
         }
@@ -66,7 +62,7 @@ impl Oauth2HttpClient {
         let status_code = try_from_status(response.status())?;
         let headers = try_from_headers(response.headers())?;
         let body = response.into_raw_body().collect().await?.to_vec();
-        
+
         if !body.is_empty() {
             let response_str = String::from_utf8_lossy(&body).to_string();
             if let Ok(mut guard) = self.raw_response_body.lock() {
@@ -138,5 +134,3 @@ fn to_headers(map: &oauth2::http::header::HeaderMap) -> headers::Headers {
         .collect::<HashMap<_, _>>();
     headers::Headers::from(map)
 }
-
-

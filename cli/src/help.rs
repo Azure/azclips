@@ -3,7 +3,11 @@ mod table;
 mod templates;
 
 use az_core::{
-    argparse::{CrsArgWrapper, SHPartialKeys}, error::AzError, pb::CrsCommand, uri::CrsUri, AzCore
+    argparse::{CrsArgWrapper, SHPartialKeys},
+    error::AzError,
+    pb::CrsCommand,
+    uri::CrsUri,
+    AzCore,
 };
 use format::default_help_formatter;
 
