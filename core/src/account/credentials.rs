@@ -75,44 +75,33 @@ impl UserCredential {
 
         let mut username = None;
         let mut tenant_id = None;
-        let mut object_id = None;
+        let mut user_object_id = None;
 
         if let Some(token) = &id_token {
             let parts: Vec<&str> = token.split('.').collect();
             if parts.len() == 3 {
                 // Decode the payload part (middle part) of the JWT
-                match decode_part_id_token(parts[1], Some("utf-8")) {
-                    Ok(payload_json) => {
-                        match serde_json::from_str::<serde_json::Value>(&payload_json) {
-                            Ok(payload_value) => {
-                                username = payload_value
-                                    .get("preferred_username")
-                                    .and_then(|v| v.as_str())
-                                    .map(|s| s.to_string());
+                let payload_json = decode_part_id_token(parts[1], Some("utf-8"))?;
+                
+                let payload_value = serde_json::from_str::<serde_json::Value>(&payload_json)
+                    .map_err(|_| AuthenticationError::InvalidIdToken(
+                        "Failed to parse ID token payload".to_string()
+                    ))?;
+                
+                username = payload_value
+                    .get("preferred_username")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
 
-                                tenant_id = payload_value
-                                    .get("tid")
-                                    .and_then(|v| v.as_str())
-                                    .map(|s| s.to_string());
+                tenant_id = payload_value
+                    .get("tid")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
 
-                                object_id = payload_value
-                                    .get("oid")
-                                    .and_then(|v| v.as_str())
-                                    .map(|s| s.to_string());
-                            }
-                            Err(_) => {
-                                return Err(AuthenticationError::InvalidIdToken(
-                                    "Failed to parse ID token payload".to_string(),
-                                ));
-                            }
-                        }
-                    }
-                    Err(_) => {
-                        return Err(AuthenticationError::InvalidIdToken(
-                            "Failed to decode ID token payload".to_string(),
-                        ));
-                    }
-                }
+                user_object_id = payload_value
+                    .get("oid")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
             }
         }
 
@@ -122,7 +111,7 @@ impl UserCredential {
             refresh_token,
             id_token: id_token,
             tenant_id: tenant_id,
-            user_object_id: object_id,
+            user_object_id: user_object_id,
             user_preferred_username: username,
             scopes: Some(scopes.iter().map(|s| s.to_string()).collect()),
         };
