@@ -108,6 +108,17 @@ impl InteractiveBrowserCredential {
     }
 }
 
+// Implement the TokenCredential trait to support the common pattern
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+impl TokenCredential for InteractiveBrowserCredential {
+    async fn get_token(&self, scopes: &[&str]) -> azure_core::Result<AccessToken> {
+        self.cache
+            .get_token(scopes, Box::pin(async move { self.get_token(scopes).await }))
+            .await
+    }
+}
+
 /*
     vcpkg integrate install
     vcpkg install openssl
