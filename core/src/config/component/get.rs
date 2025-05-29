@@ -52,13 +52,13 @@ impl AzCommand for GetConfig {
                 long: None,
             }),
             args: Self::args(),
-            positional_args: vec![],
+            positional_args: vec!["key".to_string()],
         }
     }
 
     fn args() -> Vec<CrsArg> {
         vec![CrsArg {
-            var_name: "key".to_string(),
+            // var_name, we cannot build an expression to retrieve the key value when it could be any of the dictionary keys
             name: "key".to_string(),
             options: vec!["key".to_string()],
             help: Some(CrsArgHelp {

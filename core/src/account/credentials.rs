@@ -82,12 +82,14 @@ impl UserCredential {
             if parts.len() == 3 {
                 // Decode the payload part (middle part) of the JWT
                 let payload_json = decode_part_id_token(parts[1], Some("utf-8"))?;
-                
+
                 let payload_value = serde_json::from_str::<serde_json::Value>(&payload_json)
-                    .map_err(|_| AuthenticationError::InvalidIdToken(
-                        "Failed to parse ID token payload".to_string()
-                    ))?;
-                
+                    .map_err(|_| {
+                        AuthenticationError::InvalidIdToken(
+                            "Failed to parse ID token payload".to_string(),
+                        )
+                    })?;
+
                 username = payload_value
                     .get("preferred_username")
                     .and_then(|v| v.as_str())

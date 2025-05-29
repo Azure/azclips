@@ -122,7 +122,7 @@ impl AzCommand for Login {
     fn args() -> Vec<CrsArg> {
         vec![
             CrsArg {
-                var_name: "username".to_string(),
+                var_name: "$Body.username".to_string(),
                 name: "username".to_string(),
                 options: vec!["username".to_string(), "u".to_string()],
                 help: Some(CrsArgHelp {
@@ -137,7 +137,7 @@ impl AzCommand for Login {
                 ..Default::default()
             },
             CrsArg {
-                var_name: "password".to_string(),
+                var_name: "$Body.password".to_string(),
                 name: "password".to_string(),
                 options: vec!["password".to_string(), "p".to_string()],
                 help: Some(CrsArgHelp {
@@ -157,7 +157,7 @@ impl AzCommand for Login {
                 ..Default::default()
             },
             CrsArg {
-                var_name: "scope".to_string(),
+                var_name: "$Body.scope".to_string(),
                 name: "scope".to_string(),
                 options: vec!["scope".to_string()],
                 help: Some(CrsArgHelp {
@@ -184,7 +184,7 @@ impl AzCommand for Login {
                 ..Default::default()
             },
             CrsArg {
-                var_name: "servicePrincipal".to_string(),
+                var_name: "$Body.servicePrincipal".to_string(),
                 name: "servicePrincipal".to_string(),
                 options: vec!["service-principal".to_string()],
                 help: Some(CrsArgHelp {
@@ -195,7 +195,7 @@ impl AzCommand for Login {
                 ..Default::default()
             },
             CrsArg {
-                var_name: "tenant".to_string(),
+                var_name: "$Body.tenant".to_string(),
                 name: "tenant".to_string(),
                 options: vec!["tenant".to_string(), "t".to_string()],
                 help: Some(CrsArgHelp {
@@ -209,7 +209,7 @@ impl AzCommand for Login {
                 ..Default::default()
             },
             CrsArg {
-                var_name: "userCertSnIssuer".to_string(),
+                var_name: "$Body.userCertSnIssuer".to_string(),
                 name: "userCertSnIssuer".to_string(),
                 options: vec!["user-cert-sn-issuer".to_string()],
                 help: Some(CrsArgHelp {
@@ -220,7 +220,7 @@ impl AzCommand for Login {
                 ..Default::default()
             },
             CrsArg {
-                var_name: "useDeviceCode".to_string(),
+                var_name: "$Body.useDeviceCode".to_string(),
                 name: "useDeviceCode".to_string(),
                 options: vec!["use-device-code".to_string()],
                 help: Some(CrsArgHelp {
@@ -231,7 +231,7 @@ impl AzCommand for Login {
                 ..Default::default()
             },
             CrsArg {
-                var_name: "allowNoSubscriptions".to_string(),
+                var_name: "$Body.allowNoSubscriptions".to_string(),
                 name: "allowNoSubscriptions".to_string(),
                 options: vec!["allow-no-subscriptions".to_string()],
                 help: Some(CrsArgHelp {
@@ -242,7 +242,7 @@ impl AzCommand for Login {
                 ..Default::default()
             },
             CrsArg {
-                var_name: "certificate".to_string(),
+                var_name: "$Body.certificate".to_string(),
                 name: "certificate".to_string(),
                 options: vec!["certificate".to_string()],
                 help: Some(CrsArgHelp {
@@ -256,7 +256,7 @@ impl AzCommand for Login {
                 ..Default::default()
             },
             CrsArg {
-                var_name: "federatedToken".to_string(),
+                var_name: "$Body.federatedToken".to_string(),
                 name: "federatedToken".to_string(),
                 options: vec!["federated-token".to_string()],
                 help: Some(CrsArgHelp {
@@ -270,7 +270,7 @@ impl AzCommand for Login {
                 ..Default::default()
             },
             CrsArg {
-                var_name: "identity".to_string(),
+                var_name: "$Body.identity".to_string(),
                 name: "identity".to_string(),
                 options: vec!["identity".to_string()],
                 group: "Managed Identity".to_string(),
@@ -282,7 +282,7 @@ impl AzCommand for Login {
                 ..Default::default()
             },
             CrsArg {
-                var_name: "clientId".to_string(),
+                var_name: "$Body.clientId".to_string(),
                 name: "clientId".to_string(),
                 options: vec!["client-id".to_string()],
                 group: "Managed Identity".to_string(),
@@ -297,7 +297,7 @@ impl AzCommand for Login {
                 ..Default::default()
             },
             CrsArg {
-                var_name: "objectId".to_string(),
+                var_name: "$Body.objectId".to_string(),
                 name: "objectId".to_string(),
                 options: vec!["object-id".to_string()],
                 group: "Managed Identity".to_string(),
@@ -312,7 +312,7 @@ impl AzCommand for Login {
                 ..Default::default()
             },
             CrsArg {
-                var_name: "resourceId".to_string(),
+                var_name: "$Body.resourceId".to_string(),
                 name: "resourceId".to_string(),
                 options: vec!["resource-id".to_string()],
                 group: "Managed Identity".to_string(),

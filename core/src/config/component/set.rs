@@ -58,7 +58,7 @@ impl AzCommand for SetConfig {
 
     fn args() -> Vec<CrsArg> {
         vec![CrsArg {
-            var_name: "value".to_string(),
+            var_name: "$Body".to_string(),
             name: "value".to_string(),
             options: vec!["value".to_string()],
             required: true,
@@ -70,7 +70,7 @@ impl AzCommand for SetConfig {
             arg_type: Some(crs_arg::ArgType::Object(Box::new(CrsObjectArg {
                 additional_props: Some(Box::new(CrsObjectArgAdditionalProperties {
                     item: Some(Box::new( CrsArg {
-                        var_name: "value{}".to_string(),
+                        var_name: "$Body{}".to_string(),
                         nullable: true,
                         arg_type: Some(crs_arg::ArgType::AnyType(CrsAnyTypeArg::default())),
                         ..Default::default()

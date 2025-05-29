@@ -50,6 +50,7 @@ impl AzCommand for DeleteCloud {
 
     fn args() -> Vec<CrsArg> {
         vec![CrsArg {
+            var_name: "$Body.name".to_string(),
             name: "name".to_string(),
             help: Some(CrsArgHelp {
                 short: "The name of the cloud to delete.".to_string(),

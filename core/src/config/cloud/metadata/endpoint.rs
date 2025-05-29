@@ -102,10 +102,11 @@ macro_rules! standard_endpoints {
                 //     }
                 // }
 
-                pub fn list_args(nullable: bool) -> Vec<CrsArg> {
+                pub fn list_args(var_prefix: &str, nullable: bool) -> Vec<CrsArg> {
                     vec![
                         $(
                             CrsArg {
+                                var_name: format!("{}.{}", var_prefix, unsafe { std::str::from_utf8_unchecked($name_bytes) }),
                                 name: unsafe { std::str::from_utf8_unchecked($name_bytes) }.to_string(),
                                 help: Some(CrsArgHelp {
                                     short: format!("{} service.", unsafe { std::str::from_utf8_unchecked($name_bytes) }),
@@ -205,10 +206,11 @@ macro_rules! standard_suffixes {
                 //     }
                 // }
 
-                pub fn list_args(nullable: bool) -> Vec<CrsArg> {
+                pub fn list_args(var_prefix: &str, nullable: bool) -> Vec<CrsArg> {
                     vec![
                         $(
                             CrsArg {
+                                var_name: format!("{}.{}", var_prefix, unsafe { std::str::from_utf8_unchecked($name_bytes) }),
                                 name: unsafe { std::str::from_utf8_unchecked($name_bytes) }.to_string(),
                                 help: Some(CrsArgHelp {
                                     short: format!("{} service.", unsafe { std::str::from_utf8_unchecked($name_bytes) }),
