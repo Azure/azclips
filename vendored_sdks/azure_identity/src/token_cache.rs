@@ -2,13 +2,37 @@
 // Licensed under the MIT License.
 
 use async_lock::RwLock;
-use azure_core::credentials::AccessToken;
+use azure_core::{
+    credentials::{AccessToken, Secret},
+    http::new_http_client,
+};
 use futures::Future;
 use std::collections::HashMap;
-use tracing::trace;
+use tracing::{error, trace};
+use time;
 
+use crate::refresh_token;
+
+/// A struct to hold both access token and refresh token
+#[derive(Debug, Clone)]
+struct TokenData {
+    access_token: AccessToken,
+    refresh_token: Option<Secret>,
+    client_id: Option<String>,
+    tenant_id: Option<String>,
+}
+
+/// Implements a token cache for storing and retrieving tokens
 #[derive(Debug)]
-pub(crate) struct TokenCache(RwLock<HashMap<Vec<String>, AccessToken>>);
+pub(crate) struct TokenCache(RwLock<HashMap<Vec<String>, TokenData>>);
+
+impl Clone for TokenCache {
+    fn clone(&self) -> Self {
+        // Create a new empty cache - this is a simplification
+        // In a real implementation we might want to copy the contents
+        Self::new()
+    }
+}
 
 impl TokenCache {
     pub(crate) fn new() -> Self {
@@ -27,38 +51,159 @@ impl TokenCache {
         scopes: &[&str],
         callback: impl Future<Output = azure_core::Result<AccessToken>>,
     ) -> azure_core::Result<AccessToken> {
-        // if the current cached token for this resource is good, return it.
-        let token_cache = self.0.read().await;
-        let scopes = scopes.iter().map(ToString::to_string).collect::<Vec<_>>();
-        if let Some(token) = token_cache.get(&scopes) {
-            if !token.is_expired(None) {
-                trace!("returning cached token");
-                return Ok(token.clone());
+        let scopes_key = scopes.iter().map(ToString::to_string).collect::<Vec<_>>();
+        
+        // First, check if we have a valid non-expired token
+        {
+            let token_cache = self.0.read().await;
+            if let Some(token_data) = token_cache.get(&scopes_key) {
+                if !token_data.access_token.is_expired(None) {
+                    trace!("returning cached valid token");
+                    return Ok(token_data.access_token.clone());
+                }
             }
         }
 
-        // otherwise, drop the read lock and get a write lock to refresh the token
-        drop(token_cache);
+        // At this point, we either don't have a token or it's expired
+        // Check if we have an expired token with a refresh token
+        let refresh_attempt_result = {
+            let token_cache = self.0.read().await;
+            
+            if let Some(token_data) = token_cache.get(&scopes_key) {
+                // Extract refresh details before dropping the lock
+                let refresh_data = match (&token_data.refresh_token, &token_data.client_id, &token_data.tenant_id) {
+                    (Some(refresh_token), Some(client_id), Some(tenant_id)) => {
+                        Some((
+                            refresh_token.clone(),
+                            client_id.clone(),
+                            tenant_id.clone()
+                        ))
+                    }
+                    _ => None
+                };
+                
+                // If we have all required data for refresh
+                if let Some((refresh_token, client_id, tenant_id)) = refresh_data {
+                    trace!("attempting to refresh token using refresh token");
+                    // We must drop the read lock before doing any async operations
+                    drop(token_cache);
+                    
+                    // Format scope string for the refresh request
+                    let scope_string = scopes.join(" ");
+                    let scope = if scope_string.is_empty() { None } else { Some(scope_string.as_str()) };
+                    
+                    // Try to refresh the token
+                    match refresh_token::exchange(
+                        new_http_client(),
+                        &tenant_id,
+                        &client_id,
+                        None,
+                        &refresh_token,
+                        scope,
+                    ).await {
+                        Ok(response) => {
+                            trace!("successfully refreshed token");
+                            let expires_in = std::time::Duration::from_secs(response.expires_in());
+                            let expires_on = time::OffsetDateTime::now_utc() + expires_in;
+                            
+                            let access_token = AccessToken::new(
+                                response.access_token().clone(),
+                                expires_on,
+                            );
+                            
+                            // Update the cache with the new tokens
+                            let mut token_cache = self.0.write().await;
+                            token_cache.insert(
+                                scopes_key.clone(),
+                                TokenData {
+                                    access_token: access_token.clone(),
+                                    refresh_token: Some(response.refresh_token().clone()),
+                                    client_id: Some(client_id),
+                                    tenant_id: Some(tenant_id),
+                                },
+                            );
+                            
+                            // Return the newly refreshed token
+                            return Ok(access_token);
+                        }
+                        Err(err) => {
+                            // Log the error but continue to fallback path
+                            error!("Failed to refresh token: {}", err);
+                            Some(err)
+                        }
+                    }
+                } else {
+                    trace!("no refresh token available for token refresh");
+                    None
+                }
+            } else {
+                trace!("no token found in cache");
+                None
+            }
+        };
+                
+        // Double-check if another thread has already updated the token
+        {
+            let token_cache = self.0.read().await;
+            if let Some(token_data) = token_cache.get(&scopes_key) {
+                if !token_data.access_token.is_expired(None) {
+                    trace!("returning token that was updated by another thread");
+                    return Ok(token_data.access_token.clone());
+                }
+            }
+        }
+
+        // Log refresh attempt result for debugging
+        if let Some(err) = refresh_attempt_result {
+            trace!("refresh token failed, falling back to callback: {}", err);
+        }
+            
+        // If we get here, we need to get a completely new token via the callback
+        trace!("getting new token via callback");
+        let access_token = callback.await?;
+            
+        // Store the new token in the cache
+        // Note: The refresh token will be stored separately via store_token_with_refresh if available
+        {
+            let mut token_cache = self.0.write().await;
+            token_cache.insert(
+                scopes_key, 
+                TokenData {
+                    access_token: access_token.clone(),
+                    refresh_token: None,  // Refresh token is stored separately if available
+                    client_id: None,
+                    tenant_id: None,
+                }
+            );
+        }
+            
+        Ok(access_token)
+    }
+    
+    /// Store a complete token including refresh token from external sources
+    pub(crate) async fn store_token_with_refresh(
+        &self,
+        scopes: &[&str],
+        access_token: AccessToken,
+        refresh_token: Secret,
+        client_id: String,
+        tenant_id: String,
+    ) -> azure_core::Result<()> {
+        let scopes_key = scopes.iter().map(ToString::to_string).collect::<Vec<_>>();
         let mut token_cache = self.0.write().await;
-
-        // check again in case another thread refreshed the token while we were
-        // waiting on the write lock
-        if let Some(token) = token_cache.get(&scopes) {
-            if !token.is_expired(None) {
-                trace!("returning token that was updated while waiting on write lock");
-                return Ok(token.clone());
-            }
-        }
-
-        trace!("falling back to callback");
-        let token = callback.await?;
-
-        // NOTE: we do not check to see if the token is expired here, as at
-        // least one credential, `AzureCliCredential`, specifies the token is
-        // immediately expired after it is returned, which indicates the token
-        // should always be refreshed upon use.
-        token_cache.insert(scopes, token.clone());
-        Ok(token)
+        
+        trace!("storing token with refresh token for scopes: {:?}", scopes);
+        token_cache.insert(
+            scopes_key,
+            TokenData {
+                access_token,
+                refresh_token: Some(refresh_token),
+                client_id: Some(client_id),
+                tenant_id: Some(tenant_id),
+            },
+        );
+        
+        Ok(())
     }
 }
 

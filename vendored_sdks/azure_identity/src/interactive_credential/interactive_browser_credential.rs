@@ -1,9 +1,16 @@
 use super::internal_server::*;
 use crate::authorization_code_flow;
 use crate::custom_token_fields::CustomTokenFields;
-use azure_core::{error::ErrorKind, http::new_http_client, http::Url, Error};
-use oauth2::{basic::BasicTokenType, AuthorizationCode, ClientId};
+use azure_core::{
+    credentials::{AccessToken, Secret, TokenCredential},
+    error::ErrorKind, 
+    http::new_http_client, 
+    http::Url, 
+    Error
+};
+use oauth2::{basic::BasicTokenType, AuthorizationCode, ClientId, TokenResponse};
 use std::{str::FromStr, sync::Arc};
+use time;
 
 /// Default OAuth scopes used when none are provided.
 #[allow(dead_code)]
@@ -16,7 +23,7 @@ const DEFAULT_DEVELOPER_SIGNON_CLIENT_ID: &str = "04b07795-8ddb-461a-bbee-02f9e1
 const DEFAULT_ORGANIZATIONS_TENANT_ID: &str = "organizations";
 
 /// Provides interactive browser-based authentication.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct InteractiveBrowserCredential {
     /// Client ID of the application.
     pub(crate) client_id: ClientId,
@@ -24,6 +31,8 @@ pub struct InteractiveBrowserCredential {
     pub(crate) tenant_id: String,
     /// Redirect URI where the authentication response is sent.
     pub(crate) redirect_url: Url,
+    /// Token cache for storing and retrieving tokens.
+    pub(crate) cache: crate::token_cache::TokenCache,
 }
 
 impl InteractiveBrowserCredential {
@@ -41,12 +50,11 @@ impl InteractiveBrowserCredential {
         let redirect_url = redirect_url.unwrap_or_else(|| {
             Url::from_str(&format!("http://localhost:{}", LOCAL_SERVER_PORT))
                 .expect("Failed to parse redirect URL")
-        });
-
-        Ok(Arc::new(Self {
+        });        Ok(Arc::new(Self {
             client_id,
             tenant_id,
             redirect_url,
+            cache: crate::token_cache::TokenCache::new(),
         }))
     }
     /// Starts the interactive browser authentication flow and returns an access token.
@@ -113,8 +121,42 @@ impl InteractiveBrowserCredential {
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl TokenCredential for InteractiveBrowserCredential {
     async fn get_token(&self, scopes: &[&str]) -> azure_core::Result<AccessToken> {
+        // Use the cache to get or refresh the token
         self.cache
-            .get_token(scopes, Box::pin(async move { self.get_token(scopes).await }))
+            .get_token(scopes, Box::pin(async move {
+                // This closure is called when we need a new token
+                let token_response = self
+                    .get_token(Some(scopes), None, None, None, None)
+                    .await?;
+                
+                let expires_in = token_response
+                    .expires_in()
+                    .unwrap_or(std::time::Duration::from_secs(0));
+                let expires_on = time::OffsetDateTime::now_utc() + expires_in;
+                
+                // Create an AccessToken from the token response
+                let oauth2_token = token_response.access_token();
+                let access_token = AccessToken::new(
+                    Secret::new(oauth2_token.secret().to_string()),
+                    expires_on,
+                );
+                
+                // If we have a refresh token, store it in the cache for future use
+                if let Some(refresh_token) = token_response.refresh_token() {
+                    // Store the complete token data with refresh token in the cache
+                    self.cache
+                        .store_token_with_refresh(
+                            scopes,
+                            access_token.clone(),
+                            Secret::new(refresh_token.secret().to_string()),
+                            self.client_id.to_string(),
+                            self.tenant_id.clone(),
+                        )
+                        .await?;
+                }
+                
+                Ok(access_token)
+            }))
             .await
     }
 }

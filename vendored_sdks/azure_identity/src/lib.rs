@@ -6,6 +6,7 @@ pub mod custom_token_fields;
 pub mod interactive_credential;
 mod oauth2_http_client;
 pub mod refresh_token;
+pub(crate) mod token_cache;
 
 use serde::Deserialize;
 use typespec_client_core::http::Model;
