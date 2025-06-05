@@ -2,21 +2,23 @@
 // Licensed under the MIT License.
 // The comments illustrate what's the difference between the original msal token cache
 
-use async_lock::RwLock;
 use azure_core::{
     credentials::{AccessToken, Secret},
     http::new_http_client,
     Error, Result,
 };
-use futures::Future;
+
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, to_string_pretty};
 use std::{
     collections::HashMap,
+    fs,
+    path::PathBuf,
+    sync::RwLock,
     time::{SystemTime, UNIX_EPOCH},
 };
 use time::OffsetDateTime;
-use tracing::{debug, error, trace};
+use tracing::{error, trace};
 
 use crate::refresh_token;
 
@@ -27,7 +29,7 @@ pub enum CredentialType {
     RefreshToken,
     Account,
     IdToken,
-    AppMetadata,
+    // AppMetadata, // Not used in the current implementation
 }
 
 impl std::fmt::Display for CredentialType {
@@ -37,7 +39,6 @@ impl std::fmt::Display for CredentialType {
             CredentialType::RefreshToken => write!(f, "RefreshToken"),
             CredentialType::Account => write!(f, "Account"),
             CredentialType::IdToken => write!(f, "IdToken"),
-            CredentialType::AppMetadata => write!(f, "AppMetadata"),
         }
     }
 }
@@ -114,14 +115,6 @@ pub struct AccountEntry {
     pub account_source: Option<String>,
 }
 
-/// AppMetadata seems not needed in the current implementation
-// #[derive(Debug, Clone, Serialize, Deserialize)]
-// pub struct AppMetadataEntry {
-//     pub client_id: Option<String>,
-//     pub environment: Option<String>,
-//     pub family_id: Option<String>,
-// }
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum TokenCacheEntry {
@@ -129,7 +122,6 @@ pub enum TokenCacheEntry {
     RefreshToken(RefreshTokenEntry),
     IdToken(IdTokenEntry),
     Account(AccountEntry),
-    // AppMetadata(AppMetadataEntry),
 }
 
 /// Implements a token cache for storing and retrieving tokens using MSAL schema
@@ -219,20 +211,8 @@ impl MsalTokenCache {
         .to_lowercase()
     }
 
-    // fn generate_app_metadata_key(
-    //     &self,
-    //     environment: Option<&str>,
-    //     client_id: Option<&str>,
-    // ) -> String {
-    //     format!(
-    //         "appmetadata-{}-{}",
-    //         environment.unwrap_or(""),
-    //         client_id.unwrap_or(""),
-    //     ).to_lowercase()
-    // }
-
-    /// Get an access token from the cache
-    pub async fn get_access_token(
+    /// Get an access token directly from the cache
+    pub fn get_access_token(
         &self,
         home_account_id: Option<&str>,
         environment: Option<&str>,
@@ -249,7 +229,7 @@ impl MsalTokenCache {
             scopes_str.as_deref(),
         );
 
-        let cache = self.cache.read().await;
+        let cache = self.cache.read().unwrap();
         if let Some(access_tokens) = cache.get(&CredentialType::AccessToken) {
             if let Some(TokenCacheEntry::AccessToken(token)) = access_tokens.get(&key) {
                 if let Ok(expires_on) = token.expires_on.parse::<u64>() {
@@ -268,7 +248,7 @@ impl MsalTokenCache {
         None
     }
 
-    pub async fn get_refresh_token(
+    pub fn get_refresh_token(
         &self,
         home_account_id: Option<&str>,
         environment: Option<&str>,
@@ -276,7 +256,7 @@ impl MsalTokenCache {
     ) -> Option<RefreshTokenEntry> {
         let key = self.generate_refresh_token_key(home_account_id, environment, client_id);
 
-        let cache = self.cache.read().await;
+        let cache = self.cache.read().unwrap();
         if let Some(refresh_tokens) = cache.get(&CredentialType::RefreshToken) {
             if let Some(TokenCacheEntry::RefreshToken(token)) = refresh_tokens.get(&key) {
                 return Some(token.clone());
@@ -286,8 +266,44 @@ impl MsalTokenCache {
         None
     }
 
+    pub fn get_id_token(
+        &self,
+        home_account_id: Option<&str>,
+        environment: Option<&str>,
+        client_id: Option<&str>,
+        tenant_id: Option<&str>,
+    ) -> Option<IdTokenEntry> {
+        let key = self.generate_id_token_key(home_account_id, environment, client_id, tenant_id);
+
+        let cache = self.cache.read().unwrap();
+        if let Some(id_tokens) = cache.get(&CredentialType::IdToken) {
+            if let Some(TokenCacheEntry::IdToken(token)) = id_tokens.get(&key) {
+                return Some(token.clone());
+            }
+        }
+
+        None
+    }
+
+    pub fn get_account(
+        &self,
+        home_account_id: Option<&str>,
+        environment: Option<&str>,
+        tenant_id: Option<&str>,
+    ) -> Option<AccountEntry> {
+        let key = self.generate_account_key(home_account_id, environment, tenant_id);
+
+        let cache = self.cache.read().unwrap();
+        if let Some(accounts) = cache.get(&CredentialType::Account) {
+            if let Some(TokenCacheEntry::Account(account)) = accounts.get(&key) {
+                return Some(account.clone());
+            }
+        }
+
+        None
+    }
     /// Add or update an access token in the cache
-    pub async fn add_access_token(&self, token: AccessTokenEntry) -> Result<()> {
+    pub fn add_access_token(&self, token: AccessTokenEntry) -> Result<()> {
         let key = self.generate_access_token_key(
             token.home_account_id.as_deref(),
             token.environment.as_deref(),
@@ -296,42 +312,40 @@ impl MsalTokenCache {
             token.scopes.as_deref(),
         );
 
-        let mut cache = self.cache.write().await;
+        let mut cache = self.cache.write().unwrap();
         let access_tokens = cache
             .entry(CredentialType::AccessToken)
             .or_insert_with(HashMap::new);
         access_tokens.insert(key, TokenCacheEntry::AccessToken(token));
 
-        // Mark the cache as changed
-        let mut has_state_changed = self.has_state_changed.write().await;
+        let mut has_state_changed = self.has_state_changed.write().unwrap();
         *has_state_changed = true;
 
         Ok(())
     }
 
     /// Add or update a refresh token in the cache
-    pub async fn add_refresh_token(&self, token: RefreshTokenEntry) -> Result<()> {
+    pub fn add_refresh_token(&self, token: RefreshTokenEntry) -> Result<()> {
         let key = self.generate_refresh_token_key(
             token.home_account_id.as_deref(),
             token.environment.as_deref(),
             token.client_id.as_deref(),
         );
 
-        let mut cache = self.cache.write().await;
+        let mut cache = self.cache.write().unwrap();
         let refresh_tokens = cache
             .entry(CredentialType::RefreshToken)
             .or_insert_with(HashMap::new);
         refresh_tokens.insert(key, TokenCacheEntry::RefreshToken(token));
 
-        // Mark the cache as changed
-        let mut has_state_changed = self.has_state_changed.write().await;
+        let mut has_state_changed = self.has_state_changed.write().unwrap();
         *has_state_changed = true;
 
         Ok(())
     }
 
     /// Add or update an ID token in the cache
-    pub async fn add_id_token(&self, token: IdTokenEntry) -> Result<()> {
+    pub fn add_id_token(&self, token: IdTokenEntry) -> Result<()> {
         let key = self.generate_id_token_key(
             token.home_account_id.as_deref(),
             token.environment.as_deref(),
@@ -339,60 +353,38 @@ impl MsalTokenCache {
             token.tenant_id.as_deref(),
         );
 
-        let mut cache = self.cache.write().await;
+        let mut cache = self.cache.write().unwrap();
         let id_tokens = cache
             .entry(CredentialType::IdToken)
             .or_insert_with(HashMap::new);
         id_tokens.insert(key, TokenCacheEntry::IdToken(token));
 
-        // Mark the cache as changed
-        let mut has_state_changed = self.has_state_changed.write().await;
+        let mut has_state_changed = self.has_state_changed.write().unwrap();
         *has_state_changed = true;
 
         Ok(())
     }
-
     /// Add or update an account in the cache
-    pub async fn add_account(&self, account: AccountEntry) -> Result<()> {
+    pub fn add_account(&self, account: AccountEntry) -> Result<()> {
         let key = self.generate_account_key(
             account.home_account_id.as_deref(),
             account.environment.as_deref(),
             account.tenant_id.as_deref(),
         );
 
-        let mut cache = self.cache.write().await;
+        let mut cache = self.cache.write().unwrap();
         let accounts = cache
             .entry(CredentialType::Account)
             .or_insert_with(HashMap::new);
         accounts.insert(key, TokenCacheEntry::Account(account));
 
-        // Mark the cache as changed
-        let mut has_state_changed = self.has_state_changed.write().await;
+        let mut has_state_changed = self.has_state_changed.write().unwrap();
         *has_state_changed = true;
 
         Ok(())
     }
-
-    // /// Add or update app metadata in the cache
-    // pub async fn add_app_metadata(&self, metadata: AppMetadataEntry) -> Result<()> {
-    //     let key = self.generate_app_metadata_key(
-    //         metadata.environment.as_deref(),
-    //         metadata.client_id.as_deref(),
-    //     );
-
-    //     let mut cache = self.cache.write().await;
-    //     let app_metadata = cache.entry(CredentialType::AppMetadata).or_insert_with(HashMap::new);
-    //     app_metadata.insert(key, TokenCacheEntry::AppMetadata(metadata));
-
-    //     // Mark the cache as changed
-    //     let mut has_state_changed = self.has_state_changed.write().await;
-    //     *has_state_changed = true;
-
-    //     Ok(())
-    // }
-
     /// Remove an access token from the cache
-    pub async fn remove_access_token(
+    pub fn remove_access_token(
         &self,
         home_account_id: Option<&str>,
         environment: Option<&str>,
@@ -409,19 +401,18 @@ impl MsalTokenCache {
             scopes_str.as_deref(),
         );
 
-        let mut cache = self.cache.write().await;
+        let mut cache = self.cache.write().unwrap();
         if let Some(access_tokens) = cache.get_mut(&CredentialType::AccessToken) {
             if access_tokens.remove(&key).is_some() {
-                let mut has_state_changed = self.has_state_changed.write().await;
+                let mut has_state_changed = self.has_state_changed.write().unwrap();
                 *has_state_changed = true;
             }
         }
 
         Ok(())
     }
-
     /// Remove a refresh token from the cache
-    pub async fn remove_refresh_token(
+    pub fn remove_refresh_token(
         &self,
         home_account_id: Option<&str>,
         environment: Option<&str>,
@@ -429,18 +420,64 @@ impl MsalTokenCache {
     ) -> Result<()> {
         let key = self.generate_refresh_token_key(home_account_id, environment, client_id);
 
-        let mut cache = self.cache.write().await;
+        let mut cache = self.cache.write().unwrap_or_else(|e| {
+            error!("Failed to write cache: {}", e);
+            panic!("Failed to write cache: {}", e);
+        });
         if let Some(refresh_tokens) = cache.get_mut(&CredentialType::RefreshToken) {
             if refresh_tokens.remove(&key).is_some() {
-                let mut has_state_changed = self.has_state_changed.write().await;
+                let mut has_state_changed = self.has_state_changed.write().unwrap();
                 *has_state_changed = true;
             }
         }
 
         Ok(())
-    }    
-    
-    
+    }
+    /// Remove an ID token from the cache
+    pub fn remove_id_token(
+        &self,
+        home_account_id: Option<&str>,
+        environment: Option<&str>,
+        client_id: Option<&str>,
+        tenant_id: Option<&str>,
+    ) -> Result<()> {
+        let key = self.generate_id_token_key(home_account_id, environment, client_id, tenant_id);
+
+        let mut cache = self.cache.write().unwrap_or_else(|e| {
+            error!("Failed to write cache: {}", e);
+            panic!("Failed to write cache: {}", e);
+        });
+        if let Some(id_tokens) = cache.get_mut(&CredentialType::IdToken) {
+            if id_tokens.remove(&key).is_some() {
+                let mut has_state_changed = self.has_state_changed.write().unwrap();
+                *has_state_changed = true;
+            }
+        }
+
+        Ok(())
+    }
+    /// Remove an account from the cache
+    pub fn remove_account(
+        &self,
+        home_account_id: Option<&str>,
+        environment: Option<&str>,
+        tenant_id: Option<&str>,
+    ) -> Result<()> {
+        let key = self.generate_account_key(home_account_id, environment, tenant_id);
+
+        let mut cache = self.cache.write().unwrap_or_else(|e| {
+            error!("Failed to write cache: {}", e);
+            panic!("Failed to write cache: {}", e);
+        });
+        if let Some(accounts) = cache.get_mut(&CredentialType::Account) {
+            if accounts.remove(&key).is_some() {
+                let mut has_state_changed = self.has_state_changed.write().unwrap();
+                *has_state_changed = true;
+            }
+        }
+
+        Ok(())
+    }
     /// Implement a general method to get an access token for a given scope from the cache
     /// Azure cli can only read token cache from a local file, it's unreasonable to request a new one using a callback function, the credential required for the callback function is not available in the context. So remove the callback function from the input.
     pub async fn get_access_token_and_possibly_refresh_it(
@@ -452,32 +489,27 @@ impl MsalTokenCache {
         tenant_id: Option<&str>,
     ) -> Result<azure_core::credentials::AccessToken> {
         // Try to get a valid token from the cache
-        if let Some(token_entry) = self
-            .get_access_token(
-                home_account_id,
-                environment,
-                client_id,
-                tenant_id,
-                Some(scopes),
-            )
-            .await
-        {
+        if let Some(token_entry) = self.get_access_token(
+            home_account_id,
+            environment,
+            client_id,
+            tenant_id,
+            Some(scopes),
+        ) {
             trace!("Returning cached valid token");
-            let expires_on = token_entry.expires_on.parse::<u64>()
+            let expires_on = token_entry
+                .expires_on
+                .parse::<u64>()
                 .map(|time| OffsetDateTime::from_unix_timestamp(time as i64))
                 .unwrap_or_else(|_| Ok(OffsetDateTime::now_utc()))
                 .unwrap_or_else(|_| OffsetDateTime::now_utc());
-            
+
             return Ok(azure_core::credentials::AccessToken {
                 token: token_entry.secret,
                 expires_on,
             });
-        }
-
-        // Try to refresh the token using a refresh token if available
-        if let Some(refresh_token) = self
-            .get_refresh_token(home_account_id, environment, client_id)
-            .await
+        } // Try to refresh the token using a refresh token if available
+        if let Some(refresh_token) = self.get_refresh_token(home_account_id, environment, client_id)
         {
             trace!("Attempting to refresh token using refresh token");
 
@@ -506,8 +538,6 @@ impl MsalTokenCache {
                         .unwrap_or_default();
                     let now_secs = now.as_secs();
                     let expires_on = OffsetDateTime::now_utc() + expires_in;
-
-                    // Create the AccessToken
                     let access_token = azure_core::credentials::AccessToken::new(
                         response.access_token().clone(),
                         expires_on,
@@ -544,14 +574,16 @@ impl MsalTokenCache {
                         last_modification_time: Some(now_secs.to_string()),
                     };
 
-                    if let Err(e) = self.add_access_token(access_token_entry).await {
+                    // Add tokens to cache (synchronously now)
+                    if let Err(e) = self.add_access_token(access_token_entry) {
                         error!("Failed to add access token to cache: {}", e);
                     }
 
-                    if let Err(e) = self.add_refresh_token(refresh_token_entry).await {
+                    if let Err(e) = self.add_refresh_token(refresh_token_entry) {
                         error!("Failed to add refresh token to cache: {}", e);
-                    }                    return Ok(access_token);
-                },
+                    }
+                    return Ok(access_token);
+                }
                 Err(err) => {
                     error!("Failed to refresh token: {}", err);
                     return Err(Error::new(
@@ -564,55 +596,63 @@ impl MsalTokenCache {
 
         Err(Error::new(
             azure_core::error::ErrorKind::Credential,
-            "No valid token found in cache and no refresh token available. Please log in again."
+            "No valid token found in cache and no refresh token available. Please log in again.",
         ))
     }
-
     /// Clear the token cache
-    pub async fn clear(&self) -> Result<()> {
-        let mut cache = self.cache.write().await;
+    pub fn clear(&self) -> Result<()> {
+        let mut cache = self.cache.write().unwrap_or_else(|e| {
+            error!("Failed to write cache: {}", e);
+            panic!("Failed to write cache: {}", e);
+        });
         cache.clear();
 
-        let mut has_state_changed = self.has_state_changed.write().await;
+        let mut has_state_changed = self.has_state_changed.write().unwrap();
         *has_state_changed = true;
 
         Ok(())
     }
 
     /// Check if the token cache has changed since last serialization/deserialization
-    pub async fn has_state_changed(&self) -> bool {
-        let has_state_changed = self.has_state_changed.read().await;
+    pub fn has_state_changed(&self) -> bool {
+        let has_state_changed = self.has_state_changed.read().unwrap();
         *has_state_changed
     }
 
     /// Serialize the token cache to a string
-    pub async fn serialize(&self) -> Result<String> {
-        let cache = self.cache.read().await;
+    pub fn serialize(&self) -> Result<String> {
+        let cache = self.cache.read().unwrap();
         let json = to_string_pretty(&*cache)?;
 
         // Reset the state changed flag
-        let mut has_state_changed = self.has_state_changed.write().await;
+        let mut has_state_changed = self.has_state_changed.write().unwrap();
         *has_state_changed = false;
 
         Ok(json)
     }
 
     /// Deserialize the token cache from a string
-    pub async fn deserialize(&self, state: &str) -> Result<()> {
+    pub fn deserialize(&self, state: &str) -> Result<()> {
         let parsed_cache: HashMap<CredentialType, HashMap<String, TokenCacheEntry>> =
             from_str(state)?;
 
-        let mut cache = self.cache.write().await;
+        let mut cache = self.cache.write().unwrap();
         *cache = parsed_cache;
 
         // Reset the state changed flag
-        let mut has_state_changed = self.has_state_changed.write().await;
+        let mut has_state_changed = self.has_state_changed.write().unwrap();
         *has_state_changed = false;
 
         Ok(())
     }
-}
 
+    // Save before exit. This is used by FilePersistentTokenCache when it is dropped.
+    pub fn save_on_exit(&self) -> Result<()> {
+        // No-op for base MsalTokenCache since it doesn't persist to any storage
+        // This method exists to satisfy the Drop implementation in FilePersistentTokenCache
+        Ok(())
+    }
+}
 
 impl Default for MsalTokenCache {
     fn default() -> Self {
@@ -622,21 +662,77 @@ impl Default for MsalTokenCache {
 
 impl Clone for MsalTokenCache {
     fn clone(&self) -> Self {
-        Self::new() // In a real implementation, might want to copy contents
+        Self::new()
+    }
+}
+
+/// A helper struct that manages persistence of an MsalTokenCache to a file
+pub struct FilePersistentTokenCache {
+    cache: MsalTokenCache,
+    cache_path: PathBuf,
+}
+
+impl FilePersistentTokenCache {
+    pub fn new<P: AsRef<std::path::Path>>(cache_path: P) -> Result<Self> {
+        let cache_path = cache_path.as_ref().to_path_buf();
+        let cache = MsalTokenCache::new();
+
+        // Load existing cache if available
+        if cache_path.exists() {
+            let cached_data = fs::read_to_string(&cache_path)?;
+            cache.deserialize(&cached_data)?;
+        }
+
+        Ok(Self { cache, cache_path })
+    }
+    /// Save the cache to file if it has changed
+    pub fn save_if_changed(&self) -> Result<()> {
+        if self.cache.has_state_changed() {
+            let serialized = self.cache.serialize()?;
+
+            // Make sure directory exists
+            if let Some(parent) = self.cache_path.parent() {
+                if !parent.exists() {
+                    fs::create_dir_all(parent)?;
+                }
+            }
+
+            fs::write(&self.cache_path, serialized)?;
+        }
+        Ok(())
+    }
+
+    /// Save before exit.
+    pub fn save_on_exit(&self) -> Result<()> {
+        self.save_if_changed()
+    }
+
+    /// Get the underlying cache
+    pub fn cache(&self) -> &MsalTokenCache {
+        &self.cache
+    }
+}
+
+impl Drop for FilePersistentTokenCache {
+    fn drop(&mut self) {
+        // Save the cache to file when the struct is dropped, but only if changed
+        if self.cache.has_state_changed() {
+            match self.save_if_changed() {
+                Ok(_) => trace!("Successfully saved token cache on exit"),
+                Err(e) => error!("Failed to save token cache on exit: {}", e),
+            }
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Duration;
-    use tokio::test;
 
     #[test]
-    async fn test_access_token_cache() -> Result<()> {
+    fn test_access_token_cache() -> Result<()> {
         let cache = MsalTokenCache::new();
 
-        // Create a token
         let home_account_id = "home_id";
         let environment = "environment";
         let client_id = "client_id";
@@ -664,45 +760,38 @@ mod tests {
             refresh_on: None,
         };
 
-        // Add to cache
-        cache.add_access_token(token.clone()).await?;
+        cache.add_access_token(token.clone())?;
 
         // Check if it's retrievable
         let scopes = &["scope1", "scope2"];
-        let retrieved = cache
-            .get_access_token(
-                Some(home_account_id),
-                Some(environment),
-                Some(client_id),
-                Some(tenant_id),
-                Some(scopes),
-            )
-            .await;
+        let retrieved = cache.get_access_token(
+            Some(home_account_id),
+            Some(environment),
+            Some(client_id),
+            Some(tenant_id),
+            Some(scopes),
+        );
 
         assert!(retrieved.is_some());
         let retrieved = retrieved.unwrap();
         assert_eq!(retrieved.secret.secret(), "token_value");
 
         // Test removal
-        cache
-            .remove_access_token(
-                Some(home_account_id),
-                Some(environment),
-                Some(client_id),
-                Some(tenant_id),
-                Some(scopes),
-            )
-            .await?;
+        cache.remove_access_token(
+            Some(home_account_id),
+            Some(environment),
+            Some(client_id),
+            Some(tenant_id),
+            Some(scopes),
+        )?;
 
-        let retrieved = cache
-            .get_access_token(
-                Some(home_account_id),
-                Some(environment),
-                Some(client_id),
-                Some(tenant_id),
-                Some(scopes),
-            )
-            .await;
+        let retrieved = cache.get_access_token(
+            Some(home_account_id),
+            Some(environment),
+            Some(client_id),
+            Some(tenant_id),
+            Some(scopes),
+        );
 
         assert!(retrieved.is_none());
 
@@ -710,10 +799,9 @@ mod tests {
     }
 
     #[test]
-    async fn test_serialization() -> Result<()> {
+    fn test_serialization() -> Result<()> {
         let cache = MsalTokenCache::new();
 
-        // Create a token
         let home_account_id = "home_id";
         let environment = "environment";
         let client_id = "client_id";
@@ -741,162 +829,184 @@ mod tests {
             refresh_on: None,
         };
 
-        // Add to cache
-        cache.add_access_token(token.clone()).await?;
+        cache.add_access_token(token.clone())?;
 
-        // Check if state changed
-        assert!(cache.has_state_changed().await);
+        assert!(cache.has_state_changed());
 
         // Serialize
-        let serialized = cache.serialize().await?;
+        let serialized = cache.serialize()?;
 
         // Check that serialization resets the state changed flag
-        assert!(!cache.has_state_changed().await);
+        assert!(!cache.has_state_changed());
 
         // Clear the cache
-        cache.clear().await?;
+        cache.clear()?;
 
         // Check that the token is gone
         let scopes = &["scope1", "scope2"];
-        let retrieved = cache
-            .get_access_token(
-                Some(home_account_id),
-                Some(environment),
-                Some(client_id),
-                Some(tenant_id),
-                Some(scopes),
-            )
-            .await;
+        let retrieved = cache.get_access_token(
+            Some(home_account_id),
+            Some(environment),
+            Some(client_id),
+            Some(tenant_id),
+            Some(scopes),
+        );
         assert!(retrieved.is_none());
 
         // Deserialize
-        cache.deserialize(&serialized).await?;
+        cache.deserialize(&serialized)?;
 
         // Check that the token is back
-        let retrieved = cache
-            .get_access_token(
-                Some(home_account_id),
-                Some(environment),
-                Some(client_id),
-                Some(tenant_id),
-                Some(scopes),
-            )
-            .await;
+        let retrieved = cache.get_access_token(
+            Some(home_account_id),
+            Some(environment),
+            Some(client_id),
+            Some(tenant_id),
+            Some(scopes),
+        );
 
         assert!(retrieved.is_some());
         let retrieved = retrieved.unwrap();
         assert_eq!(retrieved.secret.secret(), "token_value");
 
         Ok(())
-    }    #[test]
-    async fn test_get_token_from_cache() -> Result<()> {
-        let cache = MsalTokenCache::new();
+    }
 
+    #[test]
+    fn test_file_based_token_cache() -> Result<()> {
+        use std::env;
+        use std::fs;
+        use std::path::PathBuf;
+
+        // Set up home directory based cache path
+        let home_dir = env::var("HOME")
+            .or_else(|_| env::var("USERPROFILE"))
+            .unwrap_or_else(|_| std::env::temp_dir().to_string_lossy().to_string());
+        let cirrus_dir = PathBuf::from(&home_dir).join(".cirrus");
+        if !cirrus_dir.exists() {
+            fs::create_dir_all(&cirrus_dir)?;
+        }
+        let cache_path = cirrus_dir.join("msal_test_cache2.json");
+        let cache_path_str = cache_path.to_string_lossy().to_string();
+
+
+        // Add a token to the cache
         let home_account_id = "home_id";
         let environment = "environment";
         let client_id = "client_id";
         let tenant_id = "tenant_id";
-        let scopes = &["scope1", "scope2"];
+        let scopes = "scope1 scope2";
 
-        // Manually create and add an access token to the cache
-        let expires_on = OffsetDateTime::now_utc() + Duration::from_secs(3600);
-        let expires_on_secs = expires_on.unix_timestamp() as u64;
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default();
         let now_secs = now.as_secs();
-        
-        let access_token_entry = AccessTokenEntry {
+        let expires_on = now_secs + 3600;
+
+        let token = AccessTokenEntry {
             credential_type: CredentialType::AccessToken,
-            secret: Secret::new("token_value"),
+            secret: Secret::new("file_cache_token"),
             home_account_id: Some(home_account_id.to_string()),
             environment: Some(environment.to_string()),
             client_id: Some(client_id.to_string()),
-            scopes: Some(scopes.join(" ")),
+            scopes: Some(scopes.to_string()),
             tenant_id: Some(tenant_id.to_string()),
             token_type: Some("Bearer".to_string()),
             cached_at: now_secs.to_string(),
-            expires_on: expires_on_secs.to_string(),
-            extended_expires_on: (expires_on_secs + 3600).to_string(),
+            expires_on: expires_on.to_string(),
+            extended_expires_on: expires_on.to_string(),
             refresh_on: None,
-        };
-        
-        // Add access token to cache
-        cache.add_access_token(access_token_entry).await?;
-        
-        // Also add a refresh token to fully test the cache
-        let refresh_token_entry = RefreshTokenEntry {
-            credential_type: CredentialType::RefreshToken,
-            secret: Secret::new("refresh_token_value"),
+        }; // Create a FilePersistentTokenCache - this will load from the file if it exists
+        let persistent_cache = FilePersistentTokenCache::new(&cache_path)?;
+
+        // Add the token to the cache
+        persistent_cache.cache().add_access_token(token.clone())?;
+
+        // The cache state is now changed, and will be written when the FilePersistentTokenCache is dropped
+        println!("Token cache will be written to: {}", cache_path_str); // Force the persistent_cache to be dropped, which should write to file due to the Drop implementation
+        drop(persistent_cache);
+
+        // Create a new FilePersistentTokenCache to test loading from file
+        let new_persistent_cache = FilePersistentTokenCache::new(&cache_path)?;
+
+        // Verify the token was loaded correctly from the file
+        let scopes = &["scope1", "scope2"];
+        let retrieved = new_persistent_cache.cache().get_access_token(
+            Some(home_account_id),
+            Some(environment),
+            Some(client_id),
+            Some(tenant_id),
+            Some(scopes),
+        );
+
+        assert!(
+            retrieved.is_some(),
+            "Token should be retrieved from FilePersistentTokenCache"
+        );
+        let retrieved = retrieved.unwrap();
+        assert_eq!(retrieved.secret.secret(), "file_cache_token");
+
+        // Test save if changed
+        let new_token = AccessTokenEntry {
+            credential_type: CredentialType::AccessToken,
+            secret: Secret::new("new_token_value"),
             home_account_id: Some(home_account_id.to_string()),
             environment: Some(environment.to_string()),
             client_id: Some(client_id.to_string()),
-            last_modification_time: Some(now_secs.to_string()),
+            scopes: Some("new_scope".to_string()),
+            tenant_id: Some(tenant_id.to_string()),
+            token_type: Some("Bearer".to_string()),
+            cached_at: now_secs.to_string(),
+            expires_on: expires_on.to_string(),
+            extended_expires_on: expires_on.to_string(),
+            refresh_on: None,
         };
-        
-        cache.add_refresh_token(refresh_token_entry).await?;
+        new_persistent_cache.cache().add_access_token(new_token)?;
 
-        // Get a token from the cache
-        let token = cache
-            .get_token(
-                scopes,
-                Some(home_account_id),
-                Some(environment),
-                Some(client_id),
-                Some(tenant_id),
-            )
-            .await?;
+        // Instead of explicitly calling save_if_changed, we'll rely on the Drop implementation
+        // to save when the cache is dropped
+        drop(new_persistent_cache);
 
-        assert_eq!(token.token.secret(), "token_value");
+        // Create a new cache to verify it was persisted
+        let reloaded_cache = FilePersistentTokenCache::new(&cache_path)?;
+        let new_retrieved = reloaded_cache.cache().get_access_token(
+            Some(home_account_id),
+            Some(environment),
+            Some(client_id),
+            Some(tenant_id),
+            Some(&["new_scope"]),
+        );
 
-        // Getting the token again should still use the cache
-        let token2 = cache
-            .get_token(
-                scopes,
-                Some(home_account_id),
-                Some(environment),
-                Some(client_id),
-                Some(tenant_id),
-            )
-            .await?;        assert_eq!(token2.token.secret(), "token_value");
+        assert!(
+            new_retrieved.is_some(),
+            "New token should be retrieved from reloaded FilePersistentTokenCache"
+        );
+        let new_retrieved = new_retrieved.unwrap();
+        assert_eq!(new_retrieved.secret.secret(), "new_token_value"); // No need to explicitly call save_on_exit since the Drop implementation handles it
+                                                                      // We'll modify the cache to verify the Drop implementation works
+        let final_token = AccessTokenEntry {
+            credential_type: CredentialType::AccessToken,
+            secret: Secret::new("final_token_value"),
+            home_account_id: Some(home_account_id.to_string()),
+            environment: Some(environment.to_string()),
+            client_id: Some(client_id.to_string()),
+            scopes: Some("final_scope".to_string()),
+            tenant_id: Some(tenant_id.to_string()),
+            token_type: Some("Bearer".to_string()),
+            cached_at: now_secs.to_string(),
+            expires_on: expires_on.to_string(),
+            extended_expires_on: expires_on.to_string(),
+            refresh_on: None,
+        };
 
-        // Test token refresh scenario by removing the access token and keeping only the refresh token
-        cache
-            .remove_access_token(
-                Some(home_account_id),
-                Some(environment),
-                Some(client_id),
-                Some(tenant_id),
-                Some(scopes),
-            )
-            .await?;
+        reloaded_cache.cache().add_access_token(final_token)?;
+        // Let reloaded_cache go out of scope, which should trigger the Drop implementation
 
-        // Verify the access token is gone
-        let retrieved = cache
-            .get_access_token(
-                Some(home_account_id),
-                Some(environment),
-                Some(client_id),
-                Some(tenant_id),
-                Some(scopes),
-            )
-            .await;
-        assert!(retrieved.is_none());
-        
-        // Without actually being able to refresh the token since refresh_token::exchange
-        // would need to be mocked, we'll just test that the refresh token exists
-        let refresh_token = cache
-            .get_refresh_token(
-                Some(home_account_id),
-                Some(environment), 
-                Some(client_id)
-            )
-            .await;
-        
-        assert!(refresh_token.is_some());
-        assert_eq!(refresh_token.unwrap().secret.secret(), "refresh_token_value");
+        // // Clean up the test file
+        // if cache_path.exists() {
+        //     fs::remove_file(&cache_path)?;
+        // }
 
         Ok(())
     }
-
 }

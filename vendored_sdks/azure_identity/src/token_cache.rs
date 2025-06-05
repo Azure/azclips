@@ -8,8 +8,8 @@ use azure_core::{
 };
 use futures::Future;
 use std::collections::HashMap;
-use tracing::{error, trace};
 use time;
+use tracing::{error, trace};
 
 use crate::refresh_token;
 
@@ -52,7 +52,7 @@ impl TokenCache {
         callback: impl Future<Output = azure_core::Result<AccessToken>>,
     ) -> azure_core::Result<AccessToken> {
         let scopes_key = scopes.iter().map(ToString::to_string).collect::<Vec<_>>();
-        
+
         // First, check if we have a valid non-expired token
         {
             let token_cache = self.0.read().await;
@@ -68,30 +68,34 @@ impl TokenCache {
         // Check if we have an expired token with a refresh token
         let refresh_attempt_result = {
             let token_cache = self.0.read().await;
-            
+
             if let Some(token_data) = token_cache.get(&scopes_key) {
                 // Extract refresh details before dropping the lock
-                let refresh_data = match (&token_data.refresh_token, &token_data.client_id, &token_data.tenant_id) {
+                let refresh_data = match (
+                    &token_data.refresh_token,
+                    &token_data.client_id,
+                    &token_data.tenant_id,
+                ) {
                     (Some(refresh_token), Some(client_id), Some(tenant_id)) => {
-                        Some((
-                            refresh_token.clone(),
-                            client_id.clone(),
-                            tenant_id.clone()
-                        ))
+                        Some((refresh_token.clone(), client_id.clone(), tenant_id.clone()))
                     }
-                    _ => None
+                    _ => None,
                 };
-                
+
                 // If we have all required data for refresh
                 if let Some((refresh_token, client_id, tenant_id)) = refresh_data {
                     trace!("attempting to refresh token using refresh token");
                     // We must drop the read lock before doing any async operations
                     drop(token_cache);
-                    
+
                     // Format scope string for the refresh request
                     let scope_string = scopes.join(" ");
-                    let scope = if scope_string.is_empty() { None } else { Some(scope_string.as_str()) };
-                    
+                    let scope = if scope_string.is_empty() {
+                        None
+                    } else {
+                        Some(scope_string.as_str())
+                    };
+
                     // Try to refresh the token
                     match refresh_token::exchange(
                         new_http_client(),
@@ -100,17 +104,17 @@ impl TokenCache {
                         None,
                         &refresh_token,
                         scope,
-                    ).await {
+                    )
+                    .await
+                    {
                         Ok(response) => {
                             trace!("successfully refreshed token");
                             let expires_in = std::time::Duration::from_secs(response.expires_in());
                             let expires_on = time::OffsetDateTime::now_utc() + expires_in;
-                            
-                            let access_token = AccessToken::new(
-                                response.access_token().clone(),
-                                expires_on,
-                            );
-                            
+
+                            let access_token =
+                                AccessToken::new(response.access_token().clone(), expires_on);
+
                             // Update the cache with the new tokens
                             let mut token_cache = self.0.write().await;
                             token_cache.insert(
@@ -122,7 +126,7 @@ impl TokenCache {
                                     tenant_id: Some(tenant_id),
                                 },
                             );
-                            
+
                             // Return the newly refreshed token
                             return Ok(access_token);
                         }
@@ -141,7 +145,7 @@ impl TokenCache {
                 None
             }
         };
-                
+
         // Double-check if another thread has already updated the token
         {
             let token_cache = self.0.read().await;
@@ -157,29 +161,29 @@ impl TokenCache {
         if let Some(err) = refresh_attempt_result {
             trace!("refresh token failed, falling back to callback: {}", err);
         }
-            
+
         // If we get here, we need to get a completely new token via the callback
         trace!("getting new token via callback");
         let access_token = callback.await?;
-            
+
         // Store the new token in the cache
         // Note: The refresh token will be stored separately via store_token_with_refresh if available
         {
             let mut token_cache = self.0.write().await;
             token_cache.insert(
-                scopes_key, 
+                scopes_key,
                 TokenData {
                     access_token: access_token.clone(),
-                    refresh_token: None,  // Refresh token is stored separately if available
+                    refresh_token: None, // Refresh token is stored separately if available
                     client_id: None,
                     tenant_id: None,
-                }
+                },
             );
         }
-            
+
         Ok(access_token)
     }
-    
+
     /// Store a complete token including refresh token from external sources
     pub(crate) async fn store_token_with_refresh(
         &self,
@@ -191,7 +195,7 @@ impl TokenCache {
     ) -> azure_core::Result<()> {
         let scopes_key = scopes.iter().map(ToString::to_string).collect::<Vec<_>>();
         let mut token_cache = self.0.write().await;
-        
+
         trace!("storing token with refresh token for scopes: {:?}", scopes);
         token_cache.insert(
             scopes_key,
@@ -202,7 +206,7 @@ impl TokenCache {
                 tenant_id: Some(tenant_id),
             },
         );
-        
+
         Ok(())
     }
 }

@@ -29,7 +29,10 @@ async fn test_token_refresh() {
 
     println!("Getting initial token...");
     // Get an initial token
-    let token1 = credential.get_token(Some(TEST_SCOPE), None, None, None, None).await.expect("Failed to get token");
+    let token1 = credential
+        .get_token(Some(TEST_SCOPE), None, None, None, None)
+        .await
+        .expect("Failed to get token");
     let expires1 = token1.expires_on;
     let access_token1 = token1.token.secret().to_string();
 
@@ -39,9 +42,12 @@ async fn test_token_refresh() {
     // Simulate token expiration by directly obtaining a new token using the refresh mechanism
     // For a real test, you would need to wait for the token to expire, but that's not practical
     println!("\nSimulating token expiration and refreshing...");
-    
+
     // Get another token - the TokenCache should use the refresh token internally
-    let token2 = credential.get_token(Some(TEST_SCOPE), None, None, None, None).await.expect("Failed to get refreshed token");
+    let token2 = credential
+        .get_token(Some(TEST_SCOPE), None, None, None, None)
+        .await
+        .expect("Failed to get refreshed token");
     let expires2 = token2.expires_on;
     let access_token2 = token2.token.secret().to_string();
 
