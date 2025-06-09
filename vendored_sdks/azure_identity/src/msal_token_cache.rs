@@ -509,7 +509,8 @@ impl MsalTokenCache {
                 token: token_entry.secret,
                 expires_on,
             });
-        } // Try to refresh the token using a refresh token if available
+        } 
+        // Try to refresh the token using a refresh token if available
         if let Some(refresh_token) = self.get_refresh_token(home_account_id, environment, client_id)
         {
             trace!("Attempting to refresh token using refresh token");
@@ -663,10 +664,23 @@ impl Default for MsalTokenCache {
 
 impl Clone for MsalTokenCache {
     fn clone(&self) -> Self {
-        Self::new()
+        // Create a new cache
+        let new_cache = Self::new();
+        
+        // Clone the state from the existing cache
+        if let Ok(serialized) = self.serialize() {
+            if let Err(e) = new_cache.deserialize(&serialized) {
+                tracing::error!("Failed to deserialize cache during clone: {}", e);
+            }
+        } else {
+            tracing::error!("Failed to serialize cache during clone");
+        }
+        
+        new_cache
     }
 }
 
+#[derive(Debug)]
 /// A helper struct that manages persistence of an MsalTokenCache to a file
 pub struct FilePersistentTokenCache {
     cache: MsalTokenCache,
@@ -721,6 +735,27 @@ impl Drop for FilePersistentTokenCache {
             match self.save_if_changed() {
                 Ok(_) => trace!("Successfully saved token cache on exit"),
                 Err(e) => error!("Failed to save token cache on exit: {}", e),
+            }
+        }
+    }
+}
+
+impl Clone for FilePersistentTokenCache {
+    fn clone(&self) -> Self {
+        // Create a new instance using the same path
+        match FilePersistentTokenCache::new(&self.cache_path) {
+            Ok(new_cache) => new_cache,
+            Err(e) => {
+                tracing::error!("Failed to create FilePersistentTokenCache during clone: {}", e);
+                // Fall back to creating an in-memory cache with the same data
+                let cache = MsalTokenCache::new();
+                if let Ok(serialized) = self.cache.serialize() {
+                    let _ = cache.deserialize(&serialized);
+                }
+                FilePersistentTokenCache {
+                    cache,
+                    cache_path: self.cache_path.clone(),
+                }
             }
         }
     }
