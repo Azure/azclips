@@ -3,7 +3,7 @@
 // The comments illustrate what's the difference between the original msal token cache
 
 use azure_core::{
-    credentials::{AccessToken, Secret},
+    credentials::Secret,
     http::new_http_client,
     Error, Result,
 };
@@ -131,6 +131,7 @@ pub struct MsalTokenCache {
     has_state_changed: RwLock<bool>,
 }
 
+// Todo: Unify the functions to apply to all credential types
 impl MsalTokenCache {
     pub fn new() -> Self {
         Self {
@@ -833,16 +834,12 @@ mod tests {
 
         assert!(cache.has_state_changed());
 
-        // Serialize
         let serialized = cache.serialize()?;
 
-        // Check that serialization resets the state changed flag
         assert!(!cache.has_state_changed());
 
-        // Clear the cache
         cache.clear()?;
 
-        // Check that the token is gone
         let scopes = &["scope1", "scope2"];
         let retrieved = cache.get_access_token(
             Some(home_account_id),
@@ -886,7 +883,7 @@ mod tests {
         if !cirrus_dir.exists() {
             fs::create_dir_all(&cirrus_dir)?;
         }
-        let cache_path = cirrus_dir.join("msal_test_cache2.json");
+        let cache_path = cirrus_dir.join("msal_test_cache.json");
         let cache_path_str = cache_path.to_string_lossy().to_string();
 
 
@@ -916,15 +913,17 @@ mod tests {
             expires_on: expires_on.to_string(),
             extended_expires_on: expires_on.to_string(),
             refresh_on: None,
-        }; // Create a FilePersistentTokenCache - this will load from the file if it exists
-        let persistent_cache = FilePersistentTokenCache::new(&cache_path)?;
+        }; 
+        {
+            // Create a FilePersistentTokenCache - this will load from the file if it exists
+            let persistent_cache = FilePersistentTokenCache::new(&cache_path)?;
+            persistent_cache.cache().add_access_token(token.clone())?;
 
-        // Add the token to the cache
-        persistent_cache.cache().add_access_token(token.clone())?;
+            // The cache state is now changed, and will be written when the FilePersistentTokenCache is dropped
+            println!("Token cache will be written to: {}", cache_path_str); 
+        }
+        // Let persistent_cache go out of scope, which should trigger the Drop implementation
 
-        // The cache state is now changed, and will be written when the FilePersistentTokenCache is dropped
-        println!("Token cache will be written to: {}", cache_path_str); // Force the persistent_cache to be dropped, which should write to file due to the Drop implementation
-        drop(persistent_cache);
 
         // Create a new FilePersistentTokenCache to test loading from file
         let new_persistent_cache = FilePersistentTokenCache::new(&cache_path)?;
@@ -953,7 +952,7 @@ mod tests {
             home_account_id: Some(home_account_id.to_string()),
             environment: Some(environment.to_string()),
             client_id: Some(client_id.to_string()),
-            scopes: Some("new_scope".to_string()),
+            scopes: Some("scope1 scope2".to_string()),
             tenant_id: Some(tenant_id.to_string()),
             token_type: Some("Bearer".to_string()),
             cached_at: now_secs.to_string(),
@@ -963,8 +962,7 @@ mod tests {
         };
         new_persistent_cache.cache().add_access_token(new_token)?;
 
-        // Instead of explicitly calling save_if_changed, we'll rely on the Drop implementation
-        // to save when the cache is dropped
+        // Force the new_persistent_cache to be dropped, which should write to file due to the Drop implementation
         drop(new_persistent_cache);
 
         // Create a new cache to verify it was persisted
@@ -974,7 +972,7 @@ mod tests {
             Some(environment),
             Some(client_id),
             Some(tenant_id),
-            Some(&["new_scope"]),
+            Some(&["scope1 scope2"]),
         );
 
         assert!(
@@ -982,31 +980,7 @@ mod tests {
             "New token should be retrieved from reloaded FilePersistentTokenCache"
         );
         let new_retrieved = new_retrieved.unwrap();
-        assert_eq!(new_retrieved.secret.secret(), "new_token_value"); // No need to explicitly call save_on_exit since the Drop implementation handles it
-                                                                      // We'll modify the cache to verify the Drop implementation works
-        let final_token = AccessTokenEntry {
-            credential_type: CredentialType::AccessToken,
-            secret: Secret::new("final_token_value"),
-            home_account_id: Some(home_account_id.to_string()),
-            environment: Some(environment.to_string()),
-            client_id: Some(client_id.to_string()),
-            scopes: Some("final_scope".to_string()),
-            tenant_id: Some(tenant_id.to_string()),
-            token_type: Some("Bearer".to_string()),
-            cached_at: now_secs.to_string(),
-            expires_on: expires_on.to_string(),
-            extended_expires_on: expires_on.to_string(),
-            refresh_on: None,
-        };
-
-        reloaded_cache.cache().add_access_token(final_token)?;
-        // Let reloaded_cache go out of scope, which should trigger the Drop implementation
-
-        // // Clean up the test file
-        // if cache_path.exists() {
-        //     fs::remove_file(&cache_path)?;
-        // }
-
+        assert_eq!(new_retrieved.secret.secret(), "new_token_value");
         Ok(())
     }
 }
