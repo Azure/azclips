@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use azure_core::http::Context;
 
 use super::http::{HttpClient, Pipeline, Request, Response};
 use super::options::ClientOptions;
@@ -25,17 +26,10 @@ impl MgmtClient {
         options: &ClientOptions,
     ) -> Result<Self, AzInternalError> {
         let cfg = ctx.get_cfg().await.clouds.get_active().to_owned();
-        let endpoint = cfg.get_endpoint(&endpoint::RESOURCE_MANAGER).await.ok_or(
-            AzInternalError::EndpointUnregisteredError(
-                endpoint::RESOURCE_MANAGER.as_str().to_string(),
-            ),
-        )?;
+        let endpoint = cfg.get_endpoint(&endpoint::RESOURCE_MANAGER).await?;
         let scope = cfg
             .get_credential_scope(&resource_id::RESOURCE_MANAGER)
-            .await
-            .ok_or(AzInternalError::ResourceIdUnregisteredError(
-                resource_id::RESOURCE_MANAGER.as_str().to_string(),
-            ))?;
+            .await?;
         let scopes = vec![scope];
 
         let request_id_policy = Arc::new(ClientRequestIdPolicy::default());
@@ -50,11 +44,12 @@ impl MgmtClient {
 
         Ok(Self { endpoint, pipeline })
     }
-}
 
-#[async_trait]
-impl HttpClient for MgmtClient {
-    async fn execute_request(&self, request: &Request) -> ClientResult<Response> {
-        todo!()
+    pub async fn send(&self, request: Request) -> Result<Response, AzInternalError> {
+        // TODO: Context should get from the component ctx
+        let ctx = Context::new();
+        let mut request = request;
+        let response = self.pipeline.send(&ctx, &mut request).await?;
+        Ok(response)
     }
 }

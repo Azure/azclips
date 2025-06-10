@@ -89,6 +89,9 @@ pub enum AzInternalError {
 
     #[error("The resource id `{0}` is not registered.")]
     ResourceIdUnregisteredError(String),
+
+    #[error("HTTP error: {0}")]
+    Http(#[from] typespec::error::Error),
 }
 
 #[derive(Error, Debug)]

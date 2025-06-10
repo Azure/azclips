@@ -4,6 +4,8 @@ pub mod resource_id;
 use endpoint::{EndpointName, BUILTIN_ENDPOINT_MAPS};
 use resource_id::{ResourceIdName, BUILTIN_RESOURCE_ID_MAPS};
 
+use crate::error::AzInternalError;
+
 use super::AzCloud;
 use serde::{ser::SerializeMap, Deserialize, Serialize, Serializer};
 use tracing::error;
@@ -26,32 +28,43 @@ pub struct AzCloudMetadata {
 }
 
 impl AzCloudMetadata {
-    pub async fn get_endpoint(&self, name: &EndpointName) -> Option<String> {
+    pub async fn get_endpoint(&self, name: &EndpointName) -> Result<String, AzInternalError> {
         let endpoint = self.get_endpoint_from_custom_or_builtin(name);
-        if endpoint.is_some() {
-            return endpoint;
+        if let Some(endpoint) = endpoint {
+            return Ok(endpoint);
         }
         if let Some(var_str) = name.get_var_str() {
-            return self.get_value_from_metadata_api(var_str).await;
+            return self.get_value_from_metadata_api(var_str).await.ok_or(
+                AzInternalError::EndpointUnregisteredError(name.as_str().to_owned()),
+            );
         }
-        None
+        Err(AzInternalError::EndpointUnregisteredError(
+            name.as_str().to_owned(),
+        ))
     }
 
-    pub async fn get_credential_scope(&self, name: &ResourceIdName) -> Option<String> {
+    pub async fn get_credential_scope(
+        &self,
+        name: &ResourceIdName,
+    ) -> Result<String, AzInternalError> {
         let resource_id = self.get_resource_id(name).await?;
         let scopes = vec![format!("{}/.default", resource_id)];
-        Some(scopes.join(" "))
+        Ok(scopes.join(" "))
     }
 
-    async fn get_resource_id(&self, name: &ResourceIdName) -> Option<String> {
+    async fn get_resource_id(&self, name: &ResourceIdName) -> Result<String, AzInternalError> {
         let resource_id = self.get_resource_id_from_custom_or_builtin(name);
-        if resource_id.is_some() {
-            return resource_id;
+        if let Some(resource_id) = resource_id {
+            return Ok(resource_id);
         }
         if let Some(var_str) = name.get_var_str() {
-            return self.get_value_from_metadata_api(var_str).await;
+            return self.get_value_from_metadata_api(var_str).await.ok_or(
+                AzInternalError::ResourceIdUnregisteredError(name.as_str().to_owned()),
+            );
         }
-        None
+        Err(AzInternalError::ResourceIdUnregisteredError(
+            name.as_str().to_owned(),
+        ))
     }
 
     pub async fn get_value_from_metadata_api(&self, _: &str) -> Option<String> {

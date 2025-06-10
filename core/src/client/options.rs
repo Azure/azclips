@@ -1,6 +1,4 @@
 
-
-
 #[derive(Debug, Clone)]
 pub struct TelemetryOptions {
     pub component_name: String,
@@ -8,9 +6,7 @@ pub struct TelemetryOptions {
 }
 
 
-
 #[derive(Debug, Clone)]
 pub struct ClientOptions {
-
     pub telemetry: TelemetryOptions,
 }

@@ -4,10 +4,7 @@ use serde_json::{json, Value};
 use tracing::error;
 
 use crate::{
-    component::{AzCommand, AzCommandExecute, AzComponentCtx},
-    error::AzError,
-    pb::{crs_arg, crs_string_arg, CrsArg, CrsArgHelp, CrsCommand, CrsHelp, CrsParams, CrsStringArg, CrsStringFormat, CrsSubscriptionIdFormat},
-    VERSION,
+    component::{AzCommand, AzCommandExecute, AzComponentCtx}, config::cloud::{endpoint, resource_id}, error::{AzError, AzInternalError}, pb::{crs_arg, crs_string_arg, CrsArg, CrsArgHelp, CrsCommand, CrsHelp, CrsParams, CrsStringArg, CrsStringFormat, CrsSubscriptionIdFormat}, VERSION
 };
 
 #[derive(Debug, Default)]
@@ -27,6 +24,14 @@ impl AzCommandExecute for ShowDemo {
         };
         println!("subscription: {}", subscription);
         println!("resource_group_name: {}", self.resource_group_name);
+
+        let cfg = ctx.get_cfg().await;
+        let cloud = cfg.clouds.get_active();
+        let scope = cloud.get_credential_scope(&resource_id::RESOURCE_MANAGER).await?;
+        let endpoint = cloud.get_endpoint(&endpoint::RESOURCE_MANAGER).await?;
+
+        // let client = MgmtClient::build(ctx, credential, &options).await?;
+        // client.send(request).await?;
 
         Ok(Some(json!({})))
     }
