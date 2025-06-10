@@ -1,11 +1,21 @@
-use crate::error::AuthenticationError;
-use base64::engine::general_purpose::URL_SAFE;
-use base64::Engine as _;
 use reqwest::{Client, Url};
 use serde_json::Value;
 
 pub fn can_launch_browser() -> bool {
     webbrowser::Browser::is_available()
+}
+
+pub fn get_default_token_cache_path() -> Option<String> {
+    let home_dir = dirs::home_dir()?;
+    let cache_dir = home_dir.join(".cirrus");
+    
+    if !cache_dir.exists() {
+        if std::fs::create_dir_all(&cache_dir).is_err() {
+            return None;
+        }
+    }
+    
+    Some(cache_dir.join("azure_token_cache.json").to_string_lossy().to_string())
 }
 
 pub fn format_token_expires_on(expires_in: std::time::Duration) -> u64 {
@@ -28,44 +38,6 @@ pub fn format_token_expires_on_readable(expires_on: u64) -> String {
             local.format("%Y-%m-%d %H:%M:%S %Z").to_string()
         }
         None => "invalid timestamp".to_string(),
-    }
-}
-
-// Reference: https://github.com/AzureAD/microsoft-authentication-library-for-python/blob/db1c3848456696920fb5fb21c1a25a5e9323e443/msal/oauth2cli/oidc.py#L15-L36
-pub fn decode_part_id_token(
-    raw: &str,
-    encoding: Option<&str>,
-) -> Result<String, AuthenticationError> {
-    let rem = raw.len() % 4;
-    let mut b64 = raw.to_string();
-    if rem != 0 {
-        b64.push_str(&"=".repeat(4 - rem));
-    }
-    let bytes = URL_SAFE.decode(&b64).map_err(|e| {
-        AuthenticationError::InvalidIdToken(format!(
-            "Base64 is not decoded correctly for error {}",
-            e
-        ))
-    })?;
-
-    match encoding {
-        Some(enc) => {
-            if enc.to_lowercase() == "utf-8" {
-                Ok(std::str::from_utf8(&bytes)
-                    .map_err(|e| {
-                        AuthenticationError::InvalidIdToken(format!(
-                            "Invalid UTF-8 sequence: {}",
-                            e
-                        ))
-                    })?
-                    .to_owned())
-            } else {
-                Err(AuthenticationError::InvalidIdToken(
-                    "Unsupported encoding for ID token payload".to_string(),
-                ))
-            }
-        }
-        None => Ok(format!("{:02x?}", bytes)),
     }
 }
 

@@ -1,7 +1,4 @@
-use super::msal_utils::{
-    get_default_msal_cache_path, load_token_from_msal_cache, save_token_to_msal_cache,
-};
-use super::utils::{decode_part_id_token, format_token_expires_on, load_landing_page_templates};
+use super::utils::{get_default_token_cache_path, format_token_expires_on, load_landing_page_templates};
 use crate::error::{AuthenticationError, AzError, AzInternalError};
 use azure_identity::interactive_credential::interactive_browser_credential::InteractiveBrowserCredential;
 use oauth2::TokenResponse;

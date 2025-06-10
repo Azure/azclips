@@ -1,7 +1,7 @@
 use super::internal_server::*;
 use crate::authorization_code_flow;
 use crate::custom_token_fields::CustomTokenFields;
-use crate::msal_token_cache::{AccessTokenEntry, AccountEntry, IdTokenEntry, MsalTokenCache, RefreshTokenEntry, FilePersistentTokenCache};
+use crate::msal_token_cache::{AccessTokenEntry, AccountEntry, IdTokenEntry, RefreshTokenEntry, FilePersistentTokenCache};
 use crate::utils::decode_part_id_token;
 use azure_core::{
     credentials::{AccessToken, Secret, TokenCredential},
@@ -11,7 +11,7 @@ use azure_core::{
     Error,
 };
 use oauth2::{basic::BasicTokenType, AuthorizationCode, ClientId, TokenResponse};
-use std::{path::Path, str::FromStr, sync::Arc, time::SystemTime, time::UNIX_EPOCH, path::PathBuf};
+use std::{str::FromStr, time::SystemTime, time::UNIX_EPOCH, path::PathBuf};
 use serde_json;
 
 /// Default OAuth scopes used when none are provided.
@@ -34,11 +34,11 @@ pub struct InteractiveBrowserCredential {
     /// Redirect URI where the authentication response is sent.
     pub(crate) redirect_url: Url,
     /// Home account ID for the user.
-    pub(crate) home_account_id: Option<String>,
+    pub home_account_id: Option<String>,
     /// Cloud environment for the authentication request.
-    pub(crate) environment: Option<String>,
+    pub environment: Option<String>,
     /// Persistent Token cache for storing and retrieving tokens.
-    pub(crate) persistent_cache: Option<FilePersistentTokenCache>,
+    pub(crate) cache_path: Option<PathBuf>,
 }
 
 impl InteractiveBrowserCredential {
@@ -48,7 +48,7 @@ impl InteractiveBrowserCredential {
         tenant_id: Option<String>,
         redirect_url: Option<Url>,
         cache_path: Option<PathBuf>,
-    ) -> azure_core::Result<Arc<Self>> {
+    ) -> azure_core::Result<Self> {
         let client_id = client_id
             .unwrap_or_else(|| ClientId::new(DEFAULT_DEVELOPER_SIGNON_CLIENT_ID.to_owned()));
 
@@ -58,20 +58,14 @@ impl InteractiveBrowserCredential {
             Url::from_str(&format!("http://localhost:{}", LOCAL_SERVER_PORT))
                 .expect("Failed to parse redirect URL")
         });
-
-        let persistent_cache= if let Some(path) = cache_path {
-            Some(FilePersistentTokenCache::new(path)?)
-        } else {
-            None
-        };
-        Ok(Arc::new(Self {
+        Ok(Self {
             client_id,
             tenant_id,
             redirect_url,
             home_account_id: None,
             environment: None,
-            persistent_cache,
-        }))
+            cache_path,
+        })
     }
 
     /// Starts the interactive browser authentication flow and returns an access token.
@@ -80,7 +74,7 @@ impl InteractiveBrowserCredential {
     /// Returns a token response that includes standard OAuth2 token information and additional ID token.
     #[allow(dead_code)]
     pub async fn get_token_interactively(
-        &self,
+        &mut self,
         scopes: Option<&[&str]>,
         prompt: Option<&str>,
         login_hint: Option<&str>,
@@ -130,6 +124,13 @@ impl InteractiveBrowserCredential {
             .exchange(new_http_client(), AuthorizationCode::new(code))
             .await?;
         
+        // Create a persistent cache if a cache path is provided
+        let persistent_cache = if let Some(cache_path) = &self.cache_path {
+            Some(FilePersistentTokenCache::new(cache_path.clone())?)
+        } else {
+            None
+        };
+
         // Store the access token, id token and account information in the cache
         let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
         let now_secs = now.as_secs();
@@ -153,16 +154,26 @@ impl InteractiveBrowserCredential {
                         
                         if let (Some(oid_value), Some(tid_value)) = (oid, tid) {
                             home_account_id = Some(format!("{}.{}", oid_value, tid_value));
+                            // Set the home_account_id in the struct for future use
+                            self.home_account_id = home_account_id.clone();
+                            tracing::info!("Found home_account_id: {:?}", self.home_account_id);
                         }
                         
                         // Extract the username from preferred_username claim
                         username = payload_value.get("preferred_username").and_then(|v| v.as_str()).map(String::from);
+                        if let Some(username_value) = &username {
+                            tracing::info!("Found username: {}", username_value);
+                        }
                         
                         // For Azure AD, environment is typically "login.microsoftonline.com"
                         environment = payload_value.get("iss")
                             .and_then(|v| v.as_str())
                             .and_then(|s| s.split('/').nth(2))
                             .map(String::from);
+                        
+                        // Set the environment in the struct for future use
+                        self.environment = environment.clone();
+                        tracing::info!("Found environment: {:?}", self.environment);
                     }
                 }
             }
@@ -174,9 +185,9 @@ impl InteractiveBrowserCredential {
                 tenant_id: Some(self.tenant_id.clone()),
                 client_id: Some(self.client_id.to_string()),
             };
-            if self.persistent_cache.is_none() {
+            if persistent_cache.is_none() {
                 tracing::warn!("No persistent cache provided, ID token will not be stored.");
-            } else if let Some(persistent_cache) = &self.persistent_cache {
+            } else if let Some(persistent_cache) = &persistent_cache {
                 // Store the ID token in the persistent cache
                 if let Err(e) = persistent_cache.cache().add_id_token(id_token_entry) {
                     tracing::error!("Failed to add ID token to persistent cache: {}", e);
@@ -201,9 +212,9 @@ impl InteractiveBrowserCredential {
         };
         
         // Store the access token in the cache
-        if self.persistent_cache.is_none() {
+        if persistent_cache.is_none() {
             tracing::warn!("No persistent cache provided, access token will not be stored.");
-        } else if let Some(persistent_cache) = &self.persistent_cache {
+        } else if let Some(persistent_cache) = &persistent_cache {
             // Store the access token in the persistent cache
             if let Err(e) = persistent_cache.cache().add_access_token(access_token_entry.clone()) {
                 tracing::error!("Failed to add access token to persistent cache: {}", e);
@@ -222,9 +233,9 @@ impl InteractiveBrowserCredential {
                 account_source: None,
             };
             
-            if self.persistent_cache.is_none() {
+            if persistent_cache.is_none() {
                 tracing::warn!("No persistent cache provided, account entry will not be stored.");
-            } else if let Some(persistent_cache) = &self.persistent_cache {
+            } else if let Some(persistent_cache) = &persistent_cache {
                 // Store the account entry in the persistent cache
                 if let Err(e) = persistent_cache.cache().add_account(account_entry.clone()) {
                     tracing::error!("Failed to add account to persistent cache: {}", e);
@@ -243,9 +254,9 @@ impl InteractiveBrowserCredential {
                 last_modification_time: Some(now_secs.to_string()),
             };
             
-            if self.persistent_cache.is_none() {
+            if persistent_cache.is_none() {
                 tracing::warn!("No persistent cache provided, refresh token will not be stored.");
-            } else if let Some(persistent_cache) = &self.persistent_cache {
+            } else if let Some(persistent_cache) = &persistent_cache {
                 // Store the refresh token in the persistent cache
                 if let Err(e) = persistent_cache.cache().add_refresh_token(refresh_token_entry.clone()) {
                     tracing::error!("Failed to add refresh token to persistent cache: {}", e);
@@ -257,8 +268,15 @@ impl InteractiveBrowserCredential {
 
     /// Get token sliently from the cache or refresh it if needed.
     pub async fn get_token_sliently(&self, scopes: &[&str]) -> azure_core::Result<AccessToken> {
+        // Create a persistent cache if a cache path is provided
+        let persistent_cache = if let Some(cache_path) = &self.cache_path {
+            Some(FilePersistentTokenCache::new(cache_path.clone())?)
+        } else {
+            None
+        };
+
         // Try to get token from cache or refresh if needed
-        if self.persistent_cache.is_none() {
+        if persistent_cache.is_none() {
             tracing::warn!("No persistent cache provided, cannot retrieve token silently.");
             return Err(Error::new(
                 ErrorKind::Credential,
@@ -266,7 +284,7 @@ impl InteractiveBrowserCredential {
             ));
         }
         
-        match self.persistent_cache.as_ref().unwrap().cache().get_access_token_and_possibly_refresh_it(
+        match persistent_cache.as_ref().unwrap().cache().get_access_token_and_possibly_refresh_it(
             scopes,
             self.home_account_id.as_deref(),
             self.environment.as_deref(),
@@ -275,7 +293,7 @@ impl InteractiveBrowserCredential {
         ).await {
             Ok(access_token) => {
                 // Make sure we save any changes to the cache after refreshing
-                if let Err(e) = self.persistent_cache.as_ref().unwrap().save_if_changed() {
+                if let Err(e) = persistent_cache.as_ref().unwrap().save_if_changed() {
                     tracing::warn!("Failed to save token cache after refreshing: {}", e);
                 }
                 Ok(access_token)
@@ -326,7 +344,7 @@ mod tests {
 
         // Create a credential with a temp file cache
         let test_path = get_test_cache_path(); 
-        let credential = InteractiveBrowserCredential::new(None, None, None, Some(test_path.clone()))
+        let mut credential = InteractiveBrowserCredential::new(None, None, None, Some(test_path.clone()))
             .expect("Failed to create credential");
 
         let token_response = credential.get_token_interactively(None, None, None, None, None).await;
@@ -350,7 +368,7 @@ mod tests {
 
         // Create a credential with a temp file cache
         let test_path = get_test_cache_path();
-        let credential = InteractiveBrowserCredential::new(None, None, None, Some(test_path.clone()))
+        let mut credential = InteractiveBrowserCredential::new(None, None, None, Some(test_path.clone()))
             .expect("Failed to create credential");
 
         // Test the trait method (using it as a TokenCredential)

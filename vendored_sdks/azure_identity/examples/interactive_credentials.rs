@@ -3,7 +3,6 @@ use azure_core::{
 };
 use azure_identity::{
     interactive_credential::interactive_browser_credential::InteractiveBrowserCredential,
-    msal_token_cache::{FilePersistentTokenCache},
 };
 use oauth2::ClientId;
 use oauth2::TokenResponse;
@@ -51,14 +50,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
     
     // Create the interactive browser credential with the file path
-    let interactive_credentials = InteractiveBrowserCredential::new(
+    let mut interactive_credentials = InteractiveBrowserCredential::new(
         Some(ClientId::new(AZURE_CLI_CLIENT_ID.to_string())),
         Some(tenant_id.to_string()),
         None,   // redirect URL
         Some(cache_file_path.clone()), // Pass the file path directly
     )?;
-    
-    // Use get_token_interactively to get a full token response with refresh token
+      // Use get_token_interactively to get a full token response with refresh token
+    info!("Calling get_token_interactively to acquire a token interactively");
     let token_response = interactive_credentials
         .get_token_interactively(
             Some(&["https://management.core.windows.net/.default"]),
@@ -68,8 +67,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
             None,                    // error_template
         )
         .await?;
-      println!("\n--- Original token from get_token_interactively ---\n");
-    println!("Access token: {}", token_response.access_token().secret());    // Check if the token cache file was updated after authentication
+    
+    println!("\n--- Original token from get_token_interactively ---\n");
+    println!("Access token: {}", token_response.access_token().secret());
+    
+    // Display the home_account_id and environment that were set during authentication
+    info!("After authentication:");
+    info!("  Home Account ID: {:?}", interactive_credentials.home_account_id);
+    info!("  Environment: {:?}", interactive_credentials.environment);// Check if the token cache file was updated after authentication
     println!("\n--- Token cache file status after authentication ---\n");
     if cache_file_path.exists() {
         let cache_contents = fs::read_to_string(&cache_file_path)?;

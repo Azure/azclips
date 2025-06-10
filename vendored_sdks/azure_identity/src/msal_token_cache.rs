@@ -598,7 +598,8 @@ impl MsalTokenCache {
 
         Err(Error::new(
             azure_core::error::ErrorKind::Credential,
-            "No valid token found in cache and no refresh token available. Please log in again.",
+            format!("No valid token found in cache for scopes: {:?}, home_account_id: {:?}, environment: {:?}, client_id: {:?}, tenant_id: {:?}",
+            scopes, home_account_id, environment, client_id, tenant_id)
         ))
     }
     /// Clear the token cache
