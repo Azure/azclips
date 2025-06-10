@@ -8,9 +8,13 @@ use oauth2::ClientId;
 use oauth2::TokenResponse;
 use std::error::Error;
 use std::fs;
+use std::sync::Arc;
 use tracing::{info, warn, error, Level};
 use tracing_subscriber;
-
+use azure_security_keyvault_secrets::{
+    models::{Secret, SetSecretParameters},
+    ResourceExt, SecretClient,
+};
 
 pub const AZURE_CLI_CLIENT_ID: &str = "04b07795-8ddb-461a-bbee-02f9e1bf7b46";
 
@@ -97,7 +101,35 @@ async fn main() -> Result<(), Box<dyn Error>> {
     
     println!("TokenCredential.get_token succeeded!");
     println!("Access token: {}", token_credential_response.token.secret());
-    println!("Expires at: {:?}", token_credential_response.expires_on);
+    println!("Expires at: {:?}", token_credential_response.expires_on);    // Try calling sdk
+    let client = SecretClient::new(
+        "https://cirrus-test-kv.vault.azure.net/",
+        Arc::new(interactive_credentials) as _,
+        None,
+    )?;
+
+    // Create a new secret using the secret client.
+    let secret_set_parameters = SetSecretParameters {
+        value: Some("secret-value".into()),
+        ..Default::default()
+    };
+
+    let secret: Secret = client
+        .set_secret("secret-name", secret_set_parameters.try_into()?, None)
+        .await?
+        .into_body()
+        .await?;
+
+    // Get version of created secret.
+    let version = secret.resource_id()?.version.unwrap_or_default();
+
+    // Retrieve a secret using the secret client.
+    let secret: Secret = client
+        .get_secret("secret-name", version.as_ref(), None)
+        .await?
+        .into_body()
+        .await?;
+    println!("{:?}", secret.value);
     
     Ok(())
 }
