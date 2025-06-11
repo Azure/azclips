@@ -8,45 +8,49 @@ import "protos/model/schema.proto";
 import "protos/model/subresource_selector.proto";
 
 message ClientAADAuthConfig {
-  repeated string scopes;
+  repeated string scopes = 1;
 }
 
 message ClientAuth {
-  ClientAADAuthConfig aad;
+  ClientAADAuthConfig aad = 1;
 }
 
 message ClientEndpointTemplate {
-  string cloud;
-  string template;
+  string cloud = 1;
+  string template = 2;
 }
 
 message ClientEndpointCloudMetadataTemplate {
-  string selector_index;
-  string prefix_template;
+  string selector_index = 1;
+  string prefix_template = 2;
 }
 
 message ClientEndpoints {
-  string type;
+  // string type = 1;
+  oneof endpoints {
+    ClientEndpointsByTemplate by_template = 2;
+    ClientEndpointsByHttpOperation by_http_operation = 3;
+  }
 }
 
 message ClientEndpointsByTemplate {
-  string type="template";
-  repeated ClientEndpointTemplate templates;
-  ClientEndpointCloudMetadataTemplate cloud_metadata;
-  repeated Schema params;
+  // string type="template";
+  repeated ClientEndpointTemplate templates = 2;
+  ClientEndpointCloudMetadataTemplate cloud_metadata = 3;
+  repeated Schema params = 4;
 }
 
 message ClientEndpointsByHttpOperation {
-  string type="http-operation";
-  Resource resource;
-  SubresourceSelector selector;
-  HttpOperation operation;
+  // string type="http-operation";
+  Resource resource = 2;
+  SubresourceSelector selector = 3;
+  HttpOperation operation = 4;
 }
 
 message ClientConfig {
-  string version;
-  string plane;
-  ClientEndpoints endpoints;
-  ClientAuth auth;
-  CrsArgGroup arg_group;
+  string version = 1;
+  string plane = 2;
+  ClientEndpoints endpoints = 3;
+  ClientAuth auth = 4;
+  CrsArgGroup arg_group = 5;
 }

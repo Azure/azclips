@@ -40,8 +40,8 @@ message Schema {
 
   oneof type {
       ClsSchema cls = 8;
-      StringSchema string_ = 9;
-      ByteSchema byte_ = 10;
+      StringSchema string = 9;
+      ByteSchema byte = 10;
       BinarySchema binary = 11;
       DurationSchema duration = 12;
       DateSchema date = 13;
@@ -55,14 +55,14 @@ message Schema {
       Integer32Schema integer32 = 21;
       Integer64Schema integer64 = 22;
       BooleanSchema boolean_ = 23;
-      FloatSchema float_ = 24;
+      FloatSchema float = 24;
       Float32Schema float32 = 25;
       Float64Schema float64 = 26;
       AnyTypeSchema any_type = 27;
 
-      ObjectSchema object_ = 28; // object
-      IdentityObjectSchema identity_object_ = 29; // identity object
-      ArraySchema array_ = 30; // array
+      ObjectSchema object = 28; // object
+      IdentityObjectSchema identity_object = 29; // identity object
+      ArraySchema array = 30; // array
   }
 }
 

@@ -4,17 +4,17 @@ package command;
 import "protos/command.proto";
 import "protos/model/condition.proto";
 import "protos/model/resource.proto";
-import "protos/model/subresource_selector.proto";
+import "protos/model/selector.proto";
 
 message Command {
-  string name;
-  string version;
-  string description;
-  repeated Resource resources;
-  repeated ArgGroup arg_groups;
-  repeated Condition conditions;
-  SubresourceSelector subresource_selector;
-  repeated Operation operations;
-  repeated Output outputs;
-  optional string confirmation;
+  string name = 1;
+  string version = 2;
+  string description = 3;
+  repeated Resource resources = 4;
+  repeated ArgGroup arg_groups = 5;
+  repeated Condition conditions = 6;
+  SubresourceSelector subresource_selector = 7;
+  repeated Operation operations = 8;
+  repeated Output outputs = 9;
+  optional string confirmation = 10;
 }
