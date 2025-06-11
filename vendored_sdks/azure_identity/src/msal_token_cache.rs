@@ -2,11 +2,7 @@
 // Licensed under the MIT License.
 // The comments illustrate what's the difference between the original msal token cache
 
-use azure_core::{
-    credentials::Secret,
-    http::new_http_client,
-    Error, Result,
-};
+use azure_core::{credentials::Secret, http::new_http_client, Error, Result};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{from_str, to_string_pretty};
@@ -330,13 +326,13 @@ impl MsalTokenCache {
     ) -> Result<()> {
         // First get the account to set as default
         let account_to_set = self.get_account(home_account_id, environment, tenant_id);
-        
+
         // Get all accounts
         let mut cache = self.cache.write().unwrap();
         let accounts = cache
             .entry(CredentialType::Account)
             .or_insert_with(HashMap::new);
-        
+
         let mut state_changed = false;
 
         // Set is_default to false for all accounts
@@ -348,27 +344,27 @@ impl MsalTokenCache {
                 }
             }
         }
-        
+
         // Set the target account as default if it exists
         if let Some(target_account) = account_to_set {
             let key = self.generate_account_key(
                 target_account.home_account_id.as_deref(),
-                target_account.environment.as_deref(), 
+                target_account.environment.as_deref(),
                 target_account.tenant_id.as_deref(),
             );
-            
+
             if let Some(TokenCacheEntry::Account(account)) = accounts.get_mut(&key) {
                 account.is_default = Some(true);
                 state_changed = true;
             }
         }
-        
+
         // Update the state changed flag if needed
         if state_changed {
             let mut has_state_changed = self.has_state_changed.write().unwrap();
             *has_state_changed = true;
         }
-        
+
         Ok(())
     }
 
@@ -569,7 +565,7 @@ impl MsalTokenCache {
                 token: token_entry.secret,
                 expires_on,
             });
-        } 
+        }
         // Try to refresh the token using a refresh token if available
         if let Some(refresh_token) = self.get_refresh_token(home_account_id, environment, client_id)
         {
@@ -723,7 +719,7 @@ impl Clone for MsalTokenCache {
     fn clone(&self) -> Self {
         // Create a new cache
         let new_cache = Self::new();
-        
+
         // Clone the state from the existing cache
         if let Ok(serialized) = self.serialize() {
             if let Err(e) = new_cache.deserialize(&serialized) {
@@ -732,7 +728,7 @@ impl Clone for MsalTokenCache {
         } else {
             tracing::error!("Failed to serialize cache during clone");
         }
-        
+
         new_cache
     }
 }
@@ -803,7 +799,10 @@ impl Clone for FilePersistentTokenCache {
         match FilePersistentTokenCache::new(&self.cache_path) {
             Ok(new_cache) => new_cache,
             Err(e) => {
-                tracing::error!("Failed to create FilePersistentTokenCache during clone: {}", e);
+                tracing::error!(
+                    "Failed to create FilePersistentTokenCache during clone: {}",
+                    e
+                );
                 // Fall back to creating an in-memory cache with the same data
                 let cache = MsalTokenCache::new();
                 if let Ok(serialized) = self.cache.serialize() {
@@ -976,7 +975,6 @@ mod tests {
         let cache_path = cirrus_dir.join("msal_test_cache.json");
         let cache_path_str = cache_path.to_string_lossy().to_string();
 
-
         // Add a token to the cache
         let home_account_id = "home_id";
         let environment = "environment";
@@ -1002,17 +1000,16 @@ mod tests {
             cached_at: now_secs.to_string(),
             expires_on: expires_on.to_string(),
             extended_expires_on: expires_on.to_string(),
-        }; 
+        };
         {
             // Create a FilePersistentTokenCache - this will load from the file if it exists
             let persistent_cache = FilePersistentTokenCache::new(&cache_path)?;
             persistent_cache.cache().add_access_token(token.clone())?;
 
             // The cache state is now changed, and will be written when the FilePersistentTokenCache is dropped
-            println!("Token cache will be written to: {}", cache_path_str); 
+            println!("Token cache will be written to: {}", cache_path_str);
         }
         // Let persistent_cache go out of scope, which should trigger the Drop implementation
-
 
         // Create a new FilePersistentTokenCache to test loading from file
         let new_persistent_cache = FilePersistentTokenCache::new(&cache_path)?;
@@ -1075,7 +1072,7 @@ mod tests {
     #[test]
     fn test_set_default_account() -> Result<()> {
         let cache = MsalTokenCache::new();
-        
+
         // Create three test accounts
         let account1 = AccountEntry {
             home_account_id: Some("home_id_1".to_string()),
@@ -1087,7 +1084,7 @@ mod tests {
             account_source: None,
             is_default: Some(false),
         };
-        
+
         let account2 = AccountEntry {
             home_account_id: Some("home_id_2".to_string()),
             environment: Some("env1".to_string()),
@@ -1098,7 +1095,7 @@ mod tests {
             account_source: None,
             is_default: Some(true), // This one starts as default
         };
-        
+
         let account3 = AccountEntry {
             home_account_id: Some("home_id_3".to_string()),
             environment: Some("env1".to_string()),
@@ -1109,62 +1106,42 @@ mod tests {
             account_source: None,
             is_default: Some(false),
         };
-        
+
         // Add accounts to the cache
         cache.add_account(account1.clone())?;
         cache.add_account(account2.clone())?;
         cache.add_account(account3.clone())?;
-        
+
         // Verify account2 is default
-        let acc2 = cache.get_account(
-            Some("home_id_2"),
-            Some("env1"),
-            Some("tenant1"),
-        );
+        let acc2 = cache.get_account(Some("home_id_2"), Some("env1"), Some("tenant1"));
         assert!(acc2.is_some());
         assert_eq!(acc2.unwrap().is_default, Some(true));
-        
+
         // Set account1 as default
-        cache.set_default_account(
-            Some("home_id_1"),
-            Some("env1"),
-            Some("tenant1"),
-        )?;
-        
+        cache.set_default_account(Some("home_id_1"), Some("env1"), Some("tenant1"))?;
+
         // Verify account1 is now default
-        let acc1 = cache.get_account(
-            Some("home_id_1"),
-            Some("env1"),
-            Some("tenant1"),
-        );
+        let acc1 = cache.get_account(Some("home_id_1"), Some("env1"), Some("tenant1"));
         assert!(acc1.is_some());
         assert_eq!(acc1.unwrap().is_default, Some(true));
-        
+
         // Verify account2 is no longer default
-        let acc2 = cache.get_account(
-            Some("home_id_2"),
-            Some("env1"),
-            Some("tenant1"),
-        );
+        let acc2 = cache.get_account(Some("home_id_2"), Some("env1"), Some("tenant1"));
         assert!(acc2.is_some());
         assert_eq!(acc2.unwrap().is_default, Some(false));
-        
+
         // Verify account3 is still not default
-        let acc3 = cache.get_account(
-            Some("home_id_3"),
-            Some("env1"),
-            Some("tenant1"),
-        );
+        let acc3 = cache.get_account(Some("home_id_3"), Some("env1"), Some("tenant1"));
         assert!(acc3.is_some());
         assert_eq!(acc3.unwrap().is_default, Some(false));
-        
+
         Ok(())
     }
 
     #[test]
     fn test_get_default_account() -> Result<()> {
         let cache = MsalTokenCache::new();
-        
+
         // Create three test accounts
         let account1 = AccountEntry {
             home_account_id: Some("home_id_1".to_string()),
@@ -1176,7 +1153,7 @@ mod tests {
             account_source: None,
             is_default: Some(false),
         };
-        
+
         let account2 = AccountEntry {
             home_account_id: Some("home_id_2".to_string()),
             environment: Some("env1".to_string()),
@@ -1187,7 +1164,7 @@ mod tests {
             account_source: None,
             is_default: Some(true), // This one is default
         };
-        
+
         let account3 = AccountEntry {
             home_account_id: Some("home_id_3".to_string()),
             environment: Some("env1".to_string()),
@@ -1198,22 +1175,28 @@ mod tests {
             account_source: None,
             is_default: Some(false),
         };
-        
+
         // Add accounts to the cache
         cache.add_account(account1.clone())?;
         cache.add_account(account2.clone())?;
         cache.add_account(account3.clone())?;
-        
+
         // Get default account
         let default_account = cache.get_default_account();
-        
+
         // Verify the correct account is returned
         assert!(default_account.is_some());
         let default_account = default_account.unwrap();
-        assert_eq!(default_account.home_account_id, Some("home_id_2".to_string()));
-        assert_eq!(default_account.username, Some("user2@example.com".to_string()));
+        assert_eq!(
+            default_account.home_account_id,
+            Some("home_id_2".to_string())
+        );
+        assert_eq!(
+            default_account.username,
+            Some("user2@example.com".to_string())
+        );
         assert_eq!(default_account.is_default, Some(true));
-        
+
         // Test when there is no default account
         let cache2 = MsalTokenCache::new();
         let account_no_default = AccountEntry {
@@ -1226,11 +1209,11 @@ mod tests {
             account_source: None,
             is_default: Some(false),
         };
-        
+
         cache2.add_account(account_no_default)?;
         let default_account2 = cache2.get_default_account();
         assert!(default_account2.is_none());
-        
+
         Ok(())
     }
 }

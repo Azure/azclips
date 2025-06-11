@@ -8,14 +8,19 @@ pub fn can_launch_browser() -> bool {
 pub fn get_default_token_cache_path() -> Option<String> {
     let home_dir = dirs::home_dir()?;
     let cache_dir = home_dir.join(".cirrus");
-    
+
     if !cache_dir.exists() {
         if std::fs::create_dir_all(&cache_dir).is_err() {
             return None;
         }
     }
-    
-    Some(cache_dir.join("azure_token_cache.json").to_string_lossy().to_string())
+
+    Some(
+        cache_dir
+            .join("azure_token_cache.json")
+            .to_string_lossy()
+            .to_string(),
+    )
 }
 
 pub fn format_token_expires_on(expires_in: std::time::Duration) -> u64 {

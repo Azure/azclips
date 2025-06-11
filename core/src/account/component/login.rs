@@ -5,7 +5,9 @@ use tracing::error;
 use crate::{
     account::{
         credentials::UserCredential,
-        utils::{can_launch_browser, format_token_expires_on_readable, get_default_token_cache_path},
+        utils::{
+            can_launch_browser, format_token_expires_on_readable, get_default_token_cache_path,
+        },
     },
     component::{AzCommand, AzCommandExecute, AzComponentCtx},
     error::{AuthenticationError, AzError},
@@ -77,7 +79,7 @@ impl AzCommandExecute for Login {
     }
 }
 
-impl Login {    
+impl Login {
     async fn login_with_auth_code(
         &self,
         scopes: &[&str],
@@ -85,13 +87,17 @@ impl Login {
     ) -> Result<(), AuthenticationError> {
         println!("Logging in interactively...");
 
-        let mut user_credential = UserCredential::new(None, None , None, Some(tenant_id.to_string()));
+        let mut user_credential =
+            UserCredential::new(None, None, None, Some(tenant_id.to_string()));
         let token = user_credential.acquire_token(scopes).await?;
 
         println!("Login successful with user: {:?}", user_credential.username);
 
         // Set current user as the default user in token cache with method set_default_account
-        if let (Some(home_account_id), Some(environment)) = (&user_credential.home_account_id, &user_credential.environment) {
+        if let (Some(home_account_id), Some(environment)) = (
+            &user_credential.home_account_id,
+            &user_credential.environment,
+        ) {
             if let Some(cache_path) = get_default_token_cache_path() {
                 match FilePersistentTokenCache::new(cache_path) {
                     Ok(token_cache) => {
@@ -107,7 +113,7 @@ impl Login {
                                 error!("Failed to save token cache changes: {}", e);
                             }
                         }
-                    },
+                    }
                     Err(e) => {
                         error!("Failed to access token cache: {}", e);
                     }
@@ -424,10 +430,8 @@ impl AzCommand for Login {
 mod tests {
     use super::*;
     use crate::account::utils::fake_list_subscriptions;
+    use azure_core::credentials::TokenCredential;
     use std::env;
-    use azure_core::{
-        credentials::TokenCredential,
-    };
 
     fn is_ci_environment() -> bool {
         env::var("CI").is_ok()
@@ -444,7 +448,8 @@ mod tests {
         if is_ci_environment() {
             println!("Skipping interactive test in CI environment");
             return;
-        }        let login = Login::default();
+        }
+        let login = Login::default();
         let result = login.login_with_auth_code(&SCOPES, TENANT_ID).await;
         assert!(result.is_ok(), "Login failed: {:?}", result.err());
 
@@ -457,9 +462,13 @@ mod tests {
                     // Get the default account from the token cache
                     if let Some(account) = token_cache.cache().get_default_account() {
                         println!("Found default account: {:?}", account.username);
-                        
+
                         // Create a new UserCredential with the account details
-                        if let (Some(username), Some(home_account_id), Some(environment)) = (&account.username, &account.home_account_id, &account.environment) {                            
+                        if let (Some(username), Some(home_account_id), Some(environment)) = (
+                            &account.username,
+                            &account.home_account_id,
+                            &account.environment,
+                        ) {
                             let credential = UserCredential::new(
                                 Some(username.clone()),
                                 Some(home_account_id.clone()),
@@ -468,23 +477,25 @@ mod tests {
                             );
 
                             let scopes: Vec<&str> = SCOPES.iter().map(|&s| s).collect();
-                            
+
                             match credential.get_token(&scopes).await {
                                 Ok(token_credential_response) => {
                                     let access_token = token_credential_response.token.secret();
-                                    println!("Successfully acquired token silently: {}", access_token);
+                                    println!(
+                                        "Successfully acquired token silently: {}",
+                                        access_token
+                                    );
 
-                                    match fake_list_subscriptions(access_token.to_string())
-                                        .await {
-                                            Ok(_) => println!("Successfully listed subscriptions"),
-                                            Err(e) => println!("Failed to list subscriptions: {}", e)
-                                        };
-                                },
+                                    match fake_list_subscriptions(access_token.to_string()).await {
+                                        Ok(_) => println!("Successfully listed subscriptions"),
+                                        Err(e) => println!("Failed to list subscriptions: {}", e),
+                                    };
+                                }
                                 Err(e) => println!("Failed to acquire token silently: {}", e),
                             }
                         }
                     }
-                },
+                }
                 Err(e) => println!("Failed to access token cache: {}", e),
             }
         }
