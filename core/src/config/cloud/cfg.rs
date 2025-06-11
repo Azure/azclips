@@ -20,8 +20,7 @@ impl Default for AzCloudsCfg {
             AzCloudMetadata {
                 name: AzCloud::AzureCloud,
                 active: true,
-                endpoints: Default::default(),
-                resource_ids: Default::default(),
+                ..Default::default()
             },
         );
         Self(clouds)
@@ -48,9 +47,7 @@ impl AzCloudsCfg {
         let metadata = self.0.get(name).map_or(
             AzCloudMetadata {
                 name: name.clone(),
-                active: false,
-                endpoints: Default::default(),
-                resource_ids: Default::default(),
+                ..Default::default()
             },
             |metadata| metadata.clone(),
         );
@@ -78,9 +75,7 @@ impl AzCloudsCfg {
 
         let metadata = self.0.entry(active.clone()).or_insert(AzCloudMetadata {
             name: active.clone(),
-            active: false,
-            endpoints: Default::default(),
-            resource_ids: Default::default(),
+            ..Default::default()
         });
 
         metadata.active = true;
@@ -139,8 +134,7 @@ impl<'de> Deserialize<'de> for AzCloudsCfg {
                             AzCloudMetadata {
                                 name: AzCloud::AzureCloud,
                                 active: true,
-                                endpoints: Default::default(),
-                                resource_ids: Default::default(),
+                                ..Default::default()
                             },
                         );
                     }
@@ -171,10 +165,10 @@ mod tests {
                 endpoint.as_ref().unwrap(),
                 "https://login.microsoftonline.com"
             );
-            let resource_id = active.get_resource_id(&resource_id::AUTHENTICATION).await;
+            let resource_id = active.get_credential_scope(&resource_id::AUTHENTICATION).await;
             assert_eq!(
                 resource_id.as_ref().unwrap(),
-                "https://management.core.windows.net/"
+                "https://management.core.windows.net//.default"
             );
         }
         {
@@ -182,10 +176,10 @@ mod tests {
             assert_eq!(active.name, AzCloud::AzureChinaCloud);
             let endpoint = active.get_endpoint(&endpoint::AUTHENTICATION).await;
             assert_eq!(endpoint.as_ref().unwrap(), "https://login.chinacloudapi.cn");
-            let resource_id = active.get_resource_id(&resource_id::AUTHENTICATION).await;
+            let resource_id = active.get_credential_scope(&resource_id::AUTHENTICATION).await;
             assert_eq!(
                 resource_id.as_ref().unwrap(),
-                "https://management.core.chinacloudapi.cn/"
+                "https://management.core.chinacloudapi.cn//.default"
             );
         }
         {
@@ -209,10 +203,10 @@ mod tests {
             endpoint.as_ref().unwrap(),
             "https://login.microsoftonline.com"
         );
-        let resource_id = active.get_resource_id(&resource_id::AUTHENTICATION).await;
+        let resource_id = active.get_credential_scope(&resource_id::AUTHENTICATION).await;
         assert_eq!(
             resource_id.as_ref().unwrap(),
-            "https://management.core.windows.net/"
+            "https://management.core.windows.net//.default"
         );
     }
 
@@ -230,10 +224,10 @@ mod tests {
         let active = cfg.get_active();
         let endpoint = active.get_endpoint(&endpoint::AUTHENTICATION).await;
         assert_eq!(endpoint.as_ref().unwrap(), "https://login.chinacloudapi.cn");
-        let resource_id = active.get_resource_id(&resource_id::AUTHENTICATION).await;
+        let resource_id = active.get_credential_scope(&resource_id::AUTHENTICATION).await;
         assert_eq!(
             resource_id.as_ref().unwrap(),
-            "https://management.core.chinacloudapi.cn/"
+            "https://management.core.chinacloudapi.cn//.default"
         );
     }
 
@@ -257,8 +251,8 @@ mod tests {
         let active = cfg.get_active();
         let endpoint = active.get_endpoint(&endpoint::AUTHENTICATION).await;
         assert_eq!(endpoint.as_ref().unwrap(), "https://test.resource.com");
-        let resource_id = active.get_resource_id(&resource_id::AUTHENTICATION).await;
-        assert_eq!(resource_id.as_ref().unwrap(), "https://test.resource.com/");
+        let resource_id = active.get_credential_scope(&resource_id::AUTHENTICATION).await;
+        assert_eq!(resource_id.as_ref().unwrap(), "https://test.resource.com//.default");
     }
 
     #[tokio::test]
@@ -297,10 +291,10 @@ mod tests {
                 endpoint.as_ref().unwrap(),
                 "https://test.custom.resource.com"
             );
-            let resource_id = active.get_resource_id(&resource_id::AUTHENTICATION).await;
+            let resource_id = active.get_credential_scope(&resource_id::AUTHENTICATION).await;
             assert_eq!(
                 resource_id.as_ref().unwrap(),
-                "https://test.custom.resource.com/"
+                "https://test.custom.resource.com//.default"
             );
         }
 
@@ -309,10 +303,10 @@ mod tests {
             assert_eq!(active.name, AzCloud::AzureCloud);
             let endpoint = active.get_endpoint(&endpoint::AUTHENTICATION).await;
             assert_eq!(endpoint.as_ref().unwrap(), "https://test.resource.com");
-            let resource_id = active.get_resource_id(&resource_id::AUTHENTICATION).await;
+            let resource_id = active.get_credential_scope(&resource_id::AUTHENTICATION).await;
             assert_eq!(
                 resource_id.as_ref().unwrap(),
-                "https://management.core.windows.net/"
+                "https://management.core.windows.net//.default"
             );
         }
     }
@@ -374,6 +368,7 @@ mod tests {
                     &resource_id::AUTHENTICATION,
                     "https://test.resource.com/",
                 )]),
+                ..Default::default()
             },
         );
 

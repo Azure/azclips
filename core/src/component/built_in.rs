@@ -1,6 +1,6 @@
 use crate::{
     account::component::AccountComponent, config::component::ConfigComponent,
-    top::component::TopComponent, uri::CrsUri,
+    plugin::component::PluginComponent, top::component::TopComponent, uri::CrsUri,
 };
 use serde::{de::Error, ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 use std::{str::FromStr, sync::Arc};
@@ -16,20 +16,17 @@ pub enum AzBuildIn {
     Config,
     /// Manage the Account information.
     Account,
-    // /// Manage the plugins.
-    // Plugin,
+    /// Manage the plugins.
+    Plugin,
 }
 
 impl AzBuildIn {
-    // /// uri: `crs://azure/plugin/`
-    // const PLUGIN_URI: &'static str = "crs://azure/plugin/";
-
     pub(crate) fn uri(&self) -> CrsUri {
         match self {
             AzBuildIn::Top => TopComponent::uri(),
             AzBuildIn::Config => ConfigComponent::uri(),
             AzBuildIn::Account => AccountComponent::uri(),
-            // AzBuildIn::Plugin => CrsUri::from_str(Self::PLUGIN_URI).unwrap(),
+            AzBuildIn::Plugin => PluginComponent::uri(),
         }
     }
 
@@ -38,7 +35,7 @@ impl AzBuildIn {
             s if s == TopComponent::URI => Some(Self::Top),
             s if s == ConfigComponent::URI => Some(Self::Config),
             s if s == AccountComponent::URI => Some(Self::Account),
-            // s if s == Self::PLUGIN_URI => Some(Self::Plugin),
+            s if s == PluginComponent::URI => Some(Self::Plugin),
             _ => None,
         }
     }
@@ -52,6 +49,8 @@ impl<T: AzComponentCtx> AzComponentCenter<T> {
             .insert(AzBuildIn::Config, Arc::new(ConfigComponent::default()));
         self.built_ins
             .insert(AzBuildIn::Account, Arc::new(AccountComponent::default()));
+        self.built_ins
+            .insert(AzBuildIn::Plugin, Arc::new(PluginComponent::default()));
     }
 }
 

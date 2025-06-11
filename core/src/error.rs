@@ -8,6 +8,9 @@ pub enum AzUserUsageError {
     #[error("The cloud `{0}` is active, please switch the active cloud first.")]
     CloudActiveError(String),
 
+    #[error("The default subscription is not set for the cloud `{0}`.")]
+    DefaultSubscriptionNotSetError(String),
+
     #[error("Command not found: {0}")]
     CommandNotFoundError(String),
 
@@ -80,6 +83,15 @@ pub enum AzInternalError {
 
     #[error("Invalid param value: {0}")]
     InvalidParamValueError(String),
+
+    #[error("The endpoint `{0}` is not registered.")]
+    EndpointUnregisteredError(String),
+
+    #[error("The resource id `{0}` is not registered.")]
+    ResourceIdUnregisteredError(String),
+
+    #[error("HTTP error: {0}")]
+    Http(#[from] typespec::error::Error),
 }
 
 #[derive(Error, Debug)]

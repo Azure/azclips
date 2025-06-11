@@ -82,8 +82,7 @@ impl AzCommandGroup for ConfigComponent {
             Some("cloud") => {
                 CloudCommandGroup::execute_group(ctx, segments, params, output_format).await
             }
-            Some(other) => Err(AzInternalError::InvalidCrsUriError(other.to_string()).into()),
-            None => Err(AzInternalError::InvalidCrsUriError(Self::uri().to_string()).into()),
+            _ => Err(AzInternalError::InvalidCrsUriError(Self::uri().to_string()).into()),
         }
     }
 }

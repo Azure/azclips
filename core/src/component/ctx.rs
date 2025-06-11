@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 
 use crate::config::AzCfg;
+use crate::error::AzUserUsageError;
 use crate::pb::{CoreInfo, GetCoreInfoRequest, GetCoreInfoResponse};
 use crate::{error::AzError, AzCore, VERSION};
 
@@ -39,6 +40,9 @@ pub trait AzComponentCtx: Send + Sync + 'static {
     /// }
     /// ```
     async fn get_cfg(&self) -> AzCfg;
+
+    async fn get_default_subscription(&self) -> Result<String, AzError>;
+
 }
 
 #[async_trait]
@@ -53,5 +57,12 @@ impl AzComponentCtx for AzCore {
                 version: VERSION.to_string(),
             }),
         })
+    }
+
+    async fn get_default_subscription(&self) -> Result<String, AzError> {
+        let cfg = self.get_cfg().await;
+        let cloud_metadata = cfg.clouds.get_active();
+        let subscription = cloud_metadata.subscription.as_ref().ok_or(AzUserUsageError::DefaultSubscriptionNotSetError(cloud_metadata.name.to_string()))?;
+        Ok(subscription.to_owned())
     }
 }

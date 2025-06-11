@@ -12,6 +12,7 @@ license = "MIT"
 [workspace.dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
+azure_core = "0.24.0"
 base64 = "0.22"
 cargo-husky = { version = "1.5.0", features = [
     "run-cargo-test",
@@ -33,6 +34,7 @@ prost = "0.13"
 rand = "0.8"
 regex = "1.11"
 reqwest = { version = "0.12", features = ["json"] }
+rustc_version = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 strum = "0.27"
@@ -43,6 +45,8 @@ tokio = { version = "1", features = ["full"] }
 tonic-build = "0.13"
 toml = "0.8"
 tracing = "0.1"
+typespec = "0.4"
+typespec_client_core = "0.3"
 # Calc String Width in Terminal.
 # By default, it uses the cjk features. But maybe we can close it in the future.
 unicode-width = "0.2.0"
