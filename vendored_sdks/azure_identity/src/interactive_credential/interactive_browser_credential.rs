@@ -37,6 +37,8 @@ pub struct InteractiveBrowserCredential {
     pub home_account_id: Option<String>,
     /// Cloud environment for the authentication request.
     pub environment: Option<String>,
+    /// User account name
+    pub username: Option<String>,
     /// Persistent Token cache for storing and retrieving tokens.
     pub(crate) cache_path: Option<PathBuf>,
 }
@@ -47,6 +49,9 @@ impl InteractiveBrowserCredential {
         client_id: Option<ClientId>,
         tenant_id: Option<String>,
         redirect_url: Option<Url>,
+        home_account_id: Option<String>,
+        environment: Option<String>,
+        username: Option<String>,
         cache_path: Option<PathBuf>,
     ) -> azure_core::Result<Self> {
         let client_id = client_id
@@ -62,8 +67,9 @@ impl InteractiveBrowserCredential {
             client_id,
             tenant_id,
             redirect_url,
-            home_account_id: None,
-            environment: None,
+            home_account_id,
+            environment,
+            username,
             cache_path,
         })
     }
@@ -141,6 +147,8 @@ impl InteractiveBrowserCredential {
         let mut home_account_id = None;
         let mut environment = None;
         let mut username = None;
+
+        // Only record the audience part for cached scope 
         
         if let Some(id_token) = &token_response.extra_fields().id_token {
             // Parse the ID token to extract account information
@@ -161,17 +169,14 @@ impl InteractiveBrowserCredential {
                         
                         // Extract the username from preferred_username claim
                         username = payload_value.get("preferred_username").and_then(|v| v.as_str()).map(String::from);
-                        if let Some(username_value) = &username {
-                            tracing::info!("Found username: {}", username_value);
-                        }
+                        self.username = username.clone();
+                        tracing::info!("Found username: {:?}", self.username);
                         
                         // For Azure AD, environment is typically "login.microsoftonline.com"
                         environment = payload_value.get("iss")
                             .and_then(|v| v.as_str())
                             .and_then(|s| s.split('/').nth(2))
                             .map(String::from);
-                        
-                        // Set the environment in the struct for future use
                         self.environment = environment.clone();
                         tracing::info!("Found environment: {:?}", self.environment);
                     }
@@ -208,7 +213,6 @@ impl InteractiveBrowserCredential {
             cached_at: now_secs.to_string(),
             expires_on: expires_on_secs.to_string(),
             extended_expires_on: expires_on_secs.to_string(),
-            refresh_on: None,
         };
         
         // Store the access token in the cache
@@ -230,7 +234,7 @@ impl InteractiveBrowserCredential {
                 local_account_id: None, // Could extract from ID token if needed
                 username,
                 authority_type: Some(crate::msal_token_cache::AuthorityType::MSSTS),
-                account_source: None,
+                account_source: Some("authorization_code".to_string()),
             };
             
             if persistent_cache.is_none() {
@@ -313,7 +317,6 @@ impl InteractiveBrowserCredential {
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl TokenCredential for InteractiveBrowserCredential {
     async fn get_token(&self, scopes: &[&str]) -> azure_core::Result<AccessToken> {
-        // Call the more detailed implementation with default values
         self.get_token_sliently(scopes).await
     }
 }
@@ -327,8 +330,6 @@ impl TokenCredential for InteractiveBrowserCredential {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tracing::Level;
-    use tracing_subscriber;
     use std::env;
 
 
@@ -344,7 +345,7 @@ mod tests {
 
         // Create a credential with a temp file cache
         let test_path = get_test_cache_path(); 
-        let mut credential = InteractiveBrowserCredential::new(None, None, None, Some(test_path.clone()))
+        let mut credential = InteractiveBrowserCredential::new(None, None, None, None, None, None, Some(test_path.clone()))
             .expect("Failed to create credential");
 
         let token_response = credential.get_token_interactively(None, None, None, None, None).await;
@@ -368,7 +369,7 @@ mod tests {
 
         // Create a credential with a temp file cache
         let test_path = get_test_cache_path();
-        let mut credential = InteractiveBrowserCredential::new(None, None, None, Some(test_path.clone()))
+        let mut credential = InteractiveBrowserCredential::new(None, None, None, None, None, None, Some(test_path.clone()))
             .expect("Failed to create credential");
 
         // Test the trait method (using it as a TokenCredential)

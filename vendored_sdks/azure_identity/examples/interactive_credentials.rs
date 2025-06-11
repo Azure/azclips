@@ -58,6 +58,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         Some(ClientId::new(AZURE_CLI_CLIENT_ID.to_string())),
         Some(tenant_id.to_string()),
         None,   // redirect URL
+        None,   // home_account_idAdd commentMore actions
+        None,   // environment
+        None,   // username
         Some(cache_file_path.clone()), // Pass the file path directly
     )?;
       // Use get_token_interactively to get a full token response with refresh token
@@ -79,6 +82,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     info!("After authentication:");
     info!("  Home Account ID: {:?}", interactive_credentials.home_account_id);
     info!("  Environment: {:?}", interactive_credentials.environment);// Check if the token cache file was updated after authentication
+    info!("  User Name: {:?}", interactive_credentials.username);
+
     println!("\n--- Token cache file status after authentication ---\n");
     if cache_file_path.exists() {
         let cache_contents = fs::read_to_string(&cache_file_path)?;
@@ -93,8 +98,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Test TokenCredential.get_token implementation
     println!("\n--- Testing TokenCredential.get_token implementation ---\n");
     
-    // Define the scopes
-    let scopes = &["https://vault.azure.net/.default"];
+    // Define the arm scopes again
+    let scopes = &["https://management.core.windows.net/.default"];
     
     // Call get_token method from the TokenCredential trait implementation
     let token_credential_response = interactive_credentials.get_token(scopes).await?;
@@ -102,6 +107,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
     println!("TokenCredential.get_token succeeded!");
     println!("Access token: {}", token_credential_response.token.secret());
     println!("Expires at: {:?}", token_credential_response.expires_on);    // Try calling sdk
+
+    // Define the scopes for key vault
+    let scopes = &["https://vault.azure.net/.default"];
+    
+    // Call get_token method from the TokenCredential trait implementation
+    let token_credential_response = interactive_credentials.get_token(scopes).await?;
+    
+    println!("TokenCredential.get_token succeeded!");
+    println!("Access token: {}", token_credential_response.token.secret());
+    println!("Expires at: {:?}", token_credential_response.expires_on);  
+
     let client = SecretClient::new(
         "https://cirrus-test-kv.vault.azure.net/",
         Arc::new(interactive_credentials) as _,

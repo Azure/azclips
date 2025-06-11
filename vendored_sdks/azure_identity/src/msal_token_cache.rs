@@ -75,7 +75,7 @@ pub struct AccessTokenEntry {
     pub cached_at: String,
     pub expires_on: String,
     pub extended_expires_on: String,
-    pub refresh_on: Option<String>,
+    // pub refresh_on: Option<String>,
     // pub key_id: Option<String>,
 }
 
@@ -421,10 +421,7 @@ impl MsalTokenCache {
     ) -> Result<()> {
         let key = self.generate_refresh_token_key(home_account_id, environment, client_id);
 
-        let mut cache = self.cache.write().unwrap_or_else(|e| {
-            error!("Failed to write cache: {}", e);
-            panic!("Failed to write cache: {}", e);
-        });
+        let mut cache = self.cache.write().unwrap();
         if let Some(refresh_tokens) = cache.get_mut(&CredentialType::RefreshToken) {
             if refresh_tokens.remove(&key).is_some() {
                 let mut has_state_changed = self.has_state_changed.write().unwrap();
@@ -444,10 +441,7 @@ impl MsalTokenCache {
     ) -> Result<()> {
         let key = self.generate_id_token_key(home_account_id, environment, client_id, tenant_id);
 
-        let mut cache = self.cache.write().unwrap_or_else(|e| {
-            error!("Failed to write cache: {}", e);
-            panic!("Failed to write cache: {}", e);
-        });
+        let mut cache = self.cache.write().unwrap();
         if let Some(id_tokens) = cache.get_mut(&CredentialType::IdToken) {
             if id_tokens.remove(&key).is_some() {
                 let mut has_state_changed = self.has_state_changed.write().unwrap();
@@ -466,10 +460,7 @@ impl MsalTokenCache {
     ) -> Result<()> {
         let key = self.generate_account_key(home_account_id, environment, tenant_id);
 
-        let mut cache = self.cache.write().unwrap_or_else(|e| {
-            error!("Failed to write cache: {}", e);
-            panic!("Failed to write cache: {}", e);
-        });
+        let mut cache = self.cache.write().unwrap();
         if let Some(accounts) = cache.get_mut(&CredentialType::Account) {
             if accounts.remove(&key).is_some() {
                 let mut has_state_changed = self.has_state_changed.write().unwrap();
@@ -564,7 +555,6 @@ impl MsalTokenCache {
                         cached_at: now_secs.to_string(),
                         expires_on: (now_secs + response.expires_in()).to_string(),
                         extended_expires_on: (now_secs + response.ext_expires_in()).to_string(),
-                        refresh_on: None,
                     };
 
                     let refresh_token_entry = RefreshTokenEntry {
@@ -604,10 +594,7 @@ impl MsalTokenCache {
     }
     /// Clear the token cache
     pub fn clear(&self) -> Result<()> {
-        let mut cache = self.cache.write().unwrap_or_else(|e| {
-            error!("Failed to write cache: {}", e);
-            panic!("Failed to write cache: {}", e);
-        });
+        let mut cache = self.cache.write().unwrap();
         cache.clear();
 
         let mut has_state_changed = self.has_state_changed.write().unwrap();
@@ -794,7 +781,6 @@ mod tests {
             cached_at: now_secs.to_string(),
             expires_on: expires_on.to_string(),
             extended_expires_on: expires_on.to_string(),
-            refresh_on: None,
         };
 
         cache.add_access_token(token.clone())?;
@@ -863,7 +849,6 @@ mod tests {
             cached_at: now_secs.to_string(),
             expires_on: expires_on.to_string(),
             extended_expires_on: expires_on.to_string(),
-            refresh_on: None,
         };
 
         cache.add_access_token(token.clone())?;
@@ -948,7 +933,6 @@ mod tests {
             cached_at: now_secs.to_string(),
             expires_on: expires_on.to_string(),
             extended_expires_on: expires_on.to_string(),
-            refresh_on: None,
         }; 
         {
             // Create a FilePersistentTokenCache - this will load from the file if it exists
@@ -994,7 +978,6 @@ mod tests {
             cached_at: now_secs.to_string(),
             expires_on: expires_on.to_string(),
             extended_expires_on: expires_on.to_string(),
-            refresh_on: None,
         };
         new_persistent_cache.cache().add_access_token(new_token)?;
 
