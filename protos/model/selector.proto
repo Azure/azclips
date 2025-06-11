@@ -44,10 +44,13 @@ message SimpleIndex {
 message SubresourceSelector {
   string var = 1;
   string ref = 2;
+  oneof type {
+    JsonSubresourceSelector json = 3;
+  }
 }
 
 message JsonSubresourceSelector {
-  string var = 1;
-  string ref = 2;
+  // string var = 1;
+  // string ref = 2;
   SelectorIndex json = 3;
 }
