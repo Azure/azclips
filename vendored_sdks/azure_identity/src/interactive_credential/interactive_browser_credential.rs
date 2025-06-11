@@ -1,6 +1,6 @@
 use super::internal_server::*;
 use crate::authorization_code_flow;
-use crate::msal_token_cache::{
+use crate::cirrus_token_cache::{
     AccessTokenEntry, AccountEntry, FilePersistentTokenCache, IdTokenEntry, RefreshTokenEntry,
 };
 use crate::utils::decode_part_id_token;
@@ -195,7 +195,7 @@ impl InteractiveBrowserCredential {
                 }
             }
             let id_token_entry = IdTokenEntry {
-                credential_type: crate::msal_token_cache::CredentialType::IdToken,
+                credential_type: crate::cirrus_token_cache::CredentialType::IdToken,
                 secret: Secret::new(id_token.clone()),
                 home_account_id: home_account_id.clone(),
                 environment: environment.clone(),
@@ -215,7 +215,7 @@ impl InteractiveBrowserCredential {
 
         // Create access token entry
         let access_token_entry = AccessTokenEntry {
-            credential_type: crate::msal_token_cache::CredentialType::AccessToken,
+            credential_type: crate::cirrus_token_cache::CredentialType::AccessToken,
             secret: Secret::new(token_response.access_token().secret().to_string()),
             home_account_id: home_account_id.clone(),
             environment: environment.clone(),
@@ -251,7 +251,7 @@ impl InteractiveBrowserCredential {
                 tenant_id: Some(self.tenant_id.clone()),
                 local_account_id: object_id, // Could extract from ID token if needed
                 username,
-                authority_type: Some(crate::msal_token_cache::AuthorityType::MSSTS),
+                authority_type: Some(crate::cirrus_token_cache::AuthorityType::MSSTS),
                 account_source: Some("authorization_code".to_string()),
                 is_default: None, // Interactive method will only be called when login, set it as the default account for the user
             };
@@ -269,7 +269,7 @@ impl InteractiveBrowserCredential {
         // If we have a refresh token, store it in the cache for future use
         if let Some(refresh_token) = token_response.refresh_token() {
             let refresh_token_entry = RefreshTokenEntry {
-                credential_type: crate::msal_token_cache::CredentialType::RefreshToken,
+                credential_type: crate::cirrus_token_cache::CredentialType::RefreshToken,
                 secret: Secret::new(refresh_token.secret().to_string()),
                 home_account_id: home_account_id,
                 environment: environment,

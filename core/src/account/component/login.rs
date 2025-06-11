@@ -18,7 +18,7 @@ use crate::{
     },
     VERSION,
 };
-use azure_identity::msal_token_cache::FilePersistentTokenCache;
+use azure_identity::cirrus_token_cache::FilePersistentTokenCache;
 
 #[derive(Debug, Default)]
 pub struct Login {
