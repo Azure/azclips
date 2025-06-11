@@ -4,6 +4,8 @@ use azure_identity::interactive_credential::interactive_browser_credential::Inte
 use oauth2::{ClientId};
 use std::path::PathBuf;
 use azure_core::credentials::AccessToken;
+use azure_identity::msal_token_cache::{FilePersistentTokenCache};
+use azure_core::credentials::TokenCredential;
 
 pub const AZURE_CLI_CLIENT_ID: &str = "04b07795-8ddb-461a-bbee-02f9e1bf7b46";
 
@@ -25,7 +27,8 @@ impl UserCredential {
         }
     }
     
-    //Try to acquire a token silently from the cache without user interaction
+
+    //Try to acquire a token silently from the cache without user interaction    
     pub async fn acquire_token_silently(
         &self,
         scopes: &[&str],
@@ -37,53 +40,34 @@ impl UserCredential {
         
         let cache_path = PathBuf::from(cache_path_str);
         
-        let credential = InteractiveBrowserCredential::new(
-            Some(ClientId::new(AZURE_CLI_CLIENT_ID.to_string())),
-            Some(tenant_id.to_string()),
-            None, // Use default redirect URL
-            self.home_account_id.clone(),
-            self.environment.clone(),
-            self.username.clone(),
-            Some(cache_path),
-        )
-        .map_err(|e| {
-            AuthenticationError::AuthenticationFailed(format!(
-                "Failed to create interactive browser credential: {}",
-                e
-            ))
-        })?;
-
-        // Try to get token silently from the cache
-        let token = credential
-            .get_token_sliently(scopes)
-            .await
-            .map_err(|e| {
-                AuthenticationError::AuthenticationFailed(format!(
-                    "Failed to acquire token silently: {}",
-                    e
-                ))
-            })?;
-        
-        Ok(token)
-    }
-    
-    /// Attempt to acquire a token silently first, falling back to interactive authentication if necessary
-    pub async fn acquire_token(
-        &mut self,
-        scopes: &[&str],
-        tenant_id: &str,
-    ) -> Result<AccessToken, AuthenticationError> {
-        // Try silent authentication first
-        match self.acquire_token_silently(scopes, tenant_id).await {
-            Ok(token) => Ok(token),
-            Err(_) => {
-                // Fall back to interactive authentication if silent auth fails
-                self.acquire_token_interactive(scopes, tenant_id).await
+        let persistent_cache = FilePersistentTokenCache::new(cache_path)
+            .map_err(|e| AuthenticationError::AuthenticationFailed(
+                format!("Failed to create persistent token cache: {}", e)
+            ))?;
+          match persistent_cache.cache().get_access_token_and_possibly_refresh_it(
+            scopes,
+            self.home_account_id.as_deref(),
+            self.environment.as_deref(),
+            Some(AZURE_CLI_CLIENT_ID),
+            Some(tenant_id),
+        ).await {
+            Ok(access_token) => {
+                // Make sure we save any changes to the cache after refreshing
+                if let Err(e) = persistent_cache.save_if_changed() {
+                    tracing::warn!("Failed to save token cache after refreshing: {}", e);
+                }
+                Ok(access_token)
+            },
+            Err(error) => {
+                // If get_access_token_and_possibly_refresh_it failed, propagate the error instead of
+                // attempting an interactive authentication flow
+                tracing::error!("Failed to get or refresh token from cache: {}", error);
+                Err(AuthenticationError::AuthenticationFailed(format!("Failed to get or refresh token: {}", error)))
             }
         }
-    }    
+    }
     
-    pub async fn acquire_token_interactive(
+    pub async fn acquire_token_interactively(
         &mut self,
         scopes: &[&str],
         tenant_id: &str,
@@ -138,10 +122,44 @@ impl UserCredential {
         self.environment = interactive_credentials.environment.clone();
         Ok(token_response)
     }
+
+        /// Attempt to acquire a token silently first, falling back to interactive authentication if necessary
+    pub async fn acquire_token(
+        &mut self,
+        scopes: &[&str],
+        tenant_id: &str,
+    ) -> Result<AccessToken, AuthenticationError> {
+        // Try silent authentication first
+        match self.acquire_token_silently(scopes, tenant_id).await {
+            Ok(token) => Ok(token),
+            Err(_) => {
+                // Fall back to interactive authentication if silent auth fails
+                self.acquire_token_interactively(scopes, tenant_id).await
+            }
+        }
+    }    
+}
+
+// Implement the TokenCredential trait to support the common pattern
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+impl TokenCredential for UserCredential {
+    async fn get_token(&self, scopes: &[&str]) -> azure_core::Result<AccessToken> {
+        // Use tenant_id from the credential or fallback to "common" if not set
+        let tenant = self.tenant_id.as_deref().unwrap_or("common");
+        self.acquire_token_silently(scopes, tenant).await
+            .map_err(|e| azure_core::Error::new(azure_core::error::ErrorKind::Other, e.to_string()))
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct ServicePrincipalCredential {
     client_id: Option<String>,
     client_credential: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ManagedIdentityCredential {
+    client_id: Option<String>,
+    resource_id: Option<String>,
 }

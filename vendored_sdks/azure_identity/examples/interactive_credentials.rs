@@ -5,7 +5,6 @@ use azure_identity::{
     interactive_credential::interactive_browser_credential::InteractiveBrowserCredential,
 };
 use oauth2::ClientId;
-use oauth2::TokenResponse;
 use std::error::Error;
 use std::fs;
 use std::sync::Arc;

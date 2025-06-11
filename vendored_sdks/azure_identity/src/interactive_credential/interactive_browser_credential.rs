@@ -1,6 +1,5 @@
 use super::internal_server::*;
 use crate::authorization_code_flow;
-use crate::custom_token_fields::CustomTokenFields;
 use crate::msal_token_cache::{AccessTokenEntry, AccountEntry, IdTokenEntry, RefreshTokenEntry, FilePersistentTokenCache};
 use crate::utils::decode_part_id_token;
 use azure_core::{
@@ -10,7 +9,7 @@ use azure_core::{
     http::Url,
     Error,
 };
-use oauth2::{basic::BasicTokenType, AuthorizationCode, ClientId, TokenResponse};
+use oauth2::{AuthorizationCode, ClientId, TokenResponse};
 use std::{str::FromStr, time::SystemTime, time::UNIX_EPOCH, path::PathBuf};
 use serde_json;
 

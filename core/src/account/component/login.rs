@@ -425,6 +425,9 @@ mod tests {
     use super::*;
     use crate::account::utils::fake_list_subscriptions;
     use std::env;
+    use azure_core::{
+        credentials::TokenCredential,
+    };
 
     fn is_ci_environment() -> bool {
         env::var("CI").is_ok()
@@ -450,39 +453,31 @@ mod tests {
         if let Some(cache_path) = get_default_token_cache_path() {
             match FilePersistentTokenCache::new(cache_path.clone()) {
                 Ok(token_cache) => {
-                    // Get the default account directly using the new method
+                    // Get the default account from the token cache
                     if let Some(account) = token_cache.cache().get_default_account() {
                         println!("Found default account: {:?}", account.username);
                         
-                        // Create a new InteractiveBrowserCredential with the account details
-                        if let (Some(home_account_id), Some(environment)) = (&account.home_account_id, &account.environment) {                            
-                            use crate::account::credentials::{AZURE_CLI_CLIENT_ID};
-                            use azure_identity::interactive_credential::interactive_browser_credential::InteractiveBrowserCredential;
-                            use oauth2::ClientId;
-                            use std::path::PathBuf;
-                              let credential = InteractiveBrowserCredential::new(
-                                Some(ClientId::new(AZURE_CLI_CLIENT_ID.to_string())),
-                                account.tenant_id.clone(),
-                                None,
+                        // Create a new UserCredential with the account details
+                        if let (Some(username), Some(home_account_id), Some(environment)) = (&account.username, &account.home_account_id, &account.environment) {                            
+                            let credential = UserCredential::new(
+                                Some(username.clone()),
                                 Some(home_account_id.clone()),
                                 Some(environment.clone()),
-                                account.username.clone(),
-                                Some(PathBuf::from(cache_path.clone())),
-                            ).expect("Failed to create interactive browser credential");
+                                Some(TENANT_ID.to_string()),
+                            );
+
+                            let scopes: Vec<&str> = SCOPES.iter().map(|&s| s).collect();
                             
-                            // Get a token silently
-                            match credential.get_token_sliently(&SCOPES).await {
-                                Ok(token) => {
-                                    println!("Successfully acquired token silently for default account");
-                                    println!("Token expires on: {}", 
-                                        format_token_expires_on_readable(token.expires_on.unix_timestamp() as u64));
-                                    
-                                    // Use the token to call an API
-                                    println!("Attempting to list subscriptions with cached token...");
-                                    match fake_list_subscriptions(token.token.secret().to_string()).await {
-                                        Ok(_) => println!("Successfully listed subscriptions"),
-                                        Err(e) => println!("Failed to list subscriptions: {}", e),
-                                    }
+                            match credential.get_token(&scopes).await {
+                                Ok(token_credential_response) => {
+                                    let access_token = token_credential_response.token.secret();
+                                    println!("Successfully acquired token silently: {}", access_token);
+
+                                    match fake_list_subscriptions(access_token.to_string())
+                                        .await {
+                                            Ok(_) => println!("Successfully listed subscriptions"),
+                                            Err(e) => println!("Failed to list subscriptions: {}", e)
+                                        };
                                 },
                                 Err(e) => println!("Failed to acquire token silently: {}", e),
                             }
