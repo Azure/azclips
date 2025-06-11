@@ -5,7 +5,9 @@ use tracing::error;
 use crate::{
     account::{
         credentials::UserCredential,
-        utils::{can_launch_browser, format_token_expires_on_readable},
+        utils::{
+            can_launch_browser, format_token_expires_on_readable, get_default_token_cache_path,
+        },
     },
     component::{AzCommand, AzCommandExecute, AzComponentCtx},
     error::{AuthenticationError, AzError},
@@ -16,6 +18,7 @@ use crate::{
     },
     VERSION,
 };
+use azure_identity::cirrus_token_cache::FilePersistentTokenCache;
 
 #[derive(Debug, Default)]
 pub struct Login {
@@ -84,12 +87,43 @@ impl Login {
     ) -> Result<(), AuthenticationError> {
         println!("Logging in interactively...");
 
-        let user_credential = UserCredential::new(None);
-        let token = user_credential.acquire_token(scopes, tenant_id).await?;
+        let mut user_credential =
+            UserCredential::new(None, None, None, Some(tenant_id.to_string()));
+        let token = user_credential.acquire_token(scopes).await?;
+
+        println!("Login successful with user: {:?}", user_credential.username);
+
+        // Set current user as the default user in token cache with method set_default_account
+        if let (Some(home_account_id), Some(environment)) = (
+            &user_credential.home_account_id,
+            &user_credential.environment,
+        ) {
+            if let Some(cache_path) = get_default_token_cache_path() {
+                match FilePersistentTokenCache::new(cache_path) {
+                    Ok(token_cache) => {
+                        if let Err(e) = token_cache.cache().set_default_account(
+                            Some(home_account_id.as_str()),
+                            Some(environment.as_str()),
+                            user_credential.tenant_id.as_deref(),
+                        ) {
+                            error!("Failed to set default account in token cache: {}", e);
+                        } else {
+                            // Save changes to the token cache
+                            if let Err(e) = token_cache.save_if_changed() {
+                                error!("Failed to save token cache changes: {}", e);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        error!("Failed to access token cache: {}", e);
+                    }
+                }
+            }
+        }
 
         println!(
             "Token acquired successfully. Token expires on: {}\n",
-            format_token_expires_on_readable(token.expires_on)
+            format_token_expires_on_readable(token.expires_on.unix_timestamp() as u64)
         );
         Ok(())
     }
@@ -395,8 +429,8 @@ impl AzCommand for Login {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::account::credentials::Token;
     use crate::account::utils::fake_list_subscriptions;
+    use azure_core::credentials::TokenCredential;
     use std::env;
 
     fn is_ci_environment() -> bool {
@@ -415,26 +449,55 @@ mod tests {
             println!("Skipping interactive test in CI environment");
             return;
         }
-
         let login = Login::default();
         let result = login.login_with_auth_code(&SCOPES, TENANT_ID).await;
-
         assert!(result.is_ok(), "Login failed: {:?}", result.err());
 
-        let token = Token::default();
+        // Get the access token silently for the default account from token cache with the specified scopes
+        // Read the token cache, get the default account
+        // Acquire a token silently using the UserCredential
+        if let Some(cache_path) = get_default_token_cache_path() {
+            match FilePersistentTokenCache::new(cache_path.clone()) {
+                Ok(token_cache) => {
+                    // Get the default account from the token cache
+                    if let Some(account) = token_cache.cache().get_default_account() {
+                        println!("Found default account: {:?}", account.username);
 
-        let access_token = match token.read_token_from_file() {
-            Ok(token_info) => token_info.access_token,
-            Err(e) => {
-                println!("{}, skipping test", e);
-                return;
+                        // Create a new UserCredential with the account details
+                        if let (Some(username), Some(home_account_id), Some(environment)) = (
+                            &account.username,
+                            &account.home_account_id,
+                            &account.environment,
+                        ) {
+                            let credential = UserCredential::new(
+                                Some(username.clone()),
+                                Some(home_account_id.clone()),
+                                Some(environment.clone()),
+                                Some(TENANT_ID.to_string()),
+                            );
+
+                            let scopes: Vec<&str> = SCOPES.iter().map(|&s| s).collect();
+
+                            match credential.get_token(&scopes).await {
+                                Ok(token_credential_response) => {
+                                    let access_token = token_credential_response.token.secret();
+                                    println!(
+                                        "Successfully acquired token silently: {}",
+                                        access_token
+                                    );
+
+                                    match fake_list_subscriptions(access_token.to_string()).await {
+                                        Ok(_) => println!("Successfully listed subscriptions"),
+                                        Err(e) => println!("Failed to list subscriptions: {}", e),
+                                    };
+                                }
+                                Err(e) => println!("Failed to acquire token silently: {}", e),
+                            }
+                        }
+                    }
+                }
+                Err(e) => println!("Failed to access token cache: {}", e),
             }
-        };
-
-        println!("Attempting to list subscriptions with cached token...");
-        match fake_list_subscriptions(access_token).await {
-            Ok(_) => println!("Successfully listed subscriptions"),
-            Err(e) => println!("Failed to list subscriptions: {}", e),
         }
     }
 
