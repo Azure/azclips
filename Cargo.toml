@@ -51,4 +51,3 @@ typespec_client_core = "0.3"
 # By default, it uses the cjk features. But maybe we can close it in the future.
 unicode-width = "0.2.0"
 webbrowser = "1.0.4"
-azure_core = "0.24.0"
