@@ -441,22 +441,57 @@ mod tests {
         if is_ci_environment() {
             println!("Skipping interactive test in CI environment");
             return;
-        }
-
-        let login = Login::default();
+        }        let login = Login::default();
         let result = login.login_with_auth_code(&SCOPES, TENANT_ID).await;
-
         assert!(result.is_ok(), "Login failed: {:?}", result.err());
 
-        // Get the access token sliently for the default account from token cache with the specified scopes
-
-
-
-        // println!("Attempting to list subscriptions with cached token...");
-        // match fake_list_subscriptions(access_token).await {
-        //     Ok(_) => println!("Successfully listed subscriptions"),
-        //     Err(e) => println!("Failed to list subscriptions: {}", e),
-        // }
+        // Get the access token silently for the default account from token cache with the specified scopes
+        // Read the token cache, get the default account using the get_default_account method
+        if let Some(cache_path) = get_default_token_cache_path() {
+            match FilePersistentTokenCache::new(cache_path.clone()) {
+                Ok(token_cache) => {
+                    // Get the default account directly using the new method
+                    if let Some(account) = token_cache.cache().get_default_account() {
+                        println!("Found default account: {:?}", account.username);
+                        
+                        // Create a new InteractiveBrowserCredential with the account details
+                        if let (Some(home_account_id), Some(environment)) = (&account.home_account_id, &account.environment) {                            
+                            use crate::account::credentials::{AZURE_CLI_CLIENT_ID};
+                            use azure_identity::interactive_credential::interactive_browser_credential::InteractiveBrowserCredential;
+                            use oauth2::ClientId;
+                            use std::path::PathBuf;
+                              let credential = InteractiveBrowserCredential::new(
+                                Some(ClientId::new(AZURE_CLI_CLIENT_ID.to_string())),
+                                account.tenant_id.clone(),
+                                None,
+                                Some(home_account_id.clone()),
+                                Some(environment.clone()),
+                                account.username.clone(),
+                                Some(PathBuf::from(cache_path.clone())),
+                            ).expect("Failed to create interactive browser credential");
+                            
+                            // Get a token silently
+                            match credential.get_token_sliently(&SCOPES).await {
+                                Ok(token) => {
+                                    println!("Successfully acquired token silently for default account");
+                                    println!("Token expires on: {}", 
+                                        format_token_expires_on_readable(token.expires_on.unix_timestamp() as u64));
+                                    
+                                    // Use the token to call an API
+                                    println!("Attempting to list subscriptions with cached token...");
+                                    match fake_list_subscriptions(token.token.secret().to_string()).await {
+                                        Ok(_) => println!("Successfully listed subscriptions"),
+                                        Err(e) => println!("Failed to list subscriptions: {}", e),
+                                    }
+                                },
+                                Err(e) => println!("Failed to acquire token silently: {}", e),
+                            }
+                        }
+                    }
+                },
+                Err(e) => println!("Failed to access token cache: {}", e),
+            }
+        }
     }
 
     #[tokio::test]

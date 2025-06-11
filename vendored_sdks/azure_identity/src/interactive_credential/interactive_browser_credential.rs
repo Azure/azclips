@@ -147,6 +147,7 @@ impl InteractiveBrowserCredential {
         let mut home_account_id = None;
         let mut environment = None;
         let mut username = None;
+        let mut object_id: Option<String> = None;
 
         // Only record the audience part for cached scope 
         
@@ -160,6 +161,8 @@ impl InteractiveBrowserCredential {
                         let oid = payload_value.get("oid").and_then(|v| v.as_str());
                         let tid = payload_value.get("tid").and_then(|v| v.as_str());
                         
+                        object_id = oid.map(|s| s.to_string());
+
                         if let (Some(oid_value), Some(tid_value)) = (oid, tid) {
                             home_account_id = Some(format!("{}.{}", oid_value, tid_value));
                             // Set the home_account_id in the struct for future use
@@ -189,6 +192,7 @@ impl InteractiveBrowserCredential {
                 environment: environment.clone(),
                 tenant_id: Some(self.tenant_id.clone()),
                 client_id: Some(self.client_id.to_string()),
+                last_modification_time: Some(now_secs.to_string()),
             };
             if persistent_cache.is_none() {
                 tracing::warn!("No persistent cache provided, ID token will not be stored.");
@@ -231,7 +235,7 @@ impl InteractiveBrowserCredential {
                 home_account_id: Some(home_account_id_value),
                 environment: Some(environment_value),
                 tenant_id: Some(self.tenant_id.clone()),
-                local_account_id: None, // Could extract from ID token if needed
+                local_account_id: object_id, // Could extract from ID token if needed
                 username,
                 authority_type: Some(crate::msal_token_cache::AuthorityType::MSSTS),
                 account_source: Some("authorization_code".to_string()),
