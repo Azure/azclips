@@ -1,33 +1,102 @@
-use super::utils::{decode_part_id_token, format_token_expires_on, load_landing_page_templates};
-use crate::error::{AuthenticationError, AzError, AzInternalError};
+use super::utils::{get_default_token_cache_path, load_landing_page_templates};
+use crate::error::AuthenticationError;
+use azure_core::credentials::AccessToken;
+use azure_core::credentials::TokenCredential;
 use azure_identity::interactive_credential::interactive_browser_credential::InteractiveBrowserCredential;
-use oauth2::TokenResponse;
-use serde::{Deserialize, Serialize};
-use serde_json::to_string_pretty;
-use std::fs::File;
-use std::io::{Read, Write};
+use azure_identity::cirrus_token_cache::FilePersistentTokenCache;
+use oauth2::ClientId;
+use std::path::PathBuf;
 
 pub const AZURE_CLI_CLIENT_ID: &str = "04b07795-8ddb-461a-bbee-02f9e1bf7b46";
 
 #[derive(Debug, Clone)]
 pub struct UserCredential {
-    username: Option<String>,
+    pub username: Option<String>,
+    pub home_account_id: Option<String>,
+    pub environment: Option<String>,
+    pub tenant_id: Option<String>,
 }
 
 impl UserCredential {
-    pub fn new(username: Option<String>) -> Self {
-        UserCredential { username }
+    pub fn new(
+        username: Option<String>,
+        home_account_id: Option<String>,
+        environment: Option<String>,
+        tenant_id: Option<String>,
+    ) -> Self {
+        UserCredential {
+            username,
+            home_account_id,
+            environment,
+            tenant_id,
+        }
     }
 
-    pub async fn acquire_token(
+    //Try to acquire a token silently from the cache without user interaction
+    pub async fn acquire_token_silently(
         &self,
         scopes: &[&str],
-        tenant_id: &str,
-    ) -> Result<Token, AuthenticationError> {
-        let interactive_credentials = InteractiveBrowserCredential::new(
-            Some(oauth2::ClientId::new(AZURE_CLI_CLIENT_ID.to_string())),
-            Some(tenant_id.to_string()),
+    ) -> Result<AccessToken, AuthenticationError> {
+        let cache_path_str = get_default_token_cache_path().ok_or_else(|| {
+            AuthenticationError::AuthenticationFailed("Failed to get token cache path".to_string())
+        })?;
+
+        let cache_path = PathBuf::from(cache_path_str);
+
+        let persistent_cache = FilePersistentTokenCache::new(cache_path).map_err(|e| {
+            AuthenticationError::AuthenticationFailed(format!(
+                "Failed to create persistent token cache: {}",
+                e
+            ))
+        })?;
+        match persistent_cache
+            .cache()
+            .get_access_token_and_possibly_refresh_it(
+                scopes,
+                self.home_account_id.as_deref(),
+                self.environment.as_deref(),
+                Some(AZURE_CLI_CLIENT_ID),
+                self.tenant_id.as_deref(),
+            )
+            .await
+        {
+            Ok(access_token) => {
+                // Make sure we save any changes to the cache after refreshing
+                if let Err(e) = persistent_cache.save_if_changed() {
+                    tracing::warn!("Failed to save token cache after refreshing: {}", e);
+                }
+                Ok(access_token)
+            }
+            Err(error) => {
+                // If get_access_token_and_possibly_refresh_it failed, propagate the error instead of
+                // attempting an interactive authentication flow
+                tracing::error!("Failed to get or refresh token from cache: {}", error);
+                Err(AuthenticationError::AuthenticationFailed(format!(
+                    "Failed to get or refresh token: {}",
+                    error
+                )))
+            }
+        }
+    }
+
+    pub async fn acquire_token_interactively(
+        &mut self,
+        scopes: &[&str],
+    ) -> Result<AccessToken, AuthenticationError> {
+        let cache_path_str = get_default_token_cache_path().ok_or_else(|| {
+            AuthenticationError::AuthenticationFailed("Failed to get token cache path".to_string())
+        })?;
+
+        let cache_path = PathBuf::from(cache_path_str);
+
+        let mut interactive_credentials = InteractiveBrowserCredential::new(
+            Some(ClientId::new(AZURE_CLI_CLIENT_ID.to_string())),
+            self.tenant_id.clone(),
             None, // Use default redirect URL
+            self.home_account_id.clone(),
+            self.environment.clone(),
+            self.username.clone(),
+            Some(cache_path),
         )
         .map_err(|e| {
             AuthenticationError::AuthenticationFailed(format!(
@@ -37,7 +106,6 @@ impl UserCredential {
         })?;
 
         let (success_template, error_template) = load_landing_page_templates();
-
         if success_template.is_empty() || error_template.is_empty() {
             return Err(AuthenticationError::AuthenticationFailed(
                 "Failed to load landing page templates".to_string(),
@@ -45,7 +113,7 @@ impl UserCredential {
         }
 
         let token_response = interactive_credentials
-            .get_token(
+            .get_token_interactively(
                 Some(scopes),
                 Some("select_account"),
                 self.username.as_deref(),
@@ -60,73 +128,37 @@ impl UserCredential {
                 ))
             })?;
 
-        let access_token = token_response.access_token().secret().to_string();
+        //Copy the value of InteractiveBrowserCredential's home_account_id, username and environment to UserCredential
+        self.home_account_id = interactive_credentials.home_account_id.clone();
+        self.username = interactive_credentials.username.clone();
+        self.environment = interactive_credentials.environment.clone();
+        Ok(token_response)
+    }
 
-        let refresh_token = token_response
-            .refresh_token()
-            .map(|token| token.secret().to_string());
-
-        let expires_in = token_response
-            .expires_in()
-            .unwrap_or(std::time::Duration::from_secs(0));
-        let expires_on = format_token_expires_on(expires_in);
-
-        let id_token = token_response.extra_fields().id_token.clone();
-
-        let mut username = None;
-        let mut tenant_id = None;
-        let mut user_object_id = None;
-
-        if let Some(token) = &id_token {
-            let parts: Vec<&str> = token.split('.').collect();
-            if parts.len() == 3 {
-                // Decode the payload part (middle part) of the JWT
-                let payload_json = decode_part_id_token(parts[1], Some("utf-8"))?;
-
-                let payload_value = serde_json::from_str::<serde_json::Value>(&payload_json)
-                    .map_err(|_| {
-                        AuthenticationError::InvalidIdToken(
-                            "Failed to parse ID token payload".to_string(),
-                        )
-                    })?;
-
-                username = payload_value
-                    .get("preferred_username")
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string());
-
-                tenant_id = payload_value
-                    .get("tid")
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string());
-
-                user_object_id = payload_value
-                    .get("oid")
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string());
+    /// Attempt to acquire a token silently first, falling back to interactive authentication if necessary
+    pub async fn acquire_token(
+        &mut self,
+        scopes: &[&str],
+    ) -> Result<AccessToken, AuthenticationError> {
+        // Try silent authentication first
+        match self.acquire_token_silently(scopes).await {
+            Ok(token) => Ok(token),
+            Err(_) => {
+                // Fall back to interactive authentication if silent auth fails
+                self.acquire_token_interactively(scopes).await
             }
         }
+    }
+}
 
-        let token = Token {
-            access_token,
-            expires_on,
-            refresh_token,
-            id_token: id_token,
-            tenant_id: tenant_id,
-            user_object_id: user_object_id,
-            user_preferred_username: username,
-            scopes: Some(scopes.iter().map(|s| s.to_string()).collect()),
-        };
-
-        // Save the token to a file
-        token.write_token_to_file().map_err(|e| {
-            AuthenticationError::AuthenticationFailed(format!(
-                "Failed to write token to file after token acquired for user credential: {}",
-                e
-            ))
-        })?;
-
-        Ok(token)
+// Implement the TokenCredential trait to support the common pattern
+#[cfg_attr(target_arch = "wasm32", async_trait::async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
+impl TokenCredential for UserCredential {
+    async fn get_token(&self, scopes: &[&str]) -> azure_core::Result<AccessToken> {
+        self.acquire_token_silently(scopes)
+            .await
+            .map_err(|e| azure_core::Error::new(azure_core::error::ErrorKind::Other, e.to_string()))
     }
 }
 
@@ -140,85 +172,4 @@ pub struct ServicePrincipalCredential {
 pub struct ManagedIdentityCredential {
     client_id: Option<String>,
     resource_id: Option<String>,
-    object_id: Option<String>,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct Token {
-    // Todo: Adjust the fields with Azure SDK's TokenResponse struct
-    pub access_token: String,
-    pub expires_on: u64,
-    pub refresh_token: Option<String>,
-    pub id_token: Option<String>,
-    pub tenant_id: Option<String>,
-    pub user_object_id: Option<String>,
-    pub user_preferred_username: Option<String>,
-    pub scopes: Option<Vec<String>>,
-}
-
-impl Token {
-    pub fn write_token_to_file(&self) -> Result<(), AzInternalError> {
-        let json_string = to_string_pretty(&self)?;
-
-        let home_dir = dirs::home_dir().ok_or_else(|| {
-            AzInternalError::InvalidPathError("Could not determine home directory".to_string())
-        })?;
-
-        let token_dir = home_dir.join(".cirrus");
-        std::fs::create_dir_all(&token_dir)?;
-
-        let file_path = token_dir.join("azure_token.json");
-
-        let mut file = File::create(&file_path)?;
-
-        file.write_all(json_string.as_bytes())?;
-
-        println!("Token saved to {}", file_path.display());
-
-        Ok(())
-    }
-
-    pub fn read_token_from_file(&self) -> Result<Token, AzError> {
-        let home_dir = dirs::home_dir().ok_or_else(|| {
-            AzError::Internal(AzInternalError::InvalidPathError(
-                "Could not determine home directory".to_string(),
-            ))
-        })?;
-
-        let token_path = home_dir.join(".cirrus").join("azure_token.json");
-        if !token_path.exists() {
-            return Err(AzInternalError::InvalidPathError(format!(
-                "No cached token found at {}",
-                token_path.display()
-            ))
-            .into());
-        }
-
-        let mut file = File::open(&token_path).map_err(AzInternalError::Io)?;
-
-        let mut contents = String::new();
-        file.read_to_string(&mut contents)
-            .map_err(AzInternalError::Io)?;
-
-        let token: Token = serde_json::from_str(&contents).map_err(|e| AzInternalError::Json(e))?;
-
-        // Check if token is expired
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(|_| AzError::GeneralError("Failed to get current time".to_string()))?
-            .as_secs();
-
-        if token.expires_on <= now {
-            return Err(AzError::Authentication(AuthenticationError::TokenExpired));
-        }
-        if token.access_token.is_empty() {
-            return Err(AzError::Authentication(
-                AuthenticationError::InvalidAccessToken(
-                    "No access token found in token file".to_string(),
-                ),
-            ));
-        }
-
-        Ok(token)
-    }
 }

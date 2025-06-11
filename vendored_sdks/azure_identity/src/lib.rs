@@ -4,8 +4,10 @@
 mod authorization_code_flow;
 pub mod custom_token_fields;
 pub mod interactive_credential;
+pub mod cirrus_token_cache;
 mod oauth2_http_client;
 pub mod refresh_token;
+pub mod utils;
 
 use serde::Deserialize;
 use typespec_client_core::http::Model;
