@@ -1,0 +1,13 @@
+syntax = "proto3";
+package resource;
+
+message Resource {
+  string id = 1;
+  string version = 2;
+  string subresource = 3;
+  string swagger = 4;
+  string plane = 5;
+  repeated string mod_names = 6;
+  string rp_name = 7;
+  string path = 8;
+}

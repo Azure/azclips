@@ -1,0 +1,52 @@
+syntax = "proto3";
+package client;
+
+import "protos/command.proto";
+import "protos/model/resource.proto";
+import "protos/model/operation.proto";
+import "protos/model/schema.proto";
+import "protos/model/subresource_selector.proto";
+
+message ClientAADAuthConfig {
+  repeated string scopes;
+}
+
+message ClientAuth {
+  ClientAADAuthConfig aad;
+}
+
+message ClientEndpointTemplate {
+  string cloud;
+  string template;
+}
+
+message ClientEndpointCloudMetadataTemplate {
+  string selector_index;
+  string prefix_template;
+}
+
+message ClientEndpoints {
+  string type;
+}
+
+message ClientEndpointsByTemplate {
+  string type="template";
+  repeated ClientEndpointTemplate templates;
+  ClientEndpointCloudMetadataTemplate cloud_metadata;
+  repeated Schema params;
+}
+
+message ClientEndpointsByHttpOperation {
+  string type="http-operation";
+  Resource resource;
+  SubresourceSelector selector;
+  HttpOperation operation;
+}
+
+message ClientConfig {
+  string version;
+  string plane;
+  ClientEndpoints endpoints;
+  ClientAuth auth;
+  CrsArgGroup arg_group;
+}

@@ -1,0 +1,14 @@
+syntax = "proto3";
+package content;
+
+import "protos/model/schema.proto";
+
+message RequestJson {
+  string ref = 1;
+  Schema schema = 2;
+}
+
+message ResponseJson {
+  string ref = 1;
+  Schema schema = 2;
+}

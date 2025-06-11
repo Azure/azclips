@@ -1,0 +1,78 @@
+syntax = "proto3";
+package http;
+
+import "protos/model/content.proto";
+import "protos/model/schema.proto";
+
+message HttpRequestArgs {
+  repeated Schema params = 1;
+  repeated Schema consts = 2;
+}
+
+message HttpRequestPath {
+  repeated Schema params = 1;
+  repeated Schema consts = 2;
+}
+
+message HttpRequestQuery {
+  repeated Schema params = 1;
+  repeated Schema consts = 2;
+}
+
+message HttpRequestHeader {
+  repeated Schema params = 1;
+  repeated Schema consts = 2;
+  string client_request_id = 3;
+}
+
+message HttpRequestJsonBody {
+  RequestJson json = 1;
+}
+
+message HttpRequest {
+  enum Method {
+    GET = 0;
+    PUT = 1;
+    POST = 2;
+    DELETE = 3;
+    OPTIONS = 4;
+    HEAD = 5;
+    PATCH = 6;
+  }
+  Method method = 1;
+  HttpRequestPath path = 2;
+  HttpRequestQuery query = 3;
+  HttpRequestHeader header = 4;
+  oneof body {
+    HttpRequestJsonBody json = 5;
+  }
+}
+
+message HttpResponseHeaderItem {
+  string name = 1;
+  string var = 2;
+}
+
+message HttpResponseHeader {
+  repeated HttpResponseHeaderItem items = 1;
+}
+
+message HttpResponseJsonBody {
+  ResponseJson json = 1;
+}
+
+message HttpResponse {
+  repeated int32 status_codes = 1;
+  bool is_error = 2;
+  string description = 3;
+  HttpResponseHeader header = 4;
+  oneof body {
+    HttpResponseJsonBody json = 5;
+  }
+}
+
+message HttpAction {
+  string path = 1;
+  HttpRequest request = 2;
+  repeated HttpResponse responses = 3;
+}
