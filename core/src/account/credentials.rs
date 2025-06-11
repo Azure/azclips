@@ -32,7 +32,6 @@ impl UserCredential {
     pub async fn acquire_token_silently(
         &self,
         scopes: &[&str],
-        tenant_id: &str,
     ) -> Result<AccessToken, AuthenticationError> {
         let cache_path_str = get_default_token_cache_path().ok_or_else(|| {
             AuthenticationError::AuthenticationFailed("Failed to get token cache path".to_string())
@@ -49,7 +48,7 @@ impl UserCredential {
             self.home_account_id.as_deref(),
             self.environment.as_deref(),
             Some(AZURE_CLI_CLIENT_ID),
-            Some(tenant_id),
+            self.tenant_id.as_deref(),
         ).await {
             Ok(access_token) => {
                 // Make sure we save any changes to the cache after refreshing
@@ -70,7 +69,6 @@ impl UserCredential {
     pub async fn acquire_token_interactively(
         &mut self,
         scopes: &[&str],
-        tenant_id: &str,
     ) -> Result<AccessToken, AuthenticationError> {
         let cache_path_str = get_default_token_cache_path().ok_or_else(|| {
             AuthenticationError::AuthenticationFailed("Failed to get token cache path".to_string())
@@ -80,7 +78,7 @@ impl UserCredential {
         
         let mut interactive_credentials = InteractiveBrowserCredential::new(
             Some(ClientId::new(AZURE_CLI_CLIENT_ID.to_string())),
-            Some(tenant_id.to_string()),
+            self.tenant_id.clone(),
             None, // Use default redirect URL
             self.home_account_id.clone(),
             self.environment.clone(),
@@ -127,14 +125,13 @@ impl UserCredential {
     pub async fn acquire_token(
         &mut self,
         scopes: &[&str],
-        tenant_id: &str,
     ) -> Result<AccessToken, AuthenticationError> {
         // Try silent authentication first
-        match self.acquire_token_silently(scopes, tenant_id).await {
+        match self.acquire_token_silently(scopes).await {
             Ok(token) => Ok(token),
             Err(_) => {
                 // Fall back to interactive authentication if silent auth fails
-                self.acquire_token_interactively(scopes, tenant_id).await
+                self.acquire_token_interactively(scopes).await
             }
         }
     }    
@@ -145,9 +142,7 @@ impl UserCredential {
 #[cfg_attr(not(target_arch = "wasm32"), async_trait::async_trait)]
 impl TokenCredential for UserCredential {
     async fn get_token(&self, scopes: &[&str]) -> azure_core::Result<AccessToken> {
-        // Use tenant_id from the credential or fallback to "common" if not set
-        let tenant = self.tenant_id.as_deref().unwrap_or("common");
-        self.acquire_token_silently(scopes, tenant).await
+        self.acquire_token_silently(scopes).await
             .map_err(|e| azure_core::Error::new(azure_core::error::ErrorKind::Other, e.to_string()))
     }
 }

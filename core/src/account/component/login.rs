@@ -86,7 +86,7 @@ impl Login {
         println!("Logging in interactively...");
 
         let mut user_credential = UserCredential::new(None, None , None, Some(tenant_id.to_string()));
-        let token = user_credential.acquire_token(scopes, tenant_id).await?;
+        let token = user_credential.acquire_token(scopes).await?;
 
         println!("Login successful with user: {:?}", user_credential.username);
 
@@ -449,7 +449,8 @@ mod tests {
         assert!(result.is_ok(), "Login failed: {:?}", result.err());
 
         // Get the access token silently for the default account from token cache with the specified scopes
-        // Read the token cache, get the default account using the get_default_account method
+        // Read the token cache, get the default account
+        // Acquire a token silently using the UserCredential
         if let Some(cache_path) = get_default_token_cache_path() {
             match FilePersistentTokenCache::new(cache_path.clone()) {
                 Ok(token_cache) => {
