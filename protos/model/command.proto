@@ -1,0 +1,20 @@
+syntax = "proto3";
+package command;
+
+import "protos/command.proto";
+import "protos/model/condition.proto";
+import "protos/model/resource.proto";
+import "protos/model/subresource_selector.proto";
+
+message Command {
+  string name;
+  string version;
+  string description;
+  repeated Resource resources;
+  repeated ArgGroup arg_groups;
+  repeated Condition conditions;
+  SubresourceSelector subresource_selector;
+  repeated Operation operations;
+  repeated Output outputs;
+  optional string confirmation;
+}

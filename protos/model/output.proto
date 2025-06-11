@@ -1,0 +1,26 @@
+syntax = "proto3";
+package output;
+
+message Output {
+  oneof type {
+    ObjectOutput object = 1;
+    ArrayOutput array = 2;
+    StringOutput string = 3;
+  }
+}
+
+message ObjectOutput {
+  string ref = 1;
+  bool client_flatten = 2;
+}
+
+message ArrayOutput {
+  string ref = 1;
+  bool client_flatten = 2;
+  string next_link = 3;
+}
+
+message StringOutput {
+  string ref = 1;
+  string value = 2;
+}

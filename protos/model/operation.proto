@@ -1,0 +1,41 @@
+syntax = "proto3";
+package operation;
+
+import "protos/model/action.proto";
+import "protos/model/http.proto";
+
+message Operation {
+  repeated string when = 1;
+}
+
+message HttpOperationLongRunning {
+  enum StateVia {
+    azureAsyncOperation = 0;
+    location = 1;
+    originalUri = 2;
+  }
+  StateVia final_state_via = 1;
+}
+
+message HttpOperation {
+  repeated string when = 1;
+  optional HttpOperationLongRunning long_running = 2;
+  string operation_id = 3;
+  string description = 4;
+  HttpAction action = 5;
+}
+
+message InstanceCreateOperation {
+  repeated string when = 1;
+  InstanceCreateAction instance_create = 2;
+}
+
+message InstanceUpdateOperation {
+  repeated string when = 1;
+  InstanceUpdateAction instance_update = 2;
+}
+
+message InstanceDeleteOperation {
+  repeated string when = 1;
+  InstanceDeleteAction instance_delete = 2;
+}

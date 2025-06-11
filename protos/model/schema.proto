@@ -1,0 +1,221 @@
+syntax = "proto3";
+package schema;
+
+import "protos/command.proto";
+import "protos/model/field.proto";
+
+message SchemaEnumItem {
+  string arg = 1;
+  string value = 2;   // primitive value
+}
+
+message SchemaEnum {
+  repeated SchemaEnumItem items = 1;
+}
+
+message SchemaDefault {
+  string value = 1;   // primitive value
+}
+
+message SchemaFieldInfo {
+  string name = 1;
+  string arg = 2;
+  bool required = 3;
+
+  string description = 4;
+  bool skip_url_encoding = 5;
+  bool secret = 6;
+}
+
+message Schema {
+  bool read_only = 1;
+  bool frozen = 2;
+  bool const = 3;
+
+  SchemaDefault default = 4;
+  bool nullable = 5;
+  string action = 6;
+
+  optional SchemaFieldInfo field_info = 7;
+
+  oneof type {
+      ClsSchema cls = 8;
+      StringSchema string_ = 9;
+      ByteSchema byte_ = 10;
+      BinarySchema binary = 11;
+      DurationSchema duration = 12;
+      DateSchema date = 13;
+      DateTimeSchema date_time = 14;
+      TimeSchema time = 15;
+      UuidSchema uuid = 16;
+      PasswordSchema password = 17;
+      ResourceIdSchema resource_id = 18;
+      ResourceLocationSchema resource_location = 19;
+      IntegerSchema integer = 20;
+      Integer32Schema integer32 = 21;
+      Integer64Schema integer64 = 22;
+      BooleanSchema boolean_ = 23;
+      FloatSchema float_ = 24;
+      Float32Schema float32 = 25;
+      Float64Schema float64 = 26;
+      AnyTypeSchema any_type = 27;
+
+      ObjectSchema object_ = 28; // object
+      IdentityObjectSchema identity_object_ = 29; // identity object
+      ArraySchema array_ = 30; // array
+  }
+}
+
+message ClsSchema {
+  bool client_flatten = 8;
+}
+
+message StringSchema {
+  CrsStringFormat fmt = 8;
+  SchemaEnum enum = 9;
+}
+
+message ByteSchema {
+  CrsStringFormat fmt = 8;
+  SchemaEnum enum = 9;
+}
+
+
+message BinarySchema {
+  CrsStringFormat fmt = 8;
+  SchemaEnum enum = 9;
+}
+
+message DurationSchema {
+  CrsStringFormat fmt = 8;
+  SchemaEnum enum = 9;
+}
+
+message DateSchema {
+  CrsStringFormat fmt = 8;
+  SchemaEnum enum = 9;
+}
+
+message DateTimeSchema {
+  CrsDateTimeFormat fmt = 8;
+  SchemaEnum enum = 9;
+}
+
+message TimeSchema {
+  CrsStringFormat fmt = 8;
+  SchemaEnum enum = 9;
+}
+
+message UuidSchema {
+  CrsStringFormat fmt = 8;
+  SchemaEnum enum = 9;
+}
+
+message PasswordSchema {
+  CrsStringFormat fmt = 8;
+  SchemaEnum enum = 9;
+}
+
+message ResourceIdSchema {
+  CrsReourceIdFormat fmt = 8;
+  SchemaEnum enum = 9;
+}
+
+message ResourceLocationSchema {
+  CrsStringFormat fmt = 8;
+  SchemaEnum enum = 9;
+}
+
+message IntegerSchema {
+  CrsIntegerFormat fmt = 8;
+  SchemaEnum enum = 9;
+}
+
+message Integer32Schema {
+  CrsIntegerFormat fmt = 8;
+  SchemaEnum enum = 9;
+}
+
+message Integer64Schema {
+  CrsIntegerFormat fmt = 8;
+  SchemaEnum enum = 9;
+}
+
+message BooleanSchema {}
+
+message FloatSchema {
+  CrsFloatFormat fmt = 8;
+  SchemaEnum enum = 9;
+}
+
+message Float32Schema {
+  CrsFloatFormat fmt = 8;
+  SchemaEnum enum = 9;
+}
+
+message Float64Schema {
+  CrsFloatFormat fmt = 8;
+  SchemaEnum enum = 9;
+}
+
+message AnyTypeSchema {}
+
+message ObjectSchemaDiscriminator {
+  string property = 1;
+  string value = 2;
+  bool frozen = 3;
+
+  repeated Schema props = 4;
+  repeated ObjectSchemaDiscriminator discriminators = 5;
+}
+
+message ObjectSchemaAdditionalProperties {
+  bool read_only = 1;
+  bool frozen = 2;
+  
+  Schema item = 3;
+  bool any_type = 4;
+}
+
+message ObjectSchema {
+  bool read_only = 1;
+  bool frozen = 2;
+  bool const = 3;
+
+  SchemaDefault default = 4;
+  bool nullable = 5;
+  string action = 6;
+
+  string type = 7;
+
+  CrsObjectFormat fmt = 8;
+
+  repeated Schema props = 9;
+  repeated ObjectSchemaDiscriminator discriminators = 10;
+  ObjectSchemaAdditionalProperties additional_props = 11;
+
+  string cls = 12;
+  bool client_flatten = 13;
+}
+
+message IdentityObjectSchema {
+  CrsObjectFormat fmt = 8;
+
+  repeated Schema props = 9;
+  repeated ObjectSchemaDiscriminator discriminators = 10;
+  ObjectSchemaAdditionalProperties additional_props = 11;
+
+  string cls = 12;
+  bool client_flatten = 13;
+
+  Schema user_assigned = 14;
+  Schema system_assigned = 15;
+}
+
+message ArraySchema {
+  CrsArrayFormat fmt = 8;
+
+  Schema item = 9;
+  repeated string identifiers = 10;
+  string cls = 11;
+}
