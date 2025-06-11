@@ -76,7 +76,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .await?;
     
     println!("\n--- Original token from get_token_interactively ---\n");
-    println!("Access token: {}", token_response.access_token().secret());
+    println!("Access token: {}", token_response.token.secret());
     
     // Display the home_account_id and environment that were set during authentication
     info!("After authentication:");

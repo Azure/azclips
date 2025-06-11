@@ -113,6 +113,7 @@ pub struct AccountEntry {
     pub username: Option<String>,
     pub authority_type: Option<AuthorityType>,
     pub account_source: Option<String>,
+    pub is_default: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -303,6 +304,57 @@ impl MsalTokenCache {
 
         None
     }
+    /// Sets the specified account as the default account, and ensures all other accounts have is_default set to false
+    pub fn set_default_account(
+        &self,
+        home_account_id: Option<&str>,
+        environment: Option<&str>,
+        tenant_id: Option<&str>,
+    ) -> Result<()> {
+        // First get the account to set as default
+        let account_to_set = self.get_account(home_account_id, environment, tenant_id);
+        
+        // Get all accounts
+        let mut cache = self.cache.write().unwrap();
+        let accounts = cache
+            .entry(CredentialType::Account)
+            .or_insert_with(HashMap::new);
+        
+        let mut state_changed = false;
+
+        // Set is_default to false for all accounts
+        for (_, entry) in accounts.iter_mut() {
+            if let TokenCacheEntry::Account(account) = entry {
+                if account.is_default == Some(true) {
+                    account.is_default = Some(false);
+                    state_changed = true;
+                }
+            }
+        }
+        
+        // Set the target account as default if it exists
+        if let Some(target_account) = account_to_set {
+            let key = self.generate_account_key(
+                target_account.home_account_id.as_deref(),
+                target_account.environment.as_deref(), 
+                target_account.tenant_id.as_deref(),
+            );
+            
+            if let Some(TokenCacheEntry::Account(account)) = accounts.get_mut(&key) {
+                account.is_default = Some(true);
+                state_changed = true;
+            }
+        }
+        
+        // Update the state changed flag if needed
+        if state_changed {
+            let mut has_state_changed = self.has_state_changed.write().unwrap();
+            *has_state_changed = true;
+        }
+        
+        Ok(())
+    }
+    
     /// Add or update an access token in the cache
     pub fn add_access_token(&self, token: AccessTokenEntry) -> Result<()> {
         let key = self.generate_access_token_key(
@@ -1000,6 +1052,95 @@ mod tests {
         );
         let new_retrieved = new_retrieved.unwrap();
         assert_eq!(new_retrieved.secret.secret(), "new_token_value");
+        Ok(())
+    }
+
+    #[test]
+    fn test_set_default_account() -> Result<()> {
+        let cache = MsalTokenCache::new();
+        
+        // Create three test accounts
+        let account1 = AccountEntry {
+            home_account_id: Some("home_id_1".to_string()),
+            environment: Some("env1".to_string()),
+            tenant_id: Some("tenant1".to_string()),
+            local_account_id: Some("local1".to_string()),
+            username: Some("user1@example.com".to_string()),
+            authority_type: Some(AuthorityType::MSSTS),
+            account_source: None,
+            is_default: Some(false),
+        };
+        
+        let account2 = AccountEntry {
+            home_account_id: Some("home_id_2".to_string()),
+            environment: Some("env1".to_string()),
+            tenant_id: Some("tenant1".to_string()),
+            local_account_id: Some("local2".to_string()),
+            username: Some("user2@example.com".to_string()),
+            authority_type: Some(AuthorityType::MSSTS),
+            account_source: None,
+            is_default: Some(true), // This one starts as default
+        };
+        
+        let account3 = AccountEntry {
+            home_account_id: Some("home_id_3".to_string()),
+            environment: Some("env1".to_string()),
+            tenant_id: Some("tenant1".to_string()),
+            local_account_id: Some("local3".to_string()),
+            username: Some("user3@example.com".to_string()),
+            authority_type: Some(AuthorityType::MSSTS),
+            account_source: None,
+            is_default: Some(false),
+        };
+        
+        // Add accounts to the cache
+        cache.add_account(account1.clone())?;
+        cache.add_account(account2.clone())?;
+        cache.add_account(account3.clone())?;
+        
+        // Verify account2 is default
+        let acc2 = cache.get_account(
+            Some("home_id_2"),
+            Some("env1"),
+            Some("tenant1"),
+        );
+        assert!(acc2.is_some());
+        assert_eq!(acc2.unwrap().is_default, Some(true));
+        
+        // Set account1 as default
+        cache.set_default_account(
+            Some("home_id_1"),
+            Some("env1"),
+            Some("tenant1"),
+        )?;
+        
+        // Verify account1 is now default
+        let acc1 = cache.get_account(
+            Some("home_id_1"),
+            Some("env1"),
+            Some("tenant1"),
+        );
+        assert!(acc1.is_some());
+        assert_eq!(acc1.unwrap().is_default, Some(true));
+        
+        // Verify account2 is no longer default
+        let acc2 = cache.get_account(
+            Some("home_id_2"),
+            Some("env1"),
+            Some("tenant1"),
+        );
+        assert!(acc2.is_some());
+        assert_eq!(acc2.unwrap().is_default, Some(false));
+        
+        // Verify account3 is still not default
+        let acc3 = cache.get_account(
+            Some("home_id_3"),
+            Some("env1"),
+            Some("tenant1"),
+        );
+        assert!(acc3.is_some());
+        assert_eq!(acc3.unwrap().is_default, Some(false));
+        
         Ok(())
     }
 }

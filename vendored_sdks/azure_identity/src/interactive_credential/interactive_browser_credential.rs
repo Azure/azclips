@@ -86,7 +86,7 @@ impl InteractiveBrowserCredential {
         login_hint: Option<&str>,
         success_template: Option<&str>,
         error_template: Option<&str>,
-    ) -> azure_core::Result<oauth2::StandardTokenResponse<CustomTokenFields, BasicTokenType>> {
+    ) -> azure_core::Result<AccessToken> {
         let mut combined_scopes = DEFAULT_SCOPE_ARR.to_vec();
 
         if let Some(user_scopes) = scopes {
@@ -235,6 +235,7 @@ impl InteractiveBrowserCredential {
                 username,
                 authority_type: Some(crate::msal_token_cache::AuthorityType::MSSTS),
                 account_source: Some("authorization_code".to_string()),
+                is_default: None, // Interactive method will only be called when login, set it as the default account for the user
             };
             
             if persistent_cache.is_none() {
@@ -267,7 +268,20 @@ impl InteractiveBrowserCredential {
                 }
             }
         }
-        Ok(token_response)
+
+
+        // Extract token and expiration information
+        let access_token_str = token_response.access_token().secret().to_string();
+        
+        // Get current time and add the expires_in to determine the expiration time
+        use time::OffsetDateTime;
+        let expires_in = token_response.expires_in().unwrap_or_default();
+        let expires_on = OffsetDateTime::now_utc() + std::time::Duration::from_secs(expires_in.as_secs());
+        
+        // Create the AccessToken
+        let access_token = AccessToken::new(access_token_str, expires_on);
+
+        Ok(access_token)
     }
 
     /// Get token sliently from the cache or refresh it if needed.
