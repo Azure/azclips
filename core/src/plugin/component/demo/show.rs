@@ -47,9 +47,9 @@ impl AzCommandExecute for ShowDemo {
         // Where can I store the api version?
         let url = Url::parse(&format!("{}/subscriptions/{}/resourceGroups/{}/?api-version=2020-06-01", 
             endpoint, subscription, self.resource_group_name))
-            .map_err(|e| AzInternalError::UrlParseError(e.to_string()))?;        let mut request = Request::new(url, Method::Get);
-        request.insert_header("Accept", "application/json");
-        request.insert_header("Content-Type", "application/json");
+            .map_err(|e| AzInternalError::UrlParseError(e.to_string()))?;        
+        
+        let request = Request::new(url, Method::Get);
         
         let response = client.send(request).await?;
         
