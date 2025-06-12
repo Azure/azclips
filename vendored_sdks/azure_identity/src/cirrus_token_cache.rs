@@ -1091,7 +1091,7 @@ mod tests {
             authority_type: Some(AuthorityType::MSSTS),
             account_source: None,
             is_default: Some(false),
-            account_type: Some(AccountType::User)
+            account_type: Some(AccountType::User),
         };
 
         let account2 = AccountEntry {
@@ -1103,7 +1103,7 @@ mod tests {
             authority_type: Some(AuthorityType::MSSTS),
             account_source: None,
             is_default: Some(true), // This one starts as default
-            account_type: Some(AccountType::User)
+            account_type: Some(AccountType::User),
         };
 
         let account3 = AccountEntry {
@@ -1115,7 +1115,7 @@ mod tests {
             authority_type: Some(AuthorityType::MSSTS),
             account_source: None,
             is_default: Some(false),
-            account_type: Some(AccountType::User)
+            account_type: Some(AccountType::User),
         };
 
         // Add accounts to the cache
@@ -1163,7 +1163,7 @@ mod tests {
             authority_type: Some(AuthorityType::MSSTS),
             account_source: None,
             is_default: Some(false),
-            account_type: Some(AccountType::User)
+            account_type: Some(AccountType::User),
         };
 
         let account2 = AccountEntry {
@@ -1175,7 +1175,7 @@ mod tests {
             authority_type: Some(AuthorityType::MSSTS),
             account_source: None,
             is_default: Some(true), // This one is default
-            account_type: Some(AccountType::User)
+            account_type: Some(AccountType::User),
         };
 
         let account3 = AccountEntry {
@@ -1187,7 +1187,7 @@ mod tests {
             authority_type: Some(AuthorityType::MSSTS),
             account_source: None,
             is_default: Some(false),
-            account_type: Some(AccountType::User)
+            account_type: Some(AccountType::User),
         };
 
         // Add accounts to the cache
@@ -1222,7 +1222,7 @@ mod tests {
             authority_type: Some(AuthorityType::MSSTS),
             account_source: None,
             is_default: Some(false),
-            account_type: Some(AccountType::User)
+            account_type: Some(AccountType::User),
         };
 
         cache2.add_account(account_no_default)?;

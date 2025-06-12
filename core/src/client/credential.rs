@@ -1,8 +1,8 @@
-use std::sync::Arc;
 use futures::future::join_all;
+use std::sync::Arc;
 
-use azure_core::credentials::{AccessToken, TokenCredential};
 use super::ClientResult;
+use azure_core::credentials::{AccessToken, TokenCredential};
 
 #[derive(Debug, Clone)]
 pub struct ClientCredential {
@@ -13,7 +13,10 @@ pub struct ClientCredential {
 
 impl ClientCredential {
     pub fn new(credential: Arc<dyn TokenCredential>) -> Self {
-        Self { credential, aux_credentials: Default::default() }
+        Self {
+            credential,
+            aux_credentials: Default::default(),
+        }
     }
 
     pub fn add_aux_credential(&mut self, credential: Arc<dyn TokenCredential>) -> &mut Self {
@@ -22,19 +25,21 @@ impl ClientCredential {
     }
 }
 
-
 impl ClientCredential {
-
     pub async fn get_token(&self, scopes: &[&str]) -> ClientResult<AccessToken> {
         let token = self.credential.get_token(scopes).await?;
         Ok(token)
     }
 
     pub async fn get_aux_tokens(&self, scopes: &[&str]) -> ClientResult<Vec<AccessToken>> {
-        let futures = self.aux_credentials.iter().map(|cred| cred.get_token(scopes));
-        let tokens = join_all(futures).await.into_iter().collect::<Result<Vec<_>, _>>()?;
+        let futures = self
+            .aux_credentials
+            .iter()
+            .map(|cred| cred.get_token(scopes));
+        let tokens = join_all(futures)
+            .await
+            .into_iter()
+            .collect::<Result<Vec<_>, _>>()?;
         Ok(tokens)
     }
-
-
 }

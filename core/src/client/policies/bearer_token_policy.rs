@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use async_trait::async_trait;
+use std::sync::Arc;
 
 use super::{Context, HeaderName, Policy, PolicyResult, Request};
 use crate::client::ClientCredential;

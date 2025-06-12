@@ -2,12 +2,11 @@ use async_trait::async_trait;
 use std::env::consts::{ARCH, OS};
 use std::sync::Arc;
 
-use super::{Policy, PolicyResult, Context, HeaderValue, Request, HeaderName};
+use super::{Context, HeaderName, HeaderValue, Policy, PolicyResult, Request};
 use crate::client::options::TelemetryOptions;
 use crate::VERSION;
 
 const USER_AGENT: HeaderName = HeaderName::from_static("user-agent");
-
 
 #[derive(Debug, Clone)]
 pub struct TelemetryPolicy {

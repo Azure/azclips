@@ -2,8 +2,8 @@ use super::utils::{get_default_token_cache_path, load_landing_page_templates};
 use crate::error::AuthenticationError;
 use azure_core::credentials::AccessToken;
 use azure_core::credentials::TokenCredential;
-use azure_identity::interactive_credential::interactive_browser_credential::InteractiveBrowserCredential;
 use azure_identity::cirrus_token_cache::FilePersistentTokenCache;
+use azure_identity::interactive_credential::interactive_browser_credential::InteractiveBrowserCredential;
 use oauth2::ClientId;
 use std::path::PathBuf;
 

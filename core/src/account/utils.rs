@@ -1,9 +1,9 @@
-use azure_core::credentials::TokenCredential;
-use reqwest::{Client, Url};
-use serde_json::Value;
-use azure_identity::cirrus_token_cache::{FilePersistentTokenCache, AccountEntry, AccountType};
 use crate::account::credentials::UserCredential;
 use crate::error::AuthenticationError;
+use azure_core::credentials::TokenCredential;
+use azure_identity::cirrus_token_cache::{AccountEntry, AccountType, FilePersistentTokenCache};
+use reqwest::{Client, Url};
+use serde_json::Value;
 use std::result::Result;
 use std::sync::Arc;
 
@@ -38,19 +38,19 @@ pub fn get_default_account() -> Result<Option<AccountEntry>, AuthenticationError
             // Get the default account from the token cache
             let account = token_cache.cache().get_default_account();
             if let Some(ref acc) = account {
-                println!("Found default account: {:?}", acc.username);
+                if let Some(ref username) = acc.username {
+                    println!("The current user is: {}", username);
+                }
             }
             Ok(account)
         }
-        Err(e) => {
-            Err(crate::error::AuthenticationError::AuthenticationFailed(format!(
-                "Failed to access token cache: {}", e
-            )))
-        }
+        Err(e) => Err(crate::error::AuthenticationError::AuthenticationFailed(
+            format!("Failed to access token cache: {}", e),
+        )),
     }
 }
 
-pub fn get_default_credential() -> Result<Option<Arc<dyn TokenCredential>>, AuthenticationError>  {
+pub fn get_default_credential() -> Result<Option<Arc<dyn TokenCredential>>, AuthenticationError> {
     let account = get_default_account()?;
     if account.is_none() {
         return Ok(None);
@@ -66,7 +66,7 @@ pub fn get_default_credential() -> Result<Option<Arc<dyn TokenCredential>>, Auth
         let token_credential: Arc<dyn TokenCredential> = Arc::new(credential);
         return Ok(Some(token_credential));
     }
-    
+
     // If not a user account, return None
     // Todo: Handle other account types: service principal, and managed identity
     Ok(None)
