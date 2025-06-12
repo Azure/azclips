@@ -1,7 +1,7 @@
 syntax = "proto3";
-package command;
+package plugin;
 
-import "protos/http.proto";
+import "protos/plugin/http.proto";
 
 message CrsOperation {
   repeated string conditions = 1;  // the `when` property in the aaz model

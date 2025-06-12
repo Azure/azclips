@@ -1,11 +1,6 @@
 syntax = "proto3";
 package command;
 
-// message CrsArgGroup {
-//   string name = 1;
-//   repeated CrsArg args = 2;
-// }
-
 message CrsArg {
   string var_name = 1;         // the variable name of the argument
   string name = 2;             // the formal name of the argument in the struct

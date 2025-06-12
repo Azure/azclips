@@ -47,7 +47,7 @@ impl AzCommand for ListClouds {
                 long: None,
             }),
             args: Self::args(),
-            positional_args: vec![],
+            ..Default::default()
         }
     }
 

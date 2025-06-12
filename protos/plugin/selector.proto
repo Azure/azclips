@@ -1,7 +1,7 @@
 syntax = "proto3";
-package command;
+package plugin;
 
-import "protos/schema.proto";
+import "protos/plugin/schema.proto";
 
 message CrsSubresourceSelector {
   string var = 1;

@@ -44,7 +44,7 @@ impl AzCommand for ShowPlugin {
                 long: Some("Show a installed plugin details".to_string()),
             }),
             args: Self::args(),
-            positional_args: vec![],
+            ..Default::default()
         }
     }
 

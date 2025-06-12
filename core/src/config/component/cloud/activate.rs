@@ -40,7 +40,7 @@ impl AzCommand for ActivateCloud {
                 long: None,
             }),
             args: Self::args(),
-            positional_args: vec![],
+            ..Default::default()
         }
     }
 

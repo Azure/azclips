@@ -18,7 +18,6 @@ pub enum ClientType {
     Mgmt,
 }
 
-
 impl ClientType {
 
     // fn build_client(self, credential: Arc<dyn TokenCredential>) -> Box<dyn HttpClient> {

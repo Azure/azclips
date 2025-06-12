@@ -1,5 +1,5 @@
 syntax = "proto3";
-package command;
+package plugin;
 
 message CrsRestResource {
   string id = 1;

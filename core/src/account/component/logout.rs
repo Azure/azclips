@@ -42,7 +42,7 @@ impl AzCommand for Logout {
                 ..Default::default()
             }),
             args: Self::args(),
-            positional_args: vec![],
+            ..Default::default()
         }
     }
 

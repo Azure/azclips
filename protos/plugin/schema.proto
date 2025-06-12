@@ -1,5 +1,5 @@
 syntax = "proto3";
-package command;
+package plugin;
 
 message CrsSchemaInfo {
   string name = 1;

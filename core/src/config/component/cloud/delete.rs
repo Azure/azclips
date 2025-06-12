@@ -45,6 +45,7 @@ impl AzCommand for DeleteCloud {
             }),
             args: Self::args(),
             positional_args: vec![],
+            ..Default::default()
         }
     }
 

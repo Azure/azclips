@@ -2,11 +2,7 @@ syntax = "proto3";
 package command;
 
 import "protos/argument.proto";
-import "protos/condition.proto";
-import "protos/selector.proto";
-import "protos/operation.proto";
-import "protos/resource.proto";
-import "protos/output.proto";
+import "protos/plugin/model.proto";
 
 // The interface of the command / command group / component
 message CrsInterface {
@@ -22,14 +18,14 @@ message CrsCommand {
   string version = 3; // the version of the command
   CrsHelp help = 4;
   optional string confirmation = 5;  // support to prompt for command confirmation
-  repeated CrsRestResource resources = 6;  // the rest api resource info
   repeated CrsArg args = 10;
   repeated string positional_args = 11;  // the array of positional argument names
-  repeated CrsCondition conditions = 12;
-  optional CrsSubresourceSelector subresource_selector = 13;
-  repeated CrsOperation operations = 14;
-  repeated CrsOutput outputs = 15;
+  oneof plugin {
+    plugin.CrsPluginModelCommand model = 21;
+  }
 }
+
+message CrsBuildInCommand {}
 
 message CrsCommandGroup {
   string name = 1;

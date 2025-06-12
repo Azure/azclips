@@ -34,7 +34,7 @@ impl AzCommand for CreateDemo {
                 long: Some("Create a demo resource".to_string()),
             }),
             args: Self::args(),
-            positional_args: vec![],
+            ..Default::default()
         }
     }
 

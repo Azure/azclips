@@ -44,7 +44,7 @@ impl AzCommand for ListPlugins {
                 ),
             }),
             args: Self::args(),
-            positional_args: vec![],
+            ..Default::default()
         }
     }
 
