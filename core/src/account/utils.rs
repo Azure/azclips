@@ -1,5 +1,11 @@
+use azure_core::credentials::TokenCredential;
 use reqwest::{Client, Url};
 use serde_json::Value;
+use azure_identity::cirrus_token_cache::{FilePersistentTokenCache, AccountEntry, AccountType};
+use crate::account::credentials::UserCredential;
+use crate::error::AuthenticationError;
+use std::result::Result;
+use std::sync::Arc;
 
 pub fn can_launch_browser() -> bool {
     webbrowser::Browser::is_available()
@@ -21,6 +27,49 @@ pub fn get_default_token_cache_path() -> Option<String> {
             .to_string_lossy()
             .to_string(),
     )
+}
+
+pub fn get_default_account() -> Result<Option<AccountEntry>, AuthenticationError> {
+    let cache_path = get_default_token_cache_path().ok_or_else(|| {
+        AuthenticationError::AuthenticationFailed("Failed to get token cache path".to_string())
+    })?;
+    match FilePersistentTokenCache::new(cache_path) {
+        Ok(token_cache) => {
+            // Get the default account from the token cache
+            let account = token_cache.cache().get_default_account();
+            if let Some(ref acc) = account {
+                println!("Found default account: {:?}", acc.username);
+            }
+            Ok(account)
+        }
+        Err(e) => {
+            Err(crate::error::AuthenticationError::AuthenticationFailed(format!(
+                "Failed to access token cache: {}", e
+            )))
+        }
+    }
+}
+
+pub fn get_default_credential() -> Result<Option<Arc<dyn TokenCredential>>, AuthenticationError>  {
+    let account = get_default_account()?;
+    if account.is_none() {
+        return Ok(None);
+    }
+    let account = account.unwrap();
+    if account.account_type.as_ref() == Some(&AccountType::User) {
+        let credential = UserCredential::new(
+            account.username,
+            account.home_account_id,
+            account.environment,
+            account.tenant_id,
+        );
+        let token_credential: Arc<dyn TokenCredential> = Arc::new(credential);
+        return Ok(Some(token_credential));
+    }
+    
+    // If not a user account, return None
+    // Todo: Handle other account types: service principal, and managed identity
+    Ok(None)
 }
 
 pub fn format_token_expires_on(expires_in: std::time::Duration) -> u64 {

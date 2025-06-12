@@ -1,7 +1,7 @@
 use super::internal_server::*;
 use crate::authorization_code_flow;
 use crate::cirrus_token_cache::{
-    AccessTokenEntry, AccountEntry, FilePersistentTokenCache, IdTokenEntry, RefreshTokenEntry,
+    AccessTokenEntry, AccountEntry, FilePersistentTokenCache, IdTokenEntry, RefreshTokenEntry, AccountType,
 };
 use crate::utils::decode_part_id_token;
 use azure_core::{
@@ -253,7 +253,8 @@ impl InteractiveBrowserCredential {
                 username,
                 authority_type: Some(crate::cirrus_token_cache::AuthorityType::MSSTS),
                 account_source: Some("authorization_code".to_string()),
-                is_default: None, // Interactive method will only be called when login, set it as the default account for the user
+                is_default: None, 
+                account_type: Some(AccountType::User)
             };
 
             if persistent_cache.is_none() {

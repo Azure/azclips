@@ -27,7 +27,7 @@ pub struct Login {
     username: Option<String>,
     password: Option<String>,
     use_device_code: bool,
-    allow_no_subscriptions: bool,
+    // allow_no_subscriptions: bool, // Why do we have to set subscription? Subscription is not required for tenant-level commands, we can unbind login from subscription
     service_principal: bool,
     identity: bool,
     client_id: Option<String>,
@@ -392,10 +392,10 @@ impl AzCommand for Login {
                         login.use_device_code =
                             serde_json::from_slice(v).expect("failed to parse json")
                     }
-                    "allowNoSubscriptions" => {
-                        login.allow_no_subscriptions =
-                            serde_json::from_slice(v).expect("failed to parse json")
-                    }
+                    // "allowNoSubscriptions" => {
+                    //     login.allow_no_subscriptions =
+                    //         serde_json::from_slice(v).expect("failed to parse json")
+                    // }
                     "certificate" => {
                         login.certificate_path =
                             serde_json::from_slice(v).expect("failed to parse json")

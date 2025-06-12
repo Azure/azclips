@@ -28,6 +28,13 @@ pub enum CredentialType {
     // AppMetadata, // Not used in the current implementation
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum AccountType {
+    User,
+    ServicePrincipal,
+    ManagedIdentity,
+}
+
 impl std::fmt::Display for CredentialType {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
@@ -111,6 +118,7 @@ pub struct AccountEntry {
     pub authority_type: Option<AuthorityType>,
     pub account_source: Option<String>,
     pub is_default: Option<bool>,
+    pub account_type: Option<AccountType>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1083,6 +1091,7 @@ mod tests {
             authority_type: Some(AuthorityType::MSSTS),
             account_source: None,
             is_default: Some(false),
+            account_type: Some(AccountType::User)
         };
 
         let account2 = AccountEntry {
@@ -1094,6 +1103,7 @@ mod tests {
             authority_type: Some(AuthorityType::MSSTS),
             account_source: None,
             is_default: Some(true), // This one starts as default
+            account_type: Some(AccountType::User)
         };
 
         let account3 = AccountEntry {
@@ -1105,6 +1115,7 @@ mod tests {
             authority_type: Some(AuthorityType::MSSTS),
             account_source: None,
             is_default: Some(false),
+            account_type: Some(AccountType::User)
         };
 
         // Add accounts to the cache
@@ -1152,6 +1163,7 @@ mod tests {
             authority_type: Some(AuthorityType::MSSTS),
             account_source: None,
             is_default: Some(false),
+            account_type: Some(AccountType::User)
         };
 
         let account2 = AccountEntry {
@@ -1163,6 +1175,7 @@ mod tests {
             authority_type: Some(AuthorityType::MSSTS),
             account_source: None,
             is_default: Some(true), // This one is default
+            account_type: Some(AccountType::User)
         };
 
         let account3 = AccountEntry {
@@ -1174,6 +1187,7 @@ mod tests {
             authority_type: Some(AuthorityType::MSSTS),
             account_source: None,
             is_default: Some(false),
+            account_type: Some(AccountType::User)
         };
 
         // Add accounts to the cache
@@ -1208,6 +1222,7 @@ mod tests {
             authority_type: Some(AuthorityType::MSSTS),
             account_source: None,
             is_default: Some(false),
+            account_type: Some(AccountType::User)
         };
 
         cache2.add_account(account_no_default)?;

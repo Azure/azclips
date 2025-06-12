@@ -1,9 +1,12 @@
 use async_trait::async_trait;
+use std::sync::Arc;
+
+use azure_core::credentials::TokenCredential;
 
 use crate::config::AzCfg;
-use crate::error::AzUserUsageError;
+use crate::error::{AzError, AzUserUsageError};
 use crate::pb::{CoreInfo, GetCoreInfoRequest, GetCoreInfoResponse};
-use crate::{error::AzError, AzCore, VERSION};
+use crate::{AzCore, VERSION};
 
 #[async_trait]
 pub trait AzComponentCtx: Send + Sync + 'static {
@@ -39,9 +42,9 @@ pub trait AzComponentCtx: Send + Sync + 'static {
     ///     }
     /// }
     /// ```
-    async fn get_cfg(&self) -> AzCfg;
+    async fn get_cfg(&self) -> AzCfg;    async fn get_default_subscription(&self) -> Result<String, AzError>;
 
-    async fn get_default_subscription(&self) -> Result<String, AzError>;
+    async fn get_default_credential(&self) -> Result<Arc<dyn TokenCredential>, AzError>;
 
 }
 
@@ -64,5 +67,13 @@ impl AzComponentCtx for AzCore {
         let cloud_metadata = cfg.clouds.get_active();
         let subscription = cloud_metadata.subscription.as_ref().ok_or(AzUserUsageError::DefaultSubscriptionNotSetError(cloud_metadata.name.to_string()))?;
         Ok(subscription.to_owned())
+    }    
+    
+    async fn get_default_credential(&self) -> Result<Arc<dyn TokenCredential>, AzError> {
+        crate::account::utils::get_default_credential()
+            .map_err(|e| AzError::from(e))
+            .and_then(|cred| cred.ok_or(AzError::from(
+                AzUserUsageError::DefaultCredentialNotFoundError
+            )))
     }
 }

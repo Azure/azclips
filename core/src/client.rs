@@ -3,8 +3,7 @@ mod credential;
 pub mod options;
 pub mod policies;
 
-// use mgmt::MgmtClient;
-
+pub use mgmt::MgmtClient;
 
 pub(crate) use typespec_client_core::http;
 
