@@ -34,11 +34,11 @@ impl AzCommandExecute for ShowDemo {
         
         let client_credential = ClientCredential::new(credential.clone());
         
-        // How to get the telemetry options?
+        // How to define the telemetry options?
         let options = crate::client::options::ClientOptions {
             telemetry: crate::client::options::TelemetryOptions {
-                component_name: env!("CARGO_PKG_NAME").to_string(),
-                component_version: env!("CARGO_PKG_VERSION").to_string(),
+                component_name: "crs://azure/plugin/demo/show".to_string(),
+                component_version: "0.0.1".to_string(),
             }
         };
         
