@@ -11,6 +11,9 @@ pub enum AzUserUsageError {
     #[error("The default subscription is not set for the cloud `{0}`.")]
     DefaultSubscriptionNotSetError(String),
 
+    #[error("The default credential is not found. Please login first.")]
+    DefaultCredentialNotFoundError,
+
     #[error("Command not found: {0}")]
     CommandNotFoundError(String),
 
@@ -92,6 +95,9 @@ pub enum AzInternalError {
 
     #[error("HTTP error: {0}")]
     Http(#[from] typespec::error::Error),
+
+    #[error("URL parse error: {0}")]
+    UrlParseError(String),
 }
 
 #[derive(Error, Debug)]

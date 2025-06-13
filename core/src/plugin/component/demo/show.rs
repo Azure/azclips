@@ -1,10 +1,18 @@
+use crate::client::{ClientCredential, MgmtClient, Request};
 use async_trait::async_trait;
-use azure_core::http::ClientOptions;
-use serde_json::{json, Value};
+use azure_core::http::{Method, Url};
+use serde_json::Value;
 use tracing::error;
 
 use crate::{
-    component::{AzCommand, AzCommandExecute, AzComponentCtx}, config::cloud::{endpoint, resource_id}, error::{AzError, AzInternalError}, pb::{crs_arg, crs_string_arg, CrsArg, CrsArgHelp, CrsCommand, CrsHelp, CrsParams, CrsStringArg, CrsStringFormat, CrsSubscriptionIdFormat}, VERSION
+    component::{AzCommand, AzCommandExecute, AzComponentCtx},
+    config::cloud::{endpoint, resource_id},
+    error::{AzError, AzInternalError},
+    pb::{
+        crs_arg, crs_string_arg, CrsArg, CrsArgHelp, CrsCommand, CrsHelp, CrsParams, CrsStringArg,
+        CrsStringFormat, CrsSubscriptionIdFormat,
+    },
+    VERSION,
 };
 
 #[derive(Debug, Default)]
@@ -27,13 +35,56 @@ impl AzCommandExecute for ShowDemo {
 
         let cfg = ctx.get_cfg().await;
         let cloud = cfg.clouds.get_active();
-        let scope = cloud.get_credential_scope(&resource_id::RESOURCE_MANAGER).await?;
         let endpoint = cloud.get_endpoint(&endpoint::RESOURCE_MANAGER).await?;
+        let credential = ctx.get_default_credential().await?;
 
-        // let client = MgmtClient::build(ctx, credential, &options).await?;
-        // client.send(request).await?;
+        let client_credential = ClientCredential::new(credential.clone());
 
-        Ok(Some(json!({})))
+        // How to define the telemetry options?
+        let options = crate::client::options::ClientOptions {
+            telemetry: crate::client::options::TelemetryOptions {
+                component_name: "crs://azure/plugin/demo/show".to_string(),
+                component_version: "0.0.1".to_string(),
+            },
+        };
+
+        let client = MgmtClient::build(ctx, client_credential, &options).await?;
+
+        // Where can I store the api version?
+        let url = Url::parse(&format!(
+            "{}/subscriptions/{}/resourceGroups/{}/?api-version=2020-06-01",
+            endpoint, subscription, self.resource_group_name
+        ))
+        .map_err(|e| AzInternalError::UrlParseError(e.to_string()))?;
+
+        let request = Request::new(url, Method::Get);
+
+        let response = client.send(request).await?;
+
+        let status = response.status();
+        if !status.is_success() {
+            return Err(AzError::GeneralError(format!(
+                "Failed to get resource group info: status code {}",
+                status
+            )));
+        }
+
+        let body_bytes = match response.into_raw_body().collect().await {
+            Ok(bytes) => bytes,
+            Err(e) => {
+                return Err(AzError::GeneralError(format!(
+                    "Failed to read response body: {}",
+                    e
+                )))
+            }
+        };
+
+        let rg_info = match serde_json::from_slice::<Value>(&body_bytes) {
+            Ok(value) => value,
+            Err(e) => return Err(AzError::Internal(AzInternalError::Json(e))),
+        };
+
+        Ok(Some(rg_info))
     }
 }
 
@@ -59,7 +110,12 @@ impl AzCommand for ShowDemo {
             CrsArg {
                 var_name: "$Path.resourceGroupName".to_string(),
                 name: "resourceGroupName".to_string(),
-                options: vec!["name".to_string(), "n".to_string(), "g".to_string(), "resource-group".to_string()],
+                options: vec![
+                    "name".to_string(),
+                    "n".to_string(),
+                    "g".to_string(),
+                    "resource-group".to_string(),
+                ],
                 help: Some(CrsArgHelp {
                     short: "Name of resource group.".to_string(),
                     ..Default::default()
@@ -81,7 +137,9 @@ impl AzCommand for ShowDemo {
                 }),
                 required: false,
                 arg_type: Some(crs_arg::ArgType::String(CrsStringArg {
-                    format: Some(crs_string_arg::Format::SubscriptionId(CrsSubscriptionIdFormat::default())),
+                    format: Some(crs_string_arg::Format::SubscriptionId(
+                        CrsSubscriptionIdFormat::default(),
+                    )),
                     ..Default::default()
                 })),
                 ..Default::default()
@@ -95,10 +153,12 @@ impl AzCommand for ShowDemo {
             for (name, v) in params.params.iter() {
                 match name.as_str() {
                     "resourceGroupName" => {
-                        show.resource_group_name = serde_json::from_slice(v).expect("failed to parse json");
+                        show.resource_group_name =
+                            serde_json::from_slice(v).expect("failed to parse json");
                     }
                     "subscription" => {
-                        show.subscription = serde_json::from_slice(v).expect("failed to parse json");
+                        show.subscription =
+                            serde_json::from_slice(v).expect("failed to parse json");
                     }
                     _ => {
                         error!("unknown argument: {}", name);
