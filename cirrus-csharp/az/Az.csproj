@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <AssemblyName>az</AssemblyName>
+    <RootNamespace>AzTool</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>false</ImplicitUsings>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <AssemblyTitle>Az Dynamic DLL Processor</AssemblyTitle>
+    <AssemblyDescription>A command-line tool for dynamically loading DLLs and processing classes that inherit from ClassA</AssemblyDescription>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <Copyright>Copyright © 2025</Copyright>
+    <StartupObject>Program</StartupObject>
+  </PropertyGroup>
+  <!-- macOS specific settings -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'osx-arm64' OR '$(RuntimeIdentifier)' == 'osx-x64'">
+    <UseAppHost>true</UseAppHost>
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishTrimmed>false</PublishTrimmed>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
+    <TrimmerDefaultAction>link</TrimmerDefaultAction>
+  </PropertyGroup>
+
+  <!-- Ensure executable permissions and disable problematic features for macOS -->
+  <!-- <Target Name="SetExecutablePermissions" AfterTargets="Publish" Condition="'$(RuntimeIdentifier)' == 'osx-arm64' OR '$(RuntimeIdentifier)' == 'osx-x64'">
+    <Exec Command="chmod +x $(PublishDir)$(AssemblyName)" Condition="Exists('$(PublishDir)$(AssemblyName)')" />
+  </Target> -->
+
+  <!-- Preserve assemblies that use reflection -->
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == 'osx-arm64' OR '$(RuntimeIdentifier)' == 'osx-x64'">
+    <TrimmerRootAssembly Include="SharedContracts" />
+    <TrimmerRootAssembly Include="System.Reflection" />
+    <TrimmerRootAssembly Include="System.Reflection.Emit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SharedContracts\SharedContracts.csproj" />
+  </ItemGroup>
+
+  <!-- Optional: Create a single-file executable (commented out to avoid NuGet issues) -->
+  <!--
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+  </PropertyGroup>
+  -->
+
+</Project>
