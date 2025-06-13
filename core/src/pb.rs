@@ -1,5 +1,6 @@
 mod command;
 mod component;
+mod plugin;
 
 use core::fmt;
 use serde::ser::SerializeMap;
@@ -7,6 +8,7 @@ use serde_json::Value;
 
 use crate::error::{AzInternalError, AzResult, AzUserUsageError};
 
+pub(crate) use plugin::*;
 pub use command::*;
 pub use component::*;
 

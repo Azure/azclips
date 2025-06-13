@@ -39,7 +39,7 @@ impl AzCommand for ShowCloud {
                 long: None,
             }),
             args: Self::args(),
-            positional_args: vec![],
+            ..Default::default()
         }
     }
 

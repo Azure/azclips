@@ -41,7 +41,7 @@ impl AzCommand for RemovePlugin {
                 long: Some("Remove an installed plugin from the cloud environment".to_string()),
             }),
             args: Self::args(),
-            positional_args: vec![],
+            ..Default::default()
         }
     }
 

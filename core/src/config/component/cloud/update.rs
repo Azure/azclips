@@ -102,7 +102,7 @@ impl AzCommand for UpdateCloud {
                 long: None,
             }),
             args: Self::args(),
-            positional_args: vec![],
+            ..Default::default()
         }
     }
 

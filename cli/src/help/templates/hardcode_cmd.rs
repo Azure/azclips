@@ -198,7 +198,7 @@ mod tests {
                         arg_type: None,
                     },
                 ],
-                positional_args: vec![],
+                ..Default::default()
             })),
         };
 

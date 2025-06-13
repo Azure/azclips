@@ -11,7 +11,19 @@ fn main() {
         // .build_server(true)
         .out_dir("src/pb")
         .compile_protos(
-            &["../protos/command.proto", "../protos/component.proto"],
+            &[
+             "../protos/argument.proto",
+             "../protos/command.proto",
+             "../protos/component.proto",
+             "../protos/plugin/condition.proto",
+             "../protos/plugin/http.proto",
+             "../protos/plugin/model.proto",
+             "../protos/plugin/operation.proto",
+             "../protos/plugin/output.proto",
+             "../protos/plugin/resource.proto",
+             "../protos/plugin/schema.proto",
+             "../protos/plugin/selector.proto",
+             ],
             &[".."],
         )
         .unwrap_or_else(|e| panic!("Failed to compile protos {:?}", e));

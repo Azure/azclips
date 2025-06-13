@@ -44,7 +44,7 @@ impl AzCommand for AddPlugin {
                 long: Some("Add a plugin to the current account".to_string()),
             }),
             args: Self::args(),
-            positional_args: vec![],
+            ..Default::default()
         }
     }
 

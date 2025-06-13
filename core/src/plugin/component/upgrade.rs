@@ -46,7 +46,7 @@ impl AzCommand for UpgradePlugin {
                 ),
             }),
             args: Self::args(),
-            positional_args: vec![],
+            ..Default::default()
         }
     }
 

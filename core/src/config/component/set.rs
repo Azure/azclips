@@ -53,6 +53,7 @@ impl AzCommand for SetConfig {
             }),
             args: Self::args(),
             positional_args: vec!["value".to_string()],
+            ..Default::default()
         }
     }
 

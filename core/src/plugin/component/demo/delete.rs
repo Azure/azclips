@@ -34,7 +34,7 @@ impl AzCommand for DeleteDemo {
                 long: Some("Delete a demo resource".to_string()),
             }),
             args: Self::args(),
-            positional_args: vec![],
+            ..Default::default()
         }
     }
 

@@ -101,7 +101,7 @@ impl AzCommand for ShowDemo {
                 long: Some("Show a demo resource".to_string()),
             }),
             args: Self::args(),
-            positional_args: vec![],
+            ..Default::default()
         }
     }
 

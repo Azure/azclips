@@ -53,6 +53,7 @@ impl AzCommand for GetConfig {
             }),
             args: Self::args(),
             positional_args: vec!["key".to_string()],
+            ..Default::default()
         }
     }
 

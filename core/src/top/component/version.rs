@@ -32,7 +32,7 @@ impl AzCommand for ShowVersion {
                 long: None,
             }),
             args: Self::args(),
-            positional_args: vec![],
+            ..Default::default()
         }
     }
 

@@ -149,7 +149,7 @@ impl AzCommand for Login {
                 long: Some("By default, this command logs in with a user account.\nTo log in with a service principal, specify --service-principal.\nTo log in with a managed identity, specify --identity.\nFor more details, see https://learn.microsoft.com/cli/azure/authenticate-azure-cli.".to_string()),
             }),
             args: Self::args(),
-            positional_args: vec![],
+            ..Default::default()
         }
     }
 

@@ -34,7 +34,7 @@ impl AzCommand for UpdateDemo {
                 long: Some("Update a demo resource".to_string()),
             }),
             args: Self::args(),
-            positional_args: vec![],
+            ..Default::default()
         }
     }
 
