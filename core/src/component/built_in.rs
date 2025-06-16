@@ -9,7 +9,7 @@ use strum_macros::{Display, EnumIter};
 use super::{center::AzComponentCenter, AzCommandGroup, AzComponentCtx};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, EnumIter, Display)]
-pub enum AzBuildIn {
+pub enum AzBuiltIn {
     /// The component for the top level commands for the azure commands.
     Top,
     /// Manage the configuration.
@@ -20,13 +20,13 @@ pub enum AzBuildIn {
     Plugin,
 }
 
-impl AzBuildIn {
+impl AzBuiltIn {
     pub(crate) fn uri(&self) -> CrsUri {
         match self {
-            AzBuildIn::Top => TopComponent::uri(),
-            AzBuildIn::Config => ConfigComponent::uri(),
-            AzBuildIn::Account => AccountComponent::uri(),
-            AzBuildIn::Plugin => PluginComponent::uri(),
+            AzBuiltIn::Top => TopComponent::uri(),
+            AzBuiltIn::Config => ConfigComponent::uri(),
+            AzBuiltIn::Account => AccountComponent::uri(),
+            AzBuiltIn::Plugin => PluginComponent::uri(),
         }
     }
 
@@ -44,17 +44,17 @@ impl AzBuildIn {
 impl<T: AzComponentCtx> AzComponentCenter<T> {
     pub(super) fn load_built_in_components(&mut self) {
         self.built_ins
-            .insert(AzBuildIn::Top, Arc::new(TopComponent::default()));
+            .insert(AzBuiltIn::Top, Arc::new(TopComponent::default()));
         self.built_ins
-            .insert(AzBuildIn::Config, Arc::new(ConfigComponent::default()));
+            .insert(AzBuiltIn::Config, Arc::new(ConfigComponent::default()));
         self.built_ins
-            .insert(AzBuildIn::Account, Arc::new(AccountComponent::default()));
+            .insert(AzBuiltIn::Account, Arc::new(AccountComponent::default()));
         self.built_ins
-            .insert(AzBuildIn::Plugin, Arc::new(PluginComponent::default()));
+            .insert(AzBuiltIn::Plugin, Arc::new(PluginComponent::default()));
     }
 }
 
-impl Serialize for AzBuildIn {
+impl Serialize for AzBuiltIn {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -65,7 +65,7 @@ impl Serialize for AzBuildIn {
     }
 }
 
-impl<'de> Deserialize<'de> for AzBuildIn {
+impl<'de> Deserialize<'de> for AzBuiltIn {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -76,6 +76,6 @@ impl<'de> Deserialize<'de> for AzBuildIn {
             .and_then(|v| v.as_str())
             .ok_or_else(|| D::Error::custom("component uri is required"))?;
         let uri = CrsUri::from_str(uri).map_err(D::Error::custom)?;
-        AzBuildIn::from_uri(&uri).ok_or_else(|| D::Error::custom("invalid component uri"))
+        AzBuiltIn::from_uri(&uri).ok_or_else(|| D::Error::custom("invalid component uri"))
     }
 }

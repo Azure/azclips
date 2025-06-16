@@ -6,6 +6,21 @@ pub struct CrsPluginComponent {
     #[prost(message, optional, tag = "2")]
     pub interface: ::core::option::Option<super::command::CrsInterface>,
 }
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ComponentMetadata {
+    /// the component name for installation and identification
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    /// the release version of the component, for built-in component, the version is the version of the core
+    #[prost(string, tag = "2")]
+    pub version: ::prost::alloc::string::String,
+    /// the unique uri for the component, this uri should be the crs uri which starts with `crs://azure/` and the following segments are composed by the top level command group name for the component. The uri should be unique across all the components.
+    #[prost(string, tag = "3")]
+    pub uri: ::prost::alloc::string::String,
+    /// the help information of the component
+    #[prost(message, optional, tag = "4")]
+    pub help: ::core::option::Option<super::command::CrsHelp>,
+}
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct MetadataRequest {}
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -36,21 +51,6 @@ pub struct InterfaceRequest {
 pub struct InterfaceResponse {
     #[prost(message, optional, tag = "1")]
     pub interface: ::core::option::Option<super::command::CrsInterface>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ComponentMetadata {
-    /// the component name for installation and identification
-    #[prost(string, tag = "1")]
-    pub name: ::prost::alloc::string::String,
-    /// the release version of the component, for built-in component, the version is the version of the core
-    #[prost(string, tag = "2")]
-    pub version: ::prost::alloc::string::String,
-    /// the unique uri for the component, this uri should be the crs uri which starts with `crs://azure/` and the following segments are composed by the top level command group name for the component. The uri should be unique across all the components.
-    #[prost(string, tag = "3")]
-    pub uri: ::prost::alloc::string::String,
-    /// the help information of the component
-    #[prost(message, optional, tag = "4")]
-    pub help: ::core::option::Option<super::command::CrsHelp>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ExecuteRequest {

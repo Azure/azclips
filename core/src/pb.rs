@@ -8,9 +8,9 @@ use serde_json::Value;
 
 use crate::error::{AzInternalError, AzResult, AzUserUsageError};
 
-pub(crate) use plugin::*;
 pub use command::*;
 pub use component::*;
+pub(crate) use plugin::*;
 
 impl command::CrsArg {
     pub fn arg_type_ok(&self) -> Result<&command::crs_arg::ArgType, AzInternalError> {

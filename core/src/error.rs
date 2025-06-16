@@ -98,6 +98,12 @@ pub enum AzInternalError {
 
     #[error("URL parse error: {0}")]
     UrlParseError(String),
+
+    #[error("Plugin error: {0}")]
+    PluginLoadError(#[from] prost::DecodeError),
+
+    #[error("Invalid plugin: {0}")]
+    InvalidPluginError(String),
 }
 
 #[derive(Error, Debug)]
