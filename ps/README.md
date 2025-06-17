@@ -2,6 +2,25 @@
 
 This library is the adapter for the commands of services run in powershell framework. It should combined with a main powershell module named (Azure.Core)
 
+## Build Steps
+
+### Build the .Net code of the wrapper module
+```powershell
+cd .\cirrus\ps\modules\Accounts\Accounts\
+dotnet build -c Debug
+```
+
+### Import the Cirrus.Accounts.psd1
+```powershell
+import-module .\Cirrus.Accounts.psd1
+```
+
+### Test the module
+```powershell
+Get-CirrusConfig
+```
+
+
 ## TODO list
 
 - [] expose commands to install/uninstall/upgrade a service. Those commands are relied by (Azure.Core)
