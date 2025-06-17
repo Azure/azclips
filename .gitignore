@@ -14,6 +14,7 @@ debug/
 # IDE specific
 .idea/
 .vscode/
+.vs/
 *.swp
 *.swo
 
