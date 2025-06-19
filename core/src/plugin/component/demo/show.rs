@@ -1,10 +1,9 @@
-use crate::client::{ClientCredential, MgmtClient};
 use async_trait::async_trait;
-use azure_core::http::Method;
 use serde_json::Value;
 use tracing::error;
 
 use crate::{
+    client::{ClientCredential, MgmtClient, Method},
     component::{AzCommand, AzCommandExecute, AzComponentCtx},
     error::{AzError, AzInternalError},
     pb::{
@@ -29,8 +28,6 @@ impl AzCommandExecute for ShowDemo {
             Some(s) => s.to_owned(),
             None => ctx.get_default_subscription().await?,
         };
-        println!("subscription: {}", subscription);
-        println!("resource_group_name: {}", self.resource_group_name);
 
         let credential = ctx.get_default_credential().await?;
         let client_credential = ClientCredential::new(credential.clone());

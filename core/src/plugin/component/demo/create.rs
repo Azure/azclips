@@ -10,7 +10,8 @@ use crate::{
 };
 
 #[derive(Debug, Default)]
-pub struct CreateDemo {}
+pub struct CreateDemo {
+}
 
 #[async_trait]
 impl AzCommandExecute for CreateDemo {

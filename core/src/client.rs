@@ -13,7 +13,7 @@ use typespec_client_core::http::Response as RawResponse;
 use typespec_client_core::http;
 
 pub use credential::ClientCredential;
-pub(crate) use typespec_client_core::http::{headers, Method, StatusCode, headers::Headers};
+pub(crate) use typespec_client_core::http::{headers, Method, StatusCode, headers::Headers, request};
 
 use bytes::Bytes;
 
