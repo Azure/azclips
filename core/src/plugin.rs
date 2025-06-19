@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::component::{get_component_dir, AzComponent, AzComponentCtx};
 use crate::config::cloud::AzCloud;
-use crate::error::{AzError, AzInternalError};
-use crate::pb::{CrsHelp, MetadataRequest};
+use crate::error::AzInternalError;
+use crate::pb::CrsHelp;
 use crate::plugin::runtime::PluginRuntime;
 use crate::uri::CrsUri;
 
@@ -42,7 +42,8 @@ impl AzPlugin {
         let metadata = runtime.get_metadata()?;
         Ok(Self {
             name: metadata.name,
-            uri: CrsUri::from_str(&metadata.uri).map_err(|e| AzInternalError::InvalidCrsUriError(e.to_string()))?,
+            uri: CrsUri::from_str(&metadata.uri)
+                .map_err(|e| AzInternalError::InvalidCrsUriError(e.to_string()))?,
             version: metadata.version,
             help: metadata.help.unwrap_or_default(),
             path,

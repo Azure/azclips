@@ -17,6 +17,7 @@ azure_identity = { path = "../vendored_sdks/azure_identity" }
 base64 = { workspace = true }
 chrono = { workspace = true }
 dirs = { workspace = true }
+flate2 = { workspace = true }
 # remove fs2 when file lock feature is stable in rust https://github.com/rust-lang/rust/issues/130994
 fs2 = { workspace = true }
 futures = { workspace = true }
