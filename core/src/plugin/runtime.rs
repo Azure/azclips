@@ -160,6 +160,15 @@ impl<T: AzComponentCtx> AzComponent<T> for PluginRuntime {
     }
 
     async fn execute(&self, ctx: &T, request: ExecuteRequest) -> Result<ExecuteResponse, AzError> {
+        
+        // let params = request.params.as_ref().map(|p| {
+        //     let mut params = HashMap::new();
+        //     for (key, value) in p.params.iter() {
+        //         params.insert(key.clone(), serde_json::);
+        //     }
+        //     params
+        // });
+
         todo!()
     }
 }
@@ -243,6 +252,7 @@ impl CrsCommandGroup {
         }
     }
 
+    // Clone the command group and its sub-groups and commands in the given depth
     fn partial_clone(&self, depth: Option<u32>) -> CrsCommandGroup {
         if depth.is_none_or(|d| d > 0) {
             let depth = depth.map(|d| d - 1);
@@ -270,6 +280,8 @@ impl CrsCommandGroup {
 }
 
 impl CrsCommand {
+
+    // The plugin data is not cloned
     fn partial_clone(&self, _: Option<u32>) -> CrsCommand {
         CrsCommand {
             name: self.name.clone(),

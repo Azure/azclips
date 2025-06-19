@@ -15,6 +15,7 @@ async-trait = { workspace = true }
 azure_core = { workspace = true }
 azure_identity = { path = "../vendored_sdks/azure_identity" }
 base64 = { workspace = true }
+bytes = { workspace = true }
 chrono = { workspace = true }
 dirs = { workspace = true }
 flate2 = { workspace = true}
