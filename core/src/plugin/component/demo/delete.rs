@@ -3,14 +3,14 @@ use serde_json::{json, Value};
 use tracing::error;
 
 use crate::{
-    client::{ClientCredential, MgmtClient, Method},
+    client::{ClientCredential, Method, MgmtClient},
     component::{AzCommand, AzCommandExecute, AzComponentCtx},
     error::AzError,
     pb::{
         crs_arg, crs_string_arg, CrsArg, CrsArgHelp, CrsCommand, CrsHelp, CrsParams, CrsStringArg,
         CrsStringFormat, CrsSubscriptionIdFormat,
     },
-        VERSION,
+    VERSION,
 };
 
 #[derive(Debug, Default)]
@@ -51,13 +51,13 @@ impl AzCommandExecute for DeleteDemo {
             .run(Method::Delete, &path, Some(query_pairs), None, None, None)
             .await?;
 
-            let status = response.status_code;
-            if !status.is_success() {
-                return Err(AzError::GeneralError(format!(
-                    "Failed to get resource group info: status code {}",
-                    status
-                )));
-            }
+        let status = response.status_code;
+        if !status.is_success() {
+            return Err(AzError::GeneralError(format!(
+                "Failed to get resource group info: status code {}",
+                status
+            )));
+        }
 
         Ok(None)
     }

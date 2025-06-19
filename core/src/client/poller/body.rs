@@ -1,7 +1,7 @@
+use super::super::http::{Method, Pipeline, Request, StatusCode, Url};
 use super::utils::{self, get_provisioning_state, result_helper};
 use super::PollingHandler;
 use super::{utils::LROStatus, Response};
-use super::super::http::{Method, Pipeline, Request, StatusCode, Url};
 use super::{ClientError, ClientResult};
 
 pub struct Poller {
@@ -66,7 +66,10 @@ impl PollingHandler for Poller {
         let resp = Response::from_raw_response(resp).await?;
         if !utils::is_valid_status_code(resp.status_code) {
             self.resp = resp.clone();
-            return Err(ClientError::message(resp.into(), "invalid response status code"));
+            return Err(ClientError::message(
+                resp.into(),
+                "invalid response status code",
+            ));
         }
         if resp.status_code == StatusCode::NoContent {
             self.resp = resp.clone();

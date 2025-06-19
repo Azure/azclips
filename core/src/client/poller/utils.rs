@@ -2,13 +2,12 @@ use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use std::{fmt::Display, time::Duration};
 
-use super::Response;
 use super::super::http::{headers::HeaderName, StatusCode, Url};
+use super::Response;
 use super::{ClientError, ClientResult, ErrorKind};
 
 use serde_json::{from_slice, Value};
 use std::collections::HashMap;
-
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum FinalStateVia {
@@ -209,7 +208,11 @@ pub fn is_non_terminal_http_status_code(status_code: StatusCode) -> bool {
 // result_helper processes the response as success or failure.
 // In the success case, it returns the response as Ok.
 // In the failure case, it returns the Response ErrorKind as Err.
-pub fn result_helper(resp: &Response, failed: bool, json_field: Option<&str>) -> ClientResult<Response> {
+pub fn result_helper(
+    resp: &Response,
+    failed: bool,
+    json_field: Option<&str>,
+) -> ClientResult<Response> {
     if !is_valid_status_code(resp.status_code) || failed {
         Err(resp.clone().into())
     } else if let Some(json_field) = json_field {

@@ -1,9 +1,10 @@
-use super::utils::{self, get_resource_location, result_helper, get_lro_status, get_provisioning_state};
+use super::super::http::{headers::HeaderName, headers::LOCATION, Method, Pipeline, Request, Url};
+use super::utils::{
+    self, get_lro_status, get_provisioning_state, get_resource_location, result_helper,
+};
 use super::PollingHandler;
 use super::{utils::LROStatus, FinalStateVia, Response};
-use super::super::http::{Method, Pipeline, Request, Url, headers::LOCATION, headers::HeaderName};
 use super::{ClientError, ClientResult, ErrorKind};
-
 
 // This is not defined in azure_core/src/http/headers.rs
 pub const OPERATION_LOCATION: HeaderName = HeaderName::from_static("operation-location");
@@ -81,7 +82,10 @@ impl PollingHandler for Poller {
         let resp = Response::from_raw_response(resp).await?;
         if !utils::is_valid_status_code(resp.status_code) {
             self.resp = resp.clone();
-            return Err(ClientError::message(resp.into(), "invalid response status code"));
+            return Err(ClientError::message(
+                resp.into(),
+                "invalid response status code",
+            ));
         }
         let status = get_lro_status(&resp)?;
         if let Some(status) = status {

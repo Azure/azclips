@@ -1,9 +1,12 @@
-use super::super::http::{headers::LOCATION, Context, Method, Pipeline, Request, Url};
+use super::super::http::{
+    headers::HeaderName, headers::LOCATION, Context, Method, Pipeline, Request, Url,
+};
 use super::utils::{
     self, get_lro_status, get_provisioning_state, result_helper, FinalStateVia, LROStatus,
 };
 use super::{ClientError, ClientResult, ErrorKind, PollingHandler, Response};
-use azure_core::http::headers::AZURE_ASYNCOPERATION;
+
+const AZURE_ASYNCOPERATION: HeaderName = HeaderName::from_static("azure-asyncoperation");
 
 pub struct Poller {
     pl: Pipeline,

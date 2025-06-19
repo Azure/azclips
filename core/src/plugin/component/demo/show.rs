@@ -3,7 +3,7 @@ use serde_json::Value;
 use tracing::error;
 
 use crate::{
-    client::{ClientCredential, MgmtClient, Method},
+    client::{ClientCredential, Method, MgmtClient},
     component::{AzCommand, AzCommandExecute, AzComponentCtx},
     error::{AzError, AzInternalError},
     pb::{

@@ -1,8 +1,7 @@
+use super::super::http::{headers::LOCATION, Method, Pipeline, Request, StatusCode, Url};
 use super::utils::{get_provisioning_state, is_non_terminal_http_status_code, result_helper};
 use super::PollingHandler;
-use super::{utils::LROStatus, Response, ClientResult};
-use super::super::http::{Method, Pipeline, Request, StatusCode, Url, headers::LOCATION};
-
+use super::{utils::LROStatus, ClientResult, Response};
 
 pub struct Poller {
     pl: Pipeline,

@@ -1,18 +1,17 @@
-use std::sync::Arc;
 use bytes::Bytes;
+use std::sync::Arc;
 
-use super::http::{headers::Headers, Context, Method, Pipeline, Url, Request};
+use super::http::{headers::Headers, Context, Method, Pipeline, Request, Url};
 use super::options::ClientOptions;
 use super::policies::{BearerTokenCredentialPolicy, ClientRequestIdPolicy, TelemetryPolicy};
-use super::ClientCredential;
 use super::poller::Poller;
+use super::{ClientCredential, ClientMethodOptions};
 use crate::client::Response;
 use crate::{
     component::AzComponentCtx,
     config::cloud::{endpoint, resource_id},
     error::AzInternalError,
 };
-use azure_core::http::ClientMethodOptions;
 
 #[derive(Debug)]
 pub struct MgmtClient {
@@ -56,8 +55,7 @@ impl MgmtClient {
         headers: Option<Headers>,
         body: Option<Bytes>,
         options: Option<ClientMethodOptions<'_>>,
-    ) -> Result<Response, AzInternalError>
-    {
+    ) -> Result<Response, AzInternalError> {
         let options = options.unwrap_or_default();
         let mut url = self.endpoint.clone();
         url = url

@@ -45,11 +45,7 @@ impl<T: AzComponentCtx> AzComponent<T> for PluginRuntime {
         })
     }
 
-    async fn validate(
-        &self,
-        _: &T,
-        request: ValidateRequest,
-    ) -> Result<ValidateResponse, AzError> {
+    async fn validate(&self, _: &T, request: ValidateRequest) -> Result<ValidateResponse, AzError> {
         let component_uri = self.inner.uri();
         let uri = &request.uri;
         if !uri.starts_with(component_uri.to_string().as_str()) {
@@ -90,9 +86,11 @@ impl<T: AzComponentCtx> AzComponent<T> for PluginRuntime {
                         uri: Some(validated_uri.to_string()),
                     })
                 } else {
-                    Err(AzInternalError::InvalidPluginError(
-                        format!("Invalid command uri which is not executable: {}", command.uri),
-                    ).into())
+                    Err(AzInternalError::InvalidPluginError(format!(
+                        "Invalid command uri which is not executable: {}",
+                        command.uri
+                    ))
+                    .into())
                 }
             }
             None => match self.inner.find_group(&mut segments) {
@@ -104,9 +102,11 @@ impl<T: AzComponentCtx> AzComponent<T> for PluginRuntime {
                             uri: Some(validated_uri.to_string()),
                         })
                     } else {
-                        Err(AzInternalError::InvalidPluginError(
-                            format!("Invalid group uri which is executable: {}", group.uri),
-                        ).into())
+                        Err(AzInternalError::InvalidPluginError(format!(
+                            "Invalid group uri which is executable: {}",
+                            group.uri
+                        ))
+                        .into())
                     }
                 }
                 None => Ok(ValidateResponse { uri: None }),
@@ -160,7 +160,6 @@ impl<T: AzComponentCtx> AzComponent<T> for PluginRuntime {
     }
 
     async fn execute(&self, ctx: &T, request: ExecuteRequest) -> Result<ExecuteResponse, AzError> {
-        
         // let params = request.params.as_ref().map(|p| {
         //     let mut params = HashMap::new();
         //     for (key, value) in p.params.iter() {
@@ -280,7 +279,6 @@ impl CrsCommandGroup {
 }
 
 impl CrsCommand {
-
     // The plugin data is not cloned
     fn partial_clone(&self, _: Option<u32>) -> CrsCommand {
         CrsCommand {

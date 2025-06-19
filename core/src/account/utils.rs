@@ -4,9 +4,9 @@ use azure_core::credentials::TokenCredential;
 use azure_identity::cirrus_token_cache::{AccountEntry, AccountType, FilePersistentTokenCache};
 use reqwest::{Client, Url};
 use serde_json::Value;
-use tracing::debug;
 use std::result::Result;
 use std::sync::Arc;
+use tracing::debug;
 
 pub fn can_launch_browser() -> bool {
     webbrowser::Browser::is_available()

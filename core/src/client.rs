@@ -9,11 +9,13 @@ pub use mgmt::MgmtClient;
 
 use typespec::error::{Error as ClientError, ErrorKind, Result as ClientResult};
 use typespec_client_core::error::http_response_from_body;
-use typespec_client_core::http::Response as RawResponse;
 use typespec_client_core::http;
+use typespec_client_core::http::Response as RawResponse;
 
 pub use credential::ClientCredential;
-pub(crate) use typespec_client_core::http::{headers, Method, StatusCode, headers::Headers, request};
+pub(crate) use typespec_client_core::http::{
+    headers::Headers, ClientMethodOptions, Method, StatusCode,
+};
 
 use bytes::Bytes;
 
