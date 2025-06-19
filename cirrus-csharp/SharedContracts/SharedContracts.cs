@@ -66,7 +66,6 @@ namespace SharedContracts
     [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field)]
     public class CommandInfoAttribute : Attribute
     {
-        public bool Required { get; set; } = false;
         public string Description { get; set; } = "";
     }
     
