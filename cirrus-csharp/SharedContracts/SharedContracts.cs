@@ -63,10 +63,10 @@ namespace SharedContracts
         public string SerializedName { get; set; } = "";
     }
 
-    [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field)]
+    [AttributeUsage(AttributeTargets.Class)]
     public class CommandInfoAttribute : Attribute
     {
         public string Description { get; set; } = "";
     }
-    
+
 }
