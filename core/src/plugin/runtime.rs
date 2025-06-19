@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use prost::Message;
+use std::io::Read;
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -19,7 +20,10 @@ pub struct PluginRuntime {
 impl PluginRuntime {
     pub(crate) async fn load_from_path(path: &PathBuf) -> Result<Self, AzInternalError> {
         let contents = tokio::fs::read(path).await?;
-        let component = CrsPluginComponent::decode(&contents[..])
+        let mut decoder = flate2::read::ZlibDecoder::new(&contents[..]);
+        let mut buffer = Vec::new();
+        decoder.read_to_end(&mut buffer)?;
+        let component = CrsPluginComponent::decode(&buffer[..])
             .map_err(|e| AzInternalError::PluginLoadError(e))?;
         Ok(Self { inner: component })
     }
