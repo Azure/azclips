@@ -8,7 +8,8 @@
     "customizations": {
         "vscode": {
             "extensions": [
-                "rust-lang.rust-analyzer"
+                "rust-lang.rust-analyzer",
+                "ms-dotnettools.csdevkit"
             ],
             "settings": {
                 // "editor.formatOnSave": true

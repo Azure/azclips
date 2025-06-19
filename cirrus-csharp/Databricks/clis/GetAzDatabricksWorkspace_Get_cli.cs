@@ -18,7 +18,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
     // [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Description(@"Gets the workspace.")]
     // [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Generated]
     // [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.HttpPath(Path = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Databricks/workspaces/{workspaceName}", ApiVersion = "2024-05-01")]
-    public partial class workspace_show_18 : BaseProcessor,
+    public partial class WorkspaceShow : BaseProcessor,
         Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.IEventListener
     {
         /// <summary>A unique id generatd for the this cmdlet when it is instantiated.</summary>
@@ -77,6 +77,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         // PossibleTypes = new [] { typeof(string) })]
         // [global::System.Management.Automation.Alias("WorkspaceName")]
         // [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Path)]
+        [ArgumentInfo(Required = true, Description = "The name of the workspace.")]
         public string Name { get => this._name; set => this._name = value; }
 
         /// <summary>
@@ -112,6 +113,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         // SerializedName = @"resourceGroupName",
         // PossibleTypes = new [] { typeof(string) })]
         // [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Path)]
+        [ArgumentInfo(Description = "The name of the resource group. The name is case insensitive.")]
         public string ResourceGroupName { get => this._resourceGroupName; set => this._resourceGroupName = value; }
 
         /// <summary>Backing field for <see cref="SubscriptionId" /> property.</summary>
@@ -130,6 +132,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         // Description =@"",
         // Script = @"(Get-AzContext).Subscription.Id")]
         // [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Path)]
+        [ArgumentInfo(Description = "The ID of the target subscription. The value must be an UUID.")]
         public string SubscriptionId { get => this._subscriptionId; set => this._subscriptionId = value; }
 
         /// <summary>
@@ -200,7 +203,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         /// <summary>
         /// Intializes a new instance of the <see cref="GetAzDatabricksWorkspace_Get" /> cmdlet class.
         /// </summary>
-        public workspace_show_18()
+        public WorkspaceShow()
         {
 
         }

@@ -71,7 +71,7 @@ $isAzure = [System.Convert]::ToBoolean('true')
 
 if(-not $Debugger) {
   Write-Host -ForegroundColor Green 'Cleaning build folders...'
-  $null = Remove-Item -Recurse -ErrorAction SilentlyContinue -Path $binFolder, $objFolder
+  $null = Remove-Item -Recurse -ErrorAction SilentlyContinue -Force -Path $binFolder, $objFolder
 
   if((Test-Path $binFolder) -or (Test-Path $objFolder)) {
     Write-Host -ForegroundColor Cyan 'Did you forget to exit your isolated module session before rebuilding?'
