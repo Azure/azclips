@@ -13,7 +13,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
     /// <remarks>
     /// [OpenAPI] CreateOrUpdate=>PUT:"/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Databricks/workspaces/{workspaceName}"
     /// </remarks>
-    [CommandInfo(Description = "Creates a new workspace.")]
+    [CommandInfo("workspace create", Description = "Creates a new workspace.")]
     public partial class WorkspaceCreate : BaseProcessor,
         Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.IEventListener
     {
@@ -161,14 +161,6 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         public Microsoft.Azure.PowerShell.Cmdlets.Databricks.Support.EncryptionKeySource ManagedServiceKeySource { get => _parametersBody.ManagedServiceKeySource ?? ((Microsoft.Azure.PowerShell.Cmdlets.Databricks.Support.EncryptionKeySource)""); set => _parametersBody.ManagedServiceKeySource = value; }
 
         /// <summary>The name of KeyVault key.</summary>
-        [global::System.Management.Automation.Parameter(Mandatory = false, HelpMessage = "The name of KeyVault key.")]
-        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
-        [Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.Info(
-        Required = false,
-        ReadOnly = false,
-        Description = @"The name of KeyVault key.",
-        SerializedName = @"keyName",
-        PossibleTypes = new[] { typeof(string) })]
         [ArgumentInfo(Description = "The name of KeyVault key.", Required = false, SerializedName = "keyName")]
         public string ManagedServicesKeyVaultPropertiesKeyName { get => _parametersBody.ManagedServicesKeyVaultPropertiesKeyName ?? null; set => _parametersBody.ManagedServicesKeyVaultPropertiesKeyName = value; }
 

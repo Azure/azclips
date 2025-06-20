@@ -13,9 +13,9 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
     /// <remarks>
     /// [OpenAPI] Get=>GET:"/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Databricks/workspaces/{workspaceName}"
     /// </remarks>
-   [CommandInfo(Description = "Gets the workspace.")]
+    [CommandInfo("workspace show", Description = "Gets the workspace.")]
     public partial class WorkspaceShow : BaseProcessor,
-        Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.IEventListener
+         Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.IEventListener
     {
         /// <summary>A unique id generatd for the this cmdlet when it is instantiated.</summary>
 

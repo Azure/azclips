@@ -66,6 +66,12 @@ namespace SharedContracts
     [AttributeUsage(AttributeTargets.Class)]
     public class CommandInfoAttribute : Attribute
     {
+        public CommandInfoAttribute(string name)
+        {
+            Name = name ?? throw new ArgumentNullException(nameof(name));
+        }
+
+        public string Name { get; set; }
         public string Description { get; set; } = "";
     }
 
