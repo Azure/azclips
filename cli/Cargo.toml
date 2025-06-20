@@ -4,6 +4,14 @@ version = "0.1.0"
 edition = "2021"
 description = "Azure CLI V3 implementation"
 license = "MIT"
+repository = "https://github.com/Azure/cirrus"
+keywords = ["azure", "cli"]
+authors = ["Azure CLI Tools Team"]
+categories = ["command-line-utilities"]
+
+[[bin]]
+name = "azure"
+path = "src/main.rs"
 
 [lib]
 name = "az_cli"
@@ -21,3 +29,14 @@ crossterm = { workspace = true }
 # Calc String Width in Terminal.
 # By default, it uses the cjk features. But maybe we can close it in the future.
 unicode-width = { workspace = true }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true
