@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use prost::Message;
+use std::collections::HashMap;
 use std::io::Read;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -7,9 +8,7 @@ use std::str::FromStr;
 use crate::component::{AzComponent, AzComponentCtx};
 use crate::error::{AzError, AzInternalError};
 use crate::pb::{
-    crs_interface, ComponentMetadata, CrsCommand, CrsCommandGroup, CrsInterface,
-    CrsPluginComponent, ExecuteRequest, ExecuteResponse, InterfaceRequest, InterfaceResponse,
-    MetadataRequest, MetadataResponse, ValidateRequest, ValidateResponse,
+    crs_interface, execute_response, ComponentMetadata, CrsCommand, CrsCommandGroup, CrsInterface, CrsPluginComponent, ExecuteRequest, ExecuteResponse, InterfaceRequest, InterfaceResponse, MetadataRequest, MetadataResponse, ValidateRequest, ValidateResponse
 };
 use crate::uri::CrsUri;
 
@@ -159,16 +158,21 @@ impl<T: AzComponentCtx> AzComponent<T> for PluginRuntime {
         Ok(InterfaceResponse { interface })
     }
 
-    async fn execute(&self, ctx: &T, request: ExecuteRequest) -> Result<ExecuteResponse, AzError> {
-        // let params = request.params.as_ref().map(|p| {
-        //     let mut params = HashMap::new();
-        //     for (key, value) in p.params.iter() {
-        //         params.insert(key.clone(), serde_json::);
-        //     }
-        //     params
-        // });
+    async fn execute(&self, _: &T, request: ExecuteRequest) -> Result<ExecuteResponse, AzError> {
+        let params = request.params.as_ref().map(|p| {
+            let mut params = HashMap::new();
+            for (key, value) in p.params.iter() {
+                let value: serde_json::Value = serde_json::from_slice(value).expect("Invalid parameter value");
+                params.insert(key.clone(), value);
+            }
+            params
+        });
 
-        todo!()
+        // echo input directly
+        let resp = serde_json::to_vec(&params).expect("Invalid parameter value");
+        return Ok(ExecuteResponse {
+            data: Some(execute_response::Data::Json(resp)),
+        });
     }
 }
 
