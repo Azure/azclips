@@ -1,12 +1,10 @@
-use crate::client::{ClientCredential, MgmtClient, Request};
 use async_trait::async_trait;
-use azure_core::http::{Method, Url};
 use serde_json::Value;
 use tracing::error;
 
 use crate::{
+    client::{ClientCredential, Method, MgmtClient},
     component::{AzCommand, AzCommandExecute, AzComponentCtx},
-    config::cloud::{endpoint, resource_id},
     error::{AzError, AzInternalError},
     pb::{
         crs_arg, crs_string_arg, CrsArg, CrsArgHelp, CrsCommand, CrsHelp, CrsParams, CrsStringArg,
@@ -30,14 +28,8 @@ impl AzCommandExecute for ShowDemo {
             Some(s) => s.to_owned(),
             None => ctx.get_default_subscription().await?,
         };
-        println!("subscription: {}", subscription);
-        println!("resource_group_name: {}", self.resource_group_name);
 
-        let cfg = ctx.get_cfg().await;
-        let cloud = cfg.clouds.get_active();
-        let endpoint = cloud.get_endpoint(&endpoint::RESOURCE_MANAGER).await?;
         let credential = ctx.get_default_credential().await?;
-
         let client_credential = ClientCredential::new(credential.clone());
 
         // How to define the telemetry options?
@@ -50,18 +42,16 @@ impl AzCommandExecute for ShowDemo {
 
         let client = MgmtClient::build(ctx, client_credential, &options).await?;
 
-        // Where can I store the api version?
-        let url = Url::parse(&format!(
-            "{}/subscriptions/{}/resourceGroups/{}/?api-version=2020-06-01",
-            endpoint, subscription, self.resource_group_name
-        ))
-        .map_err(|e| AzInternalError::UrlParseError(e.to_string()))?;
+        let path = format!(
+            "/subscriptions/{}/resourceGroups/{}/",
+            subscription, self.resource_group_name
+        );
+        let query_pairs = vec![("api-version".to_string(), "2020-06-01".to_string())];
+        let response = client
+            .run(Method::Get, &path, Some(query_pairs), None, None, None)
+            .await?;
 
-        let request = Request::new(url, Method::Get);
-
-        let response = client.send(request).await?;
-
-        let status = response.status();
+        let status = response.status_code;
         if !status.is_success() {
             return Err(AzError::GeneralError(format!(
                 "Failed to get resource group info: status code {}",
@@ -69,17 +59,7 @@ impl AzCommandExecute for ShowDemo {
             )));
         }
 
-        let body_bytes = match response.into_raw_body().collect().await {
-            Ok(bytes) => bytes,
-            Err(e) => {
-                return Err(AzError::GeneralError(format!(
-                    "Failed to read response body: {}",
-                    e
-                )))
-            }
-        };
-
-        let rg_info = match serde_json::from_slice::<Value>(&body_bytes) {
+        let rg_info = match serde_json::from_slice::<Value>(&response.body) {
             Ok(value) => value,
             Err(e) => return Err(AzError::Internal(AzInternalError::Json(e))),
         };

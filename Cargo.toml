@@ -14,6 +14,7 @@ anyhow = "1.0"
 async-trait = "0.1"
 azure_core = "0.24.0"
 base64 = "0.22"
+bytes = "1.10.1"
 cargo-husky = { version = "1.5.0", features = [
     "run-cargo-test",
     "run-cargo-clippy",
@@ -23,6 +24,7 @@ chrono = "0.4"
 crossterm = "0.29.0"
 dirs = "6.0"
 env_logger = "0.11"
+flate2 = "1.1"
 futures = "0.3"
 # file lock feature in rust is still unstable https://github.com/rust-lang/rust/issues/130994
 # So here we use fs2 crate to implement file lock

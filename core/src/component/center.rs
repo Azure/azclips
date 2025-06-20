@@ -14,13 +14,13 @@ use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tracing::error;
 
-use super::built_in::AzBuildIn;
+use super::built_in::AzBuiltIn;
 use super::{get_component_dir, AzComponent, AzComponentCtx};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "info")]
 pub enum AzComponentInfo {
-    BuiltIn(AzBuildIn),
+    BuiltIn(AzBuiltIn),
     Plugin(AzPlugin),
 }
 
@@ -29,7 +29,7 @@ pub struct AzComponentCenter<T: AzComponentCtx> {
     /// the route table using the component uri segments as the key, it is used to find the component based on the uri
     pub(super) route_table: HashMap<String, AzComponentInfo>,
     /// the built-in components that are loaded
-    pub(super) built_ins: HashMap<AzBuildIn, Arc<dyn AzComponent<T>>>,
+    pub(super) built_ins: HashMap<AzBuiltIn, Arc<dyn AzComponent<T>>>,
     /// the plugins that are loaded, the key is the plugin name
     pub(super) plugins: HashMap<String, Arc<dyn AzComponent<T>>>,
 }

@@ -6,6 +6,7 @@ use reqwest::{Client, Url};
 use serde_json::Value;
 use std::result::Result;
 use std::sync::Arc;
+use tracing::debug;
 
 pub fn can_launch_browser() -> bool {
     webbrowser::Browser::is_available()
@@ -39,7 +40,7 @@ pub fn get_default_account() -> Result<Option<AccountEntry>, AuthenticationError
             let account = token_cache.cache().get_default_account();
             if let Some(ref acc) = account {
                 if let Some(ref username) = acc.username {
-                    println!("The current user is: {}", username);
+                    debug!("The current user is: {}", username);
                 }
             }
             Ok(account)

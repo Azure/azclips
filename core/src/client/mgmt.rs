@@ -1,12 +1,12 @@
+use bytes::Bytes;
 use std::sync::Arc;
 
-use async_trait::async_trait;
-use azure_core::http::Context;
-
-use super::http::{HttpClient, Pipeline, Request, Response};
+use super::http::{headers::Headers, Context, Method, Pipeline, Request, Url};
 use super::options::ClientOptions;
 use super::policies::{BearerTokenCredentialPolicy, ClientRequestIdPolicy, TelemetryPolicy};
-use super::{ClientCredential, ClientResult};
+use super::poller::Poller;
+use super::{ClientCredential, ClientMethodOptions};
+use crate::client::Response;
 use crate::{
     component::AzComponentCtx,
     config::cloud::{endpoint, resource_id},
@@ -15,7 +15,7 @@ use crate::{
 
 #[derive(Debug)]
 pub struct MgmtClient {
-    endpoint: String,
+    endpoint: Url,
     pipeline: Pipeline,
 }
 
@@ -27,6 +27,8 @@ impl MgmtClient {
     ) -> Result<Self, AzInternalError> {
         let cfg = ctx.get_cfg().await.clouds.get_active().to_owned();
         let endpoint = cfg.get_endpoint(&endpoint::RESOURCE_MANAGER).await?;
+        let endpoint =
+            Url::parse(&endpoint).map_err(|e| AzInternalError::UrlParseError(e.to_string()))?;
         let scope = cfg
             .get_credential_scope(&resource_id::RESOURCE_MANAGER)
             .await?;
@@ -45,11 +47,48 @@ impl MgmtClient {
         Ok(Self { endpoint, pipeline })
     }
 
-    pub async fn send(&self, request: Request) -> Result<Response, AzInternalError> {
-        // TODO: Context should get from the component ctx
-        let ctx = Context::new();
-        let mut request = request;
-        let response = self.pipeline.send(&ctx, &mut request).await?;
-        Ok(response)
+    pub async fn run(
+        &self,
+        method: Method,
+        path: &str,
+        query_pairs: Option<Vec<(String, String)>>,
+        headers: Option<Headers>,
+        body: Option<Bytes>,
+        options: Option<ClientMethodOptions<'_>>,
+    ) -> Result<Response, AzInternalError> {
+        let options = options.unwrap_or_default();
+        let mut url = self.endpoint.clone();
+        url = url
+            .join(path)
+            .map_err(|e| AzInternalError::UrlParseError(e.to_string()))?;
+        if let Some(query_pairs) = query_pairs {
+            url.query_pairs_mut().extend_pairs(query_pairs);
+        }
+        let mut request = Request::new(url, method);
+        if let Some(headers) = headers {
+            headers.into_iter().for_each(|(k, v)| {
+                request.insert_header(k, v);
+            });
+        }
+        if let Some(body) = body {
+            request.set_body(body);
+        }
+
+        let ctx = Context::with_context(&options.context);
+        let raw_resp = self.pipeline.send(&ctx, &mut request).await?;
+        let mut resp = Response::from_raw_response(raw_resp).await?;
+
+        // For PUT, POST, PATCH, DELETE operations that can be a LRO, try to
+        if [Method::Put, Method::Post, Method::Delete, Method::Patch]
+            .iter()
+            .any(|m| *m == method)
+        {
+            if let Ok(mut poller) = Poller::new(self.pipeline.clone(), &request, &resp, None).await
+            {
+                resp = poller.poll_until_done(&ctx, None).await?;
+            }
+        }
+
+        Ok(resp)
     }
 }
