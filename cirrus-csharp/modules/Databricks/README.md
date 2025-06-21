@@ -41,6 +41,8 @@ title: Databricks
 subject-prefix: $(service-name)
 
 inlining-threshold: 100
+disable-transform-identity-type: true
+flatten-userassignedidentity: false
 
 # resourcegroup-append: true
 # identity-correction-for-post: true
