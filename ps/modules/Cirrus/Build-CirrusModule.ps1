@@ -169,7 +169,3 @@ Write-Host ""
 Write-Host "To use the module:" -ForegroundColor Cyan
 Write-Host "  Import-Module '$scriptDir\Cirrus.psd1'" -ForegroundColor White
 Write-Host ""
-Write-Host "Available commands:" -ForegroundColor Cyan
-Write-Host "  Get-CirrusVersion      - Get version information" -ForegroundColor White
-Write-Host "  Test-CirrusLibrary     - Test library functionality" -ForegroundColor White
-Write-Host "  Invoke-CirrusCommand   - Execute Cirrus commands" -ForegroundColor White 

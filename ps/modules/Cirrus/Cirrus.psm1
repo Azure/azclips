@@ -1,8 +1,8 @@
 # PowerShell Module for Azure Cirrus
 # This module provides cmdlets for Azure Cirrus cloud management using Rust backend
 
-# Load the compiled C# assembly first
-Add-Type -Path "$PSScriptRoot\Cirrus.dll"
+# # Load the compiled C# assembly first
+# Add-Type -Path "$PSScriptRoot\Cirrus.dll"
 
 # Initialize the Rust library
 Write-Host "Initializing Cirrus module..." -ForegroundColor Cyan
@@ -113,9 +113,3 @@ function Invoke-CirrusCommand {
 $ExecutionContext.SessionState.Module.OnRemove = {
     Write-Host "Cirrus module is being removed" -ForegroundColor Yellow
 }
-
-# Export module members
-Export-ModuleMember -Function @(
-    "Get-CirrusVersion",
-    "Invoke-CirrusCommand"
-) -Variable @("ModuleVersion", "ModuleName")

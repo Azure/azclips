@@ -103,7 +103,7 @@ public static class PSWrapper
     {
         private readonly List<IntPtr> _allocatedPointers = new List<IntPtr>();
 
-        public IntPtr AllocateString(string str)
+        public IntPtr AllocateString(string? str)
         {
             if (string.IsNullOrEmpty(str))
                 return IntPtr.Zero;
@@ -165,7 +165,7 @@ public static class PSWrapper
     /// <summary>
     /// Convert .NET object to CParamValue
     /// </summary>
-    private static CParamValue ConvertToCParam(object value, NativeMemoryManager memoryManager)
+    private static CParamValue ConvertToCParam(object? value, NativeMemoryManager memoryManager)
     {
         if (value == null)
         {
@@ -328,56 +328,41 @@ public static class PSWrapper
     /// Execute a Cirrus command with parameters
     /// </summary>
     /// <param name="uri">Command URI</param>
-    /// <param name="parameters">Parameters as key-value pairs</param>
+    /// <param name="parameters">Parameters as key-value pairs array</param>
     /// <returns>Result in JSON format</returns>
-    public static string RunCommand(string uri, IDictionary<string, object> parameters = null)
+    public static string RunCommand(string uri, KeyValuePair<string, object>[]? parameters = null)
     {
         EnsureInitialized();
 
         if (string.IsNullOrEmpty(uri))
             throw new ArgumentException("URI cannot be null or empty", nameof(uri));
 
-        if (parameters == null || parameters.Count == 0)
-        {
-            // If no parameters, use empty arrays
-            IntPtr ptr = cirrus_run_command(uri, IntPtr.Zero, IntPtr.Zero, UIntPtr.Zero);
-            if (ptr == IntPtr.Zero)
-                return "{}";
+        // Prepare parameters
+        IntPtr keysPtr = IntPtr.Zero, valuesPtr = IntPtr.Zero;
+        uint paramCount = 0;
 
-            try
+        if (parameters?.Length > 0)
+        {
+            using var memoryManager = new NativeMemoryManager();
+
+            var keys = new string[parameters.Length];
+            var values = new CParamValue[parameters.Length];
+
+            for (int i = 0; i < parameters.Length; i++)
             {
-                return Marshal.PtrToStringAnsi(ptr) ?? "{}";
+                keys[i] = parameters[i].Key;
+                values[i] = ConvertToCParam(parameters[i].Value, memoryManager);
             }
-            finally
-            {
-                cirrus_free_string(ptr);
-            }
+
+            keysPtr = memoryManager.AllocateStringArray(keys);
+            valuesPtr = memoryManager.AllocateArray(values);
+            paramCount = (uint)parameters.Length;
         }
 
-        using var memoryManager = new NativeMemoryManager();
-
+        // Execute command
         try
         {
-            // Convert parameters to C-style structures
-            string[] keys = new string[parameters.Count];
-            CParamValue[] values = new CParamValue[parameters.Count];
-
-            int index = 0;
-            foreach (var kvp in parameters)
-            {
-                keys[index] = kvp.Key;
-                values[index] = ConvertToCParam(kvp.Value, memoryManager);
-                index++;
-            }
-
-            IntPtr keysPtr = memoryManager.AllocateStringArray(keys);
-            IntPtr valuesPtr = memoryManager.AllocateArray(values);
-
-            IntPtr ptr = cirrus_run_command(
-                uri,
-                keysPtr,
-                valuesPtr,
-                new UIntPtr((uint)parameters.Count));
+            IntPtr ptr = cirrus_run_command(uri, keysPtr, valuesPtr, new UIntPtr(paramCount));
 
             if (ptr == IntPtr.Zero)
                 return "{}";
