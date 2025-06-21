@@ -21,6 +21,12 @@ pub extern "C" fn cirrus_run_command(
     param_count: usize,
 ) -> *mut c_char {
     if uri.is_null() {
+        tracing::error!("URI pointer is null");
+        return std::ptr::null_mut();
+    }
+
+    if param_count > 0 && (param_keys.is_null() || param_values.is_null()) {
+        tracing::error!("Parameter pointers are null but count > 0");
         return std::ptr::null_mut();
     }
 
@@ -28,34 +34,54 @@ pub extern "C" fn cirrus_run_command(
     let uri_str = unsafe {
         match CStr::from_ptr(uri).to_str() {
             Ok(s) => s,
-            Err(_) => return std::ptr::null_mut(),
+            Err(e) => {
+                tracing::error!("Failed to parse URI: {}", e);
+                return std::ptr::null_mut();
+            }
         }
     };
 
-    // Convert parameters
+    // Convert parameters with enhanced error handling
     let mut parameters = Vec::new();
 
-    if !param_keys.is_null() && !param_values.is_null() && param_count > 0 {
+    if param_count > 0 {
         unsafe {
             for i in 0..param_count {
-                let key_ptr = *param_keys.add(i);
+                let key_ptr = match param_keys.add(i).as_ref() {
+                    Some(ptr) => *ptr,
+                    None => {
+                        tracing::error!("Invalid key pointer at index {}", i);
+                        continue;
+                    }
+                };
+
                 if key_ptr.is_null() {
+                    tracing::warn!("Null key pointer at index {}", i);
                     continue;
                 }
 
-                let key_c_str = CStr::from_ptr(key_ptr);
-                let key = match key_c_str.to_str() {
+                let key_c_str = match CStr::from_ptr(key_ptr).to_str() {
                     Ok(s) => s,
-                    Err(_) => continue,
+                    Err(e) => {
+                        tracing::error!("Failed to parse key at index {}: {}", i, e);
+                        continue;
+                    }
                 };
 
-                let param_value = &*param_values.add(i);
+                let param_value = match param_values.add(i).as_ref() {
+                    Some(val) => val,
+                    None => {
+                        tracing::error!("Invalid parameter value pointer at index {}", i);
+                        continue;
+                    }
+                };
+
                 match param::c_param_to_value(param_value) {
                     Ok(value) => {
-                        parameters.push((key.to_string(), value));
+                        parameters.push((key_c_str.to_string(), value));
                     }
                     Err(e) => {
-                        tracing::error!("Failed to convert parameter {}: {}", key, e);
+                        tracing::error!("Failed to convert parameter {}: {}", key_c_str, e);
                         continue;
                     }
                 }
@@ -63,25 +89,47 @@ pub extern "C" fn cirrus_run_command(
         }
     }
 
-    // Execute command
-    let rt = tokio::runtime::Runtime::new().unwrap();
-    // TODO: change the result format, directly return the execute_response::Data to avoid duplicate serialization
-    let result = rt.block_on(async { core::execute_command(uri_str, parameters).await });
-
-    match result {
-        Ok(Some(value)) => {
-            let json = serde_json::to_string(&value).unwrap();
-            match CString::new(json) {
+    // Execute command with better error handling
+    let result = match std::panic::catch_unwind(|| {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async { core::execute_command(uri_str, parameters).await })
+    }) {
+        Ok(result) => result,
+        Err(_) => {
+            tracing::error!("Panic occurred during command execution");
+            let err_json = r#"{"error": "Internal panic during command execution"}"#;
+            return match CString::new(err_json) {
                 Ok(c_string) => c_string.into_raw(),
                 Err(_) => std::ptr::null_mut(),
-            }
+            };
         }
+    };
+
+    match result {
+        Ok(Some(value)) => match serde_json::to_string(&value) {
+            Ok(json) => match CString::new(json) {
+                Ok(c_string) => c_string.into_raw(),
+                Err(e) => {
+                    tracing::error!("Failed to create CString from JSON: {}", e);
+                    std::ptr::null_mut()
+                }
+            },
+            Err(e) => {
+                tracing::error!("Failed to serialize result to JSON: {}", e);
+                let err_json = format!(r#"{{"error": "Serialization failed: {}"}}"#, e);
+                match CString::new(err_json) {
+                    Ok(c_string) => c_string.into_raw(),
+                    Err(_) => std::ptr::null_mut(),
+                }
+            }
+        },
         Ok(None) => match CString::new("") {
             Ok(c_string) => c_string.into_raw(),
             Err(_) => std::ptr::null_mut(),
         },
         Err(e) => {
-            let err_json = format!("{{\"error\": \"{}\"}}", e);
+            tracing::error!("Command execution failed: {}", e);
+            let err_json = format!(r#"{{"error": "{}"}}"#, e.to_string().replace('"', r#"\""#));
             match CString::new(err_json) {
                 Ok(c_string) => c_string.into_raw(),
                 Err(_) => std::ptr::null_mut(),

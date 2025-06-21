@@ -1,7 +1,4 @@
-using System;
 using System.Collections;
-using System.Collections.Generic;
-using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 
@@ -102,25 +99,56 @@ public static class PSWrapper
     private class NativeMemoryManager : IDisposable
     {
         private readonly List<IntPtr> _allocatedPointers = new List<IntPtr>();
+        private readonly object _lock = new object();
+        private bool _disposed = false;
 
         public IntPtr AllocateString(string? str)
         {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(NativeMemoryManager));
+
             if (string.IsNullOrEmpty(str))
                 return IntPtr.Zero;
 
             IntPtr ptr = Marshal.StringToHGlobalAnsi(str);
-            _allocatedPointers.Add(ptr);
+            lock (_lock)
+            {
+                if (!_disposed)
+                {
+                    _allocatedPointers.Add(ptr);
+                }
+                else
+                {
+                    Marshal.FreeHGlobal(ptr);
+                    throw new ObjectDisposedException(nameof(NativeMemoryManager));
+                }
+            }
             return ptr;
         }
 
         public IntPtr AllocateArray<T>(T[] array) where T : struct
         {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(NativeMemoryManager));
+
             if (array == null || array.Length == 0)
                 return IntPtr.Zero;
 
             int size = Marshal.SizeOf<T>() * array.Length;
             IntPtr ptr = Marshal.AllocHGlobal(size);
-            _allocatedPointers.Add(ptr);
+
+            lock (_lock)
+            {
+                if (!_disposed)
+                {
+                    _allocatedPointers.Add(ptr);
+                }
+                else
+                {
+                    Marshal.FreeHGlobal(ptr);
+                    throw new ObjectDisposedException(nameof(NativeMemoryManager));
+                }
+            }
 
             for (int i = 0; i < array.Length; i++)
             {
@@ -133,6 +161,9 @@ public static class PSWrapper
 
         public IntPtr AllocateStringArray(string[] strings)
         {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(NativeMemoryManager));
+
             if (strings == null || strings.Length == 0)
                 return IntPtr.Zero;
 
@@ -143,7 +174,18 @@ public static class PSWrapper
             }
 
             IntPtr arrayPtr = Marshal.AllocHGlobal(IntPtr.Size * strings.Length);
-            _allocatedPointers.Add(arrayPtr);
+            lock (_lock)
+            {
+                if (!_disposed)
+                {
+                    _allocatedPointers.Add(arrayPtr);
+                }
+                else
+                {
+                    Marshal.FreeHGlobal(arrayPtr);
+                    throw new ObjectDisposedException(nameof(NativeMemoryManager));
+                }
+            }
             Marshal.Copy(stringPtrs, 0, arrayPtr, stringPtrs.Length);
 
             return arrayPtr;
@@ -151,14 +193,28 @@ public static class PSWrapper
 
         public void Dispose()
         {
-            foreach (IntPtr ptr in _allocatedPointers)
+            lock (_lock)
             {
-                if (ptr != IntPtr.Zero)
+                if (_disposed)
+                    return;
+
+                foreach (IntPtr ptr in _allocatedPointers)
                 {
-                    Marshal.FreeHGlobal(ptr);
+                    if (ptr != IntPtr.Zero)
+                    {
+                        try
+                        {
+                            Marshal.FreeHGlobal(ptr);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Warning: Failed to free memory at {ptr:X}: {ex.Message}");
+                        }
+                    }
                 }
+                _allocatedPointers.Clear();
+                _disposed = true;
             }
-            _allocatedPointers.Clear();
         }
     }
 
@@ -340,45 +396,52 @@ public static class PSWrapper
         // Prepare parameters
         IntPtr keysPtr = IntPtr.Zero, valuesPtr = IntPtr.Zero;
         uint paramCount = 0;
+        NativeMemoryManager? memoryManager = null;
 
-        if (parameters?.Length > 0)
-        {
-            using var memoryManager = new NativeMemoryManager();
-
-            var keys = new string[parameters.Length];
-            var values = new CParamValue[parameters.Length];
-
-            for (int i = 0; i < parameters.Length; i++)
-            {
-                keys[i] = parameters[i].Key;
-                values[i] = ConvertToCParam(parameters[i].Value, memoryManager);
-            }
-
-            keysPtr = memoryManager.AllocateStringArray(keys);
-            valuesPtr = memoryManager.AllocateArray(values);
-            paramCount = (uint)parameters.Length;
-        }
-
-        // Execute command
         try
         {
-            IntPtr ptr = cirrus_run_command(uri, keysPtr, valuesPtr, new UIntPtr(paramCount));
+            if (parameters?.Length > 0)
+            {
+                memoryManager = new NativeMemoryManager();
 
-            if (ptr == IntPtr.Zero)
-                return "{}";
+                var keys = new string[parameters.Length];
+                var values = new CParamValue[parameters.Length];
+
+                for (int i = 0; i < parameters.Length; i++)
+                {
+                    keys[i] = parameters[i].Key;
+                    values[i] = ConvertToCParam(parameters[i].Value, memoryManager);
+                }
+
+                keysPtr = memoryManager.AllocateStringArray(keys);
+                valuesPtr = memoryManager.AllocateArray(values);
+                paramCount = (uint)parameters.Length;
+            }
+
+            IntPtr ptr = cirrus_run_command(uri, keysPtr, valuesPtr, new UIntPtr(paramCount));
 
             try
             {
+                if (ptr == IntPtr.Zero)
+                    return "{}";
+
                 return Marshal.PtrToStringAnsi(ptr) ?? "{}";
             }
             finally
             {
-                cirrus_free_string(ptr);
+                if (ptr != IntPtr.Zero)
+                {
+                    cirrus_free_string(ptr);
+                }
             }
         }
         catch (Exception ex)
         {
             throw new InvalidOperationException($"Failed to execute command: {ex.Message}", ex);
+        }
+        finally
+        {
+            memoryManager?.Dispose();
         }
     }
 
