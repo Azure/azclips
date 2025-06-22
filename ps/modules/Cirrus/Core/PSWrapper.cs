@@ -1,8 +1,18 @@
 using System.Collections;
+using System.Management.Automation;
 using System.Reflection;
 using System.Runtime.InteropServices;
 
 namespace Cirrus.Core;
+
+/// <summary>
+/// Represents a PowerShell cmdlet information
+/// </summary>
+public class CmdletInfo
+{
+    public string Name { get; set; } = string.Empty;
+    public string Uri { get; set; } = string.Empty;
+}
 
 public static class PSWrapper
 {
@@ -16,8 +26,8 @@ public static class PSWrapper
         LoadNativeLibrary();
     }
 
-    // Define C-style parameter type enumeration
-    public enum CParamType
+    // Define C-style parameter type enumeration (internal use only)
+    private enum CParamType
     {
         String = 0,
         Integer = 1,
@@ -28,16 +38,16 @@ public static class PSWrapper
         Null = 6,
     }
 
-    // Define C-style parameter value structure
+    // Define C-style parameter value structure (internal use only)
     [StructLayout(LayoutKind.Sequential)]
-    public struct CParamValue
+    private struct CParamValue
     {
         public CParamType ParamType;
         public CParamData Data;
     }
 
     [StructLayout(LayoutKind.Explicit)]
-    public struct CParamData
+    private struct CParamData
     {
         [FieldOffset(0)]
         public IntPtr StringVal;
@@ -59,17 +69,32 @@ public static class PSWrapper
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    public struct CArrayValue
+    private struct CArrayValue
     {
         public IntPtr Items;
         public UIntPtr Count;
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    public struct CObjectValue
+    private struct CObjectValue
     {
         public IntPtr Keys;
         public IntPtr Values;
+        public UIntPtr Count;
+    }
+
+    // C-compatible structures for direct cmdlet array passing (internal use only)
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CCmdletInfo
+    {
+        public IntPtr Name;
+        public IntPtr Uri;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CCmdletArray
+    {
+        public IntPtr Items;
         public UIntPtr Count;
     }
 
@@ -89,6 +114,12 @@ public static class PSWrapper
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
     private static extern void cirrus_free_string(IntPtr ptr);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+    private static extern IntPtr cirrus_get_builtin_cmdlets();
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+    private static extern void cirrus_free_cmdlet_array(IntPtr array);
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
     private static extern int cirrus_health_check();
@@ -505,6 +536,62 @@ public static class PSWrapper
     }
 
     /// <summary>
+    /// Get all builtin cmdlets
+    /// </summary>
+    /// <returns>Array of cmdlet information</returns>
+    public static CmdletInfo[] GetBuiltinCmdlets()
+    {
+        EnsureInitialized();
+
+        IntPtr arrayPtr = cirrus_get_builtin_cmdlets();
+        if (arrayPtr == IntPtr.Zero)
+            return [];
+
+        try
+        {
+            // Read the array structure
+            CCmdletArray array = Marshal.PtrToStructure<CCmdletArray>(arrayPtr);
+
+            if (array.Items == IntPtr.Zero || array.Count == UIntPtr.Zero)
+                return [];
+
+            int count = (int)array.Count;
+            CmdletInfo[] result = new CmdletInfo[count];
+
+            int structSize = Marshal.SizeOf<CCmdletInfo>();
+
+            for (int i = 0; i < count; i++)
+            {
+                IntPtr itemPtr = IntPtr.Add(array.Items, i * structSize);
+                CCmdletInfo item = Marshal.PtrToStructure<CCmdletInfo>(itemPtr);
+
+                string name = item.Name != IntPtr.Zero ? Marshal.PtrToStringAnsi(item.Name) ?? "" : "";
+                string uri = item.Uri != IntPtr.Zero ? Marshal.PtrToStringAnsi(item.Uri) ?? "" : "";
+
+                result[i] = new CmdletInfo
+                {
+                    Name = name,
+                    Uri = uri
+                };
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to read cmdlet array: {ex.Message}");
+            return [];
+        }
+        finally
+        {
+            if (arrayPtr != IntPtr.Zero)
+            {
+                cirrus_free_cmdlet_array(arrayPtr);
+            }
+        }
+    }
+
+    /// <summary>
     /// Check if the library is initialized
     /// </summary>
     public static bool IsInitialized => _isInitialized;
@@ -575,6 +662,28 @@ public static class PSWrapper
         else
         {
             throw new PlatformNotSupportedException("Unsupported platform");
+        }
+    }
+}
+
+/// <summary>
+/// Module initializer that automatically calls PSWrapper.Initialize() when the module is loaded
+/// </summary>
+public class CirrusModuleInitializer : IModuleAssemblyInitializer
+{
+    /// <summary>
+    /// Called when the module assembly is imported
+    /// </summary>
+    public void OnImport()
+    {
+        try
+        {
+            PSWrapper.Initialize();
+        }
+        catch (Exception ex)
+        {
+            // Log the error but don't throw to avoid breaking module import
+            Console.WriteLine($"Warning: Failed to initialize Cirrus module: {ex.Message}");
         }
     }
 }

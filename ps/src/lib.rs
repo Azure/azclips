@@ -1,8 +1,23 @@
+pub mod cmdlet;
 mod core;
 pub mod param;
 
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
+
+// C-compatible structure for direct array passing
+#[repr(C)]
+pub struct CCmdletInfo {
+    pub name: *mut c_char,
+    pub uri: *mut c_char,
+}
+
+// C-compatible array structure
+#[repr(C)]
+pub struct CCmdletArray {
+    pub items: *mut CCmdletInfo,
+    pub count: usize,
+}
 
 /// Initialize the Cirrus core library
 #[no_mangle]
@@ -10,6 +25,85 @@ pub extern "C" fn cirrus_initialize() -> i32 {
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(core::initialize());
     0 // Success
+}
+
+/// Get the builtin cmdlets as C struct array
+#[no_mangle]
+pub extern "C" fn cirrus_get_builtin_cmdlets() -> *mut CCmdletArray {
+    let result = std::panic::catch_unwind(|| {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            match core::builtin_cmdlets().await {
+                Ok(cmdlets) => {
+                    let mut c_cmdlets = Vec::with_capacity(cmdlets.len());
+
+                    for cmdlet in cmdlets {
+                        let name_cstring = match CString::new(cmdlet.ps_name()) {
+                            Ok(s) => s,
+                            Err(_) => continue,
+                        };
+                        let uri_cstring = match CString::new(cmdlet.uri.to_string()) {
+                            Ok(s) => s,
+                            Err(_) => continue,
+                        };
+
+                        c_cmdlets.push(CCmdletInfo {
+                            name: name_cstring.into_raw(),
+                            uri: uri_cstring.into_raw(),
+                        });
+                    }
+
+                    let count = c_cmdlets.len();
+                    let items = c_cmdlets.into_boxed_slice();
+                    let items_ptr = Box::into_raw(items) as *mut CCmdletInfo;
+
+                    let array = Box::new(CCmdletArray {
+                        items: items_ptr,
+                        count,
+                    });
+
+                    Box::into_raw(array)
+                }
+                Err(e) => {
+                    tracing::error!("Failed to get builtin cmdlets: {}", e);
+                    std::ptr::null_mut()
+                }
+            }
+        })
+    });
+
+    match result {
+        Ok(array_ptr) => array_ptr,
+        Err(_) => {
+            tracing::error!("Panic occurred while getting builtin cmdlets array");
+            std::ptr::null_mut()
+        }
+    }
+}
+
+/// Free the cmdlet array memory
+#[no_mangle]
+pub extern "C" fn cirrus_free_cmdlet_array(array: *mut CCmdletArray) {
+    if array.is_null() {
+        return;
+    }
+
+    unsafe {
+        let array = Box::from_raw(array);
+
+        if !array.items.is_null() && array.count > 0 {
+            let items = Box::from_raw(std::slice::from_raw_parts_mut(array.items, array.count));
+
+            for item in items.iter() {
+                if !item.name.is_null() {
+                    let _ = CString::from_raw(item.name);
+                }
+                if !item.uri.is_null() {
+                    let _ = CString::from_raw(item.uri);
+                }
+            }
+        }
+    }
 }
 
 /// Execute command using structured parameters

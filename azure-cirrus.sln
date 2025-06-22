@@ -1,0 +1,32 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ps", "ps", "{9EE169C4-9B01-B211-391E-E1A3472198FB}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "modules", "modules", "{10815EE1-3F83-38F7-845B-944B59BA0108}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cirrus", "ps\modules\Cirrus\Cirrus.csproj", "{4C04F16A-D61F-95F5-90BC-87F0FC909D2F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4C04F16A-D61F-95F5-90BC-87F0FC909D2F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4C04F16A-D61F-95F5-90BC-87F0FC909D2F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4C04F16A-D61F-95F5-90BC-87F0FC909D2F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4C04F16A-D61F-95F5-90BC-87F0FC909D2F}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{10815EE1-3F83-38F7-845B-944B59BA0108} = {9EE169C4-9B01-B211-391E-E1A3472198FB}
+		{4C04F16A-D61F-95F5-90BC-87F0FC909D2F} = {10815EE1-3F83-38F7-845B-944B59BA0108}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C094E5EB-EE92-40FC-B2A3-B16AD6F59338}
+	EndGlobalSection
+EndGlobal

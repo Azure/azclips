@@ -1,10 +1,13 @@
 use serde_json::Value;
 use std::str::FromStr;
+use strum::IntoEnumIterator;
 use tracing::info;
 
-use az_core::argparse::SHPartialKeys;
 pub use az_core::VERSION;
 use az_core::{argparse::ArgValueAssignOp, error::AzError, uri::CrsUri, AzCore};
+use az_core::{argparse::SHPartialKeys, component::AzBuiltIn};
+
+use crate::cmdlet::{retrieve_cmdlets, CmdletInfo};
 
 pub async fn initialize() {
     env_logger::init();
@@ -39,4 +42,19 @@ pub async fn execute_command(
     }
 
     core.execute_command(&invocation, cmd_value_ops).await
+}
+
+pub async fn builtin_cmdlets() -> Result<Vec<CmdletInfo>, AzError> {
+    let core = AzCore::instance().await;
+
+    let mut cmdlets = Vec::new();
+    for component in AzBuiltIn::iter() {
+        let uri = component.uri();
+        let interface = core.get_component_interface(&uri).await?;
+        for cmdlet in retrieve_cmdlets(&interface) {
+            cmdlets.push(cmdlet);
+        }
+    }
+
+    Ok(cmdlets)
 }
