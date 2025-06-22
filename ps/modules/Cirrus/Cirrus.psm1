@@ -1,23 +1,83 @@
 # PowerShell Module for Azure Cirrus
 # This module provides cmdlets for Azure Cirrus cloud management using Rust backend
 
-# Import the nested module
+# Import the nested module (initialization happens automatically via CirrusModuleInitializer)
 Import-Module "$PSScriptRoot\Cirrus.dll" -Force
-
-# Initialize the Rust library
-Write-Host "Initializing Cirrus module..." -ForegroundColor Cyan
-try {
-    [Cirrus.Core.PSWrapper]::Initialize()
-    Write-Host "✓ Cirrus library initialized successfully" -ForegroundColor Green
-}
-catch {
-    Write-Warning "Failed to initialize Cirrus library: $_"
-    Write-Host "Make sure the Rust library (az_ps.dll) is built and available" -ForegroundColor Yellow
-}
 
 # Module variables
 $script:ModuleVersion = "1.0.0"
 $script:ModuleName = "Cirrus"
+
+# Collect all functions to export (starting with built-in functions)
+$script:FunctionsToExport = @(
+    'Get-CirrusVersion'
+    # 'Invoke-CirrusCommand', 
+    # 'New-CirrusResource',
+    # 'Test-DynamicParams',
+    # 'Test-DynamicParamsSimple',
+    # 'Debug-DynamicParams',
+    # 'Get-CirrusCmdlets'
+)
+
+# Dynamic cmdlet creation
+try {
+    Write-Host "Creating dynamic cmdlets..." -ForegroundColor Cyan
+    
+    # Get builtin cmdlets from Rust library (call only once)
+    $builtinCmdlets = [Cirrus.Core.PSWrapper]::GetBuiltinCmdlets()
+    
+    if ($builtinCmdlets -and $builtinCmdlets.Count -gt 0) {
+        Write-Host "Found $($builtinCmdlets.Count) builtin cmdlets" -ForegroundColor Green
+        
+        # Create functions for each cmdlet
+        foreach ($cmdlet in $builtinCmdlets) {
+            if ([string]::IsNullOrEmpty($cmdlet.Name) -or [string]::IsNullOrEmpty($cmdlet.Uri)) {
+                continue
+            }
+            
+            # Create function dynamically
+            $functionScript = @"
+function $($cmdlet.Name) {
+    <#
+    .SYNOPSIS
+    Auto-generated cmdlet for $($cmdlet.Name)
+    
+    .DESCRIPTION
+    This cmdlet was automatically generated from the Rust backend
+    URI: $($cmdlet.Uri)
+    #>
+    [CmdletBinding()]
+    param()
+    
+    Process {
+        Write-Host "Executing cmdlet: $($cmdlet.Name)" -ForegroundColor Yellow
+        Write-Host "URI: $($cmdlet.Uri)" -ForegroundColor Cyan
+    }
+}
+"@
+            
+            try {
+                # Execute the function definition
+                Invoke-Expression $functionScript
+                # Add function name to export list immediately
+                $script:FunctionsToExport += $cmdlet.Name
+                Write-Verbose "Created function: $($cmdlet.Name)"
+            }
+            catch {
+                Write-Warning "Failed to create function for cmdlet '$($cmdlet.Name)': $_"
+            }
+        }
+        
+        Write-Host "✓ Dynamic cmdlets created successfully" -ForegroundColor Green
+    }
+    else {
+        Write-Host "No builtin cmdlets found" -ForegroundColor Yellow
+    }
+}
+catch {
+    Write-Warning "Failed to create dynamic cmdlets: $_"
+    Write-Host "This may happen if the Rust library is not properly initialized" -ForegroundColor Yellow
+}
 
 function Get-CirrusVersion {
     <#
@@ -212,7 +272,7 @@ function Test-DynamicParams {
                 $nameParam = New-Object System.Management.Automation.RuntimeDefinedParameter(
                     'Name', [string], @(
                         New-Object System.Management.Automation.ParameterAttribute @{ 
-                            Mandatory = $true
+                            Mandatory   = $true
                             HelpMessage = '要创建的资源名称'
                         }
                     )
@@ -222,7 +282,7 @@ function Test-DynamicParams {
                 $locationParam = New-Object System.Management.Automation.RuntimeDefinedParameter(
                     'Location', [string], @(
                         New-Object System.Management.Automation.ParameterAttribute @{ 
-                            Mandatory = $false
+                            Mandatory   = $false
                             HelpMessage = '资源位置'
                         }
                         New-Object System.Management.Automation.ValidateSetAttribute(
@@ -236,7 +296,7 @@ function Test-DynamicParams {
                 $idParam = New-Object System.Management.Automation.RuntimeDefinedParameter(
                     'Id', [string], @(
                         New-Object System.Management.Automation.ParameterAttribute @{ 
-                            Mandatory = $true
+                            Mandatory   = $true
                             HelpMessage = '要删除的资源ID'
                         }
                     )
@@ -247,7 +307,7 @@ function Test-DynamicParams {
                 $filterParam = New-Object System.Management.Automation.RuntimeDefinedParameter(
                     'Filter', [string], @(
                         New-Object System.Management.Automation.ParameterAttribute @{ 
-                            Mandatory = $false
+                            Mandatory   = $false
                             HelpMessage = '过滤条件'
                         }
                     )
@@ -354,12 +414,45 @@ function Debug-DynamicParams {
     Write-Host "   Import-Module .\Cirrus.psm1 -Force" -ForegroundColor Gray
 }
 
-# Export the new functions
-Export-ModuleMember -Function @(
-    'Get-CirrusVersion',
-    'Invoke-CirrusCommand', 
-    'New-CirrusResource',
-    'Test-DynamicParams',
-    'Test-DynamicParamsSimple',
-    'Debug-DynamicParams'
-)
+function Get-CirrusCmdlets {
+    <#
+    .SYNOPSIS
+    获取所有可用的 Cirrus cmdlets
+    
+    .DESCRIPTION
+    显示所有从 Rust 库动态创建的 cmdlets 信息
+    
+    .EXAMPLE
+    Get-CirrusCmdlets
+    #>
+    [CmdletBinding()]
+    param()
+    
+    try {
+        $builtinCmdlets = [Cirrus.Core.PSWrapper]::GetBuiltinCmdlets()
+        
+        if ($builtinCmdlets -and $builtinCmdlets.Count -gt 0) {
+            Write-Host "Available Cirrus Cmdlets:" -ForegroundColor Cyan
+            Write-Host "=========================" -ForegroundColor Cyan
+            
+            $builtinCmdlets | ForEach-Object {
+                if (![string]::IsNullOrEmpty($_.Name)) {
+                    Write-Host "Name: $($_.Name)" -ForegroundColor Green
+                    Write-Host "URI:  $($_.Uri)" -ForegroundColor Yellow
+                    Write-Host "---" -ForegroundColor Gray
+                }
+            }
+            
+            Write-Host "`nTotal: $($builtinCmdlets.Count) cmdlets" -ForegroundColor Cyan
+        }
+        else {
+            Write-Host "No builtin cmdlets found" -ForegroundColor Yellow
+        }
+    }
+    catch {
+        Write-Error "Failed to get cmdlets: $_"
+    }
+}
+
+# Export all functions (including dynamically created ones)
+Export-ModuleMember -Function $script:FunctionsToExport

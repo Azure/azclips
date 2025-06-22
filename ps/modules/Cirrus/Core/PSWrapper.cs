@@ -503,7 +503,6 @@ public static class PSWrapper
                 }
 
                 _isInitialized = true;
-                Console.WriteLine("Cirrus library initialized successfully");
             }
             catch (Exception ex)
             {
@@ -678,12 +677,15 @@ public class CirrusModuleInitializer : IModuleAssemblyInitializer
     {
         try
         {
+            Console.WriteLine("Initializing Cirrus module...");
             PSWrapper.Initialize();
+            Console.WriteLine("✓ Cirrus library initialized successfully");
         }
         catch (Exception ex)
         {
             // Log the error but don't throw to avoid breaking module import
-            Console.WriteLine($"Warning: Failed to initialize Cirrus module: {ex.Message}");
+            Console.WriteLine($"Warning: Failed to initialize Cirrus library: {ex.Message}");
+            Console.WriteLine("Make sure the Rust library (az_ps.dll) is built and available");
         }
     }
 }
