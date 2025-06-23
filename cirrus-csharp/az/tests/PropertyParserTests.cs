@@ -1,258 +1,9 @@
 using System;
-using System.Reflection;
 using Xunit;
-using SharedContracts;
 
 namespace AzTool.Tests
 {
-    public class PropertyParserTests
-    {
-        // Test class to use for property parsing tests
-        public class TestClass
-        {
-            [ArgumentInfo(Required = true)]
-            public string RequiredStringProperty { get; set; } = "";
-
-            [ArgumentInfo(Required = false)]
-            public string OptionalStringProperty { get; set; } = "";
-
-            [ArgumentInfo(Required = true)]
-            public int RequiredIntProperty { get; set; }
-
-            [ArgumentInfo(Required = false)]
-            public bool OptionalBoolProperty { get; set; }
-
-            [ArgumentInfo(Required = false)]
-            public string[] OptionalArrayProperty { get; set; } = Array.Empty<string>();
-
-            [ArgumentInfo(Required = false)]
-            public int[] OptionalIntArrayProperty { get; set; } = Array.Empty<int>();
-
-            // Property without ArgumentInfo attribute
-            public string PropertyWithoutAttribute { get; set; } = "";
-
-            // Read-only property
-            [ArgumentInfo(Required = false)]
-            public string ReadOnlyProperty { get; } = "readonly";
-        }
-
-        [Fact]
-        public void ParseProperty_WithRequiredStringProperty_ShouldSetValue()
-        {
-            // Arrange
-            var testInstance = new TestClass();
-            var propertyInfo = typeof(TestClass).GetProperty(nameof(TestClass.RequiredStringProperty));
-            var input = new string[] { "test-value" };
-
-            // Act
-            PropertyParser.ParseProperty(input, testInstance, propertyInfo);
-
-            // Assert
-            Assert.Equal("test-value", testInstance.RequiredStringProperty);
-        }
-
-        [Fact]
-        public void ParseProperty_WithRequiredStringProperty_EmptyInput_ShouldThrowException()
-        {
-            // Arrange
-            var testInstance = new TestClass();
-            var propertyInfo = typeof(TestClass).GetProperty(nameof(TestClass.RequiredStringProperty));
-            var input = Array.Empty<string>();
-
-            // Act & Assert
-            var exception = Assert.Throws<PropertyParserException>(() =>
-                PropertyParser.ParseProperty(input, testInstance, propertyInfo));
-            
-            Assert.Contains("is required but no value was provided", exception.Message);
-        }
-
-        [Fact]
-        public void ParseProperty_WithOptionalStringProperty_EmptyInput_ShouldNotSetValue()
-        {
-            // Arrange
-            var testInstance = new TestClass();
-            var propertyInfo = typeof(TestClass).GetProperty(nameof(TestClass.OptionalStringProperty));
-            var input = Array.Empty<string>();
-
-            // Act
-            PropertyParser.ParseProperty(input, testInstance, propertyInfo);
-
-            // Assert
-            Assert.Equal("", testInstance.OptionalStringProperty); // Should remain default value
-        }
-
-        [Fact]
-        public void ParseProperty_WithIntProperty_ValidInteger_ShouldSetValue()
-        {
-            // Arrange
-            var testInstance = new TestClass();
-            var propertyInfo = typeof(TestClass).GetProperty(nameof(TestClass.RequiredIntProperty));
-            var input = new string[] { "42" };
-
-            // Act
-            PropertyParser.ParseProperty(input, testInstance, propertyInfo);
-
-            // Assert
-            Assert.Equal(42, testInstance.RequiredIntProperty);
-        }
-
-        [Fact]
-        public void ParseProperty_WithIntProperty_InvalidInteger_ShouldThrowException()
-        {
-            // Arrange
-            var testInstance = new TestClass();
-            var propertyInfo = typeof(TestClass).GetProperty(nameof(TestClass.RequiredIntProperty));
-            var input = new string[] { "not-an-integer" };
-
-            // Act & Assert
-            var exception = Assert.Throws<PropertyParserException>(() =>
-                PropertyParser.ParseProperty(input, testInstance, propertyInfo));
-            
-            Assert.Contains("expects an integer value", exception.Message);
-        }
-
-        [Fact]
-        public void ParseProperty_WithBoolProperty_ValidBoolean_ShouldSetValue()
-        {
-            // Arrange
-            var testInstance = new TestClass();
-            var propertyInfo = typeof(TestClass).GetProperty(nameof(TestClass.OptionalBoolProperty));
-            var input = new string[] { "true" };
-
-            // Act
-            PropertyParser.ParseProperty(input, testInstance, propertyInfo);
-
-            // Assert
-            Assert.True(testInstance.OptionalBoolProperty);
-        }
-
-        [Fact]
-        public void ParseProperty_WithBoolProperty_InvalidBoolean_ShouldThrowException()
-        {
-            // Arrange
-            var testInstance = new TestClass();
-            var propertyInfo = typeof(TestClass).GetProperty(nameof(TestClass.OptionalBoolProperty));
-            var input = new string[] { "not-a-boolean" };
-
-            // Act & Assert
-            var exception = Assert.Throws<PropertyParserException>(() =>
-                PropertyParser.ParseProperty(input, testInstance, propertyInfo));
-            
-            Assert.Contains("expects a boolean value", exception.Message);
-        }
-
-        [Fact]
-        public void ParseProperty_WithArrayProperty_ValidJsonArray_ShouldSetValue()
-        {
-            // Arrange
-            var testInstance = new TestClass();
-            var propertyInfo = typeof(TestClass).GetProperty(nameof(TestClass.OptionalArrayProperty));
-            var input = new string[] { "[\"item1\", \"item2\", \"item3\"]" };
-
-            // Act
-            PropertyParser.ParseProperty(input, testInstance, propertyInfo);
-
-            // Assert
-            Assert.Equal(3, testInstance.OptionalArrayProperty.Length);
-            Assert.Equal("item1", testInstance.OptionalArrayProperty[0]);
-            Assert.Equal("item2", testInstance.OptionalArrayProperty[1]);
-            Assert.Equal("item3", testInstance.OptionalArrayProperty[2]);
-        }
-
-        [Fact]
-        public void ParseProperty_WithArrayProperty_InvalidJson_ShouldThrowException()
-        {
-            // Arrange
-            var testInstance = new TestClass();
-            var propertyInfo = typeof(TestClass).GetProperty(nameof(TestClass.OptionalArrayProperty));
-            var input = new string[] { "not-valid-json" };
-
-            // Act & Assert
-            var exception = Assert.Throws<PropertyParserException>(() =>
-                PropertyParser.ParseProperty(input, testInstance, propertyInfo));
-            
-            Assert.Contains("expects a JSON array value", exception.Message);
-        }
-
-        [Fact]
-        public void ParseProperty_WithIntArrayProperty_ValidJsonArray_ShouldSetValue()
-        {
-            // Arrange
-            var testInstance = new TestClass();
-            var propertyInfo = typeof(TestClass).GetProperty(nameof(TestClass.OptionalIntArrayProperty));
-            var input = new string[] { "[1, 2, 3, 42]" };
-
-            // Act
-            PropertyParser.ParseProperty(input, testInstance, propertyInfo);
-
-            // Assert
-            Assert.Equal(4, testInstance.OptionalIntArrayProperty.Length);
-            Assert.Equal(1, testInstance.OptionalIntArrayProperty[0]);
-            Assert.Equal(2, testInstance.OptionalIntArrayProperty[1]);
-            Assert.Equal(3, testInstance.OptionalIntArrayProperty[2]);
-            Assert.Equal(42, testInstance.OptionalIntArrayProperty[3]);
-        }
-
-        [Fact]
-        public void ParseProperty_WithMultipleInputValues_ShouldThrowException()
-        {
-            // Arrange
-            var testInstance = new TestClass();
-            var propertyInfo = typeof(TestClass).GetProperty(nameof(TestClass.RequiredStringProperty));
-            var input = new string[] { "value1", "value2" };
-
-            // Act & Assert
-            var exception = Assert.Throws<PropertyParserException>(() =>
-                PropertyParser.ParseProperty(input, testInstance, propertyInfo));
-            
-            Assert.Contains("expects a single string value, but received multiple values", exception.Message);
-        }
-
-        [Fact]
-        public void ParseProperty_WithPropertyWithoutAttribute_ShouldThrowException()
-        {
-            // Arrange
-            var testInstance = new TestClass();
-            var propertyInfo = typeof(TestClass).GetProperty(nameof(TestClass.PropertyWithoutAttribute));
-            var input = new string[] { "test-value" };
-
-            // Act & Assert
-            var exception = Assert.Throws<PropertyParserException>(() =>
-                PropertyParser.ParseProperty(input, testInstance, propertyInfo));
-            
-            Assert.Contains("does not have an ArgumentInfoAttribute", exception.Message);
-        }
-
-        [Fact]
-        public void ParseProperty_WithReadOnlyProperty_ShouldThrowException()
-        {
-            // Arrange
-            var testInstance = new TestClass();
-            var propertyInfo = typeof(TestClass).GetProperty(nameof(TestClass.ReadOnlyProperty));
-            var input = new string[] { "test-value" };
-
-            // Act & Assert
-            var exception = Assert.Throws<PropertyParserException>(() =>
-                PropertyParser.ParseProperty(input, testInstance, propertyInfo));
-            
-            Assert.Contains("is read-only and cannot be set", exception.Message);
-        }
-
-        [Fact]
-        public void ParseProperty_WithNullPropertyInfo_ShouldReturn()
-        {
-            // Arrange
-            var testInstance = new TestClass();
-            PropertyInfo? propertyInfo = null;
-            var input = new string[] { "test-value" };
-
-            // Act & Assert (should not throw)
-            PropertyParser.ParseProperty(input, testInstance, propertyInfo);
-        }
-    }
-
-    // Test class for object arrays with FromJsonString functionality
-    public class ObjectArrayWithFromJsonStringTests
+    public class ConvertToTypeTests
     {
         // Mock object class that supports FromJsonString
         public class MockComplexObject
@@ -275,194 +26,305 @@ namespace AzTool.Tests
             }
         }
 
-        // Test class with object array properties
-        public class TestClassWithObjectArrays
-        {
-            [ArgumentInfo(Required = true)]
-            public MockComplexObject[] RequiredObjectArray { get; set; } = Array.Empty<MockComplexObject>();
-
-            [ArgumentInfo(Required = false)]
-            public MockComplexObject[] OptionalObjectArray { get; set; } = Array.Empty<MockComplexObject>();
-
-            [ArgumentInfo(Required = false)]
-            public MockComplexObject SingleObject { get; set; } = new MockComplexObject();
-
-            // Property without ArgumentInfo attribute
-            public MockComplexObject[] PropertyWithoutAttribute { get; set; } = Array.Empty<MockComplexObject>();
-        }
-
+        // Test ConvertToType with string type
         [Fact]
-        public void ParseProperty_WithObjectArray_ValidJsonArray_ShouldSetValue()
+        public void ConvertToType_WithStringType_ShouldReturnSameValue()
         {
             // Arrange
-            var testInstance = new TestClassWithObjectArrays();
-            var propertyInfo = typeof(TestClassWithObjectArrays).GetProperty(nameof(TestClassWithObjectArrays.RequiredObjectArray));
-            var input = new string[] { 
-                "[{\"name\":\"Item1\",\"value\":10,\"active\":true},{\"name\":\"Item2\",\"value\":20,\"active\":false}]" 
-            };
+            var value = "test-value";
+            var targetType = typeof(string);
+            var propertyName = "TestProperty";
 
             // Act
-            PropertyParser.ParseProperty(input, testInstance, propertyInfo);
+            var result = PropertyParser.ConvertToType(value, targetType, propertyName);
 
             // Assert
-            Assert.Equal(2, testInstance.RequiredObjectArray.Length);
-            Assert.Equal("Item1", testInstance.RequiredObjectArray[0].Name);
-            Assert.Equal(10, testInstance.RequiredObjectArray[0].Value);
-            Assert.True(testInstance.RequiredObjectArray[0].Active);
-            Assert.Equal("Item2", testInstance.RequiredObjectArray[1].Name);
-            Assert.Equal(20, testInstance.RequiredObjectArray[1].Value);
-            Assert.False(testInstance.RequiredObjectArray[1].Active);
+            Assert.Equal("test-value", result);
+            Assert.IsType<string>(result);
         }
 
+        // Test ConvertToType with int type - valid input
         [Fact]
-        public void ParseProperty_WithObjectArray_EmptyJsonArray_ShouldSetEmptyArray()
+        public void ConvertToType_WithIntType_ValidInteger_ShouldReturnInteger()
         {
             // Arrange
-            var testInstance = new TestClassWithObjectArrays();
-            var propertyInfo = typeof(TestClassWithObjectArrays).GetProperty(nameof(TestClassWithObjectArrays.OptionalObjectArray));
-            var input = new string[] { "[]" };
+            var value = "42";
+            var targetType = typeof(int);
+            var propertyName = "TestProperty";
 
             // Act
-            PropertyParser.ParseProperty(input, testInstance, propertyInfo);
+            var result = PropertyParser.ConvertToType(value, targetType, propertyName);
 
             // Assert
-            Assert.Empty(testInstance.OptionalObjectArray);
+            Assert.Equal(42, result);
+            Assert.IsType<int>(result);
         }
 
+        // Test ConvertToType with int type - invalid input
         [Fact]
-        public void ParseProperty_WithObjectArray_InvalidJson_ShouldThrowException()
+        public void ConvertToType_WithIntType_InvalidInteger_ShouldThrowException()
         {
             // Arrange
-            var testInstance = new TestClassWithObjectArrays();
-            var propertyInfo = typeof(TestClassWithObjectArrays).GetProperty(nameof(TestClassWithObjectArrays.RequiredObjectArray));
-            var input = new string[] { "invalid-json-array" };
+            var value = "not-an-integer";
+            var targetType = typeof(int);
+            var propertyName = "TestProperty";
 
             // Act & Assert
             var exception = Assert.Throws<PropertyParserException>(() =>
-                PropertyParser.ParseProperty(input, testInstance, propertyInfo));
+                PropertyParser.ConvertToType(value, targetType, propertyName));
+            
+            Assert.Contains("expects an integer value", exception.Message);
+            Assert.Contains("not-an-integer", exception.Message);
+        }
+
+        // Test ConvertToType with bool type - valid input
+        [Fact]
+        public void ConvertToType_WithBoolType_ValidBoolean_ShouldReturnBoolean()
+        {
+            // Arrange & Act & Assert
+            var result1 = PropertyParser.ConvertToType("true", typeof(bool), "TestProperty");
+            Assert.True((bool)result1);
+            Assert.IsType<bool>(result1);
+
+            var result2 = PropertyParser.ConvertToType("false", typeof(bool), "TestProperty");
+            Assert.False((bool)result2);
+            Assert.IsType<bool>(result2);
+        }
+
+        // Test ConvertToType with bool type - invalid input
+        [Fact]
+        public void ConvertToType_WithBoolType_InvalidBoolean_ShouldThrowException()
+        {
+            // Arrange
+            var value = "not-a-boolean";
+            var targetType = typeof(bool);
+            var propertyName = "TestProperty";
+
+            // Act & Assert
+            var exception = Assert.Throws<PropertyParserException>(() =>
+                PropertyParser.ConvertToType(value, targetType, propertyName));
+            
+            Assert.Contains("expects a boolean value", exception.Message);
+            Assert.Contains("not-a-boolean", exception.Message);
+        }
+
+        // Test ConvertToType with string array - valid JSON
+        [Fact]
+        public void ConvertToType_WithStringArray_ValidJsonArray_ShouldReturnArray()
+        {
+            // Arrange
+            var value = "[\"item1\", \"item2\", \"item3\"]";
+            var targetType = typeof(string[]);
+            var propertyName = "TestProperty";
+
+            // Act
+            var result = PropertyParser.ConvertToType(value, targetType, propertyName);
+
+            // Assert
+            Assert.IsType<string[]>(result);
+            var array = (string[])result;
+            Assert.Equal(3, array.Length);
+            Assert.Equal("item1", array[0]);
+            Assert.Equal("item2", array[1]);
+            Assert.Equal("item3", array[2]);
+        }
+
+        // Test ConvertToType with string array - invalid JSON
+        [Fact]
+        public void ConvertToType_WithStringArray_InvalidJson_ShouldThrowException()
+        {
+            // Arrange
+            var value = "not-valid-json";
+            var targetType = typeof(string[]);
+            var propertyName = "TestProperty";
+
+            // Act & Assert
+            var exception = Assert.Throws<PropertyParserException>(() =>
+                PropertyParser.ConvertToType(value, targetType, propertyName));
             
             Assert.Contains("expects a JSON array value", exception.Message);
+            Assert.Contains("not-valid-json", exception.Message);
         }
 
+        // Test ConvertToType with int array - valid JSON
         [Fact]
-        public void ParseProperty_WithObjectArray_InvalidObjectJson_ShouldThrowException()
+        public void ConvertToType_WithIntArray_ValidJsonArray_ShouldReturnArray()
         {
             // Arrange
-            var testInstance = new TestClassWithObjectArrays();
-            var propertyInfo = typeof(TestClassWithObjectArrays).GetProperty(nameof(TestClassWithObjectArrays.RequiredObjectArray));
-            var input = new string[] { "[{\"name\":\"Item1\",\"value\":\"not-a-number\"}]" };
-
-            // Act & Assert
-            var exception = Assert.Throws<PropertyParserException>(() =>
-                PropertyParser.ParseProperty(input, testInstance, propertyInfo));
-            
-            Assert.Contains("Failed to parse property 'RequiredObjectArray[]' with value ", exception.Message);
-        }
-
-        [Fact]
-        public void ParseProperty_WithSingleObject_ValidJson_ShouldSetValue()
-        {
-            // Arrange
-            var testInstance = new TestClassWithObjectArrays();
-            var propertyInfo = typeof(TestClassWithObjectArrays).GetProperty(nameof(TestClassWithObjectArrays.SingleObject));
-            var input = new string[] { "{\"name\":\"TestObject\",\"value\":42,\"active\":true}" };
+            var value = "[1, 2, 3, 42]";
+            var targetType = typeof(int[]);
+            var propertyName = "TestProperty";
 
             // Act
-            PropertyParser.ParseProperty(input, testInstance, propertyInfo);
+            var result = PropertyParser.ConvertToType(value, targetType, propertyName);
 
             // Assert
-            Assert.Equal("TestObject", testInstance.SingleObject.Name);
-            Assert.Equal(42, testInstance.SingleObject.Value);
-            Assert.True(testInstance.SingleObject.Active);
+            Assert.IsType<int[]>(result);
+            var array = (int[])result;
+            Assert.Equal(4, array.Length);
+            Assert.Equal(1, array[0]);
+            Assert.Equal(2, array[1]);
+            Assert.Equal(3, array[2]);
+            Assert.Equal(42, array[3]);
         }
 
+        // Test ConvertToType with int array - invalid element
         [Fact]
-        public void ParseProperty_WithSingleObject_InvalidJson_ShouldThrowException()
+        public void ConvertToType_WithIntArray_InvalidElement_ShouldThrowException()
         {
             // Arrange
-            var testInstance = new TestClassWithObjectArrays();
-            var propertyInfo = typeof(TestClassWithObjectArrays).GetProperty(nameof(TestClassWithObjectArrays.SingleObject));
-            var input = new string[] { "invalid-json-object" };
+            var value = "[1, \"not-a-number\", 3]";
+            var targetType = typeof(int[]);
+            var propertyName = "TestProperty";
 
             // Act & Assert
             var exception = Assert.Throws<PropertyParserException>(() =>
-                PropertyParser.ParseProperty(input, testInstance, propertyInfo));
+                PropertyParser.ConvertToType(value, targetType, propertyName));
+            
+            Assert.Contains("expects an integer value", exception.Message);
+        }
+
+        // Test ConvertToType with empty array
+        [Fact]
+        public void ConvertToType_WithStringArray_EmptyArray_ShouldReturnEmptyArray()
+        {
+            // Arrange
+            var value = "[]";
+            var targetType = typeof(string[]);
+            var propertyName = "TestProperty";
+
+            // Act
+            var result = PropertyParser.ConvertToType(value, targetType, propertyName);
+
+            // Assert
+            Assert.IsType<string[]>(result);
+            var array = (string[])result;
+            Assert.Empty(array);
+        }
+
+        // Test ConvertToType with object type having FromJsonString method
+        [Fact]
+        public void ConvertToType_WithObjectType_ValidJson_ShouldReturnObject()
+        {
+            // Arrange
+            var value = "{\"name\":\"TestObject\",\"value\":42,\"active\":true}";
+            var targetType = typeof(MockComplexObject);
+            var propertyName = "TestProperty";
+
+            // Act
+            var result = PropertyParser.ConvertToType(value, targetType, propertyName);
+
+            // Assert
+            Assert.IsType<MockComplexObject>(result);
+            var obj = (MockComplexObject)result;
+            Assert.Equal("TestObject", obj.Name);
+            Assert.Equal(42, obj.Value);
+            Assert.True(obj.Active);
+        }
+
+        // Test ConvertToType with object type - invalid JSON
+        [Fact]
+        public void ConvertToType_WithObjectType_InvalidJson_ShouldThrowException()
+        {
+            // Arrange
+            var value = "invalid-json-object";
+            var targetType = typeof(MockComplexObject);
+            var propertyName = "TestProperty";
+
+            // Act & Assert
+            var exception = Assert.Throws<PropertyParserException>(() =>
+                PropertyParser.ConvertToType(value, targetType, propertyName));
             
             Assert.Contains("Failed to parse property", exception.Message);
+            Assert.Contains("TestProperty", exception.Message);
+            Assert.Contains("invalid-json-object", exception.Message);
         }
 
+        // Test ConvertToType with object array
         [Fact]
-        public void ParseProperty_WithRequiredObjectArray_EmptyInput_ShouldThrowException()
+        public void ConvertToType_WithObjectArray_ValidJsonArray_ShouldReturnArray()
         {
             // Arrange
-            var testInstance = new TestClassWithObjectArrays();
-            var propertyInfo = typeof(TestClassWithObjectArrays).GetProperty(nameof(TestClassWithObjectArrays.RequiredObjectArray));
-            var input = Array.Empty<string>();
-
-            // Act & Assert
-            var exception = Assert.Throws<PropertyParserException>(() =>
-                PropertyParser.ParseProperty(input, testInstance, propertyInfo));
-            
-            Assert.Contains("is required but no value was provided", exception.Message);
-        }
-
-        [Fact]
-        public void ParseProperty_WithOptionalObjectArray_EmptyInput_ShouldNotSetValue()
-        {
-            // Arrange
-            var testInstance = new TestClassWithObjectArrays();
-            var originalArray = testInstance.OptionalObjectArray;
-            var propertyInfo = typeof(TestClassWithObjectArrays).GetProperty(nameof(TestClassWithObjectArrays.OptionalObjectArray));
-            var input = Array.Empty<string>();
+            var value = "[{\"name\":\"Item1\",\"value\":10,\"active\":true},{\"name\":\"Item2\",\"value\":20,\"active\":false}]";
+            var targetType = typeof(MockComplexObject[]);
+            var propertyName = "TestProperty";
 
             // Act
-            PropertyParser.ParseProperty(input, testInstance, propertyInfo);
+            var result = PropertyParser.ConvertToType(value, targetType, propertyName);
 
             // Assert
-            Assert.Same(originalArray, testInstance.OptionalObjectArray); // Should remain unchanged
-        }
-
-        [Fact]
-        public void ParseProperty_WithObjectArray_MultipleInputValues_ShouldThrowException()
-        {
-            // Arrange
-            var testInstance = new TestClassWithObjectArrays();
-            var propertyInfo = typeof(TestClassWithObjectArrays).GetProperty(nameof(TestClassWithObjectArrays.RequiredObjectArray));
-            var input = new string[] { 
-                "[{\"name\":\"Item1\"}]", 
-                "[{\"name\":\"Item2\"}]" 
-            };
-
-            // Act & Assert
-            var exception = Assert.Throws<PropertyParserException>(() =>
-                PropertyParser.ParseProperty(input, testInstance, propertyInfo));
+            Assert.IsType<MockComplexObject[]>(result);
+            var array = (MockComplexObject[])result;
+            Assert.Equal(2, array.Length);
             
-            Assert.Contains("expects a single string value, but received multiple values", exception.Message);
+            Assert.Equal("Item1", array[0].Name);
+            Assert.Equal(10, array[0].Value);
+            Assert.True(array[0].Active);
+            
+            Assert.Equal("Item2", array[1].Name);
+            Assert.Equal(20, array[1].Value);
+            Assert.False(array[1].Active);
         }
 
+        // Test ConvertToType with object array - partial JSON objects
         [Fact]
-        public void ParseProperty_WithObjectArray_PartialJsonObjects_ShouldSetDefaultValues()
+        public void ConvertToType_WithObjectArray_PartialJsonObjects_ShouldSetDefaultValues()
         {
             // Arrange
-            var testInstance = new TestClassWithObjectArrays();
-            var propertyInfo = typeof(TestClassWithObjectArrays).GetProperty(nameof(TestClassWithObjectArrays.OptionalObjectArray));
-            var input = new string[] { "[{\"name\":\"OnlyName\"},{\"value\":99}]" };
+            var value = "[{\"name\":\"OnlyName\"},{\"value\":99}]";
+            var targetType = typeof(MockComplexObject[]);
+            var propertyName = "TestProperty";
 
             // Act
-            PropertyParser.ParseProperty(input, testInstance, propertyInfo);
+            var result = PropertyParser.ConvertToType(value, targetType, propertyName);
 
             // Assert
-            Assert.Equal(2, testInstance.OptionalObjectArray.Length);
+            Assert.IsType<MockComplexObject[]>(result);
+            var array = (MockComplexObject[])result;
+            Assert.Equal(2, array.Length);
             
             // First object - only name provided
-            Assert.Equal("OnlyName", testInstance.OptionalObjectArray[0].Name);
-            Assert.Equal(0, testInstance.OptionalObjectArray[0].Value); // Default value
-            Assert.False(testInstance.OptionalObjectArray[0].Active); // Default value
+            Assert.Equal("OnlyName", array[0].Name);
+            Assert.Equal(0, array[0].Value); // Default value
+            Assert.False(array[0].Active); // Default value
             
             // Second object - only value provided
-            Assert.Equal("", testInstance.OptionalObjectArray[1].Name); // Default value
-            Assert.Equal(99, testInstance.OptionalObjectArray[1].Value);
-            Assert.False(testInstance.OptionalObjectArray[1].Active); // Default value
+            Assert.Equal("", array[1].Name); // Default value
+            Assert.Equal(99, array[1].Value);
+            Assert.False(array[1].Active); // Default value
+        }
+
+        // Test ConvertToType with unsupported type
+        [Fact]
+        public void ConvertToType_WithUnsupportedType_ShouldThrowException()
+        {
+            // Arrange
+            var value = "test-value";
+            var targetType = typeof(DateTime); // Unsupported type without FromJsonString method
+            var propertyName = "TestProperty";
+
+            // Act & Assert
+            var exception = Assert.Throws<PropertyParserException>(() =>
+                PropertyParser.ConvertToType(value, targetType, propertyName));
+            
+            Assert.Contains("cannot be parsed from a string", exception.Message);
+            Assert.Contains("DateTime", exception.Message);
+        }
+
+        // Test ConvertToType with object type - malformed JSON in array element
+        [Fact]
+        public void ConvertToType_WithObjectArray_InvalidObjectJson_ShouldThrowException()
+        {
+            // Arrange
+            var value = "[{\"name\":\"Item1\",\"value\":\"not-a-number\"}]";
+            var targetType = typeof(MockComplexObject[]);
+            var propertyName = "TestProperty";
+
+            // Act & Assert
+            var exception = Assert.Throws<PropertyParserException>(() =>
+                PropertyParser.ConvertToType(value, targetType, propertyName));
+            
+            Assert.Contains("Failed to parse property 'TestProperty[]'", exception.Message);
         }
     }
 }
