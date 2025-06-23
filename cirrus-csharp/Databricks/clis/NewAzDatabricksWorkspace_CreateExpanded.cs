@@ -13,7 +13,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
     /// <remarks>
     /// [OpenAPI] CreateOrUpdate=>PUT:"/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Databricks/workspaces/{workspaceName}"
     /// </remarks>
-    [CommandInfo("workspace create", Description = "Creates a new workspace.")]
+    [CommandInfo(Name = "workspace create", Description = "Creates a new workspace.")]
     public partial class WorkspaceCreate : BaseProcessor,
         Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.IEventListener
     {

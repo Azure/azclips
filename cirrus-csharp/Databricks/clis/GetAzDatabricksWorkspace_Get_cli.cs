@@ -13,7 +13,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
     /// <remarks>
     /// [OpenAPI] Get=>GET:"/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Databricks/workspaces/{workspaceName}"
     /// </remarks>
-    [CommandInfo("workspace show", Description = "Gets the workspace.")]
+    [CommandInfo(Name = "workspace show", Description = "Gets the workspace.")]
     public partial class WorkspaceShow : BaseProcessor,
          Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.IEventListener
     {
@@ -73,7 +73,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         // PossibleTypes = new [] { typeof(string) })]
         // [global::System.Management.Automation.Alias("WorkspaceName")]
         // [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Path)]
-        [ArgumentInfo(Required = true, Description = "The name of the workspace.")]
+        [ArgumentInfo(Required = true, Aliases = new string[] {"n", "name"}, Description = "The name of the workspace.")]
         public string Name { get => this._name; set => this._name = value; }
 
         /// <summary>
@@ -109,7 +109,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         // SerializedName = @"resourceGroupName",
         // PossibleTypes = new [] { typeof(string) })]
         // [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Path)]
-        [ArgumentInfo(Description = "The name of the resource group. The name is case insensitive.")]
+        [ArgumentInfo(Required = true, Aliases = new string[] {"g", "resource-group"}, Description = "The name of the resource group. The name is case insensitive.")]
         public string ResourceGroupName { get => this._resourceGroupName; set => this._resourceGroupName = value; }
 
         /// <summary>Backing field for <see cref="SubscriptionId" /> property.</summary>

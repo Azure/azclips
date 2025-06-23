@@ -60,18 +60,14 @@ namespace SharedContracts
         /// </summary>
         // public bool Positional { get; set; } = false;
         // public string NumArgs { get; set; } = "1"; // Default to 1, can be set to '*' for variable length
+        // public string? Group { get; set; } = null;
         public string SerializedName { get; set; } = "";
     }
 
     [AttributeUsage(AttributeTargets.Class)]
     public class CommandInfoAttribute : Attribute
     {
-        public CommandInfoAttribute(string name)
-        {
-            Name = name ?? throw new ArgumentNullException(nameof(name));
-        }
-
-        public string Name { get; set; }
+        public string Name { get; set; } = "";
         public string Description { get; set; } = "";
     }
 
