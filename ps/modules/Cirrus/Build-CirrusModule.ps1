@@ -21,6 +21,17 @@ Write-Host "Script Directory: $scriptDir" -ForegroundColor Gray
 Write-Host "PS Directory: $psDir" -ForegroundColor Gray
 Write-Host "Root Directory: $rootDir" -ForegroundColor Gray
 
+# Always clean old XML help files before build
+Write-Host "`nCleaning old XML help files..." -ForegroundColor Yellow
+$oldXmlFiles = Get-ChildItem -Path $scriptDir -Filter "*-help.xml" -ErrorAction SilentlyContinue
+if ($oldXmlFiles.Count -gt 0) {
+    $oldXmlFiles | Remove-Item -Force
+    Write-Host "✓ Removed $($oldXmlFiles.Count) old XML help file(s)" -ForegroundColor Green
+}
+else {
+    Write-Host "○ No old XML help files found" -ForegroundColor Gray
+}
+
 # Clean if requested
 if ($Clean) {
     Write-Host "Cleaning previous builds..." -ForegroundColor Yellow
@@ -119,20 +130,75 @@ Write-Host "`n--- Step 4: Copying C# Assembly ---" -ForegroundColor Yellow
 
 $configDir = if ($Release) { "Release" } else { "Debug" }
 $assemblyPath = Join-Path $scriptDir "bin" $configDir "net9.0" "Cirrus.dll"
-$moduleAssemblyPath = Join-Path $scriptDir "Cirrus.dll"
+$moduleAssemblyPath = Join-Path $scriptDir "CirrusCore.dll"
 
 if (Test-Path $assemblyPath) {
     Copy-Item $assemblyPath $moduleAssemblyPath -Force
-    Write-Host "✓ Copied Cirrus.dll to module root" -ForegroundColor Green
+    Write-Host "✓ Copied Cirrus.dll to module root as CirrusCore.dll" -ForegroundColor Green
 }
 else {
     Write-Error "C# assembly not found at: $assemblyPath"
     exit 1
 }
 
-# Step 5: Test the module (if requested)
+# Step 5: Generate Help Documentation
+Write-Host "`n--- Step 5: Generating Help Documentation ---" -ForegroundColor Yellow
+
+try {
+    # Import the module
+    Write-Host "Importing Cirrus module..." -ForegroundColor White
+    Import-Module "$scriptDir\Cirrus.psd1" -Force
+    
+    # Import PlatyPS module
+    Write-Host "Importing PlatyPS module..." -ForegroundColor White
+    Import-Module platyps -Force
+    
+    # Create help directory in config directory
+    $helpDir = Join-Path $scriptDir "bin" $configDir "help"
+    if (-not (Test-Path $helpDir)) {
+        New-Item -ItemType Directory -Path $helpDir -Force | Out-Null
+        Write-Host "✓ Created help directory: $helpDir" -ForegroundColor Green
+    }
+    
+    # Generate markdown help files
+    Write-Host "Generating markdown help files..." -ForegroundColor White
+    New-MarkdownHelp -Module Cirrus -OutputFolder $helpDir -Force
+    Write-Host "✓ Generated markdown help files" -ForegroundColor Green
+    
+    # Generate external help XML file directly to module directory
+    Write-Host "Generating external help XML file..." -ForegroundColor White
+    New-ExternalHelp -Path $helpDir -OutputPath $scriptDir -Force
+    
+    # Ensure the XML file has the correct PowerShell naming convention
+    $xmlFiles = Get-ChildItem -Path $scriptDir -Filter "*.xml"
+    if ($xmlFiles.Count -gt 0) {
+        Write-Host "✓ Generated external help XML file in module directory" -ForegroundColor Green
+    }
+    else {
+        Write-Warning "No XML help file was generated"
+    }
+    
+    # Remove the imported module
+    Remove-Module Cirrus -Force
+    Remove-Module platyps -Force
+}
+catch {
+    Write-Warning "Failed to generate help documentation: $_"
+    Write-Host "⚠ Help documentation generation failed, but build will continue" -ForegroundColor Yellow
+    
+    # Clean up any imported modules
+    try {
+        Remove-Module Cirrus -Force -ErrorAction SilentlyContinue
+        Remove-Module platyps -Force -ErrorAction SilentlyContinue
+    }
+    catch {
+        # Ignore cleanup errors
+    }
+}
+
+# Step 6: Test the module (if requested)
 if ($Test) {
-    Write-Host "`n--- Step 5: Testing Module ---" -ForegroundColor Yellow
+    Write-Host "`n--- Step 6: Testing Module ---" -ForegroundColor Yellow
     
     try {
         # Import the module

@@ -10,6 +10,8 @@ use std::os::raw::c_char;
 pub struct CCmdletInfo {
     pub name: *mut c_char,
     pub uri: *mut c_char,
+    pub synopsis: *mut c_char,
+    pub description: *mut c_char,
 }
 
 // C-compatible array structure
@@ -46,10 +48,27 @@ pub extern "C" fn cirrus_get_builtin_cmdlets() -> *mut CCmdletArray {
                             Ok(s) => s,
                             Err(_) => continue,
                         };
+                        let synopsis_cstring = match CString::new(cmdlet.synopsis) {
+                            Ok(s) => s,
+                            Err(_) => match CString::new("") {
+                                Ok(s) => s,
+                                Err(_) => continue,
+                            },
+                        };
+                        let description_cstring =
+                            match CString::new(cmdlet.description.unwrap_or_default()) {
+                                Ok(s) => s,
+                                Err(_) => match CString::new("") {
+                                    Ok(s) => s,
+                                    Err(_) => continue,
+                                },
+                            };
 
                         c_cmdlets.push(CCmdletInfo {
                             name: name_cstring.into_raw(),
                             uri: uri_cstring.into_raw(),
+                            synopsis: synopsis_cstring.into_raw(),
+                            description: description_cstring.into_raw(),
                         });
                     }
 
@@ -100,6 +119,12 @@ pub extern "C" fn cirrus_free_cmdlet_array(array: *mut CCmdletArray) {
                 }
                 if !item.uri.is_null() {
                     let _ = CString::from_raw(item.uri);
+                }
+                if !item.synopsis.is_null() {
+                    let _ = CString::from_raw(item.synopsis);
+                }
+                if !item.description.is_null() {
+                    let _ = CString::from_raw(item.description);
                 }
             }
         }

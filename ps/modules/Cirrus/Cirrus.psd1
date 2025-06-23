@@ -7,8 +7,15 @@
     Copyright            = '(c) Microsoft Corporation. All rights reserved.'
     Description          = 'Azure Cirrus PowerShell Module for Cloud Management'
     PowerShellVersion    = '7.2'
-    NestedModules        = @('Cirrus.dll')
     FunctionsToExport    = '*'
     CmdletsToExport      = '*'
     VariablesToExport    = '*'
+
+    # File list including help files in proper directory structure
+    FileList = @(
+        'Cirrus.psm1',
+        'CirrusCore.dll',
+        'az_ps.dll',
+        'Cirrus-help.xml'
+    )
 } 

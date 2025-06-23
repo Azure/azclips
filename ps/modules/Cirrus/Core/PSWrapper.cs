@@ -12,6 +12,8 @@ public class CmdletInfo
 {
     public string Name { get; set; } = string.Empty;
     public string Uri { get; set; } = string.Empty;
+    public string Synopsis { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
 }
 
 public static class PSWrapper
@@ -89,6 +91,8 @@ public static class PSWrapper
     {
         public IntPtr Name;
         public IntPtr Uri;
+        public IntPtr Synopsis;
+        public IntPtr Description;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -566,11 +570,15 @@ public static class PSWrapper
 
                 string name = item.Name != IntPtr.Zero ? Marshal.PtrToStringAnsi(item.Name) ?? "" : "";
                 string uri = item.Uri != IntPtr.Zero ? Marshal.PtrToStringAnsi(item.Uri) ?? "" : "";
+                string synopsis = item.Synopsis != IntPtr.Zero ? Marshal.PtrToStringAnsi(item.Synopsis) ?? "" : "";
+                string description = item.Description != IntPtr.Zero ? Marshal.PtrToStringAnsi(item.Description) ?? "" : "";
 
                 result[i] = new CmdletInfo
                 {
                     Name = name,
-                    Uri = uri
+                    Uri = uri,
+                    Synopsis = synopsis,
+                    Description = description
                 };
             }
 

@@ -44,3 +44,4 @@ Thumbs.db
 
 bin/
 obj/
+*-help.xml

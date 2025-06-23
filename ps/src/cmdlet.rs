@@ -29,12 +29,27 @@ fn retrieve_cmdlets_from_command_group(
 
 pub struct CmdletInfo {
     pub uri: CrsUri,
+    pub synopsis: String,
+    pub description: Option<String>,
 }
 
 impl From<&CrsCommand> for CmdletInfo {
     fn from(command: &CrsCommand) -> Self {
         let uri = CrsUri::from_str(&command.uri).unwrap();
-        CmdletInfo { uri }
+
+        CmdletInfo {
+            uri,
+            synopsis: command
+                .help
+                .as_ref()
+                .map(|h| h.short.clone())
+                .unwrap_or_default(),
+            description: command
+                .help
+                .as_ref()
+                .map(|h| h.long.clone())
+                .unwrap_or_default(),
+        }
     }
 }
 
