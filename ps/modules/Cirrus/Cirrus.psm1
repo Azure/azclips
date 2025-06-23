@@ -28,46 +28,23 @@ try {
     
     if ($builtinCmdlets -and $builtinCmdlets.Count -gt 0) {
         Write-Host "Found $($builtinCmdlets.Count) builtin cmdlets" -ForegroundColor Green
-        
-        # Create functions for each cmdlet
-        foreach ($cmdlet in $builtinCmdlets) {
-            if ([string]::IsNullOrEmpty($cmdlet.Name) -or [string]::IsNullOrEmpty($cmdlet.Uri)) {
-                continue
-            }
+
+        # Generate all function scripts at once using PSCmdlet template
+        $allFunctionScripts = [Cirrus.Core.PSCmdlet]::GenerateFunctionScripts($builtinCmdlets)
+
+        if (![string]::IsNullOrEmpty($allFunctionScripts)) {
+            # Execute all function definitions at once
+            Invoke-Expression $allFunctionScripts
             
-            # Create function dynamically
-            $functionScript = @"
-function $($cmdlet.Name) {
-    <#
-    .SYNOPSIS
-    Auto-generated cmdlet for $($cmdlet.Name)
-    
-    .DESCRIPTION
-    This cmdlet was automatically generated from the Rust backend
-    URI: $($cmdlet.Uri)
-    #>
-    [CmdletBinding()]
-    param()
-    
-    Process {
-        Write-Host "Executing cmdlet: $($cmdlet.Name)" -ForegroundColor Yellow
-        Write-Host "URI: $($cmdlet.Uri)" -ForegroundColor Cyan
-    }
-}
-"@
-            
-            try {
-                # Execute the function definition
-                Invoke-Expression $functionScript
-                # Add function name to export list immediately
-                $script:FunctionsToExport += $cmdlet.Name
-                Write-Verbose "Created function: $($cmdlet.Name)"
-            }
-            catch {
-                Write-Warning "Failed to create function for cmdlet '$($cmdlet.Name)': $_"
+            # Add all valid cmdlet names to export list
+            foreach ($cmdlet in $builtinCmdlets) {
+                if (![string]::IsNullOrEmpty($cmdlet.Name) -and ![string]::IsNullOrEmpty($cmdlet.Uri)) {
+                    $script:FunctionsToExport += $cmdlet.Name
+                    Write-Verbose "Created function: $($cmdlet.Name)"
+                }
             }
         }
-        
+
         Write-Host "✓ Dynamic cmdlets created successfully" -ForegroundColor Green
     }
     else {
@@ -78,6 +55,52 @@ catch {
     Write-Warning "Failed to create dynamic cmdlets: $_"
     Write-Host "This may happen if the Rust library is not properly initialized" -ForegroundColor Yellow
 }
+
+# # Create 6400 fake functions for performance testing using PSCmdlet template
+# try {
+#     Write-Host "Creating 6400 fake functions for testing..." -ForegroundColor Cyan
+    
+#     # Build fake CmdletInfo array
+#     $fakeCmdlets = @()
+#     for ($i = 1; $i -le 6400; $i++) {
+#         $fakeCmdlet = New-Object Cirrus.Core.CmdletInfo
+#         $fakeCmdlet.Name = "Invoke-Fake$i"
+#         $fakeCmdlet.Uri = "fake://test/function$i"
+#         $fakeCmdlets += $fakeCmdlet
+        
+#         # Show progress every 1000 cmdlets during creation
+#         if ($i % 1000 -eq 0) {
+#             Write-Host "Built $i fake cmdlet infos..." -ForegroundColor Blue
+#         }
+#     }
+    
+#     Write-Host "Generating all fake function scripts using PSCmdlet template..." -ForegroundColor Cyan
+    
+#     # Generate all fake function scripts at once using PSCmdlet template
+#     $allFakeFunctionScripts = [Cirrus.Core.PSCmdlet]::GenerateFunctionScripts($fakeCmdlets)
+    
+#     if (![string]::IsNullOrEmpty($allFakeFunctionScripts)) {
+#         Write-Host "Executing all fake function definitions..." -ForegroundColor Cyan
+        
+#         # Execute all fake function definitions at once
+#         Invoke-Expression $allFakeFunctionScripts
+        
+#         # Add all fake function names to export list
+#         foreach ($fakeCmdlet in $fakeCmdlets) {
+#             $script:FunctionsToExport += $fakeCmdlet.Name
+#         }
+        
+#         Write-Host "✓ All 6400 fake functions created successfully using PSCmdlet template" -ForegroundColor Green
+#     }
+#     else {
+#         Write-Warning "No fake function scripts were generated"
+#     }
+# }
+# catch {
+#     Write-Warning "Failed to create fake functions using PSCmdlet template: $_"
+#     Write-Host "This may indicate an issue with the PSCmdlet.GenerateFunctionScripts method" -ForegroundColor Yellow
+# }
+
 
 function Get-CirrusVersion {
     <#
