@@ -79,6 +79,10 @@ namespace AzTool
             uint offset = 0,
             uint? terminalWidth = null)
         {
+            if (lines == null || lines.Length == 0)
+            {
+                return Array.Empty<string>();
+            }
             var renderedLines = new List<string>();
 
             var shortWidth = lines.Max(line => line.Short.Width);

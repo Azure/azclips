@@ -101,14 +101,14 @@ namespace AzTool
             }).ToArray();
         }
 
-        List<List<string>> PopValues(string[] aliases)
+        Dictionary<string, List<List<string>>> PopValues(string[] aliases)
         {
-            List<List<string>> values = new();
+            Dictionary<string, List<List<string>>> values = new();
             foreach (var alias in NormalizeArgumentNames(aliases))
             {
                 if (Properties.ContainsKey(alias))
                 {
-                    values.AddRange(Properties[alias]);
+                    values[alias] = Properties[alias];
                     Properties.Remove(alias);
                 }
             }
@@ -136,9 +136,10 @@ namespace AzTool
                     else if (rawValues.Count == 0)
                     {
                         // If the parameter is not used and is not required, return the default value
+                        // TODO: Use a Specialized CONSTANT for default values
                         return null;
                     }
-                    string[] values = rawValues.SelectMany(v => v).ToArray();
+                    string[] values = rawValues.SelectMany(v => v.Value.SelectMany(v => v)).ToArray();
                     if (values.Length == 0)
                     {
                         // If the parameter key is provided but no value is given, throw an exception
