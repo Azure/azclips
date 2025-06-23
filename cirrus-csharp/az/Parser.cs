@@ -115,12 +115,12 @@ namespace AzTool
             return values;
         }
 
-        public T PopProperty<T>(PropertyInfo propertyInfo)
+        public T? PopProperty<T>(PropertyInfo propertyInfo)
         {
-            return (T)PopProperty(propertyInfo);
+            return (T?)PopProperty(propertyInfo);
         }
 
-        public object PopProperty(PropertyInfo propertyInfo)
+        public object? PopProperty(PropertyInfo propertyInfo)
         {
             // TODO: Implement logic to handle Positional arguments
             ArgumentInfoAttribute attribute = propertyInfo.GetCustomAttribute<ArgumentInfoAttribute>() ?? throw new PropertyParserException($"Property '{propertyInfo.Name}' does not have an ArgumentInfoAttribute and cannot be parsed.");
@@ -129,10 +129,20 @@ namespace AzTool
             switch (attribute.Action)
             {
                 case ArgumentAction.Store:
-                    string[] values = rawValues.SelectMany(v => v).ToArray();
-                    if (values.Length == 0 && attribute.Required)
+                    if (rawValues.Count == 0 && attribute.Required)
                     {
                         throw new PropertyParserException($"Property '{propertyInfo.Name}' is required but no value was provided.");
+                    }
+                    else if (rawValues.Count == 0)
+                    {
+                        // If the parameter is not used and is not required, return the default value
+                        return null;
+                    }
+                    string[] values = rawValues.SelectMany(v => v).ToArray();
+                    if (values.Length == 0)
+                    {
+                        // If the parameter key is provided but no value is given, throw an exception
+                        throw new PropertyParserException($"Property '{propertyInfo.Name}' expects a value, but no value was provided.");
                     }
                     else if (values.Length > 1)
                     {

@@ -36,6 +36,7 @@ namespace AzTool
         {
             try
             {
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Starting Az tool with arguments: {string.Join(" ", args)}");
                 var Invocation = CreateInvocation(args);
                 switch (Invocation)
                 {
@@ -71,6 +72,7 @@ namespace AzTool
             catch (Exception ex)
             {
                 Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Fatal error: {ex.Message}");
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Stack trace: {ex.StackTrace}");
                 return 1; // Return error code
             }
         }
