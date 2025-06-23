@@ -160,12 +160,12 @@ namespace AzTool
             if (PositionalArgs.Count > 0)
             {
                 var positionalArgs = string.Join(", ", PositionalArgs);
-                throw new PropertyParserException($"The following positional arguments were not parsed: {positionalArgs}. Please ensure they are defined in the command line arguments.");
+                throw new PropertyParserException($"Unrecognized positional arguments: {positionalArgs}.");
             }
             if (Properties.Count > 0)
             {
                 var remainingProperties = string.Join(", ", Properties.Keys);
-                throw new PropertyParserException($"The following properties were not parsed: {remainingProperties}. Please ensure they are defined in the command line arguments.");
+                throw new PropertyParserException($"Unrecognized arguments: {remainingProperties}. Please check the command line arguments.");
             }
         }
     }

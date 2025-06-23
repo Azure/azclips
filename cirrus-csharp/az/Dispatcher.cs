@@ -513,8 +513,11 @@ namespace AzTool
                 foreach (var property in GetArguments())
                 {
                     var value = cmdArgs.PopProperty(property);
-                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Setting property {property.Name} to value: {value}");
-                    property.SetValue(instance, value);
+                    if (value != null)
+                    {
+                        Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Setting property {property.Name} to value: {value}");
+                        property.SetValue(instance, value);
+                    }
                 }
                 cmdArgs.ThrowRemainingProperties();
                 Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Set properties for {CommandType.Name} from command line arguments");
