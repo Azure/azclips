@@ -2,7 +2,7 @@
 # This module provides cmdlets for Azure Cirrus cloud management using Rust backend
 
 # Import the nested module (initialization happens automatically via CirrusModuleInitializer)
-Import-Module "$PSScriptRoot\CirrusCore.dll" -Force
+Import-Module "$PSScriptRoot\Cirrus.dll" -Force
 
 # Module variables
 $script:ModuleName = "Cirrus"

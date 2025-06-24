@@ -1,5 +1,5 @@
 [package]
-name = "az_ps"
+name = "cirrus_ps"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

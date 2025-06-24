@@ -18,7 +18,7 @@ public class CmdletInfo
 
 public static class PSWrapper
 {
-    private const string LibraryName = "az_ps";
+    private const string LibraryName = "cirrus_ps";  // the name of the cargo crate
     private static bool _isInitialized = false;
     private static readonly object _lock = new object();
 

@@ -14,8 +14,8 @@
     # File list including help files in proper directory structure
     FileList = @(
         'Cirrus.psm1',
-        'CirrusCore.dll',
-        'az_ps.dll',
+        'Cirrus.dll',
+        'cirrus_ps.dll',
         'Cirrus-help.xml'
     )
 } 

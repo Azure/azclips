@@ -11,6 +11,8 @@ $ErrorActionPreference = "Stop"
 
 Write-Host "=== Building Cirrus PowerShell Module ===" -ForegroundColor Cyan
 
+$CirrusCargoName = "cirrus_ps"
+
 # Get paths
 $scriptDir = $PSScriptRoot
 $psDir = Split-Path $scriptDir -Parent | Split-Path -Parent
@@ -86,7 +88,7 @@ catch {
 # Step 2: Copy Rust library to module directory
 Write-Host "`n--- Step 2: Copying Rust Library ---" -ForegroundColor Yellow
 
-$rustLibName = if ($IsWindows) { "az_ps.dll" } elseif ($IsLinux) { "libaz_ps.so" } else { "libaz_ps.dylib" }
+$rustLibName = if ($IsWindows) { "$CirrusCargoName.dll" } elseif ($IsLinux) { "lib$CirrusCargoName.so" } else { "lib$CirrusCargoName.dylib" }
 $rustLibPath = Join-Path $targetDir $buildType $rustLibName
 $moduleLibPath = Join-Path $scriptDir $rustLibName
 
@@ -130,11 +132,11 @@ Write-Host "`n--- Step 4: Copying C# Assembly ---" -ForegroundColor Yellow
 
 $configDir = if ($Release) { "Release" } else { "Debug" }
 $assemblyPath = Join-Path $scriptDir "bin" $configDir "net9.0" "Cirrus.dll"
-$moduleAssemblyPath = Join-Path $scriptDir "CirrusCore.dll"
+$moduleAssemblyPath = Join-Path $scriptDir "Cirrus.dll"
 
 if (Test-Path $assemblyPath) {
     Copy-Item $assemblyPath $moduleAssemblyPath -Force
-    Write-Host "✓ Copied Cirrus.dll to module root as CirrusCore.dll" -ForegroundColor Green
+    Write-Host "✓ Copied Cirrus.dll to module root as Cirrus.dll" -ForegroundColor Green
 }
 else {
     Write-Error "C# assembly not found at: $assemblyPath"
