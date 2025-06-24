@@ -245,7 +245,7 @@ namespace AzTool
                         throw new PropertyParserException($"Property '{propertyName}' is an array of type '{elementType?.Name}' but could not be parsed from the provided value '{value}'.", ex);
                     }
                 default:
-                    var fromJsonMethod = targetType.GetMethod("FromJsonString", BindingFlags.Public | BindingFlags.Static);
+                    var fromJsonMethod = GetMethod(targetType, "FromJsonString");
                     if (fromJsonMethod != null)
                     {
                         try
@@ -261,6 +261,38 @@ namespace AzTool
                     {
                         throw new PropertyParserException($"Property '{propertyName}' is of type '{targetType.Name}' which cannot be parsed from a string.");
                     }
+            }
+        }
+
+        static MethodInfo? GetMethod(Type type, string methodName)
+        {
+            if (string.IsNullOrWhiteSpace(methodName)) throw new ArgumentException("Method name cannot be null or empty.", nameof(methodName));
+            foreach (var derivedType in FindAllDerived(type))
+            {
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Searching for method '{methodName}' in derived type '{derivedType.FullName}'");
+                var method = derivedType.GetMethod(methodName, BindingFlags.Public | BindingFlags.Static);
+                if (method != null)
+                {
+                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Found method '{methodName}' in type '{derivedType.FullName}'");
+                    return method;
+                }
+            }
+            Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Method '{methodName}' not found in type '{type.FullName}' or its derived types.");
+            return null;
+        }
+
+        static IEnumerable<Type> FindAllDerived(Type baseType)
+        {
+            if (!baseType.IsAbstract && !baseType.IsInterface)
+            {
+                yield return baseType;
+            }
+            foreach (var type in baseType.Assembly.GetTypes())
+            {
+                if (type.IsAssignableTo(baseType) && !type.IsAbstract && !type.IsInterface)
+                {
+                    yield return type;
+                }
             }
         }
     }
