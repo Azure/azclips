@@ -33,256 +33,6 @@ namespace AzTool
                 throw;
             }
         }
-
-        /// <summary>
-        /// Finds all classes in the assembly that implement IProcessor and match the target class name
-        /// </summary>
-        /// <param name="assembly">The loaded assembly</param>
-        /// <param name="targetClassName">The target class name to search for</param>
-        /// <returns>List of Type objects that implement IProcessor and match the target class name</returns>
-        public static List<Type> FindClassesInheritingFromClassA(Assembly assembly, string targetClassName = "")
-        {
-            var inheritingClasses = new List<Type>();
-
-            try
-            {
-                // Get all types from the assembly
-                Type[] types = assembly.GetTypes();
-
-                // Find types that implement IProcessor and are not abstract
-                foreach (Type type in types)
-                {
-                    // Check if the type implements IProcessor and is not abstract/interface
-                    if (typeof(IProcessor).IsAssignableFrom(type) &&
-                        !type.IsAbstract &&
-                        !type.IsInterface)
-                    {
-                        // If targetClassName is specified, filter by class name
-                        if (!string.IsNullOrEmpty(targetClassName))
-                        {
-                            if (type.Name.Equals(targetClassName, StringComparison.OrdinalIgnoreCase))
-                            {
-                                inheritingClasses.Add(type);
-                                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Found target class: {type.Name}");
-                            }
-                        }
-                        else
-                        {
-                            inheritingClasses.Add(type);
-                            Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Found class: {type.Name}");
-                        }
-                    }
-                }
-            }
-            catch (ReflectionTypeLoadException ex)
-            {
-                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Error loading types from assembly:"); foreach (Exception? loaderEx in ex.LoaderExceptions)
-                {
-                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}]   - {loaderEx?.Message ?? "Unknown error"}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Error finding inheriting classes: {ex.Message}");
-            }
-
-            return inheritingClasses;
-        }
-
-        /// <summary>
-        /// Finds and calls Init() method on objects in abc.m.d namespace
-        /// </summary>
-        /// <param name="assembly">The loaded assembly</param>
-        public static void CallInitOnAbcMdNamespace(Assembly assembly)
-        {
-            try
-            {
-                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Searching for objects in abc.m.d namespace...");
-
-                // Get all types from the assembly
-                Type[] types = assembly.GetTypes();
-
-                // Find types in abc.m.d namespace
-                foreach (Type type in types)
-                {
-                    if (type.Namespace == "abc.m.d" && !type.IsAbstract && !type.IsInterface)
-                    {
-                        Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Found class in abc.m.d namespace: {type.Name}");
-
-                        try
-                        {
-                            // Create instance
-                            object? instance = Activator.CreateInstance(type); if (instance != null)
-                            {
-                                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Created instance of {type.Name}");
-
-                                // Look for Init method
-                                MethodInfo? initMethod = type.GetMethod("Init", BindingFlags.Public | BindingFlags.Instance); if (initMethod != null)
-                                {
-                                    initMethod.Invoke(instance, null);
-                                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Successfully called Init() on {type.Name}");
-                                }
-                                else
-                                {
-                                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] No Init() method found on {type.Name}");
-                                }
-                            }
-                            else
-                            {
-                                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Failed to create instance of {type.Name}");
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Error working with {type.Name}: {ex.Message}");
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Error processing abc.m.d namespace: {ex.Message}");
-            }
-        }/// <summary>
-         /// Finds and initializes the Module singleton class that implements IModule interface
-         /// </summary>
-         /// <param name="assembly">The loaded assembly</param>
-        public static void InitializeModuleSingleton(Assembly assembly)
-        {
-            try
-            {
-                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Searching for Module singleton class that implements IModule...");
-
-                // Get all types from the assembly
-                Type[] types = assembly.GetTypes();
-
-                // Find Module class that implements IModule
-                Type? moduleType = null;
-                foreach (Type type in types)
-                {
-                    if (type.Name == "Module" &&
-                        typeof(IModule).IsAssignableFrom(type) &&
-                        !type.IsAbstract &&
-                        !type.IsInterface)
-                    {
-                        moduleType = type;
-                        Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Found Module class: {type.FullName}");
-                        break;
-                    }
-                }
-                if (moduleType == null)
-                {
-                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] No Module class found that implements IModule interface");
-                    return;
-                }
-
-                // Try to get singleton instance
-                object? moduleInstance = GetModuleSingletonInstance(moduleType);
-                if (moduleInstance == null)
-                {
-                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Failed to get Module singleton instance");
-                    return;
-                }
-
-                // Cast to IModule to access interface methods
-                if (moduleInstance is IModule module)
-                {
-                    // Set up OnNewCLIRequest delegate
-                    SetupOnNewCLIRequest(module);
-                    // Call Init() method
-                    module.Init();
-                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Successfully called Init() on Module singleton");
-                }
-                else
-                {
-                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Module instance does not implement IModule interface");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Error initializing Module singleton: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Gets the singleton instance of the Module class using reflection
-        /// </summary>
-        /// <param name="moduleType">The Module class type</param>
-        /// <returns>The singleton instance or null if not found</returns>
-        private static object? GetModuleSingletonInstance(Type moduleType)
-        {
-            try
-            {
-                // Method 1: Check for static Instance property
-                PropertyInfo? instanceProperty = moduleType.GetProperty("Instance",
-                    BindingFlags.Public | BindingFlags.Static);
-                if (instanceProperty != null && instanceProperty.PropertyType == moduleType)
-                {
-                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Found static Instance property, getting singleton instance");
-                    return instanceProperty.GetValue(null);
-                }
-
-                // Method 2: Check for static GetInstance() method
-                MethodInfo? getInstanceMethod = moduleType.GetMethod("GetInstance",
-                    BindingFlags.Public | BindingFlags.Static, null, Type.EmptyTypes, null);
-                if (getInstanceMethod != null && getInstanceMethod.ReturnType == moduleType)
-                {
-                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Found static GetInstance() method, calling to get singleton instance");
-                    return getInstanceMethod.Invoke(null, null);
-                }
-
-                // Method 3: Try to create instance using constructor (fallback)
-                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] No singleton pattern found, trying to create instance using constructor");
-                return Activator.CreateInstance(moduleType);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Error getting Module singleton instance: {ex.Message}");
-                return null;
-            }
-        }
-        /// <summary>
-        /// Sets up the OnNewCLIRequest delegate on the Module instance
-        /// </summary>
-        /// <param name="module">The Module instance that implements IModule</param>
-        private static void SetupOnNewCLIRequest(IModule module)
-        {
-            try
-            {            // Create a delegate that handles CLI requests
-                NewCLIRequestPipelineDelegate cliRequestDelegate = (prepend, append) =>
-                {
-                    append((httpRequest, cancellationToken, action, signal, next) =>
-                    {
-                        Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] CLI request processing started");
-
-                        // Add authorization header with bearer token
-                        httpRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "[Placeholder for token]");
-                        //Console.WriteLine("Added Authorization header with bearer token 'abc'");
-
-                        // Process the request and call next step
-                        return next(httpRequest, cancellationToken, action, signal);
-                    });
-                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] CLI request pipeline invoked");
-                    // Here you can add custom logic for CLI request processing
-                    // For example, adding authentication, logging, telemetry, etc.
-
-                    // Example: Add a custom step to the pipeline
-                    // prepend((httpRequest, cancellationToken, action, signal) => 
-                    // {
-                    //     Console.WriteLine("Custom prepend step executed");
-                    //     // Process the request and call next step
-                    //     return next(httpRequest, cancellationToken, action, signal);
-                    // });
-                };
-                // Assign the delegate to OnNewCLIRequest
-                module.OnNewCLIRequest = cliRequestDelegate;
-                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Successfully set OnNewCLIRequest delegate on Module");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Error setting OnNewCLIRequest delegate: {ex.Message}");
-            }
-        }
     }
 
     public abstract record Invocation;
@@ -331,8 +81,12 @@ namespace AzTool
         {
             Assembly = assembly ?? throw new ArgumentNullException(nameof(assembly), "Assembly cannot be null");
             Name = assembly.GetName().Name ?? throw new ArgumentException("Assembly name cannot be null", nameof(assembly));
-            DllLoader.InitializeModuleSingleton(Assembly);
+            ModuleSingleton = InitializeModuleSingleton(Assembly);
         }
+
+        public Assembly Assembly { get; }
+        public string Name { get; }
+        public IModule? ModuleSingleton { get; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ModuleProxy"/> class by loading a DLL from the specified path.
@@ -340,19 +94,15 @@ namespace AzTool
         /// <param name="dllPath">The path to the DLL file to be loaded.</param>
         /// <exception cref="ArgumentException">Thrown when the provided DLL path is null or empty.</exception>
         /// <exception cref="Exception">Thrown when there is an error loading the DLL.</exception>
-        public ModuleProxy(string dllPath)
+        public static ModuleProxy Create(string dllPath)
         {
             if (string.IsNullOrEmpty(dllPath))
             {
                 throw new ArgumentException("DLL path cannot be null or empty", nameof(dllPath));
             }
-            Assembly = DllLoader.LoadDllIntoMemory(dllPath);
-            Name = Assembly.GetName().Name ?? throw new ArgumentException("Assembly name cannot be null", nameof(dllPath));
-            DllLoader.InitializeModuleSingleton(Assembly);
+            var assembly = DllLoader.LoadDllIntoMemory(dllPath);
+            return new ModuleProxy(assembly);
         }
-
-        public Assembly Assembly { get; }
-        public string Name { get; }
 
         /// <summary>
         /// Loads a <c>ModuleProxy</c> instance based on command line arguments.
@@ -370,32 +120,26 @@ namespace AzTool
 
             string dllPath = $"{args[0]}.dll";
             Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Loading module from DLL: {dllPath}");
-            return (new ModuleProxy(dllPath), args.Skip(1).ToArray());
+            return (ModuleProxy.Create(dllPath), args.Skip(1).ToArray());
         }
 
         /// <summary>
-        /// Gets all commands in the module that implement <see cref="IProcessor"/> and have a <see cref="CommandInfoAttribute"/>.
+        /// Creates an invocation based on the provided command line arguments.
         /// </summary>
+        /// <param name="args">Command line arguments to process.</param>
         /// <returns>
-        /// An enumerable collection of <see cref="CommandProxy"/> instances representing the commands.
+        /// An <see cref="Invocation"/> representing the command to be executed.
         /// </returns>
-        public IEnumerable<CommandProxy> GetCommands()
+        /// <exception cref="ArgumentException">Thrown when no command is recognized in the provided arguments.</exception>
+        public Invocation CreateInvocation(string[] args)
         {
-            foreach (var type in Assembly.GetTypes())
+            var helpFlags = new[] { "--help", "-h", "help", "?", "-?" };
+            if (args.Length == 1 && helpFlags.Contains(args[0], StringComparer.OrdinalIgnoreCase))
             {
-                if (typeof(IProcessor).IsAssignableFrom(type) && !type.IsAbstract && !type.IsInterface)
-                {
-                    CommandInfoAttribute? commandInfo = type.GetCustomAttribute<CommandInfoAttribute>();
-                    if (commandInfo != null)
-                    {
-                        yield return new CommandProxy(type);
-                    }
-                    else
-                    {
-                        Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Type {type.Name} does not have CommandInfoAttribute, skipping");
-                    }
-                }
+                return new ModuleHelpInvocation(this);
             }
+            var (command, commandArgs) = ParseCommand(args);
+            return command.CreateInvocation(commandArgs);
         }
 
         /// <summary>
@@ -426,22 +170,153 @@ namespace AzTool
         }
 
         /// <summary>
-        /// Creates an invocation based on the provided command line arguments.
+        /// Gets all commands in the module that implement <see cref="IProcessor"/> and have a <see cref="CommandInfoAttribute"/>.
         /// </summary>
-        /// <param name="args">Command line arguments to process.</param>
         /// <returns>
-        /// An <see cref="Invocation"/> representing the command to be executed.
+        /// An enumerable collection of <see cref="CommandProxy"/> instances representing the commands.
         /// </returns>
-        /// <exception cref="ArgumentException">Thrown when no command is recognized in the provided arguments.</exception>
-        public Invocation CreateInvocation(string[] args)
+        public IEnumerable<CommandProxy> GetCommands()
         {
-            var helpFlags = new[] { "--help", "-h", "help", "?", "-?" };
-            if (args.Length == 1 && helpFlags.Contains(args[0], StringComparer.OrdinalIgnoreCase))
+            foreach (var type in Assembly.GetTypes())
             {
-                return new ModuleHelpInvocation(this);
+                if (typeof(IProcessor).IsAssignableFrom(type) && !type.IsAbstract && !type.IsInterface)
+                {
+                    CommandInfoAttribute? commandInfo = type.GetCustomAttribute<CommandInfoAttribute>();
+                    if (commandInfo != null)
+                    {
+                        yield return new CommandProxy(type);
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Type {type.Name} does not have CommandInfoAttribute, skipping");
+                    }
+                }
             }
-            var (command, commandArgs) = ParseCommand(args);
-            return command.CreateInvocation(commandArgs);
+        }
+
+        /// <summary>
+        /// Finds and initializes the Module singleton class that implements IModule interface
+        /// </summary>
+        /// <param name="assembly">The loaded assembly</param>
+        static IModule? InitializeModuleSingleton(Assembly assembly)
+        {
+            try
+            {
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Searching for Module singleton class that implements IModule...");
+                // Find Module class that implements IModule
+                Type? moduleType = FindModuleType(assembly);
+                if (moduleType == null)
+                {
+                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] No Module class found that implements IModule interface");
+                    return null;
+                }
+                // Try to get singleton instance
+                IModule moduleInstance = (IModule)InstantiateModule(moduleType);
+                // Set up OnNewCLIRequest delegate
+                SetupOnNewCLIRequest(moduleInstance);
+                // Call Init() method
+                moduleInstance.Init();
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Successfully called Init() on Module singleton");
+                return moduleInstance;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Error initializing Module singleton: {ex.Message}");
+                return null;
+            }
+        }
+
+        static Type? FindModuleType(Assembly assembly)
+        {
+            // Find Module class that implements IModule
+            foreach (Type type in assembly.GetTypes())
+            {
+                if (type.Name == "Module" &&
+                    typeof(IModule).IsAssignableFrom(type) &&
+                    !type.IsAbstract &&
+                    !type.IsInterface)
+                {
+                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Found Module class: {type.FullName}");
+                    return type;
+                }
+            }
+            return null;
+        }
+
+        static object InstantiateModule(Type moduleType)
+        {
+            // Method 1: Check for static Instance property
+            PropertyInfo? instanceProperty = moduleType.GetProperty("Instance", BindingFlags.Public | BindingFlags.Static);
+            if (instanceProperty != null && instanceProperty.PropertyType == moduleType)
+            {
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Found static Instance property, getting singleton instance");
+                var instance = instanceProperty.GetValue(null);
+                if (instance != null)
+                {
+                    return instance;
+                }
+                else
+                {
+                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Instance property is null, trying next method");
+                }
+            }
+
+            // Method 2: Check for static GetInstance() method
+            MethodInfo? getInstanceMethod = moduleType.GetMethod("GetInstance", BindingFlags.Public | BindingFlags.Static, null, Type.EmptyTypes, null);
+            if (getInstanceMethod != null && getInstanceMethod.ReturnType == moduleType)
+            {
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Found static GetInstance() method, calling to get singleton instance");
+                var instance = getInstanceMethod.Invoke(null, null);
+                if (instance != null)
+                {
+                    return instance;
+                }
+                else
+                {
+                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] GetInstance() returned null, trying next method");
+                }
+            }
+
+            // Method 3: Try to create instance using constructor (fallback)
+            Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] No singleton pattern found, trying to create instance using constructor");
+            return Activator.CreateInstance(moduleType) ?? throw new InvalidOperationException($"Failed to create instance of {moduleType.FullName}");
+        }
+
+        /// <summary>
+        /// Sets up the OnNewCLIRequest delegate on the Module instance
+        /// </summary>
+        /// <param name="module">The Module instance that implements IModule</param>
+        private static void SetupOnNewCLIRequest(IModule module)
+        {
+            // Create a delegate that handles CLI requests
+            NewCLIRequestPipelineDelegate cliRequestDelegate = (prepend, append) =>
+            {
+                append((httpRequest, cancellationToken, action, signal, next) =>
+                {
+                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] CLI request processing started");
+
+                    // Add authorization header with bearer token
+                    httpRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "[Placeholder for token]");
+                    //Console.WriteLine("Added Authorization header with bearer token 'abc'");
+
+                    // Process the request and call next step
+                    return next(httpRequest, cancellationToken, action, signal);
+                });
+                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] CLI request pipeline invoked");
+                // Here you can add custom logic for CLI request processing
+                // For example, adding authentication, logging, telemetry, etc.
+
+                // Example: Add a custom step to the pipeline
+                // prepend((httpRequest, cancellationToken, action, signal) => 
+                // {
+                //     Console.WriteLine("Custom prepend step executed");
+                //     // Process the request and call next step
+                //     return next(httpRequest, cancellationToken, action, signal);
+                // });
+            };
+            // Assign the delegate to OnNewCLIRequest
+            module.OnNewCLIRequest = cliRequestDelegate;
+            Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Successfully set OnNewCLIRequest delegate on Module");
         }
     }
 
