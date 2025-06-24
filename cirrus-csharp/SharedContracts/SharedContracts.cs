@@ -41,9 +41,25 @@ namespace SharedContracts
 
     public enum ArgumentAction
     {
+        /// <summary>
+        /// Stores the argument value(s) in the property.
+        /// </summary>
+        /// <remarks>
+        /// The behavior depends on the NumArgs setting:
+        /// - NumArgs = "1" or "?": Stores a single value
+        /// - NumArgs = "*", "+", or a number > 1: Stores a list of values
+        /// </remarks>
         Store,
-        // StoreTrue,
-        // Count,
+        
+        /// <summary>
+        /// Sets the property to true when the argument is present.
+        /// </summary>
+        StoreTrue,
+        
+        /// <summary>
+        /// Increments a counter each time the argument appears.
+        /// </summary>
+        Count,
     }
 
     [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field)]
@@ -58,9 +74,9 @@ namespace SharedContracts
         /// Indicates if the property is positional in the command line arguments.
         /// Each command could have one positional argument.
         /// </summary>
-        // public bool Positional { get; set; } = false;
-        // public string NumArgs { get; set; } = "1"; // Default to 1, can be set to '*' for variable length
-        // public string? Group { get; set; } = null;
+        public bool Positional { get; set; } = false;
+        public string NumArgs { get; set; } = "1"; // Default to 1, can be set to '*' for variable length
+        public string? Group { get; set; } = null;
         public string SerializedName { get; set; } = "";
     }
 
