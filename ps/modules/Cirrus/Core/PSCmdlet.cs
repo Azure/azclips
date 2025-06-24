@@ -1,7 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Management.Automation;
 using System.Text;
-using System.IO;
+using System.Collections;
 
 namespace Cirrus.Core;
 
@@ -11,12 +11,10 @@ namespace Cirrus.Core;
 public static class PSCmdlet
 {
     /// <summary>
-    /// Template for generating PowerShell function script with external help
+    /// Base template for generating PowerShell function script
     /// </summary>
-    private const string FunctionTemplateWithExternalHelp = @"function {0} {{
-    <#
-    .EXTERNALHELP {1}
-    #>
+    private const string BaseFunctionTemplate = @"function {0} {{
+    {1}
     [CmdletBinding()]
     param()
 
@@ -31,72 +29,43 @@ public static class PSCmdlet
     }}
     
     Process {{
-        Write-Host ""=== {0} Execution ==="" -ForegroundColor Cyan
-        Write-Host ""URI: {2}"" -ForegroundColor Yellow
-        
-        if ($PSBoundParameters.Count -gt 0) {{
-            Write-Host ""Parameters received:"" -ForegroundColor Green
-            $PSBoundParameters.GetEnumerator() | ForEach-Object {{
-                Write-Host ""  $($_.Key) = $($_.Value)"" -ForegroundColor White
+        $result = [Cirrus.Core.PSCmdlet]::ExecuteCommand(""{2}"", $PSBoundParameters)
+        if ($result -ne $null) {{
+            # Handle both single objects and arrays
+            if ($result -is [Array]) {{
+                foreach ($item in $result) {{
+                    Write-Output $item
+                }}
+            }}
+            else {{
+                Write-Output $result
             }}
         }}
-        else {{
-            Write-Host ""No parameters provided"" -ForegroundColor Gray
-        }}
-        
-        Write-Host ""=== End Execution ==="" -ForegroundColor Cyan
     }}
 }}";
 
     /// <summary>
-    /// Template for generating PowerShell function script with inline help
+    /// Template for external help section
     /// </summary>
-    private const string FunctionTemplateWithInlineHelp = @"function {0} {{
-    <#
+    private const string ExternalHelpTemplate = @"<#
+    .EXTERNALHELP {0}
+    #>";
+
+    /// <summary>
+    /// Template for inline help section
+    /// </summary>
+    private const string InlineHelpTemplate = @"<#
     .SYNOPSIS
-    {1}
+    {0}
     
     .DESCRIPTION
-    {2}
-    
-    .EXAMPLE
-    {0} -ResourceName ""MyResource"" -Location ""centralus""
+    {1}
     
     .NOTES
     Auto-generated cmdlet from Azure Cirrus
-    URI: {3}
+    URI: {2}
     Dynamic parameters are generated based on the command context.
-    #>
-    [CmdletBinding()]
-    param()
-
-    DynamicParam {{
-        try {{
-            return [Cirrus.Core.PSCmdlet]::GetDynamicParameters(""{3}"")
-        }}
-        catch {{
-            Write-Warning ""Failed to get dynamic parameters: $_""
-            return New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
-        }}
-    }}
-    
-    Process {{
-        Write-Host ""=== {0} Execution ==="" -ForegroundColor Cyan
-        Write-Host ""URI: {3}"" -ForegroundColor Yellow
-        
-        if ($PSBoundParameters.Count -gt 0) {{
-            Write-Host ""Parameters received:"" -ForegroundColor Green
-            $PSBoundParameters.GetEnumerator() | ForEach-Object {{
-                Write-Host ""  $($_.Key) = $($_.Value)"" -ForegroundColor White
-            }}
-        }}
-        else {{
-            Write-Host ""No parameters provided"" -ForegroundColor Gray
-        }}
-        
-        Write-Host ""=== End Execution ==="" -ForegroundColor Cyan
-    }}
-}}";
+    #>";
 
     /// <summary>
     /// Generates a PowerShell function script for the given cmdlet information
@@ -118,16 +87,14 @@ public static class PSCmdlet
         // Sanitize the cmdlet name to ensure it's a valid PowerShell function name
         string sanitizedName = SanitizeFunctionName(cmdletInfo.Name);
 
-        string functionScript;
+        string helpSection;
 
         if (!string.IsNullOrWhiteSpace(externalHelpPath))
         {
             // Use external help template
-            functionScript = string.Format(
-                FunctionTemplateWithExternalHelp,
-                sanitizedName,          // {0} - Function name
-                externalHelpPath,       // {1} - External help file path
-                cmdletInfo.Uri          // {2} - URI
+            helpSection = string.Format(
+                ExternalHelpTemplate,
+                externalHelpPath        // {0} - External help file path
             );
         }
         else
@@ -140,14 +107,21 @@ public static class PSCmdlet
                 ? cmdletInfo.Description
                 : GenerateDescription(sanitizedName, cmdletInfo.Uri);
 
-            functionScript = string.Format(
-                FunctionTemplateWithInlineHelp,
-                sanitizedName,      // {0} - Function name
-                synopsis,           // {1} - Synopsis
-                description,        // {2} - Description
-                cmdletInfo.Uri      // {3} - URI
+            helpSection = string.Format(
+                InlineHelpTemplate,
+                synopsis,           // {0} - Synopsis
+                description,        // {1} - Description
+                cmdletInfo.Uri      // {2} - URI
             );
         }
+
+        // Generate the complete function script
+        string functionScript = string.Format(
+            BaseFunctionTemplate,
+            sanitizedName,          // {0} - Function name
+            helpSection,            // {1} - Help section
+            cmdletInfo.Uri          // {2} - URI
+        );
 
         return functionScript;
     }
@@ -202,6 +176,7 @@ public static class PSCmdlet
 
     public static RuntimeDefinedParameterDictionary GetDynamicParameters(string uri)
     {
+        // TODO:
         var paramDict = new RuntimeDefinedParameterDictionary();
 
         try
@@ -276,6 +251,39 @@ public static class PSCmdlet
     }
 
     /// <summary>
+    /// Executes a command with the given URI and parameters
+    /// </summary>
+    /// <param name="uri">The URI of the command to execute</param>
+    /// <param name="parameters">The PowerShell bound parameters</param>
+    /// <returns>The result object to be output to PowerShell pipeline</returns>
+    public static object ExecuteCommand(string uri, IDictionary parameters)
+    {
+        // Display execution information
+        WriteColoredMessage($"URI: {uri}", "Yellow");
+
+        if (parameters != null && parameters.Count > 0)
+        {
+            WriteColoredMessage("Parameters received:", "Green");
+            foreach (DictionaryEntry param in parameters)
+            {
+                WriteColoredMessage($"  {param.Key} = {param.Value}", "White");
+            }
+        }
+        else
+        {
+            WriteColoredMessage("No parameters provided", "Gray");
+        }
+
+        // Create and return a PSObject with proper TypeName
+        var result = CreateResultObject(uri, parameters);
+
+        WriteColoredMessage("=== Command Executed ===", "Cyan");
+
+        return result;
+    }
+
+
+    /// <summary>
     /// Sanitizes a function name to ensure it's valid for PowerShell
     /// </summary>
     /// <param name="name">The original name</param>
@@ -343,4 +351,73 @@ public static class PSCmdlet
                $"Parameters should be passed as a hashtable to the -Parameters parameter.";
     }
 
+    /// <summary>
+    /// Creates a PSObject result with custom TypeName based on the URI and parameters
+    /// </summary>
+    /// <param name="uri">The command URI</param>
+    /// <param name="parameters">The PowerShell bound parameters</param>
+    /// <returns>A PSObject with custom TypeName</returns>
+    private static PSObject CreateResultObject(string uri, IDictionary parameters)
+    {
+        // Create a PSObject with properties
+        var result = new PSObject();
+        string typeName = $"CirruResult";
+        result.TypeNames.Insert(0, typeName);
+
+        // Add basic properties
+        result.Properties.Add(new PSNoteProperty("Uri", uri));
+        result.Properties.Add(new PSNoteProperty("Timestamp", DateTime.UtcNow));
+        result.Properties.Add(new PSNoteProperty("Success", true));
+        result.Properties.Add(new PSNoteProperty("Id", Guid.NewGuid().ToString()));
+
+        // Add parameters as a hashtable property
+        if (parameters != null && parameters.Count > 0)
+        {
+            var paramHash = new Hashtable();
+            foreach (DictionaryEntry param in parameters)
+            {
+                paramHash[param.Key] = param.Value;
+            }
+            result.Properties.Add(new PSNoteProperty("Parameters", paramHash));
+
+            // Add Location if provided in parameters
+            if (parameters.Contains("Location"))
+            {
+                result.Properties.Add(new PSNoteProperty("Location", parameters["Location"]));
+            }
+
+            // Add ResourceName if provided in parameters
+            if (parameters.Contains("ResourceName"))
+            {
+                result.Properties.Add(new PSNoteProperty("Name", parameters["ResourceName"]));
+            }
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Writes a colored message to the PowerShell host
+    /// </summary>
+    /// <param name="message">The message to write</param>
+    /// <param name="color">The color to use</param>
+    private static void WriteColoredMessage(string message, string color)
+    {
+        try
+        {
+            // Create a script block to execute Write-Host with color
+            var script = $"Write-Host \"{message}\" -ForegroundColor {color}";
+
+            // Execute using PowerShell
+            using (var ps = System.Management.Automation.PowerShell.Create())
+            {
+                ps.AddScript(script);
+                ps.Invoke();
+            }
+        }
+        catch
+        {
+            // Fallback to console output if PowerShell execution fails
+            Console.WriteLine($"[{color}] {message}");
+        }
+    }
 }
