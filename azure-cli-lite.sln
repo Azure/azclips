@@ -1,0 +1,43 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "cirrus-csharp", "cirrus-csharp", "{3D938CB6-54E0-A2E0-927D-36DABC12F76F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Az", "cirrus-csharp\az\Az.csproj", "{1BA1D5BD-7AAD-D8AE-EDDD-E7BB7A4B9E95}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Az.Databricks", "cirrus-csharp\Databricks\Az.Databricks.csproj", "{D7760F69-BFBC-7880-1E4B-31201D022290}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharedContracts", "cirrus-csharp\SharedContracts\SharedContracts.csproj", "{5E320C5A-8770-1D82-870D-B4BD5E10C8AD}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1BA1D5BD-7AAD-D8AE-EDDD-E7BB7A4B9E95}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1BA1D5BD-7AAD-D8AE-EDDD-E7BB7A4B9E95}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1BA1D5BD-7AAD-D8AE-EDDD-E7BB7A4B9E95}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1BA1D5BD-7AAD-D8AE-EDDD-E7BB7A4B9E95}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D7760F69-BFBC-7880-1E4B-31201D022290}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D7760F69-BFBC-7880-1E4B-31201D022290}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D7760F69-BFBC-7880-1E4B-31201D022290}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D7760F69-BFBC-7880-1E4B-31201D022290}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5E320C5A-8770-1D82-870D-B4BD5E10C8AD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5E320C5A-8770-1D82-870D-B4BD5E10C8AD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5E320C5A-8770-1D82-870D-B4BD5E10C8AD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5E320C5A-8770-1D82-870D-B4BD5E10C8AD}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{1BA1D5BD-7AAD-D8AE-EDDD-E7BB7A4B9E95} = {3D938CB6-54E0-A2E0-927D-36DABC12F76F}
+		{D7760F69-BFBC-7880-1E4B-31201D022290} = {3D938CB6-54E0-A2E0-927D-36DABC12F76F}
+		{5E320C5A-8770-1D82-870D-B4BD5E10C8AD} = {3D938CB6-54E0-A2E0-927D-36DABC12F76F}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {5EE38503-A37C-439C-BA3E-70FD3EDE5083}
+	EndGlobalSection
+EndGlobal

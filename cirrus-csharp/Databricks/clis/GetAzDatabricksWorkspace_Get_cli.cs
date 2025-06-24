@@ -13,13 +13,9 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
     /// <remarks>
     /// [OpenAPI] Get=>GET:"/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Databricks/workspaces/{workspaceName}"
     /// </remarks>
-    // [global::System.Management.Automation.Cmdlet(global::System.Management.Automation.VerbsCommon.Get, @"AzDatabricksWorkspace_Get")]
-    // [global::System.Management.Automation.OutputType(typeof(Microsoft.Azure.PowerShell.Cmdlets.Databricks.Models.Api20240501.IWorkspace))]
-    // [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Description(@"Gets the workspace.")]
-    // [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Generated]
-    // [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.HttpPath(Path = "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Databricks/workspaces/{workspaceName}", ApiVersion = "2024-05-01")]
-    public partial class workspace_show_18 : BaseProcessor,
-        Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.IEventListener
+    [CommandInfo(Name = "workspace show", Description = "Gets the workspace.")]
+    public partial class WorkspaceShow : BaseProcessor,
+         Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.IEventListener
     {
         /// <summary>A unique id generatd for the this cmdlet when it is instantiated.</summary>
 
@@ -77,6 +73,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         // PossibleTypes = new [] { typeof(string) })]
         // [global::System.Management.Automation.Alias("WorkspaceName")]
         // [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Path)]
+        [ArgumentInfo(Required = true, Aliases = new string[] {"n", "name"}, Description = "The name of the workspace.")]
         public string Name { get => this._name; set => this._name = value; }
 
         /// <summary>
@@ -112,6 +109,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         // SerializedName = @"resourceGroupName",
         // PossibleTypes = new [] { typeof(string) })]
         // [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Path)]
+        [ArgumentInfo(Required = true, Aliases = new string[] {"g", "resource-group"}, Description = "The name of the resource group. The name is case insensitive.")]
         public string ResourceGroupName { get => this._resourceGroupName; set => this._resourceGroupName = value; }
 
         /// <summary>Backing field for <see cref="SubscriptionId" /> property.</summary>
@@ -130,6 +128,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         // Description =@"",
         // Script = @"(Get-AzContext).Subscription.Id")]
         // [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Path)]
+        [ArgumentInfo(Description = "The ID of the target subscription. The value must be an UUID.")]
         public string SubscriptionId { get => this._subscriptionId; set => this._subscriptionId = value; }
 
         /// <summary>
@@ -200,7 +199,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         /// <summary>
         /// Intializes a new instance of the <see cref="GetAzDatabricksWorkspace_Get" /> cmdlet class.
         /// </summary>
-        public workspace_show_18()
+        public WorkspaceShow()
         {
 
         }
@@ -212,48 +211,48 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         /// <returns>
         /// A <see cref="global::System.Threading.Tasks.Task" /> that will be complete when handling of the message is completed.
         /// </returns>
-         async global::System.Threading.Tasks.Task Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.IEventListener.Signal(string id, global::System.Threading.CancellationToken token, global::System.Func<Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.EventData> messageData)
+        async global::System.Threading.Tasks.Task Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.IEventListener.Signal(string id, global::System.Threading.CancellationToken token, global::System.Func<Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.EventData> messageData)
         {
-            using( NoSynchronizationContext )
+            using (NoSynchronizationContext)
             {
                 if (token.IsCancellationRequested)
                 {
-                    return ;
+                    return;
                 }
 
-                switch ( id )
+                switch (id)
                 {
                     case Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.Events.Verbose:
-                    {
-                        // WriteVerbose($"{(messageData().Message ?? global::System.String.Empty)}");
-                        return ;
-                    }
+                        {
+                            // WriteVerbose($"{(messageData().Message ?? global::System.String.Empty)}");
+                            return;
+                        }
                     case Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.Events.Warning:
-                    {
-                        // WriteWarning($"{(messageData().Message ?? global::System.String.Empty)}");
-                        return ;
-                    }
+                        {
+                            // WriteWarning($"{(messageData().Message ?? global::System.String.Empty)}");
+                            return;
+                        }
                     case Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.Events.Information:
-                    {
-                        // var data = messageData();
-                        // WriteInformation(data.Message, new string[]{});
-                        return ;
-                    }
+                        {
+                            // var data = messageData();
+                            // WriteInformation(data.Message, new string[]{});
+                            return;
+                        }
                     case Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.Events.Debug:
-                    {
-                        // WriteDebug($"{(messageData().Message ?? global::System.String.Empty)}");
-                        return ;
-                    }
+                        {
+                            // WriteDebug($"{(messageData().Message ?? global::System.String.Empty)}");
+                            return;
+                        }
                     case Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.Events.Error:
-                    {
-                        // WriteError(new global::System.Management.Automation.ErrorRecord( new global::System.Exception(messageData().Message), string.Empty, global::System.Management.Automation.ErrorCategory.NotSpecified, null ) );
-                        return ;
-                    }
+                        {
+                            // WriteError(new global::System.Management.Automation.ErrorRecord( new global::System.Exception(messageData().Message), string.Empty, global::System.Management.Automation.ErrorCategory.NotSpecified, null ) );
+                            return;
+                        }
                 }
                 // await Microsoft.Azure.PowerShell.Cmdlets.Databricks.Module.Instance.Signal(id, token, messageData, (i,t,m) => ((Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.IEventListener)this).Signal(i,t,()=> Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.EventDataConverter.ConvertFrom( m() ) as Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.EventData ), InvocationInformation, this.ParameterSetName, __correlationId, __processRecordId, null );
                 if (token.IsCancellationRequested)
                 {
-                    return ;
+                    return;
                 }
                 // WriteDebug($"{id}: {(messageData().Message ?? global::System.String.Empty)}");
             }
@@ -300,10 +299,10 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         /// </returns>
         public override async global::System.Threading.Tasks.Task Process()
         {
-            using( NoSynchronizationContext )
+            using (NoSynchronizationContext)
             {
                 this.LogMessage("Starting Process method");
-                await ((Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.IEventListener)this).Signal(Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.Events.CmdletGetPipeline); if( ((Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.IEventListener)this).Token.IsCancellationRequested ) { return; }
+                await ((Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.IEventListener)this).Signal(Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.Events.CmdletGetPipeline); if (((Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.IEventListener)this).Token.IsCancellationRequested) { return; }
                 this.LogMessage("Starting CreateCLIPipeline");
                 Pipeline = Microsoft.Azure.PowerShell.Cmdlets.Databricks.Module.Instance.CreateCLIPipeline();
                 this.LogMessage("Completed CreateCLIPipeline");
@@ -372,21 +371,21 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         /// </returns>
         private async global::System.Threading.Tasks.Task onDefault(global::System.Net.Http.HttpResponseMessage responseMessage, global::System.Threading.Tasks.Task<Microsoft.Azure.PowerShell.Cmdlets.Databricks.Models.Api20220401Preview.IErrorResponse> response)
         {
-            using( NoSynchronizationContext )
+            using (NoSynchronizationContext)
             {
                 var _returnNow = global::System.Threading.Tasks.Task<bool>.FromResult(false);
                 overrideOnDefault(responseMessage, response, ref _returnNow);
                 // if overrideOnDefault has returned true, then return right away.
                 if ((null != _returnNow && await _returnNow))
                 {
-                    return ;
+                    return;
                 }
                 // Error Response : default
                 var code = (await response)?.Code;
                 var message = (await response)?.Message;
                 if ((null == code || null == message))
                 {
-                     Console.Error.WriteLine($"Error: unexpected response from the service. The response did not include a code or message.");
+                    Console.Error.WriteLine($"Error: unexpected response from the service. The response did not include a code or message.");
                     // Unrecognized Response. Create an error record based on what we have.
                     // var ex = new Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.RestException<Microsoft.Azure.PowerShell.Cmdlets.Databricks.Models.Api20220401Preview.IErrorResponse>(responseMessage, await response);
                     // WriteError( new global::System.Management.Automation.ErrorRecord(ex, ex.Code, global::System.Management.Automation.ErrorCategory.InvalidOperation, new { ResourceGroupName=ResourceGroupName, Name=Name, SubscriptionId=SubscriptionId })
@@ -397,7 +396,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
                 }
                 else
                 {
-     
+
                     Console.Error.WriteLine($"Error: [{code}] : {message}");
 
                 }
@@ -424,7 +423,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
                 }
                 // onOk - response for 200 / application/json
                 // (await response) // should be Microsoft.Azure.PowerShell.Cmdlets.Databricks.Models.Api20240501.IWorkspace
-                Console.WriteLine((await response).ToJson(null, Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.SerializationMode.IncludeAll).ToString());  
+                Console.WriteLine((await response).ToJson(null, Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.SerializationMode.IncludeAll).ToString());
             }
         }
     }
