@@ -6,7 +6,11 @@
     CompanyName          = 'Microsoft'
     Copyright            = '(c) Microsoft Corporation. All rights reserved.'
     Description          = 'Azure Cirrus PowerShell Module for Cloud Management'
+    
+    # Require PowerShell 7.2 or later (for TimeOnly support)
     PowerShellVersion    = '7.2'
+    CompatiblePSEditions = @('Core')
+    
     FunctionsToExport    = '*'
     CmdletsToExport      = '*'
     VariablesToExport    = '*'
