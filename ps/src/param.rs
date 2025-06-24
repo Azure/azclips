@@ -1,19 +1,20 @@
 use az_core::error::AzUserUsageError;
 use serde_json::Value;
 use std::ffi::{c_char, CStr};
-use std::os::raw::{c_double, c_int};
+use std::os::raw::{c_double, c_longlong, c_ulonglong};
 
 // Define C-style parameter type enumeration
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 pub enum CParamType {
-    String = 0,
-    Integer = 1,
-    Float = 2,
-    Boolean = 3,
-    Array = 4,
-    Object = 5,
-    Null = 6,
+    Null = 0,
+    Int64 = 1,
+    Uint64 = 2,
+    Float64 = 3,
+    Boolean = 4,
+    String = 5,
+    Array = 6,
+    Object = 7,
 }
 
 // Define C-style parameter value structure
@@ -28,10 +29,11 @@ pub struct CParamValue {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub union CParamData {
-    pub string_val: *const c_char,
-    pub int_val: c_int,
-    pub float_val: c_double,
+    pub int64_val: c_longlong,
+    pub uint64_val: c_ulonglong,
+    pub float64_val: c_double,
     pub bool_val: bool,
+    pub string_val: *const c_char,
     pub array_val: CArrayValue,
     pub object_val: CObjectValue,
 }
@@ -54,6 +56,23 @@ pub struct CObjectValue {
 // Convert C-style parameters to serde_json::Value
 pub unsafe fn c_param_to_value(param: &CParamValue) -> Result<Value, AzUserUsageError> {
     match param.param_type {
+        CParamType::Null => Ok(Value::Null),
+        CParamType::Int64 => Ok(Value::Number(serde_json::Number::from(
+            param.data.int64_val,
+        ))),
+        CParamType::Uint64 => Ok(Value::Number(serde_json::Number::from(
+            param.data.uint64_val,
+        ))),
+        CParamType::Float64 => {
+            if let Some(num) = serde_json::Number::from_f64(param.data.float64_val) {
+                Ok(Value::Number(num))
+            } else {
+                Err(AzUserUsageError::InvalidArgumentValueError(
+                    "Invalid float value".to_string(),
+                ))
+            }
+        }
+        CParamType::Boolean => Ok(Value::Bool(param.data.bool_val)),
         CParamType::String => {
             if param.data.string_val.is_null() {
                 Ok(Value::Null)
@@ -65,17 +84,6 @@ pub unsafe fn c_param_to_value(param: &CParamValue) -> Result<Value, AzUserUsage
                 Ok(Value::String(str_val.to_string()))
             }
         }
-        CParamType::Integer => Ok(Value::Number(serde_json::Number::from(param.data.int_val))),
-        CParamType::Float => {
-            if let Some(num) = serde_json::Number::from_f64(param.data.float_val) {
-                Ok(Value::Number(num))
-            } else {
-                Err(AzUserUsageError::InvalidArgumentValueError(
-                    "Invalid float value".to_string(),
-                ))
-            }
-        }
-        CParamType::Boolean => Ok(Value::Bool(param.data.bool_val)),
         CParamType::Array => {
             let array_val = param.data.array_val;
             if array_val.items.is_null() || array_val.count == 0 {
@@ -111,6 +119,5 @@ pub unsafe fn c_param_to_value(param: &CParamValue) -> Result<Value, AzUserUsage
             }
             Ok(Value::Object(map))
         }
-        CParamType::Null => Ok(Value::Null),
     }
 }

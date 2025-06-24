@@ -2,6 +2,7 @@ using System.Collections;
 using System.Management.Automation;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 
 namespace Cirrus.Core;
 
@@ -31,13 +32,14 @@ public static class PSWrapper
     // Define C-style parameter type enumeration (internal use only)
     private enum CParamType
     {
-        String = 0,
-        Integer = 1,
-        Float = 2,
-        Boolean = 3,
-        Array = 4,
-        Object = 5,
-        Null = 6,
+        Null = 0,
+        Int64 = 1,
+        Uint64 = 2,
+        Float64 = 3,
+        Boolean = 4,
+        String = 5,
+        Array = 6,
+        Object = 7,
     }
 
     // Define C-style parameter value structure (internal use only)
@@ -52,16 +54,19 @@ public static class PSWrapper
     private struct CParamData
     {
         [FieldOffset(0)]
-        public IntPtr StringVal;
+        public long Int64Val;
 
         [FieldOffset(0)]
-        public int IntVal;
+        public ulong Uint64Val;
 
         [FieldOffset(0)]
-        public double FloatVal;
+        public double Float64Val;
 
         [FieldOffset(0)]
         public bool BoolVal;
+
+        [FieldOffset(0)]
+        public IntPtr StringVal;
 
         [FieldOffset(0)]
         public CArrayValue ArrayVal;
@@ -133,7 +138,7 @@ public static class PSWrapper
     /// </summary>
     private class NativeMemoryManager : IDisposable
     {
-        private readonly List<IntPtr> _allocatedPointers = new List<IntPtr>();
+        private readonly List<IntPtr> _allocatedPointers = new();
         private readonly object _lock = new object();
         private bool _disposed = false;
 
@@ -253,8 +258,11 @@ public static class PSWrapper
         }
     }
 
+
+
     /// <summary>
     /// Convert .NET object to CParamValue
+    /// Uses JSON intermediate representation for robust type conversion
     /// </summary>
     private static CParamValue ConvertToCParam(object? value, NativeMemoryManager memoryManager)
     {
@@ -267,6 +275,7 @@ public static class PSWrapper
             };
         }
 
+        // Handle basic types that we want to process directly for performance
         switch (value)
         {
             case string strValue:
@@ -279,29 +288,50 @@ public static class PSWrapper
             case int intValue:
                 return new CParamValue
                 {
-                    ParamType = CParamType.Integer,
-                    Data = new CParamData { IntVal = intValue }
+                    ParamType = CParamType.Int64,
+                    Data = new CParamData { Int64Val = intValue }
                 };
 
-            case long longValue when longValue >= int.MinValue && longValue <= int.MaxValue:
+            case long longValue:
                 return new CParamValue
                 {
-                    ParamType = CParamType.Integer,
-                    Data = new CParamData { IntVal = (int)longValue }
+                    ParamType = CParamType.Int64,
+                    Data = new CParamData { Int64Val = longValue }
                 };
 
-            case double doubleValue:
+            case uint uintValue:
                 return new CParamValue
                 {
-                    ParamType = CParamType.Float,
-                    Data = new CParamData { FloatVal = doubleValue }
+                    ParamType = CParamType.Uint64,
+                    Data = new CParamData { Uint64Val = uintValue }
+                };
+
+            case ulong ulongValue:
+                return new CParamValue
+                {
+                    ParamType = CParamType.Uint64,
+                    Data = new CParamData { Uint64Val = ulongValue }
                 };
 
             case float floatValue:
                 return new CParamValue
                 {
-                    ParamType = CParamType.Float,
-                    Data = new CParamData { FloatVal = floatValue }
+                    ParamType = CParamType.Float64,
+                    Data = new CParamData { Float64Val = floatValue }
+                };
+
+            case decimal decimalValue:
+                return new CParamValue
+                {
+                    ParamType = CParamType.Float64,
+                    Data = new CParamData { Float64Val = (double)decimalValue }
+                };
+
+            case double doubleValue:
+                return new CParamValue
+                {
+                    ParamType = CParamType.Float64,
+                    Data = new CParamData { Float64Val = doubleValue }
                 };
 
             case bool boolValue:
@@ -318,31 +348,21 @@ public static class PSWrapper
                 return ConvertObjectToCParam(dictValue, memoryManager);
 
             default:
-                // Try to convert other types to string
-                return new CParamValue
-                {
-                    ParamType = CParamType.String,
-                    Data = new CParamData { StringVal = memoryManager.AllocateString(value.ToString()) }
-                };
+                // For all other types, use JSON intermediate representation
+                // This handles: long, float, decimal, DateTime, Guid, enums, 
+                // complex objects, etc. with proper serialization
+                return ConvertViJsonToCParam(value, memoryManager);
         }
     }
 
+    /// <summary>
+    /// Convert IList to CParamValue
+    /// </summary>
     private static CParamValue ConvertArrayToCParam(IList list, NativeMemoryManager memoryManager)
     {
         if (list == null || list.Count == 0)
         {
-            return new CParamValue
-            {
-                ParamType = CParamType.Array,
-                Data = new CParamData
-                {
-                    ArrayVal = new CArrayValue
-                    {
-                        Items = IntPtr.Zero,
-                        Count = UIntPtr.Zero
-                    }
-                }
-            };
+            return CreateEmptyArrayParam();
         }
 
         CParamValue[] items = new CParamValue[list.Count];
@@ -351,6 +371,33 @@ public static class PSWrapper
             items[i] = ConvertToCParam(list[i], memoryManager);
         }
 
+        return CreateArrayParam(items, memoryManager);
+    }
+
+    /// <summary>
+    /// Helper method to create an empty array parameter
+    /// </summary>
+    private static CParamValue CreateEmptyArrayParam()
+    {
+        return new CParamValue
+        {
+            ParamType = CParamType.Array,
+            Data = new CParamData
+            {
+                ArrayVal = new CArrayValue
+                {
+                    Items = IntPtr.Zero,
+                    Count = UIntPtr.Zero
+                }
+            }
+        };
+    }
+
+    /// <summary>
+    /// Helper method to create an array parameter from items
+    /// </summary>
+    private static CParamValue CreateArrayParam(CParamValue[] items, NativeMemoryManager memoryManager)
+    {
         IntPtr itemsPtr = memoryManager.AllocateArray(items);
 
         return new CParamValue
@@ -361,29 +408,20 @@ public static class PSWrapper
                 ArrayVal = new CArrayValue
                 {
                     Items = itemsPtr,
-                    Count = new UIntPtr((uint)list.Count)
+                    Count = new UIntPtr((uint)items.Length)
                 }
             }
         };
     }
 
+    /// <summary>
+    /// Convert IDictionary to CParamValue
+    /// </summary>
     private static CParamValue ConvertObjectToCParam(IDictionary dict, NativeMemoryManager memoryManager)
     {
         if (dict == null || dict.Count == 0)
         {
-            return new CParamValue
-            {
-                ParamType = CParamType.Object,
-                Data = new CParamData
-                {
-                    ObjectVal = new CObjectValue
-                    {
-                        Keys = IntPtr.Zero,
-                        Values = IntPtr.Zero,
-                        Count = UIntPtr.Zero
-                    }
-                }
-            };
+            return CreateEmptyObjectParam();
         }
 
         string[] keys = new string[dict.Count];
@@ -397,6 +435,34 @@ public static class PSWrapper
             index++;
         }
 
+        return CreateObjectParam(keys, values, memoryManager);
+    }
+
+    /// <summary>
+    /// Helper method to create an empty object parameter
+    /// </summary>
+    private static CParamValue CreateEmptyObjectParam()
+    {
+        return new CParamValue
+        {
+            ParamType = CParamType.Object,
+            Data = new CParamData
+            {
+                ObjectVal = new CObjectValue
+                {
+                    Keys = IntPtr.Zero,
+                    Values = IntPtr.Zero,
+                    Count = UIntPtr.Zero
+                }
+            }
+        };
+    }
+
+    /// <summary>
+    /// Helper method to create an object parameter from keys and values
+    /// </summary>
+    private static CParamValue CreateObjectParam(string[] keys, CParamValue[] values, NativeMemoryManager memoryManager)
+    {
         IntPtr keysPtr = memoryManager.AllocateStringArray(keys);
         IntPtr valuesPtr = memoryManager.AllocateArray(values);
 
@@ -409,10 +475,165 @@ public static class PSWrapper
                 {
                     Keys = keysPtr,
                     Values = valuesPtr,
-                    Count = new UIntPtr((uint)dict.Count)
+                    Count = new UIntPtr((uint)keys.Length)
                 }
             }
         };
+    }
+
+    /// <summary>
+    /// Convert complex objects using JSON intermediate representation
+    /// This handles: enums, DateTime, Guid, complex objects, nested structures, etc.
+    /// </summary>
+    private static CParamValue ConvertViJsonToCParam(object? value, NativeMemoryManager memoryManager)
+    {
+        if (value == null)
+        {
+            return new CParamValue { ParamType = CParamType.Null, Data = new CParamData() };
+        }
+
+        try
+        {
+            // Use System.Text.Json to serialize to JsonElement - handles all complex cases
+            string json = JsonSerializer.Serialize(value);
+            using JsonDocument doc = JsonDocument.Parse(json);
+            return ConvertJsonElementToCParam(doc.RootElement, memoryManager);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Warning: JSON conversion failed for {value.GetType().Name}: {ex.Message}");
+            // Fallback to string representation
+            return new CParamValue
+            {
+                ParamType = CParamType.String,
+                Data = new CParamData { StringVal = memoryManager.AllocateString(value.ToString() ?? "") }
+            };
+        }
+    }
+
+    /// <summary>
+    /// Convert JsonElement to CParamValue
+    /// </summary>
+    private static CParamValue ConvertJsonElementToCParam(JsonElement element, NativeMemoryManager memoryManager)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Null:
+            case JsonValueKind.Undefined:
+                return new CParamValue
+                {
+                    ParamType = CParamType.Null,
+                    Data = new CParamData()
+                };
+
+            case JsonValueKind.String:
+                return new CParamValue
+                {
+                    ParamType = CParamType.String,
+                    Data = new CParamData { StringVal = memoryManager.AllocateString(element.GetString()) }
+                };
+
+            case JsonValueKind.Number:
+                if (element.TryGetInt64(out long longVal))
+                {
+                    if (longVal >= 0)
+                    {
+                        return new CParamValue
+                        {
+                            ParamType = CParamType.Uint64,
+                            Data = new CParamData { Uint64Val = (ulong)longVal }
+                        };
+                    }
+                    else
+                    {
+                        return new CParamValue
+                        {
+                            ParamType = CParamType.Int64,
+                            Data = new CParamData { Int64Val = longVal }
+                        };
+                    }
+                }
+                else if (element.TryGetUInt64(out ulong ulongVal))
+                {
+                    return new CParamValue
+                    {
+                        ParamType = CParamType.Uint64,
+                        Data = new CParamData { Uint64Val = ulongVal }
+                    };
+                }
+                else if (element.TryGetDouble(out double doubleVal))
+                {
+                    return new CParamValue
+                    {
+                        ParamType = CParamType.Float64,
+                        Data = new CParamData { Float64Val = doubleVal }
+                    };
+                }
+                // Fallback for numbers that can't be parsed
+                return new CParamValue
+                {
+                    ParamType = CParamType.String,
+                    Data = new CParamData { StringVal = memoryManager.AllocateString(element.ToString()) }
+                };
+
+            case JsonValueKind.True:
+            case JsonValueKind.False:
+                return new CParamValue
+                {
+                    ParamType = CParamType.Boolean,
+                    Data = new CParamData { BoolVal = element.GetBoolean() }
+                };
+
+            case JsonValueKind.Array:
+                var arrayLength = element.GetArrayLength();
+                if (arrayLength == 0)
+                {
+                    return CreateEmptyArrayParam();
+                }
+
+                CParamValue[] items = new CParamValue[arrayLength];
+                int index = 0;
+                foreach (JsonElement item in element.EnumerateArray())
+                {
+                    items[index] = ConvertJsonElementToCParam(item, memoryManager);
+                    index++;
+                }
+
+                return CreateArrayParam(items, memoryManager);
+
+            case JsonValueKind.Object:
+                var propertyCount = 0;
+                foreach (var _ in element.EnumerateObject())
+                {
+                    propertyCount++;
+                }
+
+                if (propertyCount == 0)
+                {
+                    return CreateEmptyObjectParam();
+                }
+
+                string[] keys = new string[propertyCount];
+                CParamValue[] values = new CParamValue[propertyCount];
+
+                int objIndex = 0;
+                foreach (JsonProperty property in element.EnumerateObject())
+                {
+                    keys[objIndex] = property.Name;
+                    values[objIndex] = ConvertJsonElementToCParam(property.Value, memoryManager);
+                    objIndex++;
+                }
+
+                return CreateObjectParam(keys, values, memoryManager);
+
+            default:
+                // Fallback to string representation
+                return new CParamValue
+                {
+                    ParamType = CParamType.String,
+                    Data = new CParamData { StringVal = memoryManager.AllocateString(element.ToString()) }
+                };
+        }
     }
 
     /// <summary>
