@@ -61,7 +61,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
 
         /// <summary>The name of the resource group. The name is case insensitive.</summary>
         [SharedContracts.ArgumentInfoAttribute(
-        Required = true,
+        Required = false,
         Description = @"The name of the resource group. The name is case insensitive.",
         SerializedName = @"resourceGroupName",
         Aliases = new string[] { "resource-group-name"},
@@ -176,7 +176,14 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
                 {
                     await ((Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.IEventListener)this).Signal(Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.Events.CmdletBeforeAPICall); if( ((Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.IEventListener)this).Token.IsCancellationRequested ) { return; }
                     this.LogMessage("Starting call to Client API");
-                    await this.Client.AccessConnectorsListByResourceGroup(SubscriptionId, ResourceGroupName, onOk, onDefault, this, Pipeline);
+                    if (!string.IsNullOrEmpty(SubscriptionId) && !string.IsNullOrEmpty(ResourceGroupName))
+                    {
+                        await this.Client.AccessConnectorsListByResourceGroup(SubscriptionId, ResourceGroupName, onOk, onDefault, this, Pipeline);
+                    }
+                    else if (!string.IsNullOrEmpty(SubscriptionId))
+                    {
+                        await this.Client.AccessConnectorsListBySubscription(SubscriptionId, onOk, onDefault, this, Pipeline);
+                    }
                     await ((Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.IEventListener)this).Signal(Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.Events.CmdletAfterAPICall); if( ((Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.IEventListener)this).Token.IsCancellationRequested ) { return; }
                     this.LogMessage("Completed Process method");
                 }
