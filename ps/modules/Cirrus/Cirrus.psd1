@@ -11,7 +11,7 @@
     PowerShellVersion    = '7.2'
     CompatiblePSEditions = @('Core')
     
-    FunctionsToExport    = @('Add-AzurePlugin', 'Connect-AzureAccount', 'Disconnect-AzureAccount', 'Get-AzureConfig', 'Get-AzureConfigCloud', 'Get-AzurePlugin', 'Get-AzurePluginDemo', 'Invoke-AzureAccountGet-access-token', 'Invoke-AzureConfigCloudActivate', 'Invoke-AzureConfigSet', 'Invoke-AzureVersion', 'New-AzureConfigCloud', 'New-AzurePluginDemo', 'Remove-AzureConfigCloud', 'Remove-AzurePlugin', 'Remove-AzurePluginDemo', 'Show-AzureConfigCloud', 'Show-AzurePlugin', 'Show-AzurePluginDemo', 'Update-AzureConfigCloud', 'Update-AzurePlugin', 'Update-AzurePluginDemo')
+    FunctionsToExport    = @('Add-AzurePlugin', 'Connect-AzureAccount', 'Disconnect-AzureAccount', 'Get-AzureConfig', 'Get-AzureConfigCloud', 'Get-AzurePlugin', 'Get-AzurePluginDemo', 'Get-CirrusVersion', 'Invoke-AzureAccountGet-access-token', 'Invoke-AzureConfigCloudActivate', 'Invoke-AzureConfigSet', 'Invoke-AzureVersion', 'New-AzureConfigCloud', 'New-AzurePluginDemo', 'Remove-AzureConfigCloud', 'Remove-AzurePlugin', 'Remove-AzurePluginDemo', 'Show-AzureConfigCloud', 'Show-AzurePlugin', 'Show-AzurePluginDemo', 'Update-AzureConfigCloud', 'Update-AzurePlugin', 'Update-AzurePluginDemo')
     CmdletsToExport      = '*'
     VariablesToExport    = '*'
 
@@ -23,15 +23,6 @@
         'Cirrus-help.xml'
     )
 } 
-
-
-
-
-
-
-
-
-
 
 
 

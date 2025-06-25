@@ -7,8 +7,51 @@ Import-Module "$PSScriptRoot\Cirrus.dll" -Force
 # Module variables
 $script:ModuleName = "Cirrus"
 
+# Initialize DynamicTypeBuilder for the main module
+[Cirrus.Core.DynamicTypeBuilder]::GetOrCreateBuilder($script:ModuleName);
+
 # Collect all functions to export (starting with built-in functions)
-$script:FunctionsToExport = @()
+$script:FunctionsToExport = @(
+    "Get-CirrusVersion"
+)
+
+function Get-CirrusVersion {
+    <#
+    .SYNOPSIS
+    Gets the version information of the Cirrus module
+    
+    .DESCRIPTION
+    Returns version information about both the PowerShell module and the underlying Rust library
+    
+    .EXAMPLE
+    Get-CirrusVersion
+    #>
+    [CmdletBinding()]
+    param()
+    
+    try {
+        $rustVersion = [Cirrus.Core.PSWrapper]::GetVersion()
+        $isInitialized = [Cirrus.Core.PSWrapper]::IsInitialized
+        
+        [PSCustomObject]@{
+            PSModuleName       = $script:ModuleName
+            PSModuleVersion    = $rustVersion
+            RustLibraryVersion = $rustVersion
+            IsInitialized      = $isInitialized
+            LoadedAt           = Get-Date
+        }
+    }
+    catch {
+        [PSCustomObject]@{
+            PSModuleName       = $script:ModuleName
+            PSModuleVersion    = "Not available"
+            RustLibraryVersion = "Not available"
+            IsInitialized      = $false
+            LoadedAt           = Get-Date
+            Error              = $_.Exception.Message
+        }
+    }
+}
 
 # Dynamic cmdlet creation
 try {

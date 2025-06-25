@@ -830,6 +830,13 @@ public static class PSWrapper
         if (string.IsNullOrEmpty(uri))
             throw new ArgumentException("URI cannot be null or empty", nameof(uri));
 
+        // Extract the last segment of the URI
+        var lastSegment = uri.Split('/').Last();
+        if (string.IsNullOrEmpty(lastSegment))
+        {
+            throw new ArgumentException("Invalid URI format - no segments found", nameof(uri));
+        }
+
         // Return fake data covering all CrsArg types and formats
         return new CrsArg[]
         {
@@ -1068,7 +1075,7 @@ public static class PSWrapper
             {
                 Name = "simpleConfig",
                 VarName = "simple_config",
-                ClsType = "SimpleConfig",
+                ClsType = "SimpleConfig" + lastSegment,
                 Required = false,
                 Nullable = true,
                 ShortDescription = "Simple configuration",
@@ -1101,7 +1108,7 @@ public static class PSWrapper
             {
                 Name = "properties",
                 VarName = "properties",
-                ClsType = "Properties",
+                ClsType = "Properties" + lastSegment,
                 Required = false,
                 Nullable = true,
                 ShortDescription = "Properties",
@@ -1123,7 +1130,7 @@ public static class PSWrapper
             {
                 Name = "member",
                 VarName = "member",
-                ClsType = "Person",
+                ClsType = "Person" + lastSegment,
                 Required = false,
                 Nullable = true,
                 ShortDescription = "Person",
@@ -1135,7 +1142,7 @@ public static class PSWrapper
             {
                 Name = "person",
                 VarName = "person",
-                ClsType = "Person",
+                ClsType = "Person" + lastSegment,
                 Required = false,
                 Nullable = true,
                 ShortDescription = "Person",
@@ -1165,7 +1172,7 @@ public static class PSWrapper
                     {
                         Name = "friend",
                         VarName = "friend",
-                        ClsType = "Person",
+                        ClsType = "Person" + lastSegment,
                         Required = false,
                         Nullable = true,
                         ShortDescription = "Best friend",
@@ -1184,7 +1191,7 @@ public static class PSWrapper
                         {
                             Name = "relative",
                             VarName = "relative",
-                            ClsType = "Person"
+                            ClsType = "Person" + lastSegment
                         }
                     }
                 }
@@ -1195,7 +1202,7 @@ public static class PSWrapper
             {
                 Name = "company",
                 VarName = "company",
-                ClsType = "Company",
+                ClsType = "Company" + lastSegment,
                 Required = false,
                 Nullable = true,
                 ShortDescription = "Company",
@@ -1223,7 +1230,7 @@ public static class PSWrapper
                         {
                             Name = "department",
                             VarName = "department",
-                            ClsType = "Department"
+                            ClsType = "Department" + lastSegment
                         }
                     }
                 }
@@ -1233,7 +1240,7 @@ public static class PSWrapper
             {
                 Name = "department",
                 VarName = "department",
-                ClsType = "Department",
+                ClsType = "Department" + lastSegment,
                 Required = false,
                 Nullable = true,
                 ShortDescription = "Department",
@@ -1253,7 +1260,7 @@ public static class PSWrapper
                     {
                         Name = "company",
                         VarName = "company",
-                        ClsType = "Company",
+                        ClsType = "Company" + lastSegment,
                         Required = false,
                         Nullable = true,
                         ShortDescription = "Parent company",
@@ -1271,7 +1278,7 @@ public static class PSWrapper
                         {
                             Name = "employee",
                             VarName = "employee",
-                            ClsType = "Employee"
+                            ClsType = "Employee" + lastSegment
                         }
                     }
                 }
@@ -1281,7 +1288,7 @@ public static class PSWrapper
             {
                 Name = "employee",
                 VarName = "employee",
-                ClsType = "Employee",
+                ClsType = "Employee" + lastSegment,
                 Required = false,
                 Nullable = true,
                 ShortDescription = "Employee",
@@ -1301,7 +1308,7 @@ public static class PSWrapper
                     {
                         Name = "department",
                         VarName = "department",
-                        ClsType = "Department",
+                        ClsType = "Department" + lastSegment,
                         Required = false,
                         Nullable = true,
                         ShortDescription = "Employee department",
@@ -1311,7 +1318,7 @@ public static class PSWrapper
                     {
                         Name = "company",
                         VarName = "company",
-                        ClsType = "Company",
+                        ClsType = "Company" + lastSegment,
                         Required = false,
                         Nullable = true,
                         ShortDescription = "Employee company",
@@ -1427,10 +1434,6 @@ public class CirrusModuleInitializer : IModuleAssemblyInitializer
             // Initialize PSWrapper first
             PSWrapper.Initialize();
             Console.WriteLine("✓ Cirrus library initialized successfully");
-
-            // Initialize DynamicTypeBuilder for the main module
-            var mainBuilder = DynamicTypeBuilder.GetOrCreateBuilder(DynamicTypeBuilder.DEFAULT_MODULE_NAME);
-            Console.WriteLine("✓ DynamicTypeBuilder initialized for Default module");
         }
         catch (Exception ex)
         {

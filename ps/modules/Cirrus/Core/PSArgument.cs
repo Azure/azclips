@@ -359,6 +359,7 @@ namespace Cirrus.Core
                             var completedType = typeBuilder.CreateType();
                             _completedTypes.TryAdd(typeName, completedType);
                             _pendingTypes.TryRemove(typeName, out _);
+                            // Console.WriteLine($"Created type {typeName}");
                         }
                         catch (Exception ex)
                         {
