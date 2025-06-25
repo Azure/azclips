@@ -230,7 +230,6 @@ namespace AzTool
                         }
                         else if (values.Length > 1)
                         {
-                            // TODO: Support for multiple values
                             throw new PropertyParserException($"Argument '{string.Join("/", usedAliases)}' expects a single value, but received multiple values: {string.Join(", ", values)}.");
                         }
                         return PropertyParser.ConvertToType(values[0], propertyInfo.PropertyType, propertyInfo.Name);
