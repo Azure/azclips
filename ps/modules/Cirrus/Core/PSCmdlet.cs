@@ -20,7 +20,7 @@ public static class PSCmdlet
 
     DynamicParam {{
         try {{
-            return [Cirrus.Core.PSCmdlet]::GetDynamicParameters(""{2}"")
+            return [Cirrus.Core.PSCmdlet]::GetDynamicParameters(""{2}"", ""{3}"")
         }}
         catch {{
             Write-Warning ""Failed to get dynamic parameters: $_""
@@ -71,9 +71,10 @@ public static class PSCmdlet
     /// Generates a PowerShell function script for the given cmdlet information
     /// </summary>
     /// <param name="cmdletInfo">The cmdlet information to generate script for</param>
+    /// <param name="moduleName">Module name for dynamic type creation</param>
     /// <param name="externalHelpPath">Path to external help file, or null if not available</param>
     /// <returns>PowerShell function script as string</returns>
-    public static string GenerateFunctionScript(CmdletInfo cmdletInfo, string? externalHelpPath = null)
+    public static string GenerateFunctionScript(CmdletInfo cmdletInfo, string moduleName, string? externalHelpPath = null)
     {
         if (cmdletInfo == null)
             throw new ArgumentNullException(nameof(cmdletInfo));
@@ -120,20 +121,21 @@ public static class PSCmdlet
             BaseFunctionTemplate,
             sanitizedName,          // {0} - Function name
             helpSection,            // {1} - Help section
-            cmdletInfo.Uri          // {2} - URI
+            cmdletInfo.Uri,         // {2} - URI
+            moduleName              // {3} - Module name
         );
 
         return functionScript;
     }
 
     /// <summary>
-    /// Generates multiple function scripts for an array of cmdlet information
+    /// Generate PowerShell function scripts for the given cmdlets
     /// </summary>
     /// <param name="cmdlets">Array of cmdlet information</param>
-    /// <param name="moduleName">The module name to check for help file</param>
-    /// <param name="moduleDirectory">The module directory path</param>
-    /// <returns>Combined PowerShell function scripts as string</returns>
-    public static string GenerateFunctionScripts(CmdletInfo[] cmdlets, string? moduleName = null, string? moduleDirectory = null)
+    /// <param name="moduleName">Module name (required)</param>
+    /// <param name="moduleDirectory">Optional module directory path</param>
+    /// <returns>Generated PowerShell script content</returns>
+    public static string GenerateFunctionScripts(CmdletInfo[] cmdlets, string moduleName, string? moduleDirectory = null)
     {
         if (cmdlets == null || cmdlets.Length == 0)
             return string.Empty;
@@ -159,7 +161,7 @@ public static class PSCmdlet
             {
                 try
                 {
-                    string functionScript = GenerateFunctionScript(cmdlet, externalHelpPath);
+                    string functionScript = GenerateFunctionScript(cmdlet, moduleName, externalHelpPath);
                     scriptBuilder.AppendLine(functionScript);
                     scriptBuilder.AppendLine(); // Add blank line between functions
                 }
@@ -174,77 +176,71 @@ public static class PSCmdlet
         return scriptBuilder.ToString();
     }
 
-    public static RuntimeDefinedParameterDictionary GetDynamicParameters(string uri)
+    /// <summary>
+    /// Get dynamic parameters for a command URI using the Cirrus argument system
+    /// </summary>
+    /// <param name="uri">Command URI</param>
+    /// <param name="moduleName">Module name for type builder</param>
+    /// <returns>Runtime defined parameter dictionary</returns>
+    public static RuntimeDefinedParameterDictionary GetDynamicParameters(string uri, string moduleName)
     {
-        // TODO:
         var paramDict = new RuntimeDefinedParameterDictionary();
 
         try
         {
-            // Fake Parameter 1: ResourceName (String, Mandatory)
-            var resourceNameAttribute = new ParameterAttribute
+            // Get command arguments from the URI
+            CrsArg[] args = PSWrapper.GetCommandArguments(uri);
+
+            if (args.Length == 0)
             {
-                Mandatory = true,
-                HelpMessage = "The name of the resource to operate on",
-                Position = 0
-            };
+                return paramDict;
+            }
 
-            var resourceNameParam = new RuntimeDefinedParameter(
-                "ResourceName",
-                typeof(string),
-                new Collection<Attribute> { resourceNameAttribute }
-            );
-            paramDict.Add("ResourceName", resourceNameParam);
+            // Get or create the dynamic type builder for the module
+            var builder = DynamicTypeBuilder.GetOrCreateBuilder(moduleName);
 
-            // Fake Parameter 2: Location (String, Optional with ValidateSet)
-            var locationAttribute = new ParameterAttribute
+            // First pass: Create type definitions for all arguments
+            // This allows for forward references and circular dependencies
+            foreach (var arg in args)
             {
-                Mandatory = false,
-                HelpMessage = "The Azure region where the resource should be created"
-            };
-
-            var locationValidateSet = new ValidateSetAttribute(
-                "eastus", "westus", "centralus", "northeurope", "westeurope", "japaneast"
-            );
-
-            var locationParam = new RuntimeDefinedParameter(
-                "Location",
-                typeof(string),
-                new Collection<Attribute> { locationAttribute, locationValidateSet }
-            );
-            paramDict.Add("Location", locationParam);
-
-            // Optional: Add URI-specific parameters based on the URI
-            if (!string.IsNullOrEmpty(uri))
-            {
-                // You can add URI-specific logic here later
-                // For example, if uri contains "vm", add VM-specific parameters
-                if (uri.Contains("vm", StringComparison.OrdinalIgnoreCase))
+                try
                 {
-                    // VM Size parameter
-                    var vmSizeAttribute = new ParameterAttribute
-                    {
-                        Mandatory = false,
-                        HelpMessage = "The size of the virtual machine"
-                    };
+                    // This will create type definitions without building members yet
+                    arg.GetOrCreateParameterType(builder);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error creating type for argument '{arg.Name}': {ex.Message}");
+                }
+            }
 
-                    var vmSizeValidateSet = new ValidateSetAttribute(
-                        "Standard_B1s", "Standard_B2s", "Standard_D2s_v3", "Standard_D4s_v3"
-                    );
+            // Complete all pending type creation to resolve dependencies
+            builder.CreateAllPendingTypes();
 
-                    var vmSizeParam = new RuntimeDefinedParameter(
-                        "VMSize",
-                        typeof(string),
-                        new Collection<Attribute> { vmSizeAttribute, vmSizeValidateSet }
-                    );
-                    paramDict.Add("VMSize", vmSizeParam);
+            // Second pass: Build runtime parameters
+            foreach (var arg in args)
+            {
+                try
+                {
+                    if (string.IsNullOrEmpty(arg.Name))
+                        continue;
+
+                    var runtimeParam = arg.Build(builder);
+                    var parameterName = arg.GetParameterName();
+
+                    paramDict.Add(parameterName, runtimeParam);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error building parameter for argument '{arg.Name}': {ex.Message}");
+                    // Continue with other parameters even if one fails
                 }
             }
         }
         catch (Exception ex)
         {
             // Log the error but don't throw - return empty dictionary instead
-            System.Diagnostics.Debug.WriteLine($"Error creating dynamic parameters: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"Error creating dynamic parameters for URI '{uri}': {ex.Message}");
         }
 
         return paramDict;

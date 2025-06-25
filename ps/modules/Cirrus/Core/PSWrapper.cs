@@ -259,7 +259,6 @@ public static class PSWrapper
         }
     }
 
-
     /// <summary>
     /// Convert .NET object to CParamValue
     /// Uses JSON intermediate representation for robust type conversion
@@ -820,6 +819,523 @@ public static class PSWrapper
     }
 
     /// <summary>
+    /// Get command arguments for the specified URI
+    /// </summary>
+    /// <param name="uri">Command URI</param>
+    /// <returns>Array of command arguments</returns>
+    public static CrsArg[] GetCommandArguments(string uri)
+    {
+        EnsureInitialized();
+
+        if (string.IsNullOrEmpty(uri))
+            throw new ArgumentException("URI cannot be null or empty", nameof(uri));
+
+        // Return fake data covering all CrsArg types and formats
+        return new CrsArg[]
+        {
+            // 1. String arguments with different formats
+            new CrsStringArg
+            {
+                Name = "resourceName",
+                VarName = "resource_name",
+                Position = 0,
+                Required = true,
+                Nullable = false,
+                ShortDescription = "Resource name",
+                LongDescription = "The name of the resource to operate on",
+                Format = new CrsStringFormatImpl
+                {
+                    MinLength = 1,
+                    MaxLength = 50,
+                    Pattern = @"^[a-zA-Z][a-zA-Z0-9-]*$"
+                }
+            },
+
+            new CrsStringArg
+            {
+                Name = "subscriptionId",
+                VarName = "subscription_id",
+                Required = false,
+                Nullable = true,
+                ShortDescription = "Subscription ID",
+                LongDescription = "Azure subscription identifier",
+                Format = new CrsSubscriptionIdFormat()
+            },
+
+            new CrsStringArg
+            {
+                Name = "resourceGroupName",
+                VarName = "resource_group_name",
+                Required = false,
+                Nullable = true,
+                ShortDescription = "Resource group name",
+                LongDescription = "Name of the resource group",
+                Format = new CrsResourceGroupNameFormat()
+            },
+
+            new CrsStringArg
+            {
+                Name = "location",
+                VarName = "location",
+                Required = false,
+                Nullable = false,
+                ShortDescription = "Location",
+                LongDescription = "Azure region location",
+                Default = new CrsArgDefault { Value = "EUS" },
+                Format = new CrsResourceLocationFormat(),
+                Enum = new CrsArgEnum
+                {
+                    Items = new List<CrsArgEnumItem>
+                    {
+                        new CrsArgEnumItem { Name = "EastUS", Value = "EUS" },
+                        new CrsArgEnumItem { Name = "WestUS", Value = "WUS" },
+                        new CrsArgEnumItem { Name = "CentralUS", Value = "CUS" },
+                        new CrsArgEnumItem { Name = "NorthEurope", Value = "NEU" },
+                        new CrsArgEnumItem { Name = "WestEurope", Value = "WEU" }
+                    }
+                }
+            },
+
+            new CrsStringArg
+            {
+                Name = "environment",
+                VarName = "environment",
+                Required = false,
+                Nullable = false,
+                ShortDescription = "Environment",
+                LongDescription = "Deployment environment",
+                Default = new CrsArgDefault { Value = "dev" },
+                Format = new CrsStringFormatImpl(),
+                Enum = new CrsArgEnum
+                {
+                    Items = new List<CrsArgEnumItem>
+                    {
+                        new CrsArgEnumItem { Name = "Development", Value = "dev" },
+                        new CrsArgEnumItem { Name = "Testing", Value = "test" },
+                        new CrsArgEnumItem { Name = "Staging", Value = "stage" },
+                        new CrsArgEnumItem { Name = "Production", Value = "prod" }
+                    }
+                }
+            },
+
+            new CrsStringArg
+            {
+                Name = "password",
+                VarName = "password",
+                Required = false,
+                Nullable = true,
+                ShortDescription = "Password",
+                LongDescription = "Secure password for authentication",
+                Format = new CrsPasswordFormat()
+            },
+
+            new CrsStringArg
+            {
+                Name = "createdDate",
+                VarName = "created_date",
+                Required = false,
+                Nullable = true,
+                ShortDescription = "Creation date",
+                LongDescription = "The date when the resource was created",
+                Format = new CrsDateTimeFormat { ProtocolType = CrsDateTimeFormat.Protocol.ISO8601 }
+            },
+
+            new CrsStringArg
+            {
+                Name = "configData",
+                VarName = "config_data",
+                Required = false,
+                Nullable = true,
+                ShortDescription = "Configuration data",
+                LongDescription = "Base64 encoded configuration data",
+                Format = new CrsByteFormat()
+            },
+
+            // 2. Number arguments with different formats
+            new CrsNumberArg
+            {
+                Name = "count",
+                VarName = "count",
+                Required = false,
+                Nullable = false,
+                ShortDescription = "Count",
+                LongDescription = "Number of instances to create",
+                Default = new CrsArgDefault { Value = 1 },
+                Format = new CrsInt32Format
+                {
+                    Minimum = 1,
+                    Maximum = 100,
+                    MultipleOf = 1
+                }
+            },
+
+            new CrsNumberArg
+            {
+                Name = "size",
+                VarName = "size",
+                Required = false,
+                Nullable = true,
+                ShortDescription = "Size",
+                LongDescription = "Size in bytes",
+                Format = new CrsInt64Format
+                {
+                    Minimum = 0,
+                    Maximum = long.MaxValue
+                }
+            },
+
+            new CrsNumberArg
+            {
+                Name = "ratio",
+                VarName = "ratio",
+                Required = false,
+                Nullable = true,
+                ShortDescription = "Ratio",
+                LongDescription = "Scaling ratio",
+                Format = new CrsDoubleFormat
+                {
+                    Minimum = 0.0,
+                    Maximum = 10.0,
+                    ExclusiveMinimum = true
+                }
+            },
+
+            new CrsNumberArg
+            {
+                Name = "priority",
+                VarName = "priority",
+                Required = false,
+                Nullable = false,
+                ShortDescription = "Priority",
+                LongDescription = "Task priority level",
+                Default = new CrsArgDefault { Value = 1 },
+                Format = new CrsUint32Format { Minimum = 1, Maximum = 5 },
+                Enum = new CrsArgEnum
+                {
+                    Items = new List<CrsArgEnumItem>
+                    {
+                        new CrsArgEnumItem { Name = "Low", Value = 1 },
+                        new CrsArgEnumItem { Name = "Normal", Value = 2 },
+                        new CrsArgEnumItem { Name = "High", Value = 3 },
+                        new CrsArgEnumItem { Name = "Critical", Value = 4 },
+                        new CrsArgEnumItem { Name = "Emergency", Value = 5 }
+                    }
+                }
+            },
+
+            // 3. Boolean argument
+            new CrsBooleanArg
+            {
+                Name = "enabled",
+                VarName = "enabled",
+                Required = false,
+                Nullable = false,
+                ShortDescription = "Enabled",
+                LongDescription = "Whether the feature is enabled",
+                Default = new CrsArgDefault { Value = false }
+            },
+
+            // 4. Any type argument
+            new CrsAnyTypeArg
+            {
+                Name = "metadata",
+                VarName = "metadata",
+                Required = false,
+                Nullable = true,
+                ShortDescription = "Metadata",
+                LongDescription = "Additional metadata as any type"
+            },
+
+            // 5. Array argument
+            new CrsArrayArg
+            {
+                Name = "tags",
+                VarName = "tags",
+                Required = false,
+                Nullable = true,
+                ShortDescription = "Tags",
+                LongDescription = "Array of tag strings",
+                Item = new CrsStringArg
+                {
+                    Name = "tag",
+                    VarName = "tag",
+                    Format = new CrsStringFormatImpl { MinLength = 1, MaxLength = 50 }
+                }
+            },
+
+            // 6. Simple object argument with properties
+            new CrsObjectArg
+            {
+                Name = "simpleConfig",
+                VarName = "simple_config",
+                ClsType = "SimpleConfig",
+                Required = false,
+                Nullable = true,
+                ShortDescription = "Simple configuration",
+                LongDescription = "Basic configuration object",
+                Props = new List<CrsArg>
+                {
+                    new CrsStringArg
+                    {
+                        Name = "name",
+                        VarName = "name",
+                        Required = true,
+                        Nullable = false,
+                        ShortDescription = "Config name",
+                        Format = new CrsStringFormatImpl()
+                    },
+                    new CrsNumberArg
+                    {
+                        Name = "value",
+                        VarName = "value",
+                        Required = false,
+                        Nullable = true,
+                        ShortDescription = "Config value",
+                        Format = new CrsInt32Format()
+                    }
+                }
+            },
+
+            // 7. Object argument with additional properties (dictionary-like)
+            new CrsObjectArg
+            {
+                Name = "properties",
+                VarName = "properties",
+                ClsType = "Properties",
+                Required = false,
+                Nullable = true,
+                ShortDescription = "Properties",
+                LongDescription = "Key-value properties",
+                Props = new List<CrsArg>(),
+                AdditionalProps = new CrsObjectArgAdditionalProperties
+                {
+                    Item = new CrsStringArg
+                    {
+                        Name = "propertyValue",
+                        VarName = "property_value",
+                        Format = new CrsStringFormatImpl()
+                    }
+                }
+            },
+
+            // 8. Class argument referencing another type
+            new CrsClsArg
+            {
+                Name = "member",
+                VarName = "member",
+                ClsType = "Person",
+                Required = false,
+                Nullable = true,
+                ShortDescription = "Person",
+                LongDescription = "Person information"
+            },
+
+            // 9. Complex object with nested structures and circular reference setup
+            new CrsObjectArg
+            {
+                Name = "person",
+                VarName = "person",
+                ClsType = "Person",
+                Required = false,
+                Nullable = true,
+                ShortDescription = "Person",
+                LongDescription = "Person with relationships",
+                Props = new List<CrsArg>
+                {
+                    new CrsStringArg
+                    {
+                        Name = "name",
+                        VarName = "name",
+                        Required = true,
+                        Nullable = false,
+                        ShortDescription = "Person name",
+                        Format = new CrsStringFormatImpl { MinLength = 1, MaxLength = 100 }
+                    },
+                    new CrsNumberArg
+                    {
+                        Name = "age",
+                        VarName = "age",
+                        Required = false,
+                        Nullable = true,
+                        ShortDescription = "Person age",
+                        Format = new CrsInt32Format { Minimum = 0, Maximum = 150 }
+                    },
+                    // Circular reference: Person has a friend who is also a Person
+                    new CrsClsArg
+                    {
+                        Name = "friend",
+                        VarName = "friend",
+                        ClsType = "Person",
+                        Required = false,
+                        Nullable = true,
+                        ShortDescription = "Best friend",
+                        LongDescription = "Reference to another person (circular reference example)"
+                    },
+                    // Array of related persons
+                    new CrsArrayArg
+                    {
+                        Name = "relatives",
+                        VarName = "relatives",
+                        Required = false,
+                        Nullable = true,
+                        ShortDescription = "Relatives",
+                        LongDescription = "Array of related persons",
+                        Item = new CrsClsArg
+                        {
+                            Name = "relative",
+                            VarName = "relative",
+                            ClsType = "Person"
+                        }
+                    }
+                }
+            },
+
+            // 10. Another complex circular reference scenario: Company -> Department -> Employee -> Company
+            new CrsObjectArg
+            {
+                Name = "company",
+                VarName = "company",
+                ClsType = "Company",
+                Required = false,
+                Nullable = true,
+                ShortDescription = "Company",
+                LongDescription = "Company information with departments",
+                Props = new List<CrsArg>
+                {
+                    new CrsStringArg
+                    {
+                        Name = "name",
+                        VarName = "name",
+                        Required = true,
+                        Nullable = false,
+                        ShortDescription = "Company name",
+                        Format = new CrsStringFormatImpl()
+                    },
+                    new CrsArrayArg
+                    {
+                        Name = "departments",
+                        VarName = "departments",
+                        Required = false,
+                        Nullable = true,
+                        ShortDescription = "Departments",
+                        LongDescription = "Company departments",
+                        Item = new CrsClsArg
+                        {
+                            Name = "department",
+                            VarName = "department",
+                            ClsType = "Department"
+                        }
+                    }
+                }
+            },
+
+            new CrsObjectArg
+            {
+                Name = "department",
+                VarName = "department",
+                ClsType = "Department",
+                Required = false,
+                Nullable = true,
+                ShortDescription = "Department",
+                LongDescription = "Department information",
+                Props = new List<CrsArg>
+                {
+                    new CrsStringArg
+                    {
+                        Name = "name",
+                        VarName = "name",
+                        Required = true,
+                        Nullable = false,
+                        ShortDescription = "Department name",
+                        Format = new CrsStringFormatImpl()
+                    },
+                    new CrsClsArg
+                    {
+                        Name = "company",
+                        VarName = "company",
+                        ClsType = "Company",
+                        Required = false,
+                        Nullable = true,
+                        ShortDescription = "Parent company",
+                        LongDescription = "Reference back to the parent company"
+                    },
+                    new CrsArrayArg
+                    {
+                        Name = "employees",
+                        VarName = "employees",
+                        Required = false,
+                        Nullable = true,
+                        ShortDescription = "Employees",
+                        LongDescription = "Department employees",
+                        Item = new CrsClsArg
+                        {
+                            Name = "employee",
+                            VarName = "employee",
+                            ClsType = "Employee"
+                        }
+                    }
+                }
+            },
+
+            new CrsObjectArg
+            {
+                Name = "employee",
+                VarName = "employee",
+                ClsType = "Employee",
+                Required = false,
+                Nullable = true,
+                ShortDescription = "Employee",
+                LongDescription = "Employee information",
+                Props = new List<CrsArg>
+                {
+                    new CrsStringArg
+                    {
+                        Name = "name",
+                        VarName = "name",
+                        Required = true,
+                        Nullable = false,
+                        ShortDescription = "Employee name",
+                        Format = new CrsStringFormatImpl()
+                    },
+                    new CrsClsArg
+                    {
+                        Name = "department",
+                        VarName = "department",
+                        ClsType = "Department",
+                        Required = false,
+                        Nullable = true,
+                        ShortDescription = "Employee department",
+                        LongDescription = "Department this employee belongs to"
+                    },
+                    new CrsClsArg
+                    {
+                        Name = "company",
+                        VarName = "company",
+                        ClsType = "Company",
+                        Required = false,
+                        Nullable = true,
+                        ShortDescription = "Employee company",
+                        LongDescription = "Company this employee works for"
+                    }
+                }
+            },
+
+            // 11. Internal parameter (should be hidden)
+            new CrsStringArg
+            {
+                Name = "internalToken",
+                VarName = "internal_token",
+                Internal = true,
+                Required = false,
+                Nullable = true,
+                ShortDescription = "Internal token",
+                LongDescription = "Internal authentication token (hidden from user)",
+                Format = new CrsStringFormatImpl()
+            }
+        };
+    }
+
+    /// <summary>
     /// Check if the library is initialized
     /// </summary>
     public static bool IsInitialized => _isInitialized;
@@ -907,8 +1423,14 @@ public class CirrusModuleInitializer : IModuleAssemblyInitializer
         try
         {
             Console.WriteLine("Initializing Cirrus module...");
+
+            // Initialize PSWrapper first
             PSWrapper.Initialize();
             Console.WriteLine("✓ Cirrus library initialized successfully");
+
+            // Initialize DynamicTypeBuilder for the main module
+            var mainBuilder = DynamicTypeBuilder.GetOrCreateBuilder(DynamicTypeBuilder.DEFAULT_MODULE_NAME);
+            Console.WriteLine("✓ DynamicTypeBuilder initialized for Default module");
         }
         catch (Exception ex)
         {

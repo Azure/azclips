@@ -7,13 +7,162 @@ using System.Collections.Concurrent;
 namespace Cirrus.Core
 {
     /// <summary>
+    /// Custom argument transformation attribute for converting enum names to values
+    /// </summary>
+    public class EnumNameToValueTransformAttribute : ArgumentTransformationAttribute
+    {
+        private readonly Dictionary<string, object> _enumMapping;
+
+        public EnumNameToValueTransformAttribute(CrsArgEnum enumDefinition)
+        {
+            _enumMapping = enumDefinition.Items.ToDictionary(
+                item => item.Name,
+                item => item.Value,
+                StringComparer.OrdinalIgnoreCase
+            );
+        }
+
+        public override object Transform(EngineIntrinsics engineIntrinsics, object inputData)
+        {
+            if (inputData == null)
+                return null;
+
+            var inputString = inputData.ToString()?.Trim();
+            if (string.IsNullOrEmpty(inputString))
+                return inputData;
+
+            // Try to find the enum value by name
+            if (_enumMapping.TryGetValue(inputString, out var enumValue))
+            {
+                return enumValue;
+            }
+
+            // If not found by name, try to parse as the original value type
+            // This allows both name input ("High") and direct value input ("3")
+            var firstEnumValue = _enumMapping.Values.FirstOrDefault();
+            if (firstEnumValue != null)
+            {
+                var valueType = firstEnumValue.GetType();
+
+                try
+                {
+                    if (valueType == typeof(int))
+                        return Convert.ToInt32(inputString);
+                    else if (valueType == typeof(uint))
+                        return Convert.ToUInt32(inputString);
+                    else if (valueType == typeof(long))
+                        return Convert.ToInt64(inputString);
+                    else if (valueType == typeof(ulong))
+                        return Convert.ToUInt64(inputString);
+                    else if (valueType == typeof(float))
+                        return Convert.ToSingle(inputString);
+                    else if (valueType == typeof(double))
+                        return Convert.ToDouble(inputString);
+                }
+                catch
+                {
+                    // If conversion fails, throw a meaningful error
+                    var validNames = string.Join(", ", _enumMapping.Keys);
+                    throw new ArgumentTransformationMetadataException(
+                        $"Cannot convert '{inputString}' to a valid enum value. Valid values are: {validNames}");
+                }
+            }
+
+            return inputData;
+        }
+    }
+
+    /// <summary>
+    /// Custom argument transformation attribute for converting hashtables to dictionaries
+    /// </summary>
+    public class HashtableToDictionaryTransformAttribute : ArgumentTransformationAttribute
+    {
+        private readonly Type _valueType;
+
+        public HashtableToDictionaryTransformAttribute(Type valueType)
+        {
+            _valueType = valueType;
+        }
+
+        public override object Transform(EngineIntrinsics engineIntrinsics, object inputData)
+        {
+            if (inputData == null)
+                return null!;
+
+            // If it's already a dictionary of the correct type, pass it through
+            var expectedDictType = typeof(Dictionary<,>).MakeGenericType(typeof(string), _valueType);
+            if (expectedDictType.IsInstanceOfType(inputData))
+                return inputData;
+
+            // Convert hashtable to dictionary
+            if (inputData is System.Collections.Hashtable hashtable)
+            {
+                var dictionary = (System.Collections.IDictionary)Activator.CreateInstance(expectedDictType)!;
+
+                foreach (System.Collections.DictionaryEntry entry in hashtable)
+                {
+                    var key = entry.Key?.ToString() ?? "";
+                    var value = ConvertValue(entry.Value, _valueType);
+                    dictionary.Add(key, value);
+                }
+
+                return dictionary;
+            }
+
+            // Convert PSObject (which PowerShell uses for @{} syntax) to dictionary
+            if (inputData is PSObject psObject && psObject.BaseObject is System.Collections.Hashtable psHashtable)
+            {
+                var dictionary = (System.Collections.IDictionary)Activator.CreateInstance(expectedDictType)!;
+
+                foreach (System.Collections.DictionaryEntry entry in psHashtable)
+                {
+                    var key = entry.Key?.ToString() ?? "";
+                    var value = ConvertValue(entry.Value, _valueType);
+                    dictionary.Add(key, value);
+                }
+
+                return dictionary;
+            }
+
+            throw new ArgumentTransformationMetadataException(
+                $"Cannot convert '{inputData?.GetType().Name}' to Dictionary<string, {_valueType.Name}>. " +
+                "Expected a hashtable like @{ Key1 = 'Value1'; Key2 = 'Value2' }"
+            );
+        }
+
+        private object? ConvertValue(object? value, Type targetType)
+        {
+            if (value == null)
+                return null;
+
+            if (targetType.IsInstanceOfType(value))
+                return value;
+
+            // Handle PSObject wrapping
+            if (value is PSObject psObj)
+                value = psObj.BaseObject;
+
+            // Try to convert the value to the target type
+            try
+            {
+                return Convert.ChangeType(value, targetType);
+            }
+            catch
+            {
+                // If conversion fails, return the original value and let PowerShell handle it
+                return value;
+            }
+        }
+    }
+
+    /// <summary>
     /// Dynamic type builder for creating types at runtime with support for circular references
     /// Uses two-phase construction pattern to handle complex type dependencies
     /// </summary>
     public class DynamicTypeBuilder
     {
         private const string DEFAULT_ASSEMBLY_NAME = "Cirrus.Types";
-        private const string DEFAULT_MODULE_NAME = "Custom";
+        public const string DEFAULT_MODULE_NAME = "Custom";
 
         // Global unique assembly - shared across all instances
         private static readonly Lazy<AssemblyBuilder> _assemblyBuilder = new(() =>
@@ -292,12 +441,12 @@ namespace Cirrus.Core
             // Add null check validation for non-nullable required properties
             if (prop.Required && !prop.Nullable && !propertyType.IsValueType)
             {
-                var nullCheckLabel = setterIL.DefineLabel();
+                var normalAssignmentLabel = setterIL.DefineLabel();
 
                 // Load the argument
                 setterIL.Emit(OpCodes.Ldarg_1);
-                // Check if null
-                setterIL.Emit(OpCodes.Brfalse_S, nullCheckLabel);
+                // Check if NOT null
+                setterIL.Emit(OpCodes.Brtrue_S, normalAssignmentLabel);
 
                 // Throw ArgumentNullException if null
                 setterIL.Emit(OpCodes.Ldstr, $"Property '{propertyName}' cannot be null.");
@@ -305,7 +454,7 @@ namespace Cirrus.Core
                 setterIL.Emit(OpCodes.Throw);
 
                 // Continue with normal assignment
-                setterIL.MarkLabel(nullCheckLabel);
+                setterIL.MarkLabel(normalAssignmentLabel);
             }
 
             setterIL.Emit(OpCodes.Ldarg_0);
@@ -669,14 +818,20 @@ namespace Cirrus.Core
         {
             var attributes = CreateParameterAttributes();
 
-            // Add ValidateSet if enum is present
+            // Add enum support if present
             if (Enum?.Items.Count > 0)
             {
-                var validValues = Enum.Items.Select(item => item.Name).ToArray();
-                attributes.Add(new ValidateSetAttribute(validValues));
+                // Add transformation attribute to convert enum names to values
+                attributes.Add(new EnumNameToValueTransformAttribute(Enum));
+
+                // Add ValidateSet with both names and values for flexibility
+                var enumNames = Enum.Items.Select(item => item.Name).ToArray();
+                var enumValues = Enum.Items.Select(item => item.Value.ToString()).ToArray();
+                var allValidValues = enumNames.Concat(enumValues).Distinct().ToArray();
+                attributes.Add(new ValidateSetAttribute(allValidValues));
             }
 
-            // Let the format extend the parameter attributes with format-specific validation
+            // Always apply format validation for additional constraints
             Format.ExtendParameterAttributes(attributes);
 
             return new RuntimeDefinedParameter(
@@ -897,20 +1052,31 @@ namespace Cirrus.Core
         public CrsArgEnum? Enum { get; set; }
         public CrsNumberFormat Format { get; set; } = new CrsInt64Format();
 
-        public override Type GetOrCreateParameterType(DynamicTypeBuilder builder) => Format.GetParameterType(builder);
+        public override Type GetOrCreateParameterType(DynamicTypeBuilder builder)
+        {
+            // Always use the format's original type, even when enum is present
+            // The transformation attribute will handle string-to-value conversion
+            return Format.GetParameterType(builder);
+        }
 
         public override RuntimeDefinedParameter Build(DynamicTypeBuilder builder)
         {
             var attributes = CreateParameterAttributes();
 
-            // Add ValidateSet if enum is present
+            // Add enum support if present
             if (Enum?.Items.Count > 0)
             {
-                var validValues = Enum.Items.Select(item => item.Value.ToString()).ToArray();
-                attributes.Add(new ValidateSetAttribute(validValues));
+                // Add transformation attribute to convert enum names to values
+                attributes.Add(new EnumNameToValueTransformAttribute(Enum));
+
+                // Add ValidateSet with both names and values for flexibility
+                var enumNames = Enum.Items.Select(item => item.Name).ToArray();
+                var enumValues = Enum.Items.Select(item => item.Value.ToString()).ToArray();
+                var allValidValues = enumNames.Concat(enumValues).Distinct().ToArray();
+                attributes.Add(new ValidateSetAttribute(allValidValues));
             }
 
-            // Let the format extend the parameter attributes with format-specific validation
+            // Always apply format validation for additional constraints
             Format.ExtendParameterAttributes(attributes);
 
             return new RuntimeDefinedParameter(
@@ -1164,6 +1330,14 @@ namespace Cirrus.Core
         public override RuntimeDefinedParameter Build(DynamicTypeBuilder builder)
         {
             var attributes = CreateParameterAttributes();
+
+            // Add hashtable to dictionary conversion for additional properties
+            if (Props.Count == 0 && AdditionalProps != null)
+            {
+                var valueType = AdditionalProps.Item?.GetOrCreateParameterType(builder) ?? typeof(object);
+                var transformAttribute = new HashtableToDictionaryTransformAttribute(valueType);
+                attributes.Add(transformAttribute);
+            }
 
             return new RuntimeDefinedParameter(
                 GetParameterName(),
