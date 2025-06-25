@@ -17,7 +17,7 @@ namespace AzTool.Tests
             {
                 var jsonDoc = System.Text.Json.JsonDocument.Parse(json);
                 var root = jsonDoc.RootElement;
-                
+
                 return new MockComplexObject
                 {
                     Name = root.TryGetProperty("name", out var nameProperty) ? nameProperty.GetString() ?? "" : "",
@@ -73,7 +73,7 @@ namespace AzTool.Tests
             // Act & Assert
             var exception = Assert.Throws<PropertyParserException>(() =>
                 PropertyParser.ConvertToType(value, targetType, propertyName));
-            
+
             Assert.Contains("expects an integer value", exception.Message);
             Assert.Contains("not-an-integer", exception.Message);
         }
@@ -104,7 +104,7 @@ namespace AzTool.Tests
             // Act & Assert
             var exception = Assert.Throws<PropertyParserException>(() =>
                 PropertyParser.ConvertToType(value, targetType, propertyName));
-            
+
             Assert.Contains("expects a boolean value", exception.Message);
             Assert.Contains("not-a-boolean", exception.Message);
         }
@@ -142,7 +142,7 @@ namespace AzTool.Tests
             // Act & Assert
             var exception = Assert.Throws<PropertyParserException>(() =>
                 PropertyParser.ConvertToType(value, targetType, propertyName));
-            
+
             Assert.Contains("expects a JSON array value", exception.Message);
             Assert.Contains("not-valid-json", exception.Message);
         }
@@ -181,7 +181,7 @@ namespace AzTool.Tests
             // Act & Assert
             var exception = Assert.Throws<PropertyParserException>(() =>
                 PropertyParser.ConvertToType(value, targetType, propertyName));
-            
+
             Assert.Contains("expects an integer value", exception.Message);
         }
 
@@ -235,7 +235,7 @@ namespace AzTool.Tests
             // Act & Assert
             var exception = Assert.Throws<PropertyParserException>(() =>
                 PropertyParser.ConvertToType(value, targetType, propertyName));
-            
+
             Assert.Contains("Failed to parse property", exception.Message);
             Assert.Contains("TestProperty", exception.Message);
             Assert.Contains("invalid-json-object", exception.Message);
@@ -257,11 +257,11 @@ namespace AzTool.Tests
             Assert.IsType<MockComplexObject[]>(result);
             var array = (MockComplexObject[])result;
             Assert.Equal(2, array.Length);
-            
+
             Assert.Equal("Item1", array[0].Name);
             Assert.Equal(10, array[0].Value);
             Assert.True(array[0].Active);
-            
+
             Assert.Equal("Item2", array[1].Name);
             Assert.Equal(20, array[1].Value);
             Assert.False(array[1].Active);
@@ -283,12 +283,12 @@ namespace AzTool.Tests
             Assert.IsType<MockComplexObject[]>(result);
             var array = (MockComplexObject[])result;
             Assert.Equal(2, array.Length);
-            
+
             // First object - only name provided
             Assert.Equal("OnlyName", array[0].Name);
             Assert.Equal(0, array[0].Value); // Default value
             Assert.False(array[0].Active); // Default value
-            
+
             // Second object - only value provided
             Assert.Equal("", array[1].Name); // Default value
             Assert.Equal(99, array[1].Value);
@@ -307,7 +307,7 @@ namespace AzTool.Tests
             // Act & Assert
             var exception = Assert.Throws<PropertyParserException>(() =>
                 PropertyParser.ConvertToType(value, targetType, propertyName));
-            
+
             Assert.Contains("cannot be parsed from a string", exception.Message);
             Assert.Contains("DateTime", exception.Message);
         }
@@ -324,7 +324,7 @@ namespace AzTool.Tests
             // Act & Assert
             var exception = Assert.Throws<PropertyParserException>(() =>
                 PropertyParser.ConvertToType(value, targetType, propertyName));
-            
+
             Assert.Contains("Failed to parse property 'TestProperty[]'", exception.Message);
         }
     }
@@ -342,7 +342,7 @@ namespace AzTool.Tests
             public string OptionalProperty { get; set; } = "";
 
             [ArgumentInfo(NumArgs = "?")]
-            public string OptionalSingleProperty { get; set; } = "";
+            public string? OptionalSingleProperty { get; set; } = null;
 
             [ArgumentInfo(NumArgs = "*")]
             public string[] VariableLengthProperty { get; set; } = Array.Empty<string>();
@@ -833,7 +833,7 @@ namespace AzTool.Tests
             // Arrange
             var args = Array.Empty<string>();
             var commandLineArgs = CommandLineArgs.Parse(args);
-            
+
             // Create a mock property without ArgumentInfoAttribute
             var testClass = new { TestProperty = "test" };
             var property = testClass.GetType().GetProperty("TestProperty")!;
@@ -941,7 +941,7 @@ namespace AzTool.Tests
             // Assert
             Assert.IsType<string>(result);
             Assert.Equal("positional1", result);
-            
+
             // Verify positional args are cleared
             Assert.Empty(commandLineArgs.PositionalArgs);
         }
@@ -979,7 +979,7 @@ namespace AzTool.Tests
             // Arrange - We'll need to mock this since we can't easily add a new enum value
             var args = new[] { "--test-property", "value" };
             var commandLineArgs = CommandLineArgs.Parse(args);
-            
+
             // Create a mock property with an unsupported action (we'll simulate this by reflection)
             var testClass = new TestClassWithUnsupportedAction();
             var property = typeof(TestClassWithUnsupportedAction).GetProperty(nameof(TestClassWithUnsupportedAction.TestProperty))!;
@@ -1030,5 +1030,76 @@ namespace AzTool.Tests
         }
 
         #endregion
+
+        [Fact]
+        public void PopProperties_WithAllFeatures_ShouldReturnAllProperties()
+        {
+            // Arrange
+            var args = new[] {
+                "positional-value",
+                "--required-property",
+                "value1",
+                "--optional-property",
+                "value2",
+                "--optional-single-property",
+                "--variable-length-property",
+                "value3",
+                "value4",
+                "--required-variable-length-property",
+                "value5",
+                "value6",
+                "--fixed-length-property",
+                "value7",
+                "value8",
+                "--enum-property",
+                "option1",
+                "-a",
+                "aliasValue",
+            };
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var requiredProperty = typeof(TestClassStore).GetProperty(nameof(TestClassStore.RequiredProperty))!;
+            var optionalProperty = typeof(TestClassStore).GetProperty(nameof(TestClassStore.OptionalProperty))!;
+            var optionalSingleProperty = typeof(TestClassStore).GetProperty(nameof(TestClassStore.OptionalSingleProperty))!;
+            var variableLengthProperty = typeof(TestClassStore).GetProperty(nameof(TestClassStore.VariableLengthProperty))!;
+            var requiredVariableLengthProperty = typeof(TestClassStore).GetProperty(nameof(TestClassStore.RequiredVariableLengthProperty))!;
+            var fixedLengthProperty = typeof(TestClassStore).GetProperty(nameof(TestClassStore.FixedLengthProperty))!;
+            var enumProperty = typeof(TestClassStore).GetProperty(nameof(TestClassStore.EnumProperty))!;
+            var aliasedProperty = typeof(TestClassStore).GetProperty(nameof(TestClassStore.AliasedProperty))!;
+            var positionalProperty = typeof(TestClassStore).GetProperty(nameof(TestClassStore.PositionalProperty))!;
+
+            // Act
+            var requiredValue = commandLineArgs.PopProperty(requiredProperty);
+            var optionalValue = commandLineArgs.PopProperty(optionalProperty);
+            var optionalSingleValue = commandLineArgs.PopProperty(optionalSingleProperty);
+            var variableLengthValue = commandLineArgs.PopProperty(variableLengthProperty);
+            var requiredVariableLengthValue = commandLineArgs.PopProperty(requiredVariableLengthProperty);
+            var fixedLengthValue = commandLineArgs.PopProperty(fixedLengthProperty);
+            var enumValue = commandLineArgs.PopProperty(enumProperty);
+            var aliasedValue = commandLineArgs.PopProperty(aliasedProperty);
+            var positionalValue = commandLineArgs.PopProperty(positionalProperty);
+
+            // Assert
+            Assert.Equal("value1", requiredValue);
+            Assert.Equal("value2", optionalValue);
+            Assert.Null(optionalSingleValue); // Optional single property should return null if not provided
+            Assert.IsType<string[]>(variableLengthValue);
+            var variableLengthArray = (string[])variableLengthValue!;
+            Assert.Equal(2, variableLengthArray.Length);
+            Assert.Equal("value3", variableLengthArray[0]);
+            Assert.Equal("value4", variableLengthArray[1]);
+            Assert.IsType<string[]>(requiredVariableLengthValue);
+            var requiredVariableLengthArray = (string[])requiredVariableLengthValue!;
+            Assert.Equal(2, requiredVariableLengthArray.Length);
+            Assert.Equal("value5", requiredVariableLengthArray[0]);
+            Assert.Equal("value6", requiredVariableLengthArray[1]);
+            Assert.IsType<string[]>(fixedLengthValue);
+            var fixedLengthArray = (string[])fixedLengthValue!;
+            Assert.Equal(2, fixedLengthArray.Length);
+            Assert.Equal("value7", fixedLengthArray[0]);
+            Assert.Equal("value8", fixedLengthArray[1]);
+            Assert.Equal("option1", enumValue);
+            Assert.Equal("aliasValue", aliasedValue);
+            Assert.Equal("positional-value", positionalValue);
+        }
     }
 }
