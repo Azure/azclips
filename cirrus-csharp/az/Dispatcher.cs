@@ -290,14 +290,20 @@ namespace AzTool
         {
             // Create a delegate that handles CLI requests
             NewCLIRequestPipelineDelegate cliRequestDelegate = (prepend, append) =>
-            {
-                append((httpRequest, cancellationToken, action, signal, next) =>
+            {                append((httpRequest, cancellationToken, action, signal, next) =>
                 {
-                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] CLI request processing started");
 
-                    // Add authorization header with bearer token
-                    httpRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "[Placeholder for token]");
-                    //Console.WriteLine("Added Authorization header with bearer token 'abc'");
+                    // Add authorization header with bearer token from environment variable
+                    string? token = System.Environment.GetEnvironmentVariable("azure_token");
+                    if (!string.IsNullOrEmpty(token))
+                    {
+                        httpRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                        Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Added Authorization header with bearer token from azure_token environment variable");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Warning: azure_token environment variable not found or empty");
+                    }
 
                     // Process the request and call next step
                     return next(httpRequest, cancellationToken, action, signal);
