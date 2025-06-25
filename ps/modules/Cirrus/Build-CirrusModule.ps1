@@ -143,8 +143,33 @@ else {
     exit 1
 }
 
-# Step 5: Generate Help Documentation
-Write-Host "`n--- Step 5: Generating Help Documentation ---" -ForegroundColor Yellow
+# Step 5: Prepare Module Manifest for Help Generation
+Write-Host "`n--- Step 5: Preparing Module Manifest ---" -ForegroundColor Yellow
+
+try {
+    $manifestPath = Join-Path $scriptDir "Cirrus.psd1"
+    
+    # Read current manifest content
+    $manifestContent = Get-Content $manifestPath -Raw
+    
+    # Backup original FunctionsToExport value
+    if ($manifestContent -match "FunctionsToExport\s*=\s*([^`n]+)") {
+        $originalFunctionsToExport = $matches[1].Trim()
+        Write-Host "Original FunctionsToExport: $originalFunctionsToExport" -ForegroundColor Gray
+    }
+    
+    # Set FunctionsToExport to '*' for help generation
+    $manifestContent = $manifestContent -replace "FunctionsToExport\s*=\s*[^`n]+", "FunctionsToExport    = '*'"
+    Set-Content -Path $manifestPath -Value $manifestContent -Encoding UTF8
+    Write-Host "✓ Set FunctionsToExport to '*' for help generation" -ForegroundColor Green
+}
+catch {
+    Write-Error "Failed to prepare module manifest: $_"
+    exit 1
+}
+
+# Step 6: Generate Help Documentation
+Write-Host "`n--- Step 6: Generating Help Documentation ---" -ForegroundColor Yellow
 
 try {
     # Import the module
@@ -198,9 +223,56 @@ catch {
     }
 }
 
-# Step 6: Test the module (if requested)
+# Step 7: Update Module Manifest with Actual Function List
+Write-Host "`n--- Step 7: Updating Module Manifest ---" -ForegroundColor Yellow
+
+try {
+    $manifestPath = Join-Path $scriptDir "Cirrus.psd1"
+    
+    # Import the module to get actual functions
+    Write-Host "Re-importing Cirrus module to get function list..." -ForegroundColor White
+    Import-Module "$scriptDir\Cirrus.psd1" -Force
+    
+    # Get actual exported functions
+    $actualFunctions = Get-Command -Module Cirrus -CommandType Function | Select-Object -ExpandProperty Name
+    
+    if ($actualFunctions.Count -gt 0) {
+        # Format function names as PowerShell array
+        $functionsArray = ($actualFunctions | ForEach-Object { "'$_'" }) -join ', '
+        $functionsToExportValue = "@($functionsArray)"
+        
+        Write-Host "Found $($actualFunctions.Count) functions: $($actualFunctions -join ', ')" -ForegroundColor Gray
+        
+        # Update manifest with actual function list
+        $manifestContent = Get-Content $manifestPath -Raw
+        $manifestContent = $manifestContent -replace "FunctionsToExport\s*=\s*[^`n]+", "FunctionsToExport    = $functionsToExportValue"
+        Set-Content -Path $manifestPath -Value $manifestContent -Encoding UTF8
+        
+        Write-Host "✓ Updated FunctionsToExport with actual function list" -ForegroundColor Green
+    }
+    else {
+        Write-Warning "No functions found in module, keeping FunctionsToExport as '*'"
+    }
+    
+    # Remove the imported module
+    Remove-Module Cirrus -Force
+}
+catch {
+    Write-Warning "Failed to update module manifest with function list: $_"
+    Write-Host "⚠ Module manifest update failed, but build will continue" -ForegroundColor Yellow
+    
+    # Clean up any imported modules
+    try {
+        Remove-Module Cirrus -Force -ErrorAction SilentlyContinue
+    }
+    catch {
+        # Ignore cleanup errors
+    }
+}
+
+# Step 8: Test the module (if requested)
 if ($Test) {
-    Write-Host "`n--- Step 6: Testing Module ---" -ForegroundColor Yellow
+    Write-Host "`n--- Step 8: Testing Module ---" -ForegroundColor Yellow
     
     try {
         # Import the module

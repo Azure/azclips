@@ -260,7 +260,6 @@ public static class PSWrapper
     }
 
 
-
     /// <summary>
     /// Convert .NET object to CParamValue
     /// Uses JSON intermediate representation for robust type conversion

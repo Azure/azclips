@@ -1,8 +1,5 @@
-using System;
-using System.Collections.Generic;
 using System.Management.Automation;
 using System.Collections.ObjectModel;
-using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Collections.Concurrent;
@@ -15,7 +12,7 @@ namespace Cirrus.Core
     /// </summary>
     public class DynamicTypeBuilder
     {
-        private const string DEFAULT_ASSEMBLY_NAME = "Cirrus.Dynamic";
+        private const string DEFAULT_ASSEMBLY_NAME = "Cirrus.Types";
         private const string DEFAULT_MODULE_NAME = "Custom";
 
         // Global unique assembly - shared across all instances
@@ -32,7 +29,7 @@ namespace Cirrus.Core
         private readonly ModuleBuilder _moduleBuilder;
         private readonly ConcurrentDictionary<string, TypeBuilder> _pendingTypes = new();
         private readonly ConcurrentDictionary<string, Type> _completedTypes = new();
-        private readonly object _creationLock = new object();
+        private readonly object _creationLock = new();
 
         /// <summary>
         /// Private constructor - use GetOrCreateBuilder to create instances
@@ -231,22 +228,115 @@ namespace Cirrus.Core
         {
             var fieldName = $"_{prop.Name}";
             var propertyName = prop.GetParameterName();
-            var propertyType = prop.GetOrCreateParameterType(this);
+            var basePropertyType = prop.GetOrCreateParameterType(this);
 
-            // Define backing field
+            // Adjust property type based on Required and Nullable attributes
+            var propertyType = GetAdjustedPropertyType(basePropertyType, prop);
+
+            // Define backing field with appropriate field attributes
+            var fieldAttributes = FieldAttributes.Private;
             var fieldBuilder = typeBuilder.DefineField(
                 fieldName,
                 propertyType,
-                FieldAttributes.Private);
+                fieldAttributes);
 
-            // Define property
+            // Define property with appropriate property attributes
+            var propertyAttributes = PropertyAttributes.None;
             var propertyBuilder = typeBuilder.DefineProperty(
                 propertyName,
-                PropertyAttributes.None,
+                propertyAttributes,
                 propertyType,
                 null);
 
-            // System.Text.Json JsonPropertyNameAttribute
+            // Add JsonPropertyName attribute
+            AddJsonPropertyNameAttribute(propertyBuilder, prop);
+
+            // Add validation attributes based on Required, Nullable, and Internal properties
+            AddPropertyValidationAttributes(propertyBuilder, prop);
+
+            // Define getter with appropriate method attributes
+            var getterAttributes = MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig;
+            if (prop.Internal)
+            {
+                // Internal properties might need special handling - keep public for now but could be adjusted
+                // getterAttributes = MethodAttributes.Assembly | MethodAttributes.SpecialName | MethodAttributes.HideBySig;
+            }
+
+            var getterBuilder = typeBuilder.DefineMethod(
+                $"get_{propertyName}",
+                getterAttributes,
+                propertyType,
+                Type.EmptyTypes);
+
+            var getterIL = getterBuilder.GetILGenerator();
+            getterIL.Emit(OpCodes.Ldarg_0);
+            getterIL.Emit(OpCodes.Ldfld, fieldBuilder);
+            getterIL.Emit(OpCodes.Ret);
+
+            // Define setter with appropriate method attributes and validation
+            var setterAttributes = MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig;
+            if (prop.Internal)
+            {
+                // Internal properties might need special handling - keep public for now but could be adjusted
+                // setterAttributes = MethodAttributes.Assembly | MethodAttributes.SpecialName | MethodAttributes.HideBySig;
+            }
+
+            var setterBuilder = typeBuilder.DefineMethod(
+                $"set_{propertyName}",
+                setterAttributes,
+                null,
+                new[] { propertyType });
+
+            var setterIL = setterBuilder.GetILGenerator();
+
+            // Add null check validation for non-nullable required properties
+            if (prop.Required && !prop.Nullable && !propertyType.IsValueType)
+            {
+                var nullCheckLabel = setterIL.DefineLabel();
+
+                // Load the argument
+                setterIL.Emit(OpCodes.Ldarg_1);
+                // Check if null
+                setterIL.Emit(OpCodes.Brfalse_S, nullCheckLabel);
+
+                // Throw ArgumentNullException if null
+                setterIL.Emit(OpCodes.Ldstr, $"Property '{propertyName}' cannot be null.");
+                setterIL.Emit(OpCodes.Newobj, typeof(ArgumentNullException).GetConstructor(new[] { typeof(string) })!);
+                setterIL.Emit(OpCodes.Throw);
+
+                // Continue with normal assignment
+                setterIL.MarkLabel(nullCheckLabel);
+            }
+
+            setterIL.Emit(OpCodes.Ldarg_0);
+            setterIL.Emit(OpCodes.Ldarg_1);
+            setterIL.Emit(OpCodes.Stfld, fieldBuilder);
+            setterIL.Emit(OpCodes.Ret);
+
+            // Assign getter and setter to property
+            propertyBuilder.SetGetMethod(getterBuilder);
+            propertyBuilder.SetSetMethod(setterBuilder);
+        }
+
+        /// <summary>
+        /// Adjust property type based on Required and Nullable attributes
+        /// </summary>
+        private Type GetAdjustedPropertyType(Type baseType, CrsArg prop)
+        {
+            // If the property is nullable and the base type is a value type, make it nullable
+            if (prop.Nullable && baseType.IsValueType && Nullable.GetUnderlyingType(baseType) == null)
+            {
+                return typeof(Nullable<>).MakeGenericType(baseType);
+            }
+
+            return baseType;
+        }
+
+        /// <summary>
+        /// Add JsonPropertyName attribute to the property
+        /// </summary>
+        private void AddJsonPropertyNameAttribute(PropertyBuilder propertyBuilder, CrsArg prop)
+        {
             var jsonPropertyNameType = Type.GetType("System.Text.Json.Serialization.JsonPropertyNameAttribute, System.Text.Json");
             if (jsonPropertyNameType != null)
             {
@@ -257,35 +347,162 @@ namespace Cirrus.Core
                     propertyBuilder.SetCustomAttribute(jsonPropertyNameAttr);
                 }
             }
+        }
 
-            // Define getter
-            var getterBuilder = typeBuilder.DefineMethod(
-                $"get_{propertyName}",
-                MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig,
-                propertyType,
-                Type.EmptyTypes);
+        /// <summary>
+        /// Add validation attributes based on property characteristics
+        /// </summary>
+        private void AddPropertyValidationAttributes(PropertyBuilder propertyBuilder, CrsArg prop)
+        {
+            // Add Required attribute if the property is required
+            if (prop.Required)
+            {
+                var requiredType = Type.GetType("System.ComponentModel.DataAnnotations.RequiredAttribute, System.ComponentModel.DataAnnotations");
+                if (requiredType != null)
+                {
+                    var requiredCtor = requiredType.GetConstructor(Type.EmptyTypes);
+                    if (requiredCtor != null)
+                    {
+                        var requiredAttr = new CustomAttributeBuilder(requiredCtor, new object[0]);
+                        propertyBuilder.SetCustomAttribute(requiredAttr);
+                    }
+                }
+            }
 
-            var getterIL = getterBuilder.GetILGenerator();
-            getterIL.Emit(OpCodes.Ldarg_0);
-            getterIL.Emit(OpCodes.Ldfld, fieldBuilder);
-            getterIL.Emit(OpCodes.Ret);
+            // Add description attributes for documentation
+            AddDescriptionAttributes(propertyBuilder, prop);
 
-            // Define setter
-            var setterBuilder = typeBuilder.DefineMethod(
-                $"set_{propertyName}",
-                MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig,
-                null,
-                new[] { propertyType });
+            // Add internal/editor browsable attributes for internal properties
+            if (prop.Internal)
+            {
+                // Add EditorBrowsable(EditorBrowsableState.Never) to hide from IntelliSense
+                var editorBrowsableType = Type.GetType("System.ComponentModel.EditorBrowsableAttribute, System.ComponentModel.Primitives");
+                if (editorBrowsableType != null)
+                {
+                    var editorBrowsableStateType = Type.GetType("System.ComponentModel.EditorBrowsableState, System.ComponentModel.Primitives");
+                    if (editorBrowsableStateType != null)
+                    {
+                        var editorBrowsableCtor = editorBrowsableType.GetConstructor(new[] { editorBrowsableStateType });
+                        if (editorBrowsableCtor != null)
+                        {
+                            var neverValue = Enum.ToObject(editorBrowsableStateType, 1); // EditorBrowsableState.Never = 1
+                            var editorBrowsableAttr = new CustomAttributeBuilder(editorBrowsableCtor, new object[] { neverValue });
+                            propertyBuilder.SetCustomAttribute(editorBrowsableAttr);
+                        }
+                    }
+                }
+            }
+        }
 
-            var setterIL = setterBuilder.GetILGenerator();
-            setterIL.Emit(OpCodes.Ldarg_0);
-            setterIL.Emit(OpCodes.Ldarg_1);
-            setterIL.Emit(OpCodes.Stfld, fieldBuilder);
-            setterIL.Emit(OpCodes.Ret);
+        /// <summary>
+        /// Add description attributes to provide documentation for the property
+        /// </summary>
+        private void AddDescriptionAttributes(PropertyBuilder propertyBuilder, CrsArg prop)
+        {
+            // Create comprehensive description combining both short and long descriptions
+            string? description = null;
 
-            // Assign getter and setter to property
-            propertyBuilder.SetGetMethod(getterBuilder);
-            propertyBuilder.SetSetMethod(setterBuilder);
+            if (!string.IsNullOrEmpty(prop.LongDescription) && !string.IsNullOrEmpty(prop.ShortDescription))
+            {
+                // If both exist and are different, combine them
+                if (prop.ShortDescription != prop.LongDescription)
+                {
+                    description = $"{prop.ShortDescription}\n\n{prop.LongDescription}";
+                }
+                else
+                {
+                    description = prop.LongDescription;
+                }
+            }
+            else
+            {
+                // Use whichever one is available
+                description = !string.IsNullOrEmpty(prop.LongDescription) ? prop.LongDescription : prop.ShortDescription;
+            }
+
+            if (!string.IsNullOrEmpty(description))
+            {
+                // Add System.ComponentModel.DescriptionAttribute
+                var descriptionType = Type.GetType("System.ComponentModel.DescriptionAttribute, System.ComponentModel.Primitives");
+                if (descriptionType != null)
+                {
+                    var descriptionCtor = descriptionType.GetConstructor(new[] { typeof(string) });
+                    if (descriptionCtor != null)
+                    {
+                        var descriptionAttr = new CustomAttributeBuilder(descriptionCtor, new object[] { description });
+                        propertyBuilder.SetCustomAttribute(descriptionAttr);
+                    }
+                }
+            }
+
+            // Add DisplayName attribute if we have a short description
+            if (!string.IsNullOrEmpty(prop.ShortDescription))
+            {
+                var displayNameType = Type.GetType("System.ComponentModel.DisplayNameAttribute, System.ComponentModel.Primitives");
+                if (displayNameType != null)
+                {
+                    var displayNameCtor = displayNameType.GetConstructor(new[] { typeof(string) });
+                    if (displayNameCtor != null)
+                    {
+                        var displayNameAttr = new CustomAttributeBuilder(displayNameCtor, new object[] { prop.ShortDescription });
+                        propertyBuilder.SetCustomAttribute(displayNameAttr);
+                    }
+                }
+            }
+
+            // Add Category attribute for grouping (using "Parameters" as default category)
+            var categoryType = Type.GetType("System.ComponentModel.CategoryAttribute, System.ComponentModel.Primitives");
+            if (categoryType != null)
+            {
+                var categoryCtor = categoryType.GetConstructor(new[] { typeof(string) });
+                if (categoryCtor != null)
+                {
+                    var categoryName = prop.Internal ? "Internal" : "Parameters";
+                    var categoryAttr = new CustomAttributeBuilder(categoryCtor, new object[] { categoryName });
+                    propertyBuilder.SetCustomAttribute(categoryAttr);
+                }
+            }
+
+            // Add custom documentation attribute that can be used by reflection
+            AddCustomDocumentationAttribute(propertyBuilder, prop);
+        }
+
+        /// <summary>
+        /// Add custom documentation attribute for storing both short and long descriptions
+        /// </summary>
+        private void AddCustomDocumentationAttribute(PropertyBuilder propertyBuilder, CrsArg prop)
+        {
+            // If both short and long descriptions exist and are different,
+            // we already handled the combined description in AddDescriptionAttributes
+            // Here we can add additional metadata attributes if needed
+
+            // Add browsable attribute based on internal status (alternative approach)
+            if (!prop.Internal)
+            {
+                var browsableType = Type.GetType("System.ComponentModel.BrowsableAttribute, System.ComponentModel.Primitives");
+                if (browsableType != null)
+                {
+                    var browsableCtor = browsableType.GetConstructor(new[] { typeof(bool) });
+                    if (browsableCtor != null)
+                    {
+                        var browsableAttr = new CustomAttributeBuilder(browsableCtor, new object[] { true });
+                        propertyBuilder.SetCustomAttribute(browsableAttr);
+                    }
+                }
+            }
+
+            // Add ReadOnly attribute if this is conceptually a read-only property
+            // (This is just an example - you might want to add a ReadOnly property to CrsArg)
+            // var readOnlyType = Type.GetType("System.ComponentModel.ReadOnlyAttribute, System.ComponentModel.Primitives");
+            // if (readOnlyType != null && someCondition)
+            // {
+            //     var readOnlyCtor = readOnlyType.GetConstructor(new[] { typeof(bool) });
+            //     if (readOnlyCtor != null)
+            //     {
+            //         var readOnlyAttr = new CustomAttributeBuilder(readOnlyCtor, new object[] { true });
+            //         propertyBuilder.SetCustomAttribute(readOnlyAttr);
+            //     }
+            // }
         }
     }
 
@@ -300,7 +517,14 @@ namespace Cirrus.Core
         public int? Position { get; set; }
 
         public bool Internal { get; set; }
-        public bool Required { get; set; }
+
+        private bool _required;
+        public bool Required
+        {
+            get => _required && Default == null;
+            set => _required = value;
+        }
+
         public bool Nullable { get; set; }
         public CrsArgDefault? Default { get; set; }
         public string? ShortDescription { get; set; }
@@ -315,21 +539,35 @@ namespace Cirrus.Core
         /// <summary>
         /// Helper method to create basic parameter attributes
         /// </summary>
-        protected ParameterAttribute CreateParameterAttribute()
+        /// <summary>
+        /// Creates a collection of parameter attributes including basic parameter attribute and null validation
+        /// </summary>
+        /// <returns>Collection of attributes for the parameter</returns>
+        protected Collection<Attribute> CreateParameterAttributes()
         {
-            var attribute = new ParameterAttribute
+            var attributes = new Collection<Attribute>();
+
+            var parameterAttribute = new ParameterAttribute
             {
                 Mandatory = Required,
                 HelpMessage = ShortDescription ?? LongDescription ?? string.Empty
             };
 
             if (Position.HasValue)
-                attribute.Position = Position.Value;
+                parameterAttribute.Position = Position.Value;
 
             if (Internal)
-                attribute.DontShow = true;
+                parameterAttribute.DontShow = true;
 
-            return attribute;
+            attributes.Add(parameterAttribute);
+
+            // Add null validation if not nullable
+            if (!Nullable)
+            {
+                attributes.Add(new ValidateNotNullAttribute());
+            }
+
+            return attributes;
         }
 
         /// <summary>
@@ -406,7 +644,7 @@ namespace Cirrus.Core
 
         public override RuntimeDefinedParameter Build(DynamicTypeBuilder builder)
         {
-            var attributes = new Collection<Attribute> { CreateParameterAttribute() };
+            var attributes = CreateParameterAttributes();
 
             // For class arguments, we'll use object type as the default
             return new RuntimeDefinedParameter(
@@ -429,20 +667,13 @@ namespace Cirrus.Core
 
         public override RuntimeDefinedParameter Build(DynamicTypeBuilder builder)
         {
-
-            var attributes = new Collection<Attribute> { CreateParameterAttribute() };
+            var attributes = CreateParameterAttributes();
 
             // Add ValidateSet if enum is present
             if (Enum?.Items.Count > 0)
             {
                 var validValues = Enum.Items.Select(item => item.Name).ToArray();
                 attributes.Add(new ValidateSetAttribute(validValues));
-            }
-
-            // Add null validation if not nullable
-            if (!Nullable)
-            {
-                attributes.Add(new ValidateNotNullAttribute());
             }
 
             // Let the format extend the parameter attributes with format-specific validation
@@ -670,7 +901,7 @@ namespace Cirrus.Core
 
         public override RuntimeDefinedParameter Build(DynamicTypeBuilder builder)
         {
-            var attributes = new Collection<Attribute> { CreateParameterAttribute() };
+            var attributes = CreateParameterAttributes();
 
             // Add ValidateSet if enum is present
             if (Enum?.Items.Count > 0)
@@ -868,7 +1099,8 @@ namespace Cirrus.Core
 
         public override RuntimeDefinedParameter Build(DynamicTypeBuilder builder)
         {
-            var attributes = new Collection<Attribute> { CreateParameterAttribute() };
+            var attributes = CreateParameterAttributes();
+
             return new RuntimeDefinedParameter(
                 GetParameterName(),
                 GetOrCreateParameterType(builder),
@@ -887,7 +1119,7 @@ namespace Cirrus.Core
 
         public override RuntimeDefinedParameter Build(DynamicTypeBuilder builder)
         {
-            var attributes = new Collection<Attribute> { CreateParameterAttribute() };
+            var attributes = CreateParameterAttributes();
 
             return new RuntimeDefinedParameter(
                 GetParameterName(),
@@ -931,7 +1163,8 @@ namespace Cirrus.Core
 
         public override RuntimeDefinedParameter Build(DynamicTypeBuilder builder)
         {
-            var attributes = new Collection<Attribute> { CreateParameterAttribute() };
+            var attributes = CreateParameterAttributes();
+
             return new RuntimeDefinedParameter(
                 GetParameterName(),
                 GetOrCreateParameterType(builder),
@@ -973,7 +1206,7 @@ namespace Cirrus.Core
 
         public override RuntimeDefinedParameter Build(DynamicTypeBuilder builder)
         {
-            var attributes = new Collection<Attribute> { CreateParameterAttribute() };
+            var attributes = CreateParameterAttributes();
 
             // For array arguments, we'll use object array type
             return new RuntimeDefinedParameter(
