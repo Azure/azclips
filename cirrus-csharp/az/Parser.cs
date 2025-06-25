@@ -152,14 +152,16 @@ namespace AzTool
             else
             {
                 var alias = $"<{propertyInfo.Name.ToUpperInvariant()}>";
-                aliases = NormalizeArgumentNames(new[] { alias });
+                aliases = new[] { alias };
                 usedAliases = aliases;
-                rawValues = new Dictionary<string, List<List<string>>>
+                rawValues = new Dictionary<string, List<List<string>>>();
+                if (PositionalArgs.Count != 0)
                 {
-                    [alias] = new List<List<string>> { PositionalArgs }
+                    rawValues[alias] = new List<List<string>> { PositionalArgs.ToList() }; // Use the positional args as the value for this property
                 };
                 PositionalArgs = new List<string>(); // Clear positional args after processing
             }
+            var usages = rawValues.SelectMany(r => r.Value.Select(v => v)).ToList();
             switch (attribute.Action)
             {
                 case ArgumentAction.Store:
@@ -183,16 +185,19 @@ namespace AzTool
                     };
                     if ((numArgs.HasValue && numArgs.Value > 1) || attribute.NumArgs == "+")
                     {
-                        foreach (var rawValueList in rawValues)
+                        foreach (var rawValueOccurance in rawValues)
                         {
-                            if (rawValueList.Value.Count == 0)
+                            foreach (var rawValueList in rawValueOccurance.Value)
                             {
-                                // If the parameter key is provided but no value is given, throw an exception
-                                throw new PropertyParserException($"Argument '{rawValueList.Key}' expects a value, but no value was provided.");
+                                if (rawValueList.Count == 0)
+                                {
+                                    // If the parameter key is provided but no value is given, throw an exception
+                                    throw new PropertyParserException($"Argument '{rawValueOccurance.Key}' expects a value, but no value was provided.");
+                                }
                             }
                         }
                     }
-                    if (attribute.NumArgs == "?" && rawValues.Count > 1)
+                    if (attribute.NumArgs == "?" && usages.Count > 1)
                     {
                         // If the parameter is optional but multiple values are provided, throw an exception
                         throw new PropertyParserException($"Argument '{string.Join("/", usedAliases)}' expects at most one value, but received multiple usage.");
@@ -244,27 +249,34 @@ namespace AzTool
                         {
                             throw new PropertyParserException($"Argument '{string.Join("/", usedAliases)}' with NumArgs='{attribute.NumArgs}' expects multiple values and should be an array, but the property '{propertyInfo.Name}' is of type '{propertyInfo.PropertyType.Name}'.");
                         }
-                        return values.Select(v => PropertyParser.ConvertToType(v, propertyInfo.PropertyType, propertyInfo.Name)).ToArray();
+                        var elementType = propertyInfo.PropertyType.GetElementType() ?? throw new PropertyParserException($"Property '{propertyInfo.Name}' is an array but its element type could not be determined.");
+                        var items = values.Select(v => PropertyParser.ConvertToType(v, elementType, propertyInfo.Name + "[]")).ToArray();
+                        var array = System.Array.CreateInstance(elementType, items.Length);
+                        for (int i = 0; i < items.Length; i++)
+                        {
+                            array.SetValue(items[i], i);
+                        }
+                        return array;
                     }
                 case ArgumentAction.StoreTrue:
                     if (propertyInfo.PropertyType != typeof(bool))
                     {
                         throw new PropertyParserException($"Argument '{string.Join("/", aliases)}' with Action='StoreTrue' must be of type bool, but the property '{propertyInfo.Name}' is of type '{propertyInfo.PropertyType.Name}'.");
                     }
-                    if (rawValues.Count == 0)
+                    if (usages.Count == 0)
                     {
                         // If the parameter is not used, return false
                         return false;
                     }
-                    else if (rawValues.Count > 1)
+                    else if (usages.Count > 1)
                     {
                         // If the parameter is used multiple times, throw an exception
                         throw new PropertyParserException($"Argument '{string.Join("/", aliases)}' expects at most one occurrence, but received multiple usage.");
                     }
-                    else if (rawValues.Count == 1 && rawValues.First().Value.Count > 0)
+                    else if (usages.Count == 1 && usages.First().Count > 0)
                     {
                         // If the parameter is used with a value, throw an exception
-                        throw new PropertyParserException($"Argument '{string.Join("/", aliases)}' does not expect a value, but received '{string.Join(", ", rawValues.First().Value.SelectMany(v => v))}'.");
+                        throw new PropertyParserException($"Argument '{string.Join("/", aliases)}' does not expect a value, but received '{string.Join(", ", usages.First().SelectMany(v => v))}'.");
                     }
                     // If the parameter is used, return true
                     return true;

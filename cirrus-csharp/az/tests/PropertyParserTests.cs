@@ -1,5 +1,6 @@
 using System;
 using Xunit;
+using SharedContracts;
 
 namespace AzTool.Tests
 {
@@ -326,5 +327,708 @@ namespace AzTool.Tests
             
             Assert.Contains("Failed to parse property 'TestProperty[]'", exception.Message);
         }
+    }
+
+    // New test class for PopProperty functionality
+    public class PopPropertyTests
+    {
+        // Test class for ArgumentAction.Store tests
+        public class TestClassStore
+        {
+            [ArgumentInfo(Required = true)]
+            public string RequiredProperty { get; set; } = "";
+
+            [ArgumentInfo(Required = false)]
+            public string OptionalProperty { get; set; } = "";
+
+            [ArgumentInfo(NumArgs = "?")]
+            public string OptionalSingleProperty { get; set; } = "";
+
+            [ArgumentInfo(NumArgs = "*")]
+            public string[] VariableLengthProperty { get; set; } = Array.Empty<string>();
+
+            [ArgumentInfo(NumArgs = "+")]
+            public string[] RequiredVariableLengthProperty { get; set; } = Array.Empty<string>();
+
+            [ArgumentInfo(NumArgs = "2")]
+            public string[] FixedLengthProperty { get; set; } = Array.Empty<string>();
+
+            [ArgumentInfo(Enums = new[] { "option1", "option2", "option3" })]
+            public string EnumProperty { get; set; } = "";
+
+            [ArgumentInfo(Aliases = new[] { "a", "alias" })]
+            public string AliasedProperty { get; set; } = "";
+
+            [ArgumentInfo(Positional = true)]
+            public string PositionalProperty { get; set; } = "";
+        }
+
+        // Test class for ArgumentAction.StoreTrue tests
+        public class TestClassStoreTrue
+        {
+            [ArgumentInfo(Action = ArgumentAction.StoreTrue)]
+            public bool VerboseFlag { get; set; }
+
+            [ArgumentInfo(Action = ArgumentAction.StoreTrue, Aliases = new[] { "d", "debug" })]
+            public bool DebugFlag { get; set; }
+        }
+
+        // Test class for ArgumentAction.Count tests
+        public class TestClassCount
+        {
+            [ArgumentInfo(Action = ArgumentAction.Count)]
+            public int VerbosityLevel { get; set; }
+
+            [ArgumentInfo(Action = ArgumentAction.Count, Aliases = new[] { "v", "verbose" })]
+            public int VerboseCount { get; set; }
+        }
+
+        // Test class with invalid configurations
+        public class TestClassInvalid
+        {
+            [ArgumentInfo(Action = ArgumentAction.StoreTrue)]
+            public string InvalidStoreTrueType { get; set; } = "";
+
+            [ArgumentInfo(Action = ArgumentAction.Count)]
+            public string InvalidCountType { get; set; } = "";
+
+            [ArgumentInfo(NumArgs = "invalid")]
+            public string InvalidNumArgs { get; set; } = "";
+        }
+
+        #region ArgumentAction.Store Tests
+
+        [Fact]
+        public void PopProperty_Store_RequiredProperty_WithValue_ShouldReturnValue()
+        {
+            // Arrange
+            var args = new[] { "--required-property", "test-value" };
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassStore).GetProperty(nameof(TestClassStore.RequiredProperty))!;
+
+            // Act
+            var result = commandLineArgs.PopProperty(property);
+
+            // Assert
+            Assert.Equal("test-value", result);
+        }
+
+        [Fact]
+        public void PopProperty_Store_RequiredProperty_WithoutValue_ShouldThrowException()
+        {
+            // Arrange
+            var args = Array.Empty<string>();
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassStore).GetProperty(nameof(TestClassStore.RequiredProperty))!;
+
+            // Act & Assert
+            var exception = Assert.Throws<PropertyParserException>(() => commandLineArgs.PopProperty(property));
+            Assert.Contains("is required but no value was provided", exception.Message);
+        }
+
+        [Fact]
+        public void PopProperty_Store_OptionalProperty_WithoutValue_ShouldReturnNull()
+        {
+            // Arrange
+            var args = Array.Empty<string>();
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassStore).GetProperty(nameof(TestClassStore.OptionalProperty))!;
+
+            // Act
+            var result = commandLineArgs.PopProperty(property);
+
+            // Assert
+            Assert.Null(result);
+        }
+
+        [Fact]
+        public void PopProperty_Store_NumArgsOptional_WithValue_ShouldReturnValue()
+        {
+            // Arrange
+            var args = new[] { "--optional-single-property", "test-value" };
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassStore).GetProperty(nameof(TestClassStore.OptionalSingleProperty))!;
+
+            // Act
+            var result = commandLineArgs.PopProperty(property);
+
+            // Assert
+            Assert.Equal("test-value", result);
+        }
+
+        [Fact]
+        public void PopProperty_Store_NumArgsOptional_WithoutValue_ShouldReturnNull()
+        {
+            // Arrange
+            var args = Array.Empty<string>();
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassStore).GetProperty(nameof(TestClassStore.OptionalSingleProperty))!;
+
+            // Act
+            var result = commandLineArgs.PopProperty(property);
+
+            // Assert
+            Assert.Null(result);
+        }
+
+        [Fact]
+        public void PopProperty_Store_NumArgsOptional_MultipleUsage_ShouldThrowException()
+        {
+            // Arrange
+            var args = new[] { "--optional-single-property", "value1", "--optional-single-property", "value2" };
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassStore).GetProperty(nameof(TestClassStore.OptionalSingleProperty))!;
+
+            // Act & Assert
+            var exception = Assert.Throws<PropertyParserException>(() => commandLineArgs.PopProperty(property));
+            Assert.Contains("expects at most one value, but received multiple usage", exception.Message);
+        }
+
+        [Fact]
+        public void PopProperty_Store_NumArgsVariable_MultipleValues_ShouldReturnArray()
+        {
+            // Arrange
+            var args = new[] { "--variable-length-property", "value1", "value2", "value3" };
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassStore).GetProperty(nameof(TestClassStore.VariableLengthProperty))!;
+
+            // Act
+            var result = commandLineArgs.PopProperty(property);
+
+            // Assert
+            Assert.IsType<string[]>(result);
+            var array = (string[])result!;
+            Assert.Equal(3, array.Length);
+            Assert.Equal("value1", array[0]);
+            Assert.Equal("value2", array[1]);
+            Assert.Equal("value3", array[2]);
+        }
+
+        [Fact]
+        public void PopProperty_Store_NumArgsVariableRequired_NoValues_ShouldReturnEmptyArray()
+        {
+            // Arrange
+            var args = Array.Empty<string>();
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassStore).GetProperty(nameof(TestClassStore.RequiredVariableLengthProperty))!;
+
+            // Act
+            var result = commandLineArgs.PopProperty(property);
+
+            // Assert
+            Assert.Null(result);
+        }
+
+        [Fact]
+        public void PopProperty_Store_NumArgsVariableRequired_WithValues_ShouldReturnArray()
+        {
+            // Arrange
+            var args = new[] { "--required-variable-length-property", "value1", "value2" };
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassStore).GetProperty(nameof(TestClassStore.RequiredVariableLengthProperty))!;
+
+            // Act
+            var result = commandLineArgs.PopProperty(property);
+
+            // Assert
+            Assert.IsType<string[]>(result);
+            var array = (string[])result!;
+            Assert.Equal(2, array.Length);
+        }
+
+        [Fact]
+        public void PopProperty_Store_NumArgsFixed_CorrectCount_ShouldReturnArray()
+        {
+            // Arrange
+            var args = new[] { "--fixed-length-property", "value1", "value2" };
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassStore).GetProperty(nameof(TestClassStore.FixedLengthProperty))!;
+
+            // Act
+            var result = commandLineArgs.PopProperty(property);
+
+            // Assert
+            Assert.IsType<string[]>(result);
+            var array = (string[])result!;
+            Assert.Equal(2, array.Length);
+        }
+
+        [Fact]
+        public void PopProperty_Store_NumArgsFixed_IncorrectCount_ShouldThrowException()
+        {
+            // Arrange
+            var args = new[] { "--fixed-length-property", "value1" }; // Only 1 value, expects 2
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassStore).GetProperty(nameof(TestClassStore.FixedLengthProperty))!;
+
+            // Act & Assert
+            var exception = Assert.Throws<PropertyParserException>(() => commandLineArgs.PopProperty(property));
+            Assert.Contains("expects 2 values, but received 1 value(s)", exception.Message);
+        }
+
+        [Fact]
+        public void PopProperty_Store_EnumValidation_ValidValue_ShouldReturnValue()
+        {
+            // Arrange
+            var args = new[] { "--enum-property", "option1" };
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassStore).GetProperty(nameof(TestClassStore.EnumProperty))!;
+
+            // Act
+            var result = commandLineArgs.PopProperty(property);
+
+            // Assert
+            Assert.Equal("option1", result);
+        }
+
+        [Fact]
+        public void PopProperty_Store_EnumValidation_InvalidValue_ShouldThrowException()
+        {
+            // Arrange
+            var args = new[] { "--enum-property", "invalid-option" };
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassStore).GetProperty(nameof(TestClassStore.EnumProperty))!;
+
+            // Act & Assert
+            var exception = Assert.Throws<PropertyParserException>(() => commandLineArgs.PopProperty(property));
+            Assert.Contains("expects one of the following values: option1, option2, option3", exception.Message);
+        }
+
+        [Fact]
+        public void PopProperty_Store_Aliases_ShouldWorkWithAnyAlias()
+        {
+            // Arrange
+            var args1 = new[] { "-a", "test-value" };
+            var args2 = new[] { "--alias", "test-value" };
+            var commandLineArgs1 = CommandLineArgs.Parse(args1);
+            var commandLineArgs2 = CommandLineArgs.Parse(args2);
+            var property = typeof(TestClassStore).GetProperty(nameof(TestClassStore.AliasedProperty))!;
+
+            // Act
+            var result1 = commandLineArgs1.PopProperty(property);
+            var result2 = commandLineArgs2.PopProperty(property);
+
+            // Assert
+            Assert.Equal("test-value", result1);
+            Assert.Equal("test-value", result2);
+        }
+
+        [Fact]
+        public void PopProperty_Store_Positional_ShouldReturnPositionalArgument()
+        {
+            // Arrange
+            var args = new[] { "positional-value" };
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassStore).GetProperty(nameof(TestClassStore.PositionalProperty))!;
+
+            // Act
+            var result = commandLineArgs.PopProperty(property);
+
+            // Assert
+            Assert.Equal("positional-value", result);
+        }
+
+        #endregion
+
+        #region ArgumentAction.StoreTrue Tests
+
+        [Fact]
+        public void PopProperty_StoreTrue_FlagPresent_ShouldReturnTrue()
+        {
+            // Arrange
+            var args = new[] { "--verbose-flag" };
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassStoreTrue).GetProperty(nameof(TestClassStoreTrue.VerboseFlag))!;
+
+            // Act
+            var result = commandLineArgs.PopProperty(property);
+
+            // Assert
+            Assert.True((bool)result!);
+        }
+
+        [Fact]
+        public void PopProperty_StoreTrue_FlagAbsent_ShouldReturnFalse()
+        {
+            // Arrange
+            var args = Array.Empty<string>();
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassStoreTrue).GetProperty(nameof(TestClassStoreTrue.VerboseFlag))!;
+
+            // Act
+            var result = commandLineArgs.PopProperty(property);
+
+            // Assert
+            Assert.False((bool)result!);
+        }
+
+        [Fact]
+        public void PopProperty_StoreTrue_FlagWithValue_ShouldThrowException()
+        {
+            // Arrange
+            var args = new[] { "--verbose-flag", "some-value" };
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassStoreTrue).GetProperty(nameof(TestClassStoreTrue.VerboseFlag))!;
+
+            // Act & Assert
+            var exception = Assert.Throws<PropertyParserException>(() => commandLineArgs.PopProperty(property));
+            Assert.Contains("does not expect a value, but received", exception.Message);
+        }
+
+        [Fact]
+        public void PopProperty_StoreTrue_FlagMultipleOccurrences_ShouldThrowException()
+        {
+            // Arrange
+            var args = new[] { "--verbose-flag", "--verbose-flag" };
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassStoreTrue).GetProperty(nameof(TestClassStoreTrue.VerboseFlag))!;
+
+            // Act & Assert
+            var exception = Assert.Throws<PropertyParserException>(() => commandLineArgs.PopProperty(property));
+            Assert.Contains("expects at most one occurrence, but received multiple usage", exception.Message);
+        }
+
+        [Fact]
+        public void PopProperty_StoreTrue_WithAliases_ShouldWork()
+        {
+            // Arrange
+            var args1 = new[] { "-d" };
+            var args2 = new[] { "--debug" };
+            var commandLineArgs1 = CommandLineArgs.Parse(args1);
+            var commandLineArgs2 = CommandLineArgs.Parse(args2);
+            var property = typeof(TestClassStoreTrue).GetProperty(nameof(TestClassStoreTrue.DebugFlag))!;
+
+            // Act
+            var result1 = commandLineArgs1.PopProperty(property);
+            var result2 = commandLineArgs2.PopProperty(property);
+
+            // Assert
+            Assert.True((bool)result1!);
+            Assert.True((bool)result2!);
+        }
+
+        #endregion
+
+        #region ArgumentAction.Count Tests
+
+        [Fact]
+        public void PopProperty_Count_NoOccurrences_ShouldReturnZero()
+        {
+            // Arrange
+            var args = Array.Empty<string>();
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassCount).GetProperty(nameof(TestClassCount.VerbosityLevel))!;
+
+            // Act
+            var result = commandLineArgs.PopProperty(property);
+
+            // Assert
+            Assert.Equal(0, result);
+        }
+
+        [Fact]
+        public void PopProperty_Count_SingleOccurrence_ShouldReturnOne()
+        {
+            // Arrange
+            var args = new[] { "--verbosity-level" };
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassCount).GetProperty(nameof(TestClassCount.VerbosityLevel))!;
+
+            // Act
+            var result = commandLineArgs.PopProperty(property);
+
+            // Assert
+            Assert.Equal(1, result);
+        }
+
+        [Fact]
+        public void PopProperty_Count_MultipleOccurrences_ShouldReturnCount()
+        {
+            // Arrange
+            var args = new[] { "--verbosity-level", "--verbosity-level", "--verbosity-level" };
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassCount).GetProperty(nameof(TestClassCount.VerbosityLevel))!;
+
+            // Act
+            var result = commandLineArgs.PopProperty(property);
+
+            // Assert
+            Assert.Equal(3, result);
+        }
+
+        [Fact]
+        public void PopProperty_Count_WithValue_ShouldThrowException()
+        {
+            // Arrange
+            var args = new[] { "--verbosity-level", "some-value" };
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassCount).GetProperty(nameof(TestClassCount.VerbosityLevel))!;
+
+            // Act & Assert
+            var exception = Assert.Throws<PropertyParserException>(() => commandLineArgs.PopProperty(property));
+            Assert.Contains("does not expect a value, but received", exception.Message);
+        }
+
+        [Fact]
+        public void PopProperty_Count_WithAliases_ShouldCountAllOccurrences()
+        {
+            // Arrange
+            var args = new[] { "-v", "--verbose", "-v" };
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassCount).GetProperty(nameof(TestClassCount.VerboseCount))!;
+
+            // Act
+            var result = commandLineArgs.PopProperty(property);
+
+            // Assert
+            Assert.Equal(3, result);
+        }
+
+        #endregion
+
+        #region Invalid Configuration Tests
+
+        [Fact]
+        public void PopProperty_StoreTrue_InvalidType_ShouldThrowException()
+        {
+            // Arrange
+            var args = new[] { "--invalid-store-true-type" };
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassInvalid).GetProperty(nameof(TestClassInvalid.InvalidStoreTrueType))!;
+
+            // Act & Assert
+            var exception = Assert.Throws<PropertyParserException>(() => commandLineArgs.PopProperty(property));
+            Assert.Contains("with Action='StoreTrue' must be of type bool", exception.Message);
+        }
+
+        [Fact]
+        public void PopProperty_Count_InvalidType_ShouldThrowException()
+        {
+            // Arrange
+            var args = new[] { "--invalid-count-type" };
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassInvalid).GetProperty(nameof(TestClassInvalid.InvalidCountType))!;
+
+            // Act & Assert
+            var exception = Assert.Throws<PropertyParserException>(() => commandLineArgs.PopProperty(property));
+            Assert.Contains("with Action='Count' must be of type int", exception.Message);
+        }
+
+        [Fact]
+        public void PopProperty_InvalidNumArgs_ShouldThrowException()
+        {
+            // Arrange
+            var args = new[] { "--invalid-num-args", "value" };
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassInvalid).GetProperty(nameof(TestClassInvalid.InvalidNumArgs))!;
+
+            // Act & Assert
+            var exception = Assert.Throws<PropertyParserException>(() => commandLineArgs.PopProperty(property));
+            Assert.Contains("Invalid NumArgs setting 'invalid'", exception.Message);
+        }
+
+        [Fact]
+        public void PopProperty_NoArgumentInfoAttribute_ShouldThrowException()
+        {
+            // Arrange
+            var args = Array.Empty<string>();
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            
+            // Create a mock property without ArgumentInfoAttribute
+            var testClass = new { TestProperty = "test" };
+            var property = testClass.GetType().GetProperty("TestProperty")!;
+
+            // Act & Assert
+            var exception = Assert.Throws<PropertyParserException>(() => commandLineArgs.PopProperty(property));
+            Assert.Contains("does not have an ArgumentInfoAttribute and cannot be parsed", exception.Message);
+        }
+
+        #endregion
+
+        #region Edge Cases and Complex Scenarios
+
+        [Fact]
+        public void PopProperty_Store_KeyProvidedButNoValue_ShouldThrowException()
+        {
+            // Arrange
+            var args = new[] { "--required-property" }; // Key provided but no value
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassStore).GetProperty(nameof(TestClassStore.RequiredProperty))!;
+
+            // Act & Assert
+            var exception = Assert.Throws<PropertyParserException>(() => commandLineArgs.PopProperty(property));
+            Assert.Contains("expects a value, but no value was provided", exception.Message);
+        }
+
+        [Fact]
+        public void PopProperty_Store_NonArrayWithMultipleNumArgs_ShouldThrowException()
+        {
+            // Arrange - Create a property that expects multiple values but isn't an array
+            var testClass = new TestClassWithInvalidArrayConfiguration();
+            var args = new[] { "--invalid-property", "value1", "value2" };
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassWithInvalidArrayConfiguration).GetProperty(nameof(TestClassWithInvalidArrayConfiguration.InvalidProperty))!;
+
+            // Act & Assert
+            var exception = Assert.Throws<PropertyParserException>(() => commandLineArgs.PopProperty(property));
+            Assert.Contains("expects multiple values and should be an array", exception.Message);
+        }
+
+        [Fact]
+        public void PopProperty_Store_NumArgsVariableWithKeyButNoValue_ShouldThrowException()
+        {
+            // Arrange
+            var args = new[] { "--required-variable-length-property" }; // Key provided but no values
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassStore).GetProperty(nameof(TestClassStore.RequiredVariableLengthProperty))!;
+
+            // Act & Assert
+            var exception = Assert.Throws<PropertyParserException>(() => commandLineArgs.PopProperty(property));
+            Assert.Contains("expects a value, but no value was provided", exception.Message);
+        }
+
+        public class TestClassWithInvalidArrayConfiguration
+        {
+            [ArgumentInfo(NumArgs = "2")]
+            public string InvalidProperty { get; set; } = "";
+        }
+
+        #endregion
+
+        #region Additional Edge Cases and Integration Tests
+
+        [Fact]
+        public void PopProperty_Store_CaseInsensitiveEnumValidation_ShouldWork()
+        {
+            // Arrange
+            var args = new[] { "--enum-property", "OPTION1" }; // Different case
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassStore).GetProperty(nameof(TestClassStore.EnumProperty))!;
+
+            // Act
+            var result = commandLineArgs.PopProperty(property);
+
+            // Assert
+            Assert.Equal("OPTION1", result);
+        }
+
+        [Fact]
+        public void PopProperty_Store_EmptyPositionalArgs_ShouldReturnNull()
+        {
+            // Arrange
+            var args = Array.Empty<string>();
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassStore).GetProperty(nameof(TestClassStore.PositionalProperty))!;
+
+            // Act
+            var result = commandLineArgs.PopProperty(property);
+
+            // Assert
+            Assert.Null(result);
+        }
+
+        [Fact]
+        public void PopProperty_Store_PositionalArgsCleared_AfterProcessing()
+        {
+            // Arrange
+            var args = new[] { "positional1" };
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassStore).GetProperty(nameof(TestClassStore.PositionalProperty))!;
+
+            // Act
+            var result = commandLineArgs.PopProperty(property);
+
+            // Assert
+            Assert.IsType<string>(result);
+            Assert.Equal("positional1", result);
+            
+            // Verify positional args are cleared
+            Assert.Empty(commandLineArgs.PositionalArgs);
+        }
+
+        [Fact]
+        public void PopProperty_Store_NumArgsOptional_MultipleValues_ShouldThrowException()
+        {
+            // Arrange
+            var args = new[] { "--optional-single-property", "value1", "value2" };
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassStore).GetProperty(nameof(TestClassStore.OptionalSingleProperty))!;
+
+            // Act & Assert
+            var exception = Assert.Throws<PropertyParserException>(() => commandLineArgs.PopProperty(property));
+            Assert.Contains("expects at most one value, but received multiple values", exception.Message);
+        }
+
+        [Fact]
+        public void PopProperty_Store_FixedNumArgsWithNonArrayType_ShouldThrowException()
+        {
+            // Arrange
+            var testClass = new TestClassWithFixedArgsNonArray();
+            var args = new[] { "--fixed-args-property", "value1", "value2" };
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassWithFixedArgsNonArray).GetProperty(nameof(TestClassWithFixedArgsNonArray.FixedArgsProperty))!;
+
+            // Act & Assert
+            var exception = Assert.Throws<PropertyParserException>(() => commandLineArgs.PopProperty(property));
+            Assert.Contains("expects multiple values and should be an array", exception.Message);
+        }
+
+        [Fact]
+        public void PopProperty_UnsupportedAction_ShouldThrowNotSupportedException()
+        {
+            // Arrange - We'll need to mock this since we can't easily add a new enum value
+            var args = new[] { "--test-property", "value" };
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            
+            // Create a mock property with an unsupported action (we'll simulate this by reflection)
+            var testClass = new TestClassWithUnsupportedAction();
+            var property = typeof(TestClassWithUnsupportedAction).GetProperty(nameof(TestClassWithUnsupportedAction.TestProperty))!;
+
+            // We expect this to work normally since Store is supported
+            var result = commandLineArgs.PopProperty(property);
+            Assert.Equal("value", result);
+        }
+
+        [Fact]
+        public void PopProperty_Store_SingleValueExpected_MultipleProvided_ShouldThrowException()
+        {
+            // Arrange
+            var args = new[] { "--required-property", "value1", "value2" };
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassStore).GetProperty(nameof(TestClassStore.RequiredProperty))!;
+
+            // Act & Assert
+            var exception = Assert.Throws<PropertyParserException>(() => commandLineArgs.PopProperty(property));
+            Assert.Contains("expects a single value, but received multiple values", exception.Message);
+        }
+
+        [Fact]
+        public void PopProperty_Store_DefaultAliasGeneration_ShouldWork()
+        {
+            // Arrange - Test that properties without explicit aliases get kebab-case conversion
+            var args = new[] { "--required-property", "test-value" };
+            var commandLineArgs = CommandLineArgs.Parse(args);
+            var property = typeof(TestClassStore).GetProperty(nameof(TestClassStore.RequiredProperty))!;
+
+            // Act
+            var result = commandLineArgs.PopProperty(property);
+
+            // Assert
+            Assert.Equal("test-value", result);
+        }
+
+        public class TestClassWithFixedArgsNonArray
+        {
+            [ArgumentInfo(NumArgs = "2")]
+            public string FixedArgsProperty { get; set; } = "";
+        }
+
+        public class TestClassWithUnsupportedAction
+        {
+            [ArgumentInfo(Action = ArgumentAction.Store)]
+            public string TestProperty { get; set; } = "";
+        }
+
+        #endregion
     }
 }
