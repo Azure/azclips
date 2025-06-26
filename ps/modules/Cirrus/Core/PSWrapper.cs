@@ -31,7 +31,7 @@ public static class PSWrapper
     }
 
     // Define C-style parameter type enumeration (internal use only)
-    private enum CParamType
+    private enum CParamType : int
     {
         Null = 0,
         Int64 = 1,
@@ -108,6 +108,383 @@ public static class PSWrapper
         public UIntPtr Count;
     }
 
+    // C-compatible argument structures for GetCommandArguments
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CArgumentArray
+    {
+        public IntPtr Items;
+        public UIntPtr Count;
+    }
+
+    private enum CArgType : int
+    {
+        String = 0,
+        Number = 1,
+        Boolean = 2,
+        Object = 3,
+        Array = 4,
+        AnyType = 5,
+        Class = 6,
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CArgumentInfo
+    {
+        public IntPtr VarName;
+        public IntPtr Name;
+        public IntPtr Position;
+        public IntPtr ShortDescription;
+        public IntPtr LongDescription;
+        public IntPtr DefaultValue;
+        public IntPtr BlankValue;
+
+        public CArgType ArgType;
+        public CArgTypeDetails ArgTypeDetails;
+
+        [MarshalAs(UnmanagedType.I1)]
+        public bool Internal;
+        [MarshalAs(UnmanagedType.I1)]
+        public bool Required;
+        [MarshalAs(UnmanagedType.I1)]
+        public bool Nullable;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CArgEnumItem
+    {
+        public IntPtr Name;
+        public IntPtr Value;
+        [MarshalAs(UnmanagedType.I1)]
+        public bool Internal;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CArgEnum
+    {
+        public IntPtr Items;
+        public UIntPtr ItemCount;
+        [MarshalAs(UnmanagedType.I1)]
+        public bool SupportExtension;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CStringArg
+    {
+        public CStringFormat Format;
+        public IntPtr Enum;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CNumberArg
+    {
+        public CNumberFormat Format;
+        public IntPtr Enum;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CBooleanArg
+    {
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CAnyTypeArg
+    {
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CObjectArgAdditionalProperties
+    {
+        public CArgumentInfo Item;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CObjectArg
+    {
+        public IntPtr ClsType;
+        public IntPtr AdditionalProps;
+        public IntPtr Props;
+        public UIntPtr PropsCount;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CArrayArg
+    {
+        public IntPtr Item;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CClassArg
+    {
+        public IntPtr ClsType;
+    }
+
+    [StructLayout(LayoutKind.Explicit)]
+    private struct CArgTypeDetails
+    {
+        [FieldOffset(0)]
+        public CStringArg StringArg;
+        [FieldOffset(0)]
+        public CNumberArg NumberArg;
+        [FieldOffset(0)]
+        public CBooleanArg BooleanArg;
+        [FieldOffset(0)]
+        public CObjectArg ObjectArg;
+        [FieldOffset(0)]
+        public CArrayArg ArrayArg;
+        [FieldOffset(0)]
+        public CAnyTypeArg AnyTypeArg;
+        [FieldOffset(0)]
+        public CClassArg ClassArg;
+    }
+
+
+    private enum CStringFormatType : int
+    {
+        String = 0,
+        Binary = 1,
+        Byte = 2,
+        Duration = 3,
+        Date = 4,
+        Time = 5,
+        DateTime = 6,
+        Uuid = 7,
+        Password = 8,
+        SubscriptionId = 9,
+        ResourceGroupName = 10,
+        ResourceId = 11,
+        ResourceLocation = 12,
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CStringFormat
+    {
+        public CStringFormatData FormatData;
+        public CStringFormatType FormatType;
+    }
+
+    [StructLayout(LayoutKind.Explicit)]
+    private struct CStringFormatData
+    {
+        [FieldOffset(0)]
+        public CStringFormatImpl StringImpl;
+        [FieldOffset(0)]
+        public CBinaryFormatImpl BinaryImpl;
+        [FieldOffset(0)]
+        public CByteFormatImpl ByteImpl;
+        [FieldOffset(0)]
+        public CDurationFormatImpl DurationImpl;
+        [FieldOffset(0)]
+        public CDateFormatImpl DateImpl;
+        [FieldOffset(0)]
+        public CTimeFormatImpl TimeImpl;
+        [FieldOffset(0)]
+        public CDateTimeFormatImpl DateTimeImpl;
+        [FieldOffset(0)]
+        public CUuidFormatImpl UuidImpl;
+        [FieldOffset(0)]
+        public CPasswordFormatImpl PasswordImpl;
+        [FieldOffset(0)]
+        public CSubscriptionIdFormatImpl SubscriptionIdImpl;
+        [FieldOffset(0)]
+        public CResourceGroupNameFormatImpl ResourceGroupNameImpl;
+        [FieldOffset(0)]
+        public CResourceIdFormatImpl ResourceIdImpl;
+        [FieldOffset(0)]
+        public CResourceLocationFormatImpl ResourceLocationImpl;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CStringFormatImpl
+    {
+        public IntPtr Pattern;
+        public IntPtr MinLength;
+        public IntPtr MaxLength;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CBinaryFormatImpl
+    {
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CByteFormatImpl
+    {
+    }
+
+    private enum CDurationProtocol : int
+    {
+        ISO8601 = 0,
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CDurationFormatImpl
+    {
+        public CDurationProtocol Protocol;
+    }
+
+    private enum CDateProtocol : int
+    {
+        ISO8601 = 0,
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CDateFormatImpl
+    {
+        public CDateProtocol Protocol;
+    }
+
+    private enum CTimeProtocol : int
+    {
+        ISO8601 = 0,
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CTimeFormatImpl
+    {
+        public CTimeProtocol Protocol;
+        public IntPtr MsLength;
+    }
+
+    private enum CDateTimeProtocol : int
+    {
+        ISO8601 = 0,
+        RFC1123 = 1,
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CDateTimeFormatImpl
+    {
+        public CDateTimeProtocol Protocol;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CUuidFormatImpl
+    {
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CPasswordFormatImpl
+    {
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CSubscriptionIdFormatImpl
+    {
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CResourceGroupNameFormatImpl
+    {
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CResourceIdFormatImpl
+    {
+        public IntPtr Templates;
+        public UIntPtr TemplateCount;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CResourceLocationFormatImpl
+    {
+    }
+
+    private enum CNumberFormatType : int
+    {
+        Int32 = 0,
+        Int64 = 1,
+        UInt32 = 2,
+        UInt64 = 3,
+        Float = 4,
+        Double = 5,
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CNumberFormat
+    {
+        public CNumberFormatData FormatData;
+        public CNumberFormatType FormatType;
+    }
+
+    [StructLayout(LayoutKind.Explicit)]
+    private struct CNumberFormatData
+    {
+        [FieldOffset(0)]
+        public CInt32FormatImpl Int32Impl;
+        [FieldOffset(0)]
+        public CInt64FormatImpl Int64Impl;
+        [FieldOffset(0)]
+        public CUInt32FormatImpl UInt32Impl;
+        [FieldOffset(0)]
+        public CUInt64FormatImpl UInt64Impl;
+        [FieldOffset(0)]
+        public CFloatFormatImpl FloatImpl;
+        [FieldOffset(0)]
+        public CDoubleFormatImpl DoubleImpl;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CInt32FormatImpl
+    {
+        public IntPtr MinValue;
+        public IntPtr MaxValue;
+        public IntPtr MultipleOf;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CInt64FormatImpl
+    {
+        public IntPtr MinValue;
+        public IntPtr MaxValue;
+        public IntPtr MultipleOf;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CUInt32FormatImpl
+    {
+        public IntPtr MinValue;
+        public IntPtr MaxValue;
+        public IntPtr MultipleOf;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CUInt64FormatImpl
+    {
+        public IntPtr MinValue;
+        public IntPtr MaxValue;
+        public IntPtr MultipleOf;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CFloatFormatImpl
+    {
+        public IntPtr MinValue;
+        public IntPtr MaxValue;
+        public IntPtr MultipleOf;
+        [MarshalAs(UnmanagedType.I1)]
+        public bool ExclusiveMinimum;
+        [MarshalAs(UnmanagedType.I1)]
+        public bool ExclusiveMaximum;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CDoubleFormatImpl
+    {
+        public IntPtr MinValue;
+        public IntPtr MaxValue;
+        public IntPtr MultipleOf;
+        [MarshalAs(UnmanagedType.I1)]
+        public bool ExclusiveMinimum;
+        [MarshalAs(UnmanagedType.I1)]
+        public bool ExclusiveMaximum;
+    }
+
+
+
+
+
+
+
     // P/Invoke declarations for Rust functions
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
     private static extern int cirrus_initialize();
@@ -133,6 +510,18 @@ public static class PSWrapper
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
     private static extern int cirrus_health_check();
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+    private static extern IntPtr cirrus_get_command_arguments(string uri);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+    private static extern void cirrus_free_argument_array(IntPtr array);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+    private static extern UIntPtr cirrus_get_argument_info_size();
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+    private static extern UIntPtr cirrus_get_arg_type_details_size();
 
     /// <summary>
     /// Helper class for managing native memory allocations
@@ -830,516 +1219,63 @@ public static class PSWrapper
         if (string.IsNullOrEmpty(uri))
             throw new ArgumentException("URI cannot be null or empty", nameof(uri));
 
-        // Extract the last segment of the URI
-        var lastSegment = uri.Split('/').Last();
-        if (string.IsNullOrEmpty(lastSegment))
+        IntPtr arrayPtr = cirrus_get_command_arguments(uri);
+        if (arrayPtr == IntPtr.Zero)
+            return [];
+
+        try
         {
-            throw new ArgumentException("Invalid URI format - no segments found", nameof(uri));
-        }
+            // Read the array structure
+            CArgumentArray array = Marshal.PtrToStructure<CArgumentArray>(arrayPtr);
 
-        // Return fake data covering all CrsArg types and formats
-        return new CrsArg[]
-        {
-            // 1. String arguments with different formats
-            new CrsStringArg
+            if (array.Items == IntPtr.Zero || array.Count == UIntPtr.Zero)
+                return [];
+
+            int count = (int)array.Count;
+            CrsArg[] result = new CrsArg[count];
+
+            int structSize = Marshal.SizeOf<CArgumentInfo>();
+
+            for (int i = 0; i < count; i++)
             {
-                Name = "resourceName",
-                VarName = "resource_name",
-                Position = 0,
-                Required = true,
-                Nullable = false,
-                ShortDescription = "Resource name",
-                LongDescription = "The name of the resource to operate on",
-                Format = new CrsStringFormatImpl
+                try
                 {
-                    MinLength = 1,
-                    MaxLength = 50,
-                    Pattern = @"^[a-zA-Z][a-zA-Z0-9-]*$"
-                }
-            },
+                    IntPtr itemPtr = IntPtr.Add(array.Items, i * structSize);
+                    CArgumentInfo item = Marshal.PtrToStructure<CArgumentInfo>(itemPtr);
 
-            new CrsStringArg
-            {
-                Name = "subscriptionId",
-                VarName = "subscription_id",
-                Required = false,
-                Nullable = true,
-                ShortDescription = "Subscription ID",
-                LongDescription = "Azure subscription identifier",
-                Format = new CrsSubscriptionIdFormat()
-            },
-
-            new CrsStringArg
-            {
-                Name = "resourceGroupName",
-                VarName = "resource_group_name",
-                Required = false,
-                Nullable = true,
-                ShortDescription = "Resource group name",
-                LongDescription = "Name of the resource group",
-                Format = new CrsResourceGroupNameFormat()
-            },
-
-            new CrsStringArg
-            {
-                Name = "location",
-                VarName = "location",
-                Required = false,
-                Nullable = false,
-                ShortDescription = "Location",
-                LongDescription = "Azure region location",
-                Default = new CrsArgDefault { Value = "EUS" },
-                Format = new CrsResourceLocationFormat(),
-                Enum = new CrsArgEnum
-                {
-                    Items = new List<CrsArgEnumItem>
+                    // Validate the item before processing
+                    if (!IsValidCArgumentInfo(item))
                     {
-                        new CrsArgEnumItem { Name = "EastUS", Value = "EUS" },
-                        new CrsArgEnumItem { Name = "WestUS", Value = "WUS" },
-                        new CrsArgEnumItem { Name = "CentralUS", Value = "CUS" },
-                        new CrsArgEnumItem { Name = "NorthEurope", Value = "NEU" },
-                        new CrsArgEnumItem { Name = "WestEurope", Value = "WEU" }
+                        Console.WriteLine($"Item {i} appears to be corrupted, skipping");
+                        result[i] = new CrsAnyTypeArg(); // Use fallback
+                        continue;
                     }
-                }
-            },
 
-            new CrsStringArg
-            {
-                Name = "environment",
-                VarName = "environment",
-                Required = false,
-                Nullable = false,
-                ShortDescription = "Environment",
-                LongDescription = "Deployment environment",
-                Default = new CrsArgDefault { Value = "dev" },
-                Format = new CrsStringFormatImpl(),
-                Enum = new CrsArgEnum
+                    result[i] = ConvertCArgumentInfoToCrsArg(item);
+                }
+                catch (Exception ex)
                 {
-                    Items = new List<CrsArgEnumItem>
-                    {
-                        new CrsArgEnumItem { Name = "Development", Value = "dev" },
-                        new CrsArgEnumItem { Name = "Testing", Value = "test" },
-                        new CrsArgEnumItem { Name = "Staging", Value = "stage" },
-                        new CrsArgEnumItem { Name = "Production", Value = "prod" }
-                    }
+                    Console.WriteLine($"Error processing item {i}: {ex.Message}");
+                    Console.WriteLine($"Exception type: {ex.GetType().Name}");
+                    // Use fallback instead of throwing
+                    result[i] = new CrsAnyTypeArg();
+                    Console.WriteLine($"Using fallback for item {i}");
                 }
-            },
-
-            new CrsStringArg
-            {
-                Name = "password",
-                VarName = "password",
-                Required = false,
-                Nullable = true,
-                ShortDescription = "Password",
-                LongDescription = "Secure password for authentication",
-                Format = new CrsPasswordFormat()
-            },
-
-            new CrsStringArg
-            {
-                Name = "createdDate",
-                VarName = "created_date",
-                Required = false,
-                Nullable = true,
-                ShortDescription = "Creation date",
-                LongDescription = "The date when the resource was created",
-                Format = new CrsDateTimeFormat { ProtocolType = CrsDateTimeFormat.Protocol.ISO8601 }
-            },
-
-            new CrsStringArg
-            {
-                Name = "configData",
-                VarName = "config_data",
-                Required = false,
-                Nullable = true,
-                ShortDescription = "Configuration data",
-                LongDescription = "Base64 encoded configuration data",
-                Format = new CrsByteFormat()
-            },
-
-            // 2. Number arguments with different formats
-            new CrsNumberArg
-            {
-                Name = "count",
-                VarName = "count",
-                Required = false,
-                Nullable = false,
-                ShortDescription = "Count",
-                LongDescription = "Number of instances to create",
-                Default = new CrsArgDefault { Value = 1 },
-                Format = new CrsInt32Format
-                {
-                    Minimum = 1,
-                    Maximum = 100,
-                    MultipleOf = 1
-                }
-            },
-
-            new CrsNumberArg
-            {
-                Name = "size",
-                VarName = "size",
-                Required = false,
-                Nullable = true,
-                ShortDescription = "Size",
-                LongDescription = "Size in bytes",
-                Format = new CrsInt64Format
-                {
-                    Minimum = 0,
-                    Maximum = long.MaxValue
-                }
-            },
-
-            new CrsNumberArg
-            {
-                Name = "ratio",
-                VarName = "ratio",
-                Required = false,
-                Nullable = true,
-                ShortDescription = "Ratio",
-                LongDescription = "Scaling ratio",
-                Format = new CrsDoubleFormat
-                {
-                    Minimum = 0.0,
-                    Maximum = 10.0,
-                    ExclusiveMinimum = true
-                }
-            },
-
-            new CrsNumberArg
-            {
-                Name = "priority",
-                VarName = "priority",
-                Required = false,
-                Nullable = false,
-                ShortDescription = "Priority",
-                LongDescription = "Task priority level",
-                Default = new CrsArgDefault { Value = 1 },
-                Format = new CrsUint32Format { Minimum = 1, Maximum = 5 },
-                Enum = new CrsArgEnum
-                {
-                    Items = new List<CrsArgEnumItem>
-                    {
-                        new CrsArgEnumItem { Name = "Low", Value = 1 },
-                        new CrsArgEnumItem { Name = "Normal", Value = 2 },
-                        new CrsArgEnumItem { Name = "High", Value = 3 },
-                        new CrsArgEnumItem { Name = "Critical", Value = 4 },
-                        new CrsArgEnumItem { Name = "Emergency", Value = 5 }
-                    }
-                }
-            },
-
-            // 3. Boolean argument
-            new CrsBooleanArg
-            {
-                Name = "enabled",
-                VarName = "enabled",
-                Required = false,
-                Nullable = false,
-                ShortDescription = "Enabled",
-                LongDescription = "Whether the feature is enabled",
-                Default = new CrsArgDefault { Value = false }
-            },
-
-            // 4. Any type argument
-            new CrsAnyTypeArg
-            {
-                Name = "metadata",
-                VarName = "metadata",
-                Required = false,
-                Nullable = true,
-                ShortDescription = "Metadata",
-                LongDescription = "Additional metadata as any type"
-            },
-
-            // 5. Array argument
-            new CrsArrayArg
-            {
-                Name = "tags",
-                VarName = "tags",
-                Required = false,
-                Nullable = true,
-                ShortDescription = "Tags",
-                LongDescription = "Array of tag strings",
-                Item = new CrsStringArg
-                {
-                    Name = "tag",
-                    VarName = "tag",
-                    Format = new CrsStringFormatImpl { MinLength = 1, MaxLength = 50 }
-                }
-            },
-
-            // 6. Simple object argument with properties
-            new CrsObjectArg
-            {
-                Name = "simpleConfig",
-                VarName = "simple_config",
-                ClsType = "SimpleConfig" + lastSegment,
-                Required = false,
-                Nullable = true,
-                ShortDescription = "Simple configuration",
-                LongDescription = "Basic configuration object",
-                Props = new List<CrsArg>
-                {
-                    new CrsStringArg
-                    {
-                        Name = "name",
-                        VarName = "name",
-                        Required = true,
-                        Nullable = false,
-                        ShortDescription = "Config name",
-                        Format = new CrsStringFormatImpl()
-                    },
-                    new CrsNumberArg
-                    {
-                        Name = "value",
-                        VarName = "value",
-                        Required = false,
-                        Nullable = true,
-                        ShortDescription = "Config value",
-                        Format = new CrsInt32Format()
-                    }
-                }
-            },
-
-            // 7. Object argument with additional properties (dictionary-like)
-            new CrsObjectArg
-            {
-                Name = "properties",
-                VarName = "properties",
-                ClsType = "Properties" + lastSegment,
-                Required = false,
-                Nullable = true,
-                ShortDescription = "Properties",
-                LongDescription = "Key-value properties",
-                Props = new List<CrsArg>(),
-                AdditionalProps = new CrsObjectArgAdditionalProperties
-                {
-                    Item = new CrsStringArg
-                    {
-                        Name = "propertyValue",
-                        VarName = "property_value",
-                        Format = new CrsStringFormatImpl()
-                    }
-                }
-            },
-
-            // 8. Class argument referencing another type
-            new CrsClsArg
-            {
-                Name = "member",
-                VarName = "member",
-                ClsType = "Person" + lastSegment,
-                Required = false,
-                Nullable = true,
-                ShortDescription = "Person",
-                LongDescription = "Person information"
-            },
-
-            // 9. Complex object with nested structures and circular reference setup
-            new CrsObjectArg
-            {
-                Name = "person",
-                VarName = "person",
-                ClsType = "Person" + lastSegment,
-                Required = false,
-                Nullable = true,
-                ShortDescription = "Person",
-                LongDescription = "Person with relationships",
-                Props = new List<CrsArg>
-                {
-                    new CrsStringArg
-                    {
-                        Name = "name",
-                        VarName = "name",
-                        Required = true,
-                        Nullable = false,
-                        ShortDescription = "Person name",
-                        Format = new CrsStringFormatImpl { MinLength = 1, MaxLength = 100 }
-                    },
-                    new CrsNumberArg
-                    {
-                        Name = "age",
-                        VarName = "age",
-                        Required = false,
-                        Nullable = true,
-                        ShortDescription = "Person age",
-                        Format = new CrsInt32Format { Minimum = 0, Maximum = 150 }
-                    },
-                    // Circular reference: Person has a friend who is also a Person
-                    new CrsClsArg
-                    {
-                        Name = "friend",
-                        VarName = "friend",
-                        ClsType = "Person" + lastSegment,
-                        Required = false,
-                        Nullable = true,
-                        ShortDescription = "Best friend",
-                        LongDescription = "Reference to another person (circular reference example)"
-                    },
-                    // Array of related persons
-                    new CrsArrayArg
-                    {
-                        Name = "relatives",
-                        VarName = "relatives",
-                        Required = false,
-                        Nullable = true,
-                        ShortDescription = "Relatives",
-                        LongDescription = "Array of related persons",
-                        Item = new CrsClsArg
-                        {
-                            Name = "relative",
-                            VarName = "relative",
-                            ClsType = "Person" + lastSegment
-                        }
-                    }
-                }
-            },
-
-            // 10. Another complex circular reference scenario: Company -> Department -> Employee -> Company
-            new CrsObjectArg
-            {
-                Name = "company",
-                VarName = "company",
-                ClsType = "Company" + lastSegment,
-                Required = false,
-                Nullable = true,
-                ShortDescription = "Company",
-                LongDescription = "Company information with departments",
-                Props = new List<CrsArg>
-                {
-                    new CrsStringArg
-                    {
-                        Name = "name",
-                        VarName = "name",
-                        Required = true,
-                        Nullable = false,
-                        ShortDescription = "Company name",
-                        Format = new CrsStringFormatImpl()
-                    },
-                    new CrsArrayArg
-                    {
-                        Name = "departments",
-                        VarName = "departments",
-                        Required = false,
-                        Nullable = true,
-                        ShortDescription = "Departments",
-                        LongDescription = "Company departments",
-                        Item = new CrsClsArg
-                        {
-                            Name = "department",
-                            VarName = "department",
-                            ClsType = "Department" + lastSegment
-                        }
-                    }
-                }
-            },
-
-            new CrsObjectArg
-            {
-                Name = "department",
-                VarName = "department",
-                ClsType = "Department" + lastSegment,
-                Required = false,
-                Nullable = true,
-                ShortDescription = "Department",
-                LongDescription = "Department information",
-                Props = new List<CrsArg>
-                {
-                    new CrsStringArg
-                    {
-                        Name = "name",
-                        VarName = "name",
-                        Required = true,
-                        Nullable = false,
-                        ShortDescription = "Department name",
-                        Format = new CrsStringFormatImpl()
-                    },
-                    new CrsClsArg
-                    {
-                        Name = "company",
-                        VarName = "company",
-                        ClsType = "Company" + lastSegment,
-                        Required = false,
-                        Nullable = true,
-                        ShortDescription = "Parent company",
-                        LongDescription = "Reference back to the parent company"
-                    },
-                    new CrsArrayArg
-                    {
-                        Name = "employees",
-                        VarName = "employees",
-                        Required = false,
-                        Nullable = true,
-                        ShortDescription = "Employees",
-                        LongDescription = "Department employees",
-                        Item = new CrsClsArg
-                        {
-                            Name = "employee",
-                            VarName = "employee",
-                            ClsType = "Employee" + lastSegment
-                        }
-                    }
-                }
-            },
-
-            new CrsObjectArg
-            {
-                Name = "employee",
-                VarName = "employee",
-                ClsType = "Employee" + lastSegment,
-                Required = false,
-                Nullable = true,
-                ShortDescription = "Employee",
-                LongDescription = "Employee information",
-                Props = new List<CrsArg>
-                {
-                    new CrsStringArg
-                    {
-                        Name = "name",
-                        VarName = "name",
-                        Required = true,
-                        Nullable = false,
-                        ShortDescription = "Employee name",
-                        Format = new CrsStringFormatImpl()
-                    },
-                    new CrsClsArg
-                    {
-                        Name = "department",
-                        VarName = "department",
-                        ClsType = "Department" + lastSegment,
-                        Required = false,
-                        Nullable = true,
-                        ShortDescription = "Employee department",
-                        LongDescription = "Department this employee belongs to"
-                    },
-                    new CrsClsArg
-                    {
-                        Name = "company",
-                        VarName = "company",
-                        ClsType = "Company" + lastSegment,
-                        Required = false,
-                        Nullable = true,
-                        ShortDescription = "Employee company",
-                        LongDescription = "Company this employee works for"
-                    }
-                }
-            },
-
-            // 11. Internal parameter (should be hidden)
-            new CrsStringArg
-            {
-                Name = "internalToken",
-                VarName = "internal_token",
-                Internal = true,
-                Required = false,
-                Nullable = true,
-                ShortDescription = "Internal token",
-                LongDescription = "Internal authentication token (hidden from user)",
-                Format = new CrsStringFormatImpl()
             }
-        };
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to read argument array: {ex.Message}");
+            return [];
+        }
+        finally
+        {
+            if (arrayPtr != IntPtr.Zero)
+            {
+                cirrus_free_argument_array(arrayPtr);
+            }
+        }
     }
 
     /// <summary>
@@ -1414,6 +1350,614 @@ public static class PSWrapper
         {
             throw new PlatformNotSupportedException("Unsupported platform");
         }
+    }
+
+    // /// <summary>
+    // /// Verify that C# structures have the expected sizes for proper alignment with Rust structures
+    // /// </summary>
+    // private static void VerifyStructureAlignment()
+    // {
+    //     try
+    //     {
+    //         // Log structure sizes for debugging
+    //         Console.WriteLine("=== Structure Alignment Verification ===");
+    //         Console.WriteLine($"CArgumentArray size: {Marshal.SizeOf<CArgumentArray>()} bytes");
+    //         // Console.WriteLine($"CArgType size: {Marshal.SizeOf<CArgType>()} bytes");
+
+    //         Console.WriteLine($"CArgumentInfo size: {Marshal.SizeOf<CArgumentInfo>()} bytes");
+    //         Console.WriteLine($"CArgEnumItem size: {Marshal.SizeOf<CArgEnumItem>()} bytes");
+    //         Console.WriteLine($"CArgEnum size: {Marshal.SizeOf<CArgEnum>()} bytes");
+    //         Console.WriteLine($"CStringArg size: {Marshal.SizeOf<CStringArg>()} bytes");
+    //         Console.WriteLine($"CNumberArg size: {Marshal.SizeOf<CNumberArg>()} bytes");
+    //         Console.WriteLine($"CBooleanArg size: {Marshal.SizeOf<CBooleanArg>()} bytes");
+    //         Console.WriteLine($"CAnyTypeArg size: {Marshal.SizeOf<CAnyTypeArg>()} bytes");
+    //         Console.WriteLine($"CObjectArgAdditionalProperties size: {Marshal.SizeOf<CObjectArgAdditionalProperties>()} bytes");
+    //         Console.WriteLine($"CObjectArg size: {Marshal.SizeOf<CObjectArg>()} bytes");
+    //         Console.WriteLine($"CArrayArg size: {Marshal.SizeOf<CArrayArg>()} bytes");
+    //         Console.WriteLine($"CClassArg size: {Marshal.SizeOf<CClassArg>()} bytes");
+    //         Console.WriteLine($"CArgTypeDetails size: {Marshal.SizeOf<CArgTypeDetails>()} bytes");
+    //         Console.WriteLine($"CStringFormat size: {Marshal.SizeOf<CStringFormat>()} bytes");
+    //         Console.WriteLine($"CStringFormatData size: {Marshal.SizeOf<CStringFormatData>()} bytes");
+    //         Console.WriteLine($"CStringFormatImpl size: {Marshal.SizeOf<CStringFormatImpl>()} bytes");
+    //         Console.WriteLine($"CBinaryFormatImpl size: {Marshal.SizeOf<CBinaryFormatImpl>()} bytes");
+    //         Console.WriteLine($"CByteFormatImpl size: {Marshal.SizeOf<CByteFormatImpl>()} bytes");
+    //         Console.WriteLine($"CDurationFormatImpl size: {Marshal.SizeOf<CDurationFormatImpl>()} bytes");
+    //         Console.WriteLine($"CDateFormatImpl size: {Marshal.SizeOf<CDateFormatImpl>()} bytes");
+    //         Console.WriteLine($"CTimeFormatImpl size: {Marshal.SizeOf<CTimeFormatImpl>()} bytes");
+    //         Console.WriteLine($"CDateTimeFormatImpl size: {Marshal.SizeOf<CDateTimeFormatImpl>()} bytes");
+    //         Console.WriteLine($"CUuidFormatImpl size: {Marshal.SizeOf<CUuidFormatImpl>()} bytes");
+    //         Console.WriteLine($"CPasswordFormatImpl size: {Marshal.SizeOf<CPasswordFormatImpl>()} bytes");
+    //         Console.WriteLine($"CSubscriptionIdFormatImpl size: {Marshal.SizeOf<CSubscriptionIdFormatImpl>()} bytes");
+    //         Console.WriteLine($"CResourceGroupNameFormatImpl size: {Marshal.SizeOf<CResourceGroupNameFormatImpl>()} bytes");
+    //         Console.WriteLine($"CResourceIdFormatImpl size: {Marshal.SizeOf<CResourceIdFormatImpl>()} bytes");
+    //         Console.WriteLine($"CResourceLocationFormatImpl size: {Marshal.SizeOf<CResourceLocationFormatImpl>()} bytes");
+    //         Console.WriteLine($"CNumberFormat size: {Marshal.SizeOf<CNumberFormat>()} bytes");
+    //         Console.WriteLine($"CNumberFormatData size: {Marshal.SizeOf<CNumberFormatData>()} bytes");
+    //         Console.WriteLine($"CInt32FormatImpl size: {Marshal.SizeOf<CInt32FormatImpl>()} bytes");
+    //         Console.WriteLine($"CInt64FormatImpl size: {Marshal.SizeOf<CInt64FormatImpl>()} bytes");
+    //         Console.WriteLine($"CUInt32FormatImpl size: {Marshal.SizeOf<CUInt32FormatImpl>()} bytes");
+    //         Console.WriteLine($"CUInt64FormatImpl size: {Marshal.SizeOf<CUInt64FormatImpl>()} bytes");
+    //         Console.WriteLine($"CFloatFormatImpl size: {Marshal.SizeOf<CFloatFormatImpl>()} bytes");
+    //         Console.WriteLine($"CDoubleFormatImpl size: {Marshal.SizeOf<CDoubleFormatImpl>()} bytes");
+    //         Console.WriteLine("==========================================");
+
+    //         // Verify critical structure sizes match between C# and Rust
+    //         int csharpArgumentInfoSize = Marshal.SizeOf<CArgumentInfo>();
+    //         int csharpArgTypeDetailsSize = Marshal.SizeOf<CArgTypeDetails>();
+
+    //         try
+    //         {
+    //             // Get sizes from Rust library for comparison
+    //             UIntPtr rustArgumentInfoSize = cirrus_get_argument_info_size();
+    //             UIntPtr rustArgTypeDetailsSize = cirrus_get_arg_type_details_size();
+
+    //             Console.WriteLine($"C# CArgumentInfo size: {csharpArgumentInfoSize} bytes");
+    //             Console.WriteLine($"Rust CArgumentInfo size: {rustArgumentInfoSize} bytes");
+    //             Console.WriteLine($"C# CArgTypeDetails size: {csharpArgTypeDetailsSize} bytes");
+    //             Console.WriteLine($"Rust CArgTypeDetails size: {rustArgTypeDetailsSize} bytes");
+
+    //             if (csharpArgumentInfoSize != (int)rustArgumentInfoSize)
+    //             {
+    //                 Console.WriteLine($"❌ WARNING: CArgumentInfo size mismatch! C#: {csharpArgumentInfoSize}, Rust: {rustArgumentInfoSize}");
+    //             }
+    //             else
+    //             {
+    //                 Console.WriteLine("✅ CArgumentInfo sizes match between C# and Rust");
+    //             }
+
+    //             if (csharpArgTypeDetailsSize != (int)rustArgTypeDetailsSize)
+    //             {
+    //                 Console.WriteLine($"❌ WARNING: CArgTypeDetails size mismatch! C#: {csharpArgTypeDetailsSize}, Rust: {rustArgTypeDetailsSize}");
+    //             }
+    //             else
+    //             {
+    //                 Console.WriteLine("✅ CArgTypeDetails sizes match between C# and Rust");
+    //             }
+    //         }
+    //         catch (Exception ex)
+    //         {
+    //             Console.WriteLine($"Could not verify against Rust sizes: {ex.Message}");
+
+    //             // Fallback to basic sanity checks
+    //             if (Environment.Is64BitProcess && csharpArgumentInfoSize < 80)
+    //             {
+    //                 Console.WriteLine($"Warning: CArgumentInfo size ({csharpArgumentInfoSize}) seems too small for 64-bit platform");
+    //             }
+    //         }
+
+    //         Console.WriteLine("Structure alignment verification completed");
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         Console.WriteLine($"Warning: Structure alignment verification failed: {ex.Message}");
+    //     }
+    // }
+
+    /// <summary>
+    /// Validate if CArgumentInfo appears to be valid (not corrupted)
+    /// </summary>
+    private static bool IsValidCArgumentInfo(CArgumentInfo item)
+    {
+        // Check if ArgType is within valid range
+        if (!Enum.IsDefined(typeof(CArgType), item.ArgType))
+        {
+            Console.WriteLine($"Invalid ArgType: {item.ArgType}");
+            return false;
+        }
+
+        // Check for obviously invalid pointer values (too small to be valid pointers)
+        // But allow zero (null) pointers
+        var pointers = new[] { item.VarName, item.Name, item.ShortDescription, item.LongDescription, item.DefaultValue, item.BlankValue };
+        foreach (var ptr in pointers)
+        {
+            if (ptr != IntPtr.Zero && ptr.ToInt64() > 0 && ptr.ToInt64() < 65536)
+            {
+                Console.WriteLine($"Suspicious pointer value: {ptr}");
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Convert CArgumentInfo to CrsArg
+    /// </summary>
+    private static CrsArg ConvertCArgumentInfoToCrsArg(CArgumentInfo item)
+    {
+        // Helper function to safely read string from IntPtr
+        string ReadString(IntPtr ptr) => ptr != IntPtr.Zero ? Marshal.PtrToStringAnsi(ptr) ?? "" : "";
+
+        // Helper function to read int from IntPtr
+        int? ReadInt(IntPtr ptr)
+        {
+            try
+            {
+                if (ptr == IntPtr.Zero)
+                {
+                    return null;
+                }
+                var result = Marshal.ReadInt32(ptr);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"ReadInt: Error reading from ptr {ptr}: {ex.Message}");
+                return null;
+            }
+        }
+
+        // Helper function to parse JSON default value
+        CrsArgDefault? ParseDefault(IntPtr ptr)
+        {
+            var jsonStr = ReadString(ptr);
+            if (string.IsNullOrEmpty(jsonStr))
+                return null;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(jsonStr);
+                var value = ConvertJsonElementToObject(doc.RootElement);
+                return new CrsArgDefault { Value = value };
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        // Helper function to parse JSON default value
+        CrsArgBlank? ParseBlank(IntPtr ptr)
+        {
+            var jsonStr = ReadString(ptr);
+            if (string.IsNullOrEmpty(jsonStr))
+                return null;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(jsonStr);
+                var value = ConvertJsonElementToObject(doc.RootElement);
+                return new CrsArgBlank { Value = value };
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        // Create the specific argument type first
+        CrsArg result = item.ArgType switch
+        {
+            CArgType.String => ConvertCStringArg(item.ArgTypeDetails.StringArg),
+            CArgType.Number => ConvertCNumberArg(item.ArgTypeDetails.NumberArg),
+            CArgType.Boolean => new CrsBooleanArg(),
+            CArgType.AnyType => new CrsAnyTypeArg(),
+            CArgType.Class => new CrsClsArg
+            {
+                ClsType = ReadString(item.ArgTypeDetails.ClassArg.ClsType)
+            },
+            CArgType.Array => ConvertCArrayArg(item.ArgTypeDetails.ArrayArg),
+            CArgType.Object => ConvertCObjectArg(item.ArgTypeDetails.ObjectArg),
+            _ => throw new NotSupportedException($"Unsupported argument type: {item.ArgType}")
+        };
+
+        // Apply common properties to all argument types
+        result.VarName = ReadString(item.VarName);
+        result.Name = ReadString(item.Name);
+        result.Position = ReadInt(item.Position);
+        result.Internal = item.Internal;
+        result.Required = item.Required;
+        result.Nullable = item.Nullable;
+        result.ShortDescription = ReadString(item.ShortDescription);
+        result.LongDescription = ReadString(item.LongDescription);
+        result.Blank = ParseBlank(item.BlankValue);
+        result.Default = ParseDefault(item.DefaultValue);
+
+        return result;
+    }
+
+    private static object ConvertJsonElementToObject(JsonElement element)
+    {
+        return element.ValueKind switch
+        {
+            JsonValueKind.String => element.GetString()!,
+            JsonValueKind.Number when element.TryGetInt32(out var intVal) => intVal,
+            JsonValueKind.Number when element.TryGetInt64(out var longVal) => longVal,
+            JsonValueKind.Number when element.TryGetDouble(out var doubleVal) => doubleVal,
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.Null => null!,
+            _ => element.ToString()
+        };
+    }
+
+    private static CrsStringArg ConvertCStringArg(CStringArg cStringArg)
+    {
+        try
+        {
+            var format = ConvertCStringFormat(cStringArg.Format);
+            var enumVal = ConvertCArgEnum(cStringArg.Enum);
+            var result = new CrsStringArg
+            {
+                Format = format,
+                Enum = enumVal
+            };
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ConvertCStringArg: Error during conversion: {ex.Message}");
+            Console.WriteLine($"ConvertCStringArg: Stack trace: {ex.StackTrace}");
+            return new CrsStringArg(); // Return default on error
+        }
+    }
+
+    private static CrsStringFormat ConvertCStringFormat(CStringFormat format)
+    {
+        try
+        {
+            CrsStringFormat result = format.FormatType switch
+            {
+                CStringFormatType.String => ConvertCStringFormatImpl(format.FormatData.StringImpl),
+                CStringFormatType.Binary => new CrsBinaryFormat(),
+                CStringFormatType.Byte => new CrsByteFormat(),
+                CStringFormatType.Duration => ConvertCDurationFormat(format.FormatData.DurationImpl),
+                CStringFormatType.Date => ConvertCDateFormat(format.FormatData.DateImpl),
+                CStringFormatType.Time => ConvertCTimeFormat(format.FormatData.TimeImpl),
+                CStringFormatType.DateTime => ConvertCDateTimeFormat(format.FormatData.DateTimeImpl),
+                CStringFormatType.Uuid => new CrsUuidFormat(),
+                CStringFormatType.Password => new CrsPasswordFormat(),
+                CStringFormatType.SubscriptionId => new CrsSubscriptionIdFormat(),
+                CStringFormatType.ResourceGroupName => new CrsResourceGroupNameFormat(),
+                CStringFormatType.ResourceId => ConvertCResourceIdFormat(format.FormatData.ResourceIdImpl),
+                CStringFormatType.ResourceLocation => new CrsResourceLocationFormat(),
+                _ => new CrsStringFormatImpl()
+            };
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ConvertCStringFormat: Error during conversion: {ex.Message}");
+            Console.WriteLine($"ConvertCStringFormat: Stack trace: {ex.StackTrace}");
+            return new CrsStringFormatImpl(); // Return default on error
+        }
+    }
+
+    private static CrsStringFormatImpl ConvertCStringFormatImpl(CStringFormatImpl impl)
+    {
+        string ReadString(IntPtr ptr) => ptr != IntPtr.Zero ? Marshal.PtrToStringAnsi(ptr) ?? "" : "";
+        uint? ReadUInt(IntPtr ptr) => ptr != IntPtr.Zero ? (uint?)Marshal.ReadInt32(ptr) : null;
+
+        return new CrsStringFormatImpl
+        {
+            Pattern = ReadString(impl.Pattern),
+            MinLength = ReadUInt(impl.MinLength),
+            MaxLength = ReadUInt(impl.MaxLength)
+        };
+    }
+
+    private static CrsDurationFormat ConvertCDurationFormat(CDurationFormatImpl impl)
+    {
+        return new CrsDurationFormat
+        {
+            ProtocolType = impl.Protocol switch
+            {
+                CDurationProtocol.ISO8601 => CrsDurationFormat.Protocol.ISO8601,
+                _ => CrsDurationFormat.Protocol.ISO8601
+            }
+        };
+    }
+
+    private static CrsDateFormat ConvertCDateFormat(CDateFormatImpl impl)
+    {
+        return new CrsDateFormat
+        {
+            ProtocolType = impl.Protocol switch
+            {
+                CDateProtocol.ISO8601 => CrsDateFormat.Protocol.ISO8601,
+                _ => CrsDateFormat.Protocol.ISO8601
+            }
+        };
+    }
+
+    private static CrsTimeFormat ConvertCTimeFormat(CTimeFormatImpl impl)
+    {
+        uint? ReadUInt(IntPtr ptr) => ptr != IntPtr.Zero ? (uint?)Marshal.ReadInt32(ptr) : null;
+
+        return new CrsTimeFormat
+        {
+            ProtocolType = impl.Protocol switch
+            {
+                CTimeProtocol.ISO8601 => CrsTimeFormat.Protocol.ISO8601,
+                _ => CrsTimeFormat.Protocol.ISO8601
+            },
+            MsLength = ReadUInt(impl.MsLength)
+        };
+    }
+
+    private static CrsDateTimeFormat ConvertCDateTimeFormat(CDateTimeFormatImpl impl)
+    {
+        return new CrsDateTimeFormat
+        {
+            ProtocolType = impl.Protocol switch
+            {
+                CDateTimeProtocol.ISO8601 => CrsDateTimeFormat.Protocol.ISO8601,
+                CDateTimeProtocol.RFC1123 => CrsDateTimeFormat.Protocol.RFC1123,
+                _ => CrsDateTimeFormat.Protocol.ISO8601
+            }
+        };
+    }
+
+    private static CrsResourceIdFormat ConvertCResourceIdFormat(CResourceIdFormatImpl impl)
+    {
+        var templates = new List<string>();
+
+        if (impl.Templates != IntPtr.Zero && impl.TemplateCount != UIntPtr.Zero)
+        {
+            int count = (int)impl.TemplateCount;
+            for (int i = 0; i < count; i++)
+            {
+                IntPtr templatePtr = Marshal.ReadIntPtr(impl.Templates, i * IntPtr.Size);
+                if (templatePtr != IntPtr.Zero)
+                {
+                    string template = Marshal.PtrToStringAnsi(templatePtr) ?? "";
+                    if (!string.IsNullOrEmpty(template))
+                    {
+                        templates.Add(template);
+                    }
+                }
+            }
+        }
+
+        return new CrsResourceIdFormat
+        {
+            Templates = templates
+        };
+    }
+
+    private static CrsNumberArg ConvertCNumberArg(CNumberArg cNumberArg)
+    {
+        return new CrsNumberArg
+        {
+            Format = ConvertCNumberFormat(cNumberArg.Format),
+            Enum = ConvertCArgEnum(cNumberArg.Enum)
+        };
+    }
+
+    private static CrsNumberFormat ConvertCNumberFormat(CNumberFormat format)
+    {
+        return format.FormatType switch
+        {
+            CNumberFormatType.Int32 => ConvertCInt32Format(format.FormatData.Int32Impl),
+            CNumberFormatType.Int64 => ConvertCInt64Format(format.FormatData.Int64Impl),
+            CNumberFormatType.UInt32 => ConvertCUInt32Format(format.FormatData.UInt32Impl),
+            CNumberFormatType.UInt64 => ConvertCUInt64Format(format.FormatData.UInt64Impl),
+            CNumberFormatType.Float => ConvertCFloatFormat(format.FormatData.FloatImpl),
+            CNumberFormatType.Double => ConvertCDoubleFormat(format.FormatData.DoubleImpl),
+            _ => new CrsInt64Format()
+        };
+    }
+
+    private static CrsInt32Format ConvertCInt32Format(CInt32FormatImpl impl)
+    {
+        int? ReadInt(IntPtr ptr) => ptr != IntPtr.Zero ? (int?)Marshal.ReadInt32(ptr) : null;
+
+        return new CrsInt32Format
+        {
+            Minimum = ReadInt(impl.MinValue),
+            Maximum = ReadInt(impl.MaxValue),
+            MultipleOf = ReadInt(impl.MultipleOf)
+        };
+    }
+
+    private static CrsInt64Format ConvertCInt64Format(CInt64FormatImpl impl)
+    {
+        long? ReadLong(IntPtr ptr) => ptr != IntPtr.Zero ? (long?)Marshal.ReadInt64(ptr) : null;
+
+        return new CrsInt64Format
+        {
+            Minimum = ReadLong(impl.MinValue),
+            Maximum = ReadLong(impl.MaxValue),
+            MultipleOf = ReadLong(impl.MultipleOf)
+        };
+    }
+
+    private static CrsUint32Format ConvertCUInt32Format(CUInt32FormatImpl impl)
+    {
+        uint? ReadUInt(IntPtr ptr) => ptr != IntPtr.Zero ? (uint?)Marshal.ReadInt32(ptr) : null;
+
+        return new CrsUint32Format
+        {
+            Minimum = ReadUInt(impl.MinValue),
+            Maximum = ReadUInt(impl.MaxValue),
+            MultipleOf = ReadUInt(impl.MultipleOf)
+        };
+    }
+
+    private static CrsUint64Format ConvertCUInt64Format(CUInt64FormatImpl impl)
+    {
+        ulong? ReadULong(IntPtr ptr) => ptr != IntPtr.Zero ? (ulong?)Marshal.ReadInt64(ptr) : null;
+
+        return new CrsUint64Format
+        {
+            Minimum = ReadULong(impl.MinValue),
+            Maximum = ReadULong(impl.MaxValue),
+            MultipleOf = ReadULong(impl.MultipleOf)
+        };
+    }
+
+    private static CrsFloatFormat ConvertCFloatFormat(CFloatFormatImpl impl)
+    {
+        float? ReadFloat(IntPtr ptr)
+        {
+            if (ptr == IntPtr.Zero) return null;
+            byte[] bytes = new byte[4];
+            Marshal.Copy(ptr, bytes, 0, 4);
+            return BitConverter.ToSingle(bytes, 0);
+        }
+
+        return new CrsFloatFormat
+        {
+            Minimum = ReadFloat(impl.MinValue),
+            Maximum = ReadFloat(impl.MaxValue),
+            ExclusiveMinimum = impl.ExclusiveMinimum,
+            ExclusiveMaximum = impl.ExclusiveMaximum,
+            MultipleOf = ReadFloat(impl.MultipleOf)
+        };
+    }
+
+    private static CrsDoubleFormat ConvertCDoubleFormat(CDoubleFormatImpl impl)
+    {
+        double? ReadDouble(IntPtr ptr)
+        {
+            if (ptr == IntPtr.Zero) return null;
+            byte[] bytes = new byte[8];
+            Marshal.Copy(ptr, bytes, 0, 8);
+            return BitConverter.ToDouble(bytes, 0);
+        }
+
+        return new CrsDoubleFormat
+        {
+            Minimum = ReadDouble(impl.MinValue),
+            Maximum = ReadDouble(impl.MaxValue),
+            ExclusiveMinimum = impl.ExclusiveMinimum,
+            ExclusiveMaximum = impl.ExclusiveMaximum,
+            MultipleOf = ReadDouble(impl.MultipleOf)
+        };
+    }
+
+    private static CrsArrayArg ConvertCArrayArg(CArrayArg cArrayArg)
+    {
+        CrsArg? item = null;
+        if (cArrayArg.Item != IntPtr.Zero)
+        {
+            var itemInfo = Marshal.PtrToStructure<CArgumentInfo>(cArrayArg.Item);
+            item = ConvertCArgumentInfoToCrsArg(itemInfo);
+        }
+
+        return new CrsArrayArg
+        {
+            Item = item ?? new CrsAnyTypeArg { }
+        };
+    }
+
+    private static CrsObjectArg ConvertCObjectArg(CObjectArg cObjectArg)
+    {
+        string ReadString(IntPtr ptr) => ptr != IntPtr.Zero ? Marshal.PtrToStringAnsi(ptr) ?? "" : "";
+
+        var props = new List<CrsArg>();
+        if (cObjectArg.Props != IntPtr.Zero && cObjectArg.PropsCount != UIntPtr.Zero)
+        {
+            int count = (int)cObjectArg.PropsCount;
+            int structSize = Marshal.SizeOf<CArgumentInfo>();
+
+            for (int i = 0; i < count; i++)
+            {
+                IntPtr propPtr = IntPtr.Add(cObjectArg.Props, i * structSize);
+                var propInfo = Marshal.PtrToStructure<CArgumentInfo>(propPtr);
+                props.Add(ConvertCArgumentInfoToCrsArg(propInfo));
+            }
+        }
+
+        CrsObjectArgAdditionalProperties? additionalProps = null;
+        if (cObjectArg.AdditionalProps != IntPtr.Zero)
+        {
+            try
+            {
+                // Read the additional properties structure properly
+                var cAdditionalProps = Marshal.PtrToStructure<CObjectArgAdditionalProperties>(cObjectArg.AdditionalProps);
+                var itemArg = ConvertCArgumentInfoToCrsArg(cAdditionalProps.Item);
+
+                additionalProps = new CrsObjectArgAdditionalProperties
+                {
+                    Item = itemArg ?? new CrsAnyTypeArg { }
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Warning: Failed to convert additional properties: {ex.Message}");
+                // Fallback to any type for dictionary values
+                additionalProps = new CrsObjectArgAdditionalProperties
+                {
+                    Item = new CrsAnyTypeArg { }
+                };
+            }
+        }
+
+        return new CrsObjectArg
+        {
+            ClsType = ReadString(cObjectArg.ClsType),
+            Props = props,
+            AdditionalProps = additionalProps
+        };
+    }
+
+    private static CrsArgEnum? ConvertCArgEnum(IntPtr enumPtr)
+    {
+        if (enumPtr == IntPtr.Zero)
+            return null;
+
+        var cEnum = Marshal.PtrToStructure<CArgEnum>(enumPtr);
+        if (cEnum.Items == IntPtr.Zero || cEnum.ItemCount == UIntPtr.Zero)
+            return null;
+
+        string ReadString(IntPtr ptr) => ptr != IntPtr.Zero ? Marshal.PtrToStringAnsi(ptr) ?? "" : "";
+
+        var items = new List<CrsArgEnumItem>();
+        int count = (int)cEnum.ItemCount;
+        int structSize = Marshal.SizeOf<CArgEnumItem>();
+
+        for (int i = 0; i < count; i++)
+        {
+            IntPtr itemPtr = IntPtr.Add(cEnum.Items, i * structSize);
+            var cItem = Marshal.PtrToStructure<CArgEnumItem>(itemPtr);
+
+            var valueStr = ReadString(cItem.Value);
+            object value = valueStr;
+
+            // Try to parse the JSON value
+            try
+            {
+                using var doc = JsonDocument.Parse(valueStr);
+                value = ConvertJsonElementToObject(doc.RootElement);
+            }
+            catch
+            {
+                // If parsing fails, use the string value
+            }
+
+            items.Add(new CrsArgEnumItem
+            {
+                Name = ReadString(cItem.Name),
+                Value = value
+            });
+        }
+
+        return new CrsArgEnum
+        {
+            Items = items,
+            SupportExtension = cEnum.SupportExtension
+        };
     }
 }
 

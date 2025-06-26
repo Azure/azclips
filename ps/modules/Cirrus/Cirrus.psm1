@@ -7,8 +7,8 @@ Import-Module "$PSScriptRoot\Cirrus.dll" -Force
 # Module variables
 $script:ModuleName = "Cirrus"
 
-# Initialize DynamicTypeBuilder for the main module
-[Cirrus.Core.DynamicTypeBuilder]::GetOrCreateBuilder($script:ModuleName);
+# # Initialize DynamicTypeBuilder for the main module
+# [Cirrus.Core.DynamicTypeBuilder]::GetOrCreateBuilder($script:ModuleName);
 
 # Collect all functions to export (starting with built-in functions)
 $script:FunctionsToExport = @(

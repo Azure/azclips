@@ -676,6 +676,9 @@ namespace Cirrus.Core
         }
 
         public bool Nullable { get; set; }
+
+        public CrsArgBlank? Blank { get; set; }
+
         public CrsArgDefault? Default { get; set; }
         public string? ShortDescription { get; set; }
         public string? LongDescription { get; set; }
@@ -755,6 +758,11 @@ namespace Cirrus.Core
         public virtual void ExtendParameterAttributes(Collection<Attribute> attributes) { }
     }
 
+    public class CrsArgBlank
+    {
+        public required object Value { get; set; }
+    }
+
     public class CrsArgDefault
     {
         public required object Value { get; set; }
@@ -766,6 +774,7 @@ namespace Cirrus.Core
     public class CrsArgEnum
     {
         public List<CrsArgEnumItem> Items { get; set; } = [];
+        public bool SupportExtension { get; set; } = false;
     }
 
     /// <summary>
@@ -1354,18 +1363,11 @@ namespace Cirrus.Core
     /// </summary>
     public class CrsObjectArgAdditionalProperties
     {
-        public CrsArg? Item { get; set; }
+        public required CrsArg Item { get; set; }
 
         public Type GetParameterType(DynamicTypeBuilder builder)
         {
-            if (Item != null)
-            {
-                return typeof(Dictionary<,>).MakeGenericType(typeof(string), Item.GetOrCreateParameterType(builder));
-            }
-            else
-            {
-                return typeof(Dictionary<string, object>);
-            }
+            return typeof(Dictionary<,>).MakeGenericType(typeof(string), Item.GetOrCreateParameterType(builder));
         }
     }
 

@@ -1,9 +1,15 @@
+pub mod argument;
 pub mod cmdlet;
 mod core;
 pub mod param;
 
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
+
+use argument::{
+    convert_crs_arg_to_c_argument_info, free_c_argument_info, get_command_arguments_async,
+    CArgumentArray, CArgumentInfo,
+};
 
 // C-compatible structure for direct array passing
 #[repr(C)]
@@ -281,4 +287,87 @@ pub extern "C" fn cirrus_free_string(ptr: *mut c_char) {
 #[no_mangle]
 pub extern "C" fn cirrus_health_check() -> i32 {
     1 // Return 1 for success
+}
+
+/// Get command arguments for the specified URI
+#[no_mangle]
+pub extern "C" fn cirrus_get_command_arguments(uri: *const c_char) -> *mut CArgumentArray {
+    if uri.is_null() {
+        tracing::error!("URI pointer is null");
+        return std::ptr::null_mut();
+    }
+
+    // Parse URI
+    let uri_str = unsafe {
+        match CStr::from_ptr(uri).to_str() {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::error!("Failed to parse URI: {}", e);
+                return std::ptr::null_mut();
+            }
+        }
+    };
+
+    let result = std::panic::catch_unwind(|| {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            match get_command_arguments_async(uri_str).await {
+                Ok(args) => {
+                    if args.is_empty() {
+                        return Box::into_raw(Box::new(CArgumentArray::new()));
+                    }
+
+                    let mut c_args = Vec::with_capacity(args.len());
+
+                    for arg in args {
+                        let c_arg = convert_crs_arg_to_c_argument_info(&arg);
+                        c_args.push(c_arg);
+                    }
+
+                    let count = c_args.len();
+                    let items = c_args.into_boxed_slice();
+                    let items_ptr = Box::into_raw(items) as *mut CArgumentInfo;
+
+                    let array = Box::new(CArgumentArray {
+                        items: items_ptr,
+                        count,
+                    });
+
+                    Box::into_raw(array)
+                }
+                Err(e) => {
+                    tracing::error!("Failed to get command arguments: {}", e);
+                    std::ptr::null_mut()
+                }
+            }
+        })
+    });
+
+    match result {
+        Ok(array_ptr) => array_ptr,
+        Err(_) => {
+            tracing::error!("Panic occurred while getting command arguments array");
+            std::ptr::null_mut()
+        }
+    }
+}
+
+/// Free the argument array memory
+#[no_mangle]
+pub extern "C" fn cirrus_free_argument_array(array: *mut CArgumentArray) {
+    if array.is_null() {
+        return;
+    }
+
+    unsafe {
+        let array = Box::from_raw(array);
+
+        if !array.items.is_null() && array.count > 0 {
+            let items = Box::from_raw(std::slice::from_raw_parts_mut(array.items, array.count));
+
+            for item in items.iter() {
+                free_c_argument_info(*item);
+            }
+        }
+    }
 }
