@@ -48,6 +48,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         /// <summary>
         /// When specified, forces the cmdlet return a 'bool' given that there isn't a return type by default.
         /// </summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Runtime)]
         public global::System.Management.Automation.SwitchParameter PassThru { get; set; }
 
         /// <summary>Backing field for <see cref="PeeringName" /> property.</summary>
@@ -60,6 +61,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         SerializedName = @"peeringName",
         Aliases = new string[] { "peering-name"},
         Enums = new string[] { })]
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Path)]
         public string PeeringName { get => this._peeringName; set => this._peeringName = value; }
 
         /// <summary>
@@ -77,6 +79,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         SerializedName = @"resourceGroupName",
         Aliases = new string[] { "resource-group-name"},
         Enums = new string[] { })]
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Path)]
         public string ResourceGroupName { get => this._resourceGroupName; set => this._resourceGroupName = value; }
 
         /// <summary>Backing field for <see cref="SubscriptionId" /> property.</summary>
@@ -89,6 +92,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         SerializedName = @"subscriptionId",
         Aliases = new string[] { "subscription-id"},
         Enums = new string[] { })]
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Path)]
         public string SubscriptionId { get => this._subscriptionId; set => this._subscriptionId = value; }
 
         /// <summary>Backing field for <see cref="WorkspaceName" /> property.</summary>
@@ -101,6 +105,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         SerializedName = @"workspaceName",
         Aliases = new string[] { "workspace-name"},
         Enums = new string[] { })]
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Path)]
         public string WorkspaceName { get => this._workspaceName; set => this._workspaceName = value; }
 
         /// <summary>
@@ -173,17 +178,6 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
                     case Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.Events.Error:
                     {
                         return ;
-                    }
-                    case Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.Events.DelayBeforePolling:
-                    {
-                        var data = messageData();
-                        if (data.ResponseMessage is System.Net.Http.HttpResponseMessage response)
-                        {
-                            int delay = (int)(response.Headers.RetryAfter?.Delta?.TotalSeconds ?? 30);
-                            this.LogMessage($"Checking operation status.");
-                            await global::System.Threading.Tasks.Task.Delay(delay*1000, token);
-                        }
-                        break;
                     }
                 }
                 if (token.IsCancellationRequested)

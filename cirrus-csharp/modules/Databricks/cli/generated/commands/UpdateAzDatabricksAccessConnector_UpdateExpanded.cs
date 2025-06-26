@@ -20,6 +20,9 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
     public partial class UpdateAzDatabricksAccessConnector_UpdateExpanded : SharedContracts.BaseProcessor,
         Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.IEventListener
     {
+        /// <summary>An update to an Azure Databricks Access Connector.</summary>
+        private Microsoft.Azure.PowerShell.Cmdlets.Databricks.Models.IAccessConnectorUpdate _bodyBackup = new Microsoft.Azure.PowerShell.Cmdlets.Databricks.Models.AccessConnectorUpdate();
+
         /// <summary>
         /// The <see cref="global::System.Threading.CancellationTokenSource" /> for this operation.
         /// </summary>
@@ -47,6 +50,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         SerializedName = @"connectorName",
         Aliases = new string[] { "connector-name"},
         Enums = new string[] { })]
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Path)]
         public string ConnectorName { get => this._connectorName; set => this._connectorName = value; }
 
         /// <summary>Accessor for extensibleParameters.</summary>
@@ -55,26 +59,28 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         /// <summary>
         /// Type of managed service identity (where both SystemAssigned and UserAssigned types are allowed).
         /// </summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"Type of managed service identity (where both SystemAssigned and UserAssigned types are allowed).",
         SerializedName = @"type",
         Aliases = new string[] { "identity-type"},
         Enums = new string[] { "None", "SystemAssigned", "UserAssigned", "SystemAssigned,UserAssigned" })]
-        public string IdentityType { get => _parametersBody.IdentityType ?? null; set => _parametersBody.IdentityType = value; }
+        public string IdentityType { get => _parametersBody.IdentityType ?? null; set { _parametersBody.IdentityType = value; _bodyBackup.IdentityType = value; } }
 
         /// <summary>
         /// The set of user assigned identities associated with the resource. The userAssignedIdentities dictionary keys will be ARM
         /// resource ids in the form: '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}.
         /// The dictionary values can be empty objects ({}) in requests.
         /// </summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The set of user assigned identities associated with the resource. The userAssignedIdentities dictionary keys will be ARM resource ids in the form: '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}. The dictionary values can be empty objects ({}) in requests.",
         SerializedName = @"userAssignedIdentities",
         Aliases = new string[] { "identity-user-assigned-identity"},
         Enums = new string[] { })]
-        public Microsoft.Azure.PowerShell.Cmdlets.Databricks.Models.IUserAssignedIdentities IdentityUserAssignedIdentity { get => _parametersBody.IdentityUserAssignedIdentity ?? null /* object */; set => _parametersBody.IdentityUserAssignedIdentity = value; }
+        public Microsoft.Azure.PowerShell.Cmdlets.Databricks.Models.IUserAssignedIdentities IdentityUserAssignedIdentity { get => _parametersBody.IdentityUserAssignedIdentity ?? null /* object */; set { _parametersBody.IdentityUserAssignedIdentity = value; _bodyBackup.IdentityUserAssignedIdentity = value; } }
 
         /// <summary>
         /// <see cref="Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.IEventListener" /> cancellation delegate. Stops the cmdlet when called.
@@ -99,6 +105,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         SerializedName = @"resourceGroupName",
         Aliases = new string[] { "resource-group-name"},
         Enums = new string[] { })]
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Path)]
         public string ResourceGroupName { get => this._resourceGroupName; set => this._resourceGroupName = value; }
 
         /// <summary>Backing field for <see cref="SubscriptionId" /> property.</summary>
@@ -111,16 +118,18 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         SerializedName = @"subscriptionId",
         Aliases = new string[] { "subscription-id"},
         Enums = new string[] { })]
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Path)]
         public string SubscriptionId { get => this._subscriptionId; set => this._subscriptionId = value; }
 
         /// <summary>Resource tags.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"Resource tags.",
         SerializedName = @"tags",
         Aliases = new string[] { "tag"},
         Enums = new string[] { })]
-        public Microsoft.Azure.PowerShell.Cmdlets.Databricks.Models.IAccessConnectorUpdateTags Tag { get => _parametersBody.Tag ?? null /* object */; set => _parametersBody.Tag = value; }
+        public Microsoft.Azure.PowerShell.Cmdlets.Databricks.Models.IAccessConnectorUpdateTags Tag { get => _parametersBody.Tag ?? null /* object */; set { _parametersBody.Tag = value; _bodyBackup.Tag = value; } }
 
         /// <summary>
         /// <c>overrideOnDefault</c> will be called before the regular onDefault has been processed, allowing customization of what
@@ -184,17 +193,6 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
                     case Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.Events.Error:
                     {
                         return ;
-                    }
-                    case Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.Events.DelayBeforePolling:
-                    {
-                        var data = messageData();
-                        if (data.ResponseMessage is System.Net.Http.HttpResponseMessage response)
-                        {
-                            int delay = (int)(response.Headers.RetryAfter?.Delta?.TotalSeconds ?? 30);
-                            this.LogMessage($"Checking operation status.");
-                            await global::System.Threading.Tasks.Task.Delay(delay*1000, token);
-                        }
-                        break;
                     }
                 }
                 if (token.IsCancellationRequested)

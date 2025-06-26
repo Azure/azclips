@@ -53,6 +53,7 @@ flatten-userassignedidentity: false
 #   "@autorest/powershell": "3.x"
 
 directive:
+  - remove-operation: Workspaces_Update
   - from: swagger-document
     where: $.definitions.EncryptionV2
     transform: delete $.required

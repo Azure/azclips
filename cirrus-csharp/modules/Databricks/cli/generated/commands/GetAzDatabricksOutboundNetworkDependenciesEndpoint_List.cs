@@ -63,6 +63,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         SerializedName = @"resourceGroupName",
         Aliases = new string[] { "resource-group-name"},
         Enums = new string[] { })]
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Path)]
         public string ResourceGroupName { get => this._resourceGroupName; set => this._resourceGroupName = value; }
 
         /// <summary>Backing field for <see cref="SubscriptionId" /> property.</summary>
@@ -75,6 +76,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         SerializedName = @"subscriptionId",
         Aliases = new string[] { "subscription-id"},
         Enums = new string[] { })]
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Path)]
         public string SubscriptionId { get => this._subscriptionId; set => this._subscriptionId = value; }
 
         /// <summary>Backing field for <see cref="WorkspaceName" /> property.</summary>
@@ -87,6 +89,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         SerializedName = @"workspaceName",
         Aliases = new string[] { "workspace-name"},
         Enums = new string[] { })]
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Path)]
         public string WorkspaceName { get => this._workspaceName; set => this._workspaceName = value; }
 
         /// <summary>
