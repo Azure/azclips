@@ -79,13 +79,16 @@ When building plugins, the script will:
 
 ### Azure Aggregator Module
 
-The Azure aggregator module is automatically created when building multiple plugins. It provides a convenient way to import all Azure service modules with a single import statement.
+The Azure aggregator module is automatically created when building plugins or can be created independently. It provides a convenient way to import all Azure service modules with a single import statement.
 
 **Features:**
 
-- **Automatic Creation**: Generated when building multiple plugins
-- **RequiredModules**: Automatically includes all successfully built plugin modules and the Cirrus core module
+- **Automatic Creation**: Generated when building plugins or created on-demand
+- **Smart Module Detection**: Automatically scans OutputPSModules directory for all valid PowerShell modules
+- **Self-Exclusion**: Excludes the Azure module itself from RequiredModules to prevent circular dependencies
+- **RequiredModules**: Automatically includes all discovered plugin modules (excluding Azure itself)
 - **Convenience Import**: Import all Azure modules with one command
+- **Deterministic GUID**: Uses URI-based GUID generation for consistency
 - **Version**: Currently set to 0.1.0
 
 **Usage:**
@@ -93,6 +96,18 @@ The Azure aggregator module is automatically created when building multiple plug
 ```powershell
 # Import all Azure modules at once
 Import-Module "C:\PSModules\Azure\Azure.psd1"
+
+# Or if PSModules is in your module path
+Import-Module Azure
+```
+
+**Standalone Creation:**
+
+The Azure aggregator module can be created or updated independently without building any plugins:
+
+```powershell
+# Create/update Azure module by scanning existing modules
+.\modules\Cirrus\Build-PluginModule.ps1 -CreateAzureModuleOnly -OutputPSModules "C:\PSModules"
 ```
 
 ## Module Structure
@@ -159,10 +174,21 @@ Import-Module Databricks
 
 ### Build-PluginModule.ps1 Parameters
 
-- `-ComponentPath`: Path to single .plugin file (single mode)
-- `-ComponentsFolder`: Path to folder containing .plugin files (batch mode)
-- `-OutputPSModules`: Target directory for module output (required)
-- `-KeepHelpFolder`: Keep help directory after generation (default: false)
+**Parameter Sets:**
+
+The script supports three different parameter sets:
+
+1. **SingleComponent**: Build a single plugin module
+2. **MultipleComponents**: Build multiple plugin modules from a folder
+3. **AzureModuleOnly**: Create only the Azure aggregator module
+
+**Parameters:**
+
+- `-ComponentPath`: Path to single .plugin file (SingleComponent mode)
+- `-ComponentsFolder`: Path to folder containing .plugin files (MultipleComponents mode)
+- `-CreateAzureModuleOnly`: Create only the Azure aggregator module (AzureModuleOnly mode)
+- `-OutputPSModules`: Target directory for module output (required for all modes)
+- `-KeepHelpFolder`: Keep help directory after generation (default: false, available in SingleComponent and MultipleComponents modes)
 
 ## Troubleshooting
 
@@ -172,7 +198,45 @@ Import-Module Databricks
 2. **Build Failures**: Check that all dependencies are available and paths are correct
 3. **Help Generation Issues**: Ensure PlatyPS module is installed and up to date
 4. **Module Import Issues**: Verify that the OutputPSModules path is correct and accessible
+5. **Azure Module Circular Dependencies**: The Azure aggregator module automatically excludes itself from RequiredModules to prevent circular dependencies
 
 ### Debug Mode
 
 Use the `-KeepHelpFolder $true` parameter to preserve help directories for troubleshooting help generation issues.
+
+### Parameter Set Validation
+
+The Build-PluginModule.ps1 script uses PowerShell parameter sets to ensure correct usage:
+
+- Use either `-ComponentPath` OR `-ComponentsFolder` OR `-CreateAzureModuleOnly`
+- `-OutputPSModules` is required for all parameter sets
+- `-KeepHelpFolder` is only available when building components (not for Azure-only mode)
+
+## Advanced Usage
+
+### Regenerating Azure Aggregator Module
+
+If you add new plugin modules to your OutputPSModules directory, you can regenerate the Azure aggregator module without rebuilding all plugins:
+
+```powershell
+# Scan existing modules and update Azure aggregator
+.\modules\Cirrus\Build-PluginModule.ps1 -CreateAzureModuleOnly -OutputPSModules "C:\PSModules"
+```
+
+### Module Discovery
+
+The Azure aggregator module uses intelligent module discovery:
+
+1. Scans all subdirectories in OutputPSModules
+2. Validates that each directory contains a valid .psd1 manifest file
+3. Excludes the Azure directory itself to prevent circular dependencies
+4. Generates a RequiredModules list with all discovered valid modules
+
+### Batch Processing with Error Handling
+
+When building multiple plugins, the script provides robust error handling:
+
+- Continues processing remaining plugins if one fails
+- Provides detailed build summaries
+- Still creates Azure aggregator module even if some plugins fail
+- Reports success/failure counts for easy troubleshooting
