@@ -30,7 +30,7 @@ function Get-CirrusVersion {
     param()
     
     try {
-        $rustVersion = [Cirrus.Core.PSWrapper]::GetVersion()
+        $rustVersion = [Cirrus.Core.PSWrapper]::GetCirrusVersion()
         $isInitialized = [Cirrus.Core.PSWrapper]::IsInitialized
         
         [PSCustomObject]@{

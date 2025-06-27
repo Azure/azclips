@@ -1,9 +1,33 @@
+use std::ffi::CString;
+use std::os::raw::c_char;
 use std::str::FromStr;
 
 use az_core::{
     pb::{crs_interface, CrsCommand, CrsCommandGroup, CrsInterface},
     uri::CrsUri,
 };
+
+pub struct CmdletInfo {
+    pub uri: CrsUri,
+    pub synopsis: String,
+    pub description: Option<String>,
+}
+
+// C-compatible structure for direct array passing
+#[repr(C)]
+pub struct CCmdletInfo {
+    pub name: *mut c_char,
+    pub uri: *mut c_char,
+    pub synopsis: *mut c_char,
+    pub description: *mut c_char,
+}
+
+// C-compatible array structure
+#[repr(C)]
+pub struct CCmdletArray {
+    pub items: *mut CCmdletInfo,
+    pub count: usize,
+}
 
 pub fn retrieve_cmdlets(interface: &CrsInterface) -> Box<dyn Iterator<Item = CmdletInfo> + '_> {
     match interface.level.as_ref() {
@@ -25,12 +49,6 @@ fn retrieve_cmdlets_from_command_group(
         .flat_map(|nested_group| retrieve_cmdlets_from_command_group(nested_group));
 
     Box::new(commands_iter.chain(groups_iter))
-}
-
-pub struct CmdletInfo {
-    pub uri: CrsUri,
-    pub synopsis: String,
-    pub description: Option<String>,
 }
 
 impl From<&CrsCommand> for CmdletInfo {
@@ -68,6 +86,9 @@ impl CmdletInfo {
             "upgrade" => "Update",
             "list" => "Get",
             "get" => "Get",
+            "patch" => "Update",
+            "put" => "Set",
+            "set" => "Set",
             "show" => "Show", // TODO: need to combine the show and list for ps
             _ => "Invoke",
         };
@@ -100,4 +121,59 @@ fn to_camel_case(s: &str) -> String {
         None => String::new(),
         Some(first) => first.to_uppercase().collect::<String>() + &chars.as_str().to_lowercase(),
     }
+}
+
+/// Convert cmdlets to C array structure
+pub fn convert_cmdlets_to_c_array(cmdlets: Vec<CmdletInfo>) -> *mut CCmdletArray {
+    if cmdlets.is_empty() {
+        return Box::into_raw(Box::new(CCmdletArray {
+            items: std::ptr::null_mut(),
+            count: 0,
+        }));
+    }
+
+    let mut c_cmdlets = Vec::with_capacity(cmdlets.len());
+
+    for cmdlet in cmdlets {
+        let name_cstring = match CString::new(cmdlet.ps_name()) {
+            Ok(s) => s,
+            Err(_) => continue,
+        };
+        let uri_cstring = match CString::new(cmdlet.uri.to_string()) {
+            Ok(s) => s,
+            Err(_) => continue,
+        };
+        let synopsis_cstring = match CString::new(cmdlet.synopsis) {
+            Ok(s) => s,
+            Err(_) => match CString::new("") {
+                Ok(s) => s,
+                Err(_) => continue,
+            },
+        };
+        let description_cstring = match CString::new(cmdlet.description.unwrap_or_default()) {
+            Ok(s) => s,
+            Err(_) => match CString::new("") {
+                Ok(s) => s,
+                Err(_) => continue,
+            },
+        };
+
+        c_cmdlets.push(CCmdletInfo {
+            name: name_cstring.into_raw(),
+            uri: uri_cstring.into_raw(),
+            synopsis: synopsis_cstring.into_raw(),
+            description: description_cstring.into_raw(),
+        });
+    }
+
+    let count = c_cmdlets.len();
+    let items = c_cmdlets.into_boxed_slice();
+    let items_ptr = Box::into_raw(items) as *mut CCmdletInfo;
+
+    let array = Box::new(CCmdletArray {
+        items: items_ptr,
+        count,
+    });
+
+    Box::into_raw(array)
 }

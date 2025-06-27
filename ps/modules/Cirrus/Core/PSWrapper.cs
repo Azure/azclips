@@ -17,6 +17,15 @@ public class CmdletInfo
     public string Description { get; set; } = string.Empty;
 }
 
+/// <summary>
+/// Represents a plugin component information
+/// </summary>
+public class ComponentInfo
+{
+    public string Uri { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Version { get; set; } = string.Empty;
+}
 
 public static class PSWrapper
 {
@@ -106,6 +115,15 @@ public static class PSWrapper
     {
         public IntPtr Items;
         public UIntPtr Count;
+    }
+
+    // C-compatible structure for component info (internal use only)
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CComponentInfo
+    {
+        public IntPtr Uri;
+        public IntPtr Name;
+        public IntPtr Version;
     }
 
     // C-compatible argument structures for GetCommandArguments
@@ -506,6 +524,9 @@ public static class PSWrapper
     private static extern IntPtr cirrus_get_builtin_cmdlets();
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+    private static extern IntPtr cirrus_get_component_cmdlets(string uri);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
     private static extern void cirrus_free_cmdlet_array(IntPtr array);
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
@@ -522,6 +543,12 @@ public static class PSWrapper
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
     private static extern UIntPtr cirrus_get_arg_type_details_size();
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+    private static extern IntPtr cirrus_import_plugin_component(string path);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+    private static extern void cirrus_free_component_info(IntPtr info);
 
     /// <summary>
     /// Helper class for managing native memory allocations
@@ -1129,7 +1156,7 @@ public static class PSWrapper
     /// Get the version of the Cirrus library
     /// </summary>
     /// <returns>Version string</returns>
-    public static string GetVersion()
+    public static string GetCirrusVersion()
     {
         EnsureInitialized();
 
@@ -1161,42 +1188,7 @@ public static class PSWrapper
 
         try
         {
-            // Read the array structure
-            CCmdletArray array = Marshal.PtrToStructure<CCmdletArray>(arrayPtr);
-
-            if (array.Items == IntPtr.Zero || array.Count == UIntPtr.Zero)
-                return [];
-
-            int count = (int)array.Count;
-            CmdletInfo[] result = new CmdletInfo[count];
-
-            int structSize = Marshal.SizeOf<CCmdletInfo>();
-
-            for (int i = 0; i < count; i++)
-            {
-                IntPtr itemPtr = IntPtr.Add(array.Items, i * structSize);
-                CCmdletInfo item = Marshal.PtrToStructure<CCmdletInfo>(itemPtr);
-
-                string name = item.Name != IntPtr.Zero ? Marshal.PtrToStringAnsi(item.Name) ?? "" : "";
-                string uri = item.Uri != IntPtr.Zero ? Marshal.PtrToStringAnsi(item.Uri) ?? "" : "";
-                string synopsis = item.Synopsis != IntPtr.Zero ? Marshal.PtrToStringAnsi(item.Synopsis) ?? "" : "";
-                string description = item.Description != IntPtr.Zero ? Marshal.PtrToStringAnsi(item.Description) ?? "" : "";
-
-                result[i] = new CmdletInfo
-                {
-                    Name = name,
-                    Uri = uri,
-                    Synopsis = synopsis,
-                    Description = description
-                };
-            }
-
-            return result;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Failed to read cmdlet array: {ex.Message}");
-            return [];
+            return ConvertCmdletArray(arrayPtr);
         }
         finally
         {
@@ -1205,6 +1197,119 @@ public static class PSWrapper
                 cirrus_free_cmdlet_array(arrayPtr);
             }
         }
+    }
+
+    /// <summary>
+    /// Get cmdlets for a specific component
+    /// </summary>
+    /// <param name="uri">Component URI</param>
+    /// <returns>Array of cmdlet information</returns>
+    public static CmdletInfo[] GetComponentCmdlets(string uri)
+    {
+        EnsureInitialized();
+
+        if (string.IsNullOrEmpty(uri))
+            throw new ArgumentException("URI cannot be null or empty", nameof(uri));
+
+        IntPtr arrayPtr = cirrus_get_component_cmdlets(uri);
+        if (arrayPtr == IntPtr.Zero)
+            return [];
+
+        try
+        {
+            return ConvertCmdletArray(arrayPtr);
+        }
+        finally
+        {
+            if (arrayPtr != IntPtr.Zero)
+            {
+                cirrus_free_cmdlet_array(arrayPtr);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Import a plugin component from the specified path
+    /// </summary>
+    /// <param name="path">Path to the plugin component file</param>
+    /// <returns>Component information</returns>
+    public static ComponentInfo? ImportPluginComponent(string path)
+    {
+        EnsureInitialized();
+
+        if (string.IsNullOrEmpty(path))
+            throw new ArgumentException("Path cannot be null or empty", nameof(path));
+
+        IntPtr componentPtr = cirrus_import_plugin_component(path);
+        if (componentPtr == IntPtr.Zero)
+            return null;
+
+        try
+        {
+            // Read the component structure
+            CComponentInfo component = Marshal.PtrToStructure<CComponentInfo>(componentPtr);
+
+            string uri = component.Uri != IntPtr.Zero ? Marshal.PtrToStringAnsi(component.Uri) ?? "" : "";
+            string name = component.Name != IntPtr.Zero ? Marshal.PtrToStringAnsi(component.Name) ?? "" : "";
+            string version = component.Version != IntPtr.Zero ? Marshal.PtrToStringAnsi(component.Version) ?? "" : "";
+
+            return new ComponentInfo
+            {
+                Uri = uri,
+                Name = name,
+                Version = version
+            };
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to read component info: {ex.Message}");
+            return null;
+        }
+        finally
+        {
+            if (componentPtr != IntPtr.Zero)
+            {
+                cirrus_free_component_info(componentPtr);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Helper method to convert CCmdletArray to CmdletInfo[]
+    /// </summary>
+    private static CmdletInfo[] ConvertCmdletArray(IntPtr arrayPtr)
+    {
+        // Read the array structure
+        CCmdletArray array = Marshal.PtrToStructure<CCmdletArray>(arrayPtr);
+
+        if (array.Items == IntPtr.Zero || array.Count == UIntPtr.Zero)
+            return [];
+
+        int count = (int)array.Count;
+        CmdletInfo[] result = new CmdletInfo[count];
+
+        int structSize = Marshal.SizeOf<CCmdletInfo>();
+
+        for (int i = 0; i < count; i++)
+        {
+            IntPtr itemPtr = IntPtr.Add(array.Items, i * structSize);
+            CCmdletInfo item = Marshal.PtrToStructure<CCmdletInfo>(itemPtr);
+
+            string name = item.Name != IntPtr.Zero ? Marshal.PtrToStringAnsi(item.Name) ?? "" : "";
+            string uri = item.Uri != IntPtr.Zero ? Marshal.PtrToStringAnsi(item.Uri) ?? "" : "";
+            string synopsis = item.Synopsis != IntPtr.Zero ? Marshal.PtrToStringAnsi(item.Synopsis) ?? "" : "";
+            string description = item.Description != IntPtr.Zero ? Marshal.PtrToStringAnsi(item.Description) ?? "" : "";
+
+            result[i] = new CmdletInfo
+            {
+                Name = name,
+                Uri = uri,
+                Synopsis = synopsis,
+                Description = description
+            };
+        }
+
+        return result;
     }
 
     /// <summary>
@@ -1351,107 +1456,6 @@ public static class PSWrapper
             throw new PlatformNotSupportedException("Unsupported platform");
         }
     }
-
-    // /// <summary>
-    // /// Verify that C# structures have the expected sizes for proper alignment with Rust structures
-    // /// </summary>
-    // private static void VerifyStructureAlignment()
-    // {
-    //     try
-    //     {
-    //         // Log structure sizes for debugging
-    //         Console.WriteLine("=== Structure Alignment Verification ===");
-    //         Console.WriteLine($"CArgumentArray size: {Marshal.SizeOf<CArgumentArray>()} bytes");
-    //         // Console.WriteLine($"CArgType size: {Marshal.SizeOf<CArgType>()} bytes");
-
-    //         Console.WriteLine($"CArgumentInfo size: {Marshal.SizeOf<CArgumentInfo>()} bytes");
-    //         Console.WriteLine($"CArgEnumItem size: {Marshal.SizeOf<CArgEnumItem>()} bytes");
-    //         Console.WriteLine($"CArgEnum size: {Marshal.SizeOf<CArgEnum>()} bytes");
-    //         Console.WriteLine($"CStringArg size: {Marshal.SizeOf<CStringArg>()} bytes");
-    //         Console.WriteLine($"CNumberArg size: {Marshal.SizeOf<CNumberArg>()} bytes");
-    //         Console.WriteLine($"CBooleanArg size: {Marshal.SizeOf<CBooleanArg>()} bytes");
-    //         Console.WriteLine($"CAnyTypeArg size: {Marshal.SizeOf<CAnyTypeArg>()} bytes");
-    //         Console.WriteLine($"CObjectArgAdditionalProperties size: {Marshal.SizeOf<CObjectArgAdditionalProperties>()} bytes");
-    //         Console.WriteLine($"CObjectArg size: {Marshal.SizeOf<CObjectArg>()} bytes");
-    //         Console.WriteLine($"CArrayArg size: {Marshal.SizeOf<CArrayArg>()} bytes");
-    //         Console.WriteLine($"CClassArg size: {Marshal.SizeOf<CClassArg>()} bytes");
-    //         Console.WriteLine($"CArgTypeDetails size: {Marshal.SizeOf<CArgTypeDetails>()} bytes");
-    //         Console.WriteLine($"CStringFormat size: {Marshal.SizeOf<CStringFormat>()} bytes");
-    //         Console.WriteLine($"CStringFormatData size: {Marshal.SizeOf<CStringFormatData>()} bytes");
-    //         Console.WriteLine($"CStringFormatImpl size: {Marshal.SizeOf<CStringFormatImpl>()} bytes");
-    //         Console.WriteLine($"CBinaryFormatImpl size: {Marshal.SizeOf<CBinaryFormatImpl>()} bytes");
-    //         Console.WriteLine($"CByteFormatImpl size: {Marshal.SizeOf<CByteFormatImpl>()} bytes");
-    //         Console.WriteLine($"CDurationFormatImpl size: {Marshal.SizeOf<CDurationFormatImpl>()} bytes");
-    //         Console.WriteLine($"CDateFormatImpl size: {Marshal.SizeOf<CDateFormatImpl>()} bytes");
-    //         Console.WriteLine($"CTimeFormatImpl size: {Marshal.SizeOf<CTimeFormatImpl>()} bytes");
-    //         Console.WriteLine($"CDateTimeFormatImpl size: {Marshal.SizeOf<CDateTimeFormatImpl>()} bytes");
-    //         Console.WriteLine($"CUuidFormatImpl size: {Marshal.SizeOf<CUuidFormatImpl>()} bytes");
-    //         Console.WriteLine($"CPasswordFormatImpl size: {Marshal.SizeOf<CPasswordFormatImpl>()} bytes");
-    //         Console.WriteLine($"CSubscriptionIdFormatImpl size: {Marshal.SizeOf<CSubscriptionIdFormatImpl>()} bytes");
-    //         Console.WriteLine($"CResourceGroupNameFormatImpl size: {Marshal.SizeOf<CResourceGroupNameFormatImpl>()} bytes");
-    //         Console.WriteLine($"CResourceIdFormatImpl size: {Marshal.SizeOf<CResourceIdFormatImpl>()} bytes");
-    //         Console.WriteLine($"CResourceLocationFormatImpl size: {Marshal.SizeOf<CResourceLocationFormatImpl>()} bytes");
-    //         Console.WriteLine($"CNumberFormat size: {Marshal.SizeOf<CNumberFormat>()} bytes");
-    //         Console.WriteLine($"CNumberFormatData size: {Marshal.SizeOf<CNumberFormatData>()} bytes");
-    //         Console.WriteLine($"CInt32FormatImpl size: {Marshal.SizeOf<CInt32FormatImpl>()} bytes");
-    //         Console.WriteLine($"CInt64FormatImpl size: {Marshal.SizeOf<CInt64FormatImpl>()} bytes");
-    //         Console.WriteLine($"CUInt32FormatImpl size: {Marshal.SizeOf<CUInt32FormatImpl>()} bytes");
-    //         Console.WriteLine($"CUInt64FormatImpl size: {Marshal.SizeOf<CUInt64FormatImpl>()} bytes");
-    //         Console.WriteLine($"CFloatFormatImpl size: {Marshal.SizeOf<CFloatFormatImpl>()} bytes");
-    //         Console.WriteLine($"CDoubleFormatImpl size: {Marshal.SizeOf<CDoubleFormatImpl>()} bytes");
-    //         Console.WriteLine("==========================================");
-
-    //         // Verify critical structure sizes match between C# and Rust
-    //         int csharpArgumentInfoSize = Marshal.SizeOf<CArgumentInfo>();
-    //         int csharpArgTypeDetailsSize = Marshal.SizeOf<CArgTypeDetails>();
-
-    //         try
-    //         {
-    //             // Get sizes from Rust library for comparison
-    //             UIntPtr rustArgumentInfoSize = cirrus_get_argument_info_size();
-    //             UIntPtr rustArgTypeDetailsSize = cirrus_get_arg_type_details_size();
-
-    //             Console.WriteLine($"C# CArgumentInfo size: {csharpArgumentInfoSize} bytes");
-    //             Console.WriteLine($"Rust CArgumentInfo size: {rustArgumentInfoSize} bytes");
-    //             Console.WriteLine($"C# CArgTypeDetails size: {csharpArgTypeDetailsSize} bytes");
-    //             Console.WriteLine($"Rust CArgTypeDetails size: {rustArgTypeDetailsSize} bytes");
-
-    //             if (csharpArgumentInfoSize != (int)rustArgumentInfoSize)
-    //             {
-    //                 Console.WriteLine($"❌ WARNING: CArgumentInfo size mismatch! C#: {csharpArgumentInfoSize}, Rust: {rustArgumentInfoSize}");
-    //             }
-    //             else
-    //             {
-    //                 Console.WriteLine("✅ CArgumentInfo sizes match between C# and Rust");
-    //             }
-
-    //             if (csharpArgTypeDetailsSize != (int)rustArgTypeDetailsSize)
-    //             {
-    //                 Console.WriteLine($"❌ WARNING: CArgTypeDetails size mismatch! C#: {csharpArgTypeDetailsSize}, Rust: {rustArgTypeDetailsSize}");
-    //             }
-    //             else
-    //             {
-    //                 Console.WriteLine("✅ CArgTypeDetails sizes match between C# and Rust");
-    //             }
-    //         }
-    //         catch (Exception ex)
-    //         {
-    //             Console.WriteLine($"Could not verify against Rust sizes: {ex.Message}");
-
-    //             // Fallback to basic sanity checks
-    //             if (Environment.Is64BitProcess && csharpArgumentInfoSize < 80)
-    //             {
-    //                 Console.WriteLine($"Warning: CArgumentInfo size ({csharpArgumentInfoSize}) seems too small for 64-bit platform");
-    //             }
-    //         }
-
-    //         Console.WriteLine("Structure alignment verification completed");
-    //     }
-    //     catch (Exception ex)
-    //     {
-    //         Console.WriteLine($"Warning: Structure alignment verification failed: {ex.Message}");
-    //     }
-    // }
 
     /// <summary>
     /// Validate if CArgumentInfo appears to be valid (not corrupted)

@@ -5,26 +5,22 @@ pub mod param;
 
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
+use std::path::PathBuf;
+use std::str::FromStr;
 
 use argument::{
     convert_crs_arg_to_c_argument_info, free_c_argument_info, get_command_arguments_async,
     CArgumentArray, CArgumentInfo,
 };
+use az_core::uri::CrsUri;
+use cmdlet::{convert_cmdlets_to_c_array, CCmdletArray};
 
-// C-compatible structure for direct array passing
+// C-compatible structure for component info
 #[repr(C)]
-pub struct CCmdletInfo {
-    pub name: *mut c_char,
+pub struct CComponentInfo {
     pub uri: *mut c_char,
-    pub synopsis: *mut c_char,
-    pub description: *mut c_char,
-}
-
-// C-compatible array structure
-#[repr(C)]
-pub struct CCmdletArray {
-    pub items: *mut CCmdletInfo,
-    pub count: usize,
+    pub name: *mut c_char,
+    pub version: *mut c_char,
 }
 
 /// Initialize the Cirrus core library
@@ -35,6 +31,102 @@ pub extern "C" fn cirrus_initialize() -> i32 {
     0 // Success
 }
 
+#[no_mangle]
+pub extern "C" fn cirrus_import_plugin_component(path: *const c_char) -> *mut CComponentInfo {
+    if path.is_null() {
+        tracing::error!("Path pointer is null");
+        return std::ptr::null_mut();
+    }
+
+    let path_str = unsafe {
+        match CStr::from_ptr(path).to_str() {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::error!("Failed to parse path: {}", e);
+                return std::ptr::null_mut();
+            }
+        }
+    };
+
+    let path = PathBuf::from(path_str);
+    if !path.exists() || !path.is_file() {
+        tracing::error!("Path file {} does not exist", path.display());
+        return std::ptr::null_mut();
+    }
+
+    let result = std::panic::catch_unwind(|| {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            match core::import_plugin_component(path).await {
+                Ok((uri, name, version)) => {
+                    let uri_cstring = match CString::new(uri.to_string()) {
+                        Ok(s) => s,
+                        Err(e) => {
+                            tracing::error!("Failed to create CString for URI: {}", e);
+                            return std::ptr::null_mut();
+                        }
+                    };
+                    let name_cstring = match CString::new(name) {
+                        Ok(s) => s,
+                        Err(e) => {
+                            tracing::error!("Failed to create CString for name: {}", e);
+                            return std::ptr::null_mut();
+                        }
+                    };
+                    let version_cstring = match CString::new(version) {
+                        Ok(s) => s,
+                        Err(e) => {
+                            tracing::error!("Failed to create CString for version: {}", e);
+                            return std::ptr::null_mut();
+                        }
+                    };
+
+                    let component_info = CComponentInfo {
+                        uri: uri_cstring.into_raw(),
+                        name: name_cstring.into_raw(),
+                        version: version_cstring.into_raw(),
+                    };
+                    Box::into_raw(Box::new(component_info))
+                }
+                Err(e) => {
+                    tracing::error!("Failed to import plugin component: {}", e);
+                    std::ptr::null_mut()
+                }
+            }
+        })
+    });
+
+    match result {
+        Ok(component_ptr) => component_ptr,
+        Err(_) => {
+            tracing::error!("Panic occurred while importing plugin component");
+            std::ptr::null_mut()
+        }
+    }
+}
+
+/// Free the component info memory
+#[no_mangle]
+pub extern "C" fn cirrus_free_component_info(info: *mut CComponentInfo) {
+    if info.is_null() {
+        return;
+    }
+
+    unsafe {
+        let info = Box::from_raw(info);
+
+        if !info.uri.is_null() {
+            let _ = CString::from_raw(info.uri);
+        }
+        if !info.name.is_null() {
+            let _ = CString::from_raw(info.name);
+        }
+        if !info.version.is_null() {
+            let _ = CString::from_raw(info.version);
+        }
+    }
+}
+
 /// Get the builtin cmdlets as C struct array
 #[no_mangle]
 pub extern "C" fn cirrus_get_builtin_cmdlets() -> *mut CCmdletArray {
@@ -42,53 +134,7 @@ pub extern "C" fn cirrus_get_builtin_cmdlets() -> *mut CCmdletArray {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
             match core::builtin_cmdlets().await {
-                Ok(cmdlets) => {
-                    let mut c_cmdlets = Vec::with_capacity(cmdlets.len());
-
-                    for cmdlet in cmdlets {
-                        let name_cstring = match CString::new(cmdlet.ps_name()) {
-                            Ok(s) => s,
-                            Err(_) => continue,
-                        };
-                        let uri_cstring = match CString::new(cmdlet.uri.to_string()) {
-                            Ok(s) => s,
-                            Err(_) => continue,
-                        };
-                        let synopsis_cstring = match CString::new(cmdlet.synopsis) {
-                            Ok(s) => s,
-                            Err(_) => match CString::new("") {
-                                Ok(s) => s,
-                                Err(_) => continue,
-                            },
-                        };
-                        let description_cstring =
-                            match CString::new(cmdlet.description.unwrap_or_default()) {
-                                Ok(s) => s,
-                                Err(_) => match CString::new("") {
-                                    Ok(s) => s,
-                                    Err(_) => continue,
-                                },
-                            };
-
-                        c_cmdlets.push(CCmdletInfo {
-                            name: name_cstring.into_raw(),
-                            uri: uri_cstring.into_raw(),
-                            synopsis: synopsis_cstring.into_raw(),
-                            description: description_cstring.into_raw(),
-                        });
-                    }
-
-                    let count = c_cmdlets.len();
-                    let items = c_cmdlets.into_boxed_slice();
-                    let items_ptr = Box::into_raw(items) as *mut CCmdletInfo;
-
-                    let array = Box::new(CCmdletArray {
-                        items: items_ptr,
-                        count,
-                    });
-
-                    Box::into_raw(array)
-                }
+                Ok(cmdlets) => convert_cmdlets_to_c_array(cmdlets),
                 Err(e) => {
                     tracing::error!("Failed to get builtin cmdlets: {}", e);
                     std::ptr::null_mut()
@@ -101,6 +147,55 @@ pub extern "C" fn cirrus_get_builtin_cmdlets() -> *mut CCmdletArray {
         Ok(array_ptr) => array_ptr,
         Err(_) => {
             tracing::error!("Panic occurred while getting builtin cmdlets array");
+            std::ptr::null_mut()
+        }
+    }
+}
+
+/// Get the cmdlets of the component as C struct array
+#[no_mangle]
+pub extern "C" fn cirrus_get_component_cmdlets(uri: *const c_char) -> *mut CCmdletArray {
+    if uri.is_null() {
+        tracing::error!("URI pointer is null");
+        return std::ptr::null_mut();
+    }
+
+    // Parse URI
+    let uri_str = unsafe {
+        match CStr::from_ptr(uri).to_str() {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::error!("Failed to parse URI: {}", e);
+                return std::ptr::null_mut();
+            }
+        }
+    };
+
+    let uri = match CrsUri::from_str(uri_str) {
+        Ok(uri) => uri,
+        Err(e) => {
+            tracing::error!("Failed to parse URI: {}", e);
+            return std::ptr::null_mut();
+        }
+    };
+
+    let result = std::panic::catch_unwind(|| {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            match core::component_cmdlets(uri).await {
+                Ok(cmdlets) => convert_cmdlets_to_c_array(cmdlets),
+                Err(e) => {
+                    tracing::error!("Failed to get component cmdlets: {}", e);
+                    std::ptr::null_mut()
+                }
+            }
+        })
+    });
+
+    match result {
+        Ok(array_ptr) => array_ptr,
+        Err(_) => {
+            tracing::error!("Panic occurred while getting component cmdlets array");
             std::ptr::null_mut()
         }
     }
@@ -166,6 +261,14 @@ pub extern "C" fn cirrus_run_command(
         }
     };
 
+    let uri = match CrsUri::from_str(uri_str) {
+        Ok(uri) => uri,
+        Err(e) => {
+            tracing::error!("Failed to parse URI: {}", e);
+            return std::ptr::null_mut();
+        }
+    };
+
     // Convert parameters with enhanced error handling
     let mut parameters = Vec::new();
 
@@ -217,7 +320,7 @@ pub extern "C" fn cirrus_run_command(
     // Execute command with better error handling
     let result = match std::panic::catch_unwind(|| {
         let rt = tokio::runtime::Runtime::new().unwrap();
-        rt.block_on(async { core::execute_command(uri_str, parameters).await })
+        rt.block_on(async { core::execute_command(uri, parameters).await })
     }) {
         Ok(result) => result,
         Err(_) => {

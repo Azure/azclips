@@ -1,5 +1,5 @@
 use serde_json::Value;
-use std::str::FromStr;
+use std::path::PathBuf;
 use strum::IntoEnumIterator;
 use tracing::info;
 
@@ -17,11 +17,10 @@ pub async fn initialize() {
 
 // Asynchronous command execution function
 pub async fn execute_command(
-    uri: &str,
+    uri: CrsUri,
     parameters: Vec<(String, Value)>,
 ) -> Result<Option<Value>, AzError> {
     let core = AzCore::instance().await;
-    let uri = CrsUri::from_str(uri).unwrap();
     let invocation = core.resolve_invocation(uri).await?;
 
     let mut cmd_value_ops: Vec<ArgValueAssignOp> = Vec::new();
@@ -42,6 +41,24 @@ pub async fn execute_command(
     }
 
     core.execute_command(&invocation, cmd_value_ops).await
+}
+
+pub async fn import_plugin_component(path: PathBuf) -> Result<(CrsUri, String, String), AzError> {
+    let core = AzCore::instance().await;
+    let (uri, name, version) = core.load_plugin_component(path).await?;
+    Ok((uri, name, version))
+}
+
+pub async fn component_cmdlets(uri: CrsUri) -> Result<Vec<CmdletInfo>, AzError> {
+    let core = AzCore::instance().await;
+
+    let mut cmdlets = Vec::new();
+    let interface = core.get_component_interface(&uri).await?;
+    for cmdlet in retrieve_cmdlets(&interface) {
+        cmdlets.push(cmdlet);
+    }
+
+    Ok(cmdlets)
 }
 
 pub async fn builtin_cmdlets() -> Result<Vec<CmdletInfo>, AzError> {
