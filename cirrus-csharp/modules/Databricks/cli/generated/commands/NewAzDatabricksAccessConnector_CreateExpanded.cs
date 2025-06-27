@@ -204,6 +204,17 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
                     {
                         return ;
                     }
+                    case Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.Events.DelayBeforePolling:
+                    {
+                        var data = messageData();
+                        if (data.ResponseMessage is System.Net.Http.HttpResponseMessage response)
+                        {
+                            int delay = (int)(response.Headers.RetryAfter?.Delta?.TotalSeconds ?? 30);
+                            this.LogMessage($"Checking operation status.");
+                            await global::System.Threading.Tasks.Task.Delay(delay*1000, token);
+                        }
+                        break;
+                    }
                 }
                 if (token.IsCancellationRequested)
                 {

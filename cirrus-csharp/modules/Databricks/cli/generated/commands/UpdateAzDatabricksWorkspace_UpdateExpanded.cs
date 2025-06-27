@@ -629,6 +629,17 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
                     {
                         return ;
                     }
+                    case Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.Events.DelayBeforePolling:
+                    {
+                        var data = messageData();
+                        if (data.ResponseMessage is System.Net.Http.HttpResponseMessage response)
+                        {
+                            int delay = (int)(response.Headers.RetryAfter?.Delta?.TotalSeconds ?? 30);
+                            this.LogMessage($"Checking operation status.");
+                            await global::System.Threading.Tasks.Task.Delay(delay*1000, token);
+                        }
+                        break;
+                    }
                 }
                 if (token.IsCancellationRequested)
                 {
@@ -657,9 +668,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
                     this.LogMessage("Starting call to Client API");
                     _parametersBody = await this.Client.WorkspacesGetWithResult(SubscriptionId, ResourceGroupName, Name, this, Pipeline);
                     this.Update_parametersBody();
-                    string msg = _parametersBody.ToJson().ToString();
-                    this.LogMessage($"####################{msg}####################");
-                    await this.Client.WorkspacesCreateOrUpdate(SubscriptionId, ResourceGroupName, Name, _parametersBody, onOk, onDefault, this, Pipeline, Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.SerializationMode.IncludeCreate | Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.SerializationMode.IncludeUpdate);
+                    await this.Client.WorkspacesCreateOrUpdate(SubscriptionId, ResourceGroupName, Name, _parametersBody, onOk, onDefault, this, Pipeline, Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.SerializationMode.IncludeCreate|Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.SerializationMode.IncludeUpdate);
                     await ((Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.IEventListener)this).Signal(Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.Events.CmdletAfterAPICall); if( ((Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.IEventListener)this).Token.IsCancellationRequested ) { return; }
                     this.LogMessage("Completed Process method");
                 }
@@ -686,227 +695,182 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         {
             if (null != _bodyBackup?.Tag)
             {
-                this.LogMessage("updating _parametersBody.Tag from _bodyBackup.Tag");
                 _parametersBody.Tag = _bodyBackup?.Tag;
             }
             if (null != _bodyBackup?.SkuName)
             {
-                this.LogMessage("updating _parametersBody.SkuName from _bodyBackup.SkuName");
                 _parametersBody.SkuName = _bodyBackup?.SkuName;
             }
             if (null != _bodyBackup?.SkuTier)
             {
-                this.LogMessage("updating _parametersBody.SkuTier from _bodyBackup.SkuTier");
                 _parametersBody.SkuTier = _bodyBackup?.SkuTier;
             }
             if (null != _bodyBackup?.ManagedResourceGroupId)
             {
-                this.LogMessage("updating _parametersBody.ManagedResourceGroupId from _bodyBackup.ManagedResourceGroupId");
                 _parametersBody.ManagedResourceGroupId = _bodyBackup?.ManagedResourceGroupId;
             }
             if (null != _bodyBackup?.UiDefinitionUri)
             {
-                this.LogMessage("updating _parametersBody.UiDefinitionUri from _bodyBackup.UiDefinitionUri");
                 _parametersBody.UiDefinitionUri = _bodyBackup?.UiDefinitionUri;
             }
             if (null != _bodyBackup?.Authorization)
             {
-                this.LogMessage("updating _parametersBody.Authorization from _bodyBackup.Authorization");
                 _parametersBody.Authorization = _bodyBackup?.Authorization;
             }
             if (null != _bodyBackup?.PublicNetworkAccess)
             {
-                this.LogMessage("updating _parametersBody.PublicNetworkAccess from _bodyBackup.PublicNetworkAccess");
                 _parametersBody.PublicNetworkAccess = _bodyBackup?.PublicNetworkAccess;
             }
             if (null != _bodyBackup?.RequiredNsgRule)
             {
-                this.LogMessage("updating _parametersBody.RequiredNsgRule from _bodyBackup.RequiredNsgRule");
                 _parametersBody.RequiredNsgRule = _bodyBackup?.RequiredNsgRule;
             }
             if (null != _bodyBackup?.DefaultStorageFirewall)
             {
-                this.LogMessage("updating _parametersBody.DefaultStorageFirewall from _bodyBackup.DefaultStorageFirewall");
                 _parametersBody.DefaultStorageFirewall = _bodyBackup?.DefaultStorageFirewall;
             }
             if (null != _bodyBackup?.DefaultCatalogInitialType)
             {
-                this.LogMessage("updating _parametersBody.DefaultCatalogInitialType from _bodyBackup.DefaultCatalogInitialType");
                 _parametersBody.DefaultCatalogInitialType = _bodyBackup?.DefaultCatalogInitialType;
             }
             if (null != _bodyBackup?.AccessConnectorIdentityType)
             {
-                this.LogMessage("updating _parametersBody.AccessConnectorIdentityType from _bodyBackup.AccessConnectorIdentityType");
                 _parametersBody.AccessConnectorIdentityType = _bodyBackup?.AccessConnectorIdentityType;
             }
             if (null != _bodyBackup?.AutomaticClusterUpdateValue)
             {
-                this.LogMessage("updating _parametersBody.AutomaticClusterUpdateValue from _bodyBackup.AutomaticClusterUpdateValue");
                 _parametersBody.AutomaticClusterUpdateValue = _bodyBackup?.AutomaticClusterUpdateValue;
             }
             if (null != _bodyBackup?.ComplianceSecurityProfileValue)
             {
-                this.LogMessage("updating _parametersBody.ComplianceSecurityProfileValue from _bodyBackup.ComplianceSecurityProfileValue");
                 _parametersBody.ComplianceSecurityProfileValue = _bodyBackup?.ComplianceSecurityProfileValue;
             }
             if (null != _bodyBackup?.EnhancedSecurityMonitoringValue)
             {
-                this.LogMessage("updating _parametersBody.EnhancedSecurityMonitoringValue from _bodyBackup.EnhancedSecurityMonitoringValue");
                 _parametersBody.EnhancedSecurityMonitoringValue = _bodyBackup?.EnhancedSecurityMonitoringValue;
             }
             if (null != _bodyBackup?.DefaultCatalogInitialName)
             {
-                this.LogMessage("updating _parametersBody.DefaultCatalogInitialName from _bodyBackup.DefaultCatalogInitialName");
                 _parametersBody.DefaultCatalogInitialName = _bodyBackup?.DefaultCatalogInitialName;
             }
             if (null != _bodyBackup?.AccessConnectorId)
             {
-                this.LogMessage("updating _parametersBody.AccessConnectorId from _bodyBackup.AccessConnectorId");
                 _parametersBody.AccessConnectorId = _bodyBackup?.AccessConnectorId;
             }
             if (null != _bodyBackup?.AccessConnectorUserAssignedIdentityId)
             {
-                this.LogMessage("updating _parametersBody.AccessConnectorUserAssignedIdentityId from _bodyBackup.AccessConnectorUserAssignedIdentityId");
                 _parametersBody.AccessConnectorUserAssignedIdentityId = _bodyBackup?.AccessConnectorUserAssignedIdentityId;
             }
             if (null != _bodyBackup?.AmlWorkspaceIdValue)
             {
-                this.LogMessage("updating _parametersBody.AmlWorkspaceIdValue from _bodyBackup.AmlWorkspaceIdValue");
                 _parametersBody.AmlWorkspaceIdValue = _bodyBackup?.AmlWorkspaceIdValue;
             }
             if (null != _bodyBackup?.CustomVirtualNetworkIdValue)
             {
-                this.LogMessage("updating _parametersBody.CustomVirtualNetworkIdValue from _bodyBackup.CustomVirtualNetworkIdValue");
                 _parametersBody.CustomVirtualNetworkIdValue = _bodyBackup?.CustomVirtualNetworkIdValue;
             }
             if (null != _bodyBackup?.CustomPublicSubnetNameValue)
             {
-                this.LogMessage("updating _parametersBody.CustomPublicSubnetNameValue from _bodyBackup.CustomPublicSubnetNameValue");
                 _parametersBody.CustomPublicSubnetNameValue = _bodyBackup?.CustomPublicSubnetNameValue;
             }
             if (null != _bodyBackup?.CustomPrivateSubnetNameValue)
             {
-                this.LogMessage("updating _parametersBody.CustomPrivateSubnetNameValue from _bodyBackup.CustomPrivateSubnetNameValue");
                 _parametersBody.CustomPrivateSubnetNameValue = _bodyBackup?.CustomPrivateSubnetNameValue;
             }
             if (null != _bodyBackup?.EnableNoPublicIPValue)
             {
-                this.LogMessage("updating _parametersBody.EnableNoPublicIPValue from _bodyBackup.EnableNoPublicIPValue");
                 _parametersBody.EnableNoPublicIPValue = _bodyBackup?.EnableNoPublicIPValue;
             }
             if (null != _bodyBackup?.LoadBalancerBackendPoolNameValue)
             {
-                this.LogMessage("updating _parametersBody.LoadBalancerBackendPoolNameValue from _bodyBackup.LoadBalancerBackendPoolNameValue");
                 _parametersBody.LoadBalancerBackendPoolNameValue = _bodyBackup?.LoadBalancerBackendPoolNameValue;
             }
             if (null != _bodyBackup?.LoadBalancerIdValue)
             {
-                this.LogMessage("updating _parametersBody.LoadBalancerIdValue from _bodyBackup.LoadBalancerIdValue");
                 _parametersBody.LoadBalancerIdValue = _bodyBackup?.LoadBalancerIdValue;
             }
             if (null != _bodyBackup?.NatGatewayNameValue)
             {
-                this.LogMessage("updating _parametersBody.NatGatewayNameValue from _bodyBackup.NatGatewayNameValue");
                 _parametersBody.NatGatewayNameValue = _bodyBackup?.NatGatewayNameValue;
             }
             if (null != _bodyBackup?.PublicIPNameValue)
             {
-                this.LogMessage("updating _parametersBody.PublicIPNameValue from _bodyBackup.PublicIPNameValue");
                 _parametersBody.PublicIPNameValue = _bodyBackup?.PublicIPNameValue;
             }
             if (null != _bodyBackup?.PrepareEncryptionValue)
             {
-                this.LogMessage("updating _parametersBody.PrepareEncryptionValue from _bodyBackup.PrepareEncryptionValue");
                 _parametersBody.PrepareEncryptionValue = _bodyBackup?.PrepareEncryptionValue;
             }
             if (null != _bodyBackup?.ValueKeySource)
             {
-                this.LogMessage("updating _parametersBody.ValueKeySource from _bodyBackup.ValueKeySource");
                 _parametersBody.ValueKeySource = _bodyBackup?.ValueKeySource;
             }
             if (null != _bodyBackup?.RequireInfrastructureEncryptionValue)
             {
-                this.LogMessage("updating _parametersBody.RequireInfrastructureEncryptionValue from _bodyBackup.RequireInfrastructureEncryptionValue");
                 _parametersBody.RequireInfrastructureEncryptionValue = _bodyBackup?.RequireInfrastructureEncryptionValue;
             }
             if (null != _bodyBackup?.StorageAccountNameValue)
             {
-                this.LogMessage("updating _parametersBody.StorageAccountNameValue from _bodyBackup.StorageAccountNameValue");
                 _parametersBody.StorageAccountNameValue = _bodyBackup?.StorageAccountNameValue;
             }
             if (null != _bodyBackup?.StorageAccountSkuNameValue)
             {
-                this.LogMessage("updating _parametersBody.StorageAccountSkuNameValue from _bodyBackup.StorageAccountSkuNameValue");
                 _parametersBody.StorageAccountSkuNameValue = _bodyBackup?.StorageAccountSkuNameValue;
             }
             if (null != _bodyBackup?.VnetAddressPrefixValue)
             {
-                this.LogMessage("updating _parametersBody.VnetAddressPrefixValue from _bodyBackup.VnetAddressPrefixValue");
                 _parametersBody.VnetAddressPrefixValue = _bodyBackup?.VnetAddressPrefixValue;
             }
             if (null != _bodyBackup?.ComplianceSecurityProfileComplianceStandard)
             {
-                this.LogMessage("updating _parametersBody.ComplianceSecurityProfileComplianceStandard from _bodyBackup.ComplianceSecurityProfileComplianceStandard");
                 _parametersBody.ComplianceSecurityProfileComplianceStandard = _bodyBackup?.ComplianceSecurityProfileComplianceStandard;
             }
             if (null != _bodyBackup?.ValueKeyName)
             {
-                this.LogMessage("updating _parametersBody.ValueKeyName from _bodyBackup.ValueKeyName");
                 _parametersBody.ValueKeyName = _bodyBackup?.ValueKeyName;
             }
             if (null != _bodyBackup?.ValueKeyVersion)
             {
-                this.LogMessage("updating _parametersBody.ValueKeyVersion from _bodyBackup.ValueKeyVersion");
                 _parametersBody.ValueKeyVersion = _bodyBackup?.ValueKeyVersion;
             }
             if (null != _bodyBackup?.ValueKeyVaultUri)
             {
-                this.LogMessage("updating _parametersBody.ValueKeyVaultUri from _bodyBackup.ValueKeyVaultUri");
                 _parametersBody.ValueKeyVaultUri = _bodyBackup?.ValueKeyVaultUri;
             }
             if (null != _bodyBackup?.ManagedServiceKeySource)
             {
-                this.LogMessage("updating _parametersBody.ManagedServiceKeySource from _bodyBackup.ManagedServiceKeySource");
                 _parametersBody.ManagedServiceKeySource = _bodyBackup?.ManagedServiceKeySource;
             }
             if (null != _bodyBackup?.ManagedDiskKeySource)
             {
-                this.LogMessage("updating _parametersBody.ManagedDiskKeySource from _bodyBackup.ManagedDiskKeySource");
                 _parametersBody.ManagedDiskKeySource = _bodyBackup?.ManagedDiskKeySource;
             }
             if (null != _bodyBackup?.ManagedDiskRotationToLatestKeyVersionEnabled)
             {
-                this.LogMessage("updating _parametersBody.ManagedDiskRotationToLatestKeyVersionEnabled from _bodyBackup.ManagedDiskRotationToLatestKeyVersionEnabled");
                 _parametersBody.ManagedDiskRotationToLatestKeyVersionEnabled = _bodyBackup?.ManagedDiskRotationToLatestKeyVersionEnabled;
             }
             if (null != _bodyBackup?.ManagedServicesKeyVaultPropertiesKeyVaultUri)
             {
-                this.LogMessage("updating _parametersBody.ManagedServicesKeyVaultPropertiesKeyVaultUri from _bodyBackup.ManagedServicesKeyVaultPropertiesKeyVaultUri");
                 _parametersBody.ManagedServicesKeyVaultPropertiesKeyVaultUri = _bodyBackup?.ManagedServicesKeyVaultPropertiesKeyVaultUri;
             }
             if (null != _bodyBackup?.ManagedServicesKeyVaultPropertiesKeyName)
             {
-                this.LogMessage("updating _parametersBody.ManagedServicesKeyVaultPropertiesKeyName from _bodyBackup.ManagedServicesKeyVaultPropertiesKeyName");
                 _parametersBody.ManagedServicesKeyVaultPropertiesKeyName = _bodyBackup?.ManagedServicesKeyVaultPropertiesKeyName;
             }
             if (null != _bodyBackup?.ManagedServicesKeyVaultPropertiesKeyVersion)
             {
-                this.LogMessage("updating _parametersBody.ManagedServicesKeyVaultPropertiesKeyVersion from _bodyBackup.ManagedServicesKeyVaultPropertiesKeyVersion");
                 _parametersBody.ManagedServicesKeyVaultPropertiesKeyVersion = _bodyBackup?.ManagedServicesKeyVaultPropertiesKeyVersion;
             }
             if (null != _bodyBackup?.ManagedDiskKeyVaultPropertiesKeyVaultUri)
             {
-                this.LogMessage("updating _parametersBody.ManagedDiskKeyVaultPropertiesKeyVaultUri from _bodyBackup.ManagedDiskKeyVaultPropertiesKeyVaultUri");
                 _parametersBody.ManagedDiskKeyVaultPropertiesKeyVaultUri = _bodyBackup?.ManagedDiskKeyVaultPropertiesKeyVaultUri;
             }
             if (null != _bodyBackup?.ManagedDiskKeyVaultPropertiesKeyName)
             {
-                this.LogMessage("updating _parametersBody.ManagedDiskKeyVaultPropertiesKeyName from _bodyBackup.ManagedDiskKeyVaultPropertiesKeyName");
                 _parametersBody.ManagedDiskKeyVaultPropertiesKeyName = _bodyBackup?.ManagedDiskKeyVaultPropertiesKeyName;
             }
             if (null != _bodyBackup?.ManagedDiskKeyVaultPropertiesKeyVersion)
             {
-                this.LogMessage("updating _parametersBody.ManagedDiskKeyVaultPropertiesKeyVersion from _bodyBackup.ManagedDiskKeyVaultPropertiesKeyVersion");
                 _parametersBody.ManagedDiskKeyVaultPropertiesKeyVersion = _bodyBackup?.ManagedDiskKeyVaultPropertiesKeyVersion;
             }
         }
