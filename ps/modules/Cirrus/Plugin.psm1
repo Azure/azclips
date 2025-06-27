@@ -22,11 +22,6 @@ try {
         if (![string]::IsNullOrEmpty($allFunctionScripts)) {
             # Check if external help file exists
             $helpFilePath = Join-Path $PSScriptRoot "$($script:ModuleName)-help.xml"
-            if (Test-Path $helpFilePath) {
-                Write-Host "✓ Found external help file: $($script:ModuleName)-help.xml" -ForegroundColor Green
-            } else {
-                Write-Host "○ No external help file found, using inline help" -ForegroundColor Yellow
-            }
             
             # Execute all function definitions at once
             Invoke-Expression $allFunctionScripts
