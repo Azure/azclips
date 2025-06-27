@@ -1030,7 +1030,7 @@ public static class PSWrapper
     /// <param name="uri">Command URI</param>
     /// <param name="parameters">Parameters as key-value pairs array</param>
     /// <returns>Result in JSON format</returns>
-    public static string RunCommand(string uri, KeyValuePair<string, object>[]? parameters = null)
+    public static string RunCommand(string uri, KeyValuePair<string, object?>[]? parameters = null)
     {
         EnsureInitialized();
 

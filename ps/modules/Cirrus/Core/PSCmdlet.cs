@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Management.Automation;
 using System.Text;
 using System.Collections;
+using System.Text.Json;
 
 namespace Cirrus.Core;
 
@@ -254,28 +255,59 @@ public static class PSCmdlet
     /// <returns>The result object to be output to PowerShell pipeline</returns>
     public static object ExecuteCommand(string uri, IDictionary parameters)
     {
-        // Display execution information
-        WriteColoredMessage($"URI: {uri}", "Yellow");
+        // Get command arguments from the URI
+        CrsArg[] args = PSWrapper.GetCommandArguments(uri);
+
+        // Create a dictionary for efficient parameter name lookup
+        var parameterNameToArgMap = new Dictionary<string, CrsArg>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var arg in args)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(arg.Name))
+                {
+                    string parameterName = arg.GetParameterName();
+                    if (!string.IsNullOrEmpty(parameterName))
+                    {
+                        parameterNameToArgMap[parameterName] = arg;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error getting parameter name for arg '{arg.Name}': {ex.Message}");
+            }
+        }
+
+        // Convert PowerShell parameter names to arg names
+        var convertedParameters = new Hashtable();
 
         if (parameters != null && parameters.Count > 0)
         {
-            WriteColoredMessage("Parameters received:", "Green");
             foreach (DictionaryEntry param in parameters)
             {
-                WriteColoredMessage($"  {param.Key} = {param.Value}", "White");
+                string paramKey = param.Key?.ToString() ?? "";
+
+                // Direct lookup in the dictionary for efficient matching
+                if (parameterNameToArgMap.TryGetValue(paramKey, out CrsArg? matchingArg) && !string.IsNullOrEmpty(matchingArg.Name))
+                {
+                    convertedParameters[matchingArg.Name] = param.Value;
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"No matching arg found for parameter '{paramKey}'");
+                }
             }
         }
-        else
-        {
-            WriteColoredMessage("No parameters provided", "Gray");
-        }
 
-        // Create and return a PSObject with proper TypeName
-        var result = CreateResultObject(uri, parameters);
+        var paramArray = convertedParameters.Cast<DictionaryEntry>()
+            .Select(entry => new KeyValuePair<string, object?>(entry.Key.ToString()!, entry.Value))
+            .ToArray();
 
-        WriteColoredMessage("=== Command Executed ===", "Cyan");
+        string commandResult = PSWrapper.RunCommand(uri, paramArray);
 
-        return result;
+        return CreateResultObject(commandResult);
     }
 
 
@@ -348,48 +380,130 @@ public static class PSCmdlet
     }
 
     /// <summary>
-    /// Creates a PSObject result with custom TypeName based on the URI and parameters
+    /// Creates a PSObject result from JSON result string
     /// </summary>
-    /// <param name="uri">The command URI</param>
-    /// <param name="parameters">The PowerShell bound parameters</param>
-    /// <returns>A PSObject with custom TypeName</returns>
-    private static PSObject CreateResultObject(string uri, IDictionary parameters)
+    /// <param name="jsonResult">The JSON result string to convert</param>
+    /// <returns>A PSObject representation of the JSON</returns>
+    private static PSObject CreateResultObject(string jsonResult)
     {
-        // Create a PSObject with properties
-        var result = new PSObject();
-        string typeName = $"CirruResult";
-        result.TypeNames.Insert(0, typeName);
-
-        // Add basic properties
-        result.Properties.Add(new PSNoteProperty("Uri", uri));
-        result.Properties.Add(new PSNoteProperty("Timestamp", DateTime.UtcNow));
-        result.Properties.Add(new PSNoteProperty("Success", true));
-        result.Properties.Add(new PSNoteProperty("Id", Guid.NewGuid().ToString()));
-
-        // Add parameters as a hashtable property
-        if (parameters != null && parameters.Count > 0)
+        try
         {
-            var paramHash = new Hashtable();
-            foreach (DictionaryEntry param in parameters)
+            // Handle empty or null JSON result
+            if (string.IsNullOrWhiteSpace(jsonResult))
             {
-                paramHash[param.Key] = param.Value;
-            }
-            result.Properties.Add(new PSNoteProperty("Parameters", paramHash));
-
-            // Add Location if provided in parameters
-            if (parameters.Contains("Location"))
-            {
-                result.Properties.Add(new PSNoteProperty("Location", parameters["Location"]));
+                return new PSObject();
             }
 
-            // Add ResourceName if provided in parameters
-            if (parameters.Contains("ResourceName"))
+            // Parse JSON and convert to PSObject
+            using (JsonDocument document = JsonDocument.Parse(jsonResult))
             {
-                result.Properties.Add(new PSNoteProperty("Name", parameters["ResourceName"]));
+                var result = ConvertJsonElementToPSObject(document.RootElement);
+                return result;
             }
         }
+        catch (JsonException ex)
+        {
+            // Handle JSON parsing errors - return PSObject with error info
+            System.Diagnostics.Debug.WriteLine($"Failed to parse JSON result: {ex.Message}");
+            var errorResult = new PSObject();
+            errorResult.Properties.Add(new PSNoteProperty("Error", $"Failed to parse JSON: {ex.Message}"));
+            errorResult.Properties.Add(new PSNoteProperty("RawResult", jsonResult));
+            return errorResult;
+        }
+        catch (Exception ex)
+        {
+            // Handle other errors
+            System.Diagnostics.Debug.WriteLine($"Error creating result object: {ex.Message}");
+            var errorResult = new PSObject();
+            errorResult.Properties.Add(new PSNoteProperty("Error", $"Error processing result: {ex.Message}"));
+            errorResult.Properties.Add(new PSNoteProperty("RawResult", jsonResult));
+            return errorResult;
+        }
+    }
+
+    /// <summary>
+    /// Converts a JsonElement to a PSObject recursively
+    /// </summary>
+    /// <param name="element">The JsonElement to convert</param>
+    /// <returns>A PSObject representation of the JSON element</returns>
+    private static PSObject ConvertJsonElementToPSObject(JsonElement element)
+    {
+        var result = new PSObject();
+
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                foreach (JsonProperty property in element.EnumerateObject())
+                {
+                    object? propertyValue = ConvertJsonElementToObject(property.Value);
+                    result.Properties.Add(new PSNoteProperty(property.Name, propertyValue));
+                }
+                break;
+
+            case JsonValueKind.Array:
+                var array = new List<object?>();
+                foreach (JsonElement item in element.EnumerateArray())
+                {
+                    array.Add(ConvertJsonElementToObject(item));
+                }
+                result.Properties.Add(new PSNoteProperty("Items", array.ToArray()));
+                break;
+
+            default:
+                // For primitive values, wrap in a PSObject with a Value property
+                object? value = ConvertJsonElementToObject(element);
+                result.Properties.Add(new PSNoteProperty("Value", value));
+                break;
+        }
+
         return result;
     }
+
+    /// <summary>
+    /// Converts a JsonElement to an appropriate .NET object
+    /// </summary>
+    /// <param name="element">The JsonElement to convert</param>
+    /// <returns>An appropriate .NET object</returns>
+    private static object? ConvertJsonElementToObject(JsonElement element)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                return ConvertJsonElementToPSObject(element);
+
+            case JsonValueKind.Array:
+                var array = new List<object?>();
+                foreach (JsonElement item in element.EnumerateArray())
+                {
+                    array.Add(ConvertJsonElementToObject(item));
+                }
+                return array.ToArray();
+
+            case JsonValueKind.String:
+                return element.GetString() ?? string.Empty;
+
+            case JsonValueKind.Number:
+                if (element.TryGetInt64(out long longValue))
+                    return longValue;
+                if (element.TryGetDouble(out double doubleValue))
+                    return doubleValue;
+                return element.GetDecimal();
+
+            case JsonValueKind.True:
+                return true;
+
+            case JsonValueKind.False:
+                return false;
+
+            case JsonValueKind.Null:
+                return null;
+
+            default:
+                return element.ToString();
+        }
+    }
+
+
 
     /// <summary>
     /// Writes a colored message to the PowerShell host
