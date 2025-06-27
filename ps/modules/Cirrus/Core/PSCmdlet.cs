@@ -307,6 +307,7 @@ public static class PSCmdlet
 
         string commandResult = PSWrapper.RunCommand(uri, paramArray);
 
+        // TODO: deserialize the result object as dynamic type, this need support in the command model level.
         return CreateResultObject(commandResult);
     }
 
