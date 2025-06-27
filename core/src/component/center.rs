@@ -9,13 +9,19 @@ use crate::error::AzInternalError;
 use crate::plugin::AzPlugin;
 use crate::uri::CrsUri;
 
-use futures::future::try_join_all;
 use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "cli")]
+use futures::future::try_join_all;
+#[cfg(feature = "cli")]
 use tokio::fs;
+#[cfg(feature = "cli")]
 use tracing::error;
 
 use super::built_in::AzBuiltIn;
-use super::{get_component_dir, AzComponent, AzComponentCtx};
+#[cfg(feature = "cli")]
+use super::get_component_dir;
+use super::{AzComponent, AzComponentCtx};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "info")]
@@ -55,12 +61,18 @@ impl<T: AzComponentCtx> AzComponentCenter<T> {
         &mut self,
         cloud: &AzCloud,
     ) -> Result<(), AzInternalError> {
-        self.route_table =
-            if let Some(plugin_route_table) = Self::load_plugin_route_table(cloud).await {
-                plugin_route_table
-            } else {
-                Self::build_plugin_route_table(cloud).await?
-            };
+        // Load plugin route table when not in PS mode
+        #[cfg(feature = "cli")]
+        {
+            self.route_table = self.load_or_build_plugin_route_table(cloud).await?;
+        }
+        #[cfg(feature = "ps")]
+        {
+            // the route table not changed in ps mode
+            // self.route_table = self.route_table;
+        }
+
+        // Add built-in components to route table
         self.built_ins.keys().for_each(|component| {
             // using the first reversed node to ignore the params in the uri
             let node = component.uri().ascending_nodes().next().unwrap();
@@ -74,7 +86,20 @@ impl<T: AzComponentCtx> AzComponentCenter<T> {
     }
 }
 
+#[cfg(feature = "cli")]
 impl<T: AzComponentCtx> AzComponentCenter<T> {
+    /// Load or build the plugin route table for the given cloud
+    async fn load_or_build_plugin_route_table(
+        &self,
+        cloud: &AzCloud,
+    ) -> Result<HashMap<String, AzComponentInfo>, AzInternalError> {
+        if let Some(plugin_route_table) = Self::load_plugin_route_table(cloud).await {
+            Ok(plugin_route_table)
+        } else {
+            Self::build_plugin_route_table(cloud).await
+        }
+    }
+
     /// Build the plugin components route table for the given cloud and save it to the file
     async fn build_plugin_route_table(
         cloud: &AzCloud,
@@ -132,6 +157,21 @@ impl<T: AzComponentCtx> AzComponentCenter<T> {
     }
 }
 
+#[cfg(feature = "ps")]
+impl<T: AzComponentCtx> AzComponentCenter<T> {
+    pub(crate) async fn load_plugin_component(
+        &mut self,
+        path: PathBuf,
+    ) -> Result<AzPlugin, AzInternalError> {
+        let plugin = AzPlugin::from_path(path).await?;
+        // using the first reversed node to ignore the params in the uri
+        let node = plugin.uri.ascending_nodes().next().unwrap();
+        self.route_table
+            .insert(node.to_string(), AzComponentInfo::Plugin(plugin.clone()));
+        Ok(plugin)
+    }
+}
+
 impl<T: AzComponentCtx> AzComponentCenter<T> {
     pub(crate) fn route(&self, uri: &CrsUri) -> Option<AzComponentInfo> {
         for node in uri.ascending_nodes() {
@@ -182,6 +222,7 @@ impl fmt::Display for AzComponentInfo {
     }
 }
 
+#[cfg(feature = "cli")]
 fn get_route_table_path(cloud: &AzCloud) -> PathBuf {
     get_component_dir().join(format!("{}.json", cloud))
 }

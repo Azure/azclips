@@ -9,6 +9,7 @@ use async_trait::async_trait;
 use std::path::PathBuf;
 use std::str::FromStr;
 
+pub use built_in::AzBuiltIn;
 pub use center::{AzComponentCenter, AzComponentInfo};
 pub use command::{AzCommand, AzCommandExecute};
 pub use command_group::AzCommandGroup;

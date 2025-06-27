@@ -8,7 +8,9 @@ use std::str::FromStr;
 use crate::component::{AzComponent, AzComponentCtx};
 use crate::error::{AzError, AzInternalError};
 use crate::pb::{
-    crs_interface, execute_response, ComponentMetadata, CrsCommand, CrsCommandGroup, CrsInterface, CrsPluginComponent, ExecuteRequest, ExecuteResponse, InterfaceRequest, InterfaceResponse, MetadataRequest, MetadataResponse, ValidateRequest, ValidateResponse
+    crs_interface, execute_response, ComponentMetadata, CrsCommand, CrsCommandGroup, CrsInterface,
+    CrsPluginComponent, ExecuteRequest, ExecuteResponse, InterfaceRequest, InterfaceResponse,
+    MetadataRequest, MetadataResponse, ValidateRequest, ValidateResponse,
 };
 use crate::uri::CrsUri;
 
@@ -57,60 +59,60 @@ impl<T: AzComponentCtx> AzComponent<T> for PluginRuntime {
             .segments()
             .skip(component_uri.segments().count())
             .map(|s| s.to_string());
-
-        match self.inner.find_command(&mut segments) {
-            Some(command) => {
-                let mut validated_uri = CrsUri::from_str(&command.uri).unwrap();
-                for (idx, positional_value) in uri
-                    .segments()
-                    .skip(validated_uri.segments().count())
-                    .enumerate()
-                {
-                    let arg = command
-                        .positional_args
-                        .get(idx)
-                        .or(command.positional_args.last());
-                    match arg {
-                        Some(arg) => {
-                            validated_uri = validated_uri.with_param(arg, positional_value);
-                        }
-                        None => {
-                            return Ok(ValidateResponse { uri: None });
-                        }
+        if let Some(command) = self.inner.find_command(&mut segments) {
+            let mut validated_uri = CrsUri::from_str(&command.uri).unwrap();
+            for (idx, positional_value) in uri
+                .segments()
+                .skip(validated_uri.segments().count())
+                .enumerate()
+            {
+                let arg = command
+                    .positional_args
+                    .get(idx)
+                    .or(command.positional_args.last());
+                match arg {
+                    Some(arg) => {
+                        validated_uri = validated_uri.with_param(arg, positional_value);
                     }
-                }
-                if validated_uri.executable() {
-                    // the command uri should be executable
-                    Ok(ValidateResponse {
-                        uri: Some(validated_uri.to_string()),
-                    })
-                } else {
-                    Err(AzInternalError::InvalidPluginError(format!(
-                        "Invalid command uri which is not executable: {}",
-                        command.uri
-                    ))
-                    .into())
+                    None => {
+                        return Ok(ValidateResponse { uri: None });
+                    }
                 }
             }
-            None => match self.inner.find_group(&mut segments) {
-                Some(group) => {
-                    let validated_uri = CrsUri::from_str(&group.uri).unwrap();
-                    if !validated_uri.executable() {
-                        // the command group uri should not be executable
-                        Ok(ValidateResponse {
-                            uri: Some(validated_uri.to_string()),
-                        })
-                    } else {
-                        Err(AzInternalError::InvalidPluginError(format!(
-                            "Invalid group uri which is executable: {}",
-                            group.uri
-                        ))
-                        .into())
-                    }
-                }
-                None => Ok(ValidateResponse { uri: None }),
-            },
+            return if validated_uri.executable() {
+                // the command uri should be executable
+                Ok(ValidateResponse {
+                    uri: Some(validated_uri.to_string()),
+                })
+            } else {
+                Err(AzInternalError::InvalidPluginError(format!(
+                    "Invalid command uri which is not executable: {}",
+                    command.uri
+                ))
+                .into())
+            };
         }
+
+        let mut segments = uri
+            .segments()
+            .skip(component_uri.segments().count())
+            .map(|s| s.to_string());
+        if let Some(group) = self.inner.find_group(&mut segments) {
+            let validated_uri = CrsUri::from_str(&group.uri).unwrap();
+            return if !validated_uri.executable() {
+                Ok(ValidateResponse {
+                    uri: Some(validated_uri.to_string()),
+                })
+            } else {
+                Err(AzInternalError::InvalidPluginError(format!(
+                    "Invalid group uri which is executable: {}",
+                    group.uri
+                ))
+                .into())
+            };
+        }
+
+        Ok(ValidateResponse { uri: None })
     }
 
     async fn interface(
@@ -162,7 +164,8 @@ impl<T: AzComponentCtx> AzComponent<T> for PluginRuntime {
         let params = request.params.as_ref().map(|p| {
             let mut params = HashMap::new();
             for (key, value) in p.params.iter() {
-                let value: serde_json::Value = serde_json::from_slice(value).expect("Invalid parameter value");
+                let value: serde_json::Value =
+                    serde_json::from_slice(value).expect("Invalid parameter value");
                 params.insert(key.clone(), value);
             }
             params

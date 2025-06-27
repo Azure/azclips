@@ -30,7 +30,11 @@ impl AzCommandExecute for SetConfig {
         let mut cfg = core.cfg.write().await;
         // TODO apply patch keys, currently patch will applied
         for (k, v) in self.value.iter() {
-            cfg.settings.insert(k.to_string(), v.clone());
+            if v.is_null() {
+                cfg.settings.remove(k);
+            } else {
+                cfg.settings.insert(k.to_string(), v.clone());
+            }
         }
         cfg.save()?;
         Ok(Some(Value::Object(cfg.settings.clone())))

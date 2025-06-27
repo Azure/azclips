@@ -21,7 +21,7 @@ pub enum AzBuiltIn {
 }
 
 impl AzBuiltIn {
-    pub(crate) fn uri(&self) -> CrsUri {
+    pub fn uri(&self) -> CrsUri {
         match self {
             AzBuiltIn::Top => TopComponent::uri(),
             AzBuiltIn::Config => ConfigComponent::uri(),
@@ -30,7 +30,7 @@ impl AzBuiltIn {
         }
     }
 
-    pub(crate) fn from_uri(uri: &CrsUri) -> Option<Self> {
+    pub fn from_uri(uri: &CrsUri) -> Option<Self> {
         match uri.to_string().as_str() {
             s if s == TopComponent::URI => Some(Self::Top),
             s if s == ConfigComponent::URI => Some(Self::Config),

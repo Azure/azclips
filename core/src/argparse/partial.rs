@@ -70,6 +70,46 @@ impl std::fmt::Display for SHPartialKeyPart {
     }
 }
 
+impl TryFrom<&str> for SHPartialKeys {
+    type Error = AzUserUsageError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let mut parts = Vec::new();
+
+        let segments: Vec<&str> = value.split('.').collect();
+
+        for segment in segments {
+            if segment.is_empty() {
+                continue;
+            }
+
+            let mut segment_parts = Vec::new();
+
+            let mut current_segment = segment;
+            // Loop to extract all trailing "[xxx]" patterns
+            while current_segment.ends_with(']') {
+                if let Some(bracket_start) = current_segment.rfind('[') {
+                    // Extract the index part
+                    let index_part = &current_segment[bracket_start + 1..current_segment.len() - 1];
+
+                    segment_parts.push(SHPartialKeyPart::parse_index(index_part)?);
+                    current_segment = &current_segment[..bracket_start];
+                } else {
+                    break;
+                }
+            }
+
+            if !current_segment.is_empty() {
+                segment_parts.push(SHPartialKeyPart::parse_name(current_segment)?);
+            }
+
+            parts.extend(segment_parts.into_iter().rev());
+        }
+
+        Ok(SHPartialKeys::new(parts))
+    }
+}
+
 impl SHPartialKeys {
     pub fn is_empty(&self) -> bool {
         self.parts.is_empty()

@@ -201,7 +201,7 @@ impl AzCommand for Login {
                 prompt: None,
                 arg_type: Some(crs_arg::ArgType::Array(Box::new(CrsArrayArg {
                     item: Some(Box::new(CrsArg {
-                        var_name: "scope_item".to_string(),
+                        var_name: "$Body.scope[]".to_string(),
                         name: "scope_item".to_string(),
                         arg_type: Some(crs_arg::ArgType::String(CrsStringArg {
                             format: Some(crs_string_arg::Format::String(CrsStringFormat::default())),

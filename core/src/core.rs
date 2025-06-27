@@ -1,5 +1,7 @@
 use serde_json::Value;
 use std::collections::HashMap;
+#[cfg(feature = "ps")]
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::OnceCell;
@@ -210,6 +212,16 @@ impl AzCore {
             )),
         )?;
         Ok(component_interface)
+    }
+
+    pub async fn load_plugin_component(&self, path: PathBuf) -> AzResult<(CrsUri, String, String)> {
+        let plugin = self
+            .component_center
+            .write()
+            .await
+            .load_plugin_component(path)
+            .await?;
+        Ok((plugin.uri, plugin.name, plugin.version))
     }
 }
 
