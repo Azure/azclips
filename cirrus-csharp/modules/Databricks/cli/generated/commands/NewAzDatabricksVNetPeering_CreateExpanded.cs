@@ -20,6 +20,9 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
     public partial class NewAzDatabricksVNetPeering_CreateExpanded : SharedContracts.BaseProcessor,
         Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.IEventListener
     {
+        /// <summary>Peerings in a VirtualNetwork resource</summary>
+        private Microsoft.Azure.PowerShell.Cmdlets.Databricks.Models.IVirtualNetworkPeering _bodyBackup = new Microsoft.Azure.PowerShell.Cmdlets.Databricks.Models.VirtualNetworkPeering();
+
         /// <summary>
         /// The <see cref="global::System.Threading.CancellationTokenSource" /> for this operation.
         /// </summary>
@@ -34,35 +37,38 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         /// <summary>
         /// Whether the forwarded traffic from the VMs in the local virtual network will be allowed/disallowed in remote virtual network.
         /// </summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"Whether the forwarded traffic from the VMs in the local virtual network will be allowed/disallowed in remote virtual network.",
         SerializedName = @"allowForwardedTraffic",
         Aliases = new string[] { "allow-forwarded-traffic"},
         Enums = new string[] { })]
-        public bool AllowForwardedTraffic { get => _virtualNetworkPeeringParametersBody.AllowForwardedTraffic ?? default(bool); set => _virtualNetworkPeeringParametersBody.AllowForwardedTraffic = value; }
+        public bool AllowForwardedTraffic { get => _virtualNetworkPeeringParametersBody.AllowForwardedTraffic ?? default(bool); set { _virtualNetworkPeeringParametersBody.AllowForwardedTraffic = value; _bodyBackup.AllowForwardedTraffic = value; } }
 
         /// <summary>
         /// If gateway links can be used in remote virtual networking to link to this virtual network.
         /// </summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"If gateway links can be used in remote virtual networking to link to this virtual network.",
         SerializedName = @"allowGatewayTransit",
         Aliases = new string[] { "allow-gateway-transit"},
         Enums = new string[] { })]
-        public bool AllowGatewayTransit { get => _virtualNetworkPeeringParametersBody.AllowGatewayTransit ?? default(bool); set => _virtualNetworkPeeringParametersBody.AllowGatewayTransit = value; }
+        public bool AllowGatewayTransit { get => _virtualNetworkPeeringParametersBody.AllowGatewayTransit ?? default(bool); set { _virtualNetworkPeeringParametersBody.AllowGatewayTransit = value; _bodyBackup.AllowGatewayTransit = value; } }
 
         /// <summary>
         /// Whether the VMs in the local virtual network space would be able to access the VMs in remote virtual network space.
         /// </summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"Whether the VMs in the local virtual network space would be able to access the VMs in remote virtual network space.",
         SerializedName = @"allowVirtualNetworkAccess",
         Aliases = new string[] { "allow-virtual-network-access"},
         Enums = new string[] { })]
-        public bool AllowVirtualNetworkAccess { get => _virtualNetworkPeeringParametersBody.AllowVirtualNetworkAccess ?? default(bool); set => _virtualNetworkPeeringParametersBody.AllowVirtualNetworkAccess = value; }
+        public bool AllowVirtualNetworkAccess { get => _virtualNetworkPeeringParametersBody.AllowVirtualNetworkAccess ?? default(bool); set { _virtualNetworkPeeringParametersBody.AllowVirtualNetworkAccess = value; _bodyBackup.AllowVirtualNetworkAccess = value; } }
 
         /// <summary>Accessor for cancellationTokenSource.</summary>
         public global::System.Threading.CancellationTokenSource CancellationTokenSource { get => _cancellationTokenSource ; set { _cancellationTokenSource = value; } }
@@ -71,22 +77,24 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         public Microsoft.Azure.PowerShell.Cmdlets.Databricks.Databricks Client => Microsoft.Azure.PowerShell.Cmdlets.Databricks.Module.Instance.ClientAPI;
 
         /// <summary>A list of address blocks reserved for this virtual network in CIDR notation.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"A list of address blocks reserved for this virtual network in CIDR notation.",
         SerializedName = @"addressPrefixes",
         Aliases = new string[] { "databrick-address-space-address-prefix"},
         Enums = new string[] { })]
-        public string[] DatabrickAddressSpaceAddressPrefix { get => _virtualNetworkPeeringParametersBody.DatabrickAddressSpaceAddressPrefix?.ToArray() ?? null /* fixedArrayOf */; set => _virtualNetworkPeeringParametersBody.DatabrickAddressSpaceAddressPrefix = (value != null ? new System.Collections.Generic.List<string>(value) : null); }
+        public string[] DatabrickAddressSpaceAddressPrefix { get => _virtualNetworkPeeringParametersBody.DatabrickAddressSpaceAddressPrefix?.ToArray() ?? null /* fixedArrayOf */; set { _virtualNetworkPeeringParametersBody.DatabrickAddressSpaceAddressPrefix = (value != null ? new System.Collections.Generic.List<string>(value) : null); _bodyBackup.DatabrickAddressSpaceAddressPrefix = (value != null ? new System.Collections.Generic.List<string>(value) : null); } }
 
         /// <summary>The Id of the databricks virtual network.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The Id of the databricks virtual network.",
         SerializedName = @"id",
         Aliases = new string[] { "databrick-virtual-network-id"},
         Enums = new string[] { })]
-        public string DatabrickVirtualNetworkId { get => _virtualNetworkPeeringParametersBody.DatabrickVirtualNetworkId ?? null; set => _virtualNetworkPeeringParametersBody.DatabrickVirtualNetworkId = value; }
+        public string DatabrickVirtualNetworkId { get => _virtualNetworkPeeringParametersBody.DatabrickVirtualNetworkId ?? null; set { _virtualNetworkPeeringParametersBody.DatabrickVirtualNetworkId = value; _bodyBackup.DatabrickVirtualNetworkId = value; } }
 
         /// <summary>Accessor for extensibleParameters.</summary>
         public global::System.Collections.Generic.IDictionary<global::System.String,global::System.Object> ExtensibleParameters { get => _extensibleParameters ; }
@@ -109,6 +117,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         SerializedName = @"peeringName",
         Aliases = new string[] { "peering-name"},
         Enums = new string[] { })]
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Path)]
         public string PeeringName { get => this._peeringName; set => this._peeringName = value; }
 
         /// <summary>
@@ -117,22 +126,24 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         public Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.HttpPipeline Pipeline { get; set; }
 
         /// <summary>A list of address blocks reserved for this virtual network in CIDR notation.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"A list of address blocks reserved for this virtual network in CIDR notation.",
         SerializedName = @"addressPrefixes",
         Aliases = new string[] { "remote-address-space-address-prefix"},
         Enums = new string[] { })]
-        public string[] RemoteAddressSpaceAddressPrefix { get => _virtualNetworkPeeringParametersBody.RemoteAddressSpaceAddressPrefix?.ToArray() ?? null /* fixedArrayOf */; set => _virtualNetworkPeeringParametersBody.RemoteAddressSpaceAddressPrefix = (value != null ? new System.Collections.Generic.List<string>(value) : null); }
+        public string[] RemoteAddressSpaceAddressPrefix { get => _virtualNetworkPeeringParametersBody.RemoteAddressSpaceAddressPrefix?.ToArray() ?? null /* fixedArrayOf */; set { _virtualNetworkPeeringParametersBody.RemoteAddressSpaceAddressPrefix = (value != null ? new System.Collections.Generic.List<string>(value) : null); _bodyBackup.RemoteAddressSpaceAddressPrefix = (value != null ? new System.Collections.Generic.List<string>(value) : null); } }
 
         /// <summary>The Id of the remote virtual network.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The Id of the remote virtual network.",
         SerializedName = @"id",
         Aliases = new string[] { "remote-virtual-network-id"},
         Enums = new string[] { })]
-        public string RemoteVirtualNetworkId { get => _virtualNetworkPeeringParametersBody.RemoteVirtualNetworkId ?? null; set => _virtualNetworkPeeringParametersBody.RemoteVirtualNetworkId = value; }
+        public string RemoteVirtualNetworkId { get => _virtualNetworkPeeringParametersBody.RemoteVirtualNetworkId ?? null; set { _virtualNetworkPeeringParametersBody.RemoteVirtualNetworkId = value; _bodyBackup.RemoteVirtualNetworkId = value; } }
 
         /// <summary>Backing field for <see cref="ResourceGroupName" /> property.</summary>
         private string _resourceGroupName;
@@ -144,6 +155,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         SerializedName = @"resourceGroupName",
         Aliases = new string[] { "resource-group-name"},
         Enums = new string[] { })]
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Path)]
         public string ResourceGroupName { get => this._resourceGroupName; set => this._resourceGroupName = value; }
 
         /// <summary>Backing field for <see cref="SubscriptionId" /> property.</summary>
@@ -156,6 +168,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         SerializedName = @"subscriptionId",
         Aliases = new string[] { "subscription-id"},
         Enums = new string[] { })]
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Path)]
         public string SubscriptionId { get => this._subscriptionId; set => this._subscriptionId = value; }
 
         /// <summary>
@@ -163,13 +176,14 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         /// peering is also true, virtual network will use gateways of remote virtual network for transit. Only one peering can have
         /// this flag set to true. This flag cannot be set if virtual network already has a gateway.
         /// </summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"If remote gateways can be used on this virtual network. If the flag is set to true, and allowGatewayTransit on remote peering is also true, virtual network will use gateways of remote virtual network for transit. Only one peering can have this flag set to true. This flag cannot be set if virtual network already has a gateway.",
         SerializedName = @"useRemoteGateways",
         Aliases = new string[] { "use-remote-gateway"},
         Enums = new string[] { })]
-        public bool UseRemoteGateway { get => _virtualNetworkPeeringParametersBody.UseRemoteGateway ?? default(bool); set => _virtualNetworkPeeringParametersBody.UseRemoteGateway = value; }
+        public bool UseRemoteGateway { get => _virtualNetworkPeeringParametersBody.UseRemoteGateway ?? default(bool); set { _virtualNetworkPeeringParametersBody.UseRemoteGateway = value; _bodyBackup.UseRemoteGateway = value; } }
 
         /// <summary>Backing field for <see cref="WorkspaceName" /> property.</summary>
         private string _workspaceName;
@@ -181,6 +195,7 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         SerializedName = @"workspaceName",
         Aliases = new string[] { "workspace-name"},
         Enums = new string[] { })]
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Path)]
         public string WorkspaceName { get => this._workspaceName; set => this._workspaceName = value; }
 
         /// <summary>

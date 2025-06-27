@@ -20,6 +20,9 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
     public partial class NewAzDatabricksWorkspace_CreateExpanded : SharedContracts.BaseProcessor,
         Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.IEventListener
     {
+        /// <summary>Information about workspace.</summary>
+        private Microsoft.Azure.PowerShell.Cmdlets.Databricks.Models.IWorkspace _bodyBackup = new Microsoft.Azure.PowerShell.Cmdlets.Databricks.Models.Workspace();
+
         /// <summary>
         /// The <see cref="global::System.Threading.CancellationTokenSource" /> for this operation.
         /// </summary>
@@ -32,61 +35,67 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         private Microsoft.Azure.PowerShell.Cmdlets.Databricks.Models.IWorkspace _parametersBody = new Microsoft.Azure.PowerShell.Cmdlets.Databricks.Models.Workspace();
 
         /// <summary>The resource ID of Azure Databricks Access Connector Resource.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The resource ID of Azure Databricks Access Connector Resource.",
         SerializedName = @"id",
         Aliases = new string[] { "access-connector-id"},
         Enums = new string[] { })]
-        public string AccessConnectorId { get => _parametersBody.AccessConnectorId ?? null; set => _parametersBody.AccessConnectorId = value; }
+        public string AccessConnectorId { get => _parametersBody.AccessConnectorId ?? null; set { _parametersBody.AccessConnectorId = value; _bodyBackup.AccessConnectorId = value; } }
 
         /// <summary>The identity type of the Access Connector Resource.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The identity type of the Access Connector Resource.",
         SerializedName = @"identityType",
         Aliases = new string[] { "access-connector-identity-type"},
         Enums = new string[] { "SystemAssigned", "UserAssigned" })]
-        public string AccessConnectorIdentityType { get => _parametersBody.AccessConnectorIdentityType ?? null; set => _parametersBody.AccessConnectorIdentityType = value; }
+        public string AccessConnectorIdentityType { get => _parametersBody.AccessConnectorIdentityType ?? null; set { _parametersBody.AccessConnectorIdentityType = value; _bodyBackup.AccessConnectorIdentityType = value; } }
 
         /// <summary>
         /// The resource ID of the User Assigned Identity associated with the Access Connector Resource. This is required for type
         /// 'UserAssigned' and not valid for type 'SystemAssigned'.
         /// </summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The resource ID of the User Assigned Identity associated with the Access Connector Resource. This is required for type 'UserAssigned' and not valid for type 'SystemAssigned'.",
         SerializedName = @"userAssignedIdentityId",
         Aliases = new string[] { "access-connector-user-assigned-identity-id"},
         Enums = new string[] { })]
-        public string AccessConnectorUserAssignedIdentityId { get => _parametersBody.AccessConnectorUserAssignedIdentityId ?? null; set => _parametersBody.AccessConnectorUserAssignedIdentityId = value; }
+        public string AccessConnectorUserAssignedIdentityId { get => _parametersBody.AccessConnectorUserAssignedIdentityId ?? null; set { _parametersBody.AccessConnectorUserAssignedIdentityId = value; _bodyBackup.AccessConnectorUserAssignedIdentityId = value; } }
 
         /// <summary>The value which should be used for this field.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The value which should be used for this field.",
         SerializedName = @"value",
         Aliases = new string[] { "aml-workspace-id-value"},
         Enums = new string[] { })]
-        public string AmlWorkspaceIdValue { get => _parametersBody.AmlWorkspaceIdValue ?? null; set => _parametersBody.AmlWorkspaceIdValue = value; }
+        public string AmlWorkspaceIdValue { get => _parametersBody.AmlWorkspaceIdValue ?? null; set { _parametersBody.AmlWorkspaceIdValue = value; _bodyBackup.AmlWorkspaceIdValue = value; } }
 
         /// <summary>The workspace provider authorizations.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The workspace provider authorizations.",
         SerializedName = @"authorizations",
         Aliases = new string[] { "authorization"},
         Enums = new string[] { })]
-        public Microsoft.Azure.PowerShell.Cmdlets.Databricks.Models.IWorkspaceProviderAuthorization[] Authorization { get => _parametersBody.Authorization?.ToArray() ?? null /* fixedArrayOf */; set => _parametersBody.Authorization = (value != null ? new System.Collections.Generic.List<Microsoft.Azure.PowerShell.Cmdlets.Databricks.Models.IWorkspaceProviderAuthorization>(value) : null); }
+        public Microsoft.Azure.PowerShell.Cmdlets.Databricks.Models.IWorkspaceProviderAuthorization[] Authorization { get => _parametersBody.Authorization?.ToArray() ?? null /* fixedArrayOf */; set { _parametersBody.Authorization = (value != null ? new System.Collections.Generic.List<Microsoft.Azure.PowerShell.Cmdlets.Databricks.Models.IWorkspaceProviderAuthorization>(value) : null); _bodyBackup.Authorization = (value != null ? new System.Collections.Generic.List<Microsoft.Azure.PowerShell.Cmdlets.Databricks.Models.IWorkspaceProviderAuthorization>(value) : null); } }
 
         /// <summary>.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @".",
         SerializedName = @"value",
         Aliases = new string[] { "automatic-cluster-update-value"},
         Enums = new string[] { "Enabled", "Disabled" })]
-        public string AutomaticClusterUpdateValue { get => _parametersBody.AutomaticClusterUpdateValue ?? null; set => _parametersBody.AutomaticClusterUpdateValue = value; }
+        public string AutomaticClusterUpdateValue { get => _parametersBody.AutomaticClusterUpdateValue ?? null; set { _parametersBody.AutomaticClusterUpdateValue = value; _bodyBackup.AutomaticClusterUpdateValue = value; } }
 
         /// <summary>Accessor for cancellationTokenSource.</summary>
         public global::System.Threading.CancellationTokenSource CancellationTokenSource { get => _cancellationTokenSource ; set { _cancellationTokenSource = value; } }
@@ -95,224 +104,247 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         public Microsoft.Azure.PowerShell.Cmdlets.Databricks.Databricks Client => Microsoft.Azure.PowerShell.Cmdlets.Databricks.Module.Instance.ClientAPI;
 
         /// <summary>Compliance standards associated with the workspace.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"Compliance standards associated with the workspace.",
         SerializedName = @"complianceStandards",
         Aliases = new string[] { "compliance-security-profile-compliance-standard"},
         Enums = new string[] { "NONE", "HIPAA", "PCI_DSS" })]
-        public string[] ComplianceSecurityProfileComplianceStandard { get => _parametersBody.ComplianceSecurityProfileComplianceStandard?.ToArray() ?? null /* fixedArrayOf */; set => _parametersBody.ComplianceSecurityProfileComplianceStandard = (value != null ? new System.Collections.Generic.List<string>(value) : null); }
+        public string[] ComplianceSecurityProfileComplianceStandard { get => _parametersBody.ComplianceSecurityProfileComplianceStandard?.ToArray() ?? null /* fixedArrayOf */; set { _parametersBody.ComplianceSecurityProfileComplianceStandard = (value != null ? new System.Collections.Generic.List<string>(value) : null); _bodyBackup.ComplianceSecurityProfileComplianceStandard = (value != null ? new System.Collections.Generic.List<string>(value) : null); } }
 
         /// <summary>.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @".",
         SerializedName = @"value",
         Aliases = new string[] { "compliance-security-profile-value"},
         Enums = new string[] { "Enabled", "Disabled" })]
-        public string ComplianceSecurityProfileValue { get => _parametersBody.ComplianceSecurityProfileValue ?? null; set => _parametersBody.ComplianceSecurityProfileValue = value; }
+        public string ComplianceSecurityProfileValue { get => _parametersBody.ComplianceSecurityProfileValue ?? null; set { _parametersBody.ComplianceSecurityProfileValue = value; _bodyBackup.ComplianceSecurityProfileValue = value; } }
 
         /// <summary>The value which should be used for this field.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The value which should be used for this field.",
         SerializedName = @"value",
         Aliases = new string[] { "custom-private-subnet-name-value"},
         Enums = new string[] { })]
-        public string CustomPrivateSubnetNameValue { get => _parametersBody.CustomPrivateSubnetNameValue ?? null; set => _parametersBody.CustomPrivateSubnetNameValue = value; }
+        public string CustomPrivateSubnetNameValue { get => _parametersBody.CustomPrivateSubnetNameValue ?? null; set { _parametersBody.CustomPrivateSubnetNameValue = value; _bodyBackup.CustomPrivateSubnetNameValue = value; } }
 
         /// <summary>The value which should be used for this field.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The value which should be used for this field.",
         SerializedName = @"value",
         Aliases = new string[] { "custom-public-subnet-name-value"},
         Enums = new string[] { })]
-        public string CustomPublicSubnetNameValue { get => _parametersBody.CustomPublicSubnetNameValue ?? null; set => _parametersBody.CustomPublicSubnetNameValue = value; }
+        public string CustomPublicSubnetNameValue { get => _parametersBody.CustomPublicSubnetNameValue ?? null; set { _parametersBody.CustomPublicSubnetNameValue = value; _bodyBackup.CustomPublicSubnetNameValue = value; } }
 
         /// <summary>The value which should be used for this field.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The value which should be used for this field.",
         SerializedName = @"value",
         Aliases = new string[] { "custom-virtual-network-id-value"},
         Enums = new string[] { })]
-        public string CustomVirtualNetworkIdValue { get => _parametersBody.CustomVirtualNetworkIdValue ?? null; set => _parametersBody.CustomVirtualNetworkIdValue = value; }
+        public string CustomVirtualNetworkIdValue { get => _parametersBody.CustomVirtualNetworkIdValue ?? null; set { _parametersBody.CustomVirtualNetworkIdValue = value; _bodyBackup.CustomVirtualNetworkIdValue = value; } }
 
         /// <summary>
         /// Specifies the initial Name of default catalog. If not specified, the name of the workspace will be used.
         /// </summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"Specifies the initial Name of default catalog. If not specified, the name of the workspace will be used.",
         SerializedName = @"initialName",
         Aliases = new string[] { "default-catalog-initial-name"},
         Enums = new string[] { })]
-        public string DefaultCatalogInitialName { get => _parametersBody.DefaultCatalogInitialName ?? null; set => _parametersBody.DefaultCatalogInitialName = value; }
+        public string DefaultCatalogInitialName { get => _parametersBody.DefaultCatalogInitialName ?? null; set { _parametersBody.DefaultCatalogInitialName = value; _bodyBackup.DefaultCatalogInitialName = value; } }
 
         /// <summary>
         /// Defines the initial type of the default catalog. Possible values (case-insensitive): HiveMetastore, UnityCatalog
         /// </summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"Defines the initial type of the default catalog. Possible values (case-insensitive): HiveMetastore, UnityCatalog",
         SerializedName = @"initialType",
         Aliases = new string[] { "default-catalog-initial-type"},
         Enums = new string[] { "HiveMetastore", "UnityCatalog" })]
-        public string DefaultCatalogInitialType { get => _parametersBody.DefaultCatalogInitialType ?? null; set => _parametersBody.DefaultCatalogInitialType = value; }
+        public string DefaultCatalogInitialType { get => _parametersBody.DefaultCatalogInitialType ?? null; set { _parametersBody.DefaultCatalogInitialType = value; _bodyBackup.DefaultCatalogInitialType = value; } }
 
         /// <summary>Gets or Sets Default Storage Firewall configuration information</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"Gets or Sets Default Storage Firewall configuration information",
         SerializedName = @"defaultStorageFirewall",
         Aliases = new string[] { "default-storage-firewall"},
         Enums = new string[] { "Disabled", "Enabled" })]
-        public string DefaultStorageFirewall { get => _parametersBody.DefaultStorageFirewall ?? null; set => _parametersBody.DefaultStorageFirewall = value; }
+        public string DefaultStorageFirewall { get => _parametersBody.DefaultStorageFirewall ?? null; set { _parametersBody.DefaultStorageFirewall = value; _bodyBackup.DefaultStorageFirewall = value; } }
 
         /// <summary>The value which should be used for this field.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The value which should be used for this field.",
         SerializedName = @"value",
         Aliases = new string[] { "enable-no-public-ip-value"},
         Enums = new string[] { })]
-        public bool EnableNoPublicIPValue { get => _parametersBody.EnableNoPublicIPValue ?? default(bool); set => _parametersBody.EnableNoPublicIPValue = value; }
+        public bool EnableNoPublicIPValue { get => _parametersBody.EnableNoPublicIPValue ?? default(bool); set { _parametersBody.EnableNoPublicIPValue = value; _bodyBackup.EnableNoPublicIPValue = value; } }
 
         /// <summary>.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @".",
         SerializedName = @"value",
         Aliases = new string[] { "enhanced-security-monitoring-value"},
         Enums = new string[] { "Enabled", "Disabled" })]
-        public string EnhancedSecurityMonitoringValue { get => _parametersBody.EnhancedSecurityMonitoringValue ?? null; set => _parametersBody.EnhancedSecurityMonitoringValue = value; }
+        public string EnhancedSecurityMonitoringValue { get => _parametersBody.EnhancedSecurityMonitoringValue ?? null; set { _parametersBody.EnhancedSecurityMonitoringValue = value; _bodyBackup.EnhancedSecurityMonitoringValue = value; } }
 
         /// <summary>Accessor for extensibleParameters.</summary>
         public global::System.Collections.Generic.IDictionary<global::System.String,global::System.Object> ExtensibleParameters { get => _extensibleParameters ; }
 
         /// <summary>The value which should be used for this field.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The value which should be used for this field.",
         SerializedName = @"value",
         Aliases = new string[] { "load-balancer-backend-pool-name-value"},
         Enums = new string[] { })]
-        public string LoadBalancerBackendPoolNameValue { get => _parametersBody.LoadBalancerBackendPoolNameValue ?? null; set => _parametersBody.LoadBalancerBackendPoolNameValue = value; }
+        public string LoadBalancerBackendPoolNameValue { get => _parametersBody.LoadBalancerBackendPoolNameValue ?? null; set { _parametersBody.LoadBalancerBackendPoolNameValue = value; _bodyBackup.LoadBalancerBackendPoolNameValue = value; } }
 
         /// <summary>The value which should be used for this field.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The value which should be used for this field.",
         SerializedName = @"value",
         Aliases = new string[] { "load-balancer-id-value"},
         Enums = new string[] { })]
-        public string LoadBalancerIdValue { get => _parametersBody.LoadBalancerIdValue ?? null; set => _parametersBody.LoadBalancerIdValue = value; }
+        public string LoadBalancerIdValue { get => _parametersBody.LoadBalancerIdValue ?? null; set { _parametersBody.LoadBalancerIdValue = value; _bodyBackup.LoadBalancerIdValue = value; } }
 
         /// <summary>The geo-location where the resource lives</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = true,
         Description = @"The geo-location where the resource lives",
         SerializedName = @"location",
         Aliases = new string[] { "location"},
         Enums = new string[] { })]
-        public string Location { get => _parametersBody.Location ?? null; set => _parametersBody.Location = value; }
+        public string Location { get => _parametersBody.Location ?? null; set { _parametersBody.Location = value; _bodyBackup.Location = value; } }
 
         /// <summary>
         /// The encryption keySource (provider). Possible values (case-insensitive): Microsoft.Keyvault
         /// </summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The encryption keySource (provider). Possible values (case-insensitive): Microsoft.Keyvault",
         SerializedName = @"keySource",
         Aliases = new string[] { "managed-disk-key-source"},
         Enums = new string[] { "Microsoft.Keyvault" })]
-        public string ManagedDiskKeySource { get => _parametersBody.ManagedDiskKeySource ?? null; set => _parametersBody.ManagedDiskKeySource = value; }
+        public string ManagedDiskKeySource { get => _parametersBody.ManagedDiskKeySource ?? null; set { _parametersBody.ManagedDiskKeySource = value; _bodyBackup.ManagedDiskKeySource = value; } }
 
         /// <summary>The name of KeyVault key.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The name of KeyVault key.",
         SerializedName = @"keyName",
         Aliases = new string[] { "managed-disk-key-vault-property-key-name"},
         Enums = new string[] { })]
-        public string ManagedDiskKeyVaultPropertiesKeyName { get => _parametersBody.ManagedDiskKeyVaultPropertiesKeyName ?? null; set => _parametersBody.ManagedDiskKeyVaultPropertiesKeyName = value; }
+        public string ManagedDiskKeyVaultPropertiesKeyName { get => _parametersBody.ManagedDiskKeyVaultPropertiesKeyName ?? null; set { _parametersBody.ManagedDiskKeyVaultPropertiesKeyName = value; _bodyBackup.ManagedDiskKeyVaultPropertiesKeyName = value; } }
 
         /// <summary>The URI of KeyVault.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The URI of KeyVault.",
         SerializedName = @"keyVaultUri",
         Aliases = new string[] { "managed-disk-key-vault-property-key-vault-uri"},
         Enums = new string[] { })]
-        public string ManagedDiskKeyVaultPropertiesKeyVaultUri { get => _parametersBody.ManagedDiskKeyVaultPropertiesKeyVaultUri ?? null; set => _parametersBody.ManagedDiskKeyVaultPropertiesKeyVaultUri = value; }
+        public string ManagedDiskKeyVaultPropertiesKeyVaultUri { get => _parametersBody.ManagedDiskKeyVaultPropertiesKeyVaultUri ?? null; set { _parametersBody.ManagedDiskKeyVaultPropertiesKeyVaultUri = value; _bodyBackup.ManagedDiskKeyVaultPropertiesKeyVaultUri = value; } }
 
         /// <summary>The version of KeyVault key.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The version of KeyVault key.",
         SerializedName = @"keyVersion",
         Aliases = new string[] { "managed-disk-key-vault-property-key-version"},
         Enums = new string[] { })]
-        public string ManagedDiskKeyVaultPropertiesKeyVersion { get => _parametersBody.ManagedDiskKeyVaultPropertiesKeyVersion ?? null; set => _parametersBody.ManagedDiskKeyVaultPropertiesKeyVersion = value; }
+        public string ManagedDiskKeyVaultPropertiesKeyVersion { get => _parametersBody.ManagedDiskKeyVaultPropertiesKeyVersion ?? null; set { _parametersBody.ManagedDiskKeyVaultPropertiesKeyVersion = value; _bodyBackup.ManagedDiskKeyVaultPropertiesKeyVersion = value; } }
 
         /// <summary>
         /// Indicate whether the latest key version should be automatically used for Managed Disk Encryption.
         /// </summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"Indicate whether the latest key version should be automatically used for Managed Disk Encryption.",
         SerializedName = @"rotationToLatestKeyVersionEnabled",
         Aliases = new string[] { "managed-disk-rotation-to-latest-key-version-enabled"},
         Enums = new string[] { })]
-        public bool ManagedDiskRotationToLatestKeyVersionEnabled { get => _parametersBody.ManagedDiskRotationToLatestKeyVersionEnabled ?? default(bool); set => _parametersBody.ManagedDiskRotationToLatestKeyVersionEnabled = value; }
+        public bool ManagedDiskRotationToLatestKeyVersionEnabled { get => _parametersBody.ManagedDiskRotationToLatestKeyVersionEnabled ?? default(bool); set { _parametersBody.ManagedDiskRotationToLatestKeyVersionEnabled = value; _bodyBackup.ManagedDiskRotationToLatestKeyVersionEnabled = value; } }
 
         /// <summary>The managed resource group Id.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = true,
         Description = @"The managed resource group Id.",
         SerializedName = @"managedResourceGroupId",
         Aliases = new string[] { "managed-resource-group-id"},
         Enums = new string[] { })]
-        public string ManagedResourceGroupId { get => _parametersBody.ManagedResourceGroupId ?? null; set => _parametersBody.ManagedResourceGroupId = value; }
+        public string ManagedResourceGroupId { get => _parametersBody.ManagedResourceGroupId ?? null; set { _parametersBody.ManagedResourceGroupId = value; _bodyBackup.ManagedResourceGroupId = value; } }
 
         /// <summary>
         /// The encryption keySource (provider). Possible values (case-insensitive): Microsoft.Keyvault
         /// </summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The encryption keySource (provider). Possible values (case-insensitive): Microsoft.Keyvault",
         SerializedName = @"keySource",
         Aliases = new string[] { "managed-service-key-source"},
         Enums = new string[] { "Microsoft.Keyvault" })]
-        public string ManagedServiceKeySource { get => _parametersBody.ManagedServiceKeySource ?? null; set => _parametersBody.ManagedServiceKeySource = value; }
+        public string ManagedServiceKeySource { get => _parametersBody.ManagedServiceKeySource ?? null; set { _parametersBody.ManagedServiceKeySource = value; _bodyBackup.ManagedServiceKeySource = value; } }
 
         /// <summary>The name of KeyVault key.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The name of KeyVault key.",
         SerializedName = @"keyName",
         Aliases = new string[] { "managed-service-key-vault-property-key-name"},
         Enums = new string[] { })]
-        public string ManagedServicesKeyVaultPropertiesKeyName { get => _parametersBody.ManagedServicesKeyVaultPropertiesKeyName ?? null; set => _parametersBody.ManagedServicesKeyVaultPropertiesKeyName = value; }
+        public string ManagedServicesKeyVaultPropertiesKeyName { get => _parametersBody.ManagedServicesKeyVaultPropertiesKeyName ?? null; set { _parametersBody.ManagedServicesKeyVaultPropertiesKeyName = value; _bodyBackup.ManagedServicesKeyVaultPropertiesKeyName = value; } }
 
         /// <summary>The Uri of KeyVault.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The Uri of KeyVault.",
         SerializedName = @"keyVaultUri",
         Aliases = new string[] { "managed-service-key-vault-property-key-vault-uri"},
         Enums = new string[] { })]
-        public string ManagedServicesKeyVaultPropertiesKeyVaultUri { get => _parametersBody.ManagedServicesKeyVaultPropertiesKeyVaultUri ?? null; set => _parametersBody.ManagedServicesKeyVaultPropertiesKeyVaultUri = value; }
+        public string ManagedServicesKeyVaultPropertiesKeyVaultUri { get => _parametersBody.ManagedServicesKeyVaultPropertiesKeyVaultUri ?? null; set { _parametersBody.ManagedServicesKeyVaultPropertiesKeyVaultUri = value; _bodyBackup.ManagedServicesKeyVaultPropertiesKeyVaultUri = value; } }
 
         /// <summary>The version of KeyVault key.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The version of KeyVault key.",
         SerializedName = @"keyVersion",
         Aliases = new string[] { "managed-service-key-vault-property-key-version"},
         Enums = new string[] { })]
-        public string ManagedServicesKeyVaultPropertiesKeyVersion { get => _parametersBody.ManagedServicesKeyVaultPropertiesKeyVersion ?? null; set => _parametersBody.ManagedServicesKeyVaultPropertiesKeyVersion = value; }
+        public string ManagedServicesKeyVaultPropertiesKeyVersion { get => _parametersBody.ManagedServicesKeyVaultPropertiesKeyVersion ?? null; set { _parametersBody.ManagedServicesKeyVaultPropertiesKeyVersion = value; _bodyBackup.ManagedServicesKeyVaultPropertiesKeyVersion = value; } }
 
         /// <summary>
         /// <see cref="Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.IEventListener" /> cancellation delegate. Stops the cmdlet when called.
@@ -332,16 +364,18 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         SerializedName = @"workspaceName",
         Aliases = new string[] { "name"},
         Enums = new string[] { })]
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Path)]
         public string Name { get => this._name; set => this._name = value; }
 
         /// <summary>The value which should be used for this field.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The value which should be used for this field.",
         SerializedName = @"value",
         Aliases = new string[] { "nat-gateway-name-value"},
         Enums = new string[] { })]
-        public string NatGatewayNameValue { get => _parametersBody.NatGatewayNameValue ?? null; set => _parametersBody.NatGatewayNameValue = value; }
+        public string NatGatewayNameValue { get => _parametersBody.NatGatewayNameValue ?? null; set { _parametersBody.NatGatewayNameValue = value; _bodyBackup.NatGatewayNameValue = value; } }
 
         /// <summary>
         /// The instance of the <see cref="Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.HttpPipeline" /> that the remote call will use.
@@ -349,54 +383,59 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         public Microsoft.Azure.PowerShell.Cmdlets.Databricks.Runtime.HttpPipeline Pipeline { get; set; }
 
         /// <summary>The value which should be used for this field.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The value which should be used for this field.",
         SerializedName = @"value",
         Aliases = new string[] { "prepare-encryption-value"},
         Enums = new string[] { })]
-        public bool PrepareEncryptionValue { get => _parametersBody.PrepareEncryptionValue ?? default(bool); set => _parametersBody.PrepareEncryptionValue = value; }
+        public bool PrepareEncryptionValue { get => _parametersBody.PrepareEncryptionValue ?? default(bool); set { _parametersBody.PrepareEncryptionValue = value; _bodyBackup.PrepareEncryptionValue = value; } }
 
         /// <summary>The value which should be used for this field.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The value which should be used for this field.",
         SerializedName = @"value",
         Aliases = new string[] { "public-ip-name-value"},
         Enums = new string[] { })]
-        public string PublicIPNameValue { get => _parametersBody.PublicIPNameValue ?? null; set => _parametersBody.PublicIPNameValue = value; }
+        public string PublicIPNameValue { get => _parametersBody.PublicIPNameValue ?? null; set { _parametersBody.PublicIPNameValue = value; _bodyBackup.PublicIPNameValue = value; } }
 
         /// <summary>
         /// The network access type for accessing workspace. Set value to disabled to access workspace only via private link.
         /// </summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The network access type for accessing workspace. Set value to disabled to access workspace only via private link.",
         SerializedName = @"publicNetworkAccess",
         Aliases = new string[] { "public-network-access"},
         Enums = new string[] { "Enabled", "Disabled" })]
-        public string PublicNetworkAccess { get => _parametersBody.PublicNetworkAccess ?? null; set => _parametersBody.PublicNetworkAccess = value; }
+        public string PublicNetworkAccess { get => _parametersBody.PublicNetworkAccess ?? null; set { _parametersBody.PublicNetworkAccess = value; _bodyBackup.PublicNetworkAccess = value; } }
 
         /// <summary>The value which should be used for this field.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The value which should be used for this field.",
         SerializedName = @"value",
         Aliases = new string[] { "require-infrastructure-encryption-value"},
         Enums = new string[] { })]
-        public bool RequireInfrastructureEncryptionValue { get => _parametersBody.RequireInfrastructureEncryptionValue ?? default(bool); set => _parametersBody.RequireInfrastructureEncryptionValue = value; }
+        public bool RequireInfrastructureEncryptionValue { get => _parametersBody.RequireInfrastructureEncryptionValue ?? default(bool); set { _parametersBody.RequireInfrastructureEncryptionValue = value; _bodyBackup.RequireInfrastructureEncryptionValue = value; } }
 
         /// <summary>
         /// Gets or sets a value indicating whether data plane (clusters) to control plane communication happen over private endpoint.
         /// Supported values are 'AllRules' and 'NoAzureDatabricksRules'. 'NoAzureServiceRules' value is for internal use only.
         /// </summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"Gets or sets a value indicating whether data plane (clusters) to control plane communication happen over private endpoint. Supported values are 'AllRules' and 'NoAzureDatabricksRules'. 'NoAzureServiceRules' value is for internal use only.",
         SerializedName = @"requiredNsgRules",
         Aliases = new string[] { "required-nsg-rule"},
         Enums = new string[] { "AllRules", "NoAzureDatabricksRules", "NoAzureServiceRules" })]
-        public string RequiredNsgRule { get => _parametersBody.RequiredNsgRule ?? null; set => _parametersBody.RequiredNsgRule = value; }
+        public string RequiredNsgRule { get => _parametersBody.RequiredNsgRule ?? null; set { _parametersBody.RequiredNsgRule = value; _bodyBackup.RequiredNsgRule = value; } }
 
         /// <summary>Backing field for <see cref="ResourceGroupName" /> property.</summary>
         private string _resourceGroupName;
@@ -408,43 +447,48 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         SerializedName = @"resourceGroupName",
         Aliases = new string[] { "resource-group-name"},
         Enums = new string[] { })]
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Path)]
         public string ResourceGroupName { get => this._resourceGroupName; set => this._resourceGroupName = value; }
 
         /// <summary>The SKU name.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The SKU name.",
         SerializedName = @"name",
         Aliases = new string[] { "sku-name"},
         Enums = new string[] { })]
-        public string SkuName { get => _parametersBody.SkuName ?? null; set => _parametersBody.SkuName = value; }
+        public string SkuName { get => _parametersBody.SkuName ?? null; set { _parametersBody.SkuName = value; _bodyBackup.SkuName = value; } }
 
         /// <summary>The SKU tier.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The SKU tier.",
         SerializedName = @"tier",
         Aliases = new string[] { "sku-tier"},
         Enums = new string[] { })]
-        public string SkuTier { get => _parametersBody.SkuTier ?? null; set => _parametersBody.SkuTier = value; }
+        public string SkuTier { get => _parametersBody.SkuTier ?? null; set { _parametersBody.SkuTier = value; _bodyBackup.SkuTier = value; } }
 
         /// <summary>The value which should be used for this field.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The value which should be used for this field.",
         SerializedName = @"value",
         Aliases = new string[] { "storage-account-name-value"},
         Enums = new string[] { })]
-        public string StorageAccountNameValue { get => _parametersBody.StorageAccountNameValue ?? null; set => _parametersBody.StorageAccountNameValue = value; }
+        public string StorageAccountNameValue { get => _parametersBody.StorageAccountNameValue ?? null; set { _parametersBody.StorageAccountNameValue = value; _bodyBackup.StorageAccountNameValue = value; } }
 
         /// <summary>The value which should be used for this field.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The value which should be used for this field.",
         SerializedName = @"value",
         Aliases = new string[] { "storage-account-sku-name-value"},
         Enums = new string[] { })]
-        public string StorageAccountSkuNameValue { get => _parametersBody.StorageAccountSkuNameValue ?? null; set => _parametersBody.StorageAccountSkuNameValue = value; }
+        public string StorageAccountSkuNameValue { get => _parametersBody.StorageAccountSkuNameValue ?? null; set { _parametersBody.StorageAccountSkuNameValue = value; _bodyBackup.StorageAccountSkuNameValue = value; } }
 
         /// <summary>Backing field for <see cref="SubscriptionId" /> property.</summary>
         private string _subscriptionId;
@@ -456,72 +500,80 @@ namespace Microsoft.Azure.PowerShell.Cmdlets.Databricks.Cmdlets
         SerializedName = @"subscriptionId",
         Aliases = new string[] { "subscription-id"},
         Enums = new string[] { })]
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Path)]
         public string SubscriptionId { get => this._subscriptionId; set => this._subscriptionId = value; }
 
         /// <summary>Resource tags.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"Resource tags.",
         SerializedName = @"tags",
         Aliases = new string[] { "tag"},
         Enums = new string[] { })]
-        public Microsoft.Azure.PowerShell.Cmdlets.Databricks.Models.ITrackedResourceTags Tag { get => _parametersBody.Tag ?? null /* object */; set => _parametersBody.Tag = value; }
+        public Microsoft.Azure.PowerShell.Cmdlets.Databricks.Models.ITrackedResourceTags Tag { get => _parametersBody.Tag ?? null /* object */; set { _parametersBody.Tag = value; _bodyBackup.Tag = value; } }
 
         /// <summary>The blob URI where the UI definition file is located.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The blob URI where the UI definition file is located.",
         SerializedName = @"uiDefinitionUri",
         Aliases = new string[] { "ui-definition-uri"},
         Enums = new string[] { })]
-        public string UiDefinitionUri { get => _parametersBody.UiDefinitionUri ?? null; set => _parametersBody.UiDefinitionUri = value; }
+        public string UiDefinitionUri { get => _parametersBody.UiDefinitionUri ?? null; set { _parametersBody.UiDefinitionUri = value; _bodyBackup.UiDefinitionUri = value; } }
 
         /// <summary>The name of KeyVault key.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The name of KeyVault key.",
         SerializedName = @"KeyName",
         Aliases = new string[] { "value-key-name"},
         Enums = new string[] { })]
-        public string ValueKeyName { get => _parametersBody.ValueKeyName ?? null; set => _parametersBody.ValueKeyName = value; }
+        public string ValueKeyName { get => _parametersBody.ValueKeyName ?? null; set { _parametersBody.ValueKeyName = value; _bodyBackup.ValueKeyName = value; } }
 
         /// <summary>
         /// The encryption keySource (provider). Possible values (case-insensitive): Default, Microsoft.Keyvault
         /// </summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The encryption keySource (provider). Possible values (case-insensitive): Default, Microsoft.Keyvault",
         SerializedName = @"keySource",
         Aliases = new string[] { "value-key-source"},
         Enums = new string[] { "Default", "Microsoft.Keyvault" })]
-        public string ValueKeySource { get => _parametersBody.ValueKeySource ?? null; set => _parametersBody.ValueKeySource = value; }
+        public string ValueKeySource { get => _parametersBody.ValueKeySource ?? null; set { _parametersBody.ValueKeySource = value; _bodyBackup.ValueKeySource = value; } }
 
         /// <summary>The Uri of KeyVault.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The Uri of KeyVault.",
         SerializedName = @"keyvaulturi",
         Aliases = new string[] { "value-key-vault-uri"},
         Enums = new string[] { })]
-        public string ValueKeyVaultUri { get => _parametersBody.ValueKeyVaultUri ?? null; set => _parametersBody.ValueKeyVaultUri = value; }
+        public string ValueKeyVaultUri { get => _parametersBody.ValueKeyVaultUri ?? null; set { _parametersBody.ValueKeyVaultUri = value; _bodyBackup.ValueKeyVaultUri = value; } }
 
         /// <summary>The version of KeyVault key.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The version of KeyVault key.",
         SerializedName = @"keyversion",
         Aliases = new string[] { "value-key-version"},
         Enums = new string[] { })]
-        public string ValueKeyVersion { get => _parametersBody.ValueKeyVersion ?? null; set => _parametersBody.ValueKeyVersion = value; }
+        public string ValueKeyVersion { get => _parametersBody.ValueKeyVersion ?? null; set { _parametersBody.ValueKeyVersion = value; _bodyBackup.ValueKeyVersion = value; } }
 
         /// <summary>The value which should be used for this field.</summary>
+        [global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.Category(global::Microsoft.Azure.PowerShell.Cmdlets.Databricks.ParameterCategory.Body)]
         [SharedContracts.ArgumentInfoAttribute(
         Required = false,
         Description = @"The value which should be used for this field.",
         SerializedName = @"value",
         Aliases = new string[] { "vnet-address-prefix-value"},
         Enums = new string[] { })]
-        public string VnetAddressPrefixValue { get => _parametersBody.VnetAddressPrefixValue ?? null; set => _parametersBody.VnetAddressPrefixValue = value; }
+        public string VnetAddressPrefixValue { get => _parametersBody.VnetAddressPrefixValue ?? null; set { _parametersBody.VnetAddressPrefixValue = value; _bodyBackup.VnetAddressPrefixValue = value; } }
 
         /// <summary>
         /// <c>overrideOnDefault</c> will be called before the regular onDefault has been processed, allowing customization of what
