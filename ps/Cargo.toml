@@ -18,3 +18,14 @@ serde_json = { workspace = true }
 strum = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true

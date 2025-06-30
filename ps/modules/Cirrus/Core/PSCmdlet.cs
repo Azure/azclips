@@ -169,7 +169,7 @@ public static class PSCmdlet
                 catch (Exception ex)
                 {
                     // Log warning but continue with other cmdlets
-                    System.Diagnostics.Debug.WriteLine($"Warning: Failed to generate function script for cmdlet '{cmdlet.Name}': {ex.Message}");
+                    Console.WriteLine($"Warning: Failed to generate function script for cmdlet '{cmdlet.Name}': {ex.Message}");
                 }
             }
         }
@@ -211,7 +211,7 @@ public static class PSCmdlet
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Error creating type for argument '{arg.Name}': {ex.Message}");
+                    Console.WriteLine($"Error creating type for argument '{arg.Name}': {ex.Message}");
                 }
             }
 
@@ -233,7 +233,7 @@ public static class PSCmdlet
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Error building parameter for argument '{arg.Name}': {ex.Message}");
+                    Console.WriteLine($"Error building parameter for argument '{arg.Name}': {ex.Message}");
                     // Continue with other parameters even if one fails
                 }
             }
@@ -241,7 +241,7 @@ public static class PSCmdlet
         catch (Exception ex)
         {
             // Log the error but don't throw - return empty dictionary instead
-            System.Diagnostics.Debug.WriteLine($"Error creating dynamic parameters for URI '{uri}': {ex.Message}");
+            Console.WriteLine($"Error creating dynamic parameters for URI '{uri}': {ex.Message}");
         }
 
         return paramDict;
@@ -276,7 +276,7 @@ public static class PSCmdlet
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error getting parameter name for arg '{arg.Name}': {ex.Message}");
+                Console.WriteLine($"Error getting parameter name for arg '{arg.Name}': {ex.Message}");
             }
         }
 
@@ -296,7 +296,7 @@ public static class PSCmdlet
                 }
                 else
                 {
-                    System.Diagnostics.Debug.WriteLine($"No matching arg found for parameter '{paramKey}'");
+                    Console.WriteLine($"No matching arg found for parameter '{paramKey}'");
                 }
             }
         }
@@ -405,7 +405,7 @@ public static class PSCmdlet
         catch (JsonException ex)
         {
             // Handle JSON parsing errors - return PSObject with error info
-            System.Diagnostics.Debug.WriteLine($"Failed to parse JSON result: {ex.Message}");
+            Console.WriteLine($"Failed to parse JSON result: {ex.Message}");
             var errorResult = new PSObject();
             errorResult.Properties.Add(new PSNoteProperty("Error", $"Failed to parse JSON: {ex.Message}"));
             errorResult.Properties.Add(new PSNoteProperty("RawResult", jsonResult));
@@ -414,7 +414,7 @@ public static class PSCmdlet
         catch (Exception ex)
         {
             // Handle other errors
-            System.Diagnostics.Debug.WriteLine($"Error creating result object: {ex.Message}");
+            Console.WriteLine($"Error creating result object: {ex.Message}");
             var errorResult = new PSObject();
             errorResult.Properties.Add(new PSNoteProperty("Error", $"Error processing result: {ex.Message}"));
             errorResult.Properties.Add(new PSNoteProperty("RawResult", jsonResult));

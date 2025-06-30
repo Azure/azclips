@@ -497,12 +497,6 @@ public static class PSWrapper
         public bool ExclusiveMaximum;
     }
 
-
-
-
-
-
-
     // P/Invoke declarations for Rust functions
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
     private static extern int cirrus_initialize();

@@ -158,23 +158,38 @@ namespace Cirrus.Core
     /// <summary>
     /// Dynamic type builder for creating types at runtime with support for circular references
     /// Uses two-phase construction pattern to handle complex type dependencies
+    /// Each module name gets its own unique assembly and module to avoid runtime limitations
     /// </summary>
     public class DynamicTypeBuilder
     {
-        private const string DEFAULT_ASSEMBLY_NAME = "Cirrus.Types";
+        private const string DEFAULT_ASSEMBLY_NAME_PREFIX = "Cirrus.Types";
         public const string DEFAULT_MODULE_NAME = "Custom";
 
-        // Global unique assembly - shared across all instances
-        private static readonly Lazy<AssemblyBuilder> _assemblyBuilder = new(() =>
-            AssemblyBuilder.DefineDynamicAssembly(
-                new AssemblyName(DEFAULT_ASSEMBLY_NAME),
-                AssemblyBuilderAccess.Run));
+        // Structure to hold assembly and module pair for each module name
+        private class AssemblyModulePair
+        {
+            public AssemblyBuilder Assembly { get; }
+            public ModuleBuilder Module { get; }
+
+            public AssemblyModulePair(string moduleName)
+            {
+                var assemblyName = $"{DEFAULT_ASSEMBLY_NAME_PREFIX}.{moduleName}";
+                Assembly = AssemblyBuilder.DefineDynamicAssembly(
+                    new AssemblyName(assemblyName),
+                    AssemblyBuilderAccess.Run);
+                Module = Assembly.DefineDynamicModule($"{moduleName}Module");
+            }
+        }
+
+        // Cache of assembly/module pairs per module name
+        private static readonly ConcurrentDictionary<string, AssemblyModulePair> _assemblyModulePairs = new();
 
         // Cache of DynamicTypeBuilder instances per module name
         private static readonly ConcurrentDictionary<string, DynamicTypeBuilder> _builders = new();
 
         // Instance members
         private readonly string _moduleName;
+        private readonly AssemblyBuilder _assemblyBuilder;
         private readonly ModuleBuilder _moduleBuilder;
         private readonly ConcurrentDictionary<string, TypeBuilder> _pendingTypes = new();
         private readonly ConcurrentDictionary<string, Type> _completedTypes = new();
@@ -186,7 +201,12 @@ namespace Cirrus.Core
         private DynamicTypeBuilder(string moduleName)
         {
             _moduleName = string.IsNullOrEmpty(moduleName) ? DEFAULT_MODULE_NAME : moduleName;
-            _moduleBuilder = _assemblyBuilder.Value.DefineDynamicModule($"{_moduleName}Module");
+
+            // Get or create assembly/module pair for this module name
+            var assemblyModulePair = _assemblyModulePairs.GetOrAdd(_moduleName, name => new AssemblyModulePair(name));
+
+            _assemblyBuilder = assemblyModulePair.Assembly;
+            _moduleBuilder = assemblyModulePair.Module;
         }
 
         /// <summary>
@@ -207,7 +227,7 @@ namespace Cirrus.Core
                 throw new ArgumentException("Class name cannot be null or empty", nameof(className));
             }
 
-            var namespaceName = $"{DEFAULT_ASSEMBLY_NAME}.{moduleName}";
+            var namespaceName = $"{DEFAULT_ASSEMBLY_NAME_PREFIX}.{moduleName}";
             return $"{namespaceName}.{className}";
         }
 
@@ -245,6 +265,11 @@ namespace Cirrus.Core
             }
             return _builders.ContainsKey(moduleName);
         }
+
+        /// <summary>
+        /// Get the AssemblyBuilder for this instance
+        /// </summary>
+        public AssemblyBuilder AssemblyBuilder => _assemblyBuilder;
 
         /// <summary>
         /// Get the ModuleBuilder for this instance
@@ -364,7 +389,7 @@ namespace Cirrus.Core
                         catch (Exception ex)
                         {
                             // Log error but continue with other types
-                            System.Diagnostics.Debug.WriteLine($"Failed to create type {typeName}: {ex.Message}");
+                            Console.WriteLine($"Failed to create type {typeName}: {ex.Message}");
                         }
                     }
                 }
@@ -702,9 +727,15 @@ namespace Cirrus.Core
 
             var parameterAttribute = new ParameterAttribute
             {
-                Mandatory = Required,
-                HelpMessage = ShortDescription ?? LongDescription ?? string.Empty
+                Mandatory = Required
             };
+
+            // Only set HelpMessage if we have a description
+            var helpMessage = ShortDescription ?? LongDescription;
+            if (!string.IsNullOrEmpty(helpMessage))
+            {
+                parameterAttribute.HelpMessage = helpMessage;
+            }
 
             if (Position.HasValue)
                 parameterAttribute.Position = Position.Value;

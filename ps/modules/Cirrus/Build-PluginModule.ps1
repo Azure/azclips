@@ -698,10 +698,7 @@ function Build-CirrusPlugin {
     }
 }
 
-# Export functions when dot-sourced
-Export-ModuleMember -Function New-AzureAggregatorModule, Build-MultiplePlugins, Build-CirrusPlugin
-
-# Main execution logic - check if script was called directly
+# Check if script was called directly or dot-sourced
 if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -ne '') {
     # Script was called directly, not dot-sourced
     
@@ -779,4 +776,8 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.Line -ne '') {
             exit 1
         }
     }
+}
+else {
+    # Script was dot-sourced, export functions for module usage
+    Export-ModuleMember -Function New-AzureAggregatorModule, Build-MultiplePlugins, Build-CirrusPlugin
 }
