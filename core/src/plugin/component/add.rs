@@ -57,7 +57,7 @@ impl AzCommandExecute for AddPlugin {
                 "name": actual_name,
                 "version": actual_version,
                 "cloud": target_cloud.to_string(),
-                "source": self.path,
+                "source": self.path.as_ref().map(|p| p.display().to_string()),
             }
         })))
     }
