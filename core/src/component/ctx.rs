@@ -49,7 +49,10 @@ pub trait AzComponentCtx: Send + Sync + 'static {
 
     /// Refresh the component route table for the specified cloud
     /// This is useful after installing or removing plugins
-    async fn refresh_route_table(&self, cloud: &crate::config::cloud::AzCloud) -> Result<(), AzError>;
+    async fn refresh_route_table(
+        &self,
+        cloud: &crate::config::cloud::AzCloud,
+    ) -> Result<(), AzError>;
 }
 
 #[async_trait]
@@ -85,7 +88,10 @@ impl AzComponentCtx for AzCore {
             })
     }
 
-    async fn refresh_route_table(&self, cloud: &crate::config::cloud::AzCloud) -> Result<(), AzError> {
+    async fn refresh_route_table(
+        &self,
+        cloud: &crate::config::cloud::AzCloud,
+    ) -> Result<(), AzError> {
         self.component_center
             .write()
             .await

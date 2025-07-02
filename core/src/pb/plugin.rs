@@ -50,9 +50,7 @@ pub struct CrsConditionOrOperator {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CrsConditionNotOperator {
     #[prost(message, optional, boxed, tag = "1")]
-    pub operator: ::core::option::Option<
-        ::prost::alloc::boxed::Box<CrsConditionOperator>,
-    >,
+    pub operator: ::core::option::Option<::prost::alloc::boxed::Box<CrsConditionOperator>>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CrsConditionHasValueOperator {
@@ -156,9 +154,8 @@ pub struct CrsObjectSchema {
     #[prost(message, repeated, tag = "4")]
     pub discriminators: ::prost::alloc::vec::Vec<CrsObjectSchemaDiscriminator>,
     #[prost(message, optional, boxed, tag = "5")]
-    pub additional_props: ::core::option::Option<
-        ::prost::alloc::boxed::Box<CrsObjectSchemaAdditionalProperties>,
-    >,
+    pub additional_props:
+        ::core::option::Option<::prost::alloc::boxed::Box<CrsObjectSchemaAdditionalProperties>>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CrsArraySchema {
@@ -217,9 +214,8 @@ pub struct CrsObjectIndexDiscriminator {
     #[prost(message, optional, boxed, tag = "3")]
     pub prop: ::core::option::Option<::prost::alloc::boxed::Box<CrsSelectorIndex>>,
     #[prost(message, optional, boxed, tag = "4")]
-    pub discriminator: ::core::option::Option<
-        ::prost::alloc::boxed::Box<CrsObjectIndexDiscriminator>,
-    >,
+    pub discriminator:
+        ::core::option::Option<::prost::alloc::boxed::Box<CrsObjectIndexDiscriminator>>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CrsObjectIndexAdditionalProperties {
@@ -233,13 +229,11 @@ pub struct CrsObjectIndex {
     #[prost(message, optional, boxed, tag = "1")]
     pub prop: ::core::option::Option<::prost::alloc::boxed::Box<CrsSelectorIndex>>,
     #[prost(message, optional, boxed, tag = "2")]
-    pub discriminator: ::core::option::Option<
-        ::prost::alloc::boxed::Box<CrsObjectIndexDiscriminator>,
-    >,
+    pub discriminator:
+        ::core::option::Option<::prost::alloc::boxed::Box<CrsObjectIndexDiscriminator>>,
     #[prost(message, optional, boxed, tag = "3")]
-    pub additional_props: ::core::option::Option<
-        ::prost::alloc::boxed::Box<CrsObjectIndexAdditionalProperties>,
-    >,
+    pub additional_props:
+        ::core::option::Option<::prost::alloc::boxed::Box<CrsObjectIndexAdditionalProperties>>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CrsArrayIndex {
@@ -274,17 +268,7 @@ pub struct CrsHttpRequest {
 }
 /// Nested message and enum types in `CrsHttpRequest`.
 pub mod crs_http_request {
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash,
-        PartialOrd,
-        Ord,
-        ::prost::Enumeration
-    )]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
     #[repr(i32)]
     pub enum Method {
         Get = 0,
@@ -447,17 +431,7 @@ pub struct CrsHttpOperationLongRunning {
 }
 /// Nested message and enum types in `CrsHttpOperationLongRunning`.
 pub mod crs_http_operation_long_running {
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash,
-        PartialOrd,
-        Ord,
-        ::prost::Enumeration
-    )]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
     #[repr(i32)]
     pub enum StateVia {
         /// (default if not specified) poll until terminal state, the final response will be available at the uri pointed to by the header Azure-AsyncOperation

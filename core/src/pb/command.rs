@@ -204,17 +204,7 @@ pub struct CrsDurationFormat {
 }
 /// Nested message and enum types in `CrsDurationFormat`.
 pub mod crs_duration_format {
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash,
-        PartialOrd,
-        Ord,
-        ::prost::Enumeration
-    )]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
     #[repr(i32)]
     pub enum Protocol {
         /// PnYnMnDTnHnMnS
@@ -247,17 +237,7 @@ pub struct CrsDateFormat {
 }
 /// Nested message and enum types in `CrsDateFormat`.
 pub mod crs_date_format {
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash,
-        PartialOrd,
-        Ord,
-        ::prost::Enumeration
-    )]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
     #[repr(i32)]
     pub enum Protocol {
         /// yyyy-mm-dd
@@ -293,17 +273,7 @@ pub struct CrsTimeFormat {
 }
 /// Nested message and enum types in `CrsTimeFormat`.
 pub mod crs_time_format {
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash,
-        PartialOrd,
-        Ord,
-        ::prost::Enumeration
-    )]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
     #[repr(i32)]
     pub enum Protocol {
         /// hh:mm:ss.xxx
@@ -339,17 +309,7 @@ pub struct CrsDateTimeFormat {
 }
 /// Nested message and enum types in `CrsDateTimeFormat`.
 pub mod crs_date_time_format {
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash,
-        PartialOrd,
-        Ord,
-        ::prost::Enumeration
-    )]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
     #[repr(i32)]
     pub enum Protocol {
         /// 2024-03-19T08:30:00.123+00:00
@@ -392,17 +352,7 @@ pub struct CrsUuidFormat {
 }
 /// Nested message and enum types in `CrsUuidFormat`.
 pub mod crs_uuid_format {
-    #[derive(
-        Clone,
-        Copy,
-        Debug,
-        PartialEq,
-        Eq,
-        Hash,
-        PartialOrd,
-        Ord,
-        ::prost::Enumeration
-    )]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
     #[repr(i32)]
     pub enum Case {
         Lower = 0,
@@ -590,9 +540,8 @@ pub struct CrsObjectArg {
     pub props: ::prost::alloc::vec::Vec<CrsArg>,
     /// the additional properties of the object
     #[prost(message, optional, boxed, tag = "5")]
-    pub additional_props: ::core::option::Option<
-        ::prost::alloc::boxed::Box<CrsObjectArgAdditionalProperties>,
-    >,
+    pub additional_props:
+        ::core::option::Option<::prost::alloc::boxed::Box<CrsObjectArgAdditionalProperties>>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CrsObjectArgAdditionalProperties {
@@ -708,10 +657,8 @@ pub struct CrsHelp {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CrsParams {
     #[prost(map = "string, bytes", tag = "1")]
-    pub params: ::std::collections::HashMap<
-        ::prost::alloc::string::String,
-        ::prost::alloc::vec::Vec<u8>,
-    >,
+    pub params:
+        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::vec::Vec<u8>>,
     /// the keys of the params which are assigned as patch value, the value
     /// can be `param1.prop1\[1\].tags.a` or `param1.prop1+`. Here the `+`
     /// means to extend the array properties.
