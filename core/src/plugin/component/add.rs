@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use serde_json::{json, Value};
-use tracing::error;
+use std::path::{Path, PathBuf};
+use tracing::{error, info};
 
 use crate::{
     component::{AzCommand, AzCommandExecute, AzComponentCtx},
@@ -10,6 +11,7 @@ use crate::{
         crs_arg, crs_string_arg, CrsArg, CrsArgDefault, CrsArgHelp, CrsCommand, CrsHelp, CrsParams,
         CrsStringArg, CrsStringFormat,
     },
+    plugin::get_plugin_dir,
     VERSION,
 };
 
@@ -18,15 +20,43 @@ pub struct AddPlugin {
     name: String,
     version: String,
     cloud: Option<AzCloud>,
+    path: Option<PathBuf>,
 }
 
 #[async_trait]
 impl AzCommandExecute for AddPlugin {
     type Output = Value;
 
-    async fn run<T: AzComponentCtx>(&self, _: &T) -> Result<Option<Self::Output>, AzError> {
-        println!("add plugin: {:?}", self);
-        Ok(None)
+    async fn run<T: AzComponentCtx>(&self, ctx: &T) -> Result<Option<Self::Output>, AzError> {
+        info!("Adding plugin: name={}, version={}, cloud={:?}, path={:?}", 
+              self.name, self.version, self.cloud, self.path);
+        
+        // Get the target cloud - use specified cloud or current active cloud
+        let target_cloud = if let Some(cloud) = &self.cloud {
+            cloud.clone()
+        } else {
+            let cfg = ctx.get_cfg().await;
+            cfg.clouds.get_active().name.clone()
+        };
+        
+        info!("Using cloud: {}", target_cloud);
+        
+        let (actual_name, actual_version) = if let Some(path) = &self.path {
+            self.add_plugin_from_local_path(ctx, path, &target_cloud).await?
+        } else {
+            self.add_plugin_from_remote(&target_cloud).await?;
+            (self.name.clone(), self.version.clone())
+        };
+        
+        Ok(Some(json!({
+            "status": "success",
+            "plugin": {
+                "name": actual_name,
+                "version": actual_version,
+                "cloud": target_cloud.to_string(),
+                "source": if self.path.is_some() { "local" } else { "remote" }
+            }
+        })))
     }
 }
 
@@ -106,6 +136,23 @@ impl AzCommand for AddPlugin {
                     ..Default::default()
                 })),
                 ..Default::default()
+            },
+            CrsArg {
+                var_name: "path".to_string(),
+                name: "path".to_string(),
+                options: vec![
+                    "path".to_string(),
+                    "p".to_string(),
+                ],
+                help: Some(CrsArgHelp {
+                    short: "Local path to the plugin folder".to_string(),
+                    ..Default::default()
+                }),
+                arg_type: Some(crs_arg::ArgType::String(CrsStringArg {
+                    format: Some(crs_string_arg::Format::String(CrsStringFormat::default())),
+                    ..Default::default()
+                })),
+                ..Default::default()
             }
         ]
     }
@@ -124,6 +171,9 @@ impl AzCommand for AddPlugin {
                     "cloud" => {
                         add.cloud = serde_json::from_slice(v).expect("failed to parse json");
                     }
+                    "path" => {
+                        add.path = serde_json::from_slice(v).expect("failed to parse json");
+                    }
                     _ => {
                         error!("unknown argument: {}", name);
                     }
@@ -131,5 +181,113 @@ impl AzCommand for AddPlugin {
             }
         }
         Ok(add)
+    }
+}
+
+impl AddPlugin {
+    async fn add_plugin_from_local_path<T: AzComponentCtx>(&self, ctx: &T, folder_path: &Path, target_cloud: &AzCloud) -> Result<(String, String), AzError> {
+        if !folder_path.exists() {
+            return Err(AzError::Internal(crate::error::AzInternalError::InvalidPluginError(format!(
+                "Plugin folder not found at path: {}", folder_path.display()
+            ))));
+        }
+        
+        if !folder_path.is_dir() {
+            return Err(AzError::Internal(crate::error::AzInternalError::InvalidPluginError(
+                "Path must be a directory containing plugin files".to_string()
+            )));
+        }
+        
+        let plugin_filename = format!("{}-{}.plugin", self.name, self.version);
+        let plugin_file = folder_path.join(&plugin_filename);
+        
+        if !plugin_file.exists() {
+            return Err(AzError::Internal(crate::error::AzInternalError::InvalidPluginError(format!(
+                "Plugin file '{}' not found in folder: {}", plugin_filename, folder_path.display()
+            ))));
+        }
+        
+        if !plugin_file.is_file() {
+            return Err(AzError::Internal(crate::error::AzInternalError::InvalidPluginError(format!(
+                "Expected plugin file '{}' is not a file", plugin_filename
+            ))));
+        }
+        
+        info!("Found plugin file: {}", plugin_file.display());
+        
+        let plugin_content = tokio::fs::read(&plugin_file).await.map_err(|e| {
+            AzError::Internal(crate::error::AzInternalError::InvalidPluginError(format!("Failed to read plugin file: {}", e)))
+        })?;
+        
+        if plugin_content.is_empty() {
+            return Err(AzError::Internal(crate::error::AzInternalError::InvalidPluginError("Plugin file is empty".to_string())));
+        }
+        
+        self.install_plugin(ctx, &self.name, &self.version, &plugin_content, target_cloud).await?;
+        
+        info!("Successfully installed plugin '{}' version '{}' from local path", 
+              self.name, self.version);
+        
+        Ok((self.name.clone(), self.version.clone()))
+    }
+    
+    async fn add_plugin_from_remote(&self, target_cloud: &AzCloud) -> Result<(), AzError> {
+        info!("Installing plugin from remote source: {} version {} to cloud: {}", 
+              self.name, self.version, target_cloud);
+        
+        if self.name.is_empty() {
+            return Err(AzError::Internal(crate::error::AzInternalError::InvalidPluginError(
+                "Plugin name is required for remote installation".to_string()
+            )));
+        }
+        
+        if self.version.is_empty() {
+            return Err(AzError::Internal(crate::error::AzInternalError::InvalidPluginError(
+                "Plugin version is required for remote installation".to_string()
+            )));
+        }
+        
+        // TODO: Implement remote plugin download logic
+        
+        return Err(AzError::Internal(crate::error::AzInternalError::InvalidPluginError("Remote plugin installation not yet implemented".to_string())));
+    }
+    
+    async fn install_plugin<T: AzComponentCtx>(&self, ctx: &T, name: &str, version: &str, content: &[u8], target_cloud: &AzCloud) -> Result<(), AzError> {
+        info!("Installing plugin '{}' version '{}' ({} bytes) to cloud: {}", name, version, content.len(), target_cloud);
+        
+        let plugin_dir = get_plugin_dir(Some(target_cloud));
+        tokio::fs::create_dir_all(&plugin_dir).await.map_err(|e| {
+            AzError::Internal(crate::error::AzInternalError::InvalidPluginError(format!(
+                "Failed to create plugin directory: {}", e
+            )))
+        })?;
+        
+        let target_filename = format!("{}-{}.plugin", name, version);
+        let target_path = plugin_dir.join(&target_filename);
+        
+        if target_path.exists() {
+            tracing::warn!("Plugin '{}' version '{}' already exists at: {}, skipping installation", 
+                name, version, target_path.display());
+            return Ok(());
+        }
+        
+        tokio::fs::write(&target_path, content).await.map_err(|e| {
+            AzError::Internal(crate::error::AzInternalError::InvalidPluginError(format!(
+                "Failed to write plugin file: {}", e
+            )))
+        })?;
+        
+        info!("Plugin file installed to: {}", target_path.display());
+        
+        self.refresh_route_table_for_cloud(ctx, target_cloud).await?;
+        
+        Ok(())
+    }
+
+    async fn refresh_route_table_for_cloud<T: AzComponentCtx>(&self, ctx: &T, target_cloud: &AzCloud) -> Result<(), AzError> {
+        info!("Refreshing route table for cloud: {}", target_cloud);
+        ctx.refresh_route_table(target_cloud).await?;
+        info!("Route table refreshed successfully for cloud: {}", target_cloud);
+        Ok(())
     }
 }
