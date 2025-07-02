@@ -77,11 +77,21 @@ namespace SharedContracts
         public bool Positional { get; set; } = false;
         public string NumArgs { get; set; } = "1"; // Default to 1, can be set to '*' for variable length
         public string? Group { get; set; } = null;
+        // public bool Hidden { get; set; } = false;
+        // public string? Prompt { get; set; } = null;
         public string SerializedName { get; set; } = "";
     }
 
     [AttributeUsage(AttributeTargets.Class)]
     public class CommandInfoAttribute : Attribute
+    {
+        public string Name { get; set; } = "";
+        public string Description { get; set; } = "";
+        // public string? Comfirmation { get; set; } = null;
+    }
+
+    [AttributeUsage(AttributeTargets.Class)]
+    public class CommandGroupAttribute : Attribute
     {
         public string Name { get; set; } = "";
         public string Description { get; set; } = "";
