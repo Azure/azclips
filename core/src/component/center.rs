@@ -50,48 +50,24 @@ impl<T: AzComponentCtx> AzComponentCenter<T> {
             plugins: HashMap::new(),
         };
         center.load_built_in_components();
-        center.rebuild_or_reload_route_table(cloud).await?;
+        center.rebuild_route_table(cloud, None).await?;
         Ok(center)
     }
 
     /// It will rebuild the route table according to the cloud
     /// The route table will combine the built-in components and the plugins components
     /// It will also clear the loaded plugins
-    pub(crate) async fn rebuild_or_reload_route_table(
+    pub(crate) async fn rebuild_route_table(
         &mut self,
         cloud: &AzCloud,
+        force_build: Option<bool>,
     ) -> Result<(), AzInternalError> {
         // Load plugin route table when not in PS mode
         #[cfg(feature = "cli")]
         {
-            self.route_table = self.load_or_build_plugin_route_table(cloud).await?;
-        }
-        #[cfg(feature = "ps")]
-        {
-            // the route table not changed in ps mode
-            // self.route_table = self.route_table;
-        }
-
-        // Add built-in components to route table
-        self.built_ins.keys().for_each(|component| {
-            // using the first reversed node to ignore the params in the uri
-            let node = component.uri().ascending_nodes().next().unwrap();
-            self.route_table.insert(
-                node.to_string(),
-                AzComponentInfo::BuiltIn(component.clone()),
-            );
-        });
-        self.plugins.clear();
-        Ok(())
-    }
-
-    pub(crate) async fn rebuild_route_table(
-        &mut self,
-        cloud: &AzCloud,
-    ) -> Result<(), AzInternalError> {
-        #[cfg(feature = "cli")]
-        {
-            self.route_table = Self::build_plugin_route_table(cloud).await?;
+            self.route_table = self
+                .load_or_build_plugin_route_table(cloud, force_build)
+                .await?;
         }
         #[cfg(feature = "ps")]
         {
@@ -119,12 +95,14 @@ impl<T: AzComponentCtx> AzComponentCenter<T> {
     async fn load_or_build_plugin_route_table(
         &self,
         cloud: &AzCloud,
+        force_build: Option<bool>,
     ) -> Result<HashMap<String, AzComponentInfo>, AzInternalError> {
-        if let Some(plugin_route_table) = Self::load_plugin_route_table(cloud).await {
-            Ok(plugin_route_table)
-        } else {
-            Self::build_plugin_route_table(cloud).await
+        if !force_build.unwrap_or(false) {
+            if let Some(plugin_route_table) = Self::load_plugin_route_table(cloud).await {
+                return Ok(plugin_route_table);
+            }
         }
+        Self::build_plugin_route_table(cloud).await
     }
 
     /// Build the plugin components route table for the given cloud and save it to the file

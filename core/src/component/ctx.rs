@@ -46,13 +46,6 @@ pub trait AzComponentCtx: Send + Sync + 'static {
     async fn get_default_subscription(&self) -> Result<String, AzError>;
 
     async fn get_default_credential(&self) -> Result<Arc<dyn TokenCredential>, AzError>;
-
-    /// Refresh the component route table for the specified cloud
-    /// This is useful after installing or removing plugins
-    async fn refresh_route_table(
-        &self,
-        cloud: &crate::config::cloud::AzCloud,
-    ) -> Result<(), AzError>;
 }
 
 #[async_trait]
@@ -86,17 +79,5 @@ impl AzComponentCtx for AzCore {
                     AzUserUsageError::DefaultCredentialNotFoundError,
                 ))
             })
-    }
-
-    async fn refresh_route_table(
-        &self,
-        cloud: &crate::config::cloud::AzCloud,
-    ) -> Result<(), AzError> {
-        self.component_center
-            .write()
-            .await
-            .rebuild_route_table(cloud)
-            .await
-            .map_err(|e| AzError::from(e))
     }
 }
