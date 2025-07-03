@@ -9,6 +9,21 @@ namespace AzTool
     public class CommandLineArgs
     {
         public List<string> PositionalArgs { get; set; } = new List<string>();
+        public string[] PositionalArgsArray
+        {
+            get
+            {
+                return PositionalArgs.ToArray();
+            }
+        }
+        public List<(string arg, List<string> values)> RawArguments { get; set; } = new List<(string, List<string>)>();
+        public (string arg, string[] values)[] ArgumentsArray
+        {
+            get
+            {
+                return RawArguments.Select(arg => (arg.arg, arg.values.ToArray())).ToArray();
+            }
+        }
         /// <summary>
         /// Dictionary to hold properties and their values.
         /// </summary>
@@ -38,33 +53,37 @@ namespace AzTool
             {
                 if (arg.StartsWith("-"))
                 {
-                    // If we were collecting values for a previous property, save it
-                    if (!string.IsNullOrEmpty(currentProperty))
+                    if (arg.StartsWith("--"))
                     {
-                        if (!commandLineArgs.Properties.ContainsKey(currentProperty))
-                        {
-                            commandLineArgs.Properties[currentProperty] = new List<List<string>>();
-                        }
-                        commandLineArgs.Properties[currentProperty].Add(currentValues);
-                    }
-
-                    // Start a new property
-                    currentProperty = arg.ToLowerInvariant(); // Convert to kebab-case
-                    currentValues = new List<string>();
-                }
-                else
-                {
-                    if (string.IsNullOrEmpty(currentProperty))
-                    {
-                        // If no property is set, treat this as a positional argument
-                        commandLineArgs.PositionalArgs.Add(arg);
+                        commandLineArgs.RawArguments.Add((arg, new List<string>()));
                     }
                     else
                     {
-                        // Collect values for the current property
-                        currentValues.Add(arg);
+                        foreach (var alias in arg.Skip(1))
+                        {
+                            commandLineArgs.RawArguments.Add(($"-{alias}", new List<string>()));
+                        }
                     }
                 }
+                else if (commandLineArgs.RawArguments.Count > 0)
+                {
+                    commandLineArgs.RawArguments.Last().values.Add(arg);
+                }
+                else
+                {
+                    commandLineArgs.PositionalArgs.Add(arg);
+                }
+            }
+
+            // Process RawArguments to populate Properties
+            foreach (var (arg, values) in commandLineArgs.RawArguments)
+            {
+                var normalizedArg = arg.ToLowerInvariant();
+                if (!commandLineArgs.Properties.ContainsKey(normalizedArg))
+                {
+                    commandLineArgs.Properties[normalizedArg] = new List<List<string>>();
+                }
+                commandLineArgs.Properties[normalizedArg].Add(values);
             }
 
             // Save the last property collected

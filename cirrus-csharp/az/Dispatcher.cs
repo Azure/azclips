@@ -35,12 +35,63 @@ namespace AzTool
         }
     }
 
-    public abstract record Invocation;
+    public class Invoker {
+        public Invocation CreateInvocation(string[] args)
+        {
+            var helpFlags = new[] { "--help", "-h", "help", "?", "-?" };
+            var (module, usedModuleName, moduleArgs) = ModuleProxy.LoadFromArgs(args);
+            if (args.Length == 1 && helpFlags.Contains(args[0], StringComparer.OrdinalIgnoreCase))
+            {
+                var invocationInfo = new CLIInvocationInfo
+                {
+                    RawCommand = args,
+                    ModuleName = usedModuleName,
+                    ShowHelp = true,
+                };
+                return new ModuleHelpInvocation(module, invocationInfo);
+            }
+            var (command, usedCommandName, commandArgs) = module.ParseCommand(moduleArgs);
+            CommandLineArgs cmdArgs = CommandLineArgs.Parse(commandArgs);
+            if (cmdArgs.ShowHelp)
+            {
+                var invocationInfo = new CLIInvocationInfo
+                {
+                    RawCommand = args,
+                    ModuleName = usedModuleName,
+                    CommandName = usedCommandName,
+                    ShowHelp = true,
+                };
+                return new CommandHelpInvocation(command, invocationInfo);
+            }
+            else
+            {
+                var invocationInfo = new CLIInvocationInfo
+                {
+                    RawCommand = args,
+                    ModuleName = usedModuleName,
+                    CommandName = usedCommandName,
+                    PositionalArguments = cmdArgs.PositionalArgsArray,
+                    Arguments = cmdArgs.ArgumentsArray,
+                };
+                var processor = command.InstantiateCommand(cmdArgs);
+                return new CommandInvocation(processor, invocationInfo);
+            }
+        }
+    }
+
+    public abstract record Invocation
+    {
+        public CLIInvocationInfo InvocationInfo { get; }
+        protected Invocation(CLIInvocationInfo invocationInfo)
+        {
+            InvocationInfo = invocationInfo ?? throw new ArgumentNullException(nameof(invocationInfo), "InvocationInfo cannot be null");
+        }
+    }
 
     public record CommandInvocation : Invocation
     {
         public IProcessor Processor { get; }
-        public CommandInvocation(IProcessor processor)
+        public CommandInvocation(IProcessor processor, CLIInvocationInfo invocationInfo) : base(invocationInfo)
         {
             Processor = processor ?? throw new ArgumentNullException(nameof(processor), "Processor cannot be null");
         }
@@ -49,7 +100,7 @@ namespace AzTool
     public record CommandHelpInvocation : Invocation
     {
         public CommandProxy Command { get; }
-        public CommandHelpInvocation(CommandProxy command)
+        public CommandHelpInvocation(CommandProxy command, CLIInvocationInfo invocationInfo) : base(invocationInfo)
         {
             Command = command ?? throw new ArgumentNullException(nameof(command), "Command cannot be null");
         }
@@ -58,13 +109,15 @@ namespace AzTool
     public record ModuleHelpInvocation : Invocation
     {
         public ModuleProxy Module { get; }
-        public ModuleHelpInvocation(ModuleProxy module)
+        public ModuleHelpInvocation(ModuleProxy module, CLIInvocationInfo invocationInfo) : base(invocationInfo)
         {
             Module = module ?? throw new ArgumentNullException(nameof(module), "Module cannot be null");
         }
     }
 
-    public record AppHelpInvocation : Invocation { }
+    public record AppHelpInvocation : Invocation {
+        public AppHelpInvocation(CLIInvocationInfo invocationInfo) : base(invocationInfo) { }
+    }
 
     /// <summary>
     /// Represents a proxy for a module loaded from an assembly.
@@ -111,7 +164,7 @@ namespace AzTool
         /// Command line arguments where the first element is the path to the DLL to be loaded.
         /// The arguments should exclude the executable name.
         /// </param>
-        public static (ModuleProxy, string[]) LoadFromArgs(string[] args)
+        public static (ModuleProxy module, string[] used, string[] remaining) LoadFromArgs(string[] args)
         {
             if (args.Length == 0)
             {
@@ -120,26 +173,7 @@ namespace AzTool
 
             string dllPath = $"{args[0]}.dll";
             Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Loading module from DLL: {dllPath}");
-            return (ModuleProxy.Create(dllPath), args.Skip(1).ToArray());
-        }
-
-        /// <summary>
-        /// Creates an invocation based on the provided command line arguments.
-        /// </summary>
-        /// <param name="args">Command line arguments to process.</param>
-        /// <returns>
-        /// An <see cref="Invocation"/> representing the command to be executed.
-        /// </returns>
-        /// <exception cref="ArgumentException">Thrown when no command is recognized in the provided arguments.</exception>
-        public Invocation CreateInvocation(string[] args)
-        {
-            var helpFlags = new[] { "--help", "-h", "help", "?", "-?" };
-            if (args.Length == 1 && helpFlags.Contains(args[0], StringComparer.OrdinalIgnoreCase))
-            {
-                return new ModuleHelpInvocation(this);
-            }
-            var (command, commandArgs) = ParseCommand(args);
-            return command.CreateInvocation(commandArgs);
+            return (ModuleProxy.Create(dllPath), args[0..1], args.Skip(1).ToArray());
         }
 
         /// <summary>
@@ -150,7 +184,7 @@ namespace AzTool
         /// A tuple containing the <see cref="CommandProxy"/> and an array of remaining arguments.
         /// </returns>
         /// <exception cref="CommandParserException">Thrown when an unrecognized command is encountered.</exception>
-        public (CommandProxy, string[]) ParseCommand(string[] args)
+        public (CommandProxy command, string[] used, string[] remaining) ParseCommand(string[] args)
         {
             string commandString = string.Join(" ", args);
             foreach (var cmd in GetCommands())
@@ -158,12 +192,12 @@ namespace AzTool
                 var commandInfo = cmd.CommandInfo;
                 // Assumes command names are unique and no command name is a prefix of another.
                 // For example, "storage" and "storage account" would conflict in this implementation.
-                if (commandString.StartsWith(commandInfo.Name, StringComparison.OrdinalIgnoreCase))
+                if (commandString.StartsWith($"{commandInfo.Name} ", StringComparison.OrdinalIgnoreCase))
                 {
                     // Extract arguments after the command name
                     string[] commandArgs = args.Skip(commandInfo.Name.Split(' ').Length).ToArray();
                     Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Command found: {commandInfo.Name} with arguments: {string.Join(", ", commandArgs)}");
-                    return (cmd, commandArgs);
+                    return (cmd, commandInfo.Name.Split(' '), commandArgs);
                 }
             }
             throw new CommandParserException($"Unrecognized command in Module {Name}: {commandString}");
@@ -407,28 +441,6 @@ namespace AzTool
             else
             {
                 throw new InvalidOperationException($"Type {CommandType.Name} does not implement IProcessor");
-            }
-        }
-
-        /// <summary>
-        /// Creates an invocation for the command based on the provided command line arguments.
-        /// </summary>
-        /// <param name="args">Command line arguments to process.</param>
-        /// <returns>
-        /// An <see cref="Invocation"/> representing the command to be executed.
-        /// </returns>
-        /// <exception cref="ArgumentException">Thrown when the command type does not implement <see cref="IProcessor"/>.</exception>
-        public Invocation CreateInvocation(string[] args)
-        {
-            var cmdArgs = CommandLineArgs.Parse(args);
-            if (cmdArgs.ShowHelp)
-            {
-                return new CommandHelpInvocation(this);
-            }
-            else
-            {
-                var processor = InstantiateCommand(cmdArgs);
-                return new CommandInvocation(processor);
             }
         }
     }
