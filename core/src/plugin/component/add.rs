@@ -265,31 +265,20 @@ impl AddPlugin {
         let extracted_name = base_name[0..last_dash_pos].to_string();
         let extracted_version = base_name[last_dash_pos + 1..].to_string();
 
-        let name = if !self.name.is_empty() {
-            self.name.clone()
-        } else {
-            extracted_name
-        };
-        let version = if !self.version.is_empty() {
-            self.version.clone()
-        } else {
-            extracted_version
-        };
-
         info!(
             "Extracted from filename: name={}, version={}",
-            name, version
+            extracted_name, extracted_version
         );
 
-        self.install_plugin(ctx, &name, &version, &plugin_content, target_cloud)
+        self.install_plugin(ctx, &extracted_name, &extracted_version, &plugin_content, target_cloud)
             .await?;
 
         info!(
             "Successfully installed plugin '{}' version '{}' from local path",
-            name, version
+            extracted_name, extracted_version
         );
 
-        Ok((name, version))
+        Ok((extracted_name, extracted_version))
     }
 
     async fn add_plugin_from_remote<T: AzComponentCtx>(
