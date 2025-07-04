@@ -73,7 +73,7 @@ impl AzPlugin {
     }
 }
 
-fn get_plugin_dir(cloud: Option<&AzCloud>) -> PathBuf {
+pub fn get_plugin_dir(cloud: Option<&AzCloud>) -> PathBuf {
     let plugin_dir = get_component_dir().join(PLUGIN_DIR_NAME);
     if let Some(cloud) = cloud {
         plugin_dir.join(cloud.to_string())
