@@ -50,7 +50,7 @@ impl<T: AzComponentCtx> AzComponentCenter<T> {
             plugins: HashMap::new(),
         };
         center.load_built_in_components();
-        center.rebuild_route_table(cloud, None).await?;
+        center.rebuild_route_table(cloud, false).await?;
         Ok(center)
     }
 
@@ -60,7 +60,7 @@ impl<T: AzComponentCtx> AzComponentCenter<T> {
     pub(crate) async fn rebuild_route_table(
         &mut self,
         cloud: &AzCloud,
-        force_build: Option<bool>,
+        force_build: bool,
     ) -> Result<(), AzInternalError> {
         // Load plugin route table when not in PS mode
         #[cfg(feature = "cli")]
@@ -95,9 +95,9 @@ impl<T: AzComponentCtx> AzComponentCenter<T> {
     async fn load_or_build_plugin_route_table(
         &self,
         cloud: &AzCloud,
-        force_build: Option<bool>,
+        force_build: bool,
     ) -> Result<HashMap<String, AzComponentInfo>, AzInternalError> {
-        if !force_build.unwrap_or(false) {
+        if !force_build {
             if let Some(plugin_route_table) = Self::load_plugin_route_table(cloud).await {
                 return Ok(plugin_route_table);
             }

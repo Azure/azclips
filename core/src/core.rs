@@ -259,7 +259,7 @@ impl AzCore {
         self.component_center
             .write()
             .await
-            .rebuild_route_table(cloud, Some(false))
+            .rebuild_route_table(cloud, false)
             .await?;
         Ok(())
     }
