@@ -20,9 +20,6 @@ try {
         $allFunctionScripts = [Cirrus.Core.PSCmdlet]::GenerateFunctionScripts($componentCmdlets, $script:ModuleName, $PSScriptRoot)
 
         if (![string]::IsNullOrEmpty($allFunctionScripts)) {
-            # Check if external help file exists
-            $helpFilePath = Join-Path $PSScriptRoot "$($script:ModuleName)-help.xml"
-            
             # Execute all function definitions at once
             Invoke-Expression $allFunctionScripts
             
@@ -41,7 +38,8 @@ try {
         Write-Host "No builtin cmdlets found" -ForegroundColor Yellow
     }
 
-} catch {
+}
+catch {
     Write-Warning "Failed to create dynamic cmdlets: $_"
     Write-Host "This may happen if the Rust library is not properly initialized" -ForegroundColor Yellow
 }

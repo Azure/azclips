@@ -137,7 +137,7 @@ $buildFlag = if ($Release) { "--release" } else { "" }
 Write-Host "Building Rust library ($buildType)..." -ForegroundColor White
 
 try {
-    $cargoArgs = @("build")
+    $cargoArgs = @("build", "-p", $CirrusCargoName)
     if ($Release) {
         $cargoArgs += "--release"
     }

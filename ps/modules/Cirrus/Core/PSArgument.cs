@@ -247,36 +247,6 @@ namespace Cirrus.Core
         }
 
         /// <summary>
-        /// Get all registered module names
-        /// </summary>
-        public static IReadOnlyCollection<string> GetRegisteredModuleNames()
-        {
-            return _builders.Keys.ToList().AsReadOnly();
-        }
-
-        /// <summary>
-        /// Check if a module has been registered
-        /// </summary>
-        public static bool IsModuleRegistered(string moduleName)
-        {
-            if (string.IsNullOrEmpty(moduleName))
-            {
-                moduleName = DEFAULT_MODULE_NAME;
-            }
-            return _builders.ContainsKey(moduleName);
-        }
-
-        /// <summary>
-        /// Get the AssemblyBuilder for this instance
-        /// </summary>
-        public AssemblyBuilder AssemblyBuilder => _assemblyBuilder;
-
-        /// <summary>
-        /// Get the ModuleBuilder for this instance
-        /// </summary>
-        public ModuleBuilder ModuleBuilder => _moduleBuilder;
-
-        /// <summary>
         /// Get the module name for this instance
         /// </summary>
         public string ModuleName => _moduleName;
@@ -384,7 +354,6 @@ namespace Cirrus.Core
                             var completedType = typeBuilder.CreateType();
                             _completedTypes.TryAdd(typeName, completedType);
                             _pendingTypes.TryRemove(typeName, out _);
-                            // Console.WriteLine($"Created type {typeName}");
                         }
                         catch (Exception ex)
                         {
@@ -637,47 +606,6 @@ namespace Cirrus.Core
                     propertyBuilder.SetCustomAttribute(categoryAttr);
                 }
             }
-
-            // Add custom documentation attribute that can be used by reflection
-            AddCustomDocumentationAttribute(propertyBuilder, prop);
-        }
-
-        /// <summary>
-        /// Add custom documentation attribute for storing both short and long descriptions
-        /// </summary>
-        private void AddCustomDocumentationAttribute(PropertyBuilder propertyBuilder, CrsArg prop)
-        {
-            // If both short and long descriptions exist and are different,
-            // we already handled the combined description in AddDescriptionAttributes
-            // Here we can add additional metadata attributes if needed
-
-            // Add browsable attribute based on internal status (alternative approach)
-            if (!prop.Internal)
-            {
-                var browsableType = Type.GetType("System.ComponentModel.BrowsableAttribute, System.ComponentModel.Primitives");
-                if (browsableType != null)
-                {
-                    var browsableCtor = browsableType.GetConstructor(new[] { typeof(bool) });
-                    if (browsableCtor != null)
-                    {
-                        var browsableAttr = new CustomAttributeBuilder(browsableCtor, new object[] { true });
-                        propertyBuilder.SetCustomAttribute(browsableAttr);
-                    }
-                }
-            }
-
-            // Add ReadOnly attribute if this is conceptually a read-only property
-            // (This is just an example - you might want to add a ReadOnly property to CrsArg)
-            // var readOnlyType = Type.GetType("System.ComponentModel.ReadOnlyAttribute, System.ComponentModel.Primitives");
-            // if (readOnlyType != null && someCondition)
-            // {
-            //     var readOnlyCtor = readOnlyType.GetConstructor(new[] { typeof(bool) });
-            //     if (readOnlyCtor != null)
-            //     {
-            //         var readOnlyAttr = new CustomAttributeBuilder(readOnlyCtor, new object[] { true });
-            //         propertyBuilder.SetCustomAttribute(readOnlyAttr);
-            //     }
-            // }
         }
     }
 
