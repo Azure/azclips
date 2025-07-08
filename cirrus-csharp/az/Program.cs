@@ -2,8 +2,8 @@ namespace AzTool
 {
     using System;
     using System.Linq;
-    using System.Reflection;
     using System.Threading.Tasks;
+
 
     // Main program class for the Az tool
     public class Program
@@ -42,7 +42,7 @@ namespace AzTool
                 {
                     case AppHelpInvocation helpInvocation:
                         var helpTemplate = new AppHelpTemplate();
-                        foreach (var line in helpTemplate.Render(Array.Empty<Assembly>(), TerminalWidth()))
+                        foreach (var line in helpTemplate.Render(helpInvocation.GetModuleInfos(), TerminalWidth()))
                         {
                             Console.WriteLine(line);
                         }

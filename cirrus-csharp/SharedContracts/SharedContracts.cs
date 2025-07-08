@@ -71,4 +71,11 @@ namespace SharedContracts
         public string Description { get; set; } = "";
     }
 
+    [AttributeUsage(AttributeTargets.Assembly)]
+    public class ModuleInfoAttribute : Attribute
+    {
+        public string Name { get; set; } = "";
+        public string Description { get; set; } = "";
+    }
+
 }

@@ -3,6 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 using SharedContracts;
 
 namespace AzTool
@@ -301,7 +303,7 @@ namespace AzTool
         public uint Indent { get; set; } = 4;
 
         public string[] Render(
-            Assembly[] moduleAssemblies,
+            IEnumerable<(string name, ModuleInfoAttribute moduleInfo)> moduleInfos,
             uint? terminalWidth
         )
         {
@@ -341,11 +343,24 @@ namespace AzTool
                 "Modules"
             };
 
-            foreach (var moduleAssembly in moduleAssemblies)
+            var lines = new List<HelpTableLine>();
+            foreach (var (name, moduleInfo) in moduleInfos)
             {
-                var moduleTemplate = new ModuleHelpTemplate { Indent = Indent };
-                renderedLines.AddRange(moduleTemplate.Render(moduleAssembly, terminalWidth));
+                var description = moduleInfo.Description;
+                lines.Add(new HelpTableLine
+                {
+                    Names = new HelpCellContent(name),
+                    Description = new HelpCellContent(description != null ? new string[] { description } : Array.Empty<string>()),
+                });
             }
+            renderedLines.AddRange(
+                HelpTableLine.RenderTable(
+                    lines.ToArray(),
+                    Indent,
+                    Indent,
+                    terminalWidth
+                )
+            );
 
             return renderedLines.ToArray();
         }

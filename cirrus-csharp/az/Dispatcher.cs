@@ -1,39 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Threading.Tasks;
 using SharedContracts;
 using NewCLIRequestPipelineDelegate = global::System.Action<global::System.Action<global::System.Func<global::System.Net.Http.HttpRequestMessage, global::System.Threading.CancellationToken, global::System.Action, global::System.Func<string, global::System.Threading.CancellationToken, global::System.Func<global::System.EventArgs>, global::System.Threading.Tasks.Task>, global::System.Func<global::System.Net.Http.HttpRequestMessage, global::System.Threading.CancellationToken, global::System.Action, global::System.Func<string, global::System.Threading.CancellationToken, global::System.Func<global::System.EventArgs>, global::System.Threading.Tasks.Task>, global::System.Threading.Tasks.Task<global::System.Net.Http.HttpResponseMessage>>, global::System.Threading.Tasks.Task<global::System.Net.Http.HttpResponseMessage>>>, global::System.Action<global::System.Func<global::System.Net.Http.HttpRequestMessage, global::System.Threading.CancellationToken, global::System.Action, global::System.Func<string, global::System.Threading.CancellationToken, global::System.Func<global::System.EventArgs>, global::System.Threading.Tasks.Task>, global::System.Func<global::System.Net.Http.HttpRequestMessage, global::System.Threading.CancellationToken, global::System.Action, global::System.Func<string, global::System.Threading.CancellationToken, global::System.Func<global::System.EventArgs>, global::System.Threading.Tasks.Task>, global::System.Threading.Tasks.Task<global::System.Net.Http.HttpResponseMessage>>, global::System.Threading.Tasks.Task<global::System.Net.Http.HttpResponseMessage>>>>;
 
 
 namespace AzTool
 {
-    public class DllLoader
-    {
-        /// <summary>
-        /// Loads a DLL from file path into memory
-        /// </summary>
-        /// <param name="dllPath">Path to the DLL file</param>
-        /// <returns>Loaded Assembly</returns>
-        public static Assembly LoadDllIntoMemory(string dllPath)
-        {
-            try
-            {
-                // Method 1: Load from file path
-                return Assembly.LoadFrom(dllPath);
-
-                // Alternative Method 2: Load as bytes (completely in memory)
-                // byte[] dllBytes = File.ReadAllBytes(dllPath);
-                // return Assembly.Load(dllBytes);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Error loading DLL: {ex.Message}");
-                throw;
-            }
-        }
-    }
 
     public abstract record Invocation;
 
@@ -64,7 +39,32 @@ namespace AzTool
         }
     }
 
-    public record AppHelpInvocation : Invocation { }
+    public record AppHelpInvocation : Invocation
+    {
+        public string ExtensionDirectory { get; }
+        public AppHelpInvocation()
+        {
+            ExtensionDirectory = Directory.GetCurrentDirectory();
+        }
+        public AppHelpInvocation(string extensionDirectory)
+        {
+            ExtensionDirectory = extensionDirectory ?? throw new ArgumentNullException(nameof(extensionDirectory), "Extension directory cannot be null");
+        }
+
+        public IEnumerable<(string, ModuleInfoAttribute)> GetModuleInfos()
+        {
+
+            foreach (var file in Directory.GetFiles(ExtensionDirectory, "*.dll"))
+            {
+                var reader = new DllReader(File.OpenRead(file));
+                var attr = reader.GetCustomAttribute<ModuleInfoAttribute>();
+                if (attr != null)
+                {
+                    yield return (Path.GetFileNameWithoutExtension(file), attr);
+                }
+            }
+        }
+    }
 
     /// <summary>
     /// Represents a proxy for a module loaded from an assembly.
