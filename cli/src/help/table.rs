@@ -102,7 +102,7 @@ impl HelpTableLine {
         let tag_width = Self::tags_width(groups.values().flat_map(|group| group.iter()));
         let mut result = vec![];
         let mut sorted_groups: Vec<_> = groups.into_iter().collect();
-        sorted_groups.sort_by(|a, b| a.0.cmp(&b.0));
+        sorted_groups.sort_by_key(|(k, _)| k.clone());
         
         for (group_name, group) in sorted_groups {
             let group_header = StyledString::from(if group_name.is_empty() {

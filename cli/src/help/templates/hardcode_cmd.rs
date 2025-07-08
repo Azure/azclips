@@ -96,14 +96,7 @@ impl CmdTemplate for HardCodeCmdTemplate {
         match &cmd.level {
             Some(Level::Command(cmd)) => {
                 let mut sorted_args = cmd.args.clone();
-                sorted_args.sort_by(|a, b| {
-                    match a.group.cmp(&b.group) {
-                        std::cmp::Ordering::Equal => {
-                            a.name.cmp(&b.name)
-                        },
-                        other => other,
-                    }
-                });
+                sorted_args.sort_by_key(|arg| (arg.group.clone(), arg.name.clone()));
                 
                 for arg in sorted_args.iter() {
                     let line = arg.help_line(CrsArgDisplayConfig {
@@ -120,7 +113,7 @@ impl CmdTemplate for HardCodeCmdTemplate {
                 commands, groups, ..
             })) => {
                 let mut sorted_commands = commands.clone();
-                sorted_commands.sort_by(|a, b| a.name.cmp(&b.name));
+                sorted_commands.sort_by_key(|cmd| cmd.name.clone());
                 
                 let command_rows = sorted_commands
                     .iter()
@@ -131,7 +124,7 @@ impl CmdTemplate for HardCodeCmdTemplate {
                 }
                 
                 let mut sorted_groups = groups.clone();
-                sorted_groups.sort_by(|a, b| a.name.cmp(&b.name));
+                sorted_groups.sort_by_key(|group| group.name.clone());
                 
                 let group_rows = sorted_groups
                     .iter()
@@ -142,7 +135,7 @@ impl CmdTemplate for HardCodeCmdTemplate {
                 }
                 
                 let mut component_vec: Vec<_> = components.into_iter().collect();
-                component_vec.sort_by(|a, b| a.name.cmp(&b.name));
+                component_vec.sort_by_key(|component| component.name.clone());
                 
                 let component_rows = component_vec
                     .into_iter()

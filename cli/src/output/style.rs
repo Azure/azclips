@@ -134,6 +134,7 @@ impl StyledString {
                     
                     cur_line.append(StyledContent::new(part.style().clone(), text));
                     cur_width += text_width;
+                    //TODO: handle the case where the text is too long to fit in a single line
                 }
             }
             
