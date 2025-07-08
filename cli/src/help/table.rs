@@ -101,7 +101,10 @@ impl HelpTableLine {
         let option_width = Self::name_width(groups.values().flat_map(|group| group.iter()));
         let tag_width = Self::tags_width(groups.values().flat_map(|group| group.iter()));
         let mut result = vec![];
-        for (group_name, group) in groups {
+        let mut sorted_groups: Vec<_> = groups.into_iter().collect();
+        sorted_groups.sort_by(|a, b| a.0.cmp(&b.0));
+        
+        for (group_name, group) in sorted_groups {
             let group_header = StyledString::from(if group_name.is_empty() {
                 "Default".to_owned()
             } else {

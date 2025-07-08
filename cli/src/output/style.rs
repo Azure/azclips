@@ -79,31 +79,71 @@ impl StyledString {
             let mut cur_line = StyledString(vec![]);
             let mut cur_width = 0;
             for part in &self.0 {
-                // TODO: Should not replace the whitespace.
-                // TODO: Should cut off words longger than the limit.
-                for word in part.content().split_whitespace() {
-                    let word_width = word.width_cjk();
-                    if cur_width > 0 && cur_width + word_width + 1 > limit {
+                let content = part.content();
+                
+                // Split by whitespace but keep the whitespace
+                let mut parts = Vec::new();
+                let mut current_word = String::new();
+                let mut current_spaces = String::new();
+                let mut in_word = false;
+                
+                for ch in content.chars() {
+                    if ch.is_whitespace() {
+                        if in_word {
+                            // Finished a word, save it
+                            if !current_word.is_empty() {
+                                parts.push((current_word.clone(), false));
+                                current_word.clear();
+                            }
+                            in_word = false;
+                        }
+                        current_spaces.push(ch);
+                    } else {
+                        if !in_word {
+                            // Finished spaces, save them
+                            if !current_spaces.is_empty() {
+                                parts.push((current_spaces.clone(), true));
+                                current_spaces.clear();
+                            }
+                            in_word = true;
+                        }
+                        current_word.push(ch);
+                    }
+                }
+                
+                if !current_word.is_empty() {
+                    parts.push((current_word, false));
+                }
+                if !current_spaces.is_empty() {
+                    parts.push((current_spaces, true));
+                }
+                
+                for (text, is_whitespace) in parts {
+                    let text_width = text.width_cjk();
+                    
+                    if cur_width + text_width > limit && cur_width > 0 {
                         cur_line.optimize_style();
                         result.push(cur_line);
                         cur_line = StyledString(vec![]);
                         cur_width = 0;
+                        
+                        if is_whitespace {
+                            continue;
+                        }
                     }
-                    if cur_width > 0 {
-                        cur_line.append(StyledContent::new(part.style().clone(), " ".to_string()));
-                        cur_width += 1;
-                    }
-                    cur_line.append(StyledContent::new(part.style().clone(), word.to_string()));
-                    cur_width += word_width;
+                    
+                    cur_line.append(StyledContent::new(part.style().clone(), text));
+                    cur_width += text_width;
                 }
             }
+            
             if !cur_line.is_empty() {
                 cur_line.optimize_style();
                 result.push(cur_line);
             }
-            return result;
+            result
         } else {
-            return vec![self.clone()];
+            vec![self.clone()]
         }
     }
 
