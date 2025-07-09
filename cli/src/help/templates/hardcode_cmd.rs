@@ -95,7 +95,10 @@ impl CmdTemplate for HardCodeCmdTemplate {
         let mut help_table_groups = HashMap::new();
         match &cmd.level {
             Some(Level::Command(cmd)) => {
-                for arg in cmd.args.iter() {
+                let mut sorted_args = cmd.args.clone();
+                sorted_args.sort_by_key(|arg| (arg.group.clone(), arg.name.clone()));
+                
+                for arg in sorted_args.iter() {
                     let line = arg.help_line(CrsArgDisplayConfig {
                         prepend_dash: true,
                         positions: Some(&cmd.positional_args[..]),
@@ -109,21 +112,32 @@ impl CmdTemplate for HardCodeCmdTemplate {
             Some(Level::CommandGroup(CrsCommandGroup {
                 commands, groups, ..
             })) => {
-                let command_rows = commands
+                let mut sorted_commands = commands.clone();
+                sorted_commands.sort_by_key(|cmd| cmd.name.clone());
+                
+                let command_rows = sorted_commands
                     .iter()
                     .map(|cmd| cmd.help_line(()))
                     .collect::<Vec<_>>();
                 if !command_rows.is_empty() {
                     help_table_groups.insert("Command".to_string(), command_rows);
                 }
-                let group_rows = groups
+                
+                let mut sorted_groups = groups.clone();
+                sorted_groups.sort_by_key(|group| group.name.clone());
+                
+                let group_rows = sorted_groups
                     .iter()
                     .map(|group| group.help_line(()))
                     .collect::<Vec<_>>();
                 if !group_rows.is_empty() {
                     help_table_groups.insert("Command Group".to_string(), group_rows);
                 }
-                let component_rows = components
+                
+                let mut component_vec: Vec<_> = components.into_iter().collect();
+                component_vec.sort_by_key(|component| component.name.clone());
+                
+                let component_rows = component_vec
                     .into_iter()
                     .map(|component| component.help_line(()))
                     .collect::<Vec<_>>();
