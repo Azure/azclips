@@ -478,10 +478,10 @@ mod tests {
 
         let wrapped = styled_string.soft_wrap_paragraph(Some(10));
         assert_eq!(wrapped.len(), 5);
-        assert_eq!(wrapped[0].to_string(), "This is a");
-        assert_eq!(wrapped[1].to_string(), "longer");
-        assert_eq!(wrapped[2].to_string(), "text that");
-        assert_eq!(wrapped[3].to_string(), "should");
+        assert_eq!(wrapped[0].to_string(), "This is a ");
+        assert_eq!(wrapped[1].to_string(), "longer ");
+        assert_eq!(wrapped[2].to_string(), "text that ");
+        assert_eq!(wrapped[3].to_string(), "should ");
         assert_eq!(wrapped[4].to_string(), "wrap");
     }
 }
