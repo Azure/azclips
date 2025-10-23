@@ -20,7 +20,7 @@ cirrus/
 │   └── Core/                     # Core library tests
 │       └── Core.Authentication.Tests/
 ├── 📄 global.json               # .NET SDK version (10.0.100-rc.2)
-├── 📄 cirrus.sln               # Main solution file, contains everything
+├── 📄 cirrus.slnx              # Main solution file, contains everything
 ├── 📄 AGENTS.md                # Repository guidelines
 ├── 📄 CHANGELOG.md             # Version history
 ├── 📄 CONTRIBUTING.md          # Contribution guidelines
