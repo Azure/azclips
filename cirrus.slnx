@@ -3,6 +3,11 @@
   <Folder Name="/src/Core/">
     <Project Path="src/Core/Core.Abstractions/Core.Abstractions.csproj" />
     <Project Path="src/Core/Core.Authentication/Core.Authentication.csproj" />
+    <Project Path="src/Core/Core.Cli/Core.Cli.csproj" />
+    <Project Path="src/Core/Core.SharedContracts/Core.SharedContracts.csproj" />
+  </Folder>
+  <Folder Name="/src/Extensions/">
+    <Project Path="src/Extensions/Extension.Resource/Extension.Resource.csproj" />
   </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/Core/">

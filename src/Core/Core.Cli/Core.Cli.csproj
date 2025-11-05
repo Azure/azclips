@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>az</AssemblyName>
+    <RootNamespace>Core.Cli</RootNamespace>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <AssemblyTitle>Az Command-Line Interface</AssemblyTitle>
+    <AssemblyDescription>A command-line tool for dynamically loading extensions and processing commands.</AssemblyDescription>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <Copyright>Copyright © 2025</Copyright>
+    <StartupObject>Core.Cli.Program</StartupObject>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <ProjectReference Include="..\Core.SharedContracts\Core.SharedContracts.csproj" />
+  </ItemGroup>
+
+</Project>
