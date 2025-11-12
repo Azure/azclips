@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "� Updating npm..."
+echo "⬆️ Updating npm..."
 
 echo "⚡ Installing platyPS..."
 pwsh -c "Install-Module -Name platyPS -Force -Scope CurrentUser"
