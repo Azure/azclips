@@ -11,10 +11,10 @@
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	"features": {
 		"ghcr.io/devcontainers/features/github-cli": {
-			"version": "2.49.0"
+			"version": "latest"
 		},
 		"ghcr.io/devcontainers/features/node": {
-			"version": "20"
+			"version": "lts"
 		}
 	},
 
