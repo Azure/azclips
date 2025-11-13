@@ -610,3 +610,8 @@ obj/
 # Environment variables (secrets)
 .env
 .env.local
+
+# LLamaSharp models (stored in ~/.cache but add safeguard)
+*.gguf
+*.ggml
+llama_models/

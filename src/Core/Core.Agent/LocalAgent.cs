@@ -109,15 +109,12 @@ public class LocalAgent : IDisposable
             var context = weights.CreateContext(parameters);
             var chatSession = new ChatSession(new InteractiveExecutor(context));
             
-            // Add system prompt to chat history
-            chatSession.History.AddMessage(AuthorRole.System, instructions);
-            
             // Use LlamaSharp's built-in IChatClient extension with the initialized executor
             ILLamaExecutor executor = chatSession.Executor;
             IChatClient chatClient = executor.AsChatClient();
 
-            // Create AI agent without additional instructions (already in chat history)
-            var agent = chatClient.CreateAIAgent();
+            // Create AI agent with instructions (matching CloudAgent pattern)
+            var agent = chatClient.CreateAIAgent(instructions: instructions);
 
             return new LocalAgent(agent, weights, context, executor);
         }
