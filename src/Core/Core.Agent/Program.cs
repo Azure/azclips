@@ -1,40 +1,10 @@
-using System.Collections.Generic;
-using Azure;
-using Azure.AI.OpenAI;
-using DotNetEnv;
-using Microsoft.Agents.AI;
-using Microsoft.Extensions.AI;
-using OpenAI;
+using Core.Agent;
 
-// Load .env file if it exists (for local development)
-Env.Load();
-
-// Load configuration from environment variables
-string endpoint = Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT") 
-    ?? throw new InvalidOperationException("AZURE_OPENAI_ENDPOINT environment variable not set");
-string apiKey = Environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY") 
-    ?? throw new InvalidOperationException("AZURE_OPENAI_API_KEY environment variable not set");
-string deployment = Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT") 
-    ?? throw new InvalidOperationException("AZURE_OPENAI_DEPLOYMENT environment variable not set");
-
-// Load prompt from file
-string promptPath = Path.Combine(AppContext.BaseDirectory, "prompt.txt");
-string instructions = File.Exists(promptPath)
-    ? await File.ReadAllTextAsync(promptPath)
-    : "You are a helpful assistant. Provide clear, concise answers.";
-
-// Create the agent using API key authentication
-AIAgent agent = new AzureOpenAIClient(
-    new Uri(endpoint),
-    new AzureKeyCredential(apiKey))
-        .GetChatClient(deployment)
-        .CreateAIAgent(
-            instructions: instructions,
-            name: "CLI Assistant");
+// Create the agent
+CloudAgent agent = await CloudAgent.CreateAsync();
 
 // Conversation loop
-var messages = new List<ChatMessage>();
-
+Console.ForegroundColor = ConsoleColor.White;
 Console.Write("Ask me anything: ");
 string? userInput = Console.ReadLine();
 
@@ -44,25 +14,69 @@ if (string.IsNullOrWhiteSpace(userInput))
     return;
 }
 
-messages.Add(new ChatMessage(ChatRole.User, userInput));
-
 // Keep conversing until [DONE] marker is found
 while (true)
 {
     try
     {
-        var response = await agent.RunAsync(messages);
-        string responseText = response.ToString();
+        Console.WriteLine();
         
-        Console.WriteLine($"\n{responseText}");
+        // Show spinner while waiting for first response
+        var spinnerCts = new CancellationTokenSource();
+        var spinnerTask = Task.Run(async () =>
+        {
+            string[] spinner = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" };
+            int i = 0;
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            try
+            {
+                while (!spinnerCts.Token.IsCancellationRequested)
+                {
+                    Console.Write($"\r{spinner[i++ % spinner.Length]} Thinking...");
+                    await Task.Delay(100, spinnerCts.Token);
+                }
+            }
+            catch (TaskCanceledException)
+            {
+                // Expected when cancelled
+            }
+        }, spinnerCts.Token);
+        
+        // Stream the response (conversation history is managed inside CloudAgent)
+        var responseBuilder = new System.Text.StringBuilder();
+        bool firstUpdate = true;
+        
+        await foreach (var update in agent.RunStreamingAsync(userInput))
+        {
+            // Stop spinner on first update
+            if (firstUpdate)
+            {
+                spinnerCts.Cancel();
+                await spinnerTask;
+                Console.Write("\r                    \r"); // Clear spinner line
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                firstUpdate = false;
+            }
+            
+            string updateText = update.ToString();
+            Console.Write(updateText);
+            responseBuilder.Append(updateText);
+        }
+        
+        spinnerCts.Dispose();
+        
+        Console.ResetColor();
+        Console.WriteLine();
+        string fullResponse = responseBuilder.ToString();
         
         // Check if the agent is done
-        if (responseText.Contains("[DONE]"))
+        if (fullResponse.Contains("[DONE]"))
         {
             break;
         }
         
         // Get next user input
+        Console.ForegroundColor = ConsoleColor.White;
         Console.Write("\n> ");
         userInput = Console.ReadLine();
         
@@ -71,13 +85,14 @@ while (true)
             Console.WriteLine("No input provided. Exiting.");
             break;
         }
-        
-        messages.Add(new ChatMessage(ChatRole.Assistant, responseText));
-        messages.Add(new ChatMessage(ChatRole.User, userInput));
     }
     catch (Exception ex)
     {
+        Console.ForegroundColor = ConsoleColor.Red;
         Console.Error.WriteLine($"Error: {ex.Message}");
+        Console.ResetColor();
         break;
     }
 }
+
+Console.ResetColor();
