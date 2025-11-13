@@ -7,6 +7,9 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
+# Auto-generated solution files (we use .slnx)
+*.sln
+
 # User-specific files
 *.rsuser
 *.suo
