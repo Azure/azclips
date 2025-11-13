@@ -25,13 +25,22 @@ public class LlamaModelManager
         Directory.CreateDirectory(_modelDirectory);
         
         // Suppress verbose llama.cpp logging - only show errors
-        NativeLibraryConfig.All.WithLogCallback((level, message) =>
+        // Only configure if not already loaded (important for testing)
+        try
         {
-            if (level == LLamaLogLevel.Error)
+            NativeLibraryConfig.All.WithLogCallback((level, message) =>
             {
-                Console.Error.WriteLine($"[LLama Error] {message}");
-            }
-        });
+                if (level == LLamaLogLevel.Error)
+                {
+                    Console.Error.WriteLine($"[LLama Error] {message}");
+                }
+            });
+        }
+        catch (InvalidOperationException)
+        {
+            // Library already loaded, configuration already set
+            // This is expected in test scenarios where multiple tests run
+        }
     }
 
     public async Task<string> EnsureModelAsync(Action<long, long>? progressCallback = null)

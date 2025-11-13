@@ -80,7 +80,14 @@ public class LocalAgent : IDisposable
         
         // Stop spinner
         spinnerCts.Cancel();
-        await spinnerTask;
+        try
+        {
+            await spinnerTask;
+        }
+        catch (TaskCanceledException)
+        {
+            // Expected when cancelling the spinner task
+        }
         Console.Write("\r                                                        \r");
         Console.WriteLine("✓ Model download complete!");
         Console.CursorVisible = true;
