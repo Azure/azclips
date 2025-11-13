@@ -7,7 +7,11 @@
 
   <ItemGroup>
     <PackageReference Include="Azure.AI.OpenAI" Version="2.1.0-beta.2" />
-    <PackageReference Include="DotNetEnv" Version="3.1.1" />
+        <PackageReference Include="DotNetEnv" Version="3.1.1" />
+    <PackageReference Include="LLamaSharp" Version="0.25.0" />
+    <!-- Conditionally include backend based on architecture -->
+    <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.25.0" Condition="'$(RuntimeIdentifier)' != 'osx-arm64' AND '$(NETCoreSdkRuntimeIdentifier)' != 'osx-arm64'" />
+    <PackageReference Include="Microsoft.Agents.AI" Version="1.0.0-preview.251112.1" />
     <PackageReference Include="Microsoft.Agents.AI.OpenAI" Version="1.0.0-preview.251001.2" />
   </ItemGroup>
 

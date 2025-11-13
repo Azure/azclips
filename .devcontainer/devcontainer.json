@@ -8,6 +8,18 @@
 
 	"dockerFile": "Dockerfile",
 
+	// Increase memory limits for running local LLM models
+	"hostRequirements": {
+		"memory": "8gb",
+		"cpus": 4
+	},
+	
+	"runArgs": [
+		"--memory=8g",
+		"--memory-swap=12g",
+		"--shm-size=2g"
+	],
+
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	"features": {
 		"ghcr.io/devcontainers/features/github-cli": {

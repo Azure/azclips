@@ -1,7 +1,19 @@
 using Core.Agent;
 
-// Create the agent
-CloudAgent agent = await CloudAgent.CreateAsync();
+// Parse command-line arguments
+bool useLocalModel = args.Contains("--local-model");
+
+// Create the agent based on the mode
+object agent;
+if (useLocalModel)
+{
+    Console.WriteLine("Initializing local Phi-3.5-mini model...");
+    agent = await LocalAgent.CreateAsync();
+}
+else
+{
+    agent = await CloudAgent.CreateAsync();
+}
 
 // Conversation loop
 Console.ForegroundColor = ConsoleColor.White;
@@ -42,11 +54,18 @@ while (true)
             }
         }, spinnerCts.Token);
         
-        // Stream the response (conversation history is managed inside CloudAgent)
+        // Stream the response (conversation history is managed inside CloudAgent/LocalAgent)
         var responseBuilder = new System.Text.StringBuilder();
         bool firstUpdate = true;
         
-        await foreach (var update in agent.RunStreamingAsync(userInput))
+        var streamingTask = agent switch
+        {
+            CloudAgent cloudAgent => cloudAgent.RunStreamingAsync(userInput),
+            LocalAgent localAgent => localAgent.RunStreamingAsync(userInput),
+            _ => throw new InvalidOperationException("Unknown agent type")
+        };
+        
+        await foreach (var update in streamingTask)
         {
             // Stop spinner on first update
             if (firstUpdate)
