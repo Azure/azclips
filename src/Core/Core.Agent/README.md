@@ -1,6 +1,15 @@
 # Core.Agent
 
-A CLI-based conversational AI agent powered by Azure OpenAI or local models via LlamaSharp.
+An interactive Azure CLI and PowerShell command assistant powered by Azure OpenAI or local models via LlamaSharp.
+
+## What It Does
+
+This agent specializes in Azure command-line operations with three modes:
+1. **"How to" questions** - Get command syntax with placeholders
+2. **"Do it for me" requests** - Interactive gathering of parameters with final complete commands
+3. **Command validation** - Verify Azure CLI/PowerShell command correctness
+
+The agent maintains conversation history and uses streaming responses for real-time interaction.
 
 ## Usage
 
@@ -26,13 +35,9 @@ dotnet run -- --local-model
 - Model cached in `~/.cache/llama_models/`
 - No external services required - fully bundleable as standalone executable
 - Progress indicator during model download and loading
+- Cross-platform support including Apple Silicon
 
-**Platform Requirements:**
-- ⚠️ **Currently requires x86-64 CPU with AVX2 support**
-- Not compatible with Apple Silicon (ARM64) when running in emulation
-- For Apple Silicon Macs, use Cloud Mode or run native ARM64 builds
-
-Both modes use the Microsoft Agent Framework and maintain conversation history with streaming responses.
+Both modes use the Microsoft Agent Framework (`Microsoft.Agents.AI`) with conversation history and streaming responses.
 
 ## Setup
 
@@ -52,12 +57,42 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
 dotnet run --project src/Core/Core.Agent/Core.Agent.csproj
 ```
 
-## Usage
+## Example Interactions
 
-The agent prompts for one question and returns one answer:
-
+### "How to" Question
 ```
-Ask me anything: What is the capital of France?
+Ask me anything: How do I create a storage account?
 
-Paris is the capital of France.
+Azure CLI:
+az storage account create --name <account-name> --resource-group <rg-name> --location <location>
+
+Azure PowerShell:
+New-AzStorageAccount -Name <account-name> -ResourceGroupName <rg-name> -Location <location>
+[DONE]
 ```
+
+### "Do it for me" Request
+```
+Ask me anything: Create a VM for me
+
+> What is the name of your VM?
+my-test-vm
+
+> What resource group should I use?
+my-rg
+
+> Which region/location?
+eastus
+
+> What VM size do you need?
+Standard_B2s
+
+Azure CLI:
+az vm create --name my-test-vm --resource-group my-rg --location eastus --size Standard_B2s
+
+Azure PowerShell:
+New-AzVM -Name my-test-vm -ResourceGroupName my-rg -Location eastus -Size Standard_B2s
+[DONE]
+```
+
+The agent continues asking questions until it has all required information, then provides complete commands. Type `cancel`, `quit`, or `exit` to end the conversation early.

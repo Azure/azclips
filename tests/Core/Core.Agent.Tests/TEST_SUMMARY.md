@@ -150,10 +150,15 @@ dotnet test tests/Core/Core.Agent.Tests --list-tests
 ## Key Features
 
 ✅ **Environment-aware**: Automatically skips cloud tests when `.env` is missing
+
 ✅ **CI/CD Ready**: No manual test selection needed for different environments
+
 ✅ **Model Verification**: Ensures Phi-3.5-mini is used for local inference
+
 ✅ **Download Testing**: Verifies model download and caching behavior
+
 ✅ **End-to-End**: Tests actual program execution with different flags
+
 ✅ **No Hardcoded Secrets**: All Azure credentials from environment variables
 
 ## Model Caching
