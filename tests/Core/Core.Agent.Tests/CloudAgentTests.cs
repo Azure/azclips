@@ -10,6 +10,7 @@ namespace Core.Agent.Tests;
 /// </summary>
 public class CloudAgentTests
 {
+    private const int PollingIntervalMs = 100;
     private readonly bool _hasAzureConfig;
 
     public CloudAgentTests()
@@ -143,7 +144,7 @@ public class CloudAgentTests
         {
             while (!process.HasExited && !output.ToString().Contains("4"))
             {
-                Task.Delay(100).Wait();
+                Task.Delay(PollingIntervalMs).Wait();
             }
         });
 
