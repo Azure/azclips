@@ -9,6 +9,11 @@ namespace Core.Agent.Tests;
 /// </summary>
 public class LocalAgentTests
 {
+    /// <summary>
+    /// Polling interval in milliseconds for checking process output during model initialization.
+    /// </summary>
+    private const int PollingIntervalMs = 100;
+
     [Fact]
     public async Task CreateAsync_ShouldCreateLocalAgent()
     {
@@ -147,7 +152,7 @@ public class LocalAgentTests
                 {
                     break;
                 }
-                Task.Delay(100).Wait();
+                Task.Delay(PollingIntervalMs).Wait();
             }
         });
 
