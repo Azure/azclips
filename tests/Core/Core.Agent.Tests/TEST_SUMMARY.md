@@ -163,7 +163,7 @@ dotnet test tests/Core/Core.Agent.Tests --list-tests
 
 ## Model Caching
 - **Location**: `~/.cache/llama_models/Phi-3.5-mini-instruct-Q4_K_M.gguf`
-- **Size**: ~2.4GB
+- **Size**: approximately 2.4GB (actual size may vary between 1GB and 5GB)
 - **Behavior**: Downloaded once, reused for all subsequent test runs
 - **First Run**: May take several minutes to download
 - **Subsequent Runs**: Use cached model, very fast
