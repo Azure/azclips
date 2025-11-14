@@ -60,7 +60,11 @@ public class LocalAgent : IDisposable
                     await Task.Delay(100, spinnerCts.Token);
                 }
             }
-            catch (TaskCanceledException) { }
+            catch (TaskCanceledException)
+            {
+                // Spinner task cancelled as expected when download completes.
+                Console.WriteLine("\rSpinner stopped (download complete or cancelled).");
+            }
         }, spinnerCts.Token);
         
         // Download with progress callback
