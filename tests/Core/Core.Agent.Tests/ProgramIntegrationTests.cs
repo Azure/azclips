@@ -155,9 +155,10 @@ public class ProgramIntegrationTests
         {
             DotNetEnv.Env.Load(Path.Combine(GetRepositoryRoot(), ".env"));
         }
-        catch
+        catch (Exception ex)
         {
             // .env file not found or couldn't be loaded
+            Console.WriteLine($"[CheckAzureConfiguration] Failed to load .env file: {ex.Message}\n{ex.StackTrace}");
         }
 
         return !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT")) &&
