@@ -10,6 +10,10 @@ namespace Core.Agent.Tests;
 /// </summary>
 public class CloudAgentTests
 {
+    private const int PollingIntervalMs = 100;
+    private const int ResponseTimeoutMs = 30000;
+    private const int ProcessExitTimeoutMs = 5000;
+
     private readonly bool _hasAzureConfig;
 
     public CloudAgentTests()
@@ -143,11 +147,11 @@ public class CloudAgentTests
         {
             while (!process.HasExited && !output.ToString().Contains("4"))
             {
-                Task.Delay(100).Wait();
+                Task.Delay(PollingIntervalMs).Wait();
             }
         });
 
-        var timeout = Task.Delay(30000); // 30 second timeout
+        var timeout = Task.Delay(ResponseTimeoutMs);
         await Task.WhenAny(completionTask, timeout);
 
         // Send empty line to exit
@@ -155,7 +159,7 @@ public class CloudAgentTests
         await process.StandardInput.FlushAsync();
 
         // Wait for exit with timeout
-        var exited = process.WaitForExit(5000);
+        var exited = process.WaitForExit(ProcessExitTimeoutMs);
         if (!exited)
         {
             process.Kill();
