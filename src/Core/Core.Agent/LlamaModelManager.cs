@@ -102,7 +102,21 @@ public class LlamaModelManager
         }
         catch
         {
-            if (File.Exists(tempPath)) File.Delete(tempPath);
+            if (File.Exists(tempPath))
+            {
+                try
+                {
+                    File.Delete(tempPath);
+                }
+                catch (IOException ex)
+                {
+                    Console.Error.WriteLine($"[Cleanup Warning] Failed to delete temporary file '{tempPath}': {ex.Message}");
+                }
+                catch (UnauthorizedAccessException ex)
+                {
+                    Console.Error.WriteLine($"[Cleanup Warning] Failed to delete temporary file '{tempPath}': {ex.Message}");
+                }
+            }
             throw;
         }
     }
