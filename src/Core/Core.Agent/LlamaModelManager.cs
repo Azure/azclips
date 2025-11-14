@@ -42,6 +42,11 @@ public class LlamaModelManager
             // This is expected in test scenarios where multiple tests run
             Console.Error.WriteLine($"[LlamaModelManager] Suppressed InvalidOperationException during NativeLibraryConfig: {ex.Message}");
         }
+        catch (Exception ex)
+        {
+            // Log unexpected exceptions to avoid silent failures
+            Console.Error.WriteLine($"[LlamaModelManager] Unexpected exception during NativeLibraryConfig: {ex}");
+        }
     }
 
     public async Task<string> EnsureModelAsync(Action<long, long>? progressCallback = null)
