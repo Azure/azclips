@@ -9,6 +9,8 @@ namespace Core.Agent.Tests;
 /// </summary>
 public class ProgramIntegrationTests
 {
+    private const int InitializationWaitDelayMs = 2000;
+    private const int ResponseWaitDelayMs = 1000;
     [Fact]
     public async Task Program_ShouldExist_AndBeExecutable()
     {
@@ -125,14 +127,14 @@ public class ProgramIntegrationTests
         process.BeginErrorReadLine();
 
         // Wait a bit for initialization
-        await Task.Delay(2000);
+        await Task.Delay(InitializationWaitDelayMs);
 
         // Send input if provided
         if (!string.IsNullOrEmpty(input))
         {
             await process.StandardInput.WriteLineAsync(input);
             await process.StandardInput.FlushAsync();
-            await Task.Delay(1000);
+            await Task.Delay(ResponseWaitDelayMs);
         }
 
         // Send empty line to exit
