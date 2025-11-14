@@ -12,7 +12,7 @@ public class ProgramIntegrationTests
     private const int InitializationWaitDelayMs = 2000;
     private const int ResponseWaitDelayMs = 1000;
     [Fact]
-    public async Task Program_ShouldExist_AndBeExecutable()
+    public void Program_ShouldExist_AndBeExecutable()
     {
         var agentExePath = GetAgentExecutablePath();
         Assert.True(File.Exists(agentExePath), $"Agent executable not found at: {agentExePath}");
