@@ -86,7 +86,7 @@ public class ProgramIntegrationTests
             ".cache",
             "llama_models");
 
-        Assert.True(Directory.Exists(expectedCacheDir) || true, 
+        Assert.True(Directory.Exists(expectedCacheDir), 
             "Cache directory should exist or be creatable in user profile");
     }
 
