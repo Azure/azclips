@@ -36,10 +36,11 @@ public class LlamaModelManager
                 }
             });
         }
-        catch (InvalidOperationException)
+        catch (InvalidOperationException ex)
         {
             // Library already loaded, configuration already set
             // This is expected in test scenarios where multiple tests run
+            Console.Error.WriteLine($"[LlamaModelManager] Suppressed InvalidOperationException during NativeLibraryConfig: {ex.Message}");
         }
     }
 
