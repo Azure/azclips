@@ -103,7 +103,7 @@ public class LocalAgentTests
         Assert.True(File.Exists(agentExePath), $"Agent executable not found at: {agentExePath}");
 
         // Run the agent with --local-model flag (uses LocalAgent)
-        var process = new Process
+        using var process = new Process
         {
             StartInfo = new ProcessStartInfo
             {
