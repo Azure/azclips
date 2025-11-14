@@ -9,6 +9,7 @@ namespace Core.Agent.Tests;
 /// </summary>
 public class LocalAgentTests
 {
+    private const int ProcessExitTimeoutMs = 5000;
     [Fact]
     public async Task CreateAsync_ShouldCreateLocalAgent()
     {
@@ -166,7 +167,7 @@ public class LocalAgentTests
         await process.StandardInput.FlushAsync();
 
         // Wait for exit with timeout
-        var exited = process.WaitForExit(5000);
+        var exited = process.WaitForExit(ProcessExitTimeoutMs);
         if (!exited)
         {
             process.Kill();
