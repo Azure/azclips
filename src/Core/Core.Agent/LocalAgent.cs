@@ -86,7 +86,7 @@ public class LocalAgent : IDisposable
         }
         catch (TaskCanceledException)
         {
-            // Expected when cancelling the spinner task
+            // Intentionally ignored: TaskCanceledException is expected when cancelling the spinner task.
         }
         Console.Write("\r                                                        \r");
         Console.WriteLine("✓ Model download complete!");
