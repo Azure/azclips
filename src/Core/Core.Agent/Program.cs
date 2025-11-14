@@ -1,11 +1,17 @@
 using Core.Agent;
 
 // Parse command-line arguments
+bool useCopilot = args.Contains("--use-copilot");
 bool useLocalModel = args.Contains("--local-model");
 
-// Create the agent based on the mode
+// Create the agent based on the mode (priority: --use-copilot > --local-model > cloud)
 object agent;
-if (useLocalModel)
+if (useCopilot)
+{
+    Console.WriteLine("Initializing Azure Copilot agent...");
+    agent = await AzureCopilotAgent.CreateAsync();
+}
+else if (useLocalModel)
 {
     Console.WriteLine("Initializing local Phi-3.5-mini model...");
     agent = await LocalAgent.CreateAsync();
@@ -63,6 +69,7 @@ while (true)
         {
             CloudAgent cloudAgent => cloudAgent.RunStreamingAsync(userInput),
             LocalAgent localAgent => localAgent.RunStreamingAsync(userInput),
+            AzureCopilotAgent copilotAgent => copilotAgent.RunStreamingAsync(userInput),
             _ => throw new InvalidOperationException("Unknown agent type")
         };
         
