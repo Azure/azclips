@@ -10,7 +10,7 @@ namespace Core.Agent.Tests;
 public class ProgramIntegrationTests
 {
     [Fact]
-    public async Task Program_ShouldExist_AndBeExecutable()
+    public void Program_ShouldExist_AndBeExecutable()
     {
         var agentExePath = GetAgentExecutablePath();
         Assert.True(File.Exists(agentExePath), $"Agent executable not found at: {agentExePath}");
