@@ -50,7 +50,8 @@ while (true)
             }
             catch (TaskCanceledException)
             {
-                // Expected when cancelled
+                // TaskCanceledException is expected when the spinner is stopped (spinnerCts.Cancel()).
+                // No action needed.
             }
         }, spinnerCts.Token);
         
