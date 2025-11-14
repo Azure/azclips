@@ -29,14 +29,10 @@ public class CloudAgentTests
                          !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT"));
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task CreateAsync_ShouldCreateCloudAgent_WhenAzureConfigPresent()
     {
-        if (!_hasAzureConfig)
-        {
-            // Skip test if .env not configured (e.g., in CI/CD)
-            return;
-        }
+        Skip.If(!_hasAzureConfig, "Azure OpenAI configuration not available. Set AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, and AZURE_OPENAI_DEPLOYMENT in .env file.");
 
         var agent = await CloudAgent.CreateAsync();
         Assert.NotNull(agent);
@@ -68,14 +64,10 @@ public class CloudAgentTests
         }
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task RunStreamingAsync_ShouldReturnResponse_WhenValidInput()
     {
-        if (!_hasAzureConfig)
-        {
-            // Skip test if .env not configured
-            return;
-        }
+        Skip.If(!_hasAzureConfig, "Azure OpenAI configuration not available. Set AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, and AZURE_OPENAI_DEPLOYMENT in .env file.");
 
         var agent = await CloudAgent.CreateAsync();
         var responseBuilder = new StringBuilder();
@@ -90,14 +82,10 @@ public class CloudAgentTests
         Assert.Contains("4", response);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task ProgramExecution_ShouldRunWithoutLocalModelFlag()
     {
-        if (!_hasAzureConfig)
-        {
-            // Skip test if .env not configured
-            return;
-        }
+        Skip.If(!_hasAzureConfig, "Azure OpenAI configuration not available. Set AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, and AZURE_OPENAI_DEPLOYMENT in .env file.");
 
         // Get the Core.Agent executable path
         var agentExePath = GetAgentExecutablePath();
