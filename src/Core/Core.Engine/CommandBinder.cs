@@ -63,11 +63,4 @@ internal class CommandBinder
     }
 }
 
-internal class MockCommand : ICommand
-{
-    public Task ExecuteAsync(CancellationToken cancellationToken = default)
-    {
-        // Placeholder implementation
-        return Task.CompletedTask;
-    }
-}
+

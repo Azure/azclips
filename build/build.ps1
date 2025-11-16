@@ -1,1 +1,1 @@
-dotnet build "$PSScriptRoot/../Cirrus.slnx"
+dotnet build "$PSScriptRoot/../cirrus.slnx"
