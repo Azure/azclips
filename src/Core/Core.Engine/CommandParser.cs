@@ -21,14 +21,14 @@ internal class CommandParser
 
 /// <summary>
 /// Parsed command.
-/// Todo: improve this structure
+/// todo: improve this structure
 /// </summary>
 internal class ParseResult
 {
     /// <summary>
     /// List of commands
     /// </summary>
-    public IEnumerable<string> Commands { get; set; } = Array.Empty<string>();
+    public IEnumerable<string> Commands { get; set; } = [];
     /// <summary>
     /// Parameter name to value mapping
     /// </summary>

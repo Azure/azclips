@@ -13,7 +13,7 @@ public class DefaultCommandEngine(ITelemetryService Telemetry) : ICommandEngine
     private readonly CommandParser _parser = new();
     private readonly CommandBinder _binder = new();
 
-    Task ICommandEngine.ExecuteCommandAsync(string[] args, CancellationToken cancellationToken)
+    public Task ExecuteCommandAsync(string[] args, CancellationToken cancellationToken)
     {
         // Placeholder implementation
         Telemetry.Log($"Executing command: {string.Join(' ', args)}");
