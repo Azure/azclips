@@ -149,20 +149,25 @@ The Core.Agent solution is designed as an experimental platform to evaluate thre
 
 ### Implementation Options
 
-#### Option 1: Cloud-Based Model (Current Implementation)
+#### Option 1: Cloud-Based Model (Default)
 
-**Description:** Local agent client that connects to Azure OpenAI for inference.
+**Description:** Agent using Azure OpenAI Service for production-grade responses.
+
+**How to Run:**
+```bash
+dotnet run  # Default mode, no flags needed
+```
 
 **Components:**
-- `CloudAgent.cs`: Manages Azure OpenAI connection and conversation state
+- `CloudAgent.cs`: Manages Azure OpenAI interaction
 - `Program.cs`: CLI host with streaming and conversation loop
 - `prompt.txt`: System instructions loaded at runtime
-- **Model:** GPT-4o-mini (deployed to Azure OpenAI)
+- **Model:** GPT-4o-mini (or configured deployment)
 
 **Technology Stack:**
 - `Microsoft.Agents.AI` - Agent framework
-- `Azure.AI.OpenAI` - Azure OpenAI client SDK
-- `DotNetEnv` - Configuration management
+- `Azure.AI.OpenAI` - Azure OpenAI SDK
+- `Azure.Identity` - Azure authentication
 
 **Authentication:**
 - API key-based authentication via environment variables
@@ -180,9 +185,14 @@ The Core.Agent solution is designed as an experimental platform to evaluate thre
 - API costs per request
 - Latency to first token depends on network and service
 
-#### Option 2: Local Model (Current Implementation)
+#### Option 2: Local Model
 
 **Description:** Fully local agent using LlamaSharp with Phi-3.5-mini model.
+
+**How to Run:**
+```bash
+dotnet run -- --local-model
+```
 
 **Components:**
 - `LocalAgent.cs`: Manages local model lifecycle and inference
@@ -215,12 +225,18 @@ The Core.Agent solution is designed as an experimental platform to evaluate thre
 - Model quality may be lower than cloud models
 - Limited to model capabilities at build time
 
-#### Option 3: Copilot Service (Planned)
+#### Option 3: Azure Copilot Service
 
 **Description:** Cloud-deployed REST service using Azure's Copilot handlers for CLI/PowerShell scenarios.
 
+**How to Run:**
+```bash
+dotnet run -- --use-copilot
+```
+
 **Components:**
-- Local thin client with REST API integration
+- `AzureCopilotAgent.cs`: Manages Azure Copilot service integration
+- `AzureCopilotAuth.cs`: Handles Azure authentication via DefaultAzureCredential
 - Cloud-hosted service using:
   - [Copilot CLI Handler](https://eng.ms/docs/cloud-ai-platform/azure-core/azure-experiences-and-ecosystems/azure-portal-and-client-tools-ruhim/azure-cli-tools-azure-cli-powershell-and-terraform/azure-client-intelligent-experiences/copilot/copilot_cli_handler)
   - [Copilot PowerShell Handler](https://eng.ms/docs/cloud-ai-platform/azure-core/azure-experiences-and-ecosystems/azure-portal-and-client-tools-ruhim/azure-cli-tools-azure-cli-powershell-and-terraform/azure-client-intelligent-experiences/copilot/copilot_ps_handler)
@@ -527,10 +543,12 @@ public enum ResponseType
 
 ### Current State
 
+### Current State
+
 As of this specification:
-- ✅ Option 1 (Cloud-Based Model) is implemented as **stand-alone evaluation CLI**
-- ✅ Option 2 (Local Model) is implemented as **stand-alone evaluation CLI**
-- ⏳ Option 3 (Copilot Service) is planned
+- ✅ Option 1 (Cloud-Based Model) is implemented as **stand-alone evaluation CLI** (default)
+- ✅ Option 2 (Local Model) is implemented as **stand-alone evaluation CLI** (via `--local-model`)
+- ✅ Option 3 (Azure Copilot Service) is implemented as **stand-alone evaluation CLI** (via `--use-copilot`)
 - ⏳ Azure CLI integration is planned (Phase 3)
 - ⏳ Azure PowerShell integration is planned (Phase 3)
 
@@ -545,11 +563,15 @@ All three options share:
 
 ### Configuration
 
-**Option 1 (Cloud) - Environment Variables:**
+**Option 1 (Cloud - Default) - Environment Variables:**
 ```bash
+# Set in .env file at repository root
 AZURE_OPENAI_ENDPOINT=https://<resource>.openai.azure.com
 AZURE_OPENAI_API_KEY=<key>
 AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
+
+# Run (default mode)
+dotnet run
 ```
 
 **Option 2 (Local) - Command Line:**
@@ -557,9 +579,10 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
 dotnet run -- --local-model
 ```
 
-**Option 3 (Copilot Service) - Planned:**
+**Option 3 (Azure Copilot) - Command Line:**
 ```bash
-COPILOT_SERVICE_ENDPOINT=https://<service>.azure.com
+# Authenticate first (e.g., az login)
+dotnet run -- --use-copilot
 # Authentication via Azure SDK DefaultAzureCredential
 ```
 

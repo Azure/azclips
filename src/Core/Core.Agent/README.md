@@ -1,10 +1,13 @@
 # Core.Agent
 
-An interactive Azure CLI and PowerShell command assistant powered by Azure OpenAI or local models via LlamaSharp.
+An interactive Azure CLI and PowerShell command assistant with three deployment options:
+1. **Azure OpenAI** (default) - Cloud-based using Azure OpenAI service
+2. **Local Model** - Fully offline using Phi-3.5-mini via LlamaSharp
+3. **Azure Copilot** - Production Copilot service with CLI/PowerShell handlers
 
 ## What It Does
 
-This agent specializes in Azure command-line operations with three modes:
+This agent specializes in Azure command-line operations with three interaction types:
 1. **"How to" questions** - Get command syntax with placeholders
 2. **"Do it for me" requests** - Interactive gathering of parameters with final complete commands
 3. **Command validation** - Verify Azure CLI/PowerShell command correctness
@@ -13,8 +16,8 @@ The agent maintains conversation history and uses streaming responses for real-t
 
 ## Usage
 
-### Cloud Mode (Default)
-Uses Azure OpenAI:
+### Mode 1: Cloud (Azure OpenAI) - Default
+Uses Azure OpenAI for production-grade responses:
 ```bash
 dotnet run
 ```
@@ -24,7 +27,12 @@ Requires environment variables:
 - `AZURE_OPENAI_API_KEY`
 - `AZURE_OPENAI_DEPLOYMENT`
 
-### Local Mode
+**Features:**
+- Production-grade model quality
+- No local resource requirements
+- Scalable and easy to update
+
+### Mode 2: Local Model (Phi-3.5-mini)
 Uses LlamaSharp with Phi-3.5-mini for standalone local inference:
 ```bash
 dotnet run -- --local-model
@@ -36,10 +44,29 @@ dotnet run -- --local-model
 - No external services required - fully bundleable as standalone executable
 - Progress indicator during model download and loading
 - Cross-platform support including Apple Silicon
+- Full privacy - data never leaves the machine
+- Works offline
 
-Both modes use the Microsoft Agent Framework (`Microsoft.Agents.AI`) with conversation history and streaming responses.
+### Mode 3: Azure Copilot Service
+Uses Azure's production Copilot infrastructure with CLI/PowerShell handlers:
+```bash
+dotnet run -- --use-copilot
+```
+
+Authentication via Azure SDK `DefaultAzureCredential` (Azure CLI, Managed Identity, etc.).
+
+**Features:**
+- Leverages Azure's production Copilot infrastructure
+- Built-in grounding to Azure documentation and schemas
+- Telemetry and monitoring included
+- Consistent experience with Azure Portal Copilot
+- Enterprise-grade security and compliance
+
+All modes use the Microsoft Agent Framework (`Microsoft.Agents.AI`) with conversation history and streaming responses.
 
 ## Setup
+
+### For Cloud Mode (Default)
 
 1. **Create a `.env` file** in the project root (`/workspaces/cirrus/.env`):
 
@@ -55,6 +82,24 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
 
 ```bash
 dotnet run --project src/Core/Core.Agent/Core.Agent.csproj
+```
+
+### For Local Model Mode
+
+No setup required! Just run:
+
+```bash
+dotnet run --project src/Core/Core.Agent/Core.Agent.csproj -- --local-model
+```
+
+The Phi-3.5-mini model will be downloaded automatically on first run (~2.4GB).
+
+### For Azure Copilot Mode
+
+Ensure you're authenticated with Azure (e.g., `az login`):
+
+```bash
+dotnet run --project src/Core/Core.Agent/Core.Agent.csproj -- --use-copilot
 ```
 
 ## Example Interactions
