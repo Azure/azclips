@@ -3,4 +3,7 @@
   <Project Path="Core.Abstractions/Core.Abstractions.csproj" />
   <Project Path="Core.Agent/Core.Agent.csproj" />
   <Project Path="Core.Authentication/Core.Authentication.csproj" />
+  <Project Path="Core.Cli/Core.Cli.csproj" />
+  <Project Path="Core.Engine/Core.Engine.csproj" />
+  <Project Path="Core.Implementation/Core.Implementation.csproj" />
 </Solution>
