@@ -40,32 +40,74 @@ cirrus/
 ### Prerequisites
 - [.NET 10.0 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) (version pinned in `global.json`)
 
-### Build Commands
-```powershell
+### Build & Publish
+```bash
 # Verify SDK version
 dotnet --info
 
-# Build all projects directly
+# Build all projects
 dotnet build cirrus.slnx
 
+# Build and publish az CLI to bin/ (makes it globally executable)
+dotnet publish src/Core/Core.Cli/Core.Cli.csproj -c Release -o /workspaces/cirrus/bin --self-contained false
+
+# Add bin/ to PATH for global access (already configured in devcontainer)
+export PATH="/workspaces/cirrus/bin:$PATH"
+
+# Now you can run az from anywhere
+az --help
+```
+
+### Running Tests
+```bash
 # Run tests with coverage
 dotnet test --collect:"XPlat Code Coverage"
+```
 
+### Build Scripts
+```powershell
 # (Optional) Build solution via PowerShell script
 pwsh -File build/build.ps1
 ```
 
-## Core.Agent - Azure Command Assistant
+## az CLI - Azure Command Interface
 
-An interactive Azure CLI and PowerShell command assistant with three deployment options:
+The `az` command provides both traditional command-line syntax and natural language capabilities through an integrated AI agent.
 
-### Usage Options
+### Usage
+
+**Traditional Commands:**
+```bash
+az group create --name mygroup --location eastus
+az login
+```
+
+**Natural Language:**
+```bash
+az create a storage account called mystore in westus
+az I would like to login
+az how do I list all VMs
+```
+
+The CLI automatically falls back to the AI agent when standard parsing fails, interprets your intent, and can execute commands after confirmation.
+
+### Architecture
+
+- **DefaultCommandEngine** - Parses standard Azure CLI syntax
+- **AgentEngine** - Interprets natural language when parsing fails
+- **Modules** - Dynamic loading of command modules (Group, Login, etc.)
+
+See [`src/Core/Core.Agent/README.md`](src/Core/Core.Agent/README.md) for agent-specific details and [`docs/spec/agent-experience.md`](docs/spec/agent-experience.md) for architecture documentation.
+
+## Core.Agent - Standalone Testing
+
+For testing and evaluation, the agent can be run independently:
 
 **1. Cloud Mode (Default) - Azure OpenAI**
 ```bash
 dotnet run --project src/Core/Core.Agent
 ```
-Requires `.env` file with Azure OpenAI credentials (see `src/Core/Core.Agent/README.md`).
+Requires `.env` file in `src/Core/Core.Agent/` with Azure OpenAI credentials.
 
 **2. Local Mode - Phi-3.5-mini**
 ```bash
@@ -73,16 +115,8 @@ dotnet run --project src/Core/Core.Agent -- --local-model
 ```
 Fully offline, automatically downloads model (~2.4GB) on first run.
 
-**3. Azure Copilot Mode - Production Service**
+**3. Azure Copilot Mode**
 ```bash
 dotnet run --project src/Core/Core.Agent -- --use-copilot
 ```
-Requires Azure authentication (`az login`).
-
-**Features:**
-- Interactive command construction for Azure CLI and PowerShell
-- Three interaction types: "how to" questions, "do it for me" requests, command validation
-- Streaming responses with conversation history
-- Full privacy in local mode
-
-See [`src/Core/Core.Agent/README.md`](src/Core/Core.Agent/README.md) for detailed setup and examples.
+Requires Azure authentication (`az login` from Azure CLI, not this az).

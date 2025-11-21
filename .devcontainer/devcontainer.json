@@ -31,7 +31,7 @@
 	},
 
 	// Use 'postCreateCommand' to run commands after the container is created.
-	"postCreateCommand": "./.devcontainer/post-create.sh",
+	"postCreateCommand": "./.devcontainer/upgrade-pwsh.sh && ./.devcontainer/post-create.sh",
 
 	// Configure tool-specific properties.
 	"customizations": {
