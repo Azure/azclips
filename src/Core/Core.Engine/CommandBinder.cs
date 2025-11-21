@@ -34,13 +34,33 @@ internal class CommandBinder
             throw new ArgumentException("Extension name cannot be empty.", nameof(moduleName));
         }
 
-        // this assumes folder structure where modules are sibling folders to Core, e.g.
-        // /Core
-        // |-- Core.Engine.dll
-        // /Group
-        // |-- Group.dll
+        // Modules can be in two locations:
+        // 1. Same directory as Core.Engine.dll: /bin/Group/Group.dll (published layout)
+        // 2. Sibling to parent directory: /artifacts/Release/Group/Group.dll (build artifacts layout)
         var baseDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? AppContext.BaseDirectory;
-        var modulePath = Path.GetFullPath(Path.Combine(baseDirectory, "..", moduleName, $"{moduleName}.dll"));
+        
+        // Try to find module directory case-insensitively in current directory first
+        var moduleDir = Directory.GetDirectories(baseDirectory)
+            .FirstOrDefault(d => string.Equals(Path.GetFileName(d), moduleName, StringComparison.OrdinalIgnoreCase));
+        
+        // If not found in current directory, try parent's sibling directories
+        if (moduleDir == null)
+        {
+            var parentDirectory = Directory.GetParent(baseDirectory)?.FullName;
+            if (parentDirectory != null)
+            {
+                moduleDir = Directory.GetDirectories(parentDirectory)
+                    .FirstOrDefault(d => string.Equals(Path.GetFileName(d), moduleName, StringComparison.OrdinalIgnoreCase));
+            }
+        }
+        
+        if (moduleDir == null)
+        {
+            throw new DirectoryNotFoundException($"Module directory not found for extension '{moduleName}' in '{baseDirectory}' or its parent's siblings.");
+        }
+        
+        var moduleDirName = Path.GetFileName(moduleDir);
+        var modulePath = Path.Combine(moduleDir, $"{moduleDirName}.dll");
 
         if (!File.Exists(modulePath))
         {

@@ -24,10 +24,16 @@ public class LocalAgent : IDisposable
         _executor = executor;
     }
 
-    public static async Task<LocalAgent> CreateAsync(string? promptFilePath = null)
+    public static async Task<LocalAgent> CreateAsync(string flavor = "azure cli", string? promptFilePath = null)
     {
         // Load prompt from file (same path resolution as CloudAgent)
         promptFilePath ??= Path.Combine(AppContext.BaseDirectory, "prompt.txt");
+        
+        // Load and replace {{flavor}} in the prompt
+        string promptContent = File.Exists(promptFilePath)
+            ? await File.ReadAllTextAsync(promptFilePath)
+            : "You are a helpful assistant.";
+        promptContent = promptContent.Replace("{{flavor}}", flavor);
         
         // Ensure model is downloaded and get path
         var modelManager = new LlamaModelManager();
@@ -113,8 +119,8 @@ public class LocalAgent : IDisposable
             Console.WriteLine("✓ Model loaded successfully!");
             Console.ResetColor();
             
-            // Load instructions first
-            var instructions = await File.ReadAllTextAsync(promptFilePath);
+            // Use the prompt content that was already loaded and had {{flavor}} replaced
+            var instructions = promptContent;
             
             // Create context and executor (ILLamaExecutor interface)
             var context = weights.CreateContext(parameters);

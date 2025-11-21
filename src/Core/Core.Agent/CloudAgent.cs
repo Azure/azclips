@@ -24,11 +24,16 @@ public class CloudAgent
     /// <summary>
     /// Creates a CloudAgent with configuration loaded from environment variables.
     /// </summary>
+    /// <param name="flavor">The command flavor ("azure cli" or "azure powershell")</param>
     /// <returns>A configured CloudAgent instance ready for conversation.</returns>
-    public static async Task<CloudAgent> CreateAsync()
+    public static async Task<CloudAgent> CreateAsync(string flavor = "azure cli")
     {
-        // Load .env file if it exists (for local development)
-        Env.Load();
+        // Load .env file from the application directory (not current working directory)
+        string envPath = Path.Combine(AppContext.BaseDirectory, ".env");
+        if (File.Exists(envPath))
+        {
+            Env.Load(envPath);
+        }
 
         // Load configuration from environment variables
         string endpoint = Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT") 
@@ -38,11 +43,14 @@ public class CloudAgent
         string deployment = Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT") 
             ?? throw new InvalidOperationException("AZURE_OPENAI_DEPLOYMENT environment variable not set");
 
-        // Load prompt from file
+        // Load prompt from file and replace {{flavor}} placeholder
         string promptPath = Path.Combine(AppContext.BaseDirectory, "prompt.txt");
         string instructions = File.Exists(promptPath)
             ? await File.ReadAllTextAsync(promptPath)
             : "You are a helpful assistant. Provide clear, concise answers.";
+        
+        // Replace {{flavor}} with the actual flavor
+        instructions = instructions.Replace("{{flavor}}", flavor);
 
         // Create the agent using API key authentication
         AIAgent innerAgent = new AzureOpenAIClient(

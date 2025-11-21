@@ -50,8 +50,9 @@ public class AzureCopilotAgent
     /// <summary>
     /// Creates an AzureCopilotAgent with configuration loaded from environment variables.
     /// </summary>
+    /// <param name="flavor">The command flavor ("azure cli" or "azure powershell")</param>
     /// <returns>A configured AzureCopilotAgent instance ready for conversation.</returns>
-    public static async Task<AzureCopilotAgent> CreateAsync()
+    public static async Task<AzureCopilotAgent> CreateAsync(string flavor = "azure cli")
     {
         // Load .env file if it exists (for local development)
         Env.Load();

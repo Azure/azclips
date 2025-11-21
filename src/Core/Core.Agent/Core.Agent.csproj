@@ -14,10 +14,20 @@
     <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.25.0" Condition="'$(RuntimeIdentifier)' != 'osx-arm64' AND '$(NETCoreSdkRuntimeIdentifier)' != 'osx-arm64'" />
     <PackageReference Include="Microsoft.Agents.AI" Version="1.0.0-preview.251112.1" />
     <PackageReference Include="Microsoft.Agents.AI.OpenAI" Version="1.0.0-preview.251001.2" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Core.Abstractions\Core.Abstractions.csproj" />
+    <ProjectReference Include="..\Core.Engine\Core.Engine.csproj" />
+    <ProjectReference Include="..\Core.Implementation\Core.Implementation.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <None Update="prompt.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update=".env" Condition="Exists('.env')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
