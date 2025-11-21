@@ -12,13 +12,21 @@ cirrus/
 │   └── spec/                     # Technical specifications
 ├── 📁 src/                       # Source code
 │   ├── Directory.Build.props     # Shared build properties (net10.0)
-│   └── Core/                     # Core libraries
-│       ├── Core.Abstractions/    # Base abstractions & interfaces
-│       ├── Core.Agent/           # Azure CLI/PowerShell assistant
-│       └── Core.Authentication/   # Authentication framework
+│   ├── Core/                     # Core libraries
+│   │   ├── Core.Abstractions/    # Base abstractions & interfaces
+│   │   ├── Core.Agent/           # AI agent for natural language processing
+│   │   ├── Core.Authentication/  # Authentication framework
+│   │   ├── Core.Cli/             # az command-line interface
+│   │   ├── Core.Engine/          # Command parsing and execution engine
+│   │   └── Core.Implementation/  # Core service implementations
+│   ├── Group/                    # Group management module
+│   │   └── Group/
+│   └── Login/                    # Login/authentication module
+│       └── Login/
 ├── 📁 tests/                     # Test projects
 │   ├── Directory.Build.props     # Test-specific build properties
 │   └── Core/                     # Core library tests
+│       ├── Core.Agent.Tests/     # Agent tests
 │       └── Core.Authentication.Tests/
 ├── 📄 global.json               # .NET SDK version (10.0.100-rc.2)
 ├── 📄 cirrus.slnx              # Main solution file, contains everything

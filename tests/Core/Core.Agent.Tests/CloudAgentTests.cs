@@ -45,22 +45,39 @@ public class CloudAgentTests
     [Fact]
     public async Task CreateAsync_ShouldThrow_WhenAzureConfigMissing()
     {
-        // Temporarily clear environment variables
+        // Temporarily clear environment variables AND move .env file if it exists
         var endpoint = Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT");
         var apiKey = Environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY");
         var deployment = Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT");
+        
+        var envPath = Path.Combine(AppContext.BaseDirectory, ".env");
+        var envBackupPath = Path.Combine(AppContext.BaseDirectory, ".env.backup");
+        bool envFileExisted = File.Exists(envPath);
 
         try
         {
+            // Move .env file temporarily so CloudAgent.CreateAsync can't load from it
+            if (envFileExisted)
+            {
+                File.Move(envPath, envBackupPath);
+            }
+
             Environment.SetEnvironmentVariable("AZURE_OPENAI_ENDPOINT", null);
             Environment.SetEnvironmentVariable("AZURE_OPENAI_API_KEY", null);
             Environment.SetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT", null);
 
+            // Updated to pass flavor parameter explicitly
             await Assert.ThrowsAsync<InvalidOperationException>(async () => 
-                await CloudAgent.CreateAsync());
+                await CloudAgent.CreateAsync("azure cli"));
         }
         finally
         {
+            // Restore .env file
+            if (envFileExisted && File.Exists(envBackupPath))
+            {
+                File.Move(envBackupPath, envPath);
+            }
+
             // Restore environment variables
             Environment.SetEnvironmentVariable("AZURE_OPENAI_ENDPOINT", endpoint);
             Environment.SetEnvironmentVariable("AZURE_OPENAI_API_KEY", apiKey);
