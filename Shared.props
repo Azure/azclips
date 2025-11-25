@@ -1,0 +1,17 @@
+<Project>
+  <PropertyGroup>
+    <RepoRoot>$(MSBuildThisFileDirectory)</RepoRoot>
+    <RepoSrc>$(RepoRoot)src/</RepoSrc>
+    <RepoArtifacts>$(RepoRoot)artifacts/</RepoArtifacts>
+    <RepoTools>$(RepoRoot)tools/</RepoTools>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <OutputPath>$(RepoArtifacts)$(Configuration)/$(ExtName)/</OutputPath>
+    <PublishDir>$(OutputPath)</PublishDir>
+    <!-- todo: align assembly name e.g. <AssemblyName>$(AzAssemblyPrefix)$(ExtName)</AssemblyName> -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- PowerShell assets -->
+    <None Update="*.psd1" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

@@ -1,4 +1,4 @@
-namespace Microsoft.Azure.Cirrus.Resources.Models
+namespace Microsoft.Azure.Cirrus.Extensions.Resources.Models
 {
     //
     // Summary:
@@ -17,9 +17,9 @@ namespace Microsoft.Azure.Cirrus.Resources.Models
 
         public string ManagedBy { get; set; }
 
-        public IDictionary<string, string> Tags { get; set; }
+        public IDictionary<string, string>? Tags { get; set; }
 
-        public ResourceGroup(string location, string id = null, string name = null, string type = null, string provisioningState = null, string managedBy = null, IDictionary<string, string> tags = null)
+        public ResourceGroup(string location, string name, string id = "",  string type = "", string provisioningState = "", string managedBy = "", IDictionary<string, string>? tags = null)
         {
             Id = id;
             Name = name;
@@ -27,7 +27,7 @@ namespace Microsoft.Azure.Cirrus.Resources.Models
             ProvisioningState = provisioningState;
             Location = location;
             ManagedBy = managedBy;
-            Tags = tags;
+            Tags = null;
         }
     }
 }

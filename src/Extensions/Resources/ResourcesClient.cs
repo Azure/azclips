@@ -1,8 +1,9 @@
-namespace Microsoft.Azure.Cirrus.Resources.Client
-{
-    using System.Net.Http.Json;
-    using System.Text.Json;
+using System.Net.Http.Json;
+using System.Text.Json;
+using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
 
+namespace Microsoft.Azure.Cirrus.Extensions.Resources.Client
+{
     /// <summary>
     /// HTTP client for Azure Resources API operations.
     /// </summary>
@@ -13,11 +14,20 @@ namespace Microsoft.Azure.Cirrus.Resources.Client
         private readonly bool _shouldDispose;
         private bool _disposed;
 
-        // remove when integrate with auth library
-        protected string accessToken;
-        protected string baseUri = "https://management.azure.com/";
+        protected string baseUri = "https://management.azure.com";
         protected string apiVersion = "2025-04-01";
 
+        public ResourcesClient SetBaseUri(string uri)
+        {
+            baseUri = uri;
+            return this;
+        }
+
+        public ResourcesClient SetApiVersion(string version)
+        {
+            apiVersion = version;
+            return this;
+        }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ResourcesClient"/> class with a self-contained HTTP client.
@@ -71,6 +81,23 @@ namespace Microsoft.Azure.Cirrus.Resources.Client
             response.EnsureSuccessStatusCode();
 
             return response;
+        }
+
+        public async Task<ResourceGroup> CreateOrUpdateResouorceGroupAsync(string subscriptionId, string resourceGroupName, ResourceGroup resourceGroup, string accessToken, CancellationToken cancellationToken = default)
+        {
+            var requestUri = $"{baseUri}/subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}?api-version={apiVersion}";
+
+            using var request = new HttpRequestMessage(HttpMethod.Put, requestUri)
+            {
+                Content = JsonContent.Create(resourceGroup, options: _jsonOptions)
+            };
+
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+
+            using var response = await SendAsync(request, cancellationToken);
+            var result = await response.Content.ReadFromJsonAsync<ResourceGroup>(_jsonOptions, cancellationToken);
+
+            return result!;
         }
 
         /// <summary>

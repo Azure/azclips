@@ -1,16 +1,49 @@
-namespace Microsoft.Azure.Cirrus.Resources.Cmdlets
+using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
+using Microsoft.Azure.Cirrus.Extensions.Resources.Client;
+using SharedContracts;
+
+namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
 {
-    public class NewResouorceGroupCommand: SharedContracts.BaseProcessor
+    public class NewResouorceGroupCommand : SharedContracts.IProcessor
     {
-        public string Name { get; set; }
+        [ArgumentInfoAttribute(
+        Required = true,
+        Description = @"Azure Subscription Id.",
+        SerializedName = @"SubscriptionId")]
+        public string SubscriptionId { get; set; } = "";
 
-        public string Location { get; set; }
+        [ArgumentInfoAttribute(
+        Required = true,
+        Description = @"Temporarily enable access token for easy login.",
+        SerializedName = @"AccessToken")]
+        public string AccessToken { get; set; } = "";
 
-        public Hashtable Tag { get; set; }
+        [ArgumentInfoAttribute(
+        Required = true,
+        Description = @"The name of the resource group.",
+        SerializedName = @"ResourceGroupName")]
+        public string Name { get; set; } = "";
 
-        public override async global::System.Threading.Tasks.Task Process()
+        [ArgumentInfoAttribute(
+        Required = true,
+        Description = @"The resource id of the resource group.",
+        SerializedName = @"ResourceId")]
+        public string ResourceId { get; set; } = "";
+
+        [ArgumentInfoAttribute(
+        Required = true,
+        Description = @"Location for resource group.",
+        SerializedName = @"Location")]
+        public string Location { get; set; } = "";
+
+        public async Task ProcessAsync()
         {
             
+        }
+
+        public object Process()
+        {
+            return new ResourcesClient().CreateOrUpdateResouorceGroupAsync(SubscriptionId, Name, new ResourceGroup("eastus", Name), AccessToken).GetAwaiter().GetResult();
         }
     }
 }
