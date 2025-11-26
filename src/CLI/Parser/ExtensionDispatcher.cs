@@ -50,8 +50,8 @@ public class ExtensionDispatcher //: IParser
         if (!File.Exists(dllPath)) throw new FileNotFoundException($"Extension assembly not found: {dllPath}");
 
         var loadContext = new ExtensionLoadContext(ExtensionDirectory);
-        var assembly = loadContext.LoadFromAssemblyPath(dllPath);
-        // var assembly = Assembly.LoadFrom(dllPath);
+        //var assembly = loadContext.LoadFromAssemblyPath(dllPath);
+        var assembly = Assembly.LoadFrom(dllPath);
         var extensionParser = new ExtensionParser(assembly);
         (string commandName, IDictionary<string, object> parameters) = extensionParser.Parse(args[1..]);
         return new Implementation.CLICommandInvocation(extensionName, commandName, parameters);
