@@ -16,6 +16,7 @@ public class DefaultCommandEngine(ITelemetryService Telemetry) : ICommandEngine
     public Task ExecuteCommandAsync(string[] args, CancellationToken cancellationToken)
     {
         // Placeholder implementation
+        // todo: consider abstracting these steps as a pipeline
         Telemetry.Log($"Executing command: {string.Join(' ', args)}");
         var arguments = _parser.Parse(args);
         Telemetry.Log($"Parsed {arguments.Commands.Count()} commands and {arguments.Options.Count} options.");
