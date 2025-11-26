@@ -36,10 +36,10 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
         SerializedName = @"Location")]
         public string Location { get; set; } = "";
 
-        public async Task ProcessAsync()
-        {
+        //public async Task ProcessAsync()
+        //{
             
-        }
+        //}
 
         public object Process()
         {

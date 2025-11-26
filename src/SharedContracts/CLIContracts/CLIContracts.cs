@@ -17,7 +17,7 @@ namespace SharedContracts
     /// </summary>
     public interface IProcessor
     {
-        Task ProcessAsync();
+        //Task ProcessAsync();
         object Process();
     }
 
@@ -26,7 +26,7 @@ namespace SharedContracts
     /// </summary>
     public abstract class BaseProcessor : IProcessor
     {
-        public abstract Task ProcessAsync();
+        //public abstract Task ProcessAsync();
         public abstract object Process();
 
         protected virtual void LogMessage(string message)
