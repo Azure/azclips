@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>az</AssemblyName>
+    <RootNamespace>Core.Cli</RootNamespace>
+    <ExtName>Core.Cli</ExtName>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <AssemblyTitle>Az Command-Line Interface</AssemblyTitle>
+    <AssemblyDescription>A command-line tool for dynamically loading extensions and processing commands.</AssemblyDescription>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <Copyright>Copyright © 2025</Copyright>
+    <StartupObject>Core.Cli.Program</StartupObject>
+  </PropertyGroup>
+  
+  <Import Project="$(MSBuildThisFileDirectory)..\..\Shared.props" />
+
+  <ItemGroup>
+    <ProjectReference Include="..\Core\Core.Abstractions\Core.Abstractions.csproj" />
+    <ProjectReference Include="..\Core\Core.Implementation\Core.Implementation.csproj" />
+    <ProjectReference Include="..\Core\Core.Engine\Core.Engine.csproj" />
+    <ProjectReference Include="..\SharedContracts\SharedContracts.csproj" />
+  </ItemGroup>
+
+</Project>

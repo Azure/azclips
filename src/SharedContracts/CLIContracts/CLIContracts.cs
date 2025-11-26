@@ -18,7 +18,14 @@ namespace SharedContracts
     public interface IProcessor
     {
         //Task ProcessAsync();
+        // TODO: create wrapper for return object of IProcessor, this wrapper will handle serialization:
+        // model => model.ToJson()
+        // bool => "True"/"False"
+        // null => "Null"
+        // enumerable => serialize each item in enumerable
         object Process();
+        // TODO: consider pass serialization format as parameter
+        string Process(bool Serialize);
     }
 
     /// <summary>
@@ -28,6 +35,8 @@ namespace SharedContracts
     {
         //public abstract Task ProcessAsync();
         public abstract object Process();
+
+        public abstract string Process(bool Serialize);
 
         protected virtual void LogMessage(string message)
         {

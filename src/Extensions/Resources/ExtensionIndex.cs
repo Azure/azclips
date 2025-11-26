@@ -23,6 +23,12 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
                 assemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
                 commandType: typeof(Commands.NewResouorceGroupCommand)
             ));
+            _cliTable.Add("create", new CommandMetadata(
+                name: "NewResourceGroupCommand",
+                fullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.NewResourceGroupCommand",
+                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+                commandType: typeof(Commands.NewResouorceGroupCommand)
+            ));
         }
 
         public ICommandMetadata GetCommandMetaData(string name, ClientType clientType)

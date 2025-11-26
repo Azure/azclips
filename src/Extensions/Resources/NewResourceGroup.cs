@@ -45,5 +45,19 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
         {
             return new ResourcesClient().CreateOrUpdateResouorceGroupAsync(SubscriptionId, Name, new ResourceGroup("eastus", Name), AccessToken).GetAwaiter().GetResult();
         }
+
+        public string Process(bool Serialize)
+        {
+            // TODO: models to provide model.ToJson() method for serialization.
+            Models.ResourceGroup result = (Models.ResourceGroup)Process();
+            if (Serialize)
+            {
+                return System.Text.Json.JsonSerializer.Serialize<Models.ResourceGroup>(result, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            }
+            else
+            {
+                throw new NotImplementedException("Non-serialized output is not implemented.");
+            }
+        }
     }
 }
