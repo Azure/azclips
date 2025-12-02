@@ -2,9 +2,9 @@
 
 ## Getting Started
 - **Internal contributors only** at this time
-- Clone the repository
+- Fork and clone the repository
 - Use the dev container for a consistent development environment
-- Create a feature branch: `<alias>/<feature-name>` (e.g., `jsmith/add-auth`)
+- Create a feature branch: `<alias>/<feature-name>` (e.g., `jsmith/add-auth`) in your fork
 - Link your branch to the corresponding Azure DevOps work item
 
 ## Development

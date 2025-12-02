@@ -21,6 +21,6 @@ public class Bootstrapper
         services.AddSingleton<ITelemetryService, ConsoleTelemetryService>();
         services.AddSingleton<ICommandEngine, DefaultCommandEngine>();
 
-        return services.BuildServiceProvider();
+        return services.BuildServiceProvider(); // The ServiceProvider returned by BuildServiceProvider() implements IDisposable but is never disposed. This can lead to resource leaks. Consider storing the provider and disposing it properly, or use BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true }) with proper lifetime management.
     }
 }

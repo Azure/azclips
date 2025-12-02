@@ -5,6 +5,7 @@ namespace Core.Engine;
 
 /// <summary>
 /// Binds parsed command line input to ICommand implementations from dynamically loaded modules.
+/// todo: consider breaking down into smaller classes/services
 /// </summary>
 internal class CommandBinder
 {
