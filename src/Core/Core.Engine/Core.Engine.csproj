@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Core.Abstractions\Core.Abstractions.csproj" />
+    <ProjectReference Include="..\Core.Agent\Core.Agent.csproj" />
     <ProjectReference Include="..\Core.Implementation\Core.Implementation.csproj" />
   </ItemGroup>
 

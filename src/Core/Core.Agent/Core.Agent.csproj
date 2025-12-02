@@ -19,7 +19,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Core.Abstractions\Core.Abstractions.csproj" />
-    <ProjectReference Include="..\Core.Engine\Core.Engine.csproj" />
     <ProjectReference Include="..\Core.Implementation\Core.Implementation.csproj" />
   </ItemGroup>
 

@@ -25,25 +25,20 @@ public class Bootstrapper
 
         services.AddSingleton<ITelemetryService, ConsoleTelemetryService>();
         
-        if (fallbackEngine != null)
+        // Register DefaultCommandEngine
+        services.AddSingleton<DefaultCommandEngine>();
+        
+        // Register composite engine with fallback
+        services.AddSingleton<ICommandEngine>(sp =>
         {
-            // Register DefaultCommandEngine as a named service
-            services.AddSingleton<DefaultCommandEngine>();
+            var telemetry = sp.GetRequiredService<ITelemetryService>();
+            var defaultEngine = sp.GetRequiredService<DefaultCommandEngine>();
             
-            // Register a composite engine that tries DefaultCommandEngine first, then falls back
-            services.AddSingleton<ICommandEngine>(sp =>
-            {
-                var telemetry = sp.GetRequiredService<ITelemetryService>();
-                var defaultEngine = sp.GetRequiredService<DefaultCommandEngine>();
-                
-                return new CompositeCommandEngine(telemetry, defaultEngine, fallbackEngine);
-            });
-        }
-        else
-        {
-            // No fallback - just use DefaultCommandEngine
-            services.AddSingleton<ICommandEngine, DefaultCommandEngine>();
-        }
+            // Create AgentEngine as fallback if not provided
+            var actualFallback = fallbackEngine ?? new Core.Agent.AgentEngine(telemetry);
+            
+            return new CompositeCommandEngine(telemetry, defaultEngine, actualFallback);
+        });
 
         return services.BuildServiceProvider();
     }
