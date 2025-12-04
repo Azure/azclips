@@ -4,7 +4,7 @@ namespace Group;
 
 public class GroupGetCommand : ICommand
 {
-    public Task ExecuteAsync(CancellationToken cancellationToken = default)
+    public Task ExecuteAsync(IServiceProvider serviceProvider, CancellationToken cancellationToken = default)
     {
         var previousColor = Console.ForegroundColor;
         Console.ForegroundColor = ConsoleColor.Yellow;

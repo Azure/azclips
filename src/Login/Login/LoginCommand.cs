@@ -1,15 +1,17 @@
 using Core.Abstractions;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Login;
 
 public class LoginCommand : ICommand
 {
-    public Task ExecuteAsync(CancellationToken cancellationToken = default)
+    public async Task ExecuteAsync(IServiceProvider serviceProvider, CancellationToken cancellationToken = default)
     {
         var previousColor = Console.ForegroundColor;
         Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine("Login: Not implemented yet.");
+        Console.WriteLine($"Bearer token: {await serviceProvider.GetRequiredService<IAuthService>().AuthenticateAsync()}");
         Console.ForegroundColor = previousColor;
-        return Task.CompletedTask;
+        return;
     }
+
 }

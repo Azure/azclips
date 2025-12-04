@@ -1,4 +1,5 @@
 using Core.Abstractions;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Core.Engine;
 
@@ -8,7 +9,7 @@ namespace Core.Engine;
 /// and delegates to the command implementation type to execute commands.
 /// </summary>
 /// <param name="Telemetry"></param>
-public class DefaultCommandEngine(ITelemetryService Telemetry) : ICommandEngine
+public class DefaultCommandEngine(ITelemetryService Telemetry, IServiceScopeFactory serviceScopeFactory) : ICommandEngine
 {
     private readonly CommandParser _parser = new();
     private readonly CommandBinder _binder = new();
@@ -23,8 +24,13 @@ public class DefaultCommandEngine(ITelemetryService Telemetry) : ICommandEngine
         var command = _binder.Bind(arguments);
         if (command != null)
         {
-            Telemetry.Log($"Command bound successfully. Executing command {command.GetType()} ...");
-            return command.ExecuteAsync(cancellationToken);
+            using (var scope = serviceScopeFactory.CreateScope())
+            {
+                var serviceProvider = scope.ServiceProvider;
+                // command.SetServiceProvider(serviceProvider);
+                Telemetry.Log($"Command bound successfully. Executing command {command.GetType()} ...");
+                return command.ExecuteAsync(serviceProvider, cancellationToken);
+            }
         }
         else
         {

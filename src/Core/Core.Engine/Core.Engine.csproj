@@ -12,6 +12,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Core.Abstractions\Core.Abstractions.csproj" />
     <ProjectReference Include="..\Core.Implementation\Core.Implementation.csproj" />
+    <ProjectReference Include="..\Core.Authentication\Core.Authentication.csproj" />
   </ItemGroup>
 
 </Project>
