@@ -8,9 +8,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Core.Engine\Core.Engine.csproj" />
-    <ProjectReference Include="..\Core.Agent\Core.Agent.csproj" />
-    <ProjectReference Include="..\..\Group\Group\Group.csproj" />
-    <ProjectReference Include="..\..\Login\Login\Login.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -18,25 +15,6 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AssemblyName>az</AssemblyName>
   </PropertyGroup>
-
-  <!-- Copy module assemblies to their own folders after publish -->
-  <Target Name="CopyModulesToFolders" AfterTargets="Publish">
-    <ItemGroup>
-      <GroupFiles Include="$(PublishDir)Group.dll;$(PublishDir)Group.pdb;$(PublishDir)Cirrus.Group.psd1" />
-      <LoginFiles Include="$(PublishDir)Login.dll;$(PublishDir)Login.pdb;$(PublishDir)Cirrus.Login.psd1" />
-    </ItemGroup>
-    
-    <!-- Create module directories -->
-    <MakeDir Directories="$(PublishDir)Group" />
-    <MakeDir Directories="$(PublishDir)Login" />
-    
-    <!-- Move Group files -->
-    <Move SourceFiles="@(GroupFiles)" DestinationFolder="$(PublishDir)Group" />
-    
-    <!-- Move Login files -->
-    <Move SourceFiles="@(LoginFiles)" DestinationFolder="$(PublishDir)Login" />
-  </Target>
   
 </Project>
