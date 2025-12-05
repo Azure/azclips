@@ -1,8 +1,7 @@
 <Solution>
   <Project Path="Agent/Agent.csproj" />
-  <Project Path="Agent.PowerShell/Agent.PowerShell.csproj" />
   <Project Path="Cli/Cli.csproj" />
   <Project Path="Core.Abstractions/Core.Abstractions.csproj" />
-  <Project Path="Group/Group.csproj" />
-  <Project Path="Login/Login.csproj" />
+  <Project Path="Group/Group/Group.csproj" />
+  <Project Path="Login/Login/Login.csproj" />
 </Solution>

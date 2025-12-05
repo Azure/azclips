@@ -28,11 +28,25 @@ public class CloudAgent
     /// <returns>A configured CloudAgent instance ready for conversation.</returns>
     public static async Task<CloudAgent> CreateAsync(string flavor = "azure cli")
     {
-        // Load .env file from the application directory (not current working directory)
-        string envPath = Path.Combine(AppContext.BaseDirectory, ".env");
-        if (File.Exists(envPath))
+        // Try to load .env file from multiple locations
+        // 1. Application directory (for CLI usage)
+        // 2. Current working directory (for any usage)
+        // 3. Module directory (for PowerShell module usage - get from assembly location)
+        var envLocations = new[]
         {
-            Env.Load(envPath);
+            Path.Combine(AppContext.BaseDirectory, ".env"),
+            Path.Combine(Directory.GetCurrentDirectory(), ".env"),
+            Path.Combine(Path.GetDirectoryName(typeof(CloudAgent).Assembly.Location) ?? "", ".env"),
+            Path.Combine(Directory.GetCurrentDirectory(), "bin", ".env")
+        };
+
+        foreach (var envPath in envLocations)
+        {
+            if (File.Exists(envPath))
+            {
+                Env.Load(envPath);
+                break;
+            }
         }
 
         // Load configuration from environment variables

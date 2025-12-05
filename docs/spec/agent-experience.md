@@ -17,7 +17,7 @@ The agent implements `ICommandEngine` and operates as a fallback to the `Default
                              │
                              ▼
               ┌──────────────────────────────┐
-              │   CompositeCommandEngine     │
+              │   OrchestratorEngine         │
               └──────────────┬───────────────┘
                              │
                 ┌────────────┴───────────┐

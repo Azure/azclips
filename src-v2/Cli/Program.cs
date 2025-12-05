@@ -2,8 +2,7 @@ using Core.Abstractions;
 using Core.Cli;
 
 // Determine flavor from environment variable (set by PowerShell cmdlets)
-// Default to "azure powershell" since this is the azv2 tool
-var flavor = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure powershell";
+var flavor = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure cli";
 
 // Setup output adapter
 var output = new ConsoleOutputAdapter();
@@ -18,7 +17,7 @@ var binder = new CommandBinder(telemetry);
 // Setup engines with the appropriate flavor
 var defaultEngine = new DefaultCommandEngine(parser, binder, telemetry);
 var agentEngine = new AgentEngine(output, flavor);
-var compositeEngine = new CompositeCommandEngine(defaultEngine, agentEngine, parser, binder, telemetry, output);
+var orchestratorEngine = new OrchestratorEngine(defaultEngine, agentEngine, parser, binder, telemetry, output);
 
 // Execute command
 try
@@ -38,9 +37,9 @@ try
         return 0;
     }
     
-    await compositeEngine.ExecuteCommandAsync(args);
-    
-    // Note: PowerShell flavor command extraction is handled by CompositeEngine
+    await orchestratorEngine.ExecuteCommandAsync(args);
+
+    // Note: PowerShell flavor command extraction is handled by OrchestratorEngine
     // but we don't output the __PSEXEC__ marker because PowerShell can't capture
     // stdout without buffering all output (which breaks real-time streaming)
     // User will see the generated command and can copy/paste it

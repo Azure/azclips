@@ -9,13 +9,8 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 
-    <!-- todo: align assembly name here -->
-
     <!-- todo: set ContinuousIntegrationBuild, Deterministic,
         EmbedUntrackedSources, and repository metadata. -->
   </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="System.Management.Automation" Version="7.6.0-preview.5" />
-  </ItemGroup>
 </Project>

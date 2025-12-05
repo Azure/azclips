@@ -1,8 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-
-  <ItemGroup>
-    <ProjectReference Include="../../../src-v3/Group/Group/Group.csproj" />
-    <ProjectReference Include="../../../src-v3/Login/Login/Login.csproj" />
-  </ItemGroup>
-
-</Project>
