@@ -57,7 +57,7 @@
                                │
                                ↓
                     ┌─────────────────────┐
-                    │ CompositeCommand    │
+                    │ OrchestratorCommand │
                     │ Engine              │
                     │ (Orchestrator)      │
                     └──────────┬──────────┘
@@ -78,20 +78,20 @@
         └────────┬─────────┘    └────────┬────────┘
                  │                       │
                  ↓                       │
-        ┌──────────────────┐           │
-        │ CommandBinder    │           │
-        │ (Module Loading) │           │
-        └────────┬─────────┘           │
-                 │                     │
-                 ↓                     │
-        ┌──────────────────┐          │
-        │ IModule          │          │
-        │ GetCommands()    │          │
-        └────────┬─────────┘          │
-                 │                    │
-                 ↓                    │
-        ┌──────────────────┐         │
-        │ ICommand         │ ◄───────┘
+        ┌──────────────────┐             │
+        │ CommandBinder    │             │
+        │ (Module Loading) │             │
+        └────────┬─────────┘             │
+                 │                       │
+                 ↓                       │
+        ┌──────────────────┐             │
+        │ IModule          │             │
+        │ GetCommands()    │             │
+        └────────┬─────────┘             │
+                 │                       │
+                 ↓                       │
+        ┌──────────────────┐             │
+        │ ICommand         │ ◄───────────┘
         │ ExecuteAsync()   │  (On Success)
         └────────┬─────────┘
                  │
@@ -110,7 +110,7 @@ User Input: "azv2 <args>"
      │
      ↓
 ┌────────────────────────────────────────┐
-│ OrchestratorEngine                 │
+│ OrchestratorEngine                     │
 │ Try DefaultCommandEngine first         │
 │  • CommandParser: args → command/opts  │
 │  • CommandBinder: find ICommand        │
@@ -137,7 +137,7 @@ User Input: "azv2 <args>"
              but not done)              unknown command,
                     │                   typo, etc.)
                     ↓                        │
-            ┌──────────────┐                ↓
+            ┌──────────────┐                 ↓
             │ Show "Not    │      ┌──────────────────┐
             │ implemented" │      │ Fallback to      │
             │ Exit(0)      │      │ AgentEngine      │
@@ -167,7 +167,7 @@ User Input: "azv2 <args>"
             │ Check Flavor       │          │ Show AI     │
             └─────┬──────────────┘          │ Response &  │
                   │                         │ Exit(0)     │
-     ┌────────────┴────────────┐           └─────────────┘
+     ┌────────────┴────────────┐            └─────────────┘
      │                         │
   Azure CLI             Azure PowerShell
      │                         │
@@ -184,14 +184,14 @@ User Input: "azv2 <args>"
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                         CLI Entry                            │
-│              azv2 group create --name test                   │
+│                         CLI Entry                           │
+│              azv2 group create --name test                  │
 └────────────────────┬────────────────────────────────────────┘
                      │
                      ↓
 ┌─────────────────────────────────────────────────────────────┐
-│                   CLI Command Adapter                        │
-│           GroupCreateCommand (Commands/)                     │
+│                   CLI Command Adapter                       │
+│           GroupCreateCommand (Commands/)                    │
 │   • Parses options dict: {"name": "test"}                   │
 │   • Creates CreateGroupRequest                              │
 │   • Formats Console output                                  │
@@ -199,8 +199,8 @@ User Input: "azv2 <args>"
                      │
                      ↓
 ┌─────────────────────────────────────────────────────────────┐
-│                  BUSINESS LOGIC LAYER                        │
-│              GroupManager.CreateGroupAsync()                 │
+│                  BUSINESS LOGIC LAYER                       │
+│              GroupManager.CreateGroupAsync()                │
 │   • Pure business logic - no CLI/PS knowledge               │
 │   • Azure SDK calls                                         │
 │   • Returns GroupInfo DTO                                   │
@@ -208,7 +208,7 @@ User Input: "azv2 <args>"
                      ↑
                      │
 ┌─────────────────────────────────────────────────────────────┐
-│              PowerShell Cmdlet Adapter                       │
+│              PowerShell Cmdlet Adapter                      │
 │        NewAzV2ResourceGroupCmdlet (Cmdlets/)                │
 │   • Maps PS parameters to CreateGroupRequest                │
 │   • Formats PowerShell output (WriteObject)                 │
@@ -216,7 +216,7 @@ User Input: "azv2 <args>"
                      ↑
                      │
 ┌─────────────────────────────────────────────────────────────┐
-│                    PowerShell Entry                          │
+│                    PowerShell Entry                         │
 │         New-AzV2ResourceGroup -Name test                    │
 └─────────────────────────────────────────────────────────────┘
 ```
