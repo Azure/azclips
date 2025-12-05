@@ -83,7 +83,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Client
             return response;
         }
 
-        public async Task<ResourceGroup> CreateOrUpdateResouorceGroupAsync(string subscriptionId, string resourceGroupName, ResourceGroup resourceGroup, string accessToken, CancellationToken cancellationToken = default)
+        public async Task<ResourceGroup> CreateOrUpdateResourceGroupAsync(string subscriptionId, string resourceGroupName, ResourceGroup resourceGroup, string accessToken, CancellationToken cancellationToken = default)
         {
             var requestUri = $"{baseUri}/subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}?api-version={apiVersion}";
 

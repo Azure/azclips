@@ -4,7 +4,7 @@ using SharedContracts;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
 {
-    public class NewResouorceGroupCommand : SharedContracts.IProcessor
+    public class NewResourceGroupCommand : SharedContracts.IProcessor
     {
         [ArgumentInfoAttribute(
         Required = true,
@@ -43,7 +43,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
 
         public object Process()
         {
-            return new ResourcesClient().CreateOrUpdateResouorceGroupAsync(SubscriptionId, Name, new ResourceGroup("eastus", Name), AccessToken).GetAwaiter().GetResult();
+            return new ResourcesClient().CreateOrUpdateResourceGroupAsync(SubscriptionId, Name, new ResourceGroup("eastus", Name), AccessToken).GetAwaiter().GetResult();
         }
 
         public string Process(bool Serialize)

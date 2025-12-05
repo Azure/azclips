@@ -27,7 +27,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Models
             ProvisioningState = provisioningState;
             Location = location;
             ManagedBy = managedBy;
-            Tags = null;
+            Tags = tags;
         }
     }
 }

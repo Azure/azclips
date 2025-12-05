@@ -12,8 +12,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
 {
     public class ExtensionIndex: IExtensionIndex
     {
-        private IDictionary<string, ICommandMetadata> _psTable = new Dictionary<string, ICommandMetadata>();
-        private IDictionary<string, ICommandMetadata> _cliTable = new Dictionary<string, ICommandMetadata>();
+        private readonly IDictionary<string, ICommandMetadata> _psTable = new Dictionary<string, ICommandMetadata>();
+        private readonly IDictionary<string, ICommandMetadata> _cliTable = new Dictionary<string, ICommandMetadata>();
 
         public ExtensionIndex()
         {
@@ -21,13 +21,13 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
                 name: "NewResourceGroupCommand",
                 fullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.NewResourceGroupCommand",
                 assemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
-                commandType: typeof(Commands.NewResouorceGroupCommand)
+                commandType: typeof(Commands.NewResourceGroupCommand)
             ));
             _cliTable.Add("create", new CommandMetadata(
                 name: "NewResourceGroupCommand",
                 fullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.NewResourceGroupCommand",
                 assemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
-                commandType: typeof(Commands.NewResouorceGroupCommand)
+                commandType: typeof(Commands.NewResourceGroupCommand)
             ));
         }
 
@@ -36,15 +36,15 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             switch (clientType)
             {
                 case ClientType.PowerShell:
-                    if (_psTable.ContainsKey(name))
+                    if (_psTable.TryGetValue(name, out var psData))
                     {
-                        return _psTable[name];
+                        return psData;
                     }
                     break;
                 case ClientType.CLI:
-                    if (_cliTable.ContainsKey(name))
+                    if (_cliTable.TryGetValue(name, out var cliData))
                     {
-                        return _cliTable[name];
+                        return cliData;
                     }
                     break;
                 default:
