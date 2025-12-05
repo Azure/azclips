@@ -2,7 +2,8 @@ using Core.Abstractions;
 using Core.Cli;
 
 // Determine flavor from environment variable (set by PowerShell cmdlets)
-var flavor = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure cli";
+// Default to "azure powershell" since this is the azv2 tool
+var flavor = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure powershell";
 
 // Setup output adapter
 var output = new ConsoleOutputAdapter();

@@ -19,11 +19,15 @@ public class RemoveAzV2ResourceGroupCmdlet : PSCmdlet
             return;
         }
 
-        var args = new List<string> { "group", "delete", "--name", Name };
+        var options = new Dictionary<string, string>
+        {
+            ["name"] = Name
+        };
 
         try
         {
-            CliRunner.ExecuteCommand(args.ToArray());
+            var command = new GroupDeleteCommand();
+            command.ExecuteAsync(options, CancellationToken.None).GetAwaiter().GetResult();
         }
         catch (Exception ex)
         {

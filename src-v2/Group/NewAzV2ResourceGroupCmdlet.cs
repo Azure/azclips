@@ -17,17 +17,21 @@ public class NewAzV2ResourceGroupCmdlet : PSCmdlet
 
     protected override void ProcessRecord()
     {
-        var args = new List<string> { "group", "create", "--name", Name, "--location", Location };
+        var options = new Dictionary<string, string>
+        {
+            ["name"] = Name,
+            ["location"] = Location
+        };
         
         if (Tags != null && Tags.Count > 0)
         {
-            args.Add("--tags");
-            args.Add(string.Join(",", Tags.Select(kvp => $"{kvp.Key}={kvp.Value}")));
+            options["tags"] = string.Join(",", Tags.Select(kvp => $"{kvp.Key}={kvp.Value}"));
         }
 
         try
         {
-            CliRunner.ExecuteCommand(args.ToArray());
+            var command = new GroupCreateCommand();
+            command.ExecuteAsync(options, CancellationToken.None).GetAwaiter().GetResult();
         }
         catch (Exception ex)
         {

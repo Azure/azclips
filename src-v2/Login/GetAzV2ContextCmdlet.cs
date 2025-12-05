@@ -8,11 +8,15 @@ public class GetAzV2ContextCmdlet : PSCmdlet
 {
     protected override void ProcessRecord()
     {
-        var args = new[] { "account", "show" };
+        var options = new Dictionary<string, string>
+        {
+            ["action"] = "show"
+        };
 
         try
         {
-            CliRunner.ExecuteCommand(args);
+            var command = new LoginCommand();
+            command.ExecuteAsync(options, CancellationToken.None).GetAwaiter().GetResult();
         }
         catch (Exception ex)
         {

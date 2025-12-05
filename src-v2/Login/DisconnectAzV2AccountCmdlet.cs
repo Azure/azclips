@@ -8,11 +8,15 @@ public class DisconnectAzV2AccountCmdlet : PSCmdlet
 {
     protected override void ProcessRecord()
     {
-        var args = new[] { "logout" };
+        var options = new Dictionary<string, string>
+        {
+            ["action"] = "logout"
+        };
 
         try
         {
-            CliRunner.ExecuteCommand(args);
+            var command = new LoginCommand();
+            command.ExecuteAsync(options, CancellationToken.None).GetAwaiter().GetResult();
         }
         catch (Exception ex)
         {

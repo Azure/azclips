@@ -14,21 +14,22 @@ public class ConnectAzV2AccountCmdlet : PSCmdlet
 
     protected override void ProcessRecord()
     {
-        var args = new List<string> { "login" };
+        var options = new Dictionary<string, string>();
         
         if (!string.IsNullOrEmpty(TenantId))
         {
-            args.AddRange(new[] { "--tenant", TenantId });
+            options["tenant"] = TenantId;
         }
 
         if (!string.IsNullOrEmpty(SubscriptionId))
         {
-            args.AddRange(new[] { "--subscription", SubscriptionId });
+            options["subscription"] = SubscriptionId;
         }
 
         try
         {
-            CliRunner.ExecuteCommand(args.ToArray());
+            var command = new LoginCommand();
+            command.ExecuteAsync(options, CancellationToken.None).GetAwaiter().GetResult();
         }
         catch (Exception ex)
         {

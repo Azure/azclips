@@ -11,15 +11,16 @@ public class GetAzV2ResourceGroupCmdlet : PSCmdlet
 
     protected override void ProcessRecord()
     {
-        var args = new List<string> { "group", "list" };
+        var options = new Dictionary<string, string>();
         if (!string.IsNullOrEmpty(Name))
         {
-            args.AddRange(new[] { "--name", Name });
+            options["name"] = Name;
         }
 
         try
         {
-            CliRunner.ExecuteCommand(args.ToArray());
+            var command = new GroupListCommand();
+            command.ExecuteAsync(options, CancellationToken.None).GetAwaiter().GetResult();
         }
         catch (Exception ex)
         {

@@ -14,17 +14,20 @@ public class SetAzV2ResourceGroupCmdlet : PSCmdlet
 
     protected override void ProcessRecord()
     {
-        var args = new List<string> { "group", "update", "--name", Name };
+        var options = new Dictionary<string, string>
+        {
+            ["name"] = Name
+        };
         
         if (Tags != null && Tags.Count > 0)
         {
-            args.Add("--tags");
-            args.Add(string.Join(",", Tags.Select(kvp => $"{kvp.Key}={kvp.Value}")));
+            options["tags"] = string.Join(",", Tags.Select(kvp => $"{kvp.Key}={kvp.Value}"));
         }
 
         try
         {
-            CliRunner.ExecuteCommand(args.ToArray());
+            var command = new GroupShowCommand();
+            command.ExecuteAsync(options, CancellationToken.None).GetAwaiter().GetResult();
         }
         catch (Exception ex)
         {
