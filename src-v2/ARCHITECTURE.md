@@ -578,18 +578,13 @@ protected override void ProcessRecord()
 
 Both CLI and PowerShell share this context, ensuring consistent authentication state.
 
-## Migration from src-v2
-
-Key changes from `src-v2`:
-1. ❌ **Removed**: `CliRunner` process spawning
-2. ✅ **Added**: `Business/` folder with pure logic
-3. ✅ **Moved**: Commands to `Commands/` folder
-4. ✅ **Moved**: Cmdlets to `Cmdlets/` folder
-5. ✅ **Refactored**: All adapters now call `GroupManager`/`AuthenticationManager`
-
 ## Example Scenarios
 
-### Scenario 1: Structured CLI Command (Success)
+The following scenarios demonstrate how both Azure CLI (`azv2`) and Azure PowerShell cmdlets work in src-v2, including natural language support and intelligent fallback.
+
+### Azure CLI Scenarios
+
+#### Scenario 1: Structured CLI Command (Success)
 
 ```bash
 $ azv2 group create --name test --location eastus
@@ -605,7 +600,7 @@ $ azv2 group create --name test --location eastus
 
 **No agent invoked** - structured command succeeded.
 
-### Scenario 2: Unknown Command (Agent Fallback)
+#### Scenario 2: CLI with Typo (Agent Correction)
 
 ```bash
 $ azv2 grup create --name test --location eastus  # Typo: "grup"
@@ -625,7 +620,7 @@ $ azv2 grup create --name test --location eastus  # Typo: "grup"
 
 **Agent corrected the typo automatically.**
 
-### Scenario 3: Natural Language CLI
+#### Scenario 3: CLI Natural Language
 
 ```bash
 $ azv2 create a resource group called test in eastus
@@ -645,7 +640,25 @@ $ azv2 create a resource group called test in eastus
 
 **Agent converted natural language to structured command.**
 
-### Scenario 4: PowerShell Cmdlet (Direct)
+#### Scenario 4: CLI Syntax Help (Documentation Request)
+
+```bash
+$ azv2 how do I create a resource group?
+```
+
+**Flow:**
+1. `DefaultCommandEngine` fails (not a command)
+2. Fallback to `AgentEngine`
+3. `CloudAgent` recognizes "how to" question
+4. AI responds with syntax only: `azv2 group create --name <resource-group-name> --location <location>`
+5. **No `[DONE]` marker** → No execution
+6. User sees syntax help → Exit(0)
+
+**Agent provided documentation, not execution.**
+
+### Azure PowerShell Scenarios
+
+#### Scenario 5: Direct PowerShell Cmdlet
 
 ```powershell
 PS> Import-Module ./bin/Group/Cirrus.Group.psd1
@@ -661,12 +674,15 @@ PS> New-AzV2ResourceGroup -Name test -Location eastus
 
 **No CLI spawn**, **no agent** - direct cmdlet execution.
 
-### Scenario 5: PowerShell Natural Language via Invoke-AzV2
+#### Scenario 6: PowerShell Natural Language (via Invoke-AzV2)
 
 ```powershell
 PS> Import-Module ./bin/Group/Cirrus.Group.psd1
 PS> Invoke-AzV2 create a resource group called test in eastus
-# Or: ask create a resource group called test in eastus
+# Aliases: ask, please, or pls
+PS> ask create a resource group called test in eastus
+PS> please create a resource group called test in eastus
+PS> pls create a resource group called test in eastus
 ```
 
 **Flow:**
@@ -684,21 +700,70 @@ PS> Invoke-AzV2 create a resource group called test in eastus
 
 **Agent converted natural language to PowerShell cmdlet, which PowerShell then executed.**
 
-### Scenario 6: Syntax Help Request (No Execution)
+#### Scenario 7: PowerShell Syntax Help
 
-```bash
-$ azv2 how do I create a resource group?
+```powershell
+PS> Import-Module ./bin/Group/Cirrus.Group.psd1
+PS> Invoke-AzV2 how do I list resource groups?
+# Aliases: ask, please, or pls
+PS> ask how do I list resource groups?
+PS> please how do I list resource groups?
+PS> pls how do I list resource groups?
 ```
 
 **Flow:**
-1. `DefaultCommandEngine` fails (not a command)
-2. Fallback to `AgentEngine`
-3. `CloudAgent` recognizes "how to" question
-4. AI responds with syntax only: `azv2 group create --name <resource-group-name> --location <location>`
-5. **No `[DONE]` marker** → No execution
-6. User sees syntax help → Exit(0)
+1. `Invoke-AzV2` sets `$env:AZURECLI_FLAVOR = "azure powershell"`
+2. Spawns: `azv2 how do I list resource groups?`
+3. CLI → `OrchestratorEngine` → `DefaultCommandEngine` fails
+4. Fallback to `AgentEngine`
+5. `AgentEngine` detects flavor = "azure powershell"
+6. `CloudAgent` recognizes "how to" question
+7. AI responds with syntax only: `Get-AzV2ResourceGroup [-Name <resource-group-name>]`
+8. **No `[DONE]` marker** → No execution
+9. Output displayed to PowerShell user → Exit(0)
 
-**Agent provided documentation, not execution.**
+**Agent provided PowerShell cmdlet syntax documentation.**
+
+#### Scenario 8: PowerShell Cmdlet with Typo (Agent Correction via Invoke-AzV2)
+
+```powershell
+PS> Import-Module ./bin/Group/Cirrus.Group.psd1
+PS> Invoke-AzV2 Get-AzV2ResurceGroup -Name test  # Typo: "Resurce"
+# Aliases: ask, please, or pls
+PS> ask Get-AzV2ResurceGroup -Name test
+PS> please Get-AzV2ResurceGroup -Name test
+PS> pls Get-AzV2ResurceGroup -Name test
+```
+
+**Flow:**
+1. `Invoke-AzV2` spawns CLI with typo
+2. CLI → `OrchestratorEngine` → `DefaultCommandEngine` fails
+3. Fallback to `AgentEngine`
+4. `AgentEngine` detects flavor = "azure powershell"
+5. `CloudAgent` recognizes typo and corrects to: `Get-AzV2ResourceGroup -Name test`
+6. Outputs: `__PSEXEC__Get-AzV2ResourceGroup -Name test`
+7. PowerShell executes corrected cmdlet
+8. Results displayed
+
+**Agent corrected PowerShell cmdlet typo automatically.**
+
+### Scenario 9: Mixed - CLI with PowerShell Flavor Context
+
+```bash
+$ export AZURECLI_FLAVOR="azure powershell"
+$ azv2 create a storage account
+```
+
+**Flow:**
+1. CLI detects `AZURECLI_FLAVOR = "azure powershell"`
+2. `OrchestratorEngine` → `DefaultCommandEngine` fails
+3. Fallback to `AgentEngine`
+4. `AgentEngine` sees PowerShell flavor → asks `CloudAgent` for PowerShell syntax
+5. AI returns: `New-AzV2StorageAccount -Name <name> -ResourceGroupName <rg> -Location <location>`
+6. Outputs: `__PSEXEC__New-AzV2StorageAccount ...`
+7. (In PowerShell context, this would be executed; in direct CLI, just displayed)
+
+**Agent respects flavor context and returns appropriate syntax.**
 
 ## Key Benefits
 

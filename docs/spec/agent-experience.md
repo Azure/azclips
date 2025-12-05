@@ -2,7 +2,9 @@
 
 ## Overview
 
-Core.Agent is an AI-powered natural language interface for Azure CLI that interprets user intent and generates executable commands. It integrates with the Core CLI through a **fallback mechanism**: when standard command parsing fails, the agent interprets the natural language input and can hand back executable commands to the CLI engine.
+Core.Agent is an AI-powered natural language interface for Azure CLI and Azure PowerShell that interprets user intent and generates executable commands. It integrates through a **fallback mechanism**: when standard command parsing fails, the agent interprets the natural language input and can hand back executable commands to the execution engine.
+
+**Note:** For comprehensive architecture details including both CLI (azv2) and PowerShell integration patterns, see [ARCHITECTURE.md](../../src-v2/ARCHITECTURE.md).
 
 ## Architecture
 
@@ -73,6 +75,15 @@ The agent supports three AI backend implementations:
 2. **Local Model** (Phi-3.5-mini) - Fully offline inference via LlamaSharp
 3. **Azure Copilot Service** - Azure's production Copilot infrastructure
 
+### Interface Support
+
+The agent works with both:
+
+1. **Azure CLI (azv2)** - Command-line interface with `az` prefix
+2. **Azure PowerShell** - Cmdlet-based interface with `AzV2` prefix and natural language support via `Invoke-AzV2` (aliases: `ask`, `please`, `pls`)
+
+See [ARCHITECTURE.md](../../src-v2/ARCHITECTURE.md) for detailed examples of both interfaces.
+
 ## Agent Capabilities
 
 ## Agent Capabilities
@@ -128,13 +139,23 @@ az storage account create --name my-storage --resource-group <rg-name> --locatio
 
 ## Running the Agent
 
-### Production Use (via Core CLI)
+### Production Use
 
-The agent is automatically invoked when `DefaultCommandEngine` cannot parse input:
+The agent is automatically invoked when standard command parsing fails:
 
+**Azure CLI (azv2):**
 ```bash
-$ az create a storage account called mystore in westus
+$ azv2 create a storage account called mystore in westus
 ```
+
+**Azure PowerShell:**
+```powershell
+PS> Invoke-AzV2 "create a storage account called mystore in westus"
+# or using aliases:
+PS> ask "create a storage account called mystore in westus"
+```
+
+See [ARCHITECTURE.md](../../src-v2/ARCHITECTURE.md) for the complete flow and orchestration details.
 
 ### Testing & Evaluation (via Program.cs)
 
@@ -142,13 +163,13 @@ The `Program.cs` file provides a **standalone executable for testing and evaluat
 
 ```bash
 # Cloud mode (default)
-dotnet run --project src/Core/Core.Agent/Core.Agent.csproj
+dotnet run --project src-v2/Agent/Agent.csproj
 
 # Local model
-dotnet run --project src/Core/Core.Agent/Core.Agent.csproj -- --local-model
+dotnet run --project src-v2/Agent/Agent.csproj -- --local-model
 
 # Azure Copilot
-dotnet run --project src/Core/Core.Agent/Core.Agent.csproj -- --use-copilot
+dotnet run --project src-v2/Agent/Agent.csproj -- --use-copilot
 ```
 
 This standalone mode is used for:
@@ -197,9 +218,10 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
 ### Shared Components
 
 All options share:
-- `AgentEngine.cs` - ICommandEngine implementation, conversation management
-- `prompt.txt` - System instructions with flavor support (azure cli/azure powershell)
-- `Program.cs` - Standalone test interface
+- `src-v2/Cli/AgentEngine.cs` - ICommandEngine implementation, conversation management
+- `src-v2/Agent/prompt.txt` - System instructions with flavor support (azure cli/azure powershell)
+- `src-v2/Agent/CloudAgent.cs` - AI integration layer
+- `src-v2/Cli/OrchestratorEngine.cs` - Orchestrates fallback between DefaultCommandEngine and AgentEngine
 - Streaming response handling
 - `[DONE]` marker protocol
 
@@ -255,7 +277,9 @@ Ability to stay focused on Azure command generation without off-topic responses.
 
 ## Example Interactions
 
-### Natural Language Command Generation
+### Azure CLI Examples
+
+#### Natural Language Command Generation
 ```
 $ az create a resource group called mygroup in westus
 
@@ -266,7 +290,7 @@ Execute this command? (yes/no): yes
 [DefaultCommandEngine executes]
 ```
 
-### Command with Typo
+#### Command with Typo
 ```
 $ az I would like to logni
 
@@ -276,7 +300,7 @@ az login --service-principal --username <appId> --password <password> --tenant <
 [DONE]
 ```
 
-### "How to" Query
+#### "How to" Query
 ```
 $ az how do I list all VMs
 
@@ -285,6 +309,31 @@ az vm list
 az vm list --resource-group <rg-name>
 [DONE]
 ```
+
+### Azure PowerShell Examples
+
+#### Natural Language Query
+```powershell
+PS> Invoke-AzV2 "show me all resource groups in westus"
+# or using aliases:
+PS> ask "show me all resource groups in westus"
+PS> please "show me all resource groups in westus"
+
+Azure PowerShell:
+Get-AzV2ResourceGroup | Where-Object Location -eq 'westus'
+[DONE]
+```
+
+#### Cmdlet Syntax Help
+```powershell
+PS> Invoke-AzV2 "how do I create a resource group?"
+
+Azure PowerShell:
+New-AzV2ResourceGroup -Name <name> -Location <location>
+[DONE]
+```
+
+For more comprehensive scenarios including mixed CLI/PowerShell usage, see [ARCHITECTURE.md Example Scenarios](../../src-v2/ARCHITECTURE.md#example-scenarios).
 
 ## Future Considerations
 
