@@ -3,10 +3,37 @@
 using System.Threading;
 using System.Threading.Tasks;
 using Core.Abstractions;
+using Microsoft.Identity.Client;
 
-public class AuthService : IAuthService
+public class MockAuthService : IAuthService
 {
-    public Task<string> AuthenticateAsync(CancellationToken cancellationToken = default) => Task.FromResult("MOCKED_ACCESS_TOKEN");
+    public async Task<string> AuthenticateAsync(CancellationToken cancellationToken = default) => "MOCKED_ACCESS_TOKEN";
+}
+
+public class DefaultAuthService : IAuthService
+{
+    public async Task<string> AuthenticateAsync(CancellationToken cancellationToken = default)
+    {
+        string[] scopes = new string[] { ".default" };
+
+        var app = PublicClientApplicationBuilder.Create("1950a258-227b-4e31-a9cf-717495945fc2")
+            .WithDefaultRedirectUri()
+            .Build();
+
+        var accounts = await app.GetAccountsAsync();
+
+        AuthenticationResult result;
+        try
+        {
+            result = await app.AcquireTokenSilent(scopes, accounts.FirstOrDefault())
+            .ExecuteAsync();
+        }
+        catch (MsalUiRequiredException)
+        {
+            result = await app.AcquireTokenInteractive(scopes).WithUseEmbeddedWebView(false).ExecuteAsync();
+        }
+        return result.AccessToken;
+    }
 }
 
 
