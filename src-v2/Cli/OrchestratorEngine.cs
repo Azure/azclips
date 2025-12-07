@@ -3,8 +3,11 @@ using Core.Abstractions;
 namespace Core.Cli;
 
 /// <summary>
+/// 
 /// Orchestrator engine that tries the default engine first,
 /// and falls back to the agent engine if that fails.
+/// Retries up to a maximum number of attempts.
+/// 
 /// </summary>
 public class OrchestratorEngine : ICommandEngine
 {
@@ -35,69 +38,67 @@ public class OrchestratorEngine : ICommandEngine
 
     public async Task ExecuteCommandAsync(string[] args, CancellationToken cancellationToken = default)
     {
-        try
+
+
+        /// The execution flow is this one if involved from PowerShell
+        /// 
+        var flavor = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure cli";
+        if (flavor == "azure powershell")
         {
-            // Try the default engine first
-            await _defaultEngine.ExecuteCommandAsync(args, cancellationToken);
-        }
-        catch (NotImplementedException ex)
-        {
-            // NotImplementedException is not an error - it's a success with a note
-            await _output.WriteWarningAsync($"\nNote: {ex.Message}");
-            return; // Exit successfully
-        }
-        catch (Exception)
-        {
-            // Any other exception: hand to agent for natural language processing
             await _agentEngine.ExecuteCommandAsync(args, cancellationToken);
+            return;
 
-            // Check if agent extracted a command
-            var extractedCommand = _agentEngine.ExtractedCommand;
-            
-            if (string.IsNullOrWhiteSpace(extractedCommand))
+        }
+
+        else // Default to Azure CLI flavor
+        {
+            const int maxTries = 5;
+            int attempt = 0;
+
+            string[] extractedArgs = args;
+
+            while (attempt < maxTries)
             {
-                // Agent didn't provide an executable command - EXIT CONDITION (silent success)
-                return;
-            }
 
-            // For PowerShell flavor, the marker is already output by AgentEngine
-            // Don't try to execute PowerShell cmdlets from C# - PowerShell will handle it
-            var flavor = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure cli";
-            if (flavor == "azure powershell")
-            {
-                // PowerShell will execute the command, we're done here
-                return;
-            }
+                attempt++;
 
-            // Agent provided a command - try to execute it (Azure CLI mode only)
-            try
-            {
-                // Parse the extracted command
-                var extractedArgs = extractedCommand.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                var parseResult = _parser.Parse(extractedArgs);
-                var command = _binder.Bind(parseResult);
-
-                if (command == null)
+                try
                 {
-                    // Command not found after agent suggestion - EXIT CONDITION (silent success)
-                    return;
+                    // Try the default engine first
+                    await _defaultEngine.ExecuteCommandAsync(extractedArgs, cancellationToken);
+                    return; // Success
                 }
+                catch (NotImplementedException ex)
+                {
+                    // NotImplementedException is not an error - it's a success with a note
+                    await _output.WriteWarningAsync($"\nNote: {ex.Message}");
+                    return; // Exit successfully
+                }
+                catch (Exception)
+                {
+                    // Any other exception: hand to agent for natural language processing
+                    await _agentEngine.ExecuteCommandAsync(extractedArgs, cancellationToken);
 
-                // Execute the extracted command
-                await command.ExecuteAsync(parseResult.Options, cancellationToken);
+                    // Check if agent extracted a command
+                    var extractedCommand = _agentEngine.ExtractedCommand;
+
+                    if (string.IsNullOrWhiteSpace(extractedCommand))
+                    {
+                        // Agent didn't provide an executable command - EXIT CONDITION (silent success)
+                        return;
+                    }
+
+
+
+                    // extract arguments for the next attempt
+                    extractedArgs = extractedCommand.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1).ToArray();
+
+                    await _output.WriteLineAsync($"\nRetrying THE FOLLOWING command (command {extractedCommand})\n");
+                }
             }
-            catch (NotImplementedException ex)
-            {
-                // NotImplementedException on retry - show note and EXIT
-                await _output.WriteWarningAsync($"\nNote: {ex.Message}");
-                return;
-            }
-            catch (Exception)
-            {
-                // Command execution failed after agent suggestion - EXIT CONDITION (silent success)
-                // The agent already provided explanation, no need for additional error
-                return;
-            }
+
+            // If we reach here, all attempts failed
+            throw new Exception($"Failed to execute command after {maxTries} attempts.");
         }
     }
 }

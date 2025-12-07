@@ -26,7 +26,7 @@ public class CloudAgent
     /// </summary>
     /// <param name="flavor">The command flavor ("azure cli" or "azure powershell")</param>
     /// <returns>A configured CloudAgent instance ready for conversation.</returns>
-    public static async Task<CloudAgent> CreateAsync(string flavor = "azure cli")
+    public static async Task<CloudAgent> CreateAsync(string flavor)
     {
         // Try to load .env file from multiple locations
         // 1. Application directory (for CLI usage)

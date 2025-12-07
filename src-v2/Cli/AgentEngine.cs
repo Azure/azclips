@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Core.Abstractions;
 
@@ -6,7 +7,7 @@ namespace Core.Cli;
 
 /// <summary>
 /// Wraps CloudAgent as an ICommandEngine for seamless integration.
-/// Handles streaming responses, spinner animation, and [DONE] marker detection.
+/// Handles streaming responses and JSON response parsing.
 /// </summary>
 public partial class AgentEngine : ICommandEngine
 {
@@ -14,7 +15,7 @@ public partial class AgentEngine : ICommandEngine
     private readonly string _flavor;
     private string? _extractedCommand;
 
-    public AgentEngine(IOutputAdapter output, string flavor = "azure cli")
+    public AgentEngine(IOutputAdapter output, string flavor )
     {
         _output = output;
         _flavor = flavor;
@@ -22,8 +23,11 @@ public partial class AgentEngine : ICommandEngine
 
     public string? ExtractedCommand => _extractedCommand;
 
-    [GeneratedRegex(@"```(?:bash|sh|powershell|pwsh)?\s*(.*?)\s*```", RegexOptions.Singleline)]
-    private static partial Regex CodeBlockRegex();
+    private class AgentResponse
+    {
+        public string Response { get; set; } = string.Empty;
+        public string Type { get; set; } = string.Empty;
+    }
 
     public async Task ExecuteCommandAsync(string[] args, CancellationToken cancellationToken = default)
     {
@@ -32,11 +36,12 @@ public partial class AgentEngine : ICommandEngine
             // Create the agent with the specified flavor
             var agent = await Core.Agent.CloudAgent.CreateAsync(_flavor);
 
+            // await _output.WriteLineAsync("Starting AI assistant. with flavor: " + _flavor);
+            
             // Initial user input from args
             string userInput = string.Join(" ", args);
-            string? potentialCommand = null;
 
-            // Conversation loop - continues until [DONE] marker
+            // Conversation loop - continues until executable_command is received
             while (!cancellationToken.IsCancellationRequested)
             {
                 await _output.WriteLineAsync(""); // Skip a line before spinner
@@ -73,15 +78,7 @@ public partial class AgentEngine : ICommandEngine
                         isFirstUpdate = false;
                     }
 
-                    var text = update.ToString();
-                    responseBuilder.Append(text);
-                    
-                    // Filter out [DONE] marker from display
-                    if (!text.Contains("[DONE]", StringComparison.OrdinalIgnoreCase))
-                    {
-                        await _output.WriteColoredAsync(text, OutputColor.Cyan);
-                    }
-
+                    responseBuilder.Append(update.ToString());
                 }
 
                 // Ensure spinner is stopped
@@ -92,106 +89,101 @@ public partial class AgentEngine : ICommandEngine
                     await _output.WriteAsync("\r" + new string(' ', 50) + "\r");
                 }
 
-                await _output.WriteLineAsync("");
-
                 string fullResponse = responseBuilder.ToString();
 
-                // Extract command from response (look for command lines)
-                if (potentialCommand == null)
+                // Parse JSON response
+                AgentResponse? parsedResponse = null;
+                try
                 {
-                    // Split into lines and find command lines
-                    var lines = fullResponse.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-                    
-                    foreach (var line in lines)
+                    parsedResponse = JsonSerializer.Deserialize<AgentResponse>(fullResponse, new JsonSerializerOptions
                     {
-                        var trimmed = line.Trim();
-                        
-                        // For PowerShell flavor, look for AzV2 cmdlets
-                        if (_flavor == "azure powershell")
-                        {
-                            if (trimmed.StartsWith("New-AzV2") || trimmed.StartsWith("Get-AzV2") || 
-                                trimmed.StartsWith("Set-AzV2") || trimmed.StartsWith("Remove-AzV2"))
-                            {
-                                // Check if command has placeholders
-                                if (!trimmed.Contains('<') && !trimmed.Contains('>'))
-                                {
-                                    potentialCommand = trimmed;
-                                    break;
-                                }
-                            }
-                        }
-                        else
-                        {
-                            // For Azure CLI flavor, look for az commands
-                            if (trimmed.StartsWith("az ", StringComparison.OrdinalIgnoreCase))
-                            {
-                                // Remove 'az ' prefix
-                                var command = trimmed.Substring(3).Trim();
-                                
-                                // Check if command has placeholders
-                                if (!command.Contains('<') && !command.Contains('>'))
-                                {
-                                    potentialCommand = command;
-                                    break;
-                                }
-                            }
-                        }
-                    }
+                        PropertyNameCaseInsensitive = true
+                    });
                 }
-
-                // Check if this is a help/syntax response (contains placeholders)
-                if (fullResponse.Contains('<') && fullResponse.Contains('>'))
+                catch (JsonException)
                 {
-                    // This is a "how to" response, exit without prompting
+                    // If JSON parsing fails, treat as plain text and exit
+                    await _output.WriteColoredAsync(fullResponse, OutputColor.Cyan);
+                    await _output.WriteLineAsync("");
                     _extractedCommand = null;
                     break;
                 }
 
-                // Check if conversation is done
-                if (fullResponse.Contains("[DONE]", StringComparison.OrdinalIgnoreCase))
+                if (parsedResponse == null)
                 {
-                    // Check if execution was cancelled
-                    string responseLower = fullResponse.ToLowerInvariant();
-                    if (responseLower.Contains("cancelled") || 
-                        responseLower.Contains("won't execute") ||
-                        responseLower.Contains("not executing"))
-                    {
-                        _extractedCommand = null;
-                    }
-                    else if (!string.IsNullOrEmpty(potentialCommand))
-                    {
-                        _extractedCommand = potentialCommand;
+                    await _output.WriteLineAsync("Error: Unable to parse agent response.");
+                    _extractedCommand = null;
+                    break;
+                }
+
+                // Handle response based on type
+                switch (parsedResponse.Type.ToLowerInvariant())
+                {
+                    case "executable_command":
+                        // Display the command
+                        await _output.WriteColoredAsync(parsedResponse.Response, OutputColor.Cyan);
+                        await _output.WriteLineAsync("");
+                        
+                        // Extract and store the command
+                        _extractedCommand = parsedResponse.Response;
                         
                         // For PowerShell flavor, output a marker that PowerShell can capture
                         if (_flavor == "azure powershell")
                         {
-                            // Output to stdout so PowerShell can capture it
-                            Console.WriteLine($"__PSEXEC__{potentialCommand}");
+                            Console.WriteLine($"__PSEXEC__{_extractedCommand}");
                         }
-                    }
-                    else
-                    {
+                        
+                        // Exit the conversation loop
+                        return;
+
+                    case "sample_command":
+                        // Display the syntax example
+                        await _output.WriteColoredAsync(parsedResponse.Response, OutputColor.Cyan);
+                        await _output.WriteLineAsync("");
+                        
+                        // This is syntax help, exit without extracting command
                         _extractedCommand = null;
-                    }
-                    break;
-                }
+                        return;
 
-                // Get next user input - output prompt with carriage return
-                await _output.WriteAsync("\n>\r");
-                userInput = await _output.ReadLineAsync("") ?? string.Empty;
+                    case "exit":
+                        // Display goodbye message
+                        await _output.WriteColoredAsync(parsedResponse.Response, OutputColor.Cyan);
+                        await _output.WriteLineAsync("");
+                        
+                        // User wants to exit
+                        _extractedCommand = null;
+                        return;
 
-                if (string.IsNullOrWhiteSpace(userInput))
-                {
-                    await _output.WriteLineAsync("No input provided. Exiting.");
-                    break;
-                }
+                    case "confirmation":
+                    case "question":
+                        // Display confirmation request
+                        await _output.WriteColoredAsync(parsedResponse.Response, OutputColor.Cyan);
+                        await _output.WriteLineAsync("");
+                        
+                        // Prompt for user confirmation
+                        if (_flavor == "azure powershell") {
+                            await _output.WriteAsync("\n>\r");
+                        } else {
+                            await _output.WriteAsync("\n> ");
+                        }
 
-                // Check for exit commands
-                if (userInput.Trim().Equals("exit", StringComparison.OrdinalIgnoreCase) ||
-                    userInput.Trim().Equals("quit", StringComparison.OrdinalIgnoreCase))
-                {
-                    await _output.WriteLineAsync("Goodbye!");
-                    break;
+                        userInput = await _output.ReadLineAsync("") ?? string.Empty;
+
+                        if (string.IsNullOrWhiteSpace(userInput))
+                        {
+                            await _output.WriteLineAsync("No input provided. Exiting.");
+                            _extractedCommand = null;
+                            return;
+                        }
+                        
+                        // Continue loop with user's confirmation response
+                        break;
+
+
+                    default:
+                        await _output.WriteLineAsync($"Warning: Unknown response type '{parsedResponse.Type}'");
+                        _extractedCommand = null;
+                        return;
                 }
             }
         }
