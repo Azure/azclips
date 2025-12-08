@@ -1,12 +1,12 @@
-# src-v2 Architecture: Unified CLI/PowerShell with AI Agent Integration
+# Cirrus Architecture: Unified CLI/PowerShell with AI Agent Integration
 
 ## Overview
 
-`src-v2` implements a **unified architecture** where CLI and PowerShell share the same business logic and leverage an integrated AI agent for natural language command interpretation. This design eliminates code duplication, provides consistent behavior across interfaces, and enables intelligent fallback when commands are not recognized or when users provide natural language input.
+Cirrus implements a **unified architecture** where CLI and PowerShell share the same business logic and leverage an integrated AI agent for natural language command interpretation. This design eliminates code duplication, provides consistent behavior across interfaces, and enables intelligent fallback when commands are not recognized or when users provide natural language input.
 
-## Key Architectural Differences from `src` (v1)
+## Key Architectural Differences from Legacy Implementation
 
-| Aspect | `src` (v1) | `src-v2` |
+| Aspect | Legacy (src-old) | Current (src) |
 |--------|-----------|----------|
 | **CLI & PowerShell Integration** | Separate implementations, no shared code | Unified codebase, shared business logic |
 | **Command Execution** | Direct command mapping only | Orchestrator engine with AI agent fallback |
@@ -580,7 +580,7 @@ Both CLI and PowerShell share this context, ensuring consistent authentication s
 
 ## Example Scenarios
 
-The following scenarios demonstrate how both Azure CLI (`azv2`) and Azure PowerShell cmdlets work in src-v2, including natural language support and intelligent fallback.
+The following scenarios demonstrate how both Azure CLI (`azv2`) and Azure PowerShell cmdlets work, including natural language support and intelligent fallback.
 
 ### Azure CLI Scenarios
 

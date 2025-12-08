@@ -3,33 +3,43 @@ using Core.Abstractions;
 namespace Core.Engine;
 
 /// <summary>
-/// A default implementation of ICommandEngine that
-/// parses command syntax, dynamically loads a module,
-/// and delegates to the command implementation type to execute commands.
+/// Default command engine that parses, binds, and executes commands.
+/// Does not throw exceptions - returns null on failure for agent fallback.
 /// </summary>
-/// <param name="Telemetry"></param>
-public class DefaultCommandEngine(ITelemetryService Telemetry) : ICommandEngine
+public class DefaultCommandEngine : ICommandEngine
 {
-    private readonly CommandParser _parser = new();
-    private readonly CommandBinder _binder = new();
+    private readonly CommandParser _parser;
+    private readonly CommandBinder _binder;
+    private readonly ITelemetryService _telemetry;
 
-    public Task ExecuteCommandAsync(string[] args, CancellationToken cancellationToken)
+    public string? ExtractedCommand { get; private set; }
+
+    public DefaultCommandEngine(CommandParser parser, CommandBinder binder, ITelemetryService telemetry)
     {
-        // Placeholder implementation
-        // todo: consider abstracting these steps as a pipeline
-        Telemetry.Log($"Executing command: {string.Join(' ', args)}");
-        var arguments = _parser.Parse(args);
-        Telemetry.Log($"Parsed {arguments.Commands.Count()} commands and {arguments.Options.Count} options.");
-        var command = _binder.Bind(arguments);
-        if (command != null)
+        _parser = parser;
+        _binder = binder;
+        _telemetry = telemetry;
+    }
+
+    /// <summary>
+    /// Executes a command by parsing, binding, and running it.
+    /// </summary>
+    public async Task ExecuteCommandAsync(string[] args, CancellationToken cancellationToken = default)
+    {
+        _telemetry.LogInfo($"Parsing command: {string.Join(" ", args)}");
+        var parseResult = _parser.Parse(args);
+
+        _telemetry.LogInfo($"Binding command: {string.Join(" ", parseResult.Commands)}");
+        var command = _binder.Bind(parseResult);
+
+        if (command == null)
         {
-            Telemetry.Log($"Command bound successfully. Executing command {command.GetType()} ...");
-            return command.ExecuteAsync(cancellationToken);
+            _telemetry.LogWarning("No command found.");
+            throw new InvalidOperationException("Command not found"); // Throw to trigger agent fallback
         }
-        else
-        {
-            Telemetry.Log("No command bound. Exiting.");
-            return Task.FromException(new InvalidOperationException("No command bound."));
-        }
+
+        _telemetry.LogInfo($"Executing command: {command.GetType().Name}");
+        await command.ExecuteAsync(parseResult.Options, cancellationToken);
+        _telemetry.LogInfo("Command executed successfully.");
     }
 }

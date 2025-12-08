@@ -2,8 +2,9 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Core.Abstractions;
+using Core.Agent;
 
-namespace Core.Cli;
+namespace Core.Engine;
 
 /// <summary>
 /// Wraps CloudAgent as an ICommandEngine for seamless integration.

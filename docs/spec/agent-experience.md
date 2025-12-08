@@ -4,7 +4,7 @@
 
 Core.Agent is an AI-powered natural language interface for Azure CLI and Azure PowerShell that interprets user intent and generates executable commands. It integrates through a **fallback mechanism**: when standard command parsing fails, the agent interprets the natural language input and can hand back executable commands to the execution engine.
 
-**Note:** For comprehensive architecture details including both CLI (azv2) and PowerShell integration patterns, see [ARCHITECTURE.md](../../src-v2/ARCHITECTURE.md).
+**Note:** For comprehensive architecture details including both CLI (azv2) and PowerShell integration patterns, see [ARCHITECTURE.md](../../src/ARCHITECTURE.md).
 
 ## Architecture
 
@@ -82,7 +82,7 @@ The agent works with both:
 1. **Azure CLI (azv2)** - Command-line interface with `az` prefix
 2. **Azure PowerShell** - Cmdlet-based interface with `AzV2` prefix and natural language support via `Invoke-AzV2` (aliases: `ask`, `please`, `pls`)
 
-See [ARCHITECTURE.md](../../src-v2/ARCHITECTURE.md) for detailed examples of both interfaces.
+See [ARCHITECTURE.md](../../src/ARCHITECTURE.md) for detailed examples of both interfaces.
 
 ## Agent Capabilities
 
@@ -155,7 +155,7 @@ PS> Invoke-AzV2 "create a storage account called mystore in westus"
 PS> ask "create a storage account called mystore in westus"
 ```
 
-See [ARCHITECTURE.md](../../src-v2/ARCHITECTURE.md) for the complete flow and orchestration details.
+See [ARCHITECTURE.md](../../src/ARCHITECTURE.md) for the complete flow and orchestration details.
 
 ### Testing & Evaluation (via Program.cs)
 
@@ -163,13 +163,13 @@ The `Program.cs` file provides a **standalone executable for testing and evaluat
 
 ```bash
 # Cloud mode (default)
-dotnet run --project src-v2/Agent/Agent.csproj
+dotnet run --project src/Agent/Agent.csproj
 
 # Local model
-dotnet run --project src-v2/Agent/Agent.csproj -- --local-model
+dotnet run --project src/Agent/Agent.csproj -- --local-model
 
 # Azure Copilot
-dotnet run --project src-v2/Agent/Agent.csproj -- --use-copilot
+dotnet run --project src/Agent/Agent.csproj -- --use-copilot
 ```
 
 This standalone mode is used for:
@@ -218,10 +218,10 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
 ### Shared Components
 
 All options share:
-- `src-v2/Cli/AgentEngine.cs` - ICommandEngine implementation, conversation management
-- `src-v2/Agent/prompt.txt` - System instructions with flavor support (azure cli/azure powershell)
-- `src-v2/Agent/CloudAgent.cs` - AI integration layer
-- `src-v2/Cli/OrchestratorEngine.cs` - Orchestrates fallback between DefaultCommandEngine and AgentEngine
+- `src/Cli/AgentEngine.cs` - ICommandEngine implementation, conversation management
+- `src/Agent/prompt.txt` - System instructions with flavor support (azure cli/azure powershell)
+- `src/Agent/CloudAgent.cs` - AI integration layer
+- `src/Cli/OrchestratorEngine.cs` - Orchestrates fallback between DefaultCommandEngine and AgentEngine
 - Streaming response handling
 - `[DONE]` marker protocol
 
@@ -333,7 +333,7 @@ New-AzV2ResourceGroup -Name <name> -Location <location>
 [DONE]
 ```
 
-For more comprehensive scenarios including mixed CLI/PowerShell usage, see [ARCHITECTURE.md Example Scenarios](../../src-v2/ARCHITECTURE.md#example-scenarios).
+For more comprehensive scenarios including mixed CLI/PowerShell usage, see [ARCHITECTURE.md Example Scenarios](../../src/ARCHITECTURE.md#example-scenarios).
 
 ## Future Considerations
 

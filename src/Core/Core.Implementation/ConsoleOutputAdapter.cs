@@ -1,6 +1,6 @@
 using Core.Abstractions;
 
-namespace Core.Cli;
+namespace Core.Implementation;
 
 /// <summary>
 /// Console implementation of IOutputAdapter

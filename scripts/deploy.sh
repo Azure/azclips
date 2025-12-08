@@ -7,9 +7,7 @@ set -e
 # │ This script builds the Cirrus solution and publishes binaries       │
 # │ to the bin/ directory, making them ready for use.                   │
 # │                                                                     │
-# │ Usage: ./deploy.sh [v1|v2]                                          │
-# │   v1 (default) - Builds legacy Cirrus v1                            │
-# │   v2           - Builds clean architecture Cirrus v2                │
+# │ Usage: ./deploy.sh                                                  │
 # │                                                                     │
 # │ Steps:                                                              │
 # │   1. Verifies .NET SDK is installed                                 │
@@ -25,20 +23,11 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Parse version argument (default to v1)
-VERSION="${1:-v1}"
-
-if [[ "$VERSION" != "v1" && "$VERSION" != "v2" ]]; then
-    echo -e "${RED}Error: Invalid version '$VERSION'. Use 'v1' or 'v2'${NC}"
-    echo "Usage: $0 [v1|v2]"
-    exit 1
-fi
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 BIN_DIR="$REPO_ROOT/bin"
 
-echo -e "${GREEN}=== Cirrus Build & Deploy ${BLUE}($VERSION)${GREEN} ===${NC}"
+echo -e "${GREEN}=== Cirrus Build & Deploy ===${NC}"
 echo ""
 
 # Step 1: Verify .NET SDK
@@ -56,11 +45,7 @@ echo ""
 echo -e "${YELLOW}[2/4] Building solution...${NC}"
 cd "$REPO_ROOT"
 
-if [[ "$VERSION" == "v1" ]]; then
-    dotnet build cirrus.slnx -c Release
-else
-    dotnet build src-v2/cirrus-v2.slnx -c Release
-fi
+dotnet build cirrus.slnx -c Release
 
 echo -e "${GREEN}✓ Build completed${NC}"
 echo ""
@@ -72,13 +57,8 @@ echo -e "${YELLOW}[3/4] Publishing CLI to bin/...${NC}"
 rm -rf "$BIN_DIR"
 mkdir -p "$BIN_DIR"
 
-if [[ "$VERSION" == "v1" ]]; then
-    dotnet publish src/Core/Core.Cli/Core.Cli.csproj -c Release -o "$BIN_DIR" --self-contained false
-    CLI_NAME="az"
-else
-    dotnet publish src-v2/Cli/Cli.csproj -c Release -o "$BIN_DIR" --self-contained false
-    CLI_NAME="azv2"
-fi
+dotnet publish src/Core/Core.Cli/Core.Cli.csproj -c Release -o "$BIN_DIR" --self-contained false
+CLI_NAME="azv2"
 
 echo -e "${GREEN}✓ Published CLI to $BIN_DIR${NC}"
 echo ""
@@ -86,25 +66,21 @@ echo ""
 # Step 4: Copy PowerShell modules
 echo -e "${YELLOW}[4/4] Copying PowerShell modules to bin/...${NC}"
 
-if [[ "$VERSION" == "v2" ]]; then
-    # Copy Group module (for both CLI commands and PowerShell)
-    mkdir -p "$BIN_DIR/Group"
-    cp artifacts/Release/Group/Group.dll "$BIN_DIR/Group/"
-    cp artifacts/Release/Group/Core.Abstractions.dll "$BIN_DIR/Group/"
-    cp src-v2/Group/Group/Cirrus.Group.psd1 "$BIN_DIR/Group/" 2>/dev/null || echo "Warning: Cirrus.Group.psd1 not found"
-    cp src-v2/Group/Group/AgentHelper.ps1 "$BIN_DIR/Group/" 2>/dev/null || echo "Warning: Group AgentHelper.ps1 not found"
-    
-    # Copy Login module (for both CLI commands and PowerShell)
-    mkdir -p "$BIN_DIR/Login"
-    cp artifacts/Release/Login/Login.dll "$BIN_DIR/Login/"
-    cp artifacts/Release/Login/Core.Abstractions.dll "$BIN_DIR/Login/"
-    cp src-v2/Login/Login/Cirrus.Login.psd1 "$BIN_DIR/Login/" 2>/dev/null || echo "Warning: Cirrus.Login.psd1 not found"
-    cp src-v2/Login/Login/AgentHelper.ps1 "$BIN_DIR/Login/" 2>/dev/null || echo "Warning: Login AgentHelper.ps1 not found"
-    
-    echo -e "${GREEN}✓ PowerShell modules copied to $BIN_DIR${NC}"
-else
-    echo -e "${YELLOW}✓ Skipping PowerShell module copy (v1 uses different structure)${NC}"
-fi
+# Copy Group module (for both CLI commands and PowerShell)
+mkdir -p "$BIN_DIR/Group"
+cp artifacts/Release/Group/Group.dll "$BIN_DIR/Group/"
+cp artifacts/Release/Group/Core.Abstractions.dll "$BIN_DIR/Group/"
+cp src/Group/Group/Cirrus.Group.psd1 "$BIN_DIR/Group/" 2>/dev/null || echo "Warning: Cirrus.Group.psd1 not found"
+cp src/Group/Group/AgentHelper.ps1 "$BIN_DIR/Group/" 2>/dev/null || echo "Warning: Group AgentHelper.ps1 not found"
+
+# Copy Login module (for both CLI commands and PowerShell)
+mkdir -p "$BIN_DIR/Login"
+cp artifacts/Release/Login/Login.dll "$BIN_DIR/Login/"
+cp artifacts/Release/Login/Core.Abstractions.dll "$BIN_DIR/Login/"
+cp src/Login/Login/Cirrus.Login.psd1 "$BIN_DIR/Login/" 2>/dev/null || echo "Warning: Cirrus.Login.psd1 not found"
+cp src/Login/Login/AgentHelper.ps1 "$BIN_DIR/Login/" 2>/dev/null || echo "Warning: Login AgentHelper.ps1 not found"
+
+echo -e "${GREEN}✓ PowerShell modules copied to $BIN_DIR${NC}"
 echo ""
 
 # Make CLI executable
@@ -120,13 +96,11 @@ echo -e "${YELLOW}  $BIN_DIR/$CLI_NAME --help${NC}"
 echo -e "${YELLOW}  $BIN_DIR/$CLI_NAME group list${NC}"
 echo -e "${YELLOW}  $BIN_DIR/$CLI_NAME create a resource group${NC}"
 
-if [[ "$VERSION" == "v2" ]]; then
-    echo ""
-    echo -e "PowerShell Usage:"
-    echo -e "${YELLOW}  pwsh -Command \"Import-Module $BIN_DIR/Group/Cirrus.Group.psd1; Get-Command -Module Cirrus.Group\"${NC}"
-    echo -e "${YELLOW}  pwsh -Command \"Import-Module $BIN_DIR/Group/Cirrus.Group.psd1; Get-AzV2ResourceGroup\"${NC}"
-    echo -e "${YELLOW}  pwsh -Command \"Import-Module $BIN_DIR/Login/Cirrus.Login.psd1; Connect-AzV2Account\"${NC}"
-    echo -e "${YELLOW}  pwsh -Command \"Import-Module $BIN_DIR/Group/Cirrus.Group.psd1; ask create a resource group\"${NC}"
-fi
+echo ""
+echo -e "PowerShell Usage:"
+echo -e "${YELLOW}  pwsh -Command \"Import-Module $BIN_DIR/Group/Cirrus.Group.psd1; Get-Command -Module Cirrus.Group\"${NC}"
+echo -e "${YELLOW}  pwsh -Command \"Import-Module $BIN_DIR/Group/Cirrus.Group.psd1; Get-AzV2ResourceGroup\"${NC}"
+echo -e "${YELLOW}  pwsh -Command \"Import-Module $BIN_DIR/Login/Cirrus.Login.psd1; Connect-AzV2Account\"${NC}"
+echo -e "${YELLOW}  pwsh -Command \"Import-Module $BIN_DIR/Group/Cirrus.Group.psd1; ask create a resource group\"${NC}"
 
 echo ""

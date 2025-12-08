@@ -8,6 +8,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Core.Engine\Core.Engine.csproj" />
+    <ProjectReference Include="..\Core.Implementation\Core.Implementation.csproj" />
+    <ProjectReference Include="..\Core.Agent\Core.Agent.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -15,6 +17,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <AssemblyName>azv2</AssemblyName>
   </PropertyGroup>
   
 </Project>

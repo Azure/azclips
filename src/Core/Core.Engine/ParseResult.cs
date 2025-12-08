@@ -1,4 +1,4 @@
-namespace Core.Cli;
+namespace Core.Engine;
 
 /// <summary>
 /// Represents the result of parsing command-line arguments.

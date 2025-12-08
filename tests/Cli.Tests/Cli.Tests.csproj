@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Cli/Cli.csproj" />
+    <ProjectReference Include="../../src/Core.Abstractions/Core.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>
