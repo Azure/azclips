@@ -24,13 +24,9 @@ public class DefaultCommandEngine(ITelemetryService Telemetry, IServiceScopeFact
         var command = _binder.Bind(arguments);
         if (command != null)
         {
-            using (var scope = serviceScopeFactory.CreateScope())
-            {
-                var serviceProvider = scope.ServiceProvider;
-                // command.SetServiceProvider(serviceProvider);
-                Telemetry.Log($"Command bound successfully. Executing command {command.GetType()} ...");
-                return command.ExecuteAsync(serviceProvider, cancellationToken);
-            }
+            Telemetry.Log($"Command bound successfully. Executing command {command.GetType()} ...");
+            using var scope = serviceScopeFactory.CreateScope(); // is scope necessary or is root provider sufficient?
+            return command.ExecuteAsync(scope.ServiceProvider, cancellationToken);
         }
         else
         {

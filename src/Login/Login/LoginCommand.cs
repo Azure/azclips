@@ -9,7 +9,8 @@ public class LoginCommand : ICommand
     {
         var previousColor = Console.ForegroundColor;
         Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine($"Bearer token: {await serviceProvider.GetRequiredService<IAuthService>().AuthenticateAsync()}");
+        string token = await serviceProvider.GetRequiredService<IAuthService>().AuthenticateAsync();
+        Console.WriteLine($"Bearer token: {token[..4]}...{token[^4..]}");
         Console.ForegroundColor = previousColor;
         return;
     }
