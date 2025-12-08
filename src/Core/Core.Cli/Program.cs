@@ -6,7 +6,7 @@ internal class Program
 {
     private static async Task Main(string[] args)
     {
-        var serviceProvider = await Bootstrapper.StartAsync();
+        var serviceProvider = await Bootstrapper.ServiceProviderAsync;
         var commandEngine = serviceProvider.GetRequiredService<ICommandEngine>();
         await commandEngine.ExecuteCommandAsync(args, default);
     }

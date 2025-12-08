@@ -7,7 +7,10 @@ namespace Core.Engine;
 
 public class Bootstrapper
 {
-    public async static Task<IServiceProvider> StartAsync(CancellationToken cancellationToken = default)
+    public static Task<IServiceProvider> ServiceProviderAsync => _serviceProvider.Value;
+    private static Lazy<Task<IServiceProvider>> _serviceProvider = new(() => StartAsync());
+
+    private async static Task<IServiceProvider> StartAsync()
     {
         var serviceProvider = RegisterServices();
         var telemetryService = serviceProvider.GetRequiredService<ITelemetryService>();
