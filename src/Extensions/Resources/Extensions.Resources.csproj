@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <AssemblyName>Microsoft.Azure.Cirrus.Extensions.Resources</AssemblyName>
+        <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+        <RootNamespace>Microsoft.Azure.Cirrus.Extensions.Resources</RootNamespace>
+        <ExtName>Microsoft.Azure.Cirrus.Extensions.Resources</ExtName>
+    </PropertyGroup>
+
+    <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Core.Abstractions\Core.Abstractions.csproj" />
+        <ProjectReference Include="..\..\SharedContracts\SharedContracts.csproj" />
+    </ItemGroup>
+
+    <!--Import Project="$(MSBuildThisFileDirectory)\..\..\Directory.Build.props" /-->
+</Project>

@@ -1,5 +1,4 @@
 <Project>
-
   <PropertyGroup>
     <RepoRoot>$(MSBuildThisFileDirectory)</RepoRoot>
     <RepoSrc>$(RepoRoot)src/</RepoSrc>
@@ -15,5 +14,4 @@
     <!-- PowerShell assets -->
     <None Update="*.psd1" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
-
 </Project>
