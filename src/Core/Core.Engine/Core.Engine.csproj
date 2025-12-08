@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <ExtName>Core</ExtName>
   </PropertyGroup>
@@ -12,7 +12,12 @@
   <ItemGroup>
     <ProjectReference Include="..\Core.Abstractions\Core.Abstractions.csproj" />
     <ProjectReference Include="..\Core.Implementation\Core.Implementation.csproj" />
+<<<<<<< HEAD
     <ProjectReference Include="..\Core.Agent\Core.Agent.csproj" />
+=======
+    <ProjectReference Include="..\..\SharedContracts\SharedContracts.csproj" />
+>>>>>>> main
   </ItemGroup>
 
 </Project>
+
