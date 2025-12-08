@@ -7,12 +7,12 @@ namespace Core.Engine;
 
 public class Bootstrapper
 {
-    public static Task<ICommandEngine> StartAsync(CancellationToken cancellationToken = default)
+    public async static Task<IServiceProvider> StartAsync(CancellationToken cancellationToken = default)
     {
         var serviceProvider = RegisterServices();
         var telemetryService = serviceProvider.GetRequiredService<ITelemetryService>();
         telemetryService.Log("Core.Engine has started.");
-        return Task.FromResult(serviceProvider.GetRequiredService<ICommandEngine>());
+        return serviceProvider;
     }
 
     private static ServiceProvider RegisterServices()

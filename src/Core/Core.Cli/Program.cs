@@ -1,10 +1,13 @@
-﻿using Core.Engine;
+﻿using Core.Abstractions;
+using Core.Engine;
+using Microsoft.Extensions.DependencyInjection;
 
 internal class Program
 {
     private static async Task Main(string[] args)
     {
-        var commandEngine = await Bootstrapper.StartAsync();
+        var serviceProvider = await Bootstrapper.StartAsync();
+        var commandEngine = serviceProvider.GetRequiredService<ICommandEngine>();
         await commandEngine.ExecuteCommandAsync(args, default);
     }
 }

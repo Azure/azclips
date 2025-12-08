@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Core\Core.Abstractions\Core.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Core\Core.Engine\Core.Engine.csproj" />
   </ItemGroup>
 
   <ItemGroup>
