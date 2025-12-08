@@ -7,19 +7,6 @@ namespace Cli.Tests;
 /// </summary>
 public class LoginCommandTests
 {
-    private static string GetAzV2Path()
-    {
-        var repoRoot = GetRepositoryRoot();
-        var azv2Path = Path.Combine(repoRoot, "bin", "azv2");
-        
-        if (Environment.OSVersion.Platform == PlatformID.Win32NT)
-        {
-            azv2Path += ".exe";
-        }
-        
-        return azv2Path;
-    }
-
     private static string GetRepositoryRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
@@ -32,11 +19,12 @@ public class LoginCommandTests
 
     private static async Task<(int exitCode, string output)> RunAzV2Async(string args, int timeoutSeconds = 10)
     {
-        var azv2Path = GetAzV2Path();
+        var repoRoot = GetRepositoryRoot();
+        var azPath = Path.Combine(repoRoot, "bin", "azv2");
         
         var startInfo = new ProcessStartInfo
         {
-            FileName = azv2Path,
+            FileName = azPath,
             Arguments = args,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -83,11 +71,12 @@ public class LoginCommandTests
 
     private static async Task<string> RunUntilAgentStartsAsync(string args, int timeoutSeconds = 5)
     {
-        var azv2Path = GetAzV2Path();
+        var repoRoot = GetRepositoryRoot();
+        var azPath = Path.Combine(repoRoot, "bin", "azv2");
         
         var startInfo = new ProcessStartInfo
         {
-            FileName = azv2Path,
+            FileName = azPath,
             Arguments = args,
             RedirectStandardOutput = true,
             RedirectStandardError = true,

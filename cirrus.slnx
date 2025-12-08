@@ -1,12 +1,17 @@
 <Solution>
   <Folder Name="/src/" />
+  <Folder Name="/src/CLI/">
+    <Project Path="src/CLI/Core.Cli.csproj" />
+  </Folder>
   <Folder Name="/src/Core/">
     <Project Path="src/Core/Core.Abstractions/Core.Abstractions.csproj" />
     <Project Path="src/Core/Core.Authentication/Core.Authentication.csproj" />
     <Project Path="src/Core/Core.Agent/Core.Agent.csproj" />
-    <Project Path="src/Core/Core.Cli/Core.Cli.csproj" />
     <Project Path="src/Core/Core.Engine/Core.Engine.csproj" />
     <Project Path="src/Core/Core.Implementation/Core.Implementation.csproj" />
+  </Folder>
+  <Folder Name="/src/Extensions/">
+    <Project Path="src/Extensions/Resources/Extensions.Resources.csproj" />
   </Folder>
   <Folder Name="/src/Group/">
     <Project Path="src/Group/Group/Group.csproj" />
@@ -14,28 +19,11 @@
   <Folder Name="/src/Login/">
     <Project Path="src/Login/Login/Login.csproj" />
   </Folder>
+  <Folder Name="/src/SharedContracts/">
+    <Project Path="src/SharedContracts/SharedContracts.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Cli.Tests/Cli.Tests.csproj" />
     <Project Path="tests/PowerShell.Tests/PowerShell.Tests.csproj" />
-  </Folder>
-  <Folder Name="/src/">
-    <Project Path="src/SharedContracts/SharedContracts.csproj" />
-  </Folder>
-  <Folder Name="/src/CLI/">
-    <Project Path="src/CLI/Core.Cli.csproj" />
-  </Folder>
-  <Folder Name="/src/Core/">
-    <Project Path="src/Core/Core.Abstractions/Core.Abstractions.csproj" />
-    <Project Path="src/Core/Core.Authentication/Core.Authentication.csproj" />
-    <Project Path="src/Core/Core.Engine/Core.Engine.csproj" />
-    <Project Path="src/Core/Core.Implementation/Core.Implementation.csproj" />
-  </Folder>
-  <Folder Name="/src/Extensions/" />
-  <Folder Name="/src/Extensions/Resources/">
-    <Project Path="src/Extensions/Resources/Extensions.Resources.csproj" />
-  </Folder>
-  <Folder Name="/tests/" />
-  <Folder Name="/tests/Core/">
-    <Project Path="tests/Core/Core.Authentication.Tests/Core.Authentication.Tests.csproj" />
   </Folder>
 </Solution>

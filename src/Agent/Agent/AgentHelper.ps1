@@ -1,5 +1,5 @@
 # AzV2 AI Agent Helper
-# Provides natural language interface to Azure CLI v2
+# Provides natural language interface to Azure CLI
 
 # Find azv2 CLI in the bin directory (sibling to Agent/Group/Login folders)
 $script:AzV2CliPath = Split-Path -Parent $PSScriptRoot

@@ -26,7 +26,7 @@ echo ""
 # Step 2: Run tests
 echo "🧪 Running tests..."
 cd "$REPO_ROOT"
-dotnet test --no-build
+dotnet test
 
 echo ""
 echo "✓ All done!"
