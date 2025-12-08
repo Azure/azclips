@@ -14,7 +14,7 @@ public class DefaultCommandEngine(ITelemetryService Telemetry, IServiceScopeFact
     private readonly CommandParser _parser = new();
     private readonly CommandBinder _binder = new();
 
-    public Task ExecuteCommandAsync(string[] args, CancellationToken cancellationToken)
+    public async Task ExecuteCommandAsync(string[] args, CancellationToken cancellationToken)
     {
         // Placeholder implementation
         // todo: consider abstracting these steps as a pipeline
@@ -26,12 +26,12 @@ public class DefaultCommandEngine(ITelemetryService Telemetry, IServiceScopeFact
         {
             Telemetry.Log($"Command bound successfully. Executing command {command.GetType()} ...");
             using var scope = serviceScopeFactory.CreateScope(); // is scope necessary or is root provider sufficient?
-            return command.ExecuteAsync(scope.ServiceProvider, cancellationToken);
+            await command.ExecuteAsync(scope.ServiceProvider, cancellationToken);
         }
         else
         {
             Telemetry.Log("No command bound. Exiting.");
-            return Task.FromException(new InvalidOperationException("No command bound."));
+            throw new InvalidOperationException("No command bound.");
         }
     }
 }

@@ -9,10 +9,12 @@ public class LoginCommand : ICommand
     {
         var previousColor = Console.ForegroundColor;
         Console.ForegroundColor = ConsoleColor.Yellow;
-        string token = await serviceProvider.GetRequiredService<IAuthService>().AuthenticateAsync();
-        Console.WriteLine($"Bearer token: {token[..4]}...{token[^4..]}");
+        string token = await serviceProvider.GetRequiredService<IAuthService>().AcquireTokenInteractiveAsync();
+
+        var telemetryService = serviceProvider.GetRequiredService<ITelemetryService>();
+        telemetryService.Log($"Token acquired interactively: {token[..4]}...{token[^4..]}");
+
         Console.ForegroundColor = previousColor;
         return;
     }
-
 }
