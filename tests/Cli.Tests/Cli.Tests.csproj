@@ -1,8 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <ItemGroup>
-    <ProjectReference Include="../../src/Cli/Cli.csproj" />
-    <ProjectReference Include="../../src/Core.Abstractions/Core.Abstractions.csproj" />
-  </ItemGroup>
+  <!-- No project references needed - tests run against deployed binaries in bin/ -->
 
 </Project>

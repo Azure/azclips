@@ -4,18 +4,41 @@
 
 Cirrus implements a **unified architecture** where CLI and PowerShell share the same business logic and leverage an integrated AI agent for natural language command interpretation. This design eliminates code duplication, provides consistent behavior across interfaces, and enables intelligent fallback when commands are not recognized or when users provide natural language input.
 
-## Key Architectural Differences from Legacy Implementation
+## Key Architectural Principles
 
-| Aspect | Legacy (src-old) | Current (src) |
-|--------|-----------|----------|
-| **CLI & PowerShell Integration** | Separate implementations, no shared code | Unified codebase, shared business logic |
-| **Command Execution** | Direct command mapping only | Orchestrator engine with AI agent fallback |
-| **Agent Integration** | No integrated agent | Integrated `AgentEngine` within CLI, callable from PowerShell |
-| **Code Reuse** | Duplicated logic across CLI/PS | Single `Business/` layer shared by both interfaces |
-| **Module Discovery** | Static registration | Dynamic assembly loading via `CommandBinder` |
-| **Error Handling** | Throw exceptions | Graceful fallback to AI agent for unrecognized commands |
-| **Natural Language** | Not supported | Built-in via `OrchestratorEngine` + `AgentEngine` |
-| **PowerShell Invocation** | Independent cmdlets only | Cmdlets PLUS `Invoke-AzV2` for natural language |
+| Aspect | Design Decision |
+|--------|-----------------|
+| **Dependency Injection** | Bootstrapper pattern with `Microsoft.Extensions.DependencyInjection` - all services registered as Singletons |
+| **CLI & PowerShell Integration** | Unified codebase with shared `Business/` layer, separate interface adapters (Commands for CLI, Cmdlets for PowerShell) |
+| **Command Execution** | Orchestrator pattern: tries `DefaultCommandEngine` first, falls back to `AgentEngine` on failure |
+| **Agent Integration** | `AgentEngine` wraps `CloudAgent` (Azure OpenAI), integrated seamlessly as `ICommandEngine` implementation |
+| **Code Reuse** | Single `Business/` layer shared by both CLI Commands and PowerShell Cmdlets |
+| **Module Discovery** | Dynamic assembly loading via `CommandBinder` using reflection |
+| **Error Handling** | Graceful fallback to AI agent for unrecognized commands, typos, and natural language |
+| **Natural Language** | Built-in via `OrchestratorEngine` + `AgentEngine` with streaming responses |
+| **PowerShell Modules** | Separate modules (Cirrus.Login, Cirrus.Group, Cirrus.Agent) following Azure PowerShell pattern |
+
+## Bootstrapper Pattern
+
+The application uses a **Bootstrapper** class (`Core.Engine.Bootstrapper`) that centralizes service registration and configuration:
+
+```csharp
+// Core.Cli/Program.cs - Simple 3-line entry point
+var commandEngine = await Bootstrapper.StartAsync();
+await commandEngine.ExecuteCommandAsync(args, default);
+```
+
+**What the Bootstrapper does:**
+1. Creates `ServiceCollection` and registers all dependencies as Singletons
+2. Registers services: `ITelemetryService`, `IOutputAdapter`, `CommandParser`, `CommandBinder`
+3. Registers engines: `DefaultCommandEngine`, `AgentEngine`, `OrchestratorEngine`
+4. Returns fully configured `ICommandEngine` (which is actually `OrchestratorEngine`)
+
+**Why Singletons?**
+- CLI process is short-lived (single command execution)
+- PowerShell module lifetime managed by PowerShell host
+- No per-request scoping needed
+- Matches original design from initial implementation
 
 ## Complete Architecture Flow
 

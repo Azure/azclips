@@ -7,30 +7,45 @@ A .NET 10.0 modular framework with core abstractions and authentication componen
 ```
 cirrus/
 ├── 📁 .github/                   # GH actions, code owners
+├── 📁 bin/                       # Published binaries (after build/deploy)
+│   ├── azv2                      # CLI executable
+│   ├── Cirrus.psd1               # Meta-module (imports all modules)
+│   ├── Agent/                    # AI agent PowerShell module
+│   ├── Group/                    # Resource group PowerShell module
+│   └── Login/                    # Authentication PowerShell module
 ├── 📁 build/                     # Build scripts
 ├── 📁 docs/                      # Documentation
 │   └── spec/                     # Technical specifications
+├── 📁 scripts/                   # Deployment and utility scripts
+│   └── deploy.sh                 # Build & deploy script
 ├── 📁 src/                       # Source code
 │   ├── Directory.Build.props     # Shared build properties (net10.0)
+│   ├── ARCHITECTURE.md           # Detailed architecture documentation
 │   ├── Core/                     # Core libraries
 │   │   ├── Core.Abstractions/    # Base abstractions & interfaces
-│   │   ├── Core.Agent/           # AI agent for natural language processing
+│   │   ├── Core.Agent/           # AI agent integration
 │   │   ├── Core.Authentication/  # Authentication framework
-│   │   ├── Core.Cli/             # az command-line interface
-│   │   ├── Core.Engine/          # Command parsing and execution engine
+│   │   ├── Core.Cli/             # azv2 CLI entry point (uses Bootstrapper)
+│   │   ├── Core.Engine/          # Bootstrapper, orchestration, command engines
 │   │   └── Core.Implementation/  # Core service implementations
-│   ├── Group/                    # Group management module
-│   │   └── Group/
-│   └── Login/                    # Login/authentication module
-│       └── Login/
+│   ├── Agent/                    # AI agent PowerShell module source
+│   │   └── Agent/
+│   ├── Group/                    # Resource group management module
+│   │   ├── Business/             # Shared business logic
+│   │   ├── Cmdlets/              # PowerShell cmdlets
+│   │   ├── Commands/             # CLI command implementations
+│   │   └── Group/                # Module manifest
+│   └── Login/                    # Authentication module
+│       ├── Business/             # Shared business logic
+│       ├── Cmdlets/              # PowerShell cmdlets
+│       ├── Commands/             # CLI command implementations
+│       └── Login/                # Module manifest
 ├── 📁 tests/                     # Test projects
-│   ├── Directory.Build.props     # Test-specific build properties
-│   └── Core/                     # Core library tests
-│       ├── Core.Agent.Tests/     # Agent tests
-│       └── Core.Authentication.Tests/
-├── 📄 global.json               # .NET SDK version (10.0.100-rc.2)
-├── 📄 cirrus.slnx              # Main solution file, contains everything
-├── 📄 AGENTS.md                # Repository guidelines
+│   ├── Cli.Tests/                # CLI integration tests
+│   └── PowerShell.Tests/         # PowerShell module tests
+├── 📄 global.json               # .NET SDK version (10.0.100)
+├── 📄 cirrus.slnx              # Main solution file
+├── 📄 AGENTS.md                # Repository guidelines for AI agents
 ├── 📄 CHANGELOG.md             # Version history
 ├── 📄 CONTRIBUTING.md          # Contribution guidelines
 └── 📄 LICENSE                  # License information
@@ -47,84 +62,137 @@ cirrus/
 
 ### Prerequisites
 - [.NET 10.0 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) (version pinned in `global.json`)
+- PowerShell 7.0+ (for PowerShell modules)
 
-### Build & Publish
+### Build & Deploy
+
+**Important**: The tests rely on binaries being deployed to `bin/`, so you must run `./scripts/deploy.sh` before testing. The standard `dotnet build` only compiles to `artifacts/` but doesn't set up the runtime structure that tests expect.
+
 ```bash
-# Verify SDK version
-dotnet --info
+# One-command build and deploy (required before testing)
+./scripts/deploy.sh
 
-# Build all projects
-dotnet build cirrus.slnx
+# This will:
+# 1. Build the solution in Release mode
+# 2. Publish azv2 CLI to bin/
+# 3. Copy PowerShell modules to bin/
+# 4. Set up the correct structure for both CLI and PowerShell to work
 
-# Build and publish az CLI to bin/ (makes it globally executable)
-dotnet publish src/Core/Core.Cli/Core.Cli.csproj -c Release -o /workspaces/cirrus/bin --self-contained false
+# Now you can use the CLI
+./bin/azv2 --help
+./bin/azv2 group list
+./bin/azv2 create a resource group called test
+```
 
-# Add bin/ to PATH for global access (already configured in devcontainer)
-export PATH="/workspaces/cirrus/bin:$PATH"
+### PowerShell Usage
+```powershell
+# Import all modules via meta-module
+Import-Module ./bin/Cirrus.psd1
 
-# Now you can run az from anywhere
-az --help
+# Or import individual modules
+Import-Module ./bin/Group/Cirrus.Group.psd1
+Import-Module ./bin/Login/Cirrus.Login.psd1
+Import-Module ./bin/Agent/Cirrus.Agent.psd1
+
+# Use cmdlets
+Connect-AzV2Account
+Get-AzV2ResourceGroup
+New-AzV2ResourceGroup -Name test -Location eastus
+
+# Use natural language with AI agent
+ask "create a resource group"
+please "show me all my groups"
 ```
 
 ### Running Tests
+
+**Why `test.sh` is needed**: Both CLI and PowerShell integration tests run against the deployed binaries in `bin/`, not the build artifacts in `artifacts/`. This ensures tests validate the actual runtime configuration that users will experience. The `test.sh` script automatically runs `deploy.sh` first to ensure binaries are up-to-date.
+
 ```bash
+# Recommended: Use test script (auto-deploys, then tests)
+./scripts/test.sh
+
+# Manual approach (must deploy first)
+./scripts/deploy.sh
+dotnet test --no-build
+
+# Run individual test projects
+dotnet test tests/Cli.Tests/Cli.Tests.csproj
+dotnet test tests/PowerShell.Tests/PowerShell.Tests.csproj
+
 # Run tests with coverage
 dotnet test --collect:"XPlat Code Coverage"
 ```
 
-### Build Scripts
-```powershell
-# (Optional) Build solution via PowerShell script
-pwsh -File build/build.ps1
-```
+**Test Structure:**
+- **Cli.Tests** (12 tests) - Integration tests that spawn `bin/azv2` process and validate structured commands, natural language, and agent fallback
+- **PowerShell.Tests** (17 tests) - Integration tests that import modules from `bin/` and validate cmdlets, module loading, and aliases
+- **AgentCmdletTests** (6 tests) - Tests for the `Cirrus.Agent` module (`Invoke-AzV2`, `ask`, `please`, `pls`)
 
-## az CLI - Azure Command Interface
 
-The `az` command provides both traditional command-line syntax and natural language capabilities through an integrated AI agent.
+## azv2 CLI - Next Generation Azure Command Interface
+
+The `azv2` command provides both traditional command-line syntax and natural language capabilities through an integrated AI agent.
 
 ### Usage
 
-**Traditional Commands:**
+**Structured Commands:**
 ```bash
-az group create --name mygroup --location eastus
-az login
+azv2 group create --name mygroup --location eastus
+azv2 group list
+azv2 group delete --name mygroup
 ```
 
 **Natural Language:**
 ```bash
-az create a storage account called mystore in westus
-az I would like to login
-az how do I list all VMs
+azv2 create a resource group called test
+azv2 how do I list all my resource groups?
+azv2 show me everything in eastus
 ```
 
 The CLI automatically falls back to the AI agent when standard parsing fails, interprets your intent, and can execute commands after confirmation.
 
 ### Architecture
 
-- **DefaultCommandEngine** - Parses standard Azure CLI syntax
-- **AgentEngine** - Interprets natural language when parsing fails
-- **Modules** - Dynamic loading of command modules (Group, Login, etc.)
+**Bootstrapper Pattern**: The CLI uses a dependency injection bootstrapper (`Core.Engine.Bootstrapper`) that registers all services as singletons and returns a configured `ICommandEngine`.
 
-See [`src/Core/Core.Agent/README.md`](src/Core/Core.Agent/README.md) for agent-specific details and [`docs/spec/agent-experience.md`](docs/spec/agent-experience.md) for architecture documentation.
+**Orchestration**: The `OrchestratorEngine` coordinates between:
+- **DefaultCommandEngine** - Fast path for structured commands (e.g., `group create --name test`)
+- **AgentEngine** - AI-powered natural language processing (e.g., "create a resource group")
+- **CommandBinder** - Dynamic module loading via assembly reflection
+- **CommandParser** - Argument parsing for structured commands
 
-## Core.Agent - Standalone Testing
+**Module Architecture**: Service modules (Group, Login, etc.) provide:
+- **Business Layer** - Shared logic used by both CLI and PowerShell
+- **Commands** - CLI command implementations (`ICommand`)
+- **Cmdlets** - PowerShell cmdlet implementations
+- **Module Manifest** - PowerShell module definition (`.psd1`)
 
-For testing and evaluation, the agent can be run independently:
+See [`src/ARCHITECTURE.md`](src/ARCHITECTURE.md) for detailed architecture documentation and [`docs/spec/agent-experience.md`](docs/spec/agent-experience.md) for AI agent details.
 
-**1. Cloud Mode (Default) - Azure OpenAI**
-```bash
-dotnet run --project src/Core/Core.Agent
+## PowerShell Modules
+
+Cirrus provides separate PowerShell modules following the Azure PowerShell pattern:
+
+- **Cirrus** - Meta-module (imports all sub-modules)
+- **Cirrus.Login** - Authentication cmdlets (`Connect-AzV2Account`, `Disconnect-AzV2Account`, `Get-AzV2Context`)
+- **Cirrus.Group** - Resource group cmdlets (`Get-AzV2ResourceGroup`, `New-AzV2ResourceGroup`, etc.)
+- **Cirrus.Agent** - AI natural language interface (`Invoke-AzV2`, aliases: `ask`, `please`, `pls`)
+
+### Example
+```powershell
+# Import all modules
+Import-Module ./bin/Cirrus.psd1
+
+# Authenticate
+Connect-AzV2Account
+
+# Use structured cmdlets
+New-AzV2ResourceGroup -Name test -Location eastus
+Get-AzV2ResourceGroup
+
+# Use natural language
+ask "create a resource group in westus"
+please "show me all my groups"
+pls "help me with resource groups"
 ```
-Requires `.env` file in `src/Core/Core.Agent/` with Azure OpenAI credentials.
-
-**2. Local Mode - Phi-3.5-mini**
-```bash
-dotnet run --project src/Core/Core.Agent -- --local-model
-```
-Fully offline, automatically downloads model (~2.4GB) on first run.
-
-**3. Azure Copilot Mode**
-```bash
-dotnet run --project src/Core/Core.Agent -- --use-copilot
-```
-Requires Azure authentication (`az login` from Azure CLI, not this az).

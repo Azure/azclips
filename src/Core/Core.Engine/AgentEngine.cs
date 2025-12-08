@@ -7,8 +7,27 @@ using Core.Agent;
 namespace Core.Engine;
 
 /// <summary>
-/// Wraps CloudAgent as an ICommandEngine for seamless integration.
-/// Handles streaming responses and JSON response parsing.
+/// AgentEngine integrates AI-powered natural language processing as an ICommandEngine.
+/// 
+/// WHY THIS EXISTS:
+/// Original design (main branch) had NO agent integration - only DefaultCommandEngine.
+/// This component was added to enable:
+/// - Natural language queries: "create a resource group called test"
+/// - Typo correction: "groop create" → AI suggests "group create"
+/// - Exploratory help: "how do I list my resource groups?"
+/// - Command generation: AI outputs executable commands that orchestrator can retry
+/// 
+/// HOW IT WORKS:
+/// 1. Wraps Core.Agent.CloudAgent (Azure OpenAI integration)
+/// 2. Streams AI responses with spinner UI for better UX
+/// 3. Parses JSON responses to extract executable commands
+/// 4. Supports "flavor" (azure cli vs azure powershell) for context-aware responses
+/// 5. Handles interactive conversation loops if AI requests more information
+/// 
+/// INTEGRATION WITH ORCHESTRATOR:
+/// OrchestratorEngine invokes this when DefaultCommandEngine fails.
+/// If AI generates executable command, orchestrator retries via DefaultCommandEngine.
+/// If AI just explains/helps (no command), orchestrator exits gracefully.
 /// </summary>
 public partial class AgentEngine : ICommandEngine
 {

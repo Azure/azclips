@@ -53,8 +53,11 @@ echo ""
 # Step 3: Publish CLI to bin/
 echo -e "${YELLOW}[3/4] Publishing CLI to bin/...${NC}"
 
-# Clean and create bin directory
-rm -rf "$BIN_DIR"
+# Clean bin directory (erase all content first)
+if [ -d "$BIN_DIR" ]; then
+    echo "Cleaning $BIN_DIR..."
+    rm -rf "$BIN_DIR"/*
+fi
 mkdir -p "$BIN_DIR"
 
 dotnet publish src/Core/Core.Cli/Core.Cli.csproj -c Release -o "$BIN_DIR" --self-contained false
@@ -66,19 +69,25 @@ echo ""
 # Step 4: Copy PowerShell modules
 echo -e "${YELLOW}[4/4] Copying PowerShell modules to bin/...${NC}"
 
-# Copy Group module (for both CLI commands and PowerShell)
+# Copy Group module
 mkdir -p "$BIN_DIR/Group"
 cp artifacts/Release/Group/Group.dll "$BIN_DIR/Group/"
 cp artifacts/Release/Group/Core.Abstractions.dll "$BIN_DIR/Group/"
 cp src/Group/Group/Cirrus.Group.psd1 "$BIN_DIR/Group/" 2>/dev/null || echo "Warning: Cirrus.Group.psd1 not found"
-cp src/Group/Group/AgentHelper.ps1 "$BIN_DIR/Group/" 2>/dev/null || echo "Warning: Group AgentHelper.ps1 not found"
 
-# Copy Login module (for both CLI commands and PowerShell)
+# Copy Login module
 mkdir -p "$BIN_DIR/Login"
 cp artifacts/Release/Login/Login.dll "$BIN_DIR/Login/"
 cp artifacts/Release/Login/Core.Abstractions.dll "$BIN_DIR/Login/"
 cp src/Login/Login/Cirrus.Login.psd1 "$BIN_DIR/Login/" 2>/dev/null || echo "Warning: Cirrus.Login.psd1 not found"
-cp src/Login/Login/AgentHelper.ps1 "$BIN_DIR/Login/" 2>/dev/null || echo "Warning: Login AgentHelper.ps1 not found"
+
+# Copy Agent module (script-only, no DLL)
+mkdir -p "$BIN_DIR/Agent"
+cp src/Agent/Agent/Cirrus.Agent.psd1 "$BIN_DIR/Agent/" 2>/dev/null || echo "Warning: Cirrus.Agent.psd1 not found"
+cp src/Agent/Agent/AgentHelper.ps1 "$BIN_DIR/Agent/" 2>/dev/null || echo "Warning: AgentHelper.ps1 not found"
+
+# Copy meta-module manifest
+cp src/Core/Core.Engine/Cirrus.Core.psd1 "$BIN_DIR/Cirrus.psd1" 2>/dev/null || echo "Warning: Cirrus meta-module manifest not found"
 
 echo -e "${GREEN}✓ PowerShell modules copied to $BIN_DIR${NC}"
 echo ""
@@ -98,9 +107,12 @@ echo -e "${YELLOW}  $BIN_DIR/$CLI_NAME create a resource group${NC}"
 
 echo ""
 echo -e "PowerShell Usage:"
-echo -e "${YELLOW}  pwsh -Command \"Import-Module $BIN_DIR/Group/Cirrus.Group.psd1; Get-Command -Module Cirrus.Group\"${NC}"
-echo -e "${YELLOW}  pwsh -Command \"Import-Module $BIN_DIR/Group/Cirrus.Group.psd1; Get-AzV2ResourceGroup\"${NC}"
+echo -e "${BLUE}  # Import all modules via meta-module:${NC}"
+echo -e "${YELLOW}  pwsh -Command \"Import-Module $BIN_DIR/Cirrus.psd1\"${NC}"
+echo ""
+echo -e "${BLUE}  # Or import individual modules:${NC}"
 echo -e "${YELLOW}  pwsh -Command \"Import-Module $BIN_DIR/Login/Cirrus.Login.psd1; Connect-AzV2Account\"${NC}"
-echo -e "${YELLOW}  pwsh -Command \"Import-Module $BIN_DIR/Group/Cirrus.Group.psd1; ask create a resource group\"${NC}"
+echo -e "${YELLOW}  pwsh -Command \"Import-Module $BIN_DIR/Group/Cirrus.Group.psd1; Get-AzV2ResourceGroup\"${NC}"
+echo -e "${YELLOW}  pwsh -Command \"Import-Module $BIN_DIR/Agent/Cirrus.Agent.psd1; ask 'create a resource group'\"${NC}"
 
 echo ""

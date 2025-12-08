@@ -3,11 +3,33 @@ using Core.Abstractions;
 namespace Core.Engine;
 
 /// <summary>
+/// OrchestratorEngine coordinates between structured command execution and AI-powered natural language processing.
 /// 
-/// Orchestrator engine that tries the default engine first,
-/// and falls back to the agent engine if that fails.
-/// Retries up to a maximum number of attempts.
+/// WHY THIS EXISTS:
+/// Original design (main branch) had only DefaultCommandEngine - it parsed structured commands
+/// like "group create --name test" and threw exceptions for anything it couldn't understand.
 /// 
+/// This orchestrator was added to enable graceful fallback to AI for:
+/// - Natural language queries: "create a resource group called test"
+/// - Typos and mistakes: "groop create" → AI suggests "group create"
+/// - Exploratory queries: "how do I list my resource groups?"
+/// - Command generation: AI can generate executable commands from descriptions
+/// 
+/// EXECUTION FLOW:
+/// 1. Try DefaultCommandEngine (fast path for structured commands)
+/// 2. On failure → invoke AgentEngine (AI processes natural language)
+/// 3. If AI returns executable command → retry with DefaultCommandEngine
+/// 4. Repeat up to maxTries (allows AI to refine commands)
+/// 
+/// FLAVOR HANDLING (addressing corrections.md concerns):
+/// - PowerShell cmdlets set AZURECLI_FLAVOR="azure powershell" before calling CLI
+/// - When PowerShell flavor detected, we bypass DefaultEngine and go straight to AgentEngine
+/// - Why? PowerShell invokes CLI for natural language only (Invoke-AzV2 cmdlet)
+/// - Structured commands in PowerShell use cmdlets directly (New-AzV2ResourceGroup), not CLI
+/// - CLI invocations default to "azure cli" flavor and use full orchestration
+/// 
+/// NOTE: Flavor could be injected via constructor (better testability) but environment
+/// variable keeps it simple and matches PowerShell's existing integration pattern.
 /// </summary>
 public class OrchestratorEngine : ICommandEngine
 {
@@ -38,67 +60,64 @@ public class OrchestratorEngine : ICommandEngine
 
     public async Task ExecuteCommandAsync(string[] args, CancellationToken cancellationToken = default)
     {
-
-
-        /// The execution flow is this one if involved from PowerShell
-        /// 
+        // Detect CLI flavor: "azure cli" (default, direct CLI invocation) or "azure powershell" (called from PowerShell)
         var flavor = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure cli";
+        
         if (flavor == "azure powershell")
         {
+            // PowerShell flavor: Only natural language processing needed
+            // PowerShell uses cmdlets for structured commands, only invokes CLI for natural language (Invoke-AzV2)
             await _agentEngine.ExecuteCommandAsync(args, cancellationToken);
             return;
-
         }
 
-        else // Default to Azure CLI flavor
+        // Azure CLI flavor: Full orchestration with DefaultEngine → AgentEngine fallback
+        const int maxTries = 5;
+        int attempt = 0;
+        string[] extractedArgs = args;
+
+        while (attempt < maxTries)
         {
-            const int maxTries = 5;
-            int attempt = 0;
+            attempt++;
 
-            string[] extractedArgs = args;
-
-            while (attempt < maxTries)
+            try
             {
-
-                attempt++;
-
-                try
-                {
-                    // Try the default engine first
-                    await _defaultEngine.ExecuteCommandAsync(extractedArgs, cancellationToken);
-                    return; // Success
-                }
-                catch (NotImplementedException ex)
-                {
-                    // NotImplementedException is not an error - it's a success with a note
-                    await _output.WriteWarningAsync($"\nNote: {ex.Message}");
-                    return; // Exit successfully
-                }
-                catch (Exception)
-                {
-                    // Any other exception: hand to agent for natural language processing
-                    await _agentEngine.ExecuteCommandAsync(extractedArgs, cancellationToken);
-
-                    // Check if agent extracted a command
-                    var extractedCommand = _agentEngine.ExtractedCommand;
-
-                    if (string.IsNullOrWhiteSpace(extractedCommand))
-                    {
-                        // Agent didn't provide an executable command - EXIT CONDITION (silent success)
-                        return;
-                    }
-
-
-
-                    // extract arguments for the next attempt
-                    extractedArgs = extractedCommand.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1).ToArray();
-
-                    await _output.WriteLineAsync($"\nRetrying THE FOLLOWING command (command {extractedCommand})\n");
-                }
+                // Try the structured command engine first (fast path)
+                await _defaultEngine.ExecuteCommandAsync(extractedArgs, cancellationToken);
+                return; // Success - command executed
             }
+            catch (NotImplementedException ex)
+            {
+                // NotImplementedException means command recognized but not yet implemented
+                // This is not an error - just inform the user and exit successfully
+                await _output.WriteWarningAsync($"\nNote: {ex.Message}");
+                return;
+            }
+            catch (Exception)
+            {
+                // Any other exception: command not found, parse error, typo, natural language, etc.
+                // Fallback to AI agent for interpretation
+                await _agentEngine.ExecuteCommandAsync(extractedArgs, cancellationToken);
 
-            // If we reach here, all attempts failed
-            throw new Exception($"Failed to execute command after {maxTries} attempts.");
+                // Check if agent extracted an executable command from the response
+                var extractedCommand = _agentEngine.ExtractedCommand;
+
+                if (string.IsNullOrWhiteSpace(extractedCommand))
+                {
+                    // Agent provided information/explanation but no executable command
+                    // This is valid (e.g., answering "how do I...?" questions) - exit successfully
+                    return;
+                }
+
+                // Agent generated a command - retry through DefaultEngine to execute it
+                // Skip first token (typically "azv2") and parse remaining args
+                extractedArgs = extractedCommand.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1).ToArray();
+                await _output.WriteLineAsync($"\nRetrying with command: {extractedCommand}\n");
+            }
         }
+
+        // Exceeded retry limit - this shouldn't happen but protect against infinite loops
+        throw new Exception($"Failed to execute command after {maxTries} attempts.");
     }
 }
+

@@ -1,58 +1,40 @@
-using Core.Abstractions;
 using Core.Engine;
-using Core.Implementation;
-using Core.Agent;
 
-// Determine flavor from environment variable (set by PowerShell cmdlets)
-var flavor = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure cli";
+//
+// ARCHITECTURAL EVOLUTION
+// =======================
+// 
+// ORIGINAL DESIGN (main branch):
+// - Simple 3-line Program.cs: Start bootstrapper -> Get command engine -> Execute
+// - Only DefaultCommandEngine existed (parsed structured commands like "group create --name test")
+// - No AI integration, no natural language support
+// - Failed commands just threw exceptions
+//
+// CURRENT DESIGN (this branch):
+// - Same simple 3-line pattern restored via Bootstrapper
+// - But now Bootstrapper returns OrchestratorEngine instead of just DefaultCommandEngine
+// - OrchestratorEngine provides intelligent fallback:
+//   1. Try DefaultCommandEngine first (structured commands work as before)
+//   2. If that fails (typo, unknown command, natural language), invoke AgentEngine (AI)
+//   3. AI can explain, suggest corrections, or generate executable commands
+// - This means:
+//   * "azv2 group create --name test" → DefaultEngine (fast, direct)
+//   * "azv2 groop create --name test" → AgentEngine suggests correction
+//   * "azv2 create a resource group called test" → AgentEngine generates command
+//
+// WHY THE CHANGE:
+// The original design required users to know exact command syntax. The new design
+// keeps that efficiency for power users (structured commands still fast-path through
+// DefaultEngine) but adds graceful degradation for natural language, typos, and
+// exploratory queries. This is accomplished by swapping DefaultCommandEngine for
+// OrchestratorEngine in the Bootstrapper, keeping Program.cs simple.
+//
 
-// Setup output adapter
-var output = new ConsoleOutputAdapter();
-
-// Setup telemetry
-var telemetry = new ConsoleTelemetryService();
-
-// Setup parser and binder
-var parser = new CommandParser();
-var binder = new CommandBinder(telemetry);
-
-// Setup engines with the appropriate flavor
-var defaultEngine = new DefaultCommandEngine(parser, binder, telemetry);
-var agentEngine = new AgentEngine(output, flavor);
-var orchestratorEngine = new OrchestratorEngine(defaultEngine, agentEngine, parser, binder, telemetry, output);
-
-// Execute command
-try
+internal class Program
 {
-    // If no arguments provided, show help
-    // if (args.Length == 0)
-    // {
-    //     Console.WriteLine("Azure CLI v2");
-    //     Console.WriteLine("\nUsage:");
-    //     Console.WriteLine("  azv2 <command> [options]           Execute a command");
-    //     Console.WriteLine("  azv2 <natural language>            Ask the AI assistant");
-    //     Console.WriteLine("\nExamples:");
-    //     Console.WriteLine("  azv2 group list");
-    //     Console.WriteLine("  azv2 group create --name mygroup --location eastus");
-    //     Console.WriteLine("  azv2 how do I create a resource group?");
-    //     Console.WriteLine("  azv2 create a new resource group for me");
-    //     return 0;
-    // }
-
-
-    await orchestratorEngine.ExecuteCommandAsync(args);
-
-    // Note: PowerShell flavor command extraction is handled by OrchestratorEngine
-    // but we don't output the __PSEXEC__ marker because PowerShell can't capture
-    // stdout without buffering all output (which breaks real-time streaming)
-    // User will see the generated command and can copy/paste it
+    private static async Task Main(string[] args)
+    {
+        var commandEngine = await Bootstrapper.StartAsync();
+        await commandEngine.ExecuteCommandAsync(args, default);
+    }
 }
-catch (Exception ex)
-{
-    Console.ForegroundColor = ConsoleColor.Red;
-    Console.WriteLine($"Fatal error: {ex.Message}");
-    Console.ResetColor();
-    return 1;
-}
-
-return 0;

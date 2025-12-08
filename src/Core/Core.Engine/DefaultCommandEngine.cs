@@ -3,8 +3,22 @@ using Core.Abstractions;
 namespace Core.Engine;
 
 /// <summary>
-/// Default command engine that parses, binds, and executes commands.
-/// Does not throw exceptions - returns null on failure for agent fallback.
+/// DefaultCommandEngine handles structured command execution (e.g., "group create --name test").
+/// 
+/// EVOLUTION FROM ORIGINAL DESIGN:
+/// Original (main branch): This WAS the only ICommandEngine - instantiated directly in Bootstrapper.
+/// It used constructor-based dependency injection with ITelemetryService, and instantiated
+/// CommandParser and CommandBinder inline (not as injected dependencies).
+/// 
+/// Current (this branch): Now one of multiple engines coordinated by OrchestratorEngine.
+/// Changes from original:
+/// 1. Parser and Binder are now injected (better testability, explicit in Bootstrapper)
+/// 2. Throws exceptions on failure (triggers orchestrator's fallback to AgentEngine)
+/// 3. Added ExtractedCommand property (unused here, but required by ICommandEngine interface)
+/// 
+/// ROLE IN ORCHESTRATION:
+/// This is the "fast path" - structured commands that match known syntax execute here.
+/// On failure (unknown command, typo, natural language), exception triggers AgentEngine fallback.
 /// </summary>
 public class DefaultCommandEngine : ICommandEngine
 {
