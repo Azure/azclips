@@ -51,11 +51,11 @@ public class CloudAgent
 
         // Load configuration from environment variables
         string endpoint = Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT") 
-            ?? throw new InvalidOperationException("AZURE_OPENAI_ENDPOINT environment variable not set");
+            ?? throw new InvalidOperationException("AZURE_OPENAI_ENDPOINT environment variable not set. Set AZURE_OPENAI_ENDPOINT in your .env file or as an environment variable. See .env.example for reference.");
         string apiKey = Environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY") 
-            ?? throw new InvalidOperationException("AZURE_OPENAI_API_KEY environment variable not set");
+            ?? throw new InvalidOperationException("AZURE_OPENAI_API_KEY environment variable not set. Set AZURE_OPENAI_API_KEY in your .env file or as an environment variable. See .env.example for reference.");
         string deployment = Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT") 
-            ?? throw new InvalidOperationException("AZURE_OPENAI_DEPLOYMENT environment variable not set");
+            ?? throw new InvalidOperationException("AZURE_OPENAI_DEPLOYMENT environment variable not set. Set AZURE_OPENAI_DEPLOYMENT in your .env file or as an environment variable. See .env.example for reference.");
 
         // Load prompt from file and replace {{flavor}} placeholder
         string promptPath = Path.Combine(AppContext.BaseDirectory, "prompt.txt");
