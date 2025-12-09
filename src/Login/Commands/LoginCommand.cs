@@ -28,7 +28,7 @@ public class LoginCommand : ICommand
                 var context = AuthenticationManager.GetCurrentContext();
                 if (context == null)
                 {
-                    Console.WriteLine("Not authenticated. Run 'azv3 login' first.");
+                    Console.WriteLine("Not authenticated. Run 'azv2 login' first.");
                     return;
                 }
 
