@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <ExtName>Core</ExtName>
   </PropertyGroup>
@@ -13,6 +13,7 @@
     <ProjectReference Include="..\Core.Abstractions\Core.Abstractions.csproj" />
     <ProjectReference Include="..\Core.Implementation\Core.Implementation.csproj" />
     <ProjectReference Include="..\Core.Authentication\Core.Authentication.csproj" />
+    <ProjectReference Include="..\..\SharedContracts\SharedContracts.csproj" />
   </ItemGroup>
 
 </Project>

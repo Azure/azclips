@@ -6,9 +6,11 @@ namespace Core.Authentication;
 
 public class DefaultAuthService(ITelemetryService TelemetryService) : IAuthService
 {
+    private const string ArmDefaultScope = "https://management.core.windows.net//.default";
+
     public async Task<string> AcquireTokenInteractiveAsync(CancellationToken cancellationToken = default)
     {
-        string[] scopes = [".default"];
+        string[] scopes = [ArmDefaultScope];
         IPublicClientApplication app = BuildApp();
         await RegisterTokenCacheAsync(app, true);
 
@@ -20,6 +22,7 @@ public class DefaultAuthService(ITelemetryService TelemetryService) : IAuthServi
     // todo: what should be the client id here?
     private static IPublicClientApplication BuildApp() => PublicClientApplicationBuilder.Create("1950a258-227b-4e31-a9cf-717495945fc2")
                 .WithDefaultRedirectUri()
+                .WithTenantId("72f988bf-86f1-41af-91ab-2d7cd011db47") // todo: read from input/context
                 .Build();
 
     private async static Task RegisterTokenCacheAsync(IPublicClientApplication app, bool plaintext = false)
@@ -47,7 +50,7 @@ public class DefaultAuthService(ITelemetryService TelemetryService) : IAuthServi
 
     public async Task<string> AcquireTokenSilentlyAsync(bool promptOnError = false, CancellationToken cancellationToken = default)
     {
-        string[] scopes = [".default"];
+        string[] scopes = [ArmDefaultScope];
 
         var app = BuildApp();
         await RegisterTokenCacheAsync(app, true);
