@@ -44,7 +44,7 @@ public class Program
         try
         {
             var output = new ConsoleOutputAdapter();
-            const string flavor = "azure cli";
+            var flavor = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure cli";
             var agentEngine = new AgentEngine(output, flavor);
 
             while (attempt < maxRetries)
