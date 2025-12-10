@@ -4,10 +4,10 @@ using Microsoft.Identity.Client.Extensions.Msal;
 
 namespace Core.Authentication;
 
-public class MsalAuthService(ILoggerService TelemetryService) : IAuthService
+public class MsalAuthService(ILoggerService TelemetryService) : IAuthService // todo: testability, consider injecting MSAL API wrappers
 {
     private const string ArmDefaultScope = "https://management.core.windows.net//.default";
-    private AuthenticationInfo? _currentContext;
+    private AuthenticationInfo? _currentContext; // todo: proper context management (synchronization, multi-account, etc.)
 
     public async Task<AuthenticationInfo> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
@@ -24,49 +24,49 @@ public class MsalAuthService(ILoggerService TelemetryService) : IAuthService
 
     public async Task LogoutAsync(CancellationToken cancellationToken = default)
     {
-        // MOCKUP: Clear authentication context
         await Task.Run(() => _currentContext = null);
         return;
     }
 
     public AuthenticationInfo? GetCurrentContext()
     {
-        // MOCKUP: Return current context or null
         return _currentContext;
     }
 
     private async Task<string> AcquireTokenInteractiveAsync(string[]? scopes, string? tenantId, CancellationToken cancellationToken = default)
     {
         IPublicClientApplication app = BuildApp(tenantId);
-        await RegisterTokenCacheAsync(app, true);
+        await RegisterTokenCacheAsync(app, false);
 
         var result = await app.AcquireTokenInteractive(scopes ?? [ArmDefaultScope]).WithUseEmbeddedWebView(false).ExecuteAsync(cancellationToken);
         LogTokenMetadata(result);
         return result.AccessToken;
     }
 
-    // todo: what should be the client id here?
+    // todo: reuse app instance but allow reinitialization when tenantId changes
     private IPublicClientApplication BuildApp(string? tenantId) => PublicClientApplicationBuilder.Create("1950a258-227b-4e31-a9cf-717495945fc2")
                 .WithDefaultRedirectUri()
-                .WithTenantId(tenantId ?? "72f988bf-86f1-41af-91ab-2d7cd011db47") // todo: read from input/context
+                // todo: what should be the client id here?
+                .WithTenantId(tenantId ?? "72f988bf-86f1-41af-91ab-2d7cd011db47") // todo: fallback to tenant id in the context
                 .Build();
 
-    private async Task RegisterTokenCacheAsync(IPublicClientApplication app, bool plaintext = false)
+    private async Task RegisterTokenCacheAsync(IPublicClientApplication app, bool plaintextUnsafe = false)
     {
-        var builder =
-            new StorageCreationPropertiesBuilder("MSAL.cache" + ".plaintext",
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".cirrus"));
-        if (!plaintext)
+        var filename = "MSAL.cache";
+        if (plaintextUnsafe)
         {
-            builder = builder
-            .WithMacKeyChain(
+            filename += ".plaintext";
+        }
+
+        var builder =
+            new StorageCreationPropertiesBuilder(filename,
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".cirrus"));
+        builder = plaintextUnsafe ?
+            builder.WithUnprotectedFile() :
+            builder.WithMacKeyChain(
                 "Microsoft.Project.Cirrus", // Config.KeyChainServiceName,
                 "MSAL.cache"); // Config.KeyChainAccountName)
-        }
-        else
-        {
-            builder = builder.WithUnprotectedFile();
-        }
+
         var storageProperties = builder.Build();
 
         // This hooks up the cross-platform cache into MSAL
@@ -80,11 +80,11 @@ public class MsalAuthService(ILoggerService TelemetryService) : IAuthService
     /// <param name="promptOnError">Whether to prompt the user interactively if silent acquisition fails.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The acquired access token.</returns>
-    /// <throws cref="MsalUiRequiredException">Thrown if silent acquisition fails and prompting is disabled.</throws>
+    /// <exception cref="MsalUiRequiredException">Thrown if silent acquisition fails and prompting is disabled.</exception>
     public async Task<string> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default)
     {
         var app = BuildApp(tenantId);
-        await RegisterTokenCacheAsync(app, true);
+        await RegisterTokenCacheAsync(app, false);
 
         var accounts = await app.GetAccountsAsync();
 

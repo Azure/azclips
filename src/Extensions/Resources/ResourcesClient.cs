@@ -77,9 +77,10 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Client
         {
             ArgumentNullException.ThrowIfNull(request);
 
-            HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken);
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
 
-            try {
+            try
+            {
                 response.EnsureSuccessStatusCode();
             }
             catch (HttpRequestException ex)

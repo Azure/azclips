@@ -25,9 +25,9 @@ namespace Core.Engine;
 public class Bootstrapper
 {
     public static Task<IServiceProvider> ServiceProviderAsync => _serviceProvider.Value;
-    private static Lazy<Task<IServiceProvider>> _serviceProvider = new(() => StartAsync());
+    private readonly static Lazy<Task<IServiceProvider>> _serviceProvider = new(() => StartAsync());
 
-    private async static Task<IServiceProvider> StartAsync()
+    private static async Task<IServiceProvider> StartAsync()
     {
         return await Task.Run(() =>
         {
