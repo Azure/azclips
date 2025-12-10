@@ -30,7 +30,7 @@ await commandEngine.ExecuteCommandAsync(args, default);
 
 **What the Bootstrapper does:**
 1. Creates `ServiceCollection` and registers all dependencies as Singletons
-2. Registers services: `ITelemetryService`, `IOutputAdapter`, `CommandParser`, `CommandBinder`
+2. Registers services: `ILogger`, `IOutputAdapter`, `CommandParser`, `CommandBinder`
 3. Registers engines: `DefaultCommandEngine`, `AgentEngine`, `OrchestratorEngine`
 4. Returns fully configured `ICommandEngine` (which is actually `OrchestratorEngine`)
 

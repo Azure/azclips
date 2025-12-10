@@ -10,7 +10,7 @@ namespace Core.Engine;
 /// Bootstrapper for initializing and configuring the command execution engine.
 ///
 /// DESIGN EVOLUTION:
-/// Original design (main branch) was minimal - only registered ITelemetryService and ICommandEngine.
+/// Original design (main branch) was minimal - only registered ILogger and ICommandEngine.
 /// This was sufficient for a simple CLI that parsed commands and executed them directly.
 ///
 /// Current design extends the original pattern to support:
@@ -32,8 +32,8 @@ public class Bootstrapper
         return await Task.Run(() =>
         {
             var serviceProvider = RegisterServices();
-            var telemetryService = serviceProvider.GetRequiredService<ILoggerService>();
-            telemetryService.Log("Core.Engine has started.");
+            var Logger = serviceProvider.GetRequiredService<ILoggerService>();
+            Logger.Log("Core.Engine has started.");
             return serviceProvider;
         });
     }

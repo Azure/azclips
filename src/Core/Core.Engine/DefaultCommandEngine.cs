@@ -8,7 +8,7 @@ namespace Core.Engine;
 ///
 /// EVOLUTION FROM ORIGINAL DESIGN:
 /// Original (main branch): This WAS the only ICommandEngine - instantiated directly in Bootstrapper.
-/// It used constructor-based dependency injection with ITelemetryService, and instantiated
+/// It used constructor-based dependency injection with ILogger, and instantiated
 /// CommandParser and CommandBinder inline (not as injected dependencies).
 ///
 /// Current (this branch): Now one of multiple engines coordinated by OrchestratorEngine.
@@ -21,7 +21,7 @@ namespace Core.Engine;
 /// This is the "fast path" - structured commands that match known syntax execute here.
 /// On failure (unknown command, typo, natural language), exception triggers AgentEngine fallback.
 /// </summary>
-public class DefaultCommandEngine(CommandParser _parser, CommandBinder _binder, ILoggerService _telemetry) : ICommandEngine
+public class DefaultCommandEngine(CommandParser _parser, CommandBinder _binder, ILoggerService _logger) : ICommandEngine
 {
     public string? ExtractedCommand { get; private set; }
 
@@ -30,20 +30,20 @@ public class DefaultCommandEngine(CommandParser _parser, CommandBinder _binder, 
     /// </summary>
     public async Task ExecuteCommandAsync(string[] args, CancellationToken cancellationToken = default)
     {
-        _telemetry.LogInfo($"Parsing command: {string.Join(" ", args)}");
+        _logger.LogInfo($"Parsing command: {string.Join(" ", args)}");
         var parseResult = _parser.Parse(args);
 
-        _telemetry.LogInfo($"Binding command: {string.Join(" ", parseResult.Commands)}");
+        _logger.LogInfo($"Binding command: {string.Join(" ", parseResult.Commands)}");
         var command = _binder.Bind(parseResult);
 
         if (command == null)
         {
-            _telemetry.LogWarning("No command found.");
+            _logger.LogWarning("No command found.");
             throw new InvalidOperationException("Command not found"); // Throw to trigger agent fallback
         }
 
-        _telemetry.LogInfo($"Executing command: {command.GetType().Name}");
+        _logger.LogInfo($"Executing command: {command.GetType().Name}");
         await command.ExecuteAsync(await Bootstrapper.ServiceProviderAsync, parseResult.Options, cancellationToken);
-        _telemetry.LogInfo("Command executed successfully.");
+        _logger.LogInfo("Command executed successfully.");
     }
 }

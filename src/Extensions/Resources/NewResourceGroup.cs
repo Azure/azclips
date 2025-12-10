@@ -1,9 +1,9 @@
-using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
-using Microsoft.Azure.Cirrus.Extensions.Resources.Client;
-using SharedContracts;
-using Core.Engine;
-using Microsoft.Extensions.DependencyInjection;
 using Core.Abstractions;
+using Core.Engine;
+using Microsoft.Azure.Cirrus.Extensions.Resources.Client;
+using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
+using Microsoft.Extensions.DependencyInjection;
+using SharedContracts;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
 {

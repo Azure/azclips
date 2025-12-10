@@ -6,7 +6,7 @@ namespace Core.Engine;
 /// <summary>
 /// Binds parsed commands to actual ICommand implementations by dynamically loading modules.
 /// </summary>
-public class CommandBinder(ILoggerService _telemetry)
+public class CommandBinder(ILoggerService _logger)
 {
     /// <summary>
     /// Binds the parsed result to a command implementation.
@@ -25,7 +25,7 @@ public class CommandBinder(ILoggerService _telemetry)
 
         if (module == null)
         {
-            _telemetry.LogWarning($"Module '{moduleName}' not found.");
+            _logger.LogWarning($"Module '{moduleName}' not found.");
             return null;
         }
 
@@ -33,7 +33,7 @@ public class CommandBinder(ILoggerService _telemetry)
 
         if (!commands.Any())
         {
-            _telemetry.LogWarning($"Module '{moduleName}' has no commands.");
+            _logger.LogWarning($"Module '{moduleName}' has no commands.");
             return null;
         }
 
@@ -56,7 +56,7 @@ public class CommandBinder(ILoggerService _telemetry)
 
         if (matchedCommand == null)
         {
-            _telemetry.LogWarning($"Command '{subcommand}' not found in module '{moduleName}'.");
+            _logger.LogWarning($"Command '{subcommand}' not found in module '{moduleName}'.");
         }
 
         return matchedCommand;
@@ -135,7 +135,7 @@ public class CommandBinder(ILoggerService _telemetry)
         }
         catch (Exception ex)
         {
-            _telemetry.LogError($"Error loading module '{moduleName}': {ex.Message}");
+            _logger.LogError($"Error loading module '{moduleName}': {ex.Message}");
             return null;
         }
     }

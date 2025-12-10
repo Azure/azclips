@@ -4,7 +4,7 @@ using Microsoft.Identity.Client.Extensions.Msal;
 
 namespace Core.Authentication;
 
-public class MsalAuthService(ILoggerService TelemetryService) : IAuthService // todo: testability, consider injecting MSAL API wrappers
+public class MsalAuthService(ILoggerService Logger) : IAuthService // todo: testability, consider injecting MSAL API wrappers
 {
     private const string ArmDefaultScope = "https://management.core.windows.net//.default";
     private AuthenticationInfo? _currentContext; // todo: proper context management (synchronization, multi-account, etc.)
@@ -105,7 +105,7 @@ public class MsalAuthService(ILoggerService TelemetryService) : IAuthService // 
 
     private void LogTokenMetadata(AuthenticationResult result)
     {
-        TelemetryService.Log(@$"[Verbose] Token acquired silently:
+        Logger.Log(@$"[Verbose] Token acquired silently:
 Username: {result.Account.Username}
 DurationTotalInMs: {result.AuthenticationResultMetadata.DurationTotalInMs}
 TokenSource: {result.AuthenticationResultMetadata.TokenSource}
