@@ -10,9 +10,20 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net9</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+
+  <!-- Include Business, Commands, and Cmdlets folders from parent directory -->
+  <ItemGroup>
+    <Compile Include="..\Business\**\*.cs" />
+    <Compile Include="..\Commands\**\*.cs" />
+    <Compile Include="..\Cmdlets\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="PowerShellStandard.Library" Version="5.1.1" />
+  </ItemGroup>
 
 </Project>

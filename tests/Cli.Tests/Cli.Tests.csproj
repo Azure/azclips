@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- No project references needed - tests run against deployed binaries in bin/ -->
+
+</Project>

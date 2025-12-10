@@ -15,7 +15,7 @@ RootModule = 'Group.dll'
 ModuleVersion = '0.0.1'
 
 # Supported PSEditions
-# CompatiblePSEditions = @()
+CompatiblePSEditions = @('Core')
 
 # ID used to uniquely identify this module
 GUID = 'b7e2c1a9-2e4a-4c3b-9f7d-1e2a3b4c5d6e'
@@ -30,10 +30,10 @@ CompanyName = 'Microsoft'
 Copyright = '(c) Microsoft. All rights reserved.'
 
 # Description of the functionality provided by this module
-# Description = ''
+Description = 'Azure Resource Group management cmdlets for Cirrus v2'
 
 # Minimum version of the PowerShell engine required by this module
-# PowerShellVersion = ''
+PowerShellVersion = '7.0'
 
 # Name of the PowerShell host required by this module
 # PowerShellHostName = ''
@@ -51,7 +51,7 @@ Copyright = '(c) Microsoft. All rights reserved.'
 # ProcessorArchitecture = ''
 
 # Modules that must be imported into the global environment prior to importing this module
-RequiredModules = @( 'Cirrus.Core' )
+# RequiredModules = @()
 
 # Assemblies that must be loaded prior to importing this module
 # RequiredAssemblies = @()
@@ -72,7 +72,7 @@ RequiredModules = @( 'Cirrus.Core' )
 FunctionsToExport = @()
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
-CmdletsToExport = @( 'Get-CirrusGroup' )
+CmdletsToExport = @( 'Get-AzV2ResourceGroup', 'New-AzV2ResourceGroup', 'Set-AzV2ResourceGroup', 'Remove-AzV2ResourceGroup' )
 
 # Variables to export from this module
 VariablesToExport = '*'

@@ -1,36 +1,73 @@
 namespace Core.Engine;
 
 /// <summary>
-/// Parses command line input into commands and options.
+/// Parses command-line arguments into commands and options.
+/// Supports --key=value, --key value, and -k value formats.
 /// </summary>
-internal class CommandParser
+public class CommandParser
 {
+    /// <summary>
+    /// Parses the command-line arguments.
+    /// </summary>
+    /// <param name="args">Command-line arguments</param>
+    /// <returns>Parsed result containing commands and options</returns>
     public ParseResult Parse(string[] args)
     {
-        // todo: this is incorrect and only a placeholder implementation
-        return new ParseResult()
-        {
-            Commands = args.Where(arg => !arg.StartsWith("--")),
-            Options = args
-                .Where(arg => arg.StartsWith("--"))
-                .Select(arg => arg.Substring(2).Split('='))
-                .ToDictionary(parts => parts[0], parts => parts.Length > 1 ? parts[1] : string.Empty)
-        };
-    }
-}
+        var result = new ParseResult();
+        var commands = new List<string>();
+        var options = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-/// <summary>
-/// Parsed command.
-/// todo: improve this structure
-/// </summary>
-internal class ParseResult
-{
-    /// <summary>
-    /// List of commands
-    /// </summary>
-    public IEnumerable<string> Commands { get; set; } = [];
-    /// <summary>
-    /// Parameter name to value mapping
-    /// </summary>
-    public IDictionary<string, string> Options { get; set; } = new Dictionary<string, string>();
+        for (int i = 0; i < args.Length; i++)
+        {
+            var arg = args[i];
+
+            // Handle --key=value format
+            if (arg.StartsWith("--") && arg.Contains('='))
+            {
+                var parts = arg.Split('=', 2);
+                var key = parts[0].TrimStart('-');
+                var value = parts[1];
+                options[key] = value;
+            }
+            // Handle --key value format
+            else if (arg.StartsWith("--"))
+            {
+                var key = arg.TrimStart('-');
+                // Check if next argument exists and is not another option
+                if (i + 1 < args.Length && !args[i + 1].StartsWith('-'))
+                {
+                    options[key] = args[i + 1];
+                    i++; // Skip next argument as it's the value
+                }
+                else
+                {
+                    options[key] = "true"; // Flag without value
+                }
+            }
+            // Handle -k value format (short options)
+            else if (arg.StartsWith("-") && arg.Length == 2)
+            {
+                var key = arg.TrimStart('-');
+                // Check if next argument exists and is not another option
+                if (i + 1 < args.Length && !args[i + 1].StartsWith('-'))
+                {
+                    options[key] = args[i + 1];
+                    i++; // Skip next argument as it's the value
+                }
+                else
+                {
+                    options[key] = "true"; // Flag without value
+                }
+            }
+            // Command or subcommand
+            else
+            {
+                commands.Add(arg);
+            }
+        }
+
+        result.Commands = commands;
+        result.Options = options;
+        return result;
+    }
 }
