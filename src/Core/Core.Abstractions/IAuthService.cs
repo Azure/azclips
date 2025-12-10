@@ -2,6 +2,8 @@ namespace Core.Abstractions;
 
 public interface IAuthService
 {
-    Task<string> AcquireTokenInteractiveAsync(CancellationToken cancellationToken = default);
-    Task<string> AcquireTokenSilentlyAsync(bool promptOnError = false, CancellationToken cancellationToken = default);
+    Task<AuthenticationInfo> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default);
+    Task LogoutAsync(CancellationToken cancellationToken = default);
+    AuthenticationInfo? GetCurrentContext();
+    Task<string> AcquireTokenSilentlyAsync(string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default);
 }

@@ -43,7 +43,7 @@ public class DefaultCommandEngine(CommandParser _parser, CommandBinder _binder, 
         }
 
         _telemetry.LogInfo($"Executing command: {command.GetType().Name}");
-        await command.ExecuteAsync(parseResult.Options, cancellationToken);
+        await command.ExecuteAsync(await Bootstrapper.ServiceProviderAsync, parseResult.Options, cancellationToken);
         _telemetry.LogInfo("Command executed successfully.");
     }
 }

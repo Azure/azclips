@@ -50,7 +50,7 @@ public class Bootstrapper
         // --- ORIGINAL REGISTRATIONS (from main branch) ---
         // Telemetry service for logging throughout the application
         services.AddSingleton<ILoggerService, ConsoleLoggerService>();
-        services.AddSingleton<IAuthService, DefaultAuthService>();
+        services.AddSingleton<IAuthService, MsalAuthService>();
 
         // --- NEW REGISTRATIONS (added for AI integration) ---
 

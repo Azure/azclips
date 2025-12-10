@@ -1,4 +1,4 @@
-namespace Login.Business.Models;
+namespace Core.Abstractions;
 
 public class LoginRequest
 {
