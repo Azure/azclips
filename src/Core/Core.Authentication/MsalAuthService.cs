@@ -11,7 +11,7 @@ public class MsalAuthService(ILoggerService TelemetryService) : IAuthService
 
     public async Task<AuthenticationInfo> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
-        await AcquireTokenInteractiveAsync(request.TenantId, cancellationToken);
+        await AcquireTokenInteractiveAsync(request.Scopes, request.TenantId, cancellationToken);
         _currentContext = new AuthenticationInfo
         {
             SubscriptionId = request.SubscriptionId ?? "00000000-0000-0000-0000-000000000000",
@@ -25,7 +25,7 @@ public class MsalAuthService(ILoggerService TelemetryService) : IAuthService
     public async Task LogoutAsync(CancellationToken cancellationToken = default)
     {
         // MOCKUP: Clear authentication context
-        _currentContext = null;
+        await Task.Run(() => _currentContext = null);
         return;
     }
 
@@ -35,13 +35,12 @@ public class MsalAuthService(ILoggerService TelemetryService) : IAuthService
         return _currentContext;
     }
 
-    private async Task<string> AcquireTokenInteractiveAsync(string? tenantId, CancellationToken cancellationToken = default)
+    private async Task<string> AcquireTokenInteractiveAsync(string[]? scopes, string? tenantId, CancellationToken cancellationToken = default)
     {
-        string[] scopes = [ArmDefaultScope];
         IPublicClientApplication app = BuildApp(tenantId);
         await RegisterTokenCacheAsync(app, true);
 
-        var result = await app.AcquireTokenInteractive(scopes).WithUseEmbeddedWebView(false).ExecuteAsync(cancellationToken);
+        var result = await app.AcquireTokenInteractive(scopes ?? [ArmDefaultScope]).WithUseEmbeddedWebView(false).ExecuteAsync(cancellationToken);
         LogTokenMetadata(result);
         return result.AccessToken;
     }
@@ -82,10 +81,8 @@ public class MsalAuthService(ILoggerService TelemetryService) : IAuthService
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The acquired access token.</returns>
     /// <throws cref="MsalUiRequiredException">Thrown if silent acquisition fails and prompting is disabled.</throws>
-    public async Task<string> AcquireTokenSilentlyAsync(string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default)
+    public async Task<string> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default)
     {
-        string[] scopes = [ArmDefaultScope];
-
         var app = BuildApp(tenantId);
         await RegisterTokenCacheAsync(app, true);
 
@@ -95,7 +92,7 @@ public class MsalAuthService(ILoggerService TelemetryService) : IAuthService
         try
         {
             // todo: somehow this call always return a refreshed token even if the token in cache is still valid
-            result = await app.AcquireTokenSilent(scopes, accounts.FirstOrDefault()).ExecuteAsync(cancellationToken);
+            result = await app.AcquireTokenSilent(scopes ?? [ArmDefaultScope], accounts.FirstOrDefault()).ExecuteAsync(cancellationToken);
         }
         catch (MsalUiRequiredException) when (promptOnError)
         {

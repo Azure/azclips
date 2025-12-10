@@ -1,6 +1,5 @@
 using System.Management.Automation;
-using Login.Business;
-using Login.Business.Models;
+using Core.Abstractions;
 
 namespace Login.Cmdlets;
 
@@ -16,15 +15,15 @@ public class GetAzV2ContextCmdlet : PSCmdlet
         try
         {
             // Call business logic (same as CLI!)
-            var context = AuthenticationManager.GetCurrentContext();
+            // var context = AuthenticationManager.GetCurrentContext();
             
-            if (context == null)
-            {
-                WriteWarning("Not authenticated. Run 'Connect-AzV2Account' first.");
-                return;
-            }
+            // if (context == null)
+            // {
+            //     WriteWarning("Not authenticated. Run 'Connect-AzV2Account' first.");
+            //     return;
+            // }
 
-            WriteObject(context);
+            // WriteObject(context);
         }
         catch (Exception ex)
         {

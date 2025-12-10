@@ -4,4 +4,6 @@ public class LoginRequest
 {
     public string? TenantId { get; init; }
     public string? SubscriptionId { get; init; }
+
+    public string[]? Scopes { get; init; }
 }

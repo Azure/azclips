@@ -48,7 +48,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
         {
             AccessToken = Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult()
                 .GetRequiredService<IAuthService>()
-                .AcquireTokenSilentlyAsync(promptOnError: true).GetAwaiter().GetResult();
+                // todo: tenant ID should be got from context when it's implemented
+                .AcquireTokenSilentlyAsync(scopes: null, tenantId: null, promptOnError: true).GetAwaiter().GetResult();
             return new ResourcesClient().CreateOrUpdateResourceGroupAsync(SubscriptionId, Name, new ResourceGroup("eastus", Name), AccessToken).GetAwaiter().GetResult();
         }
 

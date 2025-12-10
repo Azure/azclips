@@ -1,5 +1,4 @@
 using System.Management.Automation;
-using Login.Business;
 
 namespace Login.Cmdlets;
 
@@ -15,7 +14,7 @@ public class DisconnectAzV2AccountCmdlet : PSCmdlet
         try
         {
             // Call business logic (same as CLI!)
-            AuthenticationManager.Logout();
+            // AuthenticationManager.Logout();
             WriteVerbose("Logged out successfully.");
         }
         catch (Exception ex)

@@ -29,10 +29,13 @@ public class Bootstrapper
 
     private async static Task<IServiceProvider> StartAsync()
     {
-        var serviceProvider = RegisterServices();
-        var telemetryService = serviceProvider.GetRequiredService<ILoggerService>();
-        telemetryService.Log("Core.Engine has started.");
-        return serviceProvider;
+        return await Task.Run(() =>
+        {
+            var serviceProvider = RegisterServices();
+            var telemetryService = serviceProvider.GetRequiredService<ILoggerService>();
+            telemetryService.Log("Core.Engine has started.");
+            return serviceProvider;
+        });
     }
 
     /// <summary>
