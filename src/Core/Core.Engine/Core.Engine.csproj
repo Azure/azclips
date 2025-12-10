@@ -6,13 +6,14 @@
   <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Core.Abstractions\Core.Abstractions.csproj" />
     <ProjectReference Include="..\Core.Implementation\Core.Implementation.csproj" />
     <ProjectReference Include="..\Core.Authentication\Core.Authentication.csproj" />
+    <ProjectReference Include="..\Core.Agent\Core.Agent.csproj" />
     <ProjectReference Include="..\..\SharedContracts\SharedContracts.csproj" />
   </ItemGroup>
 

@@ -4,7 +4,7 @@ using Microsoft.Identity.Client.Extensions.Msal;
 
 namespace Core.Authentication;
 
-public class DefaultAuthService(ITelemetryService TelemetryService) : IAuthService
+public class DefaultAuthService(ILoggerService TelemetryService) : IAuthService
 {
     private const string ArmDefaultScope = "https://management.core.windows.net//.default";
 
@@ -48,6 +48,13 @@ public class DefaultAuthService(ITelemetryService TelemetryService) : IAuthServi
         cacheHelper.RegisterCache(app.UserTokenCache);
     }
 
+    /// <summary>
+    /// Acquires a token silently if available, otherwise optionally prompts the user interactively.
+    /// </summary>
+    /// <param name="promptOnError">Whether to prompt the user interactively if silent acquisition fails.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The acquired access token.</returns>
+    /// <throws cref="MsalUiRequiredException">Thrown if silent acquisition fails and prompting is disabled.</throws>
     public async Task<string> AcquireTokenSilentlyAsync(bool promptOnError = false, CancellationToken cancellationToken = default)
     {
         string[] scopes = [ArmDefaultScope];

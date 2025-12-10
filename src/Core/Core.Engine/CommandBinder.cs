@@ -4,64 +4,139 @@ using Core.Abstractions;
 namespace Core.Engine;
 
 /// <summary>
-/// Binds parsed command line input to ICommand implementations from dynamically loaded modules.
-/// todo: consider breaking down into smaller classes/services
+/// Binds parsed commands to actual ICommand implementations by dynamically loading modules.
 /// </summary>
-internal class CommandBinder
+public class CommandBinder(ILoggerService _telemetry)
 {
+    /// <summary>
+    /// Binds the parsed result to a command implementation.
+    /// </summary>
+    /// <param name="parseResult">The parsed command-line arguments</param>
+    /// <returns>The command to execute, or null if not found</returns>
     public ICommand? Bind(ParseResult parseResult)
     {
-        if (parseResult.Commands.Count() == 0)
+        if (!parseResult.Commands.Any())
         {
             return null;
         }
 
-        // naive implementation of dynamic module loading:
-        // 1. use the first command as the module/extension name
-        // 2. load the module dynamically
-        // 3. get the commands from the module
         var moduleName = parseResult.Commands.First();
         var module = LoadModule(moduleName);
-        var commands = module.GetCommands();
-        // For simplicity, return the first command found
-        // In a real implementation, you would match the command name to the appropriate command
-        return commands.FirstOrDefault();
+
+        if (module == null)
+        {
+            _telemetry.LogWarning($"Module '{moduleName}' not found.");
+            return null;
+        }
+
+        var commands = module.GetCommands().ToList();
+
+        if (!commands.Any())
+        {
+            _telemetry.LogWarning($"Module '{moduleName}' has no commands.");
+            return null;
+        }
+
+        // If there's only one command word, return the first command
+        if (parseResult.Commands.Count() == 1)
+        {
+            return commands.FirstOrDefault();
+        }
+
+        // Match subcommand to command type name (FIXED from v1 bug)
+        var subcommand = parseResult.Commands.Skip(1).FirstOrDefault();
+        if (string.IsNullOrEmpty(subcommand))
+        {
+            return commands.FirstOrDefault();
+        }
+
+        // Find command whose type name contains the subcommand
+        var matchedCommand = commands.FirstOrDefault(c =>
+            c.GetType().Name.Contains(subcommand, StringComparison.OrdinalIgnoreCase));
+
+        if (matchedCommand == null)
+        {
+            _telemetry.LogWarning($"Command '{subcommand}' not found in module '{moduleName}'.");
+        }
+
+        return matchedCommand;
     }
 
-    private IModule LoadModule(string moduleName)
+    /// <summary>
+    /// Dynamically loads a module by name from the modules directory.
+    /// </summary>
+    private IModule? LoadModule(string moduleName)
     {
-        if (string.IsNullOrWhiteSpace(moduleName))
+        try
         {
-            throw new ArgumentException("Extension name cannot be empty.", nameof(moduleName));
-        }
+            var baseDirectory = AppContext.BaseDirectory;
+            var moduleDirectory = Path.Combine(baseDirectory, moduleName);
 
-        // this assumes folder structure where modules are sibling folders to Core, e.g.
-        // /Core
-        // |-- Core.Engine.dll
-        // /Group
-        // |-- Group.dll
-        var baseDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? AppContext.BaseDirectory;
-        var modulePath = Path.GetFullPath(Path.Combine(baseDirectory, "..", moduleName, $"{moduleName}.dll"));
-
-        if (!File.Exists(modulePath))
-        {
-            throw new FileNotFoundException($"Module assembly not found for extension '{moduleName}'.", modulePath);
-        }
-
-        var moduleAssembly = Assembly.LoadFrom(modulePath);
-        // Q: What if it has dependencies? Do we load them too?
-        // Should we load into separate AssemblyLoadContext?
-        // Should we load all assemblies in that folder?
-        foreach (var type in moduleAssembly.GetTypes())
-        {
-            if (typeof(IModule).IsAssignableFrom(type) && !type.IsAbstract && type.GetConstructor(Type.EmptyTypes) is not null)
+            // Case-insensitive directory search
+            var parentDirectory = Path.GetDirectoryName(moduleDirectory);
+            if (parentDirectory != null && Directory.Exists(parentDirectory))
             {
-                return (IModule)Activator.CreateInstance(type)!;
-            }
-        }
+                var directories = Directory.GetDirectories(parentDirectory);
+                var actualDirectory = directories.FirstOrDefault(d =>
+                    Path.GetFileName(d).Equals(moduleName, StringComparison.OrdinalIgnoreCase));
 
-        throw new InvalidOperationException($"No IModule implementation found in '{modulePath}'.");
+                if (actualDirectory != null)
+                {
+                    moduleDirectory = actualDirectory;
+                }
+            }
+
+            if (!Directory.Exists(moduleDirectory))
+            {
+                return null;
+            }
+
+            // Look for module DLL
+            var moduleDll = Path.Combine(moduleDirectory, $"{moduleName}.dll");
+            if (!File.Exists(moduleDll))
+            {
+                // Try case-insensitive file search
+                var files = Directory.GetFiles(moduleDirectory, "*.dll");
+                moduleDll = files.FirstOrDefault(f =>
+                    Path.GetFileNameWithoutExtension(f).Equals(moduleName, StringComparison.OrdinalIgnoreCase)) ?? moduleDll;
+            }
+
+            if (!File.Exists(moduleDll))
+            {
+                return null;
+            }
+
+            // Load assembly and find IModule implementation
+            var moduleAssembly = Assembly.LoadFrom(moduleDll);
+
+            // GetTypes() may throw if some types can't be loaded (e.g., PowerShell cmdlets)
+            // Use GetExportedTypes() or catch ReflectionTypeLoadException
+            Type[] types;
+            try
+            {
+                types = moduleAssembly.GetTypes();
+            }
+            catch (ReflectionTypeLoadException ex)
+            {
+                // Some types couldn't be loaded (e.g., PowerShell cmdlets when PS not available)
+                // Use the types that did load
+                types = ex.Types.Where(t => t != null).ToArray()!;
+            }
+
+            foreach (var type in types)
+            {
+                if (typeof(IModule).IsAssignableFrom(type) && !type.IsInterface && !type.IsAbstract)
+                {
+                    return (IModule)Activator.CreateInstance(type)!;
+                }
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _telemetry.LogError($"Error loading module '{moduleName}': {ex.Message}");
+            return null;
+        }
     }
 }
-
-

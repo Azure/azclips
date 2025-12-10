@@ -4,34 +4,46 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Core.Engine;
 
 /// <summary>
-/// A default implementation of ICommandEngine that
-/// parses command syntax, dynamically loads a module,
-/// and delegates to the command implementation type to execute commands.
+/// DefaultCommandEngine handles structured command execution (e.g., "group create --name test").
+///
+/// EVOLUTION FROM ORIGINAL DESIGN:
+/// Original (main branch): This WAS the only ICommandEngine - instantiated directly in Bootstrapper.
+/// It used constructor-based dependency injection with ITelemetryService, and instantiated
+/// CommandParser and CommandBinder inline (not as injected dependencies).
+///
+/// Current (this branch): Now one of multiple engines coordinated by OrchestratorEngine.
+/// Changes from original:
+/// 1. Parser and Binder are now injected (better testability, explicit in Bootstrapper)
+/// 2. Throws exceptions on failure (triggers orchestrator's fallback to AgentEngine)
+/// 3. Added ExtractedCommand property (unused here, but required by ICommandEngine interface)
+///
+/// ROLE IN ORCHESTRATION:
+/// This is the "fast path" - structured commands that match known syntax execute here.
+/// On failure (unknown command, typo, natural language), exception triggers AgentEngine fallback.
 /// </summary>
-/// <param name="Telemetry"></param>
-public class DefaultCommandEngine(ITelemetryService Telemetry, IServiceScopeFactory serviceScopeFactory) : ICommandEngine
+public class DefaultCommandEngine(CommandParser _parser, CommandBinder _binder, ILoggerService _telemetry) : ICommandEngine
 {
-    private readonly CommandParser _parser = new();
-    private readonly CommandBinder _binder = new();
+    public string? ExtractedCommand { get; private set; }
 
-    public async Task ExecuteCommandAsync(string[] args, CancellationToken cancellationToken)
+    /// <summary>
+    /// Executes a command by parsing, binding, and running it.
+    /// </summary>
+    public async Task ExecuteCommandAsync(string[] args, CancellationToken cancellationToken = default)
     {
-        // Placeholder implementation
-        // todo: consider abstracting these steps as a pipeline
-        Telemetry.Log($"Executing command: {string.Join(' ', args)}");
-        var arguments = _parser.Parse(args);
-        Telemetry.Log($"Parsed {arguments.Commands.Count()} commands and {arguments.Options.Count} options.");
-        var command = _binder.Bind(arguments);
-        if (command != null)
+        _telemetry.LogInfo($"Parsing command: {string.Join(" ", args)}");
+        var parseResult = _parser.Parse(args);
+
+        _telemetry.LogInfo($"Binding command: {string.Join(" ", parseResult.Commands)}");
+        var command = _binder.Bind(parseResult);
+
+        if (command == null)
         {
-            Telemetry.Log($"Command bound successfully. Executing command {command.GetType()} ...");
-            using var scope = serviceScopeFactory.CreateScope(); // is scope necessary or is root provider sufficient?
-            await command.ExecuteAsync(scope.ServiceProvider, cancellationToken);
+            _telemetry.LogWarning("No command found.");
+            throw new InvalidOperationException("Command not found"); // Throw to trigger agent fallback
         }
-        else
-        {
-            Telemetry.Log("No command bound. Exiting.");
-            throw new InvalidOperationException("No command bound.");
-        }
+
+        _telemetry.LogInfo($"Executing command: {command.GetType().Name}");
+        await command.ExecuteAsync(parseResult.Options, cancellationToken);
+        _telemetry.LogInfo("Command executed successfully.");
     }
 }

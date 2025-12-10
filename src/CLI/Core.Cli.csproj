@@ -19,6 +19,7 @@
     <ProjectReference Include="..\Core\Core.Abstractions\Core.Abstractions.csproj" />
     <ProjectReference Include="..\Core\Core.Implementation\Core.Implementation.csproj" />
     <ProjectReference Include="..\Core\Core.Engine\Core.Engine.csproj" />
+    <ProjectReference Include="..\Core\Core.Agent\Core.Agent.csproj" />
     <ProjectReference Include="..\SharedContracts\SharedContracts.csproj" />
   </ItemGroup>
 
