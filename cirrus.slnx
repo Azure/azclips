@@ -19,9 +19,6 @@
   <Folder Name="/src/Login/">
     <Project Path="src/Login/Login/Login.csproj" />
   </Folder>
-  <Folder Name="/src/SharedContracts/">
-    <Project Path="src/SharedContracts/SharedContracts.csproj" />
-  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Cli.Tests/Cli.Tests.csproj" />
     <Project Path="tests/PowerShell.Tests/PowerShell.Tests.csproj" />

@@ -56,7 +56,9 @@ PowerShellVersion = '7.0'
 # RequiredModules = @()
 
 # Assemblies that must be loaded prior to importing this module
-# RequiredAssemblies = @()
+RequiredAssemblies = @('Core.Abstractions.dll', 'Core.Engine.dll', 'Core.Implementation.dll',
+    'Microsoft.Extensions.DependencyInjection.Abstractions.dll'
+)
 
 # Script files (.ps1) that are run in the caller's environment prior to importing this module.
 # ScriptsToProcess = @()
@@ -140,7 +142,7 @@ This meta-module installs all Cirrus sub-modules:
 Usage:
   Install-Module Cirrus          # Install all modules
   Import-Module Cirrus           # Import all modules
-  
+
   Or install individually:
   Install-Module Cirrus.Group    # Just resource groups
   Install-Module Cirrus.Agent    # Just AI agent

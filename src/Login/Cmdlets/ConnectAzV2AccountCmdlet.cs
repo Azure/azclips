@@ -1,6 +1,7 @@
 using System.Management.Automation;
-using Login.Business;
-using Login.Business.Models;
+using Core.Abstractions;
+using Core.Engine;
+using Login.Commands;
 
 namespace Login.Cmdlets;
 
@@ -31,10 +32,10 @@ public class ConnectAzV2AccountCmdlet : PSCmdlet
             WriteVerbose("Authenticating...");
             
             // Call business logic (same as CLI!)
-            var result = AuthenticationManager.LoginAsync(request, CancellationToken.None).GetAwaiter().GetResult();
+            // var result = new LoginCommand().ExecuteAsync(Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult(), request, CancellationToken.None).GetAwaiter().GetResult();
             
             WriteVerbose("Authentication successful!");
-            WriteObject(result);
+            // WriteObject(result);
         }
         catch (Exception ex)
         {

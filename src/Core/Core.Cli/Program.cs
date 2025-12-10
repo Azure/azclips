@@ -1,9 +1,11 @@
+﻿using Core.Abstractions;
 using Core.Engine;
+using Microsoft.Extensions.DependencyInjection;
 
 //
 // ARCHITECTURAL EVOLUTION
 // =======================
-// 
+//
 // ORIGINAL DESIGN (main branch):
 // - Simple 3-line Program.cs: Start bootstrapper -> Get command engine -> Execute
 // - Only DefaultCommandEngine existed (parsed structured commands like "group create --name test")
@@ -34,7 +36,8 @@ internal class Program
 {
     private static async Task Main(string[] args)
     {
-        var commandEngine = await Bootstrapper.StartAsync();
+        var serviceProvider = await Bootstrapper.ServiceProviderAsync;
+        var commandEngine = serviceProvider.GetRequiredService<ICommandEngine>();
         await commandEngine.ExecuteCommandAsync(args, default);
     }
 }

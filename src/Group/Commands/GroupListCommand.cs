@@ -10,7 +10,7 @@ namespace Group.Commands;
 /// </summary>
 public class GroupListCommand : ICommand
 {
-    public async Task ExecuteAsync(IDictionary<string, string> options, CancellationToken cancellationToken = default)
+    public async Task ExecuteAsync(IServiceProvider serviceProvider, IDictionary<string, string> options, CancellationToken cancellationToken = default)
     {
         // Translate CLI options to business request
         var request = new ListGroupsRequest
