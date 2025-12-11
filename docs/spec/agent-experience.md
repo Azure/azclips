@@ -2,16 +2,15 @@
 
 ## Overview
 
-Core.Agent is an AI-powered natural language interface for Azure CLI (azv2) and Azure PowerShell that interprets user intent and generates executable commands. It operates as an **exception-driven fallback**: when standard command parsing fails, control passes to the agent to interpret the natural language input.
+Core.Agent is an AI-powered natural language interface for Azure CLI and Azure PowerShell that interprets user intent and generates executable commands. It operates as an **exception-driven fallback**: when standard command parsing fails, control passes to the agent to interpret the natural language input.
 
 The agent supports three interaction scenarios:
 1. **Typo Correction** - Recognizes misspelled commands and suggests correct syntax
 2. **"How To" Questions** - Provides command examples with placeholders (not executable)
 3. **Natural Language Execution** - Generates complete executable commands from natural language requests
 
-**Key Behavioral Difference:**
-- **Azure CLI (azv2)**: Interactive - can prompt user for confirmation before executing commands
-- **Azure PowerShell**: Non-interactive - directly outputs commands with `__PSEXEC__` marker for execution (no prompts possible due to subprocess architecture)
+**Key Behavioral Note:**
+Both Azure CLI and Azure PowerShell support interactive confirmation. When the agent generates an executable command, it prompts the user for confirmation. The user can respond with natural language (e.g., "yes", "sure", "go ahead", "no", "cancel"), and the agent uses a language model to interpret their intent - not a hard-coded yes/no check.
 
 **Note:** For comprehensive architecture details including fallback mechanisms and PowerShell subprocess integration, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
@@ -19,13 +18,13 @@ The agent supports three interaction scenarios:
 
 ### Integration Architecture
 
-#### Azure CLI (azv2) Flow
+#### Azure CLI Flow
 
 The CLI uses an **exception-driven fallback** pattern in `Program.cs`:
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│              User Input: "azv2 <command>"                │
+│              User Input: "az <command>"                  │
 └────────────────────────┬─────────────────────────────────┘
                          │
                          ▼
@@ -63,7 +62,7 @@ The CLI uses an **exception-driven fallback** pattern in `Program.cs`:
                                                    │
                                                    ▼
                                        ┌──────────────────────┐
-                                       │ Recursive azv2 call  │
+                                       │ Recursive az call    │
                                        └──────────────────────┘
 ```
 
@@ -84,7 +83,7 @@ PowerShell uses a **subprocess pattern** calling the CLI:
                          │
                          ▼
          ┌───────────────────────────────┐
-         │  Call: azv2 <user query>      │
+         │  Call: az <user query>        │
          │  (as subprocess)              │
          │  Set: AZURECLI_FLAVOR=        │
          │       "azure powershell"      │
@@ -113,8 +112,9 @@ PowerShell uses a **subprocess pattern** calling the CLI:
 ```
 
 **Key Differences:**
-- **CLI**: Direct execution in same process, can do interactive prompts
-- **PowerShell**: Subprocess architecture, no stdin available, uses `__PSEXEC__` marker for command execution
+- **CLI**: Direct execution in same process
+- **PowerShell**: Subprocess architecture, uses `__PSEXEC__` marker for command execution
+- **Both**: Support interactive prompts with AI-interpreted natural language confirmation
 
 ### Deployment Options
 
@@ -128,9 +128,9 @@ The agent supports three AI backend implementations:
 
 The agent works with both:
 
-1. **Azure CLI (azv2)** - Command-line interface
+1. **Azure CLI** - Command-line interface
    ```bash
-   azv2 create a resource group called mygroup in westus
+   az create a resource group called mygroup in westus
    ```
 
 2. **Azure PowerShell** - Natural language support via `Invoke-AzAI` function
@@ -160,7 +160,7 @@ The agent supports three interaction scenarios, with behavioral differences betw
 
 #### Azure CLI Example
 ```bash
-$ azv2 I would like to logni
+$ az I would like to logni
 
 ⠋ Thinking...
 
@@ -180,8 +180,6 @@ Connect-AzAccount
 Connect-AzAccount -ServicePrincipal -Credential $credential -Tenant <tenantId>
 ```
 
-**Behavioral Note:** Both CLI and PowerShell display help text only - no execution occurs.
-
 ---
 
 ### Scenario 2: "How To" Questions
@@ -194,7 +192,7 @@ Connect-AzAccount -ServicePrincipal -Credential $credential -Tenant <tenantId>
 
 #### Azure CLI Example
 ```bash
-$ azv2 how do I create a resource group
+$ az how do I create a resource group
 
 ⠋ Thinking...
 
@@ -233,7 +231,7 @@ New-ResourceGroup -Name myResourceGroup -Location eastus
 
 #### Azure CLI Example (Interactive)
 ```bash
-$ azv2 create a resource group called mygroup in westus
+$ az create a resource group called mygroup in westus
 
 ⠋ Thinking...
 
@@ -259,8 +257,10 @@ Execute this command? (yes/no): yes
 **CLI Behavior:**
 1. Agent generates complete command
 2. Prompts user for confirmation (interactive)
-3. On "yes", recursively calls `azv2 group create --name mygroup --location westus`
-4. Displays command output
+3. User responds with natural language (e.g., "yes", "sure", "go ahead", "no", "cancel")
+4. Agent interprets user intent using language model
+5. If confirmed, recursively calls `az group create --name mygroup --location westus`
+6. Displays command output
 
 #### Azure PowerShell Example (Non-Interactive)
 ```powershell
@@ -280,26 +280,29 @@ mygroup  westus   Succeeded
 
 **PowerShell Behavior:**
 1. Agent generates complete command
-2. Outputs command with `__PSEXEC__` marker to stdout (no prompt possible)
-3. AgentHelper.ps1 captures marker and executes via `Invoke-Expression`
-4. Displays cmdlet output
+2. Prompts user for confirmation (interactive - same as CLI)
+3. User responds with natural language (e.g., "yes", "sure", "go ahead", "no", "cancel")
+4. Agent interprets user intent using language model
+5. If confirmed, outputs command with `__PSEXEC__` marker
+6. AgentHelper.ps1 captures marker and executes via `Invoke-Expression`
+7. Displays cmdlet output
 
-**Critical Difference:** PowerShell cannot prompt for confirmation because subprocess architecture prevents stdin access. Commands are auto-executed after display.
+**Note:** PowerShell uses the same confirmation flow as CLI. The subprocess can capture user input through the streaming stdout/stdin pipeline.
 
 ---
 
 ### CLI vs PowerShell Behavioral Comparison
 
-| Feature | Azure CLI (azv2) | Azure PowerShell |
-|---------|------------------|------------------|
-| **Interactive Prompts** | ✅ Yes - can ask "Execute? (yes/no)" | ❌ No - subprocess has no stdin |
-| **Confirmation** | User types "yes" or "no" | Auto-executes after displaying command |
+| Feature | Azure CLI | Azure PowerShell |
+|---------|-----------|------------------|
+| **Interactive Prompts** | ✅ Yes - prompts for confirmation | ✅ Yes - prompts for confirmation |
+| **Confirmation** | Agent interprets natural language response | Agent interprets natural language response |
 | **Command Marker** | Not needed - direct execution | `__PSEXEC__<command>` in stdout |
-| **Execution Method** | Recursive azv2 call in same process | `Invoke-Expression` in parent PowerShell |
-| **User Safety** | Higher - explicit confirmation required | Lower - immediate execution (by design) |
+| **Execution Method** | Recursive az call in same process | `Invoke-Expression` in parent PowerShell |
+| **User Safety** | AI-interpreted confirmation with natural language | AI-interpreted confirmation with natural language |
 | **Streaming Output** | Direct stdout from process | Filtered through ForEach-Object pipeline |
 | **Flavor Detection** | Uses "azure cli" in prompt template | Uses "azure powershell" via AZURECLI_FLAVOR |
-| **Example Syntax** | `azv2 create resource group X` | `ask create resource group X` (no quotes) |
+| **Example Syntax** | `az create resource group X` | `ask create resource group X` (no quotes) |
 
 **PowerShell Workaround:** For safety-critical operations, users can:
 1. Use "how to" questions to get examples: `ask how do I delete a resource group`
@@ -367,16 +370,16 @@ The agent returns JSON with a `type` field:
 
 The agent is automatically invoked when standard command parsing fails:
 
-**Azure CLI (azv2):**
+**Azure CLI:**
 ```bash
 # Natural language commands
-$ azv2 create a storage account called mystore in westus
+$ az create a storage account called mystore in westus
 
 # Typo correction
-$ azv2 how do I logni
+$ az how do I logni
 
 # Help questions
-$ azv2 how do I list virtual machines
+$ az how do I list virtual machines
 ```
 
 **Azure PowerShell:**
@@ -518,7 +521,7 @@ All examples show the **interactive** CLI behavior with confirmation prompts.
 
 #### Scenario 1: Typo Correction
 ```bash
-$ azv2 I would like to logni
+$ az I would like to logni
 
 ⠋ Thinking...
 
@@ -536,7 +539,7 @@ az login --use-device-code
 
 #### Scenario 2: "How To" Question
 ```bash
-$ azv2 how do I list all VMs
+$ az how do I list all VMs
 
 ⠋ Thinking...
 
@@ -559,7 +562,7 @@ az vm list --output table
 
 #### Scenario 3: Natural Language Execution
 ```bash
-$ azv2 create a resource group called mygroup in westus
+$ az create a resource group called mygroup in westus
 
 ⠋ Thinking...
 
@@ -591,7 +594,7 @@ Execute this command? (yes/no): yes
 
 #### Scenario 3 (User Declines)
 ```bash
-$ azv2 delete resource group mygroup
+$ az delete resource group mygroup
 
 ⠋ Thinking...
 
@@ -665,6 +668,10 @@ I'll create a resource group named "mygroup" in the westus region.
 Command:
 New-ResourceGroup -Name mygroup -Location westus
 
+Shall I proceed?
+
+> yes
+
 ResourceGroupName : mygroup
 Location          : westus
 ProvisioningState : Succeeded
@@ -672,7 +679,7 @@ Tags              :
 ResourceId        : /subscriptions/12345678-1234-1234-1234-123456789abc/resourceGroups/mygroup
 ```
 
-**Outcome:** Agent generates command, displays it, **immediately executes** (no prompt possible), shows output.
+**Outcome:** Agent generates command, prompts for confirmation, user confirms with natural language, executes, shows output.
 
 ---
 
@@ -687,6 +694,10 @@ I'll retrieve all resource groups in the westus region.
 Command:
 Get-ResourceGroup | Where-Object Location -eq 'westus'
 
+Shall I proceed?
+
+> sure
+
 ResourceGroupName : mygroup
 Location          : westus
 ProvisioningState : Succeeded
@@ -696,38 +707,9 @@ Location          : westus
 ProvisioningState : Succeeded
 ```
 
-**Outcome:** Agent generates pipeline command, executes immediately, displays filtered results.
+**Outcome:** Agent generates pipeline command, prompts for confirmation, user confirms with natural language, executes, displays filtered results.
 
 ---
-
-#### PowerShell Safety Workaround
-
-For destructive operations, use "how to" questions to get syntax without execution:
-
-```powershell
-# Safe: Get example syntax
-PS> ask how do I delete a resource group
-
-⠋ Thinking...
-
-To delete a resource group:
-
-Azure PowerShell:
-Remove-ResourceGroup -Name <resource-group-name> -Force
-Remove-ResourceGroup -Name <resource-group-name> -Force -AsJob
-
-# Then user manually executes with confirmation:
-PS> Remove-ResourceGroup -Name mygroup -Force
-
-Confirm
-Are you sure you want to remove resource group 'mygroup'
-[Y] Yes  [N] No  [S] Suspend  [?] Help (default is "Y"): Y
-```
-
-**Workaround Pattern:**
-1. Use `ask how do I...` to get examples
-2. Review the command and parameters
-3. Manually execute with PowerShell's built-in confirmation prompts
 
 ## Future Considerations
 

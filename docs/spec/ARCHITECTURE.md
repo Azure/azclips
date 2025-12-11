@@ -1,4 +1,4 @@
-# Cirrus Architecture: Azure CLI (azv2) and PowerShell with AI Agent Fallback
+# Cirrus Architecture: Azure CLI and PowerShell with AI Agent Fallback
 
 ## Overview
 
@@ -6,7 +6,7 @@ Cirrus is a modular Azure CLI and PowerShell tool with **AI-powered fallback** f
 
 1. **Exception-Driven Fallback** - Standard command parsing in try-catch, AI agent invoked on exception
 2. **Extension System** - Dynamic module loading via DLL discovery (Group.dll, Login.dll, Resources.dll)
-3. **Subprocess PowerShell Integration** - PowerShell calls `azv2` CLI as subprocess, executes commands via `__PSEXEC__` marker
+3. **Subprocess PowerShell Integration** - PowerShell calls `az` CLI as subprocess, executes commands via `__PSEXEC__` marker
 4. **Azure OpenAI Integration** - CloudAgent with GPT-4o-mini for natural language interpretation
 
 **Note:** This document describes the **actual implementation** on the `resilv/merge-cli` branch, not idealized designs.
@@ -20,11 +20,11 @@ Cirrus is a modular Azure CLI and PowerShell tool with **AI-powered fallback** f
 | **AI Fallback** | `TryAgentFallbackAsync()` creates `AgentEngine` + `CloudAgent` on demand (max 5 retries) |
 | **Agent Integration** | Azure OpenAI Service (GPT-4o-mini) with streaming, configured via .env file |
 | **Flavor Detection** | `AZURECLI_FLAVOR` environment variable ("azure cli" or "azure powershell") |
-| **PowerShell Integration** | Subprocess pattern - `AgentHelper.ps1` calls `azv2`, captures `__PSEXEC__` marker, executes with `Invoke-Expression` |
+| **PowerShell Integration** | Subprocess pattern - `AgentHelper.ps1` calls `az`, supports interactive confirmation, captures `__PSEXEC__` marker, executes with `Invoke-Expression` |
 | **Module Discovery** | File-based DLL loading from extensions directory at runtime |
 | **Response Types** | `sample_command` (placeholders), `executable_command` (user confirms), `question`, `confirmation`, `exit` |
 | **Streaming UI** | Spinner characters (`⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏`) for "Thinking...", progress bar in PowerShell |
-| **Interactive Prompts** | ✅ CLI can prompt user for confirmation | ❌ PowerShell cannot (subprocess has no stdin) |
+| **Interactive Prompts** | ✅ Both CLI and PowerShell prompt user for confirmation with AI-interpreted natural language responses |
 
 ## Architecture Comparison: Theoretical vs. Actual
 
@@ -38,24 +38,24 @@ Cirrus is a modular Azure CLI and PowerShell tool with **AI-powered fallback** f
 - ✅ `Program.Main()` try-catch around extension dispatcher
 - ✅ Exception triggers `TryAgentFallbackAsync()` with retry logic
 - ✅ Agent outputs JSON responses parsed by `AgentEngine.ExecuteCommandAsync()`
-- ✅ PowerShell uses subprocess pattern calling `azv2` CLI
+- ✅ PowerShell uses subprocess pattern calling `az` CLI
 - ✅ Extensions are standalone DLLs with commands, not integrated cmdlets
 - ✅ `__PSEXEC__` marker protocol for PowerShell command execution
 
 ## Entry Points
 
-### Azure CLI (azv2)
+### Azure CLI
 
 ```bash
 # Structured commands (extension routing)
-$ azv2 group create --name mygroup --location eastus
+$ az group create --name mygroup --location eastus
 
 # Natural language (AI fallback)
-$ azv2 create a resource group called mygroup in westus
-$ azv2 how do I list virtual machines
+$ az create a resource group called mygroup in westus
+$ az how do I list virtual machines
 
 # Typo correction (AI fallback)
-$ azv2 I would like to logni
+$ az I would like to logni
 ```
 
 **What the Bootstrapper does:**
@@ -68,7 +68,7 @@ $ azv2 I would like to logni
 # Direct cmdlet execution
 New-ResourceGroup -Name mygroup -Location eastus
 
-# Natural language via Invoke-AzAI (subprocess to azv2)
+# Natural language via Invoke-AzAI (subprocess to az)
 Invoke-AzAI create a resource group called mygroup in westus
 
 # Convenient aliases (no quotes needed)
@@ -77,15 +77,15 @@ please show me all resource groups
 pls list virtual machines
 ```
 
-**Key Difference:** PowerShell's `Invoke-AzAI` spawns `azv2` as subprocess with `AZURECLI_FLAVOR=azure powershell`
+**Key Difference:** PowerShell's `Invoke-AzAI` spawns `az` as subprocess with `AZURECLI_FLAVOR=azure powershell`
 
 ## CLI Architecture with Exception-Driven Fallback
 
-### Azure CLI (azv2) Flow
+### Azure CLI Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│              User Input: "azv2 <command>"                   │
+│              User Input: "az <command>"                     │
 └────────────────────┬────────────────────────────────────────┘
                      │
                      ↓
@@ -142,7 +142,7 @@ pls list virtual machines
                                │                   │
                                ↓                   ↓
                    ┌───────────────────┐  ┌──────────────┐
-                   │ Recursive azv2    │  │ Cancelled    │
+                   │ Recursive az      │  │ Cancelled    │
                    │ call with command │  │ Exit 0       │
                    └───────────────────┘  └──────────────┘
 ```
@@ -201,7 +201,7 @@ pls list virtual machines
                      │
                      ↓
          ┌───────────────────────────┐
-         │  & azv2 $Query            │
+         │  & az $Query              │
          │  (subprocess spawn)       │
          └───────────┬───────────────┘
                      │
@@ -239,13 +239,13 @@ pls list virtual machines
 | Component | File Path | Description |
 |-----------|-----------|-------------|
 | **CLI Entry Point** | `src/CLI/Program.cs` | Try-catch fallback to agent |
-| **Extension Dispatcher** | `src/CLI/ExtensionDispatcher.cs` | Parse args, load DLLs |
-| **Command Group Index** | `src/CLI/CommandGroupIndex.cs` | DLL discovery and loading |
+| **Extension Dispatcher** | `src/CLI/Parser/ExtensionDispatcher.cs` | Parse args, load DLLs |
+| **Command Group Index** | `src/CLI/Parser/CommandGroupIndex.cs` | DLL discovery and loading |
 | **Agent Engine** | `src/Core/Core.Engine/AgentEngine.cs` | Conversation loop, streaming UI |
 | **Cloud Agent** | `src/Core/Core.Agent/CloudAgent.cs` | Azure OpenAI integration |
 | **Prompt Template** | `src/Core/Core.Agent/prompt.md` | System instructions with {{flavor}} |
-| **PowerShell Helper** | `src/PS/Resources/AgentHelper.ps1` | `Invoke-AzAI` function |
-| **Resources Manifest** | `src/PS/Resources/Resources.psd1` | PowerShell module definition |
+| **PowerShell Helper** | `src/Agent/Agent/AgentHelper.ps1` | `Invoke-AzAI` function |
+| **PowerShell Modules** | `src/PS/` | PowerShell module source |
 | **Group Extension** | `artifacts/*/Group/Group.dll` | Resource group commands |
 | **Login Extension** | `artifacts/*/Login/Login.dll` | Authentication commands |
 
@@ -273,7 +273,7 @@ Program.cs
 AgentHelper.ps1
     │
     ├─► Set AZURECLI_FLAVOR="azure powershell"
-    ├─► & azv2 $Query (subprocess)
+    ├─► & az $Query (subprocess)
     ├─► ForEach-Object streaming
     ├─► Write-Progress (progress bar)
     └─► Invoke-Expression $commandToExecute
@@ -283,13 +283,13 @@ AgentHelper.ps1
 
 ### AgentHelper.ps1 Architecture
 
-**Location:** `src/PS/Resources/AgentHelper.ps1`
+**Location:** `src/Agent/Agent/AgentHelper.ps1`
 
-**Purpose:** Provides natural language interface for PowerShell users via subprocess to `azv2` CLI
+**Purpose:** Provides natural language interface for PowerShell users via subprocess to `az` CLI
 
 **Key Functions:**
 1. `Invoke-AzAI` - Main function (aliases: `ask`, `please`, `pls`)
-2. CLI path discovery - finds `azv2` or `az` executable
+2. CLI path discovery - finds `az` executable
 3. Streaming pipeline - `ForEach-Object` for line-by-line output
 4. Spinner filtering - Regex to hide `⠋ Thinking...` lines
 5. Progress bar - `Write-Progress` for better UX
@@ -303,7 +303,7 @@ PS> ask create a resource group called mygroup in westus
 
 # AgentHelper.ps1 executes:
 $env:AZURECLI_FLAVOR = "azure powershell"
-& $azv2Path create a resource group called mygroup in westus 2>&1 | ForEach-Object {
+& $azPath create a resource group called mygroup in westus 2>&1 | ForEach-Object {
     # Filter spinner, show progress, capture __PSEXEC__ marker
 }
 
@@ -320,19 +320,19 @@ Invoke-Expression "New-ResourceGroup -Name mygroup -Location westus"
 
 ### Behavioral Comparison: CLI vs PowerShell
 
-| Feature | Azure CLI (azv2) | Azure PowerShell |
-|---------|------------------|------------------|
-| **Process Model** | Single process | Subprocess (PowerShell → azv2) |
-| **Interactive Prompts** | ✅ Yes - can ask user for confirmation | ❌ No - stdin not available in subprocess |
+| Feature | Azure CLI | Azure PowerShell |
+|---------|-----------|------------------|
+| **Process Model** | Single process | Subprocess (PowerShell → az) |
+| **Interactive Prompts** | ✅ Yes - prompts for confirmation | ✅ Yes - prompts for confirmation |
 | **Streaming Output** | Direct stdout from AgentEngine | Filtered via ForEach-Object pipeline |
 | **Progress Indicator** | Spinner characters (⠋⠙⠹...) | Write-Progress bar |
-| **Command Execution** | Recursive azv2 call (same process) | `Invoke-Expression` in parent PowerShell |
+| **Command Execution** | Recursive az call (same process) | `Invoke-Expression` in parent PowerShell |
 | **Flavor Detection** | Default or env var | Always sets `AZURECLI_FLAVOR=azure powershell` |
 | **Command Marker** | Not needed (direct execution) | `__PSEXEC__<command>` required |
-| **User Safety** | Explicit confirmation before execution | Auto-execution after display (no prompts) |
-| **Syntax** | `azv2 create resource group X` | `ask create resource group X` (no quotes) |
+| **User Safety** | AI-interpreted confirmation with natural language | AI-interpreted confirmation with natural language |
+| **Syntax** | `az create resource group X` | `ask create resource group X` (no quotes) |
 
-**PowerShell Limitation:** Due to subprocess architecture, PowerShell cannot prompt for interactive confirmation. Commands are auto-executed after being displayed.
+**Note:** Both CLI and PowerShell support interactive confirmation. User responses are interpreted by the AI agent using a language model, not hard-coded yes/no checks.
 
 ## Core Components
 
@@ -370,7 +370,7 @@ static async Task<int> Main(string[] args)
 
 ### 2. ExtensionDispatcher - Command Routing
 
-**Location:** `src/CLI/ExtensionDispatcher.cs`
+**Location:** `src/CLI/Parser/ExtensionDispatcher.cs`
 
 **Responsibilities:**
 - Parse command-line arguments into command groups
@@ -394,7 +394,7 @@ args: ["group", "create", "--name", "test"]
 
 ### 3. CommandGroupIndex - DLL Discovery
 
-**Location:** `src/CLI/CommandGroupIndex.cs`
+**Location:** `src/CLI/Parser/CommandGroupIndex.cs`
 
 **Responsibilities:**
 - Scan extensions directory for DLL files
@@ -596,7 +596,7 @@ static async Task<int> TryAgentFallbackAsync(string[] args)
 ### Example 1: Structured CLI Command (Success)
 
 ```bash
-$ azv2 group create --name mygroup --location eastus
+$ az group create --name mygroup --location eastus
 ```
 
 **Flow:**
@@ -615,7 +615,7 @@ $ azv2 group create --name mygroup --location eastus
 ### Example 2: CLI with Typo (AI Correction)
 
 ```bash
-$ azv2 grup create --name mygroup --location eastus  # Typo: "grup"
+$ az grup create --name mygroup --location eastus  # Typo: "grup"
 ```
 
 **Flow:**
@@ -635,7 +635,7 @@ $ azv2 grup create --name mygroup --location eastus  # Typo: "grup"
 ### Example 3: Natural Language CLI (Interactive)
 
 ```bash
-$ azv2 create a resource group called mygroup in westus
+$ az create a resource group called mygroup in westus
 ```
 
 **Flow:**
@@ -644,17 +644,11 @@ $ azv2 create a resource group called mygroup in westus
 3. Catch block → `TryAgentFallbackAsync(args)`
 4. `AgentEngine` streams to `CloudAgent`
 5. Azure OpenAI understands intent
-6. Returns `executable_command` JSON:
-   ```json
-   {
-     "type": "executable_command",
-     "explanation": "I'll create a resource group named 'mygroup' in westus.",
-     "command": "group create --name mygroup --location westus"
-   }
-   ```
-7. `AgentEngine` prompts: "Execute this command? (yes/no): "
-8. User types "yes"
-9. Recursive call: `azv2 group create --name mygroup --location westus`
+6. Returns `confirmation` JSON requesting user confirmation
+7. `AgentEngine` prompts user
+8. User responds with natural language (e.g., "yes", "sure", "go ahead")
+9. Agent interprets intent and returns `executable_command`
+10. Recursive call: `az group create --name mygroup --location westus`
 10. Extension executes command
 11. Return 0
 
@@ -671,28 +665,29 @@ PS> ask create a resource group called mygroup in westus
 **Flow:**
 1. `Invoke-AzAI` function in AgentHelper.ps1
 2. Sets `$env:AZURECLI_FLAVOR = "azure powershell"`
-3. Spawns subprocess: `& azv2 create a resource group called mygroup in westus`
+3. Spawns subprocess: `& az create a resource group called mygroup in westus`
 4. CLI: `Program.Main()` → Try block fails → `TryAgentFallbackAsync()`
 5. `AgentEngine` detects flavor = "azure powershell"
 6. `CloudAgent` loads prompt template with "azure powershell" flavor
-7. Azure OpenAI returns PowerShell cmdlet:
-   ```json
-   {
-     "type": "executable_command",
-     "explanation": "I'll create a resource group named 'mygroup' in westus.",
-     "command": "New-ResourceGroup -Name mygroup -Location westus"
-   }
-   ```
-8. `AgentEngine` outputs: `__PSEXEC__New-ResourceGroup -Name mygroup -Location westus`
-9. AgentHelper.ps1 captures output via `ForEach-Object`
-10. Regex match: `'^__PSEXEC__(.+)$'` → Extracts command
-11. `Invoke-Expression "New-ResourceGroup -Name mygroup -Location westus"`
-12. Cmdlet executes in PowerShell context
-13. Result displayed
+7. Azure OpenAI returns confirmation request
+8. `AgentEngine` prompts user for confirmation
+9. User responds with natural language (e.g., "yes", "sure", "go ahead")
+10. Agent interprets intent and returns `executable_command` with PowerShell cmdlet:
+    ```json
+    {
+      "type": "executable_command",
+      "explanation": "I'll create a resource group named 'mygroup' in westus.",
+      "command": "New-ResourceGroup -Name mygroup -Location westus"
+    }
+    ```
+11. `AgentEngine` outputs: `__PSEXEC__New-ResourceGroup -Name mygroup -Location westus`
+12. AgentHelper.ps1 captures output via `ForEach-Object`
+13. Regex match: `'^__PSEXEC__(.+)$'` → Extracts command
+14. `Invoke-Expression "New-ResourceGroup -Name mygroup -Location westus"`
+15. Cmdlet executes in PowerShell context
+16. Result displayed
 
-**Agent converted natural language → PowerShell cmdlet → auto-execution.**
-
-**Critical Difference:** PowerShell subprocess cannot prompt for confirmation (no stdin), so command executes immediately after display.
+**Agent converted natural language → confirmation → PowerShell cmdlet → execution.**
 
 ## Three Agent Scenarios (Detailed)
 
@@ -706,7 +701,7 @@ PS> ask create a resource group called mygroup in westus
 
 **CLI Example:**
 ```bash
-$ azv2 I would like to logni
+$ az I would like to logni
 
 ⠋ Thinking...
 
@@ -746,7 +741,7 @@ Connect-AzAccount -UseDeviceAuthentication
 
 **CLI Example:**
 ```bash
-$ azv2 how do I create a resource group
+$ az how do I create a resource group
 
 ⠋ Thinking...
 
@@ -789,7 +784,7 @@ New-ResourceGroup -Name myResourceGroup -Location eastus
 
 **CLI Example (Interactive):**
 ```bash
-$ azv2 create a resource group called mygroup in westus
+$ az create a resource group called mygroup in westus
 
 ⠋ Thinking...
 
@@ -849,7 +844,7 @@ ResourceId        : /subscriptions/.../resourceGroups/mygroup
 ---
 
 ### ✅ Subprocess PowerShell Integration
-**Decision:** PowerShell calls `azv2` CLI as subprocess with `__PSEXEC__` marker protocol.
+**Decision:** PowerShell calls `az` CLI as subprocess with `__PSEXEC__` marker protocol.
 
 **Rationale:**
 - Reuses CLI's agent logic (no duplication)
@@ -960,7 +955,7 @@ dotnet test tests/PowerShell.Tests/PowerShell.Tests.csproj
 
 For tests requiring Azure OpenAI:
 1. Set up `.env` file in `src/Core/Core.Agent/`
-2. Run CLI manually: `./bin/azv2 how do I create a resource group`
+2. Run CLI manually: `./artifacts/Release/Core.Cli/az how do I create a resource group`
 3. Verify spinner, AI response, command output
 
 ## Configuration
@@ -998,14 +993,7 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
 
 ## Limitations & Known Issues
 
-### ❌ PowerShell Cannot Do Interactive Prompts
-**Reason:** Subprocess architecture - stdin not connected
 
-**Impact:** Commands auto-execute after display (no confirmation)
-
-**Workaround:** Use "how to" questions to get examples without execution
-
----
 
 ### ❌ No Unified Business Layer
 **Reason:** Extensions are standalone DLLs, not shared library
@@ -1041,7 +1029,7 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
 **Steps:**
 1. Restore NuGet packages
 2. Build solution (`cirrus.slnx`)
-3. Publish CLI to `artifacts/Release/Core.Cli/` as `azv2`
+3. Publish CLI to `artifacts/Release/Core.Cli/` as `az`
 4. Copy extension DLLs to `artifacts/Release/Group/`, etc.
 5. Copy PowerShell module manifests to `artifacts/Release/`
 
@@ -1060,13 +1048,14 @@ dotnet build cirrus.slnx
 ```
 artifacts/
   Release/
-    Core/
-      azv2                          ← CLI executable
-      azv2.deps.json
-      azv2.runtimeconfig.json
-      Cirrus.Core.psd1             ← Core PowerShell module
+    Core.Cli/
+      az                            ← CLI executable
+      az.deps.json
+      az.runtimeconfig.json
       prompt.md
       runtimes/
+    Core/
+      Cirrus.Core.psd1             ← Core PowerShell module
     Group/
       Group.dll                     ← Extension
       Group.deps.json
@@ -1084,19 +1073,19 @@ artifacts/
 ### Running the CLI
 
 ```bash
-# After deploy
-./artifacts/Release/Core/azv2 group create --name test --location eastus
+# After build
+./artifacts/Release/Core.Cli/az group create --name test --location eastus
 
 # Or add to PATH
-export PATH="$PATH:/workspaces/cirrus/artifacts/Release/Core"
-azv2 --help
+export PATH="$PATH:/workspaces/cirrus/artifacts/Release/Core.Cli"
+az --help
 ```
 
 ### Importing PowerShell Modules
 
 ```powershell
-# Import specific module
-Import-Module ./artifacts/Release/Resources/Cirrus.Resources.psd1
+# Import core module (loads all sub-modules)
+Import-Module ./artifacts/Release/Core/Cirrus.Core.psd1
 
 # Use AI agent
 ask how do I create a resource group
@@ -1152,12 +1141,12 @@ New-ResourceGroup -Name test -Location eastus
 | Component | Path |
 |-----------|------|
 | CLI Entry | `src/CLI/Program.cs` |
-| Extension Dispatcher | `src/CLI/ExtensionDispatcher.cs` |
+| Extension Dispatcher | `src/CLI/Parser/ExtensionDispatcher.cs` |
 | Agent Engine | `src/Core/Core.Engine/AgentEngine.cs` |
 | Cloud Agent | `src/Core/Core.Agent/CloudAgent.cs` |
 | Prompt Template | `src/Core/Core.Agent/prompt.md` |
-| PowerShell Helper | `src/PS/Resources/AgentHelper.ps1` |
-| Resources Manifest | `src/PS/Resources/Resources.psd1` |
+| PowerShell Helper | `src/Agent/Agent/AgentHelper.ps1` |
+| PowerShell Modules | `src/PS/` |
 | CLI Tests | `tests/Cli.Tests/` |
 | PowerShell Tests | `tests/PowerShell.Tests/` |
 

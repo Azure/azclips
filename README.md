@@ -13,7 +13,7 @@ cirrus/
 ├── 📁 src/                       # Source code
 │   ├── Directory.Build.props     # Shared build properties (net9)
 │   ├── CLI/                      # CLI entry point
-│   │   ├── Core.Cli.csproj       # Main CLI project (produces 'azv2' binary)
+│   │   ├── Core.Cli.csproj       # Main CLI project (produces 'az' binary)
 │   │   ├── Program.cs            # Entry point with AI fallback
 │   │   ├── Parser/               # Extension dispatcher and parsers
 │   │   └── Exceptions/           # CLI-specific exceptions
@@ -44,8 +44,8 @@ cirrus/
 │   └── Core/                     # Core library tests
 ├── 📁 artifacts/                 # Build output (generated)
 │   └── Release/                  # Release builds
-│       ├── Core/                 # Core libs + azv2 CLI + Cirrus.Core.psd1
-│       ├── Core.Cli/             # Alternative CLI output with 'az' name
+│       ├── Core/                 # Core libraries + Cirrus.Core.psd1
+│       ├── Core.Cli/             # CLI binary 'az' + dependencies
 │       ├── Group/                # Cirrus.Group module
 │       ├── Login/                # Cirrus.Login module
 │       └── Microsoft.Azure.Cirrus.Extensions.Resources/  # Resources extension
@@ -74,37 +74,37 @@ cirrus/
 - PowerShell 7.0+ (for PowerShell modules)
 - Azure subscription and access token (for actual API calls)
 
-### Build & Publish
+### Build
 
 ```bash
 # Build the solution
-dotnet build cirrus.slnx -c Release
+dotnet build cirrus.slnx
 
-# The CLI binary is produced at artifacts/Release/Core/azv2
+# The CLI binary is produced at artifacts/Release/Core.Cli/az
 # Add to PATH for convenient access
-export PATH="$PWD/artifacts/Release/Core:$PATH"
+export PATH="$PWD/artifacts/Release/Core.Cli:$PATH"
 
 # Or run directly
-./artifacts/Release/Core/azv2 --help
+./artifacts/Release/Core.Cli/az --help
 ```
 
 ### CLI Usage
 
-The `azv2` command supports both structured extension commands and natural language via AI.
+The `az` CLI supports both structured extension commands and natural language via AI. It uses an extension-based architecture where commands are dynamically loaded from extension modules.
 
 **Structured Commands (Extension-Based):**
 ```bash
-azv2 group create --ResourceGroupName mygroup --Location eastus --SubscriptionId <sub-id> --AccessToken <token>
+az group create --ResourceGroupName mygroup --Location eastus --SubscriptionId <sub-id> --AccessToken <token>
 ```
 
 **Natural Language (AI-Powered):**
 ```bash
-azv2 "create a resource group named test in eastus"
-azv2 "how do I list all my resource groups?"
-azv2 "show me everything in westus"
+az "create a resource group named test in eastus"
+az "how do I list all my resource groups?"
+az "show me everything in westus"
 ```
 
-The CLI automatically tries extension-based execution first. On parse or execution failures, it falls back to the AI agent which interprets your intent and can generate executable commands.
+The CLI automatically tries extension-based parsing first. On parse or execution failures, it falls back to the AI agent which interprets your intent and can generate executable commands.
 
 ### PowerShell Usage
 
@@ -138,9 +138,6 @@ please "delete resource group test" # Alias for Invoke-AzV2
 ### Running Tests
 
 ```bash
-# Build first
-dotnet build cirrus.slnx -c Release
-
 # Run all tests
 dotnet test
 

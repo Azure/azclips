@@ -618,3 +618,6 @@ obj/
 *.gguf
 *.ggml
 llama_models/
+
+
+change.md

@@ -30,6 +30,9 @@
 		},
 		"ghcr.io/devcontainers/features/node": {
 			"version": "lts"
+		},
+		"ghcr.io/devcontainers/features/powershell": {
+			"version": "7.5.4"
 		}
 	},
 
