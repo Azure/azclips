@@ -1,7 +1,5 @@
 using Core.Abstractions;
 using Core.Engine;
-using Microsoft.Azure.Cirrus.Extensions.Resources.Client;
-using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
 using Microsoft.Extensions.DependencyInjection;
 using SharedContracts;
 
@@ -29,22 +27,19 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
                 SubscriptionId = SubscriptionId
             };
 
-            var authService = ServiceProviderAsync.GetAwaiter().GetResult()
+            var authService = Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult()
                 .GetRequiredService<IAuthService>();
-                // // todo: tenant ID should be got from context when it's implemented
-                // .AcquireTokenSilentlyAsync(scopes: null, tenantId: null, promptOnError: true).GetAwaiter().GetResult();
-            AccessToken = authService.LoginAsync(loginRequest).GetAwaiter().GetResult();
-            // return new ResourcesClient().CreateOrUpdateResourceGroupAsync(SubscriptionId, Name, new ResourceGroup("eastus", Name), AccessToken).GetAwaiter().GetResult();
-            return authService.GetCurrentContext();
+            authService.LoginAsync(loginRequest).GetAwaiter().GetResult();
+            return authService.GetCurrentContext() ?? new AuthenticationInfo() { SubscriptionId = "", TenantId = "" };
         }
 
         public string Process(bool Serialize)
         {
             // TODO: models to provide model.ToJson() method for serialization.
-            Models.ResourceGroup result = (Models.ResourceGroup)Process();
+            AuthenticationInfo result = (AuthenticationInfo)Process();
             if (Serialize)
             {
-                return System.Text.Json.JsonSerializer.Serialize<Models.ResourceGroup>(result, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+                return System.Text.Json.JsonSerializer.Serialize<AuthenticationInfo>(result, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
             }
             else
             {

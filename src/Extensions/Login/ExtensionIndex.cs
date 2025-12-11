@@ -1,14 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Core.Abstractions;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Resources
+namespace Microsoft.Azure.Cirrus.Extensions.Login
 {
     public class ExtensionIndex: IExtensionIndex
     {
@@ -17,17 +12,18 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
 
         public ExtensionIndex()
         {
-            _psTable.Add("Connect-Cirrus", new CommandMetadata(
-                name: "NewResourceGroupCommand",
-                fullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.NewResourceGroupCommand",
-                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
-                commandType: typeof(Commands.NewResourceGroupCommand)
+            _psTable.Add("Connect-CirrusAccount", new CommandMetadata(
+                name: "LoginCommand",
+                fullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.LoginCommand",
+                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
+                commandType: typeof(Commands.LoginCommand)
             ));
-            _cliTable.Add("login", new CommandMetadata(
-                name: "NewResourceGroupCommand",
-                fullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.NewResourceGroupCommand",
-                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
-                commandType: typeof(Commands.NewResourceGroupCommand)
+            // az login is special that the command group and command name are the same
+            _cliTable.Add("", new CommandMetadata(
+                name: "LoginCommand",
+                fullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.LoginCommand",
+                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
+                commandType: typeof(Commands.LoginCommand)
             ));
         }
 

@@ -5,6 +5,25 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "C#: group create Debug",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "dotnet: build",
+            "program": "${workspaceFolder}/artifacts/Debug/Core.Cli/az",
+            "args": [
+                "group",
+                "create",
+                "-SubscriptionId",
+                "9e223dbe-3399-4e19-88eb-0975f02ac87f",
+                "-Name",
+                "yabo-test-group-1",
+                "-Location",
+                "eastus"
+            ],
+            "cwd": "${workspaceFolder}/artifacts/Debug/Core",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "C#: group get Debug",
             "type": "coreclr",
             "request": "launch",

@@ -33,7 +33,7 @@ Copyright = '(c) Microsoft. All rights reserved.'
 Description = 'Azure authentication cmdlets for Cirrus v2'
 
 # Minimum version of the PowerShell engine required by this module
-PowerShellVersion = '7.0'
+PowerShellVersion = '7.5'
 
 # Name of the PowerShell host required by this module
 # PowerShellHostName = ''
@@ -73,9 +73,9 @@ FunctionsToExport = @()
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 CmdletsToExport = @(
-    'Connect-AzV2Account',
-    'Disconnect-AzV2Account',
-    'Get-AzV2Context'
+    'Connect-CirrusAccount',
+    'Disconnect-CirrusAccount',
+    'Get-CirrusContext'
 )
 
 # Variables to export from this module
