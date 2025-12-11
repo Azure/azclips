@@ -77,7 +77,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Client
         {
             ArgumentNullException.ThrowIfNull(request);
 
-            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            var response = await _httpClient.SendAsync(request, cancellationToken);
 
             try
             {
@@ -103,10 +103,9 @@ Response content: {await response.Content.ReadAsStringAsync()}", ex);
 
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
 
-            using var response = await SendAsync(request, cancellationToken);
-            var result = await response.Content.ReadFromJsonAsync<ResourceGroup>(_jsonOptions, cancellationToken);
+            var response = await SendAsync(request, cancellationToken);
 
-            return result!;
+            return (await response.Content.ReadFromJsonAsync<ResourceGroup>(_jsonOptions, cancellationToken))!;
         }
 
         /// <summary>

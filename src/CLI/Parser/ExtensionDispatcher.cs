@@ -30,8 +30,11 @@ public class ExtensionDispatcher //: IParser
 
     public ExtensionDispatcher()
     {
-        ExtensionDirectory = Environment.GetEnvironmentVariable("AZURE_CLI_EXTENSION_DIRECTORY")
-            ?? Directory.GetCurrentDirectory();
+        
+        ExtensionDirectory = Path.Combine(
+            AppContext.BaseDirectory,
+            ".."
+        );
     }
 
     public ExtensionDispatcher(string extensionDirectory)
@@ -46,10 +49,10 @@ public class ExtensionDispatcher //: IParser
         if (args.Length == 1 && helpFlags.Contains(args[0], StringComparer.OrdinalIgnoreCase)) throw new DispatchHelpException(this);
         string extensionName = CommandGroupIndex.getExtensionNameByCommandGroupName($"{char.ToUpperInvariant(args[0][0])}{args[0][1..]}");
         string dllName = $"Microsoft.Azure.Cirrus.Extensions.{extensionName}";
-        string dllPath = Path.Combine(ExtensionDirectory, $"{dllName}.dll");
+        string dllPath = Path.Combine(ExtensionDirectory, dllName, $"{dllName}.dll");
         if (!File.Exists(dllPath)) throw new FileNotFoundException($"Extension assembly not found: {dllPath}");
 
-        var loadContext = new ExtensionLoadContext(ExtensionDirectory);
+        var loadContext = new ExtensionLoadContext(Path.Combine(ExtensionDirectory, dllName));
         //var assembly = loadContext.LoadFromAssemblyPath(dllPath);
         var assembly = Assembly.LoadFrom(dllPath);
         var extensionParser = new ExtensionParser(assembly);

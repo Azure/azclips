@@ -12,9 +12,10 @@
   </Folder>
   <Folder Name="/src/Extensions/">
     <Project Path="src/Extensions/Resources/Extensions.Resources.csproj" />
+    <Project Path="src/Extensions/Login/Extensions.Login.csproj" />
   </Folder>
-  <Folder Name="/src/SharedContracts/">
-    <Project Path="src/SharedContracts/SharedContracts.csproj" />
+  <Folder Name="/src/Group/">
+    <Project Path="src/Group/Group/Group.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Cli.Tests/Cli.Tests.csproj" />
