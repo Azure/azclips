@@ -31,9 +31,10 @@ public class Program
             serviceProvider.GetRequiredService<ILoggerService>().Log("Command Line Interface Help");
             return 0;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             // Extension execution failed - try AI agent fallback
+            Console.WriteLine($"Error: {ex.Message}\n");
             return await TryAgentFallbackAsync(args);
         }
     }
