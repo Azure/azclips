@@ -36,7 +36,7 @@ public class MsalAuthService(ILoggerService Logger) : IAuthService // todo: test
     private async Task<string> AcquireTokenInteractiveAsync(string[]? scopes, string? tenantId, CancellationToken cancellationToken = default)
     {
         IPublicClientApplication app = BuildApp(tenantId);
-        await RegisterTokenCacheAsync(app, false);
+        await RegisterTokenCacheAsync(app, true);
 
         var result = await app.AcquireTokenInteractive(scopes ?? [ArmDefaultScope]).WithUseEmbeddedWebView(false).ExecuteAsync(cancellationToken);
         LogTokenMetadata(result);

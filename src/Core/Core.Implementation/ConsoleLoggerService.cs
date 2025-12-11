@@ -10,13 +10,13 @@ public class ConsoleLoggerService : ILoggerService
     public void Log(string message)
     {
         // Silent for clean output - can be enabled for debugging
-        // Console.WriteLine($"[LOG] {message}");
+        Console.WriteLine($"[LOG] {message}");
     }
 
     public void LogInfo(string message)
     {
         // Silent for clean output - can be enabled for debugging
-        // Console.WriteLine($"[INFO] {message}");
+        Console.WriteLine($"[INFO] {message}");
     }
 
     public void LogError(string message)
@@ -29,8 +29,8 @@ public class ConsoleLoggerService : ILoggerService
     public void LogWarning(string message)
     {
         // Silent for clean output
-        // Console.ForegroundColor = ConsoleColor.Yellow;
-        // Console.WriteLine($"[WARN] {message}");
-        // Console.ResetColor();
+        Console.ForegroundColor = ConsoleColor.Yellow;
+        Console.WriteLine($"[WARN] {message}");
+        Console.ResetColor();
     }
 }

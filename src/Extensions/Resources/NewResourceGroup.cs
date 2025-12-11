@@ -17,12 +17,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
 
         [ArgumentInfoAttribute(
         Required = true,
-        Description = @"Temporarily enable access token for easy login.",
-        SerializedName = @"AccessToken")]
-        public string AccessToken { get; set; } = "";
-
-        [ArgumentInfoAttribute(
-        Required = true,
         Description = @"The name of the resource group.",
         SerializedName = @"ResourceGroupName")]
         public string Name { get; set; } = "";
@@ -46,11 +40,12 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
 
         public object Process()
         {
-            AccessToken = Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult()
-                .GetRequiredService<IAuthService>()
-                // todo: tenant ID should be got from context when it's implemented
-                .AcquireTokenSilentlyAsync(scopes: null, tenantId: null, promptOnError: true).GetAwaiter().GetResult();
-            return new ResourcesClient().CreateOrUpdateResourceGroupAsync(SubscriptionId, Name, new ResourceGroup("eastus", Name), AccessToken).GetAwaiter().GetResult();
+            var serviceProvider = Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult();
+            var authService = serviceProvider.GetRequiredService<IAuthService>();
+            var authContext = authService.GetCurrentContext();
+            var accessToken = authService
+                .AcquireTokenSilentlyAsync(scopes: null, tenantId: authContext?.TenantId, promptOnError: true).GetAwaiter().GetResult();
+            return new ResourcesClient().CreateOrUpdateResourceGroupAsync(SubscriptionId, Name, new ResourceGroup("eastus", Name), accessToken).GetAwaiter().GetResult();
         }
 
         public string Process(bool Serialize)
