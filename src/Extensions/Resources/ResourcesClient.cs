@@ -77,8 +77,17 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Client
         {
             ArgumentNullException.ThrowIfNull(request);
 
-            HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken);
-            response.EnsureSuccessStatusCode();
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+
+            try
+            {
+                response.EnsureSuccessStatusCode();
+            }
+            catch (HttpRequestException ex)
+            {
+                throw new InvalidOperationException(@$"Request to {request.RequestUri} failed with status code {response.StatusCode}.
+Response content: {await response.Content.ReadAsStringAsync()}", ex);
+            }
 
             return response;
         }

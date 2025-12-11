@@ -11,6 +11,7 @@
     <ItemGroup>
         <ProjectReference Include="..\..\Core\Core.Abstractions\Core.Abstractions.csproj" />
         <ProjectReference Include="..\..\SharedContracts\SharedContracts.csproj" />
+        <ProjectReference Include="..\..\Core\Core.Engine\Core.Engine.csproj" />
     </ItemGroup>
 
     <!--Import Project="$(MSBuildThisFileDirectory)\..\..\Directory.Build.props" /-->

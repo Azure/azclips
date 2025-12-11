@@ -1,4 +1,5 @@
-using Core.Abstractions;
+﻿using Core.Abstractions;
+using Core.Authentication;
 using Core.Implementation;
 using Microsoft.Extensions.DependencyInjection;
 using Core.Agent;
@@ -7,38 +8,39 @@ namespace Core.Engine;
 
 /// <summary>
 /// Bootstrapper for initializing and configuring the command execution engine.
-/// 
+///
 /// DESIGN EVOLUTION:
-/// Original design (main branch) was minimal - only registered ITelemetryService and ICommandEngine.
+/// Original design (main branch) was minimal - only registered ILogger and ICommandEngine.
 /// This was sufficient for a simple CLI that parsed commands and executed them directly.
-/// 
+///
 /// Current design extends the original pattern to support:
 /// 1. AI-powered natural language processing via AgentEngine
 /// 2. Orchestration pattern that tries structured commands first, falls back to AI
 /// 3. Output abstraction to support both CLI (Console) and PowerShell hosts
 /// 4. Parser and Binder as explicit services for better testability
-/// 
+///
 /// The core pattern remains unchanged: static StartAsync() returns ICommandEngine,
 /// all services registered as Singletons (appropriate for short-lived CLI process).
 /// </summary>
 public class Bootstrapper
 {
-    /// <summary>
-    /// Initializes the command engine with all required dependencies.
-    /// </summary>
-    /// <param name="cancellationToken">Cancellation token for async operations.</param>
-    /// <returns>Fully configured ICommandEngine (OrchestratorEngine that delegates to Default or Agent engines).</returns>
-    public static Task<ICommandEngine> StartAsync(CancellationToken cancellationToken = default)
+    public static Task<IServiceProvider> ServiceProviderAsync => _serviceProvider.Value;
+    private readonly static Lazy<Task<IServiceProvider>> _serviceProvider = new(() => StartAsync());
+
+    private static async Task<IServiceProvider> StartAsync()
     {
-        var serviceProvider = RegisterServices();
-        var telemetryService = serviceProvider.GetRequiredService<ITelemetryService>();
-        telemetryService.LogInfo("Core.Engine has started.");
-        return Task.FromResult(serviceProvider.GetRequiredService<ICommandEngine>());
+        return await Task.Run(() =>
+        {
+            var serviceProvider = RegisterServices();
+            var Logger = serviceProvider.GetRequiredService<ILoggerService>();
+            Logger.Log("Core.Engine has started.");
+            return serviceProvider;
+        });
     }
 
     /// <summary>
     /// Registers all services required for command execution.
-    /// 
+    ///
     /// All services are registered as Singleton because:
     /// - CLI process is short-lived (single command execution)
     /// - No per-request scoping needed
@@ -50,10 +52,11 @@ public class Bootstrapper
 
         // --- ORIGINAL REGISTRATIONS (from main branch) ---
         // Telemetry service for logging throughout the application
-        services.AddSingleton<ITelemetryService, ConsoleTelemetryService>();
+        services.AddSingleton<ILoggerService, ConsoleLoggerService>();
+        services.AddSingleton<IAuthService, MsalAuthService>();
 
         // --- NEW REGISTRATIONS (added for AI integration) ---
-        
+
         // Output abstraction - allows supporting both Console (CLI) and PowerShell hosts
         // Original design used Console.WriteLine directly; this abstraction enables
         // future PowerShell output formatting without changing engine logic
@@ -67,16 +70,11 @@ public class Bootstrapper
         // Command binder - dynamically loads modules and binds commands
         // Originally instantiated inline in DefaultCommandEngine; extracted
         // to service for testability and explicit dependency management
-        services.AddSingleton<CommandBinder>(sp => 
-            new CommandBinder(sp.GetRequiredService<ITelemetryService>()));
+        services.AddSingleton<CommandBinder>();
 
         // Default command engine - handles structured commands (e.g., "group create --name test")
         // This is the original ICommandEngine implementation, now one of multiple engines
-        services.AddSingleton<DefaultCommandEngine>(sp =>
-            new DefaultCommandEngine(
-                sp.GetRequiredService<CommandParser>(),
-                sp.GetRequiredService<CommandBinder>(),
-                sp.GetRequiredService<ITelemetryService>()));
+        services.AddSingleton<DefaultCommandEngine>();
 
         // Agent engine - handles natural language input via AI (Azure OpenAI)
         // NEW: This didn't exist in original design. Added to support queries like
@@ -101,7 +99,7 @@ public class Bootstrapper
                 sp.GetRequiredService<AgentEngine>(),
                 sp.GetRequiredService<CommandParser>(),
                 sp.GetRequiredService<CommandBinder>(),
-                sp.GetRequiredService<ITelemetryService>(),
+                sp.GetRequiredService<ILoggerService>(),
                 sp.GetRequiredService<IOutputAdapter>()));
 
         return services.BuildServiceProvider();

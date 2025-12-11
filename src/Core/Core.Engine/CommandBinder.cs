@@ -6,15 +6,8 @@ namespace Core.Engine;
 /// <summary>
 /// Binds parsed commands to actual ICommand implementations by dynamically loading modules.
 /// </summary>
-public class CommandBinder
+public class CommandBinder(ILoggerService _logger)
 {
-    private readonly ITelemetryService _telemetry;
-
-    public CommandBinder(ITelemetryService telemetry)
-    {
-        _telemetry = telemetry;
-    }
-
     /// <summary>
     /// Binds the parsed result to a command implementation.
     /// </summary>
@@ -32,7 +25,7 @@ public class CommandBinder
 
         if (module == null)
         {
-            _telemetry.LogWarning($"Module '{moduleName}' not found.");
+            _logger.LogWarning($"Module '{moduleName}' not found.");
             return null;
         }
 
@@ -40,7 +33,7 @@ public class CommandBinder
 
         if (!commands.Any())
         {
-            _telemetry.LogWarning($"Module '{moduleName}' has no commands.");
+            _logger.LogWarning($"Module '{moduleName}' has no commands.");
             return null;
         }
 
@@ -63,7 +56,7 @@ public class CommandBinder
 
         if (matchedCommand == null)
         {
-            _telemetry.LogWarning($"Command '{subcommand}' not found in module '{moduleName}'.");
+            _logger.LogWarning($"Command '{subcommand}' not found in module '{moduleName}'.");
         }
 
         return matchedCommand;
@@ -115,7 +108,7 @@ public class CommandBinder
 
             // Load assembly and find IModule implementation
             var moduleAssembly = Assembly.LoadFrom(moduleDll);
-            
+
             // GetTypes() may throw if some types can't be loaded (e.g., PowerShell cmdlets)
             // Use GetExportedTypes() or catch ReflectionTypeLoadException
             Type[] types;
@@ -129,7 +122,7 @@ public class CommandBinder
                 // Use the types that did load
                 types = ex.Types.Where(t => t != null).ToArray()!;
             }
-            
+
             foreach (var type in types)
             {
                 if (typeof(IModule).IsAssignableFrom(type) && !type.IsInterface && !type.IsAbstract)
@@ -142,7 +135,7 @@ public class CommandBinder
         }
         catch (Exception ex)
         {
-            _telemetry.LogError($"Error loading module '{moduleName}': {ex.Message}");
+            _logger.LogError($"Error loading module '{moduleName}': {ex.Message}");
             return null;
         }
     }

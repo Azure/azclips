@@ -1,6 +1,6 @@
 namespace Core.Abstractions;
 
-public interface ITelemetryService
+public interface ILoggerService
 {
     void Log(string message);
     void LogInfo(string message);

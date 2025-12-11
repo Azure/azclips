@@ -5,7 +5,7 @@ namespace Core.Implementation;
 /// <summary>
 /// Simple console-based telemetry service for logging.
 /// </summary>
-public class ConsoleTelemetryService : ITelemetryService
+public class ConsoleLoggerService : ILoggerService
 {
     public void Log(string message)
     {

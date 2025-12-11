@@ -4,30 +4,30 @@ namespace Core.Engine;
 
 /// <summary>
 /// OrchestratorEngine coordinates between structured command execution and AI-powered natural language processing.
-/// 
+///
 /// WHY THIS EXISTS:
 /// Original design (main branch) had only DefaultCommandEngine - it parsed structured commands
 /// like "group create --name test" and threw exceptions for anything it couldn't understand.
-/// 
+///
 /// This orchestrator was added to enable graceful fallback to AI for:
 /// - Natural language queries: "create a resource group called test"
 /// - Typos and mistakes: "groop create" → AI suggests "group create"
 /// - Exploratory queries: "how do I list my resource groups?"
 /// - Command generation: AI can generate executable commands from descriptions
-/// 
+///
 /// EXECUTION FLOW:
 /// 1. Try DefaultCommandEngine (fast path for structured commands)
 /// 2. On failure → invoke AgentEngine (AI processes natural language)
 /// 3. If AI returns executable command → retry with DefaultCommandEngine
 /// 4. Repeat up to maxTries (allows AI to refine commands)
-/// 
+///
 /// FLAVOR HANDLING (addressing corrections.md concerns):
 /// - PowerShell cmdlets set AZURECLI_FLAVOR="azure powershell" before calling CLI
 /// - When PowerShell flavor detected, we bypass DefaultEngine and go straight to AgentEngine
 /// - Why? PowerShell invokes CLI for natural language only (Invoke-AzV2 cmdlet)
 /// - Structured commands in PowerShell use cmdlets directly (New-AzV2ResourceGroup), not CLI
 /// - CLI invocations default to "azure cli" flavor and use full orchestration
-/// 
+///
 /// NOTE: Flavor could be injected via constructor (better testability) but environment
 /// variable keeps it simple and matches PowerShell's existing integration pattern.
 /// </summary>
@@ -37,7 +37,7 @@ public class OrchestratorEngine : ICommandEngine
     private readonly AgentEngine _agentEngine;
     private readonly CommandParser _parser;
     private readonly CommandBinder _binder;
-    private readonly ITelemetryService _telemetry;
+    private readonly ILoggerService _logger;
     private readonly IOutputAdapter _output;
 
     public string? ExtractedCommand => _agentEngine.ExtractedCommand;
@@ -47,14 +47,14 @@ public class OrchestratorEngine : ICommandEngine
         AgentEngine agentEngine,
         CommandParser parser,
         CommandBinder binder,
-        ITelemetryService telemetry,
+        ILoggerService telemetry,
         IOutputAdapter output)
     {
         _defaultEngine = defaultEngine;
         _agentEngine = agentEngine;
         _parser = parser;
         _binder = binder;
-        _telemetry = telemetry;
+        _logger = telemetry;
         _output = output;
     }
 
@@ -62,7 +62,7 @@ public class OrchestratorEngine : ICommandEngine
     {
         // Detect CLI flavor: "azure cli" (default, direct CLI invocation) or "azure powershell" (called from PowerShell)
         var flavor = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure cli";
-        
+
         if (flavor == "azure powershell")
         {
             // PowerShell flavor: Only natural language processing needed
