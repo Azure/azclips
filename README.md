@@ -12,8 +12,8 @@ cirrus/
 │   └── spec/                     # Technical specifications
 ├── 📁 src/                       # Source code
 │   ├── Directory.Build.props     # Shared build properties (net9)
-│   ├── CLI/                      # az CLI entry point
-│   │   ├── Core.Cli.csproj       # Main CLI project (produces 'az' binary)
+│   ├── CLI/                      # CLI entry point
+│   │   ├── Core.Cli.csproj       # Main CLI project (produces 'azv2' binary)
 │   │   ├── Program.cs            # Entry point with AI fallback
 │   │   ├── Parser/               # Extension dispatcher and parsers
 │   │   └── Exceptions/           # CLI-specific exceptions
@@ -29,7 +29,10 @@ cirrus/
 │   │       ├── NewResourceGroup.cs # Command implementation
 │   │       ├── ResourcesClient.cs  # Azure REST API client
 │   │       └── ResourcegroupModel.cs # Data models
-│   ├── PS/                       # PowerShell modules
+│   ├── Agent/                    # Agent module with PowerShell cmdlets
+│   ├── Group/                    # Group module with Business/Cmdlets/Commands
+│   ├── Login/                    # Login module with Business/Cmdlets/Commands
+│   ├── PS/                       # PowerShell modules (source)
 │   │   └── Resources/            # Resource group PowerShell module
 │   │       ├── Resources.psd1    # Module manifest
 │   │       ├── Resources.psm1    # Module loader
@@ -37,9 +40,18 @@ cirrus/
 │   └── SharedContracts/          # Shared contracts and interfaces
 ├── 📁 tests/                     # Test projects
 │   ├── Cli.Tests/                # CLI integration tests
-│   └── PowerShell.Tests/         # PowerShell module tests
+│   ├── PowerShell.Tests/         # PowerShell module tests
+│   └── Core/                     # Core library tests
+├── 📁 artifacts/                 # Build output (generated)
+│   └── Release/                  # Release builds
+│       ├── Core/                 # Core libs + azv2 CLI + Cirrus.Core.psd1
+│       ├── Core.Cli/             # Alternative CLI output with 'az' name
+│       ├── Group/                # Cirrus.Group module
+│       ├── Login/                # Cirrus.Login module
+│       └── Microsoft.Azure.Cirrus.Extensions.Resources/  # Resources extension
 ├── 📄 global.json               # .NET SDK version (9.0)
 ├── 📄 cirrus.slnx              # Main solution file
+├── 📄 Shared.props             # Shared build configuration
 ├── 📄 AGENTS.md                # Repository guidelines for AI agents
 ├── 📄 CHANGELOG.md             # Version history
 ├── 📄 CONTRIBUTING.md          # Contribution guidelines
@@ -68,45 +80,60 @@ cirrus/
 # Build the solution
 dotnet build cirrus.slnx -c Release
 
-# Publish the CLI (outputs to artifacts/Release/Core.Cli/ due to Shared.props)
-dotnet publish src/CLI/Core.Cli.csproj -c Release
-
+# The CLI binary is produced at artifacts/Release/Core/azv2
 # Add to PATH for convenient access
-export PATH="$PWD/artifacts/Release/Core.Cli:$PATH"
+export PATH="$PWD/artifacts/Release/Core:$PATH"
 
 # Or run directly
-./artifacts/Release/Core.Cli/az --help
+./artifacts/Release/Core/azv2 --help
 ```
 
 ### CLI Usage
 
-The `az` command supports both structured extension commands and natural language via AI.
+The `azv2` command supports both structured extension commands and natural language via AI.
 
 **Structured Commands (Extension-Based):**
 ```bash
-az group create --ResourceGroupName mygroup --Location eastus --SubscriptionId <sub-id> --AccessToken <token>
+azv2 group create --ResourceGroupName mygroup --Location eastus --SubscriptionId <sub-id> --AccessToken <token>
 ```
 
 **Natural Language (AI-Powered):**
 ```bash
-az create a resource group named test in eastus
-az how do I list all my resource groups?
-az show me everything in westus
+azv2 "create a resource group named test in eastus"
+azv2 "how do I list all my resource groups?"
+azv2 "show me everything in westus"
 ```
 
 The CLI automatically tries extension-based execution first. On parse or execution failures, it falls back to the AI agent which interprets your intent and can generate executable commands.
 
 ### PowerShell Usage
 
-```powershell
-# Import the Resources module
-Import-Module ./src/PS/Resources/Resources.psd1
+Cirrus provides PowerShell modules that wrap the CLI functionality. After building, modules are available in `artifacts/Release/`.
 
-# Use cmdlets (requires building artifacts first with dotnet build)
-New-ResourceGroup -SubscriptionId <sub-id> -Name mygroup -Location eastus -AccessToken <token>
+```powershell
+# Import the meta-module (loads all Cirrus modules)
+Import-Module ./artifacts/Release/Core/Cirrus.Core.psd1
+
+# Or import individual modules
+Import-Module ./artifacts/Release/Group/Cirrus.Group.psd1
+Import-Module ./artifacts/Release/Login/Cirrus.Login.psd1
+
+# Use cmdlets
+New-AzV2ResourceGroup -SubscriptionId <sub-id> -Name mygroup -Location eastus -AccessToken <token>
+
+# Use AI-powered natural language interface (from Cirrus.Agent)
+Invoke-AzV2 "create a resource group called test in eastus"
+ask "list all my resource groups"  # Alias for Invoke-AzV2
+please "delete resource group test" # Alias for Invoke-AzV2
 ```
 
-**Note**: The PowerShell module references assemblies from `artifacts/Release/` so you must run `dotnet build` before importing the module.
+**Available Modules:**
+- `Cirrus.Core` - Meta-module that loads all sub-modules
+- `Cirrus.Login` - Authentication cmdlets (`Connect-AzV2Account`, `Get-AzV2Context`)
+- `Cirrus.Group` - Resource group management (`New-AzV2ResourceGroup`, `Get-AzV2ResourceGroup`, etc.)
+- `Cirrus.Agent` - AI-powered natural language interface (`Invoke-AzV2` with aliases `ask`, `please`, `pls`)
+
+**Note**: Build the solution first with `dotnet build -c Release` to generate the modules in `artifacts/Release/`.
 
 ### Running Tests
 
