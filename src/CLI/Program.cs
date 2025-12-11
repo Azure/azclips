@@ -2,6 +2,8 @@ using System;
 using Core.Abstractions;
 using Core.Cli.Exceptions;
 using Core.Cli.Parser;
+using Core.Engine;
+using Microsoft.Extensions.DependencyInjection;
 using SharedContracts;
 
 namespace Core.Cli;
@@ -10,18 +12,20 @@ public class Program
 {
     public static int Main(string[] args)
     {
+        var serviceProvider = Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult();
+        var dispatcher = new ExtensionDispatcher();
         try
         {
-            var dispatcher = new ExtensionDispatcher();
             //var command = dispatcher.Parse(args);
             ICommandInvocation invocation = dispatcher.Parse(args);
             string result = Engine.Engine.GetCommand(invocation).Process(true);
-            Console.WriteLine(result);
+
+            serviceProvider.GetRequiredService<ILoggerService>().Log(result);
             return 0;
         }
         catch (DispatchHelpException)
         {
-            Console.WriteLine("Command Line Interface Help");
+            serviceProvider.GetRequiredService<ILoggerService>().Log("Command Line Interface Help");
             return 0;
         }
         //catch (CommandGroupHelpException ex)
