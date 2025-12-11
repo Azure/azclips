@@ -1,860 +1,1166 @@
-# Cirrus Architecture: Unified CLI/PowerShell with AI Agent Integration
+# Cirrus Architecture: Azure CLI (azv2) and PowerShell with AI Agent Fallback
 
 ## Overview
 
-Cirrus implements a **unified architecture** where CLI and PowerShell share the same business logic and leverage an integrated AI agent for natural language command interpretation. This design eliminates code duplication, provides consistent behavior across interfaces, and enables intelligent fallback when commands are not recognized or when users provide natural language input.
+Cirrus is a modular Azure CLI and PowerShell tool with **AI-powered fallback** for natural language commands, typo correction, and "how to" questions. The architecture uses:
+
+1. **Exception-Driven Fallback** - Standard command parsing in try-catch, AI agent invoked on exception
+2. **Extension System** - Dynamic module loading via DLL discovery (Group.dll, Login.dll, Resources.dll)
+3. **Subprocess PowerShell Integration** - PowerShell calls `azv2` CLI as subprocess, executes commands via `__PSEXEC__` marker
+4. **Azure OpenAI Integration** - CloudAgent with GPT-4o-mini for natural language interpretation
+
+**Note:** This document describes the **actual implementation** on the `resilv/merge-cli` branch, not idealized designs.
 
 ## Key Architectural Principles
 
-| Aspect | Design Decision |
-|--------|-----------------|
-| **Dependency Injection** | Bootstrapper pattern with `Microsoft.Extensions.DependencyInjection` - all services registered as Singletons |
-| **CLI & PowerShell Integration** | Unified codebase with shared `Business/` layer, separate interface adapters (Commands for CLI, Cmdlets for PowerShell) |
-| **Command Execution** | Orchestrator pattern: tries `DefaultCommandEngine` first, falls back to `AgentEngine` on failure |
-| **Agent Integration** | `AgentEngine` wraps `CloudAgent` (Azure OpenAI), integrated seamlessly as `ICommandEngine` implementation |
-| **Code Reuse** | Single `Business/` layer shared by both CLI Commands and PowerShell Cmdlets |
-| **Module Discovery** | Dynamic assembly loading via `CommandBinder` using reflection |
-| **Error Handling** | Graceful fallback to AI agent for unrecognized commands, typos, and natural language |
-| **Natural Language** | Built-in via `OrchestratorEngine` + `AgentEngine` with streaming responses |
-| **PowerShell Modules** | Separate modules (Cirrus.Login, Cirrus.Group, Cirrus.Agent) following Azure PowerShell pattern |
+| Aspect | Current Implementation |
+|--------|------------------------|
+| **Entry Point** | `Program.cs` with try-catch around `ExtensionDispatcher` → AI fallback on exception |
+| **Command Routing** | `ExtensionDispatcher` → `CommandGroupIndex` → DLL loading → `ICommand` execution |
+| **AI Fallback** | `TryAgentFallbackAsync()` creates `AgentEngine` + `CloudAgent` on demand (max 5 retries) |
+| **Agent Integration** | Azure OpenAI Service (GPT-4o-mini) with streaming, configured via .env file |
+| **Flavor Detection** | `AZURECLI_FLAVOR` environment variable ("azure cli" or "azure powershell") |
+| **PowerShell Integration** | Subprocess pattern - `AgentHelper.ps1` calls `azv2`, captures `__PSEXEC__` marker, executes with `Invoke-Expression` |
+| **Module Discovery** | File-based DLL loading from extensions directory at runtime |
+| **Response Types** | `sample_command` (placeholders), `executable_command` (user confirms), `question`, `confirmation`, `exit` |
+| **Streaming UI** | Spinner characters (`⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏`) for "Thinking...", progress bar in PowerShell |
+| **Interactive Prompts** | ✅ CLI can prompt user for confirmation | ❌ PowerShell cannot (subprocess has no stdin) |
 
-## Bootstrapper Pattern
+## Architecture Comparison: Theoretical vs. Actual
 
-The application uses a **Bootstrapper** class (`Core.Engine.Bootstrapper`) that centralizes service registration and configuration:
+### Theoretical Design (Not Implemented)
+- ❌ `OrchestratorEngine` actively routing to `DefaultCommandEngine` → `AgentEngine`
+- ❌ Agent setting `ExtractedCommand` property to hand back to command engine
+- ❌ Unified Business/ layer shared by Commands and Cmdlets
+- ❌ Direct cmdlet execution without CLI subprocess
 
-```csharp
-// Core.Cli/Program.cs - Simple 3-line entry point
-var commandEngine = await Bootstrapper.StartAsync();
-await commandEngine.ExecuteCommandAsync(args, default);
+### Actual Implementation (Current)
+- ✅ `Program.Main()` try-catch around extension dispatcher
+- ✅ Exception triggers `TryAgentFallbackAsync()` with retry logic
+- ✅ Agent outputs JSON responses parsed by `AgentEngine.ExecuteCommandAsync()`
+- ✅ PowerShell uses subprocess pattern calling `azv2` CLI
+- ✅ Extensions are standalone DLLs with commands, not integrated cmdlets
+- ✅ `__PSEXEC__` marker protocol for PowerShell command execution
+
+## Entry Points
+
+### Azure CLI (azv2)
+
+```bash
+# Structured commands (extension routing)
+$ azv2 group create --name mygroup --location eastus
+
+# Natural language (AI fallback)
+$ azv2 create a resource group called mygroup in westus
+$ azv2 how do I list virtual machines
+
+# Typo correction (AI fallback)
+$ azv2 I would like to logni
 ```
 
-**What the Bootstrapper does:**
-1. Creates `ServiceCollection` and registers all dependencies as Singletons
-2. Registers services: `ITelemetryService`, `IOutputAdapter`, `CommandParser`, `CommandBinder`
-3. Registers engines: `DefaultCommandEngine`, `AgentEngine`, `OrchestratorEngine`
-4. Returns fully configured `ICommandEngine` (which is actually `OrchestratorEngine`)
+### Azure PowerShell
 
-**Why Singletons?**
-- CLI process is short-lived (single command execution)
-- PowerShell module lifetime managed by PowerShell host
-- No per-request scoping needed
-- Matches original design from initial implementation
+```powershell
+# Direct cmdlet execution
+New-ResourceGroup -Name mygroup -Location eastus
 
-## Complete Architecture Flow
+# Natural language via Invoke-AzAI (subprocess to azv2)
+Invoke-AzAI create a resource group called mygroup in westus
 
-### Entry Points
+# Convenient aliases (no quotes needed)
+ask how do I create a resource group
+please show me all resource groups
+pls list virtual machines
+```
+
+**Key Difference:** PowerShell's `Invoke-AzAI` spawns `azv2` as subprocess with `AZURECLI_FLAVOR=azure powershell`
+
+## CLI Architecture with Exception-Driven Fallback
+
+### Azure CLI (azv2) Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  ENTRY POINT 1: Azure CLI (Structured Commands)             │
-│  $ azv2 group create --name test --location eastus          │
+│              User Input: "azv2 <command>"                   │
 └────────────────────┬────────────────────────────────────────┘
                      │
-┌─────────────────────────────────────────────────────────────┐
-│  ENTRY POINT 2: Azure CLI (Natural Language)                │
-│  $ azv2 how do I create a resource group?                   │
-│  $ azv2 create a resource group called test                 │
-└────────────────────┬────────────────────────────────────────┘
+                     ↓
+         ┌───────────────────────────┐
+         │    Program.Main()         │
+         │  try {                    │
+         │    ExtensionDispatcher    │
+         │  } catch {                │
+         │    TryAgentFallbackAsync  │
+         │  }                        │
+         └───────────┬───────────────┘
                      │
-┌─────────────────────────────────────────────────────────────┐
-│  ENTRY POINT 3: PowerShell Cmdlets (Direct)                 │
-│  PS> New-AzV2ResourceGroup -Name test -Location eastus      │
-│  PS> Connect-AzV2Account -TenantId xxx                      │
-└────────────────────┬────────────────────────────────────────┘
-                     │
-┌─────────────────────────────────────────────────────────────┐
-│  ENTRY POINT 4: PowerShell Natural Language                 │
-│  PS> Invoke-AzV2 create a resource group called test        │
-│  PS> ask how do I list my resource groups?                  │
-│  (Spawns azv2 CLI with AZURECLI_FLAVOR=azure powershell)    │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## CLI Architecture with Agent Fallback
-
-```
-                    ┌─────────────────────┐
-                    │   Cli/Program.cs    │
-                    │  (Entry Point)      │
-                    └──────────┬──────────┘
+        ┌────────────┴────────────┐
+        │                         │
+   ✅ Success                  ❌ Exception
+        │                         │
+        ↓                         ↓
+┌────────────────┐    ┌───────────────────────────┐
+│ Execute DLL    │    │ TryAgentFallbackAsync()   │
+│ Command        │    │ (max 5 retries)           │
+│ Return 0       │    └────────┬──────────────────┘
+└────────────────┘             │
+                               ↓
+                    ┌──────────────────────┐
+                    │   AgentEngine        │
+                    │   .ExecuteAsync()    │
+                    └──────────┬───────────┘
                                │
                                ↓
-                    ┌─────────────────────┐
-                    │ OrchestratorCommand │
-                    │ Engine              │
-                    │ (Orchestrator)      │
-                    └──────────┬──────────┘
+                    ┌──────────────────────┐
+                    │   CloudAgent         │
+                    │   (Azure OpenAI)     │
+                    │   Stream responses   │
+                    └──────────┬───────────┘
                                │
-                   ┌───────────┴───────────┐
-                   │                       │
-                   ↓                       ↓
-        ┌──────────────────┐    ┌─────────────────┐
-        │ Default          │    │ Agent           │
-        │ CommandEngine    │    │ Engine          │
-        │ (Structured)     │    │ (Natural Lang.) │
-        └────────┬─────────┘    └────────┬────────┘
-                 │                       │
-                 ↓                       ↓
-        ┌──────────────────┐    ┌─────────────────┐
-        │ CommandParser    │    │ CloudAgent      │
-        │ (--key value)    │    │ (Azure OpenAI)  │
-        └────────┬─────────┘    └────────┬────────┘
-                 │                       │
-                 ↓                       │
-        ┌──────────────────┐             │
-        │ CommandBinder    │             │
-        │ (Module Loading) │             │
-        └────────┬─────────┘             │
-                 │                       │
-                 ↓                       │
-        ┌──────────────────┐             │
-        │ IModule          │             │
-        │ GetCommands()    │             │
-        └────────┬─────────┘             │
-                 │                       │
-                 ↓                       │
-        ┌──────────────────┐             │
-        │ ICommand         │ ◄───────────┘
-        │ ExecuteAsync()   │  (On Success)
-        └────────┬─────────┘
-                 │
-                 ↓
-        ┌──────────────────┐
-        │ Business Layer   │
-        │ (GroupManager,   │
-        │  AuthManager)    │
-        └──────────────────┘
+                  ┌────────────┴────────────┐
+                  │                         │
+        sample_command           executable_command
+        (placeholders)           (complete values)
+                  │                         │
+                  ↓                         ↓
+         ┌────────────────┐    ┌────────────────────┐
+         │ Display help   │    │ Prompt user:       │
+         │ Exit 0         │    │ "Execute? (yes/no)"│
+         └────────────────┘    └─────────┬──────────┘
+                                         │
+                                    ┌────┴────┐
+                                    │ User    │
+                                    │ Answer? │
+                                    └────┬────┘
+                               ┌─────────┴─────────┐
+                               │                   │
+                             "yes"               "no"
+                               │                   │
+                               ↓                   ↓
+                   ┌───────────────────┐  ┌──────────────┐
+                   │ Recursive azv2    │  │ Cancelled    │
+                   │ call with command │  │ Exit 0       │
+                   └───────────────────┘  └──────────────┘
 ```
 
-### Orchestrator Engine Decision Logic
-
-```
-User Input: "azv2 <args>"
-     │
-     ↓
-┌────────────────────────────────────────┐
-│ OrchestratorEngine                     │
-│ Try DefaultCommandEngine first         │
-│  • CommandParser: args → command/opts  │
-│  • CommandBinder: find ICommand        │
-│  • Execute ICommand                    │
-└────────┬───────────────────────────────┘
-         │
-    ┌────┴────┐
-    │ Success?│
-    └────┬────┘
-         │
-    ┌────┴─────────────────────────────┐
-    │                                  │
-   YES                                NO
-    │                                  │
-    ↓                                  ↓
-┌─────────┐               ┌───────────────────────┐
-│ Return  │               │ Exception Type?       │
-│ Success │               └─────┬─────────────────┘
-└─────────┘                     │
-                    ┌───────────┴────────────┐
-                    │                        │
-            NotImplemented              Other Exception
-            (Command exists             (Parse error,
-             but not done)              unknown command,
-                    │                   typo, etc.)
-                    ↓                        │
-            ┌──────────────┐                 ↓
-            │ Show "Not    │      ┌──────────────────┐
-            │ implemented" │      │ Fallback to      │
-            │ Exit(0)      │      │ AgentEngine      │
-            └──────────────┘      └────────┬─────────┘
-                                           │
-                                           ↓
-                              ┌─────────────────────────┐
-                              │ AgentEngine.Execute     │
-                              │  • Detect CLI flavor    │
-                              │  • Stream to CloudAgent │
-                              │  • Interactive prompts  │
-                              │  • Parse AI response    │
-                              └────────┬────────────────┘
-                                       │
-                                  ┌────┴────┐
-                                  │ Command │
-                                  │Found in │
-                                  │Response?│
-                                  └────┬────┘
-                                       │
-                        ┌──────────────┴──────────────┐
-                        │                             │
-                      YES                            NO
-                        │                             │
-                        ↓                             ↓
-            ┌────────────────────┐          ┌─────────────┐
-            │ Check Flavor       │          │ Show AI     │
-            └─────┬──────────────┘          │ Response &  │
-                  │                         │ Exit(0)     │
-     ┌────────────┴────────────┐            └─────────────┘
-     │                         │
-  Azure CLI             Azure PowerShell
-     │                         │
-     ↓                         ↓
-┌──────────────┐    ┌────────────────────┐
-│ Parse & Retry│    │ Output Marker:     │
-│ CommandParser│    │ __PSEXEC__<cmd>    │
-│ ExecuteAsync │    │ (PowerShell reads  │
-└──────────────┘    │  and executes it)  │
-                    └────────────────────┘
-```
-
-## Architecture Diagram
+### Extension Routing (Success Path)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                         CLI Entry                           │
-│              azv2 group create --name test                  │
+│           ExtensionDispatcher.Parse(args)                   │
 └────────────────────┬────────────────────────────────────────┘
                      │
                      ↓
+         ┌───────────────────────────┐
+         │  CommandGroupIndex        │
+         │  LoadFromDirectory()      │
+         │  • Find Group.dll         │
+         │  • Find Login.dll         │
+         │  • Find Resources.dll     │
+         └───────────┬───────────────┘
+                     │
+                     ↓
+         ┌───────────────────────────┐
+         │  Load Assembly            │
+         │  Find ICommandInvocation  │
+         │  implementations          │
+         └───────────┬───────────────┘
+                     │
+                     ↓
+         ┌───────────────────────────┐
+         │  ICommandInvocation       │
+         │  .Process(logToConsole)   │
+         │  Returns: JSON string     │
+         └───────────┬───────────────┘
+                     │
+                     ↓
+         ┌───────────────────────────┐
+         │  Console output           │
+         │  Return 0                 │
+         └───────────────────────────┘
+```
+
+### PowerShell Subprocess Flow
+
+```
 ┌─────────────────────────────────────────────────────────────┐
-│                   CLI Command Adapter                       │
-│           GroupCreateCommand (Commands/)                    │
-│   • Parses options dict: {"name": "test"}                   │
-│   • Creates CreateGroupRequest                              │
-│   • Formats Console output                                  │
+│ PS> ask how do I create a resource group                    │
 └────────────────────┬────────────────────────────────────────┘
                      │
                      ↓
-┌─────────────────────────────────────────────────────────────┐
-│                  BUSINESS LOGIC LAYER                       │
-│              GroupManager.CreateGroupAsync()                │
-│   • Pure business logic - no CLI/PS knowledge               │
-│   • Azure SDK calls                                         │
-│   • Returns GroupInfo DTO                                   │
-└────────────────────┬────────────────────────────────────────┘
-                     ↑
+         ┌───────────────────────────┐
+         │  Invoke-AzAI Function     │
+         │  (AgentHelper.ps1)        │
+         │  • Set AZURECLI_FLAVOR=   │
+         │    "azure powershell"     │
+         └───────────┬───────────────┘
                      │
-┌─────────────────────────────────────────────────────────────┐
-│              PowerShell Cmdlet Adapter                      │
-│        NewAzV2ResourceGroupCmdlet (Cmdlets/)                │
-│   • Maps PS parameters to CreateGroupRequest                │
-│   • Formats PowerShell output (WriteObject)                 │
-└────────────────────┬────────────────────────────────────────┘
-                     ↑
+                     ↓
+         ┌───────────────────────────┐
+         │  & azv2 $Query            │
+         │  (subprocess spawn)       │
+         └───────────┬───────────────┘
                      │
-┌─────────────────────────────────────────────────────────────┐
-│                    PowerShell Entry                         │
-│         New-AzV2ResourceGroup -Name test                    │
-└─────────────────────────────────────────────────────────────┘
+                     ↓
+         ┌───────────────────────────┐
+         │  Stream stdout line-by-   │
+         │  line via ForEach-Object  │
+         │  • Filter: ⠋ Thinking...  │
+         │  • Show: Write-Progress   │
+         └───────────┬───────────────┘
+                     │
+        ┌────────────┴────────────┐
+        │                         │
+  Regular Output         __PSEXEC__ marker
+        │                         │
+        ↓                         ↓
+┌───────────────┐    ┌────────────────────────┐
+│ Write-Host    │    │ Extract command:       │
+│ $line         │    │ $commandToExecute =    │
+└───────────────┘    │ $matches[1]            │
+                     └────────┬───────────────┘
+                              │
+                              ↓
+                  ┌───────────────────────────┐
+                  │ Invoke-Expression         │
+                  │ $commandToExecute         │
+                  │ (executes cmdlet)         │
+                  └───────────────────────────┘
 ```
 
-## PowerShell Integration via AgentHelper.ps1
+## Component Relationships
 
-PowerShell modules include `AgentHelper.ps1` which provides the `Invoke-AzV2` function (and aliases: `ask`, `please`, `pls`). This function:
+### File Locations
 
-1. Sets `$env:AZURECLI_FLAVOR = "azure powershell"`
-2. Spawns the `azv2` CLI process with user input
-3. Captures output and looks for `__PSEXEC__<command>` marker
-4. If marker found: executes the extracted PowerShell command
-5. Shows spinner with progress bar during AI thinking time
+| Component | File Path | Description |
+|-----------|-----------|-------------|
+| **CLI Entry Point** | `src/CLI/Program.cs` | Try-catch fallback to agent |
+| **Extension Dispatcher** | `src/CLI/ExtensionDispatcher.cs` | Parse args, load DLLs |
+| **Command Group Index** | `src/CLI/CommandGroupIndex.cs` | DLL discovery and loading |
+| **Agent Engine** | `src/Core/Core.Engine/AgentEngine.cs` | Conversation loop, streaming UI |
+| **Cloud Agent** | `src/Core/Core.Agent/CloudAgent.cs` | Azure OpenAI integration |
+| **Prompt Template** | `src/Core/Core.Agent/prompt.md` | System instructions with {{flavor}} |
+| **PowerShell Helper** | `src/PS/Resources/AgentHelper.ps1` | `Invoke-AzAI` function |
+| **Resources Manifest** | `src/PS/Resources/Resources.psd1` | PowerShell module definition |
+| **Group Extension** | `artifacts/*/Group/Group.dll` | Resource group commands |
+| **Login Extension** | `artifacts/*/Login/Login.dll` | Authentication commands |
 
-**Example Flow:**
+### Dependency Graph
+
+```
+Program.cs
+    │
+    ├─► ExtensionDispatcher ──► CommandGroupIndex ──► DLL Loading
+    │                                                      │
+    │                                                      ↓
+    │                                              ICommandInvocation
+    │                                                   .Process()
+    │
+    └─► TryAgentFallbackAsync ──► AgentEngine ──► CloudAgent
+                                       │                  │
+                                       │                  ↓
+                                       │          Azure OpenAI Service
+                                       │          (GPT-4o-mini)
+                                       │
+                                       ├─► Spinner UI (⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏)
+                                       ├─► Parse JSON responses
+                                       └─► __PSEXEC__ marker output
+
+AgentHelper.ps1
+    │
+    ├─► Set AZURECLI_FLAVOR="azure powershell"
+    ├─► & azv2 $Query (subprocess)
+    ├─► ForEach-Object streaming
+    ├─► Write-Progress (progress bar)
+    └─► Invoke-Expression $commandToExecute
+```
+
+## PowerShell Integration Details
+
+### AgentHelper.ps1 Architecture
+
+**Location:** `src/PS/Resources/AgentHelper.ps1`
+
+**Purpose:** Provides natural language interface for PowerShell users via subprocess to `azv2` CLI
+
+**Key Functions:**
+1. `Invoke-AzAI` - Main function (aliases: `ask`, `please`, `pls`)
+2. CLI path discovery - finds `azv2` or `az` executable
+3. Streaming pipeline - `ForEach-Object` for line-by-line output
+4. Spinner filtering - Regex to hide `⠋ Thinking...` lines
+5. Progress bar - `Write-Progress` for better UX
+6. Command extraction - `__PSEXEC__` marker detection
+7. Execution - `Invoke-Expression` for captured commands
+
+**Example:**
 ```powershell
-PS> Import-Module ./bin/Group/Cirrus.Group.psd1
-PS> Invoke-AzV2 create a resource group called test in eastus
-# → Spawns: azv2 create a resource group called test in eastus
-# → CLI detects AZURECLI_FLAVOR=azure powershell
-# → Agent returns: New-AzV2ResourceGroup -Name test -Location eastus
-# → CLI outputs: __PSEXEC__New-AzV2ResourceGroup -Name test -Location eastus
-# → PowerShell extracts and executes the cmdlet
+# User types:
+PS> ask create a resource group called mygroup in westus
+
+# AgentHelper.ps1 executes:
+$env:AZURECLI_FLAVOR = "azure powershell"
+& $azv2Path create a resource group called mygroup in westus 2>&1 | ForEach-Object {
+    # Filter spinner, show progress, capture __PSEXEC__ marker
+}
+
+# CLI outputs:
+⠋ Thinking...
+I'll create a resource group named "mygroup" in the westus region.
+Command:
+New-ResourceGroup -Name mygroup -Location westus
+__PSEXEC__New-ResourceGroup -Name mygroup -Location westus
+
+# AgentHelper.ps1 captures and executes:
+Invoke-Expression "New-ResourceGroup -Name mygroup -Location westus"
 ```
+
+### Behavioral Comparison: CLI vs PowerShell
+
+| Feature | Azure CLI (azv2) | Azure PowerShell |
+|---------|------------------|------------------|
+| **Process Model** | Single process | Subprocess (PowerShell → azv2) |
+| **Interactive Prompts** | ✅ Yes - can ask user for confirmation | ❌ No - stdin not available in subprocess |
+| **Streaming Output** | Direct stdout from AgentEngine | Filtered via ForEach-Object pipeline |
+| **Progress Indicator** | Spinner characters (⠋⠙⠹...) | Write-Progress bar |
+| **Command Execution** | Recursive azv2 call (same process) | `Invoke-Expression` in parent PowerShell |
+| **Flavor Detection** | Default or env var | Always sets `AZURECLI_FLAVOR=azure powershell` |
+| **Command Marker** | Not needed (direct execution) | `__PSEXEC__<command>` required |
+| **User Safety** | Explicit confirmation before execution | Auto-execution after display (no prompts) |
+| **Syntax** | `azv2 create resource group X` | `ask create resource group X` (no quotes) |
+
+**PowerShell Limitation:** Due to subprocess architecture, PowerShell cannot prompt for interactive confirmation. Commands are auto-executed after being displayed.
 
 ## Core Components
 
-### 1. Program.cs (CLI Entry Point)
+### 1. Program.cs - Exception-Driven Entry Point
 
-**Location:** `Cli/Program.cs`
-
-**Responsibilities:**
-- Read command-line arguments
-- Detect `AZURECLI_FLAVOR` environment variable (set by PowerShell's `Invoke-AzV2`)
-- Initialize output adapter, telemetry, and engines
-- Create `OrchestratorEngine` with both default and agent engines
-- Execute command and handle top-level exceptions
-
-**Key Code:**
-```csharp
-var flavor = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure cli";
-var orchestratorEngine = new OrchestratorEngine(
-    defaultEngine, agentEngine, parser, binder, telemetry, output);
-await orchestratorEngine.ExecuteCommandAsync(args);
-```
-
-### 2. OrchestratorEngine
-
-**Location:** `Cli/OrchestratorEngine.cs`
+**Location:** `src/CLI/Program.cs`
 
 **Responsibilities:**
-- Try `DefaultCommandEngine` first for structured commands
-- On `NotImplementedException`: Show friendly note and exit successfully (feature not implemented)
-- On any other exception (parse error, unknown command, typo): Fallback to `AgentEngine`
-- If agent extracts a command:
-  - **Azure CLI mode**: Parse extracted command and retry execution
-  - **PowerShell mode**: Output `__PSEXEC__` marker for PowerShell to execute
-- Handle all exit conditions gracefully (no exceptions propagate to user)
+- Try `ExtensionDispatcher` to parse and route commands
+- Catch all exceptions and call `TryAgentFallbackAsync()`
+- Detect `AZURECLI_FLAVOR` environment variable
+- Create `AgentEngine` + `CloudAgent` on demand (not pre-initialized)
+- Handle max 5 retry attempts for agent conversations
 
-**Key Logic:**
+**Actual Implementation:**
 ```csharp
-try {
-    await _defaultEngine.ExecuteCommandAsync(args, cancellationToken);
-} catch (NotImplementedException ex) {
-    await _output.WriteLineAsync($"Not yet implemented: {ex.Message}");
-    return; // Exit gracefully
-} catch (Exception ex) {
-    // Unknown command, typo, parse error → try AI agent
-    await _agentEngine.ExecuteAsync(string.Join(" ", args), cancellationToken);
-}
-```
-
-### 3. DefaultCommandEngine
-
-**Location:** `Cli/DefaultCommandEngine.cs`
-
-**Responsibilities:**
-- Parse arguments into command + options dictionary
-- Use `CommandBinder` to find matching `ICommand`
-- Execute command
-- Throw `NotImplementedException` for known but unimplemented features
-- Throw other exceptions for parse errors or unknown commands (triggers agent fallback)
-
-**Example:**
-```csharp
-var parseResult = _parser.Parse(args);
-var command = _binder.GetCommand(parseResult.CommandName);
-await command.ExecuteAsync(parseResult.Options, cancellationToken);
-```
-
-### 4. AgentEngine
-
-**Location:** `Cli/AgentEngine.cs`
-
-**Responsibilities:**
-- Stream user input to `CloudAgent` (Azure OpenAI)
-- Display thinking spinner and AI responses
-- Detect CLI flavor from environment variable
-- Parse AI response for command markers (lines starting with `az` or `New-`/`Get-`/`Set-`/`Remove-`)
-- For PowerShell flavor: Check for placeholders, prompt user if found
-- For Azure CLI: Parse and return command for retry
-- For PowerShell: Output `__PSEXEC__` marker for PowerShell to execute
-
-**Key Logic:**
-```csharp
-if (_flavor == "azure powershell") {
-    if (trimmed.StartsWith("New-AzV2") || trimmed.StartsWith("Get-AzV2") || 
-        trimmed.StartsWith("Set-AzV2") || trimmed.StartsWith("Remove-AzV2")) {
-        // Check for placeholders
-        if (HasPlaceholders(trimmed)) continue;
-        // Output marker for PowerShell
-        await _output.WriteLineAsync($"__PSEXEC__{trimmed}");
-        return;
+static async Task<int> Main(string[] args)
+{
+    try
+    {
+        var dispatcher = new ExtensionDispatcher();
+        ICommandInvocation invocation = dispatcher.Parse(args);
+        string result = Engine.Engine.GetCommand(invocation).Process(true);
+        Console.WriteLine(result);
+        return 0;
+    }
+    catch (Exception)
+    {
+        return await TryAgentFallbackAsync(args);
     }
 }
 ```
 
-### 5. CloudAgent
+**Key Design Decision:** Simple exception-driven fallback, no orchestrator pattern. Any failure in extension routing triggers AI agent.
 
-**Location:** `Agent/CloudAgent.cs`
+### 2. ExtensionDispatcher - Command Routing
 
-**Responsibilities:**
-- Manage Azure OpenAI connection
-- Load prompt template from `prompt.txt`
-- Stream chat completions
-- Inject CLI flavor into system prompt
-- Handle errors and retries
-
-**Prompt Engineering:**
-- `prompt.txt` contains detailed instructions for both "azure cli" and "azure powershell" flavors
-- Agent knows to return `az` commands for CLI, `AzV2` cmdlets for PowerShell
-- Agent understands syntax help vs. "do it for me" requests
-- `[DONE]` marker used only when command is ready to execute
-
-### 6. CommandParser
-
-**Location:** `Cli/CommandParser.cs`
+**Location:** `src/CLI/ExtensionDispatcher.cs`
 
 **Responsibilities:**
-- Parse command-line arguments
-- Extract command name and options dictionary
-- Handle `--key value` and `--key=value` formats
-- Handle boolean flags
+- Parse command-line arguments into command groups
+- Use `CommandGroupIndex` to load extension DLLs
+- Return `ICommandInvocation` for execution
+- Throw exceptions on parse errors or unknown commands
 
-**Example:**
-```bash
-azv2 group create --name test --location eastus --tags env=prod
-→ Command: "group create"
-→ Options: {"name": "test", "location": "eastus", "tags": "env=prod"}
+**Key Methods:**
+- `Parse(string[] args)` - Returns `ICommandInvocation` or throws
+- Uses environment variable `EXTENSIONS_ROOT_DIRECTORY` for DLL discovery
+
+**Example Flow:**
+```
+args: ["group", "create", "--name", "test"]
+→ CommandGroupIndex.LoadFromDirectory()
+→ Find Group.dll
+→ Load assembly, find matching command
+→ Return ICommandInvocation
+→ Call .Process(true) to execute
 ```
 
-### 7. CommandBinder
+### 3. CommandGroupIndex - DLL Discovery
 
-**Location:** `Cli/CommandBinder.cs`
+**Location:** `src/CLI/CommandGroupIndex.cs`
 
 **Responsibilities:**
-- Dynamically load module assemblies from file system
-- Discover `IModule` implementations
-- Call `GetCommands()` to register commands
-- Build command registry (command name → `ICommand` instance)
-- Throw exception if command not found (triggers agent fallback)
+- Scan extensions directory for DLL files
+- Load assemblies dynamically
+- Build index of command groups → DLL paths
+- Throw `KeyNotFoundException` if command group not found
 
-**Module Discovery:**
+**Discovery Pattern:**
+```
+artifacts/Release/Group/Group.dll → "group" command group
+artifacts/Release/Login/Login.dll → "login" command group
+artifacts/Release/Resources/Resources.dll → "resources" command group
+```
+
+### 4. AgentEngine - Conversation Loop
+
+**Location:** `src/Core/Core.Engine/AgentEngine.cs`
+
+**Responsibilities:**
+- Implement `ICommandEngine` interface
+- Stream user messages to `CloudAgent`
+- Display spinner UI (⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏ rotating characters)
+- Parse AI JSON responses (`type` field: `sample_command`, `executable_command`, `question`, `confirmation`, `exit`)
+- Handle multi-turn conversations (up to 5 exchanges)
+- Detect CLI flavor and output appropriate syntax
+- For PowerShell: Output `__PSEXEC__<command>` marker
+
+**Key Response Handling:**
 ```csharp
-// Load Group.dll, Login.dll, etc.
-var modules = Directory.GetFiles(baseDir, "*.dll")
-    .Select(Assembly.LoadFrom)
-    .SelectMany(asm => asm.GetTypes())
-    .Where(t => typeof(IModule).IsAssignableFrom(t))
-    .Select(Activator.CreateInstance)
-    .Cast<IModule>();
+// Parse JSON response
+var response = JsonSerializer.Deserialize<AgentResponse>(aiMessage);
+
+switch (response.Type)
+{
+    case "sample_command":
+        // Display help, no execution
+        Console.WriteLine(response.Command);
+        break;
+    
+    case "executable_command":
+        if (flavor == "azure powershell")
+        {
+            // Output marker for PowerShell
+            Console.WriteLine($"__PSEXEC__{response.Command}");
+        }
+        else
+        {
+            // Prompt user for confirmation
+            Console.Write("Execute this command? (yes/no): ");
+            string answer = Console.ReadLine();
+            if (answer.ToLower() == "yes")
+            {
+                // Recursive azv2 call
+                await ExecuteExtractedCommandAsync(response.Command);
+            }
+        }
+        break;
+    
+    case "question":
+        // Multi-turn conversation
+        Console.WriteLine(response.Question);
+        string userAnswer = Console.ReadLine();
+        await SendToAgent(userAnswer);
+        break;
+}
 ```
 
-## Business Layer Structure
+**Three Agent Scenarios:**
 
-### Group Module
+1. **Typo Correction**: Returns `sample_command` with corrected syntax
+2. **"How To" Questions**: Returns `sample_command` with placeholders
+3. **Natural Language Execution**: Returns `executable_command` with complete values
 
-```
-Group/
-├── Business/                           ← Pure business logic
-│   ├── GroupManager.cs                ← CreateGroupAsync(), DeleteGroupAsync(), etc.
-│   └── Models/                        ← DTOs
-│       ├── CreateGroupRequest.cs      ← Input parameters
-│       ├── DeleteGroupRequest.cs
-│       ├── ListGroupsRequest.cs
-│       ├── ShowGroupRequest.cs
-│       └── GroupInfo.cs               ← Return data
-├── Commands/                          ← CLI adapters (thin wrappers)
-│   ├── GroupCreateCommand.cs          ← ICommand: options dict → GroupManager
-│   ├── GroupListCommand.cs
-│   ├── GroupShowCommand.cs
-│   └── GroupDeleteCommand.cs
-├── Cmdlets/                           ← PowerShell adapters (thin wrappers)
-│   ├── NewAzV2ResourceGroupCmdlet.cs  ← PSCmdlet: PS params → GroupManager
-│   ├── GetAzV2ResourceGroupCmdlet.cs
-│   ├── SetAzV2ResourceGroupCmdlet.cs
-│   └── RemoveAzV2ResourceGroupCmdlet.cs
-└── Group/                             ← Original location (module registration)
-    └── GroupModule.cs                 ← Returns Commands for CLI discovery
+### 5. CloudAgent - Azure OpenAI Integration
+
+**Location:** `src/Core/Core.Agent/CloudAgent.cs`
+
+**Responsibilities:**
+- Load .env file from agent directory
+- Create Azure OpenAI client with streaming
+- Load prompt template from `prompt.md`
+- Replace `{{flavor}}` with "azure cli" or "azure powershell"
+- Stream completions token-by-token
+- Return complete AI messages
+
+**Configuration (.env file):**
+```env
+AZURE_OPENAI_ENDPOINT=https://<resource>.openai.azure.com
+AZURE_OPENAI_API_KEY=<key>
+AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
 ```
 
-### Login Module
+**Prompt Template (prompt.md):**
+- System instructions for both CLI and PowerShell flavors
+- JSON response schema definitions
+- Examples for each scenario type
+- Placeholder rules (`<angle-brackets>` indicate user-specific values)
 
+### 6. Prompt Template - System Instructions
+
+**Location:** `src/Core/Core.Agent/prompt.md`
+
+**Key Instructions:**
+- Detect user intent (typo, how-to question, or execution request)
+- Return JSON with `type` field
+- For "azure cli" flavor: Generate `az` commands
+- For "azure powershell" flavor: Generate `New-ResourceGroup` style cmdlets (no AzV2 prefix)
+- Use placeholders for unknown values: `<resource-group-name>`
+- Distinguish between help requests and execution requests
+
+**Example Response Types:**
+```json
+// Typo correction or how-to
+{
+  "type": "sample_command",
+  "explanation": "Here's how to create a resource group:",
+  "command": "az group create --name <name> --location <location>"
+}
+
+// Natural language execution
+{
+  "type": "executable_command",
+  "explanation": "I'll create a resource group named 'mygroup'.",
+  "command": "az group create --name mygroup --location westus"
+}
+
+// Need more info
+{
+  "type": "question",
+  "question": "What location would you like for the resource group?"
+}
 ```
-Login/
-├── Business/                           ← Pure authentication logic
-│   ├── AuthenticationManager.cs        ← LoginAsync(), Logout(), GetCurrentContext()
-│   └── Models/
-│       ├── LoginRequest.cs
-│       └── AuthenticationInfo.cs
-├── Commands/
-│   └── LoginCommand.cs                 ← Handles login/logout/show actions
-├── Cmdlets/
-│   ├── ConnectAzV2AccountCmdlet.cs
-│   ├── DisconnectAzV2AccountCmdlet.cs
-│   └── GetAzV2ContextCmdlet.cs
-└── Login/
-    ├── LoginModule.cs
-    └── AzureAuthenticationContext.cs   ← Global auth state
+
+### 7. TryAgentFallbackAsync - Retry Logic
+
+**Location:** `src/CLI/Program.cs`
+
+**Responsibilities:**
+- Create `AgentEngine` and `CloudAgent` instances
+- Detect `AZURECLI_FLAVOR` environment variable
+- Load prompt template with flavor replacement
+- Execute agent conversation with max 5 retries
+- Handle conversation loops until completion or cancellation
+
+**Key Logic:**
+```csharp
+static async Task<int> TryAgentFallbackAsync(string[] args)
+{
+    string flavor = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") 
+                    ?? "azure cli";
+    
+    var cloudAgent = await CloudAgent.CreateAsync(flavor);
+    var agentEngine = new AgentEngine(cloudAgent, flavor);
+    
+    string userInput = string.Join(" ", args);
+    await agentEngine.ExecuteCommandAsync(userInput, maxTurns: 5);
+    
+    return 0;
+}
 ```
 
-## Example: Creating a Resource Group
+## Extension Module Structure
 
-### CLI Path
+### Group Extension (Example)
+
+**Location:** `artifacts/Release/Group/Group.dll`
+
+**Structure:**
+- DLL loaded dynamically by `CommandGroupIndex`
+- Implements `ICommandInvocation` interface
+- Contains command logic for resource group operations
+- Returns JSON strings for console output
+
+**Commands:**
+- `group create` - Create resource group
+- `group list` - List resource groups
+- `group show` - Show resource group details
+- `group delete` - Delete resource group
+
+### Login Extension
+
+**Location:** `artifacts/Release/Login/Login.dll`
+
+**Commands:**
+- `login` - Authenticate to Azure
+- `logout` - Sign out
+- `account show` - Display current account
+
+### Resources Extension (PowerShell)
+
+**Location:** `artifacts/Release/Resources/Resources.dll`
+
+**Contains:**
+- PowerShell cmdlets: `New-ResourceGroup`, `Get-ResourceGroup`, etc.
+- Note: No "AzV2" prefix in current implementation
+
+## Example Execution Flows
+
+### Example 1: Structured CLI Command (Success)
 
 ```bash
-azv2 group create --name mygroup --location eastus
+$ azv2 group create --name mygroup --location eastus
 ```
 
-1. **DefaultCommandEngine** → `CommandBinder` → loads `Group` module
-2. **GroupModule.GetCommands()** → returns `GroupCreateCommand`
-3. **GroupCreateCommand.ExecuteAsync()**:
-   ```csharp
-   var request = new CreateGroupRequest {
-       Name = options["name"],
-       Location = options["location"]
-   };
-   var result = await GroupManager.CreateGroupAsync(request);
-   Console.WriteLine($"Created: {result.Name}");
+**Flow:**
+1. `Program.Main()` → Try block
+2. `ExtensionDispatcher.Parse(args)` → Returns `ICommandInvocation`
+3. `Engine.GetCommand(invocation).Process(true)` → Executes command
+4. Group.dll creates resource group via Azure SDK
+5. Returns JSON result
+6. `Console.WriteLine(result)` → Display to user
+7. Return 0 (success)
+
+**Agent NOT invoked** - structured command succeeded.
+
+---
+
+### Example 2: CLI with Typo (AI Correction)
+
+```bash
+$ azv2 grup create --name mygroup --location eastus  # Typo: "grup"
+```
+
+**Flow:**
+1. `Program.Main()` → Try block
+2. `ExtensionDispatcher.Parse(args)` → Throws `KeyNotFoundException` ("grup" command group not found)
+3. Catch block → `TryAgentFallbackAsync(args)`
+4. `AgentEngine` created, sends to `CloudAgent`
+5. Azure OpenAI recognizes "grup" → "group" typo
+6. Returns `sample_command` JSON: `az group create --name <name> --location <location>`
+7. Display corrected syntax to user
+8. Return 0
+
+**Agent corrected typo and showed proper syntax.**
+
+---
+
+### Example 3: Natural Language CLI (Interactive)
+
+```bash
+$ azv2 create a resource group called mygroup in westus
+```
+
+**Flow:**
+1. `Program.Main()` → Try block
+2. `ExtensionDispatcher.Parse(args)` → Fails (natural language, not structured command)
+3. Catch block → `TryAgentFallbackAsync(args)`
+4. `AgentEngine` streams to `CloudAgent`
+5. Azure OpenAI understands intent
+6. Returns `executable_command` JSON:
+   ```json
+   {
+     "type": "executable_command",
+     "explanation": "I'll create a resource group named 'mygroup' in westus.",
+     "command": "group create --name mygroup --location westus"
+   }
    ```
+7. `AgentEngine` prompts: "Execute this command? (yes/no): "
+8. User types "yes"
+9. Recursive call: `azv2 group create --name mygroup --location westus`
+10. Extension executes command
+11. Return 0
 
-### PowerShell Path
+**Agent converted natural language → structured command → execution.**
+
+---
+
+### Example 4: PowerShell Natural Language (Non-Interactive)
 
 ```powershell
-New-AzV2ResourceGroup -Name mygroup -Location eastus
+PS> ask create a resource group called mygroup in westus
 ```
 
-1. **PowerShell** → `NewAzV2ResourceGroupCmdlet.ProcessRecord()`
-2. **NewAzV2ResourceGroupCmdlet**:
-   ```csharp
-   var request = new CreateGroupRequest {
-       Name = Name,  // PS parameter
-       Location = Location
-   };
-   var result = await GroupManager.CreateGroupAsync(request);  // SAME CALL
-   WriteObject(result);
+**Flow:**
+1. `Invoke-AzAI` function in AgentHelper.ps1
+2. Sets `$env:AZURECLI_FLAVOR = "azure powershell"`
+3. Spawns subprocess: `& azv2 create a resource group called mygroup in westus`
+4. CLI: `Program.Main()` → Try block fails → `TryAgentFallbackAsync()`
+5. `AgentEngine` detects flavor = "azure powershell"
+6. `CloudAgent` loads prompt template with "azure powershell" flavor
+7. Azure OpenAI returns PowerShell cmdlet:
+   ```json
+   {
+     "type": "executable_command",
+     "explanation": "I'll create a resource group named 'mygroup' in westus.",
+     "command": "New-ResourceGroup -Name mygroup -Location westus"
+   }
    ```
+8. `AgentEngine` outputs: `__PSEXEC__New-ResourceGroup -Name mygroup -Location westus`
+9. AgentHelper.ps1 captures output via `ForEach-Object`
+10. Regex match: `'^__PSEXEC__(.+)$'` → Extracts command
+11. `Invoke-Expression "New-ResourceGroup -Name mygroup -Location westus"`
+12. Cmdlet executes in PowerShell context
+13. Result displayed
 
-## Key Benefits
+**Agent converted natural language → PowerShell cmdlet → auto-execution.**
 
-### ✅ Zero Duplication
-- Business logic in `GroupManager` is written **once**
-- CLI and PowerShell both call the **exact same methods**
-- No code copying or synchronization issues
+**Critical Difference:** PowerShell subprocess cannot prompt for confirmation (no stdin), so command executes immediately after display.
 
-### ✅ Clear Separation of Concerns
-- **Business/**: What to do (Azure SDK operations)
-- **Commands/**: How CLI invokes it (options dict → request)
-- **Cmdlets/**: How PowerShell invokes it (PS params → request)
+## Three Agent Scenarios (Detailed)
 
-### ✅ Easy to Test
-- Test `GroupManager` methods directly with unit tests
-- Test CLI adapters with mocked GroupManager
-- Test PowerShell cmdlets with mocked GroupManager
+### Scenario 1: Typo Correction
 
-### ✅ Easy to Extend
-Adding a new operation requires:
-1. Add method to `GroupManager.cs` (business logic)
-2. Create `XxxCommand.cs` (CLI adapter)
-3. Create `XxxCmdlet.cs` (PowerShell adapter)
+**User Input:** Command with spelling errors
 
-### ✅ Consistent Behavior
-Since both paths call the same business logic, CLI and PowerShell behavior is **guaranteed to be identical** (except for output formatting).
+**Agent Behavior:** Recognizes intent, provides corrected syntax
 
-## Implementation Details
+**Response Type:** `sample_command` with placeholders
 
-### Business Layer (GroupManager)
+**CLI Example:**
+```bash
+$ azv2 I would like to logni
 
-**Responsibilities:**
-- Execute Azure SDK operations
-- Validate authentication state
-- Return strongly-typed DTOs
-- **No** console output (returns data only)
-- **No** knowledge of CLI or PowerShell
+⠋ Thinking...
 
-**Example:**
-```csharp
-public static async Task<GroupInfo> CreateGroupAsync(
-    CreateGroupRequest request, 
-    CancellationToken cancellationToken)
+It looks like you want to log in. Here are the login commands:
+
+Azure CLI:
+az login
+az login --service-principal --username <appId> --password <password> --tenant <tenantId>
+az login --use-device-code
+```
+
+**PowerShell Example:**
+```powershell
+PS> ask I would like to logni
+
+⠋ Thinking...
+
+It looks like you want to log in. Here are the login commands:
+
+Azure PowerShell:
+Connect-AzAccount
+Connect-AzAccount -ServicePrincipal -Credential $credential -Tenant <tenantId>
+Connect-AzAccount -UseDeviceAuthentication
+```
+
+**Outcome:** User sees help text, no execution.
+
+---
+
+### Scenario 2: "How To" Questions
+
+**User Input:** Queries starting with "how do I", "how can I", "show me how"
+
+**Agent Behavior:** Provides command examples with placeholders
+
+**Response Type:** `sample_command` with placeholders
+
+**CLI Example:**
+```bash
+$ azv2 how do I create a resource group
+
+⠋ Thinking...
+
+To create a resource group:
+
+Azure CLI:
+az group create --name <resource-group-name> --location <location>
+
+# Examples:
+az group create --name myResourceGroup --location eastus
+az group create --name prodResourceGroup --location westus2
+```
+
+**PowerShell Example:**
+```powershell
+PS> ask how do I create a resource group
+
+⠋ Thinking...
+
+To create a resource group:
+
+Azure PowerShell:
+New-ResourceGroup -Name <resource-group-name> -Location <location>
+
+# Example:
+New-ResourceGroup -Name myResourceGroup -Location eastus
+```
+
+**Outcome:** User manually copies and fills in placeholders.
+
+---
+
+### Scenario 3: Natural Language Execution
+
+**User Input:** Complete intent with specific values
+
+**Agent Behavior:** Generates fully executable command
+
+**Response Type:** `executable_command` (no placeholders)
+
+**CLI Example (Interactive):**
+```bash
+$ azv2 create a resource group called mygroup in westus
+
+⠋ Thinking...
+
+I'll create a resource group named "mygroup" in the westus region.
+
+Command:
+az group create --name mygroup --location westus
+
+Execute this command? (yes/no): yes
+
+⠋ Executing...
+
 {
-    ValidateAuthentication();
-    var armClient = new ArmClient(AzureAuthenticationContext.Credential);
-    // ... Azure SDK calls ...
-    return MapToGroupInfo(resourceGroup);
+  "id": "/subscriptions/.../resourceGroups/mygroup",
+  "location": "westus",
+  "name": "mygroup",
+  "properties": {
+    "provisioningState": "Succeeded"
+  }
 }
 ```
 
-### CLI Adapter (Commands/)
-
-**Responsibilities:**
-- Parse CLI options dictionary
-- Build business request DTOs
-- Call `GroupManager` methods
-- Format output for console (Console.WriteLine)
-- Handle CLI-specific errors
-
-**Example:**
-```csharp
-public async Task ExecuteAsync(IDictionary<string, string> options, ...)
-{
-    var request = new CreateGroupRequest {
-        Name = options["name"],
-        Location = options["location"]
-    };
-    var result = await GroupManager.CreateGroupAsync(request);
-    Console.WriteLine($"Created: {result.Name}");  // CLI formatting
-}
-```
-
-### PowerShell Adapter (Cmdlets/)
-
-**Responsibilities:**
-- Map PowerShell parameters to request DTOs
-- Call `GroupManager` methods
-- Format output for PowerShell (WriteObject)
-- Handle PowerShell-specific features (ShouldContinue, etc.)
-
-**Example:**
-```csharp
-protected override void ProcessRecord()
-{
-    var request = new CreateGroupRequest {
-        Name = Name,        // PS parameter
-        Location = Location
-    };
-    var result = GroupManager.CreateGroupAsync(request).GetAwaiter().GetResult();
-    WriteObject(result);  // PowerShell formatting
-}
-```
-
-## Authentication Context
-
-**AzureAuthenticationContext** (in Login module) provides global authentication state:
-- `Credential`: TokenCredential for Azure SDK
-- `SubscriptionId`: Current subscription
-- `TenantId`: Current tenant
-- `IsAuthenticated`: Auth status
-
-Both CLI and PowerShell share this context, ensuring consistent authentication state.
-
-## Example Scenarios
-
-The following scenarios demonstrate how both Azure CLI (`azv2`) and Azure PowerShell cmdlets work, including natural language support and intelligent fallback.
-
-### Azure CLI Scenarios
-
-#### Scenario 1: Structured CLI Command (Success)
-
-```bash
-$ azv2 group create --name test --location eastus
-```
-
-**Flow:**
-1. `Program.cs` → `OrchestratorEngine`
-2. Try `DefaultCommandEngine`
-3. `CommandParser` → `{command: "group create", options: {"name": "test", ...}}`
-4. `CommandBinder` → finds `GroupCreateCommand`
-5. `GroupCreateCommand.ExecuteAsync()` → calls `GroupManager.CreateGroupAsync()`
-6. Success → output "Created: test" → Exit(0)
-
-**No agent invoked** - structured command succeeded.
-
-#### Scenario 2: CLI with Typo (Agent Correction)
-
-```bash
-$ azv2 grup create --name test --location eastus  # Typo: "grup"
-```
-
-**Flow:**
-1. `Program.cs` → `OrchestratorEngine`
-2. Try `DefaultCommandEngine`
-3. `CommandBinder` → throws exception (command "grup create" not found)
-4. `OrchestratorEngine` catches exception
-5. Fallback to `AgentEngine` with full input
-6. `CloudAgent` → Azure OpenAI understands intent
-7. AI returns: "Did you mean `azv2 group create`?"
-8. `AgentEngine` extracts: `group create --name test --location eastus`
-9. **Azure CLI mode**: Parse and retry → Success
-10. Exit(0)
-
-**Agent corrected the typo automatically.**
-
-#### Scenario 3: CLI Natural Language
-
-```bash
-$ azv2 create a resource group called test in eastus
-```
-
-**Flow:**
-1. `Program.cs` → `OrchestratorEngine`
-2. Try `DefaultCommandEngine`
-3. `CommandParser` → treats "create" as command, rest as options
-4. `CommandBinder` → no command "create" found → throws exception
-5. Fallback to `AgentEngine`
-6. `CloudAgent` → understands natural language
-7. AI asks: "Would you like me to execute `azv2 group create --name test --location eastus`?"
-8. User confirms → AI returns `[DONE]`
-9. `AgentEngine` extracts command → Parse and retry
-10. `GroupCreateCommand` executes → Success
-
-**Agent converted natural language to structured command.**
-
-#### Scenario 4: CLI Syntax Help (Documentation Request)
-
-```bash
-$ azv2 how do I create a resource group?
-```
-
-**Flow:**
-1. `DefaultCommandEngine` fails (not a command)
-2. Fallback to `AgentEngine`
-3. `CloudAgent` recognizes "how to" question
-4. AI responds with syntax only: `azv2 group create --name <resource-group-name> --location <location>`
-5. **No `[DONE]` marker** → No execution
-6. User sees syntax help → Exit(0)
-
-**Agent provided documentation, not execution.**
-
-### Azure PowerShell Scenarios
-
-#### Scenario 5: Direct PowerShell Cmdlet
-
+**PowerShell Example (Non-Interactive):**
 ```powershell
-PS> Import-Module ./bin/Group/Cirrus.Group.psd1
-PS> New-AzV2ResourceGroup -Name test -Location eastus
+PS> ask create a resource group called mygroup in westus
+
+⠋ Thinking...
+
+I'll create a resource group named "mygroup" in the westus region.
+
+Command:
+New-ResourceGroup -Name mygroup -Location westus
+
+ResourceGroupName : mygroup
+Location          : westus
+ProvisioningState : Succeeded
+Tags              :
+ResourceId        : /subscriptions/.../resourceGroups/mygroup
 ```
 
-**Flow:**
-1. PowerShell → `NewAzV2ResourceGroupCmdlet.ProcessRecord()`
-2. Build `CreateGroupRequest` from PS parameters
-3. Call `GroupManager.CreateGroupAsync()` (same business logic as CLI!)
-4. `WriteObject(result)` → PowerShell output
-5. Done
+**Key Difference:**
+- **CLI**: Prompts "Execute? (yes/no)" - user confirms
+- **PowerShell**: Auto-executes immediately (no prompt possible)
 
-**No CLI spawn**, **no agent** - direct cmdlet execution.
+## Key Architectural Decisions
 
-#### Scenario 6: PowerShell Natural Language (via Invoke-AzV2)
+### ✅ Exception-Driven Fallback
+**Decision:** Use try-catch around extension dispatcher, invoke agent on any exception.
 
-```powershell
-PS> Import-Module ./bin/Group/Cirrus.Group.psd1
-PS> Invoke-AzV2 create a resource group called test in eastus
-# Aliases: ask, please, or pls
-PS> ask create a resource group called test in eastus
-PS> please create a resource group called test in eastus
-PS> pls create a resource group called test in eastus
-```
+**Rationale:**
+- Simple implementation (no intent detection logic needed)
+- Catches all failure cases: unknown commands, typos, parse errors, natural language
+- Clear separation: structured commands vs. AI fallback
 
-**Flow:**
-1. `Invoke-AzV2` sets `$env:AZURECLI_FLAVOR = "azure powershell"`
-2. Spawns: `azv2 create a resource group called test in eastus`
-3. CLI → `OrchestratorEngine` → `DefaultCommandEngine` fails
-4. Fallback to `AgentEngine`
-5. `AgentEngine` detects flavor = "azure powershell"
-6. `CloudAgent` returns PowerShell cmdlet: `New-AzV2ResourceGroup -Name test -Location eastus`
-7. `AgentEngine` checks for placeholders (none found)
-8. Outputs: `__PSEXEC__New-AzV2ResourceGroup -Name test -Location eastus`
-9. `Invoke-AzV2` captures output, extracts command
-10. PowerShell executes: `New-AzV2ResourceGroup -Name test -Location eastus`
-11. Result displayed
+**Trade-off:** AI agent invoked even for genuine errors (e.g., bad parameters), but agent can explain the error helpfully.
 
-**Agent converted natural language to PowerShell cmdlet, which PowerShell then executed.**
+---
 
-#### Scenario 7: PowerShell Syntax Help
+### ✅ Subprocess PowerShell Integration
+**Decision:** PowerShell calls `azv2` CLI as subprocess with `__PSEXEC__` marker protocol.
 
-```powershell
-PS> Import-Module ./bin/Group/Cirrus.Group.psd1
-PS> Invoke-AzV2 how do I list resource groups?
-# Aliases: ask, please, or pls
-PS> ask how do I list resource groups?
-PS> please how do I list resource groups?
-PS> pls how do I list resource groups?
-```
+**Rationale:**
+- Reuses CLI's agent logic (no duplication)
+- PowerShell gets correct flavor-aware responses
+- Simpler than embedding agent directly in PowerShell module
 
-**Flow:**
-1. `Invoke-AzV2` sets `$env:AZURECLI_FLAVOR = "azure powershell"`
-2. Spawns: `azv2 how do I list resource groups?`
-3. CLI → `OrchestratorEngine` → `DefaultCommandEngine` fails
-4. Fallback to `AgentEngine`
-5. `AgentEngine` detects flavor = "azure powershell"
-6. `CloudAgent` recognizes "how to" question
-7. AI responds with syntax only: `Get-AzV2ResourceGroup [-Name <resource-group-name>]`
-8. **No `[DONE]` marker** → No execution
-9. Output displayed to PowerShell user → Exit(0)
+**Trade-off:** Cannot do interactive prompts in PowerShell (stdin not available in subprocess). Commands auto-execute after display.
 
-**Agent provided PowerShell cmdlet syntax documentation.**
+**Workaround:** Users can ask "how to" questions to get examples without execution.
 
-#### Scenario 8: PowerShell Cmdlet with Typo (Agent Correction via Invoke-AzV2)
+---
 
-```powershell
-PS> Import-Module ./bin/Group/Cirrus.Group.psd1
-PS> Invoke-AzV2 Get-AzV2ResurceGroup -Name test  # Typo: "Resurce"
-# Aliases: ask, please, or pls
-PS> ask Get-AzV2ResurceGroup -Name test
-PS> please Get-AzV2ResurceGroup -Name test
-PS> pls Get-AzV2ResurceGroup -Name test
-```
+### ✅ Flavor Detection via Environment Variable
+**Decision:** Use `AZURECLI_FLAVOR` environment variable set by PowerShell.
 
-**Flow:**
-1. `Invoke-AzV2` spawns CLI with typo
-2. CLI → `OrchestratorEngine` → `DefaultCommandEngine` fails
-3. Fallback to `AgentEngine`
-4. `AgentEngine` detects flavor = "azure powershell"
-5. `CloudAgent` recognizes typo and corrects to: `Get-AzV2ResourceGroup -Name test`
-6. Outputs: `__PSEXEC__Get-AzV2ResourceGroup -Name test`
-7. PowerShell executes corrected cmdlet
-8. Results displayed
+**Rationale:**
+- Simple, reliable detection mechanism
+- PowerShell sets it, CLI reads it
+- Allows prompt template to return correct syntax
 
-**Agent corrected PowerShell cmdlet typo automatically.**
+**Values:**
+- `"azure cli"` (default) → Returns `az` commands
+- `"azure powershell"` → Returns PowerShell cmdlets
 
-### Scenario 9: Mixed - CLI with PowerShell Flavor Context
+---
 
+### ✅ JSON Response Protocol
+**Decision:** Agent returns JSON with `type` field for different response types.
+
+**Rationale:**
+- Structured parsing (vs. free-text with markers)
+- Clear distinction between help and execution
+- Supports multi-turn conversations (`question` type)
+
+**Response Types:**
+1. `sample_command` - Help text with placeholders
+2. `executable_command` - Ready to execute
+3. `question` - Agent needs more info
+4. `confirmation` - Dangerous operation warning
+5. `exit` - User cancelled
+
+---
+
+### ✅ Streaming UI with Spinner
+**Decision:** Display rotating spinner (⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏) during AI thinking.
+
+**Rationale:**
+- Immediate feedback (agent is working)
+- Better UX than silent wait
+- PowerShell uses `Write-Progress` for native progress bar
+
+**Implementation:**
+- CLI: Spinner characters to stdout
+- PowerShell: Regex filter to hide spinner, show progress bar instead
+
+---
+
+### ✅ Extension DLL Loading
+**Decision:** Load commands from DLL files at runtime (Group.dll, Login.dll, Resources.dll).
+
+**Rationale:**
+- Modular architecture (add new commands without recompiling CLI)
+- Clear separation of concerns
+- Standard .NET assembly loading
+
+**Discovery:** Scan `artifacts/Release/*/` or `EXTENSIONS_ROOT_DIRECTORY` for DLLs.
+
+## Testing Strategy
+
+### CLI Tests
+
+**Location:** `tests/Cli.Tests/`
+
+**Test Classes:**
+1. **ExtensionDispatcherTests** (10 tests)
+   - Constructor behavior with environment variables
+   - Parse method validation
+   - Error handling for unknown command groups
+
+2. **ProgramFallbackTests** (5 tests)
+   - Verify fallback NOT invoked for help flags (`--help`, `-h`)
+   - Verify fallback IS invoked for natural language
+   - Verify fallback IS invoked for typos
+   - Note: Some tests skipped (require Azure OpenAI credentials)
+
+**Running Tests:**
 ```bash
-$ export AZURECLI_FLAVOR="azure powershell"
-$ azv2 create a storage account
+dotnet test tests/Cli.Tests/Cli.Tests.csproj
 ```
 
-**Flow:**
-1. CLI detects `AZURECLI_FLAVOR = "azure powershell"`
-2. `OrchestratorEngine` → `DefaultCommandEngine` fails
-3. Fallback to `AgentEngine`
-4. `AgentEngine` sees PowerShell flavor → asks `CloudAgent` for PowerShell syntax
-5. AI returns: `New-AzV2StorageAccount -Name <name> -ResourceGroupName <rg> -Location <location>`
-6. Outputs: `__PSEXEC__New-AzV2StorageAccount ...`
-7. (In PowerShell context, this would be executed; in direct CLI, just displayed)
+### PowerShell Tests
 
-**Agent respects flavor context and returns appropriate syntax.**
+**Location:** `tests/PowerShell.Tests/`
 
-## Key Benefits
+**Test Class:**
+- **AgentCmdletTests** (6 tests)
+  - Module existence
+  - `Invoke-AzAI` function availability
+  - Alias availability (ask, please, pls)
+  - Natural language invocation
 
-### ✅ Zero Duplication
-- Business logic in `GroupManager` is written **once**
-- CLI and PowerShell both call the **exact same methods**
-- Agent can invoke either CLI or PowerShell commands
+**Running Tests:**
+```bash
+dotnet test tests/PowerShell.Tests/PowerShell.Tests.csproj
+```
 
-### ✅ Intelligent Fallback
-- Typos → Agent corrects automatically
-- Unknown commands → Agent suggests correct syntax
-- Natural language → Agent converts to structured commands
-- Always helpful, never "command not found"
+### Manual Verification
 
-### ✅ Unified Natural Language Support
-- CLI supports natural language natively
-- PowerShell via `Invoke-AzV2` delegates to CLI agent
-- Single AI agent serves both interfaces
-
-### ✅ Flavor-Aware Agent
-- Detects CLI vs. PowerShell context
-- Returns appropriate syntax for each
-- PowerShell gets `AzV2` cmdlets, CLI gets `azv2` commands
-
-### ✅ Clear Separation of Concerns
-- **Business/**: What to do (Azure SDK operations)
-- **Commands/**: How CLI invokes it (options dict → request)
-- **Cmdlets/**: How PowerShell invokes it (PS params → request)
-- **AgentEngine**: How natural language converts to commands
-
-### ✅ Easy to Test
-- Test `GroupManager` methods with unit tests
-- Test `CommandBinder` module loading
-- Test `AgentEngine` prompt/response parsing
-- Test `OrchestratorEngine` fallback logic
-- Test end-to-end scenarios
-
-## Migration from src (v1)
-
-Key differences from v1:
-1. ❌ **Removed**: Separate PowerShell process spawning for every cmdlet
-2. ✅ **Added**: `OrchestratorEngine` with agent fallback
-3. ✅ **Added**: `AgentEngine` for natural language
-4. ✅ **Added**: `Business/` folder with shared logic
-5. ✅ **Added**: `Invoke-AzV2` PowerShell function for natural language
-6. ✅ **Improved**: PowerShell cmdlets call business logic directly (no CLI spawn)
-7. ✅ **Improved**: Graceful error handling with helpful AI responses
+For tests requiring Azure OpenAI:
+1. Set up `.env` file in `src/Core/Core.Agent/`
+2. Run CLI manually: `./bin/azv2 how do I create a resource group`
+3. Verify spinner, AI response, command output
 
 ## Configuration
 
 ### Environment Variables
-- `AZURECLI_FLAVOR`: Set by PowerShell's `Invoke-AzV2` to `"azure powershell"`, defaults to `"azure cli"`
-- Azure OpenAI settings: Configured in `Agent/.env`
 
-### prompt.txt
+| Variable | Purpose | Set By |
+|----------|---------|--------|
+| `AZURECLI_FLAVOR` | Detect CLI vs PowerShell | AgentHelper.ps1 |
+| `EXTENSIONS_ROOT_DIRECTORY` | DLL discovery path | Optional (defaults to `artifacts/Release/`) |
 
-Located in `Agent/prompt.txt`, this file contains:
-- Instructions for "azure cli" syntax
-- Instructions for "azure powershell" syntax (AzV2 cmdlets)
-- Rules for syntax help vs. execution
-- Examples for both flavors
-- `[DONE]` marker usage rules
+### .env File (Azure OpenAI)
 
-## Next Steps
+**Location:** `src/Core/Core.Agent/.env`
 
-1. Update `.csproj` files to include new folder structure
-2. Test CLI path: `azv2 group create`
-3. Test PowerShell path: `New-AzV2ResourceGroup`
-4. Verify both paths produce identical results
-5. Add unit tests for `GroupManager` methods
-6. Add integration tests for end-to-end flows
+**Required Values:**
+```env
+AZURE_OPENAI_ENDPOINT=https://<resource>.openai.azure.com
+AZURE_OPENAI_API_KEY=<key>
+AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
+```
+
+**Note:** `.env` file is .gitignored. Copy `.env.example` and fill in your credentials.
+
+### Prompt Template
+
+**Location:** `src/Core/Core.Agent/prompt.md`
+
+**Contains:**
+- System instructions for AI agent
+- `{{flavor}}` placeholder (replaced at runtime)
+- JSON response schema
+- Examples for each scenario type
+- Rules for placeholder usage
+
+## Limitations & Known Issues
+
+### ❌ PowerShell Cannot Do Interactive Prompts
+**Reason:** Subprocess architecture - stdin not connected
+
+**Impact:** Commands auto-execute after display (no confirmation)
+
+**Workaround:** Use "how to" questions to get examples without execution
+
+---
+
+### ❌ No Unified Business Layer
+**Reason:** Extensions are standalone DLLs, not shared library
+
+**Impact:** Potential code duplication between extensions
+
+**Future:** Could create shared Cirrus.Core library for common logic
+
+---
+
+### ❌ Test Coverage Shows 0%
+**Reason:** Subprocess execution prevents Coverlet instrumentation
+
+**Impact:** Cannot measure code coverage accurately
+
+**Workaround:** Integration tests verify behavior, not coverage metrics
+
+---
+
+### ❌ Agent Retry Logic Limited to 5 Turns
+**Reason:** Prevent infinite loops in multi-turn conversations
+
+**Impact:** Complex queries may hit limit before resolution
+
+**Workaround:** User can re-run command to start new conversation
+
+## Build and Deployment
+
+### Build Process
+
+**Script:** `./scripts/deploy.sh`
+
+**Steps:**
+1. Restore NuGet packages
+2. Build solution (`cirrus.slnx`)
+3. Publish CLI to `artifacts/Release/Core.Cli/` as `azv2`
+4. Copy extension DLLs to `artifacts/Release/Group/`, etc.
+5. Copy PowerShell module manifests to `artifacts/Release/`
+
+**Manual Build:**
+```bash
+dotnet build cirrus.slnx
+```
+
+**Deploy Build:**
+```bash
+./scripts/deploy.sh
+```
+
+### Directory Structure After Build
+
+```
+artifacts/
+  Release/
+    Core/
+      azv2                          ← CLI executable
+      azv2.deps.json
+      azv2.runtimeconfig.json
+      Cirrus.Core.psd1             ← Core PowerShell module
+      prompt.md
+      runtimes/
+    Group/
+      Group.dll                     ← Extension
+      Group.deps.json
+      Cirrus.Group.psd1            ← PowerShell module
+    Login/
+      Login.dll
+      Login.deps.json
+      Cirrus.Login.psd1
+    Resources/
+      Resources.dll
+      Resources.deps.json
+      Cirrus.Resources.psd1        ← Has AgentHelper.ps1
+```
+
+### Running the CLI
+
+```bash
+# After deploy
+./artifacts/Release/Core/azv2 group create --name test --location eastus
+
+# Or add to PATH
+export PATH="$PATH:/workspaces/cirrus/artifacts/Release/Core"
+azv2 --help
+```
+
+### Importing PowerShell Modules
+
+```powershell
+# Import specific module
+Import-Module ./artifacts/Release/Resources/Cirrus.Resources.psd1
+
+# Use AI agent
+ask how do I create a resource group
+
+# Use cmdlets
+New-ResourceGroup -Name test -Location eastus
+```
+
+## Future Enhancements
+
+### Potential Improvements
+
+1. **Shared Business Library**
+   - Create `Cirrus.Core.Business` NuGet package
+   - Extensions reference it instead of duplicating logic
+   - Consistent behavior across all extensions
+
+2. **Better Test Coverage**
+   - Mock Azure SDK calls for unit testing
+   - Integration tests with test Azure subscription
+   - Better handling of coverage in subprocess scenarios
+
+3. **Interactive Prompts in PowerShell**
+   - Possible alternative: Direct embedding of AgentEngine in PowerShell module
+   - Trade-off: Code duplication vs. feature parity
+   - Consider hybrid approach: Direct calls for interactive, subprocess for compatibility
+
+4. **Extended Agent Capabilities**
+   - Multi-step command sequences ("create RG then storage account")
+   - Context awareness (remember previous commands in session)
+   - Cost estimation before execution
+   - Command explanation ("what does this command do?")
+
+5. **Telemetry and Analytics**
+   - Track agent invocation frequency
+   - Identify common typos for better corrections
+   - Measure user satisfaction (did they execute suggested command?)
+
+6. **Local Model Support**
+   - Fallback to local LLM (Phi-3.5) when offline
+   - Faster responses for simple queries
+   - Privacy-conscious option for sensitive environments
+
+## References
+
+### Documentation
+
+- **Agent Experience:** [agent-experience.md](agent-experience.md) - Three scenarios, CLI vs PowerShell differences
+- **Repository Guidelines:** [AGENTS.md](../../AGENTS.md) - Project structure, coding style, commit guidelines
+
+### Code Locations
+
+| Component | Path |
+|-----------|------|
+| CLI Entry | `src/CLI/Program.cs` |
+| Extension Dispatcher | `src/CLI/ExtensionDispatcher.cs` |
+| Agent Engine | `src/Core/Core.Engine/AgentEngine.cs` |
+| Cloud Agent | `src/Core/Core.Agent/CloudAgent.cs` |
+| Prompt Template | `src/Core/Core.Agent/prompt.md` |
+| PowerShell Helper | `src/PS/Resources/AgentHelper.ps1` |
+| Resources Manifest | `src/PS/Resources/Resources.psd1` |
+| CLI Tests | `tests/Cli.Tests/` |
+| PowerShell Tests | `tests/PowerShell.Tests/` |
+
+### External Resources
+
+- [Azure OpenAI Service Documentation](https://learn.microsoft.com/azure/ai-services/openai/)
+- [Azure SDK for .NET](https://learn.microsoft.com/dotnet/azure/)
+- [PowerShell Module Manifests](https://learn.microsoft.com/powershell/scripting/developer/module/how-to-write-a-powershell-module-manifest)
+
+

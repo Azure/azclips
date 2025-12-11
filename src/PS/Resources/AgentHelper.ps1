@@ -21,7 +21,7 @@ if (-not $script:AzCliPath) {
     Write-Warning "az CLI not found. Build the solution first with: dotnet build cirrus.slnx"
 }
 
-function Invoke-AzV2 {
+function Invoke-AzAI {
     <#
     .SYNOPSIS
         Execute natural language commands using AI agent.
@@ -34,7 +34,7 @@ function Invoke-AzV2 {
         Natural language description of what you want to do.
     
     .EXAMPLE
-        Invoke-AzV2 "create a resource group called test"
+        Invoke-AzAI "create a resource group called test"
     
     .EXAMPLE
         ask "show me all my resource groups"
@@ -63,25 +63,47 @@ function Invoke-AzV2 {
         # Track if we have a command to execute
         $script:commandToExecute = $null
         
-        # Call CLI with natural language input
-        $output = & $script:AzCliPath $command.Split(' ') 2>&1
+        # Track thinking state for progress bar
+        $isThinking = $false
+        $startTime = $null
         
-        foreach ($line in $output) {
-            $lineText = $line.ToString()
+        # Call CLI with streaming output - use pipeline for real-time feedback
+        & $script:AzCliPath $command 2>&1 | ForEach-Object {
+            $line = $_.ToString()
             
             # Look for execution marker from AI
-            if ($lineText -match '^__PSEXEC__(.+)$') {
+            if ($line -match '^__PSEXEC__(.+)$') {
                 $script:commandToExecute = $matches[1]
                 Write-Verbose "AI generated command: $script:commandToExecute"
             }
-            # Show progress during AI thinking
-            elseif ($lineText -match 'Thinking|Processing') {
-                Write-Progress -Activity "AI Agent" -Status "Processing your request..."
+            # Filter spinner Unicode characters and show progress bar
+            elseif ($line -match '[\u280b\u2819\u2839\u2838\u283c\u2834\u2826\u2827\u2807\u280f]\s*Thinking') {
+                if (-not $isThinking) {
+                    $isThinking = $true
+                    $startTime = Get-Date
+                }
+                
+                # Calculate progress based on elapsed time (max 95%)
+                $elapsed = ((Get-Date) - $startTime).TotalSeconds
+                $percentComplete = [Math]::Min(95, [int](($elapsed / 20.0) * 100))
+                
+                Write-Progress -Activity "AI Agent" -Status "Thinking..." -PercentComplete $percentComplete
             }
-            # Display other output
+            # Display regular output
             else {
-                Write-Host $lineText -ForegroundColor Cyan
+                # Complete progress bar when we get real output
+                if ($isThinking) {
+                    Write-Progress -Activity "AI Agent" -Completed
+                    $isThinking = $false
+                }
+                
+                Write-Host $line -ForegroundColor Cyan
             }
+        }
+        
+        # Complete progress bar if still active
+        if ($isThinking) {
+            Write-Progress -Activity "AI Agent" -Completed
         }
         
         # Execute extracted PowerShell command
@@ -108,6 +130,6 @@ function Invoke-AzV2 {
 }
 
 # Create convenient aliases for natural language commands
-Set-Alias -Name ask -Value Invoke-AzV2 -Description "Ask the AI agent a question"
-Set-Alias -Name please -Value Invoke-AzV2 -Description "Request the AI agent to perform an action"
-Set-Alias -Name pls -Value Invoke-AzV2 -Description "Short form of please"
+Set-Alias -Name ask -Value Invoke-AzAI -Scope Global -Description "Ask the AI agent a question"
+Set-Alias -Name please -Value Invoke-AzAI -Scope Global -Description "Request the AI agent to perform an action"
+Set-Alias -Name pls -Value Invoke-AzAI -Scope Global -Description "Short form of please"

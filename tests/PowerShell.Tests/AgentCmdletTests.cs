@@ -3,7 +3,7 @@ using System.Diagnostics;
 namespace PowerShell.Tests;
 
 /// <summary>
-/// Integration tests for Agent PowerShell module.
+/// Integration tests for Resources PowerShell module with AI agent support.
 /// Tests invoke pwsh as a subprocess to test real module loading.
 /// </summary>
 public class AgentCmdletTests
@@ -22,7 +22,7 @@ public class AgentCmdletTests
     private static async Task<(int exitCode, string output)> RunPowerShellAsync(string command, int timeoutSeconds = 10)
     {
         var repoRoot = GetRepositoryRoot();
-        var modulePath = Path.Combine(repoRoot, "bin", "Agent", "Cirrus.Agent.psd1");
+        var modulePath = Path.Combine(repoRoot, "src", "PS", "Resources", "Resources.psd1");
         
         var script = $"Import-Module '{modulePath}'; {command}";
         
@@ -70,7 +70,7 @@ public class AgentCmdletTests
     private static async Task<string> RunUntilAgentStartsAsync(string command, int timeoutSeconds = 30)
     {
         var repoRoot = GetRepositoryRoot();
-        var modulePath = Path.Combine(repoRoot, "bin", "Agent", "Cirrus.Agent.psd1");
+        var modulePath = Path.Combine(repoRoot, "src", "PS", "Resources", "Resources.psd1");
         
         var script = $"Import-Module '{modulePath}'; {command}";
         
@@ -141,17 +141,17 @@ public class AgentCmdletTests
     public void Module_ShouldExist()
     {
         var repoRoot = GetRepositoryRoot();
-        var modulePath = Path.Combine(repoRoot, "bin", "Agent", "Cirrus.Agent.psd1");
+        var modulePath = Path.Combine(repoRoot, "src", "PS", "Resources", "Resources.psd1");
         Assert.True(File.Exists(modulePath), $"Module should exist at: {modulePath}");
     }
 
     [Fact]
-    public async Task InvokeAzV2Function_ShouldBeAvailable()
+    public async Task InvokeAzAIFunction_ShouldBeAvailable()
     {
-        var (exitCode, output) = await RunPowerShellAsync("Get-Command Invoke-AzV2");
+        var (exitCode, output) = await RunPowerShellAsync("Get-Command Invoke-AzAI");
         
         Assert.Equal(0, exitCode);
-        Assert.Contains("Invoke-AzV2", output);
+        Assert.Contains("Invoke-AzAI", output);
     }
 
     [Fact]
@@ -160,7 +160,7 @@ public class AgentCmdletTests
         var (exitCode, output) = await RunPowerShellAsync("Get-Alias ask");
         
         Assert.Equal(0, exitCode);
-        Assert.Contains("Invoke-AzV2", output);
+        Assert.Contains("Invoke-AzAI", output);
     }
 
     [Fact]
@@ -169,7 +169,7 @@ public class AgentCmdletTests
         var (exitCode, output) = await RunPowerShellAsync("Get-Alias please");
         
         Assert.Equal(0, exitCode);
-        Assert.Contains("Invoke-AzV2", output);
+        Assert.Contains("Invoke-AzAI", output);
     }
 
     [Fact]
@@ -178,7 +178,7 @@ public class AgentCmdletTests
         var (exitCode, output) = await RunPowerShellAsync("Get-Alias pls");
         
         Assert.Equal(0, exitCode);
-        Assert.Contains("Invoke-AzV2", output);
+        Assert.Contains("Invoke-AzAI", output);
     }
 
     [Fact]
@@ -186,6 +186,7 @@ public class AgentCmdletTests
     {
         var output = await RunUntilAgentStartsAsync("ask how do I list resource groups");
 
-        Assert.Contains("azv2", output.ToLowerInvariant());
+        // Verify the AI agent responded with a relevant PowerShell command
+        Assert.Contains("resourcegroup", output.ToLowerInvariant());
     }
 }

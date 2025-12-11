@@ -84,7 +84,7 @@ ScriptsToProcess = @('AgentHelper.ps1')
 #                'Policy.Autorest/Az.Policy.psm1')
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-FunctionsToExport = 'New-ResourceGroup', 'Invoke-AzV2'
+FunctionsToExport = 'New-ResourceGroup', 'Invoke-AzAI'
 
 # # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 # CmdletsToExport = 'Export-AzResourceGroup', 'Export-AzTemplateSpec', 
