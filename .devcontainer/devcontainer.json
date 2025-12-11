@@ -39,6 +39,11 @@
 	// Use 'postCreateCommand' to run commands after the container is created.
 	"postCreateCommand": "./.devcontainer/post-create.sh",
 
+	// Add az CLI to PATH for both Debug and Release builds
+	"remoteEnv": {
+		"PATH": "${containerWorkspaceFolder}/artifacts/Debug/Core.Cli:${containerWorkspaceFolder}/artifacts/Release/Core.Cli:${containerEnv:PATH}"
+	},
+
 	// Configure tool-specific properties.
 	"customizations": {
 		"vscode": {

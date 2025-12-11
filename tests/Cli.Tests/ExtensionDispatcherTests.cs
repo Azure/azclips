@@ -11,7 +11,7 @@ namespace Cli.Tests;
 public class ExtensionDispatcherTests
 {
     [Fact]
-    public void Constructor_ShouldUseCurrentDirectory_WhenEnvironmentVariableNotSet()
+    public void Constructor_ShouldUseDefaultPath_WhenEnvironmentVariableNotSet()
     {
         // Arrange
         Environment.SetEnvironmentVariable("AZURE_CLI_EXTENSION_DIRECTORY", null);
@@ -20,7 +20,8 @@ public class ExtensionDispatcherTests
         var dispatcher = new ExtensionDispatcher();
         
         // Assert
-        Assert.Equal(Directory.GetCurrentDirectory(), dispatcher.ExtensionDirectory);
+        var expectedPath = Path.Combine(AppContext.BaseDirectory, "..");
+        Assert.Equal(expectedPath, dispatcher.ExtensionDirectory);
     }
 
     [Fact]
