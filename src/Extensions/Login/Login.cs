@@ -16,15 +16,22 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
         [ArgumentInfoAttribute(
         Required = true,
         Description = @"Tenant ID to login to.",
-        SerializedName = @"TenantID")]
+        SerializedName = @"TenantId")]
         public string TenantId { get; set; } = "";
+
+        [ArgumentInfoAttribute(
+        Required = false,
+        Description = @"Use device code flow for authentication.",
+        SerializedName = @"UseDeviceCode")]
+        public bool UseDeviceCode { get; set; } = false;
 
         public object Process()
         {
             LoginRequest loginRequest = new LoginRequest()
             {
                 TenantId = TenantId,
-                SubscriptionId = SubscriptionId
+                SubscriptionId = SubscriptionId,
+                UseDeviceCodeFlow = UseDeviceCode
             };
 
             var authService = Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult()

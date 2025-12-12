@@ -11,7 +11,14 @@ public class MsalAuthService(ILoggerService Logger) : IAuthService // todo: test
 
     public async Task<AuthenticationInfo> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
-        await AcquireTokenInteractiveAsync(request.Scopes, request.TenantId, cancellationToken);
+        if (request.UseDeviceCodeFlow)
+        {
+            await AcquireTokenWithDeviceCodeAsync(request.Scopes, request.TenantId, cancellationToken);
+        }
+        else
+        {
+            await AcquireTokenInteractiveAsync(request.Scopes, request.TenantId, cancellationToken);
+        }
         _currentContext = new AuthenticationInfo
         {
             SubscriptionId = request.SubscriptionId ?? "00000000-0000-0000-0000-000000000000",
@@ -36,9 +43,24 @@ public class MsalAuthService(ILoggerService Logger) : IAuthService // todo: test
     private async Task<string> AcquireTokenInteractiveAsync(string[]? scopes, string? tenantId, CancellationToken cancellationToken = default)
     {
         IPublicClientApplication app = BuildApp(tenantId);
-        await RegisterTokenCacheAsync(app, true);
+        await RegisterTokenCacheAsync(app);
 
         var result = await app.AcquireTokenInteractive(scopes ?? [ArmDefaultScope]).WithUseEmbeddedWebView(false).ExecuteAsync(cancellationToken);
+        LogTokenMetadata(result);
+        return result.AccessToken;
+    }
+
+    private async Task<string> AcquireTokenWithDeviceCodeAsync(string[]? scopes, string? tenantId, CancellationToken cancellationToken = default)
+    {
+        IPublicClientApplication app = BuildApp(tenantId);
+        await RegisterTokenCacheAsync(app);
+
+        var result = await app.AcquireTokenWithDeviceCode(scopes ?? [ArmDefaultScope], deviceCodeResult =>
+        {
+            Logger.Log(deviceCodeResult.Message);
+            return Task.CompletedTask;
+        }).ExecuteAsync(cancellationToken);
+
         LogTokenMetadata(result);
         return result.AccessToken;
     }
@@ -63,9 +85,15 @@ public class MsalAuthService(ILoggerService Logger) : IAuthService // todo: test
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".cirrus"));
         builder = plaintextUnsafe ?
             builder.WithUnprotectedFile() :
-            builder.WithMacKeyChain(
-                "Microsoft.Project.Cirrus", // Config.KeyChainServiceName,
-                "MSAL.cache"); // Config.KeyChainAccountName)
+            builder.WithLinuxKeyring(
+                "Microsoft.Project.Cirrus",
+                "default", // todo: post MVP: configurable?
+                "Tokens and credentials for Microsoft Project Cirrus",
+                default, // todo: post MVP: is it valuable to set attributes?
+                default)
+            .WithMacKeyChain(
+                "Microsoft Project Cirrus",
+                "default"); // todo: post MVP: does it make sense to split the cache by account?
 
         var storageProperties = builder.Build();
 
@@ -84,7 +112,7 @@ public class MsalAuthService(ILoggerService Logger) : IAuthService // todo: test
     public async Task<string> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default)
     {
         var app = BuildApp(tenantId);
-        await RegisterTokenCacheAsync(app, false);
+        await RegisterTokenCacheAsync(app);
 
         var accounts = await app.GetAccountsAsync();
 
