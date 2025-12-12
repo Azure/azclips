@@ -18,11 +18,11 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
         [ArgumentInfoAttribute(
         Required = true,
         Description = @"The name of the resource group.",
-        SerializedName = @"ResourceGroupName")]
+        SerializedName = @"Name")]
         public string Name { get; set; } = "";
 
         [ArgumentInfoAttribute(
-        Required = true,
+        Required = false,
         Description = @"The resource id of the resource group.",
         SerializedName = @"ResourceId")]
         public string ResourceId { get; set; } = "";
