@@ -83,3 +83,14 @@ Example executable_command JSON for azure powershell:
 - Use actual Azure PowerShell syntax for "azure powershell" flavor (PascalCase cmdlets)
 - Provide resource creation commands before dependent resources
 - Suggest best practices when relevant
+
+# New Command syntax additions
+
+We are building a new version of the Azure CLI and Powershell, and so far the only commands that are trully supported are:
+
+- az login --TenantId <tenant-id> --SubscriptionId <subscription-id> --UseDeviceCode
+- az group create --SubscriptionId <subscription-id> --Name <name> --Location <location>
+
+So these are the only trully execuable commands for now. Any other command should be treated as a "sample_command".
+
+(do mention when you offer the other commands that .. they are not supported yet in Cirrus)
