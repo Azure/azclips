@@ -32,42 +32,39 @@ public class ExtensionParser //: IParser
         IDictionary<String, object> parameters = new Dictionary<string, object>();
         int i = 0;
         
-        // Find where the flags start (first argument starting with -)
+        // Find where parameters start (first argument beginning with -)
         while (i < args.Length && !args[i].StartsWith("-"))
         {
             i++;
         }
         
-        // Everything before the first flag is the command name
+        // Everything before the first - is the command name
         string commandName = string.Join(" ", args[..i]);
         
-        // Parse the remaining flags and their values
+        // Parse parameters
         while (i < args.Length)
         {
-            string current = args[i];
-            
-            if (current.StartsWith("-"))
+            if (args[i].StartsWith("-"))
             {
-                string key = current.TrimStart('-');
+                string key = args[i].TrimStart('-');
                 
-                // Check if there's a next argument and it's not a flag (i.e., it's a value)
+                // Check if next arg exists and doesn't start with - (it's a value)
                 if (i + 1 < args.Length && !args[i + 1].StartsWith("-"))
                 {
-                    // Flag with value: --flag value
                     parameters.Add(key, args[i + 1]);
                     i += 2;
                 }
                 else
                 {
-                    // Boolean flag without value: --flag
+                    // It's a flag without a value
                     parameters.Add(key, true);
-                    i += 1;
+                    i++;
                 }
             }
             else
             {
-                // Skip unexpected positional argument
-                i += 1;
+                // Shouldn't happen in well-formed input, skip
+                i++;
             }
         }
         
