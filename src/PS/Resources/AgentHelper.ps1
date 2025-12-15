@@ -130,6 +130,6 @@ function Invoke-AzAI {
 }
 
 # Create convenient aliases for natural language commands
-Set-Alias -Name ask -Value Invoke-AzAI -Scope Global -Description "Ask the AI agent a question"
-Set-Alias -Name please -Value Invoke-AzAI -Scope Global -Description "Request the AI agent to perform an action"
-Set-Alias -Name pls -Value Invoke-AzAI -Scope Global -Description "Short form of please"
+Set-Alias -Name ask -Value Invoke-AzAI -Description "Ask the AI agent a question"
+Set-Alias -Name please -Value Invoke-AzAI -Description "Request the AI agent to perform an action"
+Set-Alias -Name pls -Value Invoke-AzAI -Description "Short form of please"

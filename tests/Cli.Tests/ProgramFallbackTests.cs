@@ -23,48 +23,36 @@ public class ProgramFallbackTests
     }
 
     // The following tests verify that AgentEngine is invoked by observing the side effects.
-    // They will produce AI responses but timeout after 10s once we confirm fallback was invoked.
+    // They require AI integration which prompts for user input, making them unsuitable for automated testing.
+    // These are skipped in CI but can be run manually for integration testing.
     
-    [Fact(Timeout = 10000)]
+    [Fact(Skip = "Requires AI agent with interactive prompts - manual test only")]
     public async Task Fallback_ShouldBeInvoked_WhenExtensionParsingFails()
     {
         // Arrange - use a command that will fail extension parsing
         var args = new[] { "nonexistent", "command" };
         
-        // Act - this will invoke AI, produce some output, then timeout
-        // The timeout is expected - we're just verifying fallback is triggered
-        try
-        {
-            var exitCode = await Core.Cli.Program.Main(args);
-            // If it completes without timeout, verify it didn't crash
-            Assert.True(exitCode >= 0);
-        }
-        catch (TaskCanceledException)
-        {
-            // Timeout is acceptable - it means AI was invoked and started processing
-            Assert.True(true, "Fallback was invoked (timed out waiting for AI response)");
-        }
+        // Act - this will invoke AI and produce output
+        var exitCode = await Core.Cli.Program.Main(args);
+        
+        // Assert - verify it didn't crash
+        Assert.True(exitCode >= 0);
     }
 
-    [Fact(Timeout = 10000)]
+    [Fact(Skip = "Requires AI agent with interactive prompts - manual test only")]
     public async Task Fallback_ShouldHandleNaturalLanguage()
     {
         // Arrange - natural language query that triggers fallback
         var args = new[] { "create", "a", "resource", "group" };
         
-        // Act - AI will ask for parameters, then timeout
-        try
-        {
-            var exitCode = await Core.Cli.Program.Main(args);
-            Assert.True(exitCode >= 0);
-        }
-        catch (TaskCanceledException)
-        {
-            Assert.True(true, "Natural language invoked AI fallback");
-        }
+        // Act - AI will ask for parameters
+        var exitCode = await Core.Cli.Program.Main(args);
+        
+        // Assert - verify it didn't crash
+        Assert.True(exitCode >= 0);
     }
 
-    [Fact(Timeout = 10000)]
+    [Fact(Skip = "Requires AI agent with interactive prompts - manual test only")]
     public async Task Fallback_ShouldUseDefaultFlavor_WhenNotSet()
     {
         // Arrange
@@ -74,15 +62,10 @@ public class ProgramFallbackTests
         try
         {
             // Act - should use "azure cli" flavor (shows spinner)
-            try
-            {
-                var exitCode = await Core.Cli.Program.Main(args);
-                Assert.True(exitCode >= 0);
-            }
-            catch (TaskCanceledException)
-            {
-                Assert.True(true, "Default CLI flavor was used");
-            }
+            var exitCode = await Core.Cli.Program.Main(args);
+            
+            // Assert - verify it didn't crash
+            Assert.True(exitCode >= 0);
         }
         finally
         {
@@ -90,7 +73,7 @@ public class ProgramFallbackTests
         }
     }
 
-    [Fact(Timeout = 10000)]
+    [Fact(Skip = "Requires AI agent with interactive prompts - manual test only")]
     public async Task Fallback_ShouldUsePowerShellFlavor_WhenSet()
     {
         // Arrange
@@ -100,15 +83,10 @@ public class ProgramFallbackTests
         try
         {
             // Act - should use PowerShell flavor (no spinner, different prompts)
-            try
-            {
-                var exitCode = await Core.Cli.Program.Main(args);
-                Assert.True(exitCode >= 0);
-            }
-            catch (TaskCanceledException)
-            {
-                Assert.True(true, "PowerShell flavor was used");
-            }
+            var exitCode = await Core.Cli.Program.Main(args);
+            
+            // Assert - verify it didn't crash
+            Assert.True(exitCode >= 0);
         }
         finally
         {

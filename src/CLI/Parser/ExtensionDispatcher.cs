@@ -33,7 +33,7 @@ public class ExtensionDispatcher //: IParser
         var envDir = Environment.GetEnvironmentVariable("AZURE_CLI_EXTENSION_DIRECTORY");
         ExtensionDirectory = !string.IsNullOrEmpty(envDir) 
             ? envDir 
-            : AppContext.BaseDirectory;
+            : Path.Combine(AppContext.BaseDirectory, "..");
     }
 
     public ExtensionDispatcher(string extensionDirectory)
