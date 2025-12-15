@@ -34,6 +34,7 @@ public partial class AgentEngine : ICommandEngine
     private readonly IOutputAdapter _output;
     private readonly string _flavor;
     private string? _extractedCommand;
+    private CloudAgent? _agent;
 
     public AgentEngine(IOutputAdapter output, string flavor )
     {
@@ -53,8 +54,9 @@ public partial class AgentEngine : ICommandEngine
     {
         try
         {
-            // Create the agent with the specified flavor
-            var agent = await Core.Agent.CloudAgent.CreateAsync(_flavor);
+            // Reuse existing agent or create new one if needed
+            // This maintains conversation history across retry attempts
+            _agent ??= await Core.Agent.CloudAgent.CreateAsync(_flavor);
 
             // await _output.WriteLineAsync("Starting AI assistant. with flavor: " + _flavor);
             
@@ -93,7 +95,7 @@ public partial class AgentEngine : ICommandEngine
                 bool isFirstUpdate = true;
 
                 // Stream agent response
-                await foreach (var update in agent.RunStreamingAsync(userInput))
+                await foreach (var update in _agent.RunStreamingAsync(userInput))
                 {
                     if (isFirstUpdate)
                     {

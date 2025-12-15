@@ -47,9 +47,10 @@ public class Program
 
         try
         {
-            var output = new ConsoleOutputAdapter();
-            var flavor = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure cli";
-            var agentEngine = new AgentEngine(output, flavor);
+            // Use the singleton AgentEngine from DI container
+            var serviceProvider = Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult();
+            var agentEngine = serviceProvider.GetRequiredService<AgentEngine>();
+            var output = serviceProvider.GetRequiredService<IOutputAdapter>();
 
             while (attempt < maxRetries)
             {
