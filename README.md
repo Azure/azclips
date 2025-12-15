@@ -78,7 +78,7 @@ cirrus/
 
 ```bash
 # Build the solution
-dotnet build cirrus.slnx
+dotnet build -c Release cirrus.slnx
 
 # The CLI binary is produced at artifacts/Release/Core.Cli/az
 # Add to PATH for convenient access
