@@ -24,8 +24,8 @@ namespace Core.Engine;
 /// FLAVOR HANDLING (addressing corrections.md concerns):
 /// - PowerShell cmdlets set AZURECLI_FLAVOR="azure powershell" before calling CLI
 /// - When PowerShell flavor detected, we bypass DefaultEngine and go straight to AgentEngine
-/// - Why? PowerShell invokes CLI for natural language only (Invoke-AzV2 cmdlet)
-/// - Structured commands in PowerShell use cmdlets directly (New-AzV2ResourceGroup), not CLI
+/// - Why? PowerShell invokes CLI for natural language only (Invoke-Az cmdlet)
+/// - Structured commands in PowerShell use cmdlets directly (New-AzResourceGroup), not CLI
 /// - CLI invocations default to "azure cli" flavor and use full orchestration
 ///
 /// NOTE: Flavor could be injected via constructor (better testability) but environment
@@ -66,7 +66,7 @@ public class OrchestratorEngine : ICommandEngine
         if (flavor == "azure powershell")
         {
             // PowerShell flavor: Only natural language processing needed
-            // PowerShell uses cmdlets for structured commands, only invokes CLI for natural language (Invoke-AzV2)
+            // PowerShell uses cmdlets for structured commands, only invokes CLI for natural language (Invoke-Az)
             await _agentEngine.ExecuteCommandAsync(args, cancellationToken);
             return;
         }
@@ -110,7 +110,7 @@ public class OrchestratorEngine : ICommandEngine
                 }
 
                 // Agent generated a command - retry through DefaultEngine to execute it
-                // Skip first token (typically "azv2") and parse remaining args
+                // Skip first token (typically "az") and parse remaining args
                 extractedArgs = extractedCommand.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1).ToArray();
                 await _output.WriteLineAsync($"\nRetrying with command: {extractedCommand}\n");
             }

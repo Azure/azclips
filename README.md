@@ -119,19 +119,19 @@ Import-Module ./artifacts/Release/Group/Cirrus.Group.psd1
 Import-Module ./artifacts/Release/Login/Cirrus.Login.psd1
 
 # Use cmdlets
-New-AzV2ResourceGroup -SubscriptionId <sub-id> -Name mygroup -Location eastus -AccessToken <token>
+New-AzResourceGroup -SubscriptionId <sub-id> -Name mygroup -Location eastus -AccessToken <token>
 
 # Use AI-powered natural language interface (from Cirrus.Agent)
-Invoke-AzV2 "create a resource group called test in eastus"
-ask "list all my resource groups"  # Alias for Invoke-AzV2
-please "delete resource group test" # Alias for Invoke-AzV2
+Invoke-Az "create a resource group called test in eastus"
+ask "list all my resource groups"  # Alias for Invoke-Az
+please "delete resource group test" # Alias for Invoke-Az
 ```
 
 **Available Modules:**
 - `Cirrus.Core` - Meta-module that loads all sub-modules
-- `Cirrus.Login` - Authentication cmdlets (`Connect-AzV2Account`, `Get-AzV2Context`)
-- `Cirrus.Group` - Resource group management (`New-AzV2ResourceGroup`, `Get-AzV2ResourceGroup`, etc.)
-- `Cirrus.Agent` - AI-powered natural language interface (`Invoke-AzV2` with aliases `ask`, `please`, `pls`)
+- `Cirrus.Login` - Authentication cmdlets (`Connect-AzAccount`, `Get-AzContext`)
+- `Cirrus.Group` - Resource group management (`New-AzResourceGroup`, `Get-AzResourceGroup`, etc.)
+- `Cirrus.Agent` - AI-powered natural language interface (`Invoke-Az` with aliases `ask`, `please`, `pls`)
 
 **Note**: Build the solution first with `dotnet build -c Release` to generate the modules in `artifacts/Release/`.
 

@@ -83,19 +83,19 @@ NestedModules = @(
 )
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-FunctionsToExport = @('Invoke-AzV2')
+FunctionsToExport = @('Invoke-Az')
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 CmdletsToExport = @(
     # From Cirrus.Login
-    'Connect-AzV2Account'
-    'Disconnect-AzV2Account'
-    'Get-AzV2Context'
+    'Connect-AzAccount'
+    'Disconnect-AzAccount'
+    'Get-AzContext'
     # From Cirrus.Group
-    'Get-AzV2ResourceGroup'
-    'New-AzV2ResourceGroup'
-    'Set-AzV2ResourceGroup'
-    'Remove-AzV2ResourceGroup'
+    'Get-AzResourceGroup'
+    'New-AzResourceGroup'
+    'Set-AzResourceGroup'
+    'Remove-AzResourceGroup'
 )
 
 # Variables to export from this module

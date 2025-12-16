@@ -447,7 +447,7 @@ switch (response.Type)
             string answer = Console.ReadLine();
             if (answer.ToLower() == "yes")
             {
-                // Recursive azv2 call
+                // Recursive az call
                 await ExecuteExtractedCommandAsync(response.Command);
             }
         }
@@ -501,7 +501,7 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
 - Detect user intent (typo, how-to question, or execution request)
 - Return JSON with `type` field
 - For "azure cli" flavor: Generate `az` commands
-- For "azure powershell" flavor: Generate `New-ResourceGroup` style cmdlets (no AzV2 prefix)
+- For "azure powershell" flavor: Generate `New-ResourceGroup` style cmdlets (no Az prefix)
 - Use placeholders for unknown values: `<resource-group-name>`
 - Distinguish between help requests and execution requests
 
@@ -589,7 +589,7 @@ static async Task<int> TryAgentFallbackAsync(string[] args)
 
 **Contains:**
 - PowerShell cmdlets: `New-ResourceGroup`, `Get-ResourceGroup`, etc.
-- Note: No "AzV2" prefix in current implementation
+- Note: No "Az" prefix in current implementation
 
 ## Example Execution Flows
 

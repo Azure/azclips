@@ -20,9 +20,9 @@ using Microsoft.Extensions.DependencyInjection;
 //   2. If that fails (typo, unknown command, natural language), invoke AgentEngine (AI)
 //   3. AI can explain, suggest corrections, or generate executable commands
 // - This means:
-//   * "azv2 group create --name test" → DefaultEngine (fast, direct)
-//   * "azv2 groop create --name test" → AgentEngine suggests correction
-//   * "azv2 create a resource group called test" → AgentEngine generates command
+//   * "az group create --name test" → DefaultEngine (fast, direct)
+//   * "az groop create --name test" → AgentEngine suggests correction
+//   * "az create a resource group called test" → AgentEngine generates command
 //
 // WHY THE CHANGE:
 // The original design required users to know exact command syntax. The new design
