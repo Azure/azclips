@@ -14,9 +14,7 @@ public class LoginIntegrationTests
     {
         // Arrange
         var artifactsDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "artifacts", "Debug"));
-        Environment.SetEnvironmentVariable("AZURE_CLI_EXTENSION_DIRECTORY", artifactsDir);
-        
-        var dispatcher = new ExtensionDispatcher();
+        var dispatcher = new ExtensionDispatcher(artifactsDir);
         string[] args = new[] { "login", "--TenantId", "test-tenant-id", "--SubscriptionId", "test-sub-id", "--UseDeviceCode" };
         
         // Act

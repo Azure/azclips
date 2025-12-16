@@ -61,7 +61,7 @@ cirrus/
 ## Key Features
 
 - **Target Framework**: .NET 9.0
-- **Extension Architecture**: Dynamic extension loading via `AZURE_CLI_EXTENSION_DIRECTORY`
+- **Extension Architecture**: Dynamic extension loading from artifacts directory
 - **AI Integration**: Natural language command processing with automatic fallback
 - **Real Azure API**: HTTP client for Azure Resource Manager REST API
 - **PowerShell Support**: Full PowerShell module wrapping extension functionality

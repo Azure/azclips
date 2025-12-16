@@ -11,39 +11,14 @@ namespace Cli.Tests;
 public class ExtensionDispatcherTests
 {
     [Fact]
-    public void Constructor_ShouldUseDefaultPath_WhenEnvironmentVariableNotSet()
+    public void Constructor_ShouldUseDefaultPath()
     {
-        // Arrange
-        Environment.SetEnvironmentVariable("AZURE_CLI_EXTENSION_DIRECTORY", null);
-        
-        // Act
+        // Arrange & Act
         var dispatcher = new ExtensionDispatcher();
         
         // Assert
         var expectedPath = Path.Combine(AppContext.BaseDirectory, "..");
         Assert.Equal(expectedPath, dispatcher.ExtensionDirectory);
-    }
-
-    [Fact]
-    public void Constructor_ShouldUseEnvironmentVariable_WhenSet()
-    {
-        // Arrange
-        var expectedPath = "/custom/extensions/path";
-        Environment.SetEnvironmentVariable("AZURE_CLI_EXTENSION_DIRECTORY", expectedPath);
-        
-        try
-        {
-            // Act
-            var dispatcher = new ExtensionDispatcher();
-            
-            // Assert
-            Assert.Equal(expectedPath, dispatcher.ExtensionDirectory);
-        }
-        finally
-        {
-            // Cleanup
-            Environment.SetEnvironmentVariable("AZURE_CLI_EXTENSION_DIRECTORY", null);
-        }
     }
 
     [Fact]

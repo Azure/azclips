@@ -13,9 +13,7 @@ public class ResourceGroupIntegrationTests
     {
         // Arrange
         var artifactsDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "artifacts", "Debug"));
-        Environment.SetEnvironmentVariable("AZURE_CLI_EXTENSION_DIRECTORY", artifactsDir);
-        
-        var dispatcher = new ExtensionDispatcher();
+        var dispatcher = new ExtensionDispatcher(artifactsDir);
         string[] args = new[] { "group", "create", "--SubscriptionId", "test-sub-id", "--Name", "test-rg", "--Location", "eastus" };
         
         // Act

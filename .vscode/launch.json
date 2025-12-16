@@ -42,10 +42,7 @@
                 "placeholder-token"
             ],
             "cwd": "${workspaceFolder}/artifacts/Debug/Core.Cli",
-            "console": "integratedTerminal",
-            "env": {
-                "AZURE_CLI_EXTENSION_DIRECTORY": "${workspaceFolder}/artifacts/Debug/Core.Cli"
-            }
+            "console": "integratedTerminal"
         },
         {
             "name": "az: natural language (AI)",
@@ -62,10 +59,7 @@
                 "test"
             ],
             "cwd": "${workspaceFolder}/artifacts/Debug/Core.Cli",
-            "console": "integratedTerminal",
-            "env": {
-                "AZURE_CLI_EXTENSION_DIRECTORY": "${workspaceFolder}/artifacts/Debug/Core.Cli"
-            }
+            "console": "integratedTerminal"
         },
         {
             "name": "az: help",
@@ -77,10 +71,7 @@
                 "--help"
             ],
             "cwd": "${workspaceFolder}/artifacts/Debug/Core.Cli",
-            "console": "integratedTerminal",
-            "env": {
-                "AZURE_CLI_EXTENSION_DIRECTORY": "${workspaceFolder}/artifacts/Debug/Core.Cli"
-            }
+            "console": "integratedTerminal"
         }
     ]
 }
