@@ -619,5 +619,5 @@ obj/
 *.ggml
 llama_models/
 
-
+# Local markdown notes
 change.md
