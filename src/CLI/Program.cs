@@ -15,7 +15,7 @@ public class Program
 {
     public static async Task<int> Main(string[] args)
     {
-        var serviceProvider = Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult();
+        var serviceProvider = await Bootstrapper.ServiceProviderAsync;
         var dispatcher = new ExtensionDispatcher();
         try
         {
