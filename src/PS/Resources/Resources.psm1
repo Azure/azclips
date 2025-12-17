@@ -1,3 +1,7 @@
+# Load the agent helper first
+. (Join-Path $PSScriptRoot 'AgentHelper.ps1')
+
+# Load all exported functions
 $exportsPath = Join-Path $PSScriptRoot './exports'
 $defaultFunctions = Get-ChildItem function:
 Get-ChildItem -Path $exportsPath -Recurse -Include '*.ps1' -File 
