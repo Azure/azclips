@@ -48,7 +48,7 @@ public class Program
         try
         {
             // Use the singleton AgentEngine from DI container
-            var serviceProvider = Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult();
+            var serviceProvider = await Bootstrapper.ServiceProviderAsync;
             var agentEngine = serviceProvider.GetRequiredService<AgentEngine>();
             var output = serviceProvider.GetRequiredService<IOutputAdapter>();
 
