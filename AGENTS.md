@@ -4,7 +4,7 @@
 - `src/` – Core libraries and service modules. Shared props in `src/Directory.Build.props` target `net10.0`, enable nullable and implicit usings.
 - `src/Core/` – Core framework (Abstractions, Engine with Bootstrapper, Implementation, Agent, CLI)
 - `src/Agent/`, `src/Group/`, `src/Login/` – Service modules with Business/, Cmdlets/, Commands/ structure
-- `tests/` – xUnit test projects (`Cli.Tests`, `PowerShell.Tests`) with Coverlet configured in `tests/Directory.Build.props`.
+- `tests/` – xUnit test projects (`Cli.Tests`) with Coverlet configured in `tests/Directory.Build.props`.
 - `bin/` – Published binaries after running `./scripts/deploy.sh` (az CLI + PowerShell modules)
 - `build/` – PowerShell build scripts
 - `scripts/` – Deployment scripts (`deploy.sh`)
@@ -22,7 +22,7 @@
 - **Build only**: `dotnet build cirrus.slnx`
 - **Run CLI**: `./bin/az group list` or `./bin/az "create a resource group"`
 - **PowerShell**: `Import-Module ./bin/Cirrus.psd1` (imports all modules) or individual modules
-- **Run tests**: `dotnet test tests/Cli.Tests/Cli.Tests.csproj` and `dotnet test tests/PowerShell.Tests/PowerShell.Tests.csproj`
+- **Run tests**: `dotnet test tests/Cli.Tests/Cli.Tests.csproj`
 - **Run tests with coverage**: `dotnet test --collect:"XPlat Code Coverage"`
 - **Verify SDK**: `dotnet --info` (must match `global.json` version)
 

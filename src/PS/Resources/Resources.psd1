@@ -60,7 +60,7 @@ RequiredAssemblies = '../../../artifacts/Debug/Core/Core.Abstractions.dll',
                         '../../../artifacts/Debug/Core/SharedContracts.dll',
                         '../../../artifacts/Debug/Microsoft.Azure.Cirrus.Extensions.Resources/Microsoft.Azure.Cirrus.Extensions.Resources.dll'
 # Script files (.ps1) that are run in the caller's environment prior to importing this module.
-ScriptsToProcess = @('AgentHelper.ps1')
+# ScriptsToProcess = @()
 
 # Type files (.ps1xml) to be loaded when importing this module
 # TypesToProcess = @()
@@ -84,7 +84,7 @@ ScriptsToProcess = @('AgentHelper.ps1')
 #                'Policy.Autorest/Az.Policy.psm1')
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-FunctionsToExport = 'New-ResourceGroup', 'Invoke-AzAI'
+FunctionsToExport = 'New-ResourceGroup'
 
 # # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 # CmdletsToExport = 'Export-AzResourceGroup', 'Export-AzTemplateSpec', 
@@ -169,10 +169,7 @@ FunctionsToExport = 'New-ResourceGroup', 'Invoke-AzAI'
 # Variables to export from this module
 # VariablesToExport = @()
 
-# Aliases to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no aliases to export.
-AliasesToExport = @('ask', 'please', 'pls')
-
-# # Legacy aliases (commented out):
+# # Aliases to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no aliases to export.
 # AliasesToExport = 'Get-AzADServicePrincipalCredential', 
 #                'Get-AzResourceProviderAction', 'Get-AzSubscriptionDeployment', 
 #                'Get-AzSubscriptionDeploymentOperation', 

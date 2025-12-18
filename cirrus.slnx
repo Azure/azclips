@@ -16,6 +16,5 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Cli.Tests/Cli.Tests.csproj" />
-    <Project Path="tests/PowerShell.Tests/PowerShell.Tests.csproj" />
   </Folder>
 </Solution>

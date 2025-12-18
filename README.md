@@ -107,26 +107,28 @@ The CLI automatically tries extension-based parsing first. On parse or execution
 
 ### PowerShell Usage
 
-Cirrus provides PowerShell modules that wrap the extension functionality. After building, modules are available in `artifacts/Release/`.
+Cirrus provides PowerShell modules in [`src/PS`](src/PS) that can be used directly without building.
 
 ```powershell
-# Import the Login extension module
-Import-Module ./artifacts/Release/Microsoft.Azure.Cirrus.Extensions.Login/Login.psd1
+# Import the Login module (binary module with cmdlets)
+Import-Module ./src/PS/Login/Login.psd1
 
-# Import the Resources module (available in two locations)
-Import-Module ./artifacts/Release/Microsoft.Azure.Cirrus.Extensions.Resources/Resources.psd1
-# Or from the CLI directory:
-Import-Module ./artifacts/Release/Core.Cli/Resources.psd1
+# Import the Resources module (script module)
+Import-Module ./src/PS/Resources/Resources.psd1
 
-# Use the available cmdlets
-# (Note: Cmdlet availability depends on the extension implementation)
+# Use authentication cmdlets
+Connect-CirrusAccount -TenantId <tenant-id>
+
+# Use resource management functions
+New-ResourceGroup -Name mygroup -Location eastus
+
 ```
 
 **Available Modules:**
-- `Login` (at `Microsoft.Azure.Cirrus.Extensions.Login/Login.psd1`) - Login extension module
-- `Resources` (at `Microsoft.Azure.Cirrus.Extensions.Resources/Resources.psd1` or `Core.Cli/Resources.psd1`) - Resource management module
+- **Login** ([`src/PS/Login/Login.psd1`](src/PS/Login/Login.psd1)) - Binary module with `Connect-CirrusAccount` cmdlet for Azure authentication
+- **Resources** ([`src/PS/Resources/Resources.psd1`](src/PS/Resources/Resources.psd1)) - Script module with resource management functions
 
-**Note**: Build the solution first with `dotnet build -c Release` to generate the modules in `artifacts/Release/`.
+**Note**: The Login module requires the solution to be built first (`dotnet build -c Release`) so that `Login.dll` is available in [`artifacts/Release/Microsoft.Azure.Cirrus.Extensions.Login/`](artifacts/Release/Microsoft.Azure.Cirrus.Extensions.Login/). The Resources module works directly from source.
 
 ### Running Tests
 
@@ -136,7 +138,6 @@ dotnet test
 
 # Run individual test projects
 dotnet test tests/Cli.Tests/Cli.Tests.csproj
-dotnet test tests/PowerShell.Tests/PowerShell.Tests.csproj
 
 # Run tests with coverage
 dotnet test --collect:"XPlat Code Coverage"
