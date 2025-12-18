@@ -44,10 +44,9 @@ cirrus/
 │   └── Core/                     # Core library tests
 ├── 📁 artifacts/                 # Build output (generated)
 │   └── Release/                  # Release builds
-│       ├── Core/                 # Core libraries + Cirrus.Core.psd1
-│       ├── Core.Cli/             # CLI binary 'az' + dependencies
-│       ├── Group/                # Cirrus.Group module
-│       ├── Login/                # Cirrus.Login module
+│       ├── Core/                 # Core libraries
+│       ├── Core.Cli/             # CLI binary 'az' + dependencies + Resources module
+│       ├── Microsoft.Azure.Cirrus.Extensions.Login/     # Login extension + PowerShell module
 │       └── Microsoft.Azure.Cirrus.Extensions.Resources/  # Resources extension
 ├── 📄 global.json               # .NET SDK version (9.0)
 ├── 📄 cirrus.slnx              # Main solution file
@@ -108,30 +107,24 @@ The CLI automatically tries extension-based parsing first. On parse or execution
 
 ### PowerShell Usage
 
-Cirrus provides PowerShell modules that wrap the CLI functionality. After building, modules are available in `artifacts/Release/`.
+Cirrus provides PowerShell modules that wrap the extension functionality. After building, modules are available in `artifacts/Release/`.
 
 ```powershell
-# Import the meta-module (loads all Cirrus modules)
-Import-Module ./artifacts/Release/Core/Cirrus.Core.psd1
+# Import the Login extension module
+Import-Module ./artifacts/Release/Microsoft.Azure.Cirrus.Extensions.Login/Login.psd1
 
-# Or import individual modules
-Import-Module ./artifacts/Release/Group/Cirrus.Group.psd1
-Import-Module ./artifacts/Release/Login/Cirrus.Login.psd1
+# Import the Resources module (available in two locations)
+Import-Module ./artifacts/Release/Microsoft.Azure.Cirrus.Extensions.Resources/Resources.psd1
+# Or from the CLI directory:
+Import-Module ./artifacts/Release/Core.Cli/Resources.psd1
 
-# Use cmdlets
-New-AzResourceGroup -SubscriptionId <sub-id> -Name mygroup -Location eastus -AccessToken <token>
-
-# Use AI-powered natural language interface (from Cirrus.Agent)
-Invoke-Az "create a resource group called test in eastus"
-ask "list all my resource groups"  # Alias for Invoke-Az
-please "delete resource group test" # Alias for Invoke-Az
+# Use the available cmdlets
+# (Note: Cmdlet availability depends on the extension implementation)
 ```
 
 **Available Modules:**
-- `Cirrus.Core` - Meta-module that loads all sub-modules
-- `Cirrus.Login` - Authentication cmdlets (`Connect-AzAccount`, `Get-AzContext`)
-- `Cirrus.Group` - Resource group management (`New-AzResourceGroup`, `Get-AzResourceGroup`, etc.)
-- `Cirrus.Agent` - AI-powered natural language interface (`Invoke-Az` with aliases `ask`, `please`, `pls`)
+- `Login` (at `Microsoft.Azure.Cirrus.Extensions.Login/Login.psd1`) - Login extension module
+- `Resources` (at `Microsoft.Azure.Cirrus.Extensions.Resources/Resources.psd1` or `Core.Cli/Resources.psd1`) - Resource management module
 
 **Note**: Build the solution first with `dotnet build -c Release` to generate the modules in `artifacts/Release/`.
 

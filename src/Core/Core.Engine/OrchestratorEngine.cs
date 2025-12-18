@@ -21,15 +21,14 @@ namespace Core.Engine;
 /// 3. If AI returns executable command → retry with DefaultCommandEngine
 /// 4. Repeat up to maxTries (allows AI to refine commands)
 ///
-/// FLAVOR HANDLING (addressing corrections.md concerns):
-/// - PowerShell cmdlets set AZURECLI_FLAVOR="azure powershell" before calling CLI
-/// - When PowerShell flavor detected, we bypass DefaultEngine and go straight to AgentEngine
-/// - Why? PowerShell invokes CLI for natural language only (Invoke-Az cmdlet)
-/// - Structured commands in PowerShell use cmdlets directly (New-AzResourceGroup), not CLI
-/// - CLI invocations default to "azure cli" flavor and use full orchestration
+/// FLAVOR HANDLING:
+/// - The AZURECLI_FLAVOR environment variable can be set to customize behavior
+/// - "azure cli" (default): Full orchestration with structured command parsing followed by AI fallback
+/// - "azure powershell": Bypass structured parsing and go directly to AI agent
+/// - This allows integration with external systems that need different execution paths
 ///
 /// NOTE: Flavor could be injected via constructor (better testability) but environment
-/// variable keeps it simple and matches PowerShell's existing integration pattern.
+/// variable keeps integration simple and flexible.
 /// </summary>
 public class OrchestratorEngine : ICommandEngine
 {
@@ -60,18 +59,17 @@ public class OrchestratorEngine : ICommandEngine
 
     public async Task ExecuteCommandAsync(string[] args, CancellationToken cancellationToken = default)
     {
-        // Detect CLI flavor: "azure cli" (default, direct CLI invocation) or "azure powershell" (called from PowerShell)
+        // Detect CLI flavor to determine execution path
         var flavor = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure cli";
 
         if (flavor == "azure powershell")
         {
-            // PowerShell flavor: Only natural language processing needed
-            // PowerShell uses cmdlets for structured commands, only invokes CLI for natural language (Invoke-Az)
+            // Direct-to-AI path: Skip structured parsing and use natural language processing only
             await _agentEngine.ExecuteCommandAsync(args, cancellationToken);
             return;
         }
 
-        // Azure CLI flavor: Full orchestration with DefaultEngine → AgentEngine fallback
+        // Standard path: Full orchestration with structured command parsing → AI fallback
         const int maxTries = 5;
         int attempt = 0;
         string[] extractedArgs = args;
