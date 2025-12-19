@@ -1,0 +1,107 @@
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
+# This workflow will build, test, sign and package a WPF or Windows Forms desktop application
+# built on .NET Core.
+# To learn how to migrate your existing application to .NET Core,
+# refer to https://docs.microsoft.com/en-us/dotnet/desktop-wpf/migration/convert-project-from-net-framework
+
+name: .NET Core Desktop
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+
+  build:
+
+    strategy:
+      matrix:
+        configuration: [Debug, Release]
+
+    runs-on: windows-latest  # For a list of available runner types, refer to
+                             # https://help.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idruns-on
+
+    env:
+      Solution_Name: cirrus.sln
+      Certificate_Directory: .  # Store certificate in the root directory
+      # Test_Project_Path: your-test-project-path                 # Replace with the path to your test project, i.e. MyWpfApp.Tests\MyWpfApp.Tests.csproj.
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    # Install the .NET Core workload
+    - name: Install .NET Core
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 10.0.x
+
+    # Add  MSBuild to the PATH: https://github.com/microsoft/setup-msbuild
+    - name: Setup MSBuild.exe
+      uses: microsoft/setup-msbuild@v2
+
+    # Execute all unit tests in the solution
+    - name: Execute unit tests
+      run: dotnet test
+
+    # Restore the application to populate the obj folder with RuntimeIdentifiers
+    - name: Restore the application
+      run: msbuild $env:Solution_Name /t:Restore /p:Configuration=$env:Configuration
+      env:
+        Configuration: ${{ matrix.configuration }}
+
+    # Build the Solution
+    - name: Build the solution
+      run: msbuild $env:Solution_Name /t:Build /p:Configuration=$env:Configuration
+      env:
+        Configuration: ${{ matrix.configuration }}
+    
+    # Upload the build artifacts
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: Build Artifacts
+        path: artifacts/${{ matrix.configuration }}
+
+    # Decode the base 64 encoded pfx and save the Signing_Certificate
+    - name: Decode the pfx
+      run: |
+        $pfx_cert_byte = [System.Convert]::FromBase64String("${{ secrets.Base64_Encoded_Pfx }}")
+        $certificatePath = Join-Path -Path $env:Certificate_Directory -ChildPath GitHubActionsWorkflow.pfx
+        [IO.File]::WriteAllBytes("$certificatePath", $pfx_cert_byte)
+
+    - name: Publish the CLI application
+      run: dotnet publish src/Core/Core.Cli/Core.Cli.csproj -c Release -r $env:Configuration --self-contained -o ./publish/${{ matrix.configuration }}
+      env:
+        Configuration: ${{ matrix.configuration }}
+    
+    # Copy appx manifest
+    - name: Copy appx manifest
+      run: Copy-Item src/Core/Core.Cli/Core.Cli.appxmanifest ./publish/${{ matrix.configuration }}/AppxManifest.xml
+
+    # Create the appx package
+    - name: Create the appx package
+      run: & "c:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.26100.0\\x64\\MakeAppx.exe" pack /d ./publish/${{ matrix.configuration }} /p "./bin/${{ matrix.configuration }}/azv2.msix" /nv
+    
+    # Sign the appx package
+    - name: Sign the appx package
+      run: & "C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.26100.0\\x64\\signtool.exe" sign /f $env:Certificate_Directory/GitHubActionsWorkflow.pfx /p ${{ secrets.Pfx_Key }} /fd SHA256 "./bin/${{ matrix.configuration }}/azv2.msix"
+
+    # Remove the pfx
+    - name: Remove the pfx
+      run: Remove-Item -path $env:Certificate_Directory\GitHubActionsWorkflow.pfx
+    
+    # Upload the MSIX package:
+    - name: Upload MSIX package
+      uses: actions/upload-artifact@v4
+      with:
+        name: MSIX Package
+        path: ./bin/${{ matrix.configuration }}/azv2.msix
