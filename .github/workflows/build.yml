@@ -42,7 +42,7 @@ jobs:
     - name: Install .NET Core
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 10.0.x
+        dotnet-version: 9.0.x
 
     # Execute all unit tests in the solution
     # - name: Execute unit tests
@@ -83,15 +83,41 @@ jobs:
     - name: Copy appx manifest
       run: Copy-Item src/Core/Core.Cli/Core.Cli.appxmanifest ./publish/${{ matrix.configuration }}/AppxManifest.xml
 
+    # Copy appx assets
+    - name: Copy appx assets
+      run: |
+        $assetsSource = "assets"
+        $assetsDestination = "./publish/${{ matrix.configuration }}/Assets"
+        if (Test-Path $assetsSource) {
+          New-Item -ItemType Directory -Path $assetsDestination -Force | Out-Null
+        }
+        Copy-Item "$assetsSource\*" $assetsDestination -Recurse -Force
+
     # Create the appx package
     - name: Create the appx package
       run: |
-        & "c:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\MakeAppx.exe" pack /d ./publish/${{ matrix.configuration }} /p "./bin/${{ matrix.configuration }}/azv2.msix" /nv
+        $windowsKitBinRoot = Join-Path "${env:ProgramFiles(x86)}" "Windows Kits\10\bin"
+        $latestBinDir = Get-ChildItem -Path $windowsKitBinRoot -Directory |
+          Sort-Object -Property Name -Descending |
+          Select-Object -First 1
+        if (-not $latestBinDir) {
+          throw "No Windows SDK bin directory found under $windowsKitBinRoot"
+        }
+        $makeAppxPath = Join-Path -Path $latestBinDir.FullName -ChildPath 'x64\MakeAppx.exe'
+        & $makeAppxPath pack /d "./publish/${{ matrix.configuration }}" /p "./bin/${{ matrix.configuration }}/azv2.msix" /nv
     
     # Sign the appx package
     - name: Sign the appx package
       run: |
-        & "c:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool.exe" sign /f $env:Certificate_Directory/GitHubActionsWorkflow.pfx /p ${{ secrets.Pfx_Key }} /fd SHA256 "./bin/${{ matrix.configuration }}/azv2.msix"
+        $windowsKitBinRoot = Join-Path "${env:ProgramFiles(x86)}" "Windows Kits\10\bin"
+        $latestBinDir = Get-ChildItem -Path $windowsKitBinRoot -Directory |
+          Sort-Object -Property Name -Descending |
+          Select-Object -First 1
+        if (-not $latestBinDir) {
+          throw "No Windows SDK bin directory found under $windowsKitBinRoot"
+        }
+        $signtoolPath = Join-Path -Path $latestBinDir.FullName -ChildPath 'x64\signtool.exe'
+        & $signtoolPath sign /f "$env:Certificate_Directory/GitHubActionsWorkflow.pfx" /p "${{ secrets.Pfx_Key }}" /fd SHA256 "./bin/${{ matrix.configuration }}/azv2.msix"
 
     # Remove the pfx
     - name: Remove the pfx
