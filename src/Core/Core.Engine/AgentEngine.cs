@@ -34,6 +34,7 @@ public partial class AgentEngine : ICommandEngine
     private readonly IOutputAdapter _output;
     private readonly string _flavor;
     private string? _extractedCommand;
+    private CloudAgent? _agent;
 
     public AgentEngine(IOutputAdapter output, string flavor )
     {
@@ -53,8 +54,9 @@ public partial class AgentEngine : ICommandEngine
     {
         try
         {
-            // Create the agent with the specified flavor
-            var agent = await Core.Agent.CloudAgent.CreateAsync(_flavor);
+            // Reuse existing agent or create new one if needed
+            // This maintains conversation history across retry attempts
+            _agent ??= await Core.Agent.CloudAgent.CreateAsync(_flavor);
 
             // await _output.WriteLineAsync("Starting AI assistant. with flavor: " + _flavor);
             
@@ -66,46 +68,55 @@ public partial class AgentEngine : ICommandEngine
             {
                 await _output.WriteLineAsync(""); // Skip a line before spinner
                 
-                // Start spinner task
-                var spinnerCts = new CancellationTokenSource();
-                var spinnerTask = Task.Run(async () =>
+                // Start spinner task (skip for PowerShell - it has its own Write-Progress)
+                CancellationTokenSource? spinnerCts = null;
+                Task? spinnerTask = null;
+                
+                if (_flavor != "azure powershell")
                 {
-                    var spinnerFrames = new[] { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" };
-                    int i = 0;
-                    try
+                    spinnerCts = new CancellationTokenSource();
+                    spinnerTask = Task.Run(async () =>
                     {
-                        while (!spinnerCts.Token.IsCancellationRequested)
+                        var spinnerFrames = new[] { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" };
+                        int i = 0;
+                        try
                         {
-                            await _output.WriteColoredAsync($"\r{spinnerFrames[i++ % spinnerFrames.Length]} Thinking...", OutputColor.Cyan);
-                            await Task.Delay(100, spinnerCts.Token);
+                            while (!spinnerCts.Token.IsCancellationRequested)
+                            {
+                                await _output.WriteColoredAsync($"\r{spinnerFrames[i++ % spinnerFrames.Length]} Thinking...", OutputColor.Cyan);
+                                await Task.Delay(100, spinnerCts.Token);
+                            }
                         }
-                    }
-                    catch (OperationCanceledException) { }
-                }, spinnerCts.Token);
+                        catch (OperationCanceledException) { }
+                    }, spinnerCts.Token);
+                }
 
                 var responseBuilder = new StringBuilder();
                 bool isFirstUpdate = true;
 
                 // Stream agent response
-                await foreach (var update in agent.RunStreamingAsync(userInput))
+                await foreach (var update in _agent.RunStreamingAsync(userInput))
                 {
                     if (isFirstUpdate)
                     {
-                        // Stop spinner on first response
-                        spinnerCts.Cancel();
-                        try { await spinnerTask; } catch { }
-                        await _output.WriteAsync("\r" + new string(' ', 50) + "\r");
+                        // Stop spinner on first response (CLI only)
+                        if (spinnerCts != null)
+                        {
+                            spinnerCts.Cancel();
+                            try { if (spinnerTask != null) await spinnerTask; } catch { }
+                            await _output.WriteAsync("\r" + new string(' ', 50) + "\r");
+                        }
                         isFirstUpdate = false;
                     }
 
                     responseBuilder.Append(update.ToString());
                 }
 
-                // Ensure spinner is stopped
-                if (isFirstUpdate)
+                // Ensure spinner is stopped (CLI only)
+                if (isFirstUpdate && spinnerCts != null)
                 {
                     spinnerCts.Cancel();
-                    try { await spinnerTask; } catch { }
+                    try { if (spinnerTask != null) await spinnerTask; } catch { }
                     await _output.WriteAsync("\r" + new string(' ', 50) + "\r");
                 }
 
@@ -180,12 +191,16 @@ public partial class AgentEngine : ICommandEngine
                         await _output.WriteColoredAsync(parsedResponse.Response, OutputColor.Cyan);
                         await _output.WriteLineAsync("");
                         
-                        // Prompt for user confirmation
-                        if (_flavor == "azure powershell") {
-                            await _output.WriteAsync("\n>\r");
-                        } else {
-                            await _output.WriteAsync("\n> ");
+                        // For PowerShell, don't prompt interactively - just show the message and exit
+                        // PowerShell can't provide stdin to spawned CLI process
+                        if (_flavor == "azure powershell")
+                        {
+                            _extractedCommand = null;
+                            return;
                         }
+                        
+                        // For CLI, prompt for user confirmation
+                        await _output.WriteAsync("\n> ");
 
                         userInput = await _output.ReadLineAsync("") ?? string.Empty;
 

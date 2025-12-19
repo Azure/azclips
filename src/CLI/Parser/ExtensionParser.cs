@@ -30,21 +30,44 @@ public class ExtensionParser //: IParser
     public (string, IDictionary<string, object>) Parse(string[] args)
     {
         IDictionary<String, object> parameters = new Dictionary<string, object>();
-        int i = args.Length - 1;
-        for (; i>=1; i-=2)
+        int i = 0;
+        
+        // Find where parameters start (first argument beginning with -)
+        while (i < args.Length && !args[i].StartsWith("-"))
         {
-            string val = args[i];
-            string key = args[i - 1];
-            if (key.StartsWith("-"))
+            i++;
+        }
+        
+        // Everything before the first - is the command name
+        string commandName = string.Join(" ", args[..i]);
+        
+        // Parse parameters
+        while (i < args.Length)
+        {
+            if (args[i].StartsWith("-"))
             {
-                parameters.Add(key.TrimStart('-'), val);
+                string key = args[i].TrimStart('-');
+                
+                // Check if next arg exists and doesn't start with - (it's a value)
+                if (i + 1 < args.Length && !args[i + 1].StartsWith("-"))
+                {
+                    parameters.Add(key, args[i + 1]);
+                    i += 2;
+                }
+                else
+                {
+                    // It's a flag without a value
+                    parameters.Add(key, true);
+                    i++;
+                }
             }
             else
             {
-                break;
+                // Shouldn't happen in well-formed input, skip
+                i++;
             }
         }
-        string commandName = string.Join(" ", args[..(i + 1)]);
+        
         return (commandName, parameters);
     }
 

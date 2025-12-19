@@ -18,11 +18,11 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
         [ArgumentInfoAttribute(
         Required = true,
         Description = @"The name of the resource group.",
-        SerializedName = @"ResourceGroupName")]
+        SerializedName = @"Name")]
         public string Name { get; set; } = "";
 
         [ArgumentInfoAttribute(
-        Required = true,
+        Required = false,
         Description = @"The resource id of the resource group.",
         SerializedName = @"ResourceId")]
         public string ResourceId { get; set; } = "";
@@ -43,8 +43,14 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
             var serviceProvider = Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult();
             var authService = serviceProvider.GetRequiredService<IAuthService>();
             var authContext = authService.GetCurrentContext();
+            
+            if (authContext == null || !authContext.IsAuthenticated)
+            {
+                throw new InvalidOperationException("Not authenticated. Please run 'az login' first.");
+            }
+            
             var accessToken = authService
-                .AcquireTokenSilentlyAsync(scopes: null, tenantId: authContext?.TenantId, promptOnError: true).GetAwaiter().GetResult();
+                .AcquireTokenSilentlyAsync(scopes: null, tenantId: authContext.TenantId, promptOnError: false).GetAwaiter().GetResult();
             return new ResourcesClient().CreateOrUpdateResourceGroupAsync(SubscriptionId, Name, new ResourceGroup("eastus", Name), accessToken).GetAwaiter().GetResult();
         }
 

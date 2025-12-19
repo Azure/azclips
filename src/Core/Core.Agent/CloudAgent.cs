@@ -58,7 +58,7 @@ public class CloudAgent
             ?? throw new InvalidOperationException("AZURE_OPENAI_DEPLOYMENT environment variable not set. Set AZURE_OPENAI_DEPLOYMENT in your .env file or as an environment variable. See .env.example for reference.");
 
         // Load prompt from file and replace {{flavor}} placeholder
-        string promptPath = Path.Combine(AppContext.BaseDirectory, "prompt.txt");
+        string promptPath = Path.Combine(AppContext.BaseDirectory, "prompt.md");
         string instructions = File.Exists(promptPath)
             ? await File.ReadAllTextAsync(promptPath)
             : "You are a helpful assistant. Provide clear, concise answers.";

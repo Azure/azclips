@@ -6,4 +6,5 @@ public class LoginRequest
     public string? SubscriptionId { get; init; }
 
     public string[]? Scopes { get; init; }
+    public bool UseDeviceCodeFlow { get; init; } = false;
 }

@@ -4,8 +4,8 @@
 - `src/` – Core libraries and service modules. Shared props in `src/Directory.Build.props` target `net10.0`, enable nullable and implicit usings.
 - `src/Core/` – Core framework (Abstractions, Engine with Bootstrapper, Implementation, Agent, CLI)
 - `src/Agent/`, `src/Group/`, `src/Login/` – Service modules with Business/, Cmdlets/, Commands/ structure
-- `tests/` – xUnit test projects (`Cli.Tests`, `PowerShell.Tests`) with Coverlet configured in `tests/Directory.Build.props`.
-- `bin/` – Published binaries after running `./scripts/deploy.sh` (azv2 CLI + PowerShell modules)
+- `tests/` – xUnit test projects (`Cli.Tests`) with Coverlet configured in `tests/Directory.Build.props`.
+- `bin/` – Published binaries after running `./scripts/deploy.sh` (az CLI + PowerShell modules)
 - `build/` – PowerShell build scripts
 - `scripts/` – Deployment scripts (`deploy.sh`)
 - `docs/spec/` – Design notes and specifications
@@ -20,9 +20,9 @@
 ## Build, Test, and Development Commands
 - **Build and deploy**: `./scripts/deploy.sh` (builds solution, publishes CLI to bin/, copies PowerShell modules)
 - **Build only**: `dotnet build cirrus.slnx`
-- **Run CLI**: `./bin/azv2 group list` or `./bin/azv2 "create a resource group"`
+- **Run CLI**: `./bin/az group list` or `./bin/az "create a resource group"`
 - **PowerShell**: `Import-Module ./bin/Cirrus.psd1` (imports all modules) or individual modules
-- **Run tests**: `dotnet test tests/Cli.Tests/Cli.Tests.csproj` and `dotnet test tests/PowerShell.Tests/PowerShell.Tests.csproj`
+- **Run tests**: `dotnet test tests/Cli.Tests/Cli.Tests.csproj`
 - **Run tests with coverage**: `dotnet test --collect:"XPlat Code Coverage"`
 - **Verify SDK**: `dotnet --info` (must match `global.json` version)
 
@@ -38,7 +38,7 @@
 - Naming: `MethodName_ShouldBehavior_WhenCondition`
 - Coverage: Collected via Coverlet; aim for strong coverage on new/changed code
 - CLI tests validate: structured commands work, agent fallback works, typo correction works
-- PowerShell tests validate: cmdlets load, module imports work, Invoke-AzV2 (ask/please/pls) works
+- PowerShell tests validate: cmdlets load, module imports work, Invoke-Az (ask/please/pls) works
 
 ## Commit & Pull Request Guidelines
 - Commits: Use Conventional Commits where possible, e.g., `feat(auth): add token validator` or `fix(core): null check in mapper`

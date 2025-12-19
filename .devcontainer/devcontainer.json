@@ -30,11 +30,32 @@
 		},
 		"ghcr.io/devcontainers/features/node": {
 			"version": "lts"
+		},
+		"ghcr.io/devcontainers/features/powershell": {
+			"version": "7.5.4"
+		}
+	},
+
+	// Forward ports for MSAL authentication redirect
+	"forwardPorts": [50000, 50001, 50002, 50003, 50004, 50005, 50006, 50007, 50008, 50009],
+	"portsAttributes": {
+		"5*": {
+			"onAutoForward": "openBrowserOnce"
 		}
 	},
 
 	// Use 'postCreateCommand' to run commands after the container is created.
 	"postCreateCommand": "./.devcontainer/post-create.sh",
+	
+	// Use 'postStartCommand' to set up browser symlinks after VS Code environment is ready
+	"postStartCommand": "./.devcontainer/post-start.sh",
+
+	// Add az CLI to PATH for both Debug and Release builds
+	// Set BROWSER to use VS Code's built-in browser opener for authentication flows
+	"remoteEnv": {
+		"PATH": "${containerWorkspaceFolder}/artifacts/Debug/Core.Cli:${containerWorkspaceFolder}/artifacts/Release/Core.Cli:${containerEnv:PATH}",
+		"BROWSER": "${containerEnv:BROWSER}"
+	},
 
 	// Configure tool-specific properties.
 	"customizations": {

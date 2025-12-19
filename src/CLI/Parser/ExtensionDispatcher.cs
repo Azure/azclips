@@ -30,11 +30,7 @@ public class ExtensionDispatcher //: IParser
 
     public ExtensionDispatcher()
     {
-        
-        ExtensionDirectory = Path.Combine(
-            AppContext.BaseDirectory,
-            ".."
-        );
+        ExtensionDirectory = Path.Combine(AppContext.BaseDirectory, "..");
     }
 
     public ExtensionDispatcher(string extensionDirectory)
