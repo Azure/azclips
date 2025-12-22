@@ -183,6 +183,8 @@ jobs:
           
           echo "assembly_name=$assemblyName" >> $env:GITHUB_OUTPUT
           echo "ext_name=$extName" >> $env:GITHUB_OUTPUT
+      - name: Restore Extension
+        run: dotnet restore ${{ matrix.extension }}
       - name: Build Extension
         run: dotnet build ${{ matrix.extension }} --configuration ${{ matrix.configuration }} --no-restore
         env:
@@ -236,6 +238,8 @@ jobs:
           echo "module_name=$moduleName" >> $env:GITHUB_OUTPUT
           echo "module_dir=$moduleDir" >> $env:GITHUB_OUTPUT
           echo "extension_project_path=src/Extensions/${moduleName}/Extensions.${moduleName}.csproj" >> $env:GITHUB_OUTPUT
+      - name: Restore Extension
+        run: dotnet restore ${{ steps.extract-metadata.outputs.extension_project_path }}
       - name: Build Corresponding Extension
         run: dotnet build ${{ steps.extract-metadata.outputs.extension_project_path }} --configuration Release --no-restore
       - name: Publish PowerShell Module (Local)
