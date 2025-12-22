@@ -23,6 +23,7 @@ jobs:
     strategy:
       matrix:
         configuration: [Debug, Release]
+        platform: [win-x64, win-x86]
 
     runs-on: windows-latest  # For a list of available runner types, refer to
                              # https://help.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idruns-on
@@ -64,7 +65,7 @@ jobs:
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: Build Artifacts (${{ matrix.configuration }})
+        name: Build Artifacts (${{ matrix.configuration }}-${{ matrix.platform }})
         path: artifacts/${{ matrix.configuration }}
 
     # Decode the base 64 encoded pfx and save the Signing_Certificate
@@ -75,19 +76,19 @@ jobs:
         [IO.File]::WriteAllBytes("$certificatePath", $pfx_cert_byte)
 
     - name: Publish the CLI application
-      run: dotnet publish src/CLI/Core.Cli.csproj -c ${{ matrix.configuration }} -r win-x64 --self-contained -o ./publish/${{ matrix.configuration }}
+      run: dotnet publish src/CLI/Core.Cli.csproj -c ${{ matrix.configuration }} -r ${{ matrix.platform }} --self-contained -o ./publish/${{ matrix.configuration }}/${{ matrix.platform }}
       env:
         Configuration: ${{ matrix.configuration }}
 
     # Copy appx manifest
     - name: Copy appx manifest
-      run: Copy-Item src/CLI/Core.Cli.appxmanifest ./publish/${{ matrix.configuration }}/AppxManifest.xml
+      run: Copy-Item src/CLI/Core.Cli.appxmanifest ./publish/${{ matrix.configuration }}/${{ matrix.platform }}/AppxManifest.xml
 
     # Copy appx assets
     - name: Copy appx assets
       run: |
         $assetsSource = "assets"
-        $assetsDestination = "./publish/${{ matrix.configuration }}/Assets"
+        $assetsDestination = "./publish/${{ matrix.configuration }}/${{ matrix.platform }}/Assets"
         if (Test-Path $assetsSource) {
           New-Item -ItemType Directory -Path $assetsDestination -Force | Out-Null
         }
@@ -104,8 +105,10 @@ jobs:
         if (-not $latestBinDir) {
           throw "No Windows SDK bin directory found under $windowsKitBinRoot"
         }
-        $makeAppxPath = Join-Path -Path $latestBinDir.FullName -ChildPath 'x64\MakeAppx.exe'
-        & $makeAppxPath pack /d "./publish/${{ matrix.configuration }}" /p "./bin/${{ matrix.configuration }}/azv2.msix" /nv
+        # Determine the SDK tool architecture based on the target platform
+        $sdkArch = if ("${{ matrix.platform }}" -eq "win-x86") { "x86" } else { "x64" }
+        $makeAppxPath = Join-Path -Path $latestBinDir.FullName -ChildPath "$sdkArch\MakeAppx.exe"
+        & $makeAppxPath pack /d "./publish/${{ matrix.configuration }}/${{ matrix.platform }}" /p "./bin/${{ matrix.configuration }}/azv2-${{ matrix.platform }}.msix" /nv
     
     # Sign the appx package
     - name: Sign the appx package
@@ -118,8 +121,9 @@ jobs:
         if (-not $latestBinDir) {
           throw "No Windows SDK bin directory found under $windowsKitBinRoot"
         }
+        # Use x64 signtool regardless of target platform (runs on host)
         $signtoolPath = Join-Path -Path $latestBinDir.FullName -ChildPath 'x64\signtool.exe'
-        & $signtoolPath sign /f "$env:Certificate_Directory/GitHubActionsWorkflow.pfx" /p "${{ secrets.Pfx_Key }}" /fd SHA256 "./bin/${{ matrix.configuration }}/azv2.msix"
+        & $signtoolPath sign /f "$env:Certificate_Directory/GitHubActionsWorkflow.pfx" /p "${{ secrets.Pfx_Key }}" /fd SHA256 "./bin/${{ matrix.configuration }}/azv2-${{ matrix.platform }}.msix"
 
     # Remove the pfx
     - name: Remove the pfx
@@ -129,8 +133,8 @@ jobs:
     - name: Upload MSIX package
       uses: actions/upload-artifact@v4
       with:
-        name: MSIX Package (${{ matrix.configuration }})
-        path: ./bin/${{ matrix.configuration }}/azv2.msix
+        name: MSIX Package (${{ matrix.configuration }}-${{ matrix.platform }})
+        path: ./bin/${{ matrix.configuration }}/azv2-${{ matrix.platform }}.msix
 
   discover-extensions:
     runs-on: ubuntu-latest
@@ -294,4 +298,3 @@ jobs:
         with:
           name: PowerShell Module - ${{ steps.extract-metadata.outputs.module_name }}
           path: ./publish/${{ steps.extract-metadata.outputs.module_name }}
-
