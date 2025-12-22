@@ -33,7 +33,7 @@ Copyright = '(c) Microsoft. All rights reserved.'
 Description = 'Azure authentication cmdlets for Cirrus v2'
 
 # Minimum version of the PowerShell engine required by this module
-PowerShellVersion = '7.4'
+PowerShellVersion = '7.5'
 
 # Name of the PowerShell host required by this module
 # PowerShellHostName = ''
