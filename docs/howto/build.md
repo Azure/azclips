@@ -5,13 +5,13 @@
 Publish the cli project for Windows x64:
 
 ```powershell
-dotnet publish src/Core/Core.Cli/Core.Cli.csproj -c Release -r win-x64 --self-contained -o ./publish/win-x64
+dotnet publish src/CLI/Core.Cli.csproj -c Release -r win-x64 --self-contained -o ./publish/win-x64
 ```
 
 Copy the appxmanifest file to the publish folder:
 
 ```powershell
-Copy-Item src/Core/Core.Cli/Core.Cli.appxmanifest "./publish/win-x64/AppxManifest.xml"
+Copy-Item src/CLI/Core.Cli.appxmanifest "./publish/win-x64/AppxManifest.xml"
 New-Item -ItemType Directory -Path "./publish/win-x64/Assets/" -Force
 Copy-Item -Path assets/* -Destination "./publish/win-x64/Assets/" -Recurse
 ```

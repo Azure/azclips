@@ -18,7 +18,8 @@ jobs:
     strategy:
       matrix:
         configuration: [Debug, Release]
-        platform: [win-x64, win-x86]
+        # At present, we only build for Windows x64 platform. When needed, we can add more platforms here.
+        platform: [win-x64]
 
     runs-on: windows-latest  # For a list of available runner types, refer to
                              # https://help.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idruns-on
@@ -26,7 +27,6 @@ jobs:
     env:
       Solution_Name: cirrus.slnx
       Certificate_Directory: .  # Store certificate in the root directory
-      # Test_Project_Path: your-test-project-path                 # Replace with the path to your test project, i.e. MyWpfApp.Tests\MyWpfApp.Tests.csproj.
 
     steps:
     - name: Checkout
@@ -86,8 +86,8 @@ jobs:
         $assetsDestination = "./publish/${{ matrix.configuration }}/${{ matrix.platform }}/Assets"
         if (Test-Path $assetsSource) {
           New-Item -ItemType Directory -Path $assetsDestination -Force | Out-Null
+          Copy-Item "$assetsSource\*" $assetsDestination -Recurse -Force
         }
-        Copy-Item "$assetsSource\*" $assetsDestination -Recurse -Force
 
     # Create the appx package
     - name: Create the appx package
@@ -192,7 +192,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Extension - ${{ steps.extract-metadata.outputs.ext_name }} (${{ matrix.configuration }})
-          path: ./artifacts/${{ matrix.configuration }}/${{steps.extract-metadata.outputs.ext_name}}/${{steps.extract-metadata.outputs.assembly_name}}.dll
+          path: ./artifacts/${{ matrix.configuration }}/${{ steps.extract-metadata.outputs.ext_name }}/${{ steps.extract-metadata.outputs.assembly_name }}.dll
   
   discover-powershell-modules:
     runs-on: ubuntu-latest
