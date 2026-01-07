@@ -1,6 +1,7 @@
 ﻿using Core.Abstractions;
 using Core.Authentication;
 using Core.Implementation;
+using Core.Telemetry;
 using Microsoft.Extensions.DependencyInjection;
 using Core.Agent;
 
@@ -54,6 +55,11 @@ public class Bootstrapper
         // Telemetry service for logging throughout the application
         services.AddSingleton<ILoggerService, ConsoleLoggerService>();
         services.AddSingleton<IAuthService, MsalAuthService>();
+        
+        // OpenTelemetry tracing service for distributed tracing and diagnostics
+        // Uses TelemetryServiceProxy to load OpenTelemetry in isolated context
+        // This avoids version conflicts with PowerShell's built-in DiagnosticSource
+        services.AddSingleton<ITelemetryService, TelemetryServiceProxy>();
 
         // --- NEW REGISTRATIONS (added for AI integration) ---
 

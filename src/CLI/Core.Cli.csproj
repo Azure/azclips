@@ -18,10 +18,16 @@
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.Abstractions\Core.Abstractions.csproj" />
     <ProjectReference Include="..\Core\Core.Implementation\Core.Implementation.csproj" />
+    <ProjectReference Include="..\Core\Core.Telemetry\Core.Telemetry.csproj" />
     <ProjectReference Include="..\Core\Core.Engine\Core.Engine.csproj" />
     <ProjectReference Include="..\Core\Core.Agent\Core.Agent.csproj" />
     <ProjectReference Include="..\SharedContracts\SharedContracts.csproj" />
     <ProjectReference Include="..\Extensions\Resources\Extensions.Resources.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="OpenTelemetry" Version="1.14.0" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.14.0" />
   </ItemGroup>
 
 </Project>
