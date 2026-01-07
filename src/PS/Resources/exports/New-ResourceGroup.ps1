@@ -15,32 +15,53 @@ function New-ResourceGroup {
     )
 
     begin {
-
+        # Start telemetry activity
+        $script:activity = Start-CmdletActivity -CmdletName "New-ResourceGroup" -Parameters $PSBoundParameters
     }
 
     process {
-        $extensionName = "Resources";
-        $commandName = "New-ResourceGroup";
-        $parameters = [System.Collections.Generic.Dictionary[string, object]]::New();
+        try {
+            $extensionName = "Resources";
+            $commandName = "New-ResourceGroup";
+            $parameters = [System.Collections.Generic.Dictionary[string, object]]::New();
 
-        if ($PSBoundParameters.ContainsKey('SubscriptionId')) {
-            $parameters.Add('SubscriptionId', [object]$SubscriptionId);
+            if ($PSBoundParameters.ContainsKey('SubscriptionId')) {
+                $parameters.Add('SubscriptionId', [object]$SubscriptionId);
+            }
+            if ($PSBoundParameters.ContainsKey('Name')) {
+                $parameters.Add('Name', [object]$Name);
+            }
+            if ($PSBoundParameters.ContainsKey('Location')) {
+                $parameters.Add('Location', [object]$Location);
+            }
+            if ($PSBoundParameters.ContainsKey('AccessToken')) {
+                $parameters.Add('AccessToken', [object]$AccessToken);
+            }
+            $invocation = [Core.Implementation.PSCommandInvocation]::New($extensionName, $commandName, $parameters);
+            [Microsoft.Azure.Cirrus.Extensions.Resources.Models.ResourceGroup]$output = [Microsoft.Azure.Cirrus.Extensions.Resources.Models.ResourceGroup]([Core.Engine.Engine]::GetCommand($invocation).process());
+            Write-Output $output;
+            
+            # Mark activity as successful
+            if ($null -ne $script:activity) {
+                Complete-CmdletActivity -Activity $script:activity -Success $true
+                $script:activity = $null
+            }
         }
-        if ($PSBoundParameters.ContainsKey('Name')) {
-            $parameters.Add('Name', [object]$Name);
+        catch {
+            # Mark activity as failed
+            if ($null -ne $script:activity) {
+                Complete-CmdletActivity -Activity $script:activity -Success $false -ErrorMessage $_.Exception.Message
+                $script:activity = $null
+            }
+            throw
         }
-        if ($PSBoundParameters.ContainsKey('Location')) {
-            $parameters.Add('Location', [object]$Location);
-        }
-        if ($PSBoundParameters.ContainsKey('AccessToken')) {
-            $parameters.Add('AccessToken', [object]$AccessToken);
-        }
-        $invocation = [Core.Implementation.PSCommandInvocation]::New($extensionName, $commandName, $parameters);
-        [Microsoft.Azure.Cirrus.Extensions.Resources.Models.ResourceGroup]$output = [Microsoft.Azure.Cirrus.Extensions.Resources.Models.ResourceGroup]([Core.Engine.Engine]::GetCommand($invocation).process());
-        Write-Output $output;
     }
 
     end {
-
+        # Cleanup activity if not already done
+        if ($null -ne $script:activity) {
+            Complete-CmdletActivity -Activity $script:activity -Success $true
+            $script:activity = $null
+        }
     }
 }
