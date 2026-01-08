@@ -47,7 +47,9 @@ public class TelemetryService : ITelemetryService
     public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal)
     {
         return ActivitySource.StartActivity(name, kind);
-    }    public void Flush()
+    }    
+    
+    public void Flush()
     {
         _tracerProvider?.ForceFlush();
     }

@@ -55,10 +55,6 @@ public class Bootstrapper
         // Telemetry service for logging throughout the application
         services.AddSingleton<ILoggerService, ConsoleLoggerService>();
         services.AddSingleton<IAuthService, MsalAuthService>();
-        
-        // OpenTelemetry tracing service for distributed tracing and diagnostics
-        // Uses TelemetryServiceProxy to load OpenTelemetry in isolated context
-        // This avoids version conflicts with PowerShell's built-in DiagnosticSource
         services.AddSingleton<ITelemetryService, TelemetryService>();
 
         // --- NEW REGISTRATIONS (added for AI integration) ---
