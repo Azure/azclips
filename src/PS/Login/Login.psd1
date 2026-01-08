@@ -56,9 +56,9 @@ PowerShellVersion = '7.5'
 # Assemblies that must be loaded prior to importing this module
 # RequiredAssemblies = @()
 
-RequiredAssemblies = '../../../artifacts/Debug/Core.Cli/Microsoft.Extensions.Primitives.dll',
-                        '../../../artifacts/Debug/Core.Cli/Microsoft.Extensions.DependencyInjection.Abstractions.dll',
-                        '../../../artifacts/Debug/Core.Cli/Microsoft.Extensions.DependencyInjection.dll',
+RequiredAssemblies = '../../../artifacts/Debug/Core/Microsoft.Extensions.Primitives.dll',
+                        '../../../artifacts/Debug/Core/Microsoft.Extensions.DependencyInjection.Abstractions.dll',
+                        '../../../artifacts/Debug/Core/Microsoft.Extensions.DependencyInjection.dll',
                         '../../../artifacts/Debug/Core/Core.Abstractions.dll',
                         '../../../artifacts/Debug/Core/Core.Telemetry.dll',
                         '../../../artifacts/Debug/Core/Core.Implementation.dll',
@@ -143,4 +143,3 @@ PrivateData = @{
 # DefaultCommandPrefix = ''
 
 }
-
