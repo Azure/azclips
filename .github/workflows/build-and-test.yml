@@ -22,7 +22,7 @@ jobs:
       run: dotnet restore cirrus.slnx
 
     - name: Build
-      run: dotnet build cirrus.slnx --no-restore --configuration Debug # Should be Relaese but
+      run: dotnet build cirrus.slnx --no-restore --configuration Debug # Should be Release but
       # there are some issues (a) with locating extension dll and (b) with the RequiredAssemblies property
 
     - name: Run tests
@@ -31,10 +31,7 @@ jobs:
     - name: E2E - CLI Help
       run: |
         ./artifacts/Debug/Core.Cli/az --help
-        if [ $? -ne 0 ]; then
-          echo "CLI help command failed"
-          exit 1
-        fi
+
 
     - name: Setup PowerShell
       run: |
