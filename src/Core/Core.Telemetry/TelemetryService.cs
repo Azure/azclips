@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using Azure.Monitor.OpenTelemetry.Exporter;
 using Core.Abstractions;
 using OpenTelemetry;
 using OpenTelemetry.Resources;
@@ -27,7 +29,6 @@ public class TelemetryService : ITelemetryService
             serviceName,
             "traces"
         );
-        var logFilePath = Path.Combine(logDirectory, $"traces-{DateTime.UtcNow:yyyyMMdd}.log");
 
         _tracerProvider = Sdk.CreateTracerProviderBuilder()
             .AddSource(serviceName)
@@ -35,16 +36,18 @@ public class TelemetryService : ITelemetryService
                 resource.AddService(
                     serviceName: serviceName,
                     serviceVersion: serviceVersion))
-            .AddProcessor(new SimpleActivityExportProcessor(new FileExporter(logFilePath)))
+            .AddProcessor(new SimpleActivityExportProcessor(new FileExporter(logDirectory)))
+            .AddAzureMonitorTraceExporter(options => 
+            {
+                options.ConnectionString = "InstrumentationKey=75095e49-0ed7-43bf-9a9b-145ce55963c5;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=c4b7bab3-d4b6-4f80-8440-0f529a622b2f";
+            })
             .Build()!;
     }
 
     public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal)
     {
         return ActivitySource.StartActivity(name, kind);
-    }
-
-    public void Flush()
+    }    public void Flush()
     {
         _tracerProvider?.ForceFlush();
     }
@@ -53,6 +56,7 @@ public class TelemetryService : ITelemetryService
     {
         if (_disposed) return;
         
+        _tracerProvider?.ForceFlush();
         _tracerProvider?.Dispose();
         ActivitySource?.Dispose();
         _disposed = true;

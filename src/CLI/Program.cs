@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Core.Abstractions;
 using Core.Cli.Exceptions;
@@ -18,15 +19,13 @@ public class Program
 
     public static async Task<int> Main(string[] args)
     {
-        _telemetryService = new TelemetryService();
+        var serviceProvider = await Bootstrapper.ServiceProviderAsync;
+        _telemetryService = serviceProvider.GetRequiredService<ITelemetryService>();
 
         try
         {
-            using var activity = _telemetryService.StartActivity("AzureCLI.Main", ActivityKind.Internal);
-            activity?.SetTag("args.count", args.Length);
-            activity?.SetTag("args.command", args.Length > 0 ? args[0] : "none");
+            using var activity = _telemetryService.StartCLIActivity(args);
 
-            var serviceProvider = await Bootstrapper.ServiceProviderAsync;
             var dispatcher = new ExtensionDispatcher();
 
             try

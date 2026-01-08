@@ -12,25 +12,43 @@ namespace Core.Telemetry;
 /// </summary>
 internal class FileExporter : BaseExporter<Activity>
 {
-    private readonly string _filePath;
+    private readonly string _rootDirectory;
+    private string? _filePath;
     private readonly object _lock = new();
 
-    public FileExporter(string filePath)
+    public FileExporter(string rootDirectory)
     {
-        _filePath = filePath ?? throw new ArgumentNullException(nameof(filePath));
-        
-        // Ensure directory exists
-        var directory = Path.GetDirectoryName(_filePath);
-        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
+        _rootDirectory = rootDirectory ?? throw new ArgumentNullException(nameof(rootDirectory));
     }
 
     public override ExportResult Export(in Batch<Activity> batch)
     {
         try
         {
+            // Initialize file path on first write using the first activity's TraceId
+            if (_filePath == null)
+            {
+                foreach (var activity in batch)
+                {
+                    var traceId = activity.TraceId.ToString();
+                    _filePath = Path.Combine(_rootDirectory, $"traces-{traceId}.log");
+                    
+                    var directory = Path.GetDirectoryName(_filePath);
+                    if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                    {
+                        Directory.CreateDirectory(directory);
+                    }
+                    break; // Only need one
+                }
+
+                // If batch was empty (unlikely), we can't determine TraceId yet.
+                // Just return success and wait for next batch.
+                if (_filePath == null)
+                {
+                    return ExportResult.Success;
+                }
+            }
+
             var traces = new List<object>();
             
             foreach (var activity in batch)
