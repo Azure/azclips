@@ -115,7 +115,7 @@ Import-Module ./src/PS/Login/Login.psd1
 
 # Import the Resources module (script module)
 Import-Module ./src/PS/Resources/Resources.psd1
-
+   
 # Use authentication cmdlets
 Connect-CirrusAccount -TenantId <tenant-id>
 
