@@ -38,7 +38,7 @@ function New-ResourceGroup {
                 $parameters.Add('AccessToken', [object]$AccessToken);
             }
             $invocation = [Core.Implementation.PSCommandInvocation]::New($extensionName, $commandName, $parameters);
-            [Microsoft.Azure.Cirrus.Extensions.Resources.Models.ResourceGroup]$output = [Microsoft.Azure.Cirrus.Extensions.Resources.Models.ResourceGroup]([Core.Engine.Engine]::GetCommand($invocation).process());
+            [Microsoft.Azure.Cirrus.Extensions.Resources.Models.ResourceGroup]$output = [Microsoft.Azure.Cirrus.Extensions.Resources.Models.ResourceGroup]([Core.Engine.Engine]::ProcessCommand([Core.Engine.Engine]::GetCommand($invocation)));
             Write-Output $output;
             
             # Mark activity as successful

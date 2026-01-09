@@ -101,4 +101,3 @@ function Stop-Telemetry {
 
 # Export functions
 Export-ModuleMember -Function Start-CmdletActivity, Complete-CmdletActivity, Stop-Telemetry
-
