@@ -16,11 +16,13 @@ namespace Core.Cli;
 public class Program
 {
     private static ITelemetryService? _telemetryService;
+    private static ILoggerService? _logger;
 
     public static async Task<int> Main(string[] args)
     {
         var serviceProvider = await Bootstrapper.ServiceProviderAsync;
         _telemetryService = serviceProvider.GetRequiredService<ITelemetryService>();
+        _logger = serviceProvider.GetRequiredService<ILoggerService>();
 
         try
         {
@@ -37,19 +39,19 @@ public class Program
 
                 string result = Engine.Engine.GetCommand(invocation).Process(true);
 
-                serviceProvider.GetRequiredService<ILoggerService>().Log(result);
+                _logger?.Log(result);
                 activity?.SetStatus(ActivityStatusCode.Ok);
                 return 0;
             }
             catch (DispatchHelpException)
             {
-                serviceProvider.GetRequiredService<ILoggerService>().Log("Command Line Interface Help");
+                _logger?.Log("Command Line Interface Help");
                 activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
                 return 0;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error: {ex.Message}\n");
+                _logger?.LogError(ex.Message);
                 
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 activity?.AddException(ex);
@@ -123,7 +125,7 @@ public class Program
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"AI agent error: {ex.Message}");
+            _logger?.LogError($"AI agent error: {ex.Message}");
             return 1;
         }
     }
