@@ -14,27 +14,37 @@ public static class TelemetryExtensions
         
         if (activity != null)
         {
-            var commandName = args.Length > 0 ? args[0] : "none";
-            activity.SetTag("command", commandName);
-
+            var commandBuilder = new StringBuilder("az");
             var parameters = new StringBuilder();
-            for (int i = 1; i < args.Length; i++)
+            
+            bool parsingOptions = false;
+            for (int i = 0; i < args.Length; i++)
             {
-                if (args[i].StartsWith("-"))
+                if (!parsingOptions && !args[i].StartsWith("-"))
                 {
-                    parameters.Append(args[i]);
-                    if (i + 1 < args.Length && !args[i + 1].StartsWith("-"))
-                    {
-                        parameters.Append(" ***");
-                        i++;
-                    }
-                    parameters.Append(" ");
+                    commandBuilder.Append(" ").Append(args[i]);
                 }
                 else
                 {
-                    parameters.Append(args[i]).Append(" ");
+                    parsingOptions = true;
+                    if (args[i].StartsWith("-"))
+                    {
+                        parameters.Append(args[i]);
+                        if (i + 1 < args.Length && !args[i + 1].StartsWith("-"))
+                        {
+                            parameters.Append(" ***");
+                            i++;
+                        }
+                        parameters.Append(" ");
+                    }
+                    else
+                    {
+                        parameters.Append(args[i]).Append(" ");
+                    }
                 }
             }
+
+            activity.SetTag("command", commandBuilder.ToString());
             activity.SetTag("parameter", parameters.ToString().Trim());
         }
 

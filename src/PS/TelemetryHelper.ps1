@@ -1,32 +1,31 @@
 # PowerShell Telemetry Helper
-# Provides telemetry integration for PowerShell cmdlets
-# Note: Actual telemetry is handled in C# layer to avoid version conflicts
+# Provides telemetry integration for PowerShell cmdlets using the Core libraries
 
-# Lazy-loaded telemetry service instance (disabled in PowerShell)
+# Global telemetry service instance
 $script:TelemetryService = $null
 
-function Initialize-Telemetry {
-    <#
-    .SYNOPSIS
-        Initializes the telemetry service for the current session.
-        Note: Telemetry is handled in C# layer, this is a no-op in PowerShell.
-    #>
-    # PowerShell layer doesn't use telemetry to avoid DiagnosticSource version conflicts
-    # Telemetry is handled in the C# business logic layer instead
-    return $null
+function Get-TelemetryService {
+    if ($null -eq $script:TelemetryService) {
+        try {
+            # Ensure Core.Engine is loaded and accessible
+            # We assume the module loading this script has loaded the necessary DLLs via RequiredAssemblies
+    
+            $task = [Core.Engine.Bootstrapper]::ServiceProviderAsync
+            $task.Wait()
+            $provider = $task.Result
+            $script:TelemetryService = $provider.GetService([Core.Abstractions.ITelemetryService])
+        }
+        catch {
+            Write-Verbose "Telemetry initialization failed locally: $_"
+        }
+    }
+    return $script:TelemetryService
 }
 
 function Start-CmdletActivity {
     <#
     .SYNOPSIS
         Starts a new telemetry activity for a cmdlet.
-        Note: This is a no-op in PowerShell; telemetry is handled in C# layer.
-    
-    .PARAMETER CmdletName
-        The name of the cmdlet (e.g., "Connect-CirrusAccount")
-    
-    .PARAMETER Parameters
-        Hashtable or dictionary of parameters passed to the cmdlet
     #>
     [CmdletBinding()]
     param(
@@ -34,31 +33,26 @@ function Start-CmdletActivity {
         [string]$CmdletName,
         
         [Parameter(Mandatory = $false)]
-        [hashtable]$Parameters = @{}
+        [System.Collections.IDictionary]$Parameters
     )
     
-    # No-op: Telemetry handled in C# layer
+    $service = Get-TelemetryService
+    if ($null -ne $service) {
+        try {
+            # Call the extension method as a static method
+            return [Core.Telemetry.TelemetryExtensions]::StartPowerShellActivity($service, $CmdletName, $Parameters)
+        }
+        catch {
+            Write-Verbose "Failed to start activity: $_"
+        }
+    }
     return $null
 }
 
 function Complete-CmdletActivity {
     <#
     .SYNOPSIS
-        Completes a cmdlet activity with success or error status.
-function Complete-CmdletActivity {
-    <#
-    .SYNOPSIS
         Completes a telemetry activity.
-        Note: This is a no-op in PowerShell; telemetry is handled in C# layer.
-    
-    .PARAMETER Activity
-        The activity object to complete
-    
-    .PARAMETER Success
-        Whether the operation succeeded
-    
-    .PARAMETER ErrorMessage
-        Optional error message if the operation failed
     #>
     [CmdletBinding()]
     param(
@@ -72,17 +66,39 @@ function Complete-CmdletActivity {
         [string]$ErrorMessage = ""
     )
     
-    # No-op: Telemetry handled in C# layer
+    if ($null -ne $Activity) {
+        try {
+            if ($Success) {
+                $Activity.SetStatus([System.Diagnostics.ActivityStatusCode]::Ok)
+            }
+            else {
+                $Activity.SetStatus([System.Diagnostics.ActivityStatusCode]::Error, $ErrorMessage)
+                
+                # Add error event tag
+                $tags = [System.Diagnostics.ActivityTagsCollection]::new()
+                $tags.Add("message", $ErrorMessage)
+                $ev = [System.Diagnostics.ActivityEvent]::new("Error", [System.DateTimeOffset]::UtcNow, $tags)
+                $Activity.AddEvent($ev)
+            }
+            $Activity.Dispose()
+        }
+        catch {
+            Write-Verbose "Failed to complete activity: $_"
+        }
+    }
 }
 
 function Stop-Telemetry {
     <#
     .SYNOPSIS
         Stops and disposes the telemetry service.
-        Note: This is a no-op in PowerShell; telemetry is handled in C# layer.
     #>
-    # No-op: Telemetry handled in C# layer
+    if ($null -ne $script:TelemetryService) {
+        $script:TelemetryService.Dispose()
+        $script:TelemetryService = $null
+    }
 }
 
 # Export functions
-Export-ModuleMember -Function Initialize-Telemetry, Start-CmdletActivity, Complete-CmdletActivity, Stop-Telemetry
+Export-ModuleMember -Function Start-CmdletActivity, Complete-CmdletActivity, Stop-Telemetry
+
