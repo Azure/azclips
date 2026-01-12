@@ -21,7 +21,7 @@ namespace Core.Engine;
 /// This is the "fast path" - structured commands that match known syntax execute here.
 /// On failure (unknown command, typo, natural language), exception triggers AgentEngine fallback.
 /// </summary>
-public class DefaultCommandEngine(CommandParser _parser, CommandBinder _binder, ILoggerService _logger) : ICommandEngine
+public class DefaultCommandEngine(CommandParser _parser, CommandBinder _binder, ILoggingService _logger) : ICommandEngine
 {
     public string? ExtractedCommand { get; private set; }
 
@@ -30,20 +30,20 @@ public class DefaultCommandEngine(CommandParser _parser, CommandBinder _binder, 
     /// </summary>
     public async Task ExecuteCommandAsync(string[] args, CancellationToken cancellationToken = default)
     {
-        _logger.LogInfo($"Parsing command: {string.Join(" ", args)}");
+        _logger.Info($"Parsing command: {string.Join(" ", args)}");
         var parseResult = _parser.Parse(args);
 
-        _logger.LogInfo($"Binding command: {string.Join(" ", parseResult.Commands)}");
+        _logger.Info($"Binding command: {string.Join(" ", parseResult.Commands)}");
         var command = _binder.Bind(parseResult);
 
         if (command == null)
         {
-            _logger.LogWarning("No command found.");
+            _logger.Warn("No command found.");
             throw new InvalidOperationException("Command not found"); // Throw to trigger agent fallback
         }
 
-        _logger.LogInfo($"Executing command: {command.GetType().Name}");
+        _logger.Info($"Executing command: {command.GetType().Name}");
         await command.ExecuteAsync(await Bootstrapper.ServiceProviderAsync, parseResult.Options, cancellationToken);
-        _logger.LogInfo("Command executed successfully.");
+        _logger.Info("Command executed successfully.");
     }
 }

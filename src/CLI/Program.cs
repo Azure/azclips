@@ -16,6 +16,7 @@ public class Program
     public static async Task<int> Main(string[] args)
     {
         var serviceProvider = await Bootstrapper.ServiceProviderAsync;
+        var logger = serviceProvider.GetRequiredService<ILoggingService>();
         var dispatcher = new ExtensionDispatcher();
         try
         {
@@ -23,18 +24,18 @@ public class Program
             ICommandInvocation invocation = dispatcher.Parse(args);
             string result = Engine.Engine.GetCommand(invocation).Process(true);
 
-            serviceProvider.GetRequiredService<ILoggerService>().Log(result);
+            logger.Log(result);
             return 0;
         }
         catch (DispatchHelpException)
         {
-            serviceProvider.GetRequiredService<ILoggerService>().Log("Command Line Interface Help");
+            logger.Log("Command Line Interface Help");
             return 0;
         }
         catch (Exception ex)
         {
             // Extension execution failed - try AI agent fallback
-            Console.WriteLine($"Error: {ex.Message}\n");
+            logger.Error($"{ex.Message}\n");
             return await TryAgentFallbackAsync(args);
         }
     }
@@ -44,11 +45,12 @@ public class Program
         const int maxRetries = 5;
         int attempt = 0;
         string[] currentArgs = args;
+        var serviceProvider = await Bootstrapper.ServiceProviderAsync;
+        var logger = serviceProvider.GetRequiredService<ILoggingService>();
 
         try
         {
             // Use the singleton AgentEngine from DI container
-            var serviceProvider = await Bootstrapper.ServiceProviderAsync;
             var agentEngine = serviceProvider.GetRequiredService<AgentEngine>();
             var output = serviceProvider.GetRequiredService<IOutputAdapter>();
 
@@ -99,7 +101,7 @@ public class Program
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"AI agent error: {ex.Message}");
+            logger.Error($"AI agent error: {ex.Message}");
             return 1;
         }
     }

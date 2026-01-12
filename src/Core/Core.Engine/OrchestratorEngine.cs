@@ -36,7 +36,7 @@ public class OrchestratorEngine : ICommandEngine
     private readonly AgentEngine _agentEngine;
     private readonly CommandParser _parser;
     private readonly CommandBinder _binder;
-    private readonly ILoggerService _logger;
+    private readonly ILoggingService _logger;
     private readonly IOutputAdapter _output;
 
     public string? ExtractedCommand => _agentEngine.ExtractedCommand;
@@ -46,7 +46,7 @@ public class OrchestratorEngine : ICommandEngine
         AgentEngine agentEngine,
         CommandParser parser,
         CommandBinder binder,
-        ILoggerService telemetry,
+        ILoggingService telemetry,
         IOutputAdapter output)
     {
         _defaultEngine = defaultEngine;

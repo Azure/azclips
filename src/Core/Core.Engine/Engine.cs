@@ -5,6 +5,7 @@ using SharedContracts;
 using Core.Abstractions;
 using Core.Implementation;
 using System.Collections.Concurrent;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Core.Engine
 {
@@ -17,7 +18,9 @@ namespace Core.Engine
             IExtensionIndex extensionIndex = _extensionIndices.GetOrAdd(invocation.ExtensionName, (extensionName) =>
             {
                 string assemblyName = invocation.ExtensionName.ResolveExtensionName().ResolveAssemblyName();
-                Console.WriteLine($"Loading extension index from assembly: {assemblyName}");
+                Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult()
+                    .GetRequiredService<ILoggingService>()
+                    .Verbose($"Resolved extension '{extensionName}' to assembly '{assemblyName}'. Loading extension index...");
                 Type? IndexType = Type.GetType($"{assemblyName}.ExtensionIndex, {assemblyName}") ?? throw new InvalidOperationException($"No IExtensionIndex implementation found in assembly {assemblyName}");
                 return (Activator.CreateInstance(IndexType) as IExtensionIndex)!;
             });
