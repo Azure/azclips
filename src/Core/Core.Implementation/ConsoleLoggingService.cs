@@ -20,7 +20,7 @@ public class ConsoleLoggingService : ILoggingService
     public void Error(string message)
     {
         Console.ForegroundColor = ConsoleColor.Red;
-        Console.WriteLine($"Error: {message}");
+        Console.WriteLine($"[ERROR] {message}");
         Console.ResetColor();
     }
 
