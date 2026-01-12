@@ -6,7 +6,7 @@ namespace Core.Engine;
 /// <summary>
 /// Binds parsed commands to actual ICommand implementations by dynamically loading modules.
 /// </summary>
-public class CommandBinder(ILoggerService _logger)
+public class CommandBinder(ILoggingService _logger)
 {
     /// <summary>
     /// Binds the parsed result to a command implementation.
@@ -25,7 +25,7 @@ public class CommandBinder(ILoggerService _logger)
 
         if (module == null)
         {
-            _logger.LogWarning($"Module '{moduleName}' not found.");
+            _logger.Warn($"Module '{moduleName}' not found.");
             return null;
         }
 
@@ -33,7 +33,7 @@ public class CommandBinder(ILoggerService _logger)
 
         if (!commands.Any())
         {
-            _logger.LogWarning($"Module '{moduleName}' has no commands.");
+            _logger.Warn($"Module '{moduleName}' has no commands.");
             return null;
         }
 
@@ -56,7 +56,7 @@ public class CommandBinder(ILoggerService _logger)
 
         if (matchedCommand == null)
         {
-            _logger.LogWarning($"Command '{subcommand}' not found in module '{moduleName}'.");
+            _logger.Warn($"Command '{subcommand}' not found in module '{moduleName}'.");
         }
 
         return matchedCommand;
@@ -135,7 +135,7 @@ public class CommandBinder(ILoggerService _logger)
         }
         catch (Exception ex)
         {
-            _logger.LogError($"Error loading module '{moduleName}': {ex.Message}");
+            _logger.Error($"Error loading module '{moduleName}': {ex.Message}");
             return null;
         }
     }

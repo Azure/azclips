@@ -32,8 +32,8 @@ public class Bootstrapper
         return await Task.Run(() =>
         {
             var serviceProvider = RegisterServices();
-            var Logger = serviceProvider.GetRequiredService<ILoggerService>();
-            Logger.Log("Core.Engine has started.");
+            var Logger = serviceProvider.GetRequiredService<ILoggingService>();
+            Logger.Verbose("Core.Engine has started.");
             return serviceProvider;
         });
     }
@@ -52,7 +52,7 @@ public class Bootstrapper
 
         // --- ORIGINAL REGISTRATIONS (from main branch) ---
         // Telemetry service for logging throughout the application
-        services.AddSingleton<ILoggerService, ConsoleLoggerService>();
+        services.AddSingleton<ILoggingService, ConsoleLoggingService>();
         services.AddSingleton<IAuthService, MsalAuthService>();
 
         // --- NEW REGISTRATIONS (added for AI integration) ---
@@ -99,7 +99,7 @@ public class Bootstrapper
                 sp.GetRequiredService<AgentEngine>(),
                 sp.GetRequiredService<CommandParser>(),
                 sp.GetRequiredService<CommandBinder>(),
-                sp.GetRequiredService<ILoggerService>(),
+                sp.GetRequiredService<ILoggingService>(),
                 sp.GetRequiredService<IOutputAdapter>()));
 
         return services.BuildServiceProvider();

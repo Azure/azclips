@@ -16,6 +16,7 @@ public class Program
     public static async Task<int> Main(string[] args)
     {
         var serviceProvider = await Bootstrapper.ServiceProviderAsync;
+        var logger = serviceProvider.GetRequiredService<ILoggingService>();
         var dispatcher = new ExtensionDispatcher();
         try
         {
@@ -23,12 +24,12 @@ public class Program
             ICommandInvocation invocation = dispatcher.Parse(args);
             string result = Engine.Engine.GetCommand(invocation).Process(true);
 
-            serviceProvider.GetRequiredService<ILoggerService>().Log(result);
+            logger.Log(result);
             return 0;
         }
         catch (DispatchHelpException)
         {
-            serviceProvider.GetRequiredService<ILoggerService>().Log("Command Line Interface Help");
+            logger.Log("Command Line Interface Help");
             return 0;
         }
         catch (Exception ex)
