@@ -15,6 +15,9 @@ public static class TelemetryExtensions
         if (activity != null)
         {
             var commandBuilder = new StringBuilder("az");
+
+            // Telemetry recording will be moved to engine soon.
+            // Temporarily proceed with the parser here.
             var parameters = new StringBuilder();
             
             bool parsingOptions = false;
