@@ -9,13 +9,6 @@ namespace Core.Implementation;
 /// </summary>
 public class ConsoleLoggingService : ILoggingService
 {
-    private readonly ITelemetryService _telemetryService;
-
-    public ConsoleLoggingService(ITelemetryService telemetryService)
-    {
-        _telemetryService = telemetryService;
-    }
-
     public void Log(string message)
     {
         Console.WriteLine($"{message}");
