@@ -38,7 +38,7 @@ public class Program
                 using var commandActivity = _telemetryService.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
                 commandActivity?.SetTag("command.type", invocation.GetType().Name);
 
-                string result = Engine.Engine.ProcessCommand(Engine.Engine.GetCommand(invocation), true);
+                string result = Engine.Engine.GetCommand(invocation).Process(true).ToString();
 
                 _logger?.Log(result);
                 activity?.SetStatus(ActivityStatusCode.Ok);
@@ -107,7 +107,7 @@ public class Program
                 {
                     var dispatcher = new ExtensionDispatcher();
                     ICommandInvocation invocation = dispatcher.Parse(retryArgs);
-                    string result = Engine.Engine.ProcessCommand(Engine.Engine.GetCommand(invocation), true);
+                    string result = Engine.Engine.GetCommand(invocation).Process(true).ToString();
                     Console.WriteLine(result);
                     return 0;
                 }

@@ -26,7 +26,7 @@ function Connect-CirrusAccount {
                 $parameters.Add('TenantId', [object]$TenantId);
             }
             $invocation = [Core.Implementation.PSCommandInvocation]::New($extensionName, $commandName, $parameters);
-            [Core.Abstractions.AuthenticationInfo]$output = [Core.Abstractions.AuthenticationInfo]([Core.Engine.Engine]::ProcessCommand([Core.Engine.Engine]::GetCommand($invocation)));
+            [Core.Abstractions.AuthenticationInfo]$output = [Core.Abstractions.AuthenticationInfo]([Core.Engine.Engine]::GetCommand($invocation).Process());
             Write-Output $output;
             
             # Mark activity as successful

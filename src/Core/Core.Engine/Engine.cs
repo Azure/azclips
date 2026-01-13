@@ -52,21 +52,6 @@ namespace Core.Engine
             return instance;
         }
 
-        public static object ProcessCommand(IProcessor processor)
-        {
-            var telemetry = TryGetTelemetryService();
-            using var activity = telemetry?.StartActivity("Engine.ProcessCommand", ActivityKind.Internal);
-            return processor.Process();
-        }
-
-        public static string ProcessCommand(IProcessor processor, bool serialize)
-        {
-            var telemetry = TryGetTelemetryService();
-            using var activity = telemetry?.StartActivity("Engine.ProcessCommand", ActivityKind.Internal);
-            activity?.SetTag("serialize", serialize);
-            return processor.Process(serialize);
-        }
-
         private static ITelemetryService? TryGetTelemetryService()
         {
             try
