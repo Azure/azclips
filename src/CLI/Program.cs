@@ -51,7 +51,7 @@ public class Program
             }
             catch (Exception ex)
             {
-                _logger?.LogError(ex.Message);
+                _logger?.Error(ex.Message);
                 
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 activity?.AddException(ex);
@@ -70,11 +70,12 @@ public class Program
         const int maxRetries = 5;
         int attempt = 0;
         string[] currentArgs = args;
+        var serviceProvider = await Bootstrapper.ServiceProviderAsync;
+        var logger = serviceProvider.GetRequiredService<ILoggingService>();
 
         try
         {
             // Use the singleton AgentEngine from DI container
-            var serviceProvider = await Bootstrapper.ServiceProviderAsync;
             var agentEngine = serviceProvider.GetRequiredService<AgentEngine>();
             var output = serviceProvider.GetRequiredService<IOutputAdapter>();
 
@@ -125,7 +126,7 @@ public class Program
         }
         catch (Exception ex)
         {
-            _logger?.LogError($"AI agent error: {ex.Message}");
+            logger.Error($"AI agent error: {ex.Message}");
             return 1;
         }
     }

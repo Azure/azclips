@@ -8,6 +8,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Core.Engine
 {
@@ -26,7 +27,9 @@ namespace Core.Engine
                 loadActivity?.SetTag("extension", extensionName);
                 
                 string assemblyName = invocation.ExtensionName.ResolveExtensionName().ResolveAssemblyName();
-                Console.WriteLine($"Loading extension index from assembly: {assemblyName}");
+                Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult()
+                    .GetRequiredService<ILoggingService>()
+                    .Verbose($"Resolved extension '{extensionName}' to assembly '{assemblyName}'. Loading extension index...");
                 Type? IndexType = Type.GetType($"{assemblyName}.ExtensionIndex, {assemblyName}") ?? throw new InvalidOperationException($"No IExtensionIndex implementation found in assembly {assemblyName}");
                 return (Activator.CreateInstance(IndexType) as IExtensionIndex)!;
             });

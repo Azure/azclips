@@ -5,7 +5,7 @@ using System.Text.Json;
 
 namespace Core.Authentication;
 
-public class MsalAuthService(ILoggerService Logger) : IAuthService // todo: testability, consider injecting MSAL API wrappers
+public class MsalAuthService(ILoggingService Logger) : IAuthService // todo: testability, consider injecting MSAL API wrappers
 {
     private const string ArmDefaultScope = "https://management.core.windows.net//.default";
     private static readonly string ContextDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".cirrus");
@@ -62,7 +62,7 @@ public class MsalAuthService(ILoggerService Logger) : IAuthService // todo: test
         }
         catch (Exception ex)
         {
-            Logger.Log($"[Warning] Failed to save authentication context: {ex.Message}");
+            Logger.Warn($"Failed to save authentication context: {ex.Message}");
         }
     }
 
@@ -78,7 +78,7 @@ public class MsalAuthService(ILoggerService Logger) : IAuthService // todo: test
         }
         catch (Exception ex)
         {
-            Logger.Log($"[Warning] Failed to load authentication context: {ex.Message}");
+            Logger.Warn($"Failed to load authentication context: {ex.Message}");
         }
         return null;
     }
@@ -89,7 +89,7 @@ public class MsalAuthService(ILoggerService Logger) : IAuthService // todo: test
         await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
 
         var result = await app.AcquireTokenInteractive(scopes ?? [ArmDefaultScope]).WithUseEmbeddedWebView(false).ExecuteAsync(cancellationToken);
-        LogTokenMetadata(result);
+        LogTokenMetadataDebug(result);
         return result.AccessToken;
     }
 
@@ -104,7 +104,7 @@ public class MsalAuthService(ILoggerService Logger) : IAuthService // todo: test
             return Task.CompletedTask;
         }).ExecuteAsync(cancellationToken);
 
-        LogTokenMetadata(result);
+        LogTokenMetadataDebug(result);
         return result.AccessToken;
     }
 
@@ -180,13 +180,13 @@ public class MsalAuthService(ILoggerService Logger) : IAuthService // todo: test
             result = await app.AcquireTokenInteractive(scopes ?? [ArmDefaultScope]).WithUseEmbeddedWebView(false).ExecuteAsync(cancellationToken);
         }
 
-        LogTokenMetadata(result);
+        LogTokenMetadataDebug(result);
         return result.AccessToken;
     }
 
-    private void LogTokenMetadata(AuthenticationResult result)
+    private void LogTokenMetadataDebug(AuthenticationResult result)
     {
-        Logger.Log(@$"[Verbose] Token acquired silently:
+        Logger.Debug(@$"Token acquired silently:
 Username: {result.Account.Username}
 DurationTotalInMs: {result.AuthenticationResultMetadata.DurationTotalInMs}
 TokenSource: {result.AuthenticationResultMetadata.TokenSource}

@@ -5,46 +5,59 @@ using Core.Abstractions;
 namespace Core.Implementation;
 
 /// <summary>
-/// Simple console-based telemetry service for logging.
+/// Simple console-based telemetry logger.
 /// </summary>
-public class ConsoleLoggerService : ILoggerService
+public class ConsoleLoggingService : ILoggingService
 {
     private readonly ITelemetryService _telemetryService;
 
-    public ConsoleLoggerService(ITelemetryService telemetryService)
+    public ConsoleLoggingService(ITelemetryService telemetryService)
     {
         _telemetryService = telemetryService;
     }
 
     public void Log(string message)
     {
-        // Silent for clean output - can be enabled for debugging
-        Console.WriteLine($"[LOG] {message}");
+        Console.WriteLine($"{message}");
         RecordTelemetry("Log", message);
     }
 
-    public void LogInfo(string message)
+    public void Info(string message)
     {
-        // Silent for clean output - can be enabled for debugging
         Console.WriteLine($"[INFO] {message}");
         RecordTelemetry("Info", message);
     }
 
-    public void LogError(string message)
+    public void Error(string message)
     {
         Console.ForegroundColor = ConsoleColor.Red;
-        Console.WriteLine($"Error: {message}");
+        Console.WriteLine($"[ERROR] {message}");
         Console.ResetColor();
         RecordTelemetry("Error", message);
     }
 
-    public void LogWarning(string message)
+    public void Warn(string message)
     {
-        // Silent for clean output
         Console.ForegroundColor = ConsoleColor.Yellow;
         Console.WriteLine($"[WARN] {message}");
         Console.ResetColor();
         RecordTelemetry("Warning", message);
+    }
+
+    public void Verbose(string message)
+    {
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.WriteLine($"[VERBOSE] {message}");
+        Console.ResetColor();
+        RecordTelemetry("Verbose", message);
+    }
+
+    public void Debug(string message)
+    {
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.WriteLine($"[DEBUG] {message}");
+        Console.ResetColor();
+        RecordTelemetry("Debug", message);
     }
 
     private void RecordTelemetry(string level, string message)
@@ -53,10 +66,10 @@ public class ConsoleLoggerService : ILoggerService
         {
             { "message", message },
             { "level", level },
-            { "logger", nameof(ConsoleLoggerService) }
+            { "logger", nameof(ConsoleLoggingService) }
         };
 
-        // Attach log to the current activity (trace)
+        // Attach log to the current activity (trace) if available
         Activity.Current?.AddEvent(new ActivityEvent(level, tags: tags));
     }
 }
