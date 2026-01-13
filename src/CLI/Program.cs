@@ -17,13 +17,13 @@ namespace Core.Cli;
 public class Program
 {
     private static ITelemetryService? _telemetryService;
-    private static ILoggerService? _logger;
+    private static ILoggingService? _logger;
 
     public static async Task<int> Main(string[] args)
     {
         var serviceProvider = await Bootstrapper.ServiceProviderAsync;
         _telemetryService = serviceProvider.GetRequiredService<ITelemetryService>();
-        _logger = serviceProvider.GetRequiredService<ILoggerService>();
+        _logger = serviceProvider.GetRequiredService<ILoggingService>();
 
         try
         {
