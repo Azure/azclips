@@ -56,14 +56,12 @@ PowerShellVersion = '7.5'
 # Assemblies that must be loaded prior to importing this module
 # RequiredAssemblies = @()
 
-RequiredAssemblies = '../../../artifacts/Debug/Core/Microsoft.Extensions.Primitives.dll',
-                        '../../../artifacts/Debug/Core/Microsoft.Extensions.DependencyInjection.Abstractions.dll',
-                        '../../../artifacts/Debug/Core/Microsoft.Extensions.DependencyInjection.dll',
-                        '../../../artifacts/Debug/Core/Core.Abstractions.dll',
+RequiredAssemblies = '../../../artifacts/Debug/Core/Core.Abstractions.dll',
                         '../../../artifacts/Debug/Core/Core.Telemetry.dll',
                         '../../../artifacts/Debug/Core/Core.Implementation.dll',
                         '../../../artifacts/Debug/Core/SharedContracts.dll',
                         '../../../artifacts/Debug/Core/Core.Engine.dll',
+                        '../../../artifacts/Debug/Core/Microsoft.Extensions.DependencyInjection.Abstractions.dll',
                         '../../../artifacts/Debug/Microsoft.Azure.Cirrus.Extensions.Login/Microsoft.Azure.Cirrus.Extensions.Login.dll'
 
 # Script files (.ps1) that are run in the caller's environment prior to importing this module.
