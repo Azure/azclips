@@ -17,39 +17,40 @@ namespace Core.Engine
         public static IProcessor GetCommand(ICommandInvocation invocation)
         {
             var telemetry = TryGetTelemetryService();
-            using var activity = telemetry?.StartActivity("Engine.GetCommand", ActivityKind.Internal);
-
-            IExtensionIndex extensionIndex = _extensionIndices.GetOrAdd(invocation.ExtensionName, (extensionName) =>
+            using (var activity = telemetry?.ActivitySource.StartActivity("Engine.GetCommand", ActivityKind.Internal))
             {
-                using var loadActivity = telemetry?.StartActivity("Engine.LoadExtension", ActivityKind.Internal);
-                loadActivity?.SetTag("extension", extensionName);
+                IExtensionIndex extensionIndex = _extensionIndices.GetOrAdd(invocation.ExtensionName, (extensionName) =>
+                {
+                    using var loadActivity = telemetry?.ActivitySource.StartActivity("Engine.LoadExtension", ActivityKind.Internal);
+                    loadActivity?.SetTag("extension", extensionName);
+                    
+                    string assemblyName = invocation.ExtensionName.ResolveExtensionName().ResolveAssemblyName();
+                    Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult()
+                        .GetRequiredService<ILoggingService>()
+                        .Verbose($"Resolved extension '{extensionName}' to assembly '{assemblyName}'. Loading extension index...");
+                    Type? IndexType = Type.GetType($"{assemblyName}.ExtensionIndex, {assemblyName}") ?? throw new InvalidOperationException($"No IExtensionIndex implementation found in assembly {assemblyName}");
+                    return (Activator.CreateInstance(IndexType) as IExtensionIndex)!;
+                });
+
+                ICommandMetadata commandMetadata;
+                using (var metaActivity = telemetry?.ActivitySource.StartActivity("Engine.GetMetadata", ActivityKind.Internal))
+                {
+                    commandMetadata = extensionIndex.GetCommandMetaData(invocation.CommandName, invocation.ClientType);
+                }
+
+                IProcessor instance;
+                using (var instActivity = telemetry?.ActivitySource.StartActivity("Engine.CreateInstance", ActivityKind.Internal))
+                {
+                    instance = commandMetadata.GetInstance();
+                }
+
+                using (var bindActivity = telemetry?.ActivitySource.StartActivity("Engine.BindParameters", ActivityKind.Internal))
+                {
+                    invocation.Parameters.ToList().ForEach(p => instance.SetProperty(p.Key, p.Value));
+                }
                 
-                string assemblyName = invocation.ExtensionName.ResolveExtensionName().ResolveAssemblyName();
-                Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult()
-                    .GetRequiredService<ILoggingService>()
-                    .Verbose($"Resolved extension '{extensionName}' to assembly '{assemblyName}'. Loading extension index...");
-                Type? IndexType = Type.GetType($"{assemblyName}.ExtensionIndex, {assemblyName}") ?? throw new InvalidOperationException($"No IExtensionIndex implementation found in assembly {assemblyName}");
-                return (Activator.CreateInstance(IndexType) as IExtensionIndex)!;
-            });
-
-            ICommandMetadata commandMetadata;
-            using (var metaActivity = telemetry?.StartActivity("Engine.GetMetadata", ActivityKind.Internal))
-            {
-                commandMetadata = extensionIndex.GetCommandMetaData(invocation.CommandName, invocation.ClientType);
+                return instance;
             }
-
-            IProcessor instance;
-            using (var instActivity = telemetry?.StartActivity("Engine.CreateInstance", ActivityKind.Internal))
-            {
-                instance = commandMetadata.GetInstance();
-            }
-
-            using (var bindActivity = telemetry?.StartActivity("Engine.BindParameters", ActivityKind.Internal))
-            {
-                invocation.Parameters.ToList().ForEach(p => instance.SetProperty(p.Key, p.Value));
-            }
-            
-            return instance;
         }
 
         private static ITelemetryService? TryGetTelemetryService()

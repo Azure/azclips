@@ -35,7 +35,7 @@ public class Program
             {
                 ICommandInvocation invocation = dispatcher.Parse(args);
 
-                using var commandActivity = _telemetryService.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
+                using var commandActivity = _telemetryService.ActivitySource.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
                 commandActivity?.SetTag("command.type", invocation.GetType().Name);
 
                 string result = Engine.Engine.GetCommand(invocation).Process(true).ToString();

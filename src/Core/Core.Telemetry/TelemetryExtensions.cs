@@ -10,7 +10,7 @@ public static class TelemetryExtensions
 {
     public static Activity? StartCLIActivity(this ITelemetryService service, string[] args)
     {
-        var activity = service.StartActivity("AzureCLI.Main", ActivityKind.Server);
+        var activity = service.ActivitySource.StartActivity("AzureCLI.Main", ActivityKind.Server);
         
         if (activity != null)
         {
@@ -53,7 +53,7 @@ public static class TelemetryExtensions
 
     public static Activity? StartPowerShellActivity(this ITelemetryService service, string commandName, IDictionary<string, object> parameters)
     {
-        var activity = service.StartActivity("AzurePS.Cmdlet", ActivityKind.Server);
+        var activity = service.ActivitySource.StartActivity("AzurePS.Cmdlet", ActivityKind.Server);
 
         if (activity != null)
         {
