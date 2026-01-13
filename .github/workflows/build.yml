@@ -46,15 +46,15 @@ jobs:
       env:
         Configuration: ${{ matrix.configuration }}
 
-    # Execute all unit tests in the solution
-    - name: Execute unit tests
-      run: dotnet test cirrus.slnx --no-build --configuration Debug --verbosity normal
-
     # Build the Solution
     - name: Build the solution
       run: dotnet build $env:Solution_Name --configuration $env:Configuration --no-restore
       env:
         Configuration: ${{ matrix.configuration }}
+
+    # Execute all unit tests in the solution
+    - name: Execute unit tests
+      run: dotnet test cirrus.slnx --no-build --configuration $env:Configuration --verbosity normal
 
     # Upload the build artifacts
     - name: Upload build artifacts
