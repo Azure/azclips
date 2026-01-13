@@ -40,15 +40,15 @@ jobs:
       with:
         dotnet-version: 9.0.x
 
-    # Execute all unit tests in the solution
-    - name: Execute unit tests
-      run: dotnet test
-
     # Restore the application to populate the obj folder with RuntimeIdentifiers
     - name: Restore the application
       run: dotnet restore $env:Solution_Name
       env:
         Configuration: ${{ matrix.configuration }}
+
+    # Execute all unit tests in the solution
+    - name: Execute unit tests
+      run: dotnet test cirrus.slnx --no-build --configuration Debug --verbosity normal
 
     # Build the Solution
     - name: Build the solution
@@ -219,6 +219,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Setup PowerShell
+        run: |
+          winget install --id Microsoft.PowerShell --source winget --disable-interactivity --accept-source-agreements
       - name: Extract Extension Metadata
         id: extract-metadata
         shell: pwsh
@@ -272,22 +275,22 @@ jobs:
           
           Write-Host "Module published to: $publishDir"
           Get-ChildItem -Path $publishDir -Recurse | ForEach-Object { Write-Host $_.FullName }
-      # Disable module import test for now due to PowerShell version issues (7.4.13) on GitHub runners
-      # - name: Test Module Import
-      #   shell: pwsh
-      #   run: |
-      #     $moduleName = "${{ steps.extract-metadata.outputs.module_name }}"
-      #     $publishDir = "./publish/$moduleName"
+      # module import test
+      - name: Test Module Import
+        shell: pwsh
+        run: |
+          $moduleName = "${{ steps.extract-metadata.outputs.module_name }}"
+          $publishDir = "./publish/$moduleName"
           
-      #     Write-Host "Testing import of module: $moduleName from $publishDir"
+          Write-Host "Testing import of module: $moduleName from $publishDir"
           
-      #     try {
-      #       Import-Module -Name $publishDir -Force -ErrorAction Stop
-      #       Write-Host "Module $moduleName imported successfully."
-      #     } catch {
-      #       Write-Error "Failed to import module $moduleName. $_"
-      #       exit 1
-      #     }
+          try {
+            Import-Module -Name $publishDir -Force -ErrorAction Stop
+            Write-Host "Module $moduleName imported successfully."
+          } catch {
+            Write-Error "Failed to import module $moduleName. $_"
+            exit 1
+          }
       - name: Upload PowerShell Module Artifact
         uses: actions/upload-artifact@v4
         with:
