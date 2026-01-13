@@ -34,9 +34,15 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
                 UseDeviceCodeFlow = UseDeviceCode
             };
 
-            var authService = Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult()
-                .GetRequiredService<IAuthService>();
-            authService.LoginAsync(loginRequest).GetAwaiter().GetResult();
+
+            var serviceProvider = Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult();
+            var telemetryService = serviceProvider.GetRequiredService<ITelemetryService>();
+            var authService = serviceProvider.GetRequiredService<IAuthService>();
+
+            using (var activity = telemetryService.ActivitySource.StartActivity("LoginCommand.SendRequest"))
+            {
+                authService.LoginAsync(loginRequest).GetAwaiter().GetResult();
+            }
             return authService.GetCurrentContext() ?? new AuthenticationInfo() { SubscriptionId = "", TenantId = "" };
         }
 

@@ -7,8 +7,17 @@
   <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
 
   <ItemGroup>
+    <PackageReference Include="OpenTelemetry" Version="1.7.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Core.Abstractions\Core.Abstractions.csproj" />
     <ProjectReference Include="..\..\SharedContracts\SharedContracts.csproj" />
   </ItemGroup>
+
+  <PropertyGroup>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
+  </PropertyGroup>
 
 </Project>

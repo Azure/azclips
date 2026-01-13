@@ -1,11 +1,14 @@
 using System;
+using System.Diagnostics;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Core.Abstractions;
 using Core.Cli.Exceptions;
 using Core.Cli.Parser;
 using Core.Engine;
 using Core.Implementation;
+using Core.Telemetry;
 using Microsoft.Extensions.DependencyInjection;
 using SharedContracts;
 
@@ -13,30 +16,53 @@ namespace Core.Cli;
 
 public class Program
 {
+    private static ITelemetryService? _telemetryService;
+    private static ILoggingService? _logger;
+
     public static async Task<int> Main(string[] args)
     {
         var serviceProvider = await Bootstrapper.ServiceProviderAsync;
-        var logger = serviceProvider.GetRequiredService<ILoggingService>();
-        var dispatcher = new ExtensionDispatcher();
+        _telemetryService = serviceProvider.GetRequiredService<ITelemetryService>();
+        _logger = serviceProvider.GetRequiredService<ILoggingService>();
+
         try
         {
-            //var command = dispatcher.Parse(args);
-            ICommandInvocation invocation = dispatcher.Parse(args);
-            string result = Engine.Engine.GetCommand(invocation).Process(true);
+            using var activity = _telemetryService.StartCLIActivity(args);
 
-            logger.Log(result);
-            return 0;
+            var dispatcher = new ExtensionDispatcher();
+
+            try
+            {
+                ICommandInvocation invocation = dispatcher.Parse(args);
+
+                using var commandActivity = _telemetryService.ActivitySource.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
+                commandActivity?.SetTag("command.type", invocation.GetType().Name);
+
+                string result = Engine.Engine.GetCommand(invocation).Process(true).ToString();
+
+                _logger?.Log(result);
+                activity?.SetStatus(ActivityStatusCode.Ok);
+                return 0;
+            }
+            catch (DispatchHelpException)
+            {
+                _logger?.Log("Command Line Interface Help");
+                activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                _logger?.Error(ex.Message);
+                
+                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                activity?.AddException(ex);
+
+                return await TryAgentFallbackAsync(args);
+            }
         }
-        catch (DispatchHelpException)
+        finally
         {
-            logger.Log("Command Line Interface Help");
-            return 0;
-        }
-        catch (Exception ex)
-        {
-            // Extension execution failed - try AI agent fallback
-            logger.Error($"{ex.Message}\n");
-            return await TryAgentFallbackAsync(args);
+            _telemetryService?.Dispose();
         }
     }
 
@@ -81,7 +107,7 @@ public class Program
                 {
                     var dispatcher = new ExtensionDispatcher();
                     ICommandInvocation invocation = dispatcher.Parse(retryArgs);
-                    string result = Engine.Engine.GetCommand(invocation).Process(true);
+                    string result = Engine.Engine.GetCommand(invocation).Process(true).ToString();
                     Console.WriteLine(result);
                     return 0;
                 }

@@ -5,6 +5,7 @@ using SharedContracts;
 using Core.Abstractions;
 using Core.Implementation;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Core.Engine
@@ -15,19 +16,58 @@ namespace Core.Engine
 
         public static IProcessor GetCommand(ICommandInvocation invocation)
         {
-            IExtensionIndex extensionIndex = _extensionIndices.GetOrAdd(invocation.ExtensionName, (extensionName) =>
+            var telemetry = TryGetTelemetryService();
+            using (var activity = telemetry?.ActivitySource.StartActivity("Engine.GetCommand", ActivityKind.Internal))
             {
-                string assemblyName = invocation.ExtensionName.ResolveExtensionName().ResolveAssemblyName();
-                Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult()
-                    .GetRequiredService<ILoggingService>()
-                    .Verbose($"Resolved extension '{extensionName}' to assembly '{assemblyName}'. Loading extension index...");
-                Type? IndexType = Type.GetType($"{assemblyName}.ExtensionIndex, {assemblyName}") ?? throw new InvalidOperationException($"No IExtensionIndex implementation found in assembly {assemblyName}");
-                return (Activator.CreateInstance(IndexType) as IExtensionIndex)!;
-            });
-            ICommandMetadata commandMetadata = extensionIndex.GetCommandMetaData(invocation.CommandName, invocation.ClientType);
-            IProcessor instance = commandMetadata.GetInstance();
-            invocation.Parameters.ToList().ForEach(p => instance.SetProperty(p.Key, p.Value));
-            return instance;
+                IExtensionIndex extensionIndex = _extensionIndices.GetOrAdd(invocation.ExtensionName, (extensionName) =>
+                {
+                    using var loadActivity = telemetry?.ActivitySource.StartActivity("Engine.LoadExtension", ActivityKind.Internal);
+                    loadActivity?.SetTag("extension", extensionName);
+                    
+                    string assemblyName = invocation.ExtensionName.ResolveExtensionName().ResolveAssemblyName();
+                    Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult()
+                        .GetRequiredService<ILoggingService>()
+                        .Verbose($"Resolved extension '{extensionName}' to assembly '{assemblyName}'. Loading extension index...");
+                    Type? IndexType = Type.GetType($"{assemblyName}.ExtensionIndex, {assemblyName}") ?? throw new InvalidOperationException($"No IExtensionIndex implementation found in assembly {assemblyName}");
+                    return (Activator.CreateInstance(IndexType) as IExtensionIndex)!;
+                });
+
+                ICommandMetadata commandMetadata;
+                using (var metaActivity = telemetry?.ActivitySource.StartActivity("Engine.GetMetadata", ActivityKind.Internal))
+                {
+                    commandMetadata = extensionIndex.GetCommandMetaData(invocation.CommandName, invocation.ClientType);
+                }
+
+                IProcessor instance;
+                using (var instActivity = telemetry?.ActivitySource.StartActivity("Engine.CreateInstance", ActivityKind.Internal))
+                {
+                    instance = commandMetadata.GetInstance();
+                }
+
+                using (var bindActivity = telemetry?.ActivitySource.StartActivity("Engine.BindParameters", ActivityKind.Internal))
+                {
+                    invocation.Parameters.ToList().ForEach(p => instance.SetProperty(p.Key, p.Value));
+                }
+                
+                return instance;
+            }
+        }
+
+        private static ITelemetryService? TryGetTelemetryService()
+        {
+            try
+            {
+                 // Check if Bootstrapper Task is completed to avoid deadlocks or blocking if not started
+                 if (Bootstrapper.ServiceProviderAsync.IsCompleted)
+                 {
+                     return Bootstrapper.ServiceProviderAsync.Result.GetService<ITelemetryService>();
+                 }
+                 return null;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private static string ResolveAssemblyName (this string extensionName) => $"Microsoft.Azure.Cirrus.Extensions.{extensionName}";

@@ -57,6 +57,7 @@ PowerShellVersion = '7.5'
 # RequiredAssemblies = @()
 
 RequiredAssemblies = '../../../artifacts/Debug/Core/Core.Abstractions.dll',
+                        '../../../artifacts/Debug/Core/Core.Telemetry.dll',
                         '../../../artifacts/Debug/Core/Core.Implementation.dll',
                         '../../../artifacts/Debug/Core/SharedContracts.dll',
                         '../../../artifacts/Debug/Core/Core.Engine.dll',

@@ -1,6 +1,7 @@
 ﻿using Core.Abstractions;
 using Core.Authentication;
 using Core.Implementation;
+using Core.Telemetry;
 using Microsoft.Extensions.DependencyInjection;
 using Core.Agent;
 
@@ -54,6 +55,7 @@ public class Bootstrapper
         // Telemetry service for logging throughout the application
         services.AddSingleton<ILoggingService, ConsoleLoggingService>();
         services.AddSingleton<IAuthService, MsalAuthService>();
+        services.AddSingleton<ITelemetryService, TelemetryService>();
 
         // --- NEW REGISTRATIONS (added for AI integration) ---
 
