@@ -55,6 +55,8 @@ jobs:
     # Execute all unit tests in the solution
     - name: Execute unit tests
       run: dotnet test cirrus.slnx --no-build --configuration $env:Configuration --verbosity normal
+      env:
+        Configuration: ${{ matrix.configuration }}
 
     # Upload the build artifacts
     - name: Upload build artifacts
@@ -219,7 +221,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Setup PowerShell
+      - name: Setup PowerShell latest
+        shell: powershell
         run: |
           winget install --id Microsoft.PowerShell --source winget --disable-interactivity --accept-source-agreements
       - name: Extract Extension Metadata
