@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <AssemblyName>az</AssemblyName>
+    <AssemblyName>azv2</AssemblyName>
     <RootNamespace>Core.Cli</RootNamespace>
     <ExtName>Core.Cli</ExtName>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
