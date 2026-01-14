@@ -298,10 +298,10 @@ jobs:
           $moduleDir = "${{ steps.extract-metadata.outputs.module_dir }}"
           $publishDir = "./publish/$moduleName"
           
-          Write-Host "Testing import of module: $moduleName from $publishDir"
+          Write-Host "Testing import of module: $moduleName from $moduleDir"
           
           try {
-            Import-Module -Name $moduleDir -Force -ErrorAction Stop
+            Import-Module $moduleDir -Force -ErrorAction Stop
             Write-Host "Module $moduleName imported successfully."
             $commands = Get-Command -Module $moduleName
             if ($commands.Count -eq 0) {
