@@ -1,5 +1,4 @@
 ﻿using Core.Abstractions;
-using SharedContracts;
 
 namespace Core.Implementation
 {

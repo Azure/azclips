@@ -57,7 +57,6 @@ RequiredModules = @()
 RequiredAssemblies = '../../../artifacts/Debug/Core/Core.Abstractions.dll',
                         '../../../artifacts/Debug/Core/Core.Telemetry.dll',
                         '../../../artifacts/Debug/Core/Core.Implementation.dll',
-                        '../../../artifacts/Debug/Core/SharedContracts.dll',
                         '../../../artifacts/Debug/Core/Core.Engine.dll',
                         '../../../artifacts/Debug/Microsoft.Azure.Cirrus.Extensions.Resources/Microsoft.Azure.Cirrus.Extensions.Resources.dll'
 # Script files (.ps1) that are run in the caller's environment prior to importing this module.

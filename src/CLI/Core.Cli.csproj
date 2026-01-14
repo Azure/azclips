@@ -21,7 +21,6 @@
     <ProjectReference Include="..\Core\Core.Telemetry\Core.Telemetry.csproj" />
     <ProjectReference Include="..\Core\Core.Engine\Core.Engine.csproj" />
     <ProjectReference Include="..\Core\Core.Agent\Core.Agent.csproj" />
-    <ProjectReference Include="..\SharedContracts\SharedContracts.csproj" />
   </ItemGroup>
 
 
