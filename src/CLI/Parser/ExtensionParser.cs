@@ -1,7 +1,6 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Core.Cli.Exceptions;
-using SharedContracts;
 
 namespace Core.Cli.Parser;
 

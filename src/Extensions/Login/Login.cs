@@ -1,11 +1,10 @@
 using Core.Abstractions;
 using Core.Engine;
 using Microsoft.Extensions.DependencyInjection;
-using SharedContracts;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
 {
-    public class LoginCommand : SharedContracts.IProcessor
+    public class LoginCommand : IProcessor
     {
         [ArgumentInfoAttribute(
         Required = true,

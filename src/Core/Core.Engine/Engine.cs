@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
-using SharedContracts;
 using Core.Abstractions;
 using Core.Implementation;
 using System.Collections.Concurrent;
