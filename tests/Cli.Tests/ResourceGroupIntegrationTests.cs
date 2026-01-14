@@ -8,11 +8,17 @@ namespace Cli.Tests;
 
 public class ResourceGroupIntegrationTests
 {
+#if DEBUG
+    private const string Configuration = "Debug";
+#else
+    private const string Configuration = "Release";
+#endif
+
     [Fact]
     public void ResourceGroupCreate_ShouldParseCorrectly()
     {
         // Arrange
-        var artifactsDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "artifacts", "Debug"));
+        var artifactsDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "artifacts", Configuration));
         var dispatcher = new ExtensionDispatcher(artifactsDir);
         string[] args = new[] { "group", "create", "--SubscriptionId", "test-sub-id", "--Name", "test-rg", "--Location", "eastus" };
         

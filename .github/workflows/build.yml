@@ -38,7 +38,7 @@ jobs:
     - name: Install .NET Core
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 9.0.x
+        global-json-file: global.json
 
     # Restore the application to populate the obj folder with RuntimeIdentifiers
     - name: Restore the application
@@ -54,7 +54,7 @@ jobs:
 
     # Execute all unit tests in the solution
     - name: Execute unit tests
-      run: dotnet test cirrus.slnx --no-build --configuration $env:Configuration --verbosity normal
+      run: dotnet test $env:Solution_Name --no-build --configuration $env:Configuration --verbosity normal
       env:
         Configuration: ${{ matrix.configuration }}
 
@@ -184,6 +184,11 @@ jobs:
           
           echo "assembly_name=$assemblyName" >> $env:GITHUB_OUTPUT
           echo "ext_name=$extName" >> $env:GITHUB_OUTPUT
+      # Install the .NET Core workload
+      - name: Install .NET Core
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
       - name: Restore Extension
         run: dotnet restore ${{ matrix.extension }}
       - name: Build Extension
@@ -243,59 +248,74 @@ jobs:
           echo "module_name=$moduleName" >> $env:GITHUB_OUTPUT
           echo "module_dir=$moduleDir" >> $env:GITHUB_OUTPUT
           echo "extension_project_path=src/Extensions/${moduleName}/Extensions.${moduleName}.csproj" >> $env:GITHUB_OUTPUT
+      # Install the .NET Core workload
+      - name: Install .NET Core
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
       - name: Restore Extension
         run: dotnet restore ${{ steps.extract-metadata.outputs.extension_project_path }}
+      # The hardcoded Debug configuration is to match the psd1 RequiredAssemblies paths
       - name: Build Corresponding Extension
-        run: dotnet build ${{ steps.extract-metadata.outputs.extension_project_path }} --configuration Release --no-restore
-      - name: Publish PowerShell Module (Local)
-        shell: pwsh
-        run: |
-          $moduleName = "${{ steps.extract-metadata.outputs.module_name }}"
-          $moduleDir = "${{ steps.extract-metadata.outputs.module_dir }}"
-          $publishDir = "./publish/$moduleName"
-          $buildOutput = "./artifacts/Release/Microsoft.Azure.Cirrus.Extensions.$moduleName"
+        run: dotnet build ${{ steps.extract-metadata.outputs.extension_project_path }} --configuration Debug --no-restore
+      # Skip Publish step for now since psd1 RequiredAssemblies paths are hardcoded
+      # - name: Publish PowerShell Module (Local)
+      #   shell: pwsh
+      #   run: |
+      #     $moduleName = "${{ steps.extract-metadata.outputs.module_name }}"
+      #     $moduleDir = "${{ steps.extract-metadata.outputs.module_dir }}"
+      #     $publishDir = "./publish/$moduleName"
+      #     $buildOutput = "./artifacts/Release/Microsoft.Azure.Cirrus.Extensions.$moduleName"
           
-          Write-Host "Publishing module: $moduleName"
-          Write-Host "Source: $moduleDir"
-          Write-Host "Build output: $buildOutput"
-          Write-Host "Publish directory: $publishDir"
+      #     Write-Host "Publishing module: $moduleName"
+      #     Write-Host "Source: $moduleDir"
+      #     Write-Host "Build output: $buildOutput"
+      #     Write-Host "Publish directory: $publishDir"
           
-          # Create publish directory
-          New-Item -Path $publishDir -ItemType Directory -Force | Out-Null
+      #     # Create publish directory
+      #     New-Item -Path $publishDir -ItemType Directory -Force | Out-Null
           
-          # Copy all PowerShell module files recursively (excludes obj folder)
-          Copy-Item -Path "$moduleDir/*" -Destination $publishDir -Recurse -Exclude "obj"
+      #     # Copy all PowerShell module files recursively (excludes obj folder)
+      #     Copy-Item -Path "$moduleDir/*" -Destination $publishDir -Recurse -Exclude "obj"
           
-          # Copy all DLLs from build output
-          Copy-Item -Path "$buildOutput/*.dll" -Destination $publishDir
+      #     # Copy all DLLs from build output
+      #     Copy-Item -Path "$buildOutput/*.dll" -Destination $publishDir
           
-          # Rename the main DLL to match what the module manifest expects
-          $mainDll = Join-Path $publishDir "Microsoft.Azure.Cirrus.Extensions.$moduleName.dll"
-          if (Test-Path $mainDll) {
-            Rename-Item -Path $mainDll -NewName "$moduleName.dll"
-            Write-Host "Renamed to: $moduleName.dll"
-          }
+      #     # Rename the main DLL to match what the module manifest expects
+      #     $mainDll = Join-Path $publishDir "Microsoft.Azure.Cirrus.Extensions.$moduleName.dll"
+      #     if (Test-Path $mainDll) {
+      #       Rename-Item -Path $mainDll -NewName "$moduleName.dll"
+      #       Write-Host "Renamed to: $moduleName.dll"
+      #     }
           
-          Write-Host "Module published to: $publishDir"
-          Get-ChildItem -Path $publishDir -Recurse | ForEach-Object { Write-Host $_.FullName }
+      #     Write-Host "Module published to: $publishDir"
+      #     Get-ChildItem -Path $publishDir -Recurse | ForEach-Object { Write-Host $_.FullName }
       # module import test
       - name: Test Module Import
         shell: pwsh
         run: |
           $moduleName = "${{ steps.extract-metadata.outputs.module_name }}"
+          $moduleDir = "${{ steps.extract-metadata.outputs.module_dir }}"
           $publishDir = "./publish/$moduleName"
           
           Write-Host "Testing import of module: $moduleName from $publishDir"
           
           try {
-            Import-Module -Name $publishDir -Force -ErrorAction Stop
+            Import-Module -Name $moduleDir -Force -ErrorAction Stop
             Write-Host "Module $moduleName imported successfully."
+            $commands = Get-Command -Module $moduleName
+            if ($commands.Count -eq 0) {
+              Write-Error "No commands found in $moduleName module"
+              exit 1
+            }
+            Write-Host "Found $($commands.Count) commands in $moduleName module"
           } catch {
             Write-Error "Failed to import module $moduleName. $_"
             exit 1
           }
-      - name: Upload PowerShell Module Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: PowerShell Module - ${{ steps.extract-metadata.outputs.module_name }}
-          path: ./publish/${{ steps.extract-metadata.outputs.module_name }}
+      # Skip upload for now since publish step is skipped
+      # - name: Upload PowerShell Module Artifact
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: PowerShell Module - ${{ steps.extract-metadata.outputs.module_name }}
+      #     path: ./publish/${{ steps.extract-metadata.outputs.module_name }}
