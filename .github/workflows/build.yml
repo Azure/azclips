@@ -301,7 +301,7 @@ jobs:
           Write-Host "Testing import of module: $moduleName from $moduleDir"
           
           try {
-            Import-Module $moduleDir -Force -ErrorAction Stop
+            Import-Module ./$moduleDir -Force -ErrorAction Stop
             Write-Host "Module $moduleName imported successfully."
             $commands = Get-Command -Module $moduleName
             if ($commands.Count -eq 0) {
