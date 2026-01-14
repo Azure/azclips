@@ -1,5 +1,13 @@
 namespace Core.Abstractions;
 
+public interface IEngine
+{
+    Action<String> Log { get; set; }
+    Action<String> Debug { get; set; }
+
+    Task ExecuteCommandAsync(string[] args, CancellationToken cancellationToken = default);
+}
+
 public interface ICommandEngine
 {
     /// <summary>
