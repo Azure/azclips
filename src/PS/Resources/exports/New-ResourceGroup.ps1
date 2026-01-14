@@ -10,7 +10,7 @@ function New-ResourceGroup {
         [Parameter(Mandatory = $true)]
         [string] $Location,
 
-        [Parameter(Mandatory = $true)]
+        [Parameter()]
         [string] $AccessToken
     )
 
