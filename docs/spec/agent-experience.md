@@ -24,7 +24,7 @@ The CLI uses an **exception-driven fallback** pattern in `Program.cs`:
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│              User Input: "az <command>"                  │
+│     User Input: "azv2 <command>"                         │
 └────────────────────────┬─────────────────────────────────┘
                          │
                          ▼
@@ -130,7 +130,7 @@ The agent works with both:
 
 1. **Azure CLI** - Command-line interface
    ```bash
-   az create a resource group called mygroup in westus
+   azv2 create a resource group called mygroup in westus
    ```
 
 2. **Azure PowerShell** - Natural language support via `Invoke-AzAI` function
@@ -160,13 +160,13 @@ The agent supports three interaction scenarios, with behavioral differences betw
 
 #### Azure CLI Example
 ```bash
-$ az I would like to logni
+$ azv2 I would like to logni
 
 ⠋ Thinking...
 
 Azure CLI:
-az login
-az login --service-principal --username <appId> --password <password> --tenant <tenantId>
+azv2 login
+azv2 login --service-principal --username <appId> --password <password> --tenant <tenantId>
 ```
 
 #### Azure PowerShell Example
@@ -192,16 +192,16 @@ Connect-AzAccount -ServicePrincipal -Credential $credential -Tenant <tenantId>
 
 #### Azure CLI Example
 ```bash
-$ az how do I create a resource group
+$ azv2 how do I create a resource group
 
 ⠋ Thinking...
 
 Azure CLI:
-az group create --name <resource-group-name> --location <location>
+azv2 group create --name <resource-group-name> --location <location>
 
 # Example with common locations:
-az group create --name myResourceGroup --location eastus
-az group create --name myResourceGroup --location westus2
+azv2 group create --name myResourceGroup --location eastus
+azv2 group create --name myResourceGroup --location westus2
 ```
 
 #### Azure PowerShell Example
@@ -231,14 +231,14 @@ New-ResourceGroup -Name myResourceGroup -Location eastus
 
 #### Azure CLI Example (Interactive)
 ```bash
-$ az create a resource group called mygroup in westus
+$ azv2 create a resource group called mygroup in westus
 
 ⠋ Thinking...
 
 I'll create a resource group named "mygroup" in the westus region.
 
 Command:
-az group create --name mygroup --location westus
+azv2 group create --name mygroup --location westus
 
 Execute this command? (yes/no): yes
 
@@ -259,7 +259,7 @@ Execute this command? (yes/no): yes
 2. Prompts user for confirmation (interactive)
 3. User responds with natural language (e.g., "yes", "sure", "go ahead", "no", "cancel")
 4. Agent interprets user intent using language model
-5. If confirmed, recursively calls `az group create --name mygroup --location westus`
+5. If confirmed, recursively calls `azv2 group create --name mygroup --location westus`
 6. Displays command output
 
 #### Azure PowerShell Example (Non-Interactive)
@@ -302,7 +302,7 @@ mygroup  westus   Succeeded
 | **User Safety** | AI-interpreted confirmation with natural language | AI-interpreted confirmation with natural language |
 | **Streaming Output** | Direct stdout from process | Filtered through ForEach-Object pipeline |
 | **Flavor Detection** | Uses "azure cli" in prompt template | Uses "azure powershell" via AZURECLI_FLAVOR |
-| **Example Syntax** | `az create resource group X` | `ask create resource group X` (no quotes) |
+| **Example Syntax** | `azv2 create resource group X` | `ask create resource group X` (no quotes) |
 
 **PowerShell Workaround:** For safety-critical operations, users can:
 1. Use "how to" questions to get examples: `ask how do I delete a resource group`
@@ -321,7 +321,7 @@ The agent returns JSON with a `type` field:
    {
      "type": "sample_command",
      "explanation": "Here's how to create a resource group:",
-     "command": "az group create --name <name> --location <location>"
+     "command": "azv2 group create --name <name> --location <location>"
    }
    ```
 
@@ -330,7 +330,7 @@ The agent returns JSON with a `type` field:
    {
      "type": "executable_command",
      "explanation": "I'll create a resource group named 'mygroup'.",
-     "command": "az group create --name mygroup --location westus"
+     "command": "azv2 group create --name mygroup --location westus"
    }
    ```
 
@@ -347,7 +347,7 @@ The agent returns JSON with a `type` field:
    {
      "type": "confirmation",
      "message": "This will delete resource group 'mygroup'.",
-     "command": "az group delete --name mygroup"
+     "command": "azv2 group delete --name mygroup"
    }
    ```
 
@@ -373,13 +373,13 @@ The agent is automatically invoked when standard command parsing fails:
 **Azure CLI:**
 ```bash
 # Natural language commands
-$ az create a storage account called mystore in westus
+$ azv2 create a storage account called mystore in westus
 
 # Typo correction
-$ az how do I logni
+$ azv2 how do I logni
 
 # Help questions
-$ az how do I list virtual machines
+$ azv2 how do I list virtual machines
 ```
 
 **Azure PowerShell:**
@@ -521,16 +521,16 @@ All examples show the **interactive** CLI behavior with confirmation prompts.
 
 #### Scenario 1: Typo Correction
 ```bash
-$ az I would like to logni
+$ azv2 I would like to logni
 
 ⠋ Thinking...
 
 It looks like you want to log in. Here are the login commands:
 
 Azure CLI:
-az login
-az login --service-principal --username <appId> --password <password> --tenant <tenantId>
-az login --use-device-code
+azv2 login
+azv2 login --service-principal --username <appId> --password <password> --tenant <tenantId>
+azv2 login --use-device-code
 ```
 
 **Outcome:** Agent provides help text, no execution occurs.
@@ -539,7 +539,7 @@ az login --use-device-code
 
 #### Scenario 2: "How To" Question
 ```bash
-$ az how do I list all VMs
+$ azv2 how do I list all VMs
 
 ⠋ Thinking...
 
@@ -547,13 +547,13 @@ To list virtual machines in Azure:
 
 Azure CLI:
 # List all VMs in subscription
-az vm list
+azv2 vm list
 
 # List VMs in specific resource group
-az vm list --resource-group <rg-name>
+azv2 vm list --resource-group <rg-name>
 
 # List with table output
-az vm list --output table
+azv2 vm list --output table
 ```
 
 **Outcome:** Agent provides examples with placeholders, user manually executes desired command.
@@ -562,14 +562,14 @@ az vm list --output table
 
 #### Scenario 3: Natural Language Execution
 ```bash
-$ az create a resource group called mygroup in westus
+$ azv2 create a resource group called mygroup in westus
 
 ⠋ Thinking...
 
 I'll create a resource group named "mygroup" in the westus region.
 
 Command:
-az group create --name mygroup --location westus
+azv2 group create --name mygroup --location westus
 
 Execute this command? (yes/no): yes
 
@@ -594,14 +594,14 @@ Execute this command? (yes/no): yes
 
 #### Scenario 3 (User Declines)
 ```bash
-$ az delete resource group mygroup
+$ azv2 delete resource group mygroup
 
 ⠋ Thinking...
 
 ⚠️  Warning: This will permanently delete the resource group "mygroup" and all resources within it.
 
 Command:
-az group delete --name mygroup --yes
+azv2 group delete --name mygroup --yes
 
 Execute this command? (yes/no): no
 

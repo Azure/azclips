@@ -43,14 +43,14 @@ Cirrus is a modular Azure CLI tool with **AI-powered fallback** for natural lang
 
 ```bash
 # Structured commands (extension routing)
-$ az group create --name mygroup --location eastus
+$ azv2 group create --name mygroup --location eastus
 
 # Natural language (AI fallback)
-$ az create a resource group called mygroup in westus
-$ az how do I list virtual machines
+$ azv2 create a resource group called mygroup in westus
+$ azv2 how do I list virtual machines
 
 # Typo correction (AI fallback)
-$ az I would like to logni
+$ azv2 I would like to logni
 ```
 
 **What the Bootstrapper does:**
@@ -73,7 +73,7 @@ New-ResourceGroup -Name mygroup -Location eastus
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│              User Input: "az <command>"                     │
+│              User Input: "azv2 <command>"                   │
 └────────────────────┬────────────────────────────────────────┘
                      │
                      ↓
@@ -377,14 +377,14 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
 {
   "type": "sample_command",
   "explanation": "Here's how to create a resource group:",
-  "command": "az group create --name <name> --location <location>"
+  "command": "azv2 group create --name <name> --location <location>"
 }
 
 // Natural language execution
 {
   "type": "executable_command",
   "explanation": "I'll create a resource group named 'mygroup'.",
-  "command": "az group create --name mygroup --location westus"
+  "command": "azv2 group create --name mygroup --location westus"
 }
 
 // Need more info
@@ -481,7 +481,7 @@ $ az group create --name mygroup --location eastus
 ### Example 2: CLI with Typo (AI Correction)
 
 ```bash
-$ az grup create --name mygroup --location eastus  # Typo: "grup"
+$ azv2 grup create --name mygroup --location eastus  # Typo: "grup"
 ```
 
 **Flow:**
@@ -490,7 +490,7 @@ $ az grup create --name mygroup --location eastus  # Typo: "grup"
 3. Catch block → `TryAgentFallbackAsync(args)`
 4. `AgentEngine` created, sends to `CloudAgent`
 5. Azure OpenAI recognizes "grup" → "group" typo
-6. Returns `sample_command` JSON: `az group create --name <name> --location <location>`
+6. Returns `sample_command` JSON: `azv2 group create --name <name> --location <location>`
 7. Display corrected syntax to user
 8. Return 0
 
@@ -501,7 +501,7 @@ $ az grup create --name mygroup --location eastus  # Typo: "grup"
 ### Example 3: Natural Language CLI (Interactive)
 
 ```bash
-$ az create a resource group called mygroup in westus
+$ azv2 create a resource group called mygroup in westus
 ```
 
 **Flow:**
@@ -514,7 +514,7 @@ $ az create a resource group called mygroup in westus
 7. `AgentEngine` prompts user
 8. User responds with natural language (e.g., "yes", "sure", "go ahead")
 9. Agent interprets intent and returns `executable_command`
-10. Recursive call: `az group create --name mygroup --location westus`
+10. Recursive call: `azv2 group create --name mygroup --location westus`
 10. Extension executes command
 11. Return 0
 
@@ -532,15 +532,15 @@ $ az create a resource group called mygroup in westus
 
 **Example:**
 ```bash
-$ az I would like to logni
+$ azv2 I would like to logni
 
 ⠋ Thinking...
 
 It looks like you want to log in. Here are the login commands:
 
-az login
-az login --service-principal --username <appId> --password <password> --tenant <tenantId>
-az login --use-device-code
+azv2 login
+azv2 login --service-principal --username <appId> --password <password> --tenant <tenantId>
+azv2 login --use-device-code
 ```
 
 **Outcome:** User sees help text, no execution.
@@ -557,17 +557,17 @@ az login --use-device-code
 
 **Example:**
 ```bash
-$ az how do I create a resource group
+$ azv2 how do I create a resource group
 
 ⠋ Thinking...
 
 To create a resource group:
 
-az group create --name <resource-group-name> --location <location>
+azv2 group create --name <resource-group-name> --location <location>
 
 # Examples:
-az group create --name myResourceGroup --location eastus
-az group create --name prodResourceGroup --location westus2
+azv2 group create --name myResourceGroup --location eastus
+azv2 group create --name prodResourceGroup --location westus2
 ```
 
 **Outcome:** User manually copies and fills in placeholders.
@@ -584,14 +584,14 @@ az group create --name prodResourceGroup --location westus2
 
 **Example:**
 ```bash
-$ az create a resource group called mygroup in westus
+$ azv2 create a resource group called mygroup in westus
 
 ⠋ Thinking...
 
 I'll create a resource group named "mygroup" in the westus region.
 
 Command:
-az group create --name mygroup --location westus
+azv2 group create --name mygroup --location westus
 
 Execute this command? (yes/no): yes
 
@@ -721,7 +721,7 @@ dotnet test
 
 For tests requiring Azure OpenAI:
 1. Set up `.env` file in `src/Core/Core.Agent/`
-2. Run CLI manually: `./artifacts/Release/Core.Cli/az how do I create a resource group`
+2. Run CLI manually: `./artifacts/Release/Core.Cli/azv2 how do I create a resource group`
 3. Verify spinner, AI response, command output
 
 ## Configuration
@@ -788,7 +788,7 @@ dotnet build -c Release cirrus.slnx
 1. Restore NuGet packages
 2. Build solution to `artifacts/Release/`
 3. Extensions built to their respective directories
-4. CLI executable generated as `az`
+4. CLI executable generated as `azv2`
 
 ### Directory Structure After Build
 
@@ -801,9 +801,9 @@ artifacts/
       Core.Engine.dll
       Core.Implementation.dll
     Core.Cli/
-      az                                              ← CLI executable
-      az.deps.json
-      az.runtimeconfig.json
+      azv2                                            ← CLI executable
+      azv2.deps.json
+      azv2.runtimeconfig.json
       prompt.md
       Resources.psd1                                  ← PowerShell Resources module
       Resources.psm1
@@ -822,11 +822,11 @@ artifacts/
 
 ```bash
 # After build
-./artifacts/Release/Core.Cli/az group create --name test --location eastus
+./artifacts/Release/Core.Cli/azv2 group create --name test --location eastus
 
 # Or add to PATH
 export PATH="$PATH:/workspaces/cirrus/artifacts/Release/Core.Cli"
-az --help
+azv2 --help
 ```
 
 ### Using PowerShell Modules
