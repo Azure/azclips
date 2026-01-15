@@ -55,7 +55,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
 
             var accessToken = authService
                 .AcquireTokenSilentlyAsync(scopes: null, tenantId: authContext.TenantId, promptOnError: false).GetAwaiter().GetResult();
-            return new ResourcesClient { ActivitySource = activitySource }.CreateOrUpdateResourceGroupAsync(authContext.SubscriptionId ?? SubscriptionId, Name, new ResourceGroup("eastus", Name), accessToken).GetAwaiter().GetResult();
+            return new ResourcesClient { ActivitySource = activitySource }.CreateOrUpdateResourceGroupAsync(authContext.SubscriptionId ?? SubscriptionId, Name, new ResourceGroup(Location, Name), accessToken).GetAwaiter().GetResult();
         }
 
         public string Process(bool Serialize)

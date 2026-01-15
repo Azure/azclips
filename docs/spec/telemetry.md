@@ -35,7 +35,7 @@ To visualize traces in Zipkin:
 
 2. Run the application:
    ```bash
-   ./artifacts/Debug/Core.Cli/az group create --Name yemingtemp1 --Location eastus -SubscriptionId 9e223dbe-3399-4e19-88eb-0975f02ac87f
+   ./artifacts/Debug/Core.Cli/az group create --Name yemingtemp1 --Location eastus --SubscriptionId 9e223dbe-3399-4e19-88eb-0975f02ac87f
    ```
 
 3. Open Zipkin UI at http://localhost:9411
