@@ -37,7 +37,6 @@ cirrus/
 │   │       ├── Resources.psd1    # Module manifest
 │   │       ├── Resources.psm1    # Module loader
 │   │       └── exports/          # Exported functions
-│   └── SharedContracts/          # Shared contracts and interfaces
 ├── 📁 tests/                     # Test projects
 │   ├── Cli.Tests/                # CLI integration tests
 │   ├── PowerShell.Tests/         # PowerShell module tests

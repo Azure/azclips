@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <AssemblyName>az</AssemblyName>
+    <AssemblyName>azv2</AssemblyName>
     <RootNamespace>Core.Cli</RootNamespace>
     <ExtName>Core.Cli</ExtName>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
@@ -21,7 +21,6 @@
     <ProjectReference Include="..\Core\Core.Telemetry\Core.Telemetry.csproj" />
     <ProjectReference Include="..\Core\Core.Engine\Core.Engine.csproj" />
     <ProjectReference Include="..\Core\Core.Agent\Core.Agent.csproj" />
-    <ProjectReference Include="..\SharedContracts\SharedContracts.csproj" />
   </ItemGroup>
 
 

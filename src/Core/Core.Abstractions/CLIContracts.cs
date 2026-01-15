@@ -9,7 +9,7 @@
 // );
 using NewCLIRequestPipelineDelegate = global::System.Action<global::System.Action<global::System.Func<global::System.Net.Http.HttpRequestMessage, global::System.Threading.CancellationToken, global::System.Action, global::System.Func<string, global::System.Threading.CancellationToken, global::System.Func<global::System.EventArgs>, global::System.Threading.Tasks.Task>, global::System.Func<global::System.Net.Http.HttpRequestMessage, global::System.Threading.CancellationToken, global::System.Action, global::System.Func<string, global::System.Threading.CancellationToken, global::System.Func<global::System.EventArgs>, global::System.Threading.Tasks.Task>, global::System.Threading.Tasks.Task<global::System.Net.Http.HttpResponseMessage>>, global::System.Threading.Tasks.Task<global::System.Net.Http.HttpResponseMessage>>>, global::System.Action<global::System.Func<global::System.Net.Http.HttpRequestMessage, global::System.Threading.CancellationToken, global::System.Action, global::System.Func<string, global::System.Threading.CancellationToken, global::System.Func<global::System.EventArgs>, global::System.Threading.Tasks.Task>, global::System.Func<global::System.Net.Http.HttpRequestMessage, global::System.Threading.CancellationToken, global::System.Action, global::System.Func<string, global::System.Threading.CancellationToken, global::System.Func<global::System.EventArgs>, global::System.Threading.Tasks.Task>, global::System.Threading.Tasks.Task<global::System.Net.Http.HttpResponseMessage>>, global::System.Threading.Tasks.Task<global::System.Net.Http.HttpResponseMessage>>>>;
 
-namespace SharedContracts; // todo: merge with existing Core.Abstractions namespace
+namespace Core.Abstractions;
 /// <summary>
 /// Interface that all processors must implement
 /// </summary>
@@ -42,11 +42,11 @@ public abstract class BaseProcessor : IProcessor
     }
 }
 
-public interface IModule
-{
-    NewCLIRequestPipelineDelegate OnNewCLIRequest { get; set; }
-    void Init();
-}
+//public interface IModule
+//{
+//    NewCLIRequestPipelineDelegate OnNewCLIRequest { get; set; }
+//    void Init();
+//}
 
 public enum ArgumentAction
 {

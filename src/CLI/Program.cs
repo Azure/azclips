@@ -10,7 +10,6 @@ using Core.Engine;
 using Core.Implementation;
 using Core.Telemetry;
 using Microsoft.Extensions.DependencyInjection;
-using SharedContracts;
 
 namespace Core.Cli;
 
