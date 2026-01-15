@@ -5,7 +5,7 @@
 
   <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
 
-  
+
   <PropertyGroup>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
