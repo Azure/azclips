@@ -11,9 +11,9 @@
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.8.1" />
   </ItemGroup>
 
-  <ItemGroup>
-    <!-- Dev dependencies won't be included in the published package -->
-    <PackageReference Include="OpenTelemetry.Exporter.Zipkin" Version="1.8.1" PrivateAssets="All" />
+  <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+    <!-- Dev dependencies only included in Debug builds -->
+    <PackageReference Include="OpenTelemetry.Exporter.Zipkin" Version="1.8.1" />
   </ItemGroup>
 
   <ItemGroup>
