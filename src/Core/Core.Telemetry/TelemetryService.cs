@@ -37,11 +37,8 @@ public class TelemetryService : ITelemetryService
                 options.RecordException = true;
                 options.EnrichWithHttpRequestMessage = (activity, request) =>
                 {
+                    // user agent is not included by default
                     activity.SetTag("http.request.header.user-agent", request.Headers.UserAgent?.ToString());
-                };
-                options.EnrichWithHttpResponseMessage = (activity, response) =>
-                {
-                    activity.SetTag("http.response.status_code", (int)response.StatusCode);
                 };
             })
             .ConfigureResource(resource =>
