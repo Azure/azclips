@@ -6,9 +6,7 @@ namespace Core.Runtime
     using System.Linq;
     using System;
     using Core.Abstractions.Runtime;
-    using SendAsyncStepDelegate  = System.Func<System.Net.Http.HttpRequestMessage, System.Threading.CancellationToken, System.Action, System.Func<string, System.Threading.CancellationToken, System.Func<System.EventArgs>, System.Threading.Tasks.Task>, System.Func<System.Net.Http.HttpRequestMessage, System.Threading.CancellationToken, System.Action, System.Func<string, System.Threading.CancellationToken, System.Func<System.EventArgs>, System.Threading.Tasks.Task>, System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage>>, System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage>>;
     
-
     public class HttpPipeline : IRuntimeHttpPipeline
     {
         private const int DefaultMaxRetry = 3;
@@ -182,7 +180,7 @@ namespace Core.Runtime
 
         public int Count => steps.Count;
 
-        public HttpPipeline Prepend(ISendAsyncFactory item)
+        public IRuntimeHttpPipeline Prepend(ISendAsyncFactory item)
         {
             if (item != null)
             {
@@ -192,7 +190,7 @@ namespace Core.Runtime
             return this;
         }
 
-        public HttpPipeline Append(SendAsyncStep item)
+        public IRuntimeHttpPipeline Append(SendAsyncStep item)
         {
             if (item != null)
             {
@@ -201,7 +199,7 @@ namespace Core.Runtime
             return this;
         }
 
-        public HttpPipeline Prepend(SendAsyncStep item)
+        public IRuntimeHttpPipeline Prepend(SendAsyncStep item)
         {
             if (item != null)
             {
@@ -210,7 +208,7 @@ namespace Core.Runtime
             return this;
         }
 
-        public HttpPipeline Append(IEnumerable<SendAsyncStep> items)
+        public IRuntimeHttpPipeline Append(IEnumerable<SendAsyncStep> items)
         {
             if (items != null)
             {
@@ -222,7 +220,7 @@ namespace Core.Runtime
             return this;
         }
 
-        public HttpPipeline Prepend(IEnumerable<SendAsyncStep> items)
+        public IRuntimeHttpPipeline Prepend(IEnumerable<SendAsyncStep> items)
         {
             if (items != null)
             {
@@ -234,7 +232,7 @@ namespace Core.Runtime
             return this;
         }
 
-        public HttpPipeline Append(ISendAsyncFactory item)
+        public IRuntimeHttpPipeline Append(ISendAsyncFactory item)
         {
             if (item != null)
             {
@@ -244,7 +242,7 @@ namespace Core.Runtime
             return this;
         }
 
-        public HttpPipeline Prepend(IEnumerable<ISendAsyncFactory> items)
+        public IRuntimeHttpPipeline Prepend(IEnumerable<ISendAsyncFactory> items)
         {
             if (items != null)
             {
@@ -256,7 +254,7 @@ namespace Core.Runtime
             return this;
         }
 
-        public HttpPipeline Append(IEnumerable<ISendAsyncFactory> items)
+        public IRuntimeHttpPipeline Append(IEnumerable<ISendAsyncFactory> items)
         {
             if (items != null)
             {
@@ -268,7 +266,7 @@ namespace Core.Runtime
             return this;
         }
 
-        public HttpPipeline Append(SendAsyncStepDelegate item)
+        public IRuntimeHttpPipeline Append(SendAsyncStepExpand item)
         {
             if (item != null)
             {
@@ -277,7 +275,7 @@ namespace Core.Runtime
             return this;
         }
 
-        public HttpPipeline Prepend(SendAsyncStepDelegate item)
+        public IRuntimeHttpPipeline Prepend(SendAsyncStepExpand item)
         {
             if (item != null)
             {

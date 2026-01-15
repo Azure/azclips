@@ -26,7 +26,24 @@ namespace Core.Abstractions.Runtime
     
     public interface IRuntimeHttpPipeline : ISendAsync
     {
-        //prepend
-        //append
+        public IRuntimeHttpPipeline Prepend(ISendAsyncFactory item);
+
+        public IRuntimeHttpPipeline Append(SendAsyncStep item);
+
+        public IRuntimeHttpPipeline Prepend(SendAsyncStep item);
+
+        public IRuntimeHttpPipeline Append(IEnumerable<SendAsyncStep> items);
+
+        public IRuntimeHttpPipeline Prepend(IEnumerable<SendAsyncStep> items);
+
+        public IRuntimeHttpPipeline Append(ISendAsyncFactory item);
+
+        public IRuntimeHttpPipeline Prepend(IEnumerable<ISendAsyncFactory> items);
+
+        public IRuntimeHttpPipeline Append(IEnumerable<ISendAsyncFactory> items);
+
+        public IRuntimeHttpPipeline Append(SendAsyncStepExpand item);
+
+        public IRuntimeHttpPipeline Prepend(SendAsyncStepExpand item);
     }
 }

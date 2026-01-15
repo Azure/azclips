@@ -161,5 +161,3 @@ public class MsalAuthService(ILoggingService Logger, ITelemetryService Telemetry
         + $"CacheRefreshReason={result.AuthenticationResultMetadata.CacheRefreshReason}");
     }
 }
-
-

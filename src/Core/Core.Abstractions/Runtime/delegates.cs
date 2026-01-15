@@ -7,7 +7,19 @@
 
     public delegate Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, IEventListener callback);
     public delegate Task<HttpResponseMessage> SendAsyncStep(HttpRequestMessage request, IEventListener callback, ISendAsync next);
+    public delegate Task<HttpResponseMessage> SendAsyncStepExpand(
+        HttpRequestMessage request,
+        CancellationToken token,
+        Action cancel,
+        SignalEvent signalEvent,
+        Func<HttpRequestMessage, CancellationToken, Action, Func<string, CancellationToken, GetEventData, Task<HttpResponseMessage>>, Task<HttpResponseMessage>> next);
     public delegate Task SignalEvent(string id, CancellationToken token, GetEventData getEventData);
     public delegate Task Event(object message);
     public delegate void SynchEvent(object message);
+    
+    /// <summary>
+    /// Delegate for acquiring an access token silently.
+    /// Matches <see cref="IAuthService.AcquireTokenSilentlyAsync"/> signature.
+    /// </summary>
+    public delegate Task<string> AcquireTokenAsyncDelegate(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default);
 }
