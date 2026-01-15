@@ -462,7 +462,7 @@ static async Task<int> TryAgentFallbackAsync(string[] args)
 ### Example 1: Structured CLI Command (Success)
 
 ```bash
-$ az group create --name mygroup --location eastus
+$ azv2 group create --name mygroup --location eastus
 ```
 
 **Flow:**

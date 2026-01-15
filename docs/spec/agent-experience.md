@@ -451,7 +451,7 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
 - Production Copilot infrastructure
 - Built-in Azure documentation grounding
 - Enterprise-grade security
-- Requires Azure authentication (`az login`)
+- Requires Azure authentication (`azv2 login`)
 
 ### Shared Components
 
