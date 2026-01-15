@@ -5,7 +5,7 @@
 
   <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
 
-  
+
   <PropertyGroup>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
@@ -21,7 +21,6 @@
     <ProjectReference Include="..\Core.Telemetry\Core.Telemetry.csproj" />
     <ProjectReference Include="..\Core.Authentication\Core.Authentication.csproj" />
     <ProjectReference Include="..\Core.Agent\Core.Agent.csproj" />
-    <ProjectReference Include="..\SharedContracts\SharedContracts.csproj" />
   </ItemGroup>
 
 </Project>

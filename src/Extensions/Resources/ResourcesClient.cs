@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
@@ -9,6 +10,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Client
     /// </summary>
     public class ResourcesClient : IDisposable
     {
+        internal ActivitySource? ActivitySource { get; init; }
         private readonly HttpClient _httpClient;
         private readonly JsonSerializerOptions _jsonOptions;
         private readonly bool _shouldDispose;
@@ -75,6 +77,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Client
             HttpRequestMessage request,
             CancellationToken cancellationToken = default)
         {
+            using var _ = ActivitySource?.StartActivity($"{nameof(ResourcesClient)}.{nameof(SendAsync)}");
             ArgumentNullException.ThrowIfNull(request);
 
             var response = await _httpClient.SendAsync(request, cancellationToken);
@@ -94,6 +97,7 @@ Response content: {await response.Content.ReadAsStringAsync()}", ex);
 
         public async Task<ResourceGroup> CreateOrUpdateResourceGroupAsync(string subscriptionId, string resourceGroupName, ResourceGroup resourceGroup, string accessToken, CancellationToken cancellationToken = default)
         {
+            using var _ = ActivitySource?.StartActivity($"{nameof(ResourcesClient)}.{nameof(CreateOrUpdateResourceGroupAsync)}");
             var requestUri = $"{baseUri}/subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}?api-version={apiVersion}";
 
             using var request = new HttpRequestMessage(HttpMethod.Put, requestUri)

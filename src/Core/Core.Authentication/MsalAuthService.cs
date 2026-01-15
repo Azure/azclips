@@ -5,7 +5,7 @@ using System.Text.Json;
 
 namespace Core.Authentication;
 
-public class MsalAuthService(ILoggingService Logger) : IAuthService // todo: testability, consider injecting MSAL API wrappers
+public class MsalAuthService(ILoggingService Logger, ITelemetryService TelemetryService) : IAuthService // todo: testability, consider injecting MSAL API wrappers
 {
     private const string ArmDefaultScope = "https://management.core.windows.net//.default";
     private static readonly string ContextDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".cirrus");
@@ -45,6 +45,7 @@ public class MsalAuthService(ILoggingService Logger) : IAuthService // todo: tes
 
     public AuthenticationInfo? GetCurrentContext()
     {
+        using var _ = TelemetryService.ActivitySource?.StartActivity($"{nameof(MsalAuthService)}.{nameof(GetCurrentContext)}");
         if (_currentContext == null)
         {
             _currentContext = LoadContextAsync().GetAwaiter().GetResult();
@@ -154,6 +155,8 @@ public class MsalAuthService(ILoggingService Logger) : IAuthService // todo: tes
     /// <exception cref="MsalUiRequiredException">Thrown if silent acquisition fails and prompting is disabled.</exception>
     public async Task<string> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default)
     {
+        using var _ = TelemetryService.ActivitySource?.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenSilentlyAsync)}");
+
         var app = BuildApp(tenantId);
         await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
 

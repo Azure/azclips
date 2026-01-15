@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Core.Abstractions;
 using Core.Engine;
 using Microsoft.Azure.Cirrus.Extensions.Resources.Client;
@@ -41,17 +42,21 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
         public object Process()
         {
             var serviceProvider = Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult();
+            var activitySource = serviceProvider.GetService<ITelemetryService>()?.ActivitySource;
+            using var _ = activitySource?.StartActivity($"{nameof(NewResourceGroupCommand)}.{nameof(Process)}");
+
             var authService = serviceProvider.GetRequiredService<IAuthService>();
+
             var authContext = authService.GetCurrentContext();
-            
+
             if (authContext == null || !authContext.IsAuthenticated)
             {
                 throw new InvalidOperationException("Not authenticated. Please run 'az login' first.");
             }
-            
+
             var accessToken = authService
                 .AcquireTokenSilentlyAsync(scopes: null, tenantId: authContext.TenantId, promptOnError: false).GetAwaiter().GetResult();
-            return new ResourcesClient().CreateOrUpdateResourceGroupAsync(SubscriptionId, Name, new ResourceGroup("eastus", Name), accessToken).GetAwaiter().GetResult();
+            return new ResourcesClient { ActivitySource = activitySource }.CreateOrUpdateResourceGroupAsync(authContext.SubscriptionId ?? SubscriptionId, Name, new ResourceGroup("eastus", Name), accessToken).GetAwaiter().GetResult();
         }
 
         public string Process(bool Serialize)

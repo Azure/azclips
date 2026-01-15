@@ -11,6 +11,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Dev dependencies won't be included in the published package -->
+    <PackageReference Include="OpenTelemetry.Exporter.Zipkin" Version="1.7.0" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Core.Abstractions\Core.Abstractions.csproj" />
   </ItemGroup>
 
