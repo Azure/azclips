@@ -82,8 +82,10 @@ Zipkin is automatically started when you open the dev container. To view traces:
 1. Build and run the application in DEBUG mode:
    ```bash
    dotnet build -c Debug cirrus.slnx
-   ./artifacts/Debug/Core.Cli/az group create --Name mygroup --Location eastus --SubscriptionId <sub-id> --AccessToken <token>
+   ./artifacts/Debug/Core.Cli/az group create --Name mygroup --Location eastus --SubscriptionId <your-subscription-id>
    ```
+   
+   > **Note**: For authentication, use `az login` or other secure methods instead of passing tokens via command-line arguments.
 
 2. Open the Zipkin UI at http://localhost:9411
 

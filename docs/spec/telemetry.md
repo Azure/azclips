@@ -35,7 +35,7 @@ If you're using the provided dev container, Zipkin is automatically started for 
 2. Build and run the application in DEBUG mode:
    ```bash
    dotnet build -c Debug cirrus.slnx
-   ./artifacts/Debug/Core.Cli/az group create --Name yemingtemp1 --Location eastus --SubscriptionId 9e223dbe-3399-4e19-88eb-0975f02ac87f
+   ./artifacts/Debug/Core.Cli/az group create --Name mygroup --Location eastus --SubscriptionId <your-subscription-id>
    ```
 
 3. Open Zipkin UI at http://localhost:9411
@@ -59,7 +59,7 @@ If you're not using the dev container, you can start Zipkin manually:
 2. Run the application in DEBUG mode:
    ```bash
    dotnet build -c Debug cirrus.slnx
-   ./artifacts/Debug/Core.Cli/az group create --Name yemingtemp1 --Location eastus --SubscriptionId 9e223dbe-3399-4e19-88eb-0975f02ac87f
+   ./artifacts/Debug/Core.Cli/az group create --Name mygroup --Location eastus --SubscriptionId <your-subscription-id>
    ```
 
 3. Open Zipkin UI at http://localhost:9411
