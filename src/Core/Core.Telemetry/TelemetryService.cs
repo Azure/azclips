@@ -32,6 +32,18 @@ public class TelemetryService : ITelemetryService
 
         _tracerProvider = Sdk.CreateTracerProviderBuilder()
             .AddSource(serviceName)
+            .AddHttpClientInstrumentation(options => // auto-instrument HttpClient calls
+            {
+                options.RecordException = true;
+                options.EnrichWithHttpRequestMessage = (activity, request) =>
+                {
+                    activity.SetTag("http.request.header.user-agent", request.Headers.UserAgent?.ToString());
+                };
+                options.EnrichWithHttpResponseMessage = (activity, response) =>
+                {
+                    activity.SetTag("http.response.status_code", (int)response.StatusCode);
+                };
+            })
             .ConfigureResource(resource =>
                 resource.AddService(
                     serviceName: serviceName,
