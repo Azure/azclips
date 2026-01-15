@@ -26,18 +26,53 @@ To visit the Application Insights resource, go to: [nori-test2](https://ms.porta
 
 For development and testing purposes, telemetry can also be exported to a local Zipkin instance using the `ZipkinExporter`. This is useful for visualizing traces during development.
 
-To visualize traces in Zipkin:
+#### Using Zipkin in the Dev Container
+
+If you're using the provided dev container, Zipkin is automatically started for you! Simply:
+
+1. Open the repository in the dev container (VS Code will prompt you)
+
+2. Build and run the application in DEBUG mode:
+   ```bash
+   dotnet build -c Debug cirrus.slnx
+   ./artifacts/Debug/Core.Cli/az group create --Name yemingtemp1 --Location eastus --SubscriptionId 9e223dbe-3399-4e19-88eb-0975f02ac87f
+   ```
+
+3. Open Zipkin UI at http://localhost:9411
+
+4. Search for traces from the "AzureCLI" service
+
+The dev container automatically:
+- Starts Zipkin in a separate container
+- Configures the `ZIPKIN_ENDPOINT` environment variable
+- Forwards port 9411 to your host machine
+
+#### Manual Zipkin Setup
+
+If you're not using the dev container, you can start Zipkin manually:
 
 1. Start Zipkin using Docker:
    ```bash
    docker run -d -p 9411:9411 openzipkin/zipkin
    ```
 
-2. Run the application:
+2. Run the application in DEBUG mode:
    ```bash
+   dotnet build -c Debug cirrus.slnx
    ./artifacts/Debug/Core.Cli/az group create --Name yemingtemp1 --Location eastus --SubscriptionId 9e223dbe-3399-4e19-88eb-0975f02ac87f
    ```
 
 3. Open Zipkin UI at http://localhost:9411
 
-4. Search for traces from the "azurecli" service
+4. Search for traces from the "AzureCLI" service
+
+#### Custom Zipkin Endpoint
+
+You can customize the Zipkin endpoint by setting the `ZIPKIN_ENDPOINT` environment variable:
+
+```bash
+export ZIPKIN_ENDPOINT=http://my-zipkin-server:9411/api/v2/spans
+./artifacts/Debug/Core.Cli/az group create --Name mygroup --Location eastus
+```
+
+If not set, the default endpoint is `http://localhost:9411/api/v2/spans`.
