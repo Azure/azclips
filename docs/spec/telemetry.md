@@ -40,7 +40,7 @@ If you're using the provided dev container, Zipkin is automatically started for 
 
 3. Open Zipkin UI at http://localhost:9411
 
-4. Clicks "Run Query" to see traces
+4. Click "Run Query" to see traces
 
 The dev container automatically:
 - Starts Zipkin in a separate container
@@ -64,7 +64,7 @@ If you're not using the dev container, you can start Zipkin manually:
 
 3. Open Zipkin UI at http://localhost:9411
 
-4. Clicks "Run Query" to see traces
+4. Click "Run Query" to see traces
 
 #### Custom Zipkin Endpoint
 

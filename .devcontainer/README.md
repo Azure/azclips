@@ -20,7 +20,7 @@ The main development container with .NET 9.0 SDK and all required tools.
 ### Zipkin Container
 A local OpenTelemetry trace collector and UI for development and debugging. Zipkin automatically starts with the dev container and is accessible at:
 - **URL**: http://localhost:9411
-- **Service Name**: Look for traces from the "AzureCLI" service
+- **Service Name**: Look for traces from the AzureCLI service
 
 The application is configured to automatically export telemetry to Zipkin when running in DEBUG mode. No manual setup required!
 
