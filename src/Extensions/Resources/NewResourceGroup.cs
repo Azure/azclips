@@ -1,10 +1,9 @@
-using System.Diagnostics;
-using System.Diagnostics.Tracing;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Core.Abstractions.Runtime.Handler;
 using Core.Engine;
 using Microsoft.Azure.Cirrus.Extensions.Resources.Client;
 using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
@@ -16,6 +15,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
     {
         private ICommandContext _commandContext = null!;
         private readonly JsonSerializerOptions _jsonOptions = null!;
+        private ICommandOutputHandler _outputHandler = null!;
 
         [ArgumentInfoAttribute(
         Required = true,
@@ -45,12 +45,21 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
 
         public Action Cancel => throw new NotImplementedException();
 
+        public IProcessor SetCommandContext(ICommandContext context)
+        {
+            _commandContext = context;
+            return this;
+        }
+
         public async Task ProcessAsync()
         {
             if (_commandContext == null)
             {
                 throw new InvalidOperationException("Command context is not set. Please set the command context before executing the command.");
             }
+
+            _outputHandler = _commandContext.CommandOutputHandler;
+
             // construct URL
             var url = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourcegroups/{Name}?api-version=2025-04-01";
             //TODO: set_jsonOptions from command context
@@ -61,7 +70,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
             request.Content.Headers.ContentType = MediaTypeHeaderValue.Parse("application/json");
             HttpResponseMessage response = await _commandContext.HttpPipeline.SendAsync(request, this);
             ResourceGroup rg = (await response.Content.ReadFromJsonAsync<ResourceGroup>(_jsonOptions))!;
-            string message = JsonSerializer.Serialize<ResourceGroup>(rg, new JsonSerializerOptions { WriteIndented = true });
+            await _outputHandler.WriteOutput(rg);
         }
 
         public object Process()
@@ -96,12 +105,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
             {
                 throw new NotImplementedException("Non-serialized output is not implemented.");
             }
-        }
-
-        public IProcessor SetCommandContext(ICommandContext context)
-        {
-            _commandContext = context;
-            return this;
         }
 
         public Task Signal(string id, CancellationToken token, Func<object> createMessage) => throw new NotImplementedException();

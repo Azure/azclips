@@ -16,10 +16,15 @@
     public delegate Task SignalEvent(string id, CancellationToken token, GetEventData getEventData);
     public delegate Task Event(object message);
     public delegate void SynchEvent(object message);
-    
+
     /// <summary>
     /// Delegate for acquiring an access token silently.
     /// Matches <see cref="IAuthService.AcquireTokenSilentlyAsync"/> signature.
     /// </summary>
     public delegate Task<string> AcquireTokenAsyncDelegate(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default);
+    
+    /// <summary>
+    /// Delegate for command output processing.
+    ///</summary>
+    public delegate Task CommandOutputDelegate(object value, CancellationToken cancellationToken = default);
 }

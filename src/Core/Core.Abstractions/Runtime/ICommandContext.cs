@@ -20,6 +20,11 @@ namespace Core.Abstractions.Runtime
         ICommandAuthHandler CommandAuthHandler { get; }
 
         /// <summary>
+        /// Gets the output handler for processing command outputs.
+        /// </summary>
+        ICommandOutputHandler CommandOutputHandler { get; }
+
+        /// <summary>
         /// Gets the HTTP pipeline for sending requests.
         /// </summary>
         IRuntimeHttpPipeline HttpPipeline { get; }

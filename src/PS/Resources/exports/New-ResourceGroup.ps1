@@ -13,7 +13,14 @@ function New-ResourceGroup {
 
     begin {
         # Start telemetry activity
-        # $script:activity = Start-CmdletActivity -CmdletName "New-ResourceGroup" -Parameters $PSBoundParameters
+        $script:activity = Start-CmdletActivity -CmdletName "New-ResourceGroup" -Parameters $PSBoundParameters
+
+        $engine = [Core.Engine.Bootstrapper]::ServiceProviderAsync.GetAwaiter().GetResult().GetService([Core.Engine.EngineFactory]).GetEngine([Core.Abstractions.ClientType]::PowerShell);
+        $outputDelegate = [Core.Abstractions.Runtime.CommandOutputDelegate]{
+            param([object]$value, [System.Threading.CancellationToken]$ct)
+            $PSCmdlet.WriteObject($value)
+            return [System.Threading.Tasks.Task]::CompletedTask
+        }
     }
 
     process {
@@ -32,40 +39,29 @@ function New-ResourceGroup {
                 $parameters.Add('Location', [object]$Location);
             }
             $invocation = [Core.Implementation.PSCommandInvocation]::New($extensionName, $commandName, $parameters);
-            $sp = [Core.Engine.Bootstrapper]::ServiceProviderAsync.GetAwaiter().GetResult();
-            $engineFactory = $sp.GetService([Core.Engine.EngineFactory]);
-            $engine = $engineFactory.GetEngine([Core.Abstractions.ClientType]::PowerShell); 
-            try {
-                $response = $engine.Process($invocation).GetAwaiter().GetResult();
-            } catch {
-
-            } finally {
-                
-            }
-            # [Microsoft.Azure.Cirrus.Extensions.Resources.Models.ResourceGroup]$output = [Microsoft.Azure.Cirrus.Extensions.Resources.Models.ResourceGroup]([Core.Engine.Engine]::GetCommand($invocation).Process());
-            # Write-Output $output;
+            $response = $engine.Process($invocation, $outputDelegate, [System.Threading.CancellationToken]::None);
             
             # Mark activity as successful
-            # if ($null -ne $script:activity) {
-            #     Complete-CmdletActivity -Activity $script:activity -Success $true
-            #     $script:activity = $null
-            # }
+            if ($null -ne $script:activity) {
+                $null = Complete-CmdletActivity -Activity $script:activity -Success $true
+                $script:activity = $null
+            }
         }
         catch {
             # Mark activity as failed
-            # if ($null -ne $script:activity) {
-            #     Complete-CmdletActivity -Activity $script:activity -Success $false -ErrorMessage $_.Exception.Message
-            #     $script:activity = $null
-            # }
-            # throw
+            if ($null -ne $script:activity) {
+                $null = Complete-CmdletActivity -Activity $script:activity -Success $false -ErrorMessage $_.Exception.Message
+                $script:activity = $null
+            }
+            throw
         }
     }
 
     end {
         # Cleanup activity if not already done
-        # if ($null -ne $script:activity) {
-        #     Complete-CmdletActivity -Activity $script:activity -Success $true
-        #     $script:activity = $null
-        # }
+        if ($null -ne $script:activity) {
+            $null = Complete-CmdletActivity -Activity $script:activity -Success $true
+            $script:activity = $null
+        }
     }
 }
