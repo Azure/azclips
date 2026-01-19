@@ -1,9 +1,9 @@
-namespace Core.Abstractions.Runtime.Provider
+namespace Core.Abstractions.Runtime.Handler
 {
     /// <summary>
-    /// Interface for authentication providers.
+    /// Interface for authentication handlers.
     /// </summary>
-    public interface ICommandAuthProvider
+    public interface ICommandAuthHandler
     {
         AuthContext AuthContext { get; set; }
 
@@ -20,13 +20,13 @@ namespace Core.Abstractions.Runtime.Provider
 
         /// <summary>
         /// Gets or sets whether to use <see cref="AcquireTokenAsyncOverride"/> instead of the engine default.
-        /// When true, <see cref="AcquireTokenAsync"/> will invoke the override delegate if set.
+        /// When true, <see cref="AcquireTokenAsyncDefault"/> will invoke the override delegate if set.
         /// When false, the engine's default token acquisition is used regardless of override.
         /// </summary>
         bool ApplyOverride { get; set; }
 
         /// <summary>
-        ///  Sends an HTTP request step with authentication.
+        /// Sends an HTTP request step with authentication.
         /// </summary>
         SendAsyncStep SendAsync { get; }
     }

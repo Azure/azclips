@@ -7,9 +7,9 @@ public interface IEngine
     Action<String> Log { get; set; }
     Action<String> Debug { get; set; }
 
-    void Process(ICommandInvocation invocation);
+    Task Process(ICommandInvocation invocation);
 
-    Task ExecuteCommandAsync(string[] args, CancellationToken cancellationToken = default);
+    Task ExecuteCommandAsync(IProcessor command, CancellationToken cancellationToken = default);
 }
 
 public interface ICommandEngine

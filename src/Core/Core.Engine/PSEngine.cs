@@ -3,9 +3,10 @@ using Core.Implementation;
 using System.Collections.Concurrent;
 using Microsoft.Extensions.DependencyInjection;
 using Core.Abstractions.Runtime;
-using Core.Runtime.Provider;
+using Core.Runtime.Handler;
 using Microsoft.Identity.Client;
 using Core.Runtime;
+using System.Threading.Tasks;
 
 namespace Core.Engine
 {
@@ -33,8 +34,10 @@ namespace Core.Engine
             _httpClient = new HttpClient();
         }
 
-        public void Process(ICommandInvocation invocation) {
+        public async Task Process(ICommandInvocation invocation) {
+            Console.WriteLine("PSEngine: Processing command invocation...");
             ICommandContext commandContext = CreateCommandContext();
+            await ExecuteCommandAsync(GetCommand(invocation).SetCommandContext(commandContext));
         }
 
         /// <summary>
@@ -45,7 +48,7 @@ namespace Core.Engine
         {
             IAuthService authService = _serviceProvider.GetRequiredService<IAuthService>();
             AuthContext authContext = authService.GetCurrentContext()!;
-            CommandAuthProvider commandAuthProvider = new CommandAuthProvider
+            CommandAuthHandler commandAuthProvider = new CommandAuthHandler
             {
                 AuthContext = new AuthContext
                 {
@@ -61,24 +64,16 @@ namespace Core.Engine
             IRuntimeHttpPipeline httpPipeline = new HttpPipeline(new HttpClientFactory(_httpClient));
             ICommandContext context = new CommandContext
             {
-                CommandAuthProvider = commandAuthProvider,
-                HttpPipeline = httpPipeline
+                CommandAuthHandler = commandAuthProvider,
+                HttpPipeline = httpPipeline.Prepend(commandAuthProvider.SendAsync)
             };
             return context;
         }
-        
 
-        public Task ExecuteCommandAsync(string[] args, CancellationToken cancellationToken = default)
+        public Task ExecuteCommandAsync(IProcessor command, CancellationToken cancellationToken = default)
         {
-            // TODO: Implement command execution logic
-            // var commandContext = CreateCommandContext(cancellationToken);
-            // var invocation = ParseInvocation(args);
-            // var command = GetCommand(invocation);
-            // await command.ExecuteAsync(commandContext);
-            throw new NotImplementedException();
+            return Task.Run(async () => await command.ProcessAsync());
         }
-
-
 
         /// <summary>
         /// Gets a command processor for the given invocation.

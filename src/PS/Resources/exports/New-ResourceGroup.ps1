@@ -13,7 +13,7 @@ function New-ResourceGroup {
 
     begin {
         # Start telemetry activity
-        $script:activity = Start-CmdletActivity -CmdletName "New-ResourceGroup" -Parameters $PSBoundParameters
+        # $script:activity = Start-CmdletActivity -CmdletName "New-ResourceGroup" -Parameters $PSBoundParameters
     }
 
     process {
@@ -32,30 +32,40 @@ function New-ResourceGroup {
                 $parameters.Add('Location', [object]$Location);
             }
             $invocation = [Core.Implementation.PSCommandInvocation]::New($extensionName, $commandName, $parameters);
-            [Microsoft.Azure.Cirrus.Extensions.Resources.Models.ResourceGroup]$output = [Microsoft.Azure.Cirrus.Extensions.Resources.Models.ResourceGroup]([Core.Engine.Engine]::GetCommand($invocation).Process());
-            Write-Output $output;
+            $sp = [Core.Engine.Bootstrapper]::ServiceProviderAsync.GetAwaiter().GetResult();
+            $engineFactory = $sp.GetService([Core.Engine.EngineFactory]);
+            $engine = $engineFactory.GetEngine([Core.Abstractions.ClientType]::PowerShell); 
+            try {
+                $response = $engine.Process($invocation).GetAwaiter().GetResult();
+            } catch {
 
-            # Mark activity as successful
-            if ($null -ne $script:activity) {
-                Complete-CmdletActivity -Activity $script:activity -Success $true
-                $script:activity = $null
+            } finally {
+                
             }
+            # [Microsoft.Azure.Cirrus.Extensions.Resources.Models.ResourceGroup]$output = [Microsoft.Azure.Cirrus.Extensions.Resources.Models.ResourceGroup]([Core.Engine.Engine]::GetCommand($invocation).Process());
+            # Write-Output $output;
+            
+            # Mark activity as successful
+            # if ($null -ne $script:activity) {
+            #     Complete-CmdletActivity -Activity $script:activity -Success $true
+            #     $script:activity = $null
+            # }
         }
         catch {
             # Mark activity as failed
-            if ($null -ne $script:activity) {
-                Complete-CmdletActivity -Activity $script:activity -Success $false -ErrorMessage $_.Exception.Message
-                $script:activity = $null
-            }
-            throw
+            # if ($null -ne $script:activity) {
+            #     Complete-CmdletActivity -Activity $script:activity -Success $false -ErrorMessage $_.Exception.Message
+            #     $script:activity = $null
+            # }
+            # throw
         }
     }
 
     end {
         # Cleanup activity if not already done
-        if ($null -ne $script:activity) {
-            Complete-CmdletActivity -Activity $script:activity -Success $true
-            $script:activity = $null
-        }
+        # if ($null -ne $script:activity) {
+        #     Complete-CmdletActivity -Activity $script:activity -Success $true
+        #     $script:activity = $null
+        # }
     }
 }

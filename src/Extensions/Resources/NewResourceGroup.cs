@@ -1,5 +1,10 @@
 using System.Diagnostics;
+using System.Diagnostics.Tracing;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text.Json;
 using Core.Abstractions;
+using Core.Abstractions.Runtime;
 using Core.Engine;
 using Microsoft.Azure.Cirrus.Extensions.Resources.Client;
 using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
@@ -7,10 +12,13 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
 {
-    public class NewResourceGroupCommand : IProcessor
+    public class NewResourceGroupCommand : IProcessor, IEventListener
     {
-        [ArgumentInfo(
-        Required = false,
+        private ICommandContext _commandContext = null!;
+        private readonly JsonSerializerOptions _jsonOptions = null!;
+
+        [ArgumentInfoAttribute(
+        Required = true,
         Description = @"Azure Subscription Id.",
         SerializedName = @"SubscriptionId")]
         public string? SubscriptionId { get; set; }
@@ -33,10 +41,28 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
         SerializedName = @"Location")]
         public string Location { get; set; } = "";
 
-        //public async Task ProcessAsync()
-        //{
+        public CancellationToken Token => CancellationToken.None;
 
-        //}
+        public Action Cancel => throw new NotImplementedException();
+
+        public async Task ProcessAsync()
+        {
+            if (_commandContext == null)
+            {
+                throw new InvalidOperationException("Command context is not set. Please set the command context before executing the command.");
+            }
+            // construct URL
+            var url = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourcegroups/{Name}?api-version=2025-04-01";
+            //TODO: set_jsonOptions from command context
+            using var request = new HttpRequestMessage(HttpMethod.Put, url)
+            {
+                Content = JsonContent.Create(new ResourceGroup("eastus", Name), options: _jsonOptions)
+            };
+            request.Content.Headers.ContentType = MediaTypeHeaderValue.Parse("application/json");
+            HttpResponseMessage response = await _commandContext.HttpPipeline.SendAsync(request, this);
+            ResourceGroup rg = (await response.Content.ReadFromJsonAsync<ResourceGroup>(_jsonOptions))!;
+            string message = JsonSerializer.Serialize<ResourceGroup>(rg, new JsonSerializerOptions { WriteIndented = true });
+        }
 
         public object Process()
         {
@@ -71,5 +97,13 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
                 throw new NotImplementedException("Non-serialized output is not implemented.");
             }
         }
+
+        public IProcessor SetCommandContext(ICommandContext context)
+        {
+            _commandContext = context;
+            return this;
+        }
+
+        public Task Signal(string id, CancellationToken token, Func<object> createMessage) => throw new NotImplementedException();
     }
 }

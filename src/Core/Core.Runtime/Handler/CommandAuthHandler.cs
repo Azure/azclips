@@ -1,17 +1,14 @@
-namespace Core.Runtime.Provider
+namespace Core.Runtime.Handler
 {
     using Core.Abstractions;
     using Core.Abstractions.Runtime;
-    using Core.Abstractions.Runtime.Provider;
-    using System;
+    using Core.Abstractions.Runtime.Handler;
     using System.Net.Http.Headers;
-    using System.Threading;
-    using System.Threading.Tasks;
 
     /// <summary>
-    /// Implementation of ICommandAuthProvider.
+    /// Implementation of ICommandAuthHandler.
     /// </summary>
-    public class CommandAuthProvider : ICommandAuthProvider
+    public class CommandAuthHandler : ICommandAuthHandler
     {
         public AuthContext AuthContext { get; set; } = null!;
 

@@ -1,4 +1,4 @@
-using Core.Abstractions.Runtime.Provider;
+using Core.Abstractions.Runtime.Handler;
 
 namespace Core.Abstractions.Runtime
 {
@@ -12,12 +12,12 @@ namespace Core.Abstractions.Runtime
     public interface ICommandContext
     {
         /// <summary>
-        /// Gets the authentication provider for the command execution.
+        /// Gets the authentication handler for the command execution.
         /// Provides token acquisition and HTTP pipeline capabilities.
-        /// Extensions can override <see cref="ICommandAuthProvider.AcquireTokenAsyncOverride"/> 
+        /// Extensions can override <see cref="ICommandAuthHandler.AcquireTokenAsyncOverride"/> 
         /// before execution to customize authentication behavior.
         /// </summary>
-        ICommandAuthProvider CommandAuthProvider { get; }
+        ICommandAuthHandler CommandAuthHandler { get; }
 
         /// <summary>
         /// Gets the HTTP pipeline for sending requests.
