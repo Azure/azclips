@@ -18,6 +18,7 @@ public class AuthContextService(ILoggingService Logger, ITelemetryService Teleme
             var json = JsonSerializer.Serialize(authContext, new JsonSerializerOptions { WriteIndented = true });
             Logger.Verbose($"[{nameof(AuthContextService)}] Saving authentication context to: {ContextFilePath}");
             await File.WriteAllTextAsync(ContextFilePath, json, cancellationToken);
+            _currentContext = authContext;
         }
         catch (Exception ex)
         {

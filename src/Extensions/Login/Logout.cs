@@ -14,7 +14,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
 
             var authService = serviceProvider.GetRequiredService<IAuthService>();
             var authContextService = serviceProvider.GetRequiredService<IAuthContextService>();
-            var authContext = authContextService.GetCurrentContextAsync().GetAwaiter().GetResult();
             authService.LogoutAsync().GetAwaiter().GetResult();
             authContextService.ClearContextAsync().GetAwaiter().GetResult();
             return null;

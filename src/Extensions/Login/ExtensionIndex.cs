@@ -30,7 +30,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
                 assemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
                 commandType: typeof(Commands.GetContextCommand)
             ));
-            // az login is special that the command group and command name are the same
+            // login is a special command that the command group and command name are the same
             _cliTable.Add("", new CommandMetadata(
                 name: nameof(Commands.LoginCommand),
                 fullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.LoginCommand",

@@ -32,7 +32,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
 
             if (authContext == null)
             {
-                throw new InvalidOperationException("Not authenticated. Please run 'az login' first.");
+                throw new InvalidOperationException("Not authenticated. Please run 'azv2 login' first.");
             }
 
             var authResult = authService

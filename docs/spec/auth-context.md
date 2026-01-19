@@ -1,6 +1,6 @@
 # Authentication Context
 
-The authenticated session is represented by an Authentication Context, which contains information about the account, subscription, tenant, and environment.
+The authenticated session is represented by an Authentication Context, which contains information about the signed in account or application, subscription, tenant, and environment.
 
 The authentication context management system allows for the storage and retrieval of authentication-related data throughout the lifecycle of a request. This is particularly useful for maintaining user state, metadata, and other relevant information that may be used by various commands during their execution.
 
