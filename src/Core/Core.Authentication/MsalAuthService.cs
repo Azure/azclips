@@ -8,94 +8,59 @@ namespace Core.Authentication;
 public class MsalAuthService(ILoggingService Logger, ITelemetryService TelemetryService) : IAuthService // todo: testability, consider injecting MSAL API wrappers
 {
     private const string ArmDefaultScope = "https://management.core.windows.net//.default";
-    private static readonly string ContextDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".cirrus");
-    private static readonly string ContextFilePath = Path.Combine(ContextDirectory, "context.json");
-    private AuthenticationInfo? _currentContext; // todo: proper context management (synchronization, multi-account, etc.)
+    private const string ClientId = "1950a258-227b-4e31-a9cf-717495945fc2"; // todo: 1P or 3P?
 
-    public async Task<AuthenticationInfo> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
+    public async Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
+        using var _ = TelemetryService.ActivitySource?.StartActivity($"{nameof(MsalAuthService)}.{nameof(LoginAsync)}");
         if (request.UseDeviceCodeFlow)
         {
-            await AcquireTokenWithDeviceCodeAsync(request.Scopes, request.TenantId, cancellationToken);
+            return await AcquireTokenWithDeviceCodeAsync(request.Scopes, request.TenantId, cancellationToken);
         }
         else
         {
-            await AcquireTokenInteractiveAsync(request.Scopes, request.TenantId, cancellationToken);
+            return await AcquireTokenInteractiveAsync(request.Scopes, request.TenantId, cancellationToken);
         }
-        _currentContext = new AuthenticationInfo
-        {
-            SubscriptionId = request.SubscriptionId ?? "00000000-0000-0000-0000-000000000000",
-            TenantId = request.TenantId ?? "11111111-1111-1111-1111-111111111111",
-            IsAuthenticated = true
-        };
-
-        await SaveContextAsync(_currentContext);
-        return _currentContext;
     }
 
     public async Task LogoutAsync(CancellationToken cancellationToken = default)
     {
-        _currentContext = null;
-        if (File.Exists(ContextFilePath))
+        using var _ = TelemetryService.ActivitySource?.StartActivity($"{nameof(MsalAuthService)}.{nameof(LogoutAsync)}");
+        Logger.Verbose($"[{nameof(MsalAuthService)}] Clearing MSAL token cache.");
+
+        // https://learn.microsoft.com/en-us/entra/msal/dotnet/acquiring-tokens/clear-token-cache#desktop-command-line-and-mobile-applications
+        var app = PublicClientApplicationBuilder.Create(ClientId)
+            .Build();
+
+        await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
+
+        var accounts = (await app.GetAccountsAsync()).ToList();
+        Logger.Debug($"[{nameof(MsalAuthService)}] Found {accounts.Count} accounts in the token cache.");
+
+        while (accounts.Any())
         {
-            File.Delete(ContextFilePath);
+            Logger.Debug($"[{nameof(MsalAuthService)}] Removing account: {accounts.First().Username}");
+            await app.RemoveAsync(accounts.First());
+            accounts = (await app.GetAccountsAsync()).ToList();
         }
+
         await Task.CompletedTask;
     }
 
-    public AuthenticationInfo? GetCurrentContext()
+    private async Task<AuthResult> AcquireTokenInteractiveAsync(string[]? scopes, string? tenantId, CancellationToken cancellationToken = default)
     {
-        using var _ = TelemetryService.ActivitySource?.StartActivity($"{nameof(MsalAuthService)}.{nameof(GetCurrentContext)}");
-        if (_currentContext == null)
-        {
-            _currentContext = LoadContextAsync().GetAwaiter().GetResult();
-        }
-        return _currentContext;
-    }
-
-    private async Task SaveContextAsync(AuthenticationInfo context)
-    {
-        try
-        {
-            Directory.CreateDirectory(ContextDirectory);
-            var json = JsonSerializer.Serialize(context, new JsonSerializerOptions { WriteIndented = true });
-            await File.WriteAllTextAsync(ContextFilePath, json);
-        }
-        catch (Exception ex)
-        {
-            Logger.Warn($"Failed to save authentication context: {ex.Message}");
-        }
-    }
-
-    private async Task<AuthenticationInfo?> LoadContextAsync()
-    {
-        try
-        {
-            if (File.Exists(ContextFilePath))
-            {
-                var json = await File.ReadAllTextAsync(ContextFilePath);
-                return JsonSerializer.Deserialize<AuthenticationInfo>(json);
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.Warn($"Failed to load authentication context: {ex.Message}");
-        }
-        return null;
-    }
-
-    private async Task<string> AcquireTokenInteractiveAsync(string[]? scopes, string? tenantId, CancellationToken cancellationToken = default)
-    {
+        using var _ = TelemetryService.ActivitySource?.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenInteractiveAsync)}");
         IPublicClientApplication app = BuildApp(tenantId);
         await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
 
         var result = await app.AcquireTokenInteractive(scopes ?? [ArmDefaultScope]).WithUseEmbeddedWebView(false).ExecuteAsync(cancellationToken);
         LogTokenMetadataDebug(result);
-        return result.AccessToken;
+        return result.ToAuthResult();
     }
 
-    private async Task<string> AcquireTokenWithDeviceCodeAsync(string[]? scopes, string? tenantId, CancellationToken cancellationToken = default)
+    private async Task<AuthResult> AcquireTokenWithDeviceCodeAsync(string[]? scopes, string? tenantId, CancellationToken cancellationToken = default)
     {
+        using var _ = TelemetryService.ActivitySource?.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenWithDeviceCodeAsync)}");
         IPublicClientApplication app = BuildApp(tenantId);
         await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
 
@@ -106,11 +71,11 @@ public class MsalAuthService(ILoggingService Logger, ITelemetryService Telemetry
         }).ExecuteAsync(cancellationToken);
 
         LogTokenMetadataDebug(result);
-        return result.AccessToken;
+        return result.ToAuthResult();
     }
 
     // todo: reuse app instance but allow reinitialization when tenantId changes
-    private IPublicClientApplication BuildApp(string? tenantId) => PublicClientApplicationBuilder.Create("1950a258-227b-4e31-a9cf-717495945fc2")
+    private IPublicClientApplication BuildApp(string? tenantId) => PublicClientApplicationBuilder.Create(ClientId)
                 .WithRedirectUri("http://localhost:50000")
                 // todo: what should be the client id here?
                 .WithTenantId(tenantId ?? "72f988bf-86f1-41af-91ab-2d7cd011db47") // todo: fallback to tenant id in the context
@@ -118,15 +83,15 @@ public class MsalAuthService(ILoggingService Logger, ITelemetryService Telemetry
 
     private async Task RegisterTokenCacheAsync(IPublicClientApplication app, bool plaintextUnsafe = false)
     {
+        var cacheDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".cirrus");
         var filename = "MSAL.cache";
         if (plaintextUnsafe)
         {
             filename += ".plaintext";
         }
+        Logger.Debug($"[{nameof(MsalAuthService)}] Using MSAL token cache file: {Path.Combine(cacheDirectory, filename)}");
 
-        var builder =
-            new StorageCreationPropertiesBuilder(filename,
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".cirrus"));
+        var builder = new StorageCreationPropertiesBuilder(filename, cacheDirectory);
         builder = plaintextUnsafe ?
             builder.WithUnprotectedFile() :
             builder.WithLinuxKeyring(
@@ -153,7 +118,7 @@ public class MsalAuthService(ILoggingService Logger, ITelemetryService Telemetry
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The acquired access token.</returns>
     /// <exception cref="MsalUiRequiredException">Thrown if silent acquisition fails and prompting is disabled.</exception>
-    public async Task<string> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default)
+    public async Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default)
     {
         using var _ = TelemetryService.ActivitySource?.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenSilentlyAsync)}");
 
@@ -184,15 +149,17 @@ public class MsalAuthService(ILoggingService Logger, ITelemetryService Telemetry
         }
 
         LogTokenMetadataDebug(result);
-        return result.AccessToken;
+        return result.ToAuthResult();
     }
 
     private void LogTokenMetadataDebug(AuthenticationResult result)
     {
-        Logger.Debug(@$"Token acquired silently:
-Username: {result.Account.Username}
-DurationTotalInMs: {result.AuthenticationResultMetadata.DurationTotalInMs}
-TokenSource: {result.AuthenticationResultMetadata.TokenSource}
-CacheRefreshReason: {result.AuthenticationResultMetadata.CacheRefreshReason}");
+        Logger.Debug($"[{nameof(MsalAuthService)}] Token acquired silently: "
+        + $"Username={result.Account.Username} | "
+        + $"DurationTotalInMs={result.AuthenticationResultMetadata.DurationTotalInMs} | "
+        + $"TokenSource={result.AuthenticationResultMetadata.TokenSource} | "
+        + $"CacheRefreshReason={result.AuthenticationResultMetadata.CacheRefreshReason}");
     }
 }
+
+

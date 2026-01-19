@@ -18,7 +18,7 @@ public interface ILoggingService
     void Info(string message);
 
     /// <summary>
-    /// Logs a verbose message. Explain what the program is doing with midium detail.
+    /// Logs a verbose message. Explain what the program is doing with medium detail.
     /// </summary>
     /// <param name="message">The verbose message to log.</param>
     void Verbose(string message);

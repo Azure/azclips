@@ -13,17 +13,41 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
         public ExtensionIndex()
         {
             _psTable.Add("Connect-CirrusAccount", new CommandMetadata(
-                name: "LoginCommand",
+                name: nameof(Commands.LoginCommand),
                 fullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.LoginCommand",
                 assemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
                 commandType: typeof(Commands.LoginCommand)
             ));
+            _psTable.Add("Disconnect-CirrusAccount", new CommandMetadata(
+                name: nameof(Commands.LogoutCommand),
+                fullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.LogoutCommand",
+                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
+                commandType: typeof(Commands.LogoutCommand)
+            ));
+            _psTable.Add("Get-CirrusAccount", new CommandMetadata(
+                name: nameof(Commands.GetContextCommand),
+                fullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.GetContextCommand",
+                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
+                commandType: typeof(Commands.GetContextCommand)
+            ));
             // az login is special that the command group and command name are the same
             _cliTable.Add("", new CommandMetadata(
-                name: "LoginCommand",
+                name: nameof(Commands.LoginCommand),
                 fullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.LoginCommand",
                 assemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
                 commandType: typeof(Commands.LoginCommand)
+            ));
+            _cliTable.Add("logout", new CommandMetadata(
+                name: nameof(Commands.LogoutCommand),
+                fullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.LogoutCommand",
+                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
+                commandType: typeof(Commands.LogoutCommand)
+            ));
+            _cliTable.Add("show", new CommandMetadata(
+                name: nameof(Commands.GetContextCommand),
+                fullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.GetContextCommand",
+                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
+                commandType: typeof(Commands.GetContextCommand)
             ));
         }
 

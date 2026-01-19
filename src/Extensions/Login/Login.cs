@@ -6,19 +6,19 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
 {
     public class LoginCommand : IProcessor
     {
-        [ArgumentInfoAttribute(
+        [ArgumentInfo(
         Required = true,
         Description = @"Azure Subscription Id.",
         SerializedName = @"SubscriptionId")]
         public string SubscriptionId { get; set; } = "";
 
-        [ArgumentInfoAttribute(
-        Required = true,
+        [ArgumentInfo(
+        Required = false,
         Description = @"Tenant ID to login to.",
         SerializedName = @"TenantId")]
         public string TenantId { get; set; } = "";
 
-        [ArgumentInfoAttribute(
+        [ArgumentInfo(
         Required = false,
         Description = @"Use device code flow for authentication.",
         SerializedName = @"UseDeviceCode")]
@@ -26,32 +26,36 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
 
         public object Process()
         {
-            LoginRequest loginRequest = new LoginRequest()
+            var serviceProvider = Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult();
+            var telemetryService = serviceProvider.GetRequiredService<ITelemetryService>();
+            using var _ = telemetryService.ActivitySource?.StartActivity($"{nameof(LoginCommand)}.{nameof(Process)}");
+            var authService = serviceProvider.GetRequiredService<IAuthService>();
+            var authContextService = serviceProvider.GetRequiredService<IAuthContextService>();
+
+            LoginRequest loginRequest = new()
             {
                 TenantId = TenantId,
                 SubscriptionId = SubscriptionId,
                 UseDeviceCodeFlow = UseDeviceCode
             };
 
-
-            var serviceProvider = Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult();
-            var telemetryService = serviceProvider.GetRequiredService<ITelemetryService>();
-            var authService = serviceProvider.GetRequiredService<IAuthService>();
-
-            using (var activity = telemetryService.ActivitySource.StartActivity("LoginCommand.SendRequest"))
+            var authResult = authService.LoginAsync(loginRequest).GetAwaiter().GetResult();
+            AuthContext authContext = new()
             {
-                authService.LoginAsync(loginRequest).GetAwaiter().GetResult();
-            }
-            return authService.GetCurrentContext() ?? new AuthenticationInfo() { SubscriptionId = "", TenantId = "" };
+                SubscriptionId = SubscriptionId,
+                TenantId = authResult.TenantId,
+            };
+            authContextService.SaveContextAsync(authContext).GetAwaiter().GetResult();
+            return authContext;
         }
 
         public string Process(bool Serialize)
         {
             // TODO: models to provide model.ToJson() method for serialization.
-            AuthenticationInfo result = (AuthenticationInfo)Process();
+            AuthContext result = (AuthContext)Process();
             if (Serialize)
             {
-                return System.Text.Json.JsonSerializer.Serialize<AuthenticationInfo>(result, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+                return System.Text.Json.JsonSerializer.Serialize(result, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
             }
             else
             {

@@ -22,11 +22,11 @@ namespace Core.Engine
                 {
                     using var loadActivity = telemetry?.ActivitySource.StartActivity("Engine.LoadExtension", ActivityKind.Internal);
                     loadActivity?.SetTag("extension", extensionName);
-                    
+
                     string assemblyName = invocation.ExtensionName.ResolveExtensionName().ResolveAssemblyName();
                     Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult()
                         .GetRequiredService<ILoggingService>()
-                        .Verbose($"Resolved extension '{extensionName}' to assembly '{assemblyName}'. Loading extension index...");
+                        .Verbose($"[{nameof(Engine)}] Resolved extension '{extensionName}' to assembly '{assemblyName}'. Loading extension index...");
                     Type? IndexType = Type.GetType($"{assemblyName}.ExtensionIndex, {assemblyName}") ?? throw new InvalidOperationException($"No IExtensionIndex implementation found in assembly {assemblyName}");
                     return (Activator.CreateInstance(IndexType) as IExtensionIndex)!;
                 });
@@ -47,7 +47,7 @@ namespace Core.Engine
                 {
                     invocation.Parameters.ToList().ForEach(p => instance.SetProperty(p.Key, p.Value));
                 }
-                
+
                 return instance;
             }
         }
