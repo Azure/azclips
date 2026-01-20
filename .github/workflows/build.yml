@@ -382,21 +382,27 @@ jobs:
               files+=("$file")
             done < <(find release-artifacts -name "$file_pattern" | grep -i "$path_pattern")
             
+            if [ ${#files[@]} -eq 0 ]; then
+              echo "  Warning: No $file_pattern files found matching pattern '$path_pattern'"
+              return 1
+            fi
+            
             for file in "${files[@]}"; do
               echo "  Copying: $file"
               cp "$file" release-files/
             done
             
-            return ${#files[@]}
+            echo "  Copied ${#files[@]} file(s)"
+            return 0
           }
           
           # Copy MSIX packages (Release builds only for production)
           # Artifact name pattern: "MSIX Package (Release-win-x64)"
-          copy_release_artifacts "*.msix" "Release-"
+          copy_release_artifacts "*.msix" "Release-" || echo "Note: No MSIX packages found"
           
           # Copy extension DLLs (Release builds only)
           # Artifact name pattern: "Extension - Resources (Release)"
-          copy_release_artifacts "*.dll" "(Release)"
+          copy_release_artifacts "*.dll" "(Release)" || echo "Note: No extension DLLs found"
           
           echo ""
           echo "Release artifacts prepared:"
@@ -404,7 +410,8 @@ jobs:
           
           # Verify we have at least some artifacts
           if [ -z "$(ls -A release-files)" ]; then
-            echo "Warning: No release artifacts found!"
+            echo "ERROR: No release artifacts found!"
+            exit 1
           fi
 
       - name: Create GitHub Release
