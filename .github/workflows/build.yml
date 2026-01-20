@@ -369,12 +369,34 @@ jobs:
       - name: Prepare release artifacts
         run: |
           mkdir -p release-files
+          
+          # Function to copy artifacts matching a pattern
+          copy_release_artifacts() {
+            local file_pattern="$1"
+            local path_pattern="$2"
+            echo "Searching for $file_pattern files matching pattern: $path_pattern"
+            find release-artifacts -name "$file_pattern" | grep -i "$path_pattern" | while read file; do
+              echo "  Copying: $file"
+              cp "$file" release-files/
+            done
+          }
+          
           # Copy MSIX packages (Release builds only for production)
-          find release-artifacts -name "*.msix" | grep -i "Release-" | while read file; do cp "$file" release-files/; done
+          # Artifact name pattern: "MSIX Package (Release-win-x64)"
+          copy_release_artifacts "*.msix" "Release-"
+          
           # Copy extension DLLs (Release builds only)
-          find release-artifacts -name "*.dll" | grep -i "(Release)" | while read file; do cp "$file" release-files/; done
+          # Artifact name pattern: "Extension - Resources (Release)"
+          copy_release_artifacts "*.dll" "(Release)"
+          
+          echo ""
           echo "Release artifacts prepared:"
           ls -lah release-files
+          
+          # Verify we have at least some artifacts
+          if [ -z "$(ls -A release-files)" ]; then
+            echo "Warning: No release artifacts found!"
+          fi
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
