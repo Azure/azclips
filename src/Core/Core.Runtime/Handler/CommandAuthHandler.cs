@@ -27,7 +27,7 @@ namespace Core.Runtime.Handler
             AcquireTokenAsyncDelegate tokenAcquirer = this.ApplyOverride && this.AcquireTokenAsyncOverride != null
                 ? this.AcquireTokenAsyncOverride
                 : this.AcquireTokenAsyncDefault;
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await tokenAcquirer(null, this.AuthContext.TenantId, false));
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", (await tokenAcquirer(null, this.AuthContext.TenantId, false)).AccessToken);
             return await next.SendAsync(request, callback);
         };
     }

@@ -1,4 +1,5 @@
 using Core.Abstractions;
+using Core.Abstractions.Runtime;
 using Core.Engine;
 using Microsoft.Azure.Cirrus.Extensions.Resources.Client;
 using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
@@ -62,5 +63,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
                 throw new NotImplementedException("Non-serialized output is not implemented.");
             }
         }
+
+        public Task ProcessAsync() => throw new NotImplementedException();
+        public IProcessor SetCommandContext(ICommandContext context) => throw new NotImplementedException();
     }
 }

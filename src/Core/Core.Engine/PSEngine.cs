@@ -80,15 +80,14 @@ namespace Core.Engine
         private ICommandContext CreateCommandContext(ChannelWriter<object> outputWriter)
         {
             IAuthService authService = _serviceProvider.GetRequiredService<IAuthService>();
-            AuthContext authContext = authService.GetCurrentContext()!;
+            IAuthContextService contextService = _serviceProvider.GetRequiredService<IAuthContextService>();
+            AuthContext authContext = contextService.GetCurrentContextAsync().GetAwaiter().GetResult()!;
             CommandAuthHandler commandAuthHandler = new CommandAuthHandler
             {
                 AuthContext = new AuthContext
                 {
                     SubscriptionId = authContext.SubscriptionId,
                     TenantId = authContext.TenantId,
-                    IsAuthenticated = authContext.IsAuthenticated,
-                    PrincipalId = authContext.PrincipalId
                 },
                 AcquireTokenAsyncDefault = authService.AcquireTokenSilentlyAsync,
                 ApplyOverride = false

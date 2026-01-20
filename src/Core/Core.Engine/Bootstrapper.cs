@@ -3,7 +3,6 @@ using Core.Authentication;
 using Core.Implementation;
 using Core.Telemetry;
 using Microsoft.Extensions.DependencyInjection;
-using Core.Agent;
 
 namespace Core.Engine;
 

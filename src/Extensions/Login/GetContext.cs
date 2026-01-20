@@ -1,4 +1,5 @@
 using Core.Abstractions;
+using Core.Abstractions.Runtime;
 using Core.Engine;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -29,5 +30,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
                 throw new NotImplementedException("Non-serialized output is not implemented.");
             }
         }
+
+        public Task ProcessAsync() => throw new NotImplementedException();
+        public IProcessor SetCommandContext(ICommandContext context) => throw new NotImplementedException();
     }
 }

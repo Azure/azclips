@@ -1,4 +1,5 @@
 using Core.Abstractions;
+using Core.Abstractions.Runtime;
 using Core.Engine;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -24,5 +25,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
             Process();
             return string.Empty;
         }
+
+        public Task ProcessAsync() => throw new NotImplementedException();
+        public IProcessor SetCommandContext(ICommandContext context) => throw new NotImplementedException();
     }
 }

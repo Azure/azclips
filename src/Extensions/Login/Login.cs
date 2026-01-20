@@ -7,6 +7,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
 {
     public class LoginCommand : IProcessor
     {
+        private ICommandContext _commandContext = null!;
+
         [ArgumentInfo(
         Required = true,
         Description = @"Azure Subscription Id.",
