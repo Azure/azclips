@@ -9,7 +9,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "dotnet: build",
-            "program": "${workspaceFolder}/artifacts/Debug/Core.Cli/az",
+            "program": "${workspaceFolder}/artifacts/Debug/Core.Cli/azv2",
             "args": [
                 "group",
                 "create",
@@ -28,7 +28,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "dotnet: build",
-            "program": "${workspaceFolder}/artifacts/Debug/Core.Cli/az",
+            "program": "${workspaceFolder}/artifacts/Debug/Core.Cli/azv2",
             "args": [
                 "group",
                 "create",
@@ -45,11 +45,37 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "C#: login show Debug",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "dotnet: build",
+            "program": "${workspaceFolder}/artifacts/Debug/Core.Cli/azv2",
+            "args": [
+                "login",
+                "show"
+            ],
+            "cwd": "${workspaceFolder}/artifacts/Debug/Core.Cli",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "C#: logout Debug",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "dotnet: build",
+            "program": "${workspaceFolder}/artifacts/Debug/Core.Cli/azv2",
+            "args": [
+                "login",
+                "logout",
+            ],
+            "cwd": "${workspaceFolder}/artifacts/Debug/Core.Cli",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "az: natural language (AI)",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "dotnet: build",
-            "program": "${workspaceFolder}/artifacts/Debug/Core.Cli/az",
+            "program": "${workspaceFolder}/artifacts/Debug/Core.Cli/azv2",
             "args": [
                 "create",
                 "a",
@@ -66,7 +92,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "dotnet: build",
-            "program": "${workspaceFolder}/artifacts/Debug/Core.Cli/az",
+            "program": "${workspaceFolder}/artifacts/Debug/Core.Cli/azv2",
             "args": [
                 "--help"
             ],

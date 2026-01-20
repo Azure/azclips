@@ -112,6 +112,37 @@ Response content: {await response.Content.ReadAsStringAsync()}", ex);
             return (await response.Content.ReadFromJsonAsync<ResourceGroup>(_jsonOptions, cancellationToken))!;
         }
 
+        public async Task<ResourceGroup> GetResourceGroupAsync(string subscriptionId, string resourceGroupName, string accessToken, CancellationToken cancellationToken = default)
+        {
+            using var _ = ActivitySource?.StartActivity($"{nameof(ResourcesClient)}.{nameof(GetResourceGroupAsync)}");
+
+            var requestUri = $"{baseUri}/subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}?api-version={apiVersion}";
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
+
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+
+            var response = await SendAsync(request, cancellationToken);
+
+            return (await response.Content.ReadFromJsonAsync<ResourceGroup>(_jsonOptions, cancellationToken))!;
+        }
+
+        public async Task<IEnumerable<ResourceGroup>> ListResourceGroupsAsync(string subscriptionId, string accessToken, CancellationToken cancellationToken = default)
+        {
+            using var _ = ActivitySource?.StartActivity($"{nameof(ResourcesClient)}.{nameof(ListResourceGroupsAsync)}");
+
+            var requestUri = $"{baseUri}/subscriptions/{subscriptionId}/resourcegroups?api-version={apiVersion}";
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
+
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+
+            var response = await SendAsync(request, cancellationToken);
+
+            var result = await response.Content.ReadFromJsonAsync<ResourceGroupListResult>(_jsonOptions, cancellationToken);
+            return result?.Value ?? Array.Empty<ResourceGroup>();
+        }
+
         /// <summary>
         /// Disposes the resources used by the HTTP client.
         /// </summary>

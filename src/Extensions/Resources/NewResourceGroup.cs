@@ -9,25 +9,25 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
 {
     public class NewResourceGroupCommand : IProcessor
     {
-        [ArgumentInfoAttribute(
-        Required = true,
+        [ArgumentInfo(
+        Required = false,
         Description = @"Azure Subscription Id.",
         SerializedName = @"SubscriptionId")]
-        public string SubscriptionId { get; set; } = "";
+        public string? SubscriptionId { get; set; }
 
-        [ArgumentInfoAttribute(
+        [ArgumentInfo(
         Required = true,
         Description = @"The name of the resource group.",
         SerializedName = @"Name")]
         public string Name { get; set; } = "";
 
-        [ArgumentInfoAttribute(
+        [ArgumentInfo(
         Required = false,
         Description = @"The resource id of the resource group.",
         SerializedName = @"ResourceId")]
         public string ResourceId { get; set; } = "";
 
-        [ArgumentInfoAttribute(
+        [ArgumentInfo(
         Required = true,
         Description = @"Location for resource group.",
         SerializedName = @"Location")]
@@ -45,26 +45,26 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
             using var _ = activitySource?.StartActivity($"{nameof(NewResourceGroupCommand)}.{nameof(Process)}");
 
             var authService = serviceProvider.GetRequiredService<IAuthService>();
+            var authContextService = serviceProvider.GetRequiredService<IAuthContextService>();
+            var authContext = authContextService.GetCurrentContextAsync().GetAwaiter().GetResult();
 
-            var authContext = authService.GetCurrentContext();
-
-            if (authContext == null || !authContext.IsAuthenticated)
+            if (authContext == null)
             {
                 throw new InvalidOperationException("Not authenticated. Please run 'azv2 login' first.");
             }
 
-            var accessToken = authService
+            var authResult = authService
                 .AcquireTokenSilentlyAsync(scopes: null, tenantId: authContext.TenantId, promptOnError: false).GetAwaiter().GetResult();
-            return new ResourcesClient { ActivitySource = activitySource }.CreateOrUpdateResourceGroupAsync(authContext.SubscriptionId ?? SubscriptionId, Name, new ResourceGroup(Location, Name), accessToken).GetAwaiter().GetResult();
+            return new ResourcesClient { ActivitySource = activitySource }.CreateOrUpdateResourceGroupAsync(SubscriptionId ?? authContext.SubscriptionId, Name, new ResourceGroup(Location, Name), authResult.AccessToken).GetAwaiter().GetResult();
         }
 
         public string Process(bool Serialize)
         {
             // TODO: models to provide model.ToJson() method for serialization.
-            Models.ResourceGroup result = (Models.ResourceGroup)Process();
+            ResourceGroup result = (ResourceGroup)Process();
             if (Serialize)
             {
-                return System.Text.Json.JsonSerializer.Serialize<Models.ResourceGroup>(result, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+                return System.Text.Json.JsonSerializer.Serialize(result, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
             }
             else
             {

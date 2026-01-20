@@ -26,9 +26,9 @@ function Connect-CirrusAccount {
                 $parameters.Add('TenantId', [object]$TenantId);
             }
             $invocation = [Core.Implementation.PSCommandInvocation]::New($extensionName, $commandName, $parameters);
-            [Core.Abstractions.AuthenticationInfo]$output = [Core.Abstractions.AuthenticationInfo]([Core.Engine.Engine]::GetCommand($invocation).Process());
+            [Core.Abstractions.AuthContext]$output = [Core.Abstractions.AuthContext]([Core.Engine.Engine]::GetCommand($invocation).Process());
             Write-Output $output;
-            
+
             # Mark activity as successful
             if ($null -ne $script:activity) {
                 Complete-CmdletActivity -Activity $script:activity -Success $true
