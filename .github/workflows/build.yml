@@ -375,10 +375,19 @@ jobs:
             local file_pattern="$1"
             local path_pattern="$2"
             echo "Searching for $file_pattern files matching pattern: $path_pattern"
-            find release-artifacts -name "$file_pattern" | grep -i "$path_pattern" | while read file; do
+            
+            # Use array to avoid subshell issues with while loop
+            local files=()
+            while IFS= read -r file; do
+              files+=("$file")
+            done < <(find release-artifacts -name "$file_pattern" | grep -i "$path_pattern")
+            
+            for file in "${files[@]}"; do
               echo "  Copying: $file"
               cp "$file" release-files/
             done
+            
+            return ${#files[@]}
           }
           
           # Copy MSIX packages (Release builds only for production)
