@@ -319,3 +319,79 @@ jobs:
       #   with:
       #     name: PowerShell Module - ${{ steps.extract-metadata.outputs.module_name }}
       #     path: ./publish/${{ steps.extract-metadata.outputs.module_name }}
+
+  create-release:
+    # Only run on push to main branch (not on PRs)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [build-cli, build-extension]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate version
+        id: version
+        run: |
+          # Generate version based on date and run number: v1.0.YYMMDD.RUN_NUMBER
+          VERSION="v1.0.$(date +'%y%m%d').${{ github.run_number }}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Generated version: $VERSION"
+
+      - name: Get latest commits for release notes
+        id: commits
+        run: |
+          # Get commit messages since last tag, or last 10 if no tags
+          if git describe --tags --abbrev=0 2>/dev/null; then
+            LAST_TAG=$(git describe --tags --abbrev=0)
+            COMMITS=$(git log $LAST_TAG..HEAD --pretty=format:"- %s (%h)" --no-merges | head -20)
+          else
+            COMMITS=$(git log -10 --pretty=format:"- %s (%h)" --no-merges)
+          fi
+          # Handle multiline output properly
+          {
+            echo 'commits<<EOF'
+            echo "$COMMITS"
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+
+      - name: Display artifact structure
+        run: ls -R release-artifacts
+
+      - name: Prepare release artifacts
+        run: |
+          mkdir -p release-files
+          # Copy MSIX packages (Release builds only for production)
+          find release-artifacts -name "*.msix" -path "*/Release-*" -exec cp {} release-files/ \;
+          # Copy extension DLLs (Release builds only)
+          find release-artifacts -name "*.dll" -path "*/Release*" -exec cp {} release-files/ \;
+          ls -lah release-files
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: Release ${{ steps.version.outputs.version }}
+          body: |
+            Automated release ${{ steps.version.outputs.version }}
+            
+            Built from commit ${{ github.sha }}
+            
+            ## Artifacts
+            - **MSIX Packages**: Signed Windows installers (Release build)
+            - **Extension DLLs**: Extension modules (Release build)
+            
+            ## Recent Changes
+            ${{ steps.commits.outputs.commits }}
+          draft: false
+          prerelease: false
+          files: release-files/*
+          fail_on_unmatched_files: false
