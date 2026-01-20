@@ -370,9 +370,10 @@ jobs:
         run: |
           mkdir -p release-files
           # Copy MSIX packages (Release builds only for production)
-          find release-artifacts -name "*.msix" -path "*/Release-*" -exec cp {} release-files/ \;
+          find release-artifacts -name "*.msix" | grep -i "Release-" | while read file; do cp "$file" release-files/; done
           # Copy extension DLLs (Release builds only)
-          find release-artifacts -name "*.dll" -path "*/Release*" -exec cp {} release-files/ \;
+          find release-artifacts -name "*.dll" | grep -i "(Release)" | while read file; do cp "$file" release-files/; done
+          echo "Release artifacts prepared:"
           ls -lah release-files
 
       - name: Create GitHub Release
