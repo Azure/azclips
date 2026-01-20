@@ -2,11 +2,11 @@
 // README at: https://github.com/devcontainers/templates/tree/main/src/dotnet
 {
 	"name": "C# (.NET)",
-	// Use a Dockerfile for custom configuration
+	// Use Docker Compose for multi-container setup (app + Zipkin)
 
-	"context": "..",
-
-	"dockerFile": "Dockerfile",
+	"dockerComposeFile": "docker-compose.yml",
+	"service": "app",
+	"workspaceFolder": "/workspaces/cirrus",
 
 	// Increase memory limits for running local LLM models 
 	//
@@ -36,11 +36,15 @@
 		}
 	},
 
-	// Forward ports for MSAL authentication redirect
-	"forwardPorts": [50000, 50001, 50002, 50003, 50004, 50005, 50006, 50007, 50008, 50009],
+	// Forward ports for MSAL authentication redirect and Zipkin UI
+	"forwardPorts": [50000, 50001, 50002, 50003, 50004, 50005, 50006, 50007, 50008, 50009, 9411],
 	"portsAttributes": {
 		"5*": {
 			"onAutoForward": "openBrowserOnce"
+		},
+		"9411": {
+			"label": "Zipkin UI",
+			"onAutoForward": "notify"
 		}
 	},
 
@@ -52,9 +56,11 @@
 
 	// Add az CLI to PATH for both Debug and Release builds
 	// Set BROWSER to use VS Code's built-in browser opener for authentication flows
+	// Set ZIPKIN_ENDPOINT to point to the Zipkin container
 	"remoteEnv": {
 		"PATH": "${containerWorkspaceFolder}/artifacts/Debug/Core.Cli:${containerWorkspaceFolder}/artifacts/Release/Core.Cli:${containerEnv:PATH}",
-		"BROWSER": "${containerEnv:BROWSER}"
+		"BROWSER": "${containerEnv:BROWSER}",
+		"ZIPKIN_ENDPOINT": "http://zipkin:9411/api/v2/spans"
 	},
 
 	// Configure tool-specific properties.

@@ -23,11 +23,29 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
                 assemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
                 commandType: typeof(Commands.NewResourceGroupCommand)
             ));
+            _psTable.Add("Get-ResourceGroup", new CommandMetadata(
+                name: nameof(Commands.GetResourceGroupCommand),
+                fullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.GetResourceGroupCommand",
+                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+                commandType: typeof(Commands.GetResourceGroupCommand)
+            ));
             _cliTable.Add("create", new CommandMetadata(
                 name: "NewResourceGroupCommand",
                 fullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.NewResourceGroupCommand",
                 assemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
                 commandType: typeof(Commands.NewResourceGroupCommand)
+            ));
+            _cliTable.Add("list", new CommandMetadata(
+                name: nameof(Commands.GetResourceGroupCommand),
+                fullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.GetResourceGroupCommand",
+                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+                commandType: typeof(Commands.GetResourceGroupCommand)
+            ));
+            _cliTable.Add("get", new CommandMetadata(
+                name: nameof(Commands.GetResourceGroupCommand),
+                fullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.GetResourceGroupCommand",
+                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+                commandType: typeof(Commands.GetResourceGroupCommand)
             ));
         }
 

@@ -1,17 +1,14 @@
 function New-ResourceGroup {
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
     param (
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $false)]
         [string] $SubscriptionId,
 
         [Parameter(Mandatory = $true)]
         [string] $Name,
 
         [Parameter(Mandatory = $true)]
-        [string] $Location,
-
-        [Parameter()]
-        [string] $AccessToken
+        [string] $Location
     )
 
     begin {
@@ -34,13 +31,10 @@ function New-ResourceGroup {
             if ($PSBoundParameters.ContainsKey('Location')) {
                 $parameters.Add('Location', [object]$Location);
             }
-            if ($PSBoundParameters.ContainsKey('AccessToken')) {
-                $parameters.Add('AccessToken', [object]$AccessToken);
-            }
             $invocation = [Core.Implementation.PSCommandInvocation]::New($extensionName, $commandName, $parameters);
             [Microsoft.Azure.Cirrus.Extensions.Resources.Models.ResourceGroup]$output = [Microsoft.Azure.Cirrus.Extensions.Resources.Models.ResourceGroup]([Core.Engine.Engine]::GetCommand($invocation).Process());
             Write-Output $output;
-            
+
             # Mark activity as successful
             if ($null -ne $script:activity) {
                 Complete-CmdletActivity -Activity $script:activity -Success $true

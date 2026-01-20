@@ -9,7 +9,7 @@ function Get-TelemetryService {
         try {
             # Ensure Core.Engine is loaded and accessible
             # We assume the module loading this script has loaded the necessary DLLs via RequiredAssemblies
-    
+
             $task = [Core.Engine.Bootstrapper]::ServiceProviderAsync
             $task.Wait()
             $provider = $task.Result
@@ -31,11 +31,11 @@ function Start-CmdletActivity {
     param(
         [Parameter(Mandatory = $true)]
         [string]$CmdletName,
-        
+
         [Parameter(Mandatory = $false)]
         [System.Collections.IDictionary]$Parameters
     )
-    
+
     $service = Get-TelemetryService
     if ($null -ne $service) {
         try {
@@ -58,22 +58,22 @@ function Complete-CmdletActivity {
     param(
         [Parameter(Mandatory = $false)]
         $Activity,
-        
+
         [Parameter(Mandatory = $false)]
         [bool]$Success = $true,
-        
+
         [Parameter(Mandatory = $false)]
         [string]$ErrorMessage = ""
     )
-    
+
     if ($null -ne $Activity) {
         try {
             if ($Success) {
-                $Activity.SetStatus([System.Diagnostics.ActivityStatusCode]::Ok)
+                $Activity.SetStatus([System.Diagnostics.ActivityStatusCode]::Ok) | Out-Null
             }
             else {
-                $Activity.SetStatus([System.Diagnostics.ActivityStatusCode]::Error, $ErrorMessage)
-                
+                $Activity.SetStatus([System.Diagnostics.ActivityStatusCode]::Error, $ErrorMessage) | Out-Null
+
                 # Add error event tag
                 $tags = [System.Diagnostics.ActivityTagsCollection]::new()
                 $tags.Add("message", $ErrorMessage)

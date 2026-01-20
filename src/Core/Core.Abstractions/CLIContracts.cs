@@ -21,7 +21,7 @@ public interface IProcessor
     // bool => "True"/"False"
     // null => "Null"
     // enumerable => serialize each item in enumerable
-    object Process();
+    object? Process();
     // TODO: consider pass serialization format as parameter
     string Process(bool Serialize);
 }

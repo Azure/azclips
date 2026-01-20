@@ -34,7 +34,7 @@ public class Bootstrapper
         {
             var serviceProvider = RegisterServices();
             var Logger = serviceProvider.GetRequiredService<ILoggingService>();
-            Logger.Verbose("Core.Engine has started.");
+            Logger.Verbose($"[{nameof(Bootstrapper)}] Core.Engine has started.");
             return serviceProvider;
         });
     }
@@ -55,6 +55,7 @@ public class Bootstrapper
         // Telemetry service for logging throughout the application
         services.AddSingleton<ILoggingService, ConsoleLoggingService>();
         services.AddSingleton<IAuthService, MsalAuthService>();
+        services.AddSingleton<IAuthContextService, AuthContextService>();
         services.AddSingleton<ITelemetryService, TelemetryService>();
 
         // --- NEW REGISTRATIONS (added for AI integration) ---
