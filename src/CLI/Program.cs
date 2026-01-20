@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using Core.Abstractions;
@@ -15,6 +16,7 @@ namespace Core.Cli;
 
 public class Program
 {
+    private static readonly string AssemblyName = Assembly.GetExecutingAssembly().GetName().Name!;
     private static ITelemetryService? _telemetryService;
     private static ILoggingService? _logger;
 
@@ -94,8 +96,8 @@ public class Program
 
                 // AI generated a command - retry through extension loader
                 var retryArgs = extractedCommand.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                // Skip the first token if it's "az"
-                if (retryArgs.Length > 0 && retryArgs[0].Equals("az", StringComparison.OrdinalIgnoreCase))
+                // Skip the first token if it matches the assembly name
+                if (retryArgs.Length > 0 && retryArgs[0].Equals(AssemblyName, StringComparison.OrdinalIgnoreCase))
                 {
                     retryArgs = retryArgs.Skip(1).ToArray();
                 }
