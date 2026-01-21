@@ -6,6 +6,7 @@ using Core.Abstractions.Runtime;
 using Core.Runtime.Handler;
 using Core.Runtime;
 using System.Threading.Channels;
+using Core.Abstractions.Runtime.Handler;
 
 namespace Core.Engine
 {
@@ -22,16 +23,28 @@ namespace Core.Engine
     {
         // Extension indices are cached with Lazy<T> to ensure single initialization per extension
         // even under concurrent access. The factory runs exactly once per key.
+        //TODO: make this LFU cache
         private readonly ConcurrentDictionary<string, Lazy<IExtensionIndex>> _extensionIndices = new();
-        private readonly IServiceProvider _serviceProvider;
+
         private readonly HttpClient _httpClient;
+        private readonly Action<string> WriteVerbose;
+        private readonly Action<string> WriteDebug;
+        private readonly Func<AuthContext> GetAuthContext;
+        private readonly AcquireTokenAsyncDelegate AcquireTokenSilentlyAsync;
+        private readonly StartActivityDelegate StartActivity;
+        private bool _disposed;
 
         public ClientType ClientType = ClientType.PowerShell;
 
         public PSEngine(IServiceProvider serviceProvider)
         {
-            _serviceProvider = serviceProvider;
             _httpClient = new HttpClient();
+            ILoggingService loggingService = serviceProvider.GetRequiredService<ILoggingService>();
+            WriteVerbose = loggingService.Verbose;
+            WriteDebug = loggingService.Debug;
+            GetAuthContext = () => serviceProvider.GetRequiredService<IAuthContextService>().GetCurrentContextAsync().GetAwaiter().GetResult() ?? new AuthContext() { SubscriptionId = "", TenantId = "" };
+            AcquireTokenSilentlyAsync = serviceProvider.GetRequiredService<IAuthService>().AcquireTokenSilentlyAsync;
+            StartActivity = serviceProvider.GetRequiredService<ITelemetryService>().StartActivity;
         }
 
         /// <summary>
@@ -43,8 +56,11 @@ namespace Core.Engine
         /// <param name="invocation">The command invocation containing extension name, command name, and parameters.</param>
         /// <param name="outputDelegate">The output delegate for this invocation (typically wired to $PSCmdlet.WriteObject).</param>
         /// <param name="cancellationToken">Cancellation token.</param>
+        /// <exception cref="ObjectDisposedException">Thrown if the engine has been disposed.</exception>
         public void Process(ICommandInvocation invocation, CommandOutputDelegate outputDelegate, CancellationToken cancellationToken = default)
         {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+
             // Create a per-invocation channel for worker-to-caller communication
             Channel<object> outputChannel = Channel.CreateUnbounded<object>(new UnboundedChannelOptions
             {
@@ -56,7 +72,7 @@ namespace Core.Engine
             ICommandContext commandContext = CreateCommandContext(outputChannel.Writer);
 
             // Start worker thread for command execution
-            Task executeCommandTask = ExecuteCommandAsync(GetCommand(invocation).SetCommandContext(commandContext), outputChannel.Writer, cancellationToken);
+            Task executeCommandTask = ExecuteCommandAsync(GetCommand(invocation).Init(commandContext), outputChannel.Writer, cancellationToken);
 
             // Pump the channel on the caller's thread (runspace-affine)
             ChannelReader<object> reader = outputChannel.Reader;
@@ -79,17 +95,15 @@ namespace Core.Engine
         /// <param name="outputWriter">The channel writer for this invocation's output.</param>
         private ICommandContext CreateCommandContext(ChannelWriter<object> outputWriter)
         {
-            IAuthService authService = _serviceProvider.GetRequiredService<IAuthService>();
-            IAuthContextService contextService = _serviceProvider.GetRequiredService<IAuthContextService>();
-            AuthContext authContext = contextService.GetCurrentContextAsync().GetAwaiter().GetResult()!;
+            AuthContext authContext = GetAuthContext();
             CommandAuthHandler commandAuthHandler = new CommandAuthHandler
             {
                 AuthContext = new AuthContext
                 {
                     SubscriptionId = authContext.SubscriptionId,
-                    TenantId = authContext.TenantId,
+                    TenantId = authContext.TenantId
                 },
-                AcquireTokenAsyncDefault = authService.AcquireTokenSilentlyAsync,
+                AcquireTokenAsyncDefault = AcquireTokenSilentlyAsync,
                 ApplyOverride = false
             };
 
@@ -98,12 +112,17 @@ namespace Core.Engine
             {
                 WriteOutput = async (value, ct) => await outputWriter.WriteAsync(value, ct)
             };
+            CommandTelemetryHandler commandTelemetryHandler = new CommandTelemetryHandler
+            {
+                StartActivity = StartActivity
+            };
 
             IRuntimeHttpPipeline httpPipeline = new HttpPipeline(new HttpClientFactory(_httpClient));
             ICommandContext context = new CommandContext
             {
                 CommandOutputHandler = commandOutputHandler,
                 CommandAuthHandler = commandAuthHandler,
+                CommandTelemetryHandler = commandTelemetryHandler,
                 HttpPipeline = httpPipeline.Prepend(commandAuthHandler.SendAsync)
             };
             return context;
@@ -143,9 +162,7 @@ namespace Core.Engine
                 extensionName => new Lazy<IExtensionIndex>(() =>
                 {
                     string assemblyName = extensionName.ResolveExtensionName().ResolveAssemblyName();
-                    _serviceProvider
-                        .GetRequiredService<ILoggingService>()
-                        .Verbose($"Resolved extension '{extensionName}' to assembly '{assemblyName}'. Loading extension index...");
+                    WriteVerbose($"Resolved extension '{extensionName}' to assembly '{assemblyName}'. Loading extension index...");
                     Type? indexType = Type.GetType($"{assemblyName}.ExtensionIndex, {assemblyName}")
                         ?? throw new InvalidOperationException($"No IExtensionIndex implementation found in assembly {assemblyName}");
                     return (Activator.CreateInstance(indexType) as IExtensionIndex)!;
@@ -155,11 +172,37 @@ namespace Core.Engine
             // Thread-safe: ExtensionIndex.GetCommandMetaData only reads from dictionaries
             // that are populated in constructor and never modified thereafter.
             ICommandMetadata commandMetadata = extensionIndex.GetCommandMetaData(invocation.CommandName, ClientType);
-
+            WriteVerbose($"Resolved command '{invocation.CommandName}' to type '{commandMetadata.CommandType.FullName}'. Creating instance...");
             // Each call creates a new command instance - no shared state
             IProcessor instance = commandMetadata.GetInstance();
             invocation.Parameters.ToList().ForEach(p => instance.SetProperty(p.Key, p.Value));
             return instance;
+        }
+
+        /// <summary>
+        /// Releases the unmanaged resources used by PSEngine and optionally releases managed resources.
+        /// </summary>
+        /// <param name="disposing">true to release both managed and unmanaged resources; false to release only unmanaged resources.</param>
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    _httpClient.Dispose();
+                    _extensionIndices.Clear();
+                }
+                _disposed = true;
+            }
+        }
+
+        /// <summary>
+        /// Releases all resources used by PSEngine.
+        /// </summary>
+        public void Dispose()
+        {
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
         }
     }
 }

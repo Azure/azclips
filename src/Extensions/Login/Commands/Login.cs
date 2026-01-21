@@ -5,10 +5,8 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
 {
-    public class LoginCommand : IProcessor
+    public class LoginCommand : LoginCommandBase
     {
-        private ICommandContext _commandContext = null!;
-
         [ArgumentInfo(
         Required = true,
         Description = @"Azure Subscription Id.",
@@ -27,11 +25,11 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
         SerializedName = @"UseDeviceCode")]
         public bool UseDeviceCode { get; set; } = false;
 
-        public object Process()
+        public override async Task ProcessAsync()
         {
+            using var _ = StartActivity($"{nameof(LoginCommand)}.{nameof(ProcessAsync)}");
             var serviceProvider = Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult();
             var telemetryService = serviceProvider.GetRequiredService<ITelemetryService>();
-            using var _ = telemetryService.ActivitySource?.StartActivity($"{nameof(LoginCommand)}.{nameof(Process)}");
             var authService = serviceProvider.GetRequiredService<IAuthService>();
             var authContextService = serviceProvider.GetRequiredService<IAuthContextService>();
 
@@ -49,29 +47,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
                 TenantId = authResult.TenantId,
             };
             authContextService.SaveContextAsync(authContext).GetAwaiter().GetResult();
-            return authContext;
-        }
-
-        public string Process(bool Serialize)
-        {
-            // TODO: models to provide model.ToJson() method for serialization.
-            AuthContext result = (AuthContext)Process();
-            if (Serialize)
-            {
-                return System.Text.Json.JsonSerializer.Serialize(result, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
-            }
-            else
-            {
-                throw new NotImplementedException("Non-serialized output is not implemented.");
-            }
-        }
-
-        public Task ProcessAsync() => throw new NotImplementedException();
-
-        public IProcessor SetCommandContext(ICommandContext context)
-        {
-            _commandContext = context;
-            return this;
+            await WriteOutput(authContext);
         }
     }
 }

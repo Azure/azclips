@@ -1,5 +1,6 @@
 ﻿namespace Core.Abstractions.Runtime
 {
+    using System.Diagnostics;
     using System.Net.Http;
     using System.Threading;
     using System.Threading.Tasks;
@@ -22,9 +23,14 @@
     /// Matches <see cref="IAuthService.AcquireTokenSilentlyAsync"/> signature.
     /// </summary>
     public delegate Task<AuthResult> AcquireTokenAsyncDelegate(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default);
-    
+
     /// <summary>
     /// Delegate for command output processing.
     ///</summary>
     public delegate Task CommandOutputDelegate(object value, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Delegate for starting an activity for telemetry.
+    /// </summary>
+    public delegate Activity StartActivityDelegate(string name, ActivityKind kind = ActivityKind.Internal);
 }

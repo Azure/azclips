@@ -9,6 +9,8 @@ namespace Core.Runtime
 
         public ICommandOutputHandler CommandOutputHandler { get; set; } = null!;
 
+        public ICommandTelemetryHandler CommandTelemetryHandler { get; set; } = null!;
+
         public IRuntimeHttpPipeline HttpPipeline { get; set; } = null!;
     }
 }

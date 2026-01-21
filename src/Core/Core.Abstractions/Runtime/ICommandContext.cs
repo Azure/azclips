@@ -12,6 +12,16 @@ namespace Core.Abstractions.Runtime
     public interface ICommandContext
     {
         /// <summary>
+        /// Gets the HTTP pipeline for sending requests.
+        /// </summary>
+        IRuntimeHttpPipeline HttpPipeline { get; }
+
+        /// <summary>
+        /// Gets the event listener for logging and telemetry.
+        /// </summary>
+        // IEventListener? EventListener { get; }
+
+        /// <summary>
         /// Gets the authentication handler for the command execution.
         /// Provides token acquisition and HTTP pipeline capabilities.
         /// Extensions can override <see cref="ICommandAuthHandler.AcquireTokenAsyncOverride"/> 
@@ -25,13 +35,8 @@ namespace Core.Abstractions.Runtime
         ICommandOutputHandler CommandOutputHandler { get; }
 
         /// <summary>
-        /// Gets the HTTP pipeline for sending requests.
+        /// Gets the telemetry handler for logging and telemetry during command execution.
         /// </summary>
-        IRuntimeHttpPipeline HttpPipeline { get; }
-
-        /// <summary>
-        /// Gets the event listener for logging and telemetry.
-        /// </summary>
-        // IEventListener? EventListener { get; }
+        ICommandTelemetryHandler CommandTelemetryHandler { get; }
     }
 }

@@ -2,7 +2,7 @@ using Core.Abstractions.Runtime;
 
 namespace Core.Abstractions;
 
-public interface IEngine
+public interface IEngine : IDisposable
 {
     /// <summary>
     /// Processes a command invocation synchronously on the caller's thread.

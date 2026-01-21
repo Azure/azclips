@@ -15,6 +15,7 @@
     public class EventListener : CancellationTokenSource, IEnumerable<KeyValuePair<string, Event>>, IEventListener
     {
         private Dictionary<string, Event> calls = new Dictionary<string, Event>();
+        public StartActivityDelegate StartActivity { get; set; } = null!;
         public IEnumerator<KeyValuePair<string, Event>> GetEnumerator() => calls.GetEnumerator();
         IEnumerator IEnumerable.GetEnumerator() => calls.GetEnumerator();
         public EventListener()

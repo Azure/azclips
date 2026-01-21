@@ -28,6 +28,7 @@ namespace Core.Abstractions.Runtime
     public interface IEventListener
     {
         Task Signal(string id, CancellationToken token, GetEventData createMessage);
+        StartActivityDelegate StartActivity { get; set; }
         CancellationToken Token { get; }
         Action Cancel { get; }
     }

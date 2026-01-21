@@ -65,7 +65,7 @@ namespace Core.Runtime
         /// <remarks>
         /// The original initiator of the request must provide the implementation of this.
         /// </remarks>
-        public System.Action Cancel = () => { };
+        public Action Cancel = () => { };
 
         public EventData()
         {

@@ -15,17 +15,8 @@ namespace Core.Abstractions;
 /// </summary>
 public interface IProcessor
 {
-    //Task ProcessAsync();
-    // TODO: create wrapper for return object of IProcessor, this wrapper will handle serialization:
-    // model => model.ToJson()
-    // bool => "True"/"False"
-    // null => "Null"
-    // enumerable => serialize each item in enumerable
-    object? Process();
-    // TODO: consider pass serialization format as parameter
-    string Process(bool Serialize);
     Task ProcessAsync();
-    IProcessor SetCommandContext(ICommandContext context);
+    IProcessor Init(ICommandContext context);
 }
 
 /// <summary>
@@ -37,7 +28,7 @@ public abstract class BaseProcessor : IProcessor
     public abstract object Process();
 
     public abstract string Process(bool Serialize);
-    public IProcessor SetCommandContext(ICommandContext context) => throw new NotImplementedException();
+    public IProcessor Init(ICommandContext context) => throw new NotImplementedException();
 
     protected virtual void LogMessage(string message)
     {
