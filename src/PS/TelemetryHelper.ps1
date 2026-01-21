@@ -78,7 +78,7 @@ function Complete-CmdletActivity {
                 $tags = [System.Diagnostics.ActivityTagsCollection]::new()
                 $tags.Add("message", $ErrorMessage)
                 $ev = [System.Diagnostics.ActivityEvent]::new("Error", [System.DateTimeOffset]::UtcNow, $tags)
-                $Activity.AddEvent($ev)
+                $Activity.AddEvent($ev) | Out-Null
             }
             $Activity.Dispose()
         }
