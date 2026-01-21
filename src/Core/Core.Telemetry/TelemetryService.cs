@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Threading.Tasks;
 using Azure.Monitor.OpenTelemetry.Exporter;
 using Core.Abstractions;
 using OpenTelemetry;
@@ -17,6 +18,18 @@ public class TelemetryService : ITelemetryService
 {
     private readonly TracerProvider _tracerProvider;
     private bool _disposed;
+
+    /// <summary>
+    /// Whether to flush telemetry synchronously on dispose.
+    /// Set to false (default) for faster CLI exit. Telemetry is sent in background.
+    /// Set to true to ensure all telemetry is sent before process exits.
+    /// </summary>
+    public bool SyncFlushOnDispose { get; set; } = false;
+
+    /// <summary>
+    /// Timeout in milliseconds for flush operations.
+    /// </summary>
+    private const int FlushTimeoutMs = 5000;
 
     public ActivitySource ActivitySource { get; }
 
@@ -61,17 +74,42 @@ public class TelemetryService : ITelemetryService
 
     public void Flush()
     {
-        _tracerProvider?.ForceFlush();
+        _tracerProvider?.ForceFlush(FlushTimeoutMs);
     }
 
     public void Dispose()
     {
         if (_disposed) return;
-
-        _tracerProvider?.ForceFlush();
-        _tracerProvider?.Dispose();
-        ActivitySource?.Dispose();
         _disposed = true;
+
+        if (SyncFlushOnDispose)
+        {
+            // Synchronous flush - blocks until all data is sent
+            _tracerProvider?.ForceFlush(FlushTimeoutMs);
+            _tracerProvider?.Dispose();
+            ActivitySource?.Dispose();
+        }
+        else
+        {
+            // Async flush - CLI exits immediately, telemetry sent in background
+            // Note: Some telemetry may be lost if process exits before completion
+            var provider = _tracerProvider;
+            var source = ActivitySource;
+
+            Task.Run(() =>
+            {
+                try
+                {
+                    provider?.ForceFlush(FlushTimeoutMs);
+                    provider?.Dispose();
+                    source?.Dispose();
+                }
+                catch
+                {
+                    // Ignore errors during background cleanup
+                }
+            });
+        }
 
         GC.SuppressFinalize(this);
     }
