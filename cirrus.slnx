@@ -17,5 +17,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Cli.Tests/Cli.Tests.csproj" />
+    <Project Path="tests/Cli.Benchmarks/Cli.Benchmarks.csproj" />
   </Folder>
 </Solution>
