@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <AssemblyName>Microsoft.Azure.Cirrus.Extensions.Extension</AssemblyName>
+        <RootNamespace>Microsoft.Azure.Cirrus.Extensions.Extension</RootNamespace>
+        <ExtName>Microsoft.Azure.Cirrus.Extensions.Extension</ExtName>
+
+        <Description>Extension management for Cirrus CLI</Description>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <RepositoryUrl>https://github.com/Azure/cirrus</RepositoryUrl>
+
+        <PackageId>Microsoft.Azure.Cirrus.Extensions.Extension</PackageId>
+        <Version>1.0.0-alpha</Version>
+        <Authors>Microsoft Corporation</Authors>
+        <Company>Microsoft Corporation</Company>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <GenerateDependencyFile>true</GenerateDependencyFile>
+        <EnableDynamicLoading>true</EnableDynamicLoading>
+    </PropertyGroup>
+
+    <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Core.Abstractions\Core.Abstractions.csproj" >
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
+        <ProjectReference Include="..\..\Core\Core.Engine\Core.Engine.csproj" >
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="NuGet.Packaging" Version="7.0.1" />
+        <PackageReference Include="NuGet.Protocol" Version="7.0.1" />
+        <PackageReference Include="NuGet.Resolver" Version="7.0.1" />
+    </ItemGroup>
+
+</Project>
