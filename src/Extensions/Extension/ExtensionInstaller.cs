@@ -1,3 +1,4 @@
+using Core.Abstractions;
 using NuGet.Common;
 using NuGet.Configuration;
 using NuGet.Frameworks;
@@ -18,8 +19,11 @@ public class ExtensionInstaller
     public NuGetFramework TargetFramework { get; }
     public string? FeedUrl { get; }
 
-    public ExtensionInstaller(string? installPath = null, string? feedUrl = null)
+    private readonly ILoggingService _logger;
+
+    public ExtensionInstaller(ILoggingService logger, string? installPath = null, string? feedUrl = null)
     {
+        _logger = logger;
         InstallPath = installPath ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             ".cirrus", "extensions");
@@ -35,27 +39,31 @@ public class ExtensionInstaller
     /// </summary>
     /// <param name="packageId">The NuGet package ID.</param>
     /// <param name="version">The package version.</param>
+    /// <param name="includePrerelease">Whether to include prerelease versions when resolving the latest version.</param>
+    /// <param name="includeUnlisted">Whether to include unlisted versions when resolving the latest version.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Path to the installed extension directory.</returns>
     public async Task<string> InstallExtensionAsync(
         string packageId,
         string? version,
-        CancellationToken cancellationToken)
+        bool includePrerelease = true,
+        bool includeUnlisted = false,
+        CancellationToken cancellationToken = default)
     {
         var repositories = GetSourceRepositories();
 
         // Resolve latest version if not specified
         if (string.IsNullOrWhiteSpace(version))
         {
-            version = await GetLatestVersionAsync(packageId, repositories, cancellationToken) ?? throw new InvalidOperationException($"Could not find package {packageId} in any configured NuGet feed.");
+            version = await GetLatestVersionAsync(packageId, repositories, includePrerelease, includeUnlisted, cancellationToken) ?? throw new InvalidOperationException($"Could not find package {packageId} in any configured NuGet feed.");
         }
         var outputDir = InitializeExtensionFolder(packageId, version);
 
         var rootPackage = new PackageIdentity(packageId, NuGetVersion.Parse(version));
-        Console.WriteLine($"Installing {packageId}@{version}...");
+        _logger.Info($"Installing {packageId}@{version}...");
         await ExtractPackageAssembliesAsync(rootPackage, repositories, outputDir, cancellationToken);
 
-        Console.WriteLine($"Installed {packageId}@{version} to {outputDir}");
+        _logger.Info($"Installed {packageId}@{version} to {outputDir}");
         return outputDir;
     }
 
@@ -83,10 +91,10 @@ public class ExtensionInstaller
         var outputDir = InitializeExtensionFolder(packageId, version.ToString());
 
         // Extract the main package first
-        Console.WriteLine($"Extracting {packageId}@{version}...");
+        _logger.Info($"Extracting {packageId}@{version}...");
         await ExtractLibItemsAsync(packageReader, outputDir, cancellationToken);
 
-        Console.WriteLine($"Installed {packageId}@{version} from {packagePath}");
+        _logger.Info($"Installed {packageId}@{version} from {packagePath}");
         return outputDir;
     }
 
@@ -147,11 +155,19 @@ public class ExtensionInstaller
     }
 
     /// <summary>
-    /// Gets the latest stable version of a package from configured NuGet feeds.
+    /// Gets the latest version of a package from configured NuGet feeds.
     /// </summary>
+    /// <param name="packageId">The NuGet package ID.</param>
+    /// <param name="repositories">The list of NuGet source repositories to search.</param>
+    /// <param name="includePrerelease">Whether to include prerelease versions.</param>
+    /// <param name="includeUnlisted">Whether to include unlisted versions.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The latest version string, or null if not found.</returns>
     private async Task<string?> GetLatestVersionAsync(
         string packageId,
         IReadOnlyList<SourceRepository> repositories,
+        bool includePrerelease,
+        bool includeUnlisted,
         CancellationToken cancellationToken)
     {
         using var cacheContext = new SourceCacheContext();
@@ -163,8 +179,8 @@ public class ExtensionInstaller
 
             var packages = await metadataResource.GetMetadataAsync(
                 packageId,
-                includePrerelease: true,
-                includeUnlisted: true,
+                includePrerelease: includePrerelease,
+                includeUnlisted: includeUnlisted,
                 cacheContext,
                 logger,
                 cancellationToken);
@@ -215,7 +231,7 @@ public class ExtensionInstaller
         {
             var downloadResource = await repository.GetResourceAsync<DownloadResource>(cancellationToken);
 
-            var downloadResult = await downloadResource.GetDownloadResourceResultAsync(
+            using var downloadResult = await downloadResource.GetDownloadResourceResultAsync(
                 package,
                 new PackageDownloadContext(cacheContext),
                 globalPackagesFolder,

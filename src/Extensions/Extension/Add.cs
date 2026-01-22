@@ -39,12 +39,19 @@ public class AddExtensionCommand : IProcessor
 
         var serviceProvider = Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult();
         var telemetryService = serviceProvider.GetRequiredService<ITelemetryService>();
+        var loggingService = serviceProvider.GetRequiredService<ILoggingService>();
         using var _ = telemetryService.ActivitySource?.StartActivity($"{nameof(AddExtensionCommand)}.{nameof(Process)}");
 
-        var installer = new ExtensionInstaller(feedUrl: FeedUrl);
+        var installer = new ExtensionInstaller(loggingService, feedUrl: FeedUrl);
         if (!string.IsNullOrWhiteSpace(Name))
         {
-            var installPath = installer.InstallExtensionAsync($"Microsoft.Azure.Cirrus.Extensions.{Name}", Version, CancellationToken.None).GetAwaiter().GetResult();
+            var installPath = installer.InstallExtensionAsync(
+                $"Microsoft.Azure.Cirrus.Extensions.{Name}",
+                Version,
+                includePrerelease: true,
+                includeUnlisted: false,
+                CancellationToken.None
+            ).GetAwaiter().GetResult();
             return new { InstalledExtensionPath = installPath };
         }
         else
