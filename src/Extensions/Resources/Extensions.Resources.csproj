@@ -14,7 +14,6 @@
         <Authors>Microsoft Corporation</Authors>
         <Company>Microsoft Corporation</Company>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-        <GenerateDependencyFile>true</GenerateDependencyFile>
         <EnableDynamicLoading>true</EnableDynamicLoading>
     </PropertyGroup>
 

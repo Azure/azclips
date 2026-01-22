@@ -126,8 +126,7 @@ public class ExtensionInstaller
         if (!string.IsNullOrWhiteSpace(FeedUrl))
         {
             var customSource = new PackageSource(FeedUrl, "CustomFeed");
-            SourceRepository customRepository;
-            customRepository = Repository.Factory.GetCoreV3(customSource);
+            var customRepository = Repository.Factory.GetCoreV3(customSource);
             return [customRepository];
         }
         return GetDefaultSourceRepositories();
