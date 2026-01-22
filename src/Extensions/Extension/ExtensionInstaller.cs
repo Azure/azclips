@@ -49,29 +49,7 @@ public class ExtensionInstaller
         {
             version = await GetLatestVersionAsync(packageId, repositories, cancellationToken) ?? throw new InvalidOperationException($"Could not find package {packageId} in any configured NuGet feed.");
         }
-
-        var outputDir = Path.Combine(InstallPath, packageId, version);
-        try
-        {
-            if (Directory.Exists(outputDir))
-            {
-                Directory.Delete(outputDir, recursive: true);
-            }
-
-            Directory.CreateDirectory(outputDir);
-        }
-        catch (IOException ex)
-        {
-            throw new InvalidOperationException(
-                $"Failed to prepare installation directory '{outputDir}' for extension '{packageId}@{version}'. Files may be in use or locked.",
-                ex);
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            throw new InvalidOperationException(
-                $"Access denied while preparing installation directory '{outputDir}' for extension '{packageId}@{version}'.",
-                ex);
-        }
+        var outputDir = InitializeExtensionFolder(packageId, version);
 
         var rootPackage = new PackageIdentity(packageId, NuGetVersion.Parse(version));
         Console.WriteLine($"Installing {packageId}@{version}...");
@@ -102,13 +80,7 @@ public class ExtensionInstaller
         var nuspec = packageReader.NuspecReader;
         var packageId = nuspec.GetId();
         var version = nuspec.GetVersion();
-
-        var outputDir = Path.Combine(InstallPath, packageId, version.ToString());
-        if (Directory.Exists(outputDir))
-        {
-            Directory.Delete(outputDir, recursive: true);
-        }
-        Directory.CreateDirectory(outputDir);
+        var outputDir = InitializeExtensionFolder(packageId, version.ToString());
 
         // Extract the main package first
         Console.WriteLine($"Extracting {packageId}@{version}...");
@@ -116,6 +88,33 @@ public class ExtensionInstaller
 
         Console.WriteLine($"Installed {packageId}@{version} from {packagePath}");
         return outputDir;
+    }
+
+    private string InitializeExtensionFolder(string packageId, string version)
+    {
+        var extensionDir = Path.Combine(InstallPath, packageId, version);
+        try
+        {
+            if (Directory.Exists(extensionDir))
+            {
+                Directory.Delete(extensionDir, recursive: true);
+            }
+
+            Directory.CreateDirectory(extensionDir);
+            return extensionDir;
+        }
+        catch (IOException ex)
+        {
+            throw new InvalidOperationException(
+                $"Failed to prepare installation directory '{extensionDir}' for extension '{packageId}@{version}'. Files may be in use or locked.",
+                ex);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            throw new InvalidOperationException(
+                $"Access denied while preparing installation directory '{extensionDir}' for extension '{packageId}@{version}'.",
+                ex);
+        }
     }
 
     /// <summary>
