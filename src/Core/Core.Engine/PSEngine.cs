@@ -7,6 +7,7 @@ using Core.Runtime.Handler;
 using Core.Runtime;
 using System.Threading.Channels;
 using Core.Abstractions.Runtime.Handler;
+using Core.Engine.utils;
 
 namespace Core.Engine
 {
@@ -23,8 +24,8 @@ namespace Core.Engine
     {
         // Extension indices are cached with Lazy<T> to ensure single initialization per extension
         // even under concurrent access. The factory runs exactly once per key.
-        //TODO: make this LFU cache
-        private readonly ConcurrentDictionary<string, Lazy<IExtensionIndex>> _extensionIndices = new();
+        //TODO: tune the cache size based on expected number of extensions
+        private readonly LFUCache<Lazy<IExtensionIndex>> _extensionIndices = new(512);
 
         private readonly HttpClient _httpClient;
         private readonly Action<string> WriteVerbose;
