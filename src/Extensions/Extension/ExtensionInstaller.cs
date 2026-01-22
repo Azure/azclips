@@ -51,11 +51,27 @@ public class ExtensionInstaller
         }
 
         var outputDir = Path.Combine(InstallPath, packageId, version);
-        if (Directory.Exists(outputDir))
+        try
         {
-            Directory.Delete(outputDir, recursive: true);
+            if (Directory.Exists(outputDir))
+            {
+                Directory.Delete(outputDir, recursive: true);
+            }
+
+            Directory.CreateDirectory(outputDir);
         }
-        Directory.CreateDirectory(outputDir);
+        catch (IOException ex)
+        {
+            throw new InvalidOperationException(
+                $"Failed to prepare installation directory '{outputDir}' for extension '{packageId}@{version}'. Files may be in use or locked.",
+                ex);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            throw new InvalidOperationException(
+                $"Access denied while preparing installation directory '{outputDir}' for extension '{packageId}@{version}'.",
+                ex);
+        }
 
         var rootPackage = new PackageIdentity(packageId, NuGetVersion.Parse(version));
         Console.WriteLine($"Installing {packageId}@{version}...");
@@ -105,7 +121,7 @@ public class ExtensionInstaller
     /// <summary>
     /// Gets the configured NuGet source repositories.
     /// </summary>
-    /// <returns></returns>
+    /// <returns>A read-only list of configured NuGet source repositories.</returns>
     private IReadOnlyList<SourceRepository> GetSourceRepositories()
     {
         if (!string.IsNullOrWhiteSpace(FeedUrl))
@@ -140,7 +156,7 @@ public class ExtensionInstaller
         IReadOnlyList<SourceRepository> repositories,
         CancellationToken cancellationToken)
     {
-        var cacheContext = new SourceCacheContext();
+        using var cacheContext = new SourceCacheContext();
         var logger = NullLogger.Instance;
 
         foreach (var repository in repositories)
@@ -193,7 +209,7 @@ public class ExtensionInstaller
             return;
         }
 
-        var cacheContext = new SourceCacheContext();
+        using var cacheContext = new SourceCacheContext();
         var logger = NullLogger.Instance;
 
         // Download from repository
@@ -216,7 +232,7 @@ public class ExtensionInstaller
             }
         }
 
-        Console.WriteLine($"Warning: Could not download package {package.Id}@{package.Version}");
+        throw new InvalidOperationException($"Could not download package {package.Id}@{package.Version} from any configured repository.");
     }
 
     /// <summary>
