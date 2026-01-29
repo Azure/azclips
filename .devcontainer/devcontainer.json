@@ -58,7 +58,7 @@
 	// Set BROWSER to use VS Code's built-in browser opener for authentication flows
 	// Set ZIPKIN_ENDPOINT to point to the Zipkin container
 	"remoteEnv": {
-		"PATH": "${containerWorkspaceFolder}/artifacts/Debug/Core.Cli:${containerWorkspaceFolder}/artifacts/Release/Core.Cli:${containerEnv:PATH}",
+		"PATH": "${containerWorkspaceFolder}/artifacts/Debug/Eval:${containerWorkspaceFolder}/artifacts/Debug/Core.Cli:${containerWorkspaceFolder}/artifacts/Release/Core.Cli:${containerEnv:PATH}",
 		"BROWSER": "${containerEnv:BROWSER}",
 		"ZIPKIN_ENDPOINT": "http://zipkin:9411/api/v2/spans"
 	},
