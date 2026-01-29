@@ -1,4 +1,4 @@
-﻿using System;
+﻿﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using Core.Abstractions;
@@ -67,13 +67,6 @@ namespace Core.Engine
             {
                 return null;
             }
-        }
-
-        private static string ResolveAssemblyName (this string extensionName) => $"Microsoft.Azure.Cirrus.Extensions.{extensionName}";
-        private static string ResolveExtensionName(this string extensionName)
-        {
-            //TODO: implement extension name resolution logic, this will map extension/module name passed by user to actual extension name in dll
-            return extensionName;
         }
     }
 }

@@ -10,6 +10,7 @@
     <Project Path="src/Core/Core.Engine/Core.Engine.csproj" />
     <Project Path="src/Core/Core.Implementation/Core.Implementation.csproj" />
     <Project Path="src/Core/Core.Telemetry/Core.Telemetry.csproj" />
+    <Project Path="src/Core/Core.Runtime/Core.Runtime.csproj" />
   </Folder>
   <Folder Name="/src/Extensions/">
     <Project Path="src/Extensions/Extension/Extensions.Extension.csproj" />

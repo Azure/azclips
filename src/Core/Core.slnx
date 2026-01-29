@@ -5,4 +5,5 @@
   <Project Path="Core.Engine/Core.Engine.csproj" />
   <Project Path="Core.Implementation/Core.Implementation.csproj" />
   <Project Path="Core.Telemetry/Core.Telemetry.csproj" />
+  <Project Path="Core.Runtime/Core.Runtime.csproj" />
 </Solution>

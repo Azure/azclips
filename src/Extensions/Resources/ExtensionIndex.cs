@@ -23,11 +23,17 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
                 assemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
                 commandType: typeof(Commands.NewResourceGroupCommand)
             ));
-            _psTable.Add("Get-ResourceGroup", new CommandMetadata(
+            _psTable.Add("Get-ResourceGroup_Get", new CommandMetadata(
                 name: nameof(Commands.GetResourceGroupCommand),
                 fullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.GetResourceGroupCommand",
                 assemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
                 commandType: typeof(Commands.GetResourceGroupCommand)
+            ));
+            _psTable.Add("Get-ResourceGroup_List", new CommandMetadata(
+                name: nameof(Commands.ListResourceGroupCommand),
+                fullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.ListResourceGroupCommand",
+                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+                commandType: typeof(Commands.ListResourceGroupCommand)
             ));
             _cliTable.Add("create", new CommandMetadata(
                 name: "NewResourceGroupCommand",
@@ -37,9 +43,9 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             ));
             _cliTable.Add("list", new CommandMetadata(
                 name: nameof(Commands.GetResourceGroupCommand),
-                fullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.GetResourceGroupCommand",
+                fullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.ListResourceGroupCommand",
                 assemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
-                commandType: typeof(Commands.GetResourceGroupCommand)
+                commandType: typeof(Commands.ListResourceGroupCommand)
             ));
             _cliTable.Add("get", new CommandMetadata(
                 name: nameof(Commands.GetResourceGroupCommand),
