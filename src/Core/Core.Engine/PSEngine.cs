@@ -1,6 +1,5 @@
 using Core.Abstractions;
 using Core.Implementation;
-using System.Collections.Concurrent;
 using Microsoft.Extensions.DependencyInjection;
 using Core.Abstractions.Runtime;
 using Core.Runtime.Handler;
@@ -8,6 +7,7 @@ using Core.Runtime;
 using System.Threading.Channels;
 using Core.Abstractions.Runtime.Handler;
 using Core.Engine.utils;
+using System.Diagnostics;
 
 namespace Core.Engine
 {
@@ -33,6 +33,7 @@ namespace Core.Engine
         private readonly Func<AuthContext> GetAuthContext;
         private readonly AcquireTokenAsyncDelegate AcquireTokenSilentlyAsync;
         private readonly StartActivityDelegate StartActivity;
+        private readonly IAopProxyService AopProxyService;
         private bool _disposed;
 
         public ClientType ClientType = ClientType.PowerShell;
@@ -46,6 +47,7 @@ namespace Core.Engine
             GetAuthContext = () => serviceProvider.GetRequiredService<IAuthContextService>().GetCurrentContextAsync().GetAwaiter().GetResult() ?? new AuthContext() { SubscriptionId = "", TenantId = "" };
             AcquireTokenSilentlyAsync = serviceProvider.GetRequiredService<IAuthService>().AcquireTokenSilentlyAsync;
             StartActivity = serviceProvider.GetRequiredService<ITelemetryService>().StartActivity;
+            AopProxyService  = serviceProvider.GetRequiredService<IAopProxyService>();
         }
 
         /// <summary>
@@ -73,7 +75,8 @@ namespace Core.Engine
             ICommandContext commandContext = CreateCommandContext(outputChannel.Writer);
 
             // Start worker thread for command execution
-            Task executeCommandTask = ExecuteCommandAsync(GetCommand(invocation).Init(commandContext), outputChannel.Writer, cancellationToken);
+            IProcessor command = GetCommand(invocation).Init(commandContext);
+            Task executeCommandTask = ExecuteCommandAsync(command, outputChannel.Writer, cancellationToken);
 
             // Pump the channel on the caller's thread (runspace-affine)
             ChannelReader<object> reader = outputChannel.Reader;
@@ -134,11 +137,22 @@ namespace Core.Engine
         /// </summary>
         private async Task ExecuteCommandAsync(IProcessor command, ChannelWriter<object> outputWriter, CancellationToken cancellationToken = default)
         {
+            var TelemetryInterceptor = new AttributeDelegateInterceptor<TelemetryActivityAttribute>(
+                onEnter: (method, target, args, attr) =>
+                {
+                    var name = string.IsNullOrWhiteSpace(attr.Name) ? $"{target.GetType().Name}.{method.Name}" : attr.Name;
+                    return StartActivity(name);
+                },
+                onExit: (method, target, args, result, ex, attr, state) =>
+                {
+                    if (state is Activity a) a.Dispose();
+                }
+            );
             await Task.Run(async () =>
             {
                 try
                 {
-                    await command.ProcessAsync();
+                    await AopProxyService.Create<IProcessor>(command, TelemetryInterceptor).ProcessAsync();
                 }
                 finally
                 {

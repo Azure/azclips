@@ -12,9 +12,10 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
         SerializedName = @"SubscriptionId")]
         public string? SubscriptionId { get; set; }
 
+        [TelemetryActivity(Name = $"{nameof(ListResourceGroupCommand)}.{nameof(ProcessAsync)}.AOP")]
         public override async Task ProcessAsync()
         {
-            using var _ = StartActivity($"{nameof(ListResourceGroupCommand)}.{nameof(ProcessAsync)}");
+            //using var _ = StartActivity($"{nameof(ListResourceGroupCommand)}.{nameof(ProcessAsync)}");
             // construct URL
             var url = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourcegroups?api-version=2025-04-01";
             //TODO: set_jsonOptions from command context
