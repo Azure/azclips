@@ -1,7 +1,6 @@
 ﻿using Core.Abstractions;
 using Microsoft.Identity.Client;
 using Microsoft.Identity.Client.Extensions.Msal;
-using System.Text.Json;
 
 namespace Core.Authentication;
 
@@ -161,5 +160,3 @@ public class MsalAuthService(ILoggingService Logger, ITelemetryService Telemetry
         + $"CacheRefreshReason={result.AuthenticationResultMetadata.CacheRefreshReason}");
     }
 }
-
-

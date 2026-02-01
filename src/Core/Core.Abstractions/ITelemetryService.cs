@@ -13,6 +13,8 @@ public interface ITelemetryService : IDisposable
     /// </summary>
     ActivitySource ActivitySource { get; }
 
+    Activity StartActivity(string name, ActivityKind kind = ActivityKind.Internal);
+
     /// <summary>
     /// Flushes all pending telemetry data.
     /// </summary>

@@ -39,9 +39,9 @@ public class Program
                 using var commandActivity = _telemetryService.ActivitySource.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
                 commandActivity?.SetTag("command.type", invocation.GetType().Name);
 
-                string result = Engine.Engine.GetCommand(invocation).Process(true).ToString();
+                //string result = Engine.Engine.GetCommand(invocation).Process(true).ToString();
 
-                _logger?.Log(result);
+                //_logger?.Log(result);
                 activity?.SetStatus(ActivityStatusCode.Ok);
                 return 0;
             }
@@ -108,8 +108,8 @@ public class Program
                 {
                     var dispatcher = new ExtensionDispatcher();
                     ICommandInvocation invocation = dispatcher.Parse(retryArgs);
-                    string result = Engine.Engine.GetCommand(invocation).Process(true).ToString();
-                    Console.WriteLine(result);
+                    //string result = Engine.Engine.GetCommand(invocation).Process(true).ToString();
+                    //Console.WriteLine(result);
                     return 0;
                 }
                 catch (Exception ex)

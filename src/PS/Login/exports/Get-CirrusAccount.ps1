@@ -4,6 +4,13 @@ function Get-CirrusAccount {
 
     begin {
         $script:activity = Start-CmdletActivity -CmdletName "Get-CirrusAccount" -Parameters $PSBoundParameters
+
+        $engine = [Core.Engine.Bootstrapper]::ServiceProviderAsync.GetAwaiter().GetResult().GetService([Core.Engine.EngineFactory]).GetEngine([Core.Abstractions.ClientType]::PowerShell);
+        $outputDelegate = [Core.Abstractions.Runtime.CommandOutputDelegate]{
+            param([object]$value, [System.Threading.CancellationToken]$ct)
+            $PSCmdlet.WriteObject($value)
+            return [System.Threading.Tasks.Task]::CompletedTask
+        }
     }
 
     process {
@@ -13,8 +20,7 @@ function Get-CirrusAccount {
             $parameters = [System.Collections.Generic.Dictionary[string, object]]::New();
             $invocation = [Core.Implementation.PSCommandInvocation]::New($extensionName, $commandName, $parameters);
 
-            [Core.Abstractions.AuthContext]$output = [Core.Abstractions.AuthContext]([Core.Engine.Engine]::GetCommand($invocation).process());
-            Write-Output $output;
+            $response = $engine.Process($invocation, $outputDelegate, [System.Threading.CancellationToken]::None);
 
             # Mark activity as successful
             if ($null -ne $script:activity) {
