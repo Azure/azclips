@@ -26,16 +26,8 @@ public class ExtensionDispatcher //: IParser
         }
     }
 
-    public string ExtensionDirectory { get; }
-
     public ExtensionDispatcher()
     {
-        ExtensionDirectory = Path.Combine(AppContext.BaseDirectory, "..");
-    }
-
-    public ExtensionDispatcher(string extensionDirectory)
-    {
-        ExtensionDirectory = extensionDirectory;
     }
 
     public Implementation.CLICommandInvocation Parse(string[] args)
