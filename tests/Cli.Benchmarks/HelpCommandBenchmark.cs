@@ -1,18 +1,33 @@
 using BenchmarkDotNet.Attributes;
 using Core.Cli;
+using Core.Cli.Exceptions;
+using Core.Cli.Parser;
 
 namespace Cli.Benchmarks;
 
 [MemoryDiagnoser]
-[HtmlExporter, CsvExporter, JsonExporter, XmlExporter]
-[RPlotExporter] // Requires R to be installed for generating plots
+[WarmupCount(3)]
+[IterationCount(10)]
 public class HelpCommandBenchmark
 {
-    private readonly string[] _args = new[] { "--help" };
+    private ExtensionDispatcher _dispatcher = null!;
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        _dispatcher = new ExtensionDispatcher(BenchmarkPaths.ArtifactsDir);
+    }
 
     [Benchmark]
-    public async Task RunHelpCommand()
+    public void ParseHelpCommand()
     {
-        await Core.Cli.Program.Main(_args);
+        try
+        {
+            _dispatcher.Parse(new[] { "--help" });
+        }
+        catch (DispatchHelpException)
+        {
+            // Expected - help throws exception
+        }
     }
 }

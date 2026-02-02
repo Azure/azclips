@@ -1,4 +1,5 @@
 using Core.Abstractions;
+using Core.Abstractions.Runtime;
 using Core.Engine;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -29,6 +30,18 @@ public class AddExtensionCommand : IProcessor
     Description = @"Path to the extension .nupkg file to add.",
     SerializedName = @"Path")]
     public string? Path { get; set; }
+
+    public IProcessor Init(ICommandContext context)
+    {
+        // Extension commands don't use the new pipeline yet
+        return this;
+    }
+
+    public Task ProcessAsync()
+    {
+        Process();
+        return Task.CompletedTask;
+    }
 
     public object Process()
     {
