@@ -143,44 +143,6 @@ Response content: {await response.Content.ReadAsStringAsync()}", ex);
             return result?.Value ?? Array.Empty<ResourceGroup>();
         }
 
-        public async Task DeleteResourceGroupAsync(string subscriptionId, string resourceGroupName, string accessToken, CancellationToken cancellationToken = default)
-        {
-            using var _ = ActivitySource?.StartActivity($"{nameof(ResourcesClient)}.{nameof(DeleteResourceGroupAsync)}");
-
-            var requestUri = $"{baseUri}/subscriptions/{subscriptionId}/resourcegroups/{resourceGroupName}?api-version={apiVersion}";
-
-            using var request = new HttpRequestMessage(HttpMethod.Delete, requestUri);
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
-
-            var response = await _httpClient.SendAsync(request, cancellationToken);
-
-            // 202 Accepted means delete is in progress, poll for completion
-            if (response.StatusCode == System.Net.HttpStatusCode.Accepted)
-            {
-                // Wait for deletion to complete (simplified polling)
-                for (int i = 0; i < 60; i++)
-                {
-                    await Task.Delay(5000, cancellationToken);
-                    using var checkRequest = new HttpRequestMessage(HttpMethod.Get, requestUri);
-                    checkRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
-                    var checkResponse = await _httpClient.SendAsync(checkRequest, cancellationToken);
-                    if (checkResponse.StatusCode == System.Net.HttpStatusCode.NotFound)
-                    {
-                        return; // Successfully deleted
-                    }
-                }
-                throw new TimeoutException($"Timed out waiting for resource group '{resourceGroupName}' to be deleted.");
-            }
-            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-            {
-                return; // Already deleted
-            }
-            else
-            {
-                response.EnsureSuccessStatusCode();
-            }
-        }
-
         /// <summary>
         /// Disposes the resources used by the HTTP client.
         /// </summary>
