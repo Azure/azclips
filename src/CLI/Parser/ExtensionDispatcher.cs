@@ -44,14 +44,11 @@ public class ExtensionDispatcher //: IParser
         var helpFlags = new[] { "--help", "-h", "help", "?", "-?" };
         if (args.Length == 1 && helpFlags.Contains(args[0], StringComparer.OrdinalIgnoreCase)) throw new DispatchHelpException(this);
         string extensionName = CommandGroupIndex.getExtensionNameByCommandGroupName($"{char.ToUpperInvariant(args[0][0])}{args[0][1..]}");
-        string dllName = $"Microsoft.Azure.Cirrus.Extensions.{extensionName}";
-        string dllPath = Path.Combine(ExtensionDirectory, dllName, $"{dllName}.dll");
-        if (!File.Exists(dllPath)) throw new FileNotFoundException($"Extension assembly not found: {dllPath}");
+        // string dllName = $"Microsoft.Azure.Cirrus.Extensions.{extensionName}";
+        // string dllPath = Path.Combine(ExtensionDirectory, dllName, $"{dllName}.dll");
+        // if (!File.Exists(dllPath)) throw new FileNotFoundException($"Extension assembly not found: {dllPath}");
 
-        var loadContext = new ExtensionLoadContext(Path.Combine(ExtensionDirectory, dllName));
-        //var assembly = loadContext.LoadFromAssemblyPath(dllPath);
-        var assembly = Assembly.LoadFrom(dllPath);
-        var extensionParser = new ExtensionParser(assembly);
+        var extensionParser = new ExtensionParser();
         (string commandName, IDictionary<string, object> parameters) = extensionParser.Parse(args[1..]);
         return new Implementation.CLICommandInvocation(extensionName, commandName, parameters);
     }

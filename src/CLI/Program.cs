@@ -39,9 +39,9 @@ public class Program
                 using var commandActivity = _telemetryService.ActivitySource.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
                 commandActivity?.SetTag("command.type", invocation.GetType().Name);
 
-                //string result = Engine.Engine.GetCommand(invocation).Process(true).ToString();
+                var engine = serviceProvider.GetService<EngineFactory>()?.GetEngine(ClientType.CLI) ?? throw new InvalidOperationException("CLI Engine not available.");
+                engine.Process(invocation, (value, ct) => { Console.WriteLine(value); return Task.CompletedTask; });
 
-                //_logger?.Log(result);
                 activity?.SetStatus(ActivityStatusCode.Ok);
                 return 0;
             }
