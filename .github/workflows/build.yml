@@ -78,7 +78,7 @@ jobs:
         Configuration: ${{ matrix.configuration }}
     
     - name: Publish the Extension (az extension)
-      run: dotnet publish src/Extensions/Extension.csproj -c ${{ matrix.configuration }} -r ${{ matrix.platform }} -o ./publish/${{ matrix.configuration }}/${{ matrix.platform }}/Extensions/Extension
+      run: dotnet publish src/Extensions/Extension/Extensions.Extension.csproj -c ${{ matrix.configuration }} -r ${{ matrix.platform }} -o ./publish/${{ matrix.configuration }}/${{ matrix.platform }}/Extensions/Extension
       env:
         Configuration: ${{ matrix.configuration }}
 
