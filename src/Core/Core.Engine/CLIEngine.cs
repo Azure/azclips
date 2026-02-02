@@ -18,6 +18,7 @@ public class CLIEngine(IServiceProvider serviceProvider, string extensionsDir) :
 {
     private readonly IServiceProvider _serviceProvider = serviceProvider;
     private readonly HttpClient _httpClient = new();
+    private bool _disposed = false;
     public List<IExtensionLoader> ExtensionLoaders { get; } =
     [
         new MultiVersionExtensionLoader(extensionsDir, serviceProvider.GetService<ILoggingService>()),
@@ -26,15 +27,9 @@ public class CLIEngine(IServiceProvider serviceProvider, string extensionsDir) :
 
     private Assembly? LoadExtension(string extensionName, string? version = null)
     {
-        foreach (var loader in ExtensionLoaders)
-        {
-            var assembly = loader.LoadExtension(extensionName, version);
-            if (assembly != null)
-            {
-                return assembly;
-            }
-        }
-        return null;
+        return ExtensionLoaders
+            .Select(loader => loader.LoadExtension(extensionName, version))
+            .FirstOrDefault(assembly => assembly != null);
     }
 
     public IProcessor GetCommand(ICommandInvocation invocation)
@@ -85,11 +80,13 @@ public class CLIEngine(IServiceProvider serviceProvider, string extensionsDir) :
                 throw new ArgumentException($"Error parsing property '{propertyInfo.Name}' for command '{commandType.FullName}': {ex.Message}", ex);
             }
         }
+        commandArgs.ThrowRemainingProperties();
         return instance;
     }
 
     public void Process(ICommandInvocation invocation, CommandOutputDelegate output, CancellationToken token = default)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         Debug.Assert(invocation.ClientType == ClientType.CLI, "CLIEngine can only process CLI invocations.");
         var loggingService = _serviceProvider.GetService<ILoggingService>();
         loggingService?.Info($"Processing command: '{invocation.CommandName}'.");
@@ -159,9 +156,30 @@ public class CLIEngine(IServiceProvider serviceProvider, string extensionsDir) :
         }, cancellationToken);
     }
 
-    public void Dispose()
-    {
-    }
+        /// <summary>
+        /// Releases the unmanaged resources used by CLIEngine and optionally releases managed resources.
+        /// </summary>
+        /// <param name="disposing">true to release both managed and unmanaged resources; false to release only unmanaged resources.</param>
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    _httpClient.Dispose();
+                }
+                _disposed = true;
+            }
+        }
+
+        /// <summary>
+        /// Releases all resources used by CLIEngine.
+        /// </summary>
+        public void Dispose()
+        {
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
+        }
 }
 
 public class PropertyParserException : Exception
@@ -273,7 +291,7 @@ public class CommandLineArgs
             throw new ArgumentException("Argument names cannot be null or empty.", nameof(argumentNames));
         }
 
-        return argumentNames.Select(name =>
+        return [.. argumentNames.Select(name =>
         {
             if (string.IsNullOrWhiteSpace(name))
             {
@@ -284,7 +302,7 @@ public class CommandLineArgs
             return normalizedName.Length == 1
                 ? $"-{normalizedName}"
                 : $"--{normalizedName}";
-        }).ToArray();
+        })];
     }
 
     Dictionary<string, List<List<string>>> PopValues(string[] aliases)
@@ -292,9 +310,9 @@ public class CommandLineArgs
         Dictionary<string, List<List<string>>> values = new();
         foreach (var alias in NormalizeArgumentNames(aliases))
         {
-            if (Properties.ContainsKey(alias))
+            if (Properties.TryGetValue(alias, out List<List<string>>? value))
             {
-                values[alias] = Properties[alias];
+                values[alias] = value;
                 Properties.Remove(alias);
             }
         }
@@ -405,15 +423,15 @@ public class PropertyParser
                     var jsonReader = new System.Text.Json.Utf8JsonReader(System.Text.Encoding.UTF8.GetBytes(value));
 
                     var jsonElement = System.Text.Json.JsonDocument.ParseValue(ref jsonReader).RootElement;
-                    var items = new System.Collections.Generic.List<object>();
-                    foreach (var item in jsonElement.EnumerateArray())
-                    {
-                        var itemString = item.ValueKind == System.Text.Json.JsonValueKind.String
-                            ? item.GetString()!
-                            : item.GetRawText();
-                        var convertedItem = ConvertToType(itemString, elementType, propertyName + "[]");
-                        items.Add(convertedItem);
-                    }
+                    var items = jsonElement.EnumerateArray()
+                        .Select(item =>
+                        {
+                            var itemString = item.ValueKind == System.Text.Json.JsonValueKind.String
+                                ? item.GetString()!
+                                : item.GetRawText();
+                            return ConvertToType(itemString, elementType, propertyName + "[]");
+                        })
+                        .ToList();
                     var array = System.Array.CreateInstance(elementType, items.Count);
                     for (int i = 0; i < items.Count; i++)
                     {
@@ -454,15 +472,15 @@ public class PropertyParser
         if (string.IsNullOrWhiteSpace(methodName)) throw new ArgumentException("Method name cannot be null or empty.", nameof(methodName));
         foreach (var derivedType in FindAllDerived(type))
         {
-            Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Searching for method '{methodName}' in derived type '{derivedType.FullName}'");
+            // Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Searching for method '{methodName}' in derived type '{derivedType.FullName}'");
             var method = derivedType.GetMethod(methodName, BindingFlags.Public | BindingFlags.Static);
             if (method != null)
             {
-                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Found method '{methodName}' in type '{derivedType.FullName}'");
+                // Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Found method '{methodName}' in type '{derivedType.FullName}'");
                 return method;
             }
         }
-        Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Method '{methodName}' not found in type '{type.FullName}' or its derived types.");
+        // Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Method '{methodName}' not found in type '{type.FullName}' or its derived types.");
         return null;
     }
 
@@ -478,21 +496,19 @@ public class PropertyParser
         var implByName = FindImplementation(baseType);
         if (implByName != null)
         {
-            Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Found implementation '{implByName.FullName}' for base type '{baseType.FullName}' by name.");
+            // Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Found implementation '{implByName.FullName}' for base type '{baseType.FullName}' by name.");
             yield return implByName;
         }
         else
         {
-            Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] No implementation found for base type '{baseType.FullName}' by name.");
+            // Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] No implementation found for base type '{baseType.FullName}' by name.");
         }
         // Now find all types in the assembly that are assignable to the base type
         // In most cases, we will not step into this branch as we expect implementations to be named with a prefix of "I"
-        foreach (var type in baseType.Assembly.GetTypes())
+        foreach (var type in baseType.Assembly.GetTypes()
+            .Where(t => t.IsAssignableTo(baseType) && !t.IsAbstract && !t.IsInterface && t != implByName))
         {
-            if (type.IsAssignableTo(baseType) && !type.IsAbstract && !type.IsInterface && type != implByName)
-            {
-                yield return type;
-            }
+            yield return type;
         }
     }
 
@@ -502,7 +518,7 @@ public class PropertyParser
         {
             var ns = type.Namespace ?? throw new ArgumentException($"Type '{type.FullName}' is abstract or an interface, and does not have a namespace to search for implementations.");
             var assembly = type.Assembly;
-            Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Searching for implementations of '{type.FullName}' by name in assembly '{assembly.FullName}' and namespace '{ns}'");
+            // Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Searching for implementations of '{type.FullName}' by name in assembly '{assembly.FullName}' and namespace '{ns}'");
             return assembly.GetType(ns + "." + type.Name[1..], false, true);
         }
         return null;

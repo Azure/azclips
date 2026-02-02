@@ -112,6 +112,7 @@ public class MultiVersionExtensionLoader(string extensionsDir, ILoggingService? 
                 _loggingService?.Debug($"No versions found for extension '{extensionName}' in multi-version extensions directory. Checked path: '{Path.Combine(extensionsDir, extensionFullName)}'");
                 return null;
             }
+            // TODO: Improve version comparison to handle semantic versioning properly
             Array.Sort(versionDirs);
             extensionDir = versionDirs[^1];
         }
