@@ -48,7 +48,7 @@ class Program
                 var responseBuilder = new StringBuilder();
 
                 // Show spinner while streaming response
-                using (var spinner = Spinner.Start())
+                using (Spinner.Start())
                 {
                     await foreach (var chunk in agent.RunStreamingAsync(input))
                     {
