@@ -183,7 +183,7 @@ azv2 create a resource group called mygroup in westus
 ask create a resource group called mygroup in westus
 
 # Standalone testing
-dotnet run --project src/Core/Core.Agent/Core.Agent.csproj
+dotnet run --project eval/Core.Agent.Standalone/Core.Agent.Standalone.csproj
 ```
 
 ---
