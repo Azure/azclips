@@ -63,8 +63,10 @@ Exit Code: 0
 Output:
 {
   "type": "howto",
-  "content": "To create a virtual machine in Azure...",
-  "examples": [...]
+  "response": {
+    "content": "To create a virtual machine in Azure...",
+    "examples": [...]
+  }
 }
 
 > quit
