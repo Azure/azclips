@@ -30,6 +30,7 @@ class Program
         ConsoleHelpers.WriteCyan("Enter natural language commands (or 'quit' to exit):\nExamples:\n  - show me all resource groups\n  - how do I create a VM\n  - grup list (typo correction)");
 
         // Interactive loop
+        var responseBuilder = new StringBuilder();
         while (true)
         {
             Console.Write("> ");
@@ -45,7 +46,7 @@ class Program
                 Console.WriteLine();
 
                 // Accumulate response to check for exit
-                var responseBuilder = new StringBuilder();
+                responseBuilder.Clear();
 
                 // Show spinner while streaming response
                 using (Spinner.Start())
