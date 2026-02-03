@@ -79,11 +79,17 @@ function Invoke-AzAI {
     # Set environment variable for CLI to detect PowerShell context
     $env:AZURECLI_FLAVOR = "azure powershell"
     
-    # Call azv2 as subprocess
-    $process = Start-Process azv2 -ArgumentList $queryString -NoNewWindow -PassThru
-    
-    # Stream and process output
-    # ... (see Output Processing section)
+    # Call azv2 as subprocess and stream output line-by-line
+    & azv2 $queryString 2>&1 | ForEach-Object {
+        $line = $_
+
+        # Stream and process output
+        # - Filter spinner output like "⠋ Thinking..."
+        # - Detect "__PSEXEC__<command>" markers
+        # - Show progress and regular output
+        # - Execute generated PowerShell commands
+        # ... (see Output Processing section)
+    }
 }
 
 # Convenient aliases
