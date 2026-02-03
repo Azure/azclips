@@ -146,7 +146,7 @@ The agent displays a progress indicator while waiting for the first token:
 ⠋ Thinking...
 ```
 
-Once streaming begins, the indicator disappears and response text appears in real-time.
+Once the model finishes streaming the response, the indicator is cleared and the full accumulated response text is written to the console in a single update (tokens are buffered internally rather than displayed in real-time).
 
 ### Performance Characteristics
 
