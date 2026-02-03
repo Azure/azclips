@@ -73,12 +73,12 @@ Goodbye!
 
 ## Configuration
 
-The standalone executable reads configuration from `src/Core/Core.Agent/.env`:
+The standalone executable reads configuration from a `.env` file. At runtime, configuration is loaded from the application's output directory (next to the built executable); for local development you can also use `src/Core/Core.Agent/.env`:
 
 ```bash
 AZURE_OPENAI_ENDPOINT=https://your-endpoint.openai.azure.com/
 AZURE_OPENAI_API_KEY=your-api-key
-AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4
+AZURE_OPENAI_DEPLOYMENT=gpt-4
 ```
 
 See `src/Core/Core.Agent/.env.example` for a template.
