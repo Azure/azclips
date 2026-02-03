@@ -86,18 +86,18 @@ See `src/Core/Core.Agent/.env.example` for a template.
 ## Architecture
 
 The standalone executable:
-1. Uses **Bootstrapper pattern** to configure DI container (same as production CLI)
-2. Resolves `ICommandEngine` and casts to `AgentEngine`
-3. Calls `ExecuteAsync()` directly with user input
+1. Creates a `CloudAgent` instance directly in `Program.cs`
+2. Configures the agent using environment variables from `.env`
+3. Sends raw user input directly to the agent for processing
 4. Returns raw agent responses for inspection/evaluation
 
-This ensures the standalone executable uses the **exact same agent logic** as production.
+This keeps the standalone executable lightweight while still exercising the core agent logic.
 
 ## Differences from Production CLI
 
 | Aspect | Standalone | Production CLI |
 |--------|-----------|----------------|
-| **Entry Point** | Direct `AgentEngine.ExecuteAsync()` | `OrchestratorEngine` → fallback to `AgentEngine` |
+| **Entry Point** | Direct `CloudAgent` invocation (no DI bootstrapper) | `OrchestratorEngine` → fallback to `AgentEngine` |
 | **Parsing** | No parsing, raw input to agent | `ExtensionDispatcher` tries first, then agent |
 | **Confirmation** | No interactive confirmation | Interactive `yes/no` prompts |
 | **Execution** | Shows JSON response only | Actually executes commands |
