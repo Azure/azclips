@@ -12,15 +12,15 @@ namespace Core.Cli.Parser;
 /// <exception cref="ArgumentException">Thrown when moduleAssembly does not have a valid name.</exception>
 public class ExtensionParser //: IParser
 {
-    public Assembly ExtensionAssembly { get; }
+    // public Assembly ExtensionAssembly { get; }
     //public ExtensionInfoAttribute ExtensionInfo { get; }
-    public string AssemblyName { get; }
+    // public string AssemblyName { get; }
     //public string ExtensionName { get; }
 
-    public ExtensionParser(Assembly extensionAssembly)
+    public ExtensionParser()
     {
-        ExtensionAssembly = extensionAssembly ?? throw new ArgumentNullException(nameof(extensionAssembly), "Module assembly cannot be null.");
-        AssemblyName = extensionAssembly.GetName().Name ?? throw new ArgumentException("Module assembly must have a valid name.", nameof(extensionAssembly));
+        // ExtensionAssembly = extensionAssembly ?? throw new ArgumentNullException(nameof(extensionAssembly), "Module assembly cannot be null.");
+        // AssemblyName = extensionAssembly.GetName().Name ?? throw new ArgumentException("Module assembly must have a valid name.", nameof(extensionAssembly));
         //ExtensionInfo = extensionAssembly.GetCustomAttribute<ExtensionInfoAttribute>()
         //    ?? throw new ArgumentException("Module assembly must have an ExtensionInfoAttribute.", nameof(extensionAssembly));
         //ExtensionName = ExtensionInfo.Name;
@@ -28,7 +28,7 @@ public class ExtensionParser //: IParser
 
     public (string, IDictionary<string, object>) Parse(string[] args)
     {
-        IDictionary<String, object> parameters = new Dictionary<string, object>();
+        Dictionary<string, List<List<string>>> parameters = [];
         int i = 0;
         
         // Find where parameters start (first argument beginning with -)
@@ -40,34 +40,54 @@ public class ExtensionParser //: IParser
         // Everything before the first - is the command name
         string commandName = string.Join(" ", args[..i]);
         
-        // Parse parameters
-        while (i < args.Length)
+        var currentProperty = string.Empty;
+        var currentValues = new List<string>();
+
+        foreach (var arg in args[i..])
         {
-            if (args[i].StartsWith("-"))
+            if (arg.StartsWith("-"))
             {
-                string key = args[i].TrimStart('-');
-                
-                // Check if next arg exists and doesn't start with - (it's a value)
-                if (i + 1 < args.Length && !args[i + 1].StartsWith("-"))
+                // If we were collecting values for a previous property, save it
+                if (!string.IsNullOrEmpty(currentProperty))
                 {
-                    parameters.Add(key, args[i + 1]);
-                    i += 2;
+                    if (!parameters.ContainsKey(currentProperty))
+                    {
+                        parameters[currentProperty] = new List<List<string>>();
+                    }
+                    parameters[currentProperty].Add(currentValues);
                 }
-                else
-                {
-                    // It's a flag without a value
-                    parameters.Add(key, true);
-                    i++;
-                }
+
+                // Start a new property
+                currentProperty = arg.ToLowerInvariant(); // Convert to kebab-case
+                currentValues = new List<string>();
             }
             else
             {
-                // Shouldn't happen in well-formed input, skip
-                i++;
+                if (string.IsNullOrEmpty(currentProperty))
+                {
+                    // If no property is set, treat this as a positional argument
+                    parameters[string.Empty] = parameters.GetValueOrDefault(string.Empty, []);
+                    parameters[string.Empty].Add([arg]);
+                }
+                else
+                {
+                    // Collect values for the current property
+                    currentValues.Add(arg);
+                }
             }
         }
+
+        // Save the last property collected
+        if (!string.IsNullOrEmpty(currentProperty))
+        {
+            if (!parameters.ContainsKey(currentProperty))
+            {
+                parameters[currentProperty] = [];
+            }
+            parameters[currentProperty].Add(currentValues);
+        }
         
-        return (commandName, parameters);
+        return (commandName, parameters.ToDictionary(kvp => kvp.Key, kvp => (object)kvp.Value));
     }
 
     //public Task<ICommand<TResult>> ParseAsync<TResult>(string[] args)

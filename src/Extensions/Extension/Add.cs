@@ -1,4 +1,5 @@
 using Core.Abstractions;
+using Core.Abstractions.Runtime;
 using Core.Engine;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -6,6 +7,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Extension.Commands;
 
 public class AddExtensionCommand : IProcessor
 {
+    private CommandOutputDelegate _writeOutput = null!;
+
     [ArgumentInfo(
     Required = false,
     Description = @"The name of the extension to add.",
@@ -29,6 +32,18 @@ public class AddExtensionCommand : IProcessor
     Description = @"Path to the extension .nupkg file to add.",
     SerializedName = @"Path")]
     public string? Path { get; set; }
+
+    public IProcessor Init(ICommandContext context)
+    {
+        _writeOutput = context.CommandOutputHandler.WriteOutput;
+        return this;
+    }
+
+    public async Task ProcessAsync()
+    {
+        var result = Process();
+        await _writeOutput(result);
+    }
 
     public object Process()
     {

@@ -42,8 +42,10 @@ public class EngineFactory
                     engine = new PSEngine(_serviceProvider);
                     break;
                 case ClientType.CLI:
-                    throw new NotImplementedException("CLI engine is not implemented yet.");
-                    //break;
+                    engine = new CLIEngine(_serviceProvider, Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".cirrus", "extensions"));
+                    break;
                 default:
                     throw new NotSupportedException($"Client type '{clientType}' is not supported.");
             }
