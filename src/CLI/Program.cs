@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Core.Abstractions;
 using Core.Cli.Exceptions;
@@ -40,7 +41,12 @@ public class Program
                 commandActivity?.SetTag("command.type", invocation.GetType().Name);
 
                 var engine = serviceProvider.GetService<EngineFactory>()?.GetEngine(ClientType.CLI) ?? throw new InvalidOperationException("CLI Engine not available.");
-                engine.Process(invocation, (value, ct) => { Console.WriteLine(value); return Task.CompletedTask; });
+                engine.Process(invocation, (value, ct) => 
+                { 
+                    var json = JsonSerializer.Serialize(value, new JsonSerializerOptions { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+                    Console.WriteLine(json); 
+                    return Task.CompletedTask; 
+                });
 
                 activity?.SetStatus(ActivityStatusCode.Ok);
                 return 0;

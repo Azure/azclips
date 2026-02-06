@@ -52,8 +52,10 @@ public class BuiltinExtensionLoader(ILoggingService? loggingService = null) : IE
             return null;
         }
         var executableDir = AppContext.BaseDirectory;
-        var extensionsDir = Path.Combine(executableDir, "Extensions");
-        var extensionPath = Path.Combine(extensionsDir, extensionName, $"Microsoft.Azure.Cirrus.Extensions.{extensionName}.dll");
+        // For debug: look in sibling directory like artifacts/Debug/Microsoft.Azure.Cirrus.Extensions.Resources/
+        var parentDir = Path.GetDirectoryName(executableDir.TrimEnd(Path.DirectorySeparatorChar));
+        var extensionDirName = $"Microsoft.Azure.Cirrus.Extensions.{extensionName}";
+        var extensionPath = Path.Combine(parentDir!, extensionDirName, $"Microsoft.Azure.Cirrus.Extensions.{extensionName}.dll");
         if (!File.Exists(extensionPath))
         {
             _loggingService?.Debug($"Extension '{extensionName}' not found in builtin extensions directory, will try other sources. Checked path: '{extensionPath}'");

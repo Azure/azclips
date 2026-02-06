@@ -7,8 +7,13 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
     public class ResourceCommandBase : IProcessor, IEventListener
     {
         protected IRuntimeHttpPipeline HttpPipeline = null!;
-        protected readonly JsonSerializerOptions _jsonOptions = null!;
+        protected readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
         protected CommandOutputDelegate WriteOutput = null!;
+        protected AuthContext AuthContext = null!;
         public StartActivityDelegate StartActivity { get; set; } = null!;
         protected virtual void BeforeInit() { }
         protected virtual void AfterInit() { }
@@ -24,6 +29,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
             HttpPipeline = context.HttpPipeline;
             WriteOutput = context.CommandOutputHandler.WriteOutput;
             StartActivity = context.CommandTelemetryHandler.StartActivity;
+            AuthContext = context.CommandAuthHandler.AuthContext;
 
             AfterInit();
             return this;
