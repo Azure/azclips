@@ -7,6 +7,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Extension.Commands;
 
 public class AddExtensionCommand : IProcessor
 {
+    private CommandOutputDelegate _writeOutput = null!;
+
     [ArgumentInfo(
     Required = false,
     Description = @"The name of the extension to add.",
@@ -33,14 +35,14 @@ public class AddExtensionCommand : IProcessor
 
     public IProcessor Init(ICommandContext context)
     {
-        // Extension commands don't use the new pipeline yet
+        _writeOutput = context.CommandOutputHandler.WriteOutput;
         return this;
     }
 
-    public Task ProcessAsync()
+    public async Task ProcessAsync()
     {
-        Process();
-        return Task.CompletedTask;
+        var result = Process();
+        await _writeOutput(result);
     }
 
     public object Process()

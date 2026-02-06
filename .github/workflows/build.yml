@@ -76,6 +76,11 @@ jobs:
       run: dotnet publish src/CLI/Core.Cli.csproj -c ${{ matrix.configuration }} -r ${{ matrix.platform }} --self-contained -o ./publish/${{ matrix.configuration }}/${{ matrix.platform }}
       env:
         Configuration: ${{ matrix.configuration }}
+    
+    - name: Publish the Extension (az extension)
+      run: dotnet publish src/Extensions/Extension/Extensions.Extension.csproj -c ${{ matrix.configuration }} -r ${{ matrix.platform }} -o ./publish/${{ matrix.configuration }}/${{ matrix.platform }}/Extensions/Extension
+      env:
+        Configuration: ${{ matrix.configuration }}
 
     # Copy appx manifest
     - name: Copy appx manifest
