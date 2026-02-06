@@ -41,6 +41,25 @@ public static class ChartGenerator
         };
         File.WriteAllText(jsonPath, JsonSerializer.Serialize(jsonData, new JsonSerializerOptions { WriteIndented = true }));
         Console.WriteLine($"[Chart] Summary JSON: {jsonPath}");
+
+        // Export to Application Insights for Grafana
+        ExportToAppInsights(chartData, timestamp);
+    }
+
+    /// <summary>
+    /// Export benchmark results to Application Insights.
+    /// </summary>
+    private static void ExportToAppInsights(List<ChartDataPoint> chartData, string timestamp)
+    {
+        try
+        {
+            using var exporter = new AppInsightsExporter();
+            exporter.Export(chartData, timestamp);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[AppInsights] Export failed: {ex.Message}");
+        }
     }
 
     private static List<ChartDataPoint> ExtractChartData(IEnumerable<Summary> summaries)
@@ -425,7 +444,7 @@ public static class ChartGenerator
     }
 }
 
-internal record ChartDataPoint(string Method, string Product, double MeanSeconds);
+public record ChartDataPoint(string Method, string Product, double MeanSeconds);
 
 internal class OverheadData
 {
