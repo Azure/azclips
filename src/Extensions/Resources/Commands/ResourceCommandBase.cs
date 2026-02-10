@@ -7,7 +7,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
     public class ResourceCommandBase : IProcessor, IEventListener
     {
         protected IRuntimeHttpPipeline HttpPipeline = null!;
-        protected readonly JsonSerializerOptions _jsonOptions = null!;
+        protected JsonSerializerOptions _jsonOptions = null!;
         protected CommandOutputDelegate WriteOutput = null!;
         public StartActivityDelegate StartActivity { get; set; } = null!;
         protected virtual void BeforeInit() { }
@@ -20,6 +20,13 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
         public IProcessor Init(ICommandContext context)
         {
             BeforeInit();
+
+            // TODO: temporarily initialize arbitrary json options here, get from context in the future
+            _jsonOptions = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
 
             HttpPipeline = context.HttpPipeline;
             WriteOutput = context.CommandOutputHandler.WriteOutput;

@@ -42,9 +42,7 @@ public class EngineFactory
                     engine = new PSEngine(_serviceProvider);
                     break;
                 case ClientType.CLI:
-                    engine = new CLIEngine(_serviceProvider, Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".cirrus", "extensions"));
+                    engine = new CLIEngine(_serviceProvider);
                     break;
                 default:
                     throw new NotSupportedException($"Client type '{clientType}' is not supported.");
