@@ -23,21 +23,27 @@ public class CLIEngine(IServiceProvider serviceProvider) : IEngine
 
     // use config service to retrieve the proper cli path in the future. Use conditional compilation for now.
 #if DEBUG
-    private static readonly string buildtinExtensionsDir = Path.GetFullPath(
+    private static readonly string builtinExtensionsDir = Path.GetFullPath(
         Path.Combine(AppContext.BaseDirectory, ".."));
-    private static readonly string versionedExtensionsDir = buildtinExtensionsDir;
-    private static readonly string extensionfolderPrefix = _prefix;
+    private static readonly string versionedExtensionsDir = builtinExtensionsDir;
+    private static readonly string extensionFolderPrefix = _prefix; 
 #else
-    private static readonly string buildtinExtensionsDir = Path.Combine(AppContext.BaseDirectory, "Extensions");
+    private static readonly string builtinExtensionsDir = Path.Combine(AppContext.BaseDirectory, "Extensions");
+    private static readonly string versionedExtensionsDir = builtinExtensionsDir;
+    private static readonly string extensionFolderPrefix = _prefix;
+    
+#endif
+#if RELEASE
+    private static readonly string builtinExtensionsDir = Path.Combine(AppContext.BaseDirectory, "Extensions");
     private static readonly string versionedExtensionsDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             ".cirrus", "extensions");
-    private static readonly string extensionfolderPrefix = "";
+    private static readonly string extensionFolderPrefix = "";
 #endif
     public List<IExtensionLoader> ExtensionLoaders { get; } =
     [
         new MultiVersionExtensionLoader(versionedExtensionsDir, serviceProvider.GetService<ILoggingService>()),
-        new BuiltinExtensionLoader(buildtinExtensionsDir, serviceProvider.GetService<ILoggingService>()),
+        new BuiltinExtensionLoader(builtinExtensionsDir, serviceProvider.GetService<ILoggingService>()),
     ];
 
     private Assembly? LoadExtension(string extensionFolderName, string extensionName, string? version = null) => ExtensionLoaders
@@ -47,7 +53,7 @@ public class CLIEngine(IServiceProvider serviceProvider) : IEngine
     public IProcessor GetCommand(ICommandInvocation invocation)
     {
         string extensionName = invocation.ExtensionName ?? throw new InvalidOperationException("CLIEngine can only process commands with an extension name specified.");
-        string extensionFolderName = extensionfolderPrefix + extensionName;
+        string extensionFolderName = extensionFolderPrefix + extensionName;
         extensionName = _prefix + extensionName;
         var loggingService = _serviceProvider.GetService<ILoggingService>();
         loggingService?.Info($"Processing command with extension '{invocation.ExtensionName}'.");
