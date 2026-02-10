@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Microsoft.Azure.Cirrus.Extensions.Resources.Models
 {
     //
@@ -6,11 +8,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Models
     // todo: support pagination
     public class ResourceGroupListResult
     {
-        public required ResourceGroup[] Value { get; set; }
-
-        public ResourceGroupListResult(ResourceGroup[]? value = null)
-        {
-            Value = value ?? Array.Empty<ResourceGroup>();
-        }
+        [JsonPropertyName("value")]
+        public ResourceGroup[] Value { get; set; } = Array.Empty<ResourceGroup>();
     }
 }
