@@ -27,9 +27,7 @@ public class CLIEngine(IServiceProvider serviceProvider) : IEngine
         Path.Combine(AppContext.BaseDirectory, ".."));
     private static readonly string versionedExtensionsDir = buildtinExtensionsDir;
     private static readonly string extensionfolderPrefix = _prefix;
-    
-#endif
-#if RELEASE
+#else
     private static readonly string buildtinExtensionsDir = Path.Combine(AppContext.BaseDirectory, "Extensions");
     private static readonly string versionedExtensionsDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
