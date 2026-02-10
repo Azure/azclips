@@ -6,10 +6,10 @@ namespace Core.Engine;
 
 public interface IExtensionLoader
 {
-    public Assembly? LoadExtension(string extensionName, string? version = null);
+    public Assembly? LoadExtension(string extensionFolderName, string extensionName, string? version = null);
 }
 
-public class BuiltinExtensionLoader(ILoggingService? loggingService = null) : IExtensionLoader
+public class BuiltinExtensionLoader(string extensionsDir, ILoggingService? loggingService = null) : IExtensionLoader
 {
     internal class ExtensionLoadContext(string extensionPath, ILoggingService? loggingService = null) : AssemblyLoadContext
     {
@@ -45,15 +45,13 @@ public class BuiltinExtensionLoader(ILoggingService? loggingService = null) : IE
 
     private readonly ILoggingService? _loggingService = loggingService;
 
-    public Assembly? LoadExtension(string extensionName, string? version = null)
+    public Assembly? LoadExtension(string extensionFolderName, string extensionName, string? version = null)
     {
         if (version != null)
         {
             return null;
         }
-        var executableDir = AppContext.BaseDirectory;
-        var extensionsDir = Path.Combine(executableDir, "Extensions");
-        var extensionPath = Path.Combine(extensionsDir, extensionName, $"Microsoft.Azure.Cirrus.Extensions.{extensionName}.dll");
+        var extensionPath = Path.Combine(extensionsDir, extensionFolderName, $"{extensionName}.dll");
         if (!File.Exists(extensionPath))
         {
             _loggingService?.Debug($"Extension '{extensionName}' not found in builtin extensions directory, will try other sources. Checked path: '{extensionPath}'");
@@ -89,27 +87,26 @@ public class MultiVersionExtensionLoader(string extensionsDir, ILoggingService? 
 
     private readonly ILoggingService? _loggingService = loggingService;
 
-    public Assembly? LoadExtension(string extensionName, string? version = null)
+    public Assembly? LoadExtension(string extensionFolderName, string extensionName, string? version = null)
     {
-        var extensionFullName = $"Microsoft.Azure.Cirrus.Extensions.{extensionName}";
         string extensionDir;
         if (version != null)
         {
             _loggingService?.Debug($"Loading extension '{extensionName}' version '{version}' from multi-version extensions directory.");
-            extensionDir = Path.Combine(extensionsDir, extensionFullName, version);
+            extensionDir = Path.Combine(extensionsDir, extensionName, version);
         }
         else
         {
-            if (!Directory.Exists(Path.Combine(extensionsDir, extensionFullName)))
+            if (!Directory.Exists(Path.Combine(extensionsDir, extensionName)))
             {
-                _loggingService?.Debug($"Extension '{extensionName}' not found in multi-version extensions directory, will try other sources. Checked path: '{Path.Combine(extensionsDir, extensionFullName)}'");
+                _loggingService?.Debug($"Extension '{extensionName}' not found in multi-version extensions directory, will try other sources. Checked path: '{Path.Combine(extensionsDir, extensionName)}'");
                 return null;
             }
             // Load the latest version
-            var versionDirs = Directory.GetDirectories(Path.Combine(extensionsDir, extensionFullName));
+            var versionDirs = Directory.GetDirectories(Path.Combine(extensionsDir, extensionName));
             if (versionDirs.Length == 0)
             {
-                _loggingService?.Debug($"No versions found for extension '{extensionName}' in multi-version extensions directory. Checked path: '{Path.Combine(extensionsDir, extensionFullName)}'");
+                _loggingService?.Debug($"No versions found for extension '{extensionName}' in multi-version extensions directory. Checked path: '{Path.Combine(extensionsDir, extensionName)}'");
                 return null;
             }
             // TODO: Improve version comparison to handle semantic versioning properly
@@ -117,7 +114,7 @@ public class MultiVersionExtensionLoader(string extensionsDir, ILoggingService? 
             extensionDir = versionDirs[^1];
         }
 
-        var extensionPath = Path.Combine(extensionDir, $"{extensionFullName}.dll");
+        var extensionPath = Path.Combine(extensionDir, $"{extensionName}.dll");
         if (!File.Exists(extensionPath))
         {
             _loggingService?.Debug($"Extension '{extensionName}' version '{version}' not found in multi-version extensions directory. Checked path: '{extensionPath}'");
