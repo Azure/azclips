@@ -25,42 +25,6 @@ using var cliActivity = telemetry.StartCLIActivity(args);
 using var psActivity = telemetry.StartPowerShellActivity(commandName, parameters);
 ```
 
----
-
-## Architecture
-
-### Components
-
-| File | Description |
-|------|-------------|
-| `TelemetryService.cs` | Main service implementing `ITelemetryService` |
-| `FileExporter.cs` | Custom exporter writing traces to local JSON files |
-| `TelemetryExtensions.cs` | Helper methods for CLI-specific activities |
-
-### Export Destinations
-
-| Exporter | Configuration | Enabled |
-|----------|---------------|---------|
-| **File** | `%LOCALAPPDATA%\AzureCLI\traces\` | Always |
-| **Azure Monitor** | App Insights connection string | Disabled* |
-| **Zipkin** | `ZIPKIN_ENDPOINT` env var or `localhost:9411` | Debug only |
-
-> *Azure Monitor exporter is temporarily disabled due to initialization performance impact.
-
-### Trace Structure
-
-```
-AzureCLI.Main (root span)
-├── command: "az group list"
-├── parameters: "--subscription ***"
-└── http.request (auto-instrumented)
-    ├── http.method: "GET"
-    ├── http.url: "https://management.azure.com/..."
-    └── http.status_code: 200
-```
-
----
-
 ## Telemetry Data Schema
 
 ### Span (Activity) Fields
@@ -113,6 +77,12 @@ AzureCLI.Main (root span)
 ---
 
 ## Export
+
+| Exporter | Configuration | Enabled |
+|----------|---------------|---------|
+| **File** | `%LOCALAPPDATA%\AzureCLI\traces\` | Always |
+| **Azure Monitor** | App Insights connection string | Unless user Disabled |
+| **Zipkin** | `ZIPKIN_ENDPOINT` env var or `localhost:9411` | Debug only |
 
 ### Local File Export
 
