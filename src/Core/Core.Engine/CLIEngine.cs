@@ -14,29 +14,44 @@ namespace Core.Engine;
 /// CLI command engine for executing commands from raw command strings.
 /// The parsing logic is handled internally in GetCommand().
 /// </summary>
-public class CLIEngine(IServiceProvider serviceProvider, string extensionsDir) : IEngine
+public class CLIEngine(IServiceProvider serviceProvider) : IEngine
 {
     private readonly IServiceProvider _serviceProvider = serviceProvider;
     private readonly HttpClient _httpClient = new();
     private bool _disposed = false;
+    private static readonly string _prefix = "Microsoft.Azure.Cirrus.Extensions.";
+
+    // use config service to retrieve the proper cli path in the future. Use conditional compilation for now.
+#if DEBUG
+    private static readonly string builtinExtensionsDir = Path.GetFullPath(
+        Path.Combine(AppContext.BaseDirectory, ".."));
+    private static readonly string versionedExtensionsDir = builtinExtensionsDir;
+    private static readonly string extensionFolderPrefix = _prefix;
+#else
+    private static readonly string builtinExtensionsDir = Path.Combine(AppContext.BaseDirectory, "Extensions");
+    private static readonly string versionedExtensionsDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".cirrus", "extensions");
+    private static readonly string extensionFolderPrefix = "";
+#endif
     public List<IExtensionLoader> ExtensionLoaders { get; } =
     [
-        new MultiVersionExtensionLoader(extensionsDir, serviceProvider.GetService<ILoggingService>()),
-        new BuiltinExtensionLoader(serviceProvider.GetService<ILoggingService>()),
+        new MultiVersionExtensionLoader(versionedExtensionsDir, serviceProvider.GetService<ILoggingService>()),
+        new BuiltinExtensionLoader(builtinExtensionsDir, serviceProvider.GetService<ILoggingService>()),
     ];
 
-    private Assembly? LoadExtension(string extensionName, string? version = null)
-    {
-        return ExtensionLoaders
-            .Select(loader => loader.LoadExtension(extensionName, version))
+    private Assembly? LoadExtension(string extensionFolderName, string extensionName, string? version = null) => ExtensionLoaders
+            .Select(loader => loader.LoadExtension(extensionFolderName, extensionName, version))
             .FirstOrDefault(assembly => assembly != null);
-    }
 
     public IProcessor GetCommand(ICommandInvocation invocation)
     {
+        string extensionName = invocation.ExtensionName ?? throw new InvalidOperationException("CLIEngine can only process commands with an extension name specified.");
+        string extensionFolderName = extensionFolderPrefix + extensionName;
+        extensionName = _prefix + extensionName;
         var loggingService = _serviceProvider.GetService<ILoggingService>();
         loggingService?.Info($"Processing command with extension '{invocation.ExtensionName}'.");
-        Assembly extensionAssembly = LoadExtension(invocation.ExtensionName) ?? throw new InvalidOperationException($"Extension '{invocation.ExtensionName}' could not be found by any extension loader.");
+        Assembly extensionAssembly = LoadExtension(extensionFolderName, extensionName) ?? throw new InvalidOperationException($"Extension '{invocation.ExtensionName}' could not be found by any extension loader.");
         loggingService?.Verbose($"Loaded extension assembly '{extensionAssembly.FullName}'.");
         var typeName = $"{extensionAssembly.GetName().Name}.ExtensionIndex";
         Type indexType = extensionAssembly.GetType(typeName) ?? throw new InvalidOperationException($"Extension '{invocation.ExtensionName}' does not contain a {typeName} type.");
