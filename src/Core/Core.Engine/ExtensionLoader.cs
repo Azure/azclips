@@ -18,7 +18,7 @@ public class BuiltinExtensionLoader(ILoggingService? loggingService = null) : IE
 
         protected override Assembly? Load(AssemblyName assemblyName)
         {
-            if (assemblyName.Name != null && assemblyName.Name.StartsWith("Core."))
+            if (assemblyName.Name != null && (assemblyName.Name.StartsWith("Core.") || assemblyName.Name.StartsWith("Microsoft.Extensions.DependencyInjection")))
             {
                 _loggingService?.Debug($"Skipping to load assembly '{assemblyName.Name}' in BuiltinExtensionLoader.");
                 return null;
@@ -73,7 +73,7 @@ public class MultiVersionExtensionLoader(string extensionsDir, ILoggingService? 
 
         protected override Assembly? Load(AssemblyName assemblyName)
         {
-            if (assemblyName.Name == "SharedContracts" || assemblyName.Name == "Core.SharedContracts")
+            if (assemblyName.Name != null && (assemblyName.Name.StartsWith("Core.") || assemblyName.Name.StartsWith("Microsoft.Extensions.DependencyInjection")))
             {
                 _loggingService?.Debug($"Skipping to load assembly '{assemblyName.Name}' in MultiVersionExtensionLoader.");
                 return null;
