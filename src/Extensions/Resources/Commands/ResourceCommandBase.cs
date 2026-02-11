@@ -9,6 +9,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
         protected IRuntimeHttpPipeline HttpPipeline = null!;
         protected JsonSerializerOptions _jsonOptions = null!;
         protected CommandOutputDelegate WriteOutput = null!;
+        protected AuthContext AuthContext = null!;
         public StartActivityDelegate StartActivity { get; set; } = null!;
         protected virtual void BeforeInit() { }
         protected virtual void AfterInit() { }
@@ -31,6 +32,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
             HttpPipeline = context.HttpPipeline;
             WriteOutput = context.CommandOutputHandler.WriteOutput;
             StartActivity = context.CommandTelemetryHandler.StartActivity;
+            AuthContext = context.CommandAuthHandler.AuthContext;
 
             AfterInit();
             return this;
