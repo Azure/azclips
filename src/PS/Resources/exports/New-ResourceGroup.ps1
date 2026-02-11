@@ -15,7 +15,6 @@ function New-ResourceGroup {
         # Start telemetry activity
         $script:activity = Start-CmdletActivity -CmdletName "New-ResourceGroup" -Parameters $PSBoundParameters
 
-        $engine = [Core.Engine.Bootstrapper]::ServiceProviderAsync.GetAwaiter().GetResult().GetService([Core.Engine.EngineFactory]).GetEngine([Core.Abstractions.ClientType]::PowerShell);
         $outputDelegate = [Core.Abstractions.Runtime.CommandOutputDelegate]{
             param([object]$value, [System.Threading.CancellationToken]$ct)
             $PSCmdlet.WriteObject($value)
@@ -25,8 +24,6 @@ function New-ResourceGroup {
 
     process {
         try {
-            $extensionName = "Resources";
-            $commandName = "New-ResourceGroup";
             $parameters = [System.Collections.Generic.Dictionary[string, object]]::New();
 
             if ($PSBoundParameters.ContainsKey('SubscriptionId')) {
@@ -38,8 +35,13 @@ function New-ResourceGroup {
             if ($PSBoundParameters.ContainsKey('Location')) {
                 $parameters.Add('Location', [object]$Location);
             }
-            $invocation = [Core.Implementation.PSCommandInvocation]::New($extensionName, $commandName, $parameters);
-            $response = $engine.Process($invocation, $outputDelegate, [System.Threading.CancellationToken]::None);
+            $script:CirrusHost.InvokeByName(
+                $script:ExtensionAssemblyPath,
+                'Resources',
+                'New-ResourceGroup',
+                $parameters,
+                $outputDelegate,
+                [System.Threading.CancellationToken]::None);
             
             # Mark activity as successful
             if ($null -ne $script:activity) {

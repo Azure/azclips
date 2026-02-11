@@ -2,16 +2,21 @@ using Core.Abstractions.Runtime;
 
 namespace Core.Abstractions;
 
+/// <summary>
+/// Minimal execution engine. Accepts a fully-configured IProcessor (properties set)
+/// and runs it. The engine handles context creation and execution only.
+/// No parameter binding, no extension loading — that's the caller's job.
+/// </summary>
 public interface IEngine : IDisposable
 {
     /// <summary>
-    /// Processes a command invocation synchronously on the caller's thread.
-    /// Use this when the output delegate must run on the caller thread (e.g., PowerShell runspace).
+    /// Executes a command processor. The engine creates the command context,
+    /// initializes the processor via <see cref="IProcessor.Init"/>, and runs it.
     /// </summary>
-    /// <param name="invocation">The command invocation to process.</param>
-    /// <param name="outputDelegate">The output delegate for this specific invocation.</param>
+    /// <param name="command">A fully-configured IProcessor with all properties set.</param>
+    /// <param name="output">The output delegate for this invocation (Console.WriteLine or $PSCmdlet.WriteObject).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    void Process(ICommandInvocation invocation, CommandOutputDelegate outputDelegate, CancellationToken cancellationToken = default);
+    void Execute(IProcessor command, CommandOutputDelegate output, CancellationToken cancellationToken = default);
 }
 
 public interface ICommandEngine

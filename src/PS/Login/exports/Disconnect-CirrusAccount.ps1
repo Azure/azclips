@@ -6,7 +6,6 @@ function Disconnect-CirrusAccount {
     begin {
         $script:activity = Start-CmdletActivity -CmdletName "Disconnect-CirrusAccount" -Parameters $PSBoundParameters
 
-        $engine = [Core.Engine.Bootstrapper]::ServiceProviderAsync.GetAwaiter().GetResult().GetService([Core.Engine.EngineFactory]).GetEngine([Core.Abstractions.ClientType]::PowerShell);
         $outputDelegate = [Core.Abstractions.Runtime.CommandOutputDelegate]{
             param([object]$value, [System.Threading.CancellationToken]$ct)
             $PSCmdlet.WriteObject($value)
@@ -16,14 +15,16 @@ function Disconnect-CirrusAccount {
 
     process {
         try {
-            $extensionName = "Login";
-            $commandName = "Disconnect-CirrusAccount";
             $parameters = [System.Collections.Generic.Dictionary[string, object]]::New();
 
-            $invocation = [Core.Implementation.PSCommandInvocation]::New($extensionName, $commandName, $parameters);
-
             if ($PSCmdlet.ShouldProcess("Cirrus Account", "Disconnect")) {
-                $response = $engine.Process($invocation, $outputDelegate, [System.Threading.CancellationToken]::None);
+                $script:CirrusHost.InvokeByName(
+                    $script:ExtensionAssemblyPath,
+                    'Login',
+                    'Disconnect-CirrusAccount',
+                    $parameters,
+                    $outputDelegate,
+                    [System.Threading.CancellationToken]::None);
             }
 
             # Mark activity as successful

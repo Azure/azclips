@@ -3,7 +3,7 @@ using Core.Cli.Parser;
 
 namespace Core.Cli.Exceptions;
 
-public class DispatchHelpException(ExtensionDispatcher extensionDispatcher): ParserException("Dispatch help requested.")
+public class DispatchHelpException(CommandRouter router): ParserException("Dispatch help requested.")
 {
-    public ExtensionDispatcher ExtensionDispatcher { get; } = extensionDispatcher;
+    public CommandRouter Router { get; } = router;
 }

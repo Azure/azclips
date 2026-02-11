@@ -4,6 +4,7 @@ using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
 {
+    [CommandInfo(Name = "get", Description = "Get a resource group.")]
     public class GetResourceGroupCommand : ResourceCommandBase
     {
         [ArgumentInfo(

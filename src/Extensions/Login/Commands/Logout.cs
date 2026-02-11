@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
 {
+    [CommandInfo(Name = "logout", Description = "Log out of Azure.")]
     public class LogoutCommand : LoginCommandBase
     {
         public override async Task ProcessAsync()

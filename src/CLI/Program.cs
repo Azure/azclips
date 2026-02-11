@@ -2,13 +2,13 @@ using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Core.Abstractions;
 using Core.Cli.Exceptions;
 using Core.Cli.Parser;
 using Core.Engine;
-using Core.Implementation;
+using Core.Cli.Help.Templates;
 using Core.Telemetry;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -19,6 +19,8 @@ public class Program
     private static readonly string AssemblyName = Assembly.GetExecutingAssembly().GetName().Name!;
     private static ITelemetryService? _telemetryService;
     private static ILoggingService? _logger;
+    private static CommandActivator? _activator;
+    private static CLIEngine? _engine;
 
     public static async Task<int> Main(string[] args)
     {
@@ -26,29 +28,56 @@ public class Program
         _telemetryService = serviceProvider.GetRequiredService<ITelemetryService>();
         _logger = serviceProvider.GetRequiredService<ILoggingService>();
 
+        // Create extension loaders and command resolver
+        var extensionsDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".cirrus", "extensions");
+        IExtensionLoader[] extensionLoaders =
+        [
+            new BuiltinExtensionLoader(_logger),
+            new MultiVersionExtensionLoader(extensionsDir, _logger)
+        ];
+        _activator = new CommandActivator(extensionLoaders, _logger);
+        _engine = new CLIEngine(serviceProvider);
+
         try
         {
             using var activity = _telemetryService.StartCLIActivity(args);
 
-            var dispatcher = new ExtensionDispatcher();
-
             try
             {
-                ICommandInvocation invocation = dispatcher.Parse(args);
+                IProcessor command = _activator.Activate(args);
 
                 using var commandActivity = _telemetryService.ActivitySource.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
-                commandActivity?.SetTag("command.type", invocation.GetType().Name);
+                commandActivity?.SetTag("command.type", command.GetType().Name);
 
-                var engine = serviceProvider.GetService<EngineFactory>()?.GetEngine(ClientType.CLI) ?? throw new InvalidOperationException("CLI Engine not available.");
-                engine.Process(invocation, (value, ct) => { Console.WriteLine(value); return Task.CompletedTask; });
+                _engine.Execute(command, (value, ct) => { Console.WriteLine(value); return Task.CompletedTask; });
 
                 activity?.SetStatus(ActivityStatusCode.Ok);
                 return 0;
             }
             catch (DispatchHelpException)
             {
-                _logger?.Log("Command Line Interface Help");
+                var template = new DispatchHelpTemplate();
+                foreach (var line in template.Render("azv2", TerminalWidth()))
+                    Console.WriteLine(line);
                 activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
+                return 0;
+            }
+            catch (CommandGroupHelpException ex)
+            {
+                var template = new CommandGroupHelpTemplate();
+                foreach (var line in template.Render(ex.GroupName, ex.ExtensionIndex, "azv2", TerminalWidth()))
+                    Console.WriteLine(line);
+                activity?.SetStatus(ActivityStatusCode.Ok, "Group help requested");
+                return 0;
+            }
+            catch (CommandHelpException ex)
+            {
+                var template = new CommandHelpTemplate();
+                foreach (var line in template.Render(ex.GroupName, ex.CommandMetadata, "azv2", TerminalWidth()))
+                    Console.WriteLine(line);
+                activity?.SetStatus(ActivityStatusCode.Ok, "Command help requested");
                 return 0;
             }
             catch (Exception ex)
@@ -63,6 +92,7 @@ public class Program
         }
         finally
         {
+            _engine?.Dispose();
             _telemetryService?.Dispose();
         }
     }
@@ -77,7 +107,6 @@ public class Program
 
         try
         {
-            // Use the singleton AgentEngine from DI container
             var agentEngine = serviceProvider.GetRequiredService<AgentEngine>();
             var output = serviceProvider.GetRequiredService<IOutputAdapter>();
 
@@ -90,13 +119,10 @@ public class Program
                 var extractedCommand = agentEngine.ExtractedCommand;
                 if (string.IsNullOrWhiteSpace(extractedCommand))
                 {
-                    // AI provided info/help but no executable command
                     return 0;
                 }
 
-                // AI generated a command - retry through extension loader
                 var retryArgs = extractedCommand.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                // Skip the first token if it matches the assembly name
                 if (retryArgs.Length > 0 && retryArgs[0].Equals(AssemblyName, StringComparison.OrdinalIgnoreCase))
                 {
                     retryArgs = retryArgs.Skip(1).ToArray();
@@ -106,10 +132,8 @@ public class Program
 
                 try
                 {
-                    var dispatcher = new ExtensionDispatcher();
-                    ICommandInvocation invocation = dispatcher.Parse(retryArgs);
-                    //string result = Engine.Engine.GetCommand(invocation).Process(true).ToString();
-                    //Console.WriteLine(result);
+                    IProcessor command = _activator!.Activate(retryArgs);
+                    _engine!.Execute(command, (value, ct) => { Console.WriteLine(value); return Task.CompletedTask; });
                     return 0;
                 }
                 catch (Exception ex)
@@ -119,7 +143,6 @@ public class Program
                         await output.WriteErrorAsync($"Failed to execute command after {maxRetries} attempts: {ex.Message}");
                         return 1;
                     }
-                    // Update args for next iteration
                     currentArgs = retryArgs;
                 }
             }

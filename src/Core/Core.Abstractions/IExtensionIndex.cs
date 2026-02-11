@@ -11,5 +11,11 @@ namespace Core.Abstractions
     public interface IExtensionIndex
     {
         ICommandMetadata GetCommandMetaData(string name, ClientType clientType);
+
+        /// <summary>
+        /// Returns all registered commands for the given client type.
+        /// Used by the help system to enumerate available commands.
+        /// </summary>
+        IEnumerable<ICommandMetadata> GetAllCommands(ClientType clientType);
     }
 }

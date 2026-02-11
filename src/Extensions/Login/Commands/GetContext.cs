@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
 {
+    [CommandInfo(Name = "show", Description = "Show current login context.")]
     public class GetContextCommand : LoginCommandBase
     {
         public override async Task ProcessAsync() {

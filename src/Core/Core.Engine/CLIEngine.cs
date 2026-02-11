@@ -11,98 +11,40 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Core.Engine;
 
 /// <summary>
-/// CLI command engine for executing commands from raw command strings.
-/// The parsing logic is handled internally in GetCommand().
+/// CLI command engine — handles context creation and execution only.
+/// Extension loading, command resolution, and parameter binding are handled
+/// by the caller (CLI's CommandResolver) before calling Execute().
 /// </summary>
-public class CLIEngine(IServiceProvider serviceProvider, string extensionsDir) : IEngine
+public class CLIEngine : IEngine
 {
-    private readonly IServiceProvider _serviceProvider = serviceProvider;
+    private readonly IServiceProvider _serviceProvider;
     private readonly HttpClient _httpClient = new();
-    private bool _disposed = false;
-    public List<IExtensionLoader> ExtensionLoaders { get; } =
-    [
-        new MultiVersionExtensionLoader(extensionsDir, serviceProvider.GetService<ILoggingService>()),
-        new BuiltinExtensionLoader(serviceProvider.GetService<ILoggingService>()),
-    ];
+    private bool _disposed;
 
-    private Assembly? LoadExtension(string extensionName, string? version = null)
+    public CLIEngine(IServiceProvider serviceProvider)
     {
-        return ExtensionLoaders
-            .Select(loader => loader.LoadExtension(extensionName, version))
-            .FirstOrDefault(assembly => assembly != null);
-    }
-
-    public IProcessor GetCommand(ICommandInvocation invocation)
-    {
-        var loggingService = _serviceProvider.GetService<ILoggingService>();
-        loggingService?.Info($"Processing command with extension '{invocation.ExtensionName}'.");
-        Assembly extensionAssembly = LoadExtension(invocation.ExtensionName) ?? throw new InvalidOperationException($"Extension '{invocation.ExtensionName}' could not be found by any extension loader.");
-        loggingService?.Verbose($"Loaded extension assembly '{extensionAssembly.FullName}'.");
-        var typeName = $"{extensionAssembly.GetName().Name}.ExtensionIndex";
-        Type indexType = extensionAssembly.GetType(typeName) ?? throw new InvalidOperationException($"Extension '{invocation.ExtensionName}' does not contain a {typeName} type.");
-        loggingService?.Verbose($"Found extension index type '{indexType.FullName}'.");
-        IExtensionIndex extensionIndex;
-        try
-        {
-            extensionIndex = Activator.CreateInstance(indexType) as IExtensionIndex ?? throw new InvalidOperationException($"Extension '{invocation.ExtensionName}' ExtensionIndex type does not implement IExtensionIndex.");
-        }
-        catch (TargetInvocationException ex)
-        {
-            loggingService?.Error($"Failed to create ExtensionIndex: {ex.InnerException?.Message}");
-            loggingService?.Error($"Inner exception type: {ex.InnerException?.GetType().FullName}");
-            loggingService?.Error($"Stack trace: {ex.InnerException?.StackTrace}");
-            throw new InvalidOperationException($"Failed to instantiate ExtensionIndex for '{invocation.ExtensionName}': {ex.InnerException?.Message}", ex.InnerException);
-        }
-        loggingService?.Verbose($"Loaded extension index from type '{indexType.FullName}'.");
-        ICommandMetadata commandMetadata = extensionIndex.GetCommandMetaData(invocation.CommandName, ClientType.CLI) ?? throw new InvalidOperationException($"Command '{invocation.CommandName}' not found in extension '{invocation.ExtensionName}'.");
-        loggingService?.Verbose($"Resolved command '{invocation.CommandName}' to type '{commandMetadata.CommandType.FullName}'.");
-        IProcessor instance = commandMetadata.GetInstance();
-        // Set properties from invocation parameters
-        var commandArgs = CommandLineArgs.Parse(invocation.Parameters);
-        var commandType = instance.GetType();
-        foreach (var propertyInfo in commandType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
-        {
-            try
-            {
-                ArgumentInfoAttribute? attribute = propertyInfo.GetCustomAttribute<ArgumentInfoAttribute>();
-                if (attribute != null)
-                {
-                    var value = commandArgs.PopProperty(propertyInfo, attribute);
-                    if (value != null)
-                    {
-                        loggingService?.Verbose($"Setting property '{propertyInfo.Name}' on command '{commandType.FullName}' to value '{value}'.");
-                        instance.SetProperty(propertyInfo.Name, value);
-                    }
-                }
-            }
-            catch (PropertyParserException ex)
-            {
-                throw new ArgumentException($"Error parsing property '{propertyInfo.Name}' for command '{commandType.FullName}': {ex.Message}", ex);
-            }
-        }
-        commandArgs.ThrowRemainingProperties();
-        return instance;
-    }
-
-    public void Process(ICommandInvocation invocation, CommandOutputDelegate output, CancellationToken token = default)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        Debug.Assert(invocation.ClientType == ClientType.CLI, "CLIEngine can only process CLI invocations.");
-        var loggingService = _serviceProvider.GetService<ILoggingService>();
-        loggingService?.Info($"Processing command: '{invocation.CommandName}'.");
-
-        IProcessor command = GetCommand(invocation);
-        // TODO: Initialize command context and execute
-        ICommandContext context = CreateCommandContext(output);
-        command.Init(context);
-        ExecuteCommandAsync(command, token).GetAwaiter().GetResult();
+        _serviceProvider = serviceProvider;
     }
 
     /// <summary>
-    /// Creates a new command context for this invocation with channel-based output.
+    /// Executes a fully-configured IProcessor.
+    /// Creates the command context, initializes the processor, and runs it.
+    /// </summary>
+    public void Execute(IProcessor command, CommandOutputDelegate output, CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var loggingService = _serviceProvider.GetService<ILoggingService>();
+        loggingService?.Info($"Executing command '{command.GetType().Name}'.");
+
+        ICommandContext context = CreateCommandContext(output);
+        command.Init(context);
+        ExecuteCommandAsync(command, cancellationToken).GetAwaiter().GetResult();
+    }
+
+    /// <summary>
+    /// Creates a new command context for this invocation.
     /// Each command execution gets its own isolated context.
     /// </summary>
-    /// <param name="output">The output delegate for this invocation's output.</param>
     private ICommandContext CreateCommandContext(CommandOutputDelegate output)
     {
         AuthContext authContext = _serviceProvider.GetRequiredService<IAuthContextService>().GetCurrentContextAsync().GetAwaiter().GetResult() ?? new AuthContext() { SubscriptionId = "", TenantId = "" };
@@ -117,7 +59,6 @@ public class CLIEngine(IServiceProvider serviceProvider, string extensionsDir) :
             ApplyOverride = false
         };
 
-        // Create output handler that writes to the per-invocation channel
         CommandOutputHandler commandOutputHandler = new CommandOutputHandler
         {
             WriteOutput = async (value, ct) => await output(value, ct)
@@ -138,48 +79,31 @@ public class CLIEngine(IServiceProvider serviceProvider, string extensionsDir) :
         return context;
     }
 
-
-    /// <summary>
-    /// Executes the command on a worker thread, writing output to the channel.
-    /// </summary>
     private async Task ExecuteCommandAsync(IProcessor command, CancellationToken cancellationToken = default)
     {
         await Task.Run(async () =>
         {
-            try
-            {
-                await command.ProcessAsync();
-            }
-            finally
-            {
-            }
+            await command.ProcessAsync();
         }, cancellationToken);
     }
 
-        /// <summary>
-        /// Releases the unmanaged resources used by CLIEngine and optionally releases managed resources.
-        /// </summary>
-        /// <param name="disposing">true to release both managed and unmanaged resources; false to release only unmanaged resources.</param>
-        protected virtual void Dispose(bool disposing)
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!_disposed)
         {
-            if (!_disposed)
+            if (disposing)
             {
-                if (disposing)
-                {
-                    _httpClient.Dispose();
-                }
-                _disposed = true;
+                _httpClient.Dispose();
             }
+            _disposed = true;
         }
+    }
 
-        /// <summary>
-        /// Releases all resources used by CLIEngine.
-        /// </summary>
-        public void Dispose()
-        {
-            Dispose(disposing: true);
-            GC.SuppressFinalize(this);
-        }
+    public void Dispose()
+    {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
 }
 
 public class PropertyParserException : Exception
@@ -195,7 +119,7 @@ public class PropertyParserException : Exception
     }
 }
 
-public class CommandLineArgs
+public class ArgumentParser
 {
     public List<string> PositionalArgs { get; set; } = new List<string>();
     /// <summary>
@@ -212,14 +136,14 @@ public class CommandLineArgs
 
     public bool ShowVersion => Properties.ContainsKey("--version");
 
-    public static CommandLineArgs Parse(string[] args)
+    public static ArgumentParser Parse(string[] args)
     {
         if (args == null || args.Length == 0)
         {
-            return new CommandLineArgs();
+            return new ArgumentParser();
         }
 
-        var commandLineArgs = new CommandLineArgs();
+        var commandLineArgs = new ArgumentParser();
         var currentProperty = string.Empty;
         var currentValues = new List<string>();
 
@@ -267,21 +191,6 @@ public class CommandLineArgs
         }
 
         return commandLineArgs;
-    }
-
-    public static CommandLineArgs Parse(IDictionary<string, object> parameters)
-    {
-        return new CommandLineArgs
-        {
-            Properties = parameters.ToDictionary(
-                kvp => kvp.Key,
-                kvp => kvp.Value is List<List<string>> listOfLists
-                    ? listOfLists
-                    : kvp.Value is List<string> list
-                        ? [list]
-                        : [new List<string> { kvp.Value?.ToString() ?? string.Empty }]
-            )
-        };
     }
 
     static string[] NormalizeArgumentNames(string[] argumentNames)

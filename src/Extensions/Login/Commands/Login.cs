@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
 {
+    [CommandInfo(Name = "", Description = "Log in to Azure.")]
     public class LoginCommand : LoginCommandBase
     {
         [ArgumentInfo(

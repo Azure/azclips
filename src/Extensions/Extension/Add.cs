@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Extension.Commands;
 
+[CommandInfo(Name = "add", Description = "Add a CLI extension.")]
 public class AddExtensionCommand : IProcessor
 {
     private CommandOutputDelegate _writeOutput = null!;

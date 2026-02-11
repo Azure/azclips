@@ -1,3 +1,13 @@
+# Initialize CommandHost (process-level singleton, shared across all Cirrus modules)
+if (-not $global:CirrusCommandHost) {
+    $sp = [Core.Engine.Bootstrapper]::ServiceProviderAsync.GetAwaiter().GetResult()
+    $global:CirrusCommandHost = [Core.Engine.CommandHost]::new($sp)
+}
+$script:CirrusHost = $global:CirrusCommandHost
+
+# Extension assembly path — resolved from the already-loaded assembly (via RequiredAssemblies)
+$script:ExtensionAssemblyPath = [Microsoft.Azure.Cirrus.Extensions.Resources.ExtensionIndex].Assembly.Location
+
 # Import shared telemetry helper
 . (Join-Path $PSScriptRoot '..\TelemetryHelper.ps1')
 

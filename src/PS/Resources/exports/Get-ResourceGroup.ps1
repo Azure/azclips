@@ -12,8 +12,7 @@ function Get-ResourceGroup {
     begin {
         # Start telemetry activity
         $script:activity = Start-CmdletActivity -CmdletName "Get-ResourceGroup" -Parameters $PSBoundParameters
-        
-        $engine = [Core.Engine.Bootstrapper]::ServiceProviderAsync.GetAwaiter().GetResult().GetService([Core.Engine.EngineFactory]).GetEngine([Core.Abstractions.ClientType]::PowerShell);
+
         $outputDelegate = [Core.Abstractions.Runtime.CommandOutputDelegate]{
             param([object]$value, [System.Threading.CancellationToken]$ct)
             if ($value -is [System.Collections.IEnumerable]) {
@@ -27,7 +26,6 @@ function Get-ResourceGroup {
 
     process {
         try {
-            $extensionName = "Resources";
             $commandName = "Get-ResourceGroup_$($PSCmdlet.ParameterSetName)";
             $parameters = [System.Collections.Generic.Dictionary[string, object]]::New();
 
@@ -37,8 +35,13 @@ function Get-ResourceGroup {
             if ($PSBoundParameters.ContainsKey('Name')) {
                 $parameters.Add('Name', [object]$Name);
             }
-            $invocation = [Core.Implementation.PSCommandInvocation]::New($extensionName, $commandName, $parameters);
-            $response = $engine.Process($invocation, $outputDelegate, [System.Threading.CancellationToken]::None);
+            $script:CirrusHost.InvokeByName(
+                $script:ExtensionAssemblyPath,
+                'Resources',
+                $commandName,
+                $parameters,
+                $outputDelegate,
+                [System.Threading.CancellationToken]::None);
 
             # Mark activity as successful
             if ($null -ne $script:activity) {

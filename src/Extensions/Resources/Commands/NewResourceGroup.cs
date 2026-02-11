@@ -5,6 +5,7 @@ using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
 {
+    [CommandInfo(Name = "create", Description = "Create a resource group.")]
     public class NewResourceGroupCommand : ResourceCommandBase
     {
         [ArgumentInfoAttribute(
