@@ -14,7 +14,8 @@ public static class ChartGenerator
     /// <summary>
     /// Generate all chart outputs from benchmark summaries.
     /// </summary>
-    public static void Generate(string artifactsPath, string timestamp, IEnumerable<Summary> summaries)
+    /// <param name="exportToCloud">If true, exports to App Insights. Set false for local-only runs.</param>
+    public static void Generate(string artifactsPath, string timestamp, IEnumerable<Summary> summaries, bool exportToCloud = true)
     {
         var chartData = ExtractChartData(summaries);
         if (chartData.Count == 0) return;
@@ -42,8 +43,15 @@ public static class ChartGenerator
         File.WriteAllText(jsonPath, JsonSerializer.Serialize(jsonData, new JsonSerializerOptions { WriteIndented = true }));
         Console.WriteLine($"[Chart] Summary JSON: {jsonPath}");
 
-        // Export to Application Insights for Grafana
-        ExportToAppInsights(chartData, timestamp);
+        // Export to Application Insights for Grafana (skip in local mode)
+        if (exportToCloud)
+        {
+            ExportToAppInsights(chartData, timestamp);
+        }
+        else
+        {
+            Console.WriteLine("[AppInsights] Export skipped (local mode)");
+        }
     }
 
     /// <summary>

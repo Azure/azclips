@@ -15,8 +15,14 @@ public class Program
 {
     public static void Main(string[] args)
     {
-        // Parse --product argument
+        // Parse arguments
         var productFilter = ParseProductFilter(args);
+        var localMode = ParseLocalFlag(args);
+
+        if (localMode)
+        {
+            Console.WriteLine("[Benchmark] Local mode: App Insights export DISABLED");
+        }
 
         var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
         var artifactsPath = Path.Combine(Directory.GetCurrentDirectory(), "artifacts", "Benchmark", timestamp);
@@ -43,8 +49,8 @@ public class Program
         // Run all matching benchmarks directly (no interactive menu)
         var summaries = benchmarkTypes.Select(t => BenchmarkRunner.Run(t, config)).ToArray();
 
-        // Generate charts
-        ChartGenerator.Generate(artifactsPath, timestamp, summaries);
+        // Generate charts (skip App Insights export in local mode)
+        ChartGenerator.Generate(artifactsPath, timestamp, summaries, exportToCloud: !localMode);
     }
 
     private static Type[] GetBenchmarkTypes(string? product)
@@ -84,5 +90,10 @@ public class Program
             }
         }
         return null;
+    }
+
+    private static bool ParseLocalFlag(string[] args)
+    {
+        return args.Any(a => a.Equals("--local", StringComparison.OrdinalIgnoreCase));
     }
 }
