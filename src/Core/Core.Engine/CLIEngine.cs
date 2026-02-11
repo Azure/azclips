@@ -1,72 +1,67 @@
-using System.Diagnostics;
 using System.Reflection;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
-using Core.Implementation;
-using Core.Runtime;
 using Core.Runtime.Handler;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Core.Engine;
 
 /// <summary>
-/// CLI command engine — handles context creation and execution only.
-/// Extension loading, command resolution, and parameter binding are handled
-/// by the caller (CLI's CommandResolver) before calling Execute().
+/// CLI command engine — creates a scoped DI container per invocation, constructs
+/// the IProcessor via ActivatorUtilities, binds parameters, and executes.
+/// Extension loading and command resolution are handled by the caller.
 /// </summary>
 public class CLIEngine(IServiceProvider serviceProvider) : IEngine
 {
-    private readonly HttpClient _httpClient = new();
     private bool _disposed = false;
 
-    public void Execute(IProcessor command, CommandOutputDelegate output, CancellationToken cancellationToken = default)
+    public void Execute(Type commandType, IDictionary<string, object> parameters, CommandOutputDelegate output, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         var loggingService = serviceProvider.GetService<ILoggingService>();
-        loggingService?.Info($"Executing command '{command.GetType().Name}'.");
+        loggingService?.Info($"Executing command '{commandType.Name}'.");
 
-        ICommandContext context = CreateCommandContext(output);
-        command.Init(context);
+        // Create a scoped DI container for this invocation.
+        // Scoped services (ICommandAuthHandler, ICommandTelemetryHandler,
+        // IRuntimeHttpPipeline, ICommandOutputHandler) are fresh per scope.
+        using var scope = serviceProvider.CreateScope();
+        var scopedProvider = scope.ServiceProvider;
+
+        // Create per-invocation output handler wrapping the caller's delegate
+        ICommandOutputHandler outputHandler = new CommandOutputHandler { WriteOutput = output };
+
+        // Construct the processor with constructor injection;
+        // outputHandler is passed as an extra parameter (not from DI)
+        IProcessor command = (IProcessor)ActivatorUtilities.CreateInstance(scopedProvider, commandType, outputHandler);
+
+        // Bind parameters (CLI args or PS params) onto public properties
+        BindParameters(command, parameters, loggingService);
+
+        // Execute
         ExecuteCommandAsync(command, cancellationToken).GetAwaiter().GetResult();
     }
 
     /// <summary>
-    /// Creates a new command context for this invocation.
-    /// Each command execution gets its own isolated context.
+    /// Binds typed parameters to the processor's public properties by name.
+    /// Uses case-insensitive matching.
     /// </summary>
-    private ICommandContext CreateCommandContext(CommandOutputDelegate output)
+    private static void BindParameters(IProcessor command, IDictionary<string, object> parameters, ILoggingService? logger)
     {
-        AuthContext authContext = serviceProvider.GetRequiredService<IAuthContextService>().GetCurrentContextAsync().GetAwaiter().GetResult() ?? new AuthContext() { SubscriptionId = "", TenantId = "" };
-        CommandAuthHandler commandAuthHandler = new CommandAuthHandler
+        var commandType = command.GetType();
+        foreach (var (name, value) in parameters)
         {
-            AuthContext = new AuthContext
+            var prop = commandType.GetProperty(name, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+            if (prop != null && prop.CanWrite)
             {
-                SubscriptionId = authContext.SubscriptionId,
-                TenantId = authContext.TenantId
-            },
-            AcquireTokenAsyncDefault = serviceProvider.GetRequiredService<IAuthService>().AcquireTokenSilentlyAsync,
-            ApplyOverride = false
-        };
-
-        CommandOutputHandler commandOutputHandler = new CommandOutputHandler
-        {
-            WriteOutput = async (value, ct) => await output(value, ct)
-        };
-        CommandTelemetryHandler commandTelemetryHandler = new CommandTelemetryHandler
-        {
-            StartActivity = serviceProvider.GetRequiredService<ITelemetryService>().StartActivity
-        };
-
-        IRuntimeHttpPipeline httpPipeline = new HttpPipeline(new HttpClientFactory(_httpClient));
-        ICommandContext context = new CommandContext
-        {
-            CommandOutputHandler = commandOutputHandler,
-            CommandAuthHandler = commandAuthHandler,
-            CommandTelemetryHandler = commandTelemetryHandler,
-            HttpPipeline = httpPipeline.Prepend(commandAuthHandler.SendAsync)
-        };
-        return context;
+                prop.SetValue(command, value);
+                logger?.Verbose($"Bound parameter '{name}' on '{commandType.Name}'.");
+            }
+            else
+            {
+                logger?.Verbose($"Skipping parameter '{name}' — no matching writable property on '{commandType.Name}'.");
+            }
+        }
     }
 
     private async Task ExecuteCommandAsync(IProcessor command, CancellationToken cancellationToken = default)
@@ -81,10 +76,6 @@ public class CLIEngine(IServiceProvider serviceProvider) : IEngine
     {
         if (!_disposed)
         {
-            if (disposing)
-            {
-                _httpClient.Dispose();
-            }
             _disposed = true;
         }
     }

@@ -3,20 +3,22 @@ using Core.Abstractions.Runtime;
 namespace Core.Abstractions;
 
 /// <summary>
-/// Minimal execution engine. Accepts a fully-configured IProcessor (properties set)
-/// and runs it. The engine handles context creation and execution only.
-/// No parameter binding, no extension loading — that's the caller's job.
+/// Minimal execution engine. Creates a DI scope per invocation, constructs the
+/// IProcessor via <see cref="Microsoft.Extensions.DependencyInjection.ActivatorUtilities"/>,
+/// binds parameters, and runs it.
 /// </summary>
 public interface IEngine : IDisposable
 {
     /// <summary>
-    /// Executes a command processor. The engine creates the command context,
-    /// initializes the processor via <see cref="IProcessor.Init"/>, and runs it.
+    /// Executes a command. The engine creates a scoped DI container, constructs the
+    /// processor with constructor injection, binds properties from <paramref name="parameters"/>,
+    /// and calls <see cref="IProcessor.ProcessAsync"/>.
     /// </summary>
-    /// <param name="command">A fully-configured IProcessor with all properties set.</param>
+    /// <param name="commandType">The processor type to instantiate via ActivatorUtilities.</param>
+    /// <param name="parameters">Typed parameters to set on the processor's public properties after construction.</param>
     /// <param name="output">The output delegate for this invocation (Console.WriteLine or $PSCmdlet.WriteObject).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    void Execute(IProcessor command, CommandOutputDelegate output, CancellationToken cancellationToken = default);
+    void Execute(Type commandType, IDictionary<string, object> parameters, CommandOutputDelegate output, CancellationToken cancellationToken = default);
 }
 
 public interface ICommandEngine

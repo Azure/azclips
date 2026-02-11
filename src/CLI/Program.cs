@@ -17,12 +17,17 @@ public class Program
     private static ILoggingService? _logger;
     private static CommandActivator? _activator;
     private static CLIEngine? _engine;
+    private static IServiceProvider? _serviceProvider;
 
     public static async Task<int> Main(string[] args)
     {
-        var serviceProvider = await Bootstrapper.ServiceProviderAsync;
-        _telemetryService = serviceProvider.GetRequiredService<ITelemetryService>();
-        _logger = serviceProvider.GetRequiredService<ILoggingService>();
+        var builder = new CirrusHostBuilder();
+        builder.Services.AddCirrusCore();
+        builder.Services.AddCirrusCli();
+        _serviceProvider = await builder.BuildAsync();
+
+        _telemetryService = _serviceProvider.GetRequiredService<ITelemetryService>();
+        _logger = _serviceProvider.GetRequiredService<ILoggingService>();
 
         // Create extension loaders and command resolver
         var extensionsDir = Path.Combine(
@@ -40,7 +45,7 @@ public class Program
             new MultiVersionExtensionLoader(extensionsDir, _logger)
         ];
         _activator = new CommandActivator(extensionLoaders, _logger);
-        _engine = new CLIEngine(serviceProvider);
+        _engine = new CLIEngine(_serviceProvider);
 
         try
         {
@@ -48,12 +53,12 @@ public class Program
 
             try
             {
-                IProcessor command = _activator.Activate(args);
+                ActivationResult activation = _activator.Activate(args);
 
                 using var commandActivity = _telemetryService.ActivitySource.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
-                commandActivity?.SetTag("command.type", command.GetType().Name);
+                commandActivity?.SetTag("command.type", activation.CommandType.Name);
 
-                _engine.Execute(command, (value, ct) => { Console.WriteLine(value); return Task.CompletedTask; });
+                _engine.Execute(activation.CommandType, activation.Parameters, (value, ct) => { Console.WriteLine(value); return Task.CompletedTask; });
 
                 activity?.SetStatus(ActivityStatusCode.Ok);
                 return 0;
@@ -104,13 +109,12 @@ public class Program
         const int maxRetries = 5;
         int attempt = 0;
         string[] currentArgs = args;
-        var serviceProvider = await Bootstrapper.ServiceProviderAsync;
-        var logger = serviceProvider.GetRequiredService<ILoggingService>();
+        var logger = _serviceProvider!.GetRequiredService<ILoggingService>();
 
         try
         {
-            var agentEngine = serviceProvider.GetRequiredService<AgentEngine>();
-            var output = serviceProvider.GetRequiredService<IOutputAdapter>();
+            var agentEngine = _serviceProvider!.GetRequiredService<AgentEngine>();
+            var output = _serviceProvider!.GetRequiredService<IOutputAdapter>();
 
             while (attempt < maxRetries)
             {
@@ -134,8 +138,8 @@ public class Program
 
                 try
                 {
-                    IProcessor command = _activator!.Activate(retryArgs);
-                    _engine!.Execute(command, (value, ct) => { Console.WriteLine(value); return Task.CompletedTask; });
+                    ActivationResult activation = _activator!.Activate(retryArgs);
+                    _engine!.Execute(activation.CommandType, activation.Parameters, (value, ct) => { Console.WriteLine(value); return Task.CompletedTask; });
                     return 0;
                 }
                 catch (Exception ex)

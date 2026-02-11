@@ -5,7 +5,7 @@ namespace Core.Engine;
 
 /// <summary>
 /// Per-module AssemblyLoadContext for PowerShell extension isolation.
-/// <para><b>Design:</b> Shared types (IProcessor, ICommandContext, delegates) resolve from
+/// <para><b>Design:</b> Shared types (IProcessor, DI interfaces, delegates) resolve from
 /// the default ALC to maintain type identity across modules. Module-specific dependencies
 /// (Azure SDKs, serializers, etc.) are loaded in isolation to prevent version conflicts
 /// when multiple Cirrus modules are loaded in the same PowerShell session.</para>

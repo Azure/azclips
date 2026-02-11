@@ -1,6 +1,8 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Core.Abstractions;
+using Core.Abstractions.Runtime;
+using Core.Abstractions.Runtime.Handler;
 using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
@@ -8,6 +10,12 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
     [CommandInfo(Name = "create", Description = "Create a resource group.")]
     public class NewResourceGroupCommand : ResourceCommandBase
     {
+        public NewResourceGroupCommand(
+            IRuntimeHttpPipeline httpPipeline,
+            ICommandOutputHandler outputHandler,
+            ICommandTelemetryHandler telemetryHandler)
+            : base(httpPipeline, outputHandler, telemetryHandler) { }
+
         [ArgumentInfoAttribute(
         Required = true,
         Description = @"Azure Subscription Id.",

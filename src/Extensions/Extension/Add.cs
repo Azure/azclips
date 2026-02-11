@@ -1,14 +1,25 @@
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Core.Engine;
-using Microsoft.Extensions.DependencyInjection;
+using Core.Abstractions.Runtime.Handler;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Extension.Commands;
 
 [CommandInfo(Name = "add", Description = "Add a CLI extension.")]
 public class AddExtensionCommand : IProcessor
 {
-    private CommandOutputDelegate _writeOutput = null!;
+    private readonly CommandOutputDelegate _writeOutput;
+    private readonly ITelemetryService _telemetryService;
+    private readonly ILoggingService _loggingService;
+
+    public AddExtensionCommand(
+        ICommandOutputHandler outputHandler,
+        ITelemetryService telemetryService,
+        ILoggingService loggingService)
+    {
+        _writeOutput = outputHandler.WriteOutput;
+        _telemetryService = telemetryService;
+        _loggingService = loggingService;
+    }
 
     [ArgumentInfo(
     Required = false,
@@ -34,12 +45,6 @@ public class AddExtensionCommand : IProcessor
     SerializedName = @"Path")]
     public string? Path { get; set; }
 
-    public IProcessor Init(ICommandContext context)
-    {
-        _writeOutput = context.CommandOutputHandler.WriteOutput;
-        return this;
-    }
-
     public async Task ProcessAsync()
     {
         var result = Process();
@@ -53,12 +58,9 @@ public class AddExtensionCommand : IProcessor
             throw new ArgumentException("Either Name or Path must be provided to add an extension.");
         }
 
-        var serviceProvider = Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult();
-        var telemetryService = serviceProvider.GetRequiredService<ITelemetryService>();
-        var loggingService = serviceProvider.GetRequiredService<ILoggingService>();
-        using var _ = telemetryService.ActivitySource?.StartActivity($"{nameof(AddExtensionCommand)}.{nameof(Process)}");
+        using var _ = _telemetryService.ActivitySource?.StartActivity($"{nameof(AddExtensionCommand)}.{nameof(Process)}");
 
-        var installer = new ExtensionInstaller(loggingService, feedUrl: FeedUrl);
+        var installer = new ExtensionInstaller(_loggingService, feedUrl: FeedUrl);
         if (!string.IsNullOrWhiteSpace(Name))
         {
             var installPath = installer.InstallExtensionAsync(

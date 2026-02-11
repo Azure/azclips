@@ -1,46 +1,14 @@
-// File: IProcessor.cs - Interface approach (recommended)
-
-/// <summary>
-/// Delegate type for handling CLI request pipeline operations
-// /// </summary>
-// public delegate void NewCLIRequestPipelineDelegate(
-//     System.Action<System.Func<System.Net.Http.HttpRequestMessage, System.Threading.CancellationToken, System.Action, System.Func<string, System.Threading.CancellationToken, System.Func<System.EventArgs>, System.Threading.Tasks.Task>, System.Func<System.Net.Http.HttpRequestMessage, System.Threading.CancellationToken, System.Action, System.Func<string, System.Threading.CancellationToken, System.Func<System.EventArgs>, System.Threading.Tasks.Task>, System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage>>, System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage>>> prepend,
-//     System.Action<System.Func<System.Net.Http.HttpRequestMessage, System.Threading.CancellationToken, System.Action, System.Func<string, System.Threading.CancellationToken, System.Func<System.EventArgs>, System.Threading.Tasks.Task>, System.Func<System.Net.Http.HttpRequestMessage, System.Threading.CancellationToken, System.Action, System.Func<string, System.Threading.CancellationToken, System.Func<System.EventArgs>, System.Threading.Tasks.Task>, System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage>>, System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage>>> append
-// );
-using Core.Abstractions.Runtime;
-
 namespace Core.Abstractions;
+
 /// <summary>
-/// Interface that all processors must implement
+/// Interface that all command processors must implement.
+/// Processors receive their dependencies via constructor injection (ActivatorUtilities)
+/// and their CLI/PS parameters via property binding after construction.
 /// </summary>
 public interface IProcessor
 {
     Task ProcessAsync();
-    IProcessor Init(ICommandContext context);
 }
-
-/// <summary>
-/// Optional abstract base class for common functionality
-/// </summary>
-public abstract class BaseProcessor : IProcessor
-{
-    public abstract Task ProcessAsync();
-    public abstract object Process();
-
-    public abstract string Process(bool Serialize);
-    public IProcessor Init(ICommandContext context) => throw new NotImplementedException();
-
-    protected virtual void LogMessage(string message)
-    {
-        Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] {GetType().Name}: {message}");
-    }
-}
-
-//public interface IModule
-//{
-//    NewCLIRequestPipelineDelegate OnNewCLIRequest { get; set; }
-//    void Init();
-//}
 
 public enum ArgumentAction
 {

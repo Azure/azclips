@@ -1,6 +1,9 @@
 # Initialize CommandHost (process-level singleton, shared across all Cirrus modules)
 if (-not $global:CirrusCommandHost) {
-    $sp = [Core.Engine.Bootstrapper]::ServiceProviderAsync.GetAwaiter().GetResult()
+    $builder = [Core.Engine.CirrusHostBuilder]::new()
+    [Core.Engine.ServiceCollectionExtensions]::AddCirrusCore($builder.Services) | Out-Null
+    [Core.Engine.ServiceCollectionExtensions]::AddCirrusPS($builder.Services) | Out-Null
+    $sp = $builder.BuildAsync().GetAwaiter().GetResult()
     $global:CirrusCommandHost = [Core.Engine.CommandHost]::new($sp)
 }
 $script:CirrusHost = $global:CirrusCommandHost

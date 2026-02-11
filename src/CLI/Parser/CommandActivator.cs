@@ -5,6 +5,12 @@ using Core.Engine;
 
 namespace Core.Cli.Parser;
 
+/// <summary>
+/// Result of command activation — contains the resolved Type and parsed parameters.
+/// The engine will construct the IProcessor via ActivatorUtilities and bind parameters.
+/// </summary>
+public record ActivationResult(Type CommandType, IDictionary<string, object> Parameters);
+
 public class CommandActivator
 {
     private readonly List<IExtensionLoader> _extensionLoaders;
@@ -17,11 +23,10 @@ public class CommandActivator
     }
 
     /// <summary>
-    /// Resolves raw CLI args into a ready-to-execute IProcessor.
+    /// Resolves raw CLI args into a command Type and parsed parameters.
+    /// The engine will construct the IProcessor via ActivatorUtilities and bind the parameters.
     /// </summary>
-    /// <param name="args">Raw command-line arguments (e.g., ["group", "list", "--subscription-id", "xxx"]).</param>
-    /// <returns>A fully-configured IProcessor with all properties set from CLI args.</returns>
-    public IProcessor Activate(string[] args)
+    public ActivationResult Activate(string[] args)
     {
         // Step 1: Route to extension, get remaining args
         var router = new CommandRouter();
@@ -62,14 +67,10 @@ public class CommandActivator
                 + "Positional arguments are not supported. Use named parameters (e.g., --name value).");
         }
 
-        // Step 5: Create processor instance
-        IProcessor instance = (IProcessor)(Activator.CreateInstance(commandMetadata.CommandType)
-            ?? throw new InvalidOperationException($"Failed to create instance of '{commandMetadata.CommandType.FullName}'."));
+        // Step 5: Parse CLI arguments into a typed parameter dictionary
+        var parameters = ParseProperties(commandMetadata.CommandType, parsedArgs);
 
-        // Step 6: Bind parsed CLI arguments to typed properties
-        BindProperties(instance, parsedArgs);
-
-        return instance;
+        return new ActivationResult(commandMetadata.CommandType, parameters);
     }
 
     private static readonly string[] HelpFlags = ["--help", "-h", "help", "?", "-?"];
@@ -136,12 +137,12 @@ public class CommandActivator
     }
 
     /// <summary>
-    /// Binds parsed CLI arguments to the processor's typed properties
-    /// using ArgumentInfoAttribute metadata.
+    /// Parses CLI arguments into a typed parameter dictionary
+    /// using ArgumentInfoAttribute metadata on the command type.
     /// </summary>
-    private void BindProperties(IProcessor instance, ArgumentParser parsedArgs)
+    private IDictionary<string, object> ParseProperties(Type commandType, ArgumentParser parsedArgs)
     {
-        var commandType = instance.GetType();
+        var parameters = new Dictionary<string, object>();
 
         foreach (var propertyInfo in commandType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
@@ -153,8 +154,8 @@ public class CommandActivator
                     var value = parsedArgs.PopProperty(propertyInfo, attribute);
                     if (value != null)
                     {
-                        _loggingService?.Verbose($"Setting property '{propertyInfo.Name}' on command '{commandType.FullName}' to value '{value}'.");
-                        propertyInfo.SetValue(instance, value);
+                        _loggingService?.Verbose($"Parsed property '{propertyInfo.Name}' for command '{commandType.FullName}' to value '{value}'.");
+                        parameters[propertyInfo.Name] = value;
                     }
                 }
             }
@@ -165,6 +166,7 @@ public class CommandActivator
             }
         }
         parsedArgs.ThrowRemainingProperties();
+        return parameters;
     }
 
     /// <summary>

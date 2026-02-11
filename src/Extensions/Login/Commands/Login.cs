@@ -1,6 +1,6 @@
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Core.Engine;
+using Core.Abstractions.Runtime.Handler;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
@@ -8,6 +8,21 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
     [CommandInfo(Name = "", Description = "Log in to Azure.")]
     public class LoginCommand : LoginCommandBase
     {
+        private readonly IAuthService _authService;
+        private readonly IAuthContextService _authContextService;
+
+        public LoginCommand(
+            IRuntimeHttpPipeline httpPipeline,
+            ICommandOutputHandler outputHandler,
+            ICommandTelemetryHandler telemetryHandler,
+            IAuthService authService,
+            IAuthContextService authContextService)
+            : base(httpPipeline, outputHandler, telemetryHandler)
+        {
+            _authService = authService;
+            _authContextService = authContextService;
+        }
+
         [ArgumentInfo(
         Required = true,
         Description = @"Azure Subscription Id.",
@@ -29,10 +44,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
         public override async Task ProcessAsync()
         {
             using var _ = StartActivity($"{nameof(LoginCommand)}.{nameof(ProcessAsync)}");
-            var serviceProvider = Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult();
-            var telemetryService = serviceProvider.GetRequiredService<ITelemetryService>();
-            var authService = serviceProvider.GetRequiredService<IAuthService>();
-            var authContextService = serviceProvider.GetRequiredService<IAuthContextService>();
 
             LoginRequest loginRequest = new()
             {
@@ -41,13 +52,13 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
                 UseDeviceCodeFlow = UseDeviceCode
             };
 
-            var authResult = authService.LoginAsync(loginRequest).GetAwaiter().GetResult();
+            var authResult = _authService.LoginAsync(loginRequest).GetAwaiter().GetResult();
             AuthContext authContext = new()
             {
                 SubscriptionId = SubscriptionId,
                 TenantId = authResult.TenantId,
             };
-            authContextService.SaveContextAsync(authContext).GetAwaiter().GetResult();
+            _authContextService.SaveContextAsync(authContext).GetAwaiter().GetResult();
             await WriteOutput(authContext);
         }
     }

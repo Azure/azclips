@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 using System.Reflection;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Core.Implementation;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Core.Engine;
@@ -12,12 +11,8 @@ namespace Core.Engine;
 /// <para><b>Responsibilities:</b>
 ///   1. Manage per-module ALCs (cached — one ALC per extension assembly path)
 ///   2. Resolve command types from isolated ALCs
-///   3. Create IProcessor instances and bind typed parameters
-///   4. Delegate execution to <see cref="PSEngine"/>
-/// </para>
-/// <para><b>NOT responsible for:</b>
-///   - Command line parsing (CLI concern)
-///   - Output routing (PSEngine handles channel-based output pumping)
+///   3. Delegate execution to <see cref="PSEngine"/> (which handles scoped DI,
+///      processor construction, parameter binding, and output routing)
 /// </para>
 /// <para><b>Lifecycle:</b>
 ///   - Created once per PS session via $global:CirrusCommandHost
@@ -53,14 +48,9 @@ public class CommandHost : IDisposable
 
     /// <summary>
     /// Invokes a command by assembly path and type name.
-    /// The host loads the assembly in an isolated ALC, creates the IProcessor,
-    /// binds typed parameters, and delegates execution to PSEngine.
+    /// The host loads the assembly in an isolated ALC, resolves the type,
+    /// and delegates to PSEngine for scoped DI construction and execution.
     /// </summary>
-    /// <param name="assemblyPath">Path to the extension assembly (e.g., Login.dll).</param>
-    /// <param name="commandTypeName">Fully qualified command type name.</param>
-    /// <param name="parameters">Typed parameters from PowerShell — set directly on command properties.</param>
-    /// <param name="output">Per-invocation output delegate ($PSCmdlet.WriteObject).</param>
-    /// <param name="token">Cancellation token for this invocation.</param>
     public void Invoke(
         string assemblyPath,
         string commandTypeName,
@@ -80,28 +70,14 @@ public class CommandHost : IDisposable
         Type commandType = assembly.GetType(commandTypeName)
             ?? throw new InvalidOperationException($"Command type '{commandTypeName}' not found in '{assemblyPath}'.");
 
-        // 3. Create IProcessor instance
-        IProcessor command = (IProcessor)(Activator.CreateInstance(commandType)
-            ?? throw new InvalidOperationException($"Failed to create instance of '{commandTypeName}'."));
-
-        // 4. Bind typed parameters directly (no string parsing — PS already has types)
-        BindParameters(command, parameters);
-
-        // 5. Delegate to PSEngine for context creation and execution
-        _engine.Execute(command, output, token);
+        // 3. Delegate to PSEngine — it handles scoped DI, ActivatorUtilities, parameter binding, and execution
+        _engine.Execute(commandType, parameters, output, token);
     }
 
     /// <summary>
     /// Invokes a command using extension name and command name.
-    /// Resolves the command from the extension index (by-name lookup, similar to old PSEngine.GetCommand).
-    /// Used when the ps1 script doesn't know the full type name.
+    /// Resolves the command from the extension index (by-name lookup).
     /// </summary>
-    /// <param name="assemblyPath">Path to the extension assembly.</param>
-    /// <param name="extensionName">Extension name for index lookup.</param>
-    /// <param name="commandName">Command name (e.g., "Connect-CirrusAccount").</param>
-    /// <param name="parameters">Typed parameters from PowerShell.</param>
-    /// <param name="output">Per-invocation output delegate.</param>
-    /// <param name="token">Cancellation token.</param>
     public void InvokeByName(
         string assemblyPath,
         string extensionName,
@@ -132,35 +108,8 @@ public class CommandHost : IDisposable
         ICommandMetadata commandMetadata = extensionIndex.GetCommandMetaData(commandName, ClientType.PowerShell);
         _loggingService?.Verbose($"Resolved command '{commandName}' to type '{commandMetadata.CommandType.FullName}'.");
 
-        // 4. Create IProcessor and bind parameters
-        IProcessor command = (IProcessor)(Activator.CreateInstance(commandMetadata.CommandType)
-            ?? throw new InvalidOperationException($"Failed to create instance of '{commandMetadata.CommandType.FullName}'."));
-        BindParameters(command, parameters);
-
-        // 5. Execute
-        _engine.Execute(command, output, token);
-    }
-
-    /// <summary>
-    /// Binds typed parameters from PowerShell to the command's public properties by name.
-    /// Uses case-insensitive matching since PS parameter names may differ in casing.
-    /// </summary>
-    private void BindParameters(IProcessor command, IDictionary<string, object> parameters)
-    {
-        var commandType = command.GetType();
-        foreach (var (name, value) in parameters)
-        {
-            var prop = commandType.GetProperty(name, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
-            if (prop != null && prop.CanWrite)
-            {
-                prop.SetValue(command, value);
-                _loggingService?.Verbose($"Bound parameter '{name}' on '{commandType.Name}'.");
-            }
-            else
-            {
-                _loggingService?.Verbose($"Skipping parameter '{name}' — no matching writable property on '{commandType.Name}'.");
-            }
-        }
+        // 4. Delegate to PSEngine — it handles scoped DI, ActivatorUtilities, parameter binding, and execution
+        _engine.Execute(commandMetadata.CommandType, parameters, output, token);
     }
 
     protected virtual void Dispose(bool disposing)

@@ -7,29 +7,24 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
 {
     public class LoginCommandBase : IProcessor, IEventListener
     {
-        protected IRuntimeHttpPipeline HttpPipeline = null!;
+        protected IRuntimeHttpPipeline HttpPipeline;
         protected readonly JsonSerializerOptions _jsonOptions = null!;
-        protected CommandOutputDelegate WriteOutput = null!;
-        public StartActivityDelegate StartActivity { get; set; } = null!;
+        protected CommandOutputDelegate WriteOutput;
+        public StartActivityDelegate StartActivity { get; set; }
 
-        protected virtual void BeforeInit() { }
-        protected virtual void AfterInit() { }
+        public LoginCommandBase(
+            IRuntimeHttpPipeline httpPipeline,
+            ICommandOutputHandler outputHandler,
+            ICommandTelemetryHandler telemetryHandler)
+        {
+            HttpPipeline = httpPipeline;
+            WriteOutput = outputHandler.WriteOutput;
+            StartActivity = telemetryHandler.StartActivity;
+        }
 
         public CancellationToken Token => CancellationToken.None;
 
         public Action Cancel => throw new NotImplementedException();
-
-        public IProcessor Init(ICommandContext context)
-        {
-            BeforeInit();
-
-            HttpPipeline = context.HttpPipeline;
-            WriteOutput = context.CommandOutputHandler.WriteOutput;
-            StartActivity = context.CommandTelemetryHandler.StartActivity;
-
-            AfterInit();
-            return this;
-        }
 
         public virtual Task ProcessAsync() => Task.CompletedTask;
 
