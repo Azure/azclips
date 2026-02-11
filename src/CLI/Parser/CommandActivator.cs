@@ -172,8 +172,12 @@ public class CommandActivator
     /// </summary>
     private (Assembly assembly, IExtensionIndex index) LoadExtensionIndex(string extensionName)
     {
+        var prefix = "Microsoft.Azure.Cirrus.Extensions.";
+        var extensionFolderName = prefix + extensionName;
+        var fullExtensionName = prefix + extensionName;
+
         Assembly extensionAssembly = _extensionLoaders
-            .Select(loader => loader.LoadExtension(extensionName))
+            .Select(loader => loader.LoadExtension(extensionFolderName, fullExtensionName))
             .FirstOrDefault(assembly => assembly != null)
             ?? throw new InvalidOperationException($"Extension '{extensionName}' could not be found by any extension loader.");
         _loggingService?.Verbose($"Loaded extension assembly '{extensionAssembly.FullName}'.");

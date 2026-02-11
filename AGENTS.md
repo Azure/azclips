@@ -13,7 +13,7 @@
 
 ## Architecture Overview
 - **Bootstrapper Pattern**: `Core.Engine.Bootstrapper` registers all services via DI container, returns `ICommandEngine`
-- **Orchestrator**: `OrchestratorEngine` tries `DefaultCommandEngine` first, falls back to `AgentEngine` (AI) on failure
+- **Orchestrator**: `OrchestratorEngine` delegates to `AgentEngine` (AI) for all command processing
 - **Module System**: Service modules (Group, Login, etc.) provide Business/ logic, CLI Commands, and PowerShell Cmdlets
 - **PowerShell**: Separate modules (Cirrus.Login, Cirrus.Group, Cirrus.Agent) with meta-module (Cirrus.psd1)
 

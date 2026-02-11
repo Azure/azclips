@@ -27,8 +27,6 @@ Cirrus is a modular Azure CLI tool with **AI-powered fallback** for natural lang
 ## Architecture Comparison: Theoretical vs. Actual
 
 ### Theoretical Design (Not Implemented)
-- ❌ `OrchestratorEngine` actively routing to `DefaultCommandEngine` → `AgentEngine`
-- ❌ Agent setting `ExtractedCommand` property to hand back to command engine
 - ❌ Unified Business/ layer shared by Commands and Cmdlets
 
 ### Actual Implementation (Current)
@@ -55,9 +53,9 @@ $ azv2 I would like to logni
 
 **What the Bootstrapper does:**
 1. Creates `ServiceCollection` and registers all dependencies as Singletons
-2. Registers services: `ILogger`, `IOutputAdapter`, `CommandParser`, `CommandBinder`
-3. Registers engines: `DefaultCommandEngine`, `AgentEngine`, `OrchestratorEngine`
-4. Returns fully configured `ICommandEngine` (which is actually `OrchestratorEngine`)
+2. Registers services: `ILogger`, `IOutputAdapter`
+3. Registers engines: `AgentEngine`, `OrchestratorEngine`
+4. Returns fully configured `ICommandEngine` (which is actually `OrchestratorEngine` delegating to `AgentEngine`)
 
 ```powershell
 # Direct cmdlet and function execution

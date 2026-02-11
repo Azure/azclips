@@ -1,9 +1,5 @@
-using System;
 using System.Diagnostics;
-using System.Linq;
 using System.Reflection;
-using System.Threading;
-using System.Threading.Tasks;
 using Core.Abstractions;
 using Core.Cli.Exceptions;
 using Core.Cli.Parser;
@@ -32,9 +28,15 @@ public class Program
         var extensionsDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             ".cirrus", "extensions");
+#if DEBUG
+        var builtinExtensionsDir = Path.GetFullPath(
+            Path.Combine(AppContext.BaseDirectory, ".."));
+#else
+        var builtinExtensionsDir = Path.Combine(AppContext.BaseDirectory, "Extensions");
+#endif
         IExtensionLoader[] extensionLoaders =
         [
-            new BuiltinExtensionLoader(_logger),
+            new BuiltinExtensionLoader(builtinExtensionsDir, _logger),
             new MultiVersionExtensionLoader(extensionsDir, _logger)
         ];
         _activator = new CommandActivator(extensionLoaders, _logger);
