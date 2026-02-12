@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Runtime.Loader;
 using Core.Abstractions;
+using NuGet.Versioning;
 
 namespace Core.Engine;
 
@@ -109,9 +110,18 @@ public class MultiVersionExtensionLoader(string extensionsDir, ILoggingService? 
                 _loggingService?.Debug($"No versions found for extension '{extensionName}' in multi-version extensions directory. Checked path: '{Path.Combine(extensionsDir, extensionName)}'");
                 return null;
             }
-            // TODO: Improve version comparison to handle semantic versioning properly
-            Array.Sort(versionDirs);
-            extensionDir = versionDirs[^1];
+            // Use NuGet.Versioning for proper semantic version comparison, skipping invalid version names
+            extensionDir = versionDirs
+                .Select(dir => (dir, parsed: NuGetVersion.TryParse(Path.GetFileName(dir), out var v) ? v : null))
+                .Where(x => x.parsed != null)
+                .OrderByDescending(x => x.parsed)
+                .Select(x => x.dir)
+                .FirstOrDefault()!;
+            if (extensionDir == null)
+            {
+                _loggingService?.Debug($"No valid semantic versions found for extension '{extensionName}'. Checked path: '{Path.Combine(extensionsDir, extensionName)}'");
+                return null;
+            }
         }
 
         var extensionPath = Path.Combine(extensionDir, $"{extensionName}.dll");
