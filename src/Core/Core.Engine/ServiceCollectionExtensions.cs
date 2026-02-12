@@ -89,9 +89,8 @@ public static class ServiceCollectionExtensions
         // CLI writes to Console (used by AgentEngine)
         services.AddSingleton<IOutputAdapter, ConsoleOutputAdapter>();
 
-        // ICommandOutputHandler is NOT registered in DI.
-        // Each engine creates it per invocation wrapping the caller's output delegate,
-        // then passes it as an extra parameter to ActivatorUtilities.CreateInstance.
+        // CLI engine — creates scoped DI containers per invocation
+        services.AddSingleton<IEngine>(sp => new CLIEngine(sp));
 
         return services;
     }
@@ -107,8 +106,9 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddCirrusPS(this IServiceCollection services)
     {
-        // PS-specific registrations go here.
-        // ICommandOutputHandler is passed as an extra ctor param by PSEngine per invocation.
+        // PS engine — creates scoped DI containers per invocation,
+        // injects ICommandOutputHandler as an extra ctor param per call
+        services.AddSingleton<IEngine>(sp => new PSEngine(sp));
 
         return services;
     }

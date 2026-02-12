@@ -12,7 +12,7 @@ public record RoutedCommand(string ExtensionName, string GroupName, string[] Com
 /// <summary>
 /// Routes raw CLI args to the correct extension by inspecting args[0].
 /// This is intentionally thin — it only identifies the target extension and
-/// passes the remaining raw args through for later parsing by <see cref="CommandActivator"/>.
+/// passes the remaining raw args through for later parsing by <see cref="CommandResolver"/>.
 /// </summary>
 public class CommandRouter
 {

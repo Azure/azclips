@@ -6,17 +6,22 @@ using Core.Engine;
 namespace Core.Cli.Parser;
 
 /// <summary>
-/// Result of command activation — contains the resolved Type and parsed parameters.
+/// Result of command resolution — contains the resolved Type and parsed parameters.
 /// The engine will construct the IProcessor via ActivatorUtilities and bind parameters.
 /// </summary>
-public record ActivationResult(Type CommandType, IDictionary<string, object> Parameters);
+public record ResolvedCommand(Type CommandType, IDictionary<string, object> Parameters);
 
-public class CommandActivator
+/// <summary>
+/// Resolves raw CLI arguments into a typed command and parsed parameters.
+/// Performs: routing → extension loading → command matching → arg parsing → parameter binding.
+/// The engine then constructs and executes the resolved command.
+/// </summary>
+public class CommandResolver
 {
     private readonly List<IExtensionLoader> _extensionLoaders;
     private readonly ILoggingService? _loggingService;
 
-    public CommandActivator(IEnumerable<IExtensionLoader> extensionLoaders, ILoggingService? loggingService = null)
+    public CommandResolver(IEnumerable<IExtensionLoader> extensionLoaders, ILoggingService? loggingService = null)
     {
         _extensionLoaders = extensionLoaders.ToList();
         _loggingService = loggingService;
@@ -26,7 +31,7 @@ public class CommandActivator
     /// Resolves raw CLI args into a command Type and parsed parameters.
     /// The engine will construct the IProcessor via ActivatorUtilities and bind the parameters.
     /// </summary>
-    public ActivationResult Activate(string[] args)
+    public ResolvedCommand Resolve(string[] args)
     {
         // Step 1: Route to extension, get remaining args
         var router = new CommandRouter();
@@ -48,7 +53,7 @@ public class CommandActivator
 
         // Step 3: Match command name against known commands (longest match first)
         var (commandMetadata, remainingArgs) = MatchCommand(extensionIndex, routed.CommandArgs, routed.ExtensionName, routed.GroupName);
-        _loggingService?.Info($"Activating command type '{commandMetadata.CommandType.Name}' from extension '{routed.ExtensionName}'.");
+        _loggingService?.Info($"Resolved command type '{commandMetadata.CommandType.Name}' from extension '{routed.ExtensionName}'.");
 
         // Step 3.5: If remaining args contain a help flag, show command-level help
         if (ContainsHelpFlag(remainingArgs))
@@ -70,7 +75,7 @@ public class CommandActivator
         // Step 5: Parse CLI arguments into a typed parameter dictionary
         var parameters = ParseProperties(commandMetadata.CommandType, parsedArgs);
 
-        return new ActivationResult(commandMetadata.CommandType, parameters);
+        return new ResolvedCommand(commandMetadata.CommandType, parameters);
     }
 
     private static readonly string[] HelpFlags = ["--help", "-h", "help", "?", "-?"];

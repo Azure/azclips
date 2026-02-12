@@ -23,7 +23,7 @@ namespace Core.Engine;
 public class CommandHost : IDisposable
 {
     private readonly IServiceProvider _serviceProvider;
-    private readonly PSEngine _engine;
+    private readonly IEngine _engine;
     private readonly ILoggingService? _loggingService;
     private bool _disposed;
 
@@ -42,7 +42,7 @@ public class CommandHost : IDisposable
     public CommandHost(IServiceProvider serviceProvider)
     {
         _serviceProvider = serviceProvider;
-        _engine = new PSEngine(serviceProvider);
+        _engine = serviceProvider.GetRequiredService<IEngine>();
         _loggingService = serviceProvider.GetService<ILoggingService>();
     }
 

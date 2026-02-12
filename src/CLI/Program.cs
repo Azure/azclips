@@ -15,8 +15,8 @@ public class Program
     private static readonly string AssemblyName = Assembly.GetExecutingAssembly().GetName().Name!;
     private static ITelemetryService? _telemetryService;
     private static ILoggingService? _logger;
-    private static CommandActivator? _activator;
-    private static CLIEngine? _engine;
+    private static CommandResolver? _resolver;
+    private static IEngine? _engine;
     private static IServiceProvider? _serviceProvider;
 
     public static async Task<int> Main(string[] args)
@@ -24,28 +24,13 @@ public class Program
         var builder = new CirrusHostBuilder();
         builder.Services.AddCirrusCore();
         builder.Services.AddCirrusCli();
+        builder.Services.AddCirrusCliParser();
         _serviceProvider = await builder.BuildAsync();
 
         _telemetryService = _serviceProvider.GetRequiredService<ITelemetryService>();
         _logger = _serviceProvider.GetRequiredService<ILoggingService>();
-
-        // Create extension loaders and command resolver
-        var extensionsDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".cirrus", "extensions");
-#if DEBUG
-        var builtinExtensionsDir = Path.GetFullPath(
-            Path.Combine(AppContext.BaseDirectory, ".."));
-#else
-        var builtinExtensionsDir = Path.Combine(AppContext.BaseDirectory, "Extensions");
-#endif
-        IExtensionLoader[] extensionLoaders =
-        [
-            new BuiltinExtensionLoader(builtinExtensionsDir, _logger),
-            new MultiVersionExtensionLoader(extensionsDir, _logger)
-        ];
-        _activator = new CommandActivator(extensionLoaders, _logger);
-        _engine = new CLIEngine(_serviceProvider);
+        _resolver = _serviceProvider.GetRequiredService<CommandResolver>();
+        _engine = _serviceProvider.GetRequiredService<IEngine>();
 
         try
         {
@@ -53,12 +38,12 @@ public class Program
 
             try
             {
-                ActivationResult activation = _activator.Activate(args);
+                ResolvedCommand resolved = _resolver.Resolve(args);
 
                 using var commandActivity = _telemetryService.ActivitySource.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
-                commandActivity?.SetTag("command.type", activation.CommandType.Name);
+                commandActivity?.SetTag("command.type", resolved.CommandType.Name);
 
-                _engine.Execute(activation.CommandType, activation.Parameters, (value, ct) => { Console.WriteLine(value); return Task.CompletedTask; });
+                _engine.Execute(resolved.CommandType, resolved.Parameters, (value, ct) => { Console.WriteLine(value); return Task.CompletedTask; });
 
                 activity?.SetStatus(ActivityStatusCode.Ok);
                 return 0;
@@ -66,7 +51,7 @@ public class Program
             catch (DispatchHelpException)
             {
                 var template = new DispatchHelpTemplate();
-                foreach (var line in template.Render("azv2", TerminalWidth()))
+                foreach (var line in template.Render(AssemblyName, TerminalWidth()))
                     Console.WriteLine(line);
                 activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
                 return 0;
@@ -74,7 +59,7 @@ public class Program
             catch (CommandGroupHelpException ex)
             {
                 var template = new CommandGroupHelpTemplate();
-                foreach (var line in template.Render(ex.GroupName, ex.ExtensionIndex, "azv2", TerminalWidth()))
+                foreach (var line in template.Render(ex.GroupName, ex.ExtensionIndex, AssemblyName, TerminalWidth()))
                     Console.WriteLine(line);
                 activity?.SetStatus(ActivityStatusCode.Ok, "Group help requested");
                 return 0;
@@ -82,7 +67,7 @@ public class Program
             catch (CommandHelpException ex)
             {
                 var template = new CommandHelpTemplate();
-                foreach (var line in template.Render(ex.GroupName, ex.CommandMetadata, "azv2", TerminalWidth()))
+                foreach (var line in template.Render(ex.GroupName, ex.CommandMetadata, AssemblyName, TerminalWidth()))
                     Console.WriteLine(line);
                 activity?.SetStatus(ActivityStatusCode.Ok, "Command help requested");
                 return 0;
@@ -138,8 +123,8 @@ public class Program
 
                 try
                 {
-                    ActivationResult activation = _activator!.Activate(retryArgs);
-                    _engine!.Execute(activation.CommandType, activation.Parameters, (value, ct) => { Console.WriteLine(value); return Task.CompletedTask; });
+                    ResolvedCommand resolved = _resolver!.Resolve(retryArgs);
+                    _engine!.Execute(resolved.CommandType, resolved.Parameters, (value, ct) => { Console.WriteLine(value); return Task.CompletedTask; });
                     return 0;
                 }
                 catch (Exception ex)
