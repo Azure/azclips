@@ -13,8 +13,9 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
         public NewResourceGroupCommand(
             IRuntimeHttpPipeline httpPipeline,
             ICommandOutputHandler outputHandler,
-            ICommandTelemetryHandler telemetryHandler)
-            : base(httpPipeline, outputHandler, telemetryHandler) { }
+            ICommandTelemetryHandler telemetryHandler,
+            ICommandAuthHandler authHandler)
+            : base(httpPipeline, outputHandler, telemetryHandler, authHandler) { }
 
         [ArgumentInfoAttribute(
         Required = true,
@@ -43,12 +44,14 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
         public override async Task ProcessAsync()
         {
             using var _ = StartActivity($"{nameof(NewResourceGroupCommand)}.{nameof(ProcessAsync)}");
+            // Use provided subscription ID or fall back to auth context
+            var subscriptionId = SubscriptionId ?? AuthContext.SubscriptionId;
             // construct URL
-            var url = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourcegroups/{Name}?api-version=2025-04-01";
+            var url = $"https://management.azure.com/subscriptions/{subscriptionId}/resourcegroups/{Name}?api-version=2025-04-01";
             //TODO: set_jsonOptions from command context
             using var request = new HttpRequestMessage(HttpMethod.Put, url)
             {
-                Content = JsonContent.Create(new ResourceGroup("eastus", Name), options: _jsonOptions)
+                Content = JsonContent.Create(new ResourceGroup(Location, Name), options: _jsonOptions)
             };
             request.Content.Headers.ContentType = MediaTypeHeaderValue.Parse("application/json");
             HttpResponseMessage response = await HttpPipeline.SendAsync(request, this);
