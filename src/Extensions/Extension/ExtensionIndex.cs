@@ -2,19 +2,15 @@ using Core.Abstractions;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Extension;
 
-public class ExtensionIndex : IExtensionIndex
+[ExtensionIndex]
+public partial class ExtensionIndex : IExtensionIndex
 {
     private readonly IDictionary<string, ICommandMetadata> _psTable = new Dictionary<string, ICommandMetadata>();
     private readonly IDictionary<string, ICommandMetadata> _cliTable = new Dictionary<string, ICommandMetadata>();
 
     public ExtensionIndex()
     {
-        _cliTable.Add("add", new CommandMetadata(
-            name: nameof(Commands.AddExtensionCommand),
-            fullName: "Microsoft.Azure.Cirrus.Extensions.Extension.Commands.AddExtensionCommand",
-            assemblyName: "Microsoft.Azure.Cirrus.Extensions.Extension",
-            commandType: typeof(Commands.AddExtensionCommand)
-        ));
+        FillCliTable(_cliTable);
     }
 
     public ICommandMetadata GetCommandMetaData(string name, ClientType clientType)

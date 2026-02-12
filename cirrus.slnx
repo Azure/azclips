@@ -9,6 +9,7 @@
     <Project Path="src/Core/Core.Agent/Core.Agent.csproj" />
     <Project Path="src/Core/Core.Engine/Core.Engine.csproj" />
     <Project Path="src/Core/Core.Implementation/Core.Implementation.csproj" />
+    <Project Path="src/Core/Core.Index.Generator/Core.Index.Generator.csproj" />
     <Project Path="src/Core/Core.Telemetry/Core.Telemetry.csproj" />
     <Project Path="src/Core/Core.Runtime/Core.Runtime.csproj" />
   </Folder>
