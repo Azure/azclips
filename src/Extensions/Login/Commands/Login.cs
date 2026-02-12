@@ -1,7 +1,6 @@
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
 {

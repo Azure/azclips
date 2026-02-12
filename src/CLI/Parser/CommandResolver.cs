@@ -40,17 +40,6 @@ public class CommandResolver
         // Step 2: Load extension assembly and index BEFORE parsing
         var (extensionAssembly, extensionIndex) = LoadExtensionIndex(routed.ExtensionName);
 
-        // Step 2.5: If all remaining args are help flags (or no args), show group help
-        if (routed.CommandArgs.Length == 0 || ContainsHelpFlag(routed.CommandArgs))
-        {
-            // If args are purely help flags (no command tokens), show group-level help
-            int nonFlagTokens = routed.CommandArgs.TakeWhile(a => !a.StartsWith('-')).Count();
-            if (nonFlagTokens == 0)
-            {
-                throw new CommandGroupHelpException(routed.GroupName, routed.ExtensionName, extensionIndex);
-            }
-        }
-
         // Step 3: Match command name against known commands (longest match first)
         var (commandMetadata, remainingArgs) = MatchCommand(extensionIndex, routed.CommandArgs, routed.ExtensionName, routed.GroupName);
         _loggingService?.Info($"Resolved command type '{commandMetadata.CommandType.Name}' from extension '{routed.ExtensionName}'.");
@@ -127,8 +116,8 @@ public class CommandResolver
         }
         catch (KeyNotFoundException)
         {
-            // If the unmatched tokens contain a help flag, show group help instead of error
-            if (ContainsHelpFlag(commandArgs))
+            // If no tokens and no default command, or help flag present, show group help
+            if (commandArgs.Length == 0 || ContainsHelpFlag(commandArgs))
             {
                 throw new CommandGroupHelpException(groupName, extensionName, extensionIndex);
             }
@@ -176,8 +165,9 @@ public class CommandResolver
 
     /// <summary>
     /// Loads the extension assembly and creates its ExtensionIndex.
+    /// Protected virtual to allow test overrides.
     /// </summary>
-    private (Assembly assembly, IExtensionIndex index) LoadExtensionIndex(string extensionName)
+    protected virtual (Assembly assembly, IExtensionIndex index) LoadExtensionIndex(string extensionName)
     {
         var prefix = "Microsoft.Azure.Cirrus.Extensions.";
         var extensionFolderName = prefix + extensionName;
