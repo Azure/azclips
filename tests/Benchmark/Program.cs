@@ -15,8 +15,14 @@ public class Program
 {
     public static void Main(string[] args)
     {
-        // Parse --product argument
+        // Parse arguments
         var productFilter = ParseProductFilter(args);
+        var localMode = ParseLocalMode(args);
+
+        if (localMode)
+        {
+            Console.WriteLine("[Benchmark] Local mode: App Insights upload will be skipped");
+        }
 
         var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
         var artifactsPath = Path.Combine(Directory.GetCurrentDirectory(), "artifacts", "Benchmark", timestamp);
@@ -43,8 +49,31 @@ public class Program
         // Run all matching benchmarks directly (no interactive menu)
         var summaries = benchmarkTypes.Select(t => BenchmarkRunner.Run(t, config)).ToArray();
 
-        // Generate charts
-        ChartGenerator.Generate(artifactsPath, timestamp, summaries);
+        // Generate charts (local artifacts)
+        var chartData = ChartGenerator.Generate(artifactsPath, timestamp, summaries);
+
+        // Export to App Insights for historical data (skip in local mode)
+        if (!localMode)
+        {
+            ExportToAppInsights(chartData, timestamp);
+        }
+        else
+        {
+            Console.WriteLine("[AppInsights] Skipped (local mode)");
+        }
+    }
+
+    private static void ExportToAppInsights(List<ChartDataPoint> chartData, string timestamp)
+    {
+        try
+        {
+            using var exporter = new AppInsightsExporter();
+            exporter.Export(chartData, timestamp);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[AppInsights] Export failed: {ex.Message}");
+        }
     }
 
     private static Type[] GetBenchmarkTypes(string? product)
@@ -84,5 +113,10 @@ public class Program
             }
         }
         return null;
+    }
+
+    private static bool ParseLocalMode(string[] args)
+    {
+        return args.Any(arg => arg == "--local" || arg == "-l");
     }
 }
