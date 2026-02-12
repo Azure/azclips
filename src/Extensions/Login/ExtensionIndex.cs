@@ -1,101 +1,84 @@
-// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
-
 using Core.Abstractions;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Login
+namespace Microsoft.Azure.Cirrus.Extensions.Login;
+
+[ExtensionIndex]
+public partial class ExtensionIndex : IExtensionIndex
 {
-    public class ExtensionIndex: IExtensionIndex
+    private readonly IDictionary<string, ICommandMetadata> _psTable = new Dictionary<string, ICommandMetadata>();
+    private readonly IDictionary<string, ICommandMetadata> _cliTable = new Dictionary<string, ICommandMetadata>();
+
+    public ExtensionIndex()
     {
-        private readonly IDictionary<string, ICommandMetadata> _psTable = new Dictionary<string, ICommandMetadata>();
-        private readonly IDictionary<string, ICommandMetadata> _cliTable = new Dictionary<string, ICommandMetadata>();
-
-        public ExtensionIndex()
-        {
-            _psTable.Add("Connect-CirrusAccount", new CommandMetadata(
-                name: nameof(Commands.LoginCommand),
-                fullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.LoginCommand",
-                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
-                commandType: typeof(Commands.LoginCommand)
-            ));
-            _psTable.Add("Disconnect-CirrusAccount", new CommandMetadata(
-                name: nameof(Commands.LogoutCommand),
-                fullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.LogoutCommand",
-                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
-                commandType: typeof(Commands.LogoutCommand)
-            ));
-            _psTable.Add("Get-CirrusAccount", new CommandMetadata(
-                name: nameof(Commands.GetContextCommand),
-                fullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.GetContextCommand",
-                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
-                commandType: typeof(Commands.GetContextCommand)
-            ));
-            // login is a special command that the command group and command name are the same
-            _cliTable.Add("", new CommandMetadata(
-                name: nameof(Commands.LoginCommand),
-                fullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.LoginCommand",
-                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
-                commandType: typeof(Commands.LoginCommand)
-            ));
-            _cliTable.Add("logout", new CommandMetadata(
-                name: nameof(Commands.LogoutCommand),
-                fullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.LogoutCommand",
-                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
-                commandType: typeof(Commands.LogoutCommand)
-            ));
-            _cliTable.Add("show", new CommandMetadata(
-                name: nameof(Commands.GetContextCommand),
-                fullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.GetContextCommand",
-                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
-                commandType: typeof(Commands.GetContextCommand)
-            ));
-        }
-
-        public ICommandMetadata GetCommandMetaData(string name, ClientType clientType)
-        {
-            switch (clientType)
-            {
-                case ClientType.PowerShell:
-                    if (_psTable.TryGetValue(name, out var psData))
-                    {
-                        return psData;
-                    }
-                    break;
-                case ClientType.CLI:
-                    if (_cliTable.TryGetValue(name, out var cliData))
-                    {
-                        return cliData;
-                    }
-                    break;
-                default:
-                    throw new ArgumentException($"Client type '{clientType}' is not supported.");
-            }
-            throw new KeyNotFoundException($"Command '{name}' not found for client type '{clientType}'.");
-        }
-
-        public IEnumerable<ICommandMetadata> GetAllCommands(ClientType clientType)
-        {
-            return clientType switch
-            {
-                ClientType.PowerShell => _psTable.Values,
-                ClientType.CLI => _cliTable.Values,
-                _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
-            };
-        }
+        FillPsTable(_psTable);
+        FillCliTable(_cliTable);
     }
 
-    class CommandMetadata : ICommandMetadata
+    private void FillPsTable(IDictionary<string, ICommandMetadata> psTable)
     {
-        public string Name { get; private set; }
-        public string FullName { get; private set; }
-        public string AssemblyName { get; private set; }
-        public Type CommandType { get; private set; }
-        public CommandMetadata(string name, string fullName, string assemblyName, Type commandType)
+        psTable.Add("Connect-CirrusAccount", new CommandMetadata(
+            name: nameof(Commands.LoginCommand),
+            fullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.LoginCommand",
+            assemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
+            commandType: typeof(Commands.LoginCommand)
+        ));
+        psTable.Add("Disconnect-CirrusAccount", new CommandMetadata(
+            name: nameof(Commands.LogoutCommand),
+            fullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.LogoutCommand",
+            assemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
+            commandType: typeof(Commands.LogoutCommand)
+        ));
+        psTable.Add("Get-CirrusAccount", new CommandMetadata(
+            name: nameof(Commands.GetContextCommand),
+            fullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.GetContextCommand",
+            assemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
+            commandType: typeof(Commands.GetContextCommand)
+        ));
+    }
+
+    public ICommandMetadata GetCommandMetaData(string name, ClientType clientType)
+    {
+        switch (clientType)
         {
-            Name = name;
-            FullName = fullName;
-            AssemblyName = assemblyName;
-            CommandType = commandType;
+            case ClientType.PowerShell:
+                if (_psTable.TryGetValue(name, out var psData))
+                {
+                    return psData;
+                }
+                break;
+            case ClientType.CLI:
+                if (_cliTable.TryGetValue(name, out var cliData))
+                {
+                    return cliData;
+                }
+                break;
         }
+        throw new KeyNotFoundException($"Command '{name}' not found for client type '{clientType}'.");
+    }
+
+    public IEnumerable<ICommandMetadata> GetAllCommands(ClientType clientType)
+    {
+        return clientType switch
+        {
+            ClientType.PowerShell => _psTable.Values,
+            ClientType.CLI => _cliTable.Values,
+            _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
+        };
+    }
+}
+
+class CommandMetadata : ICommandMetadata
+{
+    public string Name { get; }
+    public string FullName { get; }
+    public string AssemblyName { get; }
+    public Type CommandType { get; }
+
+    public CommandMetadata(string name, string fullName, string assemblyName, Type commandType)
+    {
+        Name = name;
+        FullName = fullName;
+        AssemblyName = assemblyName;
+        CommandType = commandType;
     }
 }

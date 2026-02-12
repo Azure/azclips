@@ -15,6 +15,10 @@
         <Company>Microsoft Corporation</Company>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <EnableDynamicLoading>true</EnableDynamicLoading>
+
+        <!-- For debugging: Enable source generators output during build -->
+        <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+        <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)\GeneratedFiles</CompilerGeneratedFilesOutputPath>
     </PropertyGroup>
 
     <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
@@ -24,5 +28,12 @@
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
         </ProjectReference>
+        <ProjectReference Include="..\..\Core\Core.Index.Generator\Core.Index.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     </ItemGroup>
+
+    <!-- Exclude generated files from compilation -->
+    <ItemGroup>
+            <Compile Remove="$(CompilerGeneratedFilesOutputPath)/**/*.cs" />
+    </ItemGroup>
+
 </Project>
