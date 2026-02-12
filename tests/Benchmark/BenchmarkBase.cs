@@ -41,7 +41,9 @@ public abstract class BenchmarkBase
             ?? throw new InvalidOperationException("Cannot find repository root (looking for cirrus.slnx)");
 
         // Get auth token
-        var serviceProvider = Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult();
+        var builder = new CirrusHostBuilder();
+        builder.Services.AddCirrusCore();
+        var serviceProvider = builder.BuildAsync().GetAwaiter().GetResult();
         var authService = serviceProvider.GetRequiredService<IAuthService>();
         var authContextService = serviceProvider.GetRequiredService<IAuthContextService>();
         var authContext = authContextService.GetCurrentContextAsync().GetAwaiter().GetResult()
