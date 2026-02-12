@@ -14,10 +14,14 @@ public static class ChartGenerator
     /// <summary>
     /// Generate all chart outputs from benchmark summaries.
     /// </summary>
-    public static void Generate(string artifactsPath, string timestamp, IEnumerable<Summary> summaries)
+    /// <param name="artifactsPath">Path to store artifacts.</param>
+    /// <param name="timestamp">Timestamp for file naming.</param>
+    /// <param name="summaries">Benchmark summaries to process.</param>
+    /// <returns>Extracted chart data points for further processing.</returns>
+    public static List<ChartDataPoint> Generate(string artifactsPath, string timestamp, IEnumerable<Summary> summaries)
     {
         var chartData = ExtractChartData(summaries);
-        if (chartData.Count == 0) return;
+        if (chartData.Count == 0) return chartData;
 
         var overheadData = CalculateOverhead(chartData);
 
@@ -42,24 +46,7 @@ public static class ChartGenerator
         File.WriteAllText(jsonPath, JsonSerializer.Serialize(jsonData, new JsonSerializerOptions { WriteIndented = true }));
         Console.WriteLine($"[Chart] Summary JSON: {jsonPath}");
 
-        // Export to Application Insights for Grafana
-        ExportToAppInsights(chartData, timestamp);
-    }
-
-    /// <summary>
-    /// Export benchmark results to Application Insights.
-    /// </summary>
-    private static void ExportToAppInsights(List<ChartDataPoint> chartData, string timestamp)
-    {
-        try
-        {
-            using var exporter = new AppInsightsExporter();
-            exporter.Export(chartData, timestamp);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[AppInsights] Export failed: {ex.Message}");
-        }
+        return chartData;
     }
 
     private static List<ChartDataPoint> ExtractChartData(IEnumerable<Summary> summaries)
