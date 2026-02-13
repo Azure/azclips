@@ -22,6 +22,6 @@ public class AuthContext
     /// <returns>A string that represents the current AuthContext.</returns>
     public override string ToString()
     {
-        return $"Subscription: {this.SubscriptionId}{System.Environment.NewLine}Environment: {this.TenantId}";
+        return $"Subscription: {this.SubscriptionId}{System.Environment.NewLine}Tenant: {this.TenantId}";
     }
 }

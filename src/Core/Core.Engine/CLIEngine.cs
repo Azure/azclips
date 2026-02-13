@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Reflection;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
@@ -14,9 +15,24 @@ namespace Core.Engine;
 /// Uses scoped DI to create isolated <see cref="ICommandContext"/> per invocation.
 /// Extension loading and command resolution are handled internally.
 /// </summary>
-public class CLIEngine(IServiceProvider serviceProvider) : IEngine
+public class CLIEngine : IEngine
 {
-    private readonly IServiceProvider _serviceProvider = serviceProvider;
+    public CLIEngine(IServiceProvider serviceProvider)
+    {
+        _serviceProvider = serviceProvider;
+        _logger = serviceProvider.GetService<ILoggingService>();
+        _logger?.Info("CLIEngine initialized.");
+        _authContextService = serviceProvider.GetRequiredService<IAuthContextService>();
+        _authService = serviceProvider.GetRequiredService<IAuthService>();
+        _telemetryService = serviceProvider.GetRequiredService<ITelemetryService>();
+    }
+    private readonly IServiceProvider _serviceProvider;
+    private readonly ILoggingService? _logger;
+    private readonly IAuthContextService _authContextService = null!;
+    private readonly IAuthService _authService = null!;
+    private readonly ITelemetryService _telemetryService = null!;
+
+    private readonly HttpClient _httpClient = new();
     private bool _disposed = false;
     private static readonly string _prefix = "Microsoft.Azure.Cirrus.Extensions.";
 
@@ -33,13 +49,8 @@ public class CLIEngine(IServiceProvider serviceProvider) : IEngine
             ".cirrus", "extensions");
     private static readonly string extensionFolderPrefix = "";
 #endif
-    public List<IExtensionLoader> ExtensionLoaders { get; } =
-    [
-        new MultiVersionExtensionLoader(versionedExtensionsDir, serviceProvider.GetService<ILoggingService>()),
-        new BuiltinExtensionLoader(builtinExtensionsDir, serviceProvider.GetService<ILoggingService>()),
-    ];
 
-    private Assembly? LoadExtension(string extensionFolderName, string extensionName, string? version = null) => ExtensionLoaders
+    private Assembly? LoadExtension(IExtensionLoader[] extensionLoaders, string extensionFolderName, string extensionName, string? version = null) => extensionLoaders
             .Select(loader => loader.LoadExtension(extensionFolderName, extensionName, version))
             .FirstOrDefault(assembly => assembly != null);
 
@@ -48,13 +59,17 @@ public class CLIEngine(IServiceProvider serviceProvider) : IEngine
         string extensionName = invocation.ExtensionName ?? throw new InvalidOperationException("CLIEngine can only process commands with an extension name specified.");
         string extensionFolderName = extensionFolderPrefix + extensionName;
         extensionName = _prefix + extensionName;
-        var loggingService = _serviceProvider.GetService<ILoggingService>();
-        loggingService?.Info($"Processing command with extension '{invocation.ExtensionName}'.");
-        Assembly extensionAssembly = LoadExtension(extensionFolderName, extensionName) ?? throw new InvalidOperationException($"Extension '{invocation.ExtensionName}' could not be found by any extension loader.");
-        loggingService?.Verbose($"Loaded extension assembly '{extensionAssembly.FullName}'.");
+        _logger?.Info($"Processing command with extension '{invocation.ExtensionName}'.");
+        IExtensionLoader[] extensionLoaders =
+        [
+            new MultiVersionExtensionLoader(versionedExtensionsDir, _logger),
+            new BuiltinExtensionLoader(builtinExtensionsDir, _logger),
+        ];
+        Assembly extensionAssembly = LoadExtension(extensionLoaders, extensionFolderName, extensionName) ?? throw new InvalidOperationException($"Extension '{invocation.ExtensionName}' could not be found by any extension loader.");
+        _logger?.Verbose($"Loaded extension assembly '{extensionAssembly.FullName}'.");
         var typeName = $"{extensionAssembly.GetName().Name}.ExtensionIndex";
         Type indexType = extensionAssembly.GetType(typeName) ?? throw new InvalidOperationException($"Extension '{invocation.ExtensionName}' does not contain a {typeName} type.");
-        loggingService?.Verbose($"Found extension index type '{indexType.FullName}'.");
+        _logger?.Verbose($"Found extension index type '{indexType.FullName}'.");
         IExtensionIndex extensionIndex;
         try
         {
@@ -62,14 +77,14 @@ public class CLIEngine(IServiceProvider serviceProvider) : IEngine
         }
         catch (TargetInvocationException ex)
         {
-            loggingService?.Error($"Failed to create ExtensionIndex: {ex.InnerException?.Message}");
-            loggingService?.Error($"Inner exception type: {ex.InnerException?.GetType().FullName}");
-            loggingService?.Error($"Stack trace: {ex.InnerException?.StackTrace}");
+            _logger?.Error($"Failed to create ExtensionIndex: {ex.InnerException?.Message}");
+            _logger?.Error($"Inner exception type: {ex.InnerException?.GetType().FullName}");
+            _logger?.Error($"Stack trace: {ex.InnerException?.StackTrace}");
             throw new InvalidOperationException($"Failed to instantiate ExtensionIndex for '{invocation.ExtensionName}': {ex.InnerException?.Message}", ex.InnerException);
         }
-        loggingService?.Verbose($"Loaded extension index from type '{indexType.FullName}'.");
+        _logger?.Verbose($"Loaded extension index from type '{indexType.FullName}'.");
         ICommandMetadata commandMetadata = extensionIndex.GetCommandMetaData(invocation.CommandName, ClientType.CLI) ?? throw new InvalidOperationException($"Command '{invocation.CommandName}' not found in extension '{invocation.ExtensionName}'.");
-        loggingService?.Verbose($"Resolved command '{invocation.CommandName}' to type '{commandMetadata.CommandType.FullName}'.");
+        _logger?.Verbose($"Resolved command '{invocation.CommandName}' to type '{commandMetadata.CommandType.FullName}'.");
         IProcessor instance = commandMetadata.GetInstance();
         // Set properties from invocation parameters
         var commandArgs = CommandLineArgs.Parse(invocation.Parameters);
@@ -84,7 +99,7 @@ public class CLIEngine(IServiceProvider serviceProvider) : IEngine
                     var value = commandArgs.PopProperty(propertyInfo, attribute);
                     if (value != null)
                     {
-                        loggingService?.Verbose($"Setting property '{propertyInfo.Name}' on command '{commandType.FullName}' to value '{value}'.");
+                        _logger?.Verbose($"Setting property '{propertyInfo.Name}' on command '{commandType.FullName}' to value '{value}'.");
                         instance.SetProperty(propertyInfo.Name, value);
                     }
                 }
@@ -101,8 +116,8 @@ public class CLIEngine(IServiceProvider serviceProvider) : IEngine
     public void Process(ICommandInvocation invocation, CommandOutputDelegate output, CancellationToken token = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        var loggingService = _serviceProvider.GetService<ILoggingService>();
-        loggingService?.Info($"Processing command: '{invocation.CommandName}'.");
+        Debug.Assert(invocation.ClientType == ClientType.CLI, "CLIEngine can only process CLI invocations.");
+        _logger?.Info($"Processing command: '{invocation.CommandName}'.");
 
         IProcessor command = GetCommand(invocation);
 
