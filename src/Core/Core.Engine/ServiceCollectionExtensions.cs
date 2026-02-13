@@ -38,7 +38,9 @@ public static class ServiceCollectionExtensions
                 flavor);
         });
 
-        // --- Scoped: new instance per command invocation ---
+        // Use a shared HttpClient instance for all HTTP calls.
+        services.AddSingleton<HttpClient>();
+
 
         // Auth handler: snapshot of current auth context at invocation time
         services.AddScoped<ICommandAuthHandler>(sp =>
@@ -74,7 +76,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRuntimeHttpPipeline>(sp =>
         {
             var authHandler = sp.GetRequiredService<ICommandAuthHandler>();
-            IRuntimeHttpPipeline pipeline = new HttpPipeline(new HttpClientFactory());
+            var httpClient = sp.GetRequiredService<HttpClient>();
+            IRuntimeHttpPipeline pipeline = new HttpPipeline(new HttpClientFactory(httpClient));
             return pipeline.Prepend(authHandler.SendAsync);
         });
 

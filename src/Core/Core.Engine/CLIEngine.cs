@@ -136,7 +136,13 @@ public class CLIEngine(IServiceProvider serviceProvider) : IEngine
     {
         await Task.Run(async () =>
         {
-            await command.ProcessAsync();
+            try
+            {
+                await command.ProcessAsync();
+            }
+            finally
+            {
+            }
         }, cancellationToken);
     }
 

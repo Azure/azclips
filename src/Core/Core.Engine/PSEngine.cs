@@ -117,10 +117,14 @@ namespace Core.Engine
 
         /// <summary>
         /// Gets a command processor for the given invocation.
-        /// Extension indices are lazily cached with guaranteed single initialization.
+        /// <para><b>Thread Safety:</b> Extension indices are lazily cached with guaranteed single initialization.
+        /// <see cref="IExtensionIndex.GetCommandMetaData"/> is thread-safe as implementations use
+        /// read-only dictionaries populated during construction.</para>
         /// </summary>
         public IProcessor GetCommand(ICommandInvocation invocation)
         {
+            // Lazy<T> ensures the factory runs exactly once per extension, even under contention.
+            // Without Lazy, GetOrAdd's factory may execute multiple times (only one result stored).
             var loggingService = _serviceProvider.GetService<ILoggingService>();
 
             IExtensionIndex extensionIndex = _extensionIndices.GetOrAdd(
@@ -135,6 +139,8 @@ namespace Core.Engine
                 })
             ).Value;
 
+            // Thread-safe: ExtensionIndex.GetCommandMetaData only reads from dictionaries
+            // that are populated in constructor and never modified thereafter.
             ICommandMetadata commandMetadata = extensionIndex.GetCommandMetaData(invocation.CommandName, ClientType);
             loggingService?.Verbose($"Resolved command '{invocation.CommandName}' to type '{commandMetadata.CommandType.FullName}'. Creating instance...");
             IProcessor instance = commandMetadata.GetInstance();
