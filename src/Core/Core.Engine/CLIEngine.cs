@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Reflection;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
@@ -17,24 +16,16 @@ namespace Core.Engine;
 /// </summary>
 public class CLIEngine : IEngine
 {
+    private readonly IServiceProvider _serviceProvider;
+    private readonly ILoggingService? _logger;
+    private bool _disposed;
+    private static readonly string _prefix = "Microsoft.Azure.Cirrus.Extensions.";
+
     public CLIEngine(IServiceProvider serviceProvider)
     {
         _serviceProvider = serviceProvider;
         _logger = serviceProvider.GetService<ILoggingService>();
-        _logger?.Info("CLIEngine initialized.");
-        _authContextService = serviceProvider.GetRequiredService<IAuthContextService>();
-        _authService = serviceProvider.GetRequiredService<IAuthService>();
-        _telemetryService = serviceProvider.GetRequiredService<ITelemetryService>();
     }
-    private readonly IServiceProvider _serviceProvider;
-    private readonly ILoggingService? _logger;
-    private readonly IAuthContextService _authContextService = null!;
-    private readonly IAuthService _authService = null!;
-    private readonly ITelemetryService _telemetryService = null!;
-
-    private readonly HttpClient _httpClient = new();
-    private bool _disposed = false;
-    private static readonly string _prefix = "Microsoft.Azure.Cirrus.Extensions.";
 
     // use config service to retrieve the proper cli path in the future. Use conditional compilation for now.
 #if DEBUG
@@ -116,7 +107,6 @@ public class CLIEngine : IEngine
     public void Process(ICommandInvocation invocation, CommandOutputDelegate output, CancellationToken token = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        Debug.Assert(invocation.ClientType == ClientType.CLI, "CLIEngine can only process CLI invocations.");
         _logger?.Info($"Processing command: '{invocation.CommandName}'.");
 
         IProcessor command = GetCommand(invocation);
