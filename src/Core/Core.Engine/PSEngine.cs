@@ -1,63 +1,49 @@
 using Core.Abstractions;
-using Core.Implementation;
-using System.Collections.Concurrent;
-using Microsoft.Extensions.DependencyInjection;
 using Core.Abstractions.Runtime;
-using Core.Runtime.Handler;
-using Core.Runtime;
-using System.Threading.Channels;
 using Core.Abstractions.Runtime.Handler;
+using Core.Implementation;
+using Core.Runtime;
+using Core.Runtime.Handler;
+using System.Collections.Concurrent;
+using System.Threading.Channels;
+using Microsoft.Extensions.DependencyInjection;
 using Core.Engine.utils;
 
 namespace Core.Engine
 {
     /// <summary>
     /// PowerShell command engine for executing commands in PowerShell runspaces.
+    /// Uses scoped DI to create isolated <see cref="ICommandContext"/> per invocation.
     /// <para><b>Thread Safety:</b> This engine is designed for concurrent command execution.
     /// Each <see cref="Process"/> call creates isolated context with per-invocation output channel.
     /// Extension indices are cached using thread-safe lazy initialization.</para>
-    /// <para><b>Output Routing:</b> Each invocation gets its own Channel for worker-to-caller 
-    /// communication. The worker thread writes to the channel, and the caller's thread reads 
+    /// <para><b>Output Routing:</b> Each invocation gets its own Channel for worker-to-caller
+    /// communication. The worker thread writes to the channel, and the caller's thread reads
     /// and dispatches to the provided output delegate (e.g., $PSCmdlet.WriteObject).</para>
     /// </summary>
     public class PSEngine : IEngine
     {
+        private readonly IServiceProvider _serviceProvider;
+
         // Extension indices are cached with Lazy<T> to ensure single initialization per extension
         // even under concurrent access. The factory runs exactly once per key.
-        //TODO: tune the cache size based on expected number of extensions
         private readonly LFUCache<Lazy<IExtensionIndex>> _extensionIndices = new(512);
-
-        private readonly HttpClient _httpClient;
-        private readonly Action<string> WriteVerbose;
-        private readonly Action<string> WriteDebug;
-        private readonly Func<AuthContext> GetAuthContext;
-        private readonly AcquireTokenAsyncDelegate AcquireTokenSilentlyAsync;
-        private readonly StartActivityDelegate StartActivity;
         private bool _disposed;
 
         public ClientType ClientType = ClientType.PowerShell;
 
         public PSEngine(IServiceProvider serviceProvider)
         {
-            _httpClient = new HttpClient();
-            ILoggingService loggingService = serviceProvider.GetRequiredService<ILoggingService>();
-            WriteVerbose = loggingService.Verbose;
-            WriteDebug = loggingService.Debug;
-            GetAuthContext = () => serviceProvider.GetRequiredService<IAuthContextService>().GetCurrentContextAsync().GetAwaiter().GetResult() ?? new AuthContext() { SubscriptionId = "", TenantId = "" };
-            AcquireTokenSilentlyAsync = serviceProvider.GetRequiredService<IAuthService>().AcquireTokenSilentlyAsync;
-            StartActivity = serviceProvider.GetRequiredService<ITelemetryService>().StartActivity;
+            _serviceProvider = serviceProvider;
         }
 
         /// <summary>
-        /// Processes a command invocation with isolated output routing.
-        /// <para><b>Thread Safety:</b> Each call creates its own output channel. The worker thread
-        /// writes output to the channel, while the caller's thread pumps the channel and invokes
-        /// the provided output delegate. This ensures output is routed to the correct $PSCmdlet.</para>
+        /// Processes a command invocation with isolated output routing via scoped DI.
+        /// <para><b>Thread Safety:</b> Each call creates its own DI scope and output channel.
+        /// The worker thread writes output to the channel, while the caller's thread pumps
+        /// the channel and invokes the provided output delegate. This ensures output is
+        /// routed to the correct $PSCmdlet.</para>
         /// </summary>
-        /// <param name="invocation">The command invocation containing extension name, command name, and parameters.</param>
-        /// <param name="outputDelegate">The output delegate for this invocation (typically wired to $PSCmdlet.WriteObject).</param>
-        /// <param name="cancellationToken">Cancellation token.</param>
-        /// <exception cref="ObjectDisposedException">Thrown if the engine has been disposed.</exception>
         public void Process(ICommandInvocation invocation, CommandOutputDelegate outputDelegate, CancellationToken cancellationToken = default)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
@@ -69,8 +55,13 @@ namespace Core.Engine
                 SingleWriter = true
             });
 
-            // Create context with channel-based output handler
-            ICommandContext commandContext = CreateCommandContext(outputChannel.Writer);
+            // Create a scoped DI container for this invocation.
+            // Scoped services get fresh instances per scope.
+            using var scope = _serviceProvider.CreateScope();
+            var scopedProvider = scope.ServiceProvider;
+
+            // Build ICommandContext from scoped services + channel output
+            ICommandContext commandContext = BuildCommandContext(scopedProvider, outputChannel.Writer);
 
             // Start worker thread for command execution
             Task executeCommandTask = ExecuteCommandAsync(GetCommand(invocation).Init(commandContext), outputChannel.Writer, cancellationToken);
@@ -90,43 +81,20 @@ namespace Core.Engine
         }
 
         /// <summary>
-        /// Creates a new command context for this invocation with channel-based output.
-        /// Each command execution gets its own isolated context.
+        /// Builds an <see cref="ICommandContext"/> from scoped DI services and a channel writer.
         /// </summary>
-        /// <param name="outputWriter">The channel writer for this invocation's output.</param>
-        private ICommandContext CreateCommandContext(ChannelWriter<object> outputWriter)
+        private static ICommandContext BuildCommandContext(IServiceProvider scopedProvider, ChannelWriter<object> outputWriter)
         {
-            AuthContext authContext = GetAuthContext();
-            CommandAuthHandler commandAuthHandler = new CommandAuthHandler
+            return new CommandContext
             {
-                AuthContext = new AuthContext
+                CommandAuthHandler = scopedProvider.GetRequiredService<ICommandAuthHandler>(),
+                CommandTelemetryHandler = scopedProvider.GetRequiredService<ICommandTelemetryHandler>(),
+                HttpPipeline = scopedProvider.GetRequiredService<IRuntimeHttpPipeline>(),
+                CommandOutputHandler = new CommandOutputHandler
                 {
-                    SubscriptionId = authContext.SubscriptionId,
-                    TenantId = authContext.TenantId
-                },
-                AcquireTokenAsyncDefault = AcquireTokenSilentlyAsync,
-                ApplyOverride = false
+                    WriteOutput = async (value, ct) => await outputWriter.WriteAsync(value, ct)
+                }
             };
-
-            // Create output handler that writes to the per-invocation channel
-            CommandOutputHandler commandOutputHandler = new CommandOutputHandler
-            {
-                WriteOutput = async (value, ct) => await outputWriter.WriteAsync(value, ct)
-            };
-            CommandTelemetryHandler commandTelemetryHandler = new CommandTelemetryHandler
-            {
-                StartActivity = StartActivity
-            };
-
-            IRuntimeHttpPipeline httpPipeline = new HttpPipeline(new HttpClientFactory(_httpClient));
-            ICommandContext context = new CommandContext
-            {
-                CommandOutputHandler = commandOutputHandler,
-                CommandAuthHandler = commandAuthHandler,
-                CommandTelemetryHandler = commandTelemetryHandler,
-                HttpPipeline = httpPipeline.Prepend(commandAuthHandler.SendAsync)
-            };
-            return context;
         }
 
         /// <summary>
@@ -142,7 +110,6 @@ namespace Core.Engine
                 }
                 finally
                 {
-                    // Signal completion to the reader
                     outputWriter.Complete();
                 }
             }, cancellationToken);
@@ -150,56 +117,43 @@ namespace Core.Engine
 
         /// <summary>
         /// Gets a command processor for the given invocation.
-        /// <para><b>Thread Safety:</b> Extension indices are lazily cached with guaranteed single initialization.
-        /// <see cref="IExtensionIndex.GetCommandMetaData"/> is thread-safe as implementations use
-        /// read-only dictionaries populated during construction.</para>
+        /// Extension indices are lazily cached with guaranteed single initialization.
         /// </summary>
         public IProcessor GetCommand(ICommandInvocation invocation)
         {
-            // Lazy<T> ensures the factory runs exactly once per extension, even under contention.
-            // Without Lazy, GetOrAdd's factory may execute multiple times (only one result stored).
+            var loggingService = _serviceProvider.GetService<ILoggingService>();
+
             IExtensionIndex extensionIndex = _extensionIndices.GetOrAdd(
                 invocation.ExtensionName,
                 extensionName => new Lazy<IExtensionIndex>(() =>
                 {
                     string assemblyName = extensionName.ResolveExtensionName().ResolveAssemblyName();
-                    WriteVerbose($"Resolved extension '{extensionName}' to assembly '{assemblyName}'. Loading extension index...");
+                    loggingService?.Verbose($"Resolved extension '{extensionName}' to assembly '{assemblyName}'. Loading extension index...");
                     Type? indexType = Type.GetType($"{assemblyName}.ExtensionIndex, {assemblyName}")
                         ?? throw new InvalidOperationException($"No IExtensionIndex implementation found in assembly {assemblyName}");
                     return (Activator.CreateInstance(indexType) as IExtensionIndex)!;
                 })
             ).Value;
 
-            // Thread-safe: ExtensionIndex.GetCommandMetaData only reads from dictionaries
-            // that are populated in constructor and never modified thereafter.
             ICommandMetadata commandMetadata = extensionIndex.GetCommandMetaData(invocation.CommandName, ClientType);
-            WriteVerbose($"Resolved command '{invocation.CommandName}' to type '{commandMetadata.CommandType.FullName}'. Creating instance...");
-            // Each call creates a new command instance - no shared state
+            loggingService?.Verbose($"Resolved command '{invocation.CommandName}' to type '{commandMetadata.CommandType.FullName}'. Creating instance...");
             IProcessor instance = commandMetadata.GetInstance();
             invocation.Parameters.ToList().ForEach(p => instance.SetProperty(p.Key, p.Value));
             return instance;
         }
 
-        /// <summary>
-        /// Releases the unmanaged resources used by PSEngine and optionally releases managed resources.
-        /// </summary>
-        /// <param name="disposing">true to release both managed and unmanaged resources; false to release only unmanaged resources.</param>
         protected virtual void Dispose(bool disposing)
         {
             if (!_disposed)
             {
                 if (disposing)
                 {
-                    _httpClient.Dispose();
                     _extensionIndices.Clear();
                 }
                 _disposed = true;
             }
         }
 
-        /// <summary>
-        /// Releases all resources used by PSEngine.
-        /// </summary>
         public void Dispose()
         {
             Dispose(disposing: true);

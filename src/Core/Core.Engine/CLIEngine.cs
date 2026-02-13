@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Reflection;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
@@ -11,13 +10,13 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Core.Engine;
 
 /// <summary>
-/// CLI command engine for executing commands from raw command strings.
-/// The parsing logic is handled internally in GetCommand().
+/// CLI command engine for executing commands via extension-based dispatch.
+/// Uses scoped DI to create isolated <see cref="ICommandContext"/> per invocation.
+/// Extension loading and command resolution are handled internally.
 /// </summary>
 public class CLIEngine(IServiceProvider serviceProvider) : IEngine
 {
     private readonly IServiceProvider _serviceProvider = serviceProvider;
-    private readonly HttpClient _httpClient = new();
     private bool _disposed = false;
     private static readonly string _prefix = "Microsoft.Azure.Cirrus.Extensions.";
 
@@ -102,99 +101,58 @@ public class CLIEngine(IServiceProvider serviceProvider) : IEngine
     public void Process(ICommandInvocation invocation, CommandOutputDelegate output, CancellationToken token = default)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        Debug.Assert(invocation.ClientType == ClientType.CLI, "CLIEngine can only process CLI invocations.");
         var loggingService = _serviceProvider.GetService<ILoggingService>();
         loggingService?.Info($"Processing command: '{invocation.CommandName}'.");
 
         IProcessor command = GetCommand(invocation);
-        // TODO: Initialize command context and execute
-        ICommandContext context = CreateCommandContext(output);
+
+        // Create a scoped DI container for this invocation.
+        // Scoped services (ICommandAuthHandler, ICommandTelemetryHandler,
+        // IRuntimeHttpPipeline) get fresh instances per scope.
+        using var scope = _serviceProvider.CreateScope();
+        var scopedProvider = scope.ServiceProvider;
+
+        ICommandContext context = BuildCommandContext(scopedProvider, output);
         command.Init(context);
+
         ExecuteCommandAsync(command, token).GetAwaiter().GetResult();
     }
 
     /// <summary>
-    /// Creates a new command context for this invocation with channel-based output.
-    /// Each command execution gets its own isolated context.
+    /// Builds an <see cref="ICommandContext"/> from scoped DI services and the caller's output delegate.
     /// </summary>
-    /// <param name="output">The output delegate for this invocation's output.</param>
-    private ICommandContext CreateCommandContext(CommandOutputDelegate output)
+    private static ICommandContext BuildCommandContext(IServiceProvider scopedProvider, CommandOutputDelegate output)
     {
-        AuthContext authContext = _serviceProvider.GetRequiredService<IAuthContextService>().GetCurrentContextAsync().GetAwaiter().GetResult() ?? new AuthContext() { SubscriptionId = "", TenantId = "" };
-        CommandAuthHandler commandAuthHandler = new CommandAuthHandler
+        return new CommandContext
         {
-            AuthContext = new AuthContext
-            {
-                SubscriptionId = authContext.SubscriptionId,
-                TenantId = authContext.TenantId
-            },
-            AcquireTokenAsyncDefault = _serviceProvider.GetRequiredService<IAuthService>().AcquireTokenSilentlyAsync,
-            ApplyOverride = false
+            CommandAuthHandler = scopedProvider.GetRequiredService<ICommandAuthHandler>(),
+            CommandTelemetryHandler = scopedProvider.GetRequiredService<ICommandTelemetryHandler>(),
+            HttpPipeline = scopedProvider.GetRequiredService<IRuntimeHttpPipeline>(),
+            CommandOutputHandler = new CommandOutputHandler { WriteOutput = output }
         };
-
-        // Create output handler that writes to the per-invocation channel
-        CommandOutputHandler commandOutputHandler = new CommandOutputHandler
-        {
-            WriteOutput = async (value, ct) => await output(value, ct)
-        };
-        CommandTelemetryHandler commandTelemetryHandler = new CommandTelemetryHandler
-        {
-            StartActivity = _serviceProvider.GetRequiredService<ITelemetryService>().StartActivity
-        };
-
-        IRuntimeHttpPipeline httpPipeline = new HttpPipeline(new HttpClientFactory(_httpClient));
-        ICommandContext context = new CommandContext
-        {
-            CommandOutputHandler = commandOutputHandler,
-            CommandAuthHandler = commandAuthHandler,
-            CommandTelemetryHandler = commandTelemetryHandler,
-            HttpPipeline = httpPipeline.Prepend(commandAuthHandler.SendAsync)
-        };
-        return context;
     }
 
-
-    /// <summary>
-    /// Executes the command on a worker thread, writing output to the channel.
-    /// </summary>
-    private async Task ExecuteCommandAsync(IProcessor command, CancellationToken cancellationToken = default)
+    private static async Task ExecuteCommandAsync(IProcessor command, CancellationToken cancellationToken = default)
     {
         await Task.Run(async () =>
         {
-            try
-            {
-                await command.ProcessAsync();
-            }
-            finally
-            {
-            }
+            await command.ProcessAsync();
         }, cancellationToken);
     }
 
-        /// <summary>
-        /// Releases the unmanaged resources used by CLIEngine and optionally releases managed resources.
-        /// </summary>
-        /// <param name="disposing">true to release both managed and unmanaged resources; false to release only unmanaged resources.</param>
-        protected virtual void Dispose(bool disposing)
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!_disposed)
         {
-            if (!_disposed)
-            {
-                if (disposing)
-                {
-                    _httpClient.Dispose();
-                }
-                _disposed = true;
-            }
+            _disposed = true;
         }
+    }
 
-        /// <summary>
-        /// Releases all resources used by CLIEngine.
-        /// </summary>
-        public void Dispose()
-        {
-            Dispose(disposing: true);
-            GC.SuppressFinalize(this);
-        }
+    public void Dispose()
+    {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
 }
 
 public class PropertyParserException : Exception
