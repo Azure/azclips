@@ -116,7 +116,7 @@ public class MultiVersionExtensionLoader(string extensionsDir, ILoggingService? 
                 .Where(x => x.parsed != null)
                 .OrderByDescending(x => x.parsed)
                 .Select(x => x.dir)
-                .FirstOrDefault()!;
+                .FirstOrDefault();
             if (extensionDir == null)
             {
                 _loggingService?.Debug($"No valid semantic versions found for extension '{extensionName}'. Checked path: '{Path.Combine(extensionsDir, extensionName)}'");
