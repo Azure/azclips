@@ -36,6 +36,16 @@ public class ExtensionIndex : IExtensionIndex
         }
         throw new KeyNotFoundException($"Command '{name}' not found for client type '{clientType}'.");
     }
+
+    public IEnumerable<ICommandMetadata> GetAllCommands(ClientType clientType)
+    {
+        return clientType switch
+        {
+            ClientType.PowerShell => _psTable.Values,
+            ClientType.CLI => _cliTable.Values,
+            _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
+        };
+    }
 }
 
 class CommandMetadata : ICommandMetadata
