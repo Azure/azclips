@@ -58,8 +58,9 @@ PowerShellVersion = '7.5'
 
 RequiredAssemblies = '../../../artifacts/Debug/Core/Core.Abstractions.dll',
                         '../../../artifacts/Debug/Core/Core.Telemetry.dll',
-                        '../../../artifacts/Debug/Core/Core.Implementation.dll',
+                        '../../../artifacts/Debug/Core/Core.Runtime.dll',
                         '../../../artifacts/Debug/Core/Core.Engine.dll',
+                        '../../../artifacts/Debug/Core/Core.DependencyInjection.dll',
                         '../../../artifacts/Debug/Core/Microsoft.Extensions.DependencyInjection.Abstractions.dll',
                         '../../../artifacts/Debug/Microsoft.Azure.Cirrus.Extensions.Login/Microsoft.Azure.Cirrus.Extensions.Login.dll'
 

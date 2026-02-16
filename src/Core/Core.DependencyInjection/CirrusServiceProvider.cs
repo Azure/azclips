@@ -36,4 +36,15 @@ public static class CirrusServiceProvider
             "CirrusServiceProvider has not been initialized. Call Initialize() first."))
             .GetRequiredService<T>();
     }
+
+    /// <summary>
+    /// Resolves a service from the initialized container by Type.
+    /// Use this overload from PowerShell, which cannot call generic methods directly.
+    /// </summary>
+    public static object GetRequiredService(Type serviceType)
+    {
+        return (_serviceProvider ?? throw new InvalidOperationException(
+            "CirrusServiceProvider has not been initialized. Call Initialize() first."))
+            .GetRequiredService(serviceType);
+    }
 }

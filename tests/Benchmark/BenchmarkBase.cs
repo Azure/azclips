@@ -4,7 +4,7 @@
 using System.Diagnostics;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Core.Engine;
+using Core.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Benchmark;
@@ -41,9 +41,8 @@ public abstract class BenchmarkBase
             ?? throw new InvalidOperationException("Cannot find repository root (looking for cirrus.slnx)");
 
         // Get auth token
-        var serviceProvider = Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult();
-        var authService = serviceProvider.GetRequiredService<IAuthService>();
-        var authContextService = serviceProvider.GetRequiredService<IAuthContextService>();
+        var authService = CirrusServiceProvider.GetRequiredService<IAuthService>();
+        var authContextService = CirrusServiceProvider.GetRequiredService<IAuthContextService>();
         var authContext = authContextService.GetCurrentContextAsync().GetAwaiter().GetResult()
             ?? throw new InvalidOperationException("Not authenticated. Please run 'azv2 login' first.");
 

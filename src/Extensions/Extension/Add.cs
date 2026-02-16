@@ -1,7 +1,6 @@
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Core.Engine;
-using Microsoft.Extensions.DependencyInjection;
+using Core.DependencyInjection;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Extension.Commands;
 
@@ -52,9 +51,8 @@ public class AddExtensionCommand : IProcessor
             throw new ArgumentException("Either Name or Path must be provided to add an extension.");
         }
 
-        var serviceProvider = Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult();
-        var telemetryService = serviceProvider.GetRequiredService<ITelemetryService>();
-        var loggingService = serviceProvider.GetRequiredService<ILoggingService>();
+        var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
+        var loggingService = CirrusServiceProvider.GetRequiredService<ILoggingService>();
         using var _ = telemetryService.ActivitySource?.StartActivity($"{nameof(AddExtensionCommand)}.{nameof(Process)}");
 
         var installer = new ExtensionInstaller(loggingService, feedUrl: FeedUrl);
