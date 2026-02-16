@@ -21,8 +21,10 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
         public override async Task ProcessAsync()
         {
             using var _ = StartActivity($"{nameof(GetResourceGroupCommand)}.{nameof(ProcessAsync)}");
+            // Use provided subscription ID or fall back to auth context
+            var subscriptionId = SubscriptionId ?? AuthContext.SubscriptionId;
             // construct URL
-            var url = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourcegroups/{Name}?api-version=2025-04-01";
+            var url = $"https://management.azure.com/subscriptions/{subscriptionId}/resourcegroups/{Name}?api-version=2025-04-01";
             //TODO: set_jsonOptions from command context
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             HttpResponseMessage response = await HttpPipeline.SendAsync(request, this);

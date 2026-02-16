@@ -14,4 +14,14 @@ public class AuthContext
     /// The subscription ID associated with the authentication context.
     /// </summary>
     public required string SubscriptionId { get; init; }
+
+    /// <summary>
+    /// Returns a string representation of the AuthContext.
+    /// This can be useful for logging or debugging purposes.
+    /// </summary>
+    /// <returns>A string that represents the current AuthContext.</returns>
+    public override string ToString()
+    {
+        return $"Subscription: {this.SubscriptionId}{System.Environment.NewLine}Tenant: {this.TenantId}";
+    }
 }
