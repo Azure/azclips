@@ -5,7 +5,6 @@ using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
 using Core.Runtime;
 using Core.Runtime.Handler;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Core.Engine;
 
@@ -15,13 +14,14 @@ namespace Core.Engine;
 /// </summary>
 public class CLIEngine : IEngine
 {
-    public CLIEngine(IServiceProvider serviceProvider)
+    public CLIEngine(IAuthContextService authContextService, IAuthService authService, ITelemetryService telemetryService, ILoggingService loggingService)
+
     {
-        _logger = serviceProvider.GetService<ILoggingService>();
+        _logger = loggingService;
         _logger?.Info("CLIEngine initialized.");
-        _authContextService = serviceProvider.GetRequiredService<IAuthContextService>();
-        _authService = serviceProvider.GetRequiredService<IAuthService>();
-        _telemetryService = serviceProvider.GetRequiredService<ITelemetryService>();
+        _authContextService = authContextService;
+        _authService = authService;
+        _telemetryService = telemetryService;
     }
     private readonly ILoggingService? _logger;
     private readonly IAuthContextService _authContextService = null!;
