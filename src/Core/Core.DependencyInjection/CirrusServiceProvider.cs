@@ -12,12 +12,13 @@ public static class CirrusServiceProvider
     private static IServiceProvider? _serviceProvider;
 
     /// <summary>
-    /// Initializes the DI container. Called once during module import (psm1) or CLI startup.
+    /// Initializes the DI container. Safe to call multiple times — only the first call takes effect.
+    /// Called during module import (psm1) or CLI startup.
     /// </summary>
     public static void Initialize(ClientType clientType)
     {
         if (_serviceProvider is not null)
-            throw new InvalidOperationException("CirrusServiceProvider is already initialized.");
+            return;
 
         _serviceProvider = new ServiceCollection()
             .RegisterRuntimeServices()
