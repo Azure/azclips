@@ -88,8 +88,8 @@ Example executable_command JSON for azure powershell:
 
 We are building a new version of the Azure CLI and Powershell, and so far the only commands that are trully supported are:
 
-- azv2 login --TenantId <tenant-id> --SubscriptionId <subscription-id> --UseDeviceCode
-- azv2 group create --SubscriptionId <subscription-id> --Name <name> --Location <location>
+- azv2 login --tenant-id <tenant-id> --subscription-id <subscription-id> --use-device-code true
+- azv2 group create --subscription-id <subscription-id> --name <name> --location <location>
 
 So these are the only trully execuable commands for now. Any other command should be treated as a "sample_command".
 
