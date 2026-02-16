@@ -2,7 +2,7 @@ using System;
 using System.Diagnostics;
 using Core.Abstractions;
 
-namespace Core.Implementation;
+namespace Core.Runtime;
 
 /// <summary>
 /// Simple console-based telemetry logger.
