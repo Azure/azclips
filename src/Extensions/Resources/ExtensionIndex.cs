@@ -1,11 +1,6 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Core.Abstractions;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Resources
@@ -75,6 +70,16 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
                     throw new ArgumentException($"Client type '{clientType}' is not supported.");
             }
             throw new KeyNotFoundException($"Command '{name}' not found for client type '{clientType}'.");
+        }
+
+        public IEnumerable<ICommandMetadata> GetAllCommands(ClientType clientType)
+        {
+            return clientType switch
+            {
+                ClientType.PowerShell => _psTable.Values,
+                ClientType.CLI => _cliTable.Values,
+                _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
+            };
         }
     }
 

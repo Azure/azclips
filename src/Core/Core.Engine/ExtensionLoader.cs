@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Runtime.Loader;
 using Core.Abstractions;
+using NuGet.Versioning;
 
 namespace Core.Engine;
 
@@ -18,7 +19,7 @@ public class BuiltinExtensionLoader(string extensionsDir, ILoggingService? loggi
 
         protected override Assembly? Load(AssemblyName assemblyName)
         {
-            if (assemblyName.Name != null && assemblyName.Name.StartsWith("Core."))
+            if (assemblyName.Name != null && (assemblyName.Name.StartsWith("Core.") || assemblyName.Name.StartsWith("Microsoft.Extensions.DependencyInjection")))
             {
                 _loggingService?.Debug($"Skipping to load assembly '{assemblyName.Name}' in BuiltinExtensionLoader.");
                 return null;
@@ -71,7 +72,7 @@ public class MultiVersionExtensionLoader(string extensionsDir, ILoggingService? 
 
         protected override Assembly? Load(AssemblyName assemblyName)
         {
-            if (assemblyName.Name == "SharedContracts" || assemblyName.Name == "Core.SharedContracts")
+            if (assemblyName.Name != null && (assemblyName.Name.StartsWith("Core.") || assemblyName.Name.StartsWith("Microsoft.Extensions.DependencyInjection")))
             {
                 _loggingService?.Debug($"Skipping to load assembly '{assemblyName.Name}' in MultiVersionExtensionLoader.");
                 return null;
@@ -109,9 +110,19 @@ public class MultiVersionExtensionLoader(string extensionsDir, ILoggingService? 
                 _loggingService?.Debug($"No versions found for extension '{extensionName}' in multi-version extensions directory. Checked path: '{Path.Combine(extensionsDir, extensionName)}'");
                 return null;
             }
-            // TODO: Improve version comparison to handle semantic versioning properly
-            Array.Sort(versionDirs);
-            extensionDir = versionDirs[^1];
+            // Use NuGet.Versioning for proper semantic version comparison, skipping invalid version names
+            string? latestDir = versionDirs
+                .Select(dir => (dir, parsed: NuGetVersion.TryParse(Path.GetFileName(dir), out var v) ? v : null))
+                .Where(x => x.parsed != null)
+                .OrderByDescending(x => x.parsed)
+                .Select(x => x.dir)
+                .FirstOrDefault();
+            if (latestDir == null)
+            {
+                _loggingService?.Debug($"No valid semantic versions found for extension '{extensionName}'. Checked path: '{Path.Combine(extensionsDir, extensionName)}'");
+                return null;
+            }
+            extensionDir = latestDir;
         }
 
         var extensionPath = Path.Combine(extensionDir, $"{extensionName}.dll");
