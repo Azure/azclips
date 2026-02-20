@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using Core.Abstractions;
+using Core.Abstractions.Runtime;
 using Core.Cli.Exceptions;
 using Core.Cli.Parser;
 using Core.Engine;
@@ -39,9 +40,14 @@ public class Program
                 using var commandActivity = _telemetryService.ActivitySource.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
                 commandActivity?.SetTag("command.type", invocation.GetType().Name);
 
-                string result = Engine.Engine.GetCommand(invocation).Process(true).ToString();
+                var engineFactory = serviceProvider.GetRequiredService<EngineFactory>();
+                var engine = engineFactory.GetEngine(ClientType.CLI);
+                engine.Process(invocation, (value, ct) =>
+                {
+                    _logger?.Log(value?.ToString() ?? string.Empty);
+                    return Task.CompletedTask;
+                }, CancellationToken.None);
 
-                _logger?.Log(result);
                 activity?.SetStatus(ActivityStatusCode.Ok);
                 return 0;
             }
@@ -108,8 +114,15 @@ public class Program
                 {
                     var dispatcher = new ExtensionDispatcher();
                     ICommandInvocation invocation = dispatcher.Parse(retryArgs);
-                    string result = Engine.Engine.GetCommand(invocation).Process(true).ToString();
-                    Console.WriteLine(result);
+                    
+                    var engineFactory = serviceProvider.GetRequiredService<EngineFactory>();
+                    var engine = engineFactory.GetEngine(ClientType.CLI);
+                    engine.Process(invocation, (value, ct) =>
+                    {
+                        Console.WriteLine(value);
+                        return Task.CompletedTask;
+                    }, CancellationToken.None);
+                    
                     return 0;
                 }
                 catch (Exception ex)
