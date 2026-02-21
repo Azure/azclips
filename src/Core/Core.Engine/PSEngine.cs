@@ -59,31 +59,63 @@ namespace Core.Engine
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
 
-            // Create a per-invocation channel for worker-to-caller communication
-            Channel<object> outputChannel = Channel.CreateUnbounded<object>(new UnboundedChannelOptions
+            // Create a linked CTS that cancels on both the caller's token AND Ctrl+C.
+            // Console.CancelKeyPress fires on the console signal thread (no PS runspace needed),
+            // so hooking it here avoids the "no runspace" error from PowerShell scriptblocks.
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            ConsoleCancelEventHandler cancelHandler = (_, e) =>
             {
-                SingleReader = true,
-                SingleWriter = true
-            });
+                e.Cancel = true; // Prevent process termination
+                linkedCts.Cancel();
+            };
+            Console.CancelKeyPress += cancelHandler;
+            CancellationToken ct = linkedCts.Token;
 
-            // Create context with channel-based output handler
-            ICommandContext commandContext = CreateCommandContext(outputChannel.Writer);
-
-            // Start worker thread for command execution
-            Task executeCommandTask = ExecuteCommandAsync(GetCommand(invocation).Init(commandContext), outputChannel.Writer, cancellationToken);
-
-            // Pump the channel on the caller's thread (runspace-affine)
-            ChannelReader<object> reader = outputChannel.Reader;
-            while (reader.WaitToReadAsync(cancellationToken).AsTask().GetAwaiter().GetResult())
+            try
             {
-                while (reader.TryRead(out var output))
+                //below are just some test logs and delay to simulate startup time and test cancellation before command execution
+                WriteVerbose($"Starting execution of command .........");
+                for (int i = 0; i<10; i++)
                 {
-                    outputDelegate(output, cancellationToken).GetAwaiter().GetResult();
+                    //test cts
+                    if (ct.IsCancellationRequested)
+                    {
+                        WriteVerbose("Cancellation requested before command execution. Aborting.");
+                        return;
+                    }
+                    Thread.Sleep(1000); // Simulate some startup delay
                 }
-            }
 
-            // Ensure worker completes (propagate any exceptions)
-            executeCommandTask.GetAwaiter().GetResult();
+                // Create a per-invocation channel for worker-to-caller communication
+                Channel<object> outputChannel = Channel.CreateUnbounded<object>(new UnboundedChannelOptions
+                {
+                    SingleReader = true,
+                    SingleWriter = true
+                });
+
+                // Create context with channel-based output handler
+                ICommandContext commandContext = CreateCommandContext(outputChannel.Writer);
+
+                // Start worker thread for command execution
+                Task executeCommandTask = ExecuteCommandAsync(GetCommand(invocation).Init(commandContext), outputChannel.Writer, ct);
+
+                // Pump the channel on the caller's thread (runspace-affine)
+                ChannelReader<object> reader = outputChannel.Reader;
+                while (reader.WaitToReadAsync(ct).AsTask().GetAwaiter().GetResult())
+                {
+                    while (reader.TryRead(out var output))
+                    {
+                        outputDelegate(output, ct).GetAwaiter().GetResult();
+                    }
+                }
+
+                // Ensure worker completes (propagate any exceptions)
+                executeCommandTask.GetAwaiter().GetResult();
+            }
+            finally
+            {
+                Console.CancelKeyPress -= cancelHandler;
+            }
         }
 
         /// <summary>
