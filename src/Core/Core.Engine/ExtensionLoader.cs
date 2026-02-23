@@ -19,7 +19,7 @@ public class BuiltinExtensionLoader(string extensionsDir, ILoggingService? loggi
 
         protected override Assembly? Load(AssemblyName assemblyName)
         {
-            if (assemblyName.Name != null && (assemblyName.Name.StartsWith("Core.") || assemblyName.Name.StartsWith("Microsoft.Extensions.DependencyInjection")))
+            if (assemblyName.Name != null && (assemblyName.Name.StartsWith("Core.") || assemblyName.Name.StartsWith("Microsoft.Extensions.")))
             {
                 _loggingService?.Debug($"Skipping to load assembly '{assemblyName.Name}' in BuiltinExtensionLoader.");
                 return null;
@@ -72,7 +72,7 @@ public class MultiVersionExtensionLoader(string extensionsDir, ILoggingService? 
 
         protected override Assembly? Load(AssemblyName assemblyName)
         {
-            if (assemblyName.Name != null && (assemblyName.Name.StartsWith("Core.") || assemblyName.Name.StartsWith("Microsoft.Extensions.DependencyInjection")))
+            if (assemblyName.Name != null && (assemblyName.Name.StartsWith("Core.") || assemblyName.Name.StartsWith("Microsoft.Extensions.")))
             {
                 _loggingService?.Debug($"Skipping to load assembly '{assemblyName.Name}' in MultiVersionExtensionLoader.");
                 return null;

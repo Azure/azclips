@@ -1,7 +1,9 @@
 ﻿using Core.Abstractions;
 using Core.Authentication;
 using Core.Implementation;
+using Core.Runtime.Config;
 using Core.Telemetry;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Core.Engine;
@@ -50,6 +52,14 @@ public class Bootstrapper
     {
         var services = new ServiceCollection();
 
+        // Build a configuration first to support custom config file path
+        var hostConfigurationBuilder = new ConfigurationBuilder();
+        hostConfigurationBuilder.AddEnvironmentVariables(prefix: "CIRRUS_");
+        var hostConfiguration = hostConfigurationBuilder.Build();
+        var configPath = hostConfiguration["ConfigPath"] ?? Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".cirrus", "config.json");
+
         // --- ORIGINAL REGISTRATIONS (from main branch) ---
         // Telemetry service for logging throughout the application
         services.AddSingleton<ILoggingService, ConsoleLoggingService>();
@@ -77,6 +87,19 @@ public class Bootstrapper
         // Default command engine - handles structured commands (e.g., "group create --name test")
         // This is the original ICommandEngine implementation, now one of multiple engines
         services.AddSingleton<DefaultCommandEngine>();
+
+        var appConfigurationBuilder = new ConfigurationBuilder();
+        appConfigurationBuilder.Add(new PersistableJsonConfigurationSource { Path = configPath, Optional = true, ReloadOnChange = true });
+        // Environment variables override config file
+        appConfigurationBuilder.AddConfiguration(hostConfiguration, shouldDisposeConfiguration: true);
+        var appConfiguration = appConfigurationBuilder.Build();
+        services.AddSingleton<IConfiguration>(appConfiguration);
+        // We need to register the underlying provider to allow setting values at runtime (e.g., via "config set" command)
+        var persistableProvider = appConfiguration.Providers
+            .OfType<PersistableJsonConfigurationProvider>()
+            .Single();
+        services.AddSingleton<IConfigurationProvider>(persistableProvider);
+        services.AddKeyedSingleton<IConfigurationProvider>("global", persistableProvider);
 
         // Agent engine - handles natural language input via AI (Azure OpenAI)
         // NEW: This didn't exist in original design. Added to support queries like
