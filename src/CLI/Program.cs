@@ -59,8 +59,8 @@ public class Program
             }
             catch (Exception ex)
             {
-                _logger?.Error(ex.Message);
-                
+                _logger?.Debug(ex.Message);
+
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 activity?.AddException(ex);
 
@@ -114,7 +114,7 @@ public class Program
                 {
                     var dispatcher = new ExtensionDispatcher();
                     ICommandInvocation invocation = dispatcher.Parse(retryArgs);
-                    
+
                     var engineFactory = serviceProvider.GetRequiredService<EngineFactory>();
                     var engine = engineFactory.GetEngine(ClientType.CLI);
                     engine.Process(invocation, (value, ct) =>
@@ -122,7 +122,7 @@ public class Program
                         Console.WriteLine(value);
                         return Task.CompletedTask;
                     }, CancellationToken.None);
-                    
+
                     return 0;
                 }
                 catch (Exception ex)

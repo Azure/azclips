@@ -7,7 +7,7 @@ namespace Core.Implementation;
 /// <summary>
 /// Simple console-based telemetry logger.
 /// </summary>
-public class ConsoleLoggingService : ILoggingService
+public class ConsoleLoggingService(IConfigurationProvider Config) : ILoggingService
 {
     public void Log(string message)
     {
@@ -17,6 +17,10 @@ public class ConsoleLoggingService : ILoggingService
 
     public void Info(string message)
     {
+        if (Config.Get("CIRRUS_INFO")?.Equals("true", StringComparison.InvariantCultureIgnoreCase) != true)
+        {
+            return; // Skip info logs unless enabled via configuration
+        }
         Console.WriteLine($"[INFO] {message}");
         RecordTelemetry("Info", message);
     }
@@ -39,6 +43,10 @@ public class ConsoleLoggingService : ILoggingService
 
     public void Verbose(string message)
     {
+        if (Config.Get("CIRRUS_VERBOSE")?.Equals("true", StringComparison.InvariantCultureIgnoreCase) != true)
+        {
+            return; // Skip verbose logs unless enabled via configuration
+        }
         Console.ForegroundColor = ConsoleColor.DarkGray;
         Console.WriteLine($"[VERBOSE] {message}");
         Console.ResetColor();
@@ -47,6 +55,10 @@ public class ConsoleLoggingService : ILoggingService
 
     public void Debug(string message)
     {
+        if (Config.Get("CIRRUS_DEBUG")?.Equals("true", StringComparison.InvariantCultureIgnoreCase) != true)
+        {
+            return; // Skip debug logs unless enabled via configuration
+        }
         Console.ForegroundColor = ConsoleColor.DarkGray;
         Console.WriteLine($"[DEBUG] {message}");
         Console.ResetColor();

@@ -56,6 +56,7 @@ public class Bootstrapper
         services.AddSingleton<IAuthService, MsalAuthService>();
         services.AddSingleton<IAuthContextService, AuthContextService>();
         services.AddSingleton<ITelemetryService, TelemetryService>();
+        services.AddSingleton<IConfigurationProvider, EnvironmentConfigurationProvider>();
 
         // --- NEW REGISTRATIONS (added for AI integration) ---
 
