@@ -23,7 +23,7 @@ public class ResourceGroupBenchmarks : BenchmarkBase
     [GlobalSetup]
     public void Setup()
     {
-        InitializeCommon();
+        InitializeCommon(Core.Abstractions.ClientType.CLI);
 
         // CLI executable path
         _cliPath = Path.Combine(RepoRoot, "artifacts", "Debug", "Core.Cli", "azv2.exe");

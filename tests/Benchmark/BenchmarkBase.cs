@@ -30,8 +30,10 @@ public abstract class BenchmarkBase
     /// <summary>
     /// Initialize common setup: authentication, instance ID, repo root.
     /// </summary>
-    protected void InitializeCommon()
+    protected void InitializeCommon(ClientType clientType = ClientType.CLI)
     {
+        CirrusServiceProvider.Initialize(clientType);
+        
         // Unique instance ID to avoid conflicts between runs
         InstanceId = $"{DateTime.UtcNow:HHmmss}-{Guid.NewGuid().ToString()[..4]}";
 
