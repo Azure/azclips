@@ -15,7 +15,6 @@ namespace Core.Engine;
 public class CLIEngine : IEngine
 {
     public CLIEngine(IAuthContextService authContextService, IAuthService authService, ITelemetryService telemetryService, ILoggingService loggingService)
-
     {
         _logger = loggingService;
         _logger?.Info("CLIEngine initialized.");

@@ -9,7 +9,8 @@ namespace Core.DependencyInjection;
 
 public static class CirrusServiceProvider
 {
-    private static IServiceProvider? _serviceProvider;
+    private static volatile IServiceProvider? _serviceProvider;
+    private static readonly object _lock = new();
 
     /// <summary>
     /// Initializes the DI container. Safe to call multiple times — only the first call takes effect.
@@ -20,12 +21,18 @@ public static class CirrusServiceProvider
         if (_serviceProvider is not null)
             return;
 
-        _serviceProvider = new ServiceCollection()
-            .RegisterRuntimeServices()
-            .RegisterAuthenticationServices()
-            .RegisterTelemetryServices()
-            .RegisterEngineServices(clientType)
-            .BuildServiceProvider();
+        lock (_lock)
+        {
+            if (_serviceProvider is not null)
+                return;
+
+            _serviceProvider = new ServiceCollection()
+                .RegisterRuntimeServices()
+                .RegisterAuthenticationServices()
+                .RegisterTelemetryServices()
+                .RegisterEngineServices(clientType)
+                .BuildServiceProvider();
+        }
     }
 
     /// <summary>
