@@ -94,7 +94,7 @@ namespace Core.Engine
         private ICommandContext CreateCommandContext(ChannelWriter<object> outputWriter)
         {
             AuthContext authContext = GetAuthContext();
-            CommandAuthHandler commandAuthHandler = new CommandAuthHandler
+            ICommandAuthHandler commandAuthHandler = new CommandAuthHandler
             {
                 AuthContext = new AuthContext
                 {
@@ -106,11 +106,11 @@ namespace Core.Engine
             };
 
             // Create output handler that writes to the per-invocation channel
-            CommandOutputHandler commandOutputHandler = new CommandOutputHandler
+            ICommandOutputHandler commandOutputHandler = new CommandOutputHandler
             {
                 WriteOutput = async (value, ct) => await outputWriter.WriteAsync(value, ct)
             };
-            CommandTelemetryHandler commandTelemetryHandler = new CommandTelemetryHandler
+            ICommandTelemetryHandler commandTelemetryHandler = new CommandTelemetryHandler
             {
                 StartActivity = StartActivity
             };
