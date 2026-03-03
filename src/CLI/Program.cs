@@ -63,6 +63,7 @@ public class Program
         }
         finally
         {
+            CirrusServiceProvider.Dispose();
             _telemetryService?.Dispose();
         }
     }

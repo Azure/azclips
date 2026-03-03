@@ -55,4 +55,21 @@ public static class CirrusServiceProvider
             "CirrusServiceProvider has not been initialized. Call Initialize() first."))
             .GetRequiredService(serviceType);
     }
+
+    /// <summary>
+    /// Disposes the initialized DI container and clears the cached provider.
+    /// Safe to call multiple times.
+    /// </summary>
+    public static void Dispose()
+    {
+        lock (_lock)
+        {
+            if (_serviceProvider is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+
+            _serviceProvider = null;
+        }
+    }
 }
