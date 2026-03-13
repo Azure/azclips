@@ -70,7 +70,7 @@ cirrus/
 ### Prerequisites
 - [.NET 9.0 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/9.0) (version pinned in `global.json`)
 - PowerShell 7.0+ (for PowerShell modules)
-- Azure subscription and access token (for actual API calls)
+- Azure subscription (for actual API calls)
 
 ### Build
 
