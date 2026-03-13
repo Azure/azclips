@@ -10,6 +10,54 @@
 			},
 			"problemMatcher": [],
 			"label": "dotnet: build"
+		},
+		{
+			"label": "dotnet build main",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"cirrus.slnx"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "dotnet build SpeechTest",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"coverage-results/SpeechTest/SpeechTest.csproj"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "dotnet build SpeechTest",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"eval/SpeechTest/SpeechTest.csproj"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "dotnet: build SpeechTest eval",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"eval/SpeechTest/SpeechTest.csproj"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
 		}
 	]
 }
