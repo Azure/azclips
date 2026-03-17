@@ -219,20 +219,6 @@ A publish pipeline — copying assemblies into a portable module folder and upda
 
 ---
 
-## 6. Proposals
-
-| Area | Proposal | Impact |
-|------|----------|--------|
-| DI & hosting | Replace static `Bootstrapper` with `CirrusHostBuilder` + scoped DI per invocation | Core CLI, PS modules |
-| CLI parsing | Extract `ArgumentParser`, `PropertyParser`, `CommandResolver` from `CLIEngine` | CLI only |
-| CLI routing | Replace `ExtensionDispatcher` with `CommandRouter` + `CommandActivator` | CLI only |
-| Command init | Constructor injection via `ActivatorUtilities` instead of `Init(ICommandContext)` | Extensions |
-| Extension deps | Extensions reference only `Core.Abstractions`, not `Core.Engine`/`Core.Implementation` | Extensions |
-| Index generation | Roslyn source generator auto-generates `ExtensionIndex` from `[CommandInfo]` | Extensions |
-| PS isolation | `CommandHost` with per-module `AssemblyLoadContext` for PowerShell | PS modules |
-
----
-
 ## 7. Open Items
 
 | Area | Status | Description |
