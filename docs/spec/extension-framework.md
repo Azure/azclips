@@ -174,7 +174,7 @@ PowerShell modules load all assemblies into the host's default ALC via `Required
 | Core assembly sharing | `Load()` → `null` → host fallback | Naturally shared (same ALC) |
 | Type resolution | `Activator.CreateInstance` in extension ALC | `Type.GetType()` in default ALC |
 
-> **[Proposal]** Introduce `CommandHost` with per-module ALCs for PowerShell, mirroring the CLI isolation model (similar to the `Az.Accounts` pattern).
+> **[Proposal]** Introduce `CommandHost` with per-module ALCs for PowerShell, mirroring the CLI isolation model.
 
 ---
 
