@@ -12,7 +12,7 @@ function Connect-CirrusAccount {
         # Start telemetry activity
         $script:activity = Start-CmdletActivity -CmdletName "Connect-CirrusAccount" -Parameters $PSBoundParameters
 
-        $engine = [Core.Engine.Bootstrapper]::ServiceProviderAsync.GetAwaiter().GetResult().GetService([Core.Engine.EngineFactory]).GetEngine([Core.Abstractions.ClientType]::PowerShell);
+        $engine = [Core.DependencyInjection.CirrusServiceProvider]::GetRequiredService([Core.Abstractions.IEngine])
         $outputDelegate = [Core.Abstractions.Runtime.CommandOutputDelegate]{
             param([object]$value, [System.Threading.CancellationToken]$ct)
             $PSCmdlet.WriteObject($value)
@@ -32,7 +32,7 @@ function Connect-CirrusAccount {
             if ($PSBoundParameters.ContainsKey('TenantId')) {
                 $parameters.Add('TenantId', [object]$TenantId);
             }
-            $invocation = [Core.Implementation.PSCommandInvocation]::New($extensionName, $commandName, $parameters);
+            $invocation = [Core.Runtime.PSCommandInvocation]::New($extensionName, $commandName, $parameters);
             $response = $engine.Process($invocation, $outputDelegate, [System.Threading.CancellationToken]::None);
 
             # Mark activity as successful

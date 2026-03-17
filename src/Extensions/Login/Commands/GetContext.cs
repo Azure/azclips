@@ -1,7 +1,5 @@
 using Core.Abstractions;
-using Core.Abstractions.Runtime;
-using Core.Engine;
-using Microsoft.Extensions.DependencyInjection;
+using Core.DependencyInjection;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
 {
@@ -9,8 +7,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
     {
         public override async Task ProcessAsync() {
             using var _ = StartActivity($"{nameof(GetContextCommand)}.{nameof(ProcessAsync)}");
-            var authContextService = Bootstrapper.ServiceProviderAsync.GetAwaiter().GetResult()
-                .GetRequiredService<IAuthContextService>();
+            var authContextService = CirrusServiceProvider.GetRequiredService<IAuthContextService>();
             AuthContext Context =  authContextService.GetCurrentContextAsync().GetAwaiter().GetResult()!;
             await WriteOutput(Context);
         }

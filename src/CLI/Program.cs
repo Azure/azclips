@@ -8,9 +8,8 @@ using Core.Abstractions;
 using Core.Cli.Exceptions;
 using Core.Cli.Parser;
 using Core.Engine;
-using Core.Implementation;
 using Core.Telemetry;
-using Microsoft.Extensions.DependencyInjection;
+using Core.DependencyInjection;
 
 namespace Core.Cli;
 
@@ -22,9 +21,9 @@ public class Program
 
     public static async Task<int> Main(string[] args)
     {
-        var serviceProvider = await Bootstrapper.ServiceProviderAsync;
-        _telemetryService = serviceProvider.GetRequiredService<ITelemetryService>();
-        _logger = serviceProvider.GetRequiredService<ILoggingService>();
+        CirrusServiceProvider.Initialize(ClientType.CLI);
+        _telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
+        _logger = CirrusServiceProvider.GetRequiredService<ILoggingService>();
 
         try
         {
@@ -39,7 +38,8 @@ public class Program
                 using var commandActivity = _telemetryService.ActivitySource.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
                 commandActivity?.SetTag("command.type", invocation.GetType().Name);
 
-                var engine = serviceProvider.GetService<EngineFactory>()?.GetEngine(ClientType.CLI) ?? throw new InvalidOperationException("CLI Engine not available.");
+                
+                var engine = CirrusServiceProvider.GetRequiredService<IEngine>() ?? throw new InvalidOperationException("Engine service not found.");
                 engine.Process(invocation, (value, ct) => { Console.WriteLine(value); return Task.CompletedTask; });
 
                 activity?.SetStatus(ActivityStatusCode.Ok);
@@ -63,6 +63,7 @@ public class Program
         }
         finally
         {
+            CirrusServiceProvider.Dispose();
             _telemetryService?.Dispose();
         }
     }
@@ -72,14 +73,13 @@ public class Program
         const int maxRetries = 5;
         int attempt = 0;
         string[] currentArgs = args;
-        var serviceProvider = await Bootstrapper.ServiceProviderAsync;
-        var logger = serviceProvider.GetRequiredService<ILoggingService>();
+        var logger = CirrusServiceProvider.GetRequiredService<ILoggingService>();
 
         try
         {
             // Use the singleton AgentEngine from DI container
-            var agentEngine = serviceProvider.GetRequiredService<AgentEngine>();
-            var output = serviceProvider.GetRequiredService<IOutputAdapter>();
+            var agentEngine = CirrusServiceProvider.GetRequiredService<AgentEngine>();
+            var output = CirrusServiceProvider.GetRequiredService<IOutputAdapter>();
 
             while (attempt < maxRetries)
             {

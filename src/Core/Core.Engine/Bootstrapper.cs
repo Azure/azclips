@@ -1,6 +1,6 @@
 ﻿using Core.Abstractions;
 using Core.Authentication;
-using Core.Implementation;
+using Core.Runtime;
 using Core.Telemetry;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -89,10 +89,6 @@ public class Bootstrapper
                 sp.GetRequiredService<IOutputAdapter>(),
                 flavor);
         });
-
-        // Engine factory - creates ICommandEngine instances based on client type
-        // NEW: Supports multiple client types (CLI, PowerShell) and engine selection
-        services.AddSingleton<EngineFactory>();
 
         // Orchestrator engine - tries DefaultEngine first, falls back to AgentEngine on failure
         // NEW: This is the actual ICommandEngine returned to Program.cs

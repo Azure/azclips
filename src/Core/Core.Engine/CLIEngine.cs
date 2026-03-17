@@ -3,10 +3,8 @@ using System.Reflection;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
-using Core.Implementation;
 using Core.Runtime;
 using Core.Runtime.Handler;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Core.Engine;
 
@@ -16,13 +14,13 @@ namespace Core.Engine;
 /// </summary>
 public class CLIEngine : IEngine
 {
-    public CLIEngine(IServiceProvider serviceProvider)
+    public CLIEngine(IAuthContextService authContextService, IAuthService authService, ITelemetryService telemetryService, ILoggingService loggingService)
     {
-        _logger = serviceProvider.GetService<ILoggingService>();
+        _logger = loggingService;
         _logger?.Info("CLIEngine initialized.");
-        _authContextService = serviceProvider.GetRequiredService<IAuthContextService>();
-        _authService = serviceProvider.GetRequiredService<IAuthService>();
-        _telemetryService = serviceProvider.GetRequiredService<ITelemetryService>();
+        _authContextService = authContextService;
+        _authService = authService;
+        _telemetryService = telemetryService;
     }
     private readonly ILoggingService? _logger;
     private readonly IAuthContextService _authContextService = null!;
@@ -131,37 +129,37 @@ public class CLIEngine : IEngine
         private ICommandContext CreateCommandContext(CommandOutputDelegate output)
         {
             AuthContext authContext = _authContextService.GetCurrentContextAsync().GetAwaiter().GetResult() ?? new AuthContext() { SubscriptionId = "", TenantId = "" };
-        CommandAuthHandler commandAuthHandler = new CommandAuthHandler
-        {
-            AuthContext = new AuthContext
+            ICommandAuthHandler commandAuthHandler = new CommandAuthHandler
             {
-                SubscriptionId = authContext.SubscriptionId,
-                TenantId = authContext.TenantId
-            },
-            AcquireTokenAsyncDefault = _authService.AcquireTokenSilentlyAsync,
-            ApplyOverride = false
-        };
+                AuthContext = new AuthContext
+                {
+                    SubscriptionId = authContext.SubscriptionId,
+                    TenantId = authContext.TenantId
+                },
+                AcquireTokenAsyncDefault = _authService.AcquireTokenSilentlyAsync,
+                ApplyOverride = false
+            };
 
-        // Create output handler that writes to the per-invocation channel
-        CommandOutputHandler commandOutputHandler = new CommandOutputHandler
-        {
-            WriteOutput = async (value, ct) => await output(value, ct)
-        };
-        CommandTelemetryHandler commandTelemetryHandler = new CommandTelemetryHandler
-        {
-            StartActivity = _telemetryService.StartActivity
-        };
+            // Create output handler that writes to the per-invocation channel
+            ICommandOutputHandler commandOutputHandler = new CommandOutputHandler
+            {
+                WriteOutput = async (value, ct) => await output(value, ct)
+            };
+            ICommandTelemetryHandler commandTelemetryHandler = new CommandTelemetryHandler
+            {
+                StartActivity = _telemetryService.StartActivity
+            };
 
-        IRuntimeHttpPipeline httpPipeline = new HttpPipeline(new HttpClientFactory(_httpClient));
-        ICommandContext context = new CommandContext
-        {
-            CommandOutputHandler = commandOutputHandler,
-            CommandAuthHandler = commandAuthHandler,
-            CommandTelemetryHandler = commandTelemetryHandler,
-            HttpPipeline = httpPipeline.Prepend(commandAuthHandler.SendAsync)
-        };
-        return context;
-    }
+            IRuntimeHttpPipeline httpPipeline = new HttpPipeline(new HttpClientFactory(_httpClient));
+            ICommandContext context = new CommandContext
+            {
+                CommandOutputHandler = commandOutputHandler,
+                CommandAuthHandler = commandAuthHandler,
+                CommandTelemetryHandler = commandTelemetryHandler,
+                HttpPipeline = httpPipeline.Prepend(commandAuthHandler.SendAsync)
+            };
+            return context;
+        }
 
 
     /// <summary>

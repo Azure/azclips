@@ -26,7 +26,7 @@ public class ResourceGroupBenchmarks : BenchmarkBase
     [GlobalSetup]
     public void Setup()
     {
-        InitializeCommon();
+        InitializeCommon(Core.Abstractions.ClientType.PowerShell);
 
         // PS Module path
         _psModulePath = Path.Combine(RepoRoot, "src", "PS", "Resources", "Resources.psd1");

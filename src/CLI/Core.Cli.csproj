@@ -17,10 +17,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.Abstractions\Core.Abstractions.csproj" />
-    <ProjectReference Include="..\Core\Core.Implementation\Core.Implementation.csproj" />
     <ProjectReference Include="..\Core\Core.Telemetry\Core.Telemetry.csproj" />
     <ProjectReference Include="..\Core\Core.Engine\Core.Engine.csproj" />
     <ProjectReference Include="..\Core\Core.Agent\Core.Agent.csproj" />
+    <ProjectReference Include="..\Core\Core.DependencyInjection\Core.DependencyInjection.csproj" />
   </ItemGroup>
 
 

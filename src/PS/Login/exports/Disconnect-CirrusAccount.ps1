@@ -6,7 +6,7 @@ function Disconnect-CirrusAccount {
     begin {
         $script:activity = Start-CmdletActivity -CmdletName "Disconnect-CirrusAccount" -Parameters $PSBoundParameters
 
-        $engine = [Core.Engine.Bootstrapper]::ServiceProviderAsync.GetAwaiter().GetResult().GetService([Core.Engine.EngineFactory]).GetEngine([Core.Abstractions.ClientType]::PowerShell);
+        $engine = [Core.DependencyInjection.CirrusServiceProvider]::GetRequiredService([Core.Abstractions.IEngine])
         $outputDelegate = [Core.Abstractions.Runtime.CommandOutputDelegate]{
             param([object]$value, [System.Threading.CancellationToken]$ct)
             $PSCmdlet.WriteObject($value)
@@ -20,7 +20,7 @@ function Disconnect-CirrusAccount {
             $commandName = "Disconnect-CirrusAccount";
             $parameters = [System.Collections.Generic.Dictionary[string, object]]::New();
 
-            $invocation = [Core.Implementation.PSCommandInvocation]::New($extensionName, $commandName, $parameters);
+            $invocation = [Core.Runtime.PSCommandInvocation]::New($extensionName, $commandName, $parameters);
 
             if ($PSCmdlet.ShouldProcess("Cirrus Account", "Disconnect")) {
                 $response = $engine.Process($invocation, $outputDelegate, [System.Threading.CancellationToken]::None);

@@ -15,7 +15,7 @@ function New-ResourceGroup {
         # Start telemetry activity
         $script:activity = Start-CmdletActivity -CmdletName "New-ResourceGroup" -Parameters $PSBoundParameters
 
-        $engine = [Core.Engine.Bootstrapper]::ServiceProviderAsync.GetAwaiter().GetResult().GetService([Core.Engine.EngineFactory]).GetEngine([Core.Abstractions.ClientType]::PowerShell);
+        $engine = [Core.DependencyInjection.CirrusServiceProvider]::GetRequiredService([Core.Abstractions.IEngine])
         $outputDelegate = [Core.Abstractions.Runtime.CommandOutputDelegate]{
             param([object]$value, [System.Threading.CancellationToken]$ct)
             $PSCmdlet.WriteObject($value)
@@ -38,7 +38,7 @@ function New-ResourceGroup {
             if ($PSBoundParameters.ContainsKey('Location')) {
                 $parameters.Add('Location', [object]$Location);
             }
-            $invocation = [Core.Implementation.PSCommandInvocation]::New($extensionName, $commandName, $parameters);
+            $invocation = [Core.Runtime.PSCommandInvocation]::New($extensionName, $commandName, $parameters);
             $response = $engine.Process($invocation, $outputDelegate, [System.Threading.CancellationToken]::None);
             
             # Mark activity as successful

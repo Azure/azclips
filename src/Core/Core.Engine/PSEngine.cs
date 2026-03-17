@@ -1,6 +1,4 @@
 using Core.Abstractions;
-using Core.Implementation;
-using System.Collections.Concurrent;
 using Microsoft.Extensions.DependencyInjection;
 using Core.Abstractions.Runtime;
 using Core.Runtime.Handler;
@@ -37,15 +35,14 @@ namespace Core.Engine
 
         public ClientType ClientType = ClientType.PowerShell;
 
-        public PSEngine(IServiceProvider serviceProvider)
+        public PSEngine(IAuthContextService authContextService, IAuthService authService, ITelemetryService telemetryService, ILoggingService loggingService)
         {
             _httpClient = new HttpClient();
-            ILoggingService loggingService = serviceProvider.GetRequiredService<ILoggingService>();
             WriteVerbose = loggingService.Verbose;
             WriteDebug = loggingService.Debug;
-            GetAuthContext = () => serviceProvider.GetRequiredService<IAuthContextService>().GetCurrentContextAsync().GetAwaiter().GetResult() ?? new AuthContext() { SubscriptionId = "", TenantId = "" };
-            AcquireTokenSilentlyAsync = serviceProvider.GetRequiredService<IAuthService>().AcquireTokenSilentlyAsync;
-            StartActivity = serviceProvider.GetRequiredService<ITelemetryService>().StartActivity;
+            GetAuthContext = () => authContextService.GetCurrentContextAsync().GetAwaiter().GetResult() ?? new AuthContext() { SubscriptionId = "", TenantId = "" };
+            AcquireTokenSilentlyAsync = authService.AcquireTokenSilentlyAsync;
+            StartActivity = telemetryService.StartActivity;
         }
 
         /// <summary>
@@ -97,7 +94,7 @@ namespace Core.Engine
         private ICommandContext CreateCommandContext(ChannelWriter<object> outputWriter)
         {
             AuthContext authContext = GetAuthContext();
-            CommandAuthHandler commandAuthHandler = new CommandAuthHandler
+            ICommandAuthHandler commandAuthHandler = new CommandAuthHandler
             {
                 AuthContext = new AuthContext
                 {
@@ -109,11 +106,11 @@ namespace Core.Engine
             };
 
             // Create output handler that writes to the per-invocation channel
-            CommandOutputHandler commandOutputHandler = new CommandOutputHandler
+            ICommandOutputHandler commandOutputHandler = new CommandOutputHandler
             {
                 WriteOutput = async (value, ct) => await outputWriter.WriteAsync(value, ct)
             };
-            CommandTelemetryHandler commandTelemetryHandler = new CommandTelemetryHandler
+            ICommandTelemetryHandler commandTelemetryHandler = new CommandTelemetryHandler
             {
                 StartActivity = StartActivity
             };
