@@ -1,6 +1,6 @@
 # Pull Request Tagging
 
-If you need to tag on an issue or PR, you will generally want to tag the following Members and Label appropriately (further automation is being worked on to improve this)
+When you create or update an issue or pull request, mention the appropriate area members and apply the corresponding label from the table below. Further automation is being developed to improve this process.
 
 ## Areas
 
