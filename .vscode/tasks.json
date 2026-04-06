@@ -10,6 +10,16 @@
 			},
 			"problemMatcher": [],
 			"label": "dotnet: build"
+		},
+		{
+			"type": "shell",
+			"command": "npm run preview",
+			"label": "wiki: preview",
+			"options": {
+				"cwd": "${workspaceFolder}/wiki"
+			},
+			"isBackground": true,
+			"problemMatcher": []
 		}
 	]
 }

@@ -2,6 +2,8 @@
 
 A .NET 9.0 extension-based CLI framework with AI-powered natural language capabilities for Azure resource management.
 
+To view the documentation about Cirrus, go to `wiki` directory, Alternatively clone the repository and run `wiki:preview` task in vscode to view a rendered version of the wiki locally.
+
 ## Repository Structure
 
 ```
