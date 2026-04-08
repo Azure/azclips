@@ -43,11 +43,6 @@ public class Program
 
                 using var commandActivity = _telemetryService.ActivitySource.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
                 commandActivity?.SetTag("command.type", invocation.GetType().Name);
-                commandActivity?.SetTag("module.name", invocation.ExtensionName);
-
-                // Tag az.version from CLI assembly
-                var azVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString();
-                activity?.SetTag("az.version", azVersion);
 
                 var engine = CirrusServiceProvider.GetRequiredService<IEngine>() ?? throw new InvalidOperationException("Engine service not found.");
                 engine.Process(invocation, (value, ct) => { Console.WriteLine(value); return Task.CompletedTask; });

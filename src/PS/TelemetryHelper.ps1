@@ -30,10 +30,7 @@ function Start-CmdletActivity {
         [string]$CmdletName,
 
         [Parameter(Mandatory = $false)]
-        [System.Collections.IDictionary]$Parameters,
-
-        [Parameter(Mandatory = $false)]
-        [System.Management.Automation.InvocationInfo]$Invocation
+        [System.Collections.IDictionary]$Parameters
     )
 
     $service = Get-TelemetryService
@@ -41,40 +38,6 @@ function Start-CmdletActivity {
         try {
             # Call the extension method as a static method
             $activity = [Core.Telemetry.TelemetryExtensions]::StartPowerShellActivity($service, $CmdletName, $Parameters)
-
-            if ($null -ne $activity) {
-                # Extract module info from invocation context
-                $moduleName = $null
-                $moduleVersion = $null
-
-                if ($null -ne $Invocation -and $null -ne $Invocation.MyCommand) {
-                    $moduleName = $Invocation.MyCommand.ModuleName
-                    if ($null -ne $Invocation.MyCommand.Version) {
-                        $moduleVersion = $Invocation.MyCommand.Version.ToString()
-                    }
-                }
-
-                # Fallback: resolve from loaded modules
-                if ([string]::IsNullOrEmpty($moduleName)) {
-                    $cmd = Get-Command $CmdletName -ErrorAction SilentlyContinue
-                    if ($null -ne $cmd) {
-                        $moduleName = $cmd.ModuleName
-                    }
-                }
-                if (-not [string]::IsNullOrEmpty($moduleName) -and [string]::IsNullOrEmpty($moduleVersion)) {
-                    $mod = Get-Module $moduleName -ErrorAction SilentlyContinue
-                    if ($null -ne $mod) {
-                        $moduleVersion = $mod.Version.ToString()
-                    }
-                }
-
-                if (-not [string]::IsNullOrEmpty($moduleName)) {
-                    $activity.SetTag("module.name", $moduleName) | Out-Null
-                }
-                if (-not [string]::IsNullOrEmpty($moduleVersion)) {
-                    $activity.SetTag("module.version", $moduleVersion) | Out-Null
-                }
-            }
 
             return $activity
         }

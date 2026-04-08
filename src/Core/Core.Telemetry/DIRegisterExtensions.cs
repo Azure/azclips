@@ -8,9 +8,9 @@ public static class DIRegisterExtensions
     /// <summary>
     /// Extension method to register telemetry-related services.
     /// </summary>
-    public static IServiceCollection RegisterTelemetryServices(this IServiceCollection services, string? moduleVersion = null)
+    public static IServiceCollection RegisterTelemetryServices(this IServiceCollection services)
     {
-        services.AddSingleton<ITelemetryService>(_ => new TelemetryService(moduleVersion: moduleVersion));
+        services.AddSingleton<ITelemetryService>(_ => new TelemetryService());
         return services;
     }
 }

@@ -3,7 +3,7 @@ function Get-CirrusAccount {
     param()
 
     begin {
-        $script:activity = Start-CmdletActivity -CmdletName "Get-CirrusAccount" -Parameters $PSBoundParameters -Invocation $MyInvocation
+        $script:activity = Start-CmdletActivity -CmdletName "Get-CirrusAccount" -Parameters $PSBoundParameters
 
         $engine = [Core.DependencyInjection.CirrusServiceProvider]::GetRequiredService([Core.Abstractions.IEngine])
         $outputDelegate = [Core.Abstractions.Runtime.CommandOutputDelegate]{
@@ -19,6 +19,8 @@ function Get-CirrusAccount {
             $commandName = "Get-CirrusAccount";
             $parameters = [System.Collections.Generic.Dictionary[string, object]]::New();
             $invocation = [Core.Runtime.PSCommandInvocation]::New($extensionName, $commandName, $parameters);
+            $invocation.ModuleName = $MyInvocation.MyCommand.ModuleName
+            $invocation.ModuleVersion = if ($MyInvocation.MyCommand.Version) { $MyInvocation.MyCommand.Version.ToString() } else { $null }
 
             $response = $engine.Process($invocation, $outputDelegate, [System.Threading.CancellationToken]::None);
 

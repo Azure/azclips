@@ -38,9 +38,9 @@ public class TelemetryService : ITelemetryService
             serviceName,
             "traces");
 
-    public TelemetryService(string serviceName = DefaultServiceName, string? moduleVersion = null)
+    public TelemetryService(string serviceName = DefaultServiceName)
     {
-        moduleVersion ??= DefaultServiceVersion;
+        var moduleVersion = DefaultServiceVersion;
         ActivitySource = new ActivitySource(serviceName, moduleVersion);
 
         var logDirectory = GetTraceDirectory(serviceName);
@@ -71,6 +71,19 @@ public class TelemetryService : ITelemetryService
     }
 
     public Activity StartActivity(string name, ActivityKind kind = ActivityKind.Internal) => ActivitySource.StartActivity(name, kind)!;
+
+    public void ProcessInvocation(ICommandInvocation invocation)
+    {
+        var activity = Activity.Current;
+        if (activity is null) return;
+
+        // NOTE: On the CLI side "module.name" currently maps to the extension name.
+        // The tag key may be renamed to "extension.name" in the future — TBD.
+        if (!string.IsNullOrEmpty(invocation.ModuleName))
+            activity.SetTag("module.name", invocation.ModuleName);
+        if (!string.IsNullOrEmpty(invocation.ModuleVersion))
+            activity.SetTag("module.version", invocation.ModuleVersion);
+    }
 
     public void Flush()
     {

@@ -63,10 +63,15 @@ public class CLIEngine : IEngine
         Assembly extensionAssembly = LoadExtension(extensionLoaders, extensionFolderName, extensionName) ?? throw new InvalidOperationException($"Extension '{invocation.ExtensionName}' could not be found by any extension loader.");
         _logger?.Verbose($"Loaded extension assembly '{extensionAssembly.FullName}'.");
 
-        // Tag current telemetry activity with extension version
-        Activity.Current?.SetTag("module.version",
-            extensionAssembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-            ?? extensionAssembly.GetName().Version?.ToString());
+        // Populate module info on the invocation for telemetry.
+        // NOTE: CLI side currently reuses "ModuleName" for the extension name. This naming
+        // may change to "ExtensionName" or similar once we finalise the telemetry schema — TBD.
+        if (string.IsNullOrEmpty(invocation.ModuleName))
+            invocation.ModuleName = invocation.ExtensionName;
+        if (string.IsNullOrEmpty(invocation.ModuleVersion))
+            invocation.ModuleVersion = extensionAssembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+                ?? extensionAssembly.GetName().Version?.ToString();
+
         var typeName = $"{extensionAssembly.GetName().Name}.ExtensionIndex";
         Type indexType = extensionAssembly.GetType(typeName) ?? throw new InvalidOperationException($"Extension '{invocation.ExtensionName}' does not contain a {typeName} type.");
         _logger?.Verbose($"Found extension index type '{indexType.FullName}'.");
@@ -120,6 +125,10 @@ public class CLIEngine : IEngine
         _logger?.Info($"Processing command: '{invocation.CommandName}'.");
 
         IProcessor command = GetCommand(invocation);
+
+        // Tag telemetry with resolved module info
+        _telemetryService.ProcessInvocation(invocation);
+
         // TODO: Initialize command context and execute
         ICommandContext context = CreateCommandContext(output);
         command.Init(context);
