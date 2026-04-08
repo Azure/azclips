@@ -10,6 +10,26 @@ using OpenTelemetry.Trace;
 
 namespace Core.Telemetry;
 
+internal static class TracerProviderBuilderExtensions
+{
+    /// <summary>
+    /// Adds Zipkin exporter in Debug builds when CIRRUS_ZIPKIN_ENABLED is not "false".
+    /// </summary>
+    internal static TracerProviderBuilder AddConditionalZipkinExporter(this TracerProviderBuilder builder)
+    {
+#if DEBUG
+        if (!string.Equals(Environment.GetEnvironmentVariable("CIRRUS_ZIPKIN_ENABLED"), "false", StringComparison.OrdinalIgnoreCase))
+        {
+            builder.AddZipkinExporter(options =>
+            {
+                options.Endpoint = new Uri(Environment.GetEnvironmentVariable("ZIPKIN_ENDPOINT") ?? "http://localhost:9411/api/v2/spans");
+            });
+        }
+#endif
+        return builder;
+    }
+}
+
 /// <summary>
 /// Implementation of ITelemetryService using OpenTelemetry.
 /// Records traces to local files only. Azure Monitor upload is handled
@@ -61,12 +81,7 @@ public class TelemetryService : ITelemetryService
                     serviceName: serviceName,
                     serviceVersion: moduleVersion))
             .AddProcessor(new SimpleActivityExportProcessor(new FileExporter(logDirectory)))
-#if DEBUG
-            .AddZipkinExporter(options =>
-            {
-                options.Endpoint = new Uri(Environment.GetEnvironmentVariable("ZIPKIN_ENDPOINT") ?? "http://localhost:9411/api/v2/spans");
-            })
-#endif
+            .AddConditionalZipkinExporter()
             .Build()!;
     }
 

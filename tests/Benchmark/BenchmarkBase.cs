@@ -112,6 +112,9 @@ public abstract class BenchmarkBase
             }
         };
 
+        // Disable Zipkin exporter during benchmarks to avoid timeout overhead
+        process.StartInfo.Environment["CIRRUS_ZIPKIN_ENABLED"] = "false";
+
         process.Start();
 
         // Must read stdout/stderr to prevent buffer deadlock

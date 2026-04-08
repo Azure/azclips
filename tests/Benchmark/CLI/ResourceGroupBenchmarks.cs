@@ -26,7 +26,7 @@ public class ResourceGroupBenchmarks : BenchmarkBase
         InitializeCommon(Core.Abstractions.ClientType.CLI);
 
         // CLI executable path
-        _cliPath = Path.Combine(RepoRoot, "artifacts", "Release", "Core.Cli", "azv2.exe");
+        _cliPath = Path.Combine(RepoRoot, "artifacts", "Debug", "Core.Cli", "azv2.exe");
         if (!File.Exists(_cliPath))
         {
             throw new FileNotFoundException($"CLI executable not found at: {_cliPath}. Run 'dotnet build' first.");
