@@ -75,7 +75,7 @@ public class MsalAuthService(ILoggingService Logger, ITelemetryService Telemetry
 
     // todo: reuse app instance but allow reinitialization when tenantId changes
     private IPublicClientApplication BuildApp(string? tenantId) => PublicClientApplicationBuilder.Create(ClientId)
-                .WithRedirectUri("http://localhost:50000")
+                .WithRedirectUri("http://localhost")
                 // todo: what should be the client id here?
                 .WithTenantId(tenantId ?? "72f988bf-86f1-41af-91ab-2d7cd011db47") // todo: fallback to tenant id in the context
                 .Build();

@@ -4,8 +4,11 @@ function Connect-CirrusAccount {
         [Parameter(Mandatory = $true)]
         [string] $SubscriptionId,
 
-        [Parameter(Mandatory = $true)]
-        [string] $TenantId
+        [Parameter(Mandatory = $false)]
+        [string] $TenantId,
+        
+        [Parameter(Mandatory = $false)]
+        [string] $UseDeviceCode
     )
 
     begin {
@@ -31,6 +34,9 @@ function Connect-CirrusAccount {
             }
             if ($PSBoundParameters.ContainsKey('TenantId')) {
                 $parameters.Add('TenantId', [object]$TenantId);
+            }
+            if ($PSBoundParameters.ContainsKey('UseDeviceCode')) {
+                $parameters.Add('UseDeviceCode', [object]$UseDeviceCode);
             }
             $invocation = [Core.Runtime.PSCommandInvocation]::New($extensionName, $commandName, $parameters);
             $response = $engine.Process($invocation, $outputDelegate, [System.Threading.CancellationToken]::None);
