@@ -4,7 +4,7 @@ function Connect-CirrusAccount {
         [Parameter(Mandatory = $true)]
         [string] $SubscriptionId,
 
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $false)]
         [string] $TenantId,
         
         [Parameter(Mandatory = $false)]
