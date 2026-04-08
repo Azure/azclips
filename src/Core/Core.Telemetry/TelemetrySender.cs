@@ -161,9 +161,12 @@ public static class TelemetrySender
 
         var kind = Enum.TryParse<ActivityKind>(entry.Kind, out var k) ? k : ActivityKind.Internal;
 
-        // Use parent context to preserve the original TraceId
+        // Use parent context to preserve the original TraceId.
+        // When there's no real parent span, use a random SpanId so the context
+        // remains valid (all-zero SpanId is considered invalid per W3C spec and
+        // StartActivity may ignore it, losing the original TraceId).
         var parentSpanId = string.IsNullOrEmpty(entry.ParentSpanId) || entry.ParentSpanId == "0000000000000000"
-            ? default
+            ? ActivitySpanId.CreateRandom()
             : ActivitySpanId.CreateFromString(entry.ParentSpanId.AsSpan());
 
         var parentContext = new ActivityContext(
@@ -171,17 +174,19 @@ public static class TelemetrySender
             parentSpanId,
             ActivityTraceFlags.Recorded);
 
+        // Parse start time before creating the activity so we can pass it to StartActivity directly.
+        var startTime = DateTime.TryParse(entry.StartTime, out var st)
+            ? new DateTimeOffset(st.ToUniversalTime())
+            : DateTimeOffset.UtcNow;
+
         using var activity = source.StartActivity(
             entry.DisplayName ?? entry.OperationName ?? "unknown",
             kind,
-            parentContext);
+            parentContext,
+            startTime: startTime);
 
         if (activity == null)
             return;
-
-        // Restore start time
-        if (DateTime.TryParse(entry.StartTime, out var startTime))
-            activity.SetStartTime(startTime.ToUniversalTime());
 
         // Restore tags
         if (entry.Tags.ValueKind == JsonValueKind.Array)
