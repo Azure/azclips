@@ -103,6 +103,23 @@
             ],
             "cwd": "${workspaceFolder}/artifacts/Debug/Core.Cli",
             "console": "integratedTerminal"
+        },
+        {
+            "name": "azv2: interactive",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "dotnet: build",
+            "program": "${workspaceFolder}/artifacts/Debug/Core.Cli/azv2",
+            "args": "${input:azv2Args}",
+            "cwd": "${workspaceFolder}/artifacts/Debug/Core.Cli",
+            "console": "integratedTerminal"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "azv2Args",
+            "type": "promptString",
+            "description": "Enter azv2 arguments (e.g. help, group list, login show)"
         }
     ]
 }
