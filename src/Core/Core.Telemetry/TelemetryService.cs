@@ -77,6 +77,10 @@ public class TelemetryService : ITelemetryService
         var activity = Activity.Current;
         if (activity is null) return;
 
+        // Walk up to the root activity so module tags appear on the top-level span
+        while (activity.Parent is not null)
+            activity = activity.Parent;
+
         // NOTE: On the CLI side "module.name" currently maps to the extension name.
         // The tag key may be renamed to "extension.name" in the future — TBD.
         if (!string.IsNullOrEmpty(invocation.ModuleName))
@@ -109,3 +113,4 @@ public class TelemetryService : ITelemetryService
         GC.SuppressFinalize(this);
     }
 }
+
