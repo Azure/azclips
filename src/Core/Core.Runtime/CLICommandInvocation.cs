@@ -9,6 +9,9 @@ namespace Core.Runtime
         public string CommandName { get; }
         public IDictionary<string, object> Parameters { get; }
         public ClientType ClientType => ClientType.CLI;
+        /// <summary>
+        /// Currently maps to ExtensionName on the CLI side. Naming may change to ExtensionName — TBD.
+        /// </summary>
         public string? ModuleName { get; set; }
         public string? ModuleVersion { get; set; }
 
