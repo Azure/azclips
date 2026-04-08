@@ -62,6 +62,11 @@ public class CLIEngine : IEngine
         ];
         Assembly extensionAssembly = LoadExtension(extensionLoaders, extensionFolderName, extensionName) ?? throw new InvalidOperationException($"Extension '{invocation.ExtensionName}' could not be found by any extension loader.");
         _logger?.Verbose($"Loaded extension assembly '{extensionAssembly.FullName}'.");
+
+        // Tag current telemetry activity with extension version
+        Activity.Current?.SetTag("module.version",
+            extensionAssembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+            ?? extensionAssembly.GetName().Version?.ToString());
         var typeName = $"{extensionAssembly.GetName().Name}.ExtensionIndex";
         Type indexType = extensionAssembly.GetType(typeName) ?? throw new InvalidOperationException($"Extension '{invocation.ExtensionName}' does not contain a {typeName} type.");
         _logger?.Verbose($"Found extension index type '{indexType.FullName}'.");

@@ -2,7 +2,8 @@
 . (Join-Path $PSScriptRoot '..\TelemetryHelper.ps1')
 
 # Initialize the DI container for PowerShell (runs once on Import-Module)
-[Core.DependencyInjection.CirrusServiceProvider]::Initialize([Core.Abstractions.ClientType]::PowerShell)
+$moduleVersion = (Import-PowerShellDataFile (Join-Path $PSScriptRoot 'Login.psd1')).ModuleVersion
+[Core.DependencyInjection.CirrusServiceProvider]::Initialize([Core.Abstractions.ClientType]::PowerShell, $moduleVersion)
 $ExecutionContext.SessionState.Module.OnRemove = {
     [Core.DependencyInjection.CirrusServiceProvider]::Dispose()
 }

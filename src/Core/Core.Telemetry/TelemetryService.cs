@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using Azure.Monitor.OpenTelemetry.Exporter;
+using System.Reflection;
 using Core.Abstractions;
 using OpenTelemetry;
 using OpenTelemetry.Resources;
@@ -12,23 +12,38 @@ namespace Core.Telemetry;
 
 /// <summary>
 /// Implementation of ITelemetryService using OpenTelemetry.
+/// Records traces to local files only. Azure Monitor upload is handled
+/// asynchronously by a background process via TelemetrySender.
 /// </summary>
 public class TelemetryService : ITelemetryService
 {
+    internal const string DefaultServiceName = "AzureCLI";
+    internal static readonly string DefaultServiceVersion =
+        Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+        ?? Assembly.GetEntryAssembly()?.GetName().Version?.ToString()
+        ?? "0.0.0-dev";
+    internal const string AzureMonitorConnectionString = "InstrumentationKey=75095e49-0ed7-43bf-9a9b-145ce55963c5;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=c4b7bab3-d4b6-4f80-8440-0f529a622b2f";
+
     private readonly TracerProvider _tracerProvider;
     private bool _disposed;
 
     public ActivitySource ActivitySource { get; }
 
-    public TelemetryService(string serviceName = "AzureCLI", string serviceVersion = "1.0.0")
-    {
-        ActivitySource = new ActivitySource(serviceName, serviceVersion);
-
-        var logDirectory = Path.Combine(
+    /// <summary>
+    /// Gets the directory where trace files are stored.
+    /// </summary>
+    public static string GetTraceDirectory(string serviceName = DefaultServiceName) =>
+        Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             serviceName,
-            "traces"
-        );
+            "traces");
+
+    public TelemetryService(string serviceName = DefaultServiceName, string? serviceVersion = null)
+    {
+        serviceVersion ??= DefaultServiceVersion;
+        ActivitySource = new ActivitySource(serviceName, serviceVersion);
+
+        var logDirectory = GetTraceDirectory(serviceName);
 
         _tracerProvider = Sdk.CreateTracerProviderBuilder()
             .AddSource(serviceName)
@@ -46,10 +61,6 @@ public class TelemetryService : ITelemetryService
                     serviceName: serviceName,
                     serviceVersion: serviceVersion))
             .AddProcessor(new SimpleActivityExportProcessor(new FileExporter(logDirectory)))
-            .AddAzureMonitorTraceExporter(options =>
-            {
-                options.ConnectionString = "InstrumentationKey=75095e49-0ed7-43bf-9a9b-145ce55963c5;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=c4b7bab3-d4b6-4f80-8440-0f529a622b2f";
-            })
 #if DEBUG
             .AddZipkinExporter(options =>
             {
@@ -70,9 +81,16 @@ public class TelemetryService : ITelemetryService
     {
         if (_disposed) return;
 
-        _tracerProvider?.ForceFlush();
-        _tracerProvider?.Dispose();
+        // Skip ForceFlush — FileExporter uses SimpleActivityExportProcessor
+        // which exports synchronously inline, so there's nothing to flush.
+        // TracerProvider.Dispose() also tries to flush; run it on a thread
+        // with a short timeout to avoid blocking on unreachable exporters
+        // (e.g. Zipkin in debug mode when no collector is running).
+        var disposeTask = Task.Run(() => _tracerProvider?.Dispose());
+        disposeTask.Wait(TimeSpan.FromMilliseconds(500));
+
         ActivitySource?.Dispose();
+
         _disposed = true;
 
         GC.SuppressFinalize(this);
