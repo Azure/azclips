@@ -211,7 +211,8 @@ public static class TelemetrySender
                 if (name == null) continue;
 
                 var timestamp = evt.TryGetProperty("Timestamp", out var tsEl) && tsEl.GetString() is string tsStr
-                    ? DateTimeOffset.Parse(tsStr)
+                    && DateTimeOffset.TryParse(tsStr, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind, out var parsed)
+                    ? parsed
                     : DateTimeOffset.UtcNow;
 
                 var tags = new ActivityTagsCollection();
