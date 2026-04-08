@@ -38,10 +38,10 @@ public class TelemetryService : ITelemetryService
             serviceName,
             "traces");
 
-    public TelemetryService(string serviceName = DefaultServiceName, string? serviceVersion = null)
+    public TelemetryService(string serviceName = DefaultServiceName, string? moduleVersion = null)
     {
-        serviceVersion ??= DefaultServiceVersion;
-        ActivitySource = new ActivitySource(serviceName, serviceVersion);
+        moduleVersion ??= DefaultServiceVersion;
+        ActivitySource = new ActivitySource(serviceName, moduleVersion);
 
         var logDirectory = GetTraceDirectory(serviceName);
 
@@ -59,7 +59,7 @@ public class TelemetryService : ITelemetryService
             .ConfigureResource(resource =>
                 resource.AddService(
                     serviceName: serviceName,
-                    serviceVersion: serviceVersion))
+                    serviceVersion: moduleVersion))
             .AddProcessor(new SimpleActivityExportProcessor(new FileExporter(logDirectory)))
 #if DEBUG
             .AddZipkinExporter(options =>

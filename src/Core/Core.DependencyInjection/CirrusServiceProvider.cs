@@ -16,7 +16,7 @@ public static class CirrusServiceProvider
     /// Initializes the DI container. Safe to call multiple times — only the first call takes effect.
     /// Called during module import (psm1) or CLI startup.
     /// </summary>
-    public static void Initialize(ClientType clientType, string? serviceVersion = null)
+    public static void Initialize(ClientType clientType, string? moduleVersion = null)
     {
         if (_serviceProvider is not null)
             return;
@@ -29,7 +29,7 @@ public static class CirrusServiceProvider
             _serviceProvider = new ServiceCollection()
                 .RegisterRuntimeServices()
                 .RegisterAuthenticationServices()
-                .RegisterTelemetryServices(serviceVersion)
+                .RegisterTelemetryServices(moduleVersion)
                 .RegisterEngineServices(clientType)
                 .BuildServiceProvider();
         }
