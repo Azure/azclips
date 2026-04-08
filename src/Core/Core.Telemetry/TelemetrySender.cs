@@ -28,8 +28,40 @@ public static class TelemetrySender
         if (!Directory.Exists(traceDir))
             return Task.CompletedTask;
 
+        // Reclaim stale .uploading files from crashed uploaders (older than 5 minutes)
+        foreach (var stale in Directory.GetFiles(traceDir, "traces-*.uploading"))
+        {
+            try
+            {
+                if (File.GetLastWriteTimeUtc(stale) < DateTime.UtcNow.AddMinutes(-5))
+                    File.Move(stale, Path.ChangeExtension(stale, ".log"));
+            }
+            catch { }
+        }
+
         var files = Directory.GetFiles(traceDir, "traces-*.log");
         if (files.Length == 0)
+            return Task.CompletedTask;
+
+        // Claim files atomically by renaming to .uploading before reading.
+        // This prevents concurrent uploaders from processing the same file
+        // and avoids reading partially-written files from in-flight CLI instances.
+        var claimedFiles = new List<string>();
+        foreach (var file in files)
+        {
+            var claimed = Path.ChangeExtension(file, ".uploading");
+            try
+            {
+                File.Move(file, claimed);
+                claimedFiles.Add(claimed);
+            }
+            catch
+            {
+                // Another uploader already claimed this file, or the writer still has it locked. Skip.
+            }
+        }
+
+        if (claimedFiles.Count == 0)
             return Task.CompletedTask;
 
         using var source = new ActivitySource(
@@ -47,7 +79,9 @@ public static class TelemetrySender
             })
             .Build()!;
 
-        foreach (var file in files)
+        var replayedFiles = new List<string>();
+
+        foreach (var file in claimedFiles)
         {
             try
             {
@@ -59,16 +93,26 @@ public static class TelemetrySender
                     ReplayTrace(source, trace);
                 }
 
-                File.Delete(file);
+                replayedFiles.Add(file);
             }
             catch
             {
-                // Best-effort: skip files that fail to process.
-                // They will be retried on the next CLI invocation.
+                // Best-effort: skip files that fail to parse.
+                // They stay as .uploading and will be reclaimed after the stale timeout.
             }
         }
 
-        provider.ForceFlush();
+        // Only delete files after the exporter has successfully flushed.
+        // If flush fails or times out, files remain as .uploading and will be
+        // reclaimed by the stale-file recovery on the next invocation.
+        if (provider.ForceFlush(timeoutMilliseconds: 10_000))
+        {
+            foreach (var file in replayedFiles)
+            {
+                try { File.Delete(file); } catch { }
+            }
+        }
+
         return Task.CompletedTask;
     }
 
