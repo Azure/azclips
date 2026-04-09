@@ -21,6 +21,13 @@ public class Program
 
     public static async Task<int> Main(string[] args)
     {
+        // Background telemetry upload mode: send pending traces and exit.
+        if (args.Length > 0 && args[0] == "--upload-telemetry")
+        {
+            await TelemetrySender.SendPendingAsync();
+            return 0;
+        }
+
         CirrusServiceProvider.Initialize(ClientType.CLI);
         _telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
         _logger = CirrusServiceProvider.GetRequiredService<ILoggingService>();
@@ -28,7 +35,6 @@ public class Program
         try
         {
             using var activity = _telemetryService.StartCLIActivity(args);
-
             var dispatcher = new ExtensionDispatcher();
 
             try
@@ -38,7 +44,6 @@ public class Program
                 using var commandActivity = _telemetryService.ActivitySource.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
                 commandActivity?.SetTag("command.type", invocation.GetType().Name);
 
-                
                 var engine = CirrusServiceProvider.GetRequiredService<IEngine>() ?? throw new InvalidOperationException("Engine service not found.");
                 engine.Process(invocation, (value, ct) => { Console.WriteLine(value); return Task.CompletedTask; });
 
@@ -54,17 +59,18 @@ public class Program
             catch (Exception ex)
             {
                 _logger?.Error(ex.Message);
-                
+
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 activity?.AddException(ex);
 
                 return await TryAgentFallbackAsync(args);
             }
-        }
+        } // activity disposed here → traces exported to file
         finally
         {
-            CirrusServiceProvider.Dispose();
             _telemetryService?.Dispose();
+            CirrusServiceProvider.Dispose();
+            SpawnTelemetryUploader();
         }
     }
 
@@ -130,6 +136,35 @@ public class Program
         {
             logger.Error($"AI agent error: {ex.Message}");
             return 1;
+        }
+    }
+
+    /// <summary>
+    /// Spawns a detached background process to upload buffered telemetry to Azure Monitor.
+    /// Fire-and-forget: the CLI exits immediately without waiting for the upload.
+    /// </summary>
+    private static void SpawnTelemetryUploader()
+    {
+        try
+        {
+            var exePath = Environment.ProcessPath;
+            if (exePath == null) return;
+
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = exePath,
+                Arguments = "--upload-telemetry",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+
+            Process.Start(startInfo);
+            // Don't wait — the background process runs independently.
+        }
+        catch
+        {
+            // Best effort. If spawn fails, traces remain on disk
+            // and will be uploaded on the next CLI invocation.
         }
     }
 

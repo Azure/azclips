@@ -39,6 +39,8 @@ function Connect-CirrusAccount {
                 $parameters.Add('UseDeviceCode', [object]$UseDeviceCode);
             }
             $invocation = [Core.Runtime.PSCommandInvocation]::New($extensionName, $commandName, $parameters);
+            $invocation.ModuleName = $MyInvocation.MyCommand.ModuleName
+            $invocation.ModuleVersion = if ($MyInvocation.MyCommand.Version) { $MyInvocation.MyCommand.Version.ToString() } else { $null }
             $response = $engine.Process($invocation, $outputDelegate, [System.Threading.CancellationToken]::None);
 
             # Mark activity as successful

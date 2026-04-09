@@ -1,8 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
-using Azure.Monitor.OpenTelemetry.Exporter;
+using System.Reflection;
 using Core.Abstractions;
 using OpenTelemetry;
 using OpenTelemetry.Resources;
@@ -12,25 +10,43 @@ namespace Core.Telemetry;
 
 /// <summary>
 /// Implementation of ITelemetryService using OpenTelemetry.
+/// Records traces to local files only. Azure Monitor upload is handled
+/// asynchronously by a background process via TelemetrySender.
 /// </summary>
 public class TelemetryService : ITelemetryService
 {
+    public const string AzureMonitorConnectionString =
+        "InstrumentationKey=75095e49-0ed7-43bf-9a9b-145ce55963c5;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=c4b7bab3-d4b6-4f80-8440-0f529a622b2f";
+
+    private const string TraceDirectoryName = "Cirrus";
+
+    /// <summary>
+    /// Gets the shared trace directory. Both CLI and PS write here;
+    /// the background uploader picks up all files from one location.
+    /// </summary>
+    public static string GetTraceDirectory() =>
+        Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            TraceDirectoryName,
+            "traces");
+
     private readonly TracerProvider _tracerProvider;
     private bool _disposed;
 
     public ActivitySource ActivitySource { get; }
 
-    public TelemetryService(string serviceName = "AzureCLI", string serviceVersion = "1.0.0")
+    public TelemetryService(ActivitySource activitySource)
     {
-        ActivitySource = new ActivitySource(serviceName, serviceVersion);
+        ActivitySource = activitySource;
+        var serviceName = activitySource.Name;
+        var serviceVersion =
+            Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+            ?? Assembly.GetEntryAssembly()?.GetName().Version?.ToString()
+            ?? "0.0.0-dev";
 
-        var logDirectory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            serviceName,
-            "traces"
-        );
+        var logDirectory = GetTraceDirectory();
 
-        _tracerProvider = Sdk.CreateTracerProviderBuilder()
+        var builder = Sdk.CreateTracerProviderBuilder()
             .AddSource(serviceName)
             .AddHttpClientInstrumentation(options => // auto-instrument HttpClient calls
             {
@@ -45,21 +61,43 @@ public class TelemetryService : ITelemetryService
                 resource.AddService(
                     serviceName: serviceName,
                     serviceVersion: serviceVersion))
-            .AddProcessor(new SimpleActivityExportProcessor(new FileExporter(logDirectory)))
-            .AddAzureMonitorTraceExporter(options =>
-            {
-                options.ConnectionString = "InstrumentationKey=75095e49-0ed7-43bf-9a9b-145ce55963c5;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=c4b7bab3-d4b6-4f80-8440-0f529a622b2f";
-            })
+            .AddProcessor(new SimpleActivityExportProcessor(new FileExporter(logDirectory)));
+
 #if DEBUG
-            .AddZipkinExporter(options =>
+        // Zipkin exporter for local development. Disable via CIRRUS_ZIPKIN_ENABLED=false.
+        if (!string.Equals(Environment.GetEnvironmentVariable("CIRRUS_ZIPKIN_ENABLED"), "false", StringComparison.OrdinalIgnoreCase))
+        {
+            builder.AddZipkinExporter(options =>
             {
                 options.Endpoint = new Uri(Environment.GetEnvironmentVariable("ZIPKIN_ENDPOINT") ?? "http://localhost:9411/api/v2/spans");
-            })
+            });
+        }
 #endif
-            .Build()!;
+
+        _tracerProvider = builder.Build()!;
     }
 
     public Activity StartActivity(string name, ActivityKind kind = ActivityKind.Internal) => ActivitySource.StartActivity(name, kind)!;
+
+    public void ProcessInvocation(ICommandInvocation invocation)
+    {
+        var activity = Activity.Current;
+        Console.WriteLine($"[DEBUG ProcessInvocation] Activity.Current={activity?.DisplayName ?? "NULL"}, ModuleName='{invocation.ModuleName}', ModuleVersion='{invocation.ModuleVersion}'");
+        if (activity is null) return;
+
+        // Walk up to the root activity so module tags appear on the top-level span
+        while (activity.Parent is not null)
+            activity = activity.Parent;
+
+        Console.WriteLine($"[DEBUG ProcessInvocation] Root activity={activity.DisplayName}, setting tags...");
+        // NOTE: On the CLI side "module.name" currently maps to the extension name.
+        // The tag key may be renamed to "extension.name" in the future — TBD.
+        if (!string.IsNullOrEmpty(invocation.ModuleName))
+            activity.SetTag("module.name", invocation.ModuleName);
+        if (!string.IsNullOrEmpty(invocation.ModuleVersion))
+            activity.SetTag("module.version", invocation.ModuleVersion);
+        Console.WriteLine($"[DEBUG ProcessInvocation] Tags set. Verifying: module.name={activity.GetTagItem("module.name")}, module.version={activity.GetTagItem("module.version")}");
+    }
 
     public void Flush()
     {
@@ -70,11 +108,19 @@ public class TelemetryService : ITelemetryService
     {
         if (_disposed) return;
 
-        _tracerProvider?.ForceFlush();
-        _tracerProvider?.Dispose();
-        ActivitySource?.Dispose();
+        // Skip ForceFlush — FileExporter uses SimpleActivityExportProcessor
+        // which exports synchronously inline, so there's nothing to flush.
+        // TracerProvider.Dispose() also tries to flush; run it on a thread
+        // with a short timeout to avoid blocking on unreachable exporters
+        // (e.g. Zipkin in debug mode when no collector is running).
+        var disposeTask = Task.Run(() => _tracerProvider?.Dispose());
+        disposeTask.Wait(TimeSpan.FromMilliseconds(500));
+
+        // ActivitySource lifetime is managed by the DI container; don't dispose it here.
+
         _disposed = true;
 
         GC.SuppressFinalize(this);
     }
 }
+

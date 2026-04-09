@@ -29,7 +29,7 @@ public static class CirrusServiceProvider
             _serviceProvider = new ServiceCollection()
                 .RegisterRuntimeServices()
                 .RegisterAuthenticationServices()
-                .RegisterTelemetryServices()
+                .RegisterTelemetryServices(clientType)
                 .RegisterEngineServices(clientType)
                 .BuildServiceProvider();
         }

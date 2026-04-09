@@ -10,5 +10,15 @@ namespace Core.Abstractions
         string CommandName { get; }
         IDictionary<string, object> Parameters { get; }
         ClientType ClientType { get; }
+
+        /// <summary>
+        /// Resolved module name. Populated by the engine after loading the extension.
+        /// </summary>
+        string? ModuleName { get; set; }
+
+        /// <summary>
+        /// Resolved module version. Populated by the engine after loading the extension.
+        /// </summary>
+        string? ModuleVersion { get; set; }
     }
 }
