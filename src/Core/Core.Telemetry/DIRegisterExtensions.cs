@@ -11,9 +11,7 @@ public static class DIRegisterExtensions
     /// </summary>
     public static IServiceCollection RegisterTelemetryServices(this IServiceCollection services, ClientType clientType)
     {
-        services.AddSingleton(_ => new ActivitySource(
-            TelemetryService.GetServiceName(clientType),
-            TelemetryService.DefaultServiceVersion));
+        services.AddSingleton(_ => new ActivitySource(clientType.ToServiceName()));
         services.AddSingleton<ITelemetryService, TelemetryService>();
         return services;
     }

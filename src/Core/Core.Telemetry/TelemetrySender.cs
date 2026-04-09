@@ -66,15 +66,12 @@ public static class TelemetrySender
         if (claimedFiles.Count == 0)
             return Task.CompletedTask;
 
-        using var source = new ActivitySource(
-            ReplaySourceName,
-            TelemetryService.DefaultServiceVersion);
+        using var source = new ActivitySource(ReplaySourceName);
 
         using var provider = Sdk.CreateTracerProviderBuilder()
             .AddSource(ReplaySourceName)
             .ConfigureResource(r => r.AddService(
-                serviceName: ReplaySourceName,
-                serviceVersion: TelemetryService.DefaultServiceVersion))
+                serviceName: ReplaySourceName))
             .AddAzureMonitorTraceExporter(options =>
             {
                 options.ConnectionString = TelemetryService.AzureMonitorConnectionString;

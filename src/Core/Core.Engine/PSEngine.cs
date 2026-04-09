@@ -31,6 +31,7 @@ namespace Core.Engine
         private readonly Func<AuthContext> GetAuthContext;
         private readonly AcquireTokenAsyncDelegate AcquireTokenSilentlyAsync;
         private readonly StartActivityDelegate StartActivity;
+        private readonly ITelemetryService _telemetryService;
         private bool _disposed;
 
         public ClientType ClientType = ClientType.PowerShell;
@@ -43,6 +44,7 @@ namespace Core.Engine
             GetAuthContext = () => authContextService.GetCurrentContextAsync().GetAwaiter().GetResult() ?? new AuthContext() { SubscriptionId = "", TenantId = "" };
             AcquireTokenSilentlyAsync = authService.AcquireTokenSilentlyAsync;
             StartActivity = telemetryService.StartActivity;
+            _telemetryService = telemetryService;
         }
 
         /// <summary>
@@ -58,6 +60,10 @@ namespace Core.Engine
         public void Process(ICommandInvocation invocation, CommandOutputDelegate outputDelegate, CancellationToken cancellationToken = default)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
+
+            // Tag telemetry with module info so that module.name / module.version
+            // appear on the root activity — mirrors CLIEngine behaviour.
+            _telemetryService.ProcessInvocation(invocation);
 
             // Create a per-invocation channel for worker-to-caller communication
             Channel<object> outputChannel = Channel.CreateUnbounded<object>(new UnboundedChannelOptions

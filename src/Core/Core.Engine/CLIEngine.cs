@@ -72,6 +72,10 @@ public class CLIEngine : IEngine
             invocation.ModuleVersion = extensionAssembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
                 ?? extensionAssembly.GetName().Version?.ToString();
 
+        // Tag telemetry early — before property binding, which can throw on
+        // missing required args and prevent tags from being recorded.
+        _telemetryService.ProcessInvocation(invocation);
+
         var typeName = $"{extensionAssembly.GetName().Name}.ExtensionIndex";
         Type indexType = extensionAssembly.GetType(typeName) ?? throw new InvalidOperationException($"Extension '{invocation.ExtensionName}' does not contain a {typeName} type.");
         _logger?.Verbose($"Found extension index type '{indexType.FullName}'.");
@@ -125,9 +129,6 @@ public class CLIEngine : IEngine
         _logger?.Info($"Processing command: '{invocation.CommandName}'.");
 
         IProcessor command = GetCommand(invocation);
-
-        // Tag telemetry with resolved module info
-        _telemetryService.ProcessInvocation(invocation);
 
         // TODO: Initialize command context and execute
         ICommandContext context = CreateCommandContext(output);

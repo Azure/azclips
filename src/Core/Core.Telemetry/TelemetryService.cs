@@ -1,7 +1,5 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Reflection;
 using Core.Abstractions;
 using OpenTelemetry;
@@ -17,25 +15,10 @@ namespace Core.Telemetry;
 /// </summary>
 public class TelemetryService : ITelemetryService
 {
+    public const string AzureMonitorConnectionString =
+        "InstrumentationKey=75095e49-0ed7-43bf-9a9b-145ce55963c5;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=c4b7bab3-d4b6-4f80-8440-0f529a622b2f";
+
     private const string TraceDirectoryName = "Cirrus";
-
-    public static string GetServiceName(ClientType clientType) => clientType switch
-    {
-        ClientType.CLI => "AzureCLI",
-        ClientType.PowerShell => "AzurePS",
-        _ => "AzureCLI"
-    };
-
-    public static readonly string DefaultServiceVersion =
-        Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-        ?? Assembly.GetEntryAssembly()?.GetName().Version?.ToString()
-        ?? "0.0.0-dev";
-    internal const string AzureMonitorConnectionString = "InstrumentationKey=75095e49-0ed7-43bf-9a9b-145ce55963c5;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=c4b7bab3-d4b6-4f80-8440-0f529a622b2f";
-
-    private readonly TracerProvider _tracerProvider;
-    private bool _disposed;
-
-    public ActivitySource ActivitySource { get; }
 
     /// <summary>
     /// Gets the shared trace directory. Both CLI and PS write here;
@@ -47,11 +30,19 @@ public class TelemetryService : ITelemetryService
             TraceDirectoryName,
             "traces");
 
+    private readonly TracerProvider _tracerProvider;
+    private bool _disposed;
+
+    public ActivitySource ActivitySource { get; }
+
     public TelemetryService(ActivitySource activitySource)
     {
         ActivitySource = activitySource;
         var serviceName = activitySource.Name;
-        var moduleVersion = activitySource.Version ?? DefaultServiceVersion;
+        var serviceVersion =
+            Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+            ?? Assembly.GetEntryAssembly()?.GetName().Version?.ToString()
+            ?? "0.0.0-dev";
 
         var logDirectory = GetTraceDirectory();
 
@@ -69,7 +60,7 @@ public class TelemetryService : ITelemetryService
             .ConfigureResource(resource =>
                 resource.AddService(
                     serviceName: serviceName,
-                    serviceVersion: moduleVersion))
+                    serviceVersion: serviceVersion))
             .AddProcessor(new SimpleActivityExportProcessor(new FileExporter(logDirectory)));
 
 #if DEBUG
@@ -91,18 +82,21 @@ public class TelemetryService : ITelemetryService
     public void ProcessInvocation(ICommandInvocation invocation)
     {
         var activity = Activity.Current;
+        Console.WriteLine($"[DEBUG ProcessInvocation] Activity.Current={activity?.DisplayName ?? "NULL"}, ModuleName='{invocation.ModuleName}', ModuleVersion='{invocation.ModuleVersion}'");
         if (activity is null) return;
 
         // Walk up to the root activity so module tags appear on the top-level span
         while (activity.Parent is not null)
             activity = activity.Parent;
 
+        Console.WriteLine($"[DEBUG ProcessInvocation] Root activity={activity.DisplayName}, setting tags...");
         // NOTE: On the CLI side "module.name" currently maps to the extension name.
         // The tag key may be renamed to "extension.name" in the future — TBD.
         if (!string.IsNullOrEmpty(invocation.ModuleName))
             activity.SetTag("module.name", invocation.ModuleName);
         if (!string.IsNullOrEmpty(invocation.ModuleVersion))
             activity.SetTag("module.version", invocation.ModuleVersion);
+        Console.WriteLine($"[DEBUG ProcessInvocation] Tags set. Verifying: module.name={activity.GetTagItem("module.name")}, module.version={activity.GetTagItem("module.version")}");
     }
 
     public void Flush()
