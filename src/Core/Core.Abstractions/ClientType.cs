@@ -9,13 +9,5 @@ namespace Core.Abstractions
         CLI
     }
 
-    public static class ClientTypeExtensions
-    {
-        public static string ToServiceName(this ClientType clientType) => clientType switch
-        {
-            ClientType.CLI => "AzureCLI",
-            ClientType.PowerShell => "AzurePS",
-            _ => "AzureCLI"
-        };
-    }
+
 }
