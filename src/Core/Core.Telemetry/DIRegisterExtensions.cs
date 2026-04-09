@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Core.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -8,9 +9,12 @@ public static class DIRegisterExtensions
     /// <summary>
     /// Extension method to register telemetry-related services.
     /// </summary>
-    public static IServiceCollection RegisterTelemetryServices(this IServiceCollection services)
+    public static IServiceCollection RegisterTelemetryServices(this IServiceCollection services, ClientType clientType)
     {
-        services.AddSingleton<ITelemetryService>(_ => new TelemetryService());
+        services.AddSingleton(_ => new ActivitySource(
+            TelemetryService.GetServiceName(clientType),
+            TelemetryService.DefaultServiceVersion));
+        services.AddSingleton<ITelemetryService, TelemetryService>();
         return services;
     }
 }

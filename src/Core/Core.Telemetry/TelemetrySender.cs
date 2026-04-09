@@ -19,6 +19,8 @@ namespace Core.Telemetry;
 /// </summary>
 public static class TelemetrySender
 {
+    private const string ReplaySourceName = "CirrusTelemetryUploader";
+
     /// <summary>
     /// Sends all pending trace files to Azure Monitor, then deletes them.
     /// </summary>
@@ -65,13 +67,13 @@ public static class TelemetrySender
             return Task.CompletedTask;
 
         using var source = new ActivitySource(
-            TelemetryService.DefaultServiceName,
+            ReplaySourceName,
             TelemetryService.DefaultServiceVersion);
 
         using var provider = Sdk.CreateTracerProviderBuilder()
-            .AddSource(TelemetryService.DefaultServiceName)
+            .AddSource(ReplaySourceName)
             .ConfigureResource(r => r.AddService(
-                serviceName: TelemetryService.DefaultServiceName,
+                serviceName: ReplaySourceName,
                 serviceVersion: TelemetryService.DefaultServiceVersion))
             .AddAzureMonitorTraceExporter(options =>
             {

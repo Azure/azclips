@@ -1,4 +1,5 @@
-﻿using Core.Abstractions;
+﻿using System.Diagnostics;
+using Core.Abstractions;
 using Core.Authentication;
 using Core.Runtime;
 using Core.Telemetry;
@@ -51,10 +52,12 @@ public class Bootstrapper
         var services = new ServiceCollection();
 
         // --- ORIGINAL REGISTRATIONS (from main branch) ---
-        // Telemetry service for logging throughout the application
         services.AddSingleton<ILoggingService, ConsoleLoggingService>();
         services.AddSingleton<IAuthService, MsalAuthService>();
         services.AddSingleton<IAuthContextService, AuthContextService>();
+        services.AddSingleton(_ => new ActivitySource(
+            TelemetryService.GetServiceName(ClientType.CLI),
+            TelemetryService.DefaultServiceVersion));
         services.AddSingleton<ITelemetryService, TelemetryService>();
 
         // --- NEW REGISTRATIONS (added for AI integration) ---

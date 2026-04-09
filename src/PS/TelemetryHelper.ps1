@@ -37,9 +37,7 @@ function Start-CmdletActivity {
     if ($null -ne $service) {
         try {
             # Call the extension method as a static method
-            $activity = [Core.Telemetry.TelemetryExtensions]::StartPowerShellActivity($service, $CmdletName, $Parameters)
-
-            return $activity
+            return [Core.Telemetry.TelemetryExtensions]::StartPowerShellActivity($service, $CmdletName, $Parameters)
         }
         catch {
             Write-Verbose "Failed to start activity: $_"

@@ -17,8 +17,16 @@ namespace Core.Telemetry;
 /// </summary>
 public class TelemetryService : ITelemetryService
 {
-    internal const string DefaultServiceName = "AzureCLI";
-    internal static readonly string DefaultServiceVersion =
+    private const string TraceDirectoryName = "Cirrus";
+
+    public static string GetServiceName(ClientType clientType) => clientType switch
+    {
+        ClientType.CLI => "AzureCLI",
+        ClientType.PowerShell => "AzurePS",
+        _ => "AzureCLI"
+    };
+
+    public static readonly string DefaultServiceVersion =
         Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
         ?? Assembly.GetEntryAssembly()?.GetName().Version?.ToString()
         ?? "0.0.0-dev";
@@ -30,20 +38,22 @@ public class TelemetryService : ITelemetryService
     public ActivitySource ActivitySource { get; }
 
     /// <summary>
-    /// Gets the directory where trace files are stored.
+    /// Gets the shared trace directory. Both CLI and PS write here;
+    /// the background uploader picks up all files from one location.
     /// </summary>
-    public static string GetTraceDirectory(string serviceName = DefaultServiceName) =>
+    public static string GetTraceDirectory() =>
         Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            serviceName,
+            TraceDirectoryName,
             "traces");
 
-    public TelemetryService(string serviceName = DefaultServiceName)
+    public TelemetryService(ActivitySource activitySource)
     {
-        var moduleVersion = DefaultServiceVersion;
-        ActivitySource = new ActivitySource(serviceName, moduleVersion);
+        ActivitySource = activitySource;
+        var serviceName = activitySource.Name;
+        var moduleVersion = activitySource.Version ?? DefaultServiceVersion;
 
-        var logDirectory = GetTraceDirectory(serviceName);
+        var logDirectory = GetTraceDirectory();
 
         var builder = Sdk.CreateTracerProviderBuilder()
             .AddSource(serviceName)
@@ -112,7 +122,7 @@ public class TelemetryService : ITelemetryService
         var disposeTask = Task.Run(() => _tracerProvider?.Dispose());
         disposeTask.Wait(TimeSpan.FromMilliseconds(500));
 
-        ActivitySource?.Dispose();
+        // ActivitySource lifetime is managed by the DI container; don't dispose it here.
 
         _disposed = true;
 
