@@ -2,7 +2,7 @@
 
 A .NET 9.0 extension-based CLI framework with AI-powered natural language capabilities for Azure resource management.
 
-To view the documentation about Cirrus, go to `wiki` directory, Alternatively clone the repository and run `wiki:preview` task in vscode to view a rendered version of the wiki locally.
+**Documentation**: https://animated-adventure-r3wzl2j.pages.github.io/ | Local preview: run `wiki:preview` task in VS Code
 
 ## Repository Structure
 
@@ -43,6 +43,7 @@ cirrus/
 │   ├── Cli.Tests/                # CLI integration tests
 │   ├── PowerShell.Tests/         # PowerShell module tests
 │   └── Core/                     # Core library tests
+├── 📁 wiki/                      # VitePress documentation (auto-deploys to GitHub Pages)
 ├── 📁 artifacts/                 # Build output (generated)
 │   └── Release/                  # Release builds
 │       ├── Core/                 # Core libraries
