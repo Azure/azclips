@@ -1,9 +1,26 @@
-﻿using Core.Abstractions;
+﻿using System.Reflection;
+using Core.Abstractions;
 
-namespace Core.Runtime
+namespace Core.Engine
 {
-    public static class CommandMetadataExtension
+    public static class CommandLoadingExtension
     {
+        public static IExtensionIndex GetExtensionIndex(this Assembly assembly)
+        {
+            string assemblyName = assembly.GetName().Name ?? throw new InvalidOperationException($"The assembly name could not be determined for assembly '{assembly.FullName}'.");
+            string typeName = $"{assemblyName}.ExtensionIndex";
+            Type type = assembly.GetType(typeName) ?? throw new InvalidOperationException($"No IExtensionIndex implementation found in assembly {assembly.FullName}");
+            if (type == null)
+            {
+                throw new InvalidOperationException($"The type '{typeName}' could not be found in assembly '{assembly.FullName}'.");
+            }
+            if (!typeof(IExtensionIndex).IsAssignableFrom(type))
+            {
+                throw new InvalidOperationException($"The type '{typeName}' does not implement IExtensionIndex.");
+            }
+            return (Activator.CreateInstance(type) as IExtensionIndex)!;
+        }
+
         public static IProcessor GetInstance(this ICommandMetadata metadata)
         {
             IProcessor? instance = null;
@@ -28,6 +45,16 @@ namespace Core.Runtime
                 throw new ArgumentException($"The command '{metadata.Name}' could not be created. Ensure that the command implements IProcessor and has a parameterless constructor.", e);
             }
             return instance!;
+        }
+
+        public static IProcessor GetInstance(this ICommandMetadata metadata, IDictionary<string, object> parameters)
+        {
+            IProcessor instance = metadata.GetInstance();
+            foreach (var param in parameters)
+            {
+                instance.SetProperty(param.Key, param.Value);
+            }
+            return instance;
         }
 
         public static void SetProperty(this IProcessor processor, string propertyName, object? value)
