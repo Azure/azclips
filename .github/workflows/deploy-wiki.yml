@@ -1,0 +1,96 @@
+name: Deploy Wiki to Azure Storage
+
+on:
+  push:
+    branches: [ "resilv/2026" ]
+    paths:
+      - 'wiki/**'
+  workflow_dispatch:
+
+jobs:
+  deploy-wiki:
+    runs-on: ubuntu-latest
+    
+    env:
+      STORAGE_ACCOUNT_NAME: ${{ secrets.CIRRUS_WEB_STORAGE }}
+      RESOURCE_GROUP: cirrus-web-rg
+      LOCATION: eastus
+      
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: wiki/package-lock.json
+    
+    - name: Install dependencies
+      working-directory: ./wiki
+      run: npm ci
+    
+    - name: Build wiki
+      working-directory: ./wiki
+      run: npm run build
+    
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        creds: ${{ secrets.STORAGE_CREDENTIALS }}
+    
+    - name: Check if storage account exists
+      id: check_storage
+      run: |
+        if az storage account show --name $STORAGE_ACCOUNT_NAME --resource-group $RESOURCE_GROUP 2>/dev/null; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+          echo "Storage account $STORAGE_ACCOUNT_NAME already exists"
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+          echo "Storage account $STORAGE_ACCOUNT_NAME does not exist"
+        fi
+      continue-on-error: true
+    
+    - name: Create resource group if needed
+      if: steps.check_storage.outputs.exists != 'true'
+      run: |
+        az group create --name $RESOURCE_GROUP --location $LOCATION || true
+    
+    - name: Create storage account
+      if: steps.check_storage.outputs.exists != 'true'
+      run: |
+        az storage account create \
+          --name $STORAGE_ACCOUNT_NAME \
+          --resource-group $RESOURCE_GROUP \
+          --location $LOCATION \
+          --sku Standard_LRS \
+          --kind StorageV2 \
+          --allow-blob-public-access true
+    
+    - name: Enable static website hosting
+      run: |
+        az storage blob service-properties update \
+          --account-name $STORAGE_ACCOUNT_NAME \
+          --static-website \
+          --index-document index.html \
+          --404-document 404.html
+    
+    - name: Deploy to Azure Storage
+      run: |
+        az storage blob upload-batch \
+          --account-name $STORAGE_ACCOUNT_NAME \
+          --auth-mode login \
+          --destination '$web' \
+          --source ./wiki/.vitepress/dist \
+          --overwrite
+    
+    - name: Get static website URL
+      run: |
+        WEBSITE_URL=$(az storage account show \
+          --name $STORAGE_ACCOUNT_NAME \
+          --resource-group $RESOURCE_GROUP \
+          --query "primaryEndpoints.web" \
+          --output tsv)
+        echo "Wiki deployed to: $WEBSITE_URL"
+        echo "::notice title=Deployment URL::$WEBSITE_URL"
