@@ -68,48 +68,39 @@ jobs:
           --kind StorageV2 \
           --allow-blob-public-access true
     
-    - name: Enable static website hosting
-      run: |
-        az storage blob service-properties update \
-          --account-name $STORAGE_ACCOUNT_NAME \
-          --static-website \
-          --index-document index.html \
-          --404-document 404.html
-    
-    - name: Assign Storage Blob Data Contributor role to service principal
-      run: |
-        STORAGE_ACCOUNT_ID=$(az storage account show \
-          --name $STORAGE_ACCOUNT_NAME \
-          --resource-group $RESOURCE_GROUP \
-          --query id \
-          --output tsv)
-        
-        SP_OBJECT_ID=$(az ad sp list \
-          --filter "appId eq '$(az account show --query user.name -o tsv)'" \
-          --query "[0].id" \
-          --output tsv)
-        
-        az role assignment create \
-          --assignee $SP_OBJECT_ID \
-          --role "Storage Blob Data Contributor" \
-          --scope $STORAGE_ACCOUNT_ID \
-          2>/dev/null || echo "Role assignment already exists or failed"
-    
-    - name: Deploy to Azure Storage
-      run: |
-        az storage blob upload-batch \
-          --account-name $STORAGE_ACCOUNT_NAME \
-          --auth-mode login \
-          --destination '$web' \
-          --source ./wiki/.vitepress/dist \
-          --overwrite
-    
-    - name: Get static website URL
-      run: |
-        WEBSITE_URL=$(az storage account show \
-          --name $STORAGE_ACCOUNT_NAME \
-          --resource-group $RESOURCE_GROUP \
-          --query "primaryEndpoints.web" \
-          --output tsv)
-        echo "Wiki deployed to: $WEBSITE_URL"
-        echo "::notice title=Deployment URL::$WEBSITE_URL"
+    - name: Enable static website hosting and deploy
+      uses: azure/CLI@v2
+      with:
+        inlineScript: |
+          STORAGE_KEY=$(az storage account keys list \
+            --account-name "$STORAGE_ACCOUNT_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query "[0].value" \
+            --output tsv)
+
+          # Enable static website hosting
+          az storage blob service-properties update \
+            --account-name "$STORAGE_ACCOUNT_NAME" \
+            --account-key "$STORAGE_KEY" \
+            --static-website \
+            --index-document index.html \
+            --404-document 404.html
+
+          # Upload all files
+          az storage blob upload-batch \
+            --account-name "$STORAGE_ACCOUNT_NAME" \
+            --account-key "$STORAGE_KEY" \
+            --source "./wiki/.vitepress/dist" \
+            --destination "\$web" \
+            --overwrite
+
+          # Get and display URL
+          WEBSITE_URL=$(az storage account show \
+            --name "$STORAGE_ACCOUNT_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query "primaryEndpoints.web" \
+            --output tsv)
+
+          echo "🚀 Wiki deployed successfully!"
+          echo "📍 URL: $WEBSITE_URL"
+          echo "::notice title=Deployment URL::$WEBSITE_URL"
