@@ -2,7 +2,7 @@ name: Deploy Wiki to GitHub Pages
 
 on:
   push:
-    branches: [ "resilv/2026" ]
+    branches: [ "main", "resilv/2026" ]
     paths:
       - 'wiki/**'
       - '.github/workflows/deploy-wiki.yml'
@@ -22,9 +22,10 @@ concurrency:
 
 jobs:
   deploy-wiki:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    # Temporarily remove environment for testing
+    # environment:
+    #   name: github-pages
+    #   url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     
     steps:
