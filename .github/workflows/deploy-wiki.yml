@@ -12,8 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     
     env:
-      STORAGE_ACCOUNT_NAME: ${{ secrets.CIRRUS_WEB_STORAGE }}
-      RESOURCE_GROUP: cirrus-web-rg
+      STORAGE_ACCOUNT_NAME: ${{ vars.CIRRUS_WEB_STORAGE }}
+      RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
       LOCATION: eastus
       
     steps:

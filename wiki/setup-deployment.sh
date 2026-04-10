@@ -87,8 +87,9 @@ echo -e "  Client ID: ${AZURE_CLIENT_ID:0:8}...${AZURE_CLIENT_ID: -4}"
 echo -e "  Subscription ID: ${AZURE_SUBSCRIPTION_ID:0:8}...${AZURE_SUBSCRIPTION_ID: -4}"
 echo ""
 
-# Read storage account name
+# Read storage account name and resource group
 CIRRUS_WEB_STORAGE=$(read_env_value "CIRRUS_WEB_STORAGE")
+RESOURCE_GROUP=$(read_env_value "RESOURCE_GROUP")
 
 if [ -z "$CIRRUS_WEB_STORAGE" ]; then
     echo -e "${RED}Error: CIRRUS_WEB_STORAGE not found in .env${NC}"
@@ -96,7 +97,14 @@ if [ -z "$CIRRUS_WEB_STORAGE" ]; then
     exit 1
 fi
 
+if [ -z "$RESOURCE_GROUP" ]; then
+    echo -e "${RED}Error: RESOURCE_GROUP not found in .env${NC}"
+    echo -e "${YELLOW}Please add it to: $ENV_FILE${NC}"
+    exit 1
+fi
+
 echo -e "${GREEN}✓ Storage account name:${NC} $CIRRUS_WEB_STORAGE"
+echo -e "${GREEN}✓ Resource group:${NC} $RESOURCE_GROUP"
 echo ""
 
 # Create STORAGE_CREDENTIALS JSON
@@ -118,17 +126,24 @@ echo -e "  ${BLUE}Uploading STORAGE_CREDENTIALS...${NC}"
 echo "$STORAGE_CREDENTIALS" | gh secret set STORAGE_CREDENTIALS --repo "$GITHUB_REPO"
 echo -e "  ${GREEN}✓ STORAGE_CREDENTIALS uploaded${NC}\n"
 
-# Upload CIRRUS_WEB_STORAGE as GitHub secret
-echo -e "  ${BLUE}Uploading CIRRUS_WEB_STORAGE...${NC}"
-gh secret set CIRRUS_WEB_STORAGE --body "$CIRRUS_WEB_STORAGE" --repo "$GITHUB_REPO"
+# Upload CIRRUS_WEB_STORAGE and RESOURCE_GROUP as GitHub variables (not secrets)
+echo -e "  ${BLUE}Uploading CIRRUS_WEB_STORAGE (as variable)...${NC}"
+gh variable set CIRRUS_WEB_STORAGE --body "$CIRRUS_WEB_STORAGE" --repo "$GITHUB_REPO"
 echo -e "  ${GREEN}✓ CIRRUS_WEB_STORAGE uploaded${NC}\n"
+
+echo -e "  ${BLUE}Uploading RESOURCE_GROUP (as variable)...${NC}"
+gh variable set RESOURCE_GROUP --body "$RESOURCE_GROUP" --repo "$GITHUB_REPO"
+echo -e "  ${GREEN}✓ RESOURCE_GROUP uploaded${NC}\n"
 
 # Summary
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${GREEN}Setup Complete!${NC}\n"
 echo -e "${GREEN}✓ GitHub secrets uploaded to $GITHUB_REPO:${NC}"
-echo -e "  • STORAGE_CREDENTIALS"
-echo -e "  • CIRRUS_WEB_STORAGE"
+echo -e "  • STORAGE_CREDENTIALS (secret)"
+echo -e ""
+echo -e "${GREEN}✓ GitHub variables uploaded to $GITHUB_REPO:${NC}"
+echo -e "  • CIRRUS_WEB_STORAGE (variable)"
+echo -e "  • RESOURCE_GROUP (variable)"
 echo -e "\n${BLUE}Configuration read from:${NC} $ENV_FILE"
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
 
