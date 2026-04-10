@@ -614,10 +614,6 @@ obj/
 .env
 .env.local
 
-# Wiki deployment temporary directories
-wiki/.venv-azurecli/
-wiki/.azure/
-
 # LLamaSharp models (stored in ~/.cache but add safeguard)
 *.gguf
 *.ggml
