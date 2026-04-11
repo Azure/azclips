@@ -6,6 +6,8 @@ namespace Core.ArgumentParsing
     {
         public IDictionary<string, object> ParseArguments(IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases)
         {
+            //TODO: handle positional arguemnts for CLI
+
             Dictionary<string, object> parsedArguments = new(StringComparer.OrdinalIgnoreCase);
             foreach (var kvp in args)
             {
@@ -48,15 +50,26 @@ namespace Core.ArgumentParsing
             {
                 return source;
             }
-            preProcessArgument();
-            return source is string strValue
-                ? propertyParser.ConvertToType(key, strValue, targetType)
-                : throw new ArgumentException($"Invalid argument type for parameter '{key}': {source.GetType().FullName}");
+            // Yabo: arbitrarily treat argument from CLI as string for now
+            // Need CLI expert to polish this logic if necessary, especially for array and complex object parsing
+            string strValue = preProcessArgument(source) is string[] arr ? arr[0] : throw new ArgumentException($"Invalid argument type for parameter '{key}': {source.GetType().FullName}");
+            return propertyParser.ConvertToType(key, strValue, targetType);
         }
 
-        private object preProcessArgument()
+        private object preProcessArgument(object source)
         {
-             throw new NotImplementedException("This method is a placeholder for any future pre-processing logic that may be needed for arguments before parsing. It can be used to handle special cases, perform transformations, or apply any necessary adjustments to the raw input before it is processed by the main parsing logic.");            
+            // Yabo: invocation.Parameters from CLI is currently <string, List<List<string>>>
+            // copied over from legacy codebase, convert value
+            // List<List<string>> to string[]
+            // Need CLI expert to polish this logic if necessary
+            return (source is List<List<string>> listOfLists
+                    ? listOfLists
+                    : source is List<string> list
+                        ? [list]
+                        : [new List<string> { source?.ToString() ?? string.Empty }]
+                    )
+                    .SelectMany(innerList => innerList)
+                    .ToArray();
         }
 
         public IProcessor BindArgumentsToCommand(IProcessor command, IDictionary<string, object> parameters)
