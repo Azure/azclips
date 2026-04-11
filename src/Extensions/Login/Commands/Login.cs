@@ -38,7 +38,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
             };
 
             var authResult = authService.LoginAsync(loginRequest).GetAwaiter().GetResult();
-            AuthContext authContext = new AuthContext(TenantId: TenantId, SubscriptionId: SubscriptionId);
+            AuthContext authContext = new AuthContext(TenantId: authResult.TenantId, SubscriptionId: SubscriptionId);
             authContextService.SaveContextAsync(authContext).GetAwaiter().GetResult();
             await WriteOutput(authContext);
         }
