@@ -6,7 +6,7 @@ namespace Core.Abstractions
     /// <summary>
     /// Service for parsing and binding arguments to command instances.
     /// Handles CLI argument parsing, type conversion, validation, and property binding
-    /// based on ArgumentInfoAttribute metadata.
+    /// based on provided <see cref="ParameterMetadata"/> definitions and aliases.
     /// </summary>
     public interface IArgumentParsingService
     {
