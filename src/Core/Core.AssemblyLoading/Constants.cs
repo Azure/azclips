@@ -1,6 +1,6 @@
 namespace Core.AssemblyLoading
 {
-    public class Constants
+    internal static class Constants
     {
         internal const string cirrusPrefix = "Microsoft.Azure.Cirrus.Extensions.";
         // TODO(Yabo): use config service to retrieve the proper cli path in the future. Use conditional compilation for now.
