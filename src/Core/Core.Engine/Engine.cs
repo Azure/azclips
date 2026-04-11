@@ -17,36 +17,16 @@ namespace Core.Engine
     /// communication. The worker thread writes to the channel, and the caller's thread reads 
     /// and dispatches to the provided output delegate (e.g., $PSCmdlet.WriteObject).</para>
     /// </summary>
-    public class Engine : IEngine
+    public class Engine(HttpClient httpClient, IAuthContextService authContextService, IAuthService authService, ITelemetryService telemetryService, ILoggingService loggingService, IAssemblyLoadingService assemblyLoadingService, IArgumentParsingService argumentParsingService) : IEngine
     {
         // Extension indices are cached with Lazy<T> to ensure single initialization per extension
         // even under concurrent access. The factory runs exactly once per key.
-        //TODO: tune the cache size based on expected number of extensions, this key could be configurable in the future
+        //TODO(Yabo): tune the cache size based on expected number of extensions, get this key from config service in the future
         private const int cacheSize = 512;
-        private LFUCache<Lazy<IExtensionIndex>> _extensionIndices;
+        private LFUCache<Lazy<IExtensionIndex>>? _extensionIndices;
         private bool _disposed;
 
-        private readonly HttpClient _httpClient;
-        private readonly IAuthContextService _authContextService;
-        private readonly IAuthService _authService;
-        private readonly ITelemetryService _telemetryService;
-        private readonly ILoggingService _loggingService;
-        private readonly IAssemblyLoadingService _assemblyLoadingService;
-        private readonly IArgumentParserService _argumentParserService;
-
-        public Engine(HttpClient client, IAuthContextService authContextService, IAuthService authService, ITelemetryService telemetryService, ILoggingService loggingService, IAssemblyLoadingService assemblyLoadingService, IArgumentParserService argumentParserService)
-        {
-            _httpClient = client;
-            _authContextService = authContextService;
-            _authService = authService;
-            _telemetryService = telemetryService;
-            _loggingService = loggingService;
-            _assemblyLoadingService = assemblyLoadingService;
-            _argumentParserService = argumentParserService;
-            _extensionIndices = new(cacheSize);
-        }
-
-        //TODO: Consider implement ProcessAsync separately if we want to expose async processing in the future. For PowerShell, Process() must remain sync due to thread-affinity of cmdlet API, but other hosts could benefit from async.
+        //TODO(Yabo): Consider implement ProcessAsync separately if we want to expose async processing in the future. For PowerShell, Process() must remain sync due to thread-affinity of cmdlet API, but other hosts could benefit from async.
         /// <summary>
         /// Processes a command invocation with isolated output routing.
         /// <para><b>Thread Safety:</b> Each call creates its own output channel. The worker thread
@@ -57,9 +37,17 @@ namespace Core.Engine
         /// <param name="outputDelegate">The output delegate for this invocation (typically wired to $PSCmdlet.WriteObject).</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <exception cref="ObjectDisposedException">Thrown if the engine has been disposed.</exception>
-        public void Process(ICommandInvocation invocation, CommandOutputDelegate outputDelegate, CancellationToken cancellationToken = default)
+        public void Process(CommandInvocation invocation, CommandOutputDelegate outputDelegate, CancellationToken cancellationToken = default)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
+
+            //TODO(Yabo): replace with meaningful logging
+            loggingService.Verbose("Engine starts processing...");
+
+            // TODO(Yabo): Placeholder for extension versioning logic
+            // Calculate from config service in the future
+            string extensionVersion = string.Empty;
+            telemetryService.ProcessInvocation(string.IsNullOrEmpty(invocation.ModuleVersion) ? invocation with { ModuleVersion = extensionVersion } : invocation);
 
             // Create a per-invocation channel for worker-to-caller communication
             Channel<object> outputChannel = Channel.CreateUnbounded<object>(new UnboundedChannelOptions
@@ -71,8 +59,11 @@ namespace Core.Engine
             // Create context with channel-based output handler
             ICommandContext commandContext = CreateCommandContext(outputChannel.Writer);
 
+            // create command instance, inject invocation and context
+            IProcessor instance = GetCommand(invocation, commandContext, extensionVersion);
+
             // Start worker thread for command execution
-            Task executeCommandTask = ExecuteCommandAsync(GetCommand(invocation, commandContext), outputChannel.Writer, cancellationToken);
+            Task executeCommandTask = ExecuteCommandAsync(instance, outputChannel.Writer, cancellationToken);
 
             // Sync-over-async channel pump — intentional, not an anti-pattern here.
             //
@@ -121,17 +112,12 @@ namespace Core.Engine
         {
             // Sync-over-async by design: invoked on the PowerShell runspace thread
             // during Process(), which is intentionally synchronous.
-            AuthContext authContext = _authContextService.GetCurrentContextAsync().GetAwaiter().GetResult() 
-                                    ?? new AuthContext() { SubscriptionId = "", TenantId = "" };
+            AuthContext authContext = authContextService.GetCurrentContextAsync().GetAwaiter().GetResult() 
+                                    ?? new AuthContext(TenantId: "", SubscriptionId: "");
             ICommandAuthHandler commandAuthHandler = new CommandAuthHandler
             {
-                //TODO: After altering AuthContext to record, replace the new instance with: `AuthContext = authContext with {}`
-                AuthContext = new AuthContext
-                {
-                    SubscriptionId = authContext.SubscriptionId,
-                    TenantId = authContext.TenantId
-                },
-                AcquireTokenAsyncDefault = _authService.AcquireTokenSilentlyAsync,
+                AuthContext = authContext with { },
+                AcquireTokenAsyncDefault = authService.AcquireTokenSilentlyAsync,
                 ApplyOverride = false
             };
 
@@ -142,10 +128,10 @@ namespace Core.Engine
             };
             ICommandTelemetryHandler commandTelemetryHandler = new CommandTelemetryHandler
             {
-                StartActivity = _telemetryService.StartActivity
+                StartActivity = telemetryService.StartActivity
             };
 
-            IRuntimeHttpPipeline httpPipeline = new HttpPipeline(new HttpClientFactory(_httpClient));
+            IRuntimeHttpPipeline httpPipeline = new HttpPipeline(new HttpClientFactory(httpClient));
             ICommandContext context = new CommandContext
             {
                 CommandOutputHandler = commandOutputHandler,
@@ -185,34 +171,41 @@ namespace Core.Engine
         /// <see cref="IExtensionIndex.GetCommandMetadata"/> is thread-safe as implementations use
         /// read-only dictionaries populated during construction.</para>
         /// </summary>
-        public IProcessor GetCommand(ICommandInvocation invocation, ICommandContext context) 
+        public IProcessor GetCommand(CommandInvocation invocation, ICommandContext context, string extensionVersion = "")
         {
-            ICommandMetadata commandMetadata = GetExtensionIndex(invocation.ExtensionName, invocation.IsTransient).GetCommandMetadata(invocation.CommandName, invocation.ClientType);
-            IDictionary<string, object> parsedParameters = _argumentParserService.ParseArguments(invocation.Parameters, commandMetadata.Parameters, commandMetadata.ParameterAliases);
-            return _argumentParserService.BindArgumentsToCommand(commandMetadata.GetInstance(), parsedParameters).Init(context);   
+            //TODO(Yabo): come up with: intercept CLI global parameters elegantly if any
+            CommandMetadata commandMetadata = GetExtensionIndex(invocation.ExtensionName, invocation.ClientType, invocation.IsTransient, extensionVersion).GetCommandMetadata(invocation.CommandName, invocation.ClientType);
+            IDictionary<string, object> parsedParameters;
+            try
+            {
+                parsedParameters = argumentParsingService.ParseArguments(invocation.Parameters, commandMetadata.Parameters, commandMetadata.ParameterAliases);
+            }
+            catch (Exception ex)
+            {
+                throw new ArgumentException($"Failed to parse arguments for command '{invocation.CommandName}': {ex.Message}", ex);
+            }
+            IList<string> validationErrors = argumentParsingService.ValidateArguments(parsedParameters, commandMetadata.Parameters.ToDictionary(kvp => kvp.Value.Name, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase));
+            if (validationErrors != null && validationErrors.Count > 0)
+            {
+                throw new ArgumentException($"Invalid arguments: {string.Join(", ", validationErrors)}");
+            }
+            return argumentParsingService.BindArgumentsToCommand(commandMetadata.GetInstance(), parsedParameters).Init(context);   
         }
 
-        private IExtensionIndex GetExtensionIndex(string extensionName, bool isTransient)
+        private IExtensionIndex GetExtensionIndex(string extensionName, ClientType clientType, bool isTransient, string extensionVersion)
         {
-            // Placeholder for extension versioning logic
-            // Calculate from config service in the future
-            string extensionVersion = string.Empty;
-
             if (!isTransient)
             {
-                if (_extensionIndices == null)
-                {
-                    _extensionIndices = new LFUCache<Lazy<IExtensionIndex>>(cacheSize);
-                }
+                _extensionIndices ??= new(cacheSize);
                 // Lazy<T> ensures the factory runs exactly once per extension, even under contention.
                 // Without Lazy, GetOrAdd's factory may execute multiple times (only one result stored).
                 return _extensionIndices.GetOrAdd(
                     string.IsNullOrEmpty(extensionVersion) ? extensionName : $"{extensionName}-{extensionVersion}",
-                    extensionName => new Lazy<IExtensionIndex>(() => _assemblyLoadingService.LoadExtension(extensionName, extensionVersion).GetExtensionIndex())
+                    extensionName => new Lazy<IExtensionIndex>(() => assemblyLoadingService.LoadExtension(extensionName, clientType, extensionVersion).GetExtensionIndex())
                 ).Value;
             }
             // For transient invocations, bypass the cache and load directly
-            return _assemblyLoadingService.LoadExtension(extensionName, extensionVersion).GetExtensionIndex();
+            return assemblyLoadingService.LoadExtension(extensionName, clientType, extensionVersion).GetExtensionIndex();
         }
 
         /// <summary>
@@ -225,7 +218,7 @@ namespace Core.Engine
             {
                 if (disposing)
                 {
-                    _httpClient.Dispose();
+                    httpClient.Dispose();
                     _extensionIndices?.Clear();
                 }
                 _disposed = true;

@@ -4,6 +4,8 @@ using Core.Authentication;
 using Core.Telemetry;
 using Core.Engine;
 using Microsoft.Extensions.DependencyInjection;
+using Core.AssemblyLoading;
+using Core.ArgumentParsing;
 
 namespace Core.DependencyInjection;
 
@@ -27,10 +29,12 @@ public static class CirrusServiceProvider
                 return;
 
             _serviceProvider = new ServiceCollection()
+                .RegisterTelemetryServices(clientType)
                 .RegisterRuntimeServices()
                 .RegisterAuthenticationServices()
-                .RegisterTelemetryServices(clientType)
-                .RegisterEngineServices(clientType)
+                .RegisterEngineServices()
+                .RegisterAssemblyLoadingServices()
+                .RegisterArgumentParsingServices()
                 .BuildServiceProvider();
         }
     }

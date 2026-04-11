@@ -32,7 +32,7 @@ namespace Core.ArgumentParsing
                 }
                 try
                 {
-                    parsedArguments[key] = ParseArgument(key, value, parameterMetadata.ParameterType);
+                    parsedArguments[parameterMetadata.Name] = ParseArgument(parameterMetadata.Name, value, parameterMetadata.ParameterType);
                 }
                 catch (Exception ex)
                 {
@@ -109,10 +109,13 @@ namespace Core.ArgumentParsing
         {
             var errors = new List<string>();
 
+            // Build lookup by original C# property name (args keys are already resolved to original names)
+            var byName = parameters.ToDictionary(kvp => kvp.Value.Name, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase);
+
             // Check for unknown arguments and allowed values
             foreach (var kvp in args)
             {
-                if (!parameters.TryGetValue(kvp.Key, out var metadata))
+                if (!byName.TryGetValue(kvp.Key, out var metadata))
                 {
                     errors.Add($"Unknown parameter: '{kvp.Key}'");
                     continue;
@@ -127,7 +130,7 @@ namespace Core.ArgumentParsing
             }
 
             // Check for missing required arguments
-            foreach (var kvp in parameters)
+            foreach (var kvp in byName)
             {
                 if (kvp.Value.IsRequired && !args.ContainsKey(kvp.Key))
                 {

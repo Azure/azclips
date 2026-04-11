@@ -1,6 +1,4 @@
-using System.Collections.Concurrent;
-
-namespace Core.Engine.utils
+namespace Core.Engine.Utils
 {
     public class LRU<T>
     {
@@ -19,7 +17,7 @@ namespace Core.Engine.utils
         }
 
         private readonly int _capacity;
-        private readonly ConcurrentDictionary<string, DoubleLinkedListNode> _cache;
+        private readonly Dictionary<string, DoubleLinkedListNode> _cache;
         private DoubleLinkedListNode Head;
         private DoubleLinkedListNode Tail;
 
@@ -28,7 +26,7 @@ namespace Core.Engine.utils
         public LRU(int capacity)
         {
             _capacity = capacity;
-            _cache = new ConcurrentDictionary<string, DoubleLinkedListNode>();
+            _cache = new Dictionary<string, DoubleLinkedListNode>();
             Head = new DoubleLinkedListNode("", default!);
             Tail = new DoubleLinkedListNode("", default!);
             Head.Next = Tail;
@@ -89,13 +87,13 @@ namespace Core.Engine.utils
             key = last.Key;
             Tail.Prev = last.Prev;
             last.Prev.Next = Tail;
-            _cache.TryRemove(key, out _);
+            _cache.Remove(key);
             return true;
         }
 
         public bool TryRemove(string key)
         {
-            if (!_cache.TryRemove(key, out var node))
+            if (!_cache.Remove(key, out var node))
             {
                 return false;
             }
@@ -111,7 +109,7 @@ namespace Core.Engine.utils
             if (last == Head) return; // No element to remove
             Tail.Prev = last.Prev;
             last.Prev.Next = Tail;
-            _cache.TryRemove(last.Key, out _);
+            _cache.Remove(last.Key);
         }
 
         private void InsertToHead(DoubleLinkedListNode node)

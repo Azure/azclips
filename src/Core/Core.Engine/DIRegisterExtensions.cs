@@ -1,5 +1,6 @@
 using Core.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
+using System.Net.Http;
 
 namespace Core.Engine;
 
@@ -8,7 +9,7 @@ public static class DIRegisterExtensions
     /// <summary>
     /// Extension method to register engine-related services.
     /// </summary>
-    public static IServiceCollection RegisterEngineServices(this IServiceCollection services, ClientType clientType)
+    public static IServiceCollection RegisterEngineServices(this IServiceCollection services)
     {
         // Command parser - extracts commands and options from string[] args
         // Originally instantiated inline in DefaultCommandEngine; now registered
@@ -50,12 +51,8 @@ public static class DIRegisterExtensions
                 sp.GetRequiredService<ILoggingService>(),
                 sp.GetRequiredService<IOutputAdapter>()));
 
-        _ = clientType switch
-        {
-            ClientType.CLI => services.AddSingleton<IEngine, CLIEngine>(),
-            ClientType.PowerShell => services.AddSingleton<IEngine, PSEngine>(),
-            _ => throw new NotSupportedException()
-        };        
+        services.AddSingleton<HttpClient>();
+        services.AddSingleton<IEngine, Engine>();   
 
         return services;
     }

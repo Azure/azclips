@@ -5,97 +5,122 @@ using Core.Abstractions;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Resources
 {
-    public class ExtensionIndex: IExtensionIndex
+    public class ExtensionIndex : IExtensionIndex
     {
-        private readonly IDictionary<string, CommandMetadata> _psTable = new Dictionary<string, CommandMetadata>();
-        private readonly IDictionary<string, CommandMetadata> _cliTable = new Dictionary<string, CommandMetadata>();
-
-        public ExtensionIndex()
+        // ── PS Command Metadata ──
+        private static readonly CommandMetadata s_newResourceGroup_PS = new(
+            Name: "NewResourceGroupCommand",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.NewResourceGroupCommand",
+            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+            CommandType: typeof(Commands.NewResourceGroupCommand),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"] = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Name"]           = new("Name", typeof(string), "The name of the resource group.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["ResourceId"]     = new("ResourceId", typeof(string), "The resource id of the resource group.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Location"]       = new("Location", typeof(string), "Location for resource group.", IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_getResourceGroup_PS = new(
+            Name: "GetResourceGroupCommand",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.GetResourceGroupCommand",
+            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+            CommandType: typeof(Commands.GetResourceGroupCommand),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"] = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]           = new("Name", typeof(string), "The name of the resource group.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_listResourceGroup_PS = new(
+            Name: "ListResourceGroupCommand",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.ListResourceGroupCommand",
+            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+            CommandType: typeof(Commands.ListResourceGroupCommand),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"] = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        // ── CLI Command Metadata ──
+        private static readonly CommandMetadata s_newResourceGroup_CLI = new(
+            Name: "NewResourceGroupCommand",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.NewResourceGroupCommand",
+            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+            CommandType: typeof(Commands.NewResourceGroupCommand),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["name"]            = new("Name", typeof(string), "The name of the resource group.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["resource-id"]     = new("ResourceId", typeof(string), "The resource id of the resource group.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["location"]        = new("Location", typeof(string), "Location for resource group.", IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_getResourceGroup_CLI = new(
+            Name: "GetResourceGroupCommand",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.GetResourceGroupCommand",
+            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+            CommandType: typeof(Commands.GetResourceGroupCommand),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]            = new("Name", typeof(string), "The name of the resource group.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_listResourceGroup_CLI = new(
+            Name: "ListResourceGroupCommand",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.ListResourceGroupCommand",
+            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+            CommandType: typeof(Commands.ListResourceGroupCommand),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: false, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        // ── Dispatch Tables ──
+        private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
         {
-            _psTable.Add("New-ResourceGroup", new CommandMetadata(
-                Name: "NewResourceGroupCommand",
-                Aliases: [],
-                FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.NewResourceGroupCommand",
-                AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
-                CommandType: typeof(Commands.NewResourceGroupCommand),
-                Parameters: new Dictionary<string, ParameterMetadata>(),
-                ParameterAliases: new Dictionary<string, string>()
-            ));
-            _psTable.Add("Get-ResourceGroup_Get", new CommandMetadata(
-                Name: nameof(Commands.GetResourceGroupCommand),
-                Aliases: [],
-                FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.GetResourceGroupCommand",
-                AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
-                CommandType: typeof(Commands.GetResourceGroupCommand),
-                Parameters: new Dictionary<string, ParameterMetadata>(),
-                ParameterAliases: new Dictionary<string, string>()
-            ));
-            _psTable.Add("Get-ResourceGroup_List", new CommandMetadata(
-                Name: nameof(Commands.ListResourceGroupCommand),
-                Aliases: [],
-                FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.ListResourceGroupCommand",
-                AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
-                CommandType: typeof(Commands.ListResourceGroupCommand),
-                Parameters: new Dictionary<string, ParameterMetadata>(),
-                ParameterAliases: new Dictionary<string, string>()
-            ));
-            _cliTable.Add("create", new CommandMetadata(
-                Name: "NewResourceGroupCommand",
-                Aliases: [],
-                FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.NewResourceGroupCommand",
-                AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
-                CommandType: typeof(Commands.NewResourceGroupCommand),
-                Parameters: new Dictionary<string, ParameterMetadata>(),
-                ParameterAliases: new Dictionary<string, string>()
-            ));
-            _cliTable.Add("list", new CommandMetadata(
-                Name: nameof(Commands.GetResourceGroupCommand),
-                Aliases: [],
-                FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.ListResourceGroupCommand",
-                AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
-                CommandType: typeof(Commands.ListResourceGroupCommand),
-                Parameters: new Dictionary<string, ParameterMetadata>(),
-                ParameterAliases: new Dictionary<string, string>()
-            ));
-            _cliTable.Add("get", new CommandMetadata(
-                Name: nameof(Commands.GetResourceGroupCommand),
-                Aliases: [],
-                FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.GetResourceGroupCommand",
-                AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
-                CommandType: typeof(Commands.GetResourceGroupCommand),
-                Parameters: new Dictionary<string, ParameterMetadata>(),
-                ParameterAliases: new Dictionary<string, string>()
-            ));
-        }
-
+            ["New-ResourceGroup"]      = s_newResourceGroup_PS,
+            ["Get-ResourceGroup_Get"]  = s_getResourceGroup_PS,
+            ["Get-ResourceGroup_List"] = s_listResourceGroup_PS,
+        };
+        private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
+        {
+            ["create"] = s_newResourceGroup_CLI,
+            ["list"]   = s_listResourceGroup_CLI,
+            ["get"]    = s_getResourceGroup_CLI,
+        };
+        // ── Lookup ──
         public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
         {
-            switch (clientType)
+            var table = clientType switch
             {
-                case ClientType.PowerShell:
-                    if (_psTable.TryGetValue(name, out var psData))
-                    {
-                        return psData;
-                    }
-                    break;
-                case ClientType.CLI:
-                    if (_cliTable.TryGetValue(name, out var cliData))
-                    {
-                        return cliData;
-                    }
-                    break;
-                default:
-                    throw new ArgumentException($"Client type '{clientType}' is not supported.");
-            }
-            throw new KeyNotFoundException($"Command '{name}' not found for client type '{clientType}'.");
+                ClientType.PowerShell => s_psTable,
+                ClientType.CLI => s_cliTable,
+                _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
+            };
+            return table.TryGetValue(name, out var metadata)
+                ? metadata
+                : throw new KeyNotFoundException($"Command '{name}' not found for client type '{clientType}'.");
         }
-
         public IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType)
         {
             return clientType switch
             {
-                ClientType.PowerShell => _psTable.Values,
-                ClientType.CLI => _cliTable.Values,
+                ClientType.PowerShell => s_psTable.Values,
+                ClientType.CLI => s_cliTable.Values,
                 _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
             };
         }

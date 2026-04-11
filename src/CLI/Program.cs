@@ -42,7 +42,7 @@ public class Program
                 CommandInvocation invocation = dispatcher.Parse(args);
 
                 using var commandActivity = _telemetryService.ActivitySource.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
-                commandActivity?.SetTag("command.type", invocation.GetType().Name);
+                commandActivity?.SetTag("command.type", invocation.ClientType.ToString());
 
                 var engine = CirrusServiceProvider.GetRequiredService<IEngine>() ?? throw new InvalidOperationException("Engine service not found.");
                 engine.Process(invocation, (value, ct) => { Console.WriteLine(value); return Task.CompletedTask; });

@@ -15,5 +15,7 @@
     <ProjectReference Include="..\Core.Authentication\Core.Authentication.csproj" />
     <ProjectReference Include="..\Core.Telemetry\Core.Telemetry.csproj" />
     <ProjectReference Include="..\Core.Engine\Core.Engine.csproj" />
+    <ProjectReference Include="..\Core.AssemblyLoading\Core.AssemblyLoading.csproj" />
+    <ProjectReference Include="..\Core.ArgumentParsing\Core.ArgumentParsing.csproj" />
   </ItemGroup>
 </Project>

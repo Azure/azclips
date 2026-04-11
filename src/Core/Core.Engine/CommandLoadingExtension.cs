@@ -21,7 +21,7 @@ namespace Core.Engine
             return (Activator.CreateInstance(type) as IExtensionIndex)!;
         }
 
-        public static IProcessor GetInstance(this ICommandMetadata metadata)
+        public static IProcessor GetInstance(this CommandMetadata metadata)
         {
             IProcessor? instance = null;
             try
@@ -45,41 +45,6 @@ namespace Core.Engine
                 throw new ArgumentException($"The command '{metadata.Name}' could not be created. Ensure that the command implements IProcessor and has a parameterless constructor.", e);
             }
             return instance!;
-        }
-
-        public static IProcessor GetInstance(this ICommandMetadata metadata, IDictionary<string, object> parameters)
-        {
-            IProcessor instance = metadata.GetInstance();
-            foreach (var param in parameters)
-            {
-                instance.SetProperty(param.Key, param.Value);
-            }
-            return instance;
-        }
-
-        public static void SetProperty(this IProcessor processor, string propertyName, object? value)
-        {
-            var propertyInfo = processor.GetType().GetProperty(propertyName);
-            if (propertyInfo == null)
-            {
-                throw new ArgumentException($"The property '{propertyName}' does not exist on command '{processor.GetType().FullName}'.");
-            }
-            try
-            {
-                if (value != null)
-                {
-                    var convertedValue = Convert.ChangeType(value, propertyInfo.PropertyType);
-                    propertyInfo.SetValue(processor, convertedValue);
-                }
-                else
-                {
-                    propertyInfo.SetValue(processor, null);
-                }
-            }
-            catch (Exception e)
-            {
-                throw new ArgumentException($"The property '{propertyName}' on command '{processor.GetType().FullName}' could not be set to value '{value}'.", e);
-            }
         }
     }
 }
