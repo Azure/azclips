@@ -218,7 +218,6 @@ namespace Core.Engine
             {
                 if (disposing)
                 {
-                    httpClient.Dispose();
                     _extensionIndices?.Clear();
                 }
                 _disposed = true;
