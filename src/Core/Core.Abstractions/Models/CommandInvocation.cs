@@ -10,8 +10,8 @@ namespace Core.Abstractions
     /// <param name="CommandName">The name of the command to execute.</param>
     /// <param name="Parameters">Dictionary of argument key-value pairs.</param>
     /// <param name="ClientType">The type of client (CLI, PowerShell, etc.).</param>
-    /// <param name="ModuleName">Resolved module name. Initialized by PowerShell, null for CLI.</param>
-    /// <param name="ModuleVersion">Resolved module version. Initialized by PowerShell, null for CLI.</param>
+    /// <param name="ModuleName">Resolved module name. Initialized by PowerShell and may also be populated for CLI invocations.</param>
+    /// <param name="ModuleVersion">Resolved module version. Initialized by PowerShell and may also be populated for CLI invocations when resolved by the engine.</param>
     /// <param name="IsTransient">
     /// Indicates whether the hosting process exits after this invocation (true)
     /// or persists across multiple invocations (false).
