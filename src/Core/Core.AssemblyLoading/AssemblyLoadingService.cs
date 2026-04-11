@@ -26,7 +26,20 @@ namespace Core.AssemblyLoading
 
         private Assembly LoadExtension(string extensionName)
         {
-            return Assembly.Load(Constants.cirrusPrefix + extensionName) ?? throw new InvalidOperationException($"Extension '{Constants.cirrusPrefix + extensionName}' could not be found by any extension loader.");
+            var assemblyName = Constants.cirrusPrefix + extensionName;
+
+            try
+            {
+                return Assembly.Load(assemblyName);
+            }
+            catch (System.IO.FileNotFoundException ex)
+            {
+                throw new InvalidOperationException($"Extension '{assemblyName}' could not be found by any extension loader.", ex);
+            }
+            catch (System.BadImageFormatException ex)
+            {
+                throw new InvalidOperationException($"Extension '{assemblyName}' could not be found by any extension loader.", ex);
+            }
         }
         
         private Assembly LoadExtension(string extensionName, string? extensionVersion)
