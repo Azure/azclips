@@ -7,51 +7,69 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
 {
     public class ExtensionIndex: IExtensionIndex
     {
-        private readonly IDictionary<string, ICommandMetadata> _psTable = new Dictionary<string, ICommandMetadata>();
-        private readonly IDictionary<string, ICommandMetadata> _cliTable = new Dictionary<string, ICommandMetadata>();
+        private readonly IDictionary<string, CommandMetadata> _psTable = new Dictionary<string, CommandMetadata>();
+        private readonly IDictionary<string, CommandMetadata> _cliTable = new Dictionary<string, CommandMetadata>();
 
         public ExtensionIndex()
         {
             _psTable.Add("Connect-CirrusAccount", new CommandMetadata(
-                name: nameof(Commands.LoginCommand),
-                fullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.LoginCommand",
-                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
-                commandType: typeof(Commands.LoginCommand)
+                Name: nameof(Commands.LoginCommand),
+                Aliases: [],
+                FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.LoginCommand",
+                AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
+                CommandType: typeof(Commands.LoginCommand),
+                Parameters: new Dictionary<string, ParameterMetadata>(),
+                ParameterAliases: new Dictionary<string, string>()
             ));
             _psTable.Add("Disconnect-CirrusAccount", new CommandMetadata(
-                name: nameof(Commands.LogoutCommand),
-                fullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.LogoutCommand",
-                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
-                commandType: typeof(Commands.LogoutCommand)
+                Name: nameof(Commands.LogoutCommand),
+                Aliases: [],
+                FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.LogoutCommand",
+                AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
+                CommandType: typeof(Commands.LogoutCommand),
+                Parameters: new Dictionary<string, ParameterMetadata>(),
+                ParameterAliases: new Dictionary<string, string>()
             ));
             _psTable.Add("Get-CirrusAccount", new CommandMetadata(
-                name: nameof(Commands.GetContextCommand),
-                fullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.GetContextCommand",
-                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
-                commandType: typeof(Commands.GetContextCommand)
+                Name: nameof(Commands.GetContextCommand),
+                Aliases: [],
+                FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.GetContextCommand",
+                AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
+                CommandType: typeof(Commands.GetContextCommand),
+                Parameters: new Dictionary<string, ParameterMetadata>(),
+                ParameterAliases: new Dictionary<string, string>()
             ));
             // login is a special command that the command group and command name are the same
             _cliTable.Add("", new CommandMetadata(
-                name: nameof(Commands.LoginCommand),
-                fullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.LoginCommand",
-                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
-                commandType: typeof(Commands.LoginCommand)
+                Name: nameof(Commands.LoginCommand),
+                Aliases: [],
+                FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.LoginCommand",
+                AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
+                CommandType: typeof(Commands.LoginCommand),
+                Parameters: new Dictionary<string, ParameterMetadata>(),
+                ParameterAliases: new Dictionary<string, string>()
             ));
             _cliTable.Add("logout", new CommandMetadata(
-                name: nameof(Commands.LogoutCommand),
-                fullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.LogoutCommand",
-                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
-                commandType: typeof(Commands.LogoutCommand)
+                Name: nameof(Commands.LogoutCommand),
+                Aliases: [],
+                FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.LogoutCommand",
+                AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
+                CommandType: typeof(Commands.LogoutCommand),
+                Parameters: new Dictionary<string, ParameterMetadata>(),
+                ParameterAliases: new Dictionary<string, string>()
             ));
             _cliTable.Add("show", new CommandMetadata(
-                name: nameof(Commands.GetContextCommand),
-                fullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.GetContextCommand",
-                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
-                commandType: typeof(Commands.GetContextCommand)
+                Name: nameof(Commands.GetContextCommand),
+                Aliases: [],
+                FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.GetContextCommand",
+                AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
+                CommandType: typeof(Commands.GetContextCommand),
+                Parameters: new Dictionary<string, ParameterMetadata>(),
+                ParameterAliases: new Dictionary<string, string>()
             ));
         }
 
-        public ICommandMetadata GetCommandMetaData(string name, ClientType clientType)
+        public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
         {
             switch (clientType)
             {
@@ -73,7 +91,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
             throw new KeyNotFoundException($"Command '{name}' not found for client type '{clientType}'.");
         }
 
-        public IEnumerable<ICommandMetadata> GetAllCommands(ClientType clientType)
+        public IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType)
         {
             return clientType switch
             {
@@ -81,21 +99,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
                 ClientType.CLI => _cliTable.Values,
                 _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
             };
-        }
-    }
-
-    class CommandMetadata : ICommandMetadata
-    {
-        public string Name { get; private set; }
-        public string FullName { get; private set; }
-        public string AssemblyName { get; private set; }
-        public Type CommandType { get; private set; }
-        public CommandMetadata(string name, string fullName, string assemblyName, Type commandType)
-        {
-            Name = name;
-            FullName = fullName;
-            AssemblyName = assemblyName;
-            CommandType = commandType;
         }
     }
 }

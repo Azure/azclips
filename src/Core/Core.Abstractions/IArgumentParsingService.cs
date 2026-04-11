@@ -27,7 +27,7 @@ namespace Core.Abstractions
         /// <param name="parameterMetadata">Metadata for command parameters.</param>
         /// <param name="parameterAliases">Aliases for command parameters.</param>
         /// <returns>Dictionary of parsed argument key-value pairs.</returns>
-        IDictionary<string, object> ParseArguments(IDictionary<string, object> args, IDictionary<string, IParameterMetadata> parameters, IDictionary<string, string>? parameterAliases);
+        IDictionary<string, object> ParseArguments(IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases);
 
         /// <summary>
         /// Validates that all required arguments are present and all provided arguments are valid.
@@ -35,6 +35,6 @@ namespace Core.Abstractions
         /// <param name="args">Dictionary of argument key-value pairs to validate.</param>
         /// <param name="parameters">Metadata for command parameters.</param>
         /// <returns>A list of validation error messages. Empty if all arguments are valid.</returns>
-        IList<string> ValidateArguments(IDictionary<string, object> args, IDictionary<string, IParameterMetadata> parameters);
+        IList<string> ValidateArguments(IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters);
     }
 }

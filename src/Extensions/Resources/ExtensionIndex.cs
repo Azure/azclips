@@ -7,50 +7,68 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
 {
     public class ExtensionIndex: IExtensionIndex
     {
-        private readonly IDictionary<string, ICommandMetadata> _psTable = new Dictionary<string, ICommandMetadata>();
-        private readonly IDictionary<string, ICommandMetadata> _cliTable = new Dictionary<string, ICommandMetadata>();
+        private readonly IDictionary<string, CommandMetadata> _psTable = new Dictionary<string, CommandMetadata>();
+        private readonly IDictionary<string, CommandMetadata> _cliTable = new Dictionary<string, CommandMetadata>();
 
         public ExtensionIndex()
         {
             _psTable.Add("New-ResourceGroup", new CommandMetadata(
-                name: "NewResourceGroupCommand",
-                fullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.NewResourceGroupCommand",
-                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
-                commandType: typeof(Commands.NewResourceGroupCommand)
+                Name: "NewResourceGroupCommand",
+                Aliases: [],
+                FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.NewResourceGroupCommand",
+                AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+                CommandType: typeof(Commands.NewResourceGroupCommand),
+                Parameters: new Dictionary<string, ParameterMetadata>(),
+                ParameterAliases: new Dictionary<string, string>()
             ));
             _psTable.Add("Get-ResourceGroup_Get", new CommandMetadata(
-                name: nameof(Commands.GetResourceGroupCommand),
-                fullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.GetResourceGroupCommand",
-                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
-                commandType: typeof(Commands.GetResourceGroupCommand)
+                Name: nameof(Commands.GetResourceGroupCommand),
+                Aliases: [],
+                FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.GetResourceGroupCommand",
+                AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+                CommandType: typeof(Commands.GetResourceGroupCommand),
+                Parameters: new Dictionary<string, ParameterMetadata>(),
+                ParameterAliases: new Dictionary<string, string>()
             ));
             _psTable.Add("Get-ResourceGroup_List", new CommandMetadata(
-                name: nameof(Commands.ListResourceGroupCommand),
-                fullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.ListResourceGroupCommand",
-                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
-                commandType: typeof(Commands.ListResourceGroupCommand)
+                Name: nameof(Commands.ListResourceGroupCommand),
+                Aliases: [],
+                FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.ListResourceGroupCommand",
+                AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+                CommandType: typeof(Commands.ListResourceGroupCommand),
+                Parameters: new Dictionary<string, ParameterMetadata>(),
+                ParameterAliases: new Dictionary<string, string>()
             ));
             _cliTable.Add("create", new CommandMetadata(
-                name: "NewResourceGroupCommand",
-                fullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.NewResourceGroupCommand",
-                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
-                commandType: typeof(Commands.NewResourceGroupCommand)
+                Name: "NewResourceGroupCommand",
+                Aliases: [],
+                FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.NewResourceGroupCommand",
+                AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+                CommandType: typeof(Commands.NewResourceGroupCommand),
+                Parameters: new Dictionary<string, ParameterMetadata>(),
+                ParameterAliases: new Dictionary<string, string>()
             ));
             _cliTable.Add("list", new CommandMetadata(
-                name: nameof(Commands.GetResourceGroupCommand),
-                fullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.ListResourceGroupCommand",
-                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
-                commandType: typeof(Commands.ListResourceGroupCommand)
+                Name: nameof(Commands.GetResourceGroupCommand),
+                Aliases: [],
+                FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.ListResourceGroupCommand",
+                AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+                CommandType: typeof(Commands.ListResourceGroupCommand),
+                Parameters: new Dictionary<string, ParameterMetadata>(),
+                ParameterAliases: new Dictionary<string, string>()
             ));
             _cliTable.Add("get", new CommandMetadata(
-                name: nameof(Commands.GetResourceGroupCommand),
-                fullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.GetResourceGroupCommand",
-                assemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
-                commandType: typeof(Commands.GetResourceGroupCommand)
+                Name: nameof(Commands.GetResourceGroupCommand),
+                Aliases: [],
+                FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.GetResourceGroupCommand",
+                AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+                CommandType: typeof(Commands.GetResourceGroupCommand),
+                Parameters: new Dictionary<string, ParameterMetadata>(),
+                ParameterAliases: new Dictionary<string, string>()
             ));
         }
 
-        public ICommandMetadata GetCommandMetaData(string name, ClientType clientType)
+        public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
         {
             switch (clientType)
             {
@@ -72,7 +90,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             throw new KeyNotFoundException($"Command '{name}' not found for client type '{clientType}'.");
         }
 
-        public IEnumerable<ICommandMetadata> GetAllCommands(ClientType clientType)
+        public IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType)
         {
             return clientType switch
             {
@@ -80,21 +98,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
                 ClientType.CLI => _cliTable.Values,
                 _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
             };
-        }
-    }
-
-    class CommandMetadata : ICommandMetadata
-    {
-        public string Name { get; private set; }
-        public string FullName { get; private set; }
-        public string AssemblyName { get; private set; }
-        public Type CommandType { get; private set; }
-        public CommandMetadata(string name, string fullName, string assemblyName, Type commandType)
-        {
-            Name = name;
-            FullName = fullName;
-            AssemblyName = assemblyName;
-            CommandType = commandType;
         }
     }
 }

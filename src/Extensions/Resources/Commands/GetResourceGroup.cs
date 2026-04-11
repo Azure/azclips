@@ -25,7 +25,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
             var subscriptionId = SubscriptionId ?? AuthContext.SubscriptionId;
             // construct URL
             var url = $"https://management.azure.com/subscriptions/{subscriptionId}/resourcegroups/{Name}?api-version=2025-04-01";
-            //TODO: set_jsonOptions from command context
+            //TODO(Yabo): set_jsonOptions from command context
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             HttpResponseMessage response = await HttpPipeline.SendAsync(request, this);
             ResourceGroup rg = (await response.Content.ReadFromJsonAsync<ResourceGroup>(_jsonOptions))!;

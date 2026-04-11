@@ -22,7 +22,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
         {
             BeforeInit();
 
-            // TODO: temporarily initialize arbitrary json options here, get from context in the future
+            // TODO(Yabo): temporarily initialize arbitrary json options here, get from context in the future
             _jsonOptions = new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true,

@@ -80,7 +80,7 @@ public class TelemetryService : ITelemetryService
 
     public Activity StartActivity(string name, ActivityKind kind = ActivityKind.Internal) => ActivitySource.StartActivity(name, kind)!;
 
-    public void ProcessInvocation(ICommandInvocation invocation)
+    public void ProcessInvocation(CommandInvocation invocation)
     {
         var activity = Activity.Current;
         Console.WriteLine($"[DEBUG ProcessInvocation] Activity.Current={activity?.DisplayName ?? "NULL"}, ModuleName='{invocation.ModuleName}', ModuleVersion='{invocation.ModuleVersion}'");

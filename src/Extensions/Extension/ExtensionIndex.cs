@@ -4,20 +4,23 @@ namespace Microsoft.Azure.Cirrus.Extensions.Extension;
 
 public class ExtensionIndex : IExtensionIndex
 {
-    private readonly IDictionary<string, ICommandMetadata> _psTable = new Dictionary<string, ICommandMetadata>();
-    private readonly IDictionary<string, ICommandMetadata> _cliTable = new Dictionary<string, ICommandMetadata>();
+    private readonly IDictionary<string, CommandMetadata> _psTable = new Dictionary<string, CommandMetadata>();
+    private readonly IDictionary<string, CommandMetadata> _cliTable = new Dictionary<string, CommandMetadata>();
 
     public ExtensionIndex()
     {
         _cliTable.Add("add", new CommandMetadata(
-            name: nameof(Commands.AddExtensionCommand),
-            fullName: "Microsoft.Azure.Cirrus.Extensions.Extension.Commands.AddExtensionCommand",
-            assemblyName: "Microsoft.Azure.Cirrus.Extensions.Extension",
-            commandType: typeof(Commands.AddExtensionCommand)
+            Name: nameof(Commands.AddExtensionCommand),
+            Aliases: [],
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Extension.Commands.AddExtensionCommand",
+            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Extension",
+            CommandType: typeof(Commands.AddExtensionCommand),
+            Parameters: new Dictionary<string, ParameterMetadata>(),
+            ParameterAliases: new Dictionary<string, string>()
         ));
     }
 
-    public ICommandMetadata GetCommandMetaData(string name, ClientType clientType)
+    public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
     {
         switch (clientType)
         {
@@ -37,7 +40,7 @@ public class ExtensionIndex : IExtensionIndex
         throw new KeyNotFoundException($"Command '{name}' not found for client type '{clientType}'.");
     }
 
-    public IEnumerable<ICommandMetadata> GetAllCommands(ClientType clientType)
+    public IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType)
     {
         return clientType switch
         {
@@ -45,21 +48,5 @@ public class ExtensionIndex : IExtensionIndex
             ClientType.CLI => _cliTable.Values,
             _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
         };
-    }
-}
-
-class CommandMetadata : ICommandMetadata
-{
-    public string Name { get; }
-    public string FullName { get; }
-    public string AssemblyName { get; }
-    public Type CommandType { get; }
-
-    public CommandMetadata(string name, string fullName, string assemblyName, Type commandType)
-    {
-        Name = name;
-        FullName = fullName;
-        AssemblyName = assemblyName;
-        CommandType = commandType;
     }
 }

@@ -4,7 +4,7 @@ namespace Core.ArgumentParsing
 {
     public class ArgumentParsingService(PropertyParser propertyParser, ILoggingService loggingService) : IArgumentParsingService
     {
-        public IDictionary<string, object> ParseArguments(IDictionary<string, object> args, IDictionary<string, IParameterMetadata> parameters, IDictionary<string, string>? parameterAliases)
+        public IDictionary<string, object> ParseArguments(IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases)
         {
             Dictionary<string, object> parsedArguments = new(StringComparer.OrdinalIgnoreCase);
             foreach (var kvp in args)
@@ -56,7 +56,7 @@ namespace Core.ArgumentParsing
 
         private object preProcessArgument()
         {
-            throw new NotImplementedException("This method is a placeholder for any future pre-processing logic that may be needed for arguments before parsing. It can be used to handle special cases, perform transformations, or apply any necessary adjustments to the raw input before it is processed by the main parsing logic.");  
+             throw new NotImplementedException("This method is a placeholder for any future pre-processing logic that may be needed for arguments before parsing. It can be used to handle special cases, perform transformations, or apply any necessary adjustments to the raw input before it is processed by the main parsing logic.");            
         }
 
         public IProcessor BindArgumentsToCommand(IProcessor command, IDictionary<string, object> parameters)
@@ -92,7 +92,7 @@ namespace Core.ArgumentParsing
 
         // PowerShell should have validated most of cases
         // This method is mainly for CLI required, allowed values validation
-        public IList<string> ValidateArguments(IDictionary<string, object> args, IDictionary<string, IParameterMetadata> parameters)
+        public IList<string> ValidateArguments(IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters)
         {
             var errors = new List<string>();
 

@@ -9,6 +9,10 @@ using System.Threading.Tasks;
 
 namespace Core.Cli.Parser
 {
+    //This index will eventually comes from:
+    //1. Core modules: Login, Extension, etc; Which will be predefined with Az
+    //2. Extensions: Resources, Compute, etc; Which will be registered on installation
+    //3. Fallback to runtime calculation based on command name, which will be expensive but should be rare
     static class CommandGroupIndex
     {
         private static readonly Dictionary<string, string> _commandGroups = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
