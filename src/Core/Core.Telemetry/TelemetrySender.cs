@@ -131,15 +131,16 @@ public static class TelemetrySender
     /// </summary>
     private static string? ExtractServiceName(List<TraceEntry> traces)
     {
-        foreach (var trace in traces)
+        if (traces.Count == 0)
+            return null;
+
+        var trace = traces[0];
+        if (trace.Resource.ValueKind == JsonValueKind.Object &&
+            trace.Resource.TryGetProperty("service.name", out var nameEl) &&
+            nameEl.GetString() is string name &&
+            !string.IsNullOrEmpty(name))
         {
-            if (trace.Resource.ValueKind == JsonValueKind.Object &&
-                trace.Resource.TryGetProperty("service.name", out var nameEl) &&
-                nameEl.GetString() is string name &&
-                !string.IsNullOrEmpty(name))
-            {
-                return name;
-            }
+            return name;
         }
         return null;
     }
