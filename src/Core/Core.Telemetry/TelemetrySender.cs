@@ -19,7 +19,7 @@ namespace Core.Telemetry;
 /// </summary>
 public static class TelemetrySender
 {
-    private const string ReplaySourceName = "CirrusTelemetryUploader";
+    private const string FallbackSourceName = "CirrusTelemetryUploader";
 
     /// <summary>
     /// Sends all pending trace files to Azure Monitor, then deletes them.
@@ -66,19 +66,9 @@ public static class TelemetrySender
         if (claimedFiles.Count == 0)
             return Task.CompletedTask;
 
-        using var source = new ActivitySource(ReplaySourceName);
-
-        using var provider = Sdk.CreateTracerProviderBuilder()
-            .AddSource(ReplaySourceName)
-            .ConfigureResource(r => r.AddService(
-                serviceName: ReplaySourceName))
-            .AddAzureMonitorTraceExporter(options =>
-            {
-                options.ConnectionString = TelemetryService.AzureMonitorConnectionString;
-            })
-            .Build()!;
-
-        var replayedFiles = new List<string>();
+        // Group traces by original service name (CLI/PowerShell) so each group
+        // is uploaded with the correct cloud_RoleName in App Insights.
+        var tracesByService = new Dictionary<string, List<(string file, List<TraceEntry> traces)>>();
 
         foreach (var file in claimedFiles)
         {
@@ -86,33 +76,72 @@ public static class TelemetrySender
             {
                 var content = File.ReadAllText(file);
                 var traces = ParseTraceFile(content);
+                var serviceName = ExtractServiceName(traces) ?? FallbackSourceName;
 
-                foreach (var trace in traces)
-                {
-                    ReplayTrace(source, trace);
-                }
-
-                replayedFiles.Add(file);
+                if (!tracesByService.ContainsKey(serviceName))
+                    tracesByService[serviceName] = new();
+                tracesByService[serviceName].Add((file, traces));
             }
             catch
             {
                 // Best-effort: skip files that fail to parse.
-                // They stay as .uploading and will be reclaimed after the stale timeout.
             }
         }
 
-        // Only delete files after the exporter has successfully flushed.
-        // If flush fails or times out, files remain as .uploading and will be
-        // reclaimed by the stale-file recovery on the next invocation.
-        if (provider.ForceFlush(timeoutMilliseconds: 10_000))
+        var replayedFiles = new List<string>();
+
+        foreach (var (serviceName, fileGroup) in tracesByService)
         {
-            foreach (var file in replayedFiles)
+            // Use a distinct replay source name so the original in-process TracerProvider
+            // (which listens for the real service name) does NOT re-capture replayed activities.
+            // This prevents the FileExporter from writing them back to disk → duplicate uploads.
+            var replaySourceName = $"__CirrusReplay_{serviceName}";
+            using var source = new ActivitySource(replaySourceName);
+            using var provider = Sdk.CreateTracerProviderBuilder()
+                .AddSource(replaySourceName)
+                .ConfigureResource(r => r.AddService(serviceName: serviceName))
+                .AddAzureMonitorTraceExporter(options =>
+                {
+                    options.ConnectionString = TelemetryService.AzureMonitorConnectionString;
+                })
+                .Build()!;
+
+            foreach (var (file, traces) in fileGroup)
             {
-                try { File.Delete(file); } catch { }
+                foreach (var trace in traces)
+                {
+                    ReplayTrace(source, trace);
+                }
+                replayedFiles.Add(file);
             }
+
+            provider.ForceFlush(timeoutMilliseconds: 10_000);
+        }
+
+        foreach (var file in replayedFiles)
+        {
+            try { File.Delete(file); } catch { }
         }
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Extracts the original service name from the Resource field of the first trace entry.
+    /// </summary>
+    private static string? ExtractServiceName(List<TraceEntry> traces)
+    {
+        foreach (var trace in traces)
+        {
+            if (trace.Resource.ValueKind == JsonValueKind.Object &&
+                trace.Resource.TryGetProperty("service.name", out var nameEl) &&
+                nameEl.GetString() is string name &&
+                !string.IsNullOrEmpty(name))
+            {
+                return name;
+            }
+        }
+        return null;
     }
 
     /// <summary>
