@@ -13,18 +13,26 @@ using OpenTelemetry.Trace;
 namespace Core.Telemetry;
 
 /// <summary>
-/// Reads locally buffered trace files and uploads them to Azure Monitor.
-/// Designed to run in a background process spawned after the CLI command completes,
-/// so that telemetry upload latency does not affect CLI responsiveness.
+/// Telemetry sender for CLI: buffers traces to local files via FileExporter,
+/// then replays them to Azure Monitor in a background process.
+/// Also used by CLI's --upload-telemetry spawned process.
 /// </summary>
-public static class TelemetrySender
+public class FileTelemetrySender : ITelemetrySender
 {
-    private const string ReplaySourceName = "CirrusTelemetryUploader";
+    private const string FallbackSourceName = "CirrusTelemetryUploader";
+
+    public void ConfigureExporter(TracerProviderBuilder builder, string traceDirectory)
+    {
+        builder.AddProcessor(new SimpleActivityExportProcessor(new FileExporter(traceDirectory)));
+    }
+
+    Task ITelemetrySender.SendPendingAsync() => SendPendingStatic();
 
     /// <summary>
     /// Sends all pending trace files to Azure Monitor, then deletes them.
+    /// Static entry point for CLI's --upload-telemetry spawned process.
     /// </summary>
-    public static Task SendPendingAsync()
+    public static Task SendPendingStatic()
     {
         var traceDir = TelemetryService.GetTraceDirectory();
         if (!Directory.Exists(traceDir))
@@ -66,19 +74,9 @@ public static class TelemetrySender
         if (claimedFiles.Count == 0)
             return Task.CompletedTask;
 
-        using var source = new ActivitySource(ReplaySourceName);
-
-        using var provider = Sdk.CreateTracerProviderBuilder()
-            .AddSource(ReplaySourceName)
-            .ConfigureResource(r => r.AddService(
-                serviceName: ReplaySourceName))
-            .AddAzureMonitorTraceExporter(options =>
-            {
-                options.ConnectionString = TelemetryService.AzureMonitorConnectionString;
-            })
-            .Build()!;
-
-        var replayedFiles = new List<string>();
+        // Group traces by original service name (CLI/PowerShell) so each group
+        // is uploaded with the correct cloud_RoleName in App Insights.
+        var tracesByService = new Dictionary<string, List<(string file, List<TraceEntry> traces)>>();
 
         foreach (var file in claimedFiles)
         {
@@ -86,33 +84,74 @@ public static class TelemetrySender
             {
                 var content = File.ReadAllText(file);
                 var traces = ParseTraceFile(content);
+                var serviceName = ExtractServiceName(traces) ?? FallbackSourceName;
 
-                foreach (var trace in traces)
-                {
-                    ReplayTrace(source, trace);
-                }
-
-                replayedFiles.Add(file);
+                if (!tracesByService.ContainsKey(serviceName))
+                    tracesByService[serviceName] = new();
+                tracesByService[serviceName].Add((file, traces));
             }
             catch
             {
                 // Best-effort: skip files that fail to parse.
-                // They stay as .uploading and will be reclaimed after the stale timeout.
             }
         }
 
-        // Only delete files after the exporter has successfully flushed.
-        // If flush fails or times out, files remain as .uploading and will be
-        // reclaimed by the stale-file recovery on the next invocation.
-        if (provider.ForceFlush(timeoutMilliseconds: 10_000))
+        var replayedFiles = new List<string>();
+
+        foreach (var (serviceName, fileGroup) in tracesByService)
         {
-            foreach (var file in replayedFiles)
+            using var source = new ActivitySource(serviceName);
+            using var provider = Sdk.CreateTracerProviderBuilder()
+                .AddSource(serviceName)
+                .ConfigureResource(r => r.AddService(serviceName: serviceName))
+                .AddAzureMonitorTraceExporter(options =>
+                {
+                    options.ConnectionString = TelemetryService.AzureMonitorConnectionString;
+                })
+                .Build()!;
+
+            foreach (var (file, traces) in fileGroup)
             {
-                try { File.Delete(file); } catch { }
+                foreach (var trace in traces)
+                {
+                    ReplayTrace(source, trace);
+                }
             }
+
+            // Only mark files for deletion if flush succeeds within the timeout.
+            // If flush fails/times out, files remain on disk for the next upload attempt.
+            if (provider.ForceFlush(timeoutMilliseconds: 10_000))
+            {
+                foreach (var (file, _) in fileGroup)
+                    replayedFiles.Add(file);
+            }
+        }
+
+        foreach (var file in replayedFiles)
+        {
+            try { File.Delete(file); } catch { }
         }
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Extracts the original service name from the Resource field of the first trace entry.
+    /// </summary>
+    private static string? ExtractServiceName(List<TraceEntry> traces)
+    {
+        if (traces.Count == 0)
+            return null;
+
+        var trace = traces[0];
+        if (trace.Resource.ValueKind == JsonValueKind.Object &&
+            trace.Resource.TryGetProperty("service.name", out var nameEl) &&
+            nameEl.GetString() is string name &&
+            !string.IsNullOrEmpty(name))
+        {
+            return name;
+        }
+        return null;
     }
 
     /// <summary>

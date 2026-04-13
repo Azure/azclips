@@ -78,16 +78,6 @@ function Complete-CmdletActivity {
                 $Activity.AddEvent($ev) | Out-Null
             }
             $Activity.Dispose()
-
-            # Upload pending trace files to App Insights in the background.
-            # Mirrors CLI's SpawnTelemetryUploader: after the activity is exported
-            # to a local file, send all pending traces asynchronously.
-            try {
-                [Core.Telemetry.TelemetrySender]::SendPendingAsync() | Out-Null
-            }
-            catch {
-                Write-Verbose "Telemetry upload failed (best-effort): $_"
-            }
         }
         catch {
             Write-Verbose "Failed to complete activity: $_"
