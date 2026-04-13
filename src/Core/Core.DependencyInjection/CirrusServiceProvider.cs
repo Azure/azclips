@@ -22,6 +22,13 @@ public static class CirrusServiceProvider
     public static Action<IServiceCollection>? PrependRegistration { get; set; }
 
     /// <summary>
+    /// Optional hook invoked after the default service registrations.
+    /// Set this from another assembly to override or replace default registrations in the DI container.
+    /// Must be set before <see cref="Initialize"/> is called.
+    /// </summary>
+    public static Action<IServiceCollection>? OverrideRegistration { get; set; }
+
+    /// <summary>
     /// Initializes the DI container. Safe to call multiple times — only the first call takes effect.
     /// Called during module import (psm1) or CLI startup.
     /// </summary>
@@ -35,18 +42,17 @@ public static class CirrusServiceProvider
             if (_serviceProvider is not null)
                 return;
 
-            var services = new ServiceCollection();
-
+            IServiceCollection services = new ServiceCollection();
             PrependRegistration?.Invoke(services);
-
-            _serviceProvider = services
+            services = services
                 .RegisterTelemetryServices(clientType)
                 .RegisterRuntimeServices()
                 .RegisterAuthenticationServices()
                 .RegisterEngineServices()
                 .RegisterAssemblyLoadingServices()
-                .RegisterArgumentParsingServices()
-                .BuildServiceProvider();
+                .RegisterArgumentParsingServices();
+            OverrideRegistration?.Invoke(services);
+            _serviceProvider = services.BuildServiceProvider();
         }
     }
 
