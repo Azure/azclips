@@ -15,6 +15,13 @@ public static class CirrusServiceProvider
     private static readonly object _lock = new();
 
     /// <summary>
+    /// Optional hook invoked before the default service registrations.
+    /// Set this from another assembly to prepend custom registrations into the DI container.
+    /// Must be set before <see cref="Initialize"/> is called.
+    /// </summary>
+    public static Action<IServiceCollection>? PrependRegistration { get; set; }
+
+    /// <summary>
     /// Initializes the DI container. Safe to call multiple times — only the first call takes effect.
     /// Called during module import (psm1) or CLI startup.
     /// </summary>
@@ -28,7 +35,11 @@ public static class CirrusServiceProvider
             if (_serviceProvider is not null)
                 return;
 
-            _serviceProvider = new ServiceCollection()
+            var services = new ServiceCollection();
+
+            PrependRegistration?.Invoke(services);
+
+            _serviceProvider = services
                 .RegisterTelemetryServices(clientType)
                 .RegisterRuntimeServices()
                 .RegisterAuthenticationServices()
