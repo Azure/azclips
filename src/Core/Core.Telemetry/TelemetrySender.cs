@@ -100,13 +100,9 @@ public class FileTelemetrySender : ITelemetrySender
 
         foreach (var (serviceName, fileGroup) in tracesByService)
         {
-            // Use a distinct replay source name so the original in-process TracerProvider
-            // (which listens for the real service name) does NOT re-capture replayed activities.
-            // This prevents the FileExporter from writing them back to disk → duplicate uploads.
-            var replaySourceName = $"__CirrusReplay_{serviceName}";
-            using var source = new ActivitySource(replaySourceName);
+            using var source = new ActivitySource(serviceName);
             using var provider = Sdk.CreateTracerProviderBuilder()
-                .AddSource(replaySourceName)
+                .AddSource(serviceName)
                 .ConfigureResource(r => r.AddService(serviceName: serviceName))
                 .AddAzureMonitorTraceExporter(options =>
                 {
