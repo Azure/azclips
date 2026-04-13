@@ -1,9 +1,7 @@
 using System;
 using System.Diagnostics;
-using System.Reflection;
 using Core.Abstractions;
 using OpenTelemetry;
-using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
 namespace Core.Telemetry;
@@ -31,18 +29,16 @@ public class TelemetryService : ITelemetryService
             "traces");
 
     private readonly TracerProvider _tracerProvider;
+    private readonly ITelemetrySender _sender;
     private bool _disposed;
 
     public ActivitySource ActivitySource { get; }
 
-    public TelemetryService(ActivitySource activitySource)
+    public TelemetryService(ActivitySource activitySource, ITelemetrySender sender)
     {
         ActivitySource = activitySource;
+        _sender = sender;
         var serviceName = activitySource.Name;
-        var serviceVersion =
-            Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-            ?? Assembly.GetEntryAssembly()?.GetName().Version?.ToString()
-            ?? "0.0.0-dev";
 
         var logDirectory = GetTraceDirectory();
 
@@ -56,12 +52,17 @@ public class TelemetryService : ITelemetryService
                     // user agent is not included by default
                     activity.SetTag("http.request.header.user-agent", request.Headers.UserAgent?.ToString());
                 };
-            })
-            .ConfigureResource(resource =>
-                resource.AddService(
-                    serviceName: serviceName,
-                    serviceVersion: serviceVersion))
-            .AddProcessor(new SimpleActivityExportProcessor(new FileExporter(logDirectory)));
+            });
+
+        // Let the SDK use its default cloud_RoleName (entry assembly name):
+        //   CLI  → "Core.Cli" (or azv2)
+        //   PS 7 → "pwsh"
+        //   PS 5 → "powershell"
+
+        // Add the appropriate exporter based on client type:
+        //   CLI  → FileExporter (buffered to disk, replayed by background process)
+        //   PS   → AzureMonitorExporter (inline, no file replay needed)
+        sender.ConfigureExporter(builder, logDirectory);
 
 #if DEBUG
         // Zipkin exporter for local development. Disable via CIRRUS_ZIPKIN_ENABLED=false.

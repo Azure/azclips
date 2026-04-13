@@ -24,7 +24,7 @@ public class Program
         // Background telemetry upload mode: send pending traces and exit.
         if (args.Length > 0 && args[0] == "--upload-telemetry")
         {
-            await TelemetrySender.SendPendingAsync();
+            await FileTelemetrySender.SendPendingStatic();
             return 0;
         }
 

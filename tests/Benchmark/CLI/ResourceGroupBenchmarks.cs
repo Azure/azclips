@@ -35,7 +35,7 @@ public class ResourceGroupBenchmarks : BenchmarkBase
 
         // Pre-create a resource group for Show benchmark
         _showRgName = $"{TestRgPrefix}{InstanceId}-cli-show";
-        RunCliCommand("group", "create", "--Name", _showRgName, "--Location", TestLocation);
+        RunCliCommand("group", "create", "--subscription-id", SubscriptionId, "--name", _showRgName, "--location", TestLocation);
         CreatedResourceGroups.Add(_showRgName);
 
         Console.WriteLine($"[Setup] CLI benchmarks ready");
@@ -50,20 +50,20 @@ public class ResourceGroupBenchmarks : BenchmarkBase
     [Benchmark(Description = "CLI: group list")]
     public int GroupList()
     {
-        return RunCliCommand("group", "list");
+        return RunCliCommand("group", "list", "--subscription-id", SubscriptionId);
     }
 
     [Benchmark(Description = "CLI: group create")]
     public int GroupCreate()
     {
         var rgName = GenerateRgName("cli-");
-        return RunCliCommand("group", "create", "--Name", rgName, "--Location", TestLocation);
+        return RunCliCommand("group", "create", "--subscription-id", SubscriptionId, "--name", rgName, "--location", TestLocation);
     }
 
     [Benchmark(Description = "CLI: group show")]
     public int GroupShow()
     {
-        return RunCliCommand("group", "show", "--Name", _showRgName);
+        return RunCliCommand("group", "show", "--subscription-id", SubscriptionId, "--name", _showRgName);
     }
 
     private int RunCliCommand(params string[] args)

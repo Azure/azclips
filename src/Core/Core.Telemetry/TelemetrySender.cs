@@ -13,18 +13,26 @@ using OpenTelemetry.Trace;
 namespace Core.Telemetry;
 
 /// <summary>
-/// Reads locally buffered trace files and uploads them to Azure Monitor.
-/// Designed to run in a background process spawned after the CLI command completes,
-/// so that telemetry upload latency does not affect CLI responsiveness.
+/// Telemetry sender for CLI: buffers traces to local files via FileExporter,
+/// then replays them to Azure Monitor in a background process.
+/// Also used by CLI's --upload-telemetry spawned process.
 /// </summary>
-public static class TelemetrySender
+public class FileTelemetrySender : ITelemetrySender
 {
     private const string FallbackSourceName = "CirrusTelemetryUploader";
 
+    public void ConfigureExporter(TracerProviderBuilder builder, string traceDirectory)
+    {
+        builder.AddProcessor(new SimpleActivityExportProcessor(new FileExporter(traceDirectory)));
+    }
+
+    Task ITelemetrySender.SendPendingAsync() => SendPendingStatic();
+
     /// <summary>
     /// Sends all pending trace files to Azure Monitor, then deletes them.
+    /// Static entry point for CLI's --upload-telemetry spawned process.
     /// </summary>
-    public static Task SendPendingAsync()
+    public static Task SendPendingStatic()
     {
         var traceDir = TelemetryService.GetTraceDirectory();
         if (!Directory.Exists(traceDir))
@@ -112,10 +120,15 @@ public static class TelemetrySender
                 {
                     ReplayTrace(source, trace);
                 }
-                replayedFiles.Add(file);
             }
 
-            provider.ForceFlush(timeoutMilliseconds: 10_000);
+            // Only mark files for deletion if flush succeeds within the timeout.
+            // If flush fails/times out, files remain on disk for the next upload attempt.
+            if (provider.ForceFlush(timeoutMilliseconds: 10_000))
+            {
+                foreach (var (file, _) in fileGroup)
+                    replayedFiles.Add(file);
+            }
         }
 
         foreach (var file in replayedFiles)
