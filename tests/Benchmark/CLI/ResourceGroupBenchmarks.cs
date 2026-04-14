@@ -21,7 +21,7 @@ public class ResourceGroupBenchmarks : BenchmarkBase
     [GlobalSetup]
     public void Setup()
     {
-        InitializeCommon(ClientType.CLI);
+        InitializeCommon();
         Console.WriteLine("[Setup] CLI benchmarks ready (stub HTTP)");
     }
 
