@@ -34,11 +34,11 @@ public class TelemetryService : ITelemetryService
 
     public ActivitySource ActivitySource { get; }
 
-    public TelemetryService(ActivitySource activitySource, ITelemetrySender sender)
+    public TelemetryService(ClientType clientType)
     {
-        ActivitySource = activitySource;
-        _sender = sender;
-        var serviceName = activitySource.Name;
+        ActivitySource = new ActivitySource(clientType.ToString());
+        _sender = TelemetrySenderFactory.Create(clientType);
+        var serviceName = ActivitySource.Name;
 
         var logDirectory = GetTraceDirectory();
 
@@ -62,7 +62,7 @@ public class TelemetryService : ITelemetryService
         // Add the appropriate exporter based on client type:
         //   CLI  → FileExporter (buffered to disk, replayed by background process)
         //   PS   → AzureMonitorExporter (inline, no file replay needed)
-        sender.ConfigureExporter(builder, logDirectory);
+        _sender.ConfigureExporter(builder, logDirectory);
 
 #if DEBUG
         // Zipkin exporter for local development. Disable via CIRRUS_ZIPKIN_ENABLED=false.

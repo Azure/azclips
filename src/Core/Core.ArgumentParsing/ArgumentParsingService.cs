@@ -7,7 +7,6 @@ namespace Core.ArgumentParsing
         public IDictionary<string, object> ParseArguments(IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases)
         {
             //TODO: handle positional arguemnts for CLI
-
             Dictionary<string, object> parsedArguments = new(StringComparer.OrdinalIgnoreCase);
             foreach (var kvp in args)
             {

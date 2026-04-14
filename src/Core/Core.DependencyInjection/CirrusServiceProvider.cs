@@ -43,9 +43,13 @@ public static class CirrusServiceProvider
                 return;
 
             IServiceCollection services = new ServiceCollection();
+
+            //client type should be immutable and be initialized with composition root
+            services.AddSingleton(typeof(ClientType), clientType);
+
             PrependRegistration?.Invoke(services);
             services = services
-                .RegisterTelemetryServices(clientType)
+                .RegisterTelemetryServices()
                 .RegisterRuntimeServices()
                 .RegisterAuthenticationServices()
                 .RegisterEngineServices()

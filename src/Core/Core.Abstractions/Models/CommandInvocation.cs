@@ -9,7 +9,6 @@ namespace Core.Abstractions
     /// <param name="ExtensionName">The name of the extension to invoke.</param>
     /// <param name="CommandName">The name of the command to execute.</param>
     /// <param name="Parameters">Dictionary of argument key-value pairs.</param>
-    /// <param name="ClientType">The type of client (CLI, PowerShell, etc.).</param>
     /// <param name="ModuleName">Resolved module name. Initialized by PowerShell and may also be populated for CLI invocations.</param>
     /// <param name="ModuleVersion">Resolved module version. Initialized by PowerShell and may also be populated for CLI invocations when resolved by the engine.</param>
     /// <param name="IsTransient">
@@ -23,7 +22,6 @@ namespace Core.Abstractions
         string ExtensionName,
         string CommandName,
         IDictionary<string, object> Parameters,
-        ClientType ClientType,
         bool IsTransient = false,
         string? ModuleName = null,
         string? ModuleVersion = null);

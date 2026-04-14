@@ -22,7 +22,7 @@ function Disconnect-CirrusAccount {
 
             $moduleName = $MyInvocation.MyCommand.ModuleName
             $moduleVersion = if ($MyInvocation.MyCommand.Version) { $MyInvocation.MyCommand.Version.ToString() } else { $null }
-            $invocation = [Core.Abstractions.CommandInvocation]::New($extensionName, $commandName, $parameters, [Core.Abstractions.ClientType]::PowerShell, $false, $moduleName, $moduleVersion)
+            $invocation = [Core.Abstractions.CommandInvocation]::New($extensionName, $commandName, $parameters, $false, $moduleName, $moduleVersion)
 
             if ($PSCmdlet.ShouldProcess("Cirrus Account", "Disconnect")) {
                 $response = $engine.Process($invocation, $outputDelegate, [System.Threading.CancellationToken]::None);

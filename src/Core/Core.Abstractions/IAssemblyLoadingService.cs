@@ -14,8 +14,7 @@ public interface IAssemblyLoadingService
     /// Throws an exception if the extension cannot be found by any loader.
     /// </summary>
     /// <param name="extensionName">The logical extension name (e.g., "Resources", "Login").</param>
-    /// <param name="clientType">The type of client requesting the extension.</param>
     /// <param name="extensionVersion">Optional version string. If null, the latest available version is loaded.</param>
     /// <returns>The loaded assembly.</returns>
-    Assembly LoadExtension(string extensionName, ClientType clientType, string? extensionVersion = null);
+    Assembly LoadExtension(string extensionName, string? extensionVersion = null);
 }

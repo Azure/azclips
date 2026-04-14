@@ -20,8 +20,7 @@ function Get-CirrusAccount {
             $parameters = [System.Collections.Generic.Dictionary[string, object]]::New();
             $moduleName = $MyInvocation.MyCommand.ModuleName
             $moduleVersion = if ($MyInvocation.MyCommand.Version) { $MyInvocation.MyCommand.Version.ToString() } else { $null }
-            $invocation = [Core.Abstractions.CommandInvocation]::New($extensionName, $commandName, $parameters, [Core.Abstractions.ClientType]::PowerShell, $false, $moduleName, $moduleVersion)
-
+            $invocation = [Core.Abstractions.CommandInvocation]::New($extensionName, $commandName, $parameters, $false, $moduleName, $moduleVersion)
             $response = $engine.Process($invocation, $outputDelegate, [System.Threading.CancellationToken]::None);
 
             # Mark activity as successful

@@ -17,7 +17,7 @@ namespace Core.Engine
     /// communication. The worker thread writes to the channel, and the caller's thread reads 
     /// and dispatches to the provided output delegate (e.g., $PSCmdlet.WriteObject).</para>
     /// </summary>
-    public class Engine(HttpClient httpClient, IAuthContextService authContextService, IAuthService authService, ITelemetryService telemetryService, ILoggingService loggingService, IAssemblyLoadingService assemblyLoadingService, IArgumentParsingService argumentParsingService) : IEngine
+    public class Engine(ClientType clientType, HttpClient httpClient, IAuthContextService authContextService, IAuthService authService, ITelemetryService telemetryService, ILoggingService loggingService, IAssemblyLoadingService assemblyLoadingService, IArgumentParsingService argumentParsingService) : IEngine
     {
         // Extension indices are cached with Lazy<T> to ensure single initialization per extension
         // even under concurrent access. The factory runs exactly once per key.
@@ -174,7 +174,7 @@ namespace Core.Engine
         public IProcessor GetCommand(CommandInvocation invocation, ICommandContext context, string extensionVersion = "")
         {
             //TODO(Yabo): come up with: intercept CLI global parameters elegantly if any
-            CommandMetadata commandMetadata = GetExtensionIndex(invocation.ExtensionName, invocation.ClientType, invocation.IsTransient, extensionVersion).GetCommandMetadata(invocation.CommandName, invocation.ClientType);
+            CommandMetadata commandMetadata = GetExtensionIndex(invocation.ExtensionName, invocation.IsTransient, extensionVersion).GetCommandMetadata(invocation.CommandName, clientType);
             IDictionary<string, object> parsedParameters;
             try
             {
@@ -192,7 +192,7 @@ namespace Core.Engine
             return argumentParsingService.BindArgumentsToCommand(commandMetadata.GetInstance(), parsedParameters).Init(context);   
         }
 
-        private IExtensionIndex GetExtensionIndex(string extensionName, ClientType clientType, bool isTransient, string extensionVersion)
+        private IExtensionIndex GetExtensionIndex(string extensionName, bool isTransient, string extensionVersion)
         {
             if (!isTransient)
             {
@@ -201,11 +201,11 @@ namespace Core.Engine
                 // Without Lazy, GetOrAdd's factory may execute multiple times (only one result stored).
                 return _extensionIndices.GetOrAdd(
                     string.IsNullOrEmpty(extensionVersion) ? extensionName : $"{extensionName}-{extensionVersion}",
-                    extensionName => new Lazy<IExtensionIndex>(() => assemblyLoadingService.LoadExtension(extensionName, clientType, extensionVersion).GetExtensionIndex())
+                    extensionName => new Lazy<IExtensionIndex>(() => assemblyLoadingService.LoadExtension(extensionName, extensionVersion).GetExtensionIndex())
                 ).Value;
             }
             // For transient invocations, bypass the cache and load directly
-            return assemblyLoadingService.LoadExtension(extensionName, clientType, extensionVersion).GetExtensionIndex();
+            return assemblyLoadingService.LoadExtension(extensionName, extensionVersion).GetExtensionIndex();
         }
 
         /// <summary>
