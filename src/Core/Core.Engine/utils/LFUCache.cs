@@ -1,4 +1,4 @@
-namespace Core.Engine.utils
+namespace Core.Engine.Utils
 {
     using System.Collections.Generic;
 

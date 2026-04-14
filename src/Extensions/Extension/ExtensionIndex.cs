@@ -4,62 +4,48 @@ namespace Microsoft.Azure.Cirrus.Extensions.Extension;
 
 public class ExtensionIndex : IExtensionIndex
 {
-    private readonly IDictionary<string, ICommandMetadata> _psTable = new Dictionary<string, ICommandMetadata>();
-    private readonly IDictionary<string, ICommandMetadata> _cliTable = new Dictionary<string, ICommandMetadata>();
-
-    public ExtensionIndex()
-    {
-        _cliTable.Add("add", new CommandMetadata(
-            name: nameof(Commands.AddExtensionCommand),
-            fullName: "Microsoft.Azure.Cirrus.Extensions.Extension.Commands.AddExtensionCommand",
-            assemblyName: "Microsoft.Azure.Cirrus.Extensions.Extension",
-            commandType: typeof(Commands.AddExtensionCommand)
-        ));
-    }
-
-    public ICommandMetadata GetCommandMetaData(string name, ClientType clientType)
-    {
-        switch (clientType)
+    // ── CLI Command Metadata ──
+    private static readonly CommandMetadata s_addExtension_CLI = new(
+        Name: "AddExtensionCommand",
+        Aliases: [],
+        FullName: "Microsoft.Azure.Cirrus.Extensions.Extension.Commands.AddExtensionCommand",
+        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Extension",
+        CommandType: typeof(Commands.AddExtensionCommand),
+        Parameters: new Dictionary<string, ParameterMetadata>
         {
-            case ClientType.PowerShell:
-                if (_psTable.TryGetValue(name, out var psData))
-                {
-                    return psData;
-                }
-                break;
-            case ClientType.CLI:
-                if (_cliTable.TryGetValue(name, out var cliData))
-                {
-                    return cliData;
-                }
-                break;
-        }
-        throw new KeyNotFoundException($"Command '{name}' not found for client type '{clientType}'.");
+            ["name"]     = new("Name", typeof(string), "The name of the extension to add.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["version"]  = new("Version", typeof(string), "The version of the extension to add.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["feed-url"] = new("FeedUrl", typeof(string), "Feed URL to install the extension from.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["path"]     = new("Path", typeof(string), "Path to the extension .nupkg file to add.", IsRequired: false, Aliases: [], AllowedValues: []),
+        },
+        ParameterAliases: new Dictionary<string, string>()
+    );
+    // ── Dispatch Tables ──
+    private static readonly Dictionary<string, CommandMetadata> s_psTable = new();
+    private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
+    {
+        ["add"] = s_addExtension_CLI,
+    };
+    // ── Lookup ──
+    public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
+    {
+        var table = clientType switch
+        {
+            ClientType.PowerShell => s_psTable,
+            ClientType.CLI => s_cliTable,
+            _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
+        };
+        return table.TryGetValue(name, out var metadata)
+            ? metadata
+            : throw new KeyNotFoundException($"Command '{name}' not found for client type '{clientType}'.");
     }
-
-    public IEnumerable<ICommandMetadata> GetAllCommands(ClientType clientType)
+    public IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType)
     {
         return clientType switch
         {
-            ClientType.PowerShell => _psTable.Values,
-            ClientType.CLI => _cliTable.Values,
+            ClientType.PowerShell => s_psTable.Values,
+            ClientType.CLI => s_cliTable.Values,
             _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
         };
-    }
-}
-
-class CommandMetadata : ICommandMetadata
-{
-    public string Name { get; }
-    public string FullName { get; }
-    public string AssemblyName { get; }
-    public Type CommandType { get; }
-
-    public CommandMetadata(string name, string fullName, string assemblyName, Type commandType)
-    {
-        Name = name;
-        FullName = fullName;
-        AssemblyName = assemblyName;
-        CommandType = commandType;
     }
 }

@@ -4,6 +4,8 @@ using Core.Authentication;
 using Core.Telemetry;
 using Core.Engine;
 using Microsoft.Extensions.DependencyInjection;
+using Core.AssemblyLoading;
+using Core.ArgumentParsing;
 
 namespace Core.DependencyInjection;
 
@@ -11,6 +13,20 @@ public static class CirrusServiceProvider
 {
     private static volatile IServiceProvider? _serviceProvider;
     private static readonly object _lock = new();
+
+    /// <summary>
+    /// Optional hook invoked before the default service registrations.
+    /// Set this from another assembly to prepend custom registrations into the DI container.
+    /// Must be set before <see cref="Initialize"/> is called.
+    /// </summary>
+    public static Action<IServiceCollection>? PrependRegistration { get; set; }
+
+    /// <summary>
+    /// Optional hook invoked after the default service registrations.
+    /// Set this from another assembly to override or replace default registrations in the DI container.
+    /// Must be set before <see cref="Initialize"/> is called.
+    /// </summary>
+    public static Action<IServiceCollection>? OverrideRegistration { get; set; }
 
     /// <summary>
     /// Initializes the DI container. Safe to call multiple times — only the first call takes effect.
@@ -26,12 +42,21 @@ public static class CirrusServiceProvider
             if (_serviceProvider is not null)
                 return;
 
-            _serviceProvider = new ServiceCollection()
+            IServiceCollection services = new ServiceCollection();
+
+            //client type should be immutable and be initialized with composition root
+            services.AddSingleton(typeof(ClientType), clientType);
+
+            PrependRegistration?.Invoke(services);
+            services = services
+                .RegisterTelemetryServices()
                 .RegisterRuntimeServices()
                 .RegisterAuthenticationServices()
-                .RegisterTelemetryServices(clientType)
-                .RegisterEngineServices(clientType)
-                .BuildServiceProvider();
+                .RegisterEngineServices()
+                .RegisterAssemblyLoadingServices()
+                .RegisterArgumentParsingServices();
+            OverrideRegistration?.Invoke(services);
+            _serviceProvider = services.BuildServiceProvider();
         }
     }
 

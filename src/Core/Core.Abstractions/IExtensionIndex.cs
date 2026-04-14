@@ -6,12 +6,12 @@ namespace Core.Abstractions
     // Yabo: Should these interfaces be in SharedContract or merge SharedContract to Core.Abstraction?
     public interface IExtensionIndex
     {
-        ICommandMetadata GetCommandMetaData(string name, ClientType clientType);
+        CommandMetadata GetCommandMetadata(string name, ClientType clientType);
 
         /// <summary>
         /// Returns all registered commands for the given client type.
         /// Used by the help system to enumerate available commands.
         /// </summary>
-        IEnumerable<ICommandMetadata> GetAllCommands(ClientType clientType);
+        IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType);
     }
 }

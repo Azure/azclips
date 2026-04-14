@@ -38,11 +38,10 @@ function New-ResourceGroup {
             if ($PSBoundParameters.ContainsKey('Location')) {
                 $parameters.Add('Location', [object]$Location);
             }
-            $invocation = [Core.Runtime.PSCommandInvocation]::New($extensionName, $commandName, $parameters);
-            $invocation.ModuleName = $MyInvocation.MyCommand.ModuleName
-            $invocation.ModuleVersion = if ($MyInvocation.MyCommand.Version) { $MyInvocation.MyCommand.Version.ToString() } else { $null }
+            $moduleName = $MyInvocation.MyCommand.ModuleName
+            $moduleVersion = if ($MyInvocation.MyCommand.Version) { $MyInvocation.MyCommand.Version.ToString() } else { $null }
+            $invocation = [Core.Abstractions.CommandInvocation]::New($extensionName, $commandName, $parameters, $false, $moduleName, $moduleVersion)
             $response = $engine.Process($invocation, $outputDelegate, [System.Threading.CancellationToken]::None);
-            
             # Mark activity as successful
             if ($null -ne $script:activity) {
                 $null = Complete-CmdletActivity -Activity $script:activity -Success $true

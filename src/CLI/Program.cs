@@ -15,6 +15,7 @@ namespace Core.Cli;
 
 public class Program
 {
+    private static readonly ClientType _clientType = ClientType.CLI;
     private static readonly string AssemblyName = Assembly.GetExecutingAssembly().GetName().Name!;
     private static ITelemetryService? _telemetryService;
     private static ILoggingService? _logger;
@@ -28,7 +29,7 @@ public class Program
             return 0;
         }
 
-        CirrusServiceProvider.Initialize(ClientType.CLI);
+        CirrusServiceProvider.Initialize(_clientType);
         _telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
         _logger = CirrusServiceProvider.GetRequiredService<ILoggingService>();
 
@@ -39,10 +40,10 @@ public class Program
 
             try
             {
-                ICommandInvocation invocation = dispatcher.Parse(args);
+                CommandInvocation invocation = dispatcher.Parse(args);
 
                 using var commandActivity = _telemetryService.ActivitySource.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
-                commandActivity?.SetTag("command.type", invocation.GetType().Name);
+                commandActivity?.SetTag("command.type", _clientType.ToString());
 
                 var engine = CirrusServiceProvider.GetRequiredService<IEngine>() ?? throw new InvalidOperationException("Engine service not found.");
                 engine.Process(invocation, (value, ct) => { Console.WriteLine(value); return Task.CompletedTask; });
@@ -113,7 +114,7 @@ public class Program
                 try
                 {
                     var dispatcher = new ExtensionDispatcher();
-                    ICommandInvocation invocation = dispatcher.Parse(retryArgs);
+                    CommandInvocation invocation = dispatcher.Parse(retryArgs);
                     //string result = Engine.Engine.GetCommand(invocation).Process(true).ToString();
                     //Console.WriteLine(result);
                     return 0;

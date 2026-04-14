@@ -11,6 +11,8 @@
     <Project Path="src/Core/Core.Telemetry/Core.Telemetry.csproj" />
     <Project Path="src/Core/Core.Runtime/Core.Runtime.csproj" />
     <Project Path="src/Core/Core.DependencyInjection/Core.DependencyInjection.csproj" />
+    <Project Path="src/Core/Core.AssemblyLoading/Core.AssemblyLoading.csproj" />
+    <Project Path="src/Core/Core.ArgumentParsing/Core.ArgumentParsing.csproj" />
   </Folder>
   <Folder Name="/src/Extensions/">
     <Project Path="src/Extensions/Extension/Extensions.Extension.csproj" />

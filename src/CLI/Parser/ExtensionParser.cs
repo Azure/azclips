@@ -57,8 +57,8 @@ public class ExtensionParser //: IParser
                     parameters[currentProperty].Add(currentValues);
                 }
 
-                // Start a new property
-                currentProperty = arg.ToLowerInvariant(); // Convert to kebab-case
+                // Start a new property (strip leading dashes, CLI-specific syntax)
+                currentProperty = arg.TrimStart('-').ToLowerInvariant();
                 currentValues = new List<string>();
             }
             else

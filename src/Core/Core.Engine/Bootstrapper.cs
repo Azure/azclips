@@ -55,7 +55,7 @@ public class Bootstrapper
         services.AddSingleton<ILoggingService, ConsoleLoggingService>();
         services.AddSingleton<IAuthService, MsalAuthService>();
         services.AddSingleton<IAuthContextService, AuthContextService>();
-        services.RegisterTelemetryServices(ClientType.CLI);
+        services.RegisterTelemetryServices();
 
         // --- NEW REGISTRATIONS (added for AI integration) ---
 

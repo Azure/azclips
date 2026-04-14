@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Runtime.Loader;
+using Core.Abstractions;
 using Core.Cli.Exceptions;
 
 namespace Core.Cli.Parser;
@@ -29,7 +30,7 @@ public class ExtensionDispatcher //: IParser
     {
     }
 
-    public Runtime.CLICommandInvocation Parse(string[] args)
+    public CommandInvocation Parse(string[] args)
     {
         if (args.Length == 0) throw new ArgumentException("Arguments cannot be empty.", nameof(args));
         var helpFlags = new[] { "--help", "-h", "help", "?", "-?" };
@@ -41,7 +42,7 @@ public class ExtensionDispatcher //: IParser
 
         var extensionParser = new ExtensionParser();
         (string commandName, IDictionary<string, object> parameters) = extensionParser.Parse(args[1..]);
-        return new Runtime.CLICommandInvocation(extensionName, commandName, parameters);
+        return new CommandInvocation(extensionName, commandName, parameters, IsTransient: true, ModuleName: extensionName);
     }
 
     //public Task<ICommand<TResult>> ParseAsync<TResult>(string[] args)
