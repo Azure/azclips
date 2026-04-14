@@ -11,14 +11,14 @@ namespace Benchmark;
 
 /// <summary>
 /// Base class providing common setup for all benchmarks.
-/// Handles authentication, resource group cleanup, and utility methods.
+/// Handles authentication, resource group cleanup, stub HTTP setup, and utility methods.
 /// </summary>
 public abstract class BenchmarkBase
 {
     protected string SubscriptionId { get; private set; } = null!;
     protected string AccessToken { get; private set; } = null!;
     protected string InstanceId { get; private set; } = null!;
-    protected string RepoRoot { get; private set; } = null!;
+    protected string RepoRoot { get; set; } = null!;
     
     protected readonly List<string> CreatedResourceGroups = new();
     protected int RgCounter = 0;
@@ -28,9 +28,22 @@ public abstract class BenchmarkBase
     protected const string ApiVersion = "2025-04-01";
 
     /// <summary>
-    /// Initialize common setup: authentication, instance ID, repo root.
+    /// Initialize for stub HTTP benchmarks (CLI, PS). Sets up the mock handler and finds repo root.
     /// </summary>
-    protected void InitializeCommon(ClientType clientType = ClientType.CLI)
+    protected void InitializeCommon()
+    {
+        CirrusServiceProvider.OverrideRegistration = services =>
+            services.AddSingleton<HttpMessageHandler>(new StubHttpMessageHandler());
+
+        RepoRoot = FindRepoRoot(AppContext.BaseDirectory)
+            ?? FindRepoRoot(Directory.GetCurrentDirectory())
+            ?? throw new InvalidOperationException("Cannot find repository root (looking for cirrus.slnx)");
+    }
+
+    /// <summary>
+    /// Initialize for live benchmarks (API). Sets up authentication and finds repo root.
+    /// </summary>
+    protected void InitializeCommon(ClientType clientType)
     {
         CirrusServiceProvider.Initialize(clientType);
         
@@ -57,6 +70,15 @@ public abstract class BenchmarkBase
         SubscriptionId = authContext.SubscriptionId;
 
         Console.WriteLine($"[Setup] SubscriptionId: {SubscriptionId}");
+    }
+
+    /// <summary>
+    /// Cleanup stub HTTP override and dispose DI container.
+    /// </summary>
+    protected void CleanupCommon()
+    {
+        CirrusServiceProvider.Dispose();
+        CirrusServiceProvider.OverrideRegistration = null;
     }
 
     /// <summary>
@@ -127,7 +149,7 @@ public abstract class BenchmarkBase
         return process.ExitCode;
     }
 
-    private static string? FindRepoRoot(string startPath)
+    protected static string? FindRepoRoot(string startPath)
     {
         var dir = new DirectoryInfo(startPath);
         while (dir != null)

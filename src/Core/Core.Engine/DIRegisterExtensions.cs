@@ -51,7 +51,11 @@ public static class DIRegisterExtensions
                 sp.GetRequiredService<ILoggingService>(),
                 sp.GetRequiredService<IOutputAdapter>()));
 
-        services.AddSingleton<HttpClient>();
+        // Default HTTP handler — mock seam for isolated benchmarks.
+        // OverrideRegistration replaces this with StubHttpMessageHandler;
+        // last-wins DI semantics ensure HttpClient picks up the stub automatically.
+        services.AddSingleton<HttpMessageHandler>(new HttpClientHandler());
+        services.AddSingleton(sp => new HttpClient(sp.GetRequiredService<HttpMessageHandler>()));
         services.AddSingleton<IEngine, Engine>();   
 
         return services;
