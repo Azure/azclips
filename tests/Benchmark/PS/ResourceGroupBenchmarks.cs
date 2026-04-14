@@ -27,10 +27,7 @@ public class ResourceGroupBenchmarks : BenchmarkBase
     [GlobalSetup]
     public void Setup()
     {
-        InitializeCommon();
-
-        // Initialize DI with stub HTTP
-        CirrusServiceProvider.Initialize(ClientType.PowerShell);
+        InitializeCommon(ClientType.PowerShell);
 
         var psModulePath = Path.Combine(RepoRoot, "src", "PS", "Resources", "Resources.psd1");
 

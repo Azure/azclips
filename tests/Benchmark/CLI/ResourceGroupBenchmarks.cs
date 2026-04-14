@@ -3,6 +3,7 @@
 
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Engines;
+using Core.Abstractions;
 
 namespace Benchmark.CLI;
 
@@ -20,7 +21,7 @@ public class ResourceGroupBenchmarks : BenchmarkBase
     [GlobalSetup]
     public void Setup()
     {
-        InitializeCommon();
+        InitializeCommon(ClientType.CLI);
         Console.WriteLine("[Setup] CLI benchmarks ready (stub HTTP)");
     }
 

@@ -28,23 +28,13 @@ public abstract class BenchmarkBase
     protected const string ApiVersion = "2025-04-01";
 
     /// <summary>
-    /// Initialize for stub HTTP benchmarks (CLI, PS). Sets up the mock handler and finds repo root.
-    /// </summary>
-    protected void InitializeCommon()
-    {
-        CirrusServiceProvider.OverrideRegistration = services =>
-            services.AddSingleton<HttpMessageHandler>(new StubHttpMessageHandler());
-
-        RepoRoot = FindRepoRoot(AppContext.BaseDirectory)
-            ?? FindRepoRoot(Directory.GetCurrentDirectory())
-            ?? throw new InvalidOperationException("Cannot find repository root (looking for cirrus.slnx)");
-    }
-
-    /// <summary>
     /// Initialize for live benchmarks (API). Sets up authentication and finds repo root.
     /// </summary>
     protected void InitializeCommon(ClientType clientType)
     {
+        CirrusServiceProvider.OverrideRegistration = services =>
+            services.AddSingleton<HttpMessageHandler>(new StubHttpMessageHandler());
+
         CirrusServiceProvider.Initialize(clientType);
         
         // Unique instance ID to avoid conflicts between runs
