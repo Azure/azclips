@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Core.Tui</RootNamespace>
+    <ExtName>Core.Tui</ExtName>
+    <AssemblyTitle>Az TUI Dashboard</AssemblyTitle>
+  </PropertyGroup>
+
+  <Import Project="$(MSBuildThisFileDirectory)..\Shared.props" />
+
+  <ItemGroup>
+    <PackageReference Include="Hex1b" Version="0.128.0" />
+  </ItemGroup>
+</Project>
