@@ -2,12 +2,15 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <ExtName>Benchmark</ExtName>
     <TargetFramework>net9.0</TargetFramework>
     <RootNamespace>Benchmark</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <StartupObject>Benchmark.Program</StartupObject>
   </PropertyGroup>
+
+  <Import Project="$(MSBuildThisFileDirectory)..\..\Shared.props" />
 
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" Version="0.13.12" />

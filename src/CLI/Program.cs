@@ -151,6 +151,13 @@ public class Program
             var exePath = Environment.ProcessPath;
             if (exePath == null) return;
 
+            // In-process benchmark mode: flush directly instead of spawning
+            if (!exePath.EndsWith("azv2", StringComparison.OrdinalIgnoreCase) &&
+                !exePath.EndsWith("azv2.exe", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
             var startInfo = new ProcessStartInfo
             {
                 FileName = exePath,
