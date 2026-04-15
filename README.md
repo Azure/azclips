@@ -149,3 +149,4 @@ dotnet test tests/Cli.Tests/Cli.Tests.csproj
 # Run tests with coverage
 dotnet test --collect:"XPlat Code Coverage"
 ```
+
