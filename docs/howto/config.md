@@ -6,22 +6,22 @@ Configuration follows strict precedence: **command args > environment variables 
 
 ## Valid Configuration Keys
 
-| Key | Type | Default | Notes |
-|-----|------|---------|-------|
-| `core.logging.level` | string | `info` | Log level: `debug`, `info`, `warning`, `error` |
-| `core.http.maxRetries` | int | `3` | Max HTTP request retries |
-| `core.http.maxRetriesFor429` | int | `10` | Max retries for 429 (rate limit) responses |
-| `core.engine.extensionIndexCacheSize` | int | `512` | Extension index cache size in MB |
-| `assemblyLoading.versionedInstallationDir` | string | (system) | Versioned assembly installation directory |
-| `assemblyLoading.builtinInstallationDir` | string | (system) | Built-in assembly directory |
-| `assemblyLoading.extensionFolderPrefix` | string | `.cirrus/extensions` | Extensions folder prefix |
-| `telemetry.enabled` | bool | `true` | Enable telemetry |
-| `telemetry.appInsightsInstrumentationKey` | string | (empty) | Application Insights key |
-| `telemetry.zipkinEndpoint` | string | (empty) | Zipkin tracing endpoint |
-| `agent.enabled` | bool | `true` | Enable AI agent fallback |
-| `extensions.resources.arm.apiVersionOverride` | string | (empty) | Override ARM API version |
-| `hosts.cli.output.format` | string | `text` | CLI output format: `text`, `json` |
-| `hosts.powershell.output.format` | string | `text` | PowerShell output format: `text`, `json` |
+| Key                                           | Type   | Default              | Notes                                          |
+| --------------------------------------------- | ------ | -------------------- | ---------------------------------------------- |
+| `core.logging.level`                          | string | `info`               | Log level: `debug`, `info`, `warning`, `error` |
+| `core.http.maxRetries`                        | int    | `3`                  | Max HTTP request retries                       |
+| `core.http.maxRetriesFor429`                  | int    | `10`                 | Max retries for 429 (rate limit) responses     |
+| `core.engine.extensionIndexCacheSize`         | int    | `512`                | Extension index cache size in MB               |
+| `assemblyLoading.versionedInstallationDir`    | string | (system)             | Versioned assembly installation directory      |
+| `assemblyLoading.builtinInstallationDir`      | string | (system)             | Built-in assembly directory                    |
+| `assemblyLoading.extensionFolderPrefix`       | string | `.cirrus/extensions` | Extensions folder prefix                       |
+| `telemetry.enabled`                           | bool   | `true`               | Enable telemetry                               |
+| `telemetry.appInsightsInstrumentationKey`     | string | (empty)              | Application Insights key                       |
+| `telemetry.zipkinEndpoint`                    | string | (empty)              | Zipkin tracing endpoint                        |
+| `agent.enabled`                               | bool   | `true`               | Enable AI agent fallback                       |
+| `extensions.resources.arm.apiVersionOverride` | string | (empty)              | Override ARM API version                       |
+| `hosts.cli.output.format`                     | string | `text`               | CLI output format: `text`, `json`              |
+| `hosts.powershell.output.format`              | string | `text`               | PowerShell output format: `text`, `json`       |
 
 ## CLI Usage
 
@@ -149,16 +149,17 @@ Get-CirrusConfigInfo -KeysOnly
 
 You can override configuration using environment variables:
 
-| Environment Variable | Maps to |
-|---------------------|---------|
-| `CIRRUS_LOG_LEVEL` | `core.logging.level` |
-| `PS_HTTP_MAX_RETRIES` / `AZURE_PS_HTTP_MAX_RETRIES` | `core.http.maxRetries` |
+| Environment Variable                                                | Maps to                      |
+| ------------------------------------------------------------------- | ---------------------------- |
+| `CIRRUS_LOG_LEVEL`                                                  | `core.logging.level`         |
+| `PS_HTTP_MAX_RETRIES` / `AZURE_PS_HTTP_MAX_RETRIES`                 | `core.http.maxRetries`       |
 | `PS_HTTP_MAX_RETRIES_FOR_429` / `AZURE_PS_HTTP_MAX_RETRIES_FOR_429` | `core.http.maxRetriesFor429` |
-| `ZIPKIN_ENDPOINT` | `telemetry.zipkinEndpoint` |
+| `ZIPKIN_ENDPOINT`                                                   | `telemetry.zipkinEndpoint`   |
 
 ## Configuration File Location
 
 Configuration is stored at:
+
 - **Windows**: `%USERPROFILE%\.cirrus\config.json`
 - **Linux/macOS**: `$HOME/.cirrus/config.json`
 
@@ -167,12 +168,14 @@ Configuration is stored at:
 ### Workflow: Enable debug logging
 
 **CLI:**
+
 ```bash
 azv2 config set core.logging.level debug --force
 azv2 config get core.logging.level
 ```
 
 **PowerShell:**
+
 ```powershell
 Set-CirrusConfig -Key core.logging.level -Value debug -Force
 Get-CirrusConfig -Key core.logging.level
@@ -181,11 +184,13 @@ Get-CirrusConfig -Key core.logging.level
 ### Workflow: Check all settings with defaults
 
 **CLI:**
+
 ```bash
 azv2 config list --all
 ```
 
 **PowerShell:**
+
 ```powershell
 Get-CirrusConfigList -IncludeDefaults
 ```
@@ -193,6 +198,7 @@ Get-CirrusConfigList -IncludeDefaults
 ### Workflow: Reset to defaults
 
 **CLI:**
+
 ```bash
 # Delete all user-set config
 azv2 config list | grep -v '\[default\]' | awk '{print $1}' | while read key; do
@@ -201,6 +207,7 @@ done
 ```
 
 **PowerShell:**
+
 ```powershell
 Get-CirrusConfigList | Where-Object { $_ -notmatch '\[default\]' } | ForEach-Object {
   $key = ($_ -split ' = ')[0]
