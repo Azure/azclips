@@ -164,6 +164,73 @@ public class ConfigCliTests
         }
     }
 
+    [Fact]
+    public void PowerShellModule_ShouldImportAndExportFiveCmdlets()
+    {
+        // Resolve path from test assembly location
+        var testAssemblyPath = typeof(ConfigCliTests).Assembly.Location;
+        var repoRoot = Path.GetDirectoryName(testAssemblyPath);
+        while (!string.IsNullOrEmpty(repoRoot) && !File.Exists(Path.Combine(repoRoot, "cirrus.slnx")))
+        {
+            repoRoot = Path.GetDirectoryName(repoRoot);
+        }
+        var psModulePath = Path.Combine(repoRoot!, "src", "PS", "Config", "Config.psd1");
+        Assert.True(File.Exists(psModulePath), $"PowerShell module manifest not found at {psModulePath}");
+
+        // Verify module file structure
+        var moduleDir = Path.GetDirectoryName(psModulePath)!;
+        var exportsDir = Path.Combine(moduleDir, "exports");
+        Assert.True(Directory.Exists(exportsDir), "Module exports directory should exist");
+
+        var expectedCmdlets = new[]
+        {
+            "Get-CirrusConfig.ps1",
+            "Set-CirrusConfig.ps1",
+            "Remove-CirrusConfig.ps1",
+            "Get-CirrusConfigList.ps1",
+            "Get-CirrusConfigInfo.ps1"
+        };
+
+        foreach (var cmdlet in expectedCmdlets)
+        {
+            var cmdletPath = Path.Combine(exportsDir, cmdlet);
+            Assert.True(File.Exists(cmdletPath), $"Cmdlet file should exist: {cmdlet}");
+            var content = File.ReadAllText(cmdletPath);
+            Assert.Contains("function ", content);
+            Assert.Contains("param (", content);
+        }
+    }
+
+    [Fact]
+    public void PowerShellModule_ManifestShouldSpecifyAllRequiredDependencies()
+    {
+        // Resolve path from test assembly location
+        var testAssemblyPath = typeof(ConfigCliTests).Assembly.Location;
+        var repoRoot = Path.GetDirectoryName(testAssemblyPath);
+        while (!string.IsNullOrEmpty(repoRoot) && !File.Exists(Path.Combine(repoRoot, "cirrus.slnx")))
+        {
+            repoRoot = Path.GetDirectoryName(repoRoot);
+        }
+        var psModulePath = Path.Combine(repoRoot!, "src", "PS", "Config", "Config.psd1");
+        Assert.True(File.Exists(psModulePath), $"PowerShell module manifest not found at {psModulePath}");
+        
+        var manifestContent = File.ReadAllText(psModulePath);
+
+        // Verify key assembly dependencies are listed
+        Assert.Contains("Core.Abstractions.dll", manifestContent);
+        Assert.Contains("Core.Configuration.dll", manifestContent);
+        Assert.Contains("Core.Engine.dll", manifestContent);
+        Assert.Contains("Core.DependencyInjection.dll", manifestContent);
+        Assert.Contains("Microsoft.Azure.Cirrus.Extensions.Config.dll", manifestContent);
+
+        // Verify functions are exported
+        Assert.Contains("Get-CirrusConfig", manifestContent);
+        Assert.Contains("Set-CirrusConfig", manifestContent);
+        Assert.Contains("Remove-CirrusConfig", manifestContent);
+        Assert.Contains("Get-CirrusConfigList", manifestContent);
+        Assert.Contains("Get-CirrusConfigInfo", manifestContent);
+    }
+
     private sealed class TestConfigurationProvider(string configFilePath) : IConfigurationProvider
     {
         public string GetConfigFilePath() => configFilePath;
