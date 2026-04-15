@@ -4,6 +4,78 @@ namespace Microsoft.Azure.Cirrus.Extensions.Config;
 
 public class ExtensionIndex : IExtensionIndex
 {
+    // ── PS Command Metadata ──
+    private static readonly CommandMetadata s_getConfig_PS = new(
+        Name: "GetConfigCommand",
+        Aliases: [],
+        FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.GetConfigCommand",
+        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
+        CommandType: typeof(Commands.GetConfigCommand),
+        Parameters: new Dictionary<string, ParameterMetadata>
+        {
+            ["Key"] = new("Key", typeof(string), "Configuration key in dot notation.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["AsJson"] = new("AsJson", typeof(bool), "Output as JSON.", IsRequired: false, Aliases: [], AllowedValues: [])
+        },
+        ParameterAliases: new Dictionary<string, string>()
+    );
+
+    private static readonly CommandMetadata s_setConfig_PS = new(
+        Name: "SetConfigCommand",
+        Aliases: [],
+        FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.SetConfigCommand",
+        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
+        CommandType: typeof(Commands.SetConfigCommand),
+        Parameters: new Dictionary<string, ParameterMetadata>
+        {
+            ["Key"] = new("Key", typeof(string), "Configuration key in dot notation.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["Value"] = new("Value", typeof(string), "Configuration value.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["Force"] = new("Force", typeof(bool), "Allow unknown keys.", IsRequired: false, Aliases: [], AllowedValues: [])
+        },
+        ParameterAliases: new Dictionary<string, string>()
+    );
+
+    private static readonly CommandMetadata s_removeConfig_PS = new(
+        Name: "RemoveConfigCommand",
+        Aliases: [],
+        FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.DeleteConfigCommand",
+        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
+        CommandType: typeof(Commands.DeleteConfigCommand),
+        Parameters: new Dictionary<string, ParameterMetadata>
+        {
+            ["Key"] = new("Key", typeof(string), "Configuration key in dot notation.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["Force"] = new("Force", typeof(bool), "Allow unknown keys.", IsRequired: false, Aliases: [], AllowedValues: [])
+        },
+        ParameterAliases: new Dictionary<string, string>()
+    );
+
+    private static readonly CommandMetadata s_listConfig_PS = new(
+        Name: "ListConfigCommand",
+        Aliases: [],
+        FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.ListConfigCommand",
+        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
+        CommandType: typeof(Commands.ListConfigCommand),
+        Parameters: new Dictionary<string, ParameterMetadata>
+        {
+            ["IncludeDefaults"] = new("IncludeDefaults", typeof(bool), "Include default values.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["AsJson"] = new("AsJson", typeof(bool), "Output as JSON.", IsRequired: false, Aliases: [], AllowedValues: [])
+        },
+        ParameterAliases: new Dictionary<string, string>()
+    );
+
+    private static readonly CommandMetadata s_infoConfig_PS = new(
+        Name: "InfoConfigCommand",
+        Aliases: [],
+        FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.InfoConfigCommand",
+        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
+        CommandType: typeof(Commands.InfoConfigCommand),
+        Parameters: new Dictionary<string, ParameterMetadata>
+        {
+            ["KeysOnly"] = new("KeysOnly", typeof(bool), "Return only valid keys.", IsRequired: false, Aliases: [], AllowedValues: [])
+        },
+        ParameterAliases: new Dictionary<string, string>()
+    );
+
+    // ── CLI Command Metadata ──
     private static readonly CommandMetadata s_getConfig_CLI = new(
         Name: "GetConfigCommand",
         Aliases: [],
@@ -74,7 +146,14 @@ public class ExtensionIndex : IExtensionIndex
         ParameterAliases: new Dictionary<string, string>()
     );
 
-    private static readonly Dictionary<string, CommandMetadata> s_psTable = new();
+    private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
+    {
+        ["Get-CirrusConfig"] = s_getConfig_PS,
+        ["Set-CirrusConfig"] = s_setConfig_PS,
+        ["Remove-CirrusConfig"] = s_removeConfig_PS,
+        ["Get-CirrusConfigList"] = s_listConfig_PS,
+        ["Get-CirrusConfigInfo"] = s_infoConfig_PS,
+    };
     private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
     {
         ["get"] = s_getConfig_CLI,
