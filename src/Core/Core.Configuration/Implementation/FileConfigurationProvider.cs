@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Core.Configuration.Abstractions;
 
 namespace Core.Configuration.Implementation;
@@ -16,7 +17,7 @@ public sealed class FileConfigurationProvider : IConfigurationProvider
         return Path.Combine(homePath, ".cirrus", "config.json");
     }
 
-    public async Task<Dictionary<string, object?>> ReadAsync(CancellationToken cancellationToken = default)
+    public async Task<JsonObject> ReadAsync(CancellationToken cancellationToken = default)
     {
         var path = GetConfigFilePath();
         if (!File.Exists(path))
@@ -30,11 +31,11 @@ public sealed class FileConfigurationProvider : IConfigurationProvider
             return [];
         }
 
-        var result = JsonSerializer.Deserialize<Dictionary<string, object?>>(json, SerializerOptions);
-        return result ?? [];
+        var parsed = JsonNode.Parse(json) as JsonObject;
+        return parsed ?? [];
     }
 
-    public async Task WriteAsync(Dictionary<string, object?> configuration, CancellationToken cancellationToken = default)
+    public async Task WriteAsync(JsonObject configuration, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(configuration);
 
@@ -45,7 +46,28 @@ public sealed class FileConfigurationProvider : IConfigurationProvider
             Directory.CreateDirectory(directory);
         }
 
-        var json = JsonSerializer.Serialize(configuration, SerializerOptions);
-        await File.WriteAllTextAsync(path, json, cancellationToken).ConfigureAwait(false);
+        var tempPath = Path.Combine(directory ?? Path.GetTempPath(), $"config.{Guid.NewGuid():N}.tmp");
+
+        try
+        {
+            var json = configuration.ToJsonString(SerializerOptions);
+            await File.WriteAllTextAsync(tempPath, json, cancellationToken).ConfigureAwait(false);
+
+            if (File.Exists(path))
+            {
+                File.Move(tempPath, path, overwrite: true);
+            }
+            else
+            {
+                File.Move(tempPath, path);
+            }
+        }
+        finally
+        {
+            if (File.Exists(tempPath))
+            {
+                File.Delete(tempPath);
+            }
+        }
     }
 }

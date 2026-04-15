@@ -1,10 +1,12 @@
+using System.Text.Json.Nodes;
+
 namespace Core.Configuration.Abstractions;
 
 public interface IConfigurationProvider
 {
     string GetConfigFilePath();
 
-    Task<Dictionary<string, object?>> ReadAsync(CancellationToken cancellationToken = default);
+    Task<JsonObject> ReadAsync(CancellationToken cancellationToken = default);
 
-    Task WriteAsync(Dictionary<string, object?> configuration, CancellationToken cancellationToken = default);
+    Task WriteAsync(JsonObject configuration, CancellationToken cancellationToken = default);
 }

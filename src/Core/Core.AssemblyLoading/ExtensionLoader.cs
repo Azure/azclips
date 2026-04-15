@@ -1,6 +1,8 @@
 using System.Reflection;
 using System.Runtime.Loader;
 using Core.Abstractions;
+using Core.Configuration.Abstractions;
+using Core.Configuration.Options;
 using NuGet.Versioning;
 
 namespace Core.AssemblyLoading;
@@ -10,10 +12,8 @@ public interface IExtensionLoader
     public Assembly? LoadExtension(string extensionName, string? version = null);
 }
 
-public class BuiltinExtensionLoader(ILoggingService loggingService) : IExtensionLoader
+public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurationService configurationService) : IExtensionLoader
 {
-    private static readonly string installationDir = Constants.builtinInstallationDir;
-
     internal class ExtensionLoadContext(string extensionPath, ILoggingService? loggingService = null) : AssemblyLoadContext
     {
         private readonly AssemblyDependencyResolver _resolver = new(extensionPath);
@@ -47,6 +47,7 @@ public class BuiltinExtensionLoader(ILoggingService loggingService) : IExtension
     }
 
     private readonly ILoggingService? _loggingService = loggingService;
+    private readonly AssemblyLoadingOptions _options = configurationService.GetConfiguration<AssemblyLoadingOptions>();
 
     public Assembly? LoadExtension(string extensionName, string? version = null)
     {
@@ -55,7 +56,7 @@ public class BuiltinExtensionLoader(ILoggingService loggingService) : IExtension
         {
             return null;
         }
-        var extensionPath = Path.Combine(installationDir, Constants.extensionFolderPrefix + extensionName, $"{extensionNameFull}.dll");
+        var extensionPath = Path.Combine(_options.BuiltinInstallationDir, _options.ExtensionFolderPrefix + extensionName, $"{extensionNameFull}.dll");
         if (!File.Exists(extensionPath))
         {
             _loggingService?.Debug($"Extension '{extensionNameFull}' not found in builtin extensions directory, will try other sources. Checked path: '{extensionPath}'");
@@ -66,10 +67,8 @@ public class BuiltinExtensionLoader(ILoggingService loggingService) : IExtension
     }
 }
 
-public class MultiVersionExtensionLoader(ILoggingService loggingService) : IExtensionLoader
+public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfigurationService configurationService) : IExtensionLoader
 {
-    private static readonly string installationDir = Constants.versionedInstallationDir;
-
     internal class ExtensionLoadContext(string extensionDirectory, ILoggingService? loggingService = null) : AssemblyLoadContext
     {
         public string ExtensionDirectory { get; } = extensionDirectory;
@@ -92,6 +91,7 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService) : IExte
     }
 
     private readonly ILoggingService? _loggingService = loggingService;
+    private readonly AssemblyLoadingOptions _options = configurationService.GetConfiguration<AssemblyLoadingOptions>();
 
     public Assembly? LoadExtension(string extensionName, string? version = null)
     {
@@ -100,20 +100,20 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService) : IExte
         if (!string.IsNullOrEmpty(version))
         {
             _loggingService?.Debug($"Loading extension '{extensionName}' version '{version}' from multi-version extensions directory.");
-            extensionDir = Path.Combine(installationDir, Constants.extensionFolderPrefix + extensionName, version);
+            extensionDir = Path.Combine(_options.VersionedInstallationDir, _options.ExtensionFolderPrefix + extensionName, version);
         }
         else
         {
-            if (!Directory.Exists(Path.Combine(installationDir, Constants.extensionFolderPrefix + extensionName)))
+            if (!Directory.Exists(Path.Combine(_options.VersionedInstallationDir, _options.ExtensionFolderPrefix + extensionName)))
             {
-                _loggingService?.Debug($"Extension '{extensionName}' not found in multi-version extensions directory, will try other sources. Checked path: '{Path.Combine(installationDir, Constants.extensionFolderPrefix + extensionName)}'");
+                _loggingService?.Debug($"Extension '{extensionName}' not found in multi-version extensions directory, will try other sources. Checked path: '{Path.Combine(_options.VersionedInstallationDir, _options.ExtensionFolderPrefix + extensionName)}'");
                 return null;
             }
             // Load the latest version
-            var versionDirs = Directory.GetDirectories(Path.Combine(installationDir, Constants.extensionFolderPrefix + extensionName));
+            var versionDirs = Directory.GetDirectories(Path.Combine(_options.VersionedInstallationDir, _options.ExtensionFolderPrefix + extensionName));
             if (versionDirs.Length == 0)
             {
-                _loggingService?.Debug($"No versions found for extension '{extensionName}' in multi-version extensions directory. Checked path: '{Path.Combine(installationDir, Constants.extensionFolderPrefix + extensionName)}'");
+                _loggingService?.Debug($"No versions found for extension '{extensionName}' in multi-version extensions directory. Checked path: '{Path.Combine(_options.VersionedInstallationDir, _options.ExtensionFolderPrefix + extensionName)}'");
                 return null;
             }
             // Use NuGet.Versioning for proper semantic version comparison, skipping invalid version names
@@ -125,7 +125,7 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService) : IExte
                 .FirstOrDefault();
             if (latestDir == null)
             {
-                _loggingService?.Debug($"No valid semantic versions found for extension '{extensionName}'. Checked path: '{Path.Combine(installationDir, Constants.extensionFolderPrefix + extensionName)}'");
+                _loggingService?.Debug($"No valid semantic versions found for extension '{extensionName}'. Checked path: '{Path.Combine(_options.VersionedInstallationDir, _options.ExtensionFolderPrefix + extensionName)}'");
                 return null;
             }
             extensionDir = latestDir;

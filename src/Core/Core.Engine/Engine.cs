@@ -5,6 +5,8 @@ using Core.Runtime;
 using System.Threading.Channels;
 using Core.Abstractions.Runtime.Handler;
 using Core.Engine.Utils;
+using Core.Configuration.Abstractions;
+using Core.Configuration.Options;
 
 namespace Core.Engine
 {
@@ -17,12 +19,11 @@ namespace Core.Engine
     /// communication. The worker thread writes to the channel, and the caller's thread reads 
     /// and dispatches to the provided output delegate (e.g., $PSCmdlet.WriteObject).</para>
     /// </summary>
-    public class Engine(ClientType clientType, HttpClient httpClient, IAuthContextService authContextService, IAuthService authService, ITelemetryService telemetryService, ILoggingService loggingService, IAssemblyLoadingService assemblyLoadingService, IArgumentParsingService argumentParsingService) : IEngine
+    public class Engine(ClientType clientType, HttpClient httpClient, IAuthContextService authContextService, IAuthService authService, ITelemetryService telemetryService, ILoggingService loggingService, IAssemblyLoadingService assemblyLoadingService, IArgumentParsingService argumentParsingService, IConfigurationService configurationService) : IEngine
     {
         // Extension indices are cached with Lazy<T> to ensure single initialization per extension
         // even under concurrent access. The factory runs exactly once per key.
-        //TODO(Yabo): tune the cache size based on expected number of extensions, get this key from config service in the future
-        private const int cacheSize = 512;
+        private readonly CoreOptions _coreOptions = configurationService.GetConfiguration<CoreOptions>();
         private LFUCache<Lazy<IExtensionIndex>>? _extensionIndices;
         private bool _disposed;
 
@@ -131,7 +132,10 @@ namespace Core.Engine
                 StartActivity = telemetryService.StartActivity
             };
 
-            IRuntimeHttpPipeline httpPipeline = new HttpPipeline(new HttpClientFactory(httpClient));
+            IRuntimeHttpPipeline httpPipeline = new HttpPipeline(
+                new HttpClientFactory(httpClient),
+                _coreOptions.Http.MaxRetries,
+                _coreOptions.Http.MaxRetriesFor429);
             ICommandContext context = new CommandContext
             {
                 CommandOutputHandler = commandOutputHandler,
@@ -196,7 +200,7 @@ namespace Core.Engine
         {
             if (!isTransient)
             {
-                _extensionIndices ??= new(cacheSize);
+                _extensionIndices ??= new(_coreOptions.Engine.ExtensionIndexCacheSize);
                 // Lazy<T> ensures the factory runs exactly once per extension, even under contention.
                 // Without Lazy, GetOrAdd's factory may execute multiple times (only one result stored).
                 return _extensionIndices.GetOrAdd(

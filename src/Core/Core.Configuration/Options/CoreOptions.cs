@@ -21,5 +21,7 @@ public sealed class EngineOptions
 
 public sealed class HttpOptions
 {
+    public int MaxRetries { get; set; } = 3;
+
     public int MaxRetriesFor429 { get; set; } = 5;
 }

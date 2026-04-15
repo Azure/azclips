@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Core.Abstractions\Core.Abstractions.csproj" />
+    <ProjectReference Include="..\Core.Configuration\Core.Configuration.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
