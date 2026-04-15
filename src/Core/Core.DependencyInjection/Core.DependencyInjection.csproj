@@ -17,5 +17,6 @@
     <ProjectReference Include="..\Core.Engine\Core.Engine.csproj" />
     <ProjectReference Include="..\Core.AssemblyLoading\Core.AssemblyLoading.csproj" />
     <ProjectReference Include="..\Core.ArgumentParsing\Core.ArgumentParsing.csproj" />
+    <ProjectReference Include="..\Core.Configuration\Core.Configuration.csproj" />
   </ItemGroup>
 </Project>

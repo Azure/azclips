@@ -6,6 +6,7 @@ using Core.Engine;
 using Microsoft.Extensions.DependencyInjection;
 using Core.AssemblyLoading;
 using Core.ArgumentParsing;
+using Core.Configuration;
 
 namespace Core.DependencyInjection;
 
@@ -54,7 +55,8 @@ public static class CirrusServiceProvider
                 .RegisterAuthenticationServices()
                 .RegisterEngineServices()
                 .RegisterAssemblyLoadingServices()
-                .RegisterArgumentParsingServices();
+                .RegisterArgumentParsingServices()
+                .RegisterConfigurationServices();
             OverrideRegistration?.Invoke(services);
             _serviceProvider = services.BuildServiceProvider();
         }
