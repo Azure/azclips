@@ -19,6 +19,7 @@
     <Project Path="src/Extensions/Extension/Extensions.Extension.csproj" />
     <Project Path="src/Extensions/Resources/Extensions.Resources.csproj" />
     <Project Path="src/Extensions/Login/Extensions.Login.csproj" />
+    <Project Path="src/Extensions/Config/Extensions.Config.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Cli.Tests/Cli.Tests.csproj" />
