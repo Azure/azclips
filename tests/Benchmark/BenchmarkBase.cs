@@ -17,6 +17,7 @@ public abstract class BenchmarkBase
 {
     protected string RepoRoot { get; set; } = null!;
     protected int RgCounter = 0;
+    protected string SubscriptionId { get; set; } = "00000000-0000-0000-0000-000000000000";
 
 
     /// <summary>
@@ -25,7 +26,11 @@ public abstract class BenchmarkBase
     protected void InitializeCommon()
     {
         CirrusServiceProvider.OverrideRegistration = services =>
+        {
             services.AddSingleton<HttpMessageHandler>(new StubHttpMessageHandler());
+            services.AddSingleton<IAuthContextService>(new StubAuthContextService());
+            services.AddSingleton<IAuthService>(new StubAuthService());
+        };
 
         RepoRoot = FindRepoRoot(AppContext.BaseDirectory)
             ?? FindRepoRoot(Directory.GetCurrentDirectory())

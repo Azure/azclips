@@ -18,7 +18,7 @@ namespace Benchmark.PS;
 [MemoryDiagnoser]
 [WarmupCount(1)]
 [IterationCount(5)]
-[SimpleJob(RunStrategy.Monitoring, iterationCount: 5)]
+[SimpleJob(RunStrategy.Monitoring, iterationCount: 1)]
 public class ResourceGroupBenchmarks : BenchmarkBase
 {
     private Runspace _runspace = null!;

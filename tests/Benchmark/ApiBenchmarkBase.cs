@@ -12,7 +12,6 @@ namespace Benchmark;
 /// </summary>
 public abstract class ApiBenchmarkBase : BenchmarkBase
 {
-    protected string SubscriptionId { get; private set; } = null!;
     protected string AccessToken { get; private set; } = null!;
     protected string InstanceId { get; private set; } = null!;
 
