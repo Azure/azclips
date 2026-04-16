@@ -31,20 +31,20 @@ public class ResourceGroupBenchmarks : BenchmarkBase
         CleanupCommon();
     }
 
-    [Benchmark(Description = "CLI: group list")]
+    [Benchmark(Description = "CLI: List RG")]
     public int GroupList()
     {
         return Core.Cli.Program.Main(new[] { "group", "list" }).GetAwaiter().GetResult();
     }
 
-    [Benchmark(Description = "CLI: group create")]
+    [Benchmark(Description = "CLI: Create RG")]
     public int GroupCreate()
     {
         var rgName = $"bench-rg-{Interlocked.Increment(ref RgCounter)}";
         return Core.Cli.Program.Main(new[] { "group", "create", "--name", rgName, "--location", "eastus", "--subscription-id", SubscriptionId}).GetAwaiter().GetResult();
     }
 
-    [Benchmark(Description = "CLI: group show")]
+    [Benchmark(Description = "CLI: Get RG")]
     public int GroupShow()
     {
         return Core.Cli.Program.Main(new[] { "group", "show", "--Name", "bench-rg-show" }).GetAwaiter().GetResult();
