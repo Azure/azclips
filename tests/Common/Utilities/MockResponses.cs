@@ -1,10 +1,10 @@
-namespace Benchmark;
+namespace Tests.Common.Utilities;
 
 /// <summary>
 /// Canned ARM JSON responses for isolated benchmarks.
 /// Property names match the Azure Resource Manager API response shape (camelCase).
 /// </summary>
-public static class CannedResponses
+public static class MockResponses
 {
     public const string ResourceGroupList = """
         {

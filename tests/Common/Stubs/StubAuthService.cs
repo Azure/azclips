@@ -3,7 +3,7 @@
 
 using Core.Abstractions;
 
-namespace Benchmark;
+namespace Tests.Common.Stubs;
 
 public class StubAuthService : IAuthService
 {

@@ -28,6 +28,7 @@ public class ResourceGroupBenchmarks : BenchmarkBase
         InitializeCommon();
     }
 
+    //Imitate cold start on every command invocation.
     public void Setup()
     {
         var psModulePath = Path.Combine(RepoRoot, "src", "PS", "Resources", "Resources.psd1");

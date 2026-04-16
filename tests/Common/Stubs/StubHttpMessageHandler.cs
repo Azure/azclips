@@ -2,8 +2,9 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Tests.Common.Utilities;
 
-namespace Benchmark;
+namespace Tests.Common.Stubs;
 
 /// <summary>
 /// Mock HTTP handler that writes each request to a file and returns a canned JSON response.
@@ -66,7 +67,7 @@ public class StubHttpMessageHandler : HttpMessageHandler
         if (method == HttpMethod.Put && Regex.IsMatch(url, @"/resourcegroups/[^/]+$", RegexOptions.IgnoreCase))
         {
             var name = url.Split('/').Last();
-            return CannedResponses.ResourceGroupCreate
+            return MockResponses.ResourceGroupCreate
                 .Replace("{name}", name)
                 .Replace("{location}", "eastus");
         }
@@ -75,13 +76,13 @@ public class StubHttpMessageHandler : HttpMessageHandler
         if (method == HttpMethod.Get && Regex.IsMatch(url, @"/resourcegroups/[^/?]+$", RegexOptions.IgnoreCase))
         {
             var name = url.Split('/').Last();
-            return CannedResponses.ResourceGroupGet.Replace("{name}", name);
+            return MockResponses.ResourceGroupGet.Replace("{name}", name);
         }
 
         // GET .../resourcegroups (no specific name) → list
         if (method == HttpMethod.Get && Regex.IsMatch(url, @"/resourcegroups(\?|$)", RegexOptions.IgnoreCase))
         {
-            return CannedResponses.ResourceGroupList;
+            return MockResponses.ResourceGroupList;
         }
 
         // Unmatched → 501 body (status is still 200 to avoid error handling in pipeline)
