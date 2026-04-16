@@ -11,24 +11,25 @@ using Core.DependencyInjection;
 namespace Benchmark.PS;
 
 /// <summary>
-/// PS benchmarks — runs cmdlets in a persistent runspace with mocked HTTP.
-/// Measures: cmdlet execution, DI resolution, command binding, serialization,
-/// deserialization, output routing. Does NOT hit Azure.
+/// PS benchmarks — runs cmdlets with mocked HTTP. Does NOT hit Azure.
+/// Cold-start benchmarks: fresh runspace + module import per call. Comparable to CLI benchmarks.
 /// </summary>
 [MemoryDiagnoser]
 [WarmupCount(1)]
 [IterationCount(5)]
-[SimpleJob(RunStrategy.Monitoring, iterationCount: 1)]
+[SimpleJob(RunStrategy.Monitoring, iterationCount: 5)]
 public class ResourceGroupBenchmarks : BenchmarkBase
 {
     private Runspace _runspace = null!;
-    private const string DummySubscriptionId = "00000000-0000-0000-0000-000000000000";
 
     [GlobalSetup]
-    public void Setup()
+    public void GlobalSetup()
     {
         InitializeCommon();
+    }
 
+    public void Setup()
+    {
         var psModulePath = Path.Combine(RepoRoot, "src", "PS", "Resources", "Resources.psd1");
 
         // Create and open persistent runspace
@@ -44,41 +45,21 @@ public class ResourceGroupBenchmarks : BenchmarkBase
         Console.WriteLine("[Setup] PS benchmarks ready (stub HTTP)");
     }
 
-    [GlobalCleanup]
     public void Cleanup()
     {
         _runspace?.Close();
         _runspace?.Dispose();
+    }
+
+    [GlobalCleanup]
+    public void GlobalCleanup()
+    {
         CleanupCommon();
-    }
-
-    [Benchmark(Description = "PS: List RG")]
-    public object? ListResourceGroups()
-    {
-        return RunPowerShellCommand("Get-ResourceGroup",
-            ("SubscriptionId", DummySubscriptionId));
-    }
-
-    [Benchmark(Description = "PS: Create RG")]
-    public object? CreateResourceGroup()
-    {
-        var rgName = $"bench-rg-{Interlocked.Increment(ref RgCounter)}";
-        return RunPowerShellCommand("New-ResourceGroup",
-            ("SubscriptionId", DummySubscriptionId),
-            ("Name", rgName),
-            ("Location", "eastus"));
-    }
-
-    [Benchmark(Description = "PS: Get RG")]
-    public object? GetResourceGroup()
-    {
-        return RunPowerShellCommand("Get-ResourceGroup",
-            ("SubscriptionId", DummySubscriptionId),
-            ("Name", "bench-rg-get"));
     }
 
     private object? RunPowerShellCommand(string command, params (string Name, object Value)[] parameters)
     {
+        Setup();
         using var ps = PowerShell.Create();
         ps.Runspace = _runspace;
         ps.AddCommand(command);
@@ -87,6 +68,32 @@ public class ResourceGroupBenchmarks : BenchmarkBase
             ps.AddParameter(name, value);
         }
         var results = ps.Invoke();
+        Cleanup();
         return results.Count > 0 ? results[0] : null;
+    }
+
+    [Benchmark(Description = "PS: List RG")]
+    public object? ListResourceGroups()
+    {
+        return RunPowerShellCommand("Get-ResourceGroup",
+            ("SubscriptionId", SubscriptionId));
+    }
+
+    [Benchmark(Description = "PS: Create RG")]
+    public object? CreateResourceGroup()
+    {
+        var rgName = $"bench-rg-{Interlocked.Increment(ref RgCounter)}";
+        return RunPowerShellCommand("New-ResourceGroup",
+            ("SubscriptionId", SubscriptionId),
+            ("Name", rgName),
+            ("Location", "eastus"));
+    }
+
+    [Benchmark(Description = "PS: Get RG")]
+    public object? GetResourceGroup()
+    {
+        return RunPowerShellCommand("Get-ResourceGroup",
+            ("SubscriptionId", SubscriptionId),
+            ("Name", "bench-rg-get"));
     }
 }
