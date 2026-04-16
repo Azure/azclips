@@ -13,7 +13,7 @@ namespace Tests.Common.Stubs;
 public class StubHttpMessageHandler : HttpMessageHandler
 {
     private readonly string _requestOutputDir;
-    private int _requestCounter;
+    private static int s_requestCounter;
 
     public StubHttpMessageHandler(string? requestOutputDir = null)
     {
@@ -26,7 +26,7 @@ public class StubHttpMessageHandler : HttpMessageHandler
         HttpRequestMessage request, CancellationToken cancellationToken)
     {
         // Write request to numbered JSON file
-        var counter = Interlocked.Increment(ref _requestCounter);
+        var counter = Interlocked.Increment(ref s_requestCounter);
         await WriteRequestAsync(request, counter);
 
         // Select canned response based on URL pattern
