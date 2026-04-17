@@ -27,6 +27,53 @@ Implement user-scope configuration with strict validation, safe writes, and CLI/
 5. Add PowerShell cmdlets (config)
 6. Add tests and docs
 
+## Implementation Checklist (Current PR Revision)
+
+### Core Contracts
+
+- [ ] Add IProfileContextProvider abstraction (consumed, not owned)
+- [ ] Extend IConfigurationService with ResolveDefaultParameter(name)
+- [ ] Keep profile lifecycle APIs out of this PR
+
+### Core Options + Schema
+
+- [ ] Rename hosts._ schema/option model to clients._
+- [ ] Add defaults.\* keys to schema (initial set: group, location, web, vm, vmss, acr)
+- [ ] Add DefaultsOptions and ensure reflection-based defaults work for new keys
+
+### Core Service Behavior
+
+- [ ] Resolve active profile through IProfileContextProvider
+- [ ] Layer config in order: defaults -> global config -> active profile -> env -> invocation
+- [ ] Keep global config as mutation target for config set/delete in this PR
+- [ ] Add ResolveDefaultParameter(name) implementation reading defaults.<name>
+
+### DI Wiring
+
+- [ ] Register IProfileContextProvider dependency (from profile service package/integration)
+- [ ] Wire ConfigurationService with profile context dependency
+- [ ] Ensure app starts when no active profile is available (null profile context)
+
+### CLI + PowerShell Surface
+
+- [ ] Keep command surface to 5 config commands only
+- [ ] Update list/get source attribution to distinguish profile vs global when applicable
+- [ ] Keep profile lifecycle command/cmdlet support out of this PR
+
+### Tests
+
+- [ ] Unit test: profile layering overrides global values
+- [ ] Unit test: no active profile falls back to global + env + defaults
+- [ ] Unit test: ResolveDefaultParameter(name) returns expected defaults.\* value
+- [ ] Unit test: unknown defaults.\* keys rejected unless force
+- [ ] Integration test: config command behavior unchanged for non-profile scenarios
+
+### Validation + Docs Sync
+
+- [ ] Run full Cli.Tests suite and confirm green
+- [ ] Verify no regression in existing schema/service tests
+- [ ] Update docs status/test counts to reflect actual post-implementation state
+
 ## Pseudocode
 
 ### 1) Contracts + Schema
