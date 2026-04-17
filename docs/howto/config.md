@@ -1,8 +1,8 @@
 # Configuration Management
 
-Cirrus stores user-scope configuration in a single JSON file: `~/.cirrus/config.json`.
+Cirrus stores user-scope configuration in a global JSON file and can optionally layer an active profile configuration file on top.
 
-Configuration follows strict precedence: **command args > environment variables > config file > defaults**.
+Configuration follows strict precedence: **command args > environment variables > active profile config > global config > defaults**.
 
 ## Valid Configuration Keys
 
@@ -10,7 +10,7 @@ Configuration follows strict precedence: **command args > environment variables 
 | --------------------------------------------- | ------ | -------------------- | ---------------------------------------------- |
 | `core.logging.level`                          | string | `info`               | Log level: `debug`, `info`, `warning`, `error` |
 | `core.http.maxRetries`                        | int    | `3`                  | Max HTTP request retries                       |
-| `core.http.maxRetriesFor429`                  | int    | `10`                 | Max retries for 429 (rate limit) responses     |
+| `core.http.maxRetriesFor429`                  | int    | `5`                  | Max retries for 429 (rate limit) responses      |
 | `core.engine.extensionIndexCacheSize`         | int    | `512`                | Extension index cache size in MB               |
 | `assemblyLoading.versionedInstallationDir`    | string | (system)             | Versioned assembly installation directory      |
 | `assemblyLoading.builtinInstallationDir`      | string | (system)             | Built-in assembly directory                    |
@@ -20,8 +20,14 @@ Configuration follows strict precedence: **command args > environment variables 
 | `telemetry.zipkinEndpoint`                    | string | (empty)              | Zipkin tracing endpoint                        |
 | `agent.enabled`                               | bool   | `true`               | Enable AI agent fallback                       |
 | `extensions.resources.arm.apiVersionOverride` | string | (empty)              | Override ARM API version                       |
-| `hosts.cli.output.format`                     | string | `text`               | CLI output format: `text`, `json`              |
-| `hosts.powershell.output.format`              | string | `text`               | PowerShell output format: `text`, `json`       |
+| `clients.cli.output.format`                   | string | `table`              | CLI output format: `json`, `table`, `tsv`, `yaml` |
+| `clients.powershell.output.format`            | string | `object`             | PowerShell output format: `object`, `json`, `table` |
+| `defaults.group`                              | string | (empty)              | Default resource group                           |
+| `defaults.location`                           | string | (empty)              | Default location                                 |
+| `defaults.web`                                | string | (empty)              | Default web app name                             |
+| `defaults.vm`                                 | string | (empty)              | Default VM name                                  |
+| `defaults.vmss`                               | string | (empty)              | Default VMSS name                                |
+| `defaults.acr`                                | string | (empty)              | Default ACR name                                 |
 
 ## CLI Usage
 
@@ -162,6 +168,50 @@ Configuration is stored at:
 
 - **Windows**: `%USERPROFILE%\.cirrus\config.json`
 - **Linux/macOS**: `$HOME/.cirrus/config.json`
+
+## Profile-aware Behavior (Current State)
+
+Profile lifecycle commands are not part of this implementation, but config resolution is already profile-aware.
+
+- The config service consumes an active profile context from `IProfileContextProvider`.
+- If a provider returns an active profile file path and that file exists, values in that file override global config values.
+- If no active profile exists (or the file is missing), config resolution falls back to global config and defaults.
+- `set` and `delete` operations still mutate the global config file.
+
+In command output, profile-origin values are labeled as `profile config`.
+
+## Verifying Profile Handling Before Profile Commands Exist
+
+You can validate behavior now with tests that simulate an active profile context.
+
+### 1) Run profile-focused tests
+
+```bash
+dotnet test tests/Cli.Tests/Cli.Tests.csproj -c Release --filter "FullyQualifiedName~ConfigurationServiceTests.GetConfiguration_ShouldLayerActiveProfileOverGlobalConfig|FullyQualifiedName~ConfigurationServiceTests.GetConfiguration_ShouldFallbackToGlobal_WhenActiveProfileIsMissing"
+```
+
+Expected result:
+
+- `GetConfiguration_ShouldLayerActiveProfileOverGlobalConfig` passes
+- `GetConfiguration_ShouldFallbackToGlobal_WhenActiveProfileIsMissing` passes
+
+### 2) Run defaults resolver test
+
+```bash
+dotnet test tests/Cli.Tests/Cli.Tests.csproj -c Release --filter "FullyQualifiedName~ConfigurationServiceTests.ResolveDefaultParameterAsync_ShouldReturnDefaultsValue_WhenConfigured"
+```
+
+Expected result:
+
+- `defaults.*` values are resolved for parameter defaults when configured
+
+### 3) Optional full config regression pass
+
+```bash
+dotnet test tests/Cli.Tests/Cli.Tests.csproj -c Release
+```
+
+This confirms profile layering, fallback behavior, defaults handling, and command-surface regressions as a bundle.
 
 ## Examples
 
