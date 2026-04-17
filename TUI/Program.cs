@@ -57,10 +57,26 @@ public static class Program
                     widgets.Add(v.Text($"  {Ansi.DimGray}Type a command or start typing for suggestions{Ansi.End}"));
                     widgets.Add(v.Text(""));
                 }
+                else
+                {
+                    // ── Output history with manual scroll windowing ──
+                    var reservedLines = 2 + state.Suggestions.Count; // prompt + status + suggestions
+                    var availableHeight = Math.Max(4, Console.WindowHeight - reservedLines);
+                    var totalLines = state.OutputLines.Count;
 
-                // ── Output history ──
-                foreach (var line in state.OutputLines)
-                    widgets.Add(v.Text(line));
+                    // scrollOffset=0 means "show the latest"; positive means "scroll up N lines"
+                    var endIdx = Math.Max(0, totalLines - state.OutputScrollOffset);
+                    var startIdx = Math.Max(0, endIdx - availableHeight);
+
+                    if (startIdx > 0)
+                        widgets.Add(v.Text($"  {Ansi.DimGray}↑ {startIdx} more lines above{Ansi.End}"));
+
+                    for (int i = startIdx; i < endIdx; i++)
+                        widgets.Add(v.Text(state.OutputLines[i]));
+
+                    if (state.OutputScrollOffset > 0)
+                        widgets.Add(v.Text($"  {Ansi.DimGray}↓ {state.OutputScrollOffset} more lines below{Ansi.End}"));
+                }
 
                 // ── Prompt + TextBox input ──
                 widgets.Add(v.HStack(h => [
@@ -91,9 +107,22 @@ public static class Program
                                 if (state.Suggestions.Count > 0)
                                     state.SelectedSuggestion = (state.SelectedSuggestion - 1 + state.Suggestions.Count) % state.Suggestions.Count;
                             }, "Previous suggestion");
+                            bindings.Key(Hex1b.Input.Hex1bKey.PageUp).Action(() =>
+                            {
+                                var pageSize = Math.Max(1, Console.WindowHeight / 2);
+                                state.OutputScrollOffset = Math.Min(
+                                    state.OutputScrollOffset + pageSize,
+                                    Math.Max(0, state.OutputLines.Count - 1));
+                            }, "Scroll output up");
+                            bindings.Key(Hex1b.Input.Hex1bKey.PageDown).Action(() =>
+                            {
+                                var pageSize = Math.Max(1, Console.WindowHeight / 2);
+                                state.OutputScrollOffset = Math.Max(0, state.OutputScrollOffset - pageSize);
+                            }, "Scroll output down");
                             bindings.Ctrl().Key(Hex1b.Input.Hex1bKey.L).Action(() =>
                             {
                                 state.OutputLines.Clear();
+                                state.OutputScrollOffset = 0;
                             }, "Clear output");
                         }),
                 ]));
@@ -109,7 +138,7 @@ public static class Program
                 }
 
                 // ── Status bar ──
-                widgets.Add(v.Text($"  {Ansi.DimGray}↵ run  ⇥ complete  ↑↓ browse  ^L clear{Ansi.End}"));
+                widgets.Add(v.Text($"  {Ansi.DimGray}↵ run  ⇥ complete  ↑↓ browse  PgUp/PgDn scroll  ^L clear{Ansi.End}"));
 
                 return widgets.ToArray();
             }),
@@ -140,6 +169,7 @@ class AppState
     public List<string> OutputLines { get; } = new();
     public List<Suggestion> Suggestions { get; private set; } = new();
     public int SelectedSuggestion { get; set; }
+    public int OutputScrollOffset { get; set; }
     public string Prompt { get; private set; } = "/ > ";
 
     public AppState()
@@ -331,6 +361,7 @@ class AppState
 
         OutputLines.Add("");
         InputText = "";
+        OutputScrollOffset = 0;
         RefreshPrompt();
         UpdateSuggestions();
     }
