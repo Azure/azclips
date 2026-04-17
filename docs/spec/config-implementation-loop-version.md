@@ -4,16 +4,16 @@ Status: Design Phase
 🚀 Executive Summary
 A unified, strongly-typed configuration service for Cirrus:
 
-Centralizes config: All settings in ~/.cirrus/config.json with optional named profiles
+Centralizes config: All settings in ~/.cirrus/config.json with profile-aware resolution
 Typed access: Via IConfigurationService<T> with validation & schema awareness
-Config profiles: Named sets (dev, prod, staging) that layer over global config
+Config profiles: Active profile consumed from external profile service/spec
 Default parameters: Azure CLI–style defaults (defaults.group, defaults.location, etc.)
 Precedence hierarchy:
 command arguments > environment variables > active profile > global config file > code defaults
 
 Separation of concerns: Config is separate from credentials (AuthContextService/MSAL)
 DI integration: Modular RegisterConfigurationServices() method
-CLI & PowerShell support: Native commands/cmdlets for config + profiles with completers
+CLI & PowerShell support: Native config commands/cmdlets
 
 🏗️ Architecture
 Precedence order:
@@ -28,12 +28,12 @@ Dependency Injection via RegisterConfigurationServices().
 
 📁 File Location & Format
 
-Location: ~/.cirrus/config.json (global config, includes active profile state)
-Profiles: ~/.cirrus/profiles/<name>.json (named configuration sets)
+Location: ~/.cirrus/config.json (global config)
+Profiles: ~/.cirrus/profiles/<name>.json (read when active profile is provided by external profile context)
 Windows: %USERPROFILE%\.cirrus/config.json and %USERPROFILE%\.cirrus/profiles/
 macOS/Linux: $HOME/.cirrus/config.json and $HOME/.cirrus/profiles/
 Format: Nested JSON, dot-notation key access
-Reserved Key: profile.active (stores active profile name in global config)
+Note: active profile selection state is owned by a separate profile service/spec
 
 🗂️ Key Catalog
 Core Settings
@@ -70,7 +70,6 @@ defaults.web – Default app name for az webapp commands (extensible per-command
 📝 Sample Config File
 
 {
-"profile": { "active": "dev" },
 "core": {
 "logging": { "level": "debug" },
 "engine": { "extensionIndexCacheSize": 768 }
@@ -111,14 +110,9 @@ IConfigurationService interface:
 - GetSchema() - Return schema metadata for tooling
 - ResolveDefaultParameter(name) - Read parameter default from config.defaults.\* (opt-in for commands)
 
-IConfigurationProfileService interface (new):
+IProfileContextProvider interface (consumed from separate profile service/spec):
 
-- GetActiveProfile() - Return name of currently active profile or null
-- SetActiveProfileAsync(name) - Switch to named profile (validate existence)
-- CreateProfileAsync(name) - Create new profile file
-- DeleteProfileAsync(name) - Delete profile (prevent if active)
-- ListProfilesAsync() - List all profile names
-- GetProfileAsync(name) - Read profile contents
+- GetActiveProfile() - Return active profile context (name/path) or null
 
 💻 CLI Commands
 Parent command: azv2 config
@@ -130,27 +124,16 @@ delete <key> – Delete key from global config
 list [--all] – List all keys in global config
 info – Schema metadata (hidden)
 
-Parent command: azv2 config profile
-Subcommands:
-
-use <name> – Set active profile (or create if missing with --create flag)
-list – Show all profiles, mark active profile with (active) indicator
-create <name> – Create new empty profile file
-delete <name> – Delete profile (fail if active)
-show <name> – Display profile contents (like config list but for specific profile)
-
 Validation:
 
 Unknown keys rejected by default
 --force allows experimental keys
 Type, enum, range, path, URI validation
-Profile names must be alphanumeric + hyphens
 
 Argument Completion:
 
 Tab completion for config keys
-Tab completion for profile names
-Example: azv2 config set core.<TAB> or azv2 config profile use <TAB>
+Example: azv2 config set core.<TAB>
 
 🖥️ PowerShell Cmdlets
 Module: Cirrus.Config
@@ -163,19 +146,10 @@ Config Cmdlets:
 - Get-CirrusConfigList [-All]
 - Get-CirrusConfigInfo
 
-Profile Cmdlets:
-
-- Use-CirrusConfigProfile -Name <name> [-Create]
-- Get-CirrusConfigProfile – List all profiles with active marker
-- New-CirrusConfigProfile -Name <name>
-- Remove-CirrusConfigProfile -Name <name> [-Force]
-- Show-CirrusConfigProfile -Name <name>
-
 Parameter Completion:
 
 Auto-registered on module import
 Tab completion for -Key parameter (config cmdlets)
-Tab completion for -Name parameter (profile cmdlets)
 
 🗃️ File Operations
 Write (Set Operation)
@@ -221,28 +195,25 @@ Regex patterns must match if specified
 Core.Configuration
 
 IConfigurationService – Main interface (now includes ResolveDefaultParameter)
-IConfigurationProfileService – Profile management interface (new)
+IProfileContextProvider – Active profile context provider (consumed from separate profile service/spec)
 IConfigurationProvider – File I/O abstraction
 IConfigurationValidator – Validation interface
 ConfigurationService – Implementation (includes profile layering)
 FileConfigurationProvider – JSON persistence (handles global + profile files)
 DefaultConfigurationValidator – Validation logic
-Options: CoreOptions, TelemetryOptions, AgentOptions, ExtensionsOptions, ClientsOptions, DefaultsOptions, ProfileStateOptions
+Options: CoreOptions, TelemetryOptions, AgentOptions, ExtensionsOptions, ClientsOptions, DefaultsOptions
 IConfigurationSchema – Schema metadata
 
 Extensions.Config
 
-ExtensionIndex.cs – Extension metadata (10 commands: 5 config + 5 profile)
+ExtensionIndex.cs – Extension metadata (5 commands)
 Commands: GetCommand, SetCommand, DeleteCommand, ListCommand, InfoCommand (config)
-Commands: UseProfileCommand, ListProfileCommand, CreateProfileCommand, DeleteProfileCommand, ShowProfileCommand (profile)
 ConfigKeyCompleter.cs – Argument completion for config keys
-ProfileNameCompleter.cs – Argument completion for profile names
 
 PS.Config (PowerShell Module)
 
 Config Cmdlets: Get-CirrusConfig, Set-CirrusConfig, Remove-CirrusConfig, Get-CirrusConfigList, Get-CirrusConfigInfo
-Profile Cmdlets: Use-CirrusConfigProfile, Get-CirrusConfigProfile, New-CirrusConfigProfile, Remove-CirrusConfigProfile, Show-CirrusConfigProfile
-Parameter completion registration (keys + profile names)
+Parameter completion registration (keys)
 
 🔄 Changes to Existing Code
 Minimal changes to core services:
@@ -341,7 +312,7 @@ private readonly IConfigurationRoot \_configRoot;
 
 **Write Access:**
 
-- Only config extension/cmdlets (azv2 config set/delete, azv2 config profile create/delete) have write access
+- Only config extension/cmdlets (azv2 config set/delete) have write access
 - Non-config commands and services have read-only access via IConfigurationService<T>
 - This prevents accidental mutations and ensures config integrity
 
@@ -350,17 +321,15 @@ private readonly IConfigurationRoot \_configRoot;
 - All services and commands read config via IConfigurationService<T>.GetConfiguration<T>()
 - No direct file access; all reads go through the service with full precedence chain (args > env > profile > global > defaults)
 
-📋 Config Profiles (MVP)
+📋 Config Profile Integration (MVP)
 
-**Design:** Support named configuration profiles (dev, prod, staging, custom)
+**Design:** Resolve config against the currently active profile context
 
-**Implementation:**
+**Ownership:**
 
-- User selects active profile: `azv2 config profile use dev`
-- Each profile has its own .json file: `~/.cirrus/profiles/dev.json`, `~/.cirrus/profiles/prod.json`
-- Active profile name stored in global config at reserved key: `profile.active`
-- Profile values layer on top of global config in precedence chain
-- Service automatically loads and applies active profile during GetConfiguration<T>()
+- Profile lifecycle and selection are owned by a separate profile PR/spec
+- Config service consumes active profile context via IProfileContextProvider
+- Each profile file is layered over global config when an active profile is present
 
 **Precedence (with profiles):**
 
@@ -370,21 +339,10 @@ private readonly IConfigurationRoot \_configRoot;
 4. Global config file (~/.cirrus/config.json)
 5. Code defaults
 
-**Commands (Implemented):**
+**Out of Scope in this PR:**
 
-- `azv2 config profile use <name>` – Set active profile (validate profile exists)
-- `azv2 config profile list` – Show all profiles with (active) marker
-- `azv2 config profile create <name>` – Create new empty profile
-- `azv2 config profile delete <name>` – Delete profile (prevent if active)
-- `azv2 config profile show <name>` – Display profile contents
-
-**PowerShell Equivalents:**
-
-- Use-CirrusConfigProfile
-- Get-CirrusConfigProfile
-- New-CirrusConfigProfile
-- Remove-CirrusConfigProfile
-- Show-CirrusConfigProfile
+- Profile lifecycle commands/cmdlets (create/list/use/delete/select)
+- Profile storage ownership and active profile state persistence
 
 📌 Default Parameters (MVP)
 
@@ -416,7 +374,7 @@ Unit Tests
 
 - Schema validation, options parsing, file I/O, key normalization
 - Precedence chain (args > env > profile > global > defaults)
-- Profile selection and state persistence
+- Profile context consumption and layering behavior
 - Default parameter resolution
 - Error handling (missing profile, invalid names)
 - Lock and atomic write behavior
@@ -424,8 +382,7 @@ Unit Tests
 Integration Tests
 
 - CLI config commands (get, set, delete, list, info)
-- CLI profile commands (use, list, create, delete, show)
-- PowerShell cmdlets (config and profile)
+- PowerShell cmdlets (config)
 - Environment variable overrides
 - Profile layering (active profile values override global)
 - Default parameters accessible via ResolveDefaultParameter
@@ -434,7 +391,7 @@ Integration Tests
 Manual Testing
 
 - Config file creation and editing
-- Profile workflows (create, switch, delete)
+- Active profile integration (with profile selected externally)
 - Default parameter setting and retrieval
 - Precedence validation across all layers
 - PowerShell module import and cmdlet invocation
