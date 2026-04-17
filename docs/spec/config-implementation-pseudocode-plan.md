@@ -301,7 +301,6 @@ Cmdlet behavior:
 **What was built:**
 
 - `src/PS/Config/` — Config PowerShell module (5 cmdlets)
-- `src/PS/Cirrus.psd1` / `.psm1` — Meta-module aggregating Login + Config
 - `src/Extensions/Config/ExtensionIndex.cs` — Extended with PS metadata (s_psTable)
 
 **Key Implementation Details:**
