@@ -6,28 +6,28 @@ Configuration follows strict precedence: **command args > environment variables 
 
 ## Valid Configuration Keys
 
-| Key                                           | Type   | Default              | Notes                                          |
-| --------------------------------------------- | ------ | -------------------- | ---------------------------------------------- |
-| `core.logging.level`                          | string | `info`               | Log level: `debug`, `info`, `warning`, `error` |
-| `core.http.maxRetries`                        | int    | `3`                  | Max HTTP request retries                       |
-| `core.http.maxRetriesFor429`                  | int    | `5`                  | Max retries for 429 (rate limit) responses      |
-| `core.engine.extensionIndexCacheSize`         | int    | `512`                | Extension index cache size in MB               |
-| `assemblyLoading.versionedInstallationDir`    | string | (system)             | Versioned assembly installation directory      |
-| `assemblyLoading.builtinInstallationDir`      | string | (system)             | Built-in assembly directory                    |
-| `assemblyLoading.extensionFolderPrefix`       | string | `.cirrus/extensions` | Extensions folder prefix                       |
-| `telemetry.enabled`                           | bool   | `true`               | Enable telemetry                               |
-| `telemetry.appInsightsInstrumentationKey`     | string | (empty)              | Application Insights key                       |
-| `telemetry.zipkinEndpoint`                    | string | (empty)              | Zipkin tracing endpoint                        |
-| `agent.enabled`                               | bool   | `true`               | Enable AI agent fallback                       |
-| `extensions.resources.arm.apiVersionOverride` | string | (empty)              | Override ARM API version                       |
-| `clients.cli.output.format`                   | string | `table`              | CLI output format: `json`, `table`, `tsv`, `yaml` |
+| Key                                           | Type   | Default              | Notes                                               |
+| --------------------------------------------- | ------ | -------------------- | --------------------------------------------------- |
+| `core.logging.level`                          | string | `info`               | Log level: `debug`, `info`, `warning`, `error`      |
+| `core.http.maxRetries`                        | int    | `3`                  | Max HTTP request retries                            |
+| `core.http.maxRetriesFor429`                  | int    | `5`                  | Max retries for 429 (rate limit) responses          |
+| `core.engine.extensionIndexCacheSize`         | int    | `512`                | Extension index cache size in MB                    |
+| `assemblyLoading.versionedInstallationDir`    | string | (system)             | Versioned assembly installation directory           |
+| `assemblyLoading.builtinInstallationDir`      | string | (system)             | Built-in assembly directory                         |
+| `assemblyLoading.extensionFolderPrefix`       | string | `.cirrus/extensions` | Extensions folder prefix                            |
+| `telemetry.enabled`                           | bool   | `true`               | Enable telemetry                                    |
+| `telemetry.appInsightsInstrumentationKey`     | string | (empty)              | Application Insights key                            |
+| `telemetry.zipkinEndpoint`                    | string | (empty)              | Zipkin tracing endpoint                             |
+| `agent.enabled`                               | bool   | `true`               | Enable AI agent fallback                            |
+| `extensions.resources.arm.apiVersionOverride` | string | (empty)              | Override ARM API version                            |
+| `clients.cli.output.format`                   | string | `table`              | CLI output format: `json`, `table`, `tsv`, `yaml`   |
 | `clients.powershell.output.format`            | string | `object`             | PowerShell output format: `object`, `json`, `table` |
-| `defaults.group`                              | string | (empty)              | Default resource group                           |
-| `defaults.location`                           | string | (empty)              | Default location                                 |
-| `defaults.web`                                | string | (empty)              | Default web app name                             |
-| `defaults.vm`                                 | string | (empty)              | Default VM name                                  |
-| `defaults.vmss`                               | string | (empty)              | Default VMSS name                                |
-| `defaults.acr`                                | string | (empty)              | Default ACR name                                 |
+| `defaults.group`                              | string | (empty)              | Default resource group                              |
+| `defaults.location`                           | string | (empty)              | Default location                                    |
+| `defaults.web`                                | string | (empty)              | Default web app name                                |
+| `defaults.vm`                                 | string | (empty)              | Default VM name                                     |
+| `defaults.vmss`                               | string | (empty)              | Default VMSS name                                   |
+| `defaults.acr`                                | string | (empty)              | Default ACR name                                    |
 
 ## CLI Usage
 
