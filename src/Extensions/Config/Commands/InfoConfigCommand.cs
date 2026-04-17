@@ -20,7 +20,20 @@ public sealed class InfoConfigCommand : ConfigCommandBase
             return;
         }
 
-        var metadata = schema.GetAllKeys().OrderBy(key => key.Key, StringComparer.OrdinalIgnoreCase);
+        var metadata = schema.GetAllKeys()
+            .OrderBy(key => key.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(key => new
+            {
+                key.Key,
+                key.Description,
+                key.DefaultValue,
+                ValueType = key.ValueType?.Name,
+                AllowedValues = key.AllowedValues,
+                key.Minimum,
+                key.Maximum,
+                key.ValidationPattern,
+                key.IsUri
+            });
         await WriteOutput(Serialize(metadata)).ConfigureAwait(false);
     }
 }

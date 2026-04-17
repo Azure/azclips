@@ -18,8 +18,14 @@ public sealed class ConfigurationSchema : IConfigurationSchema
         new() { Key = "telemetry.appInsightsInstrumentationKey", Description = "Application Insights instrumentation key.", ValueType = typeof(string) },
         new() { Key = "agent.enabled", Description = "Enable or disable agent features.", DefaultValue = "true", ValueType = typeof(bool) },
         new() { Key = "extensions.resources.arm.apiVersionOverride", Description = "Override ARM API version.", ValueType = typeof(string) },
-        new() { Key = "hosts.cli.output.format", Description = "Default CLI output format.", DefaultValue = "table", ValueType = typeof(string), AllowedValues = ["json", "table", "tsv", "yaml"] },
-        new() { Key = "hosts.powershell.output.format", Description = "Default PowerShell output format.", DefaultValue = "object", ValueType = typeof(string), AllowedValues = ["object", "json", "table"] }
+        new() { Key = "clients.cli.output.format", Description = "Default CLI output format.", DefaultValue = "table", ValueType = typeof(string), AllowedValues = ["json", "table", "tsv", "yaml"] },
+        new() { Key = "clients.powershell.output.format", Description = "Default PowerShell output format.", DefaultValue = "object", ValueType = typeof(string), AllowedValues = ["object", "json", "table"] },
+        new() { Key = "defaults.group", Description = "Default resource group for commands that support it.", ValueType = typeof(string) },
+        new() { Key = "defaults.location", Description = "Default location for commands that support it.", ValueType = typeof(string) },
+        new() { Key = "defaults.web", Description = "Default web app name for commands that support it.", ValueType = typeof(string) },
+        new() { Key = "defaults.vm", Description = "Default VM name for commands that support it.", ValueType = typeof(string) },
+        new() { Key = "defaults.vmss", Description = "Default VMSS name for commands that support it.", ValueType = typeof(string) },
+        new() { Key = "defaults.acr", Description = "Default ACR name for commands that support it.", ValueType = typeof(string) }
     ];
 
     public IReadOnlyList<ConfigurationKeyMetadata> GetAllKeys() => Keys;

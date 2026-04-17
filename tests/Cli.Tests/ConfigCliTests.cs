@@ -13,6 +13,7 @@ using Microsoft.Azure.Cirrus.Extensions.Config.Commands;
 
 namespace Cli.Tests;
 
+[Collection("Cirrus Service Provider Tests")]
 public class ConfigCliTests
 {
     [Fact]
@@ -53,11 +54,11 @@ public class ConfigCliTests
 
         var getCommand = new GetConfigCommand { Key = "core.logging.level" };
         var getOutput = await fixture.ExecuteAsync(getCommand);
-        Assert.Contains("core.logging.level = debug [config file]", getOutput.Single());
+        Assert.Contains("core.logging.level = debug [global config]", getOutput.Single());
 
         var listCommand = new ListConfigCommand { All = true };
         var listOutput = await fixture.ExecuteAsync(listCommand);
-        Assert.Contains("core.logging.level = debug [config file]", listOutput.Single());
+        Assert.Contains("core.logging.level = debug [global config]", listOutput.Single());
         Assert.Contains("core.engine.extensionIndexCacheSize = 512 [default]", listOutput.Single());
 
         var infoCommand = new InfoConfigCommand { KeysOnly = true };

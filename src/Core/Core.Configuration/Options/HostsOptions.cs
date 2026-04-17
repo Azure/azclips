@@ -1,18 +1,18 @@
 namespace Core.Configuration.Options;
 
-public sealed class HostsOptions
+public sealed class ClientsOptions
 {
-    public CliHostOptions Cli { get; set; } = new();
+    public CliClientOptions Cli { get; set; } = new();
 
-    public PowerShellHostOptions PowerShell { get; set; } = new();
+    public PowerShellClientOptions PowerShell { get; set; } = new();
 }
 
-public sealed class CliHostOptions
+public sealed class CliClientOptions
 {
     public OutputOptions Output { get; set; } = new() { Format = "table" };
 }
 
-public sealed class PowerShellHostOptions
+public sealed class PowerShellClientOptions
 {
     public OutputOptions Output { get; set; } = new() { Format = "object" };
 }

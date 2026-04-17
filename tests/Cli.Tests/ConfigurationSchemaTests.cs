@@ -63,4 +63,24 @@ public class ConfigurationSchemaTests
 
         Assert.True(result.IsValid);
     }
+
+    [Fact]
+    public void ValidateKey_ShouldRejectUnknownDefaultsKey_WhenForceIsFalse()
+    {
+        var validator = new DefaultConfigurationValidator(_schema);
+
+        var result = validator.ValidateKey("defaults.unknown", force: false);
+
+        Assert.False(result.IsValid);
+    }
+
+    [Fact]
+    public void ValidateKey_ShouldAllowUnknownDefaultsKey_WhenForceIsTrue()
+    {
+        var validator = new DefaultConfigurationValidator(_schema);
+
+        var result = validator.ValidateKey("defaults.unknown", force: true);
+
+        Assert.True(result.IsValid);
+    }
 }

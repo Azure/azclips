@@ -71,6 +71,81 @@ public class ConfigurationServiceTests
         Assert.True(values.ContainsKey("assemblyLoading.builtinInstallationDir"));
     }
 
+    [Fact]
+    public async Task GetConfiguration_ShouldLayerActiveProfileOverGlobalConfig()
+    {
+        using var fixture = new TempConfigurationFixture();
+        await fixture.Provider.WriteAsync(new JsonObject
+        {
+            ["core"] = new JsonObject
+            {
+                ["logging"] = new JsonObject
+                {
+                    ["level"] = "info"
+                }
+            }
+        });
+
+        var profileDirectory = Path.GetDirectoryName(fixture.ActiveProfilePath);
+        if (!string.IsNullOrWhiteSpace(profileDirectory))
+        {
+            Directory.CreateDirectory(profileDirectory);
+        }
+
+        await File.WriteAllTextAsync(
+            fixture.ActiveProfilePath,
+            """
+            {
+              "core": {
+                "logging": {
+                  "level": "debug"
+                }
+              }
+            }
+            """);
+
+        var service = fixture.CreateService(new TestProfileContextProvider(new ActiveProfileContext("dev", fixture.ActiveProfilePath)));
+        var options = service.GetConfiguration<CoreOptions>();
+
+        Assert.Equal("debug", options.Logging.Level);
+    }
+
+    [Fact]
+    public async Task ResolveDefaultParameterAsync_ShouldReturnDefaultsValue_WhenConfigured()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        await service.SetConfigurationAsync("defaults.group", "my-rg");
+
+        var value = await service.ResolveDefaultParameterAsync("group");
+
+        Assert.Equal("my-rg", value);
+    }
+
+    [Fact]
+    public async Task GetConfiguration_ShouldFallbackToGlobal_WhenActiveProfileIsMissing()
+    {
+        using var fixture = new TempConfigurationFixture();
+        await fixture.Provider.WriteAsync(new JsonObject
+        {
+            ["core"] = new JsonObject
+            {
+                ["logging"] = new JsonObject
+                {
+                    ["level"] = "warn"
+                }
+            }
+        });
+
+        var missingProfilePath = Path.Combine(Path.GetDirectoryName(fixture.ActiveProfilePath)!, "missing.json");
+        var service = fixture.CreateService(new TestProfileContextProvider(new ActiveProfileContext("dev", missingProfilePath)));
+
+        var options = service.GetConfiguration<CoreOptions>();
+
+        Assert.Equal("warn", options.Logging.Level);
+    }
+
     private sealed class TempConfigurationFixture : IDisposable
     {
         private readonly string _directory = Path.Combine(Path.GetTempPath(), "cirrus-config-tests", Guid.NewGuid().ToString("N"));
@@ -79,15 +154,17 @@ public class ConfigurationServiceTests
         {
             Directory.CreateDirectory(_directory);
             Provider = new TestConfigurationProvider(Path.Combine(_directory, "config.json"));
+            ActiveProfilePath = Path.Combine(_directory, "profiles", "dev.json");
         }
 
         public TestConfigurationProvider Provider { get; }
+        public string ActiveProfilePath { get; }
 
-        public IConfigurationService CreateService()
+        public IConfigurationService CreateService(IProfileContextProvider? profileContextProvider = null)
         {
             var schema = new ConfigurationSchema();
             var validator = new DefaultConfigurationValidator(schema);
-            return new ConfigurationService(Provider, schema, validator);
+            return new ConfigurationService(Provider, schema, validator, profileContextProvider ?? new NullProfileContextProvider());
         }
 
         public void Dispose()
@@ -97,6 +174,11 @@ public class ConfigurationServiceTests
                 Directory.Delete(_directory, recursive: true);
             }
         }
+    }
+
+    private sealed class TestProfileContextProvider(ActiveProfileContext? activeProfile) : IProfileContextProvider
+    {
+        public ActiveProfileContext? GetActiveProfile() => activeProfile;
     }
 
     private sealed class TestConfigurationProvider(string configFilePath) : IConfigurationProvider
