@@ -5,51 +5,24 @@ using System.Management.Automation;
 using System.Management.Automation.Runspaces;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Engines;
-using Core.Abstractions;
 using Core.DependencyInjection;
 
 namespace Benchmark.PS;
 
 /// <summary>
 /// PS benchmarks — runs cmdlets with mocked HTTP. Does NOT hit Azure.
-/// Cold-start benchmarks: fresh runspace + module import per call. Comparable to CLI benchmarks.
+/// Cold-start benchmarks: fresh runspace + module import + DI init + engine process + dispose per call.
 /// </summary>
 [MemoryDiagnoser]
 [WarmupCount(1)]
-[IterationCount(5)]
 [SimpleJob(RunStrategy.Monitoring, iterationCount: 5)]
 public class ResourceGroupBenchmarks : BenchmarkBase
 {
-    private Runspace _runspace = null!;
-
     [GlobalSetup]
     public void GlobalSetup()
     {
         InitializeCommon();
-    }
-
-    //Imitate cold start on every command invocation.
-    public void Setup()
-    {
-        var psModulePath = Path.Combine(RepoRoot, "src", "PS", "Resources", "Resources.psd1");
-
-        // Create and open persistent runspace
-        _runspace = RunspaceFactory.CreateRunspace();
-        _runspace.Open();
-
-        // Import module — Initialize() in .psm1 is a no-op since container is already built
-        using var ps = PowerShell.Create();
-        ps.Runspace = _runspace;
-        ps.AddCommand("Import-Module").AddParameter("Name", psModulePath).AddParameter("Force", true);
-        ps.Invoke();
-
         Console.WriteLine("[Setup] PS benchmarks ready (stub HTTP)");
-    }
-
-    public void Cleanup()
-    {
-        _runspace?.Close();
-        _runspace?.Dispose();
     }
 
     [GlobalCleanup]
@@ -60,17 +33,39 @@ public class ResourceGroupBenchmarks : BenchmarkBase
 
     private object? RunPowerShellCommand(string command, params (string Name, object Value)[] parameters)
     {
-        Setup();
-        using var ps = PowerShell.Create();
-        ps.Runspace = _runspace;
-        ps.AddCommand(command);
-        foreach (var (name, value) in parameters)
+        var psModulePath = Path.Combine(RepoRoot, "src", "PS", "Resources", "Resources.psd1");
+
+        // Create and open a fresh runspace per invocation (cold start)
+        var runspace = RunspaceFactory.CreateRunspace();
+        runspace.Open();
+
+        try
         {
-            ps.AddParameter(name, value);
+            // Import module — triggers CirrusServiceProvider.Initialize(PowerShell) in .psm1
+            using (var import = PowerShell.Create())
+            {
+                import.Runspace = runspace;
+                import.AddCommand("Import-Module").AddParameter("Name", psModulePath).AddParameter("Force", true);
+                import.Invoke();
+            }
+
+            // Run the cmdlet
+            using var ps = PowerShell.Create();
+            ps.Runspace = runspace;
+            ps.AddCommand(command);
+            foreach (var (name, value) in parameters)
+            {
+                ps.AddParameter(name, value);
+            }
+            var results = ps.Invoke();
+            return results.Count > 0 ? results[0] : null;
         }
-        var results = ps.Invoke();
-        Cleanup();
-        return results.Count > 0 ? results[0] : null;
+        finally
+        {
+            CirrusServiceProvider.Dispose();
+            runspace.Close();
+            runspace.Dispose();
+        }
     }
 
     [Benchmark(Description = "PS: List RG")]
