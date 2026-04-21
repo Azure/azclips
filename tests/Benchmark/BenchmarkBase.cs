@@ -32,6 +32,8 @@ public abstract class BenchmarkBase
         {
             services.AddSingleton<ICommandHttpMessageHandler, StubCommandMessageHandler>();
             services.AddSingleton<ITelemetryService, StubTelemetryService>();
+            services.AddSingleton<IAuthContextService, StubAuthContextService>();
+            services.AddSingleton<IAuthService, StubAuthService>();
         };
 
         RepoRoot = RepoLocator.GetRepoRoot();
