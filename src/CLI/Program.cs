@@ -151,7 +151,7 @@ public class Program
             var exePath = Environment.ProcessPath;
             if (exePath == null) return;
 
-            // In-process benchmark mode: flush directly instead of spawning
+            // In-process benchmark mode: do not attempt to flush telemetry as in benchmark execution process
             if (!exePath.EndsWith("azv2", StringComparison.OrdinalIgnoreCase) &&
                 !exePath.EndsWith("azv2.exe", StringComparison.OrdinalIgnoreCase))
             {
