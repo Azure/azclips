@@ -1,6 +1,8 @@
 using Core.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 using System.Net.Http;
+using Core.Abstractions.Runtime.Handler;
+using Core.Runtime.Handler;
 
 namespace Core.Engine;
 
@@ -51,12 +53,9 @@ public static class DIRegisterExtensions
                 sp.GetRequiredService<ILoggingService>(),
                 sp.GetRequiredService<IOutputAdapter>()));
 
-        // Default HTTP handler — mock seam for isolated benchmarks.
-        // OverrideRegistration replaces this with StubHttpMessageHandler;
-        // last-wins DI semantics ensure HttpClient picks up the stub automatically.
-        services.AddSingleton<HttpMessageHandler>(new HttpClientHandler());
-        services.AddSingleton(sp => new HttpClient(sp.GetRequiredService<HttpMessageHandler>()));
-        services.AddSingleton<IEngine, Engine>();   
+        services.AddSingleton<HttpClient>();
+        services.AddSingleton<ICommandHttpMessageHandler, CommandHttpMessageHandler>();
+        services.AddSingleton<IEngine, Engine>();
 
         return services;
     }

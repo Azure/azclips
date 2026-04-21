@@ -13,11 +13,20 @@ namespace Core.Engine
     /// <para><b>Thread Safety:</b> This engine is designed for concurrent command execution.
     /// Each <see cref="Process"/> call creates isolated context with per-invocation output channel.
     /// Extension indices are cached using thread-safe lazy initialization.</para>
-    /// <para><b>Output Routing:</b> Each invocation gets its own Channel for worker-to-caller 
-    /// communication. The worker thread writes to the channel, and the caller's thread reads 
+    /// <para><b>Output Routing:</b> Each invocation gets its own Channel for worker-to-caller
+    /// communication. The worker thread writes to the channel, and the caller's thread reads
     /// and dispatches to the provided output delegate (e.g., $PSCmdlet.WriteObject).</para>
     /// </summary>
-    public class Engine(ClientType clientType, HttpClient httpClient, IAuthContextService authContextService, IAuthService authService, ITelemetryService telemetryService, ILoggingService loggingService, IAssemblyLoadingService assemblyLoadingService, IArgumentParsingService argumentParsingService) : IEngine
+    public class Engine(
+        ClientType clientType,
+        HttpClient httpClient,
+        IAuthContextService authContextService,
+        ICommandHttpMessageHandler commandHttpMessageHandler,
+        IAuthService authService,
+        ITelemetryService telemetryService,
+        ILoggingService loggingService,
+        IAssemblyLoadingService assemblyLoadingService,
+        IArgumentParsingService argumentParsingService) : IEngine
     {
         // Extension indices are cached with Lazy<T> to ensure single initialization per extension
         // even under concurrent access. The factory runs exactly once per key.
@@ -112,7 +121,7 @@ namespace Core.Engine
         {
             // Sync-over-async by design: invoked on the PowerShell runspace thread
             // during Process(), which is intentionally synchronous.
-            AuthContext authContext = authContextService.GetCurrentContextAsync().GetAwaiter().GetResult() 
+            AuthContext authContext = authContextService.GetCurrentContextAsync().GetAwaiter().GetResult()
                                     ?? new AuthContext(TenantId: "", SubscriptionId: "");
             ICommandAuthHandler commandAuthHandler = new CommandAuthHandler
             {
@@ -139,6 +148,9 @@ namespace Core.Engine
                 CommandTelemetryHandler = commandTelemetryHandler,
                 HttpPipeline = httpPipeline.Prepend(commandAuthHandler.SendAsync)
             };
+
+            httpPipeline.Prepend(commandHttpMessageHandler.SendAsync);
+
             return context;
         }
 
@@ -189,7 +201,7 @@ namespace Core.Engine
             {
                 throw new ArgumentException($"Invalid arguments: {string.Join(", ", validationErrors)}");
             }
-            return argumentParsingService.BindArgumentsToCommand(commandMetadata.GetInstance(), parsedParameters).Init(context);   
+            return argumentParsingService.BindArgumentsToCommand(commandMetadata.GetInstance(), parsedParameters).Init(context);
         }
 
         private IExtensionIndex GetExtensionIndex(string extensionName, bool isTransient, string extensionVersion)

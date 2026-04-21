@@ -4,7 +4,9 @@
 using System.Diagnostics;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Core.Abstractions.Runtime.Handler;
 using Core.DependencyInjection;
+using Core.Runtime.Handler;
 using Microsoft.Extensions.DependencyInjection;
 using Tests.Common.Stubs;
 
@@ -28,9 +30,7 @@ public abstract class BenchmarkBase
     {
         CirrusServiceProvider.OverrideRegistration = services =>
         {
-            services.AddSingleton<HttpMessageHandler>(new StubHttpMessageHandler());
-            services.AddSingleton<IAuthContextService>(new StubAuthContextService());
-            services.AddSingleton<IAuthService>(new StubAuthService());
+            services.AddSingleton<ICommandHttpMessageHandler, StubCommandMessageHandler>();
         };
 
         RepoRoot = FindRepoRoot(AppContext.BaseDirectory)
