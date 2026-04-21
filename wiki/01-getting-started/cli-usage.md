@@ -31,7 +31,7 @@ Examples:
 
 ```bash
 azv2 group create --Name my-rg --Location eastus --SubscriptionId <id>
-azv2 group get --SubscriptionId <id> --Name my-rg
+azv2 group show --SubscriptionId <id> --Name my-rg
 azv2 login show
 azv2 login logout
 ```
