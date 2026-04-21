@@ -30,9 +30,7 @@ public abstract class ApiBenchmarkBase : BenchmarkBase
 
         InstanceId = $"{DateTime.UtcNow:HHmmss}-{Guid.NewGuid().ToString()[..4]}";
 
-        RepoRoot = FindRepoRoot(AppContext.BaseDirectory)
-            ?? FindRepoRoot(Directory.GetCurrentDirectory())
-            ?? throw new InvalidOperationException("Cannot find repository root (looking for cirrus.slnx)");
+        RepoRoot = RepoLocator.GetRepoRoot();
 
         var authService = CirrusServiceProvider.GetRequiredService<IAuthService>();
         var authContextService = CirrusServiceProvider.GetRequiredService<IAuthContextService>();

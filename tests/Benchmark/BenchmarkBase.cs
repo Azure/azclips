@@ -31,11 +31,10 @@ public abstract class BenchmarkBase
         CirrusServiceProvider.OverrideRegistration = services =>
         {
             services.AddSingleton<ICommandHttpMessageHandler, StubCommandMessageHandler>();
+            services.AddSingleton<ITelemetryService, StubTelemetryService>();
         };
 
-        RepoRoot = FindRepoRoot(AppContext.BaseDirectory)
-            ?? FindRepoRoot(Directory.GetCurrentDirectory())
-            ?? throw new InvalidOperationException("Cannot find repository root (looking for cirrus.slnx)");
+        RepoRoot = RepoLocator.GetRepoRoot();
     }
 
     /// <summary>
@@ -47,19 +46,7 @@ public abstract class BenchmarkBase
         CirrusServiceProvider.OverrideRegistration = null;
     }
 
-    protected static string? FindRepoRoot(string startPath)
-    {
-        var dir = new DirectoryInfo(startPath);
-        while (dir != null)
-        {
-            if (File.Exists(Path.Combine(dir.FullName, "cirrus.slnx")))
-            {
-                return dir.FullName;
-            }
-            dir = dir.Parent;
-        }
-        return null;
-    }
+
 }
 
 /// <summary>
