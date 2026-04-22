@@ -5,98 +5,91 @@ using System.Management.Automation;
 using System.Management.Automation.Runspaces;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Engines;
+using Core.DependencyInjection;
 
 namespace Benchmark.PS;
 
 /// <summary>
-/// E2E Live benchmarks for Resource Group operations using PowerShell.
-/// Uses persistent runspace to avoid process startup and module loading overhead.
-/// Requires: 'azv2 login' authentication before running.
+/// PS benchmarks — runs cmdlets with mocked HTTP. Does NOT hit Azure.
+/// Cold-start benchmarks: fresh runspace + module import + DI init + engine process + dispose per call.
 /// </summary>
 [MemoryDiagnoser]
 [WarmupCount(1)]
-[IterationCount(5)]
 [SimpleJob(RunStrategy.Monitoring, iterationCount: 5)]
 public class ResourceGroupBenchmarks : BenchmarkBase
 {
-    private Runspace _runspace = null!;
-    private string _psModulePath = null!;
-    private string _getRgName = null!;
-
     [GlobalSetup]
-    public void Setup()
+    public void GlobalSetup()
     {
-        InitializeCommon(Core.Abstractions.ClientType.PowerShell);
-
-        // PS Module path
-        _psModulePath = Path.Combine(RepoRoot, "src", "PS", "Resources", "Resources.psd1");
-        Console.WriteLine($"[Setup] PS Module path: {_psModulePath}");
-
-        // Create and open a persistent runspace
-        _runspace = RunspaceFactory.CreateRunspace();
-        _runspace.Open();
-
-        // Import module once in setup (this cost is excluded from benchmark)
-        using var ps = PowerShell.Create();
-        ps.Runspace = _runspace;
-        ps.AddCommand("Import-Module").AddParameter("Name", _psModulePath).AddParameter("Force", true);
-        ps.Invoke();
-        Console.WriteLine($"[Setup] Module imported");
-
-        // Pre-create a resource group for Get benchmark
-        _getRgName = $"{TestRgPrefix}{InstanceId}-ps-get";
-        RunPowerShellCommand("New-ResourceGroup", 
-            ("SubscriptionId", SubscriptionId), 
-            ("Name", _getRgName), 
-            ("Location", TestLocation));
-        CreatedResourceGroups.Add(_getRgName);
-
-        Console.WriteLine($"[Setup] PS benchmarks ready");
+        InitializeCommon();
+        Console.WriteLine("[Setup] PS benchmarks ready (stub HTTP)");
     }
 
     [GlobalCleanup]
-    public void Cleanup()
+    public void GlobalCleanup()
     {
-        _runspace?.Close();
-        _runspace?.Dispose();
-        CleanupResourceGroups();
+        CleanupCommon();
+    }
+
+    private object? RunPowerShellCommand(string command, params (string Name, object Value)[] parameters)
+    {
+        var psModulePath = Path.Combine(RepoRoot, "src", "PS", "Resources", "Resources.psd1");
+
+        // Create and open a fresh runspace per invocation (cold start)
+        var runspace = RunspaceFactory.CreateRunspace();
+        runspace.Open();
+
+        try
+        {
+            // Import module — triggers CirrusServiceProvider.Initialize(PowerShell) in .psm1
+            using (var import = PowerShell.Create())
+            {
+                import.Runspace = runspace;
+                import.AddCommand("Import-Module").AddParameter("Name", psModulePath).AddParameter("Force", true);
+                import.Invoke();
+            }
+
+            // Run the cmdlet
+            using var ps = PowerShell.Create();
+            ps.Runspace = runspace;
+            ps.AddCommand(command);
+            foreach (var (name, value) in parameters)
+            {
+                ps.AddParameter(name, value);
+            }
+            var results = ps.Invoke();
+            return results.Count > 0 ? results[0] : null;
+        }
+        finally
+        {
+            CirrusServiceProvider.Dispose();
+            runspace.Close();
+            runspace.Dispose();
+        }
     }
 
     [Benchmark(Description = "PS: List RG")]
     public object? ListResourceGroups()
     {
-        return RunPowerShellCommand("Get-ResourceGroup", 
+        return RunPowerShellCommand("Get-ResourceGroup",
             ("SubscriptionId", SubscriptionId));
     }
 
     [Benchmark(Description = "PS: Create RG")]
     public object? CreateResourceGroup()
     {
-        var rgName = GenerateRgName("ps-");
-        return RunPowerShellCommand("New-ResourceGroup", 
-            ("SubscriptionId", SubscriptionId), 
-            ("Name", rgName), 
-            ("Location", TestLocation));
+        var rgName = $"bench-rg-{Interlocked.Increment(ref RgCounter)}";
+        return RunPowerShellCommand("New-ResourceGroup",
+            ("SubscriptionId", SubscriptionId),
+            ("Name", rgName),
+            ("Location", "eastus"));
     }
 
     [Benchmark(Description = "PS: Get RG")]
     public object? GetResourceGroup()
     {
-        return RunPowerShellCommand("Get-ResourceGroup", 
-            ("SubscriptionId", SubscriptionId), 
-            ("Name", _getRgName));
-    }
-
-    private object? RunPowerShellCommand(string command, params (string Name, object Value)[] parameters)
-    {
-        using var ps = PowerShell.Create();
-        ps.Runspace = _runspace;
-        ps.AddCommand(command);
-        foreach (var (name, value) in parameters)
-        {
-            ps.AddParameter(name, value);
-        }
-        var results = ps.Invoke();
-        return results.Count > 0 ? results[0] : null;
+        return RunPowerShellCommand("Get-ResourceGroup",
+            ("SubscriptionId", SubscriptionId),
+            ("Name", "bench-rg-get"));
     }
 }

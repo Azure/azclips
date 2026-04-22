@@ -7,67 +7,45 @@ using BenchmarkDotNet.Engines;
 namespace Benchmark.CLI;
 
 /// <summary>
-/// E2E Live benchmarks for Resource Group operations using CLI (azv2.exe).
-/// Tests full CLI command execution time including startup, auth, parsing.
-/// Requires: 'azv2 login' authentication and 'dotnet build' before running.
+/// CLI benchmarks — runs Program.Main() in-process with mocked HTTP. Does NOT hit Azure.
+/// Cold-start benchmarks: full DI init + parse + engine process + dispose per call.
 /// </summary>
 [MemoryDiagnoser]
 [WarmupCount(1)]
 [IterationCount(5)]
-[SimpleJob(RunStrategy.Monitoring, iterationCount: 5)]
+[InProcess]
+
 public class ResourceGroupBenchmarks : BenchmarkBase
 {
-    private string _cliPath = null!;
-    private string _showRgName = null!;
-
     [GlobalSetup]
-    public void Setup()
+    public void GlobalSetup()
     {
-        InitializeCommon(Core.Abstractions.ClientType.CLI);
-
-        // CLI executable path
-        _cliPath = Path.Combine(RepoRoot, "artifacts", "Debug", "Core.Cli", "azv2.exe");
-        if (!File.Exists(_cliPath))
-        {
-            throw new FileNotFoundException($"CLI executable not found at: {_cliPath}. Run 'dotnet build' first.");
-        }
-        Console.WriteLine($"[Setup] CLI path: {_cliPath}");
-
-        // Pre-create a resource group for Show benchmark
-        _showRgName = $"{TestRgPrefix}{InstanceId}-cli-show";
-        RunCliCommand("group", "create", "--subscription-id", SubscriptionId, "--name", _showRgName, "--location", TestLocation);
-        CreatedResourceGroups.Add(_showRgName);
-
-        Console.WriteLine($"[Setup] CLI benchmarks ready");
+        InitializeCommon();
+        Console.WriteLine("[Setup] CLI benchmarks ready (stub HTTP)");
     }
 
     [GlobalCleanup]
-    public void Cleanup()
+    public void GlobalCleanup()
     {
-        CleanupResourceGroups();
+        CleanupCommon();
     }
 
-    [Benchmark(Description = "CLI: group list")]
-    public int GroupList()
+    [Benchmark(Description = "CLI: List RG")]
+    public int ListResourceGroups()
     {
-        return RunCliCommand("group", "list", "--subscription-id", SubscriptionId);
+        return Core.Cli.Program.Main(["group", "list", "--subscription-id", SubscriptionId]).GetAwaiter().GetResult();
     }
 
-    [Benchmark(Description = "CLI: group create")]
-    public int GroupCreate()
+    [Benchmark(Description = "CLI: Create RG")]
+    public int CreateResourceGroup()
     {
-        var rgName = GenerateRgName("cli-");
-        return RunCliCommand("group", "create", "--subscription-id", SubscriptionId, "--name", rgName, "--location", TestLocation);
+        var rgName = $"bench-rg-{Interlocked.Increment(ref RgCounter)}";
+        return Core.Cli.Program.Main(["group", "create", "--name", rgName, "--location", "eastus", "--subscription-id", SubscriptionId]).GetAwaiter().GetResult();
     }
 
-    [Benchmark(Description = "CLI: group show")]
-    public int GroupShow()
+    [Benchmark(Description = "CLI: Get RG")]
+    public int GetResourceGroup()
     {
-        return RunCliCommand("group", "show", "--subscription-id", SubscriptionId, "--name", _showRgName);
-    }
-
-    private int RunCliCommand(params string[] args)
-    {
-        return RunProcess(_cliPath, string.Join(" ", args));
+        return Core.Cli.Program.Main(["group", "show", "--name", "bench-rg-get", "--subscription-id", SubscriptionId]).GetAwaiter().GetResult();
     }
 }
