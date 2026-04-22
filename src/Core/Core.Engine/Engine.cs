@@ -75,7 +75,11 @@ namespace Core.Engine
             session.SubscribeAll(msg =>
             {
                 var evt = (EventData)msg;
-                loggingService.Debug($"[{evt.Id}]");
+                string id = evt.Id;
+                if (Events.IsRunspaceThread(id))
+                    loggingService.Debug($"[{id}]");
+                else
+                    session.OutputChannel.Writer.WriteAsync(new DebugMessage($"[{id}]"), session.Token).GetAwaiter().GetResult();
             });
 
             session.Subscribe(Events.SessionCreated, (data) =>

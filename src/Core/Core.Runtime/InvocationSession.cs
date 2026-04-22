@@ -74,7 +74,7 @@ internal partial class InvocationSession : IInvocationSession
         CommandContext commandContext = CreateCommandContext(this);
         
         CommandMetadata commandMetadata = GetExtensionIndex().GetCommandMetadata(Invocation.CommandName, clientType);
-        IProcessor processor = commandMetadata.GetInstance();
+        IProcessor processor = commandMetadata.GetInstance().Init(commandContext);
         try
         {
             processor = BindCommand(processor, Invocation.Parameters, commandMetadata.Parameters, commandMetadata.ParameterAliases);
@@ -83,7 +83,6 @@ internal partial class InvocationSession : IInvocationSession
         {
             throw new ArgumentException($"Failed to parse arguments for command '{Invocation.CommandName}': {ex.Message}", ex);
         }
-        
         
         /// <summary>
         /// Executes the command asynchronously, writing output to the channel.
@@ -137,7 +136,7 @@ internal partial class InvocationSession : IInvocationSession
                     switch (output)
                     {
                         case OutputObject obj:
-                            outputStreamDelegate(obj, cancellationToken).GetAwaiter().GetResult();
+                            outputStreamDelegate(obj.Value, cancellationToken).GetAwaiter().GetResult();
                             break;
                         case VerboseMessage verbose:
                             outputStreamAdapter.Verbose(verbose.Message);
