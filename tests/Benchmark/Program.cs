@@ -8,6 +8,7 @@ using BenchmarkDotNet.Exporters.Json;
 using BenchmarkDotNet.Reports;
 using BenchmarkDotNet.Running;
 using Perfolizer.Horology;
+using Tests.Common.Utilities;
 
 namespace Benchmark;
 

@@ -6,9 +6,9 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
 using Core.DependencyInjection;
-using Core.Runtime.Handler;
 using Microsoft.Extensions.DependencyInjection;
 using Tests.Common.Stubs;
+using Tests.Common.Utilities;
 
 namespace Benchmark;
 

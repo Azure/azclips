@@ -3,6 +3,7 @@
 
 using Core.Abstractions;
 using Core.DependencyInjection;
+using Tests.Common.Utilities;
 
 namespace Benchmark;
 
