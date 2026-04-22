@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using Core.Abstractions;
+using Core.Abstractions.Runtime;
 using Core.Cli.Exceptions;
 using Core.Cli.Parser;
 using Core.Engine;
@@ -19,6 +20,25 @@ public class Program
     private static readonly string AssemblyName = Assembly.GetExecutingAssembly().GetName().Name!;
     private static ITelemetryService? _telemetryService;
     private static ILoggingService? _logger;
+    private static readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
+    
+    // CLI by default only enable output and error streams. Optional streams enabled by global parameters
+    private static OutputStreams streams = new OutputStreams(
+        WriteOutput: (value, ct) =>
+        {
+            Console.WriteLine(value);
+            return Task.CompletedTask;
+        },
+        WriteError: (value, ct) =>
+        {
+            Console.Error.WriteLine(value);
+            return Task.CompletedTask;
+        },
+        WriteVerbose: (value, ct) => Task.CompletedTask,
+        WriteDebug: (value, ct) => Task.CompletedTask,
+        WriteWarning: (value, ct) => Task.CompletedTask,
+        WriteInformation: (value, ct) => Task.CompletedTask
+    );
 
     public static async Task<int> Main(string[] args)
     {
@@ -46,7 +66,8 @@ public class Program
                 commandActivity?.SetTag("command.type", _clientType.ToString());
 
                 var engine = CirrusServiceProvider.GetRequiredService<IEngine>() ?? throw new InvalidOperationException("Engine service not found.");
-                engine.Process(invocation, (value, ct) => { Console.WriteLine(value); return Task.CompletedTask; });
+                IInvocationSession session = engine.InvokeSession(invocation, streams, _cancellationTokenSource.Token);
+                session.Process();
 
                 activity?.SetStatus(ActivityStatusCode.Ok);
                 return 0;
