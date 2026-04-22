@@ -1,4 +1,5 @@
 using Core.Abstractions;
+using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
@@ -7,13 +8,14 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
     {
         public override async Task ProcessAsync()
         {
-            using var _ = StartActivity($"{nameof(LogoutCommand)}.{nameof(ProcessAsync)}");
+            await EventListener.Signal(Events.CommandProcessAsyncStart);
             var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
             var authService = CirrusServiceProvider.GetRequiredService<IAuthService>();
             var authContextService = CirrusServiceProvider.GetRequiredService<IAuthContextService>();
             authService.LogoutAsync().GetAwaiter().GetResult();
             authContextService.ClearContextAsync().GetAwaiter().GetResult();
             await WriteOutput(true);
+            await EventListener.Signal(Events.CommandProcessAsyncEnd);
         }
     }
 }

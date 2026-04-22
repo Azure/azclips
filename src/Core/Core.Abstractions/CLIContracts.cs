@@ -8,7 +8,7 @@ namespace Core.Abstractions;
 public interface IProcessor
 {
     Task ProcessAsync();
-    IProcessor Init(ICommandContext context);
+    IProcessor Init(CommandContext context);
 }
 
 public enum ArgumentAction

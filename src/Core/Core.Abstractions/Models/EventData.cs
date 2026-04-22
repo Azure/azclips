@@ -1,6 +1,6 @@
 ﻿using Core.Abstractions.Runtime;
 
-namespace Core.Runtime
+namespace Core.Abstractions
 {
     ///<summary>Represents the data in signaled event.</summary>
     public class EventData: EventArgs

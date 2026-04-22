@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Core.Abstractions;
+using Core.Abstractions.Runtime;
 using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
@@ -33,7 +34,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
 
         public override async Task ProcessAsync()
         {
-            using var _ = StartActivity($"{nameof(NewResourceGroupCommand)}.{nameof(ProcessAsync)}");
+            await EventListener.Signal(Events.CommandProcessAsyncStart);
             // Use provided subscription ID or fall back to auth context
             var subscriptionId = SubscriptionId ?? AuthContext.SubscriptionId;
             // construct URL
@@ -44,9 +45,10 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
                 Content = JsonContent.Create(new ResourceGroup(Location, Name), options: _jsonOptions)
             };
             request.Content.Headers.ContentType = MediaTypeHeaderValue.Parse("application/json");
-            HttpResponseMessage response = await HttpPipeline.SendAsync(request, this);
+            HttpResponseMessage response = await HttpPipeline.SendAsync(request, EventListener);
             ResourceGroup rg = (await response.Content.ReadFromJsonAsync<ResourceGroup>(_jsonOptions))!;
             await WriteOutput(rg);
+            await EventListener.Signal(Events.CommandProcessAsyncEnd);
         }
     }
 }

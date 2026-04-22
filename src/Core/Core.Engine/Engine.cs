@@ -5,11 +5,16 @@ using Core.Runtime;
 using System.Threading.Channels;
 using Core.Abstractions.Runtime.Handler;
 using Core.Engine.Utils;
+using System.Diagnostics;
+using System.Xml.Serialization;
+using System.Reflection;
+using Azure;
 
 namespace Core.Engine
 {
     /// <summary>
     /// PowerShell command engine for executing commands in PowerShell runspaces.
+    /// Mediator pattern, Engine orchestrates services and runtimes
     /// <para><b>Thread Safety:</b> This engine is designed for concurrent command execution.
     /// Each <see cref="Process"/> call creates isolated context with per-invocation output channel.
     /// Extension indices are cached using thread-safe lazy initialization.</para>
@@ -35,89 +40,175 @@ namespace Core.Engine
         private LFUCache<Lazy<IExtensionIndex>>? _extensionIndices;
         private bool _disposed;
 
-        //TODO(Yabo): Consider implement ProcessAsync separately if we want to expose async processing in the future. For PowerShell, Process() must remain sync due to thread-affinity of cmdlet API, but other hosts could benefit from async.
-        /// <summary>
-        /// Processes a command invocation with isolated output routing.
-        /// <para><b>Thread Safety:</b> Each call creates its own output channel. The worker thread
-        /// writes output to the channel, while the caller's thread pumps the channel and invokes
-        /// the provided output delegate. This ensures output is routed to the correct $PSCmdlet.</para>
-        /// </summary>
-        /// <param name="invocation">The command invocation containing extension name, command name, and parameters.</param>
-        /// <param name="outputDelegate">The output delegate for this invocation (typically wired to $PSCmdlet.WriteObject).</param>
-        /// <param name="cancellationToken">Cancellation token.</param>
-        /// <exception cref="ObjectDisposedException">Thrown if the engine has been disposed.</exception>
-        public void Process(CommandInvocation invocation, CommandOutputDelegate outputDelegate, CancellationToken cancellationToken = default)
+        public IInvocationSession InvokeSession(CommandInvocation invocation, OutputStreams outputStreams, CancellationToken cancellationToken = default)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-
-            //TODO(Yabo): replace with meaningful logging
-            loggingService.Verbose("Engine starts processing...");
-
-            // TODO(Yabo): Placeholder for extension versioning logic
-            // Calculate from config service in the future
-            string extensionVersion = string.Empty;
-            telemetryService.ProcessInvocation(string.IsNullOrEmpty(invocation.ModuleVersion) ? invocation with { ModuleVersion = extensionVersion } : invocation);
-
             // Create a per-invocation channel for worker-to-caller communication
-            Channel<object> outputChannel = Channel.CreateUnbounded<object>(new UnboundedChannelOptions
+            var session = new InvocationSession(clientType, invocation, outputStreams, cancellationToken);
+            SubscribeAll(session);
+            session.Signal(Events.SessionCreated, $"Session {session.Id} created").GetAwaiter().GetResult();
+            // TODO(Yabo): get extension version from config service in the future
+            session.GetExtensionVersion = () => string.Empty;
+            session.LoadAssembly = assemblyLoadingService.LoadExtension;
+            session.BindCommand = argumentParsingService.BindArgumentsToCommand;
+            session.CreateCommandContext = CreateCommandContext;
+            session.CacheGetOrAdd = CacheGetOrAdd;
+            return session;
+        }
+
+        // session subscribes messages first, then each service 
+        private InvocationSession SubscribeAll(InvocationSession session)
+        {
+            SubscribeMessages(session);
+            SubscribeActivity(session);
+            SubscribeMetric(session);
+            return session;
+        }
+
+        // Messages for events before command execution start (inclusive) goes to ILoggingService
+        // Messages for events after command execution start goes to session.channel
+        private InvocationSession SubscribeMessages(InvocationSession session)
+        {
+            // Print every event id for debugging purpose, 
+            // SubscribeAll() subscribers are guaranteed executed before everyone else 
+            // No need to print event id for subsequent events
+            session.SubscribeAll(msg =>
             {
-                SingleReader = true,
-                SingleWriter = true
+                var evt = (EventData)msg;
+                loggingService.Debug($"[{evt.Id}]");
             });
 
-            // Create context with channel-based output handler
-            ICommandContext commandContext = CreateCommandContext(outputChannel.Writer);
-
-            // create command instance, inject invocation and context
-            IProcessor instance = GetCommand(invocation, commandContext, extensionVersion);
-
-            // Start worker thread for command execution
-            Task executeCommandTask = ExecuteCommandAsync(instance, outputChannel.Writer, cancellationToken);
-
-            // Sync-over-async channel pump — intentional, not an anti-pattern here.
-            //
-            // WHY: PowerShell's $PSCmdlet.WriteObject (and the rest of the Cmdlet API)
-            // has strict thread-affinity: it must execute on the thread that owns the
-            // current runspace / pipeline. An async Process() would let continuations
-            // resume on arbitrary thread-pool threads, causing PSInvalidOperationException.
-            //
-            // PATTERN: The worker task (ExecuteCommandAsync) runs on a thread-pool thread
-            // and writes results into the channel. This loop blocks the *caller's* thread
-            // (the runspace thread) to read from the channel and invoke the outputDelegate
-            // in the correct synchronization context. This is the standard "sync shell
-            // over async core" bridge used by PowerShell hosts.
-            //
-            // AsTask().GetAwaiter().GetResult() — bridges ValueTask to sync; safe here
-            // because we are the sole consumer (SingleReader) and the channel is unbounded.
-            // outputDelegate(...).GetAwaiter().GetResult() — ensures WriteObject runs on
-            // the runspace thread before we read the next item.
-            ChannelReader<object> reader = outputChannel.Reader;
-            try
+            session.Subscribe(Events.SessionCreated, (data) =>
             {
-                while (reader.WaitToReadAsync(cancellationToken).AsTask().GetAwaiter().GetResult())
+                var evt = (EventData)data;
+                loggingService.Verbose(evt.Message);
+            });
+
+            session.Subscribe(Events.SessionDisposed, (data) =>
+            {
+                var evt = (EventData)data;
+                loggingService.Verbose(evt.Message);
+            });
+
+            /*
+                Events in command, Http lifecycle goes to session channel
+                wrap messages with:
+                    OutputMessage
+                    DebugMessage
+                    VerboseMessage
+                    WarningMessage
+                    ErrorMessage
+                    InformationMessage
+            */
+            session.Subscribe(Events.CommandInitiated, (data) =>
+            {
+                var evt = (EventData)data;
+                DebugMessage msg = new DebugMessage(evt.Message);
+                session.OutputChannel.Writer.WriteAsync(msg, session.Token).GetAwaiter().GetResult();
+            });
+
+            return session;
+        }
+
+        // Paired stages used for paired events like command before/after command api calls
+        // Sequential stages used for sequential events
+        // Paired always check stack: if (pairedStages.TryPop(out var activity)) activity.Dispose();
+        // Sequential always check previous: sequentialStage?.Dispose(); sequentialStage = telemetryService.StartActivity(...);
+        private InvocationSession SubscribeActivity(InvocationSession session)
+        {
+            Stack<Activity> pairedStages = new Stack<Activity>();
+            Activity? sequentialStage = null;
+
+            string sessionId = session.Id;
+
+            // Set activity root
+            session.Subscribe(Events.SessionCreated, (data) =>
+            {
+                Activity? activity = Activity.Current;
+                if (activity != null)
                 {
-                    while (reader.TryRead(out var output))
-                    {
-                        outputDelegate(output, cancellationToken).GetAwaiter().GetResult();
-                    }
+                    // Walk up to the root activity so module tags appear on the top-level span
+                    while (activity.Parent is not null)
+                        activity = activity.Parent;
+                    loggingService.Debug($"Root activity={activity.DisplayName}, setting tags...");
+                    // NOTE: On the CLI side "module.name" currently maps to the extension name.
+                    // The tag key may be renamed to "extension.name" in the future — TBD.
+                    if (!string.IsNullOrEmpty(session.Invocation.ModuleName))
+                        activity.SetTag("module.name", session.Invocation.ModuleName);
+                    if (!string.IsNullOrEmpty(session.Invocation.ModuleVersion))
+                        activity.SetTag("module.version", session.Invocation.ModuleVersion);
+                    loggingService.Debug($"Tags set. Verifying: module.name={activity.GetTagItem("module.name")}, module.version={activity.GetTagItem("module.version")}");
                 }
-            }
-            finally
+            });
+
+            // Paired: SessionCreated - SessionDisposed
+            // Session dispose will ensure all activities are disposed
+            session.Subscribe(Events.SessionCreated, (data) =>
             {
-                // Always observe the worker task — even if the pump was interrupted by
-                // cancellation or an exception. This prevents unobserved task exceptions
-                // and ensures the worker's finally block (outputWriter.Complete()) runs
-                // before we leave Process().
-                executeCommandTask.GetAwaiter().GetResult();
-            }
+                var evt = (EventData)data;
+                var activity = telemetryService.StartActivity($"{sessionId}", ActivityKind.Internal);
+                if (activity != null)
+                    pairedStages.Push(activity);
+            });
+            session.Subscribe(Events.SessionDisposed, (data) =>
+            {
+                while (pairedStages.TryPop(out var activity))
+                    activity.Dispose();
+                pairedStages.Clear();
+                sequentialStage?.Dispose();
+            });
+
+            // Paired: AuthBeforeTokenAcquisition - AuthAfterTokenAcquisition
+            session.Subscribe(Events.AuthBeforeTokenAcquisition, (data) =>
+            {
+                var evt = (EventData)data;
+                var activity = telemetryService.StartActivity($"{sessionId}.TokenAcquisition", ActivityKind.Internal);
+                if (activity != null)
+                    pairedStages.Push(activity);
+            });
+            session.Subscribe(Events.AuthAfterTokenAcquisition, (data) =>
+            {
+                if (pairedStages.TryPop(out var activity))
+                    activity.Dispose();
+            });
+
+            session.Subscribe(Events.CommandProcessAsyncStart, (data) =>
+            {
+                var evt = (EventData)data;
+                sequentialStage = telemetryService.StartActivity($"{sessionId}.ProcessAsync", ActivityKind.Internal);
+            });
+            session.Subscribe(Events.CommandProcessAsyncEnd, (data) =>
+            {
+                sequentialStage?.Dispose();
+                sequentialStage = null;
+            });
+
+            //TODO(Yabo): Observability Squad to subscribe more events for telemetry
+            return session;
+        }
+
+        // TODO(Yabo): Observability squad to implement metrics subscriptions, e.g. CPU/memory usage
+        // Snapshot GC.GetTotalMemory() at some stages — detect memory-heavy extension loads
+        private InvocationSession SubscribeMetric(InvocationSession session)
+        {
+            return session;
+        }
+
+        private IExtensionIndex CacheGetOrAdd(string name, string version, Func<IExtensionIndex> getIndex)
+        {
+            _extensionIndices ??= new(cacheSize);
+            string key = string.IsNullOrEmpty(version) ? name : $"{name}-{version}";
+            return _extensionIndices.GetOrAdd(
+                    key,
+                    _ => new Lazy<IExtensionIndex>(getIndex)
+                ).Value;
         }
 
         /// <summary>
         /// Creates a new command context for this invocation with channel-based output.
         /// Each command execution gets its own isolated context.
         /// </summary>
-        /// <param name="outputWriter">The channel writer for this invocation's output.</param>
-        private ICommandContext CreateCommandContext(ChannelWriter<object> outputWriter)
+        private CommandContext CreateCommandContext(InvocationSession session)
         {
             // Sync-over-async by design: invoked on the PowerShell runspace thread
             // during Process(), which is intentionally synchronous.
@@ -133,91 +224,19 @@ namespace Core.Engine
             // Create output handler that writes to the per-invocation channel
             ICommandOutputHandler commandOutputHandler = new CommandOutputHandler
             {
-                WriteOutput = async (value, ct) => await outputWriter.WriteAsync(value, ct)
-            };
-            ICommandTelemetryHandler commandTelemetryHandler = new CommandTelemetryHandler
-            {
-                StartActivity = telemetryService.StartActivity
+                WriteOutput = async (value, _) => await session.OutputChannel.Writer.WriteAsync(new OutputObject(value), session.Token)
             };
 
             IRuntimeHttpPipeline httpPipeline = new HttpPipeline(new HttpClientFactory(httpClient));
-            ICommandContext context = new CommandContext
-            {
-                CommandOutputHandler = commandOutputHandler,
-                CommandAuthHandler = commandAuthHandler,
-                CommandTelemetryHandler = commandTelemetryHandler,
-                HttpPipeline = httpPipeline.Prepend(commandAuthHandler.SendAsync)
-            };
-
+            CommandContext context = new CommandContext
+            (
+                HttpPipeline: httpPipeline.Prepend(commandAuthHandler.SendAsync),
+                EventListener: session,
+                CommandAuthHandler: commandAuthHandler,
+                CommandOutputHandler: commandOutputHandler
+            );
             httpPipeline.Prepend(commandHttpMessageHandler.SendAsync);
-
             return context;
-        }
-
-        /// <summary>
-        /// Executes the command asynchronously, writing output to the channel.
-        /// <para>No <see cref="Task.Run"/> wrapper — <c>ProcessAsync</c> is truly async,
-        /// so the first real await yields back to the caller and continuations resume on
-        /// the thread pool (no <see cref="SynchronizationContext"/> is present).
-        /// The <c>finally</c> guarantees the channel is completed even on cancellation
-        /// or exception, preventing the reader pump from hanging.</para>
-        /// </summary>
-        private async Task ExecuteCommandAsync(IProcessor command, ChannelWriter<object> outputWriter, CancellationToken cancellationToken = default)
-        {
-            try
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                await command.ProcessAsync();
-            }
-            finally
-            {
-                // Signal completion to the reader — must run regardless of success,
-                // failure, or cancellation to unblock the channel pump in Process().
-                outputWriter.Complete();
-            }
-        }
-
-        /// <summary>
-        /// Gets a command processor for the given invocation.
-        /// <para><b>Thread Safety:</b> Extension indices are lazily cached with guaranteed single initialization.
-        /// <see cref="IExtensionIndex.GetCommandMetadata"/> is thread-safe as implementations use
-        /// read-only dictionaries populated during construction.</para>
-        /// </summary>
-        public IProcessor GetCommand(CommandInvocation invocation, ICommandContext context, string extensionVersion = "")
-        {
-            //TODO(Yabo): come up with: intercept CLI global parameters elegantly if any
-            CommandMetadata commandMetadata = GetExtensionIndex(invocation.ExtensionName, invocation.IsTransient, extensionVersion).GetCommandMetadata(invocation.CommandName, clientType);
-            IDictionary<string, object> parsedParameters;
-            try
-            {
-                parsedParameters = argumentParsingService.ParseArguments(invocation.Parameters, commandMetadata.Parameters, commandMetadata.ParameterAliases);
-            }
-            catch (Exception ex)
-            {
-                throw new ArgumentException($"Failed to parse arguments for command '{invocation.CommandName}': {ex.Message}", ex);
-            }
-            IList<string> validationErrors = argumentParsingService.ValidateArguments(parsedParameters, commandMetadata.Parameters.ToDictionary(kvp => kvp.Value.Name, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase));
-            if (validationErrors != null && validationErrors.Count > 0)
-            {
-                throw new ArgumentException($"Invalid arguments: {string.Join(", ", validationErrors)}");
-            }
-            return argumentParsingService.BindArgumentsToCommand(commandMetadata.GetInstance(), parsedParameters).Init(context);
-        }
-
-        private IExtensionIndex GetExtensionIndex(string extensionName, bool isTransient, string extensionVersion)
-        {
-            if (!isTransient)
-            {
-                _extensionIndices ??= new(cacheSize);
-                // Lazy<T> ensures the factory runs exactly once per extension, even under contention.
-                // Without Lazy, GetOrAdd's factory may execute multiple times (only one result stored).
-                return _extensionIndices.GetOrAdd(
-                    string.IsNullOrEmpty(extensionVersion) ? extensionName : $"{extensionName}-{extensionVersion}",
-                    extensionName => new Lazy<IExtensionIndex>(() => assemblyLoadingService.LoadExtension(extensionName, extensionVersion).GetExtensionIndex())
-                ).Value;
-            }
-            // For transient invocations, bypass the cache and load directly
-            return assemblyLoadingService.LoadExtension(extensionName, extensionVersion).GetExtensionIndex();
         }
 
         /// <summary>

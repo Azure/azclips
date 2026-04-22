@@ -5,6 +5,6 @@ namespace Core.Abstractions.Runtime.Handler
     /// </summary>
     public interface ICommandOutputHandler
     {
-        CommandOutputDelegate WriteOutput { get; set; }
+        OutputStreamDelegate WriteOutput { get; set; }
     }
 }

@@ -24,13 +24,12 @@ namespace Core.Runtime.Handler
         /// <inheritdoc />
         public SendAsyncStep SendAsync => async (HttpRequestMessage request, IEventListener callback, ISendAsync next) =>
         {
-            using (var _ = callback.StartActivity?.Invoke($"{nameof(CommandAuthHandler)}.{nameof(SendAsync)}"))
-            {
-                AcquireTokenAsyncDelegate tokenAcquirer = this.ApplyOverride && this.AcquireTokenAsyncOverride != null
+            await callback.Signal(Events.AuthBeforeTokenAcquisition);
+            AcquireTokenAsyncDelegate tokenAcquirer = this.ApplyOverride && this.AcquireTokenAsyncOverride != null
                     ? this.AcquireTokenAsyncOverride
                     : this.AcquireTokenAsyncDefault;
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", (await tokenAcquirer(null, this.AuthContext.TenantId, false)).AccessToken);   
-            }
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", (await tokenAcquirer(null, this.AuthContext.TenantId, false)).AccessToken);
+            await callback.Signal(Events.AuthAfterTokenAcquisition);
             return await next.SendAsync(request, callback);
         };
     }

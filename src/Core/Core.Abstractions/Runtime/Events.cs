@@ -28,16 +28,20 @@ namespace Core.Abstractions.Runtime
         public const string Polling = nameof(Polling);
         public const string Progress = nameof(Progress);
 
-        public const string CmdletProcessRecordStart = nameof(CmdletProcessRecordStart);
-        public const string CmdletProcessRecordAsyncStart = nameof(CmdletProcessRecordAsyncStart);
-        public const string CmdletException = nameof(CmdletException);
-        public const string CmdletGetPipeline = nameof(CmdletGetPipeline);
-        public const string CmdletBeforeAPICall = nameof(CmdletBeforeAPICall);
-        public const string CmdletBeginProcessing = nameof(CmdletBeginProcessing);
-        public const string CmdletEndProcessing = nameof(CmdletEndProcessing);
-        public const string CmdletProcessRecordEnd = nameof(CmdletProcessRecordEnd);
-        public const string CmdletProcessRecordAsyncEnd = nameof(CmdletProcessRecordAsyncEnd);
-        public const string CmdletAfterAPICall = nameof(CmdletAfterAPICall);
+        public const string CommandInitiated = nameof(CommandInitiated);
+        public const string CommandProcessAsyncStart = nameof(CommandProcessAsyncStart);
+        public const string CommandProcessAsyncEnd = nameof(CommandProcessAsyncEnd);
+        public const string CommandException = nameof(CommandException);
+        public const string CommandBeforeAPICall = nameof(CommandBeforeAPICall);
+        public const string CommandAfterAPICall = nameof(CommandAfterAPICall);
+
+        public const string SessionCreated = nameof(SessionCreated);
+        public const string SessionDisposed = nameof(SessionDisposed);
+        public const string EngineLoadingAssembly = nameof(EngineLoadingAssembly);
+        public const string EngineBindingCommand = nameof(EngineBindingCommand);
+
+        public const string AuthBeforeTokenAcquisition = nameof(AuthBeforeTokenAcquisition);
+        public const string AuthAfterTokenAcquisition = nameof(AuthAfterTokenAcquisition);
 
         public const string Verbose = nameof(Verbose);
         public const string Debug = nameof(Debug);

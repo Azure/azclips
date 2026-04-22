@@ -6,7 +6,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Extension.Commands;
 
 public class AddExtensionCommand : IProcessor
 {
-    private CommandOutputDelegate _writeOutput = null!;
+    private OutputStreamDelegate _writeOutput = null!;
 
     [ArgumentInfo(
     Required = false,
@@ -32,7 +32,7 @@ public class AddExtensionCommand : IProcessor
     SerializedName = @"Path")]
     public string? Path { get; set; }
 
-    public IProcessor Init(ICommandContext context)
+    public IProcessor Init(CommandContext context)
     {
         _writeOutput = context.CommandOutputHandler.WriteOutput;
         return this;

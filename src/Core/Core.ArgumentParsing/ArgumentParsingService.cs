@@ -4,6 +4,17 @@ namespace Core.ArgumentParsing
 {
     public class ArgumentParsingService(PropertyParser propertyParser, ILoggingService loggingService) : IArgumentParsingService
     {
+        public IProcessor BindArgumentsToCommand(IProcessor command, IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases)
+        {
+            IDictionary<string, object> parsedArgs = ParseArguments(args, parameters, parameterAliases);
+            IList<string> validationErrors = ValidateArguments(parsedArgs, parameters.ToDictionary(kvp => kvp.Value.Name, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase));
+            if (validationErrors != null && validationErrors.Count > 0)
+            {
+                throw new ArgumentException($"Invalid arguments: {string.Join(", ", validationErrors)}");
+            }
+            return BindArgumentsToCommand(command, parsedArgs);
+        }
+
         public IDictionary<string, object> ParseArguments(IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases)
         {
             //TODO: handle positional arguemnts for CLI

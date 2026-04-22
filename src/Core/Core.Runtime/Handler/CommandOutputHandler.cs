@@ -8,6 +8,6 @@ namespace Core.Runtime.Handler
     /// </summary>
     public class CommandOutputHandler : ICommandOutputHandler
     {
-        public CommandOutputDelegate WriteOutput { get; set; } = null!;
+        public OutputStreamDelegate WriteOutput { get; set; } = null!;
     }
 }

@@ -20,6 +20,8 @@ namespace Core.Abstractions
         /// <exception cref="ArgumentException">Thrown when argument parsing or binding fails.</exception>
         IProcessor BindArgumentsToCommand(IProcessor command, IDictionary<string, object> parameters);
 
+        IProcessor BindArgumentsToCommand(IProcessor command, IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases);
+
         /// <summary>
         /// Parses raw CLI argument strings into a structured format.
         /// </summary>

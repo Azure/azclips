@@ -1,7 +1,7 @@
 ﻿using System.Reflection;
 using Core.Abstractions;
 
-namespace Core.Engine
+namespace Core.Runtime
 {
     public static class CommandLoadingExtension
     {
