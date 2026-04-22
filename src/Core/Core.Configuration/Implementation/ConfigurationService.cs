@@ -10,8 +10,7 @@ namespace Core.Configuration.Implementation;
 public sealed class ConfigurationService(
     Core.Configuration.Abstractions.IConfigurationProvider provider,
     IConfigurationSchema schema,
-    IConfigurationValidator validator,
-    IProfileContextProvider profileContextProvider) : IConfigurationService
+    IConfigurationValidator validator) : IConfigurationService
 {
     private static readonly JsonSerializerOptions JsonSerializerOptions = new()
     {
@@ -32,7 +31,6 @@ public sealed class ConfigurationService(
     private readonly Core.Configuration.Abstractions.IConfigurationProvider _provider = provider;
     private readonly IConfigurationSchema _schema = schema;
     private readonly IConfigurationValidator _validator = validator;
-    private readonly IProfileContextProvider _profileContextProvider = profileContextProvider;
 
     public T GetConfiguration<T>(string? key = null, T? defaultValue = null) where T : class, new()
     {
@@ -55,12 +53,6 @@ public sealed class ConfigurationService(
         }
 
         builder.AddJsonFile(_provider.GetConfigFilePath(), optional: true, reloadOnChange: false);
-
-        var activeProfilePath = GetActiveProfilePath();
-        if (!string.IsNullOrWhiteSpace(activeProfilePath))
-        {
-            builder.AddJsonFile(activeProfilePath, optional: true, reloadOnChange: false);
-        }
 
         var environmentOverrides = BuildEnvironmentOverrides();
         if (environmentOverrides.Count > 0)
@@ -129,15 +121,6 @@ public sealed class ConfigurationService(
         var root = await _provider.ReadAsync(cancellationToken).ConfigureAwait(false);
         var results = Flatten(root);
 
-        var activeProfileRoot = await ReadActiveProfileAsync(cancellationToken).ConfigureAwait(false);
-        if (activeProfileRoot is not null)
-        {
-            foreach (var entry in Flatten(activeProfileRoot))
-            {
-                results[entry.Key] = entry.Value;
-            }
-        }
-
         if (!includeDefaults)
         {
             return results;
@@ -191,28 +174,6 @@ public sealed class ConfigurationService(
                 await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken).ConfigureAwait(false);
             }
         }
-    }
-
-    private string? GetActiveProfilePath()
-    {
-        return _profileContextProvider.GetActiveProfile()?.ConfigFilePath;
-    }
-
-    private async Task<JsonObject?> ReadActiveProfileAsync(CancellationToken cancellationToken)
-    {
-        var activeProfilePath = GetActiveProfilePath();
-        if (string.IsNullOrWhiteSpace(activeProfilePath) || !File.Exists(activeProfilePath))
-        {
-            return null;
-        }
-
-        var json = await File.ReadAllTextAsync(activeProfilePath, cancellationToken).ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(json))
-        {
-            return null;
-        }
-
-        return JsonNode.Parse(json) as JsonObject;
     }
 
     private static Dictionary<string, string?> BuildDefaultEntries<T>(T defaults) where T : class

@@ -1,8 +1,8 @@
 # Configuration Management
 
-Cirrus stores user-scope configuration in a global JSON file and can optionally layer an active profile configuration file on top.
+Cirrus stores user-scope configuration in a global JSON file.
 
-Configuration follows strict precedence: **command args > environment variables > active profile config > global config > defaults**.
+Configuration follows strict precedence: **command args > environment variables > global config > defaults**.
 
 ## Valid Configuration Keys
 
@@ -169,33 +169,9 @@ Configuration is stored at:
 - **Windows**: `%USERPROFILE%\.cirrus\config.json`
 - **Linux/macOS**: `$HOME/.cirrus/config.json`
 
-## Profile-aware Behavior (Current State)
+## Verification
 
-Profile lifecycle commands are not part of this implementation, but config resolution is already profile-aware.
-
-- The config service consumes an active profile context from `IProfileContextProvider`.
-- If a provider returns an active profile file path and that file exists, values in that file override global config values.
-- If no active profile exists (or the file is missing), config resolution falls back to global config and defaults.
-- `set` and `delete` operations still mutate the global config file.
-
-In command output, profile-origin values are labeled as `profile config`.
-
-## Verifying Profile Handling Before Profile Commands Exist
-
-You can validate behavior now with tests that simulate an active profile context.
-
-### 1) Run profile-focused tests
-
-```bash
-dotnet test tests/Cli.Tests/Cli.Tests.csproj -c Release --filter "FullyQualifiedName~ConfigurationServiceTests.GetConfiguration_ShouldLayerActiveProfileOverGlobalConfig|FullyQualifiedName~ConfigurationServiceTests.GetConfiguration_ShouldFallbackToGlobal_WhenActiveProfileIsMissing"
-```
-
-Expected result:
-
-- `GetConfiguration_ShouldLayerActiveProfileOverGlobalConfig` passes
-- `GetConfiguration_ShouldFallbackToGlobal_WhenActiveProfileIsMissing` passes
-
-### 2) Run defaults resolver test
+### 1) Run defaults resolver test
 
 ```bash
 dotnet test tests/Cli.Tests/Cli.Tests.csproj -c Release --filter "FullyQualifiedName~ConfigurationServiceTests.ResolveDefaultParameterAsync_ShouldReturnDefaultsValue_WhenConfigured"
@@ -205,13 +181,13 @@ Expected result:
 
 - `defaults.*` values are resolved for parameter defaults when configured
 
-### 3) Optional full config regression pass
+### 2) Optional full config regression pass
 
 ```bash
 dotnet test tests/Cli.Tests/Cli.Tests.csproj -c Release
 ```
 
-This confirms profile layering, fallback behavior, defaults handling, and command-surface regressions as a bundle.
+This confirms defaults handling and command-surface regressions as a bundle.
 
 ## Examples
 

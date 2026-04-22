@@ -39,7 +39,6 @@ public abstract class ConfigCommandBase : IProcessor
         var configurationService = GetConfigurationService();
         var fileValues = await configurationService.ListConfigurationAsync(includeDefaults: false).ConfigureAwait(false);
         var globalConfigValues = await ReadGlobalConfigValuesAsync(configurationService).ConfigureAwait(false);
-        var profileConfigValues = await ReadProfileConfigValuesAsync().ConfigureAwait(false);
         var entries = new Dictionary<string, ConfigValueView>(StringComparer.OrdinalIgnoreCase);
 
         if (includeDefaults)
@@ -52,11 +51,9 @@ public abstract class ConfigCommandBase : IProcessor
 
         foreach (var entry in fileValues)
         {
-            var source = profileConfigValues.ContainsKey(entry.Key)
-                ? "profile config"
-                : globalConfigValues.ContainsKey(entry.Key)
-                    ? "global config"
-                    : "config file";
+            var source = globalConfigValues.ContainsKey(entry.Key)
+                ? "global config"
+                : "config file";
 
             entries[entry.Key] = new ConfigValueView(entry.Key, entry.Value, source);
         }
@@ -203,18 +200,6 @@ public abstract class ConfigCommandBase : IProcessor
     {
         var path = configurationService.GetConfigFilePath();
         return await ReadFlattenedConfigFileAsync(path).ConfigureAwait(false);
-    }
-
-    private static async Task<Dictionary<string, object?>> ReadProfileConfigValuesAsync()
-    {
-        var provider = CirrusServiceProvider.GetRequiredService<IProfileContextProvider>();
-        var profilePath = provider.GetActiveProfile()?.ConfigFilePath;
-        if (string.IsNullOrWhiteSpace(profilePath))
-        {
-            return new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        }
-
-        return await ReadFlattenedConfigFileAsync(profilePath).ConfigureAwait(false);
     }
 
     private static async Task<Dictionary<string, object?>> ReadFlattenedConfigFileAsync(string path)

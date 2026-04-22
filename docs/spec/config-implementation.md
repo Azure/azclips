@@ -2,7 +2,7 @@
 
 **Status:** Complete and tested (as of 2026-04-16)
 **Branch:** 11-config-implementation  
-**Test Coverage:** 15 tests passing (CLI, PS, schema, service)
+**Test Coverage:** CLI, PS, schema, and service tests passing
 
 ## Goal
 
@@ -11,17 +11,15 @@ Implement user-scope configuration with strict validation, safe writes, and CLI/
 ## Scope (MVP)
 
 - Single file: ~/.cirrus/config.json (global config)
-- Profile-aware reads/writes using externally selected active profile context
-- Precedence: command args > env vars > active profile config > global config > defaults
+- Precedence: command args > env vars > global config > defaults
 - Strict schema by default, allow unknown keys only with force
 - Default parameters stored in config.defaults.\* (Azure CLI pattern)
 - Agent connection settings remain env/.env (not config)
-- Profile lifecycle (create/list/use/delete/select) is owned by a separate PR/spec
 
 ## High-Level Build Order
 
-1. Core contracts and schema (include profile-aware resolution, defaults)
-2. File provider and service implementation (active profile consumption, defaults resolution)
+1. Core contracts and schema (include defaults)
+2. File provider and service implementation (defaults resolution)
 3. Wire into DI and migrate existing readers
 4. Add CLI commands (config)
 5. Add PowerShell cmdlets (config)
@@ -31,9 +29,7 @@ Implement user-scope configuration with strict validation, safe writes, and CLI/
 
 ### Core Contracts
 
-- [ ] Add IProfileContextProvider abstraction (consumed, not owned)
 - [ ] Extend IConfigurationService with ResolveDefaultParameter(name)
-- [ ] Keep profile lifecycle APIs out of this PR
 
 ### Core Options + Schema
 
@@ -43,30 +39,24 @@ Implement user-scope configuration with strict validation, safe writes, and CLI/
 
 ### Core Service Behavior
 
-- [ ] Resolve active profile through IProfileContextProvider
-- [ ] Layer config in order: defaults -> global config -> active profile -> env -> invocation
+- [ ] Layer config in order: defaults -> global config -> env -> invocation
 - [ ] Keep global config as mutation target for config set/delete in this PR
 - [ ] Add ResolveDefaultParameter(name) implementation reading defaults.<name>
 
 ### DI Wiring
 
-- [ ] Register IProfileContextProvider dependency (from profile service package/integration)
-- [ ] Wire ConfigurationService with profile context dependency
-- [ ] Ensure app starts when no active profile is available (null profile context)
+- [ ] Wire ConfigurationService without profile context dependencies
 
 ### CLI + PowerShell Surface
 
 - [ ] Keep command surface to 5 config commands only
-- [ ] Update list/get source attribution to distinguish profile vs global when applicable
-- [ ] Keep profile lifecycle command/cmdlet support out of this PR
+- [ ] Keep list/get source attribution for global/env/default
 
 ### Tests
 
-- [ ] Unit test: profile layering overrides global values
-- [ ] Unit test: no active profile falls back to global + env + defaults
 - [ ] Unit test: ResolveDefaultParameter(name) returns expected defaults.\* value
 - [ ] Unit test: unknown defaults.\* keys rejected unless force
-- [ ] Integration test: config command behavior unchanged for non-profile scenarios
+- [ ] Integration test: config command behavior unchanged for global config scenarios
 
 ### Validation + Docs Sync
 
@@ -109,9 +99,8 @@ Create options objects:
 - ClientsOptions
 - DefaultsOptions (for command parameter defaults)
 
-Create profile-awareness contracts:
+Create defaults contract:
 
-- IProfileContextProvider – Returns currently selected profile context (name/path)
 - IDefaultParameterResolver – Optional parameter injection for commands
 
 #### Learnings
@@ -129,11 +118,10 @@ Create profile-awareness contracts:
 - All other services and commands access config via IConfigurationService<T> with read-only semantics
 - This prevents accidental mutations and ensures single responsibility (config service = config mutations, commands = read-only consumers)
 
-**Profile Context Ownership:**
+**Ownership Boundary:**
 
-- Active profile selection is owned by a separate profile service/spec
-- Config service consumes active profile name/path via IProfileContextProvider
-- Config service does not provide profile lifecycle operations
+- Config lifecycle in this branch is global config only
+- No profile context dependency in config service
 
 ### 2) Persistence + Core Service
 
@@ -141,17 +129,6 @@ Function ResolveConfigPath():
 
 - if Windows => %USERPROFILE%/.cirrus/config.json
 - else => $HOME/.cirrus/config.json
-
-Function ResolveProfilePath(activeProfileName):
-
-- base = ResolveConfigPath() directory
-- if Windows => %USERPROFILE%/.cirrus/profiles/<activeProfileName>.json
-- else => $HOME/.cirrus/profiles/<activeProfileName>.json
-
-Function GetActiveProfileContext():
-
-- active = profileContextProvider.GetActiveProfile()
-- return active profile name/path or null
 
 Function SetConfigurationAsync(key, value, force):
 
@@ -179,8 +156,6 @@ Function GetConfiguration<T>():
 
 - result = defaults from schema/options
 - merge global config file values (~/.cirrus/config.json)
-- activeProfile = GetActiveProfileContext()
-- if activeProfile exists, merge active profile values (overrides global)
 - merge environment variable overrides
 - merge invocation overrides (from CLI/PS layer)
 - bind to T and return
@@ -252,9 +227,8 @@ Command behavior:
 
 - set/delete prompt unless force
 - clear error messages for unknown key/type/range failures
-- include source in get/list output (e.g., [global], [profile:dev], [env], [default])
+- include source in get/list output (e.g., [global], [env], [default])
 - tab completion from schema keys
-- active profile is consumed from external profile context
 
 #### Learnings
 
@@ -277,7 +251,7 @@ Command behavior:
 - ExtensionDispatcher_ShouldRouteConfigCommandGroup
 - ArgumentParsingService_ShouldTreatBareBoolFlagsAsTrue
 - ConfigCommands_ShouldSetGetListDeleteAndInfo
-- ConfigPrecedence_ShouldLayerProfileOverGlobalConfig
+- ConfigPrecedence_ShouldLayerGlobalConfigWithDefaults
 
 ### 5) PowerShell Surface
 
@@ -294,7 +268,6 @@ Cmdlet behavior:
 - same validation and force semantics as CLI
 - output typed PS objects
 - register key completer on module import
-- active profile is consumed from external profile context
 
 #### Learnings
 
@@ -350,23 +323,21 @@ Integration:
 4. PowerShellModule_ShouldImportAndExportConfigCmdlets
 5. PowerShellModule_ManifestShouldSpecifyAllRequiredDependencies
 6. ConfigPrecedence_ShouldLayerGlobalConfigWithDefaults
-7. ConfigPrecedence_ShouldLayerProfileOverGlobalConfig
-8. DefaultParameters_ShouldResolveFromConfig
+7. DefaultParameters_ShouldResolveFromConfig
 
 **Test Patterns:**
 
 - Fixture per test with temp directory and environment variable isolation (cache originals, clear on setup, restore on teardown)
 - Path detection: Walk up from test assembly to find cirrus.slnx (survives different build configurations)
 - Shared fixture for both CLI and PS (same underlying engine, different surfaces)
-- All 15 config tests (3 CLI, 2 PS, 7 schema, 3 service) passing
+- Config test suite passing for CLI, PS, schema, and service coverage
 
 ### 7) Definition of Done (Completed)
 
 - ✅ config service wired and used by migrated components
 - ✅ CLI and PowerShell config commands functional
-- ✅ config is profile-aware via external profile context provider
 - ✅ default parameters supported (stored in config.defaults.\*)
-- ✅ profile precedence layering verified (args > env > profile > global > defaults)
+- ✅ precedence layering verified (args > env > global > defaults)
 - ✅ strict validation enforced
 - ✅ safe write semantics verified (locks, atomic writes)
 - ✅ docs updated with user examples and workflows
@@ -387,14 +358,13 @@ Integration:
 
 1. **Namespace: hosts → clients** — Renamed to avoid confusion with server/machine context; aligns with ClientType (CLI vs PowerShell vs agent)
 2. **Read-Only for Non-Config Services:** Only config extension has write access; all other components read via IConfigurationService<T>
-3. **Profile Ownership Boundary:** Profile lifecycle is owned by a separate PR/spec; config only consumes active profile context
-4. **Profile Precedence:** args > env > active profile > global config > defaults (profile values layer over global)
-5. **Default Parameters (MVP):** Stored in config.defaults.\* (e.g., defaults.group, defaults.location); commands read via IConfigurationService.ResolveDefaultParameter() — opt-in, not automatic injection
-6. **Bare Boolean Flags:** CLI uses --force, --all, --json without values; ArgumentParsingService treats empty array as true for bool type
-7. **Separate Dispatch Tables:** PS and CLI each have their own command routing (cmdlet names vs lowercase command names)
-8. **Default Reflection:** Defaults sourced from option classes via reflection, not flattened dicts, to preserve dotted schema keys
-9. **Lock + Atomic Writes:** Cross-process lock + temp file swap prevents corruption on concurrent writes
-10. **Environment Isolation in Tests:** Cache original env vars, clear on setup, restore on teardown to avoid ambient values shadowing test assertions
+3. **Precedence:** args > env > global config > defaults
+4. **Default Parameters (MVP):** Stored in config.defaults.\* (e.g., defaults.group, defaults.location); commands read via IConfigurationService.ResolveDefaultParameter() — opt-in, not automatic injection
+5. **Bare Boolean Flags:** CLI uses --force, --all, --json without values; ArgumentParsingService treats empty array as true for bool type
+6. **Separate Dispatch Tables:** PS and CLI each have their own command routing (cmdlet names vs lowercase command names)
+7. **Default Reflection:** Defaults sourced from option classes via reflection, not flattened dicts, to preserve dotted schema keys
+8. **Lock + Atomic Writes:** Cross-process lock + temp file swap prevents corruption on concurrent writes
+9. **Environment Isolation in Tests:** Cache original env vars, clear on setup, restore on teardown to avoid ambient values shadowing test assertions
 
 ## Future Design Work (Phase 3+)
 
@@ -421,4 +391,3 @@ Integration:
 - Tab completion for config keys not yet implemented
 - PowerShell module publish (portable package layout) not yet done
 - Default parameter auto-injection (DefaultInjectingService) deferred to Phase 3; MVP requires explicit opt-in from commands
-- Profile lifecycle (create/list/use/delete/select) delivered in separate profile PR/spec
