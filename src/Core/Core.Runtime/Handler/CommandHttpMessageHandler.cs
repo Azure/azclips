@@ -9,5 +9,5 @@ namespace Core.Runtime.Handler;
 public class CommandHttpMessageHandler : ICommandHttpMessageHandler
 {
     /// <inheritdoc />
-    public SendAsyncStep SendAsync => async (HttpRequestMessage request, IEventListener callback, ISendAsync next) => await next.SendAsync(request, callback);
+    public SendAsyncStep SendAsync => (HttpRequestMessage request, IEventListener callback, ISendAsync next) => next.SendAsync(request, callback);
 }
