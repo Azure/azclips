@@ -6,7 +6,7 @@ namespace Core.Abstractions.Runtime.Handler;
 public interface ICommandHttpMessageHandler
 {
     /// <summary>
-    /// Sends an HTTP request step with authentication.
+    /// Interceptor for http pipeline for mocking scenarios
     /// </summary>
     SendAsyncStep SendAsync { get; }
 }
