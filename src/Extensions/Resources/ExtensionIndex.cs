@@ -11,9 +11,9 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
         private static readonly CommandMetadata s_newResourceGroup_PS = new(
             Name: "NewResourceGroupCommand",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.NewResourceGroupCommand",
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.NewResourceGroupProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
-            CommandType: typeof(Commands.NewResourceGroupCommand),
+            ProcessorType: typeof(Processors.NewResourceGroupProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"] = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -26,9 +26,9 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
         private static readonly CommandMetadata s_getResourceGroup_PS = new(
             Name: "GetResourceGroupCommand",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.GetResourceGroupCommand",
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.GetResourceGroupProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
-            CommandType: typeof(Commands.GetResourceGroupCommand),
+            ProcessorType: typeof(Processors.GetResourceGroupProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"] = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -39,9 +39,9 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
         private static readonly CommandMetadata s_listResourceGroup_PS = new(
             Name: "ListResourceGroupCommand",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.ListResourceGroupCommand",
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.ListResourceGroupProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
-            CommandType: typeof(Commands.ListResourceGroupCommand),
+            ProcessorType: typeof(Processors.ListResourceGroupProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"] = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -52,9 +52,9 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
         private static readonly CommandMetadata s_newResourceGroup_CLI = new(
             Name: "NewResourceGroupCommand",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.NewResourceGroupCommand",
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.NewResourceGroupProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
-            CommandType: typeof(Commands.NewResourceGroupCommand),
+            ProcessorType: typeof(Processors.NewResourceGroupProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -67,9 +67,9 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
         private static readonly CommandMetadata s_getResourceGroup_CLI = new(
             Name: "GetResourceGroupCommand",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.GetResourceGroupCommand",
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.GetResourceGroupProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
-            CommandType: typeof(Commands.GetResourceGroupCommand),
+            ProcessorType: typeof(Processors.GetResourceGroupProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -80,9 +80,9 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
         private static readonly CommandMetadata s_listResourceGroup_CLI = new(
             Name: "ListResourceGroupCommand",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.ListResourceGroupCommand",
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.ListResourceGroupProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
-            CommandType: typeof(Commands.ListResourceGroupCommand),
+            ProcessorType: typeof(Processors.ListResourceGroupProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: false, Aliases: [], AllowedValues: []),

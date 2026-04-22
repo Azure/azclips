@@ -28,17 +28,17 @@ namespace Core.Abstractions.Runtime
         public const string Polling = nameof(Polling);
         public const string Progress = nameof(Progress);
 
-        public const string CommandInitiated = nameof(CommandInitiated);
-        public const string CommandProcessAsyncStart = nameof(CommandProcessAsyncStart);
-        public const string CommandProcessAsyncEnd = nameof(CommandProcessAsyncEnd);
-        public const string CommandException = nameof(CommandException);
-        public const string CommandBeforeAPICall = nameof(CommandBeforeAPICall);
-        public const string CommandAfterAPICall = nameof(CommandAfterAPICall);
+        public const string ProcessorInitiated = nameof(ProcessorInitiated);
+        public const string ProcessorProcessAsyncStart = nameof(ProcessorProcessAsyncStart);
+        public const string ProcessorProcessAsyncEnd = nameof(ProcessorProcessAsyncEnd);
+        public const string ProcessorException = nameof(ProcessorException);
+        public const string ProcessorBeforeAPICall = nameof(ProcessorBeforeAPICall);
+        public const string ProcessorAfterAPICall = nameof(ProcessorAfterAPICall);
 
         public const string SessionCreated = nameof(SessionCreated);
         public const string SessionDisposed = nameof(SessionDisposed);
         public const string EngineLoadingAssembly = nameof(EngineLoadingAssembly);
-        public const string EngineBindingCommand = nameof(EngineBindingCommand);
+        public const string EngineBindingProcessor = nameof(EngineBindingProcessor);
 
         public const string AuthBeforeTokenAcquisition = nameof(AuthBeforeTokenAcquisition);
         public const string AuthAfterTokenAcquisition = nameof(AuthAfterTokenAcquisition);
@@ -59,7 +59,7 @@ namespace Core.Abstractions.Runtime
             SessionCreated,
             SessionDisposed,
             EngineLoadingAssembly,
-            EngineBindingCommand,
+            EngineBindingProcessor,
         };
 
         public static bool IsRunspaceThread(string eventId) => RunspaceThreadEvents.Contains(eventId);

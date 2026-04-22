@@ -17,8 +17,8 @@ internal partial class InvocationSession : IInvocationSession
     internal Channel<object> OutputChannel;
     internal Func<string> GetExtensionVersion { get; set; } = null!;
     internal Func<string, string, Assembly> LoadAssembly { get; set; } = null!;
-    internal Func<IProcessor, IDictionary<string, object>, IDictionary<string, ParameterMetadata>, IDictionary<string, string>?, IProcessor> BindCommand { get; set; } = null!;
-    internal Func<InvocationSession, CommandContext> CreateCommandContext { get; set; } = null!;
+    internal Func<IProcessor, IDictionary<string, object>, IDictionary<string, ParameterMetadata>, IDictionary<string, string>?, IProcessor> BindProcessor { get; set; } = null!;
+    internal Func<InvocationSession, ProcessorContext> CreateProcessorContext { get; set; } = null!;
     internal Func<string, string, Func<IExtensionIndex>, IExtensionIndex> CacheGetOrAdd { get; set; } = null!;
 
     public string Id { get; }
@@ -71,13 +71,13 @@ internal partial class InvocationSession : IInvocationSession
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         // Create context with channel-based output handler
-        CommandContext commandContext = CreateCommandContext(this);
-        
+        ProcessorContext processorContext = CreateProcessorContext(this);
+
         CommandMetadata commandMetadata = GetExtensionIndex().GetCommandMetadata(Invocation.CommandName, clientType);
-        IProcessor processor = commandMetadata.GetInstance().Init(commandContext);
+        IProcessor processor = commandMetadata.GetInstance().Init(processorContext);
         try
         {
-            processor = BindCommand(processor, Invocation.Parameters, commandMetadata.Parameters, commandMetadata.ParameterAliases);
+            processor = BindProcessor(processor, Invocation.Parameters, commandMetadata.Parameters, commandMetadata.ParameterAliases);
         }
         catch (Exception ex)
         {
@@ -85,14 +85,14 @@ internal partial class InvocationSession : IInvocationSession
         }
         
         /// <summary>
-        /// Executes the command asynchronously, writing output to the channel.
+        /// Executes the processor asynchronously, writing output to the channel.
         /// <para>No <see cref="Task.Run"/> wrapper — <c>ProcessAsync</c> is truly async,
         /// so the first real await yields back to the caller and continuations resume on
         /// the thread pool (no <see cref="SynchronizationContext"/> is present).
         /// The <c>finally</c> guarantees the channel is completed even on cancellation
         /// or exception, preventing the reader pump from hanging.</para>
         /// </summary>
-        async Task ExecuteCommandAsync()
+        async Task ExecuteProcessorAsync()
         {
             try
             {
@@ -107,7 +107,7 @@ internal partial class InvocationSession : IInvocationSession
             }
         }
         
-        Task executeCommandTask = ExecuteCommandAsync();
+        Task executeProcessorTask = ExecuteProcessorAsync();
 
         // Sync-over-async channel pump — intentional, not an anti-pattern here.
         //
@@ -116,7 +116,7 @@ internal partial class InvocationSession : IInvocationSession
         // current runspace / pipeline. An async Process() would let continuations
         // resume on arbitrary thread-pool threads, causing PSInvalidOperationException.
         //
-        // PATTERN: The worker task (ExecuteCommandAsync) runs on a thread-pool thread
+        // PATTERN: The worker task (ExecuteProcessorAsync) runs on a thread-pool thread
         // and writes results into the channel. This loop blocks the *caller's* thread
         // (the runspace thread) to read from the channel and invoke the outputDelegate
         // in the correct synchronization context. This is the standard "sync shell
@@ -165,7 +165,7 @@ internal partial class InvocationSession : IInvocationSession
             // cancellation or an exception. This prevents unobserved task exceptions
             // and ensures the worker's finally block (OutputChannel.Writer.Complete()) runs
             // before we leave Process().
-            executeCommandTask.GetAwaiter().GetResult();
+            executeProcessorTask.GetAwaiter().GetResult();
         }
     }
 

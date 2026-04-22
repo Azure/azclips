@@ -2,9 +2,9 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
+namespace Microsoft.Azure.Cirrus.Extensions.Login.Processors
 {
-    public class LoginCommand : LoginCommandBase
+    public class LoginProcessor : LoginProcessorBase
     {
         [ArgumentInfo(
         Required = true,
@@ -26,7 +26,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
 
         public override async Task ProcessAsync()
         {
-            await EventListener.Signal(Events.CommandProcessAsyncStart);
+            await EventListener.Signal(Events.ProcessorProcessAsyncStart);
             var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
             var authService = CirrusServiceProvider.GetRequiredService<IAuthService>();
             var authContextService = CirrusServiceProvider.GetRequiredService<IAuthContextService>();
@@ -42,7 +42,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
             AuthContext authContext = new AuthContext(TenantId: authResult.TenantId, SubscriptionId: SubscriptionId);
             authContextService.SaveContextAsync(authContext).GetAwaiter().GetResult();
             await WriteOutput(authContext);
-            await EventListener.Signal(Events.CommandProcessAsyncEnd);
+            await EventListener.Signal(Events.ProcessorProcessAsyncEnd);
         }
     }
 }

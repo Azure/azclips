@@ -8,7 +8,7 @@ namespace Core.Abstractions;
 public interface IProcessor
 {
     Task ProcessAsync();
-    IProcessor Init(CommandContext context);
+    IProcessor Init(ProcessorContext context);
 }
 
 public enum ArgumentAction
@@ -37,7 +37,7 @@ public class ArgumentInfoAttribute : Attribute
 }
 
 [AttributeUsage(AttributeTargets.Class)]
-public class CommandInfoAttribute : Attribute
+public class ProcessorInfoAttribute : Attribute
 {
     public string Name { get; set; } = "";
     public string Description { get; set; } = "";

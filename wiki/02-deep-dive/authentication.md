@@ -1,6 +1,6 @@
 ---
 title: Authentication & Authorization
-description: MSAL-based authentication flows, token cache persistence, AuthContext state management, bearer token injection via CommandAuthHandler, and the Login/Logout command implementations in Cirrus.
+description: MSAL-based authentication flows, token cache persistence, AuthContext state management, bearer token injection via AuthHandler, and the Login/Logout command implementations in Cirrus.
 ---
 
 # Authentication & Authorization
@@ -13,8 +13,8 @@ Cirrus authenticates users against Microsoft Entra ID (Azure AD) using the Micro
 flowchart TB
     subgraph User["User Interaction"]
         direction LR
-        Login["LoginCommand"]
-        Logout["LogoutCommand"]
+        Login["LoginProcessor"]
+        Logout["LogoutProcessor"]
     end
 
     subgraph Auth["Authentication Layer"]
@@ -32,7 +32,7 @@ flowchart TB
 
     subgraph HTTP["HTTP Pipeline"]
         direction LR
-        CAH["CommandAuthHandler"]
+        CAH["AuthHandler"]
         Bearer["Authorization: Bearer token"]
         ARM["Azure Resource Manager"]
 
@@ -157,7 +157,7 @@ new AuthResult
 sequenceDiagram
     autonumber
     participant User
-    participant LoginCmd as LoginCommand
+    participant LoginCmd as LoginProcessor
     participant AuthSvc as MsalAuthService
     participant MSAL as MSAL PCA
     participant Entra as Microsoft Entra ID
@@ -242,9 +242,9 @@ The contract (`src/Core/Core.Abstractions/IAuthContextService.cs:6`) defines:
 
 `ClearContextAsync` (`src/Core/Core.Authentication/AuthContextService.cs:58-68`) nulls the in-memory reference (line 61) and deletes the file (line 65).
 
-## CommandAuthHandler: Bearer Token Injection
+## AuthHandler: Bearer Token Injection
 
-`CommandAuthHandler` (`src/Core/Core.Runtime/Handler/CommandAuthHandler.cs:11-36`) implements `ICommandAuthHandler` and sits in the HTTP pipeline of every authenticated request.
+`AuthHandler` (`src/Core/Core.Runtime/Handler/AuthHandler.cs:11-36`) implements `IAuthHandler` and sits in the HTTP pipeline of every authenticated request.
 
 ### Properties
 
@@ -267,25 +267,25 @@ The `SendAsync` property (lines 25-35) returns a lambda that:
 
 ### Integration in CLIEngine
 
-`CLIEngine.CreateCommandContext()` (`src/Core/Core.Engine/CLIEngine.cs:129-162`) wires the handler:
+`CLIEngine.CreateProcessorContext()` (`src/Core/Core.Engine/CLIEngine.cs:129-162`) wires the handler:
 
 ```csharp
-var authHandler = new CommandAuthHandler
+var authHandler = new AuthHandler
 {
     AuthContext = authContext,                      // from AuthContextService
     AcquireTokenAsyncDefault = AcquireTokenAsync    // from IAuthService
 };
 ```
 
-The `CommandContext` assembles `CommandAuthHandler`, `CommandOutputHandler`, and `CommandTelemetryHandler` into an `HttpPipeline` that commands use for all ARM calls.
+The `ProcessorContext` assembles `AuthHandler`, `OutputHandler`, and `TelemetryHandler` into an `HttpPipeline` that processors use for all ARM calls.
 
 ### Integration in PSEngine
 
-`PSEngine.CreateCommandContext()` (`src/Core/Core.Engine/PSEngine.cs:94-127`) follows the same pattern but sources delegates from its constructor-injected functions (`GetAuthContext`, `AcquireTokenSilentlyAsync`, `StartActivity`). The channel-based output handler writes to a `ChannelWriter<object>` instead of `Console`.
+`PSEngine.CreateProcessorContext()` (`src/Core/Core.Engine/PSEngine.cs:94-127`) follows the same pattern but sources delegates from its constructor-injected functions (`GetAuthContext`, `AcquireTokenSilentlyAsync`, `StartActivity`). The channel-based output handler writes to a `ChannelWriter<object>` instead of `Console`.
 
 ## Login Command Implementation
 
-`LoginCommand` (`src/Extensions/Login/Commands/Login.cs:6`) extends `LoginCommandBase` and exposes three properties:
+`LoginProcessor` (`src/Extensions/Login/Processors/Login.cs:6`) extends `LoginProcessorBase` and exposes three properties:
 
 | Property | Type | Required | Default | Line |
 |---|---|---|---|---|
@@ -303,7 +303,7 @@ The `ProcessAsync` method (lines 26-48):
 
 ## Logout Command Implementation
 
-`LogoutCommand` (`src/Extensions/Login/Commands/Logout.cs:6`) is simpler, with `ProcessAsync` (lines 8-17):
+`LogoutProcessor` (`src/Extensions/Login/Processors/Logout.cs:6`) is simpler, with `ProcessAsync` (lines 8-17):
 
 1. Resolve services (lines 11-13)
 2. Call `authService.LogoutAsync()` — clears the MSAL token cache (line 14)
@@ -328,10 +328,10 @@ Both are singletons because the token cache and auth context should be shared ac
 ```mermaid
 sequenceDiagram
     autonumber
-    participant Cmd as ResourceCommand
+    participant Cmd as ResourceProcessor
     participant Engine as CLIEngine
     participant AuthCtx as AuthContextService
-    participant AuthHdlr as CommandAuthHandler
+    participant AuthHdlr as AuthHandler
     participant AuthSvc as MsalAuthService
     participant MSAL as MSAL PCA
     participant Cache as Token Cache
@@ -341,7 +341,7 @@ sequenceDiagram
     Engine->>AuthCtx: GetCurrentContextAsync()
     AuthCtx-->>Engine: AuthContext (TenantId, SubscriptionId)
 
-    Engine->>Engine: CreateCommandContext()
+    Engine->>Engine: CreateProcessorContext()
     Engine->>AuthHdlr: Set AuthContext, AcquireTokenAsyncDefault
 
     Cmd->>ARM: HTTP GET /subscriptions/...
@@ -381,9 +381,9 @@ sequenceDiagram
 
 2. **Hardcoded tenant fallback** — The Microsoft corporate tenant `72f988bf-86f1-41af-91ab-2d7cd011db47` is used when no tenant is specified (`src/Core/Core.Authentication/MsalAuthService.cs:80`). Users must pass `--TenantId` explicitly for non-Microsoft tenants.
 
-3. **Synchronous blocking in commands** — `LoginCommand` uses `.GetAwaiter().GetResult()` (line 40) instead of `await`. This is a deliberate choice because the command's `ProcessAsync` runs in a `Task.Run` wrapper within the engine, avoiding deadlocks.
+3. **Synchronous blocking in processors** — `LoginProcessor` uses `.GetAwaiter().GetResult()` (line 40) instead of `await`. This is a deliberate choice because the processor's `ProcessAsync` runs in a `Task.Run` wrapper within the engine, avoiding deadlocks.
 
-4. **Token in memory only** — `CommandAuthHandler` never persists the bearer token. It calls `AcquireTokenSilentlyAsync` on every request, relying on MSAL's in-memory + disk cache for performance.
+4. **Token in memory only** — `AuthHandler` never persists the bearer token. It calls `AcquireTokenSilentlyAsync` on every request, relying on MSAL's in-memory + disk cache for performance.
 
 ## References
 
@@ -395,8 +395,8 @@ sequenceDiagram
 | `src/Core/Core.Authentication/DIRegisterExtensions.cs` | 6-16 | DI registration extension method |
 | `src/Core/Core.Abstractions/IAuthService.cs` | 6-31 | Auth service contract |
 | `src/Core/Core.Abstractions/IAuthContextService.cs` | 6-28 | Auth context service contract |
-| `src/Core/Core.Runtime/Handler/CommandAuthHandler.cs` | 11-36 | Bearer token injection handler |
-| `src/Extensions/Login/Commands/Login.cs` | 6-48 | Login command implementation |
-| `src/Extensions/Login/Commands/Logout.cs` | 6-17 | Logout command implementation |
+| `src/Core/Core.Runtime/Handler/AuthHandler.cs` | 11-36 | Bearer token injection handler |
+| `src/Extensions/Login/Processors/Login.cs` | 6-48 | Login processor implementation |
+| `src/Extensions/Login/Processors/Logout.cs` | 6-17 | Logout processor implementation |
 | `src/Core/Core.Engine/CLIEngine.cs` | 129-162 | CLI command context creation |
 | `src/Core/Core.Engine/PSEngine.cs` | 94-127 | PowerShell command context creation |

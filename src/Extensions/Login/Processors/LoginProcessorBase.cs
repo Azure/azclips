@@ -3,9 +3,9 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
+namespace Microsoft.Azure.Cirrus.Extensions.Login.Processors
 {
-    public class LoginCommandBase : IProcessor
+    public class LoginProcessorBase : IProcessor
     {
         protected IRuntimeHttpPipeline HttpPipeline = null!;
         protected IEventListener EventListener = null!;
@@ -19,13 +19,13 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
 
         public Action Cancel => throw new NotImplementedException();
 
-        public IProcessor Init(CommandContext context)
+        public IProcessor Init(ProcessorContext context)
         {
             BeforeInit();
 
             HttpPipeline = context.HttpPipeline;
             EventListener = context.EventListener;
-            WriteOutput = context.CommandOutputHandler.WriteOutput;
+            WriteOutput = context.OutputHandler.WriteOutput;
 
             AfterInit();
             return this;

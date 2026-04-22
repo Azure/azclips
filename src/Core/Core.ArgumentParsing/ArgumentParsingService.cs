@@ -4,7 +4,7 @@ namespace Core.ArgumentParsing
 {
     public class ArgumentParsingService(PropertyParser propertyParser, ILoggingService loggingService) : IArgumentParsingService
     {
-        public IProcessor BindArgumentsToCommand(IProcessor command, IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases)
+        public IProcessor BindArgumentsToProcessor(IProcessor processor, IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases)
         {
             IDictionary<string, object> parsedArgs = ParseArguments(args, parameters, parameterAliases);
             IList<string> validationErrors = ValidateArguments(parsedArgs, parameters.ToDictionary(kvp => kvp.Value.Name, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase));
@@ -12,7 +12,7 @@ namespace Core.ArgumentParsing
             {
                 throw new ArgumentException($"Invalid arguments: {string.Join(", ", validationErrors)}");
             }
-            return BindArgumentsToCommand(command, parsedArgs);
+            return BindArgumentsToProcessor(processor, parsedArgs);
         }
 
         public IDictionary<string, object> ParseArguments(IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases)
@@ -82,10 +82,10 @@ namespace Core.ArgumentParsing
                     .ToArray();
         }
 
-        public IProcessor BindArgumentsToCommand(IProcessor command, IDictionary<string, object> parameters)
+        public IProcessor BindArgumentsToProcessor(IProcessor processor, IDictionary<string, object> parameters)
         {
-            parameters.ToList().ForEach(p => SetProperty(command, p.Key, p.Value));
-            return command;
+            parameters.ToList().ForEach(p => SetProperty(processor, p.Key, p.Value));
+            return processor;
         }
 
         private void SetProperty(IProcessor processor, string propertyName, object? value)
@@ -93,7 +93,7 @@ namespace Core.ArgumentParsing
             var propertyInfo = processor.GetType().GetProperty(propertyName);
             if (propertyInfo == null)
             {
-                throw new ArgumentException($"The property '{propertyName}' does not exist on command '{processor.GetType().FullName}'.");
+                throw new ArgumentException($"The property '{propertyName}' does not exist on processor '{processor.GetType().FullName}'.");
             }
             try
             {
@@ -109,7 +109,7 @@ namespace Core.ArgumentParsing
             }
             catch (Exception e)
             {
-                throw new ArgumentException($"The property '{propertyName}' on command '{processor.GetType().FullName}' could not be set to value '{value}'.", e);
+                throw new ArgumentException($"The property '{propertyName}' on processor '{processor.GetType().FullName}' could not be set to value '{value}'.", e);
             }
         }
 

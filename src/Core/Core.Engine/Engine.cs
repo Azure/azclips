@@ -13,7 +13,6 @@ using Azure;
 namespace Core.Engine
 {
     /// <summary>
-    /// PowerShell command engine for executing commands in PowerShell runspaces.
     /// Mediator pattern, Engine orchestrates services and runtimes
     /// <para><b>Thread Safety:</b> This engine is designed for concurrent command execution.
     /// Each <see cref="Process"/> call creates isolated context with per-invocation output channel.
@@ -50,8 +49,8 @@ namespace Core.Engine
             // TODO(Yabo): get extension version from config service in the future
             session.GetExtensionVersion = () => string.Empty;
             session.LoadAssembly = assemblyLoadingService.LoadExtension;
-            session.BindCommand = argumentParsingService.BindArgumentsToCommand;
-            session.CreateCommandContext = CreateCommandContext;
+            session.BindProcessor = argumentParsingService.BindArgumentsToProcessor;
+            session.CreateProcessorContext = CreateProcessorContext;
             session.CacheGetOrAdd = CacheGetOrAdd;
             return session;
         }
@@ -65,8 +64,8 @@ namespace Core.Engine
             return session;
         }
 
-        // Messages for events before command execution start (inclusive) goes to ILoggingService
-        // Messages for events after command execution start goes to session.channel
+        // Messages for events before processor execution start (inclusive) goes to ILoggingService
+        // Messages for events after processor execution start goes to session.channel
         private InvocationSession SubscribeMessages(InvocationSession session)
         {
             // Print every event id for debugging purpose, 
@@ -95,7 +94,7 @@ namespace Core.Engine
             });
 
             /*
-                Events in command, Http lifecycle goes to session channel
+                Events in processor, Http lifecycle goes to session channel
                 wrap messages with:
                     OutputMessage
                     DebugMessage
@@ -104,7 +103,7 @@ namespace Core.Engine
                     ErrorMessage
                     InformationMessage
             */
-            session.Subscribe(Events.CommandInitiated, (data) =>
+            session.Subscribe(Events.ProcessorInitiated, (data) =>
             {
                 var evt = (EventData)data;
                 DebugMessage msg = new DebugMessage(evt.Message);
@@ -114,7 +113,7 @@ namespace Core.Engine
             return session;
         }
 
-        // Paired stages used for paired events like command before/after command api calls
+        // Paired stages used for paired events like processor before/after processor api calls
         // Sequential stages used for sequential events
         // Paired always check stack: if (pairedStages.TryPop(out var activity)) activity.Dispose();
         // Sequential always check previous: sequentialStage?.Dispose(); sequentialStage = telemetryService.StartActivity(...);
@@ -176,12 +175,12 @@ namespace Core.Engine
                     activity.Dispose();
             });
 
-            session.Subscribe(Events.CommandProcessAsyncStart, (data) =>
+            session.Subscribe(Events.ProcessorProcessAsyncStart, (data) =>
             {
                 var evt = (EventData)data;
                 sequentialStage = telemetryService.StartActivity($"{sessionId}.ProcessAsync", ActivityKind.Internal);
             });
-            session.Subscribe(Events.CommandProcessAsyncEnd, (data) =>
+            session.Subscribe(Events.ProcessorProcessAsyncEnd, (data) =>
             {
                 sequentialStage?.Dispose();
                 sequentialStage = null;
@@ -209,16 +208,16 @@ namespace Core.Engine
         }
 
         /// <summary>
-        /// Creates a new command context for this invocation with channel-based output.
-        /// Each command execution gets its own isolated context.
+        /// Creates a new processor context for this invocation with channel-based output.
+        /// Each processor execution gets its own isolated context.
         /// </summary>
-        private CommandContext CreateCommandContext(InvocationSession session)
+        private ProcessorContext CreateProcessorContext(InvocationSession session)
         {
             // Sync-over-async by design: invoked on the PowerShell runspace thread
             // during Process(), which is intentionally synchronous.
             AuthContext authContext = authContextService.GetCurrentContextAsync().GetAwaiter().GetResult()
                                     ?? new AuthContext(TenantId: "", SubscriptionId: "");
-            ICommandAuthHandler commandAuthHandler = new CommandAuthHandler
+            IAuthHandler authHandler = new AuthHandler
             {
                 AuthContext = authContext with { },
                 AcquireTokenAsyncDefault = authService.AcquireTokenSilentlyAsync,
@@ -226,18 +225,18 @@ namespace Core.Engine
             };
 
             // Create output handler that writes to the per-invocation channel
-            ICommandOutputHandler commandOutputHandler = new CommandOutputHandler
+            IOutputHandler outputHandler = new OutputHandler
             {
                 WriteOutput = async (value, _) => await session.OutputChannel.Writer.WriteAsync(new OutputObject(value), session.Token)
             };
 
             IRuntimeHttpPipeline httpPipeline = new HttpPipeline(new HttpClientFactory(httpClient));
-            CommandContext context = new CommandContext
+            ProcessorContext context = new ProcessorContext
             (
-                HttpPipeline: httpPipeline.Prepend(commandAuthHandler.SendAsync),
+                HttpPipeline: httpPipeline.Prepend(authHandler.SendAsync),
                 EventListener: session,
-                CommandAuthHandler: commandAuthHandler,
-                CommandOutputHandler: commandOutputHandler
+                AuthHandler: authHandler,
+                OutputHandler: outputHandler
             );
             httpPipeline.Prepend(commandHttpMessageHandler.SendAsync);
             return context;

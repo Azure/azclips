@@ -3,8 +3,8 @@ using Core.Abstractions.Runtime.Handler;
 
 namespace Core.Abstractions;
 
-public record CommandContext
+public record ProcessorContext
     (IRuntimeHttpPipeline HttpPipeline,
      IEventListener EventListener,
-     ICommandAuthHandler CommandAuthHandler,
-     ICommandOutputHandler CommandOutputHandler);
+     IAuthHandler AuthHandler,
+     IOutputHandler OutputHandler);

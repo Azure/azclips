@@ -1,9 +1,9 @@
 namespace Core.Abstractions.Runtime.Handler
 {
     /// <summary>
-    /// Marker interface for command output handlers.
+    /// Marker interface for output handlers.
     /// </summary>
-    public interface ICommandOutputHandler
+    public interface IOutputHandler
     {
         OutputStreamDelegate WriteOutput { get; set; }
     }

@@ -6,9 +6,9 @@ namespace Core.Runtime.Handler
     using System.Net.Http.Headers;
 
     /// <summary>
-    /// Implementation of ICommandAuthHandler.
+    /// Implementation of IAuthHandler.
     /// </summary>
-    public class CommandAuthHandler : ICommandAuthHandler
+    public class AuthHandler : IAuthHandler
     {
         public AuthContext AuthContext { get; set; } = null!;
 

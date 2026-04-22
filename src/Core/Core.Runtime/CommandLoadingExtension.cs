@@ -26,14 +26,14 @@ namespace Core.Runtime
             IProcessor? instance = null;
             try
             {
-                var commandType = metadata.CommandType;
-                if (commandType == null && !String.IsNullOrEmpty(metadata.FullName) && !String.IsNullOrEmpty(metadata.AssemblyName))
+                var processorType = metadata.ProcessorType;
+                if (processorType == null && !String.IsNullOrEmpty(metadata.FullName) && !String.IsNullOrEmpty(metadata.AssemblyName))
                 {
-                    commandType = System.Reflection.Assembly.Load(metadata.AssemblyName).GetType(metadata.FullName);
+                    processorType = System.Reflection.Assembly.Load(metadata.AssemblyName).GetType(metadata.FullName);
                 }
-                if (commandType != null && typeof(IProcessor).IsAssignableFrom(commandType))
+                if (processorType != null && typeof(IProcessor).IsAssignableFrom(processorType))
                 {
-                    instance = (IProcessor?)Activator.CreateInstance(commandType);
+                    instance = (IProcessor?)Activator.CreateInstance(processorType);
                 }
                 if (instance == null)
                 {
@@ -42,7 +42,7 @@ namespace Core.Runtime
             }
             catch (Exception e)
             {
-                throw new ArgumentException($"The command '{metadata.Name}' could not be created. Ensure that the command implements IProcessor and has a parameterless constructor.", e);
+                throw new ArgumentException($"The processor for command '{metadata.Name}' could not be created. Ensure that the processor implements IProcessor and has a parameterless constructor.", e);
             }
             return instance!;
         }

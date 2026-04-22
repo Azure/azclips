@@ -2,9 +2,9 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Extension.Commands;
+namespace Microsoft.Azure.Cirrus.Extensions.Extension.Processors;
 
-public class AddExtensionCommand : IProcessor
+public class AddExtensionProcessor : IProcessor
 {
     private OutputStreamDelegate _writeOutput = null!;
 
@@ -32,9 +32,9 @@ public class AddExtensionCommand : IProcessor
     SerializedName = @"Path")]
     public string? Path { get; set; }
 
-    public IProcessor Init(CommandContext context)
+    public IProcessor Init(ProcessorContext context)
     {
-        _writeOutput = context.CommandOutputHandler.WriteOutput;
+        _writeOutput = context.OutputHandler.WriteOutput;
         return this;
     }
 
@@ -53,7 +53,7 @@ public class AddExtensionCommand : IProcessor
 
         var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
         var loggingService = CirrusServiceProvider.GetRequiredService<ILoggingService>();
-        using var _ = telemetryService.ActivitySource?.StartActivity($"{nameof(AddExtensionCommand)}.{nameof(Process)}");
+        using var _ = telemetryService.ActivitySource?.StartActivity($"{nameof(AddExtensionProcessor)}.{nameof(Process)}");
 
         var installer = new ExtensionInstaller(loggingService, feedUrl: FeedUrl);
         if (!string.IsNullOrWhiteSpace(Name))

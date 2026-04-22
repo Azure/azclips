@@ -4,23 +4,23 @@
 namespace Core.Abstractions
 {
     /// <summary>
-    /// Service for parsing and binding arguments to command instances.
+    /// Service for parsing and binding arguments to processor instances.
     /// Handles CLI argument parsing, type conversion, validation, and property binding
     /// based on provided <see cref="ParameterMetadata"/> definitions and aliases.
     /// </summary>
     public interface IArgumentParsingService
     {
         /// <summary>
-        /// Parses and binds arguments to a command instance.
+        /// Parses and binds arguments to a processor instance.
         /// Validates required parameters, converts types, and sets properties.
         /// </summary>
-        /// <param name="command">The command instance to bind arguments to.</param>
+        /// <param name="processor">The processor instance to bind arguments to.</param>
         /// <param name="parameters">Dictionary of argument key-value pairs.</param>
-        /// <returns>The command instance with bound arguments.</returns>
+        /// <returns>The processor instance with bound arguments.</returns>
         /// <exception cref="ArgumentException">Thrown when argument parsing or binding fails.</exception>
-        IProcessor BindArgumentsToCommand(IProcessor command, IDictionary<string, object> parameters);
+        IProcessor BindArgumentsToProcessor(IProcessor processor, IDictionary<string, object> parameters);
 
-        IProcessor BindArgumentsToCommand(IProcessor command, IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases);
+        IProcessor BindArgumentsToProcessor(IProcessor processor, IDictionary<string, object> args, IDictionary<string, ParameterMetadata> parameters, IDictionary<string, string>? parameterAliases);
 
         /// <summary>
         /// Parses raw CLI argument strings into a structured format.

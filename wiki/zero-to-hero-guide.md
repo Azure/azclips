@@ -168,7 +168,7 @@ graph LR
   end
   subgraph Ext["Extension DLL"]
     style Ext fill:#161b22,stroke:#30363d,color:#e6edf3
-    D["IModule"] --> E["ICommand"]
+    D["IModule"] --> E["IProcessor"]
   end
   C -->|"LoadFromAssemblyPath()"| D
   style A fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
@@ -436,7 +436,7 @@ sequenceDiagram
     CP-->>DE: ParseResult(commands, options)
     DE->>CB: Bind(parseResult)
     CB->>CB: Load Resources.dll
-    CB-->>DE: NewResourceGroupCommand
+    CB-->>DE: NewResourceGroupProcessor
     DE->>Cmd: ExecuteAsync(serviceProvider, options)
     Cmd->>Azure: PUT resourcegroups/test
     Azure-->>Cmd: 201 Created
@@ -465,9 +465,9 @@ Every extension follows the same pattern:
 src/Extensions/Name/
   ExtensionIndex.cs         # IExtensionIndex - command registry
   Extensions.Name.csproj    # EnableDynamicLoading=true
-  Commands/
-    VerbNounCommand.cs      # ICommand implementations
-    BaseCommandBase.cs      # Shared base class
+  Processors/
+    VerbNounProcessor.cs      # IProcessor implementations
+    BaseProcessorBase.cs      # Shared base class
   Models/                   # Data models (if needed)
 ```
 
@@ -476,7 +476,7 @@ src/Extensions/Name/
 1. **Create the project** in `src/Extensions/MyExt/`
 2. **Create the .csproj** with `EnableDynamicLoading=true` and `ExcludeAssets=runtime` on Core references
 3. **Implement `IExtensionIndex`** with CLI and PS command tables
-4. **Create commands** implementing `ICommand` with `[ArgumentInfo]` attributes on parameters
+4. **Create processors** implementing `IProcessor` with `[ArgumentInfo]` attributes on parameters
 5. **Register in `CommandGroupIndex`** (`src/CLI/Parser/CommandGroupIndex.cs`)
 6. **Add PowerShell wrapper** in `src/PS/MyExt/`
 7. **Write tests** in `tests/`
@@ -640,7 +640,7 @@ Here's a complete walkthrough for adding a `Storage` extension:
 #### Step 1: Create Project Structure
 
 ```bash
-mkdir -p src/Extensions/Storage/Commands
+mkdir -p src/Extensions/Storage/Processors
 mkdir -p src/Extensions/Storage/Models
 ```
 
@@ -674,9 +674,9 @@ public class ExtensionIndex : IExtensionIndex
     {
         _cliTable.Add("list", new CommandMetadata(
             name: "ListStorageAccounts",
-            fullName: "Storage.Commands.ListStorageAccountsCommand",
+            fullName: "Storage.Processors.ListStorageAccountsProcessor",
             assemblyName: "Storage",
-            commandType: typeof(Commands.ListStorageAccountsCommand)));
+            processorType: typeof(Processors.ListStorageAccountsProcessor)));
     }
 
     public Dictionary<string, ICommandMetadata> GetCLITable() => _cliTable;
@@ -687,7 +687,7 @@ public class ExtensionIndex : IExtensionIndex
 #### Step 4: Implement Command
 
 ```csharp
-public class ListStorageAccountsCommand : ICommand
+public class ListStorageAccountsProcessor : IProcessor
 {
     [ArgumentInfo(Required = false, Description = "Subscription ID")]
     public string SubscriptionId { get; set; } = "";
@@ -750,9 +750,9 @@ azv2 storage list --SubscriptionId <your-sub>
 | **SendAsync** | HTTP pipeline step delegate |
 | **ISendAsyncFactory** | Creates middleware pipeline steps |
 | **ISendAsyncTerminalFactory** | Creates the terminal HTTP handler |
-| **CommandAuthHandler** | Pipeline handler that adds bearer tokens |
-| **CommandOutputHandler** | Pipeline handler for routing output |
-| **CommandTelemetryHandler** | Pipeline handler for activity tracking |
+| **AuthHandler** | Pipeline handler that adds bearer tokens |
+| **OutputHandler** | Pipeline handler for routing output |
+| **TelemetryHandler** | Pipeline handler for activity tracking |
 | **EventListener** | Handles signals/events during command execution |
 | **EventData** | Event payload with ID, message, request/response |
 | **MsalAuthService** | MSAL-based token acquisition service |
@@ -765,7 +765,7 @@ azv2 storage list --SubscriptionId <your-sub>
 | **ArgumentInfo** | Attribute for command parameter metadata |
 | **ClientType** | Enum: `CLI` or `PowerShell` |
 | **IProcessor** | Interface for command execution pipeline |
-| **CommandContext** | Composed context with auth, output, telemetry handlers |
+| **ProcessorContext** | Composed context with auth, output, telemetry handlers |
 | **AZURECLI_FLAVOR** | Environment variable controlling orchestrator behavior |
 | **MSIX** | Windows application packaging format used for distribution |
 

@@ -3,9 +3,9 @@ namespace Core.Abstractions.Runtime.Handler
     using System.Diagnostics;
 
     /// <summary>
-    /// Marker interface for command telemetry handlers.
+    /// Marker interface for telemetry handlers.
     /// </summary>
-    public interface ICommandTelemetryHandler
+    public interface ITelemetryHandler
     {
         StartActivityDelegate StartActivity { get; set; }
     }

@@ -3,7 +3,7 @@ namespace Core.Abstractions.Runtime.Handler
     /// <summary>
     /// Interface for authentication handlers.
     /// </summary>
-    public interface ICommandAuthHandler
+    public interface IAuthHandler
     {
         AuthContext AuthContext { get; set; }
 

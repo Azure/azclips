@@ -2,9 +2,9 @@ using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
+namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
 {
-    public class ResourceCommandBase : IProcessor
+    public class ResourceProcessorBase : IProcessor
     {
         protected IRuntimeHttpPipeline HttpPipeline = null!;
         protected IEventListener EventListener = null!;
@@ -18,7 +18,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
 
         public Action Cancel => throw new NotImplementedException();
 
-        public IProcessor Init(CommandContext context)
+        public IProcessor Init(ProcessorContext context)
         {
             BeforeInit();
 
@@ -31,8 +31,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Commands
 
             HttpPipeline = context.HttpPipeline;
             EventListener = context.EventListener;
-            WriteOutput = context.CommandOutputHandler.WriteOutput;
-            AuthContext = context.CommandAuthHandler.AuthContext;
+            WriteOutput = context.OutputHandler.WriteOutput;
+            AuthContext = context.AuthHandler.AuthContext;
 
             AfterInit();
             return this;
