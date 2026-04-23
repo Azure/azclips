@@ -54,6 +54,22 @@ static class CommandTree
                 new("--path", "Local path to extension", false),
             ]),
         ]),
+        // VFS navigation commands (handled locally, not forwarded to CLI)
+        new("cd", "Navigate Azure VFS path", [
+            new("", "Change directory (cd /tenant/sub/rg)", []),
+        ]),
+        new("ls", "List Azure VFS children", [
+            new("", "List items at path (ls [path])", []),
+        ]),
+        new("pwd", "Show current VFS path", [
+            new("", "Print working directory and ARM resource ID", []),
+        ]),
+        new("tree", "Show Azure VFS tree", [
+            new("", "Display resource hierarchy (tree [depth])", []),
+        ]),
+        new("refresh", "Refresh Azure VFS cache", [
+            new("", "Refresh caches (refresh [all|tenants|subs|rgs|resources])", []),
+        ]),
     ];
 
     /// <summary>

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using Core.Tui.Azure;
 using Microsoft.Identity.Client;
 using Microsoft.Identity.Client.Extensions.Msal;
 
@@ -21,6 +22,11 @@ class AppState
     private string? _cachedSubId;
     private string? _cachedTenantName;
     private string? _cachedSubName;
+
+    // Azure Virtual File System
+    private readonly ArmClient _armClient = new();
+    public AzureVfs Vfs { get; }
+    public bool VfsReady { get; private set; }
 
     public string InputText { get; set; } = "";
     public List<HistoryEntry> History { get; } = new();
@@ -54,8 +60,38 @@ class AppState
 
     public AppState()
     {
+        Vfs = new AzureVfs(_armClient);
         RefreshPrompt();
         RefreshGitBranch();
+        // Try to authenticate VFS silently in background
+        _ = InitVfsAsync();
+    }
+
+    private async Task InitVfsAsync()
+    {
+        try
+        {
+            VfsReady = await Vfs.TryAuthenticateAsync();
+            if (!VfsReady) return;
+
+            // Seed VFS path from context.json so the initial position
+            // matches the user's current Azure context (tenant + subscription).
+            if (File.Exists(ContextFilePath))
+            {
+                var json = await File.ReadAllTextAsync(ContextFilePath);
+                using var doc = JsonDocument.Parse(json);
+                var tenantId = doc.RootElement.TryGetProperty("TenantId", out var t) ? t.GetString() : null;
+                var subId = doc.RootElement.TryGetProperty("SubscriptionId", out var s) ? s.GetString() : null;
+                await Vfs.SetInitialPathAsync(tenantId, subId);
+            }
+
+            RefreshPrompt();
+            Invalidate?.Invoke();
+        }
+        catch
+        {
+            VfsReady = false;
+        }
     }
 
     /// <summary>
@@ -135,6 +171,14 @@ class AppState
 
     public void RefreshPrompt()
     {
+        // When VFS is ready, use the VFS current path as the prompt.
+        if (VfsReady)
+        {
+            Prompt = Vfs.CurrentPath == "/" ? "/ > " : $"{Vfs.CurrentPath} > ";
+            return;
+        }
+
+        // Fallback: try to read tenant/subscription from context.json
         try
         {
             if (!File.Exists(ContextFilePath)) { Prompt = "/ > "; return; }
@@ -147,7 +191,6 @@ class AppState
             if (string.IsNullOrEmpty(tenantId) || string.IsNullOrEmpty(subId))
             { Prompt = "/ > "; return; }
 
-            // Use cached names if IDs haven't changed
             if (tenantId == _cachedTenantId && subId == _cachedSubId
                 && _cachedTenantName != null && _cachedSubName != null)
             {
@@ -155,7 +198,6 @@ class AppState
                 return;
             }
 
-            // Try to resolve names from ARM (best-effort, silent token)
             var (tenantName, subName) = ResolveNamesFromArm(tenantId, subId);
             _cachedTenantId = tenantId;
             _cachedSubId = subId;
@@ -247,8 +289,81 @@ class AppState
 
     public void UpdateSuggestions()
     {
+        // No suggestions when input is empty
+        if (string.IsNullOrWhiteSpace(InputText))
+        {
+            Suggestions = [];
+            SelectedSuggestion = 0;
+            return;
+        }
+
+        // For cd/ls, provide VFS path completions from Azure hierarchy
+        var trimmed = InputText.TrimStart();
+        if (VfsReady && TryStartVfsCompletion(trimmed))
+            return;
+
         Suggestions = CommandTree.GetSuggestions(InputText);
         SelectedSuggestion = 0;
+    }
+
+    /// <summary>
+    /// If input is "cd <partial>" or "ls <partial>", fetch VFS path completions async.
+    /// Returns true if a VFS completion was started (suggestions will arrive via Invalidate).
+    /// </summary>
+    private bool TryStartVfsCompletion(string trimmed)
+    {
+        // Match: "cd ", "cd foo", "ls ", "ls /ten" etc.
+        var isVfsCmd = false;
+        string partial = "";
+        foreach (var verb in new[] { "cd", "ls" })
+        {
+            if (trimmed.Equals(verb, StringComparison.OrdinalIgnoreCase)
+                || !trimmed.StartsWith(verb + " ", StringComparison.OrdinalIgnoreCase))
+                continue;
+            isVfsCmd = true;
+            partial = trimmed[(verb.Length + 1)..].TrimStart();
+            break;
+        }
+        if (!isVfsCmd) return false;
+
+        // Fire async completion; update Suggestions when done
+        _ = FetchVfsCompletionsAsync(partial);
+        return true;
+    }
+
+    private async Task FetchVfsCompletionsAsync(string partial)
+    {
+        try
+        {
+            // If partial is empty, list children of current path
+            List<VfsEntry> entries;
+            List<string> completions;
+
+            if (string.IsNullOrEmpty(partial))
+            {
+                entries = await Vfs.LsAsync();
+                Suggestions = entries.Select(e =>
+                {
+                    var icon = e.Kind == VfsEntryKind.Directory ? "📁" : "📄";
+                    return new Suggestion(e.Name, $"{icon} {e.Detail}");
+                }).ToList();
+            }
+            else
+            {
+                completions = await Vfs.GetCompletionsAsync(partial);
+                Suggestions = completions.Select(c => new Suggestion(c, "Azure resource")).ToList();
+            }
+
+            SelectedSuggestion = 0;
+            Invalidate?.Invoke();
+        }
+        catch
+        {
+            // Silently fall back to static suggestions on error
+            Suggestions = CommandTree.GetSuggestions(InputText);
+            SelectedSuggestion = 0;
+            Invalidate?.Invoke();
+        }
     }
 
     public void AcceptSuggestion()
@@ -282,6 +397,15 @@ class AppState
         _inputHistory.Add(command);
         _historyIndex = -1;
 
+        // Check for VFS built-in commands
+        if (TryHandleVfsCommand(command))
+        {
+            InputText = "";
+            OutputScrollOffset = 0;
+            UpdateSuggestions();
+            return;
+        }
+
         History.Add(new HistoryEntry(HistoryItemType.User, $"azv2 {command}"));
         InputText = "";
         OutputScrollOffset = 0;
@@ -292,6 +416,130 @@ class AppState
         _commandStopwatch.Restart();
         _ = RunCliStreamingAsync(command);
     }
+
+    /// <summary>
+    /// Handle built-in VFS navigation commands: cd, ls, pwd, tree, refresh.
+    /// Returns true if the command was handled locally (not forwarded to CLI).
+    /// </summary>
+    private bool TryHandleVfsCommand(string command)
+    {
+        var parts = command.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+        var verb = parts[0].ToLowerInvariant();
+        var arg = parts.Length > 1 ? parts[1].Trim() : null;
+
+        switch (verb)
+        {
+            case "cd":
+                History.Add(new HistoryEntry(HistoryItemType.User, $"cd {arg ?? "/"}"));
+                if (!VfsReady)
+                {
+                    History.Add(new HistoryEntry(HistoryItemType.Error, "Not authenticated. Run 'login' first."));
+                    break;
+                }
+                _ = RunVfsAsync(async () =>
+                {
+                    var error = await Vfs.CdAsync(arg ?? "/");
+                    if (error != null)
+                        History.Add(new HistoryEntry(HistoryItemType.Error, error));
+                    else
+                        History.Add(new HistoryEntry(HistoryItemType.Info, Vfs.CurrentPath));
+                    RefreshVfsPrompt();
+                });
+                return true;
+
+            case "ls":
+                History.Add(new HistoryEntry(HistoryItemType.User, $"ls {arg ?? ""}".TrimEnd()));
+                if (!VfsReady)
+                {
+                    History.Add(new HistoryEntry(HistoryItemType.Error, "Not authenticated. Run 'login' first."));
+                    break;
+                }
+                _ = RunVfsAsync(async () =>
+                {
+                    var entries = await Vfs.LsAsync(arg);
+                    if (entries.Count == 0)
+                    {
+                        History.Add(new HistoryEntry(HistoryItemType.Info, "(empty)"));
+                    }
+                    else
+                    {
+                        foreach (var e in entries)
+                        {
+                            var icon = e.Kind == VfsEntryKind.Directory ? "📁" : "📄";
+                            History.Add(new HistoryEntry(HistoryItemType.Output, $"  {icon} {e.Name,-40} {e.Detail}"));
+                        }
+                        History.Add(new HistoryEntry(HistoryItemType.Info, $"{entries.Count} items"));
+                    }
+                });
+                return true;
+
+            case "pwd":
+                History.Add(new HistoryEntry(HistoryItemType.User, "pwd"));
+                History.Add(new HistoryEntry(HistoryItemType.Output, Vfs.CurrentPath));
+                History.Add(new HistoryEntry(HistoryItemType.Info, Vfs.GetResourceId()));
+                History.Add(new HistoryEntry(HistoryItemType.Separator, ""));
+                Invalidate?.Invoke();
+                return true;
+
+            case "tree":
+                History.Add(new HistoryEntry(HistoryItemType.User, "tree"));
+                if (!VfsReady)
+                {
+                    History.Add(new HistoryEntry(HistoryItemType.Error, "Not authenticated. Run 'login' first."));
+                    break;
+                }
+                _ = RunVfsAsync(async () =>
+                {
+                    var depth = 3;
+                    if (arg != null && int.TryParse(arg, out var d)) depth = d;
+                    var lines = await Vfs.TreeAsync(depth);
+                    foreach (var line in lines)
+                        History.Add(new HistoryEntry(HistoryItemType.Output, line));
+                });
+                return true;
+
+            case "refresh":
+                History.Add(new HistoryEntry(HistoryItemType.User, $"refresh {arg ?? "all"}"));
+                var scope = (arg?.ToLowerInvariant()) switch
+                {
+                    "tenants" => AzureVfs.RefreshScope.Tenants,
+                    "subscriptions" or "subs" => AzureVfs.RefreshScope.Subscriptions,
+                    "resourcegroups" or "rgs" => AzureVfs.RefreshScope.ResourceGroups,
+                    "resources" => AzureVfs.RefreshScope.Resources,
+                    _ => AzureVfs.RefreshScope.All,
+                };
+                Vfs.Refresh(scope);
+                History.Add(new HistoryEntry(HistoryItemType.Success, $"Cache refreshed: {scope}"));
+                History.Add(new HistoryEntry(HistoryItemType.Separator, ""));
+                Invalidate?.Invoke();
+                return true;
+
+            default:
+                return false;
+        }
+
+        // Fell through a case that wrote an error but didn't return
+        History.Add(new HistoryEntry(HistoryItemType.Separator, ""));
+        Invalidate?.Invoke();
+        return true;
+    }
+
+    private async Task RunVfsAsync(Func<Task> action)
+    {
+        try
+        {
+            await action();
+        }
+        catch (Exception ex)
+        {
+            History.Add(new HistoryEntry(HistoryItemType.Error, ex.Message));
+        }
+        History.Add(new HistoryEntry(HistoryItemType.Separator, ""));
+        OutputScrollOffset = 0;
+        Invalidate?.Invoke();
+    }
+
+    private void RefreshVfsPrompt() => RefreshPrompt();
 
     private async Task RunCliStreamingAsync(string args)
     {

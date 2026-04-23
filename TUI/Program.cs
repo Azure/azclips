@@ -44,10 +44,10 @@ public static class Program
                 else
                 {
                     // ── Scrollable history panel ──
-                    // VScrollPanel is focusable: mouse scroll works via hit-test,
-                    // keyboard scroll works when focused (Tab to switch).
+                    // VScrollPanel handles mouse scroll via hit-test routing.
                     // .Follow() auto-scrolls to bottom on new content.
                     // HeightHint caps height so TextBox + suggestions + footer always visible.
+                    // Text selection: use Shift+mouse drag (standard terminal behavior with mouse mode).
                     var reservedLines = 2 + (state.IsRunning ? 1 : 0)
                         + Math.Min(state.Suggestions.Count, 8)
                         + (state.Suggestions.Count > 8 ? 2 : 0) + 1;
@@ -73,7 +73,6 @@ public static class Program
                 }
 
                 // ── Prompt + TextBox input ──
-                // TextBox is the primary focus target. Tab switches to ScrollPanel.
                 widgets.Add(v.HStack(h => [
                     h.Text(state.Prompt),
                     h.TextBox(state.InputText)
