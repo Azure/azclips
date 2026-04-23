@@ -134,6 +134,7 @@ namespace Core.Engine
                     while (activity.Parent is not null)
                         activity = activity.Parent;
                     loggingService.Debug($"Root activity={activity.DisplayName}, setting tags...");
+                    activity.SetTag("ClientType", clientType);
                     // NOTE: On the CLI side "module.name" currently maps to the extension name.
                     // The tag key may be renamed to "extension.name" in the future — TBD.
                     if (!string.IsNullOrEmpty(session.Invocation.ModuleName))
@@ -149,7 +150,7 @@ namespace Core.Engine
             session.Subscribe(Events.SessionCreated, (data) =>
             {
                 var evt = (EventData)data;
-                var activity = telemetryService.StartActivity($"{sessionId}", ActivityKind.Internal);
+                var activity = telemetryService.StartActivity(evt.Id, ActivityKind.Internal);
                 if (activity != null)
                     pairedStages.Push(activity);
             });
@@ -165,7 +166,7 @@ namespace Core.Engine
             session.Subscribe(Events.AuthBeforeTokenAcquisition, (data) =>
             {
                 var evt = (EventData)data;
-                var activity = telemetryService.StartActivity($"{sessionId}.TokenAcquisition", ActivityKind.Internal);
+                var activity = telemetryService.StartActivity(evt.Id, ActivityKind.Internal);
                 if (activity != null)
                     pairedStages.Push(activity);
             });
@@ -178,7 +179,7 @@ namespace Core.Engine
             session.Subscribe(Events.ProcessorProcessAsyncStart, (data) =>
             {
                 var evt = (EventData)data;
-                sequentialStage = telemetryService.StartActivity($"{sessionId}.ProcessAsync", ActivityKind.Internal);
+                sequentialStage = telemetryService.StartActivity(evt.Id, ActivityKind.Internal);
             });
             session.Subscribe(Events.ProcessorProcessAsyncEnd, (data) =>
             {

@@ -48,7 +48,7 @@ public class NewResourceGroupCmdlet : PSCmdlet
 
     protected override void ProcessRecord()
     {
-        using var activity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartPowerShellActivity("New-ResourceGroup Cmdlet Execution", MyInvocation.BoundParameters);
+        using var activity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartPowerShellActivity(MyInvocation.MyCommand.Name, MyInvocation.BoundParameters);
         var parameters = new Dictionary<string, object>();
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))
         {

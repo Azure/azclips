@@ -39,7 +39,7 @@ public class GetCirrusAccountCmdlet : PSCmdlet
 
     protected override void ProcessRecord()
     {
-        using var activity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartPowerShellActivity("Get-CirrusAccount Cmdlet Execution", MyInvocation.BoundParameters);
+        using var activity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartPowerShellActivity(MyInvocation.MyCommand.Name, MyInvocation.BoundParameters);
         var parameters = new Dictionary<string, object>();
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();

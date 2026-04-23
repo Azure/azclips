@@ -39,7 +39,7 @@ public class DisconnectCirrusAccountCmdlet : PSCmdlet
 
     protected override void ProcessRecord()
     {
-        using var activity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartPowerShellActivity("Disconnect-CirrusAccount Cmdlet Execution", MyInvocation.BoundParameters);
+        using var activity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartPowerShellActivity(MyInvocation.MyCommand.Name, MyInvocation.BoundParameters);
         if (!ShouldProcess("Cirrus Account", "Disconnect"))
         {
             return;
