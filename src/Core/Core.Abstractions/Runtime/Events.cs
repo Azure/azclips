@@ -48,20 +48,5 @@ namespace Core.Abstractions.Runtime
         public const string Information = nameof(Information);
         public const string Error = nameof(Error);
         public const string Warning = nameof(Warning);
-
-        /// <summary>
-        /// Events that fire on the runspace thread (engine/session lifecycle).
-        /// These are safe to route directly to ILoggingService → PS streams.
-        /// All other events fire on the worker thread and must go through the channel.
-        /// </summary>
-        public static readonly HashSet<string> RunspaceThreadEvents = new(StringComparer.Ordinal)
-        {
-            SessionCreated,
-            SessionDisposed,
-            EngineLoadingAssembly,
-            EngineBindingProcessor,
-        };
-
-        public static bool IsRunspaceThread(string eventId) => RunspaceThreadEvents.Contains(eventId);
     }
 }

@@ -63,6 +63,7 @@ namespace Core.Engine
 
         // Messages for events before processor execution start (inclusive) goes to ILoggingService
         // Messages for events after processor execution start goes to session.channel
+        // session made this wired loggingService to channel during process, all messages subscribe loggingService
         private InvocationSession SubscribeMessages(InvocationSession session)
         {
             // Print every event id for debugging purpose, 
@@ -72,10 +73,7 @@ namespace Core.Engine
             {
                 var evt = (EventData)msg;
                 string id = evt.Id;
-                if (Events.IsRunspaceThread(id))
-                    loggingService.Debug($"[{id}]");
-                else
-                    session.OutputChannel.Writer.WriteAsync(new DebugMessage($"[{id}]"), session.Token).GetAwaiter().GetResult();
+                loggingService.Debug($"[{id}]");
             });
 
             session.Subscribe(Events.SessionCreated, (data) =>
@@ -90,21 +88,10 @@ namespace Core.Engine
                 loggingService.Verbose(evt.Message);
             });
 
-            /*
-                Events in processor, Http lifecycle goes to session channel
-                wrap messages with:
-                    OutputMessage
-                    DebugMessage
-                    VerboseMessage
-                    WarningMessage
-                    ErrorMessage
-                    InformationMessage
-            */
             session.Subscribe(Events.ProcessorInitiated, (data) =>
             {
                 var evt = (EventData)data;
-                DebugMessage msg = new DebugMessage(evt.Message);
-                session.OutputChannel.Writer.WriteAsync(msg, session.Token).GetAwaiter().GetResult();
+                loggingService.Debug(evt.Message);
             });
 
             return session;

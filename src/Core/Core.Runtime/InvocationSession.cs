@@ -10,7 +10,7 @@ internal partial class InvocationSession : IInvocationSession
     private bool _disposed = false;
     private ClientType clientType;
     private OutputStreamDelegate outputStreamDelegate = null!;
-    private readonly IDisposable loggingScope;
+    private IDisposable loggingScope;
     private CancellationToken cancellationToken;
     private readonly OutputStreamAdapter outputStreamAdapter;
 
@@ -83,7 +83,44 @@ internal partial class InvocationSession : IInvocationSession
         {
             throw new ArgumentException($"Failed to parse arguments for command '{Invocation.CommandName}': {ex.Message}", ex);
         }
-        
+
+        OutputStreams channeledStreams = new OutputStreams
+        (
+            WriteOutput: (value, ct) =>
+            {
+                OutputChannel.Writer.WriteAsync(new OutputObject(value), ct).GetAwaiter().GetResult();
+                return Task.CompletedTask;
+            },
+            WriteVerbose: (value, ct) =>
+            {
+                OutputChannel.Writer.WriteAsync(new VerboseMessage((string)value), ct).GetAwaiter().GetResult();
+                return Task.CompletedTask;
+            },
+            WriteDebug: (value, ct) =>
+            {
+                OutputChannel.Writer.WriteAsync(new DebugMessage((string)value), ct).GetAwaiter().GetResult();
+                return Task.CompletedTask;
+            },
+            WriteWarning: (value, ct) =>
+            {
+                OutputChannel.Writer.WriteAsync(new WarningMessage((string)value), ct).GetAwaiter().GetResult();
+                return Task.CompletedTask;
+            },
+            WriteInformation: (value, ct) =>
+            {
+                OutputChannel.Writer.WriteAsync(new InformationMessage((string)value), ct).GetAwaiter().GetResult();
+                return Task.CompletedTask;
+            },
+            WriteError: (value, ct) =>
+            {
+                OutputChannel.Writer.WriteAsync(new ErrorMessage((string)value), ct).GetAwaiter().GetResult();
+                return Task.CompletedTask;
+            }
+        );
+        OutputStreamAdapter channelAdapter = new OutputStreamAdapter(channeledStreams, cancellationToken);
+        loggingScope = ScopedLoggingService.UseScope(channelAdapter);
+
+
         /// <summary>
         /// Executes the processor asynchronously, writing output to the channel.
         /// <para>No <see cref="Task.Run"/> wrapper — <c>ProcessAsync</c> is truly async,
@@ -106,7 +143,6 @@ internal partial class InvocationSession : IInvocationSession
                 OutputChannel.Writer.Complete();
             }
         }
-        
         Task executeProcessorTask = ExecuteProcessorAsync();
 
         // Sync-over-async channel pump — intentional, not an anti-pattern here.
@@ -167,6 +203,7 @@ internal partial class InvocationSession : IInvocationSession
             // before we leave Process().
             executeProcessorTask.GetAwaiter().GetResult();
         }
+        loggingScope = ScopedLoggingService.UseScope(outputStreamAdapter);
     }
 
     /// <summary>
@@ -180,6 +217,7 @@ internal partial class InvocationSession : IInvocationSession
             if (disposing)
             {
                 this.Signal(Events.SessionDisposed, $"Session {Id} disposed").GetAwaiter().GetResult();
+                
                 loggingScope.Dispose();
             }
             _disposed = true;
