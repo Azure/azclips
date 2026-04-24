@@ -17,6 +17,8 @@ namespace Core.Agent.Tools;
 public static class AzureResourceTreeTool
 {
     private const string ArmBase = "https://management.azure.com";
+    // Well-known Azure CLI 1P client ID (public, non-secret). Duplicated from MsalAuthService
+    // to avoid coupling Core.Agent → Core.Authentication; must match to share the MSAL token cache.
     private const string ArmScope = "https://management.core.windows.net//.default";
     private const string ClientId = "1950a258-227b-4e31-a9cf-717495945fc2";
     private const string ApiVersion = "2022-12-01";
