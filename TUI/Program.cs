@@ -122,6 +122,10 @@ public static class Program
                                 if (state.ShowHelp)
                                     state.ShowHelp = false;
                             }, "Close help");
+                            bindings.Key(Hex1bKey.F2).Action(() =>
+                            {
+                                state.ToggleMode();
+                            }, "Toggle Azure/Local mode");
                         }),
                 ]));
 

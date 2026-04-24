@@ -6,7 +6,7 @@ namespace Core.Tui;
 static class HeaderRenderer
 {
     // Short ASCII logo for narrow terminals
-    static readonly string ShortLogoText = "  ☁  Cirrus";
+    static readonly string ShortLogoText = "  ◈  Cirrus";
 
     // Full ASCII art logo lines (raw text for gradient coloring)
     static readonly string[] FullLogoLines =

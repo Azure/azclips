@@ -40,6 +40,7 @@ static class HelpRenderer
         AddShortcut(widgets, v, "Mouse scroll", "Scroll output", innerWidth, bc);
         AddShortcut(widgets, v, "Ctrl+L", "Clear output", innerWidth, bc);
         AddShortcut(widgets, v, "F1", "Toggle this help screen", innerWidth, bc);
+        AddShortcut(widgets, v, "F2", "Toggle Azure / Local mode", innerWidth, bc);
         AddShortcut(widgets, v, "Esc", "Close help / cancel", innerWidth, bc);
         widgets.Add(v.Text($"  {Ansi.BoxRow("", innerWidth, bc)}"));
 

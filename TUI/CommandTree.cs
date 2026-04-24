@@ -70,6 +70,9 @@ static class CommandTree
         new("refresh", "Refresh Azure VFS cache", [
             new("", "Refresh caches (refresh [all|tenants|subs|rgs|resources])", []),
         ]),
+        new("mode", "Switch between Azure and Local mode", [
+            new("", "Toggle navigation mode (F2)", []),
+        ]),
     ];
 
     /// <summary>

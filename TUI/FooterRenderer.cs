@@ -7,26 +7,39 @@ static class FooterRenderer
 {
     public static Hex1bWidget Render(WidgetContext<VStackWidget> v, AppState state, int termWidth)
     {
-        var cwd = Directory.GetCurrentDirectory();
-        // Shorten home directory with ~
-        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        if (cwd.StartsWith(home, StringComparison.OrdinalIgnoreCase))
-            cwd = "~" + cwd[home.Length..];
-
-        // Truncate long paths
-        if (cwd.Length > 50)
-            cwd = "..." + cwd[^47..];
-
         var branch = state.GitBranch;
         var branchPart = !string.IsNullOrEmpty(branch)
             ? $" {Ansi.AccentPurple} {branch}{Ansi.End}"
             : "";
 
-        // Left: path + branch (like shell Footer.tsx)
-        var left = $" {Ansi.AccentBlue}{cwd}{Ansi.End}{branchPart}";
+        // Mode indicator
+        var modeLabel = state.Mode == ShellMode.Azure
+            ? $"{Ansi.AccentCyan}◈ Azure{Ansi.End}"
+            : $"{Ansi.AccentGreen}▣ Local{Ansi.End}";
 
-        // Right: keyboard shortcuts (like shell Footer.tsx right section)
-        var right = $"{Ansi.Comment}↵ run  ⇥ complete  ↑↓ navigate  F1 help{Ansi.End} ";
+        // Show the "other" context path: Azure mode shows local cwd, Local mode shows Azure VFS path
+        string contextPath;
+        if (state.Mode == ShellMode.Azure)
+        {
+            var cwd = state.LocalCwd;
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            if (cwd.StartsWith(home, StringComparison.OrdinalIgnoreCase))
+                cwd = "~" + cwd[home.Length..];
+            if (cwd.Length > 50)
+                cwd = "..." + cwd[^47..];
+            contextPath = $"{Ansi.AccentBlue}{cwd}{Ansi.End}";
+        }
+        else
+        {
+            var vfsPath = state.VfsReady ? state.Vfs.CurrentPath : "/";
+            contextPath = $"{Ansi.AccentCyan}{vfsPath}{Ansi.End}";
+        }
+
+        // Left: mode + other-context path + branch
+        var left = $" {modeLabel}  {contextPath}{branchPart}";
+
+        // Right: keyboard shortcuts
+        var right = $"{Ansi.Comment}F2 mode  ↵ run  ⇥ complete  F1 help{Ansi.End} ";
 
         // Build the footer with flexible spacing
         var leftVisible = StripAnsi(left);

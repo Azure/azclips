@@ -7,6 +7,8 @@ using Microsoft.Identity.Client.Extensions.Msal;
 
 namespace Core.Tui;
 
+enum ShellMode { Azure, Local }
+
 /// <summary>
 /// Application state: manages input text, suggestions, output, and CLI execution.
 /// </summary>
@@ -27,6 +29,10 @@ class AppState
     private readonly ArmClient _armClient = new();
     public AzureVfs Vfs { get; }
     public bool VfsReady { get; private set; }
+
+    // Shell mode: Azure VFS vs Local filesystem
+    public ShellMode Mode { get; private set; } = ShellMode.Azure;
+    public string LocalCwd { get; private set; } = Directory.GetCurrentDirectory();
 
     public string InputText { get; set; } = "";
     public List<HistoryEntry> History { get; } = new();
@@ -169,8 +175,27 @@ class AppState
         }
     }
 
+    public void ToggleMode()
+    {
+        Mode = Mode == ShellMode.Azure ? ShellMode.Local : ShellMode.Azure;
+        RefreshPrompt();
+        UpdateSuggestions();
+        Invalidate?.Invoke();
+    }
+
     public void RefreshPrompt()
     {
+        // Local mode: show local cwd as prompt
+        if (Mode == ShellMode.Local)
+        {
+            var cwd = LocalCwd;
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            if (cwd.StartsWith(home, StringComparison.OrdinalIgnoreCase))
+                cwd = "~" + cwd[home.Length..];
+            Prompt = $"{cwd} > ";
+            return;
+        }
+
         // When VFS is ready, use the VFS current path as the prompt.
         if (VfsReady)
         {
@@ -297,13 +322,86 @@ class AppState
             return;
         }
 
-        // For cd/ls, provide VFS path completions from Azure hierarchy
+        // Local mode: provide local filesystem completions for cd/ls
         var trimmed = InputText.TrimStart();
-        if (VfsReady && TryStartVfsCompletion(trimmed))
+        if (Mode == ShellMode.Local && TryStartLocalCompletion(trimmed))
+            return;
+
+        // Azure mode: provide VFS path completions for cd/ls
+        if (Mode == ShellMode.Azure && VfsReady && TryStartVfsCompletion(trimmed))
             return;
 
         Suggestions = CommandTree.GetSuggestions(InputText);
         SelectedSuggestion = 0;
+    }
+
+    private bool TryStartLocalCompletion(string trimmed)
+    {
+        string? verb = null;
+        string partial = "";
+        foreach (var v in new[] { "cd", "ls" })
+        {
+            if (trimmed.StartsWith(v + " ", StringComparison.OrdinalIgnoreCase))
+            {
+                verb = v;
+                partial = trimmed[(v.Length + 1)..].TrimStart();
+                break;
+            }
+        }
+        if (verb == null) return false;
+
+        // Resolve partial path relative to LocalCwd
+        var basePath = string.IsNullOrEmpty(partial) ? LocalCwd
+            : Path.IsPathRooted(partial) ? partial
+            : Path.Combine(LocalCwd, partial);
+
+        try
+        {
+            string searchDir;
+            string prefix;
+            if (Directory.Exists(basePath))
+            {
+                searchDir = basePath;
+                prefix = "";
+            }
+            else
+            {
+                searchDir = Path.GetDirectoryName(basePath) ?? LocalCwd;
+                prefix = Path.GetFileName(basePath);
+            }
+
+            if (!Directory.Exists(searchDir))
+            {
+                Suggestions = [];
+                SelectedSuggestion = 0;
+                return true;
+            }
+
+            var entries = new List<Suggestion>();
+            foreach (var dir in Directory.GetDirectories(searchDir))
+            {
+                var name = Path.GetFileName(dir);
+                if (name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    entries.Add(new Suggestion(name, "▸ dir"));
+            }
+            if (verb == "ls")
+            {
+                foreach (var file in Directory.GetFiles(searchDir))
+                {
+                    var name = Path.GetFileName(file);
+                    if (name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                        entries.Add(new Suggestion(name, "· file"));
+                }
+            }
+            Suggestions = entries;
+            SelectedSuggestion = 0;
+        }
+        catch
+        {
+            Suggestions = [];
+            SelectedSuggestion = 0;
+        }
+        return true;
     }
 
     /// <summary>
@@ -344,7 +442,7 @@ class AppState
                 entries = await Vfs.LsAsync();
                 Suggestions = entries.Select(e =>
                 {
-                    var icon = e.Kind == VfsEntryKind.Directory ? "📁" : "📄";
+                    var icon = e.Kind == VfsEntryKind.Directory ? "▸" : "·";
                     return new Suggestion(e.Name, $"{icon} {e.Detail}");
                 }).ToList();
             }
@@ -427,8 +525,41 @@ class AppState
         var verb = parts[0].ToLowerInvariant();
         var arg = parts.Length > 1 ? parts[1].Trim() : null;
 
+        // In Local mode, handle cd/ls/pwd locally
+        if (Mode == ShellMode.Local)
+        {
+            switch (verb)
+            {
+                case "cd":
+                    return HandleLocalCd(arg);
+                case "ls":
+                    return HandleLocalLs(arg);
+                case "pwd":
+                    History.Add(new HistoryEntry(HistoryItemType.User, "pwd"));
+                    History.Add(new HistoryEntry(HistoryItemType.Output, LocalCwd));
+                    History.Add(new HistoryEntry(HistoryItemType.Separator, ""));
+                    Invalidate?.Invoke();
+                    return true;
+                case "mode":
+                    ToggleMode();
+                    History.Add(new HistoryEntry(HistoryItemType.Info, $"Switched to {Mode} mode"));
+                    History.Add(new HistoryEntry(HistoryItemType.Separator, ""));
+                    Invalidate?.Invoke();
+                    return true;
+            }
+            return false;
+        }
+
+        // Azure mode
         switch (verb)
         {
+            case "mode":
+                ToggleMode();
+                History.Add(new HistoryEntry(HistoryItemType.Info, $"Switched to {Mode} mode"));
+                History.Add(new HistoryEntry(HistoryItemType.Separator, ""));
+                Invalidate?.Invoke();
+                return true;
+
             case "cd":
                 History.Add(new HistoryEntry(HistoryItemType.User, $"cd {arg ?? "/"}"));
                 if (!VfsReady)
@@ -465,7 +596,7 @@ class AppState
                     {
                         foreach (var e in entries)
                         {
-                            var icon = e.Kind == VfsEntryKind.Directory ? "📁" : "📄";
+                            var icon = e.Kind == VfsEntryKind.Directory ? "▸" : "·";
                             History.Add(new HistoryEntry(HistoryItemType.Output, $"  {icon} {e.Name,-40} {e.Detail}"));
                         }
                         History.Add(new HistoryEntry(HistoryItemType.Info, $"{entries.Count} items"));
@@ -537,6 +668,70 @@ class AppState
         History.Add(new HistoryEntry(HistoryItemType.Separator, ""));
         OutputScrollOffset = 0;
         Invalidate?.Invoke();
+    }
+
+    // ── Local filesystem handlers ──
+
+    private bool HandleLocalCd(string? arg)
+    {
+        History.Add(new HistoryEntry(HistoryItemType.User, $"cd {arg ?? "~"}"));
+        var target = arg;
+        if (string.IsNullOrEmpty(target) || target == "~")
+            target = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        else if (target == "-")
+            target = LocalCwd; // no-op for simplicity
+        else if (target == "..")
+            target = Path.GetDirectoryName(LocalCwd) ?? LocalCwd;
+        else if (!Path.IsPathRooted(target))
+            target = Path.GetFullPath(Path.Combine(LocalCwd, target));
+
+        if (Directory.Exists(target))
+        {
+            LocalCwd = Path.GetFullPath(target);
+            History.Add(new HistoryEntry(HistoryItemType.Info, LocalCwd));
+            RefreshPrompt();
+        }
+        else
+        {
+            History.Add(new HistoryEntry(HistoryItemType.Error, $"Directory not found: {target}"));
+        }
+        History.Add(new HistoryEntry(HistoryItemType.Separator, ""));
+        Invalidate?.Invoke();
+        return true;
+    }
+
+    private bool HandleLocalLs(string? arg)
+    {
+        History.Add(new HistoryEntry(HistoryItemType.User, $"ls {arg ?? ""}".TrimEnd()));
+        var target = string.IsNullOrEmpty(arg) ? LocalCwd
+            : Path.IsPathRooted(arg) ? arg
+            : Path.GetFullPath(Path.Combine(LocalCwd, arg));
+
+        if (!Directory.Exists(target))
+        {
+            History.Add(new HistoryEntry(HistoryItemType.Error, $"Directory not found: {target}"));
+            History.Add(new HistoryEntry(HistoryItemType.Separator, ""));
+            Invalidate?.Invoke();
+            return true;
+        }
+
+        var count = 0;
+        foreach (var dir in Directory.GetDirectories(target))
+        {
+            History.Add(new HistoryEntry(HistoryItemType.Output, $"  ▸ {Path.GetFileName(dir)}/"));
+            count++;
+        }
+        foreach (var file in Directory.GetFiles(target))
+        {
+            var info = new FileInfo(file);
+            var size = info.Length < 1024 ? $"{info.Length}B" : $"{info.Length / 1024}KB";
+            History.Add(new HistoryEntry(HistoryItemType.Output, $"  · {Path.GetFileName(file),-40} {size}"));
+            count++;
+        }
+        History.Add(new HistoryEntry(HistoryItemType.Info, count == 0 ? "(empty)" : $"{count} items"));
+        History.Add(new HistoryEntry(HistoryItemType.Separator, ""));
+        Invalidate?.Invoke();
+        return true;
     }
 
     private void RefreshVfsPrompt() => RefreshPrompt();

@@ -117,7 +117,7 @@ public class AzureVfs
             var tenant = tenants[t];
             var tPrefix = t == tenants.Count - 1 ? "└─ " : "├─ ";
             var tCont = t == tenants.Count - 1 ? "   " : "│  ";
-            lines.Add($"{tPrefix}🏢 {TenantDisplayName(tenant)}");
+            lines.Add($"{tPrefix}◆ {TenantDisplayName(tenant)}");
 
             if (maxDepth < 2) continue;
             var subs = await GetSubscriptionsAsync();
@@ -126,7 +126,7 @@ public class AzureVfs
                 var sub = subs[s];
                 var sPrefix = s == subs.Count - 1 ? "└─ " : "├─ ";
                 var sCont = s == subs.Count - 1 ? "   " : "│  ";
-                lines.Add($"{tCont}{sPrefix}📋 {sub.DisplayName ?? sub.SubscriptionId}");
+                lines.Add($"{tCont}{sPrefix}◇ {sub.DisplayName ?? sub.SubscriptionId}");
 
                 if (maxDepth < 3) continue;
                 var rgs = await GetResourceGroupsAsync(sub.SubscriptionId);
@@ -134,7 +134,7 @@ public class AzureVfs
                 {
                     var rg = rgs[r];
                     var rPrefix = r == rgs.Count - 1 ? "└─ " : "├─ ";
-                    lines.Add($"{tCont}{sCont}{rPrefix}📁 {rg.Name} ({rg.Location})");
+                    lines.Add($"{tCont}{sCont}{rPrefix}▸ {rg.Name} ({rg.Location})");
                 }
             }
         }
