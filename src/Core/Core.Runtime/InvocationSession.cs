@@ -55,6 +55,22 @@ internal partial class InvocationSession : IInvocationSession
         return CacheGetOrAdd(Invocation.ExtensionName, GetExtensionVersion(), () => LoadAssembly(Invocation.ExtensionName, GetExtensionVersion()).GetExtensionIndex());
     }
 
+    public async Task ProcessAsync()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        cancellationToken.ThrowIfCancellationRequested();
+        OutputStreamAdapter channelAdapter = new OutputStreamAdapter(GetChannelStreams(), cancellationToken);
+        loggingScope = ScopedLoggingService.UseScope(channelAdapter);
+
+        Task ProcessorTask = GetProcessor().ProcessAsync();
+        await foreach (var output in OutputChannel.Reader.ReadAllAsync(cancellationToken))
+        {
+            WriteChannelOutput(output, outputStreamDelegate, channelAdapter);
+        }
+        await ProcessorTask;
+        loggingScope = ScopedLoggingService.UseScope(outputStreamAdapter);
+    }
+
     //TODO(Yabo): Consider implement ProcessAsync separately if we want to expose async processing in the future. For PowerShell, Process() must remain sync due to thread-affinity of cmdlet API, but other hosts could benefit from async.
     /// <summary>
     /// Processes a command invocation with isolated output routing.
@@ -68,56 +84,9 @@ internal partial class InvocationSession : IInvocationSession
     /// <exception cref="ObjectDisposedException">Thrown if the engine has been disposed.</exception>
     public void Process()
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-
-        // Create context with channel-based output handler
-        ProcessorContext processorContext = CreateProcessorContext(this);
-
-        CommandMetadata commandMetadata = GetExtensionIndex().GetCommandMetadata(Invocation.CommandName, clientType);
-        IProcessor processor = commandMetadata.GetInstance().Init(processorContext);
-        try
-        {
-            processor = BindProcessor(processor, Invocation.Parameters, commandMetadata.Parameters, commandMetadata.ParameterAliases);
-        }
-        catch (Exception ex)
-        {
-            throw new ArgumentException($"Failed to parse arguments for command '{Invocation.CommandName}': {ex.Message}", ex);
-        }
-
-        OutputStreams channeledStreams = new OutputStreams
-        (
-            WriteOutput: (value, ct) =>
-            {
-                OutputChannel.Writer.WriteAsync(new OutputObject(value), ct).GetAwaiter().GetResult();
-                return Task.CompletedTask;
-            },
-            WriteVerbose: (value, ct) =>
-            {
-                OutputChannel.Writer.WriteAsync(new VerboseMessage((string)value), ct).GetAwaiter().GetResult();
-                return Task.CompletedTask;
-            },
-            WriteDebug: (value, ct) =>
-            {
-                OutputChannel.Writer.WriteAsync(new DebugMessage((string)value), ct).GetAwaiter().GetResult();
-                return Task.CompletedTask;
-            },
-            WriteWarning: (value, ct) =>
-            {
-                OutputChannel.Writer.WriteAsync(new WarningMessage((string)value), ct).GetAwaiter().GetResult();
-                return Task.CompletedTask;
-            },
-            WriteInformation: (value, ct) =>
-            {
-                OutputChannel.Writer.WriteAsync(new InformationMessage((string)value), ct).GetAwaiter().GetResult();
-                return Task.CompletedTask;
-            },
-            WriteError: (value, ct) =>
-            {
-                OutputChannel.Writer.WriteAsync(new ErrorMessage((string)value), ct).GetAwaiter().GetResult();
-                return Task.CompletedTask;
-            }
-        );
-        OutputStreamAdapter channelAdapter = new OutputStreamAdapter(channeledStreams, cancellationToken);
+        ObjectDisposedException.ThrowIf(_disposed, this); ;
+        cancellationToken.ThrowIfCancellationRequested();
+        OutputStreamAdapter channelAdapter = new OutputStreamAdapter(GetChannelStreams(), cancellationToken);
         loggingScope = ScopedLoggingService.UseScope(channelAdapter);
 
 
@@ -134,7 +103,7 @@ internal partial class InvocationSession : IInvocationSession
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                await processor.ProcessAsync();
+                await GetProcessor().ProcessAsync();
             }
             finally
             {
@@ -169,29 +138,7 @@ internal partial class InvocationSession : IInvocationSession
             {
                 while (reader.TryRead(out var output))
                 {
-                    switch (output)
-                    {
-                        case OutputObject obj:
-                            outputStreamDelegate(obj.Value, cancellationToken).GetAwaiter().GetResult();
-                            break;
-                        case VerboseMessage verbose:
-                            outputStreamAdapter.Verbose(verbose.Message);
-                            break;
-                        case DebugMessage debug:
-                            outputStreamAdapter.Debug(debug.Message);
-                            break;
-                        case WarningMessage warning:
-                            outputStreamAdapter.Warn(warning.Message);
-                            break;
-                        case InformationMessage info:
-                            outputStreamAdapter.Info(info.Message);
-                            break;
-                        case ErrorMessage error:
-                            outputStreamAdapter.Error(error.Message);
-                            break;
-                        default:
-                            throw new InvalidOperationException($"Unrecognized output type: {output.GetType().FullName}");
-                    }
+                    WriteChannelOutput(output, outputStreamDelegate, outputStreamAdapter);
                 }
             }
         }
@@ -206,6 +153,85 @@ internal partial class InvocationSession : IInvocationSession
         loggingScope = ScopedLoggingService.UseScope(outputStreamAdapter);
     }
 
+    private void WriteChannelOutput(object? output, OutputStreamDelegate outputStreamDelegate, OutputStreamAdapter outputStreamAdapter)
+    {
+        switch (output)
+        {
+            case OutputObject obj:
+                outputStreamDelegate(obj.Value, cancellationToken).GetAwaiter().GetResult();
+                break;
+            case VerboseMessage verbose:
+                outputStreamAdapter.Verbose(verbose.Message);
+                break;
+            case DebugMessage debug:
+                outputStreamAdapter.Debug(debug.Message);
+                break;
+            case WarningMessage warning:
+                outputStreamAdapter.Warn(warning.Message);
+                break;
+            case InformationMessage info:
+                outputStreamAdapter.Info(info.Message);
+                break;
+            case ErrorMessage error:
+                outputStreamAdapter.Error(error.Message);
+                break;
+            default:
+                throw new InvalidOperationException($"Unrecognized output type: {(output == null ? "null" : output.GetType().FullName)}");
+        }
+    }
+
+    private OutputStreams GetChannelStreams() => new OutputStreams
+        (
+            WriteOutput: (value, ct) =>
+            {
+                OutputChannel.Writer.WriteAsync(new OutputObject(value), ct).GetAwaiter().GetResult();
+                return Task.CompletedTask;
+            },
+            WriteVerbose: (value, ct) =>
+            {
+                OutputChannel.Writer.WriteAsync(new VerboseMessage((string)value), ct).GetAwaiter().GetResult();
+                return Task.CompletedTask;
+            },
+            WriteDebug: (value, ct) =>
+            {
+                OutputChannel.Writer.WriteAsync(new DebugMessage((string)value), ct).GetAwaiter().GetResult();
+                return Task.CompletedTask;
+            },
+            WriteWarning: (value, ct) =>
+            {
+                OutputChannel.Writer.WriteAsync(new WarningMessage((string)value), ct).GetAwaiter().GetResult();
+                return Task.CompletedTask;
+            },
+            WriteInformation: (value, ct) =>
+            {
+                OutputChannel.Writer.WriteAsync(new InformationMessage((string)value), ct).GetAwaiter().GetResult();
+                return Task.CompletedTask;
+            },
+            WriteError: (value, ct) =>
+            {
+                OutputChannel.Writer.WriteAsync(new ErrorMessage((string)value), ct).GetAwaiter().GetResult();
+                return Task.CompletedTask;
+            }
+        );
+
+    private IProcessor GetProcessor()
+    {
+        // Create context with channel-based output handler
+        ProcessorContext processorContext = CreateProcessorContext(this);
+
+        CommandMetadata commandMetadata = GetExtensionIndex().GetCommandMetadata(Invocation.CommandName, clientType);
+        IProcessor processor = commandMetadata.GetInstance().Init(processorContext);
+        try
+        {
+            processor = BindProcessor(processor, Invocation.Parameters, commandMetadata.Parameters, commandMetadata.ParameterAliases);
+        }
+        catch (Exception ex)
+        {
+            throw new ArgumentException($"Failed to parse arguments for command '{Invocation.CommandName}': {ex.Message}", ex);
+        }
+        return processor;
+    }
+
     /// <summary>
     /// Releases the unmanaged resources used by Engine and optionally releases managed resources.
     /// </summary>
@@ -217,7 +243,7 @@ internal partial class InvocationSession : IInvocationSession
             if (disposing)
             {
                 this.Signal(Events.SessionDisposed, $"Session {Id} disposed").GetAwaiter().GetResult();
-                
+
                 loggingScope.Dispose();
             }
             _disposed = true;
