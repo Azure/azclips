@@ -21,6 +21,7 @@ namespace Core.Engine
         ClientType clientType,
         HttpClient httpClient,
         IAuthContextService authContextService,
+        IProfileService profileService,
         ICommandHttpMessageHandler commandHttpMessageHandler,
         IAuthService authService,
         ITelemetryService telemetryService,
@@ -66,7 +67,15 @@ namespace Core.Engine
             });
 
             // Create context with channel-based output handler
-            ICommandContext commandContext = CreateCommandContext(outputChannel.Writer);
+            // Extract --profile override from invocation parameters (reserved key "__profile")
+            string? profileOverride = null;
+            if (invocation.Parameters.TryGetValue("__profile", out var profileObj) && profileObj is string profileStr)
+            {
+                profileOverride = profileStr;
+                // Remove reserved key so it doesn't get passed to the command
+                invocation.Parameters.Remove("__profile");
+            }
+            ICommandContext commandContext = CreateCommandContext(outputChannel.Writer, profileOverride);
 
             // create command instance, inject invocation and context
             IProcessor instance = GetCommand(invocation, commandContext, extensionVersion);
@@ -115,14 +124,40 @@ namespace Core.Engine
         /// <summary>
         /// Creates a new command context for this invocation with channel-based output.
         /// Each command execution gets its own isolated context.
+        /// Resolves profile via IProfileService: --profile override → active profile → error with guidance.
         /// </summary>
         /// <param name="outputWriter">The channel writer for this invocation's output.</param>
-        private ICommandContext CreateCommandContext(ChannelWriter<object> outputWriter)
+        /// <param name="profileOverride">Optional profile name from --profile flag.</param>
+        private ICommandContext CreateCommandContext(ChannelWriter<object> outputWriter, string? profileOverride = null)
         {
-            // Sync-over-async by design: invoked on the PowerShell runspace thread
-            // during Process(), which is intentionally synchronous.
-            AuthContext authContext = authContextService.GetCurrentContextAsync().GetAwaiter().GetResult()
-                                    ?? new AuthContext(TenantId: "", SubscriptionId: "");
+            // Profile resolution order: (1) --profile override → (2) active profile → (3) error
+            AuthContext authContext;
+            if (!string.IsNullOrEmpty(profileOverride))
+            {
+                var profile = profileService.GetProfileAsync(profileOverride).GetAwaiter().GetResult();
+                if (profile is null)
+                {
+                    var all = profileService.GetAllProfilesAsync().GetAwaiter().GetResult();
+                    var available = string.Join(", ", all.Select(p => p.Name));
+                    throw new InvalidOperationException(
+                        $"Profile '{profileOverride}' not found. Available profiles: {(string.IsNullOrEmpty(available) ? "(none)" : available)}");
+                }
+                authContext = new AuthContext(TenantId: profile.TenantId, SubscriptionId: profile.SubscriptionId);
+            }
+            else
+            {
+                var activeProfile = profileService.GetActiveProfileAsync().GetAwaiter().GetResult();
+                if (activeProfile is not null)
+                {
+                    authContext = new AuthContext(TenantId: activeProfile.TenantId, SubscriptionId: activeProfile.SubscriptionId);
+                }
+                else
+                {
+                    // Fallback to legacy IAuthContextService during migration
+                    authContext = authContextService.GetCurrentContextAsync().GetAwaiter().GetResult()
+                                ?? new AuthContext(TenantId: "", SubscriptionId: "");
+                }
+            }
             ICommandAuthHandler commandAuthHandler = new CommandAuthHandler
             {
                 AuthContext = authContext with { },

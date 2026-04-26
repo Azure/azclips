@@ -40,7 +40,15 @@ public class Program
 
             try
             {
+                // Strip --profile <name> from args before extension parsing (engine-level parameter)
+                string? profileOverride = null;
+                args = StripProfileFlag(args, out profileOverride);
+
                 CommandInvocation invocation = dispatcher.Parse(args);
+
+                // Inject profile override into invocation parameters for Engine to consume
+                if (profileOverride is not null)
+                    invocation.Parameters["__profile"] = profileOverride;
 
                 using var commandActivity = _telemetryService.ActivitySource.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
                 commandActivity?.SetTag("command.type", _clientType.ToString());
@@ -187,5 +195,28 @@ public class Program
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// Strips --profile &lt;name&gt; from the argument array (at any position) and returns
+    /// the remaining args. The profile name is output via the out parameter.
+    /// </summary>
+    private static string[] StripProfileFlag(string[] args, out string? profileName)
+    {
+        profileName = null;
+        var result = new List<string>(args.Length);
+        for (int i = 0; i < args.Length; i++)
+        {
+            if (string.Equals(args[i], "--profile", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
+            {
+                profileName = args[i + 1];
+                i++; // skip the value
+            }
+            else
+            {
+                result.Add(args[i]);
+            }
+        }
+        return result.ToArray();
     }
 }

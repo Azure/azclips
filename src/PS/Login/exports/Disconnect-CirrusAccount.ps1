@@ -1,6 +1,8 @@
 function Disconnect-CirrusAccount {
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
     param (
+        [Parameter(Mandatory = $false)]
+        [string] $Profile
     )
 
     begin {
@@ -20,6 +22,9 @@ function Disconnect-CirrusAccount {
             $commandName = "Disconnect-CirrusAccount";
             $parameters = [System.Collections.Generic.Dictionary[string, object]]::New();
 
+            if ($PSBoundParameters.ContainsKey('Profile')) {
+                $parameters.Add('Profile', [object]$Profile);
+            }
             $moduleName = $MyInvocation.MyCommand.ModuleName
             $moduleVersion = if ($MyInvocation.MyCommand.Version) { $MyInvocation.MyCommand.Version.ToString() } else { $null }
             $invocation = [Core.Abstractions.CommandInvocation]::New($extensionName, $commandName, $parameters, $false, $moduleName, $moduleVersion)
