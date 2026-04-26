@@ -366,8 +366,16 @@ class AppState
             return;
         }
 
-        // Local mode: provide local filesystem completions for cd/ls
         var trimmed = InputText.TrimStart();
+
+        // Handle slash commands (/cd, /ls, /pwd, /mode, /tree, /refresh)
+        if (trimmed.StartsWith("/", StringComparison.OrdinalIgnoreCase))
+        {
+            TryGetSlashCommandSuggestions(trimmed);
+            return;
+        }
+
+        // Local mode: provide local filesystem completions for cd/ls
         if (Mode == ShellMode.Local && TryStartLocalCompletion(trimmed))
             return;
 
@@ -376,6 +384,37 @@ class AppState
             return;
 
         Suggestions = CommandTree.GetSuggestions(InputText);
+        SelectedSuggestion = 0;
+    }
+
+    private void TryGetSlashCommandSuggestions(string input)
+    {
+        // Extract the partial command after /
+        var slashIndex = input.IndexOf('/');
+        var partial = slashIndex >= 0 ? input[(slashIndex + 1)..].TrimStart() : "";
+
+        // Available slash commands
+        var allCommands = new[]
+        {
+            new Suggestion("cd", "Navigate to path"),
+            new Suggestion("ls", "List contents"),
+            new Suggestion("pwd", "Show current path"),
+            new Suggestion("mode", "Toggle Azure/Local mode"),
+            new Suggestion("refresh", "Refresh cache"),
+        };
+
+        // Filter by partial match
+        if (string.IsNullOrEmpty(partial))
+        {
+            Suggestions = allCommands.ToList();
+        }
+        else
+        {
+            Suggestions = allCommands
+                .Where(s => s.Text.StartsWith(partial, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
         SelectedSuggestion = 0;
     }
 
@@ -515,9 +554,17 @@ class AppState
         var suggestion = Suggestions[SelectedSuggestion].Text;
         var trimmed = InputText.TrimEnd();
 
-        // Replace the last partial token or append
-        if (trimmed.Length > 0 && !InputText.EndsWith(' '))
+        // Handle slash command suggestions (/cd, /ls, etc.)
+        if (trimmed.StartsWith("/", StringComparison.OrdinalIgnoreCase))
         {
+            // Replace from the / onwards with /suggestion 
+            var slashIndex = trimmed.IndexOf('/');
+            var before = slashIndex > 0 ? trimmed[..slashIndex] : "";
+            InputText = before + "/" + suggestion + " ";
+        }
+        else if (trimmed.Length > 0 && !InputText.EndsWith(' '))
+        {
+            // Replace the last partial token or append
             var lastSpace = InputText.LastIndexOf(' ');
             InputText = (lastSpace >= 0 ? InputText[..(lastSpace + 1)] : "") + suggestion + " ";
         }
@@ -540,15 +587,27 @@ class AppState
         _historyIndex = -1;
         _ = SaveHistoryAsync(command);
 
-        // Check for VFS built-in commands
-        if (TryHandleVfsCommand(command))
+        // Check for slash commands (/cd, /ls, /pwd, /mode, /tree, /refresh)
+        if (command.StartsWith("/", StringComparison.OrdinalIgnoreCase))
         {
+            if (TryHandleSlashCommand(command[1..])) // strip the leading /
+            {
+                InputText = "";
+                OutputScrollOffset = 0;
+                UpdateSuggestions();
+                return;
+            }
+            // Unknown slash command - show error
+            History.Add(new HistoryEntry(HistoryItemType.Error, $"Unknown command: {command}"));
+            History.Add(new HistoryEntry(HistoryItemType.Separator, ""));
+            Invalidate?.Invoke();
             InputText = "";
             OutputScrollOffset = 0;
             UpdateSuggestions();
             return;
         }
 
+        // Azure command (no / prefix) - send to CLI
         History.Add(new HistoryEntry(HistoryItemType.User, $"azv2 {command}"));
         InputText = "";
         OutputScrollOffset = 0;
@@ -561,12 +620,23 @@ class AppState
     }
 
     /// <summary>
-    /// Handle built-in VFS navigation commands: cd, ls, pwd, tree, refresh.
-    /// Returns true if the command was handled locally (not forwarded to CLI).
+    /// Handle slash commands (cd, ls, pwd, mode, tree, refresh).
+    /// Input should NOT include the leading /.
+    /// Returns true if the command was handled, false if unknown.
     /// </summary>
-    private bool TryHandleVfsCommand(string command)
+    private bool TryHandleSlashCommand(string command)
     {
+        if (string.IsNullOrWhiteSpace(command))
+        {
+            History.Add(new HistoryEntry(HistoryItemType.Info, "Available slash commands: /cd, /ls, /pwd, /mode, /refresh"));
+            History.Add(new HistoryEntry(HistoryItemType.Separator, ""));
+            Invalidate?.Invoke();
+            return true;
+        }
+
         var parts = command.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0) return false;
+
         var verb = parts[0].ToLowerInvariant();
         var arg = parts.Length > 1 ? parts[1].Trim() : null;
 
@@ -655,23 +725,6 @@ class AppState
                 History.Add(new HistoryEntry(HistoryItemType.Info, Vfs.GetResourceId()));
                 History.Add(new HistoryEntry(HistoryItemType.Separator, ""));
                 Invalidate?.Invoke();
-                return true;
-
-            case "tree":
-                History.Add(new HistoryEntry(HistoryItemType.User, "tree"));
-                if (!VfsReady)
-                {
-                    History.Add(new HistoryEntry(HistoryItemType.Error, "Not authenticated. Run 'login' first."));
-                    break;
-                }
-                _ = RunVfsAsync(async () =>
-                {
-                    var depth = 3;
-                    if (arg != null && int.TryParse(arg, out var d)) depth = d;
-                    var lines = await Vfs.TreeAsync(depth);
-                    foreach (var line in lines)
-                        History.Add(new HistoryEntry(HistoryItemType.Output, line));
-                });
                 return true;
 
             case "refresh":
