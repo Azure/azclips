@@ -82,7 +82,7 @@ namespace Core.Engine
             // Create output handler that writes to the per-invocation channel
             IOutputHandler outputHandler = new OutputHandler
             {
-                WriteOutput = async (value, _) => await session.OutputChannel.Writer.WriteAsync(new OutputObject(value), session.Token)
+                WriteOutput = session.ProcessorOutputWriter
             };
 
             IRuntimeHttpPipeline httpPipeline = new HttpPipeline(new HttpClientFactory(httpClient));

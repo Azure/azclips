@@ -35,4 +35,9 @@ public interface IInvocationSession : IEventListener, IDisposable
     /// </para>
     /// </remarks>
     void Process();
+
+    /// <summary>
+    /// Processes a command invocation asynchronously.
+    /// </summary>
+    Task ProcessAsync();
 }

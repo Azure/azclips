@@ -9,17 +9,18 @@ internal partial class InvocationSession : IInvocationSession
 {
     private bool _disposed = false;
     private ClientType clientType;
-    private OutputStreamDelegate outputStreamDelegate = null!;
+    private OutputStreamDelegate sessionOutputWriter = null!;
     private IDisposable loggingScope;
     private CancellationToken cancellationToken;
     private readonly OutputStreamAdapter outputStreamAdapter;
 
-    internal Channel<object> OutputChannel;
+    internal Channel<object> OutputChannel = null!;
     internal Func<string> GetExtensionVersion { get; set; } = null!;
     internal Func<string, string, Assembly> LoadAssembly { get; set; } = null!;
     internal Func<IProcessor, IDictionary<string, object>, IDictionary<string, ParameterMetadata>, IDictionary<string, string>?, IProcessor> BindProcessor { get; set; } = null!;
     internal Func<InvocationSession, ProcessorContext> CreateProcessorContext { get; set; } = null!;
     internal Func<string, string, Func<IExtensionIndex>, IExtensionIndex> CacheGetOrAdd { get; set; } = null!;
+    internal OutputStreamDelegate ProcessorOutputWriter = null!;
 
     public string Id { get; }
     public CommandInvocation Invocation { get; }
@@ -33,15 +34,10 @@ internal partial class InvocationSession : IInvocationSession
         Invocation = invocation;
         this.cancellationToken = cancellationToken;
         // wire output streams and logging service
-        outputStreamDelegate = outputStreams.WriteOutput;
+        sessionOutputWriter = outputStreams.WriteOutput;
         outputStreamAdapter = new OutputStreamAdapter(outputStreams, cancellationToken);
         loggingScope = ScopedLoggingService.UseScope(outputStreamAdapter);
         subscribers = new Dictionary<string, Event>();
-        OutputChannel = Channel.CreateUnbounded<object>(new UnboundedChannelOptions
-        {
-            SingleReader = true,
-            SingleWriter = false
-        });
     }
 
     public IExtensionIndex GetExtensionIndex()
@@ -59,16 +55,8 @@ internal partial class InvocationSession : IInvocationSession
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         cancellationToken.ThrowIfCancellationRequested();
-        OutputStreamAdapter channelAdapter = new OutputStreamAdapter(GetChannelStreams(), cancellationToken);
-        loggingScope = ScopedLoggingService.UseScope(channelAdapter);
-
-        Task ProcessorTask = GetProcessor().ProcessAsync();
-        await foreach (var output in OutputChannel.Reader.ReadAllAsync(cancellationToken))
-        {
-            WriteChannelOutput(output, outputStreamDelegate, channelAdapter);
-        }
-        await ProcessorTask;
-        loggingScope = ScopedLoggingService.UseScope(outputStreamAdapter);
+        ProcessorOutputWriter = sessionOutputWriter;
+        await GetProcessor().ProcessAsync();
     }
 
     //TODO(Yabo): Consider implement ProcessAsync separately if we want to expose async processing in the future. For PowerShell, Process() must remain sync due to thread-affinity of cmdlet API, but other hosts could benefit from async.
@@ -84,11 +72,17 @@ internal partial class InvocationSession : IInvocationSession
     /// <exception cref="ObjectDisposedException">Thrown if the engine has been disposed.</exception>
     public void Process()
     {
-        ObjectDisposedException.ThrowIf(_disposed, this); ;
+        ObjectDisposedException.ThrowIf(_disposed, this);
         cancellationToken.ThrowIfCancellationRequested();
+
+        OutputChannel = Channel.CreateUnbounded<object>(new UnboundedChannelOptions
+        {
+            SingleReader = true,
+            SingleWriter = false
+        });
         OutputStreamAdapter channelAdapter = new OutputStreamAdapter(GetChannelStreams(), cancellationToken);
         loggingScope = ScopedLoggingService.UseScope(channelAdapter);
-
+        ProcessorOutputWriter = async (value, _) => await OutputChannel.Writer.WriteAsync(new OutputObject(value), Token);
 
         /// <summary>
         /// Executes the processor asynchronously, writing output to the channel.
@@ -138,7 +132,7 @@ internal partial class InvocationSession : IInvocationSession
             {
                 while (reader.TryRead(out var output))
                 {
-                    WriteChannelOutput(output, outputStreamDelegate, outputStreamAdapter);
+                    WriteChannelOutput(output, outputStreamAdapter);
                 }
             }
         }
@@ -153,12 +147,12 @@ internal partial class InvocationSession : IInvocationSession
         loggingScope = ScopedLoggingService.UseScope(outputStreamAdapter);
     }
 
-    private void WriteChannelOutput(object? output, OutputStreamDelegate outputStreamDelegate, OutputStreamAdapter outputStreamAdapter)
+    private void WriteChannelOutput(object? output, OutputStreamAdapter outputStreamAdapter)
     {
         switch (output)
         {
             case OutputObject obj:
-                outputStreamDelegate(obj.Value, cancellationToken).GetAwaiter().GetResult();
+                sessionOutputWriter(obj.Value, cancellationToken).GetAwaiter().GetResult();
                 break;
             case VerboseMessage verbose:
                 outputStreamAdapter.Verbose(verbose.Message);
