@@ -18,6 +18,7 @@ class AppState
     private static readonly string CirrusDir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".cirrus");
     private static readonly string ContextFilePath = Path.Combine(CirrusDir, "context.json");
+    private static readonly string TuiHistoryPath = Path.Combine(CirrusDir, "tui_history.txt");
 
     // Cached ARM-resolved names (keyed by ID)
     private string? _cachedTenantId;
@@ -67,6 +68,7 @@ class AppState
     public AppState()
     {
         Vfs = new AzureVfs(_armClient);
+        LoadHistory();
         RefreshPrompt();
         RefreshGitBranch();
         // Try to authenticate VFS silently in background
@@ -97,6 +99,48 @@ class AppState
         catch
         {
             VfsReady = false;
+        }
+    }
+
+    /// <summary>
+    /// Load TUI command history from disk (like PSReadLine).
+    /// </summary>
+    private void LoadHistory()
+    {
+        try
+        {
+            if (!File.Exists(TuiHistoryPath)) return;
+
+            var lines = File.ReadAllLines(TuiHistoryPath);
+            foreach (var line in lines)
+            {
+                var trimmed = line.Trim();
+                if (!string.IsNullOrEmpty(trimmed))
+                    _inputHistory.Add(trimmed);
+            }
+        }
+        catch
+        {
+            // Silently ignore history load errors
+        }
+    }
+
+    /// <summary>
+    /// Save a command to the TUI history file (like PSReadLine).
+    /// </summary>
+    private async Task SaveHistoryAsync(string command)
+    {
+        try
+        {
+            // Ensure directory exists
+            Directory.CreateDirectory(CirrusDir);
+
+            // Append to history file
+            await File.AppendAllTextAsync(TuiHistoryPath, command + Environment.NewLine);
+        }
+        catch
+        {
+            // Silently ignore history save errors
         }
     }
 
@@ -491,9 +535,10 @@ class AppState
         if (string.IsNullOrEmpty(command)) return;
         if (IsRunning) return; // don't allow concurrent commands
 
-        // Record in input history
+        // Record in input history and save to disk
         _inputHistory.Add(command);
         _historyIndex = -1;
+        _ = SaveHistoryAsync(command);
 
         // Check for VFS built-in commands
         if (TryHandleVfsCommand(command))
