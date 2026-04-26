@@ -1,0 +1,87 @@
+schema: spec-driven
+
+context: |
+  # Project
+  Cirrus is the next-generation Azure CLI and Azure PowerShell, built on .NET 9 (net9, SDK 9.0.308).
+  It serves two client surfaces from a shared codebase: a native CLI binary and PowerShell modules.
+
+  # Architecture
+  - Bootstrapper DI pattern: CirrusServiceProvider (static, thread-safe, double-checked lock)
+  - All services registered as Singletons (CLI is short-lived, PS reuses across invocations)
+  - Orchestrator pattern: tries structured command dispatch first, falls back to AI agent on any exception
+  - Extension model: IExtensionIndex maps command names → CommandMetadata per ClientType (CLI/PS)
+  - Commands implement IProcessor (Init(ICommandContext) + ProcessAsync()), NOT the legacy ICommand
+  - ICommandContext provides per-invocation isolated auth, output, telemetry, and HTTP pipeline
+  - HttpPipeline is a middleware chain: Auth → RetryError → Retry429 → HttpClient
+  - PowerShell has strict thread-affinity: IEngine.Process() is synchronous, uses Channel<T> pump
+
+  # Extension System
+  - CLI: per-extension AssemblyLoadContext isolation
+  - PowerShell: shared default ALC (first-loaded version wins)
+  - Extensions discovered from artifacts/{Config}/ (builtin) or ~/.cirrus/extensions/ (user-installed)
+  - Each extension has ExtensionIndex with dual command tables: CLI (kebab-case) + PS (Verb-CirrusNoun)
+
+  # Persisted State
+  - Auth context: {LocalApplicationData}/.cirrus/context.json (via AuthContextService)
+  - MSAL token cache: ~/.cirrus/MSAL.cache.plaintext (DEBUG only)
+  - User extensions: ~/.cirrus/extensions/{PackageId}/{Version}/
+
+  # Coding Conventions
+  - C# with 4-space indent, UTF-8, Nullable=enable, ImplicitUsings=enable
+  - TreatWarningsAsErrors=true, EnforceCodeStyleInBuild=true
+  - Namespaces mirror folders: Core.Abstractions, Core.Runtime, Core.Engine, etc.
+  - Extensions use namespace: Microsoft.Azure.Cirrus.Extensions.{Name}
+  - PascalCase types/methods/properties, camelCase locals, I-prefix interfaces
+  - DI registration via extension methods: services.Register*Services()
+
+  # Testing
+  - xUnit 2.9.3, [Fact] and [Theory], naming: MethodName_ShouldBehavior_WhenCondition
+  - No mock framework; direct instantiation for unit tests
+  - Coverage via Coverlet: dotnet test --collect:"XPlat Code Coverage"
+  - Benchmarks via BenchmarkDotNet (tests/Benchmark/)
+
+  # Key Constraints (from architecture specs)
+  - Bootstrapper pattern MUST be preserved — no manual instantiation in Program.cs
+  - Service modules follow: Business/ (shared logic), Commands/ (CLI), Cmdlets/ (PowerShell)
+  - IProcessor is the modern contract; ICommand is legacy (proposed for removal)
+  - Proposed but NOT yet implemented: constructor injection, source-generated ExtensionIndex, CirrusHostBuilder, NativeAOT
+  - PowerShell cmdlets use $PSCmdlet.WriteObject on runspace thread — no async output
+
+  # Build & Run
+  - Build: dotnet build cirrus.slnx
+  - Test: dotnet test tests/Cli.Tests/Cli.Tests.csproj
+  - Deploy: ./scripts/deploy.sh
+  - CLI: ./bin/azv2 <command>
+  - PowerShell: Import-Module ./bin/Cirrus.psd1
+
+rules:
+  proposal:
+    - Reference the existing Cirrus types being modified by fully-qualified namespace
+    - Identify migration path from old to new (e.g., adapter pattern for backward compatibility)
+    - List all affected surfaces: Core libs, CLI commands, PowerShell cmdlets, DI registrations, tests
+    - Include a rollback strategy (what to revert if the change fails mid-integration)
+    - Scope must distinguish between what changes in Core vs Extensions vs PS modules
+  specs:
+    - Use Given/When/Then (Gherkin) format for ALL scenarios
+    - Use RFC 2119 keywords (MUST/SHALL/SHOULD/MAY) for requirement strength
+    - Include Priority (P0-P3) and Rationale for each requirement
+    - Cover both CLI and PowerShell surfaces — they share logic but differ in threading and output
+    - Include concurrency, error, and edge-case scenarios — not just happy path
+    - Each scenario SHOULD map to a testable assertion (MethodName_ShouldBehavior_WhenCondition)
+    - Reference affected interfaces by name (e.g., IAuthContextService, ICommandContext)
+  design:
+    - Include Architecture Decision Records (ADR) for non-obvious choices
+    - Reference existing Cirrus types by fully-qualified name (e.g., Core.Runtime.Handler.CommandAuthHandler)
+    - Address both CLI and PowerShell code paths — they have different threading models
+    - Address the service locator pattern (CirrusServiceProvider.GetRequiredService<T>) — new services accessed this way must justify it
+    - Show how new services integrate with the DI registration chain (which Register*Services method)
+    - Include a File Changes section listing new/modified files with paths
+    - Address thread safety for any shared mutable state (Singleton services are shared)
+    - Address the HttpPipeline if auth token acquisition changes
+  tasks:
+    - Tasks must be small enough for a single commit
+    - Group by layer: Model/Abstractions → Service/Runtime → Engine integration → CLI Commands → PS Cmdlets → Tests
+    - Each task must reference the spec requirement it satisfies
+    - Include explicit test tasks (unit + integration) — not just implementation
+    - DI registration changes must be a separate task (affects all consumers)
+    - PowerShell module manifest (.psd1) updates must be a separate task
