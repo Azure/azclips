@@ -3,7 +3,7 @@ using System.Runtime.Loader;
 using Core.Abstractions;
 using NuGet.Versioning;
 
-namespace Core.AssemblyLoading;
+namespace Core.Cli;
 
 public interface IExtensionLoader
 {

@@ -1,4 +1,4 @@
-namespace Core.AssemblyLoading
+namespace Core.Cli
 {
     internal static class Constants
     {

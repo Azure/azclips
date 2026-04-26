@@ -1,4 +1,4 @@
-namespace Core.ArgumentParsing
+namespace Core.Cli
 {
     public class PropertyParserException : Exception
     {

@@ -1,7 +1,7 @@
 using System.Reflection;
 using Core.Abstractions;
 
-namespace Core.ArgumentParsing
+namespace Core.Cli
 {
     public class PropertyParser(ILoggingService loggingService)
     {
