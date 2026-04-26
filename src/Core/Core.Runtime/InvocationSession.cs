@@ -18,7 +18,7 @@ internal partial class InvocationSession : IInvocationSession
     internal Func<string> GetExtensionVersion { get; set; } = null!;
     internal Func<string, string, Assembly> LoadAssembly { get; set; } = null!;
     internal Func<IProcessor, IDictionary<string, object>, IDictionary<string, ParameterMetadata>, IDictionary<string, string>?, IProcessor> BindProcessor { get; set; } = null!;
-    internal Func<InvocationSession, ProcessorContext> CreateProcessorContext { get; set; } = null!;
+    internal Func<InvocationSession, Task<ProcessorContext>> CreateProcessorContext { get; set; } = null!;
     internal Func<string, string, Func<IExtensionIndex>, IExtensionIndex> CacheGetOrAdd { get; set; } = null!;
     internal OutputStreamDelegate ProcessorOutputWriter = null!;
 
@@ -56,7 +56,7 @@ internal partial class InvocationSession : IInvocationSession
         ObjectDisposedException.ThrowIf(_disposed, this);
         cancellationToken.ThrowIfCancellationRequested();
         ProcessorOutputWriter = sessionOutputWriter;
-        await GetProcessor().ProcessAsync();
+        await (await GetProcessor()).ProcessAsync();
     }
 
     //TODO(Yabo): Consider implement ProcessAsync separately if we want to expose async processing in the future. For PowerShell, Process() must remain sync due to thread-affinity of cmdlet API, but other hosts could benefit from async.
@@ -97,7 +97,7 @@ internal partial class InvocationSession : IInvocationSession
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                await GetProcessor().ProcessAsync();
+                await (await GetProcessor()).ProcessAsync();
             }
             finally
             {
@@ -208,10 +208,10 @@ internal partial class InvocationSession : IInvocationSession
             }
         );
 
-    private IProcessor GetProcessor()
+    private async Task<IProcessor> GetProcessor()
     {
         // Create context with channel-based output handler
-        ProcessorContext processorContext = CreateProcessorContext(this);
+        ProcessorContext processorContext = await CreateProcessorContext(this);
 
         CommandMetadata commandMetadata = GetExtensionIndex().GetCommandMetadata(Invocation.CommandName, clientType);
         IProcessor processor = commandMetadata.GetInstance().Init(processorContext);

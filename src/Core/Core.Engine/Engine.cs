@@ -6,6 +6,7 @@ using System.Threading.Channels;
 using Core.Abstractions.Runtime.Handler;
 using Core.Engine.Utils;
 using System.Diagnostics;
+using System.Threading.Tasks;
 
 namespace Core.Engine
 {
@@ -66,12 +67,9 @@ namespace Core.Engine
         /// Creates a new processor context for this invocation with channel-based output.
         /// Each processor execution gets its own isolated context.
         /// </summary>
-        private ProcessorContext CreateProcessorContext(InvocationSession session)
+        private async Task<ProcessorContext> CreateProcessorContext(InvocationSession session)
         {
-            // Sync-over-async by design: invoked on the PowerShell runspace thread
-            // during Process(), which is intentionally synchronous.
-            AuthContext authContext = authContextService.GetCurrentContextAsync().GetAwaiter().GetResult()
-                                    ?? new AuthContext(TenantId: "", SubscriptionId: "");
+            AuthContext authContext = await authContextService.GetCurrentContextAsync() ?? new AuthContext(TenantId: "", SubscriptionId: "");
             IAuthHandler authHandler = new AuthHandler
             {
                 AuthContext = authContext with { },
