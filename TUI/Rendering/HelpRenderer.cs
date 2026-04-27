@@ -1,7 +1,7 @@
 using Hex1b;
 using Hex1b.Widgets;
 
-namespace Core.Tui;
+namespace Core.Tui.Rendering;
 
 static class HelpRenderer
 {

@@ -1,4 +1,4 @@
-namespace Core.Tui;
+namespace Core.Tui.Rendering;
 
 static class HistoryRenderer
 {

@@ -98,6 +98,18 @@ class ProcessService
                 startInfo.Environment["PATH"] = cliDir + Path.PathSeparator + currentPath;
             }
 
+            // Force color output even though stdout is redirected (not a TTY)
+            startInfo.Environment["TERM"] = "xterm-256color";
+            startInfo.Environment["FORCE_COLOR"] = "1";       // Node.js / chalk
+            startInfo.Environment["CLICOLOR_FORCE"] = "1";    // BSD / macOS convention
+
+            // Git ignores FORCE_COLOR; use its env-based config override
+            var gitConfigCount = int.TryParse(
+                Environment.GetEnvironmentVariable("GIT_CONFIG_COUNT"), out var c) ? c : 0;
+            startInfo.Environment["GIT_CONFIG_COUNT"] = (gitConfigCount + 1).ToString();
+            startInfo.Environment[$"GIT_CONFIG_KEY_{gitConfigCount}"] = "color.ui";
+            startInfo.Environment[$"GIT_CONFIG_VALUE_{gitConfigCount}"] = "always";
+
             _runningProcess = new Process
             {
                 StartInfo = startInfo,

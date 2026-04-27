@@ -1,12 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Core.Tui;
-
-/// <summary>
-/// Represents an autocomplete suggestion with display text and description.
-/// </summary>
-record Suggestion(string Text, string Description);
+namespace Core.Tui.Services;
 
 /// <summary>
 /// Static command tree for Cirrus CLI autocomplete.

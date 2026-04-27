@@ -1,11 +1,10 @@
 using System.Text.Json;
 using Core.Tui.Azure;
 using Core.Tui.Commands;
+using Core.Tui.Rendering;
 using Core.Tui.Services;
 
 namespace Core.Tui;
-
-enum ShellMode { Azure, Local }
 
 /// <summary>
 /// Application state coordinator — delegates to HistoryService, ProcessService,

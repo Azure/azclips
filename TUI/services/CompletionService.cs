@@ -57,6 +57,11 @@ class CompletionService
         if (trimmed.StartsWith("/", StringComparison.OrdinalIgnoreCase))
             return AcceptSlashSuggestion(inputText, suggestionText);
 
+        // Full-command suggestion (history) — replace entire input
+        if (suggestionText.StartsWith(trimmed, StringComparison.OrdinalIgnoreCase)
+            && suggestionText.Length > trimmed.Length)
+            return suggestionText + " ";
+
         // Non-slash: partial token replacement
         if (trimmed.Length > 0 && !inputText.EndsWith(' '))
         {

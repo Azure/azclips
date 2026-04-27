@@ -1,3 +1,4 @@
+using Core.Tui.Rendering;
 using Hex1b;
 using Hex1b.Input;
 using Hex1b.Layout;
@@ -130,24 +131,7 @@ public static class Program
                 ]));
 
                 // ── Inline suggestions ──
-                var maxSuggestions = Math.Min(state.Suggestions.Count, 8);
-                if (state.Suggestions.Count > 0 && state.SelectedSuggestion >= maxSuggestions)
-                    widgets.Add(v.Text($"  {Ansi.Comment}▲{Ansi.End}"));
-                var scrollOffset = Math.Max(0, state.SelectedSuggestion - maxSuggestions + 1);
-                var visibleStart = Math.Min(scrollOffset, Math.Max(0, state.Suggestions.Count - maxSuggestions));
-                var visibleEnd = Math.Min(visibleStart + maxSuggestions, state.Suggestions.Count);
-                for (int i = visibleStart; i < visibleEnd; i++)
-                {
-                    var s = state.Suggestions[i];
-                    if (i == state.SelectedSuggestion)
-                        widgets.Add(v.Text($"  {Ansi.AccentPurple}▸ {s.Text,-28}{Ansi.End} {Ansi.Foreground}{s.Description}{Ansi.End}"));
-                    else
-                        widgets.Add(v.Text($"  {Ansi.Comment}  {s.Text,-28} {s.Description}{Ansi.End}"));
-                }
-                if (visibleEnd < state.Suggestions.Count)
-                    widgets.Add(v.Text($"  {Ansi.Comment}▼{Ansi.End}"));
-                if (state.Suggestions.Count > maxSuggestions)
-                    widgets.Add(v.Text($"  {Ansi.Comment}({state.SelectedSuggestion + 1}/{state.Suggestions.Count}){Ansi.End}"));
+                SuggestionRenderer.Render(widgets, v, state.Suggestions, state.SelectedSuggestion);
 
                 // ── Footer ──
                 widgets.Add(FooterRenderer.Render(v, state, termWidth));
