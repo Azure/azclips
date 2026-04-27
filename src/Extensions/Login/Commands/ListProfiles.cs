@@ -22,7 +22,10 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
                 })
                 .ToList();
 
-            await WriteOutput(output);
+            foreach (var row in output)
+            {
+                await WriteOutput(row);
+            }
         }
     }
 }

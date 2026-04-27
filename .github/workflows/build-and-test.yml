@@ -48,3 +48,18 @@ jobs:
           exit 1
         }
         Write-Host "Found $($commands.Count) commands in Login module"
+
+    - name: Install Pester
+      shell: pwsh
+      run: |
+        Install-Module Pester -Force -Scope CurrentUser -SkipPublisherCheck -MinimumVersion 5.0.0
+        Get-Module -ListAvailable Pester | Select-Object Name, Version
+
+    - name: Run PowerShell tests (Pester)
+      shell: pwsh
+      run: |
+        $result = Invoke-Pester -Path ./tests/PS.Tests -Output Detailed -PassThru
+        if ($result.FailedCount -gt 0) {
+          Write-Error "Pester reported $($result.FailedCount) failed test(s)."
+          exit 1
+        }

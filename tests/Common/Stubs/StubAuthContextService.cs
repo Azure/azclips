@@ -83,4 +83,51 @@ public class StubAuthContextService : IAuthContextService
         _profiles.TryGetValue(_activeProfileName, out var active);
         return Task.FromResult(active);
     }
+
+    public Task DeleteProfileAsync(string profileName, bool force = false, CancellationToken cancellationToken = default)
+    {
+        if (!_profiles.ContainsKey(profileName))
+        {
+            throw new InvalidOperationException($"Profile '{profileName}' not found.");
+        }
+
+        var isActive = string.Equals(_activeProfileName, profileName, StringComparison.OrdinalIgnoreCase);
+        if (isActive && !force)
+        {
+            throw new InvalidOperationException(
+                $"Profile '{profileName}' is the active profile. Re-run with --force to delete it.");
+        }
+
+        _profiles.Remove(profileName);
+        if (isActive)
+        {
+            _activeProfileName = null;
+        }
+        return Task.CompletedTask;
+    }
+
+    public Task<AuthProfile> RenameProfileAsync(string oldName, string newName, CancellationToken cancellationToken = default)
+    {
+        if (string.Equals(oldName, newName, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException("New profile name must differ from the existing name.", nameof(newName));
+        }
+        if (!_profiles.TryGetValue(oldName, out var existing))
+        {
+            throw new InvalidOperationException($"Profile '{oldName}' not found.");
+        }
+        if (_profiles.ContainsKey(newName))
+        {
+            throw new InvalidOperationException($"Profile '{newName}' already exists.");
+        }
+
+        var renamed = existing with { ProfileName = newName, LastUsedAt = DateTimeOffset.UtcNow };
+        _profiles.Remove(oldName);
+        _profiles[newName] = renamed;
+        if (string.Equals(_activeProfileName, oldName, StringComparison.OrdinalIgnoreCase))
+        {
+            _activeProfileName = newName;
+        }
+        return Task.FromResult(renamed);
+    }
 }

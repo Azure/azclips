@@ -23,6 +23,12 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
         SerializedName = @"UseDeviceCode")]
         public bool UseDeviceCode { get; set; } = false;
 
+        [ArgumentInfo(
+        Required = false,
+        Description = @"Profile name to create or update with this login. The profile becomes the active profile.",
+        SerializedName = @"Profile")]
+        public string Profile { get; set; } = "";
+
         public override async Task ProcessAsync()
         {
             using var _ = StartActivity($"{nameof(LoginCommand)}.{nameof(ProcessAsync)}");
@@ -40,6 +46,13 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
             var authResult = authService.LoginAsync(loginRequest).GetAwaiter().GetResult();
             AuthContext authContext = new AuthContext(TenantId: authResult.TenantId, SubscriptionId: SubscriptionId);
             authContextService.SaveContextAsync(authContext).GetAwaiter().GetResult();
+
+            if (!string.IsNullOrWhiteSpace(Profile))
+            {
+                authContextService.SaveProfileAsync(Profile, authContext).GetAwaiter().GetResult();
+                authContextService.SetActiveProfileAsync(Profile).GetAwaiter().GetResult();
+            }
+
             await WriteOutput(authContext);
         }
     }

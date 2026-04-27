@@ -72,4 +72,24 @@ public interface IAuthContextService
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The active profile, or null if no valid active profile is set.</returns>
     Task<AuthProfile?> GetActiveProfileAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes a named profile. If the profile is currently active and <paramref name="force"/> is false, the call fails.
+    /// When the active profile is deleted with <paramref name="force"/> = true, the active-profile pointer is cleared.
+    /// </summary>
+    /// <param name="profileName">Profile name.</param>
+    /// <param name="force">Allow deleting the active profile.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    Task DeleteProfileAsync(string profileName, bool force = false, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Renames a named profile, preserving its metadata. If the source profile is active, the active-profile
+    /// pointer is updated to the new name.
+    /// </summary>
+    /// <param name="oldName">Existing profile name.</param>
+    /// <param name="newName">New profile name.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The renamed profile.</returns>
+    Task<AuthProfile> RenameProfileAsync(string oldName, string newName, CancellationToken cancellationToken = default);
 }

@@ -9,6 +9,7 @@ public class AuthContextService(ILoggingService Logger, ITelemetryService Teleme
     private static readonly string ContextFilePath = Path.Combine(ContextDirectory, "context.json");
     private static readonly string ProfilesDirectory = Path.Combine(ContextDirectory, "profiles");
     private static readonly string ActiveProfilePath = Path.Combine(ContextDirectory, "active-profile");
+    private static readonly string LegacyBackupSuffix = ".migrated.bak";
     private const string DefaultProfileName = "default";
     private AuthContext? _currentContext;
 
@@ -34,6 +35,9 @@ public class AuthContextService(ILoggingService Logger, ITelemetryService Teleme
     public async Task<AuthContext?> GetCurrentContextAsync(CancellationToken cancellationToken = default)
     {
         using var _ = TelemetryService.ActivitySource?.StartActivity($"{nameof(AuthContextService)}.{nameof(GetCurrentContextAsync)}");
+
+        await MigrateLegacyContextIfNeededAsync(cancellationToken);
+
         var activeProfile = await GetActiveProfileAsync(cancellationToken);
         if (activeProfile is not null)
         {
@@ -43,6 +47,60 @@ public class AuthContextService(ILoggingService Logger, ITelemetryService Teleme
 
         _currentContext = await LoadContextAsync(cancellationToken);  // todo: proper cache management (synchronization, multi-account, etc.) instead of hard-reloading
         return _currentContext;
+    }
+
+    /// <summary>
+    /// One-shot migration: if a legacy context.json exists but no profiles/active pointer have been
+    /// created yet, materialize a 'default' profile from it, set the active pointer to 'default', and
+    /// move the legacy file to context.json.migrated.bak. Idempotent: subsequent calls no-op.
+    /// </summary>
+    private async Task MigrateLegacyContextIfNeededAsync(CancellationToken cancellationToken)
+    {
+        if (!File.Exists(ContextFilePath))
+        {
+            return; // nothing to migrate
+        }
+
+        var defaultProfilePath = GetProfilePath(DefaultProfileName);
+        if (File.Exists(defaultProfilePath) || File.Exists(ActiveProfilePath))
+        {
+            return; // already migrated or user already has profile state
+        }
+
+        AuthContext? legacy;
+        try
+        {
+            var json = await File.ReadAllTextAsync(ContextFilePath, cancellationToken);
+            legacy = JsonSerializer.Deserialize<AuthContext>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn($"[{nameof(AuthContextService)}] Skipping legacy context migration; file unreadable: {ex.Message}");
+            return;
+        }
+
+        if (legacy is null)
+        {
+            return;
+        }
+
+        Logger.Info($"[{nameof(AuthContextService)}] Migrating legacy context.json to '{DefaultProfileName}' profile.");
+        await SaveProfileAsync(DefaultProfileName, legacy, cancellationToken: cancellationToken);
+        await SetActiveProfileAsync(DefaultProfileName, cancellationToken);
+
+        var backupPath = ContextFilePath + LegacyBackupSuffix;
+        try
+        {
+            if (File.Exists(backupPath))
+            {
+                File.Delete(backupPath);
+            }
+            File.Move(ContextFilePath, backupPath);
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn($"[{nameof(AuthContextService)}] Could not back up legacy context file: {ex.Message}");
+        }
     }
 
     private async Task<AuthContext?> LoadContextAsync(CancellationToken cancellationToken = default)
@@ -205,6 +263,90 @@ public class AuthContextService(ILoggingService Logger, ITelemetryService Teleme
         catch (Exception ex)
         {
             Logger.Warn($"[{nameof(AuthContextService)}] Active profile pointer is invalid: {ex.Message}");
+            return null;
+        }
+    }
+
+    public async Task DeleteProfileAsync(string profileName, bool force = false, CancellationToken cancellationToken = default)
+    {
+        using var _ = TelemetryService.ActivitySource?.StartActivity($"{nameof(AuthContextService)}.{nameof(DeleteProfileAsync)}");
+
+        var normalized = NormalizeProfileName(profileName);
+        var path = GetProfilePath(normalized);
+        if (!File.Exists(path))
+        {
+            throw new InvalidOperationException($"Profile '{profileName}' not found.");
+        }
+
+        var active = await ReadActiveProfileNameAsync(cancellationToken);
+        var isActive = string.Equals(active, normalized, StringComparison.OrdinalIgnoreCase);
+        if (isActive && !force)
+        {
+            throw new InvalidOperationException(
+                $"Profile '{profileName}' is the active profile. Re-run with --force to delete it.");
+        }
+
+        File.Delete(path);
+        if (isActive && File.Exists(ActiveProfilePath))
+        {
+            File.Delete(ActiveProfilePath);
+            _currentContext = null;
+        }
+    }
+
+    public async Task<AuthProfile> RenameProfileAsync(string oldName, string newName, CancellationToken cancellationToken = default)
+    {
+        using var _ = TelemetryService.ActivitySource?.StartActivity($"{nameof(AuthContextService)}.{nameof(RenameProfileAsync)}");
+
+        var oldNormalized = NormalizeProfileName(oldName);
+        var newNormalized = NormalizeProfileName(newName);
+        if (string.Equals(oldNormalized, newNormalized, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException("New profile name must differ from the existing name.", nameof(newName));
+        }
+
+        var existing = await GetProfileAsync(oldName, cancellationToken)
+            ?? throw new InvalidOperationException($"Profile '{oldName}' not found.");
+
+        var newPath = GetProfilePath(newNormalized);
+        if (File.Exists(newPath))
+        {
+            throw new InvalidOperationException($"Profile '{newName}' already exists.");
+        }
+
+        var renamed = existing with { ProfileName = newNormalized, LastUsedAt = DateTimeOffset.UtcNow };
+        var json = JsonSerializer.Serialize(renamed, new JsonSerializerOptions { WriteIndented = true });
+        await WriteTextAtomicAsync(newPath, json, cancellationToken);
+
+        var oldPath = GetProfilePath(oldNormalized);
+        if (File.Exists(oldPath))
+        {
+            File.Delete(oldPath);
+        }
+
+        var active = await ReadActiveProfileNameAsync(cancellationToken);
+        if (string.Equals(active, oldNormalized, StringComparison.OrdinalIgnoreCase))
+        {
+            await WriteTextAtomicAsync(ActiveProfilePath, newNormalized, cancellationToken);
+        }
+
+        return renamed;
+    }
+
+    private async Task<string?> ReadActiveProfileNameAsync(CancellationToken cancellationToken)
+    {
+        if (!File.Exists(ActiveProfilePath))
+        {
+            return null;
+        }
+
+        try
+        {
+            var raw = (await File.ReadAllTextAsync(ActiveProfilePath, cancellationToken)).Trim();
+            return string.IsNullOrWhiteSpace(raw) ? null : raw;
+        }
+        catch
+        {
             return null;
         }
     }
