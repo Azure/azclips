@@ -3,22 +3,35 @@ using System.Text.Json;
 
 namespace Core.Authentication;
 
-public class AuthContextService(ILoggingService Logger, ITelemetryService TelemetryService) : IAuthContextService // todo: testability, consider injecting file system abstractions
+/// <summary>
+/// Adapter: delegates to IProfileService for profile-based auth context, while maintaining
+/// backward compatibility by also reading/writing context.json during migration.
+/// </summary>
+public class AuthContextService(ILoggingService Logger, ITelemetryService TelemetryService, IProfileService ProfileService) : IAuthContextService
 {
     private static readonly string ContextDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".cirrus");
     private static readonly string ContextFilePath = Path.Combine(ContextDirectory, "context.json");
-    private AuthContext? _currentContext;
 
     public async Task SaveContextAsync(AuthContext authContext, CancellationToken cancellationToken = default)
     {
         using var _ = TelemetryService.ActivitySource?.StartActivity($"{nameof(AuthContextService)}.{nameof(SaveContextAsync)}");
+
+        // Update the active profile if one exists
+        var activeProfile = await ProfileService.GetActiveProfileAsync(cancellationToken);
+        if (activeProfile is not null)
+        {
+            activeProfile.TenantId = authContext.TenantId;
+            activeProfile.SubscriptionId = authContext.SubscriptionId;
+            await ProfileService.SaveProfileAsync(activeProfile, cancellationToken);
+        }
+
+        // Also write context.json for backward compatibility during migration
         try
         {
             Directory.CreateDirectory(ContextDirectory);
             var json = JsonSerializer.Serialize(authContext, new JsonSerializerOptions { WriteIndented = true });
             Logger.Verbose($"[{nameof(AuthContextService)}] Saving authentication context to: {ContextFilePath}");
             await File.WriteAllTextAsync(ContextFilePath, json, cancellationToken);
-            _currentContext = authContext;
         }
         catch (Exception ex)
         {
@@ -29,11 +42,19 @@ public class AuthContextService(ILoggingService Logger, ITelemetryService Teleme
     public async Task<AuthContext?> GetCurrentContextAsync(CancellationToken cancellationToken = default)
     {
         using var _ = TelemetryService.ActivitySource?.StartActivity($"{nameof(AuthContextService)}.{nameof(GetCurrentContextAsync)}");
-        _currentContext = await LoadContextAsync(cancellationToken);  // todo: proper cache management (synchronization, multi-account, etc.) instead of hard-reloading
-        return _currentContext;
+
+        // Delegate to profile service — active profile is the source of truth
+        var activeProfile = await ProfileService.GetActiveProfileAsync(cancellationToken);
+        if (activeProfile is not null)
+        {
+            return new AuthContext(TenantId: activeProfile.TenantId, SubscriptionId: activeProfile.SubscriptionId);
+        }
+
+        // Fallback: read legacy context.json if no profiles exist yet
+        return await LoadLegacyContextAsync(cancellationToken);
     }
 
-    private async Task<AuthContext?> LoadContextAsync(CancellationToken cancellationToken = default)
+    private async Task<AuthContext?> LoadLegacyContextAsync(CancellationToken cancellationToken = default)
     {
         try
         {
@@ -58,7 +79,7 @@ public class AuthContextService(ILoggingService Logger, ITelemetryService Teleme
     public Task ClearContextAsync(CancellationToken cancellationToken = default)
     {
         using var _ = TelemetryService.ActivitySource?.StartActivity($"{nameof(AuthContextService)}.{nameof(ClearContextAsync)}");
-        _currentContext = null;
+        // Profile definitions are preserved — only clear legacy context.json
         if (File.Exists(ContextFilePath))
         {
             Logger.Verbose($"[{nameof(AuthContextService)}] Deleting persisted authentication context: {ContextFilePath}");

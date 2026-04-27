@@ -8,7 +8,10 @@ function Connect-CirrusAccount {
         [string] $TenantId,
         
         [Parameter(Mandatory = $false)]
-        [string] $UseDeviceCode
+        [string] $UseDeviceCode,
+
+        [Parameter(Mandatory = $false)]
+        [string] $OutProfile
     )
 
     begin {
@@ -37,6 +40,9 @@ function Connect-CirrusAccount {
             }
             if ($PSBoundParameters.ContainsKey('UseDeviceCode')) {
                 $parameters.Add('UseDeviceCode', [object]$UseDeviceCode);
+            }
+            if ($PSBoundParameters.ContainsKey('OutProfile')) {
+                $parameters.Add('OutProfile', [object]$OutProfile);
             }
             $moduleName = $MyInvocation.MyCommand.ModuleName
             $moduleVersion = if ($MyInvocation.MyCommand.Version) { $MyInvocation.MyCommand.Version.ToString() } else { $null }

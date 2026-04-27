@@ -17,4 +17,13 @@ public static class DIRegisterExtensions
         services.AddSingleton<IOutputAdapter, ConsoleOutputAdapter>();
         return services;
     }
+
+    /// <summary>
+    /// Extension method to register profile management services.
+    /// </summary>
+    public static IServiceCollection RegisterProfileServices(this IServiceCollection services)
+    {
+        services.AddSingleton<IProfileService, ProfileService>();
+        return services;
+    }
 }
