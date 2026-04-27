@@ -393,7 +393,31 @@ class AppState
         var slashIndex = input.IndexOf('/');
         var partial = slashIndex >= 0 ? input[(slashIndex + 1)..].TrimStart() : "";
 
-        // Available slash commands
+        // Check if this is a /cd or /ls command with a path argument
+        var isVfsCmd = false;
+        string pathPartial = "";
+        string cmdVerb = "";
+        foreach (var verb in new[] { "cd", "ls" })
+        {
+            if (!partial.StartsWith(verb + " ", StringComparison.OrdinalIgnoreCase))
+                continue;
+            isVfsCmd = true;
+            cmdVerb = verb;
+            pathPartial = partial[(verb.Length + 1)..].TrimStart();
+            break;
+        }
+
+        // If this is /cd or /ls with a path, fetch VFS completions async
+        if (isVfsCmd && Mode == ShellMode.Azure && VfsReady)
+        {
+            _ = FetchVfsCompletionsForSlashCommandAsync(pathPartial, cmdVerb);
+            return;
+        }
+
+        // History suggestions for slash commands
+        var historySuggestions = GetHistorySuggestions("/", input);
+
+        // Static system suggestions
         var allCommands = new[]
         {
             new Suggestion("cd", "Navigate to path"),
@@ -404,18 +428,91 @@ class AppState
         };
 
         // Filter by partial match
+        List<Suggestion> filteredFixed;
         if (string.IsNullOrEmpty(partial))
         {
-            Suggestions = allCommands.ToList();
+            filteredFixed = allCommands.ToList();
         }
         else
         {
-            Suggestions = allCommands
+            filteredFixed = allCommands
                 .Where(s => s.Text.StartsWith(partial, StringComparison.OrdinalIgnoreCase))
                 .ToList();
         }
 
+        // Combine: history first, then system commands
+        Suggestions = historySuggestions.Concat(filteredFixed).ToList();
         SelectedSuggestion = 0;
+    }
+
+    private List<Suggestion> GetHistorySuggestions(string? prefix, string partialInput)
+    {
+        var suggestions = new List<Suggestion>();
+        var seenCommands = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var matchCount = 0;
+        const int maxHistorySuggestions = 3;
+
+        // Iterate history backwards (most recent first)
+        for (int i = _inputHistory.Count - 1; i >= 0 && matchCount < maxHistorySuggestions; i--)
+        {
+            var historyCmd = _inputHistory[i];
+
+            // Filter by prefix if provided
+            if (prefix == "/" && !historyCmd.StartsWith("/", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            // Check if matches the partial input
+            if (!historyCmd.StartsWith(partialInput, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            // Skip exact match with current input
+            if (historyCmd.Equals(partialInput, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            // Skip if we've already seen this exact command
+            if (!seenCommands.Add(historyCmd))
+                continue;
+
+            suggestions.Add(new Suggestion(historyCmd, "\U0001f550 recent"));
+            matchCount++;
+        }
+
+        return suggestions;
+    }
+
+    private async Task FetchVfsCompletionsForSlashCommandAsync(string pathPartial, string verb)
+    {
+        try
+        {
+            List<VfsEntry> entries;
+
+            if (string.IsNullOrEmpty(pathPartial))
+            {
+                // List children of current path
+                entries = await Vfs.LsAsync();
+            }
+            else
+            {
+                // List children of the specified path
+                entries = await Vfs.LsAsync(pathPartial);
+            }
+
+            Suggestions = entries.Select(e =>
+            {
+                var icon = e.Kind == VfsEntryKind.Directory ? "▸" : "·";
+                return new Suggestion(e.Name, $"{icon} {e.Detail}");
+            }).ToList();
+
+            SelectedSuggestion = 0;
+            Invalidate?.Invoke();
+        }
+        catch
+        {
+            // Silently fall back to empty suggestions on error
+            Suggestions = [];
+            SelectedSuggestion = 0;
+            Invalidate?.Invoke();
+        }
     }
 
     private bool TryStartLocalCompletion(string trimmed)
@@ -557,10 +654,28 @@ class AppState
         // Handle slash command suggestions (/cd, /ls, etc.)
         if (trimmed.StartsWith("/", StringComparison.OrdinalIgnoreCase))
         {
-            // Replace from the / onwards with /suggestion 
-            var slashIndex = trimmed.IndexOf('/');
-            var before = slashIndex > 0 ? trimmed[..slashIndex] : "";
-            InputText = before + "/" + suggestion + " ";
+            if (suggestion.StartsWith("/", StringComparison.OrdinalIgnoreCase))
+            {
+                // History suggestion is a complete command (e.g., "/cd myRG")
+                InputText = suggestion + " ";
+            }
+            else
+            {
+                // Use original input (not trimmed) to detect verb + path
+                var afterSlash = InputText.TrimStart()[1..];
+                var spaceIdx = afterSlash.IndexOf(' ');
+                if (spaceIdx >= 0)
+                {
+                    // Input has verb + path (e.g., "/cd " or "/cd myR") -> replace path part
+                    var verb = afterSlash[..spaceIdx].TrimStart();
+                    InputText = "/" + verb + " " + suggestion + " ";
+                }
+                else
+                {
+                    // Input is just "/" or "/c" -> replace verb
+                    InputText = "/" + suggestion + " ";
+                }
+            }
         }
         else if (trimmed.Length > 0 && !InputText.EndsWith(' '))
         {
