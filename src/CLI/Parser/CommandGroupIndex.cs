@@ -20,6 +20,7 @@ namespace Core.Cli.Parser
         {
             _commandGroups["Group"] = "Resources";
             _commandGroups["Login"] = "Login";
+            _commandGroups["Profile"] = "Login";
             _commandGroups["Extension"] = "Extension";
             // Add more command groups as needed
         }

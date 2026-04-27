@@ -73,6 +73,36 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
             Parameters: new Dictionary<string, ParameterMetadata>(),
             ParameterAliases: new Dictionary<string, string>()
         );
+        private static readonly CommandMetadata s_listProfiles_CLI = new(
+            Name: "ListProfilesCommand",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.ListProfilesCommand",
+            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
+            CommandType: typeof(Commands.ListProfilesCommand),
+            Parameters: new Dictionary<string, ParameterMetadata>(),
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_showActiveProfile_CLI = new(
+            Name: "ShowActiveProfileCommand",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.ShowActiveProfileCommand",
+            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
+            CommandType: typeof(Commands.ShowActiveProfileCommand),
+            Parameters: new Dictionary<string, ParameterMetadata>(),
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_setActiveProfile_CLI = new(
+            Name: "SetActiveProfileCommand",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.SetActiveProfileCommand",
+            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
+            CommandType: typeof(Commands.SetActiveProfileCommand),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["name"] = new("Name", typeof(string), "Profile name to set active.", IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
         // ── Dispatch Tables ──
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
         {
@@ -86,6 +116,9 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
             [""]       = s_login_CLI,
             ["logout"] = s_logout_CLI,
             ["show"]   = s_getContext_CLI,
+            ["list"]   = s_listProfiles_CLI,
+            ["active"] = s_showActiveProfile_CLI,
+            ["set"]    = s_setActiveProfile_CLI,
         };
         // ── Lookup ──
         public CommandMetadata GetCommandMetadata(string name, ClientType clientType)

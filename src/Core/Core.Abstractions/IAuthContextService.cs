@@ -26,4 +26,50 @@ public interface IAuthContextService
     /// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
     /// <returns>A task that represents the asynchronous clear operation.</returns>
     Task ClearContextAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Saves profile metadata for a named profile.
+    /// </summary>
+    /// <param name="profileName">Profile name.</param>
+    /// <param name="authContext">Authentication context defaults.</param>
+    /// <param name="accountId">Optional account identifier.</param>
+    /// <param name="displayName">Optional display name.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A task that represents the asynchronous save operation.</returns>
+    Task SaveProfileAsync(
+        string profileName,
+        AuthContext authContext,
+        string? accountId = null,
+        string? displayName = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets a named profile.
+    /// </summary>
+    /// <param name="profileName">Profile name.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The profile, or null if not found.</returns>
+    Task<AuthProfile?> GetProfileAsync(string profileName, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lists all valid profiles.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>All valid profiles.</returns>
+    Task<IReadOnlyList<AuthProfile>> ListProfilesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sets the active profile.
+    /// </summary>
+    /// <param name="profileName">Profile name.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    Task SetActiveProfileAsync(string profileName, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the active profile.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The active profile, or null if no valid active profile is set.</returns>
+    Task<AuthProfile?> GetActiveProfileAsync(CancellationToken cancellationToken = default);
 }
