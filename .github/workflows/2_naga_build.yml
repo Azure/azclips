@@ -1,0 +1,31 @@
+name: (2_naga) Build and Test
+
+on:
+  push:
+    branches:
+      - '**'
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore dependencies
+        run: dotnet restore cirrus.slnx
+
+      - name: Build
+        run: dotnet build cirrus.slnx --no-restore --configuration Debug
+
+      - name: Run tests
+        run: dotnet test cirrus.slnx --no-build --configuration Debug --verbosity normal
+
+    
