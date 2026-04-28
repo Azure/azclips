@@ -34,9 +34,11 @@ public sealed class ConfigurationService(
 
     public T GetConfiguration<T>(string? key = null, T? defaultValue = null) where T : class, new()
     {
-        if (!string.IsNullOrWhiteSpace(key))
+        var normalizedKey = string.IsNullOrWhiteSpace(key) ? null : NormalizeKey(key);
+
+        if (!string.IsNullOrWhiteSpace(normalizedKey))
         {
-            var keyValidation = _validator.ValidateKey(key, force: true);
+            var keyValidation = _validator.ValidateKey(normalizedKey, force: true);
             if (!keyValidation.IsValid)
             {
                 throw new ArgumentException(keyValidation.ErrorMessage, nameof(key));
@@ -61,9 +63,9 @@ public sealed class ConfigurationService(
         }
 
         var configuration = builder.Build();
-        if (!string.IsNullOrWhiteSpace(key))
+        if (!string.IsNullOrWhiteSpace(normalizedKey))
         {
-            return configuration.GetSection(NormalizeConfigurationPath(key)).Get<T>() ?? defaults;
+            return configuration.GetSection(NormalizeConfigurationPath(normalizedKey)).Get<T>() ?? defaults;
         }
 
         if (SectionNames.TryGetValue(typeof(T), out var sectionName))

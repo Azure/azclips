@@ -60,6 +60,18 @@ public class ConfigurationServiceTests
     }
 
     [Fact]
+    public async Task GetConfiguration_ShouldAcceptColonDelimitedKey()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+        await service.SetConfigurationAsync("core.logging.level", "warn");
+
+        var exception = Record.Exception(() => service.GetConfiguration<CoreOptions>("core:logging:level"));
+
+        Assert.Null(exception);
+    }
+
+    [Fact]
     public async Task ListConfigurationAsync_ShouldIncludeDefaults_WhenRequested()
     {
         using var fixture = new TempConfigurationFixture();
