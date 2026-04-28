@@ -7,15 +7,12 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-test:
+  build-artifacts:
+    runs-on: windows-latest
     strategy:
+      fail-fast: false
       matrix:
-        # os: [windows-latest, ubuntu-latest]
-        os: [windows-latest]        
-        # configuration: [Debug, Release]
-        configuration: [Debug]        
-
-    runs-on: ${{ matrix.os }}
+        configuration: [Debug]   # change to [Debug, Release] when ready
 
     steps:
       - name: Checkout
@@ -28,20 +25,74 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Restore the application
+      - name: Restore solution
         run: dotnet restore cirrus.slnx
 
-      - name: Build the solution
+      - name: Build solution
         run: dotnet build cirrus.slnx --configuration ${{ matrix.configuration }} --no-restore
-
-    #   - name: Execute unit tests
-    #     run: dotnet test cirrus.slnx --no-build --configuration ${{ matrix.configuration }} --verbosity normal
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Build Artifacts (${{ matrix.configuration }}-${{ matrix.os }})
-          path: artifacts/${{ matrix.configuration }}        
+          name: Build Artifacts (${{ matrix.configuration }}-windows-latest)
+          path: artifacts/${{ matrix.configuration }}
+
+  publish-cli:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Debug]   # change to [Debug, Release] when ready
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install .NET Core
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore CLI project
+        run: dotnet restore src/CLI/Core.Cli.csproj
 
       - name: Publish the CLI application
-        run: dotnet publish src/CLI/Core.Cli.csproj -c ${{ matrix.configuration }} -r win-x64 --self-contained -o ./publish/${{ matrix.configuration }}/win-x64          
+        run: dotnet publish src/CLI/Core.Cli.csproj -c ${{ matrix.configuration }} -r win-x64 --self-contained --no-restore -o ./publish/${{ matrix.configuration }}/win-x64
+
+      - name: Upload published CLI
+        uses: actions/upload-artifact@v4
+        with:
+          name: Published CLI (${{ matrix.configuration }}-win-x64)
+          path: ./publish/${{ matrix.configuration }}/win-x64
+
+  publish-extension:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Debug]   # change to [Debug, Release] when ready
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install .NET Core
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore extension project
+        run: dotnet restore src/Extensions/Extension/Extensions.Extension.csproj
+
+      - name: Publish the Extension (az extension)
+        run: dotnet publish src/Extensions/Extension/Extensions.Extension.csproj -c ${{ matrix.configuration }} -r win-x64 --no-restore -o ./publish/${{ matrix.configuration }}/win-x64/Extensions/Extension
+
+      - name: Upload published Extension
+        uses: actions/upload-artifact@v4
+        with:
+          name: Published Extension (${{ matrix.configuration }}-win-x64)
+          path: ./publish/${{ matrix.configuration }}/win-x64/Extensions/Extension
