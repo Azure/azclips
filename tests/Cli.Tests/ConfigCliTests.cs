@@ -180,7 +180,7 @@ public class ConfigCliTests
         );
 
         Assert.Contains("Unknown configuration key 'made.up.key'", exception.Message);
-        Assert.Contains("--force", exception.Message);
+        Assert.Contains("force option", exception.Message);
     }
 
     [Fact]
@@ -226,11 +226,13 @@ public class ConfigCliTests
             }
 
             CirrusServiceProvider.Dispose();
-            CirrusServiceProvider.PrependRegistration = null;
+            CirrusServiceProvider.PrependRegistration = services =>
+            {
+                services.AddSingleton<IExtensionLoader>(new StubExtensionLoader(typeof(SetConfigCommand).Assembly, "Config"));
+            };
             CirrusServiceProvider.OverrideRegistration = services =>
             {
                 services.AddSingleton<IConfigurationProvider>(new TestConfigurationProvider(_configPath));
-                services.AddSingleton<IExtensionLoader>(new StubExtensionLoader(typeof(SetConfigCommand).Assembly, "Config"));
                 services.AddSingleton<ITelemetryService, StubTelemetryService>();
                 services.AddSingleton<IAuthContextService, StubAuthContextService>();
                 services.AddSingleton<IAuthService, StubAuthService>();
