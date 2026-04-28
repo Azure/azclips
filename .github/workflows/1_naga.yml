@@ -1,9 +1,9 @@
 name: (1_naga) Build and Test
 
 on:
-  push:
-    branches:
-      - '**'
+  # push:
+  #   branches:
+  #     - '**'
   workflow_dispatch:
 
 # check out code and build .net and c# solution
