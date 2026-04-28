@@ -72,6 +72,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Download Debug artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: naga-debug-artifacts
+          path: artifacts/Debug
+
       - name: Setup PowerShell
         run: |
           sudo apt-get update
