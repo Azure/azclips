@@ -7,17 +7,13 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-cli:
+  build-test:
     strategy:
       matrix:
+        os: [windows-latest, ubuntu-latest]
         configuration: [Debug, Release]
-        platform: [win-x64]
 
-    runs-on: windows-latest
-
-    env:
-      Solution_Name: cirrus.slnx
-      Certificate_Directory: .
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout
@@ -31,6 +27,10 @@ jobs:
           global-json-file: global.json
 
       - name: Restore the application
-        run: dotnet restore $env:Solution_Name
-        env:
-          Configuration: ${{ matrix.configuration }}
+        run: dotnet restore cirrus.slnx
+
+      - name: Build the solution
+        run: dotnet build cirrus.slnx --configuration ${{ matrix.configuration }} --no-restore
+
+      - name: Execute unit tests
+        run: dotnet test cirrus.slnx --no-build --configuration ${{ matrix.configuration }} --verbosity normal
