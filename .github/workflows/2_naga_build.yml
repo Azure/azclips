@@ -1,9 +1,6 @@
 name: (2_naga) Build and Test
 
 on:
-  push:
-    branches:
-      - '**'
   workflow_dispatch:
 
 jobs:
