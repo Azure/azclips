@@ -58,6 +58,9 @@ jobs:
           name: naga-debug-artifacts
           path: artifacts/Debug
 
+      - name: Ensure CLI binary is executable
+        run: chmod +x ./artifacts/Debug/Core.Cli/azv2
+
       - name: E2E - CLI Help
         run: ./artifacts/Debug/Core.Cli/azv2 --help
 
@@ -66,6 +69,9 @@ jobs:
     needs: build
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Download Debug artifacts
         uses: actions/download-artifact@v4
         with:
@@ -80,13 +86,7 @@ jobs:
       - name: E2E - PowerShell Module
         shell: pwsh
         run: |
-          $moduleManifestPath = "./artifacts/Debug/Microsoft.Azure.Cirrus.Extensions.Login/Login.psd1"
-          if (-not (Test-Path $moduleManifestPath)) {
-            Write-Error "Login.psd1 not found at expected path: $moduleManifestPath"
-            exit 1
-          }
-
-          Import-Module $moduleManifestPath
+          Import-Module ./src/PS/Login/Login.psd1
           $commands = Get-Command -Module Login
           if ($commands.Count -eq 0) {
             Write-Error "No commands found in Login module"
