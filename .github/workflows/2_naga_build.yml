@@ -45,7 +45,7 @@ jobs:
         run: dotnet restore cirrus.slnx
 
       - name: Run tests
-        run: dotnet test cirrus.slnx --no-build --configuration Debug --verbosity normal
+        run: dotnet test cirrus.slnx --configuration Debug --verbosity normal
 
   cli-smoke:
     runs-on: ubuntu-latest
@@ -71,12 +71,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Download Debug artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: naga-debug-artifacts
-          path: artifacts/Debug
 
       - name: Setup PowerShell
         run: |
