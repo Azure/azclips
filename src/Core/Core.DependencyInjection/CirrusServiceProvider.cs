@@ -51,6 +51,7 @@ public static class CirrusServiceProvider
             services = services
                 .RegisterTelemetryServices()
                 .RegisterRuntimeServices()
+                .RegisterProfileServices()
                 .RegisterAuthenticationServices()
                 .RegisterEngineServices()
                 .RegisterAssemblyLoadingServices()
