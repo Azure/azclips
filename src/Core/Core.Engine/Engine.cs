@@ -12,7 +12,7 @@ namespace Core.Engine
     /// <summary>
     /// Mediator pattern, Engine orchestrates services and runtimes
     /// <para><b>Thread Safety:</b> This engine is designed for concurrent command execution.
-    /// Each <see cref="Process"/> call creates isolated context with per-invocation output channel.
+    /// Each <see cref="InvokeSession"/> call creates isolated context with per-invocation output channel.
     /// Extension indices are cached using thread-safe lazy initialization.</para>
     /// <para><b>Output Routing:</b> Each invocation gets its own Channel for worker-to-caller
     /// communication. The worker thread writes to the channel, and the caller's thread reads
