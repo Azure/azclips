@@ -56,7 +56,7 @@ jobs:
           global-json-file: global.json
 
       - name: Restore CLI project
-        run: dotnet restore src/CLI/Core.Cli.csproj
+        run: dotnet restore src/CLI/Core.Cli.csproj -r win-x64
 
       - name: Publish the CLI application
         run: dotnet publish src/CLI/Core.Cli.csproj -c ${{ matrix.configuration }} -r win-x64 --self-contained --no-restore -o ./publish/${{ matrix.configuration }}/win-x64
@@ -86,7 +86,7 @@ jobs:
           global-json-file: global.json
 
       - name: Restore extension project
-        run: dotnet restore src/Extensions/Extension/Extensions.Extension.csproj
+        run: dotnet restore src/Extensions/Extension/Extensions.Extension.csproj -r win-x64
 
       - name: Publish the Extension (az extension)
         run: dotnet publish src/Extensions/Extension/Extensions.Extension.csproj -c ${{ matrix.configuration }} -r win-x64 --no-restore -o ./publish/${{ matrix.configuration }}/win-x64/Extensions/Extension
