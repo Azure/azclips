@@ -13,7 +13,7 @@ public class ConnectCirrusAccountCmdlet : PSCmdlet
     private OutputStreams streams = null!;
     private IEngine engine = null!;
 
-    [Parameter(Mandatory = true)]
+    [Parameter(Mandatory = false)]
     public string SubscriptionId { get; set; } = "";
 
     [Parameter(Mandatory = false)]
@@ -21,6 +21,9 @@ public class ConnectCirrusAccountCmdlet : PSCmdlet
 
     [Parameter(Mandatory = false)]
     public SwitchParameter UseDeviceCode { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string? OutProfile { get; set; }
 
     protected override void BeginProcessing()
     {
@@ -61,6 +64,10 @@ public class ConnectCirrusAccountCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(UseDeviceCode)))
         {
             parameters.Add("UseDeviceCode", UseDeviceCode.IsPresent);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(OutProfile)))
+        {
+            parameters.Add("OutProfile", OutProfile!);
         }
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
