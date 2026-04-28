@@ -19,7 +19,7 @@ public sealed class DefaultConfigurationValidator(IConfigurationSchema schema) :
             return ValidationResult.Success();
         }
 
-        return ValidationResult.Failure($"Unknown configuration key '{key}'. Use --force to allow experimental keys.");
+        return ValidationResult.Failure($"Unknown configuration key '{key}'. Use the force option to allow experimental keys.");
     }
 
     public ValidationResult ValidateValue(string key, object? value)
