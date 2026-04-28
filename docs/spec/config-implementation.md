@@ -1,10 +1,10 @@
-# Cirrus Config Service - Succinct Pseudocode Plan
+# Design Spec: Configuration Service (Implemented MVP)
 
 **Status:** Complete and tested (as of 2026-04-16)
 **Branch:** 11-config-implementation  
 **Test Coverage:** CLI, PS, schema, and service tests passing
 
-## Goal
+## Overview
 
 Implement user-scope configuration with strict validation, safe writes, and CLI/PowerShell surfaces, using .NET configuration primitives internally.
 
@@ -16,7 +16,7 @@ Implement user-scope configuration with strict validation, safe writes, and CLI/
 - Default parameters stored in config.defaults.\* (Azure CLI pattern)
 - Agent connection settings remain env/.env (not config)
 
-## High-Level Build Order
+## Implementation Phases (Historical)
 
 1. Core contracts and schema (include defaults)
 2. File provider and service implementation (defaults resolution)
@@ -25,46 +25,46 @@ Implement user-scope configuration with strict validation, safe writes, and CLI/
 5. Add PowerShell cmdlets (config)
 6. Add tests and docs
 
-## Implementation Checklist (Current PR Revision)
+## Implementation Checklist (Delivered)
 
 ### Core Contracts
 
-- [ ] Extend IConfigurationService with ResolveDefaultParameter(name)
+- [x] Extend IConfigurationService with ResolveDefaultParameter(name)
 
 ### Core Options + Schema
 
-- [ ] Rename hosts._ schema/option model to clients._
-- [ ] Add defaults.\* keys to schema (initial set: group, location, web, vm, vmss, acr)
-- [ ] Add DefaultsOptions and ensure reflection-based defaults work for new keys
+- [x] Rename hosts._ schema/option model to clients._
+- [x] Add defaults.\* keys to schema (initial set: group, location, web, vm, vmss, acr)
+- [x] Add DefaultsOptions and ensure reflection-based defaults work for new keys
 
 ### Core Service Behavior
 
-- [ ] Layer config in order: defaults -> global config -> env -> invocation
-- [ ] Keep global config as mutation target for config set/delete in this PR
-- [ ] Add ResolveDefaultParameter(name) implementation reading defaults.<name>
+- [x] Layer config in order: defaults -> global config -> env -> invocation
+- [x] Keep global config as mutation target for config set/delete in this PR
+- [x] Add ResolveDefaultParameter(name) implementation reading defaults.<name>
 
 ### DI Wiring
 
-- [ ] Wire ConfigurationService without profile context dependencies
+- [x] Wire ConfigurationService without profile context dependencies
 
 ### CLI + PowerShell Surface
 
-- [ ] Keep command surface to 5 config commands only
-- [ ] Keep list/get source attribution for global/env/default
+- [x] Keep command surface to 5 config commands only
+- [x] Keep list/get source attribution for global/env/default
 
 ### Tests
 
-- [ ] Unit test: ResolveDefaultParameter(name) returns expected defaults.\* value
-- [ ] Unit test: unknown defaults.\* keys rejected unless force
-- [ ] Integration test: config command behavior unchanged for global config scenarios
+- [x] Unit test: ResolveDefaultParameter(name) returns expected defaults.\* value
+- [x] Unit test: unknown defaults.\* keys rejected unless force
+- [x] Integration test: config command behavior unchanged for global config scenarios
 
 ### Validation + Docs Sync
 
-- [ ] Run full Cli.Tests suite and confirm green
-- [ ] Verify no regression in existing schema/service tests
-- [ ] Update docs status/test counts to reflect actual post-implementation state
+- [x] Run full Cli.Tests suite and confirm green
+- [x] Verify no regression in existing schema/service tests
+- [x] Update docs status/test counts to reflect actual post-implementation state
 
-## Pseudocode
+## Design and Implementation Notes
 
 ### 1) Contracts + Schema
 
@@ -103,7 +103,7 @@ Create defaults contract:
 
 - IDefaultParameterResolver – Optional parameter injection for commands
 
-#### Learnings
+#### Implemented Notes
 
 **What was built:**
 
@@ -172,7 +172,7 @@ Function ListConfigurationAsync(includeDefaults):
 - if includeDefaults add schema defaults for missing keys
 - annotate each key with source
 
-#### Learnings
+#### Implemented Notes
 
 **What was built:**
 
@@ -206,7 +206,7 @@ Migrate existing readers:
 - TelemetryService reads TelemetryOptions
 - Runtime retry policy reads Core/Runtime options mapping
 
-#### Learnings
+#### Implemented Notes
 
 **What was built:**
 
@@ -230,7 +230,7 @@ Command behavior:
 - include source in get/list output (e.g., [global], [env], [default])
 - tab completion from schema keys
 
-#### Learnings
+#### Implemented Notes
 
 **What was built:**
 
@@ -269,7 +269,7 @@ Cmdlet behavior:
 - output typed PS objects
 - register key completer on module import
 
-#### Learnings
+#### Implemented Notes
 
 **What was built:**
 
@@ -291,7 +291,7 @@ Cmdlet behavior:
 - PowerShellModule_ShouldImportAndExportFiveCmdlets
 - PowerShellModule_ManifestShouldSpecifyAllRequiredDependencies
 
-### 6) Tests (Minimum First)
+### 6) Tests
 
 Unit:
 
@@ -308,7 +308,7 @@ Integration:
 - env overrides file
 - PowerShell cmdlet parity with CLI
 
-#### Learnings
+#### Implemented Notes
 
 **What was built:**
 
@@ -332,7 +332,7 @@ Integration:
 - Shared fixture for both CLI and PS (same underlying engine, different surfaces)
 - Config test suite passing for CLI, PS, schema, and service coverage
 
-### 7) Definition of Done (Completed)
+### 7) Definition of Done
 
 - ✅ config service wired and used by migrated components
 - ✅ CLI and PowerShell config commands functional
@@ -342,7 +342,7 @@ Integration:
 - ✅ safe write semantics verified (locks, atomic writes)
 - ✅ docs updated with user examples and workflows
 
-#### Learnings
+#### Implemented Notes
 
 **Documentation Created:**
 
