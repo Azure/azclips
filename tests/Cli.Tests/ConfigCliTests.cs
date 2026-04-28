@@ -169,6 +169,34 @@ public class ConfigCliTests
         Assert.Contains("defaults.group = my-rg [global config]", listOutput.Single());
     }
 
+    [Fact]
+    public void CliInvocation_ShouldRejectUnknownKey_WhenForceIsFalse()
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        // Attempt to set an unknown key without --force should throw
+        var exception = Assert.Throws<ArgumentException>(() =>
+            fixture.ExecuteCli(["config", "set", "--key", "made.up.key", "--value", "value"])
+        );
+
+        Assert.Contains("Unknown configuration key 'made.up.key'", exception.Message);
+        Assert.Contains("--force", exception.Message);
+    }
+
+    [Fact]
+    public void CliInvocation_ShouldAllowUnknownKey_WhenForceIsTrue()
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        // Set an unknown key with --force
+        var setOutput = fixture.ExecuteCli(["config", "set", "--key", "made.up.key", "--value", "value", "--force"]);
+        Assert.Contains("Set made.up.key = value", setOutput.Single());
+
+        // Retrieve it
+        var getOutput = fixture.ExecuteCli(["config", "get", "--key", "made.up.key"]);
+        Assert.Contains("made.up.key = value [global config]", getOutput.Single());
+    }
+
     private sealed class ConfigCommandFixture : IDisposable
     {
         private static readonly string[] s_environmentKeys =
