@@ -225,7 +225,7 @@ Add azv2 config group:
 
 Command behavior:
 
-- set/delete prompt unless force
+- set/delete prompt via ShouldProcess/Confirm semantics
 - clear error messages for unknown key/type/range failures
 - include source in get/list output (e.g., [global], [env], [default])
 - tab completion from schema keys
@@ -283,7 +283,7 @@ Cmdlet behavior:
     - GUID must be valid hex only (0-9, a-f); invalid chars cause import failure
     - RequiredAssemblies path: `../../../artifacts/Debug/Core/` for Core DLLs and Microsoft.Extensions.\* dlls
 3. **Parameter Mapping:** PS uses PascalCase (-AsJson, -IncludeDefaults), cmdlet function maps to CLI command names before calling engine
-4. **ShouldProcess:** Set-CirrusConfig and Remove-CirrusConfig include confirmation dialog; skip with -Force flag
+4. **ShouldProcess:** Set-CirrusConfig and Remove-CirrusConfig use standard PowerShell ShouldProcess/Confirm semantics
 5. **Module Initialization:** Config.psm1 initializes DI container and loads all exported functions from exports/ folder
 
 **Tests Passing:**
@@ -381,7 +381,7 @@ Integration:
 2. **Assembly Load Order:** Core DLLs before Extension DLLs in RequiredAssemblies
 3. **Path Resolution:** Walk up from test assembly location rather than using relative paths
 4. **PS vs CLI Parameter Names:** Map between -AsJson (PS) and json (CLI) in cmdlet function
-5. **ShouldProcess Confirmation:** Set/Remove cmdlets prompt unless -Force is used
+5. **ShouldProcess Confirmation:** Set/Remove cmdlets rely on standard PowerShell WhatIf/Confirm behavior
 6. **Env Override Mapping:** CIRRUS_LOG_LEVEL must explicitly map to core.logging.level; not automatic
 
 ## Known Limitations / Future Work

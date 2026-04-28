@@ -116,7 +116,7 @@ Get-CirrusConfig -Key core.logging.level -AsJson
 # Set a key (will prompt for confirmation)
 Set-CirrusConfig -Key core.logging.level -Value debug
 
-# Set with force (no prompt)
+# Set with force (allows unknown keys)
 Set-CirrusConfig -Key core.logging.level -Value debug -Force
 ```
 
@@ -139,7 +139,7 @@ Get-CirrusConfigList -IncludeDefaults -AsJson
 # Delete a key (will prompt for confirmation)
 Remove-CirrusConfig -Key core.logging.level
 
-# Delete with force (no prompt)
+# Delete with force (allows unknown keys)
 Remove-CirrusConfig -Key core.logging.level -Force
 ```
 
