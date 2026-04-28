@@ -198,12 +198,11 @@ public sealed class ConfigurationService(
     private static Dictionary<string, string?> BuildEnvironmentOverrides()
     {
         var mappings = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
-        AddEnvironmentMapping(mappings, "CIRRUS_LOG_LEVEL", "core:logging:level");
-        AddEnvironmentMapping(mappings, "ZIPKIN_ENDPOINT", "telemetry:zipkinEndpoint");
-        AddEnvironmentMapping(mappings, "PS_HTTP_MAX_RETRIES_FOR_429", "core:http:maxRetriesFor429");
-        AddEnvironmentMapping(mappings, "AZURE_PS_HTTP_MAX_RETRIES_FOR_429", "core:http:maxRetriesFor429");
-        AddEnvironmentMapping(mappings, "PS_HTTP_MAX_RETRIES", "core:http:maxRetries");
-        AddEnvironmentMapping(mappings, "AZURE_PS_HTTP_MAX_RETRIES", "core:http:maxRetries");
+        foreach (var (envVarName, configKey) in Abstractions.EnvironmentVariableMappings.Mappings)
+        {
+            AddEnvironmentMapping(mappings, envVarName, NormalizeConfigurationPath(configKey));
+        }
+
         return mappings;
     }
 

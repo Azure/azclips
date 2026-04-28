@@ -64,12 +64,11 @@ public abstract class ConfigCommandBase : IProcessor
     protected static IDictionary<string, object?> GetEnvironmentOverrides()
     {
         var entries = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        AddEnvironment(entries, "CIRRUS_LOG_LEVEL", "core.logging.level");
-        AddEnvironment(entries, "ZIPKIN_ENDPOINT", "telemetry.zipkinEndpoint");
-        AddEnvironment(entries, "PS_HTTP_MAX_RETRIES", "core.http.maxRetries");
-        AddEnvironment(entries, "AZURE_PS_HTTP_MAX_RETRIES", "core.http.maxRetries");
-        AddEnvironment(entries, "PS_HTTP_MAX_RETRIES_FOR_429", "core.http.maxRetriesFor429");
-        AddEnvironment(entries, "AZURE_PS_HTTP_MAX_RETRIES_FOR_429", "core.http.maxRetriesFor429");
+        foreach (var (envVarName, configKey) in Core.Configuration.Abstractions.EnvironmentVariableMappings.Mappings)
+        {
+            AddEnvironment(entries, envVarName, configKey);
+        }
+
         return entries;
     }
 
