@@ -1,13 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
-
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Core.Abstractions.Runtime
+﻿namespace Core.Abstractions.Runtime
 {
     using System.Threading;
     using System.Threading.Tasks;
@@ -27,8 +18,35 @@ namespace Core.Abstractions.Runtime
     /// </remarks>
     public interface IEventListener
     {
+        // Signal overloads with CancellationToken
         Task Signal(string id, CancellationToken token, GetEventData createMessage);
-        StartActivityDelegate StartActivity { get; set; }
+        Task Signal(string id, CancellationToken token);
+        Task Signal(string id, CancellationToken token, string messageText);
+        Task Signal(string id, CancellationToken token, string messageText, HttpRequestMessage request);
+        Task Signal(string id, CancellationToken token, string messageText, HttpResponseMessage response);
+        Task Signal(string id, CancellationToken token, string messageText, double magnitude);
+        Task Signal(string id, CancellationToken token, string messageText, double magnitude, HttpRequestMessage request);
+        Task Signal(string id, CancellationToken token, string messageText, double magnitude, HttpResponseMessage response);
+        Task Signal(string id, CancellationToken token, HttpRequestMessage request);
+        Task Signal(string id, CancellationToken token, HttpRequestMessage request, HttpResponseMessage response);
+        Task Signal(string id, CancellationToken token, HttpResponseMessage response);
+        Task Signal(string id, CancellationToken token, EventData message);
+
+        // Signal overloads without CancellationToken (uses Token property)
+        Task Signal(string id, GetEventData createMessage);
+        Task Signal(string id);
+        Task Signal(string id, string messageText);
+        Task Signal(string id, string messageText, HttpRequestMessage request);
+        Task Signal(string id, string messageText, HttpResponseMessage response);
+        Task Signal(string id, string messageText, double magnitude);
+        Task Signal(string id, string messageText, double magnitude, HttpRequestMessage request);
+        Task Signal(string id, string messageText, double magnitude, HttpResponseMessage response);
+        Task Signal(string id, HttpRequestMessage request);
+        Task Signal(string id, HttpRequestMessage request, HttpResponseMessage response);
+        Task Signal(string id, HttpResponseMessage response);
+        Task Signal(string id, EventData message);
+        Task Signal(string id, Uri uri);
+
         CancellationToken Token { get; }
         Action Cancel { get; }
     }

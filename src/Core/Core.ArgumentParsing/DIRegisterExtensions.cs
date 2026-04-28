@@ -10,7 +10,7 @@ public static class DIRegisterExtensions
     /// </summary>
     public static IServiceCollection RegisterArgumentParsingServices(this IServiceCollection services)
     {
-        services.AddSingleton<PropertyParser>();
+        services.AddSingleton<IArgumentParsingProvider, DefaultArgumentParsingProvider>();
         services.AddSingleton<IArgumentParsingService, ArgumentParsingService>();
         return services;
     }

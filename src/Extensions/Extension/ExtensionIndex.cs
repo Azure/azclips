@@ -8,9 +8,9 @@ public class ExtensionIndex : IExtensionIndex
     private static readonly CommandMetadata s_addExtension_CLI = new(
         Name: "AddExtensionCommand",
         Aliases: [],
-        FullName: "Microsoft.Azure.Cirrus.Extensions.Extension.Commands.AddExtensionCommand",
+        FullName: "Microsoft.Azure.Cirrus.Extensions.Extension.Processors.AddExtensionProcessor",
         AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Extension",
-        CommandType: typeof(Commands.AddExtensionCommand),
+        ProcessorType: typeof(Processors.AddExtensionProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
             ["name"]     = new("Name", typeof(string), "The name of the extension to add.", IsRequired: false, Aliases: [], AllowedValues: []),

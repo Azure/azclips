@@ -8,7 +8,7 @@ namespace Core.Abstractions
         IList<string> Aliases,
         string FullName,
         string AssemblyName,
-        Type CommandType,
+        Type ProcessorType,
         IDictionary<string, ParameterMetadata> Parameters,
         IDictionary<string, string> ParameterAliases);
 }

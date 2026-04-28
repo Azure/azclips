@@ -9,7 +9,7 @@
 @{
 
 # Script module or binary module file associated with this manifest.
-RootModule = 'Resources.psm1'
+RootModule = ''
 
 # Version number of this module.
 ModuleVersion = '0.1.0'
@@ -51,7 +51,9 @@ DotNetFrameworkVersion = '4.7.2'
 # ProcessorArchitecture = ''
 
 # Modules that must be imported into the global environment prior to importing this module
-RequiredModules = @()
+RequiredModules = @(
+    @{ ModuleName = '../Login/Login.psd1'; ModuleVersion = '0.0.1' }
+)
 
 # Assemblies that must be loaded prior to importing this module
 RequiredAssemblies = '../../../artifacts/Debug/Core/Core.Abstractions.dll',
@@ -78,16 +80,13 @@ RequiredAssemblies = '../../../artifacts/Debug/Core/Core.Abstractions.dll',
 #                'Resources.format.ps1xml', 'Tags.format.ps1xml'
 
 # Modules to import as nested modules of the module specified in RootModule/ModuleToProcess
-# NestedModules = @('Authorization.Autorest/Az.Authorization.psm1',
-#                'DataBoundary.Autorest/Az.DataBoundary.psm1',
-#                'Microsoft.Azure.PowerShell.Cmdlets.ResourceManager.dll',
-#                'Microsoft.Azure.PowerShell.Cmdlets.Resources.dll',
-#                'Microsoft.Azure.PowerShell.Cmdlets.Tags.dll',
-#                'MSGraph.Autorest/Az.MSGraph.psm1',
-#                'Policy.Autorest/Az.Policy.psm1')
+NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Cirrus.Cmdlets.Resources.dll')
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-FunctionsToExport = 'New-ResourceGroup', 'Get-ResourceGroup'
+FunctionsToExport = @()
+
+# Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
+CmdletsToExport = 'New-ResourceGroup', 'Get-ResourceGroup'
 
 # # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 # CmdletsToExport = 'Export-AzResourceGroup', 'Export-AzTemplateSpec',

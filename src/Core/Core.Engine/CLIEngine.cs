@@ -49,7 +49,7 @@
 //             .Select(loader => loader.LoadExtension(extensionFolderName, extensionName, version))
 //             .FirstOrDefault(assembly => assembly != null);
 
-//     public IProcessor GetCommand(ICommandInvocation invocation)
+//     public IProcessor GetProcessor(ICommandInvocation invocation)
 //     {
 //         string extensionName = invocation.ExtensionName ?? throw new InvalidOperationException("CLIEngine can only process commands with an extension name specified.");
 //         string extensionFolderName = extensionFolderPrefix + extensionName;
@@ -93,7 +93,7 @@
 //         }
 //         _logger?.Verbose($"Loaded extension index from type '{indexType.FullName}'.");
 //         ICommandMetadata commandMetadata = extensionIndex.GetCommandMetadata(invocation.CommandName, ClientType.CLI) ?? throw new InvalidOperationException($"Command '{invocation.CommandName}' not found in extension '{invocation.ExtensionName}'.");
-//         _logger?.Verbose($"Resolved command '{invocation.CommandName}' to type '{commandMetadata.CommandType.FullName}'.");
+//         _logger?.Verbose($"Resolved command '{invocation.CommandName}' to type '{commandMetadata.ProcessorType.FullName}'.");
 //         IProcessor instance = commandMetadata.GetInstance();
 //         // Set properties from invocation parameters
 //         var commandArgs = CommandLineArgs.Parse(invocation.Parameters);
@@ -128,12 +128,12 @@
 //         Debug.Assert(invocation.ClientType == ClientType.CLI, "CLIEngine can only process CLI invocations.");
 //         _logger?.Info($"Processing command: '{invocation.CommandName}'.");
 
-//         IProcessor command = GetCommand(invocation);
+//         IProcessor processor = GetProcessor(invocation);
 
 //         // TODO: Initialize command context and execute
-//         ICommandContext context = CreateCommandContext(output);
-//         command.Init(context);
-//         ExecuteCommandAsync(command, token).GetAwaiter().GetResult();
+//         IProcessorContext context = CreateProcessorContext(output);
+//         processor.Init(context);
+//         ExecuteProcessorAsync(processor, token).GetAwaiter().GetResult();
 //     }
 
 //     /// <summary>
@@ -141,10 +141,10 @@
 //     /// Each command execution gets its own isolated context.
 //     /// </summary>
 //         /// <param name="output">The output delegate for this invocation's output.</param>
-//         private ICommandContext CreateCommandContext(CommandOutputDelegate output)
+//         private IProcessorContext CreateProcessorContext(CommandOutputDelegate output)
 //         {
 //             AuthContext authContext = _authContextService.GetCurrentContextAsync().GetAwaiter().GetResult() ?? new AuthContext() { SubscriptionId = "", TenantId = "" };
-//             ICommandAuthHandler commandAuthHandler = new CommandAuthHandler
+//             IAuthHandler commandAuthHandler = new AuthHandler
 //             {
 //                 AuthContext = new AuthContext
 //                 {
@@ -156,21 +156,21 @@
 //             };
 
 //             // Create output handler that writes to the per-invocation channel
-//             ICommandOutputHandler commandOutputHandler = new CommandOutputHandler
+//             IOutputHandler commandOutputHandler = new OutputHandler
 //             {
 //                 WriteOutput = async (value, ct) => await output(value, ct)
 //             };
-//             ICommandTelemetryHandler commandTelemetryHandler = new CommandTelemetryHandler
+//             ITelemetryHandler commandTelemetryHandler = new TelemetryHandler
 //             {
 //                 StartActivity = _telemetryService.StartActivity
 //             };
 
 //             IRuntimeHttpPipeline httpPipeline = new HttpPipeline(new HttpClientFactory(_httpClient));
-//             ICommandContext context = new CommandContext
+//             IProcessorContext context = new ProcessorContext
 //             {
-//                 CommandOutputHandler = commandOutputHandler,
-//                 CommandAuthHandler = commandAuthHandler,
-//                 CommandTelemetryHandler = commandTelemetryHandler,
+//                 OutputHandler = commandOutputHandler,
+//                 AuthHandler = commandAuthHandler,
+//                 TelemetryHandler = commandTelemetryHandler,
 //                 HttpPipeline = httpPipeline.Prepend(commandAuthHandler.SendAsync)
 //             };
 //             return context;
@@ -180,13 +180,13 @@
 //     /// <summary>
 //     /// Executes the command on a worker thread, writing output to the channel.
 //     /// </summary>
-//     private async Task ExecuteCommandAsync(IProcessor command, CancellationToken cancellationToken = default)
+//     private async Task ExecuteProcessorAsync(IProcessor processor, CancellationToken cancellationToken = default)
 //     {
 //         await Task.Run(async () =>
 //         {
 //             try
 //             {
-//                 await command.ProcessAsync();
+//                 await processor.ProcessAsync();
 //             }
 //             finally
 //             {

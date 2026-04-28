@@ -11,9 +11,9 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
         private static readonly CommandMetadata s_login_PS = new(
             Name: "LoginCommand",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.LoginCommand",
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Processors.LoginProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
-            CommandType: typeof(Commands.LoginCommand),
+            ProcessorType: typeof(Processors.LoginProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"] = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -25,18 +25,18 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
         private static readonly CommandMetadata s_logout_PS = new(
             Name: "LogoutCommand",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.LogoutCommand",
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Processors.LogoutProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
-            CommandType: typeof(Commands.LogoutCommand),
+            ProcessorType: typeof(Processors.LogoutProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>(),
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_getContext_PS = new(
             Name: "GetContextCommand",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.GetContextCommand",
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Processors.GetContextProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
-            CommandType: typeof(Commands.GetContextCommand),
+            ProcessorType: typeof(Processors.GetContextProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>(),
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -44,9 +44,9 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
         private static readonly CommandMetadata s_login_CLI = new(
             Name: "LoginCommand",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.LoginCommand",
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Processors.LoginProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
-            CommandType: typeof(Commands.LoginCommand),
+            ProcessorType: typeof(Processors.LoginProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -58,18 +58,18 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
         private static readonly CommandMetadata s_logout_CLI = new(
             Name: "LogoutCommand",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.LogoutCommand",
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Processors.LogoutProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
-            CommandType: typeof(Commands.LogoutCommand),
+            ProcessorType: typeof(Processors.LogoutProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>(),
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_getContext_CLI = new(
             Name: "GetContextCommand",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Commands.GetContextCommand",
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Processors.GetContextProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
-            CommandType: typeof(Commands.GetContextCommand),
+            ProcessorType: typeof(Processors.GetContextProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>(),
             ParameterAliases: new Dictionary<string, string>()
         );
