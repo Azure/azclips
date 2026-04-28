@@ -9,6 +9,19 @@ on:
 jobs:
   sanity:
     runs-on: ubuntu-latest
+    env:
+      Solution_Name: cirrus.slnx
+      Certificate_Directory: .
     steps:
       - name: Sanity check
         run: echo "3_naga workflow is running"
+
+      - name: Verify env variables
+        run: |
+          echo "Solution_Name=$Solution_Name"
+          echo "Certificate_Directory=$Certificate_Directory"
+
+      - name: Validate env values
+        run: |
+          test "$Solution_Name" = "cirrus.slnx"
+          test "$Certificate_Directory" = "."
