@@ -31,11 +31,16 @@ Configuration follows strict precedence: **command args > environment variables 
 
 ## CLI Usage
 
+Use explicit parameter names for CLI config commands:
+
+- `--key` for configuration key
+- `--value` for configuration value
+
 ### Get a configuration value
 
 ```bash
 # Retrieve a single key
-azv2 config get core.logging.level
+azv2 config get --key core.logging.level
 
 # Output: core.logging.level = info [default]
 ```
@@ -43,11 +48,11 @@ azv2 config get core.logging.level
 ### Set a configuration value
 
 ```bash
-# Set a key (will prompt for confirmation)
-azv2 config set core.logging.level debug
+# Set a key
+azv2 config set --key core.logging.level --value debug
 
-# Set with force (no prompt)
-azv2 config set core.logging.level debug --force
+# Set with force (allows unknown keys)
+azv2 config set --key core.logging.level --value debug --force
 
 # Output: Set core.logging.level = debug
 ```
@@ -68,11 +73,11 @@ azv2 config list --all --json
 ### Delete a configuration value
 
 ```bash
-# Delete a key (will prompt for confirmation)
-azv2 config delete core.logging.level
+# Delete a key
+azv2 config delete --key core.logging.level
 
-# Delete with force (no prompt)
-azv2 config delete core.logging.level --force
+# Delete with force (allows unknown keys)
+azv2 config delete --key core.logging.level --force
 
 # Output: Deleted core.logging.level
 ```
@@ -80,14 +85,11 @@ azv2 config delete core.logging.level --force
 ### View schema information
 
 ```bash
-# List all valid configuration keys
+# Output schema metadata as JSON
 azv2 config info
 
-# Output JSON schema (one key per line)
-# agent.enabled
-# core.logging.level
-# core.http.maxRetries
-# ...
+# Output only key names (JSON array)
+azv2 config info --keys-only
 ```
 
 ## PowerShell Usage
@@ -196,8 +198,8 @@ This confirms defaults handling and command-surface regressions as a bundle.
 **CLI:**
 
 ```bash
-azv2 config set core.logging.level debug --force
-azv2 config get core.logging.level
+azv2 config set --key core.logging.level --value debug --force
+azv2 config get --key core.logging.level
 ```
 
 **PowerShell:**
@@ -228,7 +230,7 @@ Get-CirrusConfigList -IncludeDefaults
 ```bash
 # Delete all user-set config
 azv2 config list | grep -v '\[default\]' | awk '{print $1}' | while read key; do
-  azv2 config delete "$key" --force
+  azv2 config delete --key "$key" --force
 done
 ```
 

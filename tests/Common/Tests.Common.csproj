@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Core\Core.Abstractions\Core.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Core\Core.AssemblyLoading\Core.AssemblyLoading.csproj" />
   </ItemGroup>
 
 </Project>

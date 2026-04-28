@@ -1,8 +1,10 @@
 using System.Diagnostics;
+using System.Reflection;
 using System.Text.Json.Nodes;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
+using Core.AssemblyLoading;
 using Core.Configuration.Abstractions;
 using Core.Cli.Parser;
 using Core.DependencyInjection;
@@ -10,6 +12,7 @@ using Core.Runtime;
 using Core.Runtime.Handler;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Azure.Cirrus.Extensions.Config.Commands;
+using Tests.Common.Stubs;
 
 namespace Cli.Tests;
 
@@ -73,6 +76,54 @@ public class ConfigCliTests
         Assert.Contains("core.logging.level = info [default]", getAfterDeleteOutput.Single());
     }
 
+    [Fact]
+    public void CliInvocation_ShouldSupportNamedConfigFlagsAcrossCrudFlow()
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        var setOutput = fixture.ExecuteCli(["config", "set", "--key", "core.logging.level", "--value", "debug", "--force"]);
+        Assert.Contains("Set core.logging.level = debug", setOutput.Single());
+
+        var getOutput = fixture.ExecuteCli(["config", "get", "--key", "core.logging.level"]);
+        Assert.Contains("core.logging.level = debug [global config]", getOutput.Single());
+
+        var setIntegerOutput = fixture.ExecuteCli(["config", "set", "--key", "core.http.maxRetries", "--value", "9", "--force"]);
+        Assert.Contains("Set core.http.maxRetries = 9", setIntegerOutput.Single());
+
+        var getIntegerOutput = fixture.ExecuteCli(["config", "get", "--key", "core.http.maxRetries"]);
+        Assert.Contains("core.http.maxRetries = 9 [global config]", getIntegerOutput.Single());
+
+        var listOutput = fixture.ExecuteCli(["config", "list"]);
+        Assert.Contains("core.logging.level = debug [global config]", listOutput.Single());
+        Assert.Contains("core.http.maxRetries = 9 [global config]", listOutput.Single());
+
+        var deleteOutput = fixture.ExecuteCli(["config", "delete", "--key", "core.logging.level", "--force"]);
+        Assert.Contains("Deleted core.logging.level", deleteOutput.Single());
+
+        var getDeletedOutput = fixture.ExecuteCli(["config", "get", "--key", "core.logging.level"]);
+        Assert.Contains("core.logging.level = info [default]", getDeletedOutput.Single());
+    }
+
+    [Fact]
+    public void CliInvocation_ShouldReturnJsonForListAndSchemaInfo()
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        fixture.ExecuteCli(["config", "set", "--key", "core.logging.level", "--value", "debug", "--force"]);
+
+        var listJsonOutput = fixture.ExecuteCli(["config", "list", "--all", "--json"]);
+        var listEntries = JsonNode.Parse(listJsonOutput.Single())!.AsArray();
+        Assert.Contains(listEntries, entry => string.Equals(entry?["Key"]?.GetValue<string>(), "core.logging.level", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(entry?["Value"]?.GetValue<string>(), "debug", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(entry?["Source"]?.GetValue<string>(), "global config", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(listEntries, entry => string.Equals(entry?["Key"]?.GetValue<string>(), "core.engine.extensionIndexCacheSize", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(entry?["Source"]?.GetValue<string>(), "default", StringComparison.OrdinalIgnoreCase));
+
+        var infoOutput = fixture.ExecuteCli(["config", "info"]);
+        var infoEntries = JsonNode.Parse(infoOutput.Single())!.AsArray();
+        Assert.Contains(infoEntries, entry => string.Equals(entry?["Key"]?.GetValue<string>(), "core.logging.level", StringComparison.OrdinalIgnoreCase));
+    }
+
     private sealed class ConfigCommandFixture : IDisposable
     {
         private static readonly string[] s_environmentKeys =
@@ -106,8 +157,29 @@ public class ConfigCliTests
             CirrusServiceProvider.OverrideRegistration = services =>
             {
                 services.AddSingleton<IConfigurationProvider>(new TestConfigurationProvider(_configPath));
+                services.AddSingleton<IExtensionLoader>(new StubExtensionLoader(typeof(SetConfigCommand).Assembly, "Config"));
+                services.AddSingleton<ITelemetryService, StubTelemetryService>();
+                services.AddSingleton<IAuthContextService, StubAuthContextService>();
+                services.AddSingleton<IAuthService, StubAuthService>();
             };
             CirrusServiceProvider.Initialize(ClientType.CLI);
+        }
+
+        public IReadOnlyList<string> ExecuteCli(string[] args)
+        {
+            _outputs.Clear();
+
+            var dispatcher = new ExtensionDispatcher();
+            var invocation = dispatcher.Parse(args);
+            var engine = CirrusServiceProvider.GetRequiredService<IEngine>();
+
+            engine.Process(invocation, (value, _) =>
+            {
+                _outputs.Add(Convert.ToString(value) ?? string.Empty);
+                return Task.CompletedTask;
+            });
+
+            return _outputs.ToArray();
         }
 
         public async Task<IReadOnlyList<string>> ExecuteAsync(IProcessor command)
