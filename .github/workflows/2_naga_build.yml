@@ -4,8 +4,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-test:
-    runs-on: windows-latest
+  build:
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
@@ -22,7 +22,76 @@ jobs:
       - name: Build
         run: dotnet build cirrus.slnx --no-restore --configuration Debug
 
+      - name: Upload Debug artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: naga-debug-artifacts
+          path: artifacts/Debug
+
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore dependencies
+        run: dotnet restore cirrus.slnx
+
       - name: Run tests
         run: dotnet test cirrus.slnx --no-build --configuration Debug --verbosity normal
+
+  cli-smoke:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Download Debug artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: naga-debug-artifacts
+          path: artifacts/Debug
+
+      - name: E2E - CLI Help
+        run: ./artifacts/Debug/Core.Cli/azv2 --help
+
+  powershell-smoke:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Download Debug artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: naga-debug-artifacts
+          path: artifacts/Debug
+
+      - name: Setup PowerShell
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y powershell
+
+      - name: E2E - PowerShell Module
+        shell: pwsh
+        run: |
+          $moduleManifestPath = "./artifacts/Debug/Microsoft.Azure.Cirrus.Extensions.Login/Login.psd1"
+          if (-not (Test-Path $moduleManifestPath)) {
+            Write-Error "Login.psd1 not found at expected path: $moduleManifestPath"
+            exit 1
+          }
+
+          Import-Module $moduleManifestPath
+          $commands = Get-Command -Module Login
+          if ($commands.Count -eq 0) {
+            Write-Error "No commands found in Login module"
+            exit 1
+          }
+          Write-Host "Found $($commands.Count) commands in Login module"
 
     
