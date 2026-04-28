@@ -14,7 +14,7 @@ public class ExtensionIndex : IExtensionIndex
         Parameters: new Dictionary<string, ParameterMetadata>
         {
             ["Key"] = new("Key", typeof(string), "Configuration key in dot notation.", IsRequired: true, Aliases: [], AllowedValues: []),
-            ["AsJson"] = new("AsJson", typeof(bool), "Output as JSON.", IsRequired: false, Aliases: [], AllowedValues: [])
+            ["Json"] = new("Json", typeof(bool), "Output as JSON.", IsRequired: false, Aliases: [], AllowedValues: [])
         },
         ParameterAliases: new Dictionary<string, string>()
     );
@@ -56,8 +56,8 @@ public class ExtensionIndex : IExtensionIndex
         CommandType: typeof(Commands.ListConfigCommand),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["IncludeDefaults"] = new("IncludeDefaults", typeof(bool), "Include default values.", IsRequired: false, Aliases: [], AllowedValues: []),
-            ["AsJson"] = new("AsJson", typeof(bool), "Output as JSON.", IsRequired: false, Aliases: [], AllowedValues: [])
+            ["All"] = new("All", typeof(bool), "Include default values.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["Json"] = new("Json", typeof(bool), "Output as JSON.", IsRequired: false, Aliases: [], AllowedValues: [])
         },
         ParameterAliases: new Dictionary<string, string>()
     );
