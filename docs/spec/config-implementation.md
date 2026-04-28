@@ -386,7 +386,7 @@ Integration:
 
 ## Known Limitations / Future Work
 
-- Config validation is structural only (known key, valid type); no range constraints (e.g., maxRetries > 0)
+- Config validation enforces known keys, valid types, allowed values, and numeric min/max bounds where defined by the schema
 - Agent connection settings intentionally NOT in config; they stay in env/.env
 - Tab completion for config keys not yet implemented
 - PowerShell module publish (portable package layout) not yet done
