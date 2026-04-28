@@ -4,7 +4,6 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Core.Abstractions.Runtime.Handler;
 using Core.Configuration.Abstractions;
 using Core.Configuration.Options;
 using Core.DependencyInjection;
@@ -18,19 +17,21 @@ public abstract class ConfigCommandBase : IProcessor
         WriteIndented = true
     };
 
-    protected CommandOutputDelegate WriteOutput = null!;
+    protected OutputStreamDelegate WriteOutput = null!;
     protected StartActivityDelegate StartActivity { get; set; } = null!;
 
-    public IProcessor Init(ICommandContext context)
+    public IProcessor Init(ProcessorContext context)
     {
-        WriteOutput = context.CommandOutputHandler.WriteOutput;
-        StartActivity = context.CommandTelemetryHandler.StartActivity;
+        WriteOutput = context.OutputHandler.WriteOutput;
+        StartActivity = GetTelemetryService().StartActivity;
         return this;
     }
 
     public abstract Task ProcessAsync();
 
     protected static IConfigurationService GetConfigurationService() => CirrusServiceProvider.GetRequiredService<IConfigurationService>();
+
+    protected static ITelemetryService GetTelemetryService() => CirrusServiceProvider.GetRequiredService<ITelemetryService>();
 
     protected static IConfigurationSchema GetConfigurationSchema() => GetConfigurationService().GetSchema();
 

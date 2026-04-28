@@ -3,7 +3,6 @@ using System.Reflection;
 using System.Text.Json.Nodes;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Core.Abstractions.Runtime.Handler;
 using Core.AssemblyLoading;
 using Core.Configuration.Abstractions;
 using Core.Cli.Parser;
@@ -34,9 +33,12 @@ public class ConfigCliTests
     public void ArgumentParsingService_ShouldTreatBareBoolFlagsAsTrue()
     {
         var loggingService = new ConsoleLoggingService();
-        var parser = new Core.ArgumentParsing.ArgumentParsingService(new Core.ArgumentParsing.PropertyParser(loggingService), loggingService);
+        var provider = new Core.Cli.CLIArgumentParsingProvider(new Core.Cli.PropertyParser(loggingService), loggingService);
+        var parser = new Core.ArgumentParsing.ArgumentParsingService(provider);
+        var processor = new BoolFlagProcessor();
 
-        var parsedArguments = parser.ParseArguments(
+        parser.BindArgumentsToProcessor(
+            processor,
             new Dictionary<string, object> { ["all"] = new List<List<string>> { new() } },
             new Dictionary<string, ParameterMetadata>
             {
@@ -44,7 +46,7 @@ public class ConfigCliTests
             },
             parameterAliases: null);
 
-        Assert.True((bool)parsedArguments["All"]);
+        Assert.True(processor.All);
     }
 
     [Fact]
@@ -52,28 +54,24 @@ public class ConfigCliTests
     {
         using var fixture = new ConfigCommandFixture();
 
-        var setCommand = new SetConfigCommand { Key = "core.logging.level", Value = "debug" };
-        await fixture.ExecuteAsync(setCommand);
+        fixture.ExecuteCli(["config", "set", "--key", "core.logging.level", "--value", "debug", "--force"]);
 
-        var getCommand = new GetConfigCommand { Key = "core.logging.level" };
-        var getOutput = await fixture.ExecuteAsync(getCommand);
+        var getOutput = fixture.ExecuteCli(["config", "get", "--key", "core.logging.level"]);
         Assert.Contains("core.logging.level = debug [global config]", getOutput.Single());
 
-        var listCommand = new ListConfigCommand { All = true };
-        var listOutput = await fixture.ExecuteAsync(listCommand);
+        var listOutput = fixture.ExecuteCli(["config", "list", "--all"]);
         Assert.Contains("core.logging.level = debug [global config]", listOutput.Single());
         Assert.Contains("core.engine.extensionIndexCacheSize = 512 [default]", listOutput.Single());
 
-        var infoCommand = new InfoConfigCommand { KeysOnly = true };
-        var infoOutput = await fixture.ExecuteAsync(infoCommand);
+        var infoOutput = fixture.ExecuteCli(["config", "info", "--keys-only"]);
         Assert.Contains("core.logging.level", infoOutput.Single());
 
-        var deleteCommand = new DeleteConfigCommand { Key = "core.logging.level" };
-        await fixture.ExecuteAsync(deleteCommand);
+        fixture.ExecuteCli(["config", "delete", "--key", "core.logging.level", "--force"]);
 
-        var getAfterDeleteCommand = new GetConfigCommand { Key = "core.logging.level" };
-        var getAfterDeleteOutput = await fixture.ExecuteAsync(getAfterDeleteCommand);
+        var getAfterDeleteOutput = fixture.ExecuteCli(["config", "get", "--key", "core.logging.level"]);
         Assert.Contains("core.logging.level = info [default]", getAfterDeleteOutput.Single());
+
+        await Task.CompletedTask;
     }
 
     [Fact]
@@ -228,7 +226,7 @@ public class ConfigCliTests
             CirrusServiceProvider.Dispose();
             CirrusServiceProvider.PrependRegistration = services =>
             {
-                services.AddSingleton<IExtensionLoader>(new StubExtensionLoader(typeof(SetConfigCommand).Assembly, "Config"));
+                services.AddSingleton<IAssemblyLoadingProvider>(new StubExtensionLoader(typeof(SetConfigCommand).Assembly, "Config"));
             };
             CirrusServiceProvider.OverrideRegistration = services =>
             {
@@ -248,48 +246,21 @@ public class ConfigCliTests
             var invocation = dispatcher.Parse(args);
             var engine = CirrusServiceProvider.GetRequiredService<IEngine>();
 
-            engine.Process(invocation, (value, _) =>
-            {
-                _outputs.Add(Convert.ToString(value) ?? string.Empty);
-                return Task.CompletedTask;
-            });
-
-            return _outputs.ToArray();
-        }
-
-        public async Task<IReadOnlyList<string>> ExecuteAsync(IProcessor command)
-        {
-            _outputs.Clear();
-            command.Init(new CommandContext
-            {
-                CommandAuthHandler = new CommandAuthHandler
+            var streams = new OutputStreams(
+                WriteOutput: (value, _) =>
                 {
-                    AuthContext = new AuthContext(string.Empty, string.Empty),
-                    AcquireTokenAsyncDefault = (_, _, _, _) => Task.FromResult(new AuthResult
-                    {
-                        AccessToken = string.Empty,
-                        ExpiresOn = DateTimeOffset.MinValue,
-                        Scopes = Array.Empty<string>(),
-                        TenantId = string.Empty,
-                        CorrelationId = Guid.Empty
-                    })
+                    _outputs.Add(Convert.ToString(value) ?? string.Empty);
+                    return Task.CompletedTask;
                 },
-                CommandOutputHandler = new CommandOutputHandler
-                {
-                    WriteOutput = (value, _) =>
-                    {
-                        _outputs.Add(Convert.ToString(value) ?? string.Empty);
-                        return Task.CompletedTask;
-                    }
-                },
-                CommandTelemetryHandler = new CommandTelemetryHandler
-                {
-                    StartActivity = (name, kind) => new Activity(name)
-                },
-                HttpPipeline = new HttpPipeline()
-            });
+                WriteVerbose: (_, _) => Task.CompletedTask,
+                WriteDebug: (_, _) => Task.CompletedTask,
+                WriteWarning: (_, _) => Task.CompletedTask,
+                WriteError: (_, _) => Task.CompletedTask,
+                WriteInformation: (_, _) => Task.CompletedTask);
 
-            await command.ProcessAsync();
+            using IInvocationSession session = engine.InvokeSession(invocation, streams);
+            session.Process();
+
             return _outputs.ToArray();
         }
 
@@ -310,6 +281,15 @@ public class ConfigCliTests
                 Directory.Delete(directory, recursive: true);
             }
         }
+    }
+
+    private sealed class BoolFlagProcessor : IProcessor
+    {
+        public bool All { get; set; }
+
+        public IProcessor Init(ProcessorContext context) => this;
+
+        public Task ProcessAsync() => Task.CompletedTask;
     }
 
     [Fact]

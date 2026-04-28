@@ -16,7 +16,7 @@
         Func<HttpRequestMessage, CancellationToken, Action, Func<string, CancellationToken, GetEventData, Task<HttpResponseMessage>>, Task<HttpResponseMessage>> next);
     public delegate Task SignalEvent(string id, CancellationToken token, GetEventData getEventData);
     public delegate Task Event(object message);
-    public delegate void SynchEvent(object message);
+    public delegate void SyncEvent(object message);
 
     /// <summary>
     /// Delegate for acquiring an access token silently.
@@ -25,9 +25,9 @@
     public delegate Task<AuthResult> AcquireTokenAsyncDelegate(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Delegate for command output processing.
+    /// Delegate for stream output processing.
     ///</summary>
-    public delegate Task CommandOutputDelegate(object value, CancellationToken cancellationToken = default);
+    public delegate Task OutputStreamDelegate(object value, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Delegate for starting an activity for telemetry.

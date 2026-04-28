@@ -45,7 +45,7 @@ classDiagram
         -IAuthService _authService
         -HttpClient _httpClient
         +Process(ICommandInvocation, CommandOutputDelegate, CancellationToken)
-        +GetCommand(ICommandInvocation) IProcessor
+        +GetProcessor(ICommandInvocation) IProcessor
     }
     class PSEngine {
         -LFUCache~Lazy~IExtensionIndex~~ _extensionIndices
@@ -262,7 +262,7 @@ Both implement `IEngine` but differ in threading and output models:
 `CLIEngine` (`src/Core/Core.Engine/CLIEngine.cs:15`) is for CLI binary consumers. Key characteristics:
 
 - **Extension loading** — uses `BuiltinExtensionLoader` and `MultiVersionExtensionLoader` (lines 58-62) with a static prefix `"Microsoft.Azure.Cirrus.Extensions."` (line 32)
-- **Command context** — `CreateCommandContext` (lines 129-162) assembles `CommandAuthHandler`, `CommandOutputHandler`, `CommandTelemetryHandler`, and `HttpPipeline`
+- **Processor context** — `CreateProcessorContext` (lines 129-162) assembles `AuthHandler`, `OutputHandler`, `TelemetryHandler`, and `HttpPipeline`
 - **Execution** — `ExecuteCommandAsync` wraps `command.ProcessAsync()` in `Task.Run` (lines 168-180)
 
 ### PSEngine
@@ -278,8 +278,8 @@ flowchart TB
     subgraph CLI["CLI Execution Path"]
         direction TB
         A1["CLIEngine.Process()"]
-        A2["GetCommand(invocation)"]
-        A3["CreateCommandContext()"]
+        A2["GetProcessor(invocation)"]
+        A3["CreateProcessorContext()"]
         A4["Task.Run → ProcessAsync()"]
         A5["Direct Console Output"]
 
@@ -292,8 +292,8 @@ flowchart TB
     subgraph PS["PowerShell Execution Path"]
         direction TB
         B1["PSEngine.Process()"]
-        B2["GetCommand(invocation)"]
-        B3["CreateCommandContext(channelWriter)"]
+        B2["GetProcessor(invocation)"]
+        B3["CreateProcessorContext(channelWriter)"]
         B4["Task.Run → ProcessAsync()"]
         B5["Channel.Writer"]
         B6["Channel.Reader on caller thread"]

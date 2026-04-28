@@ -10,7 +10,7 @@ public class ExtensionIndex : IExtensionIndex
         Aliases: [],
         FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.GetConfigCommand",
         AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
-        CommandType: typeof(Commands.GetConfigCommand),
+        ProcessorType: typeof(Commands.GetConfigCommand),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
             ["Key"] = new("Key", typeof(string), "Configuration key in dot notation.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -24,7 +24,7 @@ public class ExtensionIndex : IExtensionIndex
         Aliases: [],
         FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.SetConfigCommand",
         AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
-        CommandType: typeof(Commands.SetConfigCommand),
+        ProcessorType: typeof(Commands.SetConfigCommand),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
             ["Key"] = new("Key", typeof(string), "Configuration key in dot notation.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -39,7 +39,7 @@ public class ExtensionIndex : IExtensionIndex
         Aliases: [],
         FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.DeleteConfigCommand",
         AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
-        CommandType: typeof(Commands.DeleteConfigCommand),
+        ProcessorType: typeof(Commands.DeleteConfigCommand),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
             ["Key"] = new("Key", typeof(string), "Configuration key in dot notation.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -53,7 +53,7 @@ public class ExtensionIndex : IExtensionIndex
         Aliases: [],
         FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.ListConfigCommand",
         AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
-        CommandType: typeof(Commands.ListConfigCommand),
+        ProcessorType: typeof(Commands.ListConfigCommand),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
             ["All"] = new("All", typeof(bool), "Include default values.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -67,7 +67,7 @@ public class ExtensionIndex : IExtensionIndex
         Aliases: [],
         FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.InfoConfigCommand",
         AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
-        CommandType: typeof(Commands.InfoConfigCommand),
+        ProcessorType: typeof(Commands.InfoConfigCommand),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
             ["KeysOnly"] = new("KeysOnly", typeof(bool), "Return only valid keys.", IsRequired: false, Aliases: [], AllowedValues: [])
@@ -81,7 +81,7 @@ public class ExtensionIndex : IExtensionIndex
         Aliases: [],
         FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.GetConfigCommand",
         AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
-        CommandType: typeof(Commands.GetConfigCommand),
+        ProcessorType: typeof(Commands.GetConfigCommand),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
             ["key"] = new("Key", typeof(string), "Configuration key in dot notation.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -95,7 +95,7 @@ public class ExtensionIndex : IExtensionIndex
         Aliases: [],
         FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.SetConfigCommand",
         AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
-        CommandType: typeof(Commands.SetConfigCommand),
+        ProcessorType: typeof(Commands.SetConfigCommand),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
             ["key"] = new("Key", typeof(string), "Configuration key in dot notation.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -110,7 +110,7 @@ public class ExtensionIndex : IExtensionIndex
         Aliases: [],
         FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.DeleteConfigCommand",
         AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
-        CommandType: typeof(Commands.DeleteConfigCommand),
+        ProcessorType: typeof(Commands.DeleteConfigCommand),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
             ["key"] = new("Key", typeof(string), "Configuration key in dot notation.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -124,7 +124,7 @@ public class ExtensionIndex : IExtensionIndex
         Aliases: [],
         FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.ListConfigCommand",
         AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
-        CommandType: typeof(Commands.ListConfigCommand),
+        ProcessorType: typeof(Commands.ListConfigCommand),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
             ["all"] = new("All", typeof(bool), "Include default values.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -138,7 +138,7 @@ public class ExtensionIndex : IExtensionIndex
         Aliases: [],
         FullName: "Microsoft.Azure.Cirrus.Extensions.Config.Commands.InfoConfigCommand",
         AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Config",
-        CommandType: typeof(Commands.InfoConfigCommand),
+        ProcessorType: typeof(Commands.InfoConfigCommand),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
             ["keys-only"] = new("KeysOnly", typeof(bool), "Return only valid keys.", IsRequired: false, Aliases: [], AllowedValues: [])

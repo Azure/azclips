@@ -2,16 +2,19 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Reflection;
-using Core.AssemblyLoading;
+using Core.Abstractions;
 
 namespace Tests.Common.Stubs;
 
-public class StubExtensionLoader(Assembly extensionAssembly, string extensionName) : IExtensionLoader
+public class StubExtensionLoader(Assembly extensionAssembly, string extensionName) : IAssemblyLoadingProvider
 {
-    public Assembly? LoadExtension(string requestedExtensionName, string? version = null)
+    public Assembly LoadExtension(string requestedExtensionName, string? version = null)
     {
-        return string.Equals(requestedExtensionName, extensionName, StringComparison.OrdinalIgnoreCase)
-            ? extensionAssembly
-            : null;
+        if (string.Equals(requestedExtensionName, extensionName, StringComparison.OrdinalIgnoreCase))
+        {
+            return extensionAssembly;
+        }
+
+        throw new InvalidOperationException($"Extension '{requestedExtensionName}' is not available in stub provider.");
     }
 }

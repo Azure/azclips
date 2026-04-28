@@ -4,37 +4,10 @@ namespace Core.Runtime
     using System.Net.Http;
     using System.Threading.Tasks;
     using Core.Abstractions.Runtime;
+    using Core.Abstractions;
 
     internal static class RuntimeExtensions
     {
-        public static Task Signal(this IEventListener instance, string id, CancellationToken token, Func<EventData> createMessage) => instance.Signal(id, token, createMessage);
-        public static Task Signal(this IEventListener instance, string id, CancellationToken token) => instance.Signal(id, token, () => new EventData { Id = id, Cancel = instance.Cancel });
-        public static Task Signal(this IEventListener instance, string id, CancellationToken token, string messageText) => instance.Signal(id, token, () => new EventData { Id = id, Message = messageText, Cancel = instance.Cancel });
-        public static Task Signal(this IEventListener instance, string id, CancellationToken token, string messageText, HttpRequestMessage request) => instance.Signal(id, token, () => new EventData { Id = id, Message = messageText, RequestMessage = request, Cancel = instance.Cancel });
-        public static Task Signal(this IEventListener instance, string id, CancellationToken token, string messageText, HttpResponseMessage response) => instance.Signal(id, token, () => new EventData { Id = id, Message = messageText, RequestMessage = response.RequestMessage!, ResponseMessage = response, Cancel = instance.Cancel });
-        public static Task Signal(this IEventListener instance, string id, CancellationToken token, string messageText, double magnitude) => instance.Signal(id, token, () => new EventData { Id = id, Message = messageText, Value = magnitude, Cancel = instance.Cancel });
-        public static Task Signal(this IEventListener instance, string id, CancellationToken token, string messageText, double magnitude, HttpRequestMessage request) => instance.Signal(id, token, () => new EventData { Id = id, Message = messageText, RequestMessage = request, Value = magnitude, Cancel = instance.Cancel });
-        public static Task Signal(this IEventListener instance, string id, CancellationToken token, string messageText, double magnitude, HttpResponseMessage response) => instance.Signal(id, token, () => new EventData { Id = id, Message = messageText, RequestMessage = response.RequestMessage!, ResponseMessage = response, Value = magnitude, Cancel = instance.Cancel });
-        public static Task Signal(this IEventListener instance, string id, CancellationToken token, HttpRequestMessage request) => instance.Signal(id, token, () => new EventData { Id = id, RequestMessage = request, Cancel = instance.Cancel });
-        public static Task Signal(this IEventListener instance, string id, CancellationToken token, HttpRequestMessage request, HttpResponseMessage response) => instance.Signal(id, token, () => new EventData { Id = id, RequestMessage = request, ResponseMessage = response, Cancel = instance.Cancel });
-        public static Task Signal(this IEventListener instance, string id, CancellationToken token, HttpResponseMessage response) => instance.Signal(id, token, () => new EventData { Id = id, RequestMessage = response.RequestMessage!, ResponseMessage = response, Cancel = instance.Cancel });
-        public static Task Signal(this IEventListener instance, string id, CancellationToken token, EventData message) => instance.Signal(id, token, () => { message.Id = id; message.Cancel = instance.Cancel; return message; });
-
-        public static Task Signal(this IEventListener instance, string id, Func<EventData> createMessage) => instance.Signal(id, instance.Token, createMessage);
-        public static Task Signal(this IEventListener instance, string id) => instance.Signal(id, instance.Token, () => new EventData { Id = id, Cancel = instance.Cancel });
-        public static Task Signal(this IEventListener instance, string id, string messageText) => instance.Signal(id, instance.Token, () => new EventData { Id = id, Message = messageText, Cancel = instance.Cancel });
-        public static Task Signal(this IEventListener instance, string id, string messageText, HttpRequestMessage request) => instance.Signal(id, instance.Token, () => new EventData { Id = id, Message = messageText, RequestMessage = request, Cancel = instance.Cancel });
-        public static Task Signal(this IEventListener instance, string id, string messageText, HttpResponseMessage response) => instance.Signal(id, instance.Token, () => new EventData { Id = id, Message = messageText, RequestMessage = response.RequestMessage!, ResponseMessage = response, Cancel = instance.Cancel });
-        public static Task Signal(this IEventListener instance, string id, string messageText, double magnitude) => instance.Signal(id, instance.Token, () => new EventData { Id = id, Message = messageText, Value = magnitude, Cancel = instance.Cancel });
-        public static Task Signal(this IEventListener instance, string id, string messageText, double magnitude, HttpRequestMessage request) => instance.Signal(id, instance.Token, () => new EventData { Id = id, Message = messageText, RequestMessage = request, Value = magnitude, Cancel = instance.Cancel });
-        public static Task Signal(this IEventListener instance, string id, string messageText, double magnitude, HttpResponseMessage response) => instance.Signal(id, instance.Token, () => new EventData { Id = id, Message = messageText, RequestMessage = response.RequestMessage!, ResponseMessage = response, Value = magnitude, Cancel = instance.Cancel });
-        public static Task Signal(this IEventListener instance, string id, HttpRequestMessage request) => instance.Signal(id, instance.Token, () => new EventData { Id = id, RequestMessage = request, Cancel = instance.Cancel });
-        public static Task Signal(this IEventListener instance, string id, HttpRequestMessage request, HttpResponseMessage response) => instance.Signal(id, instance.Token, () => new EventData { Id = id, RequestMessage = request, ResponseMessage = response, Cancel = instance.Cancel });
-        public static Task Signal(this IEventListener instance, string id, HttpResponseMessage response) => instance.Signal(id, instance.Token, () => new EventData { Id = id, RequestMessage = response.RequestMessage!, ResponseMessage = response, Cancel = instance.Cancel });
-        public static Task Signal(this IEventListener instance, string id, EventData message) => instance.Signal(id, instance.Token, () => { message.Id = id; message.Cancel = instance.Cancel; return message; });
-
-        public static Task Signal(this IEventListener instance, string id, System.Uri uri) => instance.Signal(id, instance.Token, () => new EventData { Id = id, Message = uri.ToString(), Cancel = instance.Cancel });
-
         public static async Task AssertNotNull(this IEventListener instance, string parameterName, object value)
         {
             if (value == null)
