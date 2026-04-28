@@ -8,7 +8,7 @@ Configuration follows strict precedence: **command args > environment variables 
 
 | Key                                           | Type   | Default              | Notes                                               |
 | --------------------------------------------- | ------ | -------------------- | --------------------------------------------------- |
-| `core.logging.level`                          | string | `info`               | Log level: `debug`, `info`, `warning`, `error`      |
+| `core.logging.level`                          | string | `info`               | Log level: `debug`, `info`, `warn`, `error`         |
 | `core.http.maxRetries`                        | int    | `3`                  | Max HTTP request retries                            |
 | `core.http.maxRetriesFor429`                  | int    | `5`                  | Max retries for 429 (rate limit) responses          |
 | `core.engine.extensionIndexCacheSize`         | int    | `512`                | Extension index cache size in MB                    |
