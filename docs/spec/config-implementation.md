@@ -359,7 +359,7 @@ Integration:
 1. **Namespace: hosts → clients** — Renamed to avoid confusion with server/machine context; aligns with ClientType (CLI vs PowerShell vs agent)
 2. **Read-Only for Non-Config Services:** Only config extension has write access; all other components read via IConfigurationService<T>
 3. **Precedence:** args > env > global config > defaults
-4. **Default Parameters (MVP):** Stored in config.defaults.\* (e.g., defaults.group, defaults.location); commands read via IConfigurationService.ResolveDefaultParameter() — opt-in, not automatic injection
+4. **Default Parameters (MVP):** Stored in defaults.\* keys (e.g., defaults.group, defaults.location); commands read via IConfigurationService.ResolveDefaultParameter() — opt-in, not automatic injection
 5. **Bare Boolean Flags:** CLI uses --force, --all, --json without values; ArgumentParsingService treats empty array as true for bool type
 6. **Separate Dispatch Tables:** PS and CLI each have their own command routing (cmdlet names vs lowercase command names)
 7. **Default Reflection:** Defaults sourced from option classes via reflection, not flattened dicts, to preserve dotted schema keys
@@ -371,7 +371,7 @@ Integration:
 ### Default Parameter Auto-Injection
 
 - Implement DefaultInjectingService or parameter resolver middleware
-- Commands auto-inject missing parameters from config.defaults.\* during initialization
+- Commands auto-inject missing parameters from defaults.\* keys during initialization
 - Requires command framework changes; deferred to separate architecture effort
 - MVP: Commands read defaults explicitly; Phase 3: Framework-level auto-injection
 
