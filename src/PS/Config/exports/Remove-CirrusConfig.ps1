@@ -31,7 +31,7 @@ function Remove-CirrusConfig {
                     $parameters.Add('Key', [object]$Key)
                 }
                 if ($PSBoundParameters.ContainsKey('Force')) {
-                    $parameters.Add('Force', [object]$true)
+                    $parameters.Add('Force', [object][bool]$Force)
                 }
 
                 $moduleName = $MyInvocation.MyCommand.ModuleName

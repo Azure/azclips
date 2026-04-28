@@ -24,7 +24,7 @@ function Get-CirrusConfigInfo {
             $parameters = [System.Collections.Generic.Dictionary[string, object]]::New()
 
             if ($PSBoundParameters.ContainsKey('KeysOnly')) {
-                $parameters.Add('KeysOnly', [object]$true)
+                $parameters.Add('KeysOnly', [object][bool]$KeysOnly)
             }
 
             $moduleName = $MyInvocation.MyCommand.ModuleName

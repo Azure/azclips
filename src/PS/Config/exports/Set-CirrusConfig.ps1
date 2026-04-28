@@ -37,7 +37,7 @@ function Set-CirrusConfig {
                     $parameters.Add('Value', [object]$Value)
                 }
                 if ($PSBoundParameters.ContainsKey('Force')) {
-                    $parameters.Add('Force', [object]$true)
+                    $parameters.Add('Force', [object][bool]$Force)
                 }
 
                 $moduleName = $MyInvocation.MyCommand.ModuleName

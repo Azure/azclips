@@ -27,10 +27,10 @@ function Get-CirrusConfigList {
             $parameters = [System.Collections.Generic.Dictionary[string, object]]::New()
 
             if ($PSBoundParameters.ContainsKey('IncludeDefaults')) {
-                $parameters.Add('All', [object]$true)
+                $parameters.Add('All', [object][bool]$IncludeDefaults)
             }
             if ($PSBoundParameters.ContainsKey('AsJson')) {
-                $parameters.Add('Json', [object]$true)
+                $parameters.Add('Json', [object][bool]$AsJson)
             }
 
             $moduleName = $MyInvocation.MyCommand.ModuleName

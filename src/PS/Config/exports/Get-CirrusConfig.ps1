@@ -30,7 +30,7 @@ function Get-CirrusConfig {
                 $parameters.Add('Key', [object]$Key)
             }
             if ($PSBoundParameters.ContainsKey('AsJson')) {
-                $parameters.Add('Json', [object]$true)
+                $parameters.Add('Json', [object][bool]$AsJson)
             }
 
             $moduleName = $MyInvocation.MyCommand.ModuleName
