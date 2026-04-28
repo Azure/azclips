@@ -20,7 +20,6 @@ namespace Core.Engine
     public class Engine(
         ClientType clientType,
         HttpClient httpClient,
-        IAuthContextService authContextService,
         IProfileService profileService,
         ICommandHttpMessageHandler commandHttpMessageHandler,
         IAuthService authService,
@@ -153,9 +152,11 @@ namespace Core.Engine
                 }
                 else
                 {
-                    // Fallback to legacy IAuthContextService during migration
-                    authContext = authContextService.GetCurrentContextAsync().GetAwaiter().GetResult()
-                                ?? new AuthContext(TenantId: "", SubscriptionId: "");
+                    // No active profile — use empty context. Commands that don't need auth
+                    // (profile list, profile show, etc.) will work fine. Commands that need
+                    // auth will fail at token acquisition with a clear MSAL error.
+                    loggingService.Verbose("No active profile. Commands requiring authentication will fail.");
+                    authContext = new AuthContext(TenantId: "", SubscriptionId: "");
                 }
             }
             ICommandAuthHandler commandAuthHandler = new CommandAuthHandler

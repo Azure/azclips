@@ -34,7 +34,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
             using var _ = StartActivity($"{nameof(LoginCommand)}.{nameof(ProcessAsync)}");
             var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
             var authService = CirrusServiceProvider.GetRequiredService<IAuthService>();
-            var authContextService = CirrusServiceProvider.GetRequiredService<IAuthContextService>();
             var profileService = CirrusServiceProvider.GetRequiredService<IProfileService>();
 
             LoginRequest loginRequest = new()
@@ -45,7 +44,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
             };
 
             var authResult = authService.LoginAsync(loginRequest).GetAwaiter().GetResult();
-            AuthContext authContext = new AuthContext(TenantId: authResult.TenantId, SubscriptionId: SubscriptionId);
 
             // Determine profile name: explicit --out-profile or auto-"default"
             var profileName = string.IsNullOrEmpty(OutProfile) ? "default" : OutProfile;
@@ -57,7 +55,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
                 await WriteOutput($"Warning: Profile '{profileName}' already exists and will be overwritten.");
             }
 
-            // Create and save profile
+            // Create and save profile — this is the sole source of truth
             var profile = new Profile
             {
                 Name = profileName,
@@ -68,8 +66,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Commands
             profileService.SaveProfileAsync(profile).GetAwaiter().GetResult();
             profileService.SetActiveProfileAsync(profileName).GetAwaiter().GetResult();
 
-            // Backward compatibility: also save to context.json via adapter
-            authContextService.SaveContextAsync(authContext).GetAwaiter().GetResult();
+            AuthContext authContext = new AuthContext(TenantId: authResult.TenantId, SubscriptionId: SubscriptionId);
             await WriteOutput(authContext);
         }
     }

@@ -204,6 +204,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
             ["Disconnect-CirrusAccount"] = s_logout_PS,
             ["Get-CirrusAccount"]        = s_getContext_PS,
             ["Get-CirrusProfile"]        = s_listProfiles_PS,
+            ["ListProfilesCommand"]      = s_listProfiles_PS,
+            ["ShowProfileCommand"]       = s_showProfile_PS,
             ["Switch-CirrusProfile"]     = s_switchProfile_PS,
             ["Set-CirrusProfile"]        = s_modifyProfile_PS,
             ["Remove-CirrusProfile"]     = s_removeProfile_PS,
