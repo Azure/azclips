@@ -23,8 +23,8 @@ namespace Core.Runtime
 
         public HttpPipeline(ISendAsyncTerminalFactory terminalStep) : this(
             terminalStep,
-            ReadRetryEnvironment(DefaultMaxRetry, "PS_HTTP_MAX_RETRIES", "AZURE_PS_HTTP_MAX_RETRIES"),
-            ReadRetryEnvironment(DefaultMaxRetryFor429, "PS_HTTP_MAX_RETRIES_FOR_429", "AZURE_PS_HTTP_MAX_RETRIES_FOR_429"))
+            ReadRetryEnvironment(DefaultMaxRetry, "AZURE_PS_HTTP_MAX_RETRIES", "PS_HTTP_MAX_RETRIES"),
+            ReadRetryEnvironment(DefaultMaxRetryFor429, "AZURE_PS_HTTP_MAX_RETRIES_FOR_429", "PS_HTTP_MAX_RETRIES_FOR_429"))
         {
         }
 
