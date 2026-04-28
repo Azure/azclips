@@ -13,7 +13,7 @@ Implement user-scope configuration with strict validation, safe writes, and CLI/
 - Single file: ~/.cirrus/config.json (global config)
 - Precedence: command args > env vars > global config > defaults
 - Strict schema by default, allow unknown keys only with force
-- Default parameters stored in config.defaults.\* (Azure CLI pattern)
+- Default parameters stored under defaults.\* keys (Azure CLI pattern)
 - Agent connection settings remain env/.env (not config)
 
 ## Implementation Phases (Historical)
