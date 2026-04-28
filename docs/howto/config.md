@@ -11,10 +11,10 @@ Configuration follows strict precedence: **command args > environment variables 
 | `core.logging.level`                          | string | `info`               | Log level: `debug`, `info`, `warn`, `error`         |
 | `core.http.maxRetries`                        | int    | `3`                  | Max HTTP request retries                            |
 | `core.http.maxRetriesFor429`                  | int    | `5`                  | Max retries for 429 (rate limit) responses          |
-| `core.engine.extensionIndexCacheSize`         | int    | `512`                | Extension index cache size in MB                    |
+| `core.engine.extensionIndexCacheSize`         | int    | `512`                | LFU cache capacity for extension index (entry count) |
 | `assemblyLoading.versionedInstallationDir`    | string | (system)             | Versioned assembly installation directory           |
 | `assemblyLoading.builtinInstallationDir`      | string | (system)             | Built-in assembly directory                         |
-| `assemblyLoading.extensionFolderPrefix`       | string | `.cirrus/extensions` | Extensions folder prefix                            |
+| `assemblyLoading.extensionFolderPrefix`       | string | (see notes)          | Extension assembly folder prefix; `Microsoft.Azure.Cirrus.Extensions.` (DEBUG), empty (Release) |
 | `telemetry.enabled`                           | bool   | `true`               | Enable telemetry                                    |
 | `telemetry.appInsightsInstrumentationKey`     | string | (empty)              | Application Insights key                            |
 | `telemetry.zipkinEndpoint`                    | string | (empty)              | Zipkin tracing endpoint                             |
