@@ -86,7 +86,21 @@ jobs:
       - name: E2E - PowerShell Module
         shell: pwsh
         run: |
-          Import-Module ./src/PS/Login/Login.psd1
+          $moduleDir = Resolve-Path ./src/PS/Login
+          $coreAbstractions = Join-Path $moduleDir ../../../artifacts/Debug/Core/Core.Abstractions.dll
+          if (-not (Test-Path $coreAbstractions)) {
+            Write-Error "Required assembly not found: $coreAbstractions"
+            exit 1
+          }
+
+          Push-Location $moduleDir
+          try {
+            Import-Module ./Login.psd1
+          }
+          finally {
+            Pop-Location
+          }
+
           $commands = Get-Command -Module Login
           if ($commands.Count -eq 0) {
             Write-Error "No commands found in Login module"
