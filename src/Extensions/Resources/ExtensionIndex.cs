@@ -100,7 +100,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
         {
             ["create"] = s_newResourceGroup_CLI,
             ["list"]   = s_listResourceGroup_CLI,
-            ["get"]    = s_getResourceGroup_CLI,
+            ["show"]   = s_getResourceGroup_CLI,
         };
         // ── Lookup ──
         public CommandMetadata GetCommandMetadata(string name, ClientType clientType)

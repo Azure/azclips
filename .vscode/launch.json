@@ -29,7 +29,7 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "C#: group get Debug",
+            "name": "C#: group show Debug",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "dotnet: build",
