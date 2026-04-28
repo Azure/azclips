@@ -38,7 +38,6 @@ public abstract class ConfigCommandBase : IProcessor
     {
         var configurationService = GetConfigurationService();
         var fileValues = await configurationService.ListConfigurationAsync(includeDefaults: false).ConfigureAwait(false);
-        var globalConfigValues = await ReadGlobalConfigValuesAsync(configurationService).ConfigureAwait(false);
         var entries = new Dictionary<string, ConfigValueView>(StringComparer.OrdinalIgnoreCase);
 
         if (includeDefaults)
@@ -51,11 +50,7 @@ public abstract class ConfigCommandBase : IProcessor
 
         foreach (var entry in fileValues)
         {
-            var source = globalConfigValues.ContainsKey(entry.Key)
-                ? "global config"
-                : "config file";
-
-            entries[entry.Key] = new ConfigValueView(entry.Key, entry.Value, source);
+            entries[entry.Key] = new ConfigValueView(entry.Key, entry.Value, "global config");
         }
 
         foreach (var entry in GetEnvironmentOverrides())
@@ -196,64 +191,4 @@ public abstract class ConfigCommandBase : IProcessor
         entries[key] = ParseValue(value);
     }
 
-    private static async Task<Dictionary<string, object?>> ReadGlobalConfigValuesAsync(IConfigurationService configurationService)
-    {
-        var path = configurationService.GetConfigFilePath();
-        return await ReadFlattenedConfigFileAsync(path).ConfigureAwait(false);
-    }
-
-    private static async Task<Dictionary<string, object?>> ReadFlattenedConfigFileAsync(string path)
-    {
-        if (!File.Exists(path))
-        {
-            return new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        }
-
-        var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(json) || JsonNode.Parse(json) is not JsonObject root)
-        {
-            return new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        }
-
-        return Flatten(root);
-    }
-
-    private static Dictionary<string, object?> Flatten(JsonObject root, string? prefix = null)
-    {
-        var results = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var property in root)
-        {
-            var key = string.IsNullOrWhiteSpace(prefix) ? property.Key : $"{prefix}.{property.Key}";
-
-            if (property.Value is JsonObject childObject)
-            {
-                foreach (var child in Flatten(childObject, key))
-                {
-                    results[child.Key] = child.Value;
-                }
-
-                continue;
-            }
-
-            results[key] = ConvertJsonNodeToValue(property.Value);
-        }
-
-        return results;
-    }
-
-    private static object? ConvertJsonNodeToValue(JsonNode? node)
-    {
-        if (node is null)
-        {
-            return null;
-        }
-
-        if (node is JsonValue jsonValue)
-        {
-            return ConvertJsonValue(jsonValue);
-        }
-
-        return node.ToJsonString(s_jsonOptions);
-    }
 }
