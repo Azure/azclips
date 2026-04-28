@@ -13,11 +13,6 @@ function Get-CirrusConfig {
         $script:activity = Start-CmdletActivity -CmdletName "Get-CirrusConfig" -Parameters $PSBoundParameters
 
         $engine = [Core.DependencyInjection.CirrusServiceProvider]::GetRequiredService([Core.Abstractions.IEngine])
-        $outputDelegate = [Core.Abstractions.Runtime.CommandOutputDelegate]{
-            param([object]$value, [System.Threading.CancellationToken]$ct)
-            $PSCmdlet.WriteObject($value)
-            return [System.Threading.Tasks.Task]::CompletedTask
-        }
     }
 
     process {
@@ -36,7 +31,7 @@ function Get-CirrusConfig {
             $moduleName = $MyInvocation.MyCommand.ModuleName
             $moduleVersion = if ($MyInvocation.MyCommand.Version) { $MyInvocation.MyCommand.Version.ToString() } else { $null }
             $invocation = [Core.Abstractions.CommandInvocation]::New($extensionName, $commandName, $parameters, $false, $moduleName, $moduleVersion)
-            $response = $engine.Process($invocation, $outputDelegate, [System.Threading.CancellationToken]::None)
+            Invoke-CirrusEngineCommand -Engine $engine -Invocation $invocation -PSCmdlet $PSCmdlet
 
             # Mark activity as successful
             if ($null -ne $script:activity) {
