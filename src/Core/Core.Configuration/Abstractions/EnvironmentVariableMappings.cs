@@ -8,7 +8,8 @@ public static class EnvironmentVariableMappings
 {
     /// <summary>
     /// Gets all environment variable to configuration key mappings.
-    /// Keys use dot notation (e.g., "core.logging.level"); values are environment variable names.
+    /// Each tuple contains the environment variable name first and the configuration key second.
+    /// Configuration keys use dot notation (e.g., "core.logging.level").
     /// </summary>
     public static IReadOnlyList<(string EnvironmentVariableName, string ConfigurationKey)> Mappings { get; } =
     [
