@@ -124,6 +124,51 @@ public class ConfigCliTests
         Assert.Contains(infoEntries, entry => string.Equals(entry?["Key"]?.GetValue<string>(), "core.logging.level", StringComparison.OrdinalIgnoreCase));
     }
 
+    [Fact]
+    public void CliInvocation_ShouldPreferEnvironmentOverGlobalConfig()
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        // Set global config value
+        fixture.ExecuteCli(["config", "set", "--key", "core.logging.level", "--value", "debug", "--force"]);
+
+        // Verify global config is set
+        var globalOutput = fixture.ExecuteCli(["config", "get", "--key", "core.logging.level"]);
+        Assert.Contains("core.logging.level = debug [global config]", globalOutput.Single());
+
+        // Set environment variable (this persists for subsequent CLI invocations within the fixture)
+        Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", "error");
+
+        try
+        {
+            // Get value with environment override
+            var envOutput = fixture.ExecuteCli(["config", "get", "--key", "core.logging.level"]);
+            Assert.Contains("core.logging.level = error [environment]", envOutput.Single());
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", null);
+        }
+    }
+
+    [Fact]
+    public void CliInvocation_ShouldResolveDefaultsNamespace()
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        // Set a defaults parameter
+        var setOutput = fixture.ExecuteCli(["config", "set", "--key", "defaults.group", "--value", "my-rg", "--force"]);
+        Assert.Contains("Set defaults.group = my-rg", setOutput.Single());
+
+        // Retrieve the defaults parameter
+        var getOutput = fixture.ExecuteCli(["config", "get", "--key", "defaults.group"]);
+        Assert.Contains("defaults.group = my-rg [global config]", getOutput.Single());
+
+        // Verify it appears in list
+        var listOutput = fixture.ExecuteCli(["config", "list"]);
+        Assert.Contains("defaults.group = my-rg [global config]", listOutput.Single());
+    }
+
     private sealed class ConfigCommandFixture : IDisposable
     {
         private static readonly string[] s_environmentKeys =
