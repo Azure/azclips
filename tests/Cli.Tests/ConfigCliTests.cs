@@ -299,6 +299,9 @@ public class ConfigCliTests
         {
             repoRoot = Path.GetDirectoryName(repoRoot);
         }
+
+        Assert.False(string.IsNullOrEmpty(repoRoot), "Unable to locate repository root containing cirrus.slnx from test assembly location.");
+
         var psModulePath = Path.Combine(repoRoot!, "src", "PS", "Config", "Config.psd1");
         Assert.True(File.Exists(psModulePath), $"PowerShell module manifest not found at {psModulePath}");
 
@@ -333,6 +336,9 @@ public class ConfigCliTests
         {
             repoRoot = Path.GetDirectoryName(repoRoot);
         }
+
+        Assert.False(string.IsNullOrEmpty(repoRoot), "Unable to locate repository root containing cirrus.slnx from test assembly location.");
+
         var psModulePath = Path.Combine(repoRoot!, "src", "PS", "Config", "Config.psd1");
         Assert.True(File.Exists(psModulePath), $"PowerShell module manifest not found at {psModulePath}");
         
