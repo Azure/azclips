@@ -64,6 +64,18 @@ jobs:
       - name: Copy appx manifest
         run: Copy-Item src/CLI/Core.Cli.appxmanifest ./publish/${{ matrix.configuration }}/win-x64/AppxManifest.xml
 
+      - name: Update appx manifest publisher for dev signing
+        run: |
+          $manifestPath = "./publish/${{ matrix.configuration }}/win-x64/AppxManifest.xml"
+          (Get-Content $manifestPath) |
+            ForEach-Object {
+              $_ -replace 'Publisher="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"', 'Publisher="CN=Cirrus Dev Signer"'
+            } |
+            ForEach-Object {
+              $_ -replace '<PublisherDisplayName>Microsoft Corporation</PublisherDisplayName>', '<PublisherDisplayName>Cirrus Dev Signer</PublisherDisplayName>'
+            } |
+            Set-Content $manifestPath
+
       - name: Copy appx assets
         run: |
           $assetsSource = "assets"
@@ -103,7 +115,7 @@ jobs:
             throw "No Windows SDK bin directory found under $windowsKitBinRoot"
           }
           $signtoolPath = Join-Path -Path $latestBinDir.FullName -ChildPath "x64\signtool.exe"
-          & $signtoolPath sign /f "./GitHubActionsWorkflow.pfx" /p "${{ secrets.PFX_KEY }}" /fd SHA256 "./bin/${{ matrix.configuration }}/azv2-win-x64.msix"
+          & $signtoolPath sign /v /f "./GitHubActionsWorkflow.pfx" /p "${{ secrets.PFX_KEY }}" /fd SHA256 "./bin/${{ matrix.configuration }}/azv2-win-x64.msix"
 
       - name: Remove the pfx
         run: Remove-Item -Path "./GitHubActionsWorkflow.pfx" -Force
