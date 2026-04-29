@@ -194,6 +194,32 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Extract Extension Metadata
+        id: extract-metadata
+        shell: pwsh
+        run: |
+          $csprojPath = "${{ matrix.extension }}"
+          [xml]$csproj = Get-Content $csprojPath
+
+          $assemblyName = $csproj.Project.PropertyGroup.AssemblyName | Where-Object { $_ } | Select-Object -First 1
+          $extName = $csproj.Project.PropertyGroup.ExtName | Where-Object { $_ } | Select-Object -First 1
+
+          if (-not $assemblyName) {
+            Write-Error "AssemblyName not found in $csprojPath"
+            exit 1
+          }
+
+          if (-not $extName) {
+            Write-Error "ExtName not found in $csprojPath"
+            exit 1
+          }
+
+          Write-Host "AssemblyName: $assemblyName"
+          Write-Host "ExtName: $extName"
+
+          echo "assembly_name=$assemblyName" >> $env:GITHUB_OUTPUT
+          echo "ext_name=$extName" >> $env:GITHUB_OUTPUT
+
       - name: Install .NET Core
         uses: actions/setup-dotnet@v4
         with:
@@ -208,5 +234,5 @@ jobs:
       - name: Upload Extension Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Extension Build (${{ matrix.configuration }}) - ${{ matrix.extension }}
-          path: ./artifacts/${{ matrix.configuration }}
+          name: Extension - ${{ steps.extract-metadata.outputs.ext_name }} (${{ matrix.configuration }})
+          path: ./artifacts/${{ matrix.configuration }}/${{ steps.extract-metadata.outputs.ext_name }}
