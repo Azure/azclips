@@ -32,8 +32,8 @@ namespace Core.Engine
     {
         // Extension indices are cached with Lazy<T> to ensure single initialization per extension
         // even under concurrent access. The factory runs exactly once per key.
-        private readonly CoreOptions _coreOptions = configurationService.GetConfiguration<CoreOptions>();
         private LFUCache<Lazy<IExtensionIndex>>? _extensionIndices;
+        private int? _extensionIndexCacheSize;
         private bool _disposed;
 
         public IInvocationSession InvokeSession(CommandInvocation invocation, OutputStreams outputStreams, CancellationToken cancellationToken = default)
@@ -54,7 +54,15 @@ namespace Core.Engine
 
         private IExtensionIndex CacheGetOrAdd(string name, string version, Func<IExtensionIndex> getIndex)
         {
-            _extensionIndices ??= new(_coreOptions.Engine.ExtensionIndexCacheSize);
+            var currentOptions = configurationService.GetConfiguration<CoreOptions>();
+            var configuredCacheSize = currentOptions.Engine.ExtensionIndexCacheSize;
+
+            if (_extensionIndices is null || _extensionIndexCacheSize != configuredCacheSize)
+            {
+                _extensionIndices = new(configuredCacheSize);
+                _extensionIndexCacheSize = configuredCacheSize;
+            }
+
             string key = string.IsNullOrEmpty(version) ? name : $"{name}-{version}";
             return _extensionIndices.GetOrAdd(
                     key,
@@ -82,10 +90,12 @@ namespace Core.Engine
                 WriteOutput = session.ProcessorOutputWriter
             };
 
+            var currentOptions = configurationService.GetConfiguration<CoreOptions>();
+
             IRuntimeHttpPipeline httpPipeline = new HttpPipeline(
                 new HttpClientFactory(httpClient),
-                _coreOptions.Http.MaxRetries,
-                _coreOptions.Http.MaxRetriesFor429);
+                currentOptions.Http.MaxRetries,
+                currentOptions.Http.MaxRetriesFor429);
             ProcessorContext context = new ProcessorContext
             (
                 HttpPipeline: httpPipeline.Prepend(authHandler.SendAsync),
