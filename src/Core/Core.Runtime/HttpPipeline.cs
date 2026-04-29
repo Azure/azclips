@@ -42,7 +42,7 @@ namespace Core.Runtime
         /// <summary>
         /// Returns an HttpPipeline with the current state of this pipeline.
         /// </summary>
-        public HttpPipeline Clone() => new HttpPipeline(terminal) { steps = this.steps.ToList(), pipeline = this.pipeline };
+        public HttpPipeline Clone() => new HttpPipeline(terminal, _maxRetry, _maxRetryFor429) { steps = this.steps.ToList(), pipeline = this.pipeline };
 
         private bool shouldRetry429(HttpResponseMessage response)
         {
