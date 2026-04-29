@@ -73,6 +73,20 @@ public class ConfigurationServiceTests
     }
 
     [Fact]
+    public async Task GetConfiguration_ShouldThrowClearError_WhenConfigFileContainsInvalidJson()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        await File.WriteAllTextAsync(fixture.Provider.GetConfigFilePath(), "{ invalid json }");
+
+        var exception = Assert.Throws<InvalidOperationException>(() => service.GetConfiguration<CoreOptions>());
+
+        Assert.Contains(fixture.Provider.GetConfigFilePath(), exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("invalid json", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task ListConfigurationAsync_ShouldIncludeDefaults_WhenRequested()
     {
         using var fixture = new TempConfigurationFixture();

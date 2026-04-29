@@ -48,6 +48,7 @@ public sealed class ConfigurationService(
 
         var defaults = defaultValue ?? new T();
         var builder = new ConfigurationBuilder();
+        var configFilePath = _provider.GetConfigFilePath();
 
         var defaultEntries = BuildDefaultEntries(defaults);
         if (defaultEntries.Count > 0)
@@ -55,7 +56,7 @@ public sealed class ConfigurationService(
             builder.AddInMemoryCollection(defaultEntries);
         }
 
-        builder.AddJsonFile(_provider.GetConfigFilePath(), optional: true, reloadOnChange: false);
+        builder.AddJsonFile(configFilePath, optional: true, reloadOnChange: false);
 
         var environmentOverrides = BuildEnvironmentOverrides();
         if (environmentOverrides.Count > 0)
@@ -63,7 +64,18 @@ public sealed class ConfigurationService(
             builder.AddInMemoryCollection(environmentOverrides);
         }
 
-        var configuration = builder.Build();
+        IConfigurationRoot configuration;
+        try
+        {
+            configuration = builder.Build();
+        }
+        catch (Exception ex) when (IsInvalidJsonConfigurationException(ex))
+        {
+            throw new InvalidOperationException(
+                $"Configuration file '{configFilePath}' contains invalid JSON. Fix or remove the file and try again.",
+                ex);
+        }
+
         if (!string.IsNullOrWhiteSpace(normalizedKey))
         {
             return configuration.GetSection(NormalizeConfigurationPath(normalizedKey)).Get<T>() ?? defaults;
@@ -229,6 +241,19 @@ public sealed class ConfigurationService(
     }
 
     private static string NormalizeConfigurationPath(string key) => NormalizeKey(key).Replace('.', ':');
+
+    private static bool IsInvalidJsonConfigurationException(Exception ex)
+    {
+        for (Exception? current = ex; current is not null; current = current.InnerException)
+        {
+            if (current is FormatException or InvalidDataException or JsonException)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private static void RemoveLegacyFlatKey(JsonObject root, string key)
     {
