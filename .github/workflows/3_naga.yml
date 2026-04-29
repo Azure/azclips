@@ -61,11 +61,43 @@ jobs:
       - name: Publish the CLI application
         run: dotnet publish src/CLI/Core.Cli.csproj -c ${{ matrix.configuration }} -r win-x64 --self-contained --no-restore -o ./publish/${{ matrix.configuration }}/win-x64
 
+      - name: Copy appx manifest
+        run: Copy-Item src/CLI/Core.Cli.appxmanifest ./publish/${{ matrix.configuration }}/win-x64/AppxManifest.xml
+
+      - name: Copy appx assets
+        run: |
+          $assetsSource = "assets"
+          $assetsDestination = "./publish/${{ matrix.configuration }}/win-x64/Assets"
+          if (Test-Path $assetsSource) {
+            New-Item -ItemType Directory -Path $assetsDestination -Force | Out-Null
+            Copy-Item "$assetsSource\*" $assetsDestination -Recurse -Force
+          }
+
+      - name: Create the appx package
+        run: |
+          $windowsKitBinRoot = Join-Path "${env:ProgramFiles(x86)}" "Windows Kits\10\bin"
+          $latestBinDir = Get-ChildItem -Path $windowsKitBinRoot -Directory |
+            Where-Object { $_.Name -match '^\d+\.\d+\.\d+\.\d+$' } |
+            Sort-Object -Property Name -Descending |
+            Select-Object -First 1
+          if (-not $latestBinDir) {
+            throw "No Windows SDK bin directory found under $windowsKitBinRoot"
+          }
+          $makeAppxPath = Join-Path -Path $latestBinDir.FullName -ChildPath "x64\MakeAppx.exe"
+          New-Item -ItemType Directory -Path "./bin/${{ matrix.configuration }}" -Force | Out-Null
+          & $makeAppxPath pack /d "./publish/${{ matrix.configuration }}/win-x64" /p "./bin/${{ matrix.configuration }}/azv2-win-x64.msix" /nv
+
       - name: Upload published CLI
         uses: actions/upload-artifact@v4
         with:
           name: Published CLI (${{ matrix.configuration }}-win-x64)
           path: ./publish/${{ matrix.configuration }}/win-x64
+
+      - name: Upload MSIX package
+        uses: actions/upload-artifact@v4
+        with:
+          name: MSIX Package (${{ matrix.configuration }}-win-x64)
+          path: ./bin/${{ matrix.configuration }}/azv2-win-x64.msix
 
   publish-extension:
     runs-on: windows-latest
