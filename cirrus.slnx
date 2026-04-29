@@ -1,5 +1,8 @@
 <Solution>
   <Folder Name="/src/" />
+  <Folder Name="/src/Autocomplete/">
+    <Project Path="src/Autocomplete/Autocomplete.csproj" />
+  </Folder>
   <Folder Name="/src/CLI/">
     <Project Path="src/CLI/Core.Cli.csproj" />
   </Folder>
