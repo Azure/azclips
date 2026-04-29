@@ -18,6 +18,11 @@ public sealed class ConfigurationService(
         WriteIndented = true
     };
 
+    private static readonly JsonSerializerOptions DefaultFlattenSerializerOptions = new(JsonSerializerOptions)
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
+
     private static readonly IReadOnlyDictionary<Type, string> SectionNames = new Dictionary<Type, string>
     {
         [typeof(CoreOptions)] = "core",
@@ -325,7 +330,7 @@ public sealed class ConfigurationService(
 
     private static void AddDefaults<T>(IDictionary<string, object?> target, T options, string sectionName) where T : class
     {
-        var node = JsonSerializer.SerializeToNode(options, JsonSerializerOptions) as JsonObject;
+        var node = JsonSerializer.SerializeToNode(options, DefaultFlattenSerializerOptions) as JsonObject;
         if (node is null)
         {
             return;
