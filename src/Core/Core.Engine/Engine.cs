@@ -1,8 +1,6 @@
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
-using Core.Configuration.Abstractions;
-using Core.Configuration.Options;
 using Core.Engine.Utils;
 using Core.Runtime;
 using Core.Runtime.Handler;
@@ -27,9 +25,10 @@ namespace Core.Engine
         ITelemetryService telemetryService,
         ILoggingService loggingService,
         IAssemblyLoadingService assemblyLoadingService,
-        IArgumentParsingService argumentParsingService,
-        IConfigurationService configurationService) : IEngine
+        IArgumentParsingService argumentParsingService) : IEngine
     {
+        private const int DefaultExtensionIndexCacheSize = 512;
+
         // Extension indices are cached with Lazy<T> to ensure single initialization per extension
         // even under concurrent access. The factory runs exactly once per key.
         private LFUCache<Lazy<IExtensionIndex>>? _extensionIndices;
@@ -54,8 +53,7 @@ namespace Core.Engine
 
         private IExtensionIndex CacheGetOrAdd(string name, string version, Func<IExtensionIndex> getIndex)
         {
-            var currentOptions = configurationService.GetConfiguration<CoreOptions>();
-            var configuredCacheSize = currentOptions.Engine.ExtensionIndexCacheSize;
+            var configuredCacheSize = DefaultExtensionIndexCacheSize;
 
             if (_extensionIndices is null || _extensionIndexCacheSize != configuredCacheSize)
             {
@@ -90,12 +88,7 @@ namespace Core.Engine
                 WriteOutput = session.ProcessorOutputWriter
             };
 
-            var currentOptions = configurationService.GetConfiguration<CoreOptions>();
-
-            IRuntimeHttpPipeline httpPipeline = new HttpPipeline(
-                new HttpClientFactory(httpClient),
-                currentOptions.Http.MaxRetries,
-                currentOptions.Http.MaxRetriesFor429);
+            IRuntimeHttpPipeline httpPipeline = new HttpPipeline(new HttpClientFactory(httpClient));
             ProcessorContext context = new ProcessorContext
             (
                 HttpPipeline: httpPipeline.Prepend(authHandler.SendAsync),
