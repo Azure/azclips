@@ -75,9 +75,6 @@ public class TelemetryService : ITelemetryService
         // Zipkin exporter for local development. Disable via CIRRUS_ZIPKIN_ENABLED=false.
         if (!string.Equals(Environment.GetEnvironmentVariable("CIRRUS_ZIPKIN_ENABLED"), "false", StringComparison.OrdinalIgnoreCase))
         {
-        // TODO: Replace this Debug-only Zipkin hook with OTLP or another supported local exporter.
-        // Zipkin is obsolete upstream, so this pragma should go away with that migration.
-#pragma warning disable CS0618
             builder.AddZipkinExporter(options =>
             {
                 const string defaultZipkinEndpoint = "http://localhost:9411/api/v2/spans";
@@ -90,7 +87,6 @@ public class TelemetryService : ITelemetryService
 
                 options.Endpoint = endpointUri;
             });
-#pragma warning restore CS0618
         }
 #endif
 
