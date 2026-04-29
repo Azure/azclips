@@ -93,7 +93,7 @@ public class TelemetryService : ITelemetryService
         _tracerProvider = builder.Build()!;
     }
 
-    public Activity StartActivity(string name, ActivityKind kind = ActivityKind.Internal) => ActivitySource.StartActivity(name, kind)!;
+    public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal) => ActivitySource.StartActivity(name, kind);
 
     public void ProcessInvocation(CommandInvocation invocation)
     {

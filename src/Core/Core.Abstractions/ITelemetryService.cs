@@ -13,7 +13,7 @@ public interface ITelemetryService : IDisposable
     /// </summary>
     ActivitySource ActivitySource { get; }
 
-    Activity StartActivity(string name, ActivityKind kind = ActivityKind.Internal);
+    Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal);
 
     /// <summary>
     /// Tags the current activity with module info from a resolved invocation.
