@@ -6,10 +6,12 @@
 # Generated on: 2026-04-15
 #
 
+$artifactConfiguration = if (Test-Path (Join-Path $PSScriptRoot "../../../artifacts/Release/Microsoft.Azure.Cirrus.Cmdlets.Config.dll")) { "Release" } else { "Debug" }
+
 @{
 
 # Script module or binary module file associated with this manifest.
-RootModule = '../../../artifacts/Debug/Microsoft.Azure.Cirrus.Cmdlets.Config.dll'
+RootModule = "../../../artifacts/$artifactConfiguration/Microsoft.Azure.Cirrus.Cmdlets.Config.dll"
 
 # Version number of this module.
 ModuleVersion = '0.0.1'
@@ -56,16 +58,16 @@ PowerShellVersion = '7.5'
 # Assemblies that must be loaded prior to importing this module
 # RequiredAssemblies = @()
 
-RequiredAssemblies = '../../../artifacts/Debug/Core/Core.Abstractions.dll',
-                        '../../../artifacts/Debug/Core/Core.Telemetry.dll',
-                        '../../../artifacts/Debug/Core/Core.Runtime.dll',
-                        '../../../artifacts/Debug/Core/Core.Engine.dll',
-                        '../../../artifacts/Debug/Core/Core.AssemblyLoading.dll',
-                        '../../../artifacts/Debug/Core/Core.ArgumentParsing.dll',
-                        '../../../artifacts/Debug/Core/Core.DependencyInjection.dll',
-                        '../../../artifacts/Debug/Core/Core.Configuration.dll',
-                        '../../../artifacts/Debug/Core/Microsoft.Extensions.DependencyInjection.Abstractions.dll',
-                        '../../../artifacts/Debug/Microsoft.Azure.Cirrus.Extensions.Config/Microsoft.Azure.Cirrus.Extensions.Config.dll'
+RequiredAssemblies = "../../../artifacts/$artifactConfiguration/Core/Core.Abstractions.dll",
+                        "../../../artifacts/$artifactConfiguration/Core/Core.Telemetry.dll",
+                        "../../../artifacts/$artifactConfiguration/Core/Core.Runtime.dll",
+                        "../../../artifacts/$artifactConfiguration/Core/Core.Engine.dll",
+                        "../../../artifacts/$artifactConfiguration/Core/Core.AssemblyLoading.dll",
+                        "../../../artifacts/$artifactConfiguration/Core/Core.ArgumentParsing.dll",
+                        "../../../artifacts/$artifactConfiguration/Core/Core.DependencyInjection.dll",
+                        "../../../artifacts/$artifactConfiguration/Core/Core.Configuration.dll",
+                        "../../../artifacts/$artifactConfiguration/Core/Microsoft.Extensions.DependencyInjection.Abstractions.dll",
+                        "../../../artifacts/$artifactConfiguration/Microsoft.Azure.Cirrus.Extensions.Config/Microsoft.Azure.Cirrus.Extensions.Config.dll"
 
 # Script files (.ps1) that are run in the caller's environment prior to importing this module.
 # ScriptsToProcess = @()
