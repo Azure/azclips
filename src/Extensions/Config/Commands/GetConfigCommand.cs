@@ -16,7 +16,8 @@ public sealed class GetConfigCommand : ConfigCommandBase
         using var _ = StartActivity($"{nameof(GetConfigCommand)}.{nameof(ProcessAsync)}", ActivityKind.Internal);
 
         var entries = await GetResolvedEntriesAsync(includeDefaults: true).ConfigureAwait(false);
-        if (!entries.TryGetValue(Key, out var entry))
+        var normalizedKey = NormalizeKey(Key);
+        if (!entries.TryGetValue(normalizedKey, out var entry))
         {
             throw new KeyNotFoundException($"Configuration key '{Key}' was not found.");
         }

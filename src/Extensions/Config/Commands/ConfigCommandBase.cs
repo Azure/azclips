@@ -30,6 +30,16 @@ public abstract class ConfigCommandBase : IProcessor
 
     protected static IConfigurationService GetConfigurationService() => CirrusServiceProvider.GetRequiredService<IConfigurationService>();
 
+    /// <summary>
+    /// Normalizes a configuration key by replacing colons with dots and removing empty entries.
+    /// Ensures consistent key handling across CLI and PowerShell inputs (dot vs colon notation).
+    /// </summary>
+    protected static string NormalizeKey(string key)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        return string.Join('.', key.Replace(':', '.').Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+    }
+
     protected static ITelemetryService GetTelemetryService() => CirrusServiceProvider.GetRequiredService<ITelemetryService>();
 
     protected static IConfigurationSchema GetConfigurationSchema() => GetConfigurationService().GetSchema();
