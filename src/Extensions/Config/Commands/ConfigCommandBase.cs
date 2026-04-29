@@ -37,7 +37,11 @@ public abstract class ConfigCommandBase : IProcessor
     protected static string NormalizeKey(string key)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
-        return string.Join('.', key.Replace(':', '.').Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        return string.Join(
+            '.',
+            key.Replace(':', '.')
+                .Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(static segment => segment.ToLowerInvariant()));
     }
 
     protected static ITelemetryService GetTelemetryService() => CirrusServiceProvider.GetRequiredService<ITelemetryService>();

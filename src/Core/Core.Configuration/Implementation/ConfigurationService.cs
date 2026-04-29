@@ -221,7 +221,11 @@ public sealed class ConfigurationService(
     private static string NormalizeKey(string key)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
-        return string.Join('.', key.Replace(':', '.').Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        return string.Join(
+            '.',
+            key.Replace(':', '.')
+                .Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(static segment => segment.ToLowerInvariant()));
     }
 
     private static string NormalizeConfigurationPath(string key) => NormalizeKey(key).Replace('.', ':');
