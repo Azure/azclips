@@ -1,4 +1,4 @@
-namespace Core.Configuration.Options;
+namespace Core.Abstractions;
 
 public sealed class TelemetryOptions
 {
