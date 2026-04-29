@@ -10,14 +10,14 @@ namespace Core.Cli;
 /// </summary>
 internal static class CliOutputFormatter
 {
-    // No naming policy — preserve the original property casing from the model.
-    // C# model properties that carry [JsonPropertyName] attributes will use those
-    // names; all others will serialize with their declared C# casing.
-    // This avoids a double-transformation (API→model→camelCase) and keeps output
-    // faithful to the model definitions.
+    // TODO: CamelCase is a temporary convention until proper property name mapping
+    // is implemented (e.g., via [JsonPropertyName] on all model properties or a
+    // dedicated output schema). Once models carry explicit serialization attributes,
+    // this policy should be removed so the declared names take effect.
     private static readonly JsonSerializerOptions s_jsonOptions = new()
     {
-        WriteIndented = true
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
     /// <summary>
