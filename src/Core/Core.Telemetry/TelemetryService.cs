@@ -28,7 +28,7 @@ public class TelemetryService : ITelemetryService
             TraceDirectoryName,
             "traces");
 
-    private readonly TracerProvider _tracerProvider;
+    private readonly TracerProvider? _tracerProvider;
     private readonly ITelemetrySender _sender;
     private readonly TelemetryOptions _telemetryOptions;
     private bool _disposed;
@@ -40,23 +40,26 @@ public class TelemetryService : ITelemetryService
         ActivitySource = new ActivitySource(clientType.ToString());
         _sender = TelemetrySenderFactory.Create(clientType);
         _telemetryOptions = telemetryOptions;
+
+        if (!_telemetryOptions.Enabled)
+        {
+            return;
+        }
+
         var serviceName = ActivitySource.Name;
 
         var logDirectory = GetTraceDirectory();
 
         var builder = Sdk.CreateTracerProviderBuilder().AddSource(serviceName);
 
-        if (_telemetryOptions.Enabled)
+        builder.AddHttpClientInstrumentation(options =>
         {
-            builder.AddHttpClientInstrumentation(options =>
+            options.RecordException = true;
+            options.EnrichWithHttpRequestMessage = (activity, request) =>
             {
-                options.RecordException = true;
-                options.EnrichWithHttpRequestMessage = (activity, request) =>
-                {
-                    activity.SetTag("http.request.header.user-agent", request.Headers.UserAgent?.ToString());
-                };
-            });
-        }
+                activity.SetTag("http.request.header.user-agent", request.Headers.UserAgent?.ToString());
+            };
+        });
 
         // Let the SDK use its default cloud_RoleName (entry assembly name):
         //   CLI  → "Core.Cli" (or azv2)
@@ -66,15 +69,11 @@ public class TelemetryService : ITelemetryService
         // Add the appropriate exporter based on client type:
         //   CLI  → FileExporter (buffered to disk, replayed by background process)
         //   PS   → AzureMonitorExporter (inline, no file replay needed)
-        if (_telemetryOptions.Enabled)
-        {
-            _sender.ConfigureExporter(builder, logDirectory);
-        }
+        _sender.ConfigureExporter(builder, logDirectory);
 
 #if DEBUG
         // Zipkin exporter for local development. Disable via CIRRUS_ZIPKIN_ENABLED=false.
-        if (_telemetryOptions.Enabled &&
-            !string.Equals(Environment.GetEnvironmentVariable("CIRRUS_ZIPKIN_ENABLED"), "false", StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(Environment.GetEnvironmentVariable("CIRRUS_ZIPKIN_ENABLED"), "false", StringComparison.OrdinalIgnoreCase))
         {
             builder.AddZipkinExporter(options =>
             {
