@@ -1,6 +1,5 @@
 ﻿using Core.Abstractions;
 using Core.Authentication;
-using Core.Configuration;
 using Core.Runtime;
 using Core.Telemetry;
 using Microsoft.Extensions.DependencyInjection;
@@ -51,15 +50,11 @@ public class Bootstrapper
     {
         var services = new ServiceCollection();
 
-        // Bootstrapper is only used for CLI command execution path.
-        services.AddSingleton(typeof(ClientType), ClientType.CLI);
-
         // --- ORIGINAL REGISTRATIONS (from main branch) ---
         // Telemetry service for logging throughout the application
         // services.AddSingleton<ILoggingService, ConsoleLoggingService>();
         services.AddSingleton<IAuthService, MsalAuthService>();
         services.AddSingleton<IAuthContextService, AuthContextService>();
-        services.RegisterConfigurationServices();
         services.RegisterTelemetryServices();
 
         // --- NEW REGISTRATIONS (added for AI integration) ---
