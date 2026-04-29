@@ -50,7 +50,7 @@ public class ConfigCliTests
     }
 
     [Fact]
-    public async Task ConfigCommands_ShouldSetGetListDeleteAndInfo()
+    public void ConfigCommands_ShouldSetGetListDeleteAndInfo()
     {
         using var fixture = new ConfigCommandFixture();
 
@@ -71,7 +71,6 @@ public class ConfigCliTests
         var getAfterDeleteOutput = fixture.ExecuteCli(["config", "get", "--key", "core.logging.level"]);
         Assert.Contains("core.logging.level = info [default]", getAfterDeleteOutput.Single());
 
-        await Task.CompletedTask;
     }
 
     [Fact]
