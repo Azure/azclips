@@ -8,10 +8,17 @@ public static class DIRegisterExtensions
 {
     /// <summary>
     /// Extension method to register telemetry-related services.
+    /// Must be called after RegisterConfigurationServices so TelemetryOptions can be resolved.
     /// </summary>
     public static IServiceCollection RegisterTelemetryServices(this IServiceCollection services)
     {
-        services.AddSingleton<ITelemetryService, TelemetryService>();
+        services.AddSingleton<ITelemetryService>(sp =>
+        {
+            var clientType = sp.GetRequiredService<ClientType>();
+            var configService = sp.GetRequiredService<IConfigurationService>();
+            var telemetryOptions = configService.GetConfiguration<TelemetryOptions>();
+            return new TelemetryService(clientType, telemetryOptions);
+        });
         return services;
     }
 }

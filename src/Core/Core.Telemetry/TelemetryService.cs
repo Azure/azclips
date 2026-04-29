@@ -1,7 +1,6 @@
 using System;
 using System.Diagnostics;
 using Core.Abstractions;
-using Core.Configuration.Options;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
 
@@ -36,11 +35,11 @@ public class TelemetryService : ITelemetryService
 
     public ActivitySource ActivitySource { get; }
 
-    public TelemetryService(ClientType clientType, IConfigurationService configurationService)
+    public TelemetryService(ClientType clientType, TelemetryOptions telemetryOptions)
     {
         ActivitySource = new ActivitySource(clientType.ToString());
         _sender = TelemetrySenderFactory.Create(clientType);
-        _telemetryOptions = configurationService.GetConfiguration<TelemetryOptions>();
+        _telemetryOptions = telemetryOptions;
         var serviceName = ActivitySource.Name;
 
         var logDirectory = GetTraceDirectory();

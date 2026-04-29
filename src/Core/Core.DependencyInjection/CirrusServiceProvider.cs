@@ -50,13 +50,13 @@ public static class CirrusServiceProvider
 
             PrependRegistration?.Invoke(services);
             services = services
+                .RegisterConfigurationServices()
                 .RegisterTelemetryServices()
                 .RegisterRuntimeServices()
                 .RegisterAuthenticationServices()
                 .RegisterEngineServices()
                 .RegisterAssemblyLoadingServices()
-                .RegisterArgumentParsingServices()
-                .RegisterConfigurationServices();
+                .RegisterArgumentParsingServices();
             OverrideRegistration?.Invoke(services);
             _serviceProvider = services.BuildServiceProvider();
         }
