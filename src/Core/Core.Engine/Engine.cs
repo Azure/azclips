@@ -38,7 +38,6 @@ namespace Core.Engine
         public IInvocationSession InvokeSession(CommandInvocation invocation, OutputStreams outputStreams, CancellationToken cancellationToken = default)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            var currentOptions = configurationService.GetConfiguration<CoreOptions>();
             // Create a per-invocation channel for worker-to-caller communication
             var session = new InvocationSession(clientType, invocation, outputStreams, cancellationToken);
             SubscribeAll(session);
@@ -47,9 +46,14 @@ namespace Core.Engine
             session.GetExtensionVersion = () => string.Empty;
             session.LoadAssembly = assemblyLoadingService.LoadExtension;
             session.BindProcessor = argumentParsingService.BindArgumentsToProcessor;
-            session.CreateProcessorContext = s => CreateProcessorContext(s, currentOptions);
-            session.CacheGetOrAdd = (name, version, getIndex) => CacheGetOrAdd(name, version, getIndex, currentOptions.Engine.ExtensionIndexCacheSize);
+            session.CreateProcessorContext = s => CreateProcessorContext(s, GetOption());
+            session.CacheGetOrAdd = (name, version, getIndex) => CacheGetOrAdd(name, version, getIndex, GetOption().Engine.ExtensionIndexCacheSize);
             return session;
+        }
+
+        private CoreOptions GetOption()
+        {
+            return configurationService.GetConfiguration<CoreOptions>();
         }
 
         private IExtensionIndex CacheGetOrAdd(string name, string version, Func<IExtensionIndex> getIndex, int configuredCacheSize)
