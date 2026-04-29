@@ -31,8 +31,17 @@ public sealed class FileConfigurationProvider : IConfigurationProvider
             return [];
         }
 
-        var parsed = JsonNode.Parse(json) as JsonObject;
-        return parsed ?? [];
+        try
+        {
+            var parsed = JsonNode.Parse(json) as JsonObject;
+            return parsed ?? [];
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidOperationException(
+                $"The configuration file '{path}' contains invalid JSON. Correct the file contents or delete the file and try again.",
+                ex);
+        }
     }
 
     public async Task WriteAsync(JsonObject configuration, CancellationToken cancellationToken = default)

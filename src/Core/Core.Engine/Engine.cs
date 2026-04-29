@@ -32,6 +32,7 @@ namespace Core.Engine
         // even under concurrent access. The factory runs exactly once per key.
         private LFUCache<Lazy<IExtensionIndex>>? _extensionIndices;
         private int? _extensionIndexCacheSize;
+        private readonly object _extensionIndexCacheLock = new();
         private bool _disposed;
 
         public IInvocationSession InvokeSession(CommandInvocation invocation, OutputStreams outputStreams, CancellationToken cancellationToken = default)
@@ -53,15 +54,21 @@ namespace Core.Engine
         private IExtensionIndex CacheGetOrAdd(string name, string version, Func<IExtensionIndex> getIndex)
         {
             var configuredCacheSize = configurationService.GetConfiguration<CoreOptions>().Engine.ExtensionIndexCacheSize;
+            LFUCache<Lazy<IExtensionIndex>> cache;
 
-            if (_extensionIndices is null || _extensionIndexCacheSize != configuredCacheSize)
+            lock (_extensionIndexCacheLock)
             {
-                _extensionIndices = new(configuredCacheSize);
-                _extensionIndexCacheSize = configuredCacheSize;
+                if (_extensionIndices is null || _extensionIndexCacheSize != configuredCacheSize)
+                {
+                    _extensionIndices = new(configuredCacheSize);
+                    _extensionIndexCacheSize = configuredCacheSize;
+                }
+
+                cache = _extensionIndices;
             }
 
             string key = string.IsNullOrEmpty(version) ? name : $"{name}-{version}";
-            return _extensionIndices.GetOrAdd(
+            return cache.GetOrAdd(
                     key,
                     _ => new Lazy<IExtensionIndex>(getIndex)
                 ).Value;
