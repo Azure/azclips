@@ -1,6 +1,6 @@
 namespace Core.Abstractions;
 
-public sealed class ConfigurationKeyMetadata
+public sealed record class ConfigurationKeyMetadata
 {
     public required string Key { get; init; }
 
