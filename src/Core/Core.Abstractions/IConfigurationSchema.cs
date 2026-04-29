@@ -1,4 +1,4 @@
-namespace Core.Configuration.Abstractions;
+namespace Core.Abstractions;
 
 public interface IConfigurationSchema
 {

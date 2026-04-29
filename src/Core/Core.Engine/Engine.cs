@@ -25,10 +25,9 @@ namespace Core.Engine
         ITelemetryService telemetryService,
         ILoggingService loggingService,
         IAssemblyLoadingService assemblyLoadingService,
-        IArgumentParsingService argumentParsingService) : IEngine
+        IArgumentParsingService argumentParsingService,
+        IConfigurationService configurationService) : IEngine
     {
-        private const int DefaultExtensionIndexCacheSize = 512;
-
         // Extension indices are cached with Lazy<T> to ensure single initialization per extension
         // even under concurrent access. The factory runs exactly once per key.
         private LFUCache<Lazy<IExtensionIndex>>? _extensionIndices;
@@ -53,7 +52,7 @@ namespace Core.Engine
 
         private IExtensionIndex CacheGetOrAdd(string name, string version, Func<IExtensionIndex> getIndex)
         {
-            var configuredCacheSize = DefaultExtensionIndexCacheSize;
+            var configuredCacheSize = configurationService.GetConfiguration<CoreOptions>().Engine.ExtensionIndexCacheSize;
 
             if (_extensionIndices is null || _extensionIndexCacheSize != configuredCacheSize)
             {
@@ -88,7 +87,12 @@ namespace Core.Engine
                 WriteOutput = session.ProcessorOutputWriter
             };
 
-            IRuntimeHttpPipeline httpPipeline = new HttpPipeline(new HttpClientFactory(httpClient));
+            var currentOptions = configurationService.GetConfiguration<CoreOptions>();
+
+            IRuntimeHttpPipeline httpPipeline = new HttpPipeline(
+                new HttpClientFactory(httpClient),
+                currentOptions.Http.MaxRetries,
+                currentOptions.Http.MaxRetriesFor429);
             ProcessorContext context = new ProcessorContext
             (
                 HttpPipeline: httpPipeline.Prepend(authHandler.SendAsync),

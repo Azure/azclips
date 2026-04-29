@@ -1,4 +1,4 @@
-using Core.Configuration.Abstractions;
+using Core.Abstractions;
 
 namespace Core.Configuration.Schema;
 

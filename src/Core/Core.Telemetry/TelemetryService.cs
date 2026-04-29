@@ -1,7 +1,6 @@
 using System;
 using System.Diagnostics;
 using Core.Abstractions;
-using Core.Configuration.Abstractions;
 using Core.Configuration.Options;
 using OpenTelemetry;
 using OpenTelemetry.Trace;

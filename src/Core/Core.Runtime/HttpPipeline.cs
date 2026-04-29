@@ -23,8 +23,8 @@ namespace Core.Runtime
 
         public HttpPipeline(ISendAsyncTerminalFactory terminalStep) : this(
             terminalStep,
-            ReadRetryEnvironment(DefaultMaxRetry, "AZURE_PS_HTTP_MAX_RETRIES", "PS_HTTP_MAX_RETRIES"),
-            ReadRetryEnvironment(DefaultMaxRetryFor429, "AZURE_PS_HTTP_MAX_RETRIES_FOR_429", "PS_HTTP_MAX_RETRIES_FOR_429"))
+            DefaultMaxRetry,
+            DefaultMaxRetryFor429)
         {
         }
 
@@ -166,19 +166,6 @@ namespace Core.Runtime
                 pipeline = null!;
             }
             return this;
-        }
-
-        private static int ReadRetryEnvironment(int defaultValue, params string[] names)
-        {
-            foreach (var name in names)
-            {
-                if (int.TryParse(Environment.GetEnvironmentVariable(name), out var parsedValue))
-                {
-                    return parsedValue;
-                }
-            }
-
-            return defaultValue;
         }
 
         public IRuntimeHttpPipeline Append(SendAsyncStep item)

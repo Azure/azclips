@@ -1,7 +1,6 @@
 using System.Reflection;
 using System.Runtime.Loader;
 using Core.Abstractions;
-using Core.Configuration.Abstractions;
 using Core.Configuration.Options;
 using NuGet.Versioning;
 
