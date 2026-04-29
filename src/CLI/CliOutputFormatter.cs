@@ -10,14 +10,14 @@ namespace Core.Cli;
 /// </summary>
 internal static class CliOutputFormatter
 {
-    // Use camelCase to match the Azure REST API and traditional az CLI JSON output
-    // convention. Alternatives considered:
-    //   - null (PascalCase from C# properties) — inconsistent with API responses
-    //   - JsonNamingPolicy.SnakeCaseLower — not used by Azure APIs
+    // No naming policy — preserve the original property casing from the model.
+    // C# model properties that carry [JsonPropertyName] attributes will use those
+    // names; all others will serialize with their declared C# casing.
+    // This avoids a double-transformation (API→model→camelCase) and keeps output
+    // faithful to the model definitions.
     private static readonly JsonSerializerOptions s_jsonOptions = new()
     {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        WriteIndented = true
     };
 
     /// <summary>
@@ -39,17 +39,10 @@ internal static class CliOutputFormatter
                 ? fmt.ToString(null, CultureInfo.InvariantCulture)
                 : (value.ToString() ?? string.Empty);
 
-        try
-        {
-            return JsonSerializer.Serialize(value, value.GetType(), s_jsonOptions);
-        }
-        catch (JsonException)
-        {
-            return value.ToString() ?? string.Empty;
-        }
-        catch (NotSupportedException)
-        {
-            return value.ToString() ?? string.Empty;
-        }
+        // TODO: Reconsider error handling before GA. Rethrowing surfaces serialization
+        // bugs early. A fallback to ToString() is not useful here because it would most
+        // likely return a meaningless type name. Once models stabilise, catching and
+        // falling back gracefully may be preferable for production resilience.
+        return JsonSerializer.Serialize(value, value.GetType(), s_jsonOptions);
     }
 }

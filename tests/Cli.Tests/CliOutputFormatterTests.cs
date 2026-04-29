@@ -56,8 +56,8 @@ public class CliOutputFormatterTests
         var result = Core.Cli.CliOutputFormatter.FormatValue(obj);
 
         using var doc = JsonDocument.Parse(result);
-        Assert.Equal("test-rg", doc.RootElement.GetProperty("name").GetString());
-        Assert.Equal("eastus", doc.RootElement.GetProperty("location").GetString());
+        Assert.Equal("test-rg", doc.RootElement.GetProperty("Name").GetString());
+        Assert.Equal("eastus", doc.RootElement.GetProperty("Location").GetString());
     }
 
     // ── Arrays / Collections → JSON array ────────────────────────────
@@ -71,8 +71,8 @@ public class CliOutputFormatterTests
         using var doc = JsonDocument.Parse(result);
         Assert.Equal(JsonValueKind.Array, doc.RootElement.ValueKind);
         Assert.Equal(2, doc.RootElement.GetArrayLength());
-        Assert.Equal("rg1", doc.RootElement[0].GetProperty("name").GetString());
-        Assert.Equal("rg2", doc.RootElement[1].GetProperty("name").GetString());
+        Assert.Equal("rg1", doc.RootElement[0].GetProperty("Name").GetString());
+        Assert.Equal("rg2", doc.RootElement[1].GetProperty("Name").GetString());
     }
 
     [Fact]
@@ -119,9 +119,9 @@ public class CliOutputFormatterTests
         var result = Core.Cli.CliOutputFormatter.FormatValue(nested);
 
         using var doc = JsonDocument.Parse(result);
-        Assert.Equal("rg1", doc.RootElement.GetProperty("name").GetString());
-        Assert.Equal("test", doc.RootElement.GetProperty("tags").GetProperty("env").GetString());
-        Assert.Equal(3, doc.RootElement.GetProperty("items").GetArrayLength());
+        Assert.Equal("rg1", doc.RootElement.GetProperty("Name").GetString());
+        Assert.Equal("test", doc.RootElement.GetProperty("Tags").GetProperty("env").GetString());
+        Assert.Equal(3, doc.RootElement.GetProperty("Items").GetArrayLength());
     }
 
     // ── Decimal (non-primitive, non-string value type) ──────────────
@@ -134,17 +134,14 @@ public class CliOutputFormatterTests
         Assert.Equal(expected, result);
     }
 
-    // ── Serialization fallback ──────────────────────────────────────
+    // ── Serialization errors rethrown ──────────────────────────────
 
     [Fact]
-    public void FormatValue_ShouldFallBackToToString_WhenSerializationFails()
+    public void FormatValue_ShouldThrow_WhenSerializationFails()
     {
-        // Objects with cycles or unsupported types fall back to ToString()
         var unserializable = new UnserializableType();
-        var result = Core.Cli.CliOutputFormatter.FormatValue(unserializable);
 
-        // Should not throw; falls back to ToString()
-        Assert.Equal("UnserializableType:fallback", result);
+        Assert.ThrowsAny<JsonException>(() => Core.Cli.CliOutputFormatter.FormatValue(unserializable));
     }
 
     // ── Empty array ─────────────────────────────────────────────────
