@@ -38,6 +38,7 @@ namespace Core.Engine
         public IInvocationSession InvokeSession(CommandInvocation invocation, OutputStreams outputStreams, CancellationToken cancellationToken = default)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
+            var currentOptions = configurationService.GetConfiguration<CoreOptions>();
             // Create a per-invocation channel for worker-to-caller communication
             var session = new InvocationSession(clientType, invocation, outputStreams, cancellationToken);
             SubscribeAll(session);
@@ -46,14 +47,13 @@ namespace Core.Engine
             session.GetExtensionVersion = () => string.Empty;
             session.LoadAssembly = assemblyLoadingService.LoadExtension;
             session.BindProcessor = argumentParsingService.BindArgumentsToProcessor;
-            session.CreateProcessorContext = CreateProcessorContext;
-            session.CacheGetOrAdd = CacheGetOrAdd;
+            session.CreateProcessorContext = s => CreateProcessorContext(s, currentOptions);
+            session.CacheGetOrAdd = (name, version, getIndex) => CacheGetOrAdd(name, version, getIndex, currentOptions.Engine.ExtensionIndexCacheSize);
             return session;
         }
 
-        private IExtensionIndex CacheGetOrAdd(string name, string version, Func<IExtensionIndex> getIndex)
+        private IExtensionIndex CacheGetOrAdd(string name, string version, Func<IExtensionIndex> getIndex, int configuredCacheSize)
         {
-            var configuredCacheSize = configurationService.GetConfiguration<CoreOptions>().Engine.ExtensionIndexCacheSize;
             LFUCache<Lazy<IExtensionIndex>> cache;
 
             lock (_extensionIndexCacheLock)
@@ -78,7 +78,7 @@ namespace Core.Engine
         /// Creates a new processor context for this invocation with channel-based output.
         /// Each processor execution gets its own isolated context.
         /// </summary>
-        private async Task<ProcessorContext> CreateProcessorContext(InvocationSession session)
+        private async Task<ProcessorContext> CreateProcessorContext(InvocationSession session, CoreOptions currentOptions)
         {
             AuthContext authContext = await authContextService.GetCurrentContextAsync() ?? new AuthContext(TenantId: "", SubscriptionId: "");
             IAuthHandler authHandler = new AuthHandler
@@ -93,8 +93,6 @@ namespace Core.Engine
             {
                 WriteOutput = session.ProcessorOutputWriter
             };
-
-            var currentOptions = configurationService.GetConfiguration<CoreOptions>();
 
             IRuntimeHttpPipeline httpPipeline = new HttpPipeline(
                 new HttpClientFactory(httpClient),
