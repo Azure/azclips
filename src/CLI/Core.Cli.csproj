@@ -12,6 +12,10 @@
     <Copyright>Copyright © 2025</Copyright>
     <StartupObject>Core.Cli.Program</StartupObject>
   </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Cli.Tests" />
+  </ItemGroup>
   
   <Import Project="$(MSBuildThisFileDirectory)..\..\Shared.props" />
 
