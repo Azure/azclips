@@ -40,7 +40,7 @@ public sealed class ConfigurationService(
 
     public T GetConfiguration<T>(string? key = null, T? defaultValue = null) where T : class, new()
     {
-        var normalizedKey = string.IsNullOrWhiteSpace(key) ? null : NormalizeKey(key);
+        var normalizedKey = string.IsNullOrWhiteSpace(key) ? null : CanonicalizeKnownKey(key);
 
         if (!string.IsNullOrWhiteSpace(normalizedKey))
         {
@@ -96,7 +96,7 @@ public sealed class ConfigurationService(
 
     public async Task SetConfigurationAsync(string key, object? value, bool force = false, CancellationToken cancellationToken = default)
     {
-        var normalizedKey = NormalizeKey(key);
+        var normalizedKey = CanonicalizeKnownKey(key);
         var keyValidation = _validator.ValidateKey(normalizedKey, force);
         if (!keyValidation.IsValid)
         {
@@ -120,7 +120,7 @@ public sealed class ConfigurationService(
 
     public async Task DeleteConfigurationAsync(string key, bool force = false, CancellationToken cancellationToken = default)
     {
-        var normalizedKey = NormalizeKey(key);
+        var normalizedKey = CanonicalizeKnownKey(key);
         var keyValidation = _validator.ValidateKey(normalizedKey, force);
         if (!keyValidation.IsValid)
         {
@@ -158,7 +158,7 @@ public sealed class ConfigurationService(
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
 
-        var normalizedName = NormalizeKey(name);
+        var normalizedName = CanonicalizeKnownKey(name);
         var key = normalizedName.StartsWith("defaults.", StringComparison.OrdinalIgnoreCase)
             ? normalizedName
             : $"defaults.{normalizedName}";
@@ -235,14 +235,19 @@ public sealed class ConfigurationService(
         }
     }
 
+    private string CanonicalizeKnownKey(string key)
+    {
+        var normalizedKey = NormalizeKey(key);
+        return _schema.GetKeyMetadata(normalizedKey)?.Key ?? normalizedKey;
+    }
+
     private static string NormalizeKey(string key)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
         return string.Join(
             '.',
             key.Replace(':', '.')
-                .Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Select(static segment => segment.ToLowerInvariant()));
+                .Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
     }
 
     private static string NormalizeConfigurationPath(string key) => NormalizeKey(key).Replace('.', ':');

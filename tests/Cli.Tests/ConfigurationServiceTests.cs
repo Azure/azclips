@@ -73,6 +73,19 @@ public class ConfigurationServiceTests
     }
 
     [Fact]
+    public async Task SetConfigurationAsync_ShouldUseSchemaCanonicalKeyCasing_ForKnownKeys()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        await service.SetConfigurationAsync("core.http.maxretriesfor429", 7);
+
+        var values = await service.ListConfigurationAsync();
+
+        Assert.Contains("core.http.maxRetriesFor429", values.Keys);
+    }
+
+    [Fact]
     public async Task GetConfiguration_ShouldThrowClearError_WhenConfigFileContainsInvalidJson()
     {
         using var fixture = new TempConfigurationFixture();

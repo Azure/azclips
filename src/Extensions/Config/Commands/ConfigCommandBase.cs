@@ -40,8 +40,7 @@ public abstract class ConfigCommandBase : IProcessor
         return string.Join(
             '.',
             key.Replace(':', '.')
-                .Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Select(static segment => segment.ToLowerInvariant()));
+                .Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
     }
 
     protected static ITelemetryService GetTelemetryService() => CirrusServiceProvider.GetRequiredService<ITelemetryService>();
