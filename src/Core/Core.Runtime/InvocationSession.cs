@@ -8,7 +8,6 @@ namespace Core.Runtime;
 internal partial class InvocationSession : IInvocationSession
 {
     private bool _disposed = false;
-    private bool _processCompleted = false;
     private ClientType clientType;
     private OutputStreamDelegate sessionOutputWriter = null!;
     private IDisposable loggingScope;
@@ -73,6 +72,7 @@ internal partial class InvocationSession : IInvocationSession
     /// <exception cref="ObjectDisposedException">Thrown if the engine has been disposed.</exception>
     public void Process()
     {
+        IDisposable? previousScope = loggingScope;
         try
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
@@ -147,13 +147,14 @@ internal partial class InvocationSession : IInvocationSession
                 // before we leave Process().
                 executeProcessorTask.GetAwaiter().GetResult();
             }
-            loggingScope = ScopedLoggingService.UseScope(outputStreamAdapter);
         }
         finally
         {
-            // Mark Process() as complete, whether it succeeded or threw an exception.
-            // This prevents Dispose() from trying to signal on an already-closed channel.
-            _processCompleted = true;
+            // Always restore the session logger back to the original output adapter.
+            // Dispose() signals SessionDisposed, and that signal must not write into the
+            // closed channel-backed adapter left behind by Process().
+            loggingScope.Dispose();
+            loggingScope = previousScope ?? ScopedLoggingService.UseScope(outputStreamAdapter);
         }
     }
 
@@ -246,13 +247,7 @@ internal partial class InvocationSession : IInvocationSession
         {
             if (disposing)
             {
-                // Only signal SessionDisposed if Process() was never called or didn't complete.
-                // If Process() completed, the channel was already closed in its finally block,
-                // and there are no subscribers listening anymore anyway.
-                if (!_processCompleted)
-                {
-                    this.Signal(Events.SessionDisposed, $"Session {Id} disposed").GetAwaiter().GetResult();
-                }
+                this.Signal(Events.SessionDisposed, CancellationToken.None, $"Session {Id} disposed").GetAwaiter().GetResult();
 
                 loggingScope.Dispose();
             }
