@@ -18,7 +18,8 @@ namespace Core.ArgumentParsing
 
         private void SetProperty(IProcessor processor, string propertyName, object? value)
         {
-            var propertyInfo = processor.GetType().GetProperty(propertyName);
+            // Use case-insensitive lookup since CLI parser converts flags to lowercase
+            var propertyInfo = processor.GetType().GetProperty(propertyName, System.Reflection.BindingFlags.IgnoreCase | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
             if (propertyInfo == null)
             {
                 throw new ArgumentException($"The property '{propertyName}' does not exist on processor '{processor.GetType().FullName}'.");

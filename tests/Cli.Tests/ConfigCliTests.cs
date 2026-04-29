@@ -231,6 +231,9 @@ public class ConfigCliTests
                 services.AddSingleton<ITelemetryService, StubTelemetryService>();
                 services.AddSingleton<IAuthContextService, StubAuthContextService>();
                 services.AddSingleton<IAuthService, StubAuthService>();
+                // Register CLI-specific services for argument parsing
+                services.AddSingleton<Core.Cli.PropertyParser>();
+                services.AddSingleton<Core.Abstractions.IArgumentParsingProvider, Core.Cli.CLIArgumentParsingProvider>();
             };
             CirrusServiceProvider.Initialize(ClientType.CLI);
         }
