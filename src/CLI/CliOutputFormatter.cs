@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 
 namespace Core.Cli;
@@ -9,6 +10,10 @@ namespace Core.Cli;
 /// </summary>
 internal static class CliOutputFormatter
 {
+    // Use camelCase to match the Azure REST API and traditional az CLI JSON output
+    // convention. Alternatives considered:
+    //   - null (PascalCase from C# properties) — inconsistent with API responses
+    //   - JsonNamingPolicy.SnakeCaseLower — not used by Azure APIs
     private static readonly JsonSerializerOptions s_jsonOptions = new()
     {
         WriteIndented = true,
@@ -26,9 +31,13 @@ internal static class CliOutputFormatter
         if (value is string s)
             return s;
 
+        // Use InvariantCulture for primitives/decimals so output is locale-independent
+        // (e.g., 3.14 not 3,14).
         var type = value.GetType();
         if (type.IsPrimitive || type == typeof(decimal))
-            return value.ToString() ?? string.Empty;
+            return value is IFormattable fmt
+                ? fmt.ToString(null, CultureInfo.InvariantCulture)
+                : (value.ToString() ?? string.Empty);
 
         try
         {

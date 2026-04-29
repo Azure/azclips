@@ -36,12 +36,13 @@ public class CliOutputFormatterTests
     // ── Primitives ───────────────────────────────────────────────────
 
     [Theory]
-    [InlineData(42, "42")]
-    [InlineData(3.14, "3.14")]
-    [InlineData(true, "True")]
-    [InlineData('x', "x")]
-    public void FormatValue_ShouldUseToString_WhenValueIsPrimitive(object value, string expected)
+    [InlineData(42)]
+    [InlineData(3.14)]
+    [InlineData(true)]
+    [InlineData('x')]
+    public void FormatValue_ShouldUseToString_WhenValueIsPrimitive(object value)
     {
+        var expected = string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}", value);
         var result = Core.Cli.CliOutputFormatter.FormatValue(value);
         Assert.Equal(expected, result);
     }
@@ -129,7 +130,8 @@ public class CliOutputFormatterTests
     public void FormatValue_ShouldUseToString_WhenValueIsDecimal()
     {
         var result = Core.Cli.CliOutputFormatter.FormatValue(99.99m);
-        Assert.Equal("99.99", result);
+        var expected = string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}", 99.99m);
+        Assert.Equal(expected, result);
     }
 
     // ── Serialization fallback ──────────────────────────────────────
@@ -157,10 +159,11 @@ public class CliOutputFormatterTests
     // ── Integration: captures console output end-to-end ─────────────
 
     [Fact]
-    public void WriteOutput_ShouldWriteFormattedJson_WhenArrayPassedThroughDelegate()
+    public void FormatValue_ShouldWriteFormattedJsonToConsole_WhenValueIsArray()
     {
         var items = new[] { new { Id = "1", Name = "rg1" }, new { Id = "2", Name = "rg2" } };
 
+        var originalOut = Console.Out;
         using var sw = new StringWriter();
         Console.SetOut(sw);
         try
@@ -169,7 +172,7 @@ public class CliOutputFormatterTests
         }
         finally
         {
-            Console.SetOut(new StreamWriter(Console.OpenStandardOutput()) { AutoFlush = true });
+            Console.SetOut(originalOut);
         }
 
         var output = sw.ToString();
