@@ -78,7 +78,15 @@ public class TelemetryService : ITelemetryService
         {
             builder.AddZipkinExporter(options =>
             {
-                options.Endpoint = new Uri(_telemetryOptions.ZipkinEndpoint ?? "http://localhost:9411/api/v2/spans");
+                const string defaultZipkinEndpoint = "http://localhost:9411/api/v2/spans";
+                var endpointCandidate = _telemetryOptions.ZipkinEndpoint ?? defaultZipkinEndpoint;
+
+                if (!Uri.TryCreate(endpointCandidate, UriKind.Absolute, out var endpointUri))
+                {
+                    endpointUri = new Uri(defaultZipkinEndpoint, UriKind.Absolute);
+                }
+
+                options.Endpoint = endpointUri;
             });
         }
 #endif
