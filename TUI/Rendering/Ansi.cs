@@ -1,5 +1,7 @@
 namespace Core.Tui.Rendering;
 
+enum TableAlignment { Left, Center, Right }
+
 static class Ansi
 {
     const string Esc = "\x1b[";
@@ -72,4 +74,50 @@ static class Ansi
         var pad = Math.Max(0, innerWidth - visible.Length);
         return $"{borderColor}│{End}{content}{new string(' ', pad)}{borderColor}│{End}";
     }
+
+    // ── Table-drawing helpers (single-line box style) ──
+    public static string TableTop(int[] colWidths, string borderColor)
+    {
+        var segments = colWidths.Select(w => new string('─', w + 2));
+        return $"{borderColor}┌{string.Join("┬", segments)}┐{End}";
+    }
+
+    public static string TableBottom(int[] colWidths, string borderColor)
+    {
+        var segments = colWidths.Select(w => new string('─', w + 2));
+        return $"{borderColor}└{string.Join("┴", segments)}┘{End}";
+    }
+
+    public static string TableSeparator(int[] colWidths, string borderColor)
+    {
+        var segments = colWidths.Select(w => new string('─', w + 2));
+        return $"{borderColor}├{string.Join("┼", segments)}┤{End}";
+    }
+
+    public static string TableRow(string[] cells, int[] colWidths, string borderColor,
+        string cellColor = "", TableAlignment[]? alignments = null)
+    {
+        var parts = new List<string>();
+        for (int i = 0; i < cells.Length; i++)
+        {
+            var cell = cells[i];
+            var width = colWidths[i];
+            var visible = StripAnsiEscapes(cell);
+            var pad = Math.Max(0, width - visible.Length);
+            var align = alignments != null && i < alignments.Length ? alignments[i] : TableAlignment.Left;
+
+            string padded = align switch
+            {
+                TableAlignment.Right => $"{new string(' ', pad)}{cell}",
+                TableAlignment.Center => $"{new string(' ', pad / 2)}{cell}{new string(' ', pad - pad / 2)}",
+                _ => $"{cell}{new string(' ', pad)}",
+            };
+
+            parts.Add($"{borderColor}│{End} {cellColor}{padded}{End} ");
+        }
+        return $"{string.Join("", parts)}{borderColor}│{End}";
+    }
+
+    public static string StripAnsiEscapes(string text)
+        => System.Text.RegularExpressions.Regex.Replace(text, @"\x1b\[[0-9;]*m", "");
 }

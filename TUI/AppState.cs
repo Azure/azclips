@@ -57,6 +57,7 @@ class AppState
         RegisterCommand(new PwdCommand());
         RegisterCommand(new ModeCommand(ToggleMode, () => Mode));
         RegisterCommand(new RefreshCommand());
+        RegisterCommand(new CopyCommand());
 
         _completionService = new CompletionService(_commands);
 
@@ -74,17 +75,22 @@ class AppState
     {
         try
         {
-            VfsReady = await Vfs.TryAuthenticateAsync();
-            if (!VfsReady) return;
+            string? tenantId = null;
+            string? subId = null;
 
             if (File.Exists(ContextFilePath))
             {
                 var json = await File.ReadAllTextAsync(ContextFilePath);
                 using var doc = JsonDocument.Parse(json);
-                var tenantId = doc.RootElement.TryGetProperty("TenantId", out var t) ? t.GetString() : null;
-                var subId = doc.RootElement.TryGetProperty("SubscriptionId", out var s) ? s.GetString() : null;
-                await Vfs.SetInitialPathAsync(tenantId, subId);
+                tenantId = doc.RootElement.TryGetProperty("TenantId", out var t) ? t.GetString() : null;
+                subId = doc.RootElement.TryGetProperty("SubscriptionId", out var s) ? s.GetString() : null;
             }
+
+            // Authenticate with the correct tenant so subscription lookups work
+            VfsReady = await Vfs.TryAuthenticateAsync(tenantId);
+            if (!VfsReady) return;
+
+            await Vfs.SetInitialPathAsync(tenantId, subId);
 
             RefreshPrompt();
             Invalidate?.Invoke();

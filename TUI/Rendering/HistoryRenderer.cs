@@ -27,6 +27,10 @@ static class HistoryRenderer
                 case HistoryItemType.ToolCall:
                     lines.Add($"  {Ansi.AccentCyan}◦ {Ansi.Comment}{entry.Text}{Ansi.End}");
                     break;
+                case HistoryItemType.Table:
+                    if (entry.TableData != null)
+                        lines.AddRange(TableRenderer.Render(entry.TableData, Console.WindowWidth));
+                    break;
                 case HistoryItemType.Separator:
                     lines.Add("");
                     break;

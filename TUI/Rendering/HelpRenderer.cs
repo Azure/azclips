@@ -38,10 +38,19 @@ static class HelpRenderer
         AddShortcut(widgets, v, "↑ / ↓", "Browse suggestions / history", innerWidth, bc);
         AddShortcut(widgets, v, "PgUp / PgDn", "Scroll output", innerWidth, bc);
         AddShortcut(widgets, v, "Mouse scroll", "Scroll output", innerWidth, bc);
+        AddShortcut(widgets, v, "Ctrl+V", "Paste from clipboard", innerWidth, bc);
         AddShortcut(widgets, v, "Ctrl+L", "Clear output", innerWidth, bc);
         AddShortcut(widgets, v, "F1", "Toggle this help screen", innerWidth, bc);
         AddShortcut(widgets, v, "F2", "Toggle Azure / Local mode", innerWidth, bc);
         AddShortcut(widgets, v, "Esc", "Close help / cancel", innerWidth, bc);
+        widgets.Add(v.Text($"  {Ansi.BoxRow("", innerWidth, bc)}"));
+
+        // Clipboard section
+        widgets.Add(v.Text($"  {Ansi.BoxRow($"  {Ansi.Bold}{Ansi.Foreground}Clipboard:{Ansi.End}", innerWidth, bc)}"));
+        widgets.Add(v.Text($"  {Ansi.BoxRow($"  {Ansi.Comment}/copy [n]        Copy output to clipboard{Ansi.End}", innerWidth, bc)}"));
+        widgets.Add(v.Text($"  {Ansi.BoxRow($"  {Ansi.Comment}Shift+drag       Select text in terminal{Ansi.End}", innerWidth, bc)}"));
+        widgets.Add(v.Text($"  {Ansi.BoxRow($"  {Ansi.Comment}Ctrl+C           Copy selected text{Ansi.End}", innerWidth, bc)}"));
+        widgets.Add(v.Text($"  {Ansi.BoxRow($"  {Ansi.Comment}Ctrl+V           Paste from clipboard{Ansi.End}", innerWidth, bc)}"));
         widgets.Add(v.Text($"  {Ansi.BoxRow("", innerWidth, bc)}"));
 
         // Tips section

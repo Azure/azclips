@@ -1,4 +1,6 @@
+using System.Reflection;
 using Core.Tui.Rendering;
+using Core.Tui.Services;
 using Hex1b;
 using Hex1b.Input;
 using Hex1b.Layout;
@@ -16,6 +18,10 @@ public static class Program
         var theme = Hex1bThemes.Ocean.Clone("cirrus");
         theme.Set(TextBoxTheme.LeftBracket, "");
         theme.Set(TextBoxTheme.RightBracket, "");
+        theme.Set(TextBoxTheme.UseFillMode, false);
+        theme.Set(TextBoxTheme.BackgroundColor, Hex1bColor.Default);
+        theme.Set(TextBoxTheme.FillBackgroundColor, Hex1bColor.Default);
+        theme.Set(TextBoxTheme.FocusedFillBackgroundColor, Hex1bColor.Default);
 
         var options = new Hex1bAppOptions { EnableMouse = true, Theme = theme };
         Hex1bApp? app = null;
@@ -74,61 +80,137 @@ public static class Program
                 }
 
                 // ── Prompt + TextBox input ──
-                widgets.Add(v.HStack(h => [
-                    h.Text(state.Prompt),
-                    h.TextBox(state.InputText)
-                        .OnTextChanged(e =>
+                var promptPrefix = state.Prompt;
+                var promptLen = promptPrefix.Length;
+
+                // Reflection helper to access internal TextBoxState
+                var stateProperty = typeof(TextBoxNode).GetProperty("State",
+                    BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
+
+                int GetCursor(TextBoxNode node)
+                {
+                    var s = stateProperty?.GetValue(node);
+                    return s is null ? 0 : (int)(s.GetType().GetProperty("CursorPosition")!.GetValue(s)!);
+                }
+
+                void SetCursor(TextBoxNode node, int pos)
+                {
+                    var s = stateProperty?.GetValue(node);
+                    s?.GetType().GetProperty("CursorPosition")?.SetValue(s, pos);
+                }
+
+                var promptTextBox = v.TextBox(promptPrefix + state.InputText)
+                    .FillWidth()
+                    .Multiline()
+                    .WordWrap()
+                    .OnTextChanged(e =>
+                    {
+                        if (e.NewText.StartsWith(promptPrefix))
                         {
-                            state.InputText = e.NewText;
+                            state.InputText = e.NewText[promptLen..];
                             state.UpdateSuggestions();
-                        })
-                        .WithInputBindings(bindings =>
+                        }
+                        else
                         {
-                            // Override Enter for command execution (instead of default Submit)
-                            bindings.Remove(TextBoxWidget.Submit);
-                            bindings.Key(Hex1bKey.Enter).Action(() =>
+                            e.Node.Text = promptPrefix + state.InputText;
+                            SetCursor(e.Node, promptLen);
+                        }
+                    })
+                    .WithInputBindings(bindings =>
+                    {
+                        // Guard Backspace: don't delete into prompt
+                        bindings.Remove(TextBoxWidget.DeleteBackward);
+                        bindings.Key(Hex1bKey.Backspace).Action(ctx =>
+                        {
+                            if (ctx.FocusedNode is TextBoxNode node)
                             {
-                                state.ExecuteCommand();
-                            }, "Execute command");
-                            // Override Tab for autocomplete (instead of default focus-switch)
-                            bindings.Key(Hex1bKey.Tab).Action(() =>
+                                int cursor = GetCursor(node);
+                                if (cursor > promptLen)
+                                {
+                                    var text = node.Text;
+                                    node.Text = text[..(cursor - 1)] + text[cursor..];
+                                    SetCursor(node, cursor - 1);
+                                    state.InputText = node.Text[promptLen..];
+                                    state.UpdateSuggestions();
+                                }
+                            }
+                        }, "Delete backward (guarded)");
+
+                        // Guard Home: go to prompt end, not position 0
+                        bindings.Remove(TextBoxWidget.MoveHome);
+                        bindings.Key(Hex1bKey.Home).Action(ctx =>
+                        {
+                            if (ctx.FocusedNode is TextBoxNode node)
+                                SetCursor(node, promptLen);
+                        }, "Move to start of input");
+
+                        // Guard Left arrow: don't move into prompt
+                        bindings.Remove(TextBoxWidget.MoveLeft);
+                        bindings.Key(Hex1bKey.LeftArrow).Action(ctx =>
+                        {
+                            if (ctx.FocusedNode is TextBoxNode node && GetCursor(node) > promptLen)
+                                SetCursor(node, GetCursor(node) - 1);
+                        }, "Move left (guarded)");
+
+                        // Override Enter for command execution (not newline insertion)
+                        bindings.Remove(TextBoxWidget.Submit);
+                        bindings.Remove(TextBoxWidget.InsertNewline);
+                        bindings.Key(Hex1bKey.Enter).Action(() =>
+                        {
+                            state.ExecuteCommand();
+                        }, "Execute command");
+                        // Override Tab for autocomplete (instead of default focus-switch)
+                        bindings.Key(Hex1bKey.Tab).Action(() =>
+                        {
+                            state.AcceptSuggestion();
+                        }, "Accept suggestion");
+                        // Override Up/Down for suggestions/history (not multiline line navigation)
+                        bindings.Remove(TextBoxWidget.MoveDown);
+                        bindings.Remove(TextBoxWidget.MoveUp);
+                        bindings.Key(Hex1bKey.DownArrow).Action(() =>
+                        {
+                            if (state.Suggestions.Count > 0)
+                                state.SelectedSuggestion = (state.SelectedSuggestion + 1) % state.Suggestions.Count;
+                            else
+                                state.NavigateHistory(1);
+                        }, "Next suggestion / history");
+                        bindings.Key(Hex1bKey.UpArrow).Action(() =>
+                        {
+                            if (state.Suggestions.Count > 0)
+                                state.SelectedSuggestion = (state.SelectedSuggestion - 1 + state.Suggestions.Count) % state.Suggestions.Count;
+                            else
+                                state.NavigateHistory(-1);
+                        }, "Previous suggestion / history");
+                        bindings.Ctrl().Key(Hex1bKey.L).Action(() =>
+                        {
+                            state.History.Clear();
+                            state.OutputScrollOffset = 0;
+                        }, "Clear output");
+                        bindings.Key(Hex1bKey.F1).Action(() =>
+                        {
+                            state.ShowHelp = !state.ShowHelp;
+                        }, "Toggle help");
+                        bindings.Key(Hex1bKey.Escape).Action(() =>
+                        {
+                            if (state.ShowHelp)
+                                state.ShowHelp = false;
+                        }, "Close help");
+                        bindings.Key(Hex1bKey.F2).Action(() =>
+                        {
+                            state.ToggleMode();
+                        }, "Toggle Azure/Local mode");
+                        bindings.Ctrl().Key(Hex1bKey.V).Action(() =>
+                        {
+                            var clip = ClipboardService.GetText();
+                            if (!string.IsNullOrEmpty(clip))
                             {
-                                state.AcceptSuggestion();
-                            }, "Accept suggestion");
-                            bindings.Key(Hex1bKey.DownArrow).Action(() =>
-                            {
-                                if (state.Suggestions.Count > 0)
-                                    state.SelectedSuggestion = (state.SelectedSuggestion + 1) % state.Suggestions.Count;
-                                else
-                                    state.NavigateHistory(1);
-                            }, "Next suggestion / history");
-                            bindings.Key(Hex1bKey.UpArrow).Action(() =>
-                            {
-                                if (state.Suggestions.Count > 0)
-                                    state.SelectedSuggestion = (state.SelectedSuggestion - 1 + state.Suggestions.Count) % state.Suggestions.Count;
-                                else
-                                    state.NavigateHistory(-1);
-                            }, "Previous suggestion / history");
-                            bindings.Ctrl().Key(Hex1bKey.L).Action(() =>
-                            {
-                                state.History.Clear();
-                                state.OutputScrollOffset = 0;
-                            }, "Clear output");
-                            bindings.Key(Hex1bKey.F1).Action(() =>
-                            {
-                                state.ShowHelp = !state.ShowHelp;
-                            }, "Toggle help");
-                            bindings.Key(Hex1bKey.Escape).Action(() =>
-                            {
-                                if (state.ShowHelp)
-                                    state.ShowHelp = false;
-                            }, "Close help");
-                            bindings.Key(Hex1bKey.F2).Action(() =>
-                            {
-                                state.ToggleMode();
-                            }, "Toggle Azure/Local mode");
-                        }),
-                ]));
+                                // Replace newlines with spaces for single-line input
+                                state.InputText += clip.ReplaceLineEndings(" ");
+                                state.UpdateSuggestions();
+                            }
+                        }, "Paste from clipboard");
+                    });
+                widgets.Add(promptTextBox);
 
                 // ── Inline suggestions ──
                 SuggestionRenderer.Render(widgets, v, state.Suggestions, state.SelectedSuggestion);
