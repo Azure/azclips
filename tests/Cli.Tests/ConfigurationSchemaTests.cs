@@ -66,6 +66,16 @@ public class ConfigurationSchemaTests
     }
 
     [Fact]
+    public void ValidateValue_ShouldRejectNonStringValue_ForStringTypedKey()
+    {
+        var validator = new DefaultConfigurationValidator(_schema);
+
+        var result = validator.ValidateValue("core.logging.level", 123);
+
+        Assert.False(result.IsValid);
+    }
+
+    [Fact]
     public void ValidateKey_ShouldRejectUnknownDefaultsKey_WhenForceIsFalse()
     {
         var validator = new DefaultConfigurationValidator(_schema);

@@ -124,7 +124,7 @@ public sealed class DefaultConfigurationValidator(IConfigurationSchema schema) :
 
         if (expectedType == typeof(string))
         {
-            return true;
+            return value is string;
         }
 
         return false;
