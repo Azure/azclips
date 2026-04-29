@@ -161,3 +161,52 @@ jobs:
         with:
           name: Published Extension (${{ matrix.configuration }}-win-x64)
           path: ./publish/${{ matrix.configuration }}/win-x64/Extensions/Extension
+
+  discover-extensions:
+    runs-on: ubuntu-latest
+    outputs:
+      extensions: ${{ steps.discover-extensions.outputs.extensions }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: discover-extensions
+        run: |
+          extensions=$(find src/Extensions -name "*.csproj" -type f | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          echo "extensions=$extensions" >> $GITHUB_OUTPUT
+
+      - name: Print discovered extensions
+        run: echo "${{ steps.discover-extensions.outputs.extensions }}"          
+
+  build-extension:
+    needs: discover-extensions
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        extension: ${{ fromJSON(needs.discover-extensions.outputs.extensions) }}
+        configuration: [Debug]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install .NET Core
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore Extension
+        run: dotnet restore "${{ matrix.extension }}"
+
+      - name: Build Extension
+        run: dotnet build "${{ matrix.extension }}" --configuration ${{ matrix.configuration }} --no-restore
+
+      - name: Upload Extension Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Extension Build (${{ matrix.configuration }}) - ${{ matrix.extension }}
+          path: ./artifacts/${{ matrix.configuration }}
