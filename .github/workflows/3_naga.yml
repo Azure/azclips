@@ -87,6 +87,27 @@ jobs:
           New-Item -ItemType Directory -Path "./bin/${{ matrix.configuration }}" -Force | Out-Null
           & $makeAppxPath pack /d "./publish/${{ matrix.configuration }}/win-x64" /p "./bin/${{ matrix.configuration }}/azv2-win-x64.msix" /nv
 
+      - name: Decode the pfx
+        run: |
+          $pfx_cert_byte = [System.Convert]::FromBase64String("${{ secrets.BASE64_ENCODED_PFX }}")
+          [IO.File]::WriteAllBytes("./GitHubActionsWorkflow.pfx", $pfx_cert_byte)
+
+      - name: Sign the appx package
+        run: |
+          $windowsKitBinRoot = Join-Path "${env:ProgramFiles(x86)}" "Windows Kits\10\bin"
+          $latestBinDir = Get-ChildItem -Path $windowsKitBinRoot -Directory |
+            Where-Object { $_.Name -match '^\d+\.\d+\.\d+\.\d+$' } |
+            Sort-Object -Property Name -Descending |
+            Select-Object -First 1
+          if (-not $latestBinDir) {
+            throw "No Windows SDK bin directory found under $windowsKitBinRoot"
+          }
+          $signtoolPath = Join-Path -Path $latestBinDir.FullName -ChildPath "x64\signtool.exe"
+          & $signtoolPath sign /f "./GitHubActionsWorkflow.pfx" /p "${{ secrets.PFX_KEY }}" /fd SHA256 "./bin/${{ matrix.configuration }}/azv2-win-x64.msix"
+
+      - name: Remove the pfx
+        run: Remove-Item -Path "./GitHubActionsWorkflow.pfx" -Force
+
       - name: Upload published CLI
         uses: actions/upload-artifact@v4
         with:
