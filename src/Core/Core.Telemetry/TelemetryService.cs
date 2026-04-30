@@ -70,26 +70,6 @@ public class TelemetryService : ITelemetryService
         //   CLI  → FileExporter (buffered to disk, replayed by background process)
         //   PS   → AzureMonitorExporter (inline, no file replay needed)
         _sender.ConfigureExporter(builder, logDirectory);
-
-#if DEBUG
-        // Zipkin exporter for local development. Disable via CIRRUS_ZIPKIN_ENABLED=false.
-        if (!string.Equals(Environment.GetEnvironmentVariable("CIRRUS_ZIPKIN_ENABLED"), "false", StringComparison.OrdinalIgnoreCase))
-        {
-            builder.AddZipkinExporter(options =>
-            {
-                const string defaultZipkinEndpoint = "http://localhost:9411/api/v2/spans";
-                var endpointCandidate = _telemetryOptions.ZipkinEndpoint ?? defaultZipkinEndpoint;
-
-                if (!Uri.TryCreate(endpointCandidate, UriKind.Absolute, out var endpointUri))
-                {
-                    endpointUri = new Uri(defaultZipkinEndpoint, UriKind.Absolute);
-                }
-
-                options.Endpoint = endpointUri;
-            });
-        }
-#endif
-
         _tracerProvider = builder.Build()!;
     }
 

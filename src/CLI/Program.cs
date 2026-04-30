@@ -22,7 +22,7 @@ public class Program
     private static OutputStreams streams = new OutputStreams(
         WriteOutput: (value, ct) =>
         {
-            Console.WriteLine(value);
+            Console.WriteLine(CliOutputFormatter.FormatValue(value));
             return Task.CompletedTask;
         },
         WriteError: (value, ct) =>
