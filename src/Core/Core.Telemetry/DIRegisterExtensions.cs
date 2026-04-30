@@ -8,7 +8,6 @@ public static class DIRegisterExtensions
 {
     /// <summary>
     /// Extension method to register telemetry-related services.
-    /// Must be called after RegisterConfigurationServices so TelemetryOptions can be resolved.
     /// </summary>
     public static IServiceCollection RegisterTelemetryServices(this IServiceCollection services)
     {
