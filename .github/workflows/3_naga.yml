@@ -244,6 +244,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       modules: ${{ steps.discover-modules.outputs.modules }}
+      has-modules: ${{ steps.discover-modules.outputs.has-modules }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -252,7 +253,12 @@ jobs:
 
       - id: discover-modules
         run: |
-          modules=$(find src/PS -name "*.psm1" -type f | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          modules=$(find src/PS -name "*.psd1" -type f | sort | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          if [ "$modules" = "[]" ]; then
+            echo "has-modules=false" >> $GITHUB_OUTPUT
+          else
+            echo "has-modules=true" >> $GITHUB_OUTPUT
+          fi
           echo "modules=$modules" >> $GITHUB_OUTPUT
 
       - name: Print discovered PowerShell modules
@@ -260,6 +266,7 @@ jobs:
 
   build-powershell-module:
     needs: discover-powershell-modules
+    if: ${{ needs.discover-powershell-modules.outputs.has-modules == 'true' }}
     runs-on: windows-latest
     strategy:
       fail-fast: false
