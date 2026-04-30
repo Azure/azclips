@@ -334,6 +334,12 @@ jobs:
           dotnet build src/Extensions/Login/Extensions.Login.csproj --configuration Debug --no-restore
           dotnet build src/PS/Login/Cmdlets.Login.csproj --configuration Debug --no-restore
 
+      - name: Restore solution for module import validation
+        run: dotnet restore cirrus.slnx
+
+      - name: Build solution for module import validation
+        run: dotnet build cirrus.slnx --configuration Debug --no-restore
+
       - name: Test Module Import
         shell: pwsh
         run: |
