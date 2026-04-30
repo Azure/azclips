@@ -107,7 +107,7 @@ Get-CirrusConfig -Key core.logging.level
 # Output: core.logging.level = info [default]
 
 Get-CirrusConfig -Key core.logging.level -AsJson
-# Output: {"key":"core.logging.level","value":"info","source":"default"}
+# Output: {"Key":"core.logging.level","Value":"info","Source":"default"}
 ```
 
 ### Set a configuration value
