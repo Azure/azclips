@@ -47,7 +47,7 @@ namespace Core.Engine
             session.LoadAssembly = assemblyLoadingService.LoadExtension;
             session.BindProcessor = argumentParsingService.BindArgumentsToProcessor;
             session.CreateProcessorContext = s => CreateProcessorContext(s, GetOption());
-            session.CacheGetOrAdd = (name, version, getIndex) => CacheGetOrAdd(name, version, getIndex, GetOption().Engine.ExtensionIndexCacheSize);
+            session.CacheGetOrAdd = (name, version, getIndex) => CacheGetOrAdd(name, version, getIndex);
             return session;
         }
 
@@ -56,8 +56,9 @@ namespace Core.Engine
             return configurationService.GetConfiguration<CoreOptions>();
         }
 
-        private IExtensionIndex CacheGetOrAdd(string name, string version, Func<IExtensionIndex> getIndex, int configuredCacheSize)
+        private IExtensionIndex CacheGetOrAdd(string name, string version, Func<IExtensionIndex> getIndex)
         {
+            int configuredCacheSize = configurationService.GetConfiguration<CoreOptions>().Engine.ExtensionIndexCacheSize;
             LFUCache<Lazy<IExtensionIndex>> cache;
 
             lock (_extensionIndexCacheLock)
