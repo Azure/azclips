@@ -288,12 +288,12 @@ jobs:
         id: extract-metadata
         shell: pwsh
         run: |
-          $psm1Path = "${{ matrix.module }}"
-          $moduleName = [System.IO.Path]::GetFileNameWithoutExtension($psm1Path)
-          $moduleDir = [System.IO.Path]::GetDirectoryName($psm1Path)
+          $moduleManifestPath = "${{ matrix.module }}"
+          $moduleName = [System.IO.Path]::GetFileNameWithoutExtension($moduleManifestPath)
+          $moduleDir = [System.IO.Path]::GetDirectoryName($moduleManifestPath)
 
           if (-not $moduleName) {
-            Write-Error "Module name could not be determined from $psm1Path"
+            Write-Error "Module name could not be determined from $moduleManifestPath"
             exit 1
           }
 
@@ -301,6 +301,8 @@ jobs:
 
           echo "module_name=$moduleName" >> $env:GITHUB_OUTPUT
           echo "module_dir=$moduleDir" >> $env:GITHUB_OUTPUT
+          echo "module_manifest_path=$moduleManifestPath" >> $env:GITHUB_OUTPUT
+          echo "cmdlets_project_path=src/PS/${moduleName}/Cmdlets.${moduleName}.csproj" >> $env:GITHUB_OUTPUT
           echo "extension_project_path=src/Extensions/${moduleName}/Extensions.${moduleName}.csproj" >> $env:GITHUB_OUTPUT
 
       - name: Install .NET Core
@@ -311,19 +313,38 @@ jobs:
       - name: Restore Extension
         run: dotnet restore ${{ steps.extract-metadata.outputs.extension_project_path }}
 
+      - name: Restore Cmdlets Project
+        run: dotnet restore ${{ steps.extract-metadata.outputs.cmdlets_project_path }}
+
       - name: Build Corresponding Extension
         run: dotnet build ${{ steps.extract-metadata.outputs.extension_project_path }} --configuration Debug --no-restore
+
+      - name: Build Corresponding Cmdlets Project
+        run: dotnet build ${{ steps.extract-metadata.outputs.cmdlets_project_path }} --configuration Debug --no-restore
+
+      - name: Restore Login dependency projects (for Resources module)
+        if: ${{ steps.extract-metadata.outputs.module_name == 'Resources' }}
+        run: |
+          dotnet restore src/Extensions/Login/Extensions.Login.csproj
+          dotnet restore src/PS/Login/Cmdlets.Login.csproj
+
+      - name: Build Login dependency projects (for Resources module)
+        if: ${{ steps.extract-metadata.outputs.module_name == 'Resources' }}
+        run: |
+          dotnet build src/Extensions/Login/Extensions.Login.csproj --configuration Debug --no-restore
+          dotnet build src/PS/Login/Cmdlets.Login.csproj --configuration Debug --no-restore
 
       - name: Test Module Import
         shell: pwsh
         run: |
           $moduleName = "${{ steps.extract-metadata.outputs.module_name }}"
           $moduleDir = "${{ steps.extract-metadata.outputs.module_dir }}"
+          $moduleManifestPath = "${{ steps.extract-metadata.outputs.module_manifest_path }}"
 
-          Write-Host "Testing import of module: $moduleName from $moduleDir"
+          Write-Host "Testing import of module: $moduleName from $moduleManifestPath"
 
           try {
-            Import-Module ./$moduleDir -Force -ErrorAction Stop
+            Import-Module ./$moduleManifestPath -Force -ErrorAction Stop
             Write-Host "Module $moduleName imported successfully."
             $commands = Get-Command -Module $moduleName
             if ($commands.Count -eq 0) {
