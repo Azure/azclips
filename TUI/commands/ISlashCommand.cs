@@ -13,6 +13,7 @@ class CommandContext
     public required ShellMode Mode { get; init; }
     public required string LocalCwd { get; init; }
     public required Action? Invalidate { get; init; }
+    public required Action? RequestStop { get; init; }
     public required Action RefreshPrompt { get; init; }
     public required Action<string> SetLocalCwd { get; init; }
     public required Func<Func<Task>, Task> RunVfsAsync { get; init; }

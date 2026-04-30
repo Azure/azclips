@@ -37,6 +37,7 @@ class AppState
     public bool IsRunning => _processService.IsRunning;
     public int ElapsedSeconds => _processService.ElapsedSeconds;
     public Action? Invalidate { get; set; }
+    public Action? RequestStop { get; set; }
     public bool FocusTextBox { get; set; } = true;
 
     // Services
@@ -58,6 +59,7 @@ class AppState
         RegisterCommand(new ModeCommand(ToggleMode, () => Mode));
         RegisterCommand(new RefreshCommand());
         RegisterCommand(new CopyCommand());
+        RegisterCommand(new ExitCommand());
 
         _completionService = new CompletionService(_commands);
 
@@ -75,22 +77,17 @@ class AppState
     {
         try
         {
-            string? tenantId = null;
-            string? subId = null;
+            VfsReady = await Vfs.TryAuthenticateAsync();
+            if (!VfsReady) return;
 
             if (File.Exists(ContextFilePath))
             {
                 var json = await File.ReadAllTextAsync(ContextFilePath);
                 using var doc = JsonDocument.Parse(json);
-                tenantId = doc.RootElement.TryGetProperty("TenantId", out var t) ? t.GetString() : null;
-                subId = doc.RootElement.TryGetProperty("SubscriptionId", out var s) ? s.GetString() : null;
+                var tenantId = doc.RootElement.TryGetProperty("TenantId", out var t) ? t.GetString() : null;
+                var subId = doc.RootElement.TryGetProperty("SubscriptionId", out var s) ? s.GetString() : null;
+                await Vfs.SetInitialPathAsync(tenantId, subId);
             }
-
-            // Authenticate with the correct tenant so subscription lookups work
-            VfsReady = await Vfs.TryAuthenticateAsync(tenantId);
-            if (!VfsReady) return;
-
-            await Vfs.SetInitialPathAsync(tenantId, subId);
 
             RefreshPrompt();
             Invalidate?.Invoke();
@@ -287,6 +284,7 @@ class AppState
         Mode = Mode,
         LocalCwd = LocalCwd,
         Invalidate = Invalidate,
+        RequestStop = RequestStop,
         RefreshPrompt = RefreshPrompt,
         SetLocalCwd = cwd => LocalCwd = cwd,
         RunVfsAsync = RunVfsAsync,

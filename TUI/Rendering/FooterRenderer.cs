@@ -12,10 +12,10 @@ static class FooterRenderer
             ? $" {Ansi.AccentPurple} {branch}{Ansi.End}"
             : "";
 
-        // Mode indicator
+        // Mode indicator: blue for Azure, white for Local
         var modeLabel = state.Mode == ShellMode.Azure
-            ? $"{Ansi.AccentCyan}◈ Azure{Ansi.End}"
-            : $"{Ansi.AccentGreen}▣ Local{Ansi.End}";
+            ? $"{Ansi.AccentBlue}◈ Azure{Ansi.End}"
+            : $"{Ansi.White}▣ Local{Ansi.End}";
 
         // Show the "other" context path: Azure mode shows local cwd, Local mode shows Azure VFS path
         string contextPath;
@@ -27,12 +27,12 @@ static class FooterRenderer
                 cwd = "~" + cwd[home.Length..];
             if (cwd.Length > 50)
                 cwd = "..." + cwd[^47..];
-            contextPath = $"{Ansi.AccentBlue}{cwd}{Ansi.End}";
+            contextPath = $"{Ansi.White}{cwd}{Ansi.End}";
         }
         else
         {
             var vfsPath = state.VfsReady ? state.Vfs.CurrentPath : "/";
-            contextPath = $"{Ansi.AccentCyan}{vfsPath}{Ansi.End}";
+            contextPath = $"{Ansi.AccentBlue}{vfsPath}{Ansi.End}";
         }
 
         // Left: mode + other-context path + branch

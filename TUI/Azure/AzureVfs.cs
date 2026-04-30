@@ -60,7 +60,16 @@ public class AzureVfs
         var subs = await GetSubscriptionsAsync();
         var sub = subs.FirstOrDefault(s =>
             s.SubscriptionId.Equals(subscriptionId, StringComparison.OrdinalIgnoreCase));
-        var subName = sub?.DisplayName ?? subscriptionId;
+        var subName = sub?.DisplayName;
+
+        // If not found in the list, try a direct ARM call
+        if (string.IsNullOrEmpty(subName))
+        {
+            var directSub = await _arm.GetSubscriptionAsync(subscriptionId);
+            subName = directSub?.DisplayName;
+        }
+
+        subName ??= subscriptionId;
 
         _currentPath = $"/{tenantName}/{subName}";
     }

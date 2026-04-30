@@ -91,6 +91,22 @@ public class ArmClient : IDisposable
         return await GetArmListAsync<AzureSubscription>("/subscriptions?api-version=2022-12-01");
     }
 
+    public async Task<AzureSubscription?> GetSubscriptionAsync(string subscriptionId)
+    {
+        try
+        {
+            var token = await AcquireTokenAsync();
+            if (token == null) return null;
+            using var request = new HttpRequestMessage(HttpMethod.Get,
+                $"{ArmBase}/subscriptions/{subscriptionId}?api-version=2022-12-01");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            var response = await _http.SendAsync(request);
+            if (!response.IsSuccessStatusCode) return null;
+            return await response.Content.ReadFromJsonAsync<AzureSubscription>();
+        }
+        catch { return null; }
+    }
+
     public async Task<List<AzureResourceGroup>> GetResourceGroupsAsync(string subscriptionId)
     {
         return await GetArmListAsync<AzureResourceGroup>(
