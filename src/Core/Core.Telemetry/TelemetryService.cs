@@ -34,11 +34,11 @@ public class TelemetryService : ITelemetryService
 
     public ActivitySource ActivitySource { get; }
 
-    public TelemetryService(ActivitySource activitySource, ITelemetrySender sender)
+    public TelemetryService(ClientType clientType)
     {
-        ActivitySource = activitySource;
-        _sender = sender;
-        var serviceName = activitySource.Name;
+        ActivitySource = new ActivitySource(clientType.ToString());
+        _sender = TelemetrySenderFactory.Create(clientType);
+        var serviceName = ActivitySource.Name;
 
         var logDirectory = GetTraceDirectory();
 
@@ -62,25 +62,13 @@ public class TelemetryService : ITelemetryService
         // Add the appropriate exporter based on client type:
         //   CLI  → FileExporter (buffered to disk, replayed by background process)
         //   PS   → AzureMonitorExporter (inline, no file replay needed)
-        sender.ConfigureExporter(builder, logDirectory);
-
-#if DEBUG
-        // Zipkin exporter for local development. Disable via CIRRUS_ZIPKIN_ENABLED=false.
-        if (!string.Equals(Environment.GetEnvironmentVariable("CIRRUS_ZIPKIN_ENABLED"), "false", StringComparison.OrdinalIgnoreCase))
-        {
-            builder.AddZipkinExporter(options =>
-            {
-                options.Endpoint = new Uri(Environment.GetEnvironmentVariable("ZIPKIN_ENDPOINT") ?? "http://localhost:9411/api/v2/spans");
-            });
-        }
-#endif
-
+        _sender.ConfigureExporter(builder, logDirectory);
         _tracerProvider = builder.Build()!;
     }
 
     public Activity StartActivity(string name, ActivityKind kind = ActivityKind.Internal) => ActivitySource.StartActivity(name, kind)!;
 
-    public void ProcessInvocation(ICommandInvocation invocation)
+    public void ProcessInvocation(CommandInvocation invocation)
     {
         var activity = Activity.Current;
         Console.WriteLine($"[DEBUG ProcessInvocation] Activity.Current={activity?.DisplayName ?? "NULL"}, ModuleName='{invocation.ModuleName}', ModuleVersion='{invocation.ModuleVersion}'");

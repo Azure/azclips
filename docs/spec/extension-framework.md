@@ -35,7 +35,7 @@ Two host surfaces consume the same extensions:
 An extension is a .NET class library that implements a set of commands for one Azure service area (e.g., Login, Resources). Every extension must provide:
 
 - **`ExtensionIndex`** — implements `IExtensionIndex`, returns `ICommandMetadata` for a given command name and client type
-- **Command classes** — implement `IProcessor` with `Init(context)` and `ProcessAsync()`
+- **Processor classes** — implement `IProcessor` with `Init(context)` and `ProcessAsync()`
 - **Dual command tables** — the index maps CLI command names (e.g., `create`) and PowerShell command names (e.g., `New-ResourceGroup`) to the same `IProcessor` types
 
 ### 2.2 How to Build an Extension
@@ -49,7 +49,7 @@ All outputs land in `artifacts/{Configuration}/{ExtName}/` controlled by `Shared
 
 > **[Proposal]** Extensions should depend **only** on `Core.Abstractions`. References to `Core.Engine` and `Core.Implementation` would be removed.
 
-> **[Proposal]** A Roslyn incremental source generator (`Core.Index.Generator`) auto-generates `ExtensionIndex` from `[CommandInfo]` attributes, eliminating hand-maintained command tables.
+> **[Proposal]** A Roslyn incremental source generator (`Core.Index.Generator`) auto-generates `ExtensionIndex` from `[ProcessorInfo]` attributes, eliminating hand-maintained command tables.
 
 ### 2.3 How Extensions Are Packaged
 
@@ -69,22 +69,23 @@ The host and extensions share type identity through `Core.Abstractions`. Extensi
 | Interface | Role |
 |-----------|------|
 | `IExtensionIndex` | Extension entry point — returns command metadata by name and client type |
-| `ICommandMetadata` | Describes one command — name, .NET type, assembly |
-| `IProcessor` | The command — `Init(context)` receives runtime services, `ProcessAsync()` executes |
-| `ICommandContext` | Bundle of runtime services provided by the host |
+| `ICommandMetadata` | Describes one processor — name, .NET type, assembly |
+| `IProcessor` | The processor — `Init(context)` receives runtime services, `ProcessAsync()` executes |
+| `IProcessorContext` | Bundle of runtime services provided by the host |
 | `ICommandInvocation` | Parsed user input — extension name, command name, parameter dictionary |
 
-> **[Proposal]** Replace `Init(ICommandContext)` with **constructor injection** via `ActivatorUtilities.CreateInstance`, removing two-phase initialization.
+> **[Proposal]** Replace `Init(IProcessorContext)` with **constructor injection** via `ActivatorUtilities.CreateInstance`, removing two-phase initialization.
 
-### 3.3 Runtime Services (ICommandContext)
+### 3.3 Runtime Services (IProcessorContext)
 
-The host creates a per-invocation `ICommandContext` providing everything the extension needs:
+The host creates a per-invocation `IProcessorContext` providing everything the processor needs:
 
 | Service | What It Provides |
 |---------|-----------------|
-| `ICommandAuthHandler` | Auth context (tenant, subscription) + token acquisition delegate |
-| `ICommandOutputHandler` | Output delegate — **[CLI]** `Console.WriteLine`, **[PS]** `$PSCmdlet.WriteObject` |
-| `ICommandTelemetryHandler` | Distributed tracing via `StartActivity` |
+| `IAuthHandler` | Auth context (tenant, subscription) + token acquisition delegate |
+| `IOutputHandler` | Output delegate — **[CLI]** `Console.WriteLine`, **[PS]** `$PSCmdlet.WriteObject` |
+| `ITelemetryHandler` | Distributed tracing via `StartActivity` |
+| `IRuntimeHttpPipeline` | Pre-authenticated HTTP pipeline — extensions never manage their own `HttpClient` |
 | `IRuntimeHttpPipeline` | Pre-authenticated HTTP pipeline — extensions never manage their own `HttpClient` |
 
 ### 3.4 Execution Flow
@@ -105,9 +106,9 @@ The host creates a per-invocation `ICommandContext` providing everything the ext
       │              → IProcessor instance + parameter binding
       │
       ▼ IProcessor
-  Execute ───────── Host creates ICommandContext
+  Execute ───────── Host creates IProcessorContext
                     → Init(context) → ProcessAsync()
-                    Extension calls back through context for I/O and auth
+                    Processor calls back through context for I/O and auth
 ```
 
 > **[Proposal]** Replace `ExtensionDispatcher` with `CommandRouter` (thin routing) and `CommandActivator` (resolution + help integration).
@@ -124,7 +125,7 @@ To adopt NativeAOT, the extension model would need to change fundamentally:
 
 1. **Builtin extensions compiled into the host** — extensions are statically linked at build time, eliminating dynamic loading entirely. Source-generated `ExtensionIndex` (already proposed) would replace reflection-based discovery.
 2. **User-installed extensions as separate NativeAOT libraries** — each extension is independently AoT-compiled and exposes entry points via `[UnmanagedCallersOnly]` / C-ABI function pointers. The host loads them via native library loading (`NativeLibrary.Load`) instead of managed assembly loading.
-3. **Marshalling across the boundary** — `IProcessor`, `ICommandContext`, and other managed interfaces cannot cross a native interop boundary directly. Communication would need to use C-ABI-compatible patterns (function pointers, flat structs, or a serialized protocol).
+3. **Marshalling across the boundary** — `IProcessor`, `IProcessorContext`, and other managed interfaces cannot cross a native interop boundary directly. Communication would need to use C-ABI-compatible patterns (function pointers, flat structs, or a serialized protocol).
 
 This is a significant architectural change. A pragmatic path would be to start with option 1 (static linking for builtin extensions) to enable NativeAOT for the core CLI, while deferring option 2 (native plugin model for user-installed extensions) to a later phase. will
 

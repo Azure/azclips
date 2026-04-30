@@ -1,23 +1,40 @@
-using System;
 using System.Diagnostics;
-using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 using Core.Abstractions;
 using Core.Cli.Exceptions;
 using Core.Cli.Parser;
 using Core.Engine;
 using Core.Telemetry;
 using Core.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Core.Cli;
 
 public class Program
 {
+    private static readonly ClientType _clientType = ClientType.CLI;
     private static readonly string AssemblyName = Assembly.GetExecutingAssembly().GetName().Name!;
     private static ITelemetryService? _telemetryService;
     private static ILoggingService? _logger;
+    private static readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
+    
+    // CLI by default only enable output and error streams. Optional streams enabled by global parameters
+    private static OutputStreams streams = new OutputStreams(
+        WriteOutput: (value, ct) =>
+        {
+            Console.WriteLine(CliOutputFormatter.FormatValue(value));
+            return Task.CompletedTask;
+        },
+        WriteError: (value, ct) =>
+        {
+            Console.Error.WriteLine(value);
+            return Task.CompletedTask;
+        },
+        WriteVerbose: (value, ct) => Task.CompletedTask,
+        WriteDebug: (value, ct) => Task.CompletedTask,
+        WriteWarning: (value, ct) => Task.CompletedTask,
+        WriteInformation: (value, ct) => Task.CompletedTask
+    );
 
     public static async Task<int> Main(string[] args)
     {
@@ -28,7 +45,18 @@ public class Program
             return 0;
         }
 
-        CirrusServiceProvider.Initialize(ClientType.CLI);
+        CirrusServiceProvider.PrependRegistration = services =>
+        {
+            services.AddSingleton<IExtensionLoader, BuiltinExtensionLoader>();
+            services.AddSingleton<IExtensionLoader, MultiVersionExtensionLoader>();
+            services.AddSingleton<PropertyParser>();
+        };
+        CirrusServiceProvider.OverrideRegistration = services =>
+        {
+            services.AddSingleton<IAssemblyLoadingProvider, CLIAssemblyLoadingProvider>();
+            services.AddSingleton<IArgumentParsingProvider, CLIArgumentParsingProvider>();
+        };
+        CirrusServiceProvider.Initialize(_clientType);
         _telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
         _logger = CirrusServiceProvider.GetRequiredService<ILoggingService>();
 
@@ -39,13 +67,14 @@ public class Program
 
             try
             {
-                ICommandInvocation invocation = dispatcher.Parse(args);
+                CommandInvocation invocation = dispatcher.Parse(args);
 
                 using var commandActivity = _telemetryService.ActivitySource.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
-                commandActivity?.SetTag("command.type", invocation.GetType().Name);
+                commandActivity?.SetTag("command.type", _clientType.ToString());
 
                 var engine = CirrusServiceProvider.GetRequiredService<IEngine>() ?? throw new InvalidOperationException("Engine service not found.");
-                engine.Process(invocation, (value, ct) => { Console.WriteLine(value); return Task.CompletedTask; });
+                using IInvocationSession session = engine.InvokeSession(invocation, streams, _cancellationTokenSource.Token);
+                session.Process();
 
                 activity?.SetStatus(ActivityStatusCode.Ok);
                 return 0;
@@ -113,7 +142,7 @@ public class Program
                 try
                 {
                     var dispatcher = new ExtensionDispatcher();
-                    ICommandInvocation invocation = dispatcher.Parse(retryArgs);
+                    CommandInvocation invocation = dispatcher.Parse(retryArgs);
                     //string result = Engine.Engine.GetCommand(invocation).Process(true).ToString();
                     //Console.WriteLine(result);
                     return 0;
@@ -149,6 +178,13 @@ public class Program
         {
             var exePath = Environment.ProcessPath;
             if (exePath == null) return;
+
+            // In-process benchmark mode: do not attempt to flush telemetry as in benchmark execution process
+            if (!exePath.EndsWith("azv2", StringComparison.OrdinalIgnoreCase) &&
+                !exePath.EndsWith("azv2.exe", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
 
             var startInfo = new ProcessStartInfo
             {

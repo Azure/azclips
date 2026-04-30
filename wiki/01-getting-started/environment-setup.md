@@ -214,15 +214,15 @@ The GitHub Actions workflow `.github/workflows/build-and-test.yml` runs on every
 
 `.vscode/launch.json` defines **seven** launch profiles. All use `coreclr` type and launch the `azv2` binary from `artifacts/Debug/Core.Cli/` with `integratedTerminal` console. A `dotnet: build` pre-launch task (`.vscode/tasks.json:4-13`) compiles the solution first.
 
-| # | Profile | Purpose | Key Args |
-|---|---------|---------|----------|
-| 1 | `.NET Core Attach` | Attach debugger to running process | — |
-| 2 | `C#: group create Debug` | Test resource group creation | `group create -SubscriptionId … -Name yabo-test-group-1 -Location eastus` |
-| 3 | `C#: group get Debug` | Test resource group retrieval | `group get -SubscriptionId … -Name …` |
-| 4 | `C#: login show Debug` | Test login status | `login show` |
-| 5 | `C#: logout Debug` | Test logout | `login logout` |
+| # | Profile                     | Purpose | Key Args |
+|---|-----------------------------|---------|----------|
+| 1 | `.NET Core Attach`          | Attach debugger to running process | — |
+| 2 | `C#: group create Debug`    | Test resource group creation | `group create -SubscriptionId … -Name yabo-test-group-1 -Location eastus` |
+| 3 | `C#: group show Debug`      | Test resource group retrieval | `group show -SubscriptionId … -Name …` |
+| 4 | `C#: login show Debug`      | Test login status | `login show` |
+| 5 | `C#: logout Debug`          | Test logout | `login logout` |
 | 6 | `az: natural language (AI)` | Test AI fallback with a prompt | `"create a resource group"` |
-| 7 | `az: help` | Test help output | `--help` |
+| 7 | `az: help`                  | Test help output | `--help` |
 
 All profiles point to the same program path (`launch.json:18`):
 

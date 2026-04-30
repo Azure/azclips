@@ -1,0 +1,13 @@
+﻿// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+
+using Core.Abstractions.Runtime;
+using Core.Abstractions.Runtime.Handler;
+
+namespace Core.Runtime.Handler;
+
+public class CommandHttpMessageHandler : ICommandHttpMessageHandler
+{
+    /// <inheritdoc />
+    public SendAsyncStep SendAsync => (HttpRequestMessage request, IEventListener callback, ISendAsync next) => next.SendAsync(request, callback);
+}

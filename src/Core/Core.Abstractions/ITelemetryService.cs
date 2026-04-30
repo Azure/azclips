@@ -18,7 +18,7 @@ public interface ITelemetryService : IDisposable
     /// <summary>
     /// Tags the current activity with module info from a resolved invocation.
     /// </summary>
-    void ProcessInvocation(ICommandInvocation invocation);
+    void ProcessInvocation(CommandInvocation invocation);
 
     /// <summary>
     /// Flushes all pending telemetry data.

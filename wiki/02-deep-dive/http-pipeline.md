@@ -1,6 +1,6 @@
 ---
 title: "HTTP Pipeline & Runtime"
-description: "Deep dive into Cirrus's chain-of-responsibility HTTP pipeline: ISendAsync interfaces, retry logic for 429/5xx errors, handler composition, IEventListener signal system, and CommandContext wiring."
+description: "Deep dive into Cirrus's chain-of-responsibility HTTP pipeline: ISendAsync interfaces, retry logic for 429/5xx errors, handler composition, IEventListener signal system, and ProcessorContext wiring."
 ---
 
 # HTTP Pipeline & Runtime
@@ -63,7 +63,7 @@ classDiagram
         +SendAsync()
     }
 
-    class CommandAuthHandler {
+    class AuthHandler {
         +AuthContext
         +AcquireTokenAsyncDefault
         +SendAsync: SendAsyncStep
@@ -85,7 +85,7 @@ classDiagram
     style SendAsyncFactory fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style SendAsyncTerminalFactory fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style HttpClientFactory fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style CommandAuthHandler fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style AuthHandler fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
 ## Core Interfaces
@@ -144,13 +144,13 @@ Both methods invalidate the cached pipeline (`pipeline = null`), forcing reconst
 
 ## Handler Chain
 
-### CommandAuthHandler
+### AuthHandler
 
-The `CommandAuthHandler` (`src/Core/Core.Runtime/Handler/CommandAuthHandler.cs:11`) implements `ICommandAuthHandler` and provides token-based authentication. Its `SendAsync` property is a `SendAsyncStep` delegate that:
+The `AuthHandler` (`src/Core/Core.Runtime/Handler/AuthHandler.cs:11`) implements `IAuthHandler` and provides token-based authentication. Its `SendAsync` property is a `SendAsyncStep` delegate that:
 
-1. Starts a telemetry activity for the auth step (`src/Core/Core.Runtime/Handler/CommandAuthHandler.cs:27`)
-2. Selects between `AcquireTokenAsyncOverride` and `AcquireTokenAsyncDefault` based on `ApplyOverride` flag (`src/Core/Core.Runtime/Handler/CommandAuthHandler.cs:29`)
-3. Acquires a Bearer token and sets the `Authorization` header (`src/Core/Core.Runtime/Handler/CommandAuthHandler.cs:32`)
+1. Starts a telemetry activity for the auth step (`src/Core/Core.Runtime/Handler/AuthHandler.cs:27`)
+2. Selects between `AcquireTokenAsyncOverride` and `AcquireTokenAsyncDefault` based on `ApplyOverride` flag (`src/Core/Core.Runtime/Handler/AuthHandler.cs:29`)
+3. Acquires a Bearer token and sets the `Authorization` header (`src/Core/Core.Runtime/Handler/AuthHandler.cs:32`)
 4. Delegates to the next handler via `next.SendAsync(request, callback)`
 
 ### HttpClientFactory (Terminal Handler)
@@ -165,10 +165,10 @@ public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, IEventLis
 
 Using `ResponseHeadersRead` ensures streaming responses are handled efficiently without buffering the entire body.
 
-### CommandOutputHandler and CommandTelemetryHandler
+### OutputHandler and TelemetryHandler
 
-- **`CommandOutputHandler`** (`src/Core/Core.Runtime/Handler/CommandOutputHandler.cs:9`) — holds a `CommandOutputDelegate` for writing command output
-- **`CommandTelemetryHandler`** (`src/Core/Core.Runtime/Handler/CommandTelemetryHandler.cs:8`) — holds a `StartActivityDelegate` for creating telemetry activities
+- **`OutputHandler`** (`src/Core/Core.Runtime/Handler/OutputHandler.cs:9`) — holds a `CommandOutputDelegate` for writing command output
+- **`TelemetryHandler`** (`src/Core/Core.Runtime/Handler/TelemetryHandler.cs:8`) — holds a `StartActivityDelegate` for creating telemetry activities
 
 ## SendAsyncFactory Wrappers
 
@@ -209,7 +209,7 @@ sequenceDiagram
     autonumber
     participant Caller as Extension Code
     participant Pipeline as HttpPipeline
-    participant Auth as CommandAuthHandler
+    participant Auth as AuthHandler
     participant Retry429 as Retry429 Handler
     participant RetryErr as RetryError Handler
     participant Terminal as HttpClientFactory
@@ -321,21 +321,21 @@ The class also provides validation helper methods that signal `Events.Validation
 
 The `NoSynchronizationContext` helper (`src/Core/Core.Runtime/RuntimeExtensions.cs:192`) sets `SynchronizationContext.Current` to null within a `using` scope, restoring the original on dispose. This eliminates the need for `ConfigureAwait(false)` on every `await` in library code—a pattern used in the `EventListener.Signal` method (`src/Core/Core.Runtime/EventListener.cs:73`).
 
-## CommandContext
+## ProcessorContext
 
-`CommandContext` (`src/Core/Core.Runtime/CommandContext.cs:6`) is the composition root that wires all handlers together for a command execution. Each command invocation gets an isolated context:
+`ProcessorContext` (`src/Core/Core.Runtime/ProcessorContext.cs:6`) is the composition root that wires all handlers together for a processor execution. Each command invocation gets an isolated context:
 
 ```csharp
-public class CommandContext : ICommandContext
+public class ProcessorContext : IProcessorContext
 {
-    public ICommandAuthHandler CommandAuthHandler { get; set; }
-    public ICommandOutputHandler CommandOutputHandler { get; set; }
-    public ICommandTelemetryHandler CommandTelemetryHandler { get; set; }
+    public IAuthHandler AuthHandler { get; set; }
+    public IOutputHandler OutputHandler { get; set; }
+    public ITelemetryHandler TelemetryHandler { get; set; }
     public IRuntimeHttpPipeline HttpPipeline { get; set; }
 }
 ```
 
-The `ICommandContext` interface (`src/Core/Core.Abstractions/Runtime/ICommandContext.cs:12`) documents the lifecycle: a new instance is created per command invocation, the engine initializes it, and extensions may modify members (e.g., override auth) during execution without affecting other commands.
+The `IProcessorContext` interface (`src/Core/Core.Abstractions/Runtime/IProcessorContext.cs:12`) documents the lifecycle: a new instance is created per command invocation, the engine initializes it, and extensions may modify members (e.g., override auth) during execution without affecting other commands.
 
 ## Request Cloning
 
@@ -357,12 +357,12 @@ The `RuntimeExtensions` class provides HTTP request cloning utilities used by th
 | `src/Core/Core.Runtime/EventData.cs` | Event payload carrier |
 | `src/Core/Core.Runtime/EventListener.cs` | Event dispatch implementation |
 | `src/Core/Core.Runtime/RuntimeExtensions.cs` | Signal overloads, validation, `NoSynchronizationContext` |
-| `src/Core/Core.Runtime/CommandContext.cs` | Handler composition root |
-| `src/Core/Core.Runtime/Handler/CommandAuthHandler.cs` | Bearer token injection |
-| `src/Core/Core.Runtime/Handler/CommandOutputHandler.cs` | Output delegate holder |
-| `src/Core/Core.Runtime/Handler/CommandTelemetryHandler.cs` | Telemetry activity delegate |
+| `src/Core/Core.Runtime/ProcessorContext.cs` | Handler composition root |
+| `src/Core/Core.Runtime/Handler/AuthHandler.cs` | Bearer token injection |
+| `src/Core/Core.Runtime/Handler/OutputHandler.cs` | Output delegate holder |
+| `src/Core/Core.Runtime/Handler/TelemetryHandler.cs` | Telemetry activity delegate |
 | `src/Core/Core.Abstractions/Runtime/ISendAsync.cs` | Pipeline interfaces |
 | `src/Core/Core.Abstractions/Runtime/delegates.cs` | Delegate type definitions |
 | `src/Core/Core.Abstractions/Runtime/IEventListener.cs` | Event listener interface |
 | `src/Core/Core.Abstractions/Runtime/Events.cs` | Well-known event IDs |
-| `src/Core/Core.Abstractions/Runtime/ICommandContext.cs` | Command context interface |
+| `src/Core/Core.Abstractions/Runtime/IProcessorContext.cs` | Processor context interface |

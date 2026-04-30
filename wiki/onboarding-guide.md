@@ -234,7 +234,7 @@ classDiagram
         -ILoggingService _logger
         -HttpClient _httpClient
         +Process(ICommandInvocation, CommandOutputDelegate, CancellationToken) void
-        +GetCommand(ICommandInvocation) IProcessor
+        +GetProcessor(ICommandInvocation) IProcessor
     }
 
     class PSEngine {
@@ -242,7 +242,7 @@ classDiagram
         -HttpClient _httpClient
         +ClientType ClientType
         +Process(ICommandInvocation, CommandOutputDelegate, CancellationToken) void
-        +GetCommand(ICommandInvocation) IProcessor
+        +GetProcessor(ICommandInvocation) IProcessor
     }
 
     class OrchestratorEngine {
@@ -280,7 +280,7 @@ classDiagram
     class IProcessor {
         <<interface>>
         +ProcessAsync() Task
-        +Init(ICommandContext) IProcessor
+        +Init(IProcessorContext) IProcessor
     }
 
     class IModule {
@@ -299,7 +299,7 @@ classDiagram
         +Name string
         +FullName string
         +AssemblyName string
-        +CommandType Type
+        +ProcessorType Type
     }
 
     class IAuthService {
@@ -398,7 +398,7 @@ classDiagram
 ### Key Relationships
 
 - **Two engine hierarchies exist.** `IEngine` is the top-level process-oriented interface (synchronous `Process` method for PowerShell runspace affinity). `ICommandEngine` is the async internal interface for the orchestration layer.
-- **`IProcessor` vs `ICommand`.** `IProcessor` is the modern contract used by `PSEngine` and `CLIEngine` — commands implement `Init(ICommandContext)` and `ProcessAsync()`. `ICommand` is the older contract used by `CommandBinder` in `DefaultCommandEngine`. Both coexist; extension commands typically implement `IProcessor` through base classes like `ResourceCommandBase`.
+- **`IProcessor` vs `ICommand`.** `IProcessor` is the modern contract used by `PSEngine` and `CLIEngine` — processors implement `Init(IProcessorContext)` and `ProcessAsync()`. `ICommand` is the older contract used by `CommandBinder` in `DefaultCommandEngine`. Both coexist; extension commands typically implement `IProcessor` through base classes like `ResourceProcessorBase`.
 - **`IExtensionIndex` is per-extension.** Each extension DLL contains exactly one `ExtensionIndex` class with two dictionaries — `_psTable` and `_cliTable` — mapping command names to `ICommandMetadata` instances.
 
 ---
@@ -420,9 +420,9 @@ classDiagram
 | `CloudAgent` | AI client | `src/Core/Core.Agent/CloudAgent.cs` | Load `.env` → create `AzureOpenAIClient` → stream chat completions |
 | `Bootstrapper` | DI setup | `src/Core/Core.Engine/Bootstrapper.cs` | `Lazy<Task<IServiceProvider>>` → register all singletons |
 | `CirrusServiceProvider` | Global DI | `src/Core/Core.DependencyInjection/CirrusServiceProvider.cs` | Double-checked locking → `ServiceCollection` → `BuildServiceProvider()` |
-| `LoginCommand` | Extension cmd | `src/Extensions/Login/Commands/Login.cs` | MSAL interactive/device-code → save `AuthContext` |
-| `NewResourceGroupCommand` | Extension cmd | `src/Extensions/Resources/Commands/NewResourceGroup.cs` | PUT to `management.azure.com` → parse response |
-| `AddExtensionCommand` | Extension cmd | `src/Extensions/Extension/Add.cs` | `ExtensionInstaller` → NuGet resolve → extract to `~/.cirrus/extensions/` |
+| `LoginProcessor` | Extension cmd | `src/Extensions/Login/Processors/Login.cs` | MSAL interactive/device-code → save `AuthContext` |
+| `NewResourceGroupProcessor` | Extension cmd | `src/Extensions/Resources/Processors/NewResourceGroup.cs` | PUT to `management.azure.com` → parse response |
+| `AddExtensionProcessor` | Extension cmd | `src/Extensions/Extension/Add.cs` | `ExtensionInstaller` → NuGet resolve → extract to `~/.cirrus/extensions/` |
 
 ### Execution Flow: `azv2 group list --SubscriptionId abc123`
 
@@ -440,7 +440,7 @@ sequenceDiagram
     participant CP as CommandParser
     participant CB as CommandBinder
     participant ALC as AssemblyLoadContext
-    participant Cmd as ListResourceGroupCommand
+    participant Cmd as ListResourceGroupProcessor
     participant ARM as management.azure.com
 
     User->>Program: azv2 group list --SubscriptionId abc123
@@ -458,7 +458,7 @@ sequenceDiagram
     DCE->>CB: Bind(parseResult)
     CB->>ALC: LoadFrom(Resources DLL)
     ALC-->>CB: IModule with commands
-    CB-->>DCE: ListResourceGroupCommand
+    CB-->>DCE: ListResourceGroupProcessor
     DCE->>Cmd: ExecuteAsync(serviceProvider, options)
     Cmd->>ARM: GET /subscriptions/abc123/resourcegroups?api-version=2025-04-01
     ARM-->>Cmd: JSON response
@@ -622,10 +622,10 @@ public class ExtensionIndex : IExtensionIndex
     public ExtensionIndex()
     {
         _psTable.Add("New-ResourceGroup", new CommandMetadata(
-            name: "NewResourceGroupCommand",
-            fullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Commands.NewResourceGroupCommand",
+            name: "NewResourceGroupProcessor",
+            fullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.NewResourceGroupProcessor",
             assemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
-            commandType: typeof(Commands.NewResourceGroupCommand)));
+            processorType: typeof(Processors.NewResourceGroupProcessor)));
 
         _cliTable.Add("create", new CommandMetadata(/* ... */));
         _cliTable.Add("list",   new CommandMetadata(/* ... */));
@@ -764,9 +764,9 @@ All resource commands target `https://management.azure.com` with API version `20
 
 Authentication is via Bearer token obtained from `IAuthService.AcquireTokenSilentlyAsync()`. The `HttpPipeline` (`src/Core/Core.Runtime/HttpPipeline.cs`) automatically injects auth headers and telemetry via handler chain:
 
-- `CommandAuthHandler` — Adds `Authorization: Bearer {token}` header.
-- `CommandTelemetryHandler` — Creates OpenTelemetry `Activity` spans for each request.
-- `CommandOutputHandler` — Routes response output through `IOutputAdapter`.
+- `AuthHandler` — Adds `Authorization: Bearer {token}` header.
+- `TelemetryHandler` — Creates OpenTelemetry `Activity` spans for each request.
+- `OutputHandler` — Routes response output through `IOutputAdapter`.
 
 ### CLI Argument Formats
 
@@ -792,11 +792,11 @@ Options are stored in a case-insensitive `Dictionary<string, string>(StringCompa
 
 | Cmdlet | Module | Parameters | Underlying Command |
 |--------|--------|------------|-------------------|
-| `Connect-CirrusAccount` | Login | `-SubscriptionId` (required), `-TenantId` (required) | `LoginCommand` |
-| `Disconnect-CirrusAccount` | Login | (none) | `LogoutCommand` |
-| `Get-CirrusAccount` | Login | (none) | `GetContextCommand` |
-| `New-ResourceGroup` | Resources | `-Name` (required), `-Location` (required), `-SubscriptionId` | `NewResourceGroupCommand` |
-| `Get-ResourceGroup` | Resources | `-Name`, `-SubscriptionId` | `GetResourceGroupCommand` / `ListResourceGroupCommand` |
+| `Connect-CirrusAccount` | Login | `-SubscriptionId` (required), `-TenantId` (required) | `LoginProcessor` |
+| `Disconnect-CirrusAccount` | Login | (none) | `LogoutProcessor` |
+| `Get-CirrusAccount` | Login | (none) | `GetContextProcessor` |
+| `New-ResourceGroup` | Resources | `-Name` (required), `-Location` (required), `-SubscriptionId` | `NewResourceGroupProcessor` |
+| `Get-ResourceGroup` | Resources | `-Name`, `-SubscriptionId` | `GetResourceGroupProcessor` / `ListResourceGroupProcessor` |
 
 All cmdlets use `[CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]` for `-WhatIf` / `-Confirm` support.
 
@@ -1088,7 +1088,7 @@ This is the most architecturally sophisticated part of the codebase. It solves a
 Read these source files in order to build a complete mental model:
 
 1. **`src/Core/Core.Abstractions/IEngine.cs`** — The two engine interfaces. Understand `IEngine` vs `ICommandEngine`.
-2. **`src/Core/Core.Abstractions/CLIContracts.cs`** — `IProcessor`, `ArgumentInfoAttribute`, `CommandInfoAttribute`. The extension contract.
+2. **`src/Core/Core.Abstractions/CLIContracts.cs`** — `IProcessor`, `ArgumentInfoAttribute`, `ProcessorInfoAttribute`. The extension contract.
 3. **`src/Core/Core.Abstractions/IExtensionIndex.cs`** and **`ICommandMetadata.cs`** — How extensions register commands.
 4. **`src/CLI/Program.cs`** — The entry point. Follow the control flow from `Main` through dispatch to execution.
 5. **`src/CLI/Parser/ExtensionDispatcher.cs`** — How CLI args become `ICommandInvocation`.
@@ -1103,7 +1103,7 @@ Read these source files in order to build a complete mental model:
 14. **`src/Core/Core.Engine/PSEngine.cs`** — The PowerShell engine with `Channel<T>` output routing.
 15. **`src/Core/Core.DependencyInjection/CirrusServiceProvider.cs`** — Thread-safe global DI container.
 16. **`src/Core/Core.Engine/Bootstrapper.cs`** — All service registrations in one place.
-17. **`src/Extensions/Resources/Commands/NewResourceGroup.cs`** — A complete command implementation showing ARM API calls.
+17. **`src/Extensions/Resources/Processors/NewResourceGroup.cs`** — A complete processor implementation showing ARM API calls.
 18. **`src/Extensions/Resources/ExtensionIndex.cs`** — How commands are registered per-extension.
 19. **`src/Extensions/Extension/ExtensionInstaller.cs`** — NuGet API integration for extension management.
 20. **`src/Core/Core.Authentication/MsalAuthService.cs`** — MSAL integration, token cache, auth flows.

@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Engines;
+using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Runtime;
 using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
@@ -20,7 +21,7 @@ namespace Benchmark.API;
 [WarmupCount(1)]  // 1 warmup iteration to stabilize connections
 [IterationCount(5)]
 [SimpleJob(RunStrategy.Monitoring, iterationCount: 5)]
-public class ResourceGroupBenchmarks : BenchmarkBase
+public class ResourceGroupBenchmarks : ApiBenchmarkBase
 {
     private IRuntimeHttpPipeline _httpPipeline = null!;
     private BenchmarkEventListener _eventListener = null!;
@@ -35,8 +36,8 @@ public class ResourceGroupBenchmarks : BenchmarkBase
     [GlobalSetup]
     public void Setup()
     {
-        InitializeCommon();
-        
+        InitializeLive();
+
         // Initialize HttpPipeline
         _httpPipeline = new HttpPipeline(new HttpClientFactory());
         _eventListener = new BenchmarkEventListener();

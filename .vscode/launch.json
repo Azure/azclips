@@ -18,18 +18,18 @@
             "args": [
                 "group",
                 "create",
-                "-SubscriptionId",
+                "--Subscription-Id",
                 "9e223dbe-3399-4e19-88eb-0975f02ac87f",
-                "-Name",
+                "--Name",
                 "yabo-test-group-1",
-                "-Location",
+                "--Location",
                 "eastus"
             ],
             "cwd": "${workspaceFolder}/artifacts/Debug/Core",
             "console": "integratedTerminal"
         },
         {
-            "name": "C#: group get Debug",
+            "name": "C#: group show Debug",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "dotnet: build",
@@ -37,13 +37,13 @@
             "args": [
                 "group",
                 "create",
-                "--ResourceGroupName",
+                "--name",
                 "test-rg",
-                "--Location",
+                "--location",
                 "eastus",
-                "--SubscriptionId",
+                "--subscription-id",
                 "00000000-0000-0000-0000-000000000000",
-                "--AccessToken",
+                "--access-token",
                 "placeholder-token"
             ],
             "cwd": "${workspaceFolder}/artifacts/Debug/Core.Cli",

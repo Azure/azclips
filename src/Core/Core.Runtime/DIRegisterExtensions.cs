@@ -10,11 +10,11 @@ public static class DIRegisterExtensions
     /// </summary>
     public static IServiceCollection RegisterRuntimeServices(this IServiceCollection services)
     {
-        services.AddSingleton<ILoggingService, ConsoleLoggingService>();
         // Output abstraction - allows supporting both Console (CLI) and PowerShell hosts
         // Original design used Console.WriteLine directly; this abstraction enables
         // future PowerShell output formatting without changing engine logic
         services.AddSingleton<IOutputAdapter, ConsoleOutputAdapter>();
+        services.AddSingleton<ILoggingService, ScopedLoggingService>();
         return services;
     }
 }

@@ -8,8 +8,8 @@
 
 @{
 
-# Script module or binary module file associated with this manifest.
-RootModule = 'Login.psm1'
+# Binary module file associated with this manifest.
+RootModule = '../../../artifacts/Debug/Microsoft.Azure.Cirrus.Cmdlets.Login.dll'
 
 # Version number of this module.
 ModuleVersion = '0.0.1'
@@ -60,6 +60,8 @@ RequiredAssemblies = '../../../artifacts/Debug/Core/Core.Abstractions.dll',
                         '../../../artifacts/Debug/Core/Core.Telemetry.dll',
                         '../../../artifacts/Debug/Core/Core.Runtime.dll',
                         '../../../artifacts/Debug/Core/Core.Engine.dll',
+                        '../../../artifacts/Debug/Core/Core.AssemblyLoading.dll',
+                        '../../../artifacts/Debug/Core/Core.ArgumentParsing.dll',
                         '../../../artifacts/Debug/Core/Core.DependencyInjection.dll',
                         '../../../artifacts/Debug/Core/Microsoft.Extensions.DependencyInjection.Abstractions.dll',
                         '../../../artifacts/Debug/Microsoft.Azure.Cirrus.Extensions.Login/Microsoft.Azure.Cirrus.Extensions.Login.dll'
@@ -77,14 +79,10 @@ RequiredAssemblies = '../../../artifacts/Debug/Core/Core.Abstractions.dll',
 # NestedModules = @()
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-FunctionsToExport = 'Connect-CirrusAccount', 'Disconnect-CirrusAccount', 'Get-CirrusAccount'
+FunctionsToExport = @()
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
-# CmdletsToExport = @(
-#     'Connect-CirrusAccount',
-#     'Disconnect-CirrusAccount',
-#     'Get-CirrusContext'
-# )
+CmdletsToExport = 'Connect-CirrusAccount', 'Disconnect-CirrusAccount', 'Get-CirrusAccount'
 
 # Variables to export from this module
 VariablesToExport = '*'

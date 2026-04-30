@@ -9,10 +9,8 @@ public static class DIRegisterExtensions
     /// <summary>
     /// Extension method to register telemetry-related services.
     /// </summary>
-    public static IServiceCollection RegisterTelemetryServices(this IServiceCollection services, ClientType clientType)
+    public static IServiceCollection RegisterTelemetryServices(this IServiceCollection services)
     {
-        services.AddSingleton(_ => new ActivitySource(clientType.ToString()));
-        services.AddSingleton<ITelemetrySender>(_ => TelemetrySenderFactory.Create(clientType));
         services.AddSingleton<ITelemetryService, TelemetryService>();
         return services;
     }

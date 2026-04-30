@@ -16,7 +16,7 @@ flowchart TB
         CLI["CLI Entry Point<br>StartCLIActivity"]
         PS["PowerShell Cmdlets<br>Start-CmdletActivity"]
         Logging["ConsoleLoggingService<br>RecordTelemetry"]
-        Pipeline["HTTP Pipeline<br>CommandAuthHandler"]
+        Pipeline["HTTP Pipeline<br>AuthHandler"]
     end
 
     subgraph Core["Core.Telemetry"]
@@ -201,7 +201,7 @@ sequenceDiagram
     participant Ext as TelemetryExtensions
     participant TS as TelemetryService
     participant AS as ActivitySource
-    participant Auth as CommandAuthHandler
+    participant Auth as AuthHandler
     participant Log as ConsoleLoggingService
     participant FE as FileExporter
     participant AM as Azure Monitor
@@ -216,7 +216,7 @@ sequenceDiagram
     Ext->>Ext: SetTag("parameter", "--subscription ***")
 
     CLI->>Auth: Execute command pipeline
-    Auth->>Auth: StartActivity("CommandAuthHandler.SendAsync")
+    Auth->>Auth: StartActivity("AuthHandler.SendAsync")
     Note over Auth: Child span created
 
     CLI->>Log: Info("Listing resource groups...")
