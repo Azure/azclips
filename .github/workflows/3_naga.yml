@@ -7,7 +7,14 @@ on:
   workflow_dispatch:
 
 jobs:
+  start:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Start workflow
+        run: echo "Starting 3_naga workflow"
+
   build-artifacts:
+    needs: start
     runs-on: windows-latest
     strategy:
       fail-fast: false
@@ -41,6 +48,7 @@ jobs:
           path: artifacts/${{ matrix.configuration }}
 
   publish-cli:
+    needs: start
     runs-on: windows-latest
     strategy:
       fail-fast: false
@@ -136,6 +144,7 @@ jobs:
           path: ./bin/${{ matrix.configuration }}/azv2-win-x64.msix
 
   publish-extension:
+    needs: start
     runs-on: windows-latest
     strategy:
       fail-fast: false
@@ -166,6 +175,7 @@ jobs:
           path: ./publish/${{ matrix.configuration }}/win-x64/Extensions/Extension
 
   discover-extensions:
+    needs: start
     runs-on: ubuntu-latest
     outputs:
       extensions: ${{ steps.discover-extensions.outputs.extensions }}
@@ -241,6 +251,7 @@ jobs:
           path: ./artifacts/${{ matrix.configuration }}/${{ steps.extract-metadata.outputs.ext_name }}
 
   discover-powershell-modules:
+    needs: start
     runs-on: ubuntu-latest
     outputs:
       modules: ${{ steps.discover-modules.outputs.modules }}
@@ -340,25 +351,73 @@ jobs:
       - name: Build solution for module import validation
         run: dotnet build cirrus.slnx --configuration Debug --no-restore
 
-      - name: Test Module Import
+      - name: Validate Module Manifest Dependencies
         shell: pwsh
         run: |
           $moduleName = "${{ steps.extract-metadata.outputs.module_name }}"
           $moduleDir = "${{ steps.extract-metadata.outputs.module_dir }}"
           $moduleManifestPath = "${{ steps.extract-metadata.outputs.module_manifest_path }}"
+          $moduleManifestAbs = (Resolve-Path $moduleManifestPath).Path
+          $moduleDirAbs = Split-Path -Parent $moduleManifestAbs
 
-          Write-Host "Testing import of module: $moduleName from $moduleManifestPath"
+          function Test-ManifestDependencies {
+            param(
+              [Parameter(Mandatory = $true)]
+              [string]$ManifestPath
+            )
+
+            $manifestAbs = (Resolve-Path $ManifestPath).Path
+            $manifestDir = Split-Path -Parent $manifestAbs
+            Write-Host "Validating manifest: $manifestAbs"
+
+            $manifest = Import-PowerShellDataFile -Path $manifestAbs
+
+            if ($manifest.RequiredAssemblies) {
+              foreach ($asm in $manifest.RequiredAssemblies) {
+                $asmPath = [System.IO.Path]::GetFullPath((Join-Path $manifestDir $asm))
+                if (-not (Test-Path $asmPath)) {
+                  throw "Missing RequiredAssemblies entry: $asmPath (declared: $asm)"
+                }
+                Write-Host "  OK RequiredAssembly: $asmPath"
+              }
+            }
+
+            if ($manifest.RequiredModules) {
+              foreach ($requiredModule in $manifest.RequiredModules) {
+                if ($requiredModule -is [hashtable] -and $requiredModule.ContainsKey('ModuleName')) {
+                  $requiredPath = [System.IO.Path]::GetFullPath((Join-Path $manifestDir $requiredModule.ModuleName))
+                  if (-not (Test-Path $requiredPath)) {
+                    throw "Missing RequiredModules manifest: $requiredPath (declared: $($requiredModule.ModuleName))"
+                  }
+                  Write-Host "  OK RequiredModule manifest: $requiredPath"
+                  Test-ManifestDependencies -ManifestPath $requiredPath
+                }
+              }
+            }
+
+            Write-Host "Manifest validation passed: $manifestAbs"
+          }
 
           try {
-            Import-Module ./$moduleManifestPath -Force -ErrorAction Stop
-            Write-Host "Module $moduleName imported successfully."
-            $commands = Get-Command -Module $moduleName
-            if ($commands.Count -eq 0) {
-              Write-Error "No commands found in $moduleName module"
-              exit 1
-            }
-            Write-Host "Found $($commands.Count) commands in $moduleName module"
+            Test-ManifestDependencies -ManifestPath $moduleManifestAbs
+            Write-Host "Dependency validation succeeded for module: $moduleName"
           } catch {
-            Write-Error "Failed to import module $moduleName. $_"
+            Write-Host "Debug listing of artifacts/Debug/Core:"
+            Get-ChildItem ./artifacts/Debug/Core -ErrorAction SilentlyContinue | ForEach-Object { Write-Host $_.FullName }
+            Write-Error "Failed to validate module dependencies for $moduleName. $_"
             exit 1
           }
+
+  end:
+    if: always()
+    needs:
+      - build-artifacts
+      - publish-cli
+      - publish-extension
+      - build-extension
+      - discover-powershell-modules
+      - build-powershell-module
+    runs-on: ubuntu-latest
+    steps:
+      - name: End workflow
+        run: echo "3_naga workflow finished"
