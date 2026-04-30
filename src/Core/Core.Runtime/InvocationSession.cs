@@ -74,6 +74,7 @@ internal partial class InvocationSession : IInvocationSession
     public void Process()
     {
         IDisposable? previousScope = loggingScope;
+        IDisposable? channelScope = null;
         try
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
@@ -85,7 +86,8 @@ internal partial class InvocationSession : IInvocationSession
                 SingleWriter = false
             });
             OutputStreamAdapter channelAdapter = new OutputStreamAdapter(GetChannelStreams(), cancellationToken);
-            loggingScope = ScopedLoggingService.UseScope(channelAdapter);
+            channelScope = ScopedLoggingService.UseScope(channelAdapter);
+            loggingScope = channelScope;
             ProcessorOutputWriter = async (value, _) => await OutputChannel.Writer.WriteAsync(new OutputObject(value), Token);
 
             /// <summary>
@@ -154,7 +156,7 @@ internal partial class InvocationSession : IInvocationSession
             // Always restore the session logger back to the original output adapter.
             // Dispose() signals SessionDisposed, and that signal must not write into the
             // closed channel-backed adapter left behind by Process().
-            loggingScope.Dispose();
+            channelScope?.Dispose();
             loggingScope = previousScope ?? ScopedLoggingService.UseScope(outputStreamAdapter);
         }
     }
