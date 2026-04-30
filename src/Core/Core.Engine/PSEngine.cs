@@ -73,10 +73,10 @@
 //             });
 
 //             // Create context with channel-based output handler
-//             ICommandContext commandContext = CreateCommandContext(outputChannel.Writer);
+//             IProcessorContext commandContext = CreateProcessorContext(outputChannel.Writer);
 
 //             // Start worker thread for command execution
-//             Task executeCommandTask = ExecuteCommandAsync(GetCommand(invocation).Init(commandContext), outputChannel.Writer, cancellationToken);
+//             Task executeCommandTask = ExecuteProcessorAsync(GetProcessor(invocation).Init(commandContext), outputChannel.Writer, cancellationToken);
 
 //             // Pump the channel on the caller's thread (runspace-affine)
 //             ChannelReader<object> reader = outputChannel.Reader;
@@ -97,10 +97,10 @@
 //         /// Each command execution gets its own isolated context.
 //         /// </summary>
 //         /// <param name="outputWriter">The channel writer for this invocation's output.</param>
-//         private ICommandContext CreateCommandContext(ChannelWriter<object> outputWriter)
+//         private IProcessorContext CreateProcessorContext(ChannelWriter<object> outputWriter)
 //         {
 //             AuthContext authContext = GetAuthContext();
-//             ICommandAuthHandler commandAuthHandler = new CommandAuthHandler
+//             IAuthHandler commandAuthHandler = new AuthHandler
 //             {
 //                 AuthContext = new AuthContext
 //                 {
@@ -112,21 +112,21 @@
 //             };
 
 //             // Create output handler that writes to the per-invocation channel
-//             ICommandOutputHandler commandOutputHandler = new CommandOutputHandler
+//             IOutputHandler commandOutputHandler = new OutputHandler
 //             {
 //                 WriteOutput = async (value, ct) => await outputWriter.WriteAsync(value, ct)
 //             };
-//             ICommandTelemetryHandler commandTelemetryHandler = new CommandTelemetryHandler
+//             ITelemetryHandler commandTelemetryHandler = new TelemetryHandler
 //             {
 //                 StartActivity = StartActivity
 //             };
 
 //             IRuntimeHttpPipeline httpPipeline = new HttpPipeline(new HttpClientFactory(_httpClient));
-//             ICommandContext context = new CommandContext
+//             IProcessorContext context = new ProcessorContext
 //             {
-//                 CommandOutputHandler = commandOutputHandler,
-//                 CommandAuthHandler = commandAuthHandler,
-//                 CommandTelemetryHandler = commandTelemetryHandler,
+//                 OutputHandler = commandOutputHandler,
+//                 AuthHandler = commandAuthHandler,
+//                 TelemetryHandler = commandTelemetryHandler,
 //                 HttpPipeline = httpPipeline.Prepend(commandAuthHandler.SendAsync)
 //             };
 //             return context;
@@ -135,13 +135,13 @@
 //         /// <summary>
 //         /// Executes the command on a worker thread, writing output to the channel.
 //         /// </summary>
-//         private async Task ExecuteCommandAsync(IProcessor command, ChannelWriter<object> outputWriter, CancellationToken cancellationToken = default)
+//         private async Task ExecuteProcessorAsync(IProcessor processor, ChannelWriter<object> outputWriter, CancellationToken cancellationToken = default)
 //         {
 //             await Task.Run(async () =>
 //             {
 //                 try
 //                 {
-//                     await command.ProcessAsync();
+//                     await processor.ProcessAsync();
 //                 }
 //                 finally
 //                 {
@@ -154,10 +154,10 @@
 //         /// <summary>
 //         /// Gets a command processor for the given invocation.
 //         /// <para><b>Thread Safety:</b> Extension indices are lazily cached with guaranteed single initialization.
-//         /// <see cref="IExtensionIndex.GetCommandMetaData"/> is thread-safe as implementations use
+//         /// <see cref="IExtensionIndex.GetProcessorMetaData"/> is thread-safe as implementations use
 //         /// read-only dictionaries populated during construction.</para>
 //         /// </summary>
-//         public IProcessor GetCommand(ICommandInvocation invocation)
+//         public IProcessor GetProcessor(ICommandInvocation invocation)
 //         {
 //             // Lazy<T> ensures the factory runs exactly once per extension, even under contention.
 //             // Without Lazy, GetOrAdd's factory may execute multiple times (only one result stored).
@@ -173,10 +173,10 @@
 //                 })
 //             ).Value;
 
-//             // Thread-safe: ExtensionIndex.GetCommandMetaData only reads from dictionaries
+//             // Thread-safe: ExtensionIndex.GetProcessorMetaData only reads from dictionaries
 //             // that are populated in constructor and never modified thereafter.
-//             ICommandMetadata commandMetadata = extensionIndex.GetCommandMetadata(invocation.CommandName, ClientType);
-//             WriteVerbose($"Resolved command '{invocation.CommandName}' to type '{commandMetadata.CommandType.FullName}'. Creating instance...");
+//             ICommandMetadata commandMetadata = extensionIndex.GetProcessorMetadata(invocation.CommandName, ClientType);
+//             WriteVerbose($"Resolved command '{invocation.CommandName}' to type '{commandMetadata.ProcessorType.FullName}'. Creating instance...");
 //             // Each call creates a new command instance - no shared state
 //             IProcessor instance = commandMetadata.GetInstance();
 //             invocation.Parameters.ToList().ForEach(p => instance.SetProperty(p.Key, p.Value));

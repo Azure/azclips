@@ -10,8 +10,7 @@ public static class DIRegisterExtensions
     /// </summary>
     public static IServiceCollection RegisterAssemblyLoadingServices(this IServiceCollection services)
     {
-        services.AddSingleton<IExtensionLoader, BuiltinExtensionLoader>();
-        services.AddSingleton<IExtensionLoader, MultiVersionExtensionLoader>();
+        services.AddSingleton<IAssemblyLoadingProvider, DefaultAssemblyLoadingProvider>();
         services.AddSingleton<IAssemblyLoadingService, AssemblyLoadingService>();
         return services;
     }

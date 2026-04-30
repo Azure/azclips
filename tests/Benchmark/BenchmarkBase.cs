@@ -50,19 +50,3 @@ public abstract class BenchmarkBase
 
 
 }
-
-/// <summary>
-/// Simple IEventListener implementation for benchmarks.
-/// </summary>
-public class BenchmarkEventListener : IEventListener
-{
-    public CancellationToken Token => CancellationToken.None;
-    public Action Cancel => () => { };
-    public StartActivityDelegate StartActivity { get; set; } = (name, kind) => null!;
-
-    public Task Signal(string id, CancellationToken token, Func<object> createMessage)
-    {
-        // No-op for benchmarks
-        return Task.CompletedTask;
-    }
-}
