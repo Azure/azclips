@@ -46,7 +46,8 @@ namespace Core.Engine
             session.GetExtensionVersion = () => string.Empty;
             session.LoadAssembly = assemblyLoadingService.LoadExtension;
             session.BindProcessor = argumentParsingService.BindArgumentsToProcessor;
-            session.CreateProcessorContext = s => CreateProcessorContext(s, GetOption());
+            session.Option = GetOption();
+            session.CreateProcessorContext = s => CreateProcessorContext(s);
             session.CacheGetOrAdd = (name, version, getIndex) => CacheGetOrAdd(name, version, getIndex);
             return session;
         }
@@ -58,7 +59,7 @@ namespace Core.Engine
 
         private IExtensionIndex CacheGetOrAdd(string name, string version, Func<IExtensionIndex> getIndex)
         {
-            int configuredCacheSize = configurationService.GetConfiguration<CoreOptions>().Engine.ExtensionIndexCacheSize;
+            int configuredCacheSize = GetOption().Engine.ExtensionIndexCacheSize;
             LFUCache<Lazy<IExtensionIndex>> cache;
 
             lock (_extensionIndexCacheLock)
@@ -83,7 +84,7 @@ namespace Core.Engine
         /// Creates a new processor context for this invocation with channel-based output.
         /// Each processor execution gets its own isolated context.
         /// </summary>
-        private async Task<ProcessorContext> CreateProcessorContext(InvocationSession session, CoreOptions currentOptions)
+        private async Task<ProcessorContext> CreateProcessorContext(InvocationSession session)
         {
             AuthContext authContext = await authContextService.GetCurrentContextAsync() ?? new AuthContext(TenantId: "", SubscriptionId: "");
             IAuthHandler authHandler = new AuthHandler
@@ -101,8 +102,8 @@ namespace Core.Engine
 
             IRuntimeHttpPipeline httpPipeline = new HttpPipeline(
                 new HttpClientFactory(httpClient),
-                currentOptions.Http.MaxRetries,
-                currentOptions.Http.MaxRetriesFor429);
+                session.Option.Http.MaxRetries,
+                session.Option.Http.MaxRetriesFor429);
             ProcessorContext context = new ProcessorContext
             (
                 HttpPipeline: httpPipeline.Prepend(authHandler.SendAsync),
