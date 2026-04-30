@@ -44,6 +44,13 @@
 - Commits: Use Conventional Commits where possible, e.g., `feat(auth): add token validator` or `fix(core): null check in mapper`
 - PRs: Include a clear description, link related issues, list breaking changes, and add test coverage for new behavior. Keep PRs focused and small
 
+## Error Handling
+- **ALL ERRORS MUST BE DEALT WITH AND SURFACED — never ever swallowed silently.**
+- No empty `catch { }` or `catch (Exception) { }` that hides the failure.
+- Catching is allowed only when you (a) log/print the error with full context (including stack trace where useful), or (b) translate it into a typed result/exit code that the caller can act on.
+- Process exit codes alone are not "surfacing" — print the diagnostic to stderr before returning a non-zero code.
+- Prefer `--verbose`/debug flags that show the underlying exception over hiding it by default.
+
 ## Security & Configuration Tips
 - SDK pinned via `global.json`; ensure your local `dotnet` matches
 - Avoid committing secrets; use environment variables or user secrets for local dev

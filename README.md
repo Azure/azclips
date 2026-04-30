@@ -143,3 +143,75 @@ dotnet test tests/Cli.Tests/Cli.Tests.csproj
 # Run tests with coverage
 dotnet test --collect:"XPlat Code Coverage"
 ```
+
+---
+
+## Tab Autocomplete (Experimental)
+
+> **Status:** experimental. **Shells:** Bash only. **Activation:** Tab.
+>
+> The Tab-key activation is a temporary mechanism while the design is being
+> validated. The trigger key is expected to change in a future iteration.
+
+`azv2` ships with an optional AI-powered Tab autocomplete. When the user
+presses `<Tab>` after `azv2`, an interactive menu appears with suggested
+next tokens (subcommands, options, values).
+
+### How it works
+
+- Autocomplete is provided by a **separate executable**, [`src/Autocomplete`](src/Autocomplete) → `azv2-autocomplete`,
+  invoked directly by the Bash completion hook. It does **not** start `azv2` and never executes commands.
+- It uses a **dedicated AI agent** ([`src/Autocomplete/Agent/AutocompleteAgent.cs`](src/Autocomplete/Agent/AutocompleteAgent.cs))
+  configured separately from the main command agent — typically a smaller, lower-latency
+  model — so completion suggestions stay fast and cheap and cannot accidentally
+  use the heavier command-agent deployment.
+- The agent is configured via [`src/Autocomplete/.env`](src/Autocomplete/.env) using
+  `AZURE_OPENAI_AUTOCOMPLETE_ENDPOINT`, `AZURE_OPENAI_AUTOCOMPLETE_API_KEY`,
+  and `AZURE_OPENAI_AUTOCOMPLETE_DEPLOYMENT` (no fallback to the main `AZURE_OPENAI_*` variables).
+- A spinner is rendered to `/dev/tty` while the model is thinking; the menu
+  replaces it once suggestions arrive.
+
+### Install
+
+```bash
+# Build the helper
+cd src/Autocomplete
+dotnet build -c Release
+
+# Configure the autocomplete agent (separate from the main one)
+cp .env.example .env
+# edit .env to point to your Azure OpenAI resource and a fast deployment
+# (e.g. gpt-4.1-mini)
+
+# Install the Bash hook
+bash Shell/install_azv2_autocomp.sh
+source ~/.bashrc
+```
+
+Then in a Bash shell:
+
+```bash
+azv2 <Tab>
+azv2 group <Tab>
+```
+
+### Uninstall
+
+```bash
+bash src/Autocomplete/Shell/uninstall_azv2_autocomp.sh
+source ~/.bashrc
+```
+
+### Tuning
+
+| Environment variable                  | Default | Purpose                                |
+| ------------------------------------- | ------- | -------------------------------------- |
+| `AZV2_AUTOCOMPLETE_TIMEOUT_MS`        | 10000   | Hard cap on the LLM call.              |
+| `AZV2_AUTOCOMPLETE_MAX_SUGGESTIONS`   | 12      | Maximum menu items.                    |
+| `AZV2_AUTOCOMPLETE_MAX_OUTPUT_TOKENS` | 256     | LLM output token cap.                  |
+
+### Limitations
+
+- Bash only. PowerShell, Zsh, and Fish are not yet supported.
+- Tab activation is provisional; menu UX may move to a different trigger.
+- Requires a network connection to Azure OpenAI.

@@ -24,31 +24,27 @@ internal static class Program
         {
             CompletionRequest request = ParseArgs(args);
 
-            AutocompleteAgent? agent = AutocompleteAgent.TryCreate();
-            if (agent == null)
-            {
-                return 1;
-            }
+            AutocompleteAgent agent = await AutocompleteAgent.CreateAsync().ConfigureAwait(false);
 
             using var cts = new CancellationTokenSource(AgentTimeout);
 
-            List<SuggestionItem> items;
-            try
+            string userPayload = System.Text.Json.JsonSerializer.Serialize(request);
+
+            // Show a spinner while waiting for the LLM. Written to /dev/tty so it
+            // appears to the user even though stdout is captured by bash COMPREPLY.
+            string responseText;
+            await using (Spinner.Start())
             {
-                items = await agent.GetSuggestionsAsync(request, cts.Token).ConfigureAwait(false);
+                responseText = await agent.RunAsync(userPayload, cts.Token).ConfigureAwait(false);
             }
-            catch (OperationCanceledException)
-            {
-                return 1;
-            }
-            catch (Exception)
-            {
-                return 1;
-            }
+
+            List<SuggestionItem> items = SuggestionParser.Parse(responseText, request.Prefix);
 
             if (items.Count == 0)
             {
-                return 1;
+                Console.Error.WriteLine("azv2-autocomplete: no suggestions returned by model.");
+                Console.Error.WriteLine($"  raw response: {Truncate(responseText, 500)}");
+                return 2;
             }
 
             int max = GetMaxSuggestions();
@@ -65,17 +61,34 @@ internal static class Program
 
             if (string.IsNullOrEmpty(selected))
             {
-                return 1;
+                // User cancelled the menu — not an error.
+                return 3;
             }
 
             Console.Write(selected);
             return 0;
         }
-        catch (Exception)
+        catch (OperationCanceledException ex)
         {
+            Console.Error.WriteLine($"azv2-autocomplete: timed out after {AgentTimeout.TotalMilliseconds:F0} ms.");
+            Console.Error.WriteLine($"  {ex.Message}");
+            return 4;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"azv2-autocomplete: {ex.GetType().Name}: {ex.Message}");
+            Console.Error.WriteLine(ex.StackTrace);
+            if (ex.InnerException != null)
+            {
+                Console.Error.WriteLine($"  inner: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
+            }
             return 1;
         }
     }
+
+    private static string Truncate(string s, int max)
+        => string.IsNullOrEmpty(s) ? string.Empty : (s.Length <= max ? s : s.Substring(0, max) + "...");
+
 
     private static CompletionRequest ParseArgs(string[] args)
     {
@@ -115,7 +128,7 @@ internal static class Program
             .Split(' ', StringSplitOptions.RemoveEmptyEntries)
             .ToList();
 
-        string completionType = ClassifyCompletion(tokens, prefix, line);
+        string completionType = CompletionClassifier.Classify(tokens, prefix, line);
 
         return new CompletionRequest
         {
@@ -126,34 +139,6 @@ internal static class Program
             Tokens = tokens,
             CompletionType = completionType,
         };
-    }
-
-    private static string ClassifyCompletion(List<string> tokens, string prefix, string line)
-    {
-        if (tokens.Count <= 1)
-        {
-            return "command";
-        }
-
-        string lastToken = tokens[^1];
-        bool endsInSpace = line.EndsWith(' ');
-
-        if (lastToken.StartsWith("--", StringComparison.Ordinal) && endsInSpace)
-        {
-            return "value";
-        }
-
-        if (prefix.StartsWith("--", StringComparison.Ordinal) || prefix.StartsWith('-'))
-        {
-            return "option";
-        }
-
-        if (tokens.Count == 2)
-        {
-            return "subcommand";
-        }
-
-        return "unknown";
     }
 
     private static int GetMaxSuggestions()
@@ -173,6 +158,6 @@ internal static class Program
         {
             return value;
         }
-        return 1500;
+        return 10000;
     }
 }

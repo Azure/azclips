@@ -1,6 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <ExtName>Core</ExtName>
+    <!--
+      Suppress NU1902 (known vulnerability advisory) for the dev-only Zipkin
+      exporter. Upgrading the OpenTelemetry stack here is owned by another team;
+      tracked separately. Scope is intentionally narrow: only this project.
+    -->
+    <NoWarn>$(NoWarn);NU1902</NoWarn>
   </PropertyGroup>
 
   <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />

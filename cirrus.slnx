@@ -24,6 +24,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Cli.Tests/Cli.Tests.csproj" />
+    <Project Path="tests/Autocomplete.Tests/Autocomplete.Tests.csproj" />
     <Project Path="tests/Benchmark/Benchmark.csproj" />
     <Project Path="tests/Common/Tests.Common.csproj" />
   </Folder>
