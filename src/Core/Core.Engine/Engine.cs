@@ -28,11 +28,10 @@ namespace Core.Engine
         IArgumentParsingService argumentParsingService,
         IConfigurationService configurationService) : IEngine
     {
+        private const int cacheSize = 512;
         // Extension indices are cached with Lazy<T> to ensure single initialization per extension
         // even under concurrent access. The factory runs exactly once per key.
         private LFUCache<Lazy<IExtensionIndex>>? _extensionIndices;
-        private int? _extensionIndexCacheSize;
-        private readonly object _extensionIndexCacheLock = new();
         private bool _disposed;
 
         public IInvocationSession InvokeSession(CommandInvocation invocation, OutputStreams outputStreams, CancellationToken cancellationToken = default)
@@ -59,22 +58,9 @@ namespace Core.Engine
 
         private IExtensionIndex CacheGetOrAdd(string name, string version, Func<IExtensionIndex> getIndex)
         {
-            int configuredCacheSize = GetOption().Engine.ExtensionIndexCacheSize;
-            LFUCache<Lazy<IExtensionIndex>> cache;
-
-            lock (_extensionIndexCacheLock)
-            {
-                if (_extensionIndices is null || _extensionIndexCacheSize != configuredCacheSize)
-                {
-                    _extensionIndices = new(configuredCacheSize);
-                    _extensionIndexCacheSize = configuredCacheSize;
-                }
-
-                cache = _extensionIndices;
-            }
-
+            _extensionIndices ??= new(cacheSize);
             string key = string.IsNullOrEmpty(version) ? name : $"{name}-{version}";
-            return cache.GetOrAdd(
+            return _extensionIndices.GetOrAdd(
                     key,
                     _ => new Lazy<IExtensionIndex>(getIndex)
                 ).Value;
