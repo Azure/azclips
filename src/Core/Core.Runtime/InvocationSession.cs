@@ -81,7 +81,7 @@ internal partial class InvocationSession : IInvocationSession
             SingleWriter = false
         });
         OutputStreamAdapter channelAdapter = new OutputStreamAdapter(GetChannelStreams(), cancellationToken);
-        loggingScope = ScopedLoggingService.UseScope(channelAdapter);
+        using var channelScope = ScopedLoggingService.UseScope(channelAdapter);
         ProcessorOutputWriter = async (value, _) => await OutputChannel.Writer.WriteAsync(new OutputObject(value), Token);
 
         /// <summary>
@@ -144,7 +144,6 @@ internal partial class InvocationSession : IInvocationSession
             // before we leave Process().
             executeProcessorTask.GetAwaiter().GetResult();
         }
-        loggingScope = ScopedLoggingService.UseScope(outputStreamAdapter);
     }
 
     private void WriteChannelOutput(object? output, OutputStreamAdapter outputStreamAdapter)
