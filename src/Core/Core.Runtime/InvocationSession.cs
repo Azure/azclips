@@ -85,28 +85,28 @@ internal partial class InvocationSession : IInvocationSession
         using var channelScope = ScopedLoggingService.UseScope(channelAdapter);
         ProcessorOutputWriter = async (value, _) => await OutputChannel.Writer.WriteAsync(new OutputObject(value), Token);
 
-            /// <summary>
-            /// Executes the processor asynchronously, writing output to the channel.
-            /// <para>No <see cref="Task.Run"/> wrapper — <c>ProcessAsync</c> is truly async,
-            /// so the first real await yields back to the caller and continuations resume on
-            /// the thread pool (no <see cref="SynchronizationContext"/> is present).
-            /// The <c>finally</c> guarantees the channel is completed even on cancellation
-            /// or exception, preventing the reader pump from hanging.</para>
-            /// </summary>
-            async Task ExecuteProcessorAsync()
+        /// <summary>
+        /// Executes the processor asynchronously, writing output to the channel.
+        /// <para>No <see cref="Task.Run"/> wrapper — <c>ProcessAsync</c> is truly async,
+        /// so the first real await yields back to the caller and continuations resume on
+        /// the thread pool (no <see cref="SynchronizationContext"/> is present).
+        /// The <c>finally</c> guarantees the channel is completed even on cancellation
+        /// or exception, preventing the reader pump from hanging.</para>
+        /// </summary>
+        async Task ExecuteProcessorAsync()
+        {
+            try
             {
-                try
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    await (await GetProcessor()).ProcessAsync();
-                }
-                finally
-                {
-                    // Signal completion to the reader — must run regardless of success,
-                    // failure, or cancellation to unblock the channel pump in Process().
-                    OutputChannel.Writer.Complete();
-                }
+                cancellationToken.ThrowIfCancellationRequested();
+                await (await GetProcessor()).ProcessAsync();
             }
+            finally
+            {
+                // Signal completion to the reader — must run regardless of success,
+                // failure, or cancellation to unblock the channel pump in Process().
+                OutputChannel.Writer.Complete();
+            }
+        }
         Task executeProcessorTask = ExecuteProcessorAsync();
 
         // Sync-over-async channel pump — intentional, not an anti-pattern here.
@@ -236,7 +236,7 @@ internal partial class InvocationSession : IInvocationSession
         {
             if (disposing)
             {
-                this.Signal(Events.SessionDisposed, CancellationToken.None, $"Session {Id} disposed").GetAwaiter().GetResult();
+                this.Signal(Events.SessionDisposed, $"Session {Id} disposed").GetAwaiter().GetResult();
 
                 loggingScope.Dispose();
             }
