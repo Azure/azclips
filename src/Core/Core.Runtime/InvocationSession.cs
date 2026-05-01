@@ -73,22 +73,17 @@ internal partial class InvocationSession : IInvocationSession
     /// <exception cref="ObjectDisposedException">Thrown if the engine has been disposed.</exception>
     public void Process()
     {
-        IDisposable? previousScope = loggingScope;
-        IDisposable? channelScope = null;
-        try
-        {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-            cancellationToken.ThrowIfCancellationRequested();
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        cancellationToken.ThrowIfCancellationRequested();
 
-            OutputChannel = Channel.CreateUnbounded<object>(new UnboundedChannelOptions
-            {
-                SingleReader = true,
-                SingleWriter = false
-            });
-            OutputStreamAdapter channelAdapter = new OutputStreamAdapter(GetChannelStreams(), cancellationToken);
-            channelScope = ScopedLoggingService.UseScope(channelAdapter);
-            loggingScope = channelScope;
-            ProcessorOutputWriter = async (value, _) => await OutputChannel.Writer.WriteAsync(new OutputObject(value), Token);
+        OutputChannel = Channel.CreateUnbounded<object>(new UnboundedChannelOptions
+        {
+            SingleReader = true,
+            SingleWriter = false
+        });
+        OutputStreamAdapter channelAdapter = new OutputStreamAdapter(GetChannelStreams(), cancellationToken);
+        using var channelScope = ScopedLoggingService.UseScope(channelAdapter);
+        ProcessorOutputWriter = async (value, _) => await OutputChannel.Writer.WriteAsync(new OutputObject(value), Token);
 
             /// <summary>
             /// Executes the processor asynchronously, writing output to the channel.
@@ -112,52 +107,43 @@ internal partial class InvocationSession : IInvocationSession
                     OutputChannel.Writer.Complete();
                 }
             }
-            Task executeProcessorTask = ExecuteProcessorAsync();
+        Task executeProcessorTask = ExecuteProcessorAsync();
 
-            // Sync-over-async channel pump — intentional, not an anti-pattern here.
-            //
-            // WHY: PowerShell's $PSCmdlet.WriteObject (and the rest of the Cmdlet API)
-            // has strict thread-affinity: it must execute on the thread that owns the
-            // current runspace / pipeline. An async Process() would let continuations
-            // resume on arbitrary thread-pool threads, causing PSInvalidOperationException.
-            //
-            // PATTERN: The worker task (ExecuteProcessorAsync) runs on a thread-pool thread
-            // and writes results into the channel. This loop blocks the *caller's* thread
-            // (the runspace thread) to read from the channel and invoke the outputDelegate
-            // in the correct synchronization context. This is the standard "sync shell
-            // over async core" bridge used by PowerShell hosts.
-            //
-            // AsTask().GetAwaiter().GetResult() — bridges ValueTask to sync; safe here
-            // because we are the sole consumer (SingleReader) and the channel is unbounded.
-            // outputStreamDelegate(...).GetAwaiter().GetResult() — ensures WriteObject runs on
-            // the runspace thread before we read the next item.
-            ChannelReader<object> reader = OutputChannel.Reader;
-            try
+        // Sync-over-async channel pump — intentional, not an anti-pattern here.
+        //
+        // WHY: PowerShell's $PSCmdlet.WriteObject (and the rest of the Cmdlet API)
+        // has strict thread-affinity: it must execute on the thread that owns the
+        // current runspace / pipeline. An async Process() would let continuations
+        // resume on arbitrary thread-pool threads, causing PSInvalidOperationException.
+        //
+        // PATTERN: The worker task (ExecuteProcessorAsync) runs on a thread-pool thread
+        // and writes results into the channel. This loop blocks the *caller's* thread
+        // (the runspace thread) to read from the channel and invoke the outputDelegate
+        // in the correct synchronization context. This is the standard "sync shell
+        // over async core" bridge used by PowerShell hosts.
+        //
+        // AsTask().GetAwaiter().GetResult() — bridges ValueTask to sync; safe here
+        // because we are the sole consumer (SingleReader) and the channel is unbounded.
+        // outputStreamDelegate(...).GetAwaiter().GetResult() — ensures WriteObject runs on
+        // the runspace thread before we read the next item.
+        ChannelReader<object> reader = OutputChannel.Reader;
+        try
+        {
+            while (reader.WaitToReadAsync(cancellationToken).AsTask().GetAwaiter().GetResult())
             {
-                while (reader.WaitToReadAsync(cancellationToken).AsTask().GetAwaiter().GetResult())
+                while (reader.TryRead(out var output))
                 {
-                    while (reader.TryRead(out var output))
-                    {
-                        WriteChannelOutput(output, outputStreamAdapter);
-                    }
+                    WriteChannelOutput(output, outputStreamAdapter);
                 }
-            }
-            finally
-            {
-                // Always observe the worker task — even if the pump was interrupted by
-                // cancellation or an exception. This prevents unobserved task exceptions
-                // and ensures the worker's finally block (OutputChannel.Writer.Complete()) runs
-                // before we leave Process().
-                executeProcessorTask.GetAwaiter().GetResult();
             }
         }
         finally
         {
-            // Always restore the session logger back to the original output adapter.
-            // Dispose() signals SessionDisposed, and that signal must not write into the
-            // closed channel-backed adapter left behind by Process().
-            channelScope?.Dispose();
-            loggingScope = previousScope ?? ScopedLoggingService.UseScope(outputStreamAdapter);
+            // Always observe the worker task — even if the pump was interrupted by
+            // cancellation or an exception. This prevents unobserved task exceptions
+            // and ensures the worker's finally block (OutputChannel.Writer.Complete()) runs
+            // before we leave Process().
+            executeProcessorTask.GetAwaiter().GetResult();
         }
     }
 
