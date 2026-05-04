@@ -8,14 +8,21 @@ using Microsoft.Extensions.Configuration;
 
 namespace Core.Configuration.Implementation;
 
-public sealed class ConfigurationService : IConfigurationService
+public sealed class ConfigurationService(
+    Core.Configuration.Abstractions.IConfigurationProvider provider,
+    IConfigurationSchema schema,
+    IConfigurationValidator validator) : IConfigurationService
 {
     private readonly JsonSerializerOptions _jsonSerializerOptions = new()
     {
         WriteIndented = true
     };
 
-    private readonly JsonSerializerOptions _defaultFlattenSerializerOptions;
+    private readonly JsonSerializerOptions _defaultFlattenSerializerOptions = new()
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
 
     private readonly IReadOnlyDictionary<Type, string> _sectionNames = new Dictionary<Type, string>
     {
@@ -28,32 +35,13 @@ public sealed class ConfigurationService : IConfigurationService
         [typeof(DefaultsOptions)] = "defaults"
     };
 
-    private readonly Core.Configuration.Abstractions.IConfigurationProvider _provider;
-    private readonly IConfigurationSchema _schema;
-    private readonly IConfigurationValidator _validator;
-
-    public ConfigurationService(
-        Core.Configuration.Abstractions.IConfigurationProvider provider,
-        IConfigurationSchema schema,
-        IConfigurationValidator validator)
-    {
-        _provider = provider;
-        _schema = schema;
-        _validator = validator;
-
-        _defaultFlattenSerializerOptions = new JsonSerializerOptions(_jsonSerializerOptions)
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        };
-    }
-
     public T GetConfiguration<T>(string? key = null, T? defaultValue = null) where T : class, new()
     {
         var normalizedKey = string.IsNullOrWhiteSpace(key) ? null : CanonicalizeKnownKey(key);
 
         if (!string.IsNullOrWhiteSpace(normalizedKey))
         {
-            var keyValidation = _validator.ValidateKey(normalizedKey, force: true);
+            var keyValidation = validator.ValidateKey(normalizedKey, force: true);
             if (!keyValidation.IsValid)
             {
                 throw new ArgumentException(keyValidation.ErrorMessage, nameof(key));
@@ -62,7 +50,7 @@ public sealed class ConfigurationService : IConfigurationService
 
         var defaults = defaultValue ?? new T();
         var builder = new ConfigurationBuilder();
-        var configFilePath = _provider.GetConfigFilePath();
+        var configFilePath = provider.GetConfigFilePath();
 
         var defaultEntries = BuildDefaultEntries(defaults);
         if (defaultEntries.Count > 0)
@@ -106,48 +94,48 @@ public sealed class ConfigurationService : IConfigurationService
     public async Task SetConfigurationAsync(string key, object? value, bool force = false, CancellationToken cancellationToken = default)
     {
         var normalizedKey = CanonicalizeKnownKey(key);
-        var keyValidation = _validator.ValidateKey(normalizedKey, force);
+        var keyValidation = validator.ValidateKey(normalizedKey, force);
         if (!keyValidation.IsValid)
         {
             throw new ArgumentException(keyValidation.ErrorMessage, nameof(key));
         }
 
-        var valueValidation = _validator.ValidateValue(normalizedKey, value);
+        var valueValidation = validator.ValidateValue(normalizedKey, value);
         if (!valueValidation.IsValid)
         {
             throw new ArgumentException(valueValidation.ErrorMessage, nameof(value));
         }
 
         await using var lockStream = await AcquireMutationLockAsync(cancellationToken).ConfigureAwait(false);
-        var root = await _provider.ReadAsync(cancellationToken).ConfigureAwait(false);
+        var root = await provider.ReadAsync(cancellationToken).ConfigureAwait(false);
 
         RemoveLegacyFlatKey(root, normalizedKey);
         SetValue(root, normalizedKey, JsonSerializer.SerializeToNode(value, _jsonSerializerOptions));
 
-        await _provider.WriteAsync(root, cancellationToken).ConfigureAwait(false);
+        await provider.WriteAsync(root, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task DeleteConfigurationAsync(string key, bool force = false, CancellationToken cancellationToken = default)
     {
         var normalizedKey = CanonicalizeKnownKey(key);
-        var keyValidation = _validator.ValidateKey(normalizedKey, force);
+        var keyValidation = validator.ValidateKey(normalizedKey, force);
         if (!keyValidation.IsValid)
         {
             throw new ArgumentException(keyValidation.ErrorMessage, nameof(key));
         }
 
         await using var lockStream = await AcquireMutationLockAsync(cancellationToken).ConfigureAwait(false);
-        var root = await _provider.ReadAsync(cancellationToken).ConfigureAwait(false);
+        var root = await provider.ReadAsync(cancellationToken).ConfigureAwait(false);
 
         DeleteValue(root, normalizedKey);
         RemoveLegacyFlatKey(root, normalizedKey);
 
-        await _provider.WriteAsync(root, cancellationToken).ConfigureAwait(false);
+        await provider.WriteAsync(root, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<Dictionary<string, object?>> ListConfigurationAsync(bool includeDefaults = false, CancellationToken cancellationToken = default)
     {
-        var root = await _provider.ReadAsync(cancellationToken).ConfigureAwait(false);
+        var root = await provider.ReadAsync(cancellationToken).ConfigureAwait(false);
         var results = Flatten(root);
 
         if (!includeDefaults)
@@ -176,13 +164,13 @@ public sealed class ConfigurationService : IConfigurationService
         return entries.TryGetValue(key, out var value) ? value : null;
     }
 
-    public string GetConfigFilePath() => _provider.GetConfigFilePath();
+    public string GetConfigFilePath() => provider.GetConfigFilePath();
 
-    public IConfigurationSchema GetSchema() => _schema;
+    public IConfigurationSchema GetSchema() => schema;
 
     private async Task<FileStream> AcquireMutationLockAsync(CancellationToken cancellationToken)
     {
-        var lockPath = $"{_provider.GetConfigFilePath()}.lock";
+        var lockPath = $"{provider.GetConfigFilePath()}.lock";
         var directory = Path.GetDirectoryName(lockPath);
         if (!string.IsNullOrWhiteSpace(directory))
         {
@@ -247,7 +235,7 @@ public sealed class ConfigurationService : IConfigurationService
     private string CanonicalizeKnownKey(string key)
     {
         var normalizedKey = NormalizeKey(key);
-        return _schema.GetKeyMetadata(normalizedKey)?.Key ?? normalizedKey;
+        return schema.GetKeyMetadata(normalizedKey)?.Key ?? normalizedKey;
     }
 
     private static string NormalizeKey(string key)
