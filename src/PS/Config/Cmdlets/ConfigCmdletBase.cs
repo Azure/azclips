@@ -1,7 +1,6 @@
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
-using Core.Telemetry;
 
 namespace Microsoft.Azure.Cirrus.Cmdlets.Config;
 
@@ -39,9 +38,6 @@ public abstract class ConfigCmdletBase : PSCmdlet
     protected void ExecuteInvocation(Dictionary<string, object> parameters)
     {
         var commandName = MyInvocation.MyCommand.Name;
-        using var activity = CirrusServiceProvider
-            .GetRequiredService<ITelemetryService>()
-            .StartPowerShellActivity(commandName, MyInvocation.BoundParameters);
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
