@@ -1,0 +1,120 @@
+name: (4_releases) Create Release From 3_naga Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: GitHub Actions run ID from 3_naga.yml
+        required: true
+        type: string
+      release_tag:
+        description: Optional tag name (example v1.0.260504.1). Leave empty to auto-generate.
+        required: false
+        type: string
+
+env:
+  Artifact_Staging_Dir: release-artifacts
+  Release_Files_Dir: release-files
+
+jobs:
+  create-release-from-run:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate source run id
+        run: |
+          if ! [[ "${{ inputs.source_run_id }}" =~ ^[0-9]+$ ]]; then
+            echo "source_run_id must be numeric. Received: ${{ inputs.source_run_id }}"
+            exit 1
+          fi
+
+      - name: Resolve release tag
+        id: tag
+        run: |
+          if [ -n "${{ inputs.release_tag }}" ]; then
+            TAG="${{ inputs.release_tag }}"
+          else
+            TAG="v1.0.$(date +'%y%m%d').${{ github.run_number }}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Using tag: $TAG"
+
+      - name: Download artifacts from 3_naga run
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.source_run_id }}
+          repository: ${{ github.repository }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ env.Artifact_Staging_Dir }}
+
+      - name: Display downloaded artifact structure
+        run: ls -R "${{ env.Artifact_Staging_Dir }}"
+
+      - name: Prepare release artifacts
+        run: |
+          mkdir -p "${{ env.Release_Files_Dir }}"
+
+          copy_release_artifacts() {
+            local file_pattern="$1"
+            local path_pattern="$2"
+            echo "Searching for $file_pattern files matching pattern: $path_pattern"
+
+            local files=()
+            while IFS= read -r file; do
+              files+=("$file")
+            done < <(find "${{ env.Artifact_Staging_Dir }}" -name "$file_pattern" | grep -i "$path_pattern")
+
+            if [ ${#files[@]} -eq 0 ]; then
+              echo "  Warning: No $file_pattern files found matching pattern '$path_pattern'"
+              return 1
+            fi
+
+            for file in "${files[@]}"; do
+              echo "  Copying: $file"
+              cp "$file" "${{ env.Release_Files_Dir }}/"
+            done
+
+            echo "  Copied ${#files[@]} file(s)"
+            return 0
+          }
+
+          # Keep release outputs only.
+          copy_release_artifacts "*.msix" "Release-" || echo "Note: No Release MSIX packages found"
+          copy_release_artifacts "*.dll" "(Release)" || echo "Note: No Release extension DLLs found"
+
+          echo ""
+          echo "Prepared release files:"
+          ls -lah "${{ env.Release_Files_Dir }}"
+
+          if [ -z "$(ls -A "${{ env.Release_Files_Dir }}")" ]; then
+            echo "ERROR: No release artifacts found in source run ${{ inputs.source_run_id }}"
+            exit 1
+          fi
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: Release ${{ steps.tag.outputs.tag }}
+          body: |
+            Release generated from 3_naga run.
+
+            Source run ID: ${{ inputs.source_run_id }}
+            Triggered by: ${{ github.actor }}
+            Commit: ${{ github.sha }}
+
+            Artifacts included:
+            - MSIX Packages (Release build)
+            - Extension DLLs (Release build)
+          draft: false
+          prerelease: false
+          files: ${{ env.Release_Files_Dir }}/*
+          fail_on_unmatched_files: false
