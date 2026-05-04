@@ -11,7 +11,7 @@ on:
         required: false
         type: string
       release_tag:
-        description: Optional tag name (example v1.0.260504.1). Leave empty to auto-generate.
+        description: Optional SemVer tag (example v1.0.0-ci.20260504.1). Leave empty to auto-generate.
         required: false
         type: string
 
@@ -57,8 +57,35 @@ jobs:
           if [ -n "${{ inputs.release_tag }}" ]; then
             TAG="${{ inputs.release_tag }}"
           else
-            TAG="v1.0.$(date +'%y%m%d').${{ github.run_number }}"
+            VERSION_SOURCE_FILE="src/Extensions/Extension/Extensions.Extension.csproj"
+            BASE_VERSION="$(grep -oPm1 '(?<=<Version>)[^<]+' "$VERSION_SOURCE_FILE" || true)"
+
+            if [ -z "$BASE_VERSION" ]; then
+              VERSION_SOURCE_FILE="src/CLI/Core.Cli.csproj"
+              RAW_ASSEMBLY_VERSION="$(grep -oPm1 '(?<=<AssemblyVersion>)[^<]+' "$VERSION_SOURCE_FILE" || true)"
+              BASE_VERSION="$(echo "$RAW_ASSEMBLY_VERSION" | awk -F. '{ if (NF >= 3) { printf "%s.%s.%s", $1, $2, $3 } else { print $0 } }')"
+            fi
+
+            if [ -z "$BASE_VERSION" ]; then
+              echo "Unable to resolve base version from source files."
+              exit 1
+            fi
+
+            if [[ "$BASE_VERSION" == *-* ]]; then
+              TAG="v${BASE_VERSION}.ci.$(date +'%Y%m%d').${{ github.run_number }}"
+            else
+              TAG="v${BASE_VERSION}-ci.$(date +'%Y%m%d').${{ github.run_number }}"
+            fi
+
+            echo "Resolved base version '$BASE_VERSION' from $VERSION_SOURCE_FILE"
           fi
+
+          SEMVER_REGEX='^v?[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
+          if ! [[ "$TAG" =~ $SEMVER_REGEX ]]; then
+            echo "release_tag must be valid SemVer. Received: $TAG"
+            exit 1
+          fi
+
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "Using tag: $TAG"
 
