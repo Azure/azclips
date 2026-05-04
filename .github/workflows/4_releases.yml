@@ -16,7 +16,7 @@ on:
         type: string
 
 env:
-  Source_Run_Id_Default: "25311508992"
+  Source_Run_Id_Default: "25312848659"
   Artifact_Staging_Dir: release-artifacts
   Release_Files_Dir: release-files
 
@@ -131,6 +131,7 @@ jobs:
           # Keep release outputs only.
           copy_release_artifacts "*.msix" "Release-" || echo "Note: No Release MSIX packages found"
           copy_release_artifacts "*.tar.gz" "Release-linux-x64" || echo "Note: No Release Linux tarballs found"
+          copy_release_artifacts "*.nupkg" "Extension NuGet Package" || echo "Note: No Extension NuGet packages found"
 
           echo ""
           echo "Prepared release files:"
@@ -156,6 +157,7 @@ jobs:
             Artifacts included:
             - MSIX Packages (Release build)
             - Linux Tarballs (Release build)
+            - Extension NuGet Packages (Release build)
           draft: false
           prerelease: false
           files: ${{ env.Release_Files_Dir }}/*
