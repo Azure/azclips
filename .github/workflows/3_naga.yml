@@ -385,10 +385,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup PowerShell latest
-        shell: powershell
+      - name: Verify PowerShell runtime
+        shell: pwsh
         run: |
-          winget install --id Microsoft.PowerShell --source winget --disable-interactivity --accept-source-agreements
+          Write-Host "Using preinstalled PowerShell on windows-latest"
+          $PSVersionTable | Format-List
 
       - name: Extract Extension Metadata
         id: extract-metadata
