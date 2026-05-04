@@ -10,19 +10,19 @@ class PwdCommand : ISlashCommand
 
     public bool Execute(string? arg, CommandContext ctx)
     {
-        ctx.History.Add(new HistoryEntry(HistoryItemType.User, "pwd"));
+        ctx.AddHistory(new HistoryEntry(HistoryItemType.User, "pwd"));
 
         if (ctx.Mode == ShellMode.Local)
         {
-            ctx.History.Add(new HistoryEntry(HistoryItemType.Output, ctx.LocalCwd));
+            ctx.AddHistory(new HistoryEntry(HistoryItemType.Output, ctx.LocalCwd));
         }
         else
         {
-            ctx.History.Add(new HistoryEntry(HistoryItemType.Output, ctx.Vfs.CurrentPath));
-            ctx.History.Add(new HistoryEntry(HistoryItemType.Info, ctx.Vfs.GetResourceId()));
+            ctx.AddHistory(new HistoryEntry(HistoryItemType.Output, ctx.Vfs.CurrentPath));
+            ctx.AddHistory(new HistoryEntry(HistoryItemType.Info, ctx.Vfs.GetResourceId()));
         }
 
-        ctx.History.Add(new HistoryEntry(HistoryItemType.Separator, ""));
+        ctx.AddHistory(new HistoryEntry(HistoryItemType.Separator, ""));
         ctx.Invalidate?.Invoke();
         return true;
     }

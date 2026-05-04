@@ -20,9 +20,10 @@ class CopyCommand : ISlashCommand
 
         // Collect output lines from the last command (back to last User entry)
         var lines = new List<string>();
-        for (int i = ctx.History.Count - 1; i >= 0; i--)
+        var snapshot = ctx.GetHistorySnapshot();
+        for (int i = snapshot.Count - 1; i >= 0; i--)
         {
-            var entry = ctx.History[i];
+            var entry = snapshot[i];
             if (entry.Type == HistoryItemType.User || entry.Type == HistoryItemType.Separator)
             {
                 if (lines.Count > 0) break; // found the boundary
@@ -45,8 +46,8 @@ class CopyCommand : ISlashCommand
 
         if (lines.Count == 0)
         {
-            ctx.History.Add(new HistoryEntry(HistoryItemType.Info, "Nothing to copy."));
-            ctx.History.Add(new HistoryEntry(HistoryItemType.Separator, ""));
+            ctx.AddHistory(new HistoryEntry(HistoryItemType.Info, "Nothing to copy."));
+            ctx.AddHistory(new HistoryEntry(HistoryItemType.Separator, ""));
             ctx.Invalidate?.Invoke();
             return true;
         }
@@ -57,8 +58,8 @@ class CopyCommand : ISlashCommand
         var preview = lines.Count == 1
             ? (text.Length > 60 ? text[..57] + "..." : text)
             : $"{lines.Count} lines";
-        ctx.History.Add(new HistoryEntry(HistoryItemType.Success, $"Copied to clipboard: {preview}"));
-        ctx.History.Add(new HistoryEntry(HistoryItemType.Separator, ""));
+        ctx.AddHistory(new HistoryEntry(HistoryItemType.Success, $"Copied to clipboard: {preview}"));
+        ctx.AddHistory(new HistoryEntry(HistoryItemType.Separator, ""));
         ctx.Invalidate?.Invoke();
         return true;
     }

@@ -20,8 +20,8 @@ class ModeCommand : ISlashCommand
     public bool Execute(string? arg, CommandContext ctx)
     {
         _toggleMode();
-        ctx.History.Add(new HistoryEntry(HistoryItemType.Info, $"Switched to {_getMode()} mode"));
-        ctx.History.Add(new HistoryEntry(HistoryItemType.Separator, ""));
+        ctx.AddHistory(new HistoryEntry(HistoryItemType.Info, $"Switched to {_getMode()} mode"));
+        ctx.AddHistory(new HistoryEntry(HistoryItemType.Separator, ""));
         ctx.Invalidate?.Invoke();
         return true;
     }

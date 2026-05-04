@@ -31,11 +31,11 @@ class CdCommand : ISlashCommand
 
     private static bool ExecuteAzure(string? arg, CommandContext ctx)
     {
-        ctx.History.Add(new HistoryEntry(HistoryItemType.User, $"cd {arg ?? "/"}"));
+        ctx.AddHistory(new HistoryEntry(HistoryItemType.User, $"cd {arg ?? "/"}"));
         if (!ctx.VfsReady)
         {
-            ctx.History.Add(new HistoryEntry(HistoryItemType.Error, "Not authenticated. Run 'login' first."));
-            ctx.History.Add(new HistoryEntry(HistoryItemType.Separator, ""));
+            ctx.AddHistory(new HistoryEntry(HistoryItemType.Error, "Not authenticated. Run 'login' first."));
+            ctx.AddHistory(new HistoryEntry(HistoryItemType.Separator, ""));
             ctx.Invalidate?.Invoke();
             return true;
         }
@@ -43,9 +43,9 @@ class CdCommand : ISlashCommand
         {
             var error = await ctx.Vfs.CdAsync(arg ?? "/");
             if (error != null)
-                ctx.History.Add(new HistoryEntry(HistoryItemType.Error, error));
+                ctx.AddHistory(new HistoryEntry(HistoryItemType.Error, error));
             else
-                ctx.History.Add(new HistoryEntry(HistoryItemType.Info, ctx.Vfs.CurrentPath));
+                ctx.AddHistory(new HistoryEntry(HistoryItemType.Info, ctx.Vfs.CurrentPath));
             ctx.RefreshPrompt();
         });
         return true;
@@ -65,7 +65,7 @@ class CdCommand : ISlashCommand
 
     private static bool ExecuteLocal(string? arg, CommandContext ctx)
     {
-        ctx.History.Add(new HistoryEntry(HistoryItemType.User, $"cd {arg ?? "~"}"));
+        ctx.AddHistory(new HistoryEntry(HistoryItemType.User, $"cd {arg ?? "~"}"));
         var target = arg;
         if (string.IsNullOrEmpty(target) || target == "~")
             target = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
@@ -79,14 +79,14 @@ class CdCommand : ISlashCommand
         if (Directory.Exists(target))
         {
             ctx.SetLocalCwd(Path.GetFullPath(target));
-            ctx.History.Add(new HistoryEntry(HistoryItemType.Info, Path.GetFullPath(target)));
+            ctx.AddHistory(new HistoryEntry(HistoryItemType.Info, Path.GetFullPath(target)));
             ctx.RefreshPrompt();
         }
         else
         {
-            ctx.History.Add(new HistoryEntry(HistoryItemType.Error, $"Directory not found: {target}"));
+            ctx.AddHistory(new HistoryEntry(HistoryItemType.Error, $"Directory not found: {target}"));
         }
-        ctx.History.Add(new HistoryEntry(HistoryItemType.Separator, ""));
+        ctx.AddHistory(new HistoryEntry(HistoryItemType.Separator, ""));
         ctx.Invalidate?.Invoke();
         return true;
     }

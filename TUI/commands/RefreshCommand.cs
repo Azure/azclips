@@ -12,7 +12,7 @@ class RefreshCommand : ISlashCommand
 
     public bool Execute(string? arg, CommandContext ctx)
     {
-        ctx.History.Add(new HistoryEntry(HistoryItemType.User, $"refresh {arg ?? "all"}"));
+        ctx.AddHistory(new HistoryEntry(HistoryItemType.User, $"refresh {arg ?? "all"}"));
 
         var scope = (arg?.ToLowerInvariant()) switch
         {
@@ -23,8 +23,8 @@ class RefreshCommand : ISlashCommand
             _ => AzureVfs.RefreshScope.All,
         };
         ctx.Vfs.Refresh(scope);
-        ctx.History.Add(new HistoryEntry(HistoryItemType.Success, $"Cache refreshed: {scope}"));
-        ctx.History.Add(new HistoryEntry(HistoryItemType.Separator, ""));
+        ctx.AddHistory(new HistoryEntry(HistoryItemType.Success, $"Cache refreshed: {scope}"));
+        ctx.AddHistory(new HistoryEntry(HistoryItemType.Separator, ""));
         ctx.Invalidate?.Invoke();
         return true;
     }

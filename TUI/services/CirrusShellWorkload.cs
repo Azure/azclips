@@ -213,7 +213,7 @@ sealed class CirrusShellWorkload : IHex1bTerminalWorkloadAdapter
                     HandleDeleteWordBackward();
                     break;
                 case 0x0C: // Ctrl+L — clear history
-                    _state.History.Clear();
+                    _state.ClearHistory();
                     _state.OutputScrollOffset = 0;
                     _state.Invalidate?.Invoke();
                     break;

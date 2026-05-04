@@ -28,7 +28,8 @@ class AppState
     // UI state
     public string InputText { get; set; } = "";
     public int CursorPos { get; set; }
-    public List<HistoryEntry> History { get; } = new();
+    private readonly List<HistoryEntry> _history = new();
+    private readonly object _historyLock = new();
     public List<Suggestion> Suggestions { get; private set; } = new();
     public int SelectedSuggestion { get; set; }
     public int OutputScrollOffset { get; set; }
@@ -40,6 +41,31 @@ class AppState
     public Action? Invalidate { get; set; }
     public Action? RequestStop { get; set; }
     public bool FocusTextBox { get; set; } = true;
+
+    // ── Thread-safe History access ────────────────────────────────────
+
+    public void AddHistory(HistoryEntry entry)
+    {
+        lock (_historyLock) _history.Add(entry);
+    }
+
+    public void ClearHistory()
+    {
+        lock (_historyLock) _history.Clear();
+    }
+
+    public int HistoryCount
+    {
+        get { lock (_historyLock) return _history.Count; }
+    }
+
+    /// <summary>
+    /// Returns a snapshot of the history list for safe iteration during rendering.
+    /// </summary>
+    public List<HistoryEntry> GetHistorySnapshot()
+    {
+        lock (_historyLock) return new List<HistoryEntry>(_history);
+    }
 
     // Services
     private readonly HistoryService _historyService = new();
@@ -194,7 +220,7 @@ class AppState
 
     public void ScrollOutput(int lines)
     {
-        var totalLines = History.Count;
+        var totalLines = HistoryCount;
         var prev = OutputScrollOffset;
         OutputScrollOffset = Math.Clamp(
             OutputScrollOffset + lines,
@@ -296,8 +322,8 @@ class AppState
                 UpdateSuggestions();
                 return;
             }
-            History.Add(new HistoryEntry(HistoryItemType.Error, $"Unknown command: {command}"));
-            History.Add(new HistoryEntry(HistoryItemType.Separator, ""));
+            AddHistory(new HistoryEntry(HistoryItemType.Error, $"Unknown command: {command}"));
+            AddHistory(new HistoryEntry(HistoryItemType.Separator, ""));
             Invalidate?.Invoke();
             InputText = "";
             CursorPos = 0;
@@ -313,19 +339,24 @@ class AppState
 
         if (Mode == ShellMode.Local)
         {
-            History.Add(new HistoryEntry(HistoryItemType.User, command));
+            AddHistory(new HistoryEntry(HistoryItemType.User, command));
             _ = _processService.RunLocalAsync(command, LocalCwd, OnProcessLine, OnProcessDone);
         }
         else
         {
-            History.Add(new HistoryEntry(HistoryItemType.User, $"azv2 {command}"));
+            AddHistory(new HistoryEntry(HistoryItemType.User, $"azv2 {command}"));
             _ = _processService.RunCliAsync(command, OnProcessLine, OnProcessDone);
         }
     }
 
+    /// <summary>
+    /// Cancel the currently running process (Ctrl+C / Escape).
+    /// </summary>
+    public void CancelRunning() => _processService.Cancel();
+
     private void OnProcessLine(HistoryItemType type, string text)
     {
-        History.Add(new HistoryEntry(type, text));
+        AddHistory(new HistoryEntry(type, text));
         OutputScrollOffset = 0;
         Invalidate?.Invoke();
     }
@@ -334,16 +365,16 @@ class AppState
     {
         if (result.ExitCode == 0)
         {
-            History.Add(new HistoryEntry(HistoryItemType.Success, "done"));
+            AddHistory(new HistoryEntry(HistoryItemType.Success, "done"));
         }
         else if (result.ExitCode != -1) // -1 = exception already reported
         {
             foreach (var line in result.StderrLines)
-                History.Add(new HistoryEntry(HistoryItemType.Error, line));
-            History.Add(new HistoryEntry(HistoryItemType.Info, $"exit code {result.ExitCode}"));
+                AddHistory(new HistoryEntry(HistoryItemType.Error, line));
+            AddHistory(new HistoryEntry(HistoryItemType.Info, $"exit code {result.ExitCode}"));
         }
 
-        History.Add(new HistoryEntry(HistoryItemType.Separator, ""));
+        AddHistory(new HistoryEntry(HistoryItemType.Separator, ""));
         OutputScrollOffset = 0;
         FocusTextBox = true;
         RefreshPrompt();
@@ -357,8 +388,8 @@ class AppState
         if (string.IsNullOrWhiteSpace(command))
         {
             var verbs = string.Join(", ", _commands.Keys.Select(k => "/" + k));
-            History.Add(new HistoryEntry(HistoryItemType.Info, $"Available slash commands: {verbs}"));
-            History.Add(new HistoryEntry(HistoryItemType.Separator, ""));
+            AddHistory(new HistoryEntry(HistoryItemType.Info, $"Available slash commands: {verbs}"));
+            AddHistory(new HistoryEntry(HistoryItemType.Separator, ""));
             Invalidate?.Invoke();
             return true;
         }
@@ -377,7 +408,8 @@ class AppState
 
     private CommandContext BuildCommandContext() => new()
     {
-        History = History,
+        AddHistory = AddHistory,
+        GetHistorySnapshot = GetHistorySnapshot,
         Vfs = Vfs,
         VfsReady = VfsReady,
         Mode = Mode,
@@ -397,9 +429,9 @@ class AppState
         }
         catch (Exception ex)
         {
-            History.Add(new HistoryEntry(HistoryItemType.Error, ex.Message));
+            AddHistory(new HistoryEntry(HistoryItemType.Error, ex.Message));
         }
-        History.Add(new HistoryEntry(HistoryItemType.Separator, ""));
+        AddHistory(new HistoryEntry(HistoryItemType.Separator, ""));
         OutputScrollOffset = 0;
         Invalidate?.Invoke();
     }

@@ -3,6 +3,7 @@ using Core.Tui.Services;
 using Hex1b;
 using Hex1b.Input;
 using Hex1b.Layout;
+using Hex1b.Nodes;
 using Hex1b.Theming;
 using Hex1b.Widgets;
 
@@ -36,6 +37,13 @@ public static class Program
     private static Hex1bWidget BuildUI<TParent>(WidgetContext<TParent> ctx, Hex1bApp app, AppState state)
         where TParent : Hex1bWidget
     {
+        // Consume FocusTextBox flag — request focus on the hidden TextBox node
+        if (state.FocusTextBox)
+        {
+            state.FocusTextBox = false;
+            app.RequestFocus(n => n is TextBoxNode);
+        }
+
         var termWidth = Console.WindowWidth;
 
         return ctx.VStack(v =>
@@ -47,7 +55,7 @@ public static class Program
             {
                 widgets.Add(HelpRenderer.Render(v));
             }
-            else if (state.History.Count == 0)
+            else if (state.HistoryCount == 0)
             {
                 widgets.Add(HeaderRenderer.RenderWelcome(v, termWidth));
             }
@@ -56,12 +64,12 @@ public static class Program
                 // ── Scrollable history panel ──
                 widgets.Add((v.VScrollPanel(sv =>
                 {
-                    var rendered = HistoryRenderer.Render(sv, state.History);
+                    var rendered = HistoryRenderer.Render(sv, state.GetHistorySnapshot());
                     return rendered.ToArray();
                 }, showScrollbar: true).Follow()).Fill());
             }
 
-            // ── Running indicator ──
+            // ── Running indicator (always present to keep widget indices stable) ──
             if (state.IsRunning)
             {
                 var elapsed = state.ElapsedSeconds;
@@ -70,6 +78,10 @@ public static class Program
                     h.Spinner(SpinnerStyle.Dots),
                     h.Text($" running... ({timeStr})"),
                 ]).Height(SizeHint.Content));
+            }
+            else
+            {
+                widgets.Add(v.HStack(h => []).Height(SizeHint.Fixed(0)));
             }
 
             // ── Prompt + input (Text widget for display, hidden TextBox for focus/input) ──
@@ -116,9 +128,11 @@ public static class Program
                     })
             ).Height(SizeHint.Fixed(0)));
 
-            // ── Inline suggestions ──
+            // ── Inline suggestions (always present to keep widget indices stable) ──
             if (state.Suggestions.Count > 0)
                 widgets.Add(SuggestionRenderer.Render(v, state.Suggestions, state.SelectedSuggestion));
+            else
+                widgets.Add(v.Text("").Height(SizeHint.Fixed(0)));
 
             // ── Footer ──
             widgets.Add(FooterRenderer.Render(v, state, termWidth));
@@ -144,8 +158,30 @@ public static class Program
                 .Action(_ =>
                 {
                     if (state.ShowHelp) { state.ShowHelp = false; app.Invalidate(); }
-                    else if (state.IsRunning) { /* cancel via process service */ }
+                    else if (state.IsRunning) { state.CancelRunning(); }
                 }, "Close/Cancel");
+
+            bindings.Ctrl().Key(Hex1bKey.C).Global()
+                .Action(_ =>
+                {
+                    if (state.IsRunning)
+                    {
+                        state.CancelRunning();
+                    }
+                    else
+                    {
+                        // No selection — new input line (like pwsh Ctrl+C)
+                        if (!string.IsNullOrEmpty(state.InputText))
+                        {
+                            state.AddHistory(new HistoryEntry(HistoryItemType.User, state.Prompt + state.InputText));
+                            state.AddHistory(new HistoryEntry(HistoryItemType.Separator, ""));
+                        }
+                        state.InputText = "";
+                        state.CursorPos = 0;
+                        state.UpdateSuggestions();
+                    }
+                    app.Invalidate();
+                }, "Cancel/New line");
 
             bindings.Key(Hex1bKey.Enter).Global()
                 .Action(_ =>
@@ -252,7 +288,7 @@ public static class Program
                 .Global()
                 .Action(_ =>
                 {
-                    state.History.Clear();
+                    state.ClearHistory();
                     state.OutputScrollOffset = 0;
                     app.Invalidate();
                 }, "Clear history");
