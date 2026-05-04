@@ -27,6 +27,7 @@ class AppState
 
     // UI state
     public string InputText { get; set; } = "";
+    public int CursorPos { get; set; }
     public List<HistoryEntry> History { get; } = new();
     public List<Suggestion> Suggestions { get; private set; } = new();
     public int SelectedSuggestion { get; set; }
@@ -80,14 +81,9 @@ class AppState
             VfsReady = await Vfs.TryAuthenticateAsync();
             if (!VfsReady) return;
 
-            if (File.Exists(ContextFilePath))
-            {
-                var json = await File.ReadAllTextAsync(ContextFilePath);
-                using var doc = JsonDocument.Parse(json);
-                var tenantId = doc.RootElement.TryGetProperty("TenantId", out var t) ? t.GetString() : null;
-                var subId = doc.RootElement.TryGetProperty("SubscriptionId", out var s) ? s.GetString() : null;
+            var (tenantId, subId) = await ResolveAzureContextAsync();
+            if (!string.IsNullOrEmpty(tenantId))
                 await Vfs.SetInitialPathAsync(tenantId, subId);
-            }
 
             RefreshPrompt();
             Invalidate?.Invoke();
@@ -98,11 +94,107 @@ class AppState
         }
     }
 
+    /// <summary>
+    /// Resolve the current Azure tenant/subscription by trying:
+    ///   1. az account show (lightweight CLI)
+    ///   2. Get-AzContext (PowerShell module)
+    ///   3. context.json (cached fallback)
+    /// Updates context.json when a live source succeeds.
+    /// </summary>
+    private async Task<(string? tenantId, string? subscriptionId)> ResolveAzureContextAsync()
+    {
+        // 1. Try az account show
+        var result = await RunCliJsonAsync("az", "account show -o json");
+        if (result != null)
+        {
+            var tenantId = result.Value.TryGetProperty("tenantId", out var t) ? t.GetString() : null;
+            var subId = result.Value.TryGetProperty("id", out var s) ? s.GetString() : null;
+            if (!string.IsNullOrEmpty(tenantId))
+            {
+                await SaveContextAsync(tenantId, subId);
+                return (tenantId, subId);
+            }
+        }
+
+        // 2. Try Get-AzContext (PowerShell)
+        result = await RunCliJsonAsync("pwsh",
+            "-NoProfile -Command \"Get-AzContext | Select-Object -Property @{N='tenantId';E={$_.Tenant.Id}}, @{N='id';E={$_.Subscription.Id}} | ConvertTo-Json\"");
+        if (result != null)
+        {
+            var tenantId = result.Value.TryGetProperty("tenantId", out var t) ? t.GetString() : null;
+            var subId = result.Value.TryGetProperty("id", out var s) ? s.GetString() : null;
+            if (!string.IsNullOrEmpty(tenantId))
+            {
+                await SaveContextAsync(tenantId, subId);
+                return (tenantId, subId);
+            }
+        }
+
+        // 3. Fall back to context.json
+        if (File.Exists(ContextFilePath))
+        {
+            try
+            {
+                var json = await File.ReadAllTextAsync(ContextFilePath);
+                using var doc = JsonDocument.Parse(json);
+                var tenantId = doc.RootElement.TryGetProperty("TenantId", out var t) ? t.GetString() : null;
+                var subId = doc.RootElement.TryGetProperty("SubscriptionId", out var s) ? s.GetString() : null;
+                return (tenantId, subId);
+            }
+            catch { }
+        }
+
+        return (null, null);
+    }
+
+    private static async Task<JsonElement?> RunCliJsonAsync(string fileName, string arguments)
+    {
+        try
+        {
+            using var process = new System.Diagnostics.Process
+            {
+                StartInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = fileName,
+                    Arguments = arguments,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true,
+                }
+            };
+            process.Start();
+            var output = await process.StandardOutput.ReadToEndAsync();
+            await process.WaitForExitAsync();
+
+            if (process.ExitCode != 0 || string.IsNullOrWhiteSpace(output))
+                return null;
+
+            using var doc = JsonDocument.Parse(output);
+            return doc.RootElement.Clone();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static async Task SaveContextAsync(string? tenantId, string? subscriptionId)
+    {
+        try
+        {
+            Directory.CreateDirectory(CirrusDir);
+            var json = JsonSerializer.Serialize(new { TenantId = tenantId, SubscriptionId = subscriptionId });
+            await File.WriteAllTextAsync(ContextFilePath, json);
+        }
+        catch { }
+    }
+
     // ── Scroll ───────────────────────────────────────────────────────
 
     public void ScrollOutput(int lines)
     {
-        var totalLines = HistoryRenderer.Render(History).Count;
+        var totalLines = History.Count;
         var prev = OutputScrollOffset;
         OutputScrollOffset = Math.Clamp(
             OutputScrollOffset + lines,
@@ -118,7 +210,10 @@ class AppState
     {
         var result = _historyService.Navigate(direction, Mode);
         if (result != null)
+        {
             InputText = result;
+            CursorPos = result.Length;
+        }
     }
 
     // ── Mode toggle ──────────────────────────────────────────────────
@@ -176,6 +271,7 @@ class AppState
 
         var suggestion = Suggestions[SelectedSuggestion].Text;
         InputText = _completionService.AcceptSuggestion(InputText, suggestion);
+        CursorPos = InputText.Length;
         UpdateSuggestions();
     }
 
@@ -195,6 +291,7 @@ class AppState
             if (TryHandleSlashCommand(command[1..]))
             {
                 InputText = "";
+                CursorPos = 0;
                 OutputScrollOffset = 0;
                 UpdateSuggestions();
                 return;
@@ -203,12 +300,14 @@ class AppState
             History.Add(new HistoryEntry(HistoryItemType.Separator, ""));
             Invalidate?.Invoke();
             InputText = "";
+            CursorPos = 0;
             OutputScrollOffset = 0;
             UpdateSuggestions();
             return;
         }
 
         InputText = "";
+        CursorPos = 0;
         OutputScrollOffset = 0;
         UpdateSuggestions();
 

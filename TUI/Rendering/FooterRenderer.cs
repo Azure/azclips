@@ -7,17 +7,10 @@ static class FooterRenderer
 {
     public static Hex1bWidget Render(WidgetContext<VStackWidget> v, AppState state, int termWidth)
     {
-        var branch = state.GitBranch;
-        var branchPart = !string.IsNullOrEmpty(branch)
-            ? $" {Ansi.AccentPurple} {branch}{Ansi.End}"
-            : "";
+        // Mode indicator
+        var modeLabel = state.Mode == ShellMode.Azure ? "◈ Azure" : "▣ Local";
 
-        // Mode indicator: blue for Azure, white for Local
-        var modeLabel = state.Mode == ShellMode.Azure
-            ? $"{Ansi.AccentBlue}◈ Azure{Ansi.End}"
-            : $"{Ansi.White}▣ Local{Ansi.End}";
-
-        // Show the "other" context path: Azure mode shows local cwd, Local mode shows Azure VFS path
+        // Context path for the "other" mode
         string contextPath;
         if (state.Mode == ShellMode.Azure)
         {
@@ -27,28 +20,39 @@ static class FooterRenderer
                 cwd = "~" + cwd[home.Length..];
             if (cwd.Length > 50)
                 cwd = "..." + cwd[^47..];
-            contextPath = $"{Ansi.White}{cwd}{Ansi.End}";
+            contextPath = cwd;
         }
         else
         {
-            var vfsPath = state.VfsReady ? state.Vfs.CurrentPath : "/";
-            contextPath = $"{Ansi.AccentBlue}{vfsPath}{Ansi.End}";
+            contextPath = state.VfsReady ? state.Vfs.CurrentPath : "/";
         }
 
-        // Left: mode + other-context path + branch
-        var left = $" {modeLabel}  {contextPath}{branchPart}";
+        var branch = state.GitBranch;
 
-        // Right: keyboard shortcuts
-        var right = $"{Ansi.Comment}F2 mode  ↵ run  ⇥ complete  F1 help{Ansi.End} ";
+        return v.InfoBar(s =>
+        {
+            var sections = new List<IInfoBarChild>();
 
-        // Build the footer with flexible spacing
-        var leftVisible = StripAnsi(left);
-        var rightVisible = StripAnsi(right);
-        var gap = Math.Max(1, termWidth - leftVisible.Length - rightVisible.Length);
+            sections.Add(s.Section(modeLabel));
+            sections.Add(s.Separator("  "));
+            sections.Add(s.Section(contextPath));
 
-        return v.Text($"{left}{new string(' ', gap)}{right}");
+            if (!string.IsNullOrEmpty(branch))
+            {
+                sections.Add(s.Separator("  "));
+                sections.Add(s.Section($" {branch}"));
+            }
+
+            sections.Add(s.Spacer());
+            sections.Add(s.Section("F2 mode"));
+            sections.Add(s.Separator("  "));
+            sections.Add(s.Section("↵ run"));
+            sections.Add(s.Separator("  "));
+            sections.Add(s.Section("⇥ complete"));
+            sections.Add(s.Separator("  "));
+            sections.Add(s.Section("F1 help"));
+
+            return sections;
+        });
     }
-
-    static string StripAnsi(string text)
-        => System.Text.RegularExpressions.Regex.Replace(text, @"\x1b\[[0-9;]*m", "");
 }

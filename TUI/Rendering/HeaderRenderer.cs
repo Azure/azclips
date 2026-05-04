@@ -1,14 +1,12 @@
 using Hex1b;
+using Hex1b.Layout;
 using Hex1b.Widgets;
 
 namespace Core.Tui.Rendering;
 
 static class HeaderRenderer
 {
-    // Short ASCII logo for narrow terminals
-    static readonly string ShortLogoText = "  ◈  Cirrus";
-
-    // Full ASCII art logo lines (raw text for gradient coloring)
+    // Full ASCII art logo lines
     static readonly string[] FullLogoLines =
     [
         "   _____ _                        ",
@@ -19,35 +17,33 @@ static class HeaderRenderer
         "  \\_____|_|_|  |_|   \\__,_|___/  ",
     ];
 
-    public static List<Hex1bWidget> RenderWelcome(WidgetContext<VStackWidget> v, int termWidth)
+    public static Hex1bWidget RenderWelcome(WidgetContext<VStackWidget> v, int termWidth)
     {
-        var widgets = new List<Hex1bWidget>();
-        widgets.Add(v.Text(""));
-
-        if (termWidth >= 50)
+        return v.VStack(inner =>
         {
-            // Gradient-colored full logo (like shell Header.tsx with ink-gradient)
-            for (int i = 0; i < FullLogoLines.Length; i++)
-                widgets.Add(v.Text(Ansi.GradientLine(FullLogoLines[i], i, FullLogoLines.Length)));
-        }
-        else
-        {
-            widgets.Add(v.Text(Ansi.GradientLine(ShortLogoText, 0, 1)));
-        }
+            var widgets = new List<Hex1bWidget>();
+            widgets.Add(inner.Text(""));
 
-        widgets.Add(v.Text(""));
+            if (termWidth >= 50)
+            {
+                for (int i = 0; i < FullLogoLines.Length; i++)
+                    widgets.Add(inner.Text(Ansi.GradientLine(FullLogoLines[i], i, FullLogoLines.Length)));
+            }
+            else
+            {
+                widgets.Add(inner.Text(Ansi.GradientLine("  ◈  Cirrus", 0, 1)));
+            }
 
-        // Tips section (inspired by Tips.tsx)
-        widgets.Add(v.Text($"  {Ansi.Foreground}Tips for getting started:{Ansi.End}"));
-        widgets.Add(v.Text($"  {Ansi.Foreground}1. Type a command or ask a natural-language question.{Ansi.End}"));
-        widgets.Add(v.Text($"  {Ansi.Foreground}2. Be specific for the best results.{Ansi.End}"));
-        widgets.Add(v.Text($"  {Ansi.Foreground}3. Press {Ansi.AccentPurple}/help{Ansi.Foreground} or {Ansi.AccentPurple}F1{Ansi.Foreground} for more information.{Ansi.End}"));
-        widgets.Add(v.Text(""));
+            widgets.Add(inner.Text(""));
+            widgets.Add(inner.Text($"  {Ansi.Foreground}Tips for getting started:{Ansi.End}"));
+            widgets.Add(inner.Text($"  {Ansi.Foreground}1. Type a command or ask a natural-language question.{Ansi.End}"));
+            widgets.Add(inner.Text($"  {Ansi.Foreground}2. Be specific for the best results.{Ansi.End}"));
+            widgets.Add(inner.Text($"  {Ansi.Foreground}3. Press {Ansi.AccentPurple}/help{Ansi.Foreground} or {Ansi.AccentPurple}F1{Ansi.Foreground} for more information.{Ansi.End}"));
+            widgets.Add(inner.Text(""));
+            widgets.Add(inner.Text($"  {Ansi.Comment}↹ Tab{Ansi.End}  {Ansi.DimGray}autocomplete{Ansi.End}    {Ansi.Comment}↑↓{Ansi.End}  {Ansi.DimGray}suggestions / history{Ansi.End}    {Ansi.Comment}PgUp/PgDn{Ansi.End}  {Ansi.DimGray}scroll{Ansi.End}"));
+            widgets.Add(inner.Text(""));
 
-        // Keyboard hints
-        widgets.Add(v.Text($"  {Ansi.Comment}↹ Tab{Ansi.End}  {Ansi.DimGray}autocomplete{Ansi.End}    {Ansi.Comment}↑↓{Ansi.End}  {Ansi.DimGray}suggestions / history{Ansi.End}    {Ansi.Comment}PgUp/PgDn{Ansi.End}  {Ansi.DimGray}scroll{Ansi.End}"));
-        widgets.Add(v.Text(""));
-
-        return widgets;
+            return widgets.ToArray();
+        }).Height(SizeHint.Content);
     }
 }

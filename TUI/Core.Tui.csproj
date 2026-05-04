@@ -12,6 +12,13 @@
   <Import Project="$(MSBuildThisFileDirectory)..\Shared.props" />
 
   <ItemGroup>
+    <Compile Remove="hex1b\**" />
+    <None Remove="hex1b\**" />
+    <Content Remove="hex1b\**" />
+    <EmbeddedResource Remove="hex1b\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Hex1b" Version="0.128.0" />
     <PackageReference Include="Microsoft.Identity.Client" Version="4.70.0" />
     <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.70.0" />
