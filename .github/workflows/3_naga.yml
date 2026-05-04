@@ -5,6 +5,12 @@ on:
     branches:
       - naga/test-pr
   workflow_dispatch:
+    inputs:
+      run_release:
+        description: Run create-release job
+        required: false
+        type: boolean
+        default: false
 
 env:
   Solution_Name: cirrus.slnx
@@ -435,7 +441,7 @@ jobs:
         run: echo "3_naga workflow finished"
 
   create-release:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.run_release == true) }}
     needs: [publish-cli, build-extension]
     runs-on: ubuntu-latest
     permissions:
