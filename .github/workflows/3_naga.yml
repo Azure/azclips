@@ -6,6 +6,12 @@ on:
       - naga/test-pr
   workflow_dispatch:
 
+env:
+  Solution_Name: cirrus.slnx
+  Certificate_Directory: .
+  Publish_Root: ./publish
+  Bin_Root: ./bin
+
 jobs:
   start:
     runs-on: ubuntu-latest
@@ -19,7 +25,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        configuration: [Debug]   # change to [Debug, Release] when ready
+        configuration: [Debug, Release]
+        platform: [win-x64]
 
     steps:
       - name: Checkout
@@ -33,18 +40,18 @@ jobs:
           global-json-file: global.json
 
       - name: Restore solution
-        run: dotnet restore cirrus.slnx
+        run: dotnet restore $env:Solution_Name
 
       - name: Build solution
-        run: dotnet build cirrus.slnx --configuration ${{ matrix.configuration }} --no-restore
+        run: dotnet build $env:Solution_Name --configuration ${{ matrix.configuration }} --no-restore
 
       - name: Execute unit tests
-        run: dotnet test cirrus.slnx --no-build --configuration ${{ matrix.configuration }} --verbosity normal
+        run: dotnet test $env:Solution_Name --no-build --configuration ${{ matrix.configuration }} --verbosity normal
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Build Artifacts (${{ matrix.configuration }}-windows-latest)
+          name: Build Artifacts (${{ matrix.configuration }}-${{ matrix.platform }})
           path: artifacts/${{ matrix.configuration }}
 
   publish-cli:
@@ -53,7 +60,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        configuration: [Debug]   # change to [Debug, Release] when ready
+        configuration: [Debug, Release]
+        platform: [win-x64]
 
     steps:
       - name: Checkout
@@ -67,17 +75,17 @@ jobs:
           global-json-file: global.json
 
       - name: Restore CLI project
-        run: dotnet restore src/CLI/Core.Cli.csproj -r win-x64
+        run: dotnet restore src/CLI/Core.Cli.csproj -r ${{ matrix.platform }}
 
       - name: Publish the CLI application
-        run: dotnet publish src/CLI/Core.Cli.csproj -c ${{ matrix.configuration }} -r win-x64 --self-contained --no-restore -o ./publish/${{ matrix.configuration }}/win-x64
+        run: dotnet publish src/CLI/Core.Cli.csproj -c ${{ matrix.configuration }} -r ${{ matrix.platform }} --self-contained --no-restore -o ${{ env.Publish_Root }}/${{ matrix.configuration }}/${{ matrix.platform }}
 
       - name: Copy appx manifest
-        run: Copy-Item src/CLI/Core.Cli.appxmanifest ./publish/${{ matrix.configuration }}/win-x64/AppxManifest.xml
+        run: Copy-Item src/CLI/Core.Cli.appxmanifest ${{ env.Publish_Root }}/${{ matrix.configuration }}/${{ matrix.platform }}/AppxManifest.xml
 
       - name: Update appx manifest publisher for dev signing
         run: |
-          $manifestPath = "./publish/${{ matrix.configuration }}/win-x64/AppxManifest.xml"
+          $manifestPath = "${{ env.Publish_Root }}/${{ matrix.configuration }}/${{ matrix.platform }}/AppxManifest.xml"
           (Get-Content $manifestPath) |
             ForEach-Object {
               $_ -replace 'Publisher="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"', 'Publisher="CN=Cirrus Dev Signer"'
@@ -90,7 +98,7 @@ jobs:
       - name: Copy appx assets
         run: |
           $assetsSource = "assets"
-          $assetsDestination = "./publish/${{ matrix.configuration }}/win-x64/Assets"
+          $assetsDestination = "${{ env.Publish_Root }}/${{ matrix.configuration }}/${{ matrix.platform }}/Assets"
           if (Test-Path $assetsSource) {
             New-Item -ItemType Directory -Path $assetsDestination -Force | Out-Null
             Copy-Item "$assetsSource\*" $assetsDestination -Recurse -Force
@@ -106,14 +114,16 @@ jobs:
           if (-not $latestBinDir) {
             throw "No Windows SDK bin directory found under $windowsKitBinRoot"
           }
-          $makeAppxPath = Join-Path -Path $latestBinDir.FullName -ChildPath "x64\MakeAppx.exe"
-          New-Item -ItemType Directory -Path "./bin/${{ matrix.configuration }}" -Force | Out-Null
-          & $makeAppxPath pack /d "./publish/${{ matrix.configuration }}/win-x64" /p "./bin/${{ matrix.configuration }}/azv2-win-x64.msix" /nv
+          $sdkArch = if ("${{ matrix.platform }}" -eq "win-x86") { "x86" } else { "x64" }
+          $makeAppxPath = Join-Path -Path $latestBinDir.FullName -ChildPath "$sdkArch\MakeAppx.exe"
+          New-Item -ItemType Directory -Path "${{ env.Bin_Root }}/${{ matrix.configuration }}" -Force | Out-Null
+          & $makeAppxPath pack /d "${{ env.Publish_Root }}/${{ matrix.configuration }}/${{ matrix.platform }}" /p "${{ env.Bin_Root }}/${{ matrix.configuration }}/azv2-${{ matrix.platform }}.msix" /nv
 
       - name: Decode the pfx
         run: |
           $pfx_cert_byte = [System.Convert]::FromBase64String("${{ secrets.BASE64_ENCODED_PFX }}")
-          [IO.File]::WriteAllBytes("./GitHubActionsWorkflow.pfx", $pfx_cert_byte)
+          $certificatePath = Join-Path -Path $env:Certificate_Directory -ChildPath GitHubActionsWorkflow.pfx
+          [IO.File]::WriteAllBytes("$certificatePath", $pfx_cert_byte)
 
       - name: Sign the appx package
         run: |
@@ -126,22 +136,22 @@ jobs:
             throw "No Windows SDK bin directory found under $windowsKitBinRoot"
           }
           $signtoolPath = Join-Path -Path $latestBinDir.FullName -ChildPath "x64\signtool.exe"
-          & $signtoolPath sign /v /f "./GitHubActionsWorkflow.pfx" /p "${{ secrets.PFX_KEY }}" /fd SHA256 "./bin/${{ matrix.configuration }}/azv2-win-x64.msix"
+          & $signtoolPath sign /v /f "$env:Certificate_Directory/GitHubActionsWorkflow.pfx" /p "${{ secrets.PFX_KEY }}" /fd SHA256 "${{ env.Bin_Root }}/${{ matrix.configuration }}/azv2-${{ matrix.platform }}.msix"
 
       - name: Remove the pfx
-        run: Remove-Item -Path "./GitHubActionsWorkflow.pfx" -Force
+        run: Remove-Item -Path "$env:Certificate_Directory\GitHubActionsWorkflow.pfx" -Force
 
       - name: Upload published CLI
         uses: actions/upload-artifact@v4
         with:
-          name: Published CLI (${{ matrix.configuration }}-win-x64)
-          path: ./publish/${{ matrix.configuration }}/win-x64
+          name: Published CLI (${{ matrix.configuration }}-${{ matrix.platform }})
+          path: ${{ env.Publish_Root }}/${{ matrix.configuration }}/${{ matrix.platform }}
 
       - name: Upload MSIX package
         uses: actions/upload-artifact@v4
         with:
-          name: MSIX Package (${{ matrix.configuration }}-win-x64)
-          path: ./bin/${{ matrix.configuration }}/azv2-win-x64.msix
+          name: MSIX Package (${{ matrix.configuration }}-${{ matrix.platform }})
+          path: ${{ env.Bin_Root }}/${{ matrix.configuration }}/azv2-${{ matrix.platform }}.msix
 
   publish-extension:
     needs: start
@@ -149,7 +159,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        configuration: [Debug]   # change to [Debug, Release] when ready
+        configuration: [Debug, Release]
+        platform: [win-x64]
 
     steps:
       - name: Checkout
@@ -163,16 +174,16 @@ jobs:
           global-json-file: global.json
 
       - name: Restore extension project
-        run: dotnet restore src/Extensions/Extension/Extensions.Extension.csproj -r win-x64
+        run: dotnet restore src/Extensions/Extension/Extensions.Extension.csproj -r ${{ matrix.platform }}
 
       - name: Publish the Extension (az extension)
-        run: dotnet publish src/Extensions/Extension/Extensions.Extension.csproj -c ${{ matrix.configuration }} -r win-x64 --no-restore -o ./publish/${{ matrix.configuration }}/win-x64/Extensions/Extension
+        run: dotnet publish src/Extensions/Extension/Extensions.Extension.csproj -c ${{ matrix.configuration }} -r ${{ matrix.platform }} --no-restore -o ${{ env.Publish_Root }}/${{ matrix.configuration }}/${{ matrix.platform }}/Extensions/Extension
 
       - name: Upload published Extension
         uses: actions/upload-artifact@v4
         with:
-          name: Published Extension (${{ matrix.configuration }}-win-x64)
-          path: ./publish/${{ matrix.configuration }}/win-x64/Extensions/Extension
+          name: Published Extension (${{ matrix.configuration }}-${{ matrix.platform }})
+          path: ${{ env.Publish_Root }}/${{ matrix.configuration }}/${{ matrix.platform }}/Extensions/Extension
 
   discover-extensions:
     needs: start
@@ -200,7 +211,7 @@ jobs:
       fail-fast: false
       matrix:
         extension: ${{ fromJSON(needs.discover-extensions.outputs.extensions) }}
-        configuration: [Debug]
+        configuration: [Debug, Release]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -417,7 +428,111 @@ jobs:
       - build-extension
       - discover-powershell-modules
       - build-powershell-module
+      - create-release
     runs-on: ubuntu-latest
     steps:
       - name: End workflow
         run: echo "3_naga workflow finished"
+
+  create-release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [publish-cli, build-extension]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate version
+        id: version
+        run: |
+          VERSION="v1.0.$(date +'%y%m%d').${{ github.run_number }}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Generated version: $VERSION"
+
+      - name: Get latest commits for release notes
+        id: commits
+        run: |
+          if git describe --tags --abbrev=0 2>/dev/null; then
+            LAST_TAG=$(git describe --tags --abbrev=0)
+            COMMITS=$(git log $LAST_TAG..HEAD --pretty=format:"- %s (%h)" --no-merges | head -20)
+          else
+            COMMITS=$(git log -10 --pretty=format:"- %s (%h)" --no-merges)
+          fi
+          {
+            echo 'commits<<EOF'
+            echo "$COMMITS"
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4.1.3
+        with:
+          path: release-artifacts
+
+      - name: Display artifact structure
+        run: ls -R release-artifacts
+
+      - name: Prepare release artifacts
+        run: |
+          mkdir -p release-files
+
+          copy_release_artifacts() {
+            local file_pattern="$1"
+            local path_pattern="$2"
+            echo "Searching for $file_pattern files matching pattern: $path_pattern"
+
+            local files=()
+            while IFS= read -r file; do
+              files+=("$file")
+            done < <(find release-artifacts -name "$file_pattern" | grep -i "$path_pattern")
+
+            if [ ${#files[@]} -eq 0 ]; then
+              echo "  Warning: No $file_pattern files found matching pattern '$path_pattern'"
+              return 1
+            fi
+
+            for file in "${files[@]}"; do
+              echo "  Copying: $file"
+              cp "$file" release-files/
+            done
+
+            echo "  Copied ${#files[@]} file(s)"
+            return 0
+          }
+
+          copy_release_artifacts "*.msix" "Release-" || echo "Note: No MSIX packages found"
+          copy_release_artifacts "*.dll" "(Release)" || echo "Note: No extension DLLs found"
+
+          echo ""
+          echo "Release artifacts prepared:"
+          ls -lah release-files
+
+          if [ -z "$(ls -A release-files)" ]; then
+            echo "ERROR: No release artifacts found!"
+            exit 1
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: Release ${{ steps.version.outputs.version }}
+          body: |
+            Automated release ${{ steps.version.outputs.version }}
+
+            Built from commit ${{ github.sha }}
+
+            ## Artifacts
+            - **MSIX Packages**: Signed Windows installers (Release build)
+            - **Extension DLLs**: Extension modules (Release build)
+
+            ## Recent Changes
+            ${{ steps.commits.outputs.commits }}
+          draft: false
+          prerelease: false
+          files: release-files/*
+          fail_on_unmatched_files: false
