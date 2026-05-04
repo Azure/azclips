@@ -8,22 +8,16 @@ using Microsoft.Extensions.Configuration;
 
 namespace Core.Configuration.Implementation;
 
-public sealed class ConfigurationService(
-    Core.Configuration.Abstractions.IConfigurationProvider provider,
-    IConfigurationSchema schema,
-    IConfigurationValidator validator) : IConfigurationService
+public sealed class ConfigurationService : IConfigurationService
 {
-    private static readonly JsonSerializerOptions JsonSerializerOptions = new()
+    private readonly JsonSerializerOptions _jsonSerializerOptions = new()
     {
         WriteIndented = true
     };
 
-    private static readonly JsonSerializerOptions DefaultFlattenSerializerOptions = new(JsonSerializerOptions)
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-    };
+    private readonly JsonSerializerOptions _defaultFlattenSerializerOptions;
 
-    private static readonly IReadOnlyDictionary<Type, string> SectionNames = new Dictionary<Type, string>
+    private readonly IReadOnlyDictionary<Type, string> _sectionNames = new Dictionary<Type, string>
     {
         [typeof(CoreOptions)] = "core",
         [typeof(AssemblyLoadingOptions)] = "assemblyLoading",
@@ -34,9 +28,24 @@ public sealed class ConfigurationService(
         [typeof(DefaultsOptions)] = "defaults"
     };
 
-    private readonly Core.Configuration.Abstractions.IConfigurationProvider _provider = provider;
-    private readonly IConfigurationSchema _schema = schema;
-    private readonly IConfigurationValidator _validator = validator;
+    private readonly Core.Configuration.Abstractions.IConfigurationProvider _provider;
+    private readonly IConfigurationSchema _schema;
+    private readonly IConfigurationValidator _validator;
+
+    public ConfigurationService(
+        Core.Configuration.Abstractions.IConfigurationProvider provider,
+        IConfigurationSchema schema,
+        IConfigurationValidator validator)
+    {
+        _provider = provider;
+        _schema = schema;
+        _validator = validator;
+
+        _defaultFlattenSerializerOptions = new JsonSerializerOptions(_jsonSerializerOptions)
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+    }
 
     public T GetConfiguration<T>(string? key = null, T? defaultValue = null) where T : class, new()
     {
@@ -86,7 +95,7 @@ public sealed class ConfigurationService(
             return configuration.GetSection(NormalizeConfigurationPath(normalizedKey)).Get<T>() ?? defaults;
         }
 
-        if (SectionNames.TryGetValue(typeof(T), out var sectionName))
+        if (_sectionNames.TryGetValue(typeof(T), out var sectionName))
         {
             return configuration.GetSection(sectionName).Get<T>() ?? defaults;
         }
@@ -113,7 +122,7 @@ public sealed class ConfigurationService(
         var root = await _provider.ReadAsync(cancellationToken).ConfigureAwait(false);
 
         RemoveLegacyFlatKey(root, normalizedKey);
-        SetValue(root, normalizedKey, JsonSerializer.SerializeToNode(value, JsonSerializerOptions));
+        SetValue(root, normalizedKey, JsonSerializer.SerializeToNode(value, _jsonSerializerOptions));
 
         await _provider.WriteAsync(root, cancellationToken).ConfigureAwait(false);
     }
@@ -196,16 +205,16 @@ public sealed class ConfigurationService(
         }
     }
 
-    private static Dictionary<string, string?> BuildDefaultEntries<T>(T defaults) where T : class
+    private Dictionary<string, string?> BuildDefaultEntries<T>(T defaults) where T : class
     {
         var results = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
-        var node = JsonSerializer.SerializeToNode(defaults, JsonSerializerOptions) as JsonObject;
+        var node = JsonSerializer.SerializeToNode(defaults, _jsonSerializerOptions) as JsonObject;
         if (node is null)
         {
             return results;
         }
 
-        if (!SectionNames.TryGetValue(typeof(T), out var sectionName))
+        if (!_sectionNames.TryGetValue(typeof(T), out var sectionName))
         {
             FlattenNode(node, string.Empty, results);
             return results;
@@ -333,9 +342,9 @@ public sealed class ConfigurationService(
         return defaults;
     }
 
-    private static void AddDefaults<T>(IDictionary<string, object?> target, T options, string sectionName) where T : class
+    private void AddDefaults<T>(IDictionary<string, object?> target, T options, string sectionName) where T : class
     {
-        var node = JsonSerializer.SerializeToNode(options, DefaultFlattenSerializerOptions) as JsonObject;
+        var node = JsonSerializer.SerializeToNode(options, _defaultFlattenSerializerOptions) as JsonObject;
         if (node is null)
         {
             return;
@@ -347,7 +356,7 @@ public sealed class ConfigurationService(
         }
     }
 
-    private static Dictionary<string, object?> Flatten(JsonObject root, string? prefix = null)
+    private Dictionary<string, object?> Flatten(JsonObject root, string? prefix = null)
     {
         var results = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
 
@@ -371,7 +380,7 @@ public sealed class ConfigurationService(
         return results;
     }
 
-    private static void FlattenNode(JsonObject root, string prefix, IDictionary<string, string?> destination)
+    private void FlattenNode(JsonObject root, string prefix, IDictionary<string, string?> destination)
     {
         foreach (var property in root)
         {
@@ -386,7 +395,7 @@ public sealed class ConfigurationService(
         }
     }
 
-    private static object? ConvertNodeToValue(JsonNode? node)
+    private object? ConvertNodeToValue(JsonNode? node)
     {
         if (node is null)
         {
@@ -403,10 +412,10 @@ public sealed class ConfigurationService(
             if (value.TryGetValue<string>(out var stringValue)) return stringValue;
         }
 
-        return node.ToJsonString(JsonSerializerOptions);
+        return node.ToJsonString(_jsonSerializerOptions);
     }
 
-    private static string? ConvertNodeToString(JsonNode? node)
+    private string? ConvertNodeToString(JsonNode? node)
     {
         return ConvertNodeToValue(node) switch
         {
