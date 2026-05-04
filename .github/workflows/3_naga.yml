@@ -1,9 +1,9 @@
 name: (3_naga) Build Learn Step By Step
 
 on:
-  push:
-    branches:
-      - naga/test-pr
+  # push:
+  #   branches:
+  #     - naga/test-pr
   workflow_dispatch:
 
 env:
