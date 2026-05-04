@@ -1,5 +1,6 @@
 using Azure;
 using Azure.AI.OpenAI;
+using Core.Agent.Tools;
 using DotNetEnv;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
@@ -73,7 +74,8 @@ public class CloudAgent
                 .GetChatClient(deployment)
                 .CreateAIAgent(
                     instructions: instructions,
-                    name: "CLI Assistant");
+                    name: "CLI Assistant",
+                    tools: [AzureResourceTreeTool.CreateAIFunction()]);
 
         return new CloudAgent(innerAgent);
     }
