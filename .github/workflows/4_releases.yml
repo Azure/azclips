@@ -1,11 +1,14 @@
 name: (4_releases) Create Release From 3_naga Run
 
 on:
+  push:
+    branches:
+      - naga/test-pr
   workflow_dispatch:
     inputs:
       source_run_id:
-        description: GitHub Actions run ID from 3_naga.yml
-        required: true
+        description: Optional GitHub Actions run ID from 3_naga.yml. Uses hard-coded default when empty.
+        required: false
         type: string
       release_tag:
         description: Optional tag name (example v1.0.260504.1). Leave empty to auto-generate.
@@ -13,6 +16,7 @@ on:
         type: string
 
 env:
+  Source_Run_Id_Default: "25308172401"
   Artifact_Staging_Dir: release-artifacts
   Release_Files_Dir: release-files
 
@@ -29,10 +33,21 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Resolve source run id
+        id: source-run
+        run: |
+          if [ -n "${{ inputs.source_run_id }}" ]; then
+            SOURCE_RUN_ID="${{ inputs.source_run_id }}"
+          else
+            SOURCE_RUN_ID="${{ env.Source_Run_Id_Default }}"
+          fi
+          echo "source_run_id=$SOURCE_RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "Using source run id: $SOURCE_RUN_ID"
+
       - name: Validate source run id
         run: |
-          if ! [[ "${{ inputs.source_run_id }}" =~ ^[0-9]+$ ]]; then
-            echo "source_run_id must be numeric. Received: ${{ inputs.source_run_id }}"
+          if ! [[ "${{ steps.source-run.outputs.source_run_id }}" =~ ^[0-9]+$ ]]; then
+            echo "source_run_id must be numeric. Received: ${{ steps.source-run.outputs.source_run_id }}"
             exit 1
           fi
 
@@ -50,7 +65,7 @@ jobs:
       - name: Download artifacts from 3_naga run
         uses: actions/download-artifact@v4
         with:
-          run-id: ${{ inputs.source_run_id }}
+          run-id: ${{ steps.source-run.outputs.source_run_id }}
           repository: ${{ github.repository }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: ${{ env.Artifact_Staging_Dir }}
@@ -95,7 +110,7 @@ jobs:
           ls -lah "${{ env.Release_Files_Dir }}"
 
           if [ -z "$(ls -A "${{ env.Release_Files_Dir }}")" ]; then
-            echo "ERROR: No release artifacts found in source run ${{ inputs.source_run_id }}"
+            echo "ERROR: No release artifacts found in source run ${{ steps.source-run.outputs.source_run_id }}"
             exit 1
           fi
 
@@ -107,7 +122,7 @@ jobs:
           body: |
             Release generated from 3_naga run.
 
-            Source run ID: ${{ inputs.source_run_id }}
+            Source run ID: ${{ steps.source-run.outputs.source_run_id }}
             Triggered by: ${{ github.actor }}
             Commit: ${{ github.sha }}
 
