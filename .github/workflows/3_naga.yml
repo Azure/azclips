@@ -336,14 +336,14 @@ jobs:
       - name: Restore Extension
         run: dotnet restore "${{ matrix.extension }}"
 
-      - name: Pack Extension NuGet
-        run: dotnet pack "${{ matrix.extension }}" --configuration ${{ matrix.configuration }} --no-restore -o ./packages/${{ matrix.configuration }}/${{ steps.extract-metadata.outputs.package_id }}
+      - name: Build Extension (Generates NuGet Package)
+        run: dotnet build "${{ matrix.extension }}" --configuration ${{ matrix.configuration }} --no-restore
 
       - name: Upload Extension NuGet Package
         uses: actions/upload-artifact@v4
         with:
           name: Extension NuGet Package (${{ steps.extract-metadata.outputs.package_id }}-${{ matrix.configuration }})
-          path: ./packages/${{ matrix.configuration }}/${{ steps.extract-metadata.outputs.package_id }}/*.nupkg
+          path: ./artifacts/${{ matrix.configuration }}/${{ steps.extract-metadata.outputs.package_id }}/*.nupkg
 
   discover-powershell-modules:
     needs: start
