@@ -1,9 +1,9 @@
 name: (3_naga) Build Learn Step By Step
 
 on:
-  # push:
-  #   branches:
-  #     - naga/test-pr
+  push:
+    branches:
+      - naga/test-pr
   workflow_dispatch:
 
 env:
@@ -298,6 +298,53 @@ jobs:
           name: Extension - ${{ steps.extract-metadata.outputs.ext_name }} (${{ matrix.configuration }})
           path: ./artifacts/${{ matrix.configuration }}/${{ steps.extract-metadata.outputs.ext_name }}
 
+  pack-extension-packages:
+    needs: discover-extensions
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        extension: ${{ fromJSON(needs.discover-extensions.outputs.extensions) }}
+        configuration: [Release]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract Extension Metadata
+        id: extract-metadata
+        shell: pwsh
+        run: |
+          $csprojPath = "${{ matrix.extension }}"
+          [xml]$csproj = Get-Content $csprojPath
+
+          $packageId = $csproj.Project.PropertyGroup.PackageId | Where-Object { $_ } | Select-Object -First 1
+          if (-not $packageId) {
+            Write-Error "PackageId not found in $csprojPath"
+            exit 1
+          }
+
+          echo "package_id=$packageId" >> $env:GITHUB_OUTPUT
+
+      - name: Install .NET Core
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore Extension
+        run: dotnet restore "${{ matrix.extension }}"
+
+      - name: Pack Extension NuGet
+        run: dotnet pack "${{ matrix.extension }}" --configuration ${{ matrix.configuration }} --no-restore -o ./packages/${{ matrix.configuration }}/${{ steps.extract-metadata.outputs.package_id }}
+
+      - name: Upload Extension NuGet Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Extension NuGet Package (${{ steps.extract-metadata.outputs.package_id }}-${{ matrix.configuration }})
+          path: ./packages/${{ matrix.configuration }}/${{ steps.extract-metadata.outputs.package_id }}/*.nupkg
+
   discover-powershell-modules:
     needs: start
     runs-on: ubuntu-latest
@@ -464,6 +511,7 @@ jobs:
       - publish-cli-linux
       - publish-extension
       - build-extension
+      - pack-extension-packages
       - discover-powershell-modules
       - build-powershell-module
     runs-on: ubuntu-latest
