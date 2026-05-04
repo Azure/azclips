@@ -6,7 +6,7 @@ namespace Core.Configuration.Implementation;
 
 public sealed class FileConfigurationProvider : IConfigurationProvider
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new()
+    private readonly JsonSerializerOptions _serializerOptions = new()
     {
         WriteIndented = true
     };
@@ -59,7 +59,7 @@ public sealed class FileConfigurationProvider : IConfigurationProvider
 
         try
         {
-            var json = configuration.ToJsonString(SerializerOptions);
+            var json = configuration.ToJsonString(_serializerOptions);
             await File.WriteAllTextAsync(tempPath, json, cancellationToken).ConfigureAwait(false);
 
             if (File.Exists(path))
