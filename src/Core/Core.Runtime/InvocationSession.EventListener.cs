@@ -1,7 +1,8 @@
+namespace Core.Runtime;
+
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-
-namespace Core.Runtime;
+using Extensions.Runtime;
 
 internal partial class InvocationSession : IInvocationSession
 {
@@ -52,7 +53,9 @@ internal partial class InvocationSession : IInvocationSession
 
     public async Task Signal(string id, CancellationToken token, Func<object> createMessage)
     {
-        // Cancellation checkpoint — always checked
+        // Yabo: Cancellation checkpoint — always checked
+        // Catch and ignore OperationCanceledException from callers
+        // So that no need to check cancellation during internal life cycle
         token.ThrowIfCancellationRequested();
 
         using (RuntimeExtensions.NoSynchronizationContext)

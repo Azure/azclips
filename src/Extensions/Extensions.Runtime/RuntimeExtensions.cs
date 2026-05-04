@@ -1,12 +1,15 @@
-namespace Core.Runtime
+namespace Extensions.Runtime
 {
     using System.Collections.Generic;
     using System.Net.Http;
     using System.Threading.Tasks;
     using Core.Abstractions.Runtime;
     using Core.Abstractions;
+    using System.Text.RegularExpressions;
+    using System.Text;
+    using System.Net.Http.Headers;
 
-    internal static class RuntimeExtensions
+    public static class RuntimeExtensions
     {
         public static async Task AssertNotNull(this IEventListener instance, string parameterName, object value)
         {
@@ -122,7 +125,7 @@ namespace Core.Runtime
             return instance;
         }
 
-        internal static bool If<T>(T input, out T output)
+        public static bool If<T>(T input, out T output)
         {
             if (null == input)
             {
@@ -139,7 +142,7 @@ namespace Core.Runtime
         /// <param name="response">the HttpResponseMessage to fetch a header from</param>
         /// <param name="headerName">the header name</param>
         /// <returns>the first header value as a string from an HttpReponseMessage. string.empty if there is no header value matching</returns>
-        internal static string GetFirstHeader(this System.Net.Http.HttpResponseMessage response, string headerName) => response.Headers.FirstOrDefault(each => string.Equals(headerName, each.Key, System.StringComparison.OrdinalIgnoreCase)).Value?.FirstOrDefault() ?? string.Empty;
+        public static string GetFirstHeader(this System.Net.Http.HttpResponseMessage response, string headerName) => response.Headers.FirstOrDefault(each => string.Equals(headerName, each.Key, System.StringComparison.OrdinalIgnoreCase)).Value?.FirstOrDefault() ?? string.Empty;
 
         /// <summary>
         /// Sets the Synchronization Context to null, and returns an IDisposable that when disposed, 
@@ -162,18 +165,18 @@ namespace Core.Runtime
         /// </example>
         /// </summary>
         /// <returns>An IDisposable that will return the SynchronizationContext to original state</returns>
-        internal static IDisposable NoSynchronizationContext => SynchronizationContext.Current == null ? Dummy : new NoSyncContext();
+        public static IDisposable NoSynchronizationContext => SynchronizationContext.Current == null ? Dummy : new NoSyncContext();
 
         /// <summary>
         /// An instance of the Dummy IDispoable.
         /// </summary>
         /// <returns></returns>
-        internal static System.IDisposable Dummy = new DummyDisposable();
+        public static System.IDisposable Dummy = new DummyDisposable();
 
         /// <summary>
         /// An IDisposable that does absolutely nothing. 
         /// </summary>
-        internal class DummyDisposable : System.IDisposable
+        public class DummyDisposable : System.IDisposable
         {
             public void Dispose()
             {
@@ -187,17 +190,17 @@ namespace Core.Runtime
         /// on every single <c>await</c> in library code (ie, places where we know we don't need
         /// to continue in the same context as we went async)
         /// </summary>
-        internal class NoSyncContext : System.IDisposable
+        public class NoSyncContext : System.IDisposable
         {
             private SynchronizationContext original = SynchronizationContext.Current!;
-            internal NoSyncContext()
+            public NoSyncContext()
             {
                 System.Threading.SynchronizationContext.SetSynchronizationContext(null);
             }
             public void Dispose() => System.Threading.SynchronizationContext.SetSynchronizationContext(original);
         }
 
-        internal static HttpRequestMessage CloneAndDispose(this HttpRequestMessage original, System.Uri? requestUri = null, System.Net.Http.HttpMethod? method = null)
+        public static HttpRequestMessage CloneAndDispose(this HttpRequestMessage original, System.Uri? requestUri = null, System.Net.Http.HttpMethod? method = null)
         {
             using (original)
             {
@@ -205,7 +208,7 @@ namespace Core.Runtime
             }
         }
 
-        internal static Task<HttpRequestMessage> CloneWithContentAndDispose(this HttpRequestMessage original, System.Uri? requestUri = null, System.Net.Http.HttpMethod? method = null)
+        public static Task<HttpRequestMessage> CloneWithContentAndDispose(this HttpRequestMessage original, System.Uri? requestUri = null, System.Net.Http.HttpMethod? method = null)
         {
             using (original)
             {
@@ -220,7 +223,7 @@ namespace Core.Runtime
         /// <param name="requestUri"></param>
         /// <param name="method"></param>
         /// <returns>A clone of the HttpRequestMessage</returns>
-        internal static HttpRequestMessage Clone(this HttpRequestMessage original, System.Uri? requestUri = null, System.Net.Http.HttpMethod? method = null)
+        public static HttpRequestMessage Clone(this HttpRequestMessage original, System.Uri? requestUri = null, System.Net.Http.HttpMethod? method = null)
         {
             var clone = new HttpRequestMessage
             {
@@ -256,7 +259,7 @@ namespace Core.Runtime
         /// <param name="requestUri"></param>
         /// <param name="method"></param>
         /// <returns>A clone of the HttpRequestMessage</returns>
-        internal static async Task<HttpRequestMessage> CloneWithContent(this HttpRequestMessage original, System.Uri? requestUri = null, System.Net.Http.HttpMethod? method = null)
+        public static async Task<HttpRequestMessage> CloneWithContent(this HttpRequestMessage original, System.Uri? requestUri = null, System.Net.Http.HttpMethod? method = null)
         {
             var clone = original.Clone(requestUri, method);
             var stream = new System.IO.MemoryStream();
@@ -274,6 +277,168 @@ namespace Core.Runtime
                 }
             }
             return clone;
+        }
+
+        public static string FormatString(string content)
+        {
+            // this is only used to determine cutoff for streams (not xml or json).
+            // TODO(Yabo): get this from configservice: engine get this property from configservice and set through processor context
+            const int StreamCutOffSize = 10 * 1024; //10KB
+            return content.Length <= StreamCutOffSize ? 
+                    content : 
+                    content.Substring(0, StreamCutOffSize) + "\r\nDATA TRUNCATED DUE TO SIZE\r\n";
+        }
+
+        public static async Task<string> GetLog(this HttpRequestMessage request)
+        {
+            return await GetLog(request, null);
+        }
+
+        public static async Task<string> GetLog(this HttpResponseMessage response, IList<Regex>? matchers = null)
+        {
+            if (response == null)
+            {
+                return string.Empty;
+            }
+
+            string body = response.Content == null ? string.Empty
+                : FormatString(await response.Content.ReadAsStringAsync());
+
+            return GetHttpResponseLog(
+                response.StatusCode.ToString(),
+                response.Headers,
+                body,
+                matchers);
+        }
+
+        public static async Task<string> GetLog(this HttpResponseMessage response)
+        {
+            return await GetLog(response, null);
+        }
+
+        public static async Task<string> GetLog(this HttpRequestMessage request, IList<Regex>? matchers = null)
+        {
+            if (request == null)
+            {
+                return string.Empty;
+            }
+
+            string body = request.Content == null ? string.Empty
+                : FormatString(await request.Content.ReadAsStringAsync());
+
+            return GetHttpRequestLog(
+                request.Method.ToString(),
+                request.RequestUri == null ? string.Empty : request.RequestUri.ToString(),
+                request.Headers,
+                body,
+                matchers);
+        }
+
+        public static string GetHttpRequestLog(string method, string requestUri, HttpHeaders headers, string body, IList<Regex>? matchers = null)
+        {
+            return GetHttpRequestLog(method, requestUri, ConvertHttpHeadersToWebHeaderCollection(headers), body, matchers);
+        }
+
+        public static string GetHttpRequestLog(
+            string method,
+            string requestUri,
+            IDictionary<string, IEnumerable<string>> headers,
+            string body,
+            IList<Regex>? matchers = null)
+        {
+            StringBuilder httpRequestLog = new StringBuilder();
+            httpRequestLog.AppendLine(string.Format("============================ HTTP REQUEST ============================{0}", Environment.NewLine));
+            httpRequestLog.AppendLine(string.Format("HTTP Method:{0}{1}{0}", Environment.NewLine, method));
+            httpRequestLog.AppendLine(string.Format("Absolute Uri:{0}{1}{0}", Environment.NewLine, requestUri));
+            httpRequestLog.AppendLine(string.Format("Headers:{0}{1}", Environment.NewLine, MessageHeadersToString(headers)));
+            httpRequestLog.AppendLine(string.Format("Body:{0}{1}{0}", Environment.NewLine, TransformBody(body, matchers)));
+
+            return httpRequestLog.ToString();
+        }
+
+        public static string GetHttpResponseLog(string statusCode, HttpHeaders headers, string body, IList<Regex>? matchers = null)
+        {
+            return GetHttpResponseLog(statusCode, ConvertHttpHeadersToWebHeaderCollection(headers), body, matchers);
+        }
+
+        public static string GetHttpResponseLog(string statusCode, IDictionary<string, IEnumerable<string>> headers, string body, IList<Regex>? matchers = null)
+        {
+            StringBuilder httpResponseLog = new StringBuilder();
+            httpResponseLog.AppendLine($"============================ HTTP RESPONSE ============================{Environment.NewLine}");
+            httpResponseLog.AppendLine($"Status Code:{Environment.NewLine}{statusCode}{Environment.NewLine}");
+            httpResponseLog.AppendLine($"Headers:{Environment.NewLine}{MessageHeadersToString(headers)}");
+            httpResponseLog.AppendLine($"Body:{Environment.NewLine}{TransformBody(body, matchers)}{Environment.NewLine}");
+            return httpResponseLog.ToString();
+        }
+
+        public static string TransformBody(string inBody)
+        {
+            IList<Regex> matchers = new List<Regex>();
+            Regex matcher = new Regex("(\\s*\"access_token\"\\s*:\\s*)\"[^\"]+\"");
+            matchers.Add(matcher);
+            return TransformBody(inBody, matchers);
+        }
+
+        public static string TransformBody(string inBody, IList<Regex>? matchers)
+        {
+            if (matchers != null) 
+            {
+                foreach (Regex match in matchers)
+                {
+                    inBody = match.Replace(inBody, "$1\"<redacted>\"");
+                }
+            }
+            return inBody;
+        }
+
+        // TODO(Yabo): get this from configservice: engine get this property from configservice and set through processor context
+        private static List<string> AuthorizationHeaderNames = new List<string>() { "Authorization" };
+
+        private static IDictionary<string, IEnumerable<string>> ConvertHttpHeadersToWebHeaderCollection(HttpHeaders headers)
+        {
+            IDictionary<string, IEnumerable<string>> webHeaders = new Dictionary<string, IEnumerable<string>>();
+            foreach (KeyValuePair<string, IEnumerable<string>> pair in headers)
+            {
+                if (AuthorizationHeaderNames.Any(h => h.Equals(pair.Key, StringComparison.OrdinalIgnoreCase)))
+                {
+                    // Skip adding the authorization header
+                    continue;
+                }
+
+                webHeaders.Add(pair.Key, pair.Value);
+            }
+
+            return webHeaders;
+        }
+
+        private static string MessageHeadersToString(IDictionary<string, IEnumerable<string>> headers)
+        {
+            string[] keys = headers.Keys.ToArray();
+            StringBuilder result = new StringBuilder();
+
+            foreach (string key in keys)
+            {
+                result.AppendLine(string.Format(
+                    "{0,-30}: {1}",
+                    key,
+                    headers[key].ToArray().ArrayToString(",")));
+            }
+
+            return result.ToString();
+        }
+
+        /// <summary>
+        /// Convert the given array into string.
+        /// </summary>
+        /// <typeparam name="T">The type of the object array is holding</typeparam>
+        /// <param name="array">The collection</param>
+        /// <param name="delimiter">The used delimiter between array elements</param>
+        /// <returns>The array into string representation</returns>
+        public static string? ArrayToString<T>(this T[] array, string delimiter)
+        {
+            return (array == null) ? null : (array.Length == 0) ? string.Empty
+                : array.Skip(1).Aggregate(new StringBuilder(array[0]!.ToString()),
+                (s, i) => s.Append(delimiter).Append(i), s => s.ToString());
         }
     }
 }

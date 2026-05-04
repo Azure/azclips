@@ -295,4 +295,6 @@ public class ExtensionInstaller
             await itemStream.CopyToAsync(fileStream, cancellationToken);
         }
     }
+
+    public virtual HttpRequestMessage CreateRequestMessage() => throw new NotImplementedException();
 }

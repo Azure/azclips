@@ -5,7 +5,7 @@ using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
 {
-    public class GetResourceGroupProcessor : ResourceProcessorBase
+    public class GetResourceGroupProcessor : ResourcesProcessorBase
     {
         [ArgumentInfo(
         Required = false,

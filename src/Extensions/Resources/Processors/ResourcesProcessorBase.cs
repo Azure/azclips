@@ -4,7 +4,7 @@ using Core.Abstractions.Runtime;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
 {
-    public class ResourceProcessorBase : IProcessor
+    public class ResourcesProcessorBase : IProcessor
     {
         protected IRuntimeHttpPipeline HttpPipeline = null!;
         protected IEventListener EventListener = null!;
@@ -38,5 +38,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
             return this;
         }
         public virtual Task ProcessAsync() => Task.CompletedTask;
+        public virtual HttpRequestMessage CreateRequestMessage() => throw new NotImplementedException();
     }
 }

@@ -32,5 +32,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Processors
         }
 
         public virtual Task ProcessAsync() => Task.CompletedTask;
+        public virtual HttpRequestMessage CreateRequestMessage() => throw new NotImplementedException();
     }
 }

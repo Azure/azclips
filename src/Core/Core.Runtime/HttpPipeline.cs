@@ -6,6 +6,7 @@ namespace Core.Runtime
     using System.Linq;
     using System;
     using Core.Abstractions.Runtime;
+    using Extensions.Runtime;
     
     public class HttpPipeline : IRuntimeHttpPipeline
     {

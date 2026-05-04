@@ -2,6 +2,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Runtime;
 using System.Diagnostics;
+using Extensions.Runtime;
 
 namespace Core.Engine
 {
@@ -49,6 +50,48 @@ namespace Core.Engine
                 loggingService.Debug(evt.Message);
             });
 
+            session.Subscribe(Events.ProcessorBeforeHttpRequest, (data) =>
+            {
+                var evt = (EventData)data;
+                loggingService.Debug(evt.Message);
+            });
+
+            session.Subscribe(Events.ProcessorAfterHttpRequest, (data) =>
+            {
+                var evt = (EventData)data;
+                loggingService.Debug(evt.Message);
+            });
+
+            session.Subscribe(Events.DelayPolling, (data) =>
+            {
+                var evt = (EventData)data;
+                loggingService.Debug(evt.Message);
+            });
+
+            session.Subscribe(Events.BeforePollingCall, (data) =>
+            {
+                EventData evt = (EventData)data;
+                loggingService.Debug(evt.Message);
+            });
+
+            session.Subscribe(Events.AfterPollingCall, (data) =>
+            {
+                EventData evt = (EventData)data;
+                loggingService.Debug(evt.Message);
+            });
+
+            session.Subscribe(Events.PollingFinished, (data) =>
+            {
+                var evt = (EventData)data;
+                loggingService.Info(evt.Message);
+            });
+
+            session.Subscribe(Events.PollingFailed, (data) =>
+            {
+                var evt = (EventData)data;
+                loggingService.Error(evt.Message);
+            });
+ 
             return session;
         }
 

@@ -1,0 +1,74 @@
+using System.Net.Http.Json;
+using System.Text.Json;
+using Core.Abstractions;
+using Core.Abstractions.Runtime;
+using Extensions.Runtime;
+using Microsoft.Azure.Cirrus.Extensions.Compute.Models;
+
+namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors;
+
+public class NetworkSecurityGroupProcessor : ComputeProcessorBase
+{
+    public string SubscriptionId { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Location { get; set; } = string.Empty;
+    public string ResourceGroupName { get; set; } = string.Empty;
+    public List<string> RuleNames { get; set; } = [];
+    public List<string> RuleDirections { get; set; } = [];
+    public List<string> RuleProtocols { get; set; } = [];
+    public List<int> RulePriorities { get; set; } = [];
+    public List<string> RuleSourceAddressPrefixes { get; set; } = [];
+    public List<string> RuleSourcePortRanges { get; set; } = [];
+    public List<string> RuleDestinationPortRanges { get; set; } = [];
+    public List<string> RuleDestinationAddressPrefixes { get; set; } = [];
+    public List<string> RuleAccesses { get; set; } = [];
+
+    public override async Task<HttpRequestMessage> CreateRequestMessage(string? subscriptionId = null, IEventListener? eventListener = null, JsonSerializerOptions? jsonOptions = null)
+    {
+        eventListener ??= EventListener;
+        await eventListener.Signal(Events.ProcessorBeforeHttpRequest);
+        subscriptionId ??= SubscriptionId;
+        jsonOptions ??= _jsonOptions;
+        string uri = $"/subscriptions/{subscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/networkSecurityGroups/{Name}?api-version=2025-05-01";
+        NetworkSecurityGroup body = new NetworkSecurityGroup
+        {
+            Name = Name,
+            Location = Location,
+            ResourceGroupName = ResourceGroupName,
+            SecurityRules = RuleNames.Select((name, index) => new SecurityRule
+            {
+                Name = name,
+                Direction = RuleDirections.ElementAtOrDefault(index) ?? string.Empty,
+                Protocol = RuleProtocols.ElementAtOrDefault(index) ?? string.Empty,
+                Priority = RulePriorities.ElementAtOrDefault(index),
+                SourceAddressPrefix = RuleSourceAddressPrefixes.ElementAtOrDefault(index) ?? string.Empty,
+                SourcePortRange = RuleSourcePortRanges.ElementAtOrDefault(index) ?? string.Empty,
+                DestinationPortRange = RuleDestinationPortRanges.ElementAtOrDefault(index) ?? string.Empty,
+                DestinationAddressPrefix = RuleDestinationAddressPrefixes.ElementAtOrDefault(index) ?? string.Empty,
+                Access = RuleAccesses.ElementAtOrDefault(index) ?? string.Empty
+            }).ToList()
+        };
+        HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, uri)
+        {
+            Content = JsonContent.Create(body, options: jsonOptions)
+        };
+        await eventListener.Signal(Events.ProcessorAfterHttpRequest);
+        return request;
+    }
+
+    protected override Func<HttpResponseMessage, string?> GetFinalUri => response => response.GetFirstHeader("Azure-AsyncOperation");
+    protected override Func<HttpResponseMessage, string?> GetOperationLocationUri => response => response.GetFirstHeader("Operation-Location");
+    protected override Func<HttpResponseMessage, string?> GetAsyncOperationUri => response => response.GetFirstHeader("Azure-AsyncOperation");
+    protected override Func<HttpResponseMessage, string?> GetLocationUri => response => response.GetFirstHeader("Location");
+
+    public override async Task ProcessAsync()
+    {
+        await EventListener.Signal(Events.ProcessorProcessAsyncStart);
+        SubscriptionId = SubscriptionId ?? AuthContext.SubscriptionId ?? throw new InvalidOperationException($"SubscriptionId must be provided either via property or auth context.");
+        HttpResponseMessage response = await SendAsyncLRO();
+        NetworkSecurityGroup body = (await response.Content.ReadFromJsonAsync<NetworkSecurityGroup>(_jsonOptions))!;
+        // TODO(Yabo): handle status codes
+        await WriteOutput(body);
+        await EventListener.Signal(Events.ProcessorProcessAsyncEnd);
+    }
+}

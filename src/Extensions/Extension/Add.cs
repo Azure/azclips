@@ -86,4 +86,6 @@ public class AddExtensionProcessor : IProcessor
             return result.ToString() ?? "";
         }
     }
+
+    public virtual HttpRequestMessage CreateRequestMessage() => throw new NotImplementedException();
 }
