@@ -16,6 +16,6 @@ public class GetCirrusConfigInfoCmdlet : ConfigCmdletBase
             parameters.Add("KeysOnly", KeysOnly.IsPresent);
         }
 
-        ExecuteInvocation("Get-CirrusConfigInfo", parameters);
+        ExecuteInvocation(parameters);
     }
 }

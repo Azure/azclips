@@ -29,6 +29,6 @@ public class RemoveCirrusConfigCmdlet : ConfigCmdletBase
             parameters.Add("Force", Force.IsPresent);
         }
 
-        ExecuteInvocation("Remove-CirrusConfig", parameters);
+        ExecuteInvocation(parameters);
     }
 }

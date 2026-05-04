@@ -36,11 +36,12 @@ public abstract class ConfigCmdletBase : PSCmdlet
         Engine = CirrusServiceProvider.GetRequiredService<IEngine>();
     }
 
-    protected void ExecuteInvocation(string commandName, Dictionary<string, object> parameters)
+    protected void ExecuteInvocation(Dictionary<string, object> parameters)
     {
+        var commandName = MyInvocation.MyCommand.Name;
         using var activity = CirrusServiceProvider
             .GetRequiredService<ITelemetryService>()
-            .StartPowerShellActivity(MyInvocation.MyCommand.Name, MyInvocation.BoundParameters);
+            .StartPowerShellActivity(commandName, MyInvocation.BoundParameters);
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();

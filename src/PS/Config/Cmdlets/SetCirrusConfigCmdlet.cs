@@ -37,6 +37,6 @@ public class SetCirrusConfigCmdlet : ConfigCmdletBase
             parameters.Add("Force", Force.IsPresent);
         }
 
-        ExecuteInvocation("Set-CirrusConfig", parameters);
+        ExecuteInvocation(parameters);
     }
 }

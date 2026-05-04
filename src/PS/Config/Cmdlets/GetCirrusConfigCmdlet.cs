@@ -24,6 +24,6 @@ public class GetCirrusConfigCmdlet : ConfigCmdletBase
             parameters.Add("Json", AsJson.IsPresent);
         }
 
-        ExecuteInvocation("Get-CirrusConfig", parameters);
+        ExecuteInvocation(parameters);
     }
 }
