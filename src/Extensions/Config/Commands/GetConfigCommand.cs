@@ -26,6 +26,6 @@ public sealed class GetConfigCommand : ConfigCommandBase
             ? Serialize(entry)
             : $"{entry.Key} = {FormatValue(entry.Value)} [{entry.Source}]";
 
-        await WriteOutput(output).ConfigureAwait(false);
+        await WriteOutput(output, CancellationToken).ConfigureAwait(false);
     }
 }

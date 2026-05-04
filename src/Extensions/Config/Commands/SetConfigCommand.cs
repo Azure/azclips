@@ -19,7 +19,7 @@ public sealed class SetConfigCommand : ConfigCommandBase
         using var _ = StartActivity($"{nameof(SetConfigCommand)}.{nameof(ProcessAsync)}", ActivityKind.Internal);
 
         var parsedValue = ParseValue(Value);
-        await GetConfigurationService().SetConfigurationAsync(Key, parsedValue, Force).ConfigureAwait(false);
-        await WriteOutput($"Set {Key} = {FormatValue(parsedValue)}").ConfigureAwait(false);
+        await GetConfigurationService().SetConfigurationAsync(Key, parsedValue, Force, CancellationToken).ConfigureAwait(false);
+        await WriteOutput($"Set {Key} = {FormatValue(parsedValue)}", CancellationToken).ConfigureAwait(false);
     }
 }

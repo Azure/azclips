@@ -23,7 +23,7 @@ public sealed class ListConfigCommand : ConfigCommandBase
 
         if (Json)
         {
-            await WriteOutput(Serialize(entries)).ConfigureAwait(false);
+            await WriteOutput(Serialize(entries), CancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -33,6 +33,6 @@ public sealed class ListConfigCommand : ConfigCommandBase
             builder.AppendLine($"{entry.Key} = {FormatValue(entry.Value)} [{entry.Source}]");
         }
 
-        await WriteOutput(builder.ToString().TrimEnd()).ConfigureAwait(false);
+        await WriteOutput(builder.ToString().TrimEnd(), CancellationToken).ConfigureAwait(false);
     }
 }

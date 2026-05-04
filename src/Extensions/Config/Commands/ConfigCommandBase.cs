@@ -18,11 +18,13 @@ public abstract class ConfigCommandBase : IProcessor
 
     protected OutputStreamDelegate WriteOutput = null!;
     protected StartActivityDelegate StartActivity { get; set; } = null!;
+    protected CancellationToken CancellationToken { get; private set; }
 
     public IProcessor Init(ProcessorContext context)
     {
         WriteOutput = context.OutputHandler.WriteOutput;
         StartActivity = GetTelemetryService().StartActivity;
+        CancellationToken = context.EventListener.Token;
         return this;
     }
 
@@ -50,7 +52,7 @@ public abstract class ConfigCommandBase : IProcessor
     protected async Task<Dictionary<string, ConfigValueView>> GetResolvedEntriesAsync(bool includeDefaults)
     {
         var configurationService = GetConfigurationService();
-        var fileValues = await configurationService.ListConfigurationAsync(includeDefaults: false).ConfigureAwait(false);
+        var fileValues = await configurationService.ListConfigurationAsync(includeDefaults: false, cancellationToken: CancellationToken).ConfigureAwait(false);
         var entries = new Dictionary<string, ConfigValueView>(StringComparer.OrdinalIgnoreCase);
 
         if (includeDefaults)
