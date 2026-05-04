@@ -45,7 +45,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                 Content = JsonContent.Create(new ResourceGroup(Location, Name), options: _jsonOptions)
             };
             request.Content.Headers.ContentType = MediaTypeHeaderValue.Parse("application/json");
-            HttpResponseMessage response = await HttpPipeline.SendAsync(request, EventListener);
+            using HttpResponseMessage response = await HttpPipeline.SendAsync(request, EventListener);
+            await EventListener.Signal(Events.TracingHttpResponseMessage, response);
             ResourceGroup rg = (await response.Content.ReadFromJsonAsync<ResourceGroup>(_jsonOptions))!;
             await WriteOutput(rg);
             await EventListener.Signal(Events.ProcessorProcessAsyncEnd);

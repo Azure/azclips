@@ -25,7 +25,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
         public override async Task<HttpRequestMessage> CreateRequestMessage(string? subscriptionId = null, IEventListener? eventListener = null, JsonSerializerOptions? jsonOptions = null)
         {
             eventListener ??= EventListener;
-            await eventListener.Signal(Events.ProcessorBeforeHttpRequest);
+            await eventListener.Signal(Events.ProcessorBeforeHttpRequestCreate);
             subscriptionId ??= SubscriptionId;
             jsonOptions ??= _jsonOptions;
             string uri = $"/subscriptions/{subscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines/{Name}?api-version=2025-11-01";
@@ -56,7 +56,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
             {
                 Content = JsonContent.Create(body, options: jsonOptions)
             };
-            await eventListener.Signal(Events.ProcessorAfterHttpRequest);
+            await eventListener.Signal(Events.ProcessorAfterHttpRequestCreate);
             return request;
         }
 
@@ -69,7 +69,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
         {
             await EventListener.Signal(Events.ProcessorProcessAsyncStart);
             SubscriptionId = SubscriptionId ?? AuthContext.SubscriptionId ?? throw new InvalidOperationException($"SubscriptionId must be provided either via property or auth context.");
-            HttpResponseMessage response = await SendAsyncLRO();
+            using HttpResponseMessage response = await SendAsyncLRO();
+            await EventListener.Signal(Events.TracingHttpResponseMessage, response);
             VirtualMachine body = (await response.Content.ReadFromJsonAsync<VirtualMachine>(_jsonOptions))!;
             // TODO(Yabo): handle status codes
             await WriteOutput(body);

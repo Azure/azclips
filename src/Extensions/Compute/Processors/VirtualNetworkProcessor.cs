@@ -20,7 +20,7 @@ public class NewVirtualNetworkProcessor : ComputeProcessorBase
     public override async Task<HttpRequestMessage> CreateRequestMessage(string? subscriptionId = null, IEventListener? eventListener = null, JsonSerializerOptions? jsonOptions = null)
     {
         eventListener ??= EventListener;
-        await eventListener.Signal(Events.ProcessorBeforeHttpRequest);
+        await eventListener.Signal(Events.ProcessorBeforeHttpRequestCreate);
         subscriptionId ??= SubscriptionId;
         jsonOptions ??= _jsonOptions;
         string uri = $"/subscriptions/{subscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/virtualNetworks/{Name}?api-version=2025-05-01";
@@ -43,7 +43,7 @@ public class NewVirtualNetworkProcessor : ComputeProcessorBase
         {
             Content = JsonContent.Create(body, options: jsonOptions)
         };
-        await eventListener.Signal(Events.ProcessorAfterHttpRequest);
+        await eventListener.Signal(Events.ProcessorAfterHttpRequestCreate);
         return request;
     }
 
@@ -57,6 +57,7 @@ public class NewVirtualNetworkProcessor : ComputeProcessorBase
         await EventListener.Signal(Events.ProcessorProcessAsyncStart);
         SubscriptionId = SubscriptionId ?? AuthContext.SubscriptionId ?? throw new InvalidOperationException($"SubscriptionId must be provided either via property or auth context.");
         using HttpResponseMessage response = await SendAsyncLRO();
+        await EventListener.Signal(Events.TracingHttpResponseMessage, response);
         VirtualNetwork body = (await response.Content.ReadFromJsonAsync<VirtualNetwork>(_jsonOptions))!;
         // TODO(Yabo): handle status codes
         await WriteOutput(body);

@@ -76,6 +76,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
                 IEventListener _eventListener = eventListener ?? EventListener;
                 string _originalUri = _request.RequestUri!.AbsoluteUri;
                 HttpResponseMessage _response = await _httpPipeline.SendAsync(_request, _eventListener);
+                await EventListener.Signal(Events.TracingHttpResponseMessage, _response);
                 // declared final-state-via: location
                 var _finalUri = GetFinalUri(_response) ?? _originalUri;
                 var _asyncOperationUri = GetAsyncOperationUri(_response);
@@ -115,6 +116,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
                     await _eventListener.Signal(Events.BeforePollingCall, $"Polling status: _finalUri: {_finalUri}, _asyncOperationUri: {_asyncOperationUri}, _locationUri: {_locationUri}, _operationLocationUri: {_operationLocationUri}");
                     // make the polling call
                     _response = await _httpPipeline.SendAsync(_request, _eventListener);
+                    await EventListener.Signal(Events.TracingHttpResponseMessage, _response);
                     await _eventListener.Signal(Events.AfterPollingCall);
 
                     // if we got back an OK, take a peek inside and see if it's done
@@ -177,6 +179,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
                         await _eventListener.Signal(Events.BeforePollingCall, $"Polling status: _finalUri: {_finalUri}, _asyncOperationUri: {_asyncOperationUri}, _locationUri: {_locationUri}, _operationLocationUri: {_operationLocationUri}");
                         // make the final call
                         _response = await _httpPipeline.SendAsync(_request, _eventListener);
+                        await EventListener.Signal(Events.TracingHttpResponseMessage, _response);
                         await _eventListener.Signal(Events.AfterPollingCall);
                         break;
                     }

@@ -50,16 +50,29 @@ namespace Core.Engine
                 loggingService.Debug(evt.Message);
             });
 
-            session.Subscribe(Events.ProcessorBeforeHttpRequest, (data) =>
+            session.Subscribe(Events.ProcessorBeforeHttpRequestCreate, (data) =>
             {
                 var evt = (EventData)data;
                 loggingService.Debug(evt.Message);
             });
 
-            session.Subscribe(Events.ProcessorAfterHttpRequest, (data) =>
+            session.Subscribe(Events.ProcessorAfterHttpRequestCreate, (data) =>
             {
                 var evt = (EventData)data;
                 loggingService.Debug(evt.Message);
+            });
+
+            session.Subscribe(Events.TracingHttpRequestMessage, async (data) =>
+            {
+                var evt = (EventData)data;
+                HttpRequestMessage request = (HttpRequestMessage)evt.RequestMessage;
+                loggingService.Debug(await request.GetLog());
+            });
+            session.Subscribe(Events.TracingHttpResponseMessage, async (data) =>
+            {
+                var evt = (EventData)data;
+                HttpResponseMessage response = (HttpResponseMessage)evt.ResponseMessage;
+                loggingService.Debug(await response.GetLog());
             });
 
             session.Subscribe(Events.DelayPolling, (data) =>

@@ -3,7 +3,7 @@
 
 namespace Core.Abstractions.Runtime.Handler;
 
-public interface ICommandHttpMessageHandler
+public interface IHttpTerminateHandler
 {
     /// <summary>
     /// Interceptor for http pipeline for mocking scenarios

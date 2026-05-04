@@ -28,7 +28,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
             var url = $"https://management.azure.com/subscriptions/{subscriptionId}/resourcegroups/{Name}?api-version=2025-04-01";
             //TODO(Yabo): set_jsonOptions from Processor context
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
-            HttpResponseMessage response = await HttpPipeline.SendAsync(request, EventListener);
+            using HttpResponseMessage response = await HttpPipeline.SendAsync(request, EventListener);
+            await EventListener.Signal(Events.TracingHttpResponseMessage, response);
             ResourceGroup rg = (await response.Content.ReadFromJsonAsync<ResourceGroup>(_jsonOptions))!;
             await WriteOutput(rg);
             await EventListener.Signal(Events.ProcessorProcessAsyncEnd);

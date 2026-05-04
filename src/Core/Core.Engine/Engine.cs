@@ -20,13 +20,13 @@ namespace Core.Engine
         ClientType clientType,
         HttpClient httpClient,
         IAuthContextService authContextService,
-        ICommandHttpMessageHandler commandHttpMessageHandler,
         IAuthService authService,
         ITelemetryService telemetryService,
         ILoggingService loggingService,
         IAssemblyLoadingService assemblyLoadingService,
         IArgumentParsingService argumentParsingService,
-        IConfigurationService configurationService) : IEngine
+        IConfigurationService configurationService,
+        IHttpPipelineService httpPipelineService) : IEngine
     {
         // Extension indices are cached with Lazy<T> to ensure single initialization per extension
         // even under concurrent access. The factory runs exactly once per key.
@@ -96,7 +96,10 @@ namespace Core.Engine
                 AuthHandler: authHandler,
                 OutputHandler: outputHandler
             );
-            httpPipeline.Prepend(commandHttpMessageHandler.SendAsync);
+            // passthrough by default, terminate during client mocking
+            httpPipeline.Prepend(httpPipelineService.HttpPipelineTerminatingStep);
+            // trace every http request message, record/playback request during test
+            httpPipeline.Append(httpPipelineService.HttpRequestMessageTracingStep);
             return context;
         }
 

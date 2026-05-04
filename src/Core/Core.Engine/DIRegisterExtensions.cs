@@ -1,8 +1,5 @@
 using Core.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
-using System.Net.Http;
-using Core.Abstractions.Runtime.Handler;
-using Core.Runtime.Handler;
 
 namespace Core.Engine;
 
@@ -54,7 +51,6 @@ public static class DIRegisterExtensions
                 sp.GetRequiredService<IOutputAdapter>()));
 
         services.AddSingleton<HttpClient>();
-        services.AddSingleton<ICommandHttpMessageHandler, CommandHttpMessageHandler>();
         services.AddSingleton<IEngine, Engine>();
 
         return services;

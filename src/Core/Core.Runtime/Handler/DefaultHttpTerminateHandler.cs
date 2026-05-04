@@ -6,7 +6,7 @@ using Core.Abstractions.Runtime.Handler;
 
 namespace Core.Runtime.Handler;
 
-public class CommandHttpMessageHandler : ICommandHttpMessageHandler
+public class DefaultHttpTerminateHandler : IHttpTerminateHandler
 {
     /// <inheritdoc />
     public SendAsyncStep SendAsync => (HttpRequestMessage request, IEventListener callback, ISendAsync next) => next.SendAsync(request, callback);

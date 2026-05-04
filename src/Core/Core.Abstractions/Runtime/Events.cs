@@ -34,8 +34,8 @@ namespace Core.Abstractions.Runtime
         public const string ProcessorException = nameof(ProcessorException);
         public const string ProcessorBeforeAPICall = nameof(ProcessorBeforeAPICall);
         public const string ProcessorAfterAPICall = nameof(ProcessorAfterAPICall);
-        public const string ProcessorBeforeHttpRequest = nameof(ProcessorBeforeHttpRequest);
-        public const string ProcessorAfterHttpRequest = nameof(ProcessorAfterHttpRequest);
+        public const string ProcessorBeforeHttpRequestCreate = nameof(ProcessorBeforeHttpRequestCreate);
+        public const string ProcessorAfterHttpRequestCreate = nameof(ProcessorAfterHttpRequestCreate);
 
         // session
         public const string SessionCreated = nameof(SessionCreated);
@@ -44,6 +44,8 @@ namespace Core.Abstractions.Runtime
         public const string EngineBindingProcessor = nameof(EngineBindingProcessor);
 
         // http pipeline
+        public const string TracingHttpRequestMessage = nameof(TracingHttpRequestMessage);
+        public const string TracingHttpResponseMessage = nameof(TracingHttpResponseMessage);
 
         // polling
         public const string DelayPolling = nameof(DelayPolling);
