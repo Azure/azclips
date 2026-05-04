@@ -130,7 +130,7 @@ jobs:
 
           # Keep release outputs only.
           copy_release_artifacts "*.msix" "Release-" || echo "Note: No Release MSIX packages found"
-          copy_release_artifacts "*.dll" "(Release)" || echo "Note: No Release extension DLLs found"
+          copy_release_artifacts "*.tar.gz" "Release-linux-x64" || echo "Note: No Release Linux tarballs found"
 
           echo ""
           echo "Prepared release files:"
@@ -155,7 +155,7 @@ jobs:
 
             Artifacts included:
             - MSIX Packages (Release build)
-            - Extension DLLs (Release build)
+            - Linux Tarballs (Release build)
           draft: false
           prerelease: false
           files: ${{ env.Release_Files_Dir }}/*

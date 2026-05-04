@@ -1,9 +1,9 @@
 name: (3_naga) Build Learn Step By Step
 
 on:
-  # push:
-  #   branches:
-  #     - naga/test-pr
+  push:
+    branches:
+      - naga/test-pr
   workflow_dispatch:
 
 env:
@@ -152,6 +152,43 @@ jobs:
         with:
           name: MSIX Package (${{ matrix.configuration }}-${{ matrix.platform }})
           path: ${{ env.Bin_Root }}/${{ matrix.configuration }}/azv2-${{ matrix.platform }}.msix
+
+  publish-cli-linux:
+    needs: start
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Release]
+        platform: [linux-x64]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install .NET Core
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore CLI project
+        run: dotnet restore src/CLI/Core.Cli.csproj -r ${{ matrix.platform }}
+
+      - name: Publish the CLI application (Linux)
+        run: dotnet publish src/CLI/Core.Cli.csproj -c ${{ matrix.configuration }} -r ${{ matrix.platform }} --self-contained --no-restore -o ${{ env.Publish_Root }}/${{ matrix.configuration }}/${{ matrix.platform }}
+
+      - name: Create Linux tarball
+        run: |
+          mkdir -p "${{ env.Bin_Root }}/${{ matrix.configuration }}"
+          tar -czf "${{ env.Bin_Root }}/${{ matrix.configuration }}/azv2-${{ matrix.platform }}.tar.gz" -C "${{ env.Publish_Root }}/${{ matrix.configuration }}/${{ matrix.platform }}" .
+
+      - name: Upload Linux tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: Linux Tarball (${{ matrix.configuration }}-${{ matrix.platform }})
+          path: ${{ env.Bin_Root }}/${{ matrix.configuration }}/azv2-${{ matrix.platform }}.tar.gz
 
   publish-extension:
     needs: start
@@ -424,6 +461,7 @@ jobs:
     needs:
       - build-artifacts
       - publish-cli
+      - publish-cli-linux
       - publish-extension
       - build-extension
       - discover-powershell-modules
