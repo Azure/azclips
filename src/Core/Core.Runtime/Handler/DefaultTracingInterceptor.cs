@@ -6,9 +6,9 @@ namespace Core.Runtime.Handler;
 
 public class DefaultTracingInterceptor : ITracingInterceptor
 {
-    public SendAsyncStep SendAsync => (HttpRequestMessage request, IEventListener callback, ISendAsync next) =>
+    public SendAsyncStep SendAsync => async (HttpRequestMessage request, IEventListener callback, ISendAsync next) =>
     {
-        callback.Signal(Events.TracingHttpRequestMessage, request);
-        return next.SendAsync(request, callback);
+        await callback.Signal(Events.TracingHttpRequestMessage, request);
+        return await next.SendAsync(request, callback);
     };
 }
