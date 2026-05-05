@@ -29,19 +29,19 @@ namespace Core.Engine
             {
                 var evt = (EventData)msg;
                 string id = evt.Id;
-                loggingService.Debug($"[{id}]");
+                loggingService.Verbose($"[{id}]");
             });
 
             session.Subscribe(Events.SessionCreated, (data) =>
             {
                 var evt = (EventData)data;
-                loggingService.Verbose(evt.Message);
+                loggingService.Debug(evt.Message);
             });
 
             session.Subscribe(Events.SessionDisposed, (data) =>
             {
                 var evt = (EventData)data;
-                loggingService.Verbose(evt.Message);
+                loggingService.Debug(evt.Message);
             });
 
             session.Subscribe(Events.ProcessorInitiated, (data) =>
@@ -88,6 +88,18 @@ namespace Core.Engine
             });
 
             session.Subscribe(Events.AfterPollingCall, (data) =>
+            {
+                EventData evt = (EventData)data;
+                loggingService.Debug(evt.Message);
+            });
+
+            session.Subscribe(Events.BeforeFinalPollingCall, (data) =>
+            {
+                EventData evt = (EventData)data;
+                loggingService.Debug(evt.Message);
+            });
+
+            session.Subscribe(Events.AfterFinalPollingCall, (data) =>
             {
                 EventData evt = (EventData)data;
                 loggingService.Debug(evt.Message);

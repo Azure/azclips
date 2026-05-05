@@ -78,7 +78,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
                 HttpResponseMessage _response = await _httpPipeline.SendAsync(_request, _eventListener);
                 await EventListener.Signal(Events.TracingHttpResponseMessage, _response);
                 // declared final-state-via: location
-                var _finalUri = GetFinalUri(_response) ?? _originalUri;
+                var _finalUri = string.IsNullOrEmpty(GetFinalUri(_response)) ? _originalUri : GetFinalUri(_response);
                 var _asyncOperationUri = GetAsyncOperationUri(_response);
                 var _locationUri = GetLocationUri(_response);
                 var _operationLocationUri = GetOperationLocationUri(_response);
@@ -113,7 +113,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
                     await delayTask;
 
                     _request = _request.CloneAndDispose(new Uri(_uri), HttpMethod.Get);
-                    await _eventListener.Signal(Events.BeforePollingCall, $"Polling status: _finalUri: {_finalUri}, _asyncOperationUri: {_asyncOperationUri}, _locationUri: {_locationUri}, _operationLocationUri: {_operationLocationUri}");
+                    await _eventListener.Signal(Events.BeforePollingCall, $"Polling status: {Environment.NewLine}_finalUri: {Environment.NewLine}{_finalUri}{Environment.NewLine}_asyncOperationUri: {Environment.NewLine}{_asyncOperationUri}{Environment.NewLine}_locationUri: {Environment.NewLine}{_locationUri}{Environment.NewLine}_operationLocationUri: {Environment.NewLine}{_operationLocationUri}");
                     // make the polling call
                     _response = await _httpPipeline.SendAsync(_request, _eventListener);
                     await EventListener.Signal(Events.TracingHttpResponseMessage, _response);
@@ -176,11 +176,11 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
                         // drop the old response
                         _response?.Dispose();
                         _request = _request.CloneAndDispose(new Uri(_finalUri), HttpMethod.Get);
-                        await _eventListener.Signal(Events.BeforePollingCall, $"Polling status: _finalUri: {_finalUri}, _asyncOperationUri: {_asyncOperationUri}, _locationUri: {_locationUri}, _operationLocationUri: {_operationLocationUri}");
+                        await _eventListener.Signal(Events.BeforeFinalPollingCall, $"Polling status: {Environment.NewLine}_finalUri: {Environment.NewLine}{_finalUri}{Environment.NewLine}_asyncOperationUri: {Environment.NewLine}{_asyncOperationUri}{Environment.NewLine}_locationUri: {Environment.NewLine}{_locationUri}{Environment.NewLine}_operationLocationUri: {Environment.NewLine}{_operationLocationUri}");
                         // make the final call
                         _response = await _httpPipeline.SendAsync(_request, _eventListener);
                         await EventListener.Signal(Events.TracingHttpResponseMessage, _response);
-                        await _eventListener.Signal(Events.AfterPollingCall);
+                        await _eventListener.Signal(Events.AfterFinalPollingCall);
                         break;
                     }
                 }

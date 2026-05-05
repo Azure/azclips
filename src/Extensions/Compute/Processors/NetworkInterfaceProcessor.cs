@@ -13,7 +13,7 @@ public class NetworkInterfaceProcessor : ComputeProcessorBase
     public string Name { get; set; } = string.Empty;
     public string Location { get; set; } = string.Empty;
     public string ResourceGroupName { get; set; } = string.Empty;
-    public List<string> SubnetNames { get; set; } = [];
+    public List<string> SubnetIds { get; set; } = [];
     public List<List<string>> SubnetAddressPrefixes { get; set; } = [];
     public string NetworkSecurityGroupId { get; set; } = string.Empty;
 
@@ -23,26 +23,55 @@ public class NetworkInterfaceProcessor : ComputeProcessorBase
         await eventListener.Signal(Events.ProcessorBeforeHttpRequestCreate);
         subscriptionId ??= SubscriptionId;
         jsonOptions ??= _jsonOptions;
-        string uri = $"/subscriptions/{subscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/networkInterfaces/{Name}?api-version=2025-05-01";
+        string uri = $"https://management.azure.com/subscriptions/{subscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/networkInterfaces/{Name}?api-version=2025-05-01";
         NetworkInterface body = new NetworkInterface
         {
-            Name = Name,
             Location = Location,
-            ResourceGroupName = ResourceGroupName,
-            IPConfigurations = SubnetNames.Select((subnetName, index) => new IPConfiguration
+            Properties = new NetworkInterfaceProperties
             {
-                Name = $"ipconfig{index}",
-                Subnet = new Subnet
+                EnableAcceleratedNetworking = true,
+                EnableIPForwarding = false,
+                NetworkSecurityGroup = string.IsNullOrEmpty(NetworkSecurityGroupId)
+                    ? null
+                    : new NetworkSecurityGroup
+                    {
+                        Id = NetworkSecurityGroupId,
+                        Properties = new NetworkSecurityGroupProperties
+                        {
+                            FlushConnection = false,
+                            SecurityRules = []
+                        },
+                    },
+                IPConfigurations = SubnetIds.Select((subnetId, index) => new IPConfiguration
                 {
-                    Name = subnetName,
-                    AddressPrefix = SubnetAddressPrefixes.ElementAtOrDefault(index) ?? new List<string>()
-                },
-            }).ToList(),
-            NetworkSecurityGroup = string.IsNullOrEmpty(NetworkSecurityGroupId)
-                ? null!
-                : new NetworkSecurityGroup { Id = NetworkSecurityGroupId }
+                    Name = $"ipconfig{index}",
+                    Properties = new IPConfigurationProperties
+                    {
+                        Subnet = new Subnet
+                        {
+                            Id = subnetId,
+                            Properties = new SubnetProperties
+                            {
+                                AddressPrefixes = SubnetAddressPrefixes.ElementAtOrDefault(index) ?? [],
+                                ServiceEndpoints = [],
+                                ServiceEndpointPolicies = [],
+                                IpAllocations = [],
+                                Delegations = [],
+                                ApplicationGatewayIPConfigurations = [],
+                                IpamPoolPrefixAllocations = []
+                            }
+                        },
+                        VirtualNetworkTaps = [],
+                        ApplicationGatewayBackendAddressPools = [],
+                        LoadBalancerBackendAddressPools = [],
+                        LoadBalancerInboundNatRules = [],
+                        PrivateIPAllocationMethod = "Dynamic",
+                        Primary = index == 0
+                    }
+                }).ToList()
+            }
         };
-        HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, uri)
+        HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Put, uri)
         {
             Content = JsonContent.Create(body, options: jsonOptions)
         };
@@ -50,7 +79,16 @@ public class NetworkInterfaceProcessor : ComputeProcessorBase
         return request;
     }
 
-    protected override Func<HttpResponseMessage, string?> GetFinalUri => response => response.GetFirstHeader("Azure-AsyncOperation");
+    /*
+        Yabo:
+        swagger says:         
+        "x-ms-long-running-operation-options": {
+          "final-state-via": "azure-async-operation",
+          "final-state-schema": "#/definitions/Common.VirtualNetwork"
+        }
+        but got nothing, fallback to no finaluri
+    */
+    protected override Func<HttpResponseMessage, string?> GetFinalUri => response => null;
     protected override Func<HttpResponseMessage, string?> GetOperationLocationUri => response => response.GetFirstHeader("Operation-Location");
     protected override Func<HttpResponseMessage, string?> GetAsyncOperationUri => response => response.GetFirstHeader("Azure-AsyncOperation");
     protected override Func<HttpResponseMessage, string?> GetLocationUri => response => response.GetFirstHeader("Location");

@@ -23,23 +23,44 @@ public class NewVirtualNetworkProcessor : ComputeProcessorBase
         await eventListener.Signal(Events.ProcessorBeforeHttpRequestCreate);
         subscriptionId ??= SubscriptionId;
         jsonOptions ??= _jsonOptions;
-        string uri = $"/subscriptions/{subscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/virtualNetworks/{Name}?api-version=2025-05-01";
+        string uri = $"https://management.azure.com/subscriptions/{subscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/virtualNetworks/{Name}?api-version=2025-05-01";
         VirtualNetwork body = new VirtualNetwork
         {
-            Name = Name,
             Location = Location,
-            ResourceGroupName = ResourceGroupName,
-            Subnets = SubnetNames.Select((name, index) => new Subnet
+            Properties = new VirtualNetworkProperties
             {
-                Name = name,
-                AddressPrefix = SubnetAddressPrefixes.ElementAtOrDefault(index) ?? new List<string>()
-            }).ToList(),
-            AddressSpace = new AddressSpace
-            {
-                AddressPrefixes = AddressPrefixes
+                AddressSpace = new AddressSpace
+                {
+                    AddressPrefixes = AddressPrefixes,
+                    IpamPoolPrefixAllocations = []
+                },
+                Subnets = SubnetNames.Select((name, index) =>
+                {
+                    var subnetPrefixes = SubnetAddressPrefixes.ElementAtOrDefault(index) ?? [];
+                    return new Subnet
+                    {
+                        Name = name,
+                        Properties = new SubnetProperties
+                        {
+                            AddressPrefix = subnetPrefixes.FirstOrDefault() ?? string.Empty,
+                            AddressPrefixes = subnetPrefixes,
+                            ServiceEndpoints = [],
+                            ServiceEndpointPolicies = [],
+                            IpAllocations = [],
+                            Delegations = [],
+                            PrivateEndpointNetworkPolicies = "Disabled",
+                            PrivateLinkServiceNetworkPolicies = "Enabled",
+                            ApplicationGatewayIPConfigurations = [],
+                            IpamPoolPrefixAllocations = []
+                        }
+                    };
+                }).ToList(),
+                VirtualNetworkPeerings = [],
+                EnableDdosProtection = false,
+                IpAllocations = []
             }
         };
-        HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, uri)
+        HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Put, uri)
         {
             Content = JsonContent.Create(body, options: jsonOptions)
         };
@@ -47,7 +68,16 @@ public class NewVirtualNetworkProcessor : ComputeProcessorBase
         return request;
     }
 
-    protected override Func<HttpResponseMessage, string?> GetFinalUri => response => response.GetFirstHeader("Azure-AsyncOperation");
+    /*
+        Yabo:
+        swagger says:         
+        "x-ms-long-running-operation-options": {
+          "final-state-via": "azure-async-operation",
+          "final-state-schema": "#/definitions/Common.VirtualNetwork"
+        }
+        but got nothing, fallback to no finaluri
+    */
+    protected override Func<HttpResponseMessage, string?> GetFinalUri => response => null;
     protected override Func<HttpResponseMessage, string?> GetOperationLocationUri => response => response.GetFirstHeader("Operation-Location");
     protected override Func<HttpResponseMessage, string?> GetAsyncOperationUri => response => response.GetFirstHeader("Azure-AsyncOperation");
     protected override Func<HttpResponseMessage, string?> GetLocationUri => response => response.GetFirstHeader("Location");

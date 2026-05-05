@@ -25,7 +25,7 @@ public class NewNetworkInterfaceCmdlet : PSCmdlet
     public string ResourceGroupName { get; set; } = "";
 
     [Parameter(Mandatory = false)]
-    public string[]? SubnetNames { get; set; }
+    public string[]? SubnetIds { get; set; }
 
     [Parameter(Mandatory = false)]
     public string[][]? SubnetAddressPrefixes { get; set; }
@@ -67,7 +67,7 @@ public class NewNetworkInterfaceCmdlet : PSCmdlet
             { "Location", Location },
             { "ResourceGroupName", ResourceGroupName },
         };
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetNames)))            { parameters.Add("SubnetNames", SubnetNames!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetIds)))            { parameters.Add("SubnetIds", SubnetIds!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetAddressPrefixes)))  { parameters.Add("SubnetAddressPrefixes", SubnetAddressPrefixes!); }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(NetworkSecurityGroupId))) { parameters.Add("NetworkSecurityGroupId", NetworkSecurityGroupId!); }
 

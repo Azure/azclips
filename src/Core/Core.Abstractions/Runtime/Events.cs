@@ -51,6 +51,8 @@ namespace Core.Abstractions.Runtime
         public const string DelayPolling = nameof(DelayPolling);
         public const string BeforePollingCall = nameof(BeforePollingCall);
         public const string AfterPollingCall = nameof(AfterPollingCall);
+        public const string BeforeFinalPollingCall = nameof(BeforeFinalPollingCall);
+        public const string AfterFinalPollingCall = nameof(AfterFinalPollingCall);
         public const string PollingFinished = nameof(PollingFinished);
         public const string PollingFailed = nameof(PollingFailed);
 

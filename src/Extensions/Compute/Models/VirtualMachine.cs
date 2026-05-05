@@ -4,26 +4,11 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Models;
 
 public class VirtualMachine
 {
-    public string Id { get; set; } = null!;
-    public string Name { get; set; } = null!;
-    public string Type { get; set; } = null!;
     public string Location { get; set; } = null!;
-    public string ResourceGroupName { get; set; } = null!;
-    public string ProvisioningState { get; set; } = null!;
 
     public VirtualMachine()
     {
         
-    }
-    
-    public VirtualMachine(string location, string name, string resourceGroupName, string id = "", string type = "", string provisioningState = "")
-    {
-        Id = id;
-        Name = name;
-        Type = type;
-        Location = location;
-        ResourceGroupName = resourceGroupName;
-        ProvisioningState = provisioningState;
     }
 
     public HardwareProfile HardwareProfile { get; set; } = null!;

@@ -28,12 +28,10 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
             await eventListener.Signal(Events.ProcessorBeforeHttpRequestCreate);
             subscriptionId ??= SubscriptionId;
             jsonOptions ??= _jsonOptions;
-            string uri = $"/subscriptions/{subscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines/{Name}?api-version=2025-11-01";
+            string uri = $"https://management.azure.com/subscriptions/{subscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines/{Name}?api-version=2025-11-01";
             VirtualMachine body = new VirtualMachine
             {
-                Name = Name,
                 Location = Location,
-                ResourceGroupName = ResourceGroupName,
                 HardwareProfile = new HardwareProfile(VmSize),
                 OSProfile = new OSProfile
                 {
@@ -52,7 +50,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
                     }
                 }
             };
-            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, uri)
+            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Put, uri)
             {
                 Content = JsonContent.Create(body, options: jsonOptions)
             };
