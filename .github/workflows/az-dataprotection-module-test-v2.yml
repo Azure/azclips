@@ -1,0 +1,198 @@
+name: Az.DataProtection Module Test v2
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - naga/test-pr
+
+jobs:
+  test-az-dataprotection:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+
+    steps:
+      - name: Install Az.DataProtection module
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          # Install only Az.DataProtection (pulls Az.Accounts as a dependency).
+          # Avoids installing the entire Az rollup (~400+ MB) which is slow and unnecessary.
+          Install-Module -Name Az.DataProtection -Repository PSGallery -Scope CurrentUser -Force -AllowClobber
+          Write-Host 'Az.DataProtection installed successfully.'
+
+      - name: Import module and report versions
+        id: versions
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          Import-Module Az.DataProtection -Force -ErrorAction Stop
+
+          $module = Get-Module -Name Az.DataProtection
+          if (-not $module) {
+            throw 'Az.DataProtection module failed to import.'
+          }
+
+          $accounts = Get-Module -Name Az.Accounts
+          if (-not $accounts) {
+            throw 'Az.Accounts module was not loaded (expected as a dependency).'
+          }
+
+          $summary = @"
+          | Component | Version |
+          |-----------|---------|
+          | PowerShell | $($PSVersionTable.PSVersion) |
+          | Az.DataProtection | $($module.Version) |
+          | Az.Accounts | $($accounts.Version) |
+          | Module path | ``$($module.ModuleBase)`` |
+          "@
+
+          Write-Host $summary
+          $summary >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Validate exported commands
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          Import-Module Az.DataProtection -Force -ErrorAction Stop
+
+          $commands = @(Get-Command -Module Az.DataProtection -ErrorAction Stop)
+          $cmdlets  = @($commands | Where-Object CommandType -EQ 'Cmdlet')
+          $functions = @($commands | Where-Object CommandType -EQ 'Function')
+
+          $minimumExpectedCommands = 10
+          if ($commands.Count -lt $minimumExpectedCommands) {
+            throw "Expected at least $minimumExpectedCommands exported commands but found $($commands.Count)."
+          }
+
+          Write-Host "Total commands: $($commands.Count) (cmdlets: $($cmdlets.Count), functions: $($functions.Count))"
+          Write-Host ''
+          Write-Host 'All exported commands:'
+          $commands | Select-Object -ExpandProperty Name | Sort-Object | ForEach-Object { Write-Host "  - $_" }
+
+      - name: Verify required commands exist
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          Import-Module Az.DataProtection -Force -ErrorAction Stop
+
+          # Core commands that must always be present.
+          $requiredCommands = @(
+            'Get-AzDataProtectionBackupVault',
+            'Get-AzDataProtectionBackupInstance',
+            'Initialize-AzDataProtectionBackupInstance'
+          )
+
+          $missing = @()
+          foreach ($name in $requiredCommands) {
+            $cmd = Get-Command -Module Az.DataProtection -Name $name -ErrorAction SilentlyContinue
+            if ($cmd) {
+              Write-Host "OK  $name ($($cmd.CommandType))"
+            } else {
+              Write-Host "MISSING  $name"
+              $missing += $name
+            }
+          }
+
+          if ($missing.Count -gt 0) {
+            throw "Missing required commands: $($missing -join ', ')"
+          }
+
+      - name: Verify policy commands
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          Import-Module Az.DataProtection -Force -ErrorAction Stop
+
+          # The "Get" policy cmdlet name varies across module versions.
+          $policyGetCandidates = @(
+            'Get-AzDataProtectionBackupPolicy',
+            'Get-AzDataProtectionPolicy'
+          )
+
+          $foundPolicyGet = $null
+          foreach ($candidate in $policyGetCandidates) {
+            $cmd = Get-Command -Module Az.DataProtection -Name $candidate -ErrorAction SilentlyContinue
+            if ($cmd) {
+              $foundPolicyGet = $cmd
+              break
+            }
+          }
+
+          if (-not $foundPolicyGet) {
+            Write-Host 'Available Get-* commands in Az.DataProtection:'
+            Get-Command -Module Az.DataProtection -Name 'Get-*' |
+              Select-Object -ExpandProperty Name | Sort-Object |
+              ForEach-Object { Write-Host "  - $_" }
+            throw "No policy Get command found. Expected one of: $($policyGetCandidates -join ', ')"
+          }
+
+          Write-Host "Policy Get command: $($foundPolicyGet.Name)"
+
+          # Verify there are additional policy-related commands (New, Set, etc.)
+          $allPolicyCommands = @(Get-Command -Module Az.DataProtection -Name '*Policy*' -ErrorAction SilentlyContinue)
+          Write-Host "Total *Policy* commands: $($allPolicyCommands.Count)"
+          $allPolicyCommands |
+            Select-Object -ExpandProperty Name | Sort-Object |
+            ForEach-Object { Write-Host "  - $_" }
+
+          if ($allPolicyCommands.Count -lt 2) {
+            throw "Expected multiple policy commands but found only $($allPolicyCommands.Count)."
+          }
+
+      - name: Smoke-test command metadata
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          Import-Module Az.DataProtection -Force -ErrorAction Stop
+
+          # Pick key commands to verify they have proper parameter metadata.
+          $targets = @(
+            'Get-AzDataProtectionBackupVault',
+            'Get-AzDataProtectionBackupInstance',
+            'Initialize-AzDataProtectionBackupInstance'
+          )
+
+          # Also include whichever policy Get command exists.
+          $policyGet = @('Get-AzDataProtectionBackupPolicy', 'Get-AzDataProtectionPolicy') |
+            ForEach-Object { Get-Command -Module Az.DataProtection -Name $_ -ErrorAction SilentlyContinue } |
+            Select-Object -First 1
+          if ($policyGet) {
+            $targets += $policyGet.Name
+          }
+
+          # Deduplicate.
+          $targets = @($targets | Select-Object -Unique)
+
+          foreach ($name in $targets) {
+            $cmd = Get-Command -Module Az.DataProtection -Name $name -ErrorAction SilentlyContinue
+            if (-not $cmd) {
+              throw "Command not found during metadata check: $name"
+            }
+
+            $paramCount = $cmd.Parameters.Count
+            if ($paramCount -eq 0) {
+              throw "Command $name has 0 parameters — metadata may be broken."
+            }
+
+            Write-Host "OK  $name — $($cmd.CommandType), $paramCount parameters"
+          }
+
+          Write-Host ''
+          Write-Host 'All metadata smoke tests passed.'
