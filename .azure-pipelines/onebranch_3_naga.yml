@@ -1,0 +1,190 @@
+trigger: none
+
+pr: none
+
+resources:
+  repositories:
+    - repository: self
+      type: git
+      ref: ${{ variables['Build.SourceBranch'] }}
+    - repository: onebranchTemplates
+      type: git
+      name: OneBranch.Pipelines/GovernedTemplates
+      ref: refs/heads/main
+
+name: onebranch_3_naga_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+
+variables:
+  - name: Solution_Name
+    value: cirrus.slnx
+  - name: Publish_Root
+    value: ./publish
+  - name: Bin_Root
+    value: ./bin
+  - name: DOTNET_CLI_TELEMETRY_OPTOUT
+    value: 1
+  - name: DOTNET_NOLOGO
+    value: 1
+
+extends:
+  template: v2/OneBranch.Official.CrossPlat.yml@onebranchTemplates
+  parameters:
+    stages:
+      - stage: BuildAndPublish
+        displayName: Build Learn Step By Step (OneBranch)
+        jobs:
+          - job: BuildArtifacts
+            displayName: Build artifacts
+            pool:
+              type: windows
+            strategy:
+              matrix:
+                Debug_win_x64:
+                  configuration: Debug
+                  rid: win-x64
+                Release_win_x64:
+                  configuration: Release
+                  rid: win-x64
+            steps:
+              - checkout: self
+                fetchDepth: 0
+
+              - task: UseDotNet@2
+                displayName: Install .NET Core from global.json
+                inputs:
+                  packageType: sdk
+                  useGlobalJson: true
+
+              - pwsh: dotnet restore $(Solution_Name)
+                displayName: Restore solution
+
+              - pwsh: dotnet build $(Solution_Name) --configuration $(configuration) --no-restore
+                displayName: Build solution
+
+              - pwsh: dotnet test $(Solution_Name) --no-build --configuration $(configuration) --verbosity normal
+                displayName: Execute unit tests
+
+              - task: PublishPipelineArtifact@1
+                displayName: Upload build artifacts
+                inputs:
+                  targetPath: artifacts/$(configuration)
+                  artifact: Build_Artifacts_$(configuration)_$(rid)
+                  publishLocation: pipeline
+
+          - job: PublishCliWindows
+            displayName: Publish CLI (Windows, unsigned)
+            pool:
+              type: windows
+            strategy:
+              matrix:
+                Debug_win_x64:
+                  configuration: Debug
+                  rid: win-x64
+                Release_win_x64:
+                  configuration: Release
+                  rid: win-x64
+            steps:
+              - checkout: self
+                fetchDepth: 0
+
+              - task: UseDotNet@2
+                displayName: Install .NET Core from global.json
+                inputs:
+                  packageType: sdk
+                  useGlobalJson: true
+
+              - pwsh: dotnet restore src/CLI/Core.Cli.csproj -r $(rid)
+                displayName: Restore CLI project
+
+              - pwsh: dotnet publish src/CLI/Core.Cli.csproj -c $(configuration) -r $(rid) --self-contained --no-restore -o "$(Publish_Root)/$(configuration)/$(rid)"
+                displayName: Publish the CLI application
+
+              - pwsh: Copy-Item src/CLI/Core.Cli.appxmanifest "$(Publish_Root)/$(configuration)/$(rid)/AppxManifest.xml"
+                displayName: Copy appx manifest
+
+              - pwsh: |
+                  $manifestPath = "$(Publish_Root)/$(configuration)/$(rid)/AppxManifest.xml"
+                  (Get-Content $manifestPath) |
+                    ForEach-Object {
+                      $_ -replace 'Publisher="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"', 'Publisher="CN=Cirrus Dev Signer"'
+                    } |
+                    ForEach-Object {
+                      $_ -replace '<PublisherDisplayName>Microsoft Corporation</PublisherDisplayName>', '<PublisherDisplayName>Cirrus Dev Signer</PublisherDisplayName>'
+                    } |
+                    Set-Content $manifestPath
+                displayName: Update appx manifest publisher for unsigned package
+
+              - pwsh: |
+                  $assetsSource = "assets"
+                  $assetsDestination = "$(Publish_Root)/$(configuration)/$(rid)/Assets"
+                  if (Test-Path $assetsSource) {
+                    New-Item -ItemType Directory -Path $assetsDestination -Force | Out-Null
+                    Copy-Item "$assetsSource\*" $assetsDestination -Recurse -Force
+                  }
+                displayName: Copy appx assets
+
+              - pwsh: |
+                  $windowsKitBinRoot = Join-Path "${env:ProgramFiles(x86)}" "Windows Kits\10\bin"
+                  $latestBinDir = Get-ChildItem -Path $windowsKitBinRoot -Directory |
+                    Where-Object { $_.Name -match '^\d+\.\d+\.\d+\.\d+$' } |
+                    Sort-Object -Property Name -Descending |
+                    Select-Object -First 1
+                  if (-not $latestBinDir) {
+                    throw "No Windows SDK bin directory found under $windowsKitBinRoot"
+                  }
+                  $sdkArch = if ("$(rid)" -eq "win-x86") { "x86" } else { "x64" }
+                  $makeAppxPath = Join-Path -Path $latestBinDir.FullName -ChildPath "$sdkArch\MakeAppx.exe"
+                  New-Item -ItemType Directory -Path "$(Bin_Root)/$(configuration)" -Force | Out-Null
+                  & $makeAppxPath pack /d "$(Publish_Root)/$(configuration)/$(rid)" /p "$(Bin_Root)/$(configuration)/azv2-$(rid).msix" /nv
+                displayName: Create the appx package (unsigned)
+
+              - task: PublishPipelineArtifact@1
+                displayName: Upload published CLI
+                inputs:
+                  targetPath: $(Publish_Root)/$(configuration)/$(rid)
+                  artifact: Published_CLI_$(configuration)_$(rid)
+                  publishLocation: pipeline
+
+              - task: PublishPipelineArtifact@1
+                displayName: Upload MSIX package
+                inputs:
+                  targetPath: $(Bin_Root)/$(configuration)/azv2-$(rid).msix
+                  artifact: MSIX_Package_$(configuration)_$(rid)
+                  publishLocation: pipeline
+
+          - job: PublishCliLinux
+            displayName: Publish CLI (Linux)
+            pool:
+              type: linux
+            strategy:
+              matrix:
+                Release_linux_x64:
+                  configuration: Release
+                  rid: linux-x64
+            steps:
+              - checkout: self
+                fetchDepth: 0
+
+              - task: UseDotNet@2
+                displayName: Install .NET Core from global.json
+                inputs:
+                  packageType: sdk
+                  useGlobalJson: true
+
+              - script: dotnet restore src/CLI/Core.Cli.csproj -r $(rid)
+                displayName: Restore CLI project
+
+              - script: dotnet publish src/CLI/Core.Cli.csproj -c $(configuration) -r $(rid) --self-contained --no-restore -o "$(Publish_Root)/$(configuration)/$(rid)"
+                displayName: Publish the CLI application (Linux)
+
+              - script: |
+                  mkdir -p "$(Bin_Root)/$(configuration)"
+                  tar -czf "$(Bin_Root)/$(configuration)/azv2-$(rid).tar.gz" -C "$(Publish_Root)/$(configuration)/$(rid)" .
+                displayName: Create Linux tarball
+
+              - task: PublishPipelineArtifact@1
+                displayName: Upload Linux tarball
+                inputs:
+                  targetPath: $(Bin_Root)/$(configuration)/azv2-$(rid).tar.gz
+                  artifact: Linux_Tarball_$(configuration)_$(rid)
+                  publishLocation: pipeline
