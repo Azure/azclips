@@ -35,6 +35,9 @@ extends:
         jobs:
           - job: BuildArtifacts
             displayName: Build artifacts
+            variables:
+              - name: ob_outputDirectory
+                value: '$(Build.ArtifactStagingDirectory)/ONEBRANCH_ARTIFACT'
             pool:
               type: windows
             strategy:
@@ -73,6 +76,9 @@ extends:
 
           - job: PublishCliWindows
             displayName: Publish CLI (Windows, unsigned)
+            variables:
+              - name: ob_outputDirectory
+                value: '$(Build.ArtifactStagingDirectory)/ONEBRANCH_ARTIFACT'
             pool:
               type: windows
             strategy:
@@ -154,6 +160,9 @@ extends:
 
           - job: PublishCliLinux
             displayName: Publish CLI (Linux)
+            variables:
+              - name: ob_outputDirectory
+                value: '$(Build.ArtifactStagingDirectory)/ONEBRANCH_ARTIFACT'
             pool:
               type: linux
             strategy:
