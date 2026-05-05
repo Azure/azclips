@@ -1,0 +1,54 @@
+name: Az.DataProtection Module Test
+
+"on":
+  workflow_dispatch:
+  push:
+    branches:
+      - naga/test-pr
+
+jobs:
+  test-az-dataprotection:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install latest Azure PowerShell and validate Az.DataProtection
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          Write-Host "Installing latest Az PowerShell module..."
+          Install-Module -Name Az -Repository PSGallery -Scope CurrentUser -Force -AllowClobber
+
+          Write-Host "Importing Az.DataProtection module..."
+          Import-Module Az.DataProtection -Force
+
+          $module = Get-Module -Name Az.DataProtection -ListAvailable |
+            Sort-Object Version -Descending |
+            Select-Object -First 1
+
+          if (-not $module) {
+            throw "Az.DataProtection module was not found after installation."
+          }
+
+          Write-Host "Loaded Az.DataProtection version: $($module.Version)"
+
+          Write-Host "Running basic command discovery tests..."
+          $requiredCommands = @(
+            'Get-AzDataProtectionBackupVault',
+            'Get-AzDataProtectionBackupInstance',
+            'Get-AzDataProtectionPolicy'
+          )
+
+          foreach ($commandName in $requiredCommands) {
+            $command = Get-Command -Name $commandName -ErrorAction SilentlyContinue
+            if (-not $command) {
+              throw "Required command not found: $commandName"
+            }
+
+            Write-Host "Verified command: $commandName"
+          }
+
+          Write-Host "Az.DataProtection module import and command tests completed successfully."
