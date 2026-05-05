@@ -25,6 +25,14 @@ jobs:
           Write-Host "Importing Az.DataProtection module..."
           Import-Module Az.DataProtection -Force
 
+          $azRollup = Get-Module -Name Az -ListAvailable |
+            Sort-Object Version -Descending |
+            Select-Object -First 1
+
+          $azAccounts = Get-Module -Name Az.Accounts -ListAvailable |
+            Sort-Object Version -Descending |
+            Select-Object -First 1
+
           $module = Get-Module -Name Az.DataProtection -ListAvailable |
             Sort-Object Version -Descending |
             Select-Object -First 1
@@ -33,7 +41,27 @@ jobs:
             throw "Az.DataProtection module was not found after installation."
           }
 
-          Write-Host "Loaded Az.DataProtection version: $($module.Version)"
+          Write-Host "PowerShell version: $($PSVersionTable.PSVersion)"
+          Write-Host "Az rollup version: $($azRollup.Version)"
+          Write-Host "Az.Accounts version: $($azAccounts.Version)"
+          Write-Host "Az.DataProtection version: $($module.Version)"
+          Write-Host "Az.DataProtection module path: $($module.ModuleBase)"
+
+          Write-Host "Validating module exports..."
+          $allDataProtectionCommands = Get-Command -Module Az.DataProtection -ErrorAction Stop
+          $exportedCmdlets = $allDataProtectionCommands | Where-Object { $_.CommandType -eq 'Cmdlet' }
+
+          if (-not $exportedCmdlets -or $exportedCmdlets.Count -lt 10) {
+            throw "Unexpectedly low number of exported cmdlets from Az.DataProtection: $($exportedCmdlets.Count)"
+          }
+
+          Write-Host "Exported cmdlet count: $($exportedCmdlets.Count)"
+          Write-Host "Sample exported cmdlets:"
+          $exportedCmdlets |
+            Select-Object -ExpandProperty Name |
+            Sort-Object |
+            Select-Object -First 25 |
+            ForEach-Object { Write-Host "- $_" }
 
           Write-Host "Running basic command discovery tests..."
           $requiredCommands = @(
@@ -67,5 +95,36 @@ jobs:
           }
 
           Write-Host "Verified policy command: $($foundPolicyCommand.Name)"
+
+          Write-Host "Validating policy command coverage..."
+          $policyCommands = Get-Command -Module Az.DataProtection -Name '*Policy*' -ErrorAction SilentlyContinue
+          if (-not $policyCommands) {
+            throw 'No *Policy* commands were found in Az.DataProtection.'
+          }
+
+          Write-Host "Policy-related commands found: $($policyCommands.Count)"
+          $policyCommands |
+            Select-Object -ExpandProperty Name |
+            Sort-Object |
+            ForEach-Object { Write-Host "- $_" }
+
+          Write-Host "Running syntax-level smoke tests for key commands..."
+          $syntaxTargets = @(
+            'Get-AzDataProtectionBackupVault',
+            'Get-AzDataProtectionBackupInstance',
+            $foundPolicyCommand.Name,
+            'Initialize-AzDataProtectionBackupInstance'
+          )
+
+          foreach ($syntaxCommandName in $syntaxTargets | Select-Object -Unique) {
+            $syntax = Get-Command -Name $syntaxCommandName -ErrorAction SilentlyContinue
+            if (-not $syntax) {
+              Write-Host "Skipping optional command not found: $syntaxCommandName"
+              continue
+            }
+
+            $null = $syntax.Syntax
+            Write-Host "Verified syntax retrieval: $syntaxCommandName"
+          }
 
           Write-Host "Az.DataProtection module import and command tests completed successfully."
