@@ -1,9 +1,9 @@
 name: (4_releases) Create Release From 3_naga Run
 
 on:
-  push:
-    branches:
-      - naga/test-pr
+  # push:
+  #   branches:
+  #     - naga/test-pr
   workflow_dispatch:
     inputs:
       source_run_id:
