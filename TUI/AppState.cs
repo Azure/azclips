@@ -40,7 +40,6 @@ class AppState
     public int ElapsedSeconds => _processService.ElapsedSeconds;
     public Action? Invalidate { get; set; }
     public Action? RequestStop { get; set; }
-    public bool FocusTextBox { get; set; } = true;
 
     // ── Thread-safe History access ────────────────────────────────────
 
@@ -376,7 +375,6 @@ class AppState
 
         AddHistory(new HistoryEntry(HistoryItemType.Separator, ""));
         OutputScrollOffset = 0;
-        FocusTextBox = true;
         RefreshPrompt();
         Invalidate?.Invoke();
     }

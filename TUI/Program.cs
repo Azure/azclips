@@ -37,12 +37,10 @@ public static class Program
     private static Hex1bWidget BuildUI<TParent>(WidgetContext<TParent> ctx, Hex1bApp app, AppState state)
         where TParent : Hex1bWidget
     {
-        // Consume FocusTextBox flag — request focus on the hidden TextBox node
-        if (state.FocusTextBox)
-        {
-            state.FocusTextBox = false;
-            app.RequestFocus(n => n is TextBoxNode);
-        }
+        // Always request focus on the hidden TextBox so character input works.
+        // This ensures focus is restored even if widget-type changes at other
+        // indices cause the FocusRing to lose track of the previously focused node.
+        app.RequestFocus(n => n is TextBoxNode);
 
         var termWidth = Console.WindowWidth;
 

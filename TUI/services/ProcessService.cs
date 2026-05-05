@@ -139,6 +139,15 @@ class ProcessService
         }
     }
 
+    /// <summary>
+    /// Kill the running process immediately.
+    /// </summary>
+    public void Cancel()
+    {
+        try { _runningProcess?.Kill(entireProcessTree: true); }
+        catch { /* already exited */ }
+    }
+
     private void Cleanup()
     {
         _runningProcess?.Dispose();
