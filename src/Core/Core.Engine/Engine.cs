@@ -57,8 +57,7 @@ namespace Core.Engine
 
         private IExtensionIndex CacheGetOrAdd(string name, string version, Func<IExtensionIndex> getIndex)
         {
-            var configuredCacheSize = configurationService.GetConfiguration<CoreOptions>().Engine.ExtensionIndexCacheSize;
-            _extensionIndices ??= new(configuredCacheSize);
+            _extensionIndices ??= new(configurationService.GetConfiguration<CoreOptions>().Engine.ExtensionIndexCacheSize);
             string key = string.IsNullOrEmpty(version) ? name : $"{name}-{version}";
             return _extensionIndices.GetOrAdd(
                     key,
