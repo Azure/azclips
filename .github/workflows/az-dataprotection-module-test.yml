@@ -115,7 +115,7 @@ jobs:
             Sort-Object |
             ForEach-Object { Write-Host "- $_" }
 
-          Write-Host "Running syntax-level smoke tests for key commands..."
+          Write-Host "Running command metadata smoke tests for key commands..."
           $syntaxTargets = @(
             'Get-AzDataProtectionBackupVault',
             'Get-AzDataProtectionBackupInstance',
@@ -124,14 +124,18 @@ jobs:
           )
 
           foreach ($syntaxCommandName in $syntaxTargets | Select-Object -Unique) {
-            $syntax = Get-Command -Name $syntaxCommandName -ErrorAction SilentlyContinue
-            if (-not $syntax) {
+            $commandMetadata = Get-Command -Name $syntaxCommandName -ErrorAction SilentlyContinue
+            if (-not $commandMetadata) {
               Write-Host "Skipping optional command not found: $syntaxCommandName"
               continue
             }
 
-            $null = $syntax.Syntax
-            Write-Host "Verified syntax retrieval: $syntaxCommandName"
+            $parameterNames = @($commandMetadata.Parameters.Keys)
+            if (-not $parameterNames -or $parameterNames.Count -eq 0) {
+              throw "No parameter metadata found for command: $syntaxCommandName"
+            }
+
+            Write-Host "Verified command metadata: $syntaxCommandName (type: $($commandMetadata.CommandType), parameters: $($parameterNames.Count))"
           }
 
           Write-Host "Az.DataProtection module import and command tests completed successfully."
