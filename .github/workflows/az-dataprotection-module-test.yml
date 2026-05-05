@@ -38,8 +38,7 @@ jobs:
           Write-Host "Running basic command discovery tests..."
           $requiredCommands = @(
             'Get-AzDataProtectionBackupVault',
-            'Get-AzDataProtectionBackupInstance',
-            'Get-AzDataProtectionPolicy'
+            'Get-AzDataProtectionBackupInstance'
           )
 
           foreach ($commandName in $requiredCommands) {
@@ -50,5 +49,23 @@ jobs:
 
             Write-Host "Verified command: $commandName"
           }
+
+          # Policy cmdlet naming differs across module versions; accept either canonical backup policy name or legacy policy name.
+          $policyCommandCandidates = @(
+            'Get-AzDataProtectionBackupPolicy',
+            'Get-AzDataProtectionPolicy'
+          )
+
+          $foundPolicyCommand = $policyCommandCandidates |
+            ForEach-Object { Get-Command -Name $_ -ErrorAction SilentlyContinue } |
+            Select-Object -First 1
+
+          if (-not $foundPolicyCommand) {
+            Write-Host 'Available Az.DataProtection Get-* commands:'
+            Get-Command -Module Az.DataProtection -Name 'Get-*' | Select-Object -ExpandProperty Name | Sort-Object | ForEach-Object { Write-Host "- $_" }
+            throw 'Required policy command not found. Expected one of: Get-AzDataProtectionBackupPolicy, Get-AzDataProtectionPolicy'
+          }
+
+          Write-Host "Verified policy command: $($foundPolicyCommand.Name)"
 
           Write-Host "Az.DataProtection module import and command tests completed successfully."
