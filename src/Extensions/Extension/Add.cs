@@ -87,5 +87,5 @@ public class AddExtensionProcessor : IProcessor
         }
     }
 
-    public virtual HttpRequestMessage CreateRequestMessage() => throw new NotImplementedException();
+    public virtual HttpRequestMessage CreateRequestMessage() => null!;
 }

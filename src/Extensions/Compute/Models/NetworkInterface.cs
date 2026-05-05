@@ -4,6 +4,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Models;
 
 public class NetworkInterface
 {
+    public string Id { get; set; } = null!;
     public string Location { get; set; } = null!;
     public NetworkInterfaceProperties Properties { get; set; } = null!;
     public override string ToString() => JsonNode.FromObject(this).ToString();

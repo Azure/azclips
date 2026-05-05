@@ -7,7 +7,7 @@ using Microsoft.Azure.Cirrus.Extensions.Compute.Models;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors;
 
-public class NetworkInterfaceProcessor : ComputeProcessorBase
+public class NewNetworkInterfaceProcessor : ComputeProcessorBase
 {
     public string SubscriptionId { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
@@ -17,13 +17,10 @@ public class NetworkInterfaceProcessor : ComputeProcessorBase
     public List<List<string>> SubnetAddressPrefixes { get; set; } = [];
     public string NetworkSecurityGroupId { get; set; } = string.Empty;
 
-    public override async Task<HttpRequestMessage> CreateRequestMessage(string? subscriptionId = null, IEventListener? eventListener = null, JsonSerializerOptions? jsonOptions = null)
+    public override async Task<HttpRequestMessage> CreateRequestMessage()
     {
-        eventListener ??= EventListener;
-        await eventListener.Signal(Events.ProcessorBeforeHttpRequestCreate);
-        subscriptionId ??= SubscriptionId;
-        jsonOptions ??= _jsonOptions;
-        string uri = $"https://management.azure.com/subscriptions/{subscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/networkInterfaces/{Name}?api-version=2025-05-01";
+        await EventListener.Signal(Events.ProcessorBeforeHttpRequestCreate);
+        string uri = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/networkInterfaces/{Name}?api-version=2025-05-01";
         NetworkInterface body = new NetworkInterface
         {
             Location = Location,
@@ -73,9 +70,9 @@ public class NetworkInterfaceProcessor : ComputeProcessorBase
         };
         HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Put, uri)
         {
-            Content = JsonContent.Create(body, options: jsonOptions)
+            Content = JsonContent.Create(body, options: JsonOptions)
         };
-        await eventListener.Signal(Events.ProcessorAfterHttpRequestCreate);
+        await EventListener.Signal(Events.ProcessorAfterHttpRequestCreate);
         return request;
     }
 
@@ -99,7 +96,7 @@ public class NetworkInterfaceProcessor : ComputeProcessorBase
         SubscriptionId = SubscriptionId ?? AuthContext.SubscriptionId ?? throw new InvalidOperationException($"SubscriptionId must be provided either via property or auth context.");
         using HttpResponseMessage response = await SendAsyncLRO();
         await EventListener.Signal(Events.TracingHttpResponseMessage, response);
-        NetworkInterface body = (await response.Content.ReadFromJsonAsync<NetworkInterface>(_jsonOptions))!;
+        NetworkInterface body = (await response.Content.ReadFromJsonAsync<NetworkInterface>(JsonOptions))!;
         // TODO(Yabo): handle status codes
         await WriteOutput(body);
         await EventListener.Signal(Events.ProcessorProcessAsyncEnd);

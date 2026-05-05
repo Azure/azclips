@@ -21,43 +21,77 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
         public string ImageOffer { get; set; } = "WindowsServer";
         public string ImageSku { get; set; } = "2022-datacenter-azure-edition";
         public string ImageVersion { get; set; } = "latest";
+        public string NetworkInterfaceId { get; set; } = string.Empty;
+        public string SecurityType { get; set; } = "trustedlaunch";
+        public bool SecureBootEnabled { get; set; } = true;
+        public bool VTpmEnabled { get; set; } = true;
+        public bool BootDiagnosticsEnabled { get; set; } = false;
 
-        public override async Task<HttpRequestMessage> CreateRequestMessage(string? subscriptionId = null, IEventListener? eventListener = null, JsonSerializerOptions? jsonOptions = null)
+        public override async Task<HttpRequestMessage> CreateRequestMessage()
         {
-            eventListener ??= EventListener;
-            await eventListener.Signal(Events.ProcessorBeforeHttpRequestCreate);
-            subscriptionId ??= SubscriptionId;
-            jsonOptions ??= _jsonOptions;
-            string uri = $"https://management.azure.com/subscriptions/{subscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines/{Name}?api-version=2025-11-01";
+            await EventListener.Signal(Events.ProcessorBeforeHttpRequestCreate);
+            string uri = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines/{Name}?api-version=2025-11-01";
             VirtualMachine body = new VirtualMachine
             {
                 Location = Location,
-                HardwareProfile = new HardwareProfile(VmSize),
-                OSProfile = new OSProfile
+                Properties = new VirtualMachineProperties
                 {
-                    AdminUsername = AdminUsername,
-                    AdminPassword = AdminPassword
-                },
-                StorageProfile = new StorageProfile
-                {
-                    OSDisk = new OSDisk { CreateOption = OsDiskCreateOption },
-                    ImageReference = new ImageReference
+                    HardwareProfile = new HardwareProfile(VmSize),
+                    StorageProfile = new StorageProfile
                     {
-                        Publisher = ImagePublisher,
-                        Offer = ImageOffer,
-                        Sku = ImageSku,
-                        Version = ImageVersion
+                        ImageReference = new ImageReference
+                        {
+                            Publisher = ImagePublisher,
+                            Offer = ImageOffer,
+                            Sku = ImageSku,
+                            Version = ImageVersion
+                        }
+                    },
+                    OSProfile = new OSProfile
+                    {
+                        ComputerName = Name,
+                        AdminUsername = AdminUsername,
+                        AdminPassword = AdminPassword,
+                        WindowsConfiguration = new WindowsConfiguration()
+                    },
+                    NetworkProfile = new NetworkProfile
+                    {
+                        NetworkInterfaces =
+                        [
+                            new NetworkInterfaceReference { Id = NetworkInterfaceId }
+                        ]
+                    },
+                    SecurityProfile = new SecurityProfile
+                    {
+                        SecurityType = SecurityType,
+                        UefiSettings = new UefiSettings
+                        {
+                            SecureBootEnabled = SecureBootEnabled,
+                            VTpmEnabled = VTpmEnabled
+                        }
+                    },
+                    DiagnosticsProfile = new DiagnosticsProfile
+                    {
+                        BootDiagnostics = new BootDiagnostics { Enabled = BootDiagnosticsEnabled }
                     }
                 }
             };
             HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Put, uri)
             {
-                Content = JsonContent.Create(body, options: jsonOptions)
+                Content = JsonContent.Create(body, options: JsonOptions)
             };
-            await eventListener.Signal(Events.ProcessorAfterHttpRequestCreate);
+            await EventListener.Signal(Events.ProcessorAfterHttpRequestCreate);
             return request;
         }
 
+        /*
+        Yabo:
+            swagger says:         
+            "x-ms-long-running-operation-options": {
+                "final-state-via": "location"
+            }
+            but got nothing, fallback to no finaluri
+        */
         protected override Func<HttpResponseMessage, string?> GetFinalUri => response => response.GetFirstHeader("Location");
         protected override Func<HttpResponseMessage, string?> GetOperationLocationUri => response => response.GetFirstHeader("Operation-Location");
         protected override Func<HttpResponseMessage, string?> GetAsyncOperationUri => response => response.GetFirstHeader("Azure-AsyncOperation");
@@ -69,7 +103,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
             SubscriptionId = SubscriptionId ?? AuthContext.SubscriptionId ?? throw new InvalidOperationException($"SubscriptionId must be provided either via property or auth context.");
             using HttpResponseMessage response = await SendAsyncLRO();
             await EventListener.Signal(Events.TracingHttpResponseMessage, response);
-            VirtualMachine body = (await response.Content.ReadFromJsonAsync<VirtualMachine>(_jsonOptions))!;
+            VirtualMachine body = (await response.Content.ReadFromJsonAsync<VirtualMachine>(JsonOptions))!;
             // TODO(Yabo): handle status codes
             await WriteOutput(body);
             await EventListener.Signal(Events.ProcessorProcessAsyncEnd);

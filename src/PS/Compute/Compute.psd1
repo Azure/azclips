@@ -77,7 +77,7 @@ NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Cirrus.Cmdlets.Compu
 FunctionsToExport = @()
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
-CmdletsToExport = 'New-VM', 'New-NetworkInterface', 'New-NetworkSecurityGroup', 'New-VirtualNetwork'
+CmdletsToExport = 'New-VM', 'New-NetworkInterface', 'New-NetworkSecurityGroup', 'New-VirtualNetwork', 'New-NetworkInterfaceCombined', 'New-VMCombined'
 
 # List of all modules packaged with this module
 # ModuleList = @()

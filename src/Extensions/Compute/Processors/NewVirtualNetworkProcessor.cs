@@ -17,13 +17,10 @@ public class NewVirtualNetworkProcessor : ComputeProcessorBase
     public List<List<string>> SubnetAddressPrefixes { get; set; } = [];
     public List<string> AddressPrefixes { get; set; } = [];
 
-    public override async Task<HttpRequestMessage> CreateRequestMessage(string? subscriptionId = null, IEventListener? eventListener = null, JsonSerializerOptions? jsonOptions = null)
+    public override async Task<HttpRequestMessage> CreateRequestMessage()
     {
-        eventListener ??= EventListener;
-        await eventListener.Signal(Events.ProcessorBeforeHttpRequestCreate);
-        subscriptionId ??= SubscriptionId;
-        jsonOptions ??= _jsonOptions;
-        string uri = $"https://management.azure.com/subscriptions/{subscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/virtualNetworks/{Name}?api-version=2025-05-01";
+        await EventListener.Signal(Events.ProcessorBeforeHttpRequestCreate);
+        string uri = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/virtualNetworks/{Name}?api-version=2025-05-01";
         VirtualNetwork body = new VirtualNetwork
         {
             Location = Location,
@@ -62,9 +59,9 @@ public class NewVirtualNetworkProcessor : ComputeProcessorBase
         };
         HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Put, uri)
         {
-            Content = JsonContent.Create(body, options: jsonOptions)
+            Content = JsonContent.Create(body, options: JsonOptions)
         };
-        await eventListener.Signal(Events.ProcessorAfterHttpRequestCreate);
+        await EventListener.Signal(Events.ProcessorAfterHttpRequestCreate);
         return request;
     }
 
@@ -88,7 +85,7 @@ public class NewVirtualNetworkProcessor : ComputeProcessorBase
         SubscriptionId = SubscriptionId ?? AuthContext.SubscriptionId ?? throw new InvalidOperationException($"SubscriptionId must be provided either via property or auth context.");
         using HttpResponseMessage response = await SendAsyncLRO();
         await EventListener.Signal(Events.TracingHttpResponseMessage, response);
-        VirtualNetwork body = (await response.Content.ReadFromJsonAsync<VirtualNetwork>(_jsonOptions))!;
+        VirtualNetwork body = (await response.Content.ReadFromJsonAsync<VirtualNetwork>(JsonOptions))!;
         // TODO(Yabo): handle status codes
         await WriteOutput(body);
         await EventListener.Signal(Events.ProcessorProcessAsyncEnd);

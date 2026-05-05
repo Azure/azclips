@@ -9,9 +9,9 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
 {
     public class ComputeProcessorBase : IProcessor
     {
-        protected IRuntimeHttpPipeline HttpPipeline = null!;
-        protected IEventListener EventListener = null!;
-        protected JsonSerializerOptions _jsonOptions = null!;
+        public IRuntimeHttpPipeline HttpPipeline = null!;
+        public IEventListener EventListener = null!;
+        public JsonSerializerOptions JsonOptions = null!;
         protected OutputStreamDelegate WriteOutput = null!;
         protected AuthContext AuthContext = null!;
         protected virtual void BeforeInit() { }
@@ -26,7 +26,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
             BeforeInit();
 
             // TODO(Yabo): temporarily initialize arbitrary json options here, get from context in the future
-            _jsonOptions = new JsonSerializerOptions
+            JsonOptions = new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true,
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
@@ -41,7 +41,27 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
             return this;
         }
         public virtual Task ProcessAsync() => Task.CompletedTask;
-        public virtual Task<HttpRequestMessage> CreateRequestMessage(string? subscriptionId = null, IEventListener? eventListener = null, JsonSerializerOptions? jsonOptions = null) => throw new NotImplementedException();
+        public virtual Task<HttpRequestMessage> CreateRequestMessage() => throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(CreateRequestMessage)}");
+
+        /// <summary>
+        /// Creates an extended processor of type <typeparamref name="T"/> initialized with the same
+        /// runtime context (HttpPipeline, EventListener, JsonOptions, WriteOutput, AuthContext)
+        /// as this processor. Use the optional <paramref name="configure"/> action to set the
+        /// extended processor's own properties.
+        /// </summary>
+        protected T CreateExtendedProcessor<T>(Action<T>? configure = null) where T : ComputeProcessorBase, new()
+        {
+            T child = new T
+            {
+                HttpPipeline = HttpPipeline,
+                EventListener = EventListener,
+                JsonOptions = JsonOptions,
+            };
+            child.WriteOutput = WriteOutput;
+            child.AuthContext = AuthContext;
+            configure?.Invoke(child);
+            return child;
+        }
 
         /* 
             For LRO API has
@@ -58,22 +78,19 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
         protected virtual Func<HttpResponseMessage, string?> GetLocationUri => _ => null;
         
 
-        public async Task<HttpResponseMessage> SendAsync(HttpRequestMessage? request = null, IRuntimeHttpPipeline? httpPipeline = null, IEventListener? eventListener = null)
+        public async virtual Task<HttpResponseMessage> SendAsync()
         {
-            IRuntimeHttpPipeline _httpPipeline = httpPipeline ?? HttpPipeline ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with HttpPipeline.");
-            IEventListener _eventListener = eventListener ?? EventListener;
-
-            using HttpRequestMessage _request = request ?? await CreateRequestMessage();
-            return await _httpPipeline.SendAsync(_request, _eventListener);
+            using HttpRequestMessage _request = await CreateRequestMessage();
+            return await HttpPipeline.SendAsync(_request, EventListener);
         }
 
-        public async Task<HttpResponseMessage> SendAsyncLRO(HttpRequestMessage? request = null, IRuntimeHttpPipeline? httpPipeline = null, IEventListener? eventListener = null)
+        public async virtual Task<HttpResponseMessage> SendAsyncLRO()
         {
-            HttpRequestMessage _request = request ?? await CreateRequestMessage();
+            HttpRequestMessage _request = await CreateRequestMessage();
             try
             {
-                IRuntimeHttpPipeline _httpPipeline = httpPipeline ?? HttpPipeline ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with HttpPipeline.");
-                IEventListener _eventListener = eventListener ?? EventListener;
+                IRuntimeHttpPipeline _httpPipeline =  HttpPipeline ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(HttpPipeline)}.");
+                IEventListener _eventListener = EventListener ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(EventListener)}.");
                 string _originalUri = _request.RequestUri!.AbsoluteUri;
                 HttpResponseMessage _response = await _httpPipeline.SendAsync(_request, _eventListener);
                 await EventListener.Signal(Events.TracingHttpResponseMessage, _response);
@@ -87,9 +104,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
                 while (_request.Method == HttpMethod.Put && _response.StatusCode == HttpStatusCode.OK || _response.StatusCode == HttpStatusCode.Created || _response.StatusCode == HttpStatusCode.Accepted)
                 {
                     // TODO(Yabo): get default value from config service: engine get default from configservice and pass to processor via ProcessorContext
-                    int delay = _httpPipeline.PollingInterval;
+                    int delay = (int)(_response.Headers.RetryAfter?.Delta?.TotalSeconds ?? _httpPipeline.PollingInterval);
                     await _eventListener.Signal(Events.DelayPolling, $"Delaying {delay/1000} seconds before polling.");
-                    // start the delay timer (we'll await later...)
                     Task delayTask = Task.Delay(delay, _eventListener.Token);
 
                     // while we wait, let's grab the headers and get ready to poll.

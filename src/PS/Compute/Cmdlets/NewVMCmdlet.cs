@@ -33,6 +33,9 @@ public class NewVMCmdlet : PSCmdlet
     [Parameter(Mandatory = true)]
     public string AdminPassword { get; set; } = "";
 
+    [Parameter(Mandatory = true)]
+    public string NetworkInterfaceId { get; set; } = "";
+
     [Parameter(Mandatory = false)]
     public string? OsDiskCreateOption { get; set; }
 
@@ -47,6 +50,18 @@ public class NewVMCmdlet : PSCmdlet
 
     [Parameter(Mandatory = false)]
     public string? ImageVersion { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string? SecurityType { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public bool? SecureBootEnabled { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public bool? VTpmEnabled { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public bool? BootDiagnosticsEnabled { get; set; }
 
     protected override void BeginProcessing()
     {
@@ -84,12 +99,17 @@ public class NewVMCmdlet : PSCmdlet
             { "VmSize", VmSize },
             { "AdminUsername", AdminUsername },
             { "AdminPassword", AdminPassword },
+            { "NetworkInterfaceId", NetworkInterfaceId },
         };
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(OsDiskCreateOption))) { parameters.Add("OsDiskCreateOption", OsDiskCreateOption!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(ImagePublisher)))     { parameters.Add("ImagePublisher", ImagePublisher!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(ImageOffer)))         { parameters.Add("ImageOffer", ImageOffer!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(ImageSku)))           { parameters.Add("ImageSku", ImageSku!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(ImageVersion)))       { parameters.Add("ImageVersion", ImageVersion!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(OsDiskCreateOption)))     { parameters.Add("OsDiskCreateOption", OsDiskCreateOption!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(ImagePublisher)))         { parameters.Add("ImagePublisher", ImagePublisher!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(ImageOffer)))             { parameters.Add("ImageOffer", ImageOffer!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(ImageSku)))               { parameters.Add("ImageSku", ImageSku!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(ImageVersion)))           { parameters.Add("ImageVersion", ImageVersion!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SecurityType)))           { parameters.Add("SecurityType", SecurityType!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SecureBootEnabled)))      { parameters.Add("SecureBootEnabled", SecureBootEnabled!.Value); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(VTpmEnabled)))            { parameters.Add("VTpmEnabled", VTpmEnabled!.Value); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(BootDiagnosticsEnabled))) { parameters.Add("BootDiagnosticsEnabled", BootDiagnosticsEnabled!.Value); }
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();

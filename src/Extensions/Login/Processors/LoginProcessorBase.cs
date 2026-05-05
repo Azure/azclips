@@ -9,7 +9,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Processors
     {
         protected IRuntimeHttpPipeline HttpPipeline = null!;
         protected IEventListener EventListener = null!;
-        protected readonly JsonSerializerOptions _jsonOptions = null!;
+        protected readonly JsonSerializerOptions JsonOptions = null!;
         protected OutputStreamDelegate WriteOutput = null!;
 
         protected virtual void BeforeInit() { }
@@ -32,6 +32,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Processors
         }
 
         public virtual Task ProcessAsync() => Task.CompletedTask;
-        public virtual HttpRequestMessage CreateRequestMessage() => throw new NotImplementedException();
+        public virtual HttpRequestMessage CreateRequestMessage() => throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(CreateRequestMessage)}");
     }
 }

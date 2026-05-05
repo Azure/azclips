@@ -296,5 +296,5 @@ public class ExtensionInstaller
         }
     }
 
-    public virtual HttpRequestMessage CreateRequestMessage() => throw new NotImplementedException();
+    public virtual HttpRequestMessage CreateRequestMessage() => throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(CreateRequestMessage)}");
 }
