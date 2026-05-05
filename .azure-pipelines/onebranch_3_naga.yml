@@ -67,12 +67,14 @@ extends:
               - pwsh: dotnet test $(Solution_Name) --no-build --configuration $(configuration) --verbosity normal
                 displayName: Execute unit tests
 
-              - task: PublishPipelineArtifact@1
-                displayName: Upload build artifacts
+              - task: CopyFiles@2
+                displayName: Stage build artifacts for OneBranch upload
                 inputs:
-                  targetPath: artifacts/$(configuration)
-                  artifact: Build_Artifacts_$(configuration)_$(rid)
-                  publishLocation: pipeline
+                  SourceFolder: artifacts/$(configuration)
+                  Contents: '**'
+                  TargetFolder: '$(ob_outputDirectory)/Build_Artifacts_$(configuration)_$(rid)'
+                  CleanTargetFolder: false
+                  OverWrite: true
 
           - job: PublishCliWindows
             displayName: Publish CLI (Windows, unsigned)
@@ -144,19 +146,23 @@ extends:
                   & $makeAppxPath pack /d "$(Publish_Root)/$(configuration)/$(rid)" /p "$(Bin_Root)/$(configuration)/azv2-$(rid).msix" /nv
                 displayName: Create the appx package (unsigned)
 
-              - task: PublishPipelineArtifact@1
-                displayName: Upload published CLI
+              - task: CopyFiles@2
+                displayName: Stage published CLI for OneBranch upload
                 inputs:
-                  targetPath: $(Publish_Root)/$(configuration)/$(rid)
-                  artifact: Published_CLI_$(configuration)_$(rid)
-                  publishLocation: pipeline
+                  SourceFolder: $(Publish_Root)/$(configuration)/$(rid)
+                  Contents: '**'
+                  TargetFolder: '$(ob_outputDirectory)/Published_CLI_$(configuration)_$(rid)'
+                  CleanTargetFolder: false
+                  OverWrite: true
 
-              - task: PublishPipelineArtifact@1
-                displayName: Upload MSIX package
+              - task: CopyFiles@2
+                displayName: Stage MSIX package for OneBranch upload
                 inputs:
-                  targetPath: $(Bin_Root)/$(configuration)/azv2-$(rid).msix
-                  artifact: MSIX_Package_$(configuration)_$(rid)
-                  publishLocation: pipeline
+                  SourceFolder: $(Bin_Root)/$(configuration)
+                  Contents: 'azv2-$(rid).msix'
+                  TargetFolder: '$(ob_outputDirectory)/MSIX_Package_$(configuration)_$(rid)'
+                  CleanTargetFolder: false
+                  OverWrite: true
 
           - job: PublishCliLinux
             displayName: Publish CLI (Linux)
@@ -191,9 +197,11 @@ extends:
                   tar -czf "$(Bin_Root)/$(configuration)/azv2-$(rid).tar.gz" -C "$(Publish_Root)/$(configuration)/$(rid)" .
                 displayName: Create Linux tarball
 
-              - task: PublishPipelineArtifact@1
-                displayName: Upload Linux tarball
+              - task: CopyFiles@2
+                displayName: Stage Linux tarball for OneBranch upload
                 inputs:
-                  targetPath: $(Bin_Root)/$(configuration)/azv2-$(rid).tar.gz
-                  artifact: Linux_Tarball_$(configuration)_$(rid)
-                  publishLocation: pipeline
+                  SourceFolder: $(Bin_Root)/$(configuration)
+                  Contents: 'azv2-$(rid).tar.gz'
+                  TargetFolder: '$(ob_outputDirectory)/Linux_Tarball_$(configuration)_$(rid)'
+                  CleanTargetFolder: false
+                  OverWrite: true
