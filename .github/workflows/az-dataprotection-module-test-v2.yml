@@ -12,20 +12,30 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
+        # Two install paths customers actually use:
+        #   rollup  — Install-Module Az → Import-Module Az  (customer-reported repro)
+        #   targeted — Install-Module Az.DataProtection → Import-Module Az.DataProtection
+        install-mode: [rollup, targeted]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 30
+    name: ${{ matrix.os }} / ${{ matrix.install-mode }}
 
     steps:
-      - name: Install Az.DataProtection module
+      - name: Install Az module(s)
         shell: pwsh
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
 
-          # Install only Az.DataProtection (pulls Az.Accounts as a dependency).
-          # Avoids installing the entire Az rollup (~400+ MB) which is slow and unnecessary.
-          Install-Module -Name Az.DataProtection -Repository PSGallery -Scope CurrentUser -Force -AllowClobber
-          Write-Host 'Az.DataProtection installed successfully.'
+          $mode = '${{ matrix.install-mode }}'
+          if ($mode -eq 'rollup') {
+            Write-Host 'Installing full Az rollup (customer repro path)...'
+            Install-Module -Name Az -Repository PSGallery -Scope CurrentUser -Force -AllowClobber
+          } else {
+            Write-Host 'Installing Az.DataProtection only (targeted path)...'
+            Install-Module -Name Az.DataProtection -Repository PSGallery -Scope CurrentUser -Force -AllowClobber
+          }
+          Write-Host "Install completed (mode: $mode)."
 
       - name: Import module and report versions
         id: versions
@@ -34,11 +44,19 @@ jobs:
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
 
-          Import-Module Az.DataProtection -Force -ErrorAction Stop
+          $mode = '${{ matrix.install-mode }}'
+          if ($mode -eq 'rollup') {
+            # Exact customer repro: Import-Module Az (which should auto-load sub-modules)
+            Write-Host 'Importing full Az rollup...'
+            Import-Module Az -Force -ErrorAction Stop
+          } else {
+            Import-Module Az.DataProtection -Force -ErrorAction Stop
+          }
 
+          # Regardless of import path, Az.DataProtection must now be loaded.
           $module = Get-Module -Name Az.DataProtection
           if (-not $module) {
-            throw 'Az.DataProtection module failed to import.'
+            throw 'Az.DataProtection module is NOT loaded after import.'
           }
 
           $accounts = Get-Module -Name Az.Accounts
@@ -46,10 +64,18 @@ jobs:
             throw 'Az.Accounts module was not loaded (expected as a dependency).'
           }
 
+          # Gather Az rollup version if present (rollup mode).
+          $azRollup = Get-Module -Name Az -ListAvailable |
+            Sort-Object Version -Descending |
+            Select-Object -First 1
+          $azRollupVersion = if ($azRollup) { $azRollup.Version.ToString() } else { 'n/a (targeted install)' }
+
           $summary = @"
           | Component | Version |
           |-----------|---------|
+          | Install mode | ${{ matrix.install-mode }} |
           | PowerShell | $($PSVersionTable.PSVersion) |
+          | Az (rollup) | $azRollupVersion |
           | Az.DataProtection | $($module.Version) |
           | Az.Accounts | $($accounts.Version) |
           | Module path | ``$($module.ModuleBase)`` |
