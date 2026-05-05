@@ -12,6 +12,14 @@ variables:
   Certificate_Directory: .
   Publish_Root: ./publish
   Bin_Root: ./bin
+  Codeql.Enabled: false
+  Codeql.SkipTaskAutoInjection: true
+  CodeQL.enabled: false
+  runCodesignValidationInjection: false
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_NOLOGO: 1
+  NugetSecurityAnalysisWarningLevel: none
+  skipNugetSecurityAnalysis: true
 
 stages:
   - stage: BuildAndPublish
@@ -32,10 +40,10 @@ stages:
           matrix:
             Debug_win_x64:
               configuration: Debug
-              platform: win-x64
+              rid: win-x64
             Release_win_x64:
               configuration: Release
-              platform: win-x64
+              rid: win-x64
         pool:
           vmImage: windows-latest
         steps:
@@ -61,7 +69,7 @@ stages:
             displayName: Upload build artifacts
             inputs:
               targetPath: artifacts/$(configuration)
-              artifact: Build_Artifacts_$(configuration)_$(platform)
+              artifact: Build_Artifacts_$(configuration)_$(rid)
               publishLocation: pipeline
 
       - job: PublishCli
@@ -71,10 +79,10 @@ stages:
           matrix:
             Debug_win_x64:
               configuration: Debug
-              platform: win-x64
+              rid: win-x64
             Release_win_x64:
               configuration: Release
-              platform: win-x64
+              rid: win-x64
         pool:
           vmImage: windows-latest
         steps:
@@ -87,17 +95,17 @@ stages:
               packageType: sdk
               useGlobalJson: true
 
-          - pwsh: dotnet restore src/CLI/Core.Cli.csproj -r $(platform)
+          - pwsh: dotnet restore src/CLI/Core.Cli.csproj -r $(rid)
             displayName: Restore CLI project
 
-          - pwsh: dotnet publish src/CLI/Core.Cli.csproj -c $(configuration) -r $(platform) --self-contained --no-restore -o "$(Publish_Root)/$(configuration)/$(platform)"
+          - pwsh: dotnet publish src/CLI/Core.Cli.csproj -c $(configuration) -r $(rid) --self-contained --no-restore -o "$(Publish_Root)/$(configuration)/$(rid)"
             displayName: Publish the CLI application
 
-          - pwsh: Copy-Item src/CLI/Core.Cli.appxmanifest "$(Publish_Root)/$(configuration)/$(platform)/AppxManifest.xml"
+          - pwsh: Copy-Item src/CLI/Core.Cli.appxmanifest "$(Publish_Root)/$(configuration)/$(rid)/AppxManifest.xml"
             displayName: Copy appx manifest
 
           - pwsh: |
-              $manifestPath = "$(Publish_Root)/$(configuration)/$(platform)/AppxManifest.xml"
+              $manifestPath = "$(Publish_Root)/$(configuration)/$(rid)/AppxManifest.xml"
               (Get-Content $manifestPath) |
                 ForEach-Object {
                   $_ -replace 'Publisher="CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"', 'Publisher="CN=Cirrus Dev Signer"'
@@ -110,7 +118,7 @@ stages:
 
           - pwsh: |
               $assetsSource = "assets"
-              $assetsDestination = "$(Publish_Root)/$(configuration)/$(platform)/Assets"
+              $assetsDestination = "$(Publish_Root)/$(configuration)/$(rid)/Assets"
               if (Test-Path $assetsSource) {
                 New-Item -ItemType Directory -Path $assetsDestination -Force | Out-Null
                 Copy-Item "$assetsSource\*" $assetsDestination -Recurse -Force
@@ -126,17 +134,22 @@ stages:
               if (-not $latestBinDir) {
                 throw "No Windows SDK bin directory found under $windowsKitBinRoot"
               }
-              $sdkArch = if ("$(platform)" -eq "win-x86") { "x86" } else { "x64" }
+              $sdkArch = if ("$(rid)" -eq "win-x86") { "x86" } else { "x64" }
               $makeAppxPath = Join-Path -Path $latestBinDir.FullName -ChildPath "$sdkArch\MakeAppx.exe"
               New-Item -ItemType Directory -Path "$(Bin_Root)/$(configuration)" -Force | Out-Null
-              & $makeAppxPath pack /d "$(Publish_Root)/$(configuration)/$(platform)" /p "$(Bin_Root)/$(configuration)/azv2-$(platform).msix" /nv
+              & $makeAppxPath pack /d "$(Publish_Root)/$(configuration)/$(rid)" /p "$(Bin_Root)/$(configuration)/azv2-$(rid).msix" /nv
             displayName: Create the appx package
 
           - pwsh: |
-              $pfxCertByte = [System.Convert]::FromBase64String("$(BASE64_ENCODED_PFX)")
+              if ([string]::IsNullOrWhiteSpace($env:BASE64_ENCODED_PFX)) {
+                throw "BASE64_ENCODED_PFX is not set. Configure it as a secret variable in the pipeline."
+              }
+              $pfxCertByte = [System.Convert]::FromBase64String($env:BASE64_ENCODED_PFX)
               $certificatePath = Join-Path -Path "$(Certificate_Directory)" -ChildPath GitHubActionsWorkflow.pfx
               [IO.File]::WriteAllBytes("$certificatePath", $pfxCertByte)
             displayName: Decode the pfx
+            env:
+              BASE64_ENCODED_PFX: $(BASE64_ENCODED_PFX)
 
           - pwsh: |
               $windowsKitBinRoot = Join-Path "${env:ProgramFiles(x86)}" "Windows Kits\10\bin"
@@ -148,8 +161,13 @@ stages:
                 throw "No Windows SDK bin directory found under $windowsKitBinRoot"
               }
               $signtoolPath = Join-Path -Path $latestBinDir.FullName -ChildPath "x64\signtool.exe"
-              & $signtoolPath sign /v /f "$(Certificate_Directory)/GitHubActionsWorkflow.pfx" /p "$(PFX_KEY)" /fd SHA256 "$(Bin_Root)/$(configuration)/azv2-$(platform).msix"
+              if ([string]::IsNullOrWhiteSpace($env:PFX_KEY)) {
+                throw "PFX_KEY is not set. Configure it as a secret variable in the pipeline."
+              }
+              & $signtoolPath sign /v /f "$(Certificate_Directory)/GitHubActionsWorkflow.pfx" /p "$env:PFX_KEY" /fd SHA256 "$(Bin_Root)/$(configuration)/azv2-$(rid).msix"
             displayName: Sign the appx package
+            env:
+              PFX_KEY: $(PFX_KEY)
 
           - pwsh: Remove-Item -Path "$(Certificate_Directory)\GitHubActionsWorkflow.pfx" -Force
             displayName: Remove the pfx
@@ -157,15 +175,15 @@ stages:
           - task: PublishPipelineArtifact@1
             displayName: Upload published CLI
             inputs:
-              targetPath: $(Publish_Root)/$(configuration)/$(platform)
-              artifact: Published_CLI_$(configuration)_$(platform)
+              targetPath: $(Publish_Root)/$(configuration)/$(rid)
+              artifact: Published_CLI_$(configuration)_$(rid)
               publishLocation: pipeline
 
           - task: PublishPipelineArtifact@1
             displayName: Upload MSIX package
             inputs:
-              targetPath: $(Bin_Root)/$(configuration)/azv2-$(platform).msix
-              artifact: MSIX_Package_$(configuration)_$(platform)
+              targetPath: $(Bin_Root)/$(configuration)/azv2-$(rid).msix
+              artifact: MSIX_Package_$(configuration)_$(rid)
               publishLocation: pipeline
 
       - job: PublishCliLinux
@@ -175,7 +193,7 @@ stages:
           matrix:
             Release_linux_x64:
               configuration: Release
-              platform: linux-x64
+              rid: linux-x64
         pool:
           vmImage: ubuntu-latest
         steps:
@@ -188,22 +206,22 @@ stages:
               packageType: sdk
               useGlobalJson: true
 
-          - script: dotnet restore src/CLI/Core.Cli.csproj -r $(platform)
+          - script: dotnet restore src/CLI/Core.Cli.csproj -r $(rid)
             displayName: Restore CLI project
 
-          - script: dotnet publish src/CLI/Core.Cli.csproj -c $(configuration) -r $(platform) --self-contained --no-restore -o "$(Publish_Root)/$(configuration)/$(platform)"
+          - script: dotnet publish src/CLI/Core.Cli.csproj -c $(configuration) -r $(rid) --self-contained --no-restore -o "$(Publish_Root)/$(configuration)/$(rid)"
             displayName: Publish the CLI application (Linux)
 
           - script: |
               mkdir -p "$(Bin_Root)/$(configuration)"
-              tar -czf "$(Bin_Root)/$(configuration)/azv2-$(platform).tar.gz" -C "$(Publish_Root)/$(configuration)/$(platform)" .
+              tar -czf "$(Bin_Root)/$(configuration)/azv2-$(rid).tar.gz" -C "$(Publish_Root)/$(configuration)/$(rid)" .
             displayName: Create Linux tarball
 
           - task: PublishPipelineArtifact@1
             displayName: Upload Linux tarball
             inputs:
-              targetPath: $(Bin_Root)/$(configuration)/azv2-$(platform).tar.gz
-              artifact: Linux_Tarball_$(configuration)_$(platform)
+              targetPath: $(Bin_Root)/$(configuration)/azv2-$(rid).tar.gz
+              artifact: Linux_Tarball_$(configuration)_$(rid)
               publishLocation: pipeline
 
       - job: PublishExtension
@@ -213,10 +231,10 @@ stages:
           matrix:
             Debug_win_x64:
               configuration: Debug
-              platform: win-x64
+              rid: win-x64
             Release_win_x64:
               configuration: Release
-              platform: win-x64
+              rid: win-x64
         pool:
           vmImage: windows-latest
         steps:
@@ -229,17 +247,17 @@ stages:
               packageType: sdk
               useGlobalJson: true
 
-          - pwsh: dotnet restore src/Extensions/Extension/Extensions.Extension.csproj -r $(platform)
+          - pwsh: dotnet restore src/Extensions/Extension/Extensions.Extension.csproj -r $(rid)
             displayName: Restore extension project
 
-          - pwsh: dotnet publish src/Extensions/Extension/Extensions.Extension.csproj -c $(configuration) -r $(platform) --no-restore -o "$(Publish_Root)/$(configuration)/$(platform)/Extensions/Extension"
+          - pwsh: dotnet publish src/Extensions/Extension/Extensions.Extension.csproj -c $(configuration) -r $(rid) --no-restore -o "$(Publish_Root)/$(configuration)/$(rid)/Extensions/Extension"
             displayName: Publish the Extension (az extension)
 
           - task: PublishPipelineArtifact@1
             displayName: Upload published Extension
             inputs:
-              targetPath: $(Publish_Root)/$(configuration)/$(platform)/Extensions/Extension
-              artifact: Published_Extension_$(configuration)_$(platform)
+              targetPath: $(Publish_Root)/$(configuration)/$(rid)/Extensions/Extension
+              artifact: Published_Extension_$(configuration)_$(rid)
               publishLocation: pipeline
 
       - job: DiscoverExtensions
@@ -261,13 +279,13 @@ stages:
                 [xml]$csproj = Get-Content $extension.FullName
 
                 $extName = $csproj.Project.PropertyGroup.ExtName | Where-Object { $_ } | Select-Object -First 1
-                $packageId = $csproj.Project.PropertyGroup.PackageId | Where-Object { $_ } | Select-Object -First 1
+                $packageIdentity = $csproj.Project.PropertyGroup.PackageId | Where-Object { $_ } | Select-Object -First 1
 
                 if (-not $extName) {
                   throw "ExtName not found in $($extension.FullName)"
                 }
 
-                if (-not $packageId) {
+                if (-not $packageIdentity) {
                   throw "PackageId not found in $($extension.FullName)"
                 }
 
@@ -288,7 +306,7 @@ stages:
 
                 $packMatrix["${baseLegName}_Release"] = @{
                   extensionPath = $path
-                  packageId = $packageId
+                  packageIdentity = $packageIdentity
                   configuration = 'Release'
                 }
               }
@@ -366,8 +384,8 @@ stages:
           - task: PublishPipelineArtifact@1
             displayName: Upload Extension NuGet Package
             inputs:
-              targetPath: artifacts/$(configuration)/$(packageId)
-              artifact: Extension_NuGet_$(packageId)_$(configuration)
+              targetPath: artifacts/$(configuration)/$(packageIdentity)
+              artifact: Extension_NuGet_$(packageIdentity)_$(configuration)
               publishLocation: pipeline
 
       - job: DiscoverPowerShellModules
