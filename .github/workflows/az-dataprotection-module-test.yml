@@ -54,14 +54,17 @@ jobs:
           Write-Host "Validating module exports..."
           $allDataProtectionCommands = @(Get-Command -Module Az.DataProtection -ErrorAction Stop)
           $exportedCmdlets = @($allDataProtectionCommands | Where-Object { $_.CommandType -eq 'Cmdlet' })
+          $exportedFunctions = @($allDataProtectionCommands | Where-Object { $_.CommandType -eq 'Function' })
 
-          if (-not $exportedCmdlets -or $exportedCmdlets.Count -lt 10) {
-            throw "Unexpectedly low number of exported cmdlets from Az.DataProtection: $($exportedCmdlets.Count)"
+          if (-not $allDataProtectionCommands -or $allDataProtectionCommands.Count -lt 10) {
+            throw "Unexpectedly low number of exported commands from Az.DataProtection: $($allDataProtectionCommands.Count)"
           }
 
+          Write-Host "Exported command count: $($allDataProtectionCommands.Count)"
           Write-Host "Exported cmdlet count: $($exportedCmdlets.Count)"
-          Write-Host "Sample exported cmdlets:"
-          $exportedCmdlets |
+          Write-Host "Exported function count: $($exportedFunctions.Count)"
+          Write-Host "Sample exported commands:"
+          $allDataProtectionCommands |
             Select-Object -ExpandProperty Name |
             Sort-Object |
             Select-Object -First 25 |
