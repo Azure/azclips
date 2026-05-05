@@ -1,5 +1,7 @@
+using Core.Abstractions;
 using Core.Cli.Exceptions;
 using Core.Cli.Parser;
+using Microsoft.Azure.Cirrus.Extensions.Config;
 using Xunit;
 
 namespace Cli.Tests;
@@ -37,5 +39,18 @@ public class ExtensionDispatcherTests
         
         // Act & Assert
         Assert.Throws<DispatchHelpException>(() => dispatcher.Parse(args));
+    }
+
+    [Fact]
+    public void ConfigExtensionIndex_ShouldExposeTranslatedPowerShellParameters()
+    {
+        var extensionIndex = new ExtensionIndex();
+
+        var getMetadata = extensionIndex.GetCommandMetadata("Get-CirrusConfig", ClientType.PowerShell);
+        Assert.Contains("Json", getMetadata.Parameters.Keys);
+
+        var listMetadata = extensionIndex.GetCommandMetadata("Get-CirrusConfigList", ClientType.PowerShell);
+        Assert.Contains("All", listMetadata.Parameters.Keys);
+        Assert.Contains("Json", listMetadata.Parameters.Keys);
     }
 }

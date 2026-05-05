@@ -1,19 +1,16 @@
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Core.Runtime.Handler;
-using Core.Runtime;
-using System.Threading.Channels;
 using Core.Abstractions.Runtime.Handler;
 using Core.Engine.Utils;
-using System.Diagnostics;
-using System.Threading.Tasks;
+using Core.Runtime;
+using Core.Runtime.Handler;
 
 namespace Core.Engine
 {
     /// <summary>
     /// Mediator pattern, Engine orchestrates services and runtimes
     /// <para><b>Thread Safety:</b> This engine is designed for concurrent command execution.
-    /// Each <see cref="Process"/> call creates isolated context with per-invocation output channel.
+    /// Each <see cref="InvokeSession"/> call creates isolated context with per-invocation output channel.
     /// Extension indices are cached using thread-safe lazy initialization.</para>
     /// <para><b>Output Routing:</b> Each invocation gets its own Channel for worker-to-caller
     /// communication. The worker thread writes to the channel, and the caller's thread reads
@@ -28,12 +25,11 @@ namespace Core.Engine
         ITelemetryService telemetryService,
         ILoggingService loggingService,
         IAssemblyLoadingService assemblyLoadingService,
-        IArgumentParsingService argumentParsingService) : IEngine
+        IArgumentParsingService argumentParsingService,
+        IConfigurationService configurationService) : IEngine
     {
         // Extension indices are cached with Lazy<T> to ensure single initialization per extension
         // even under concurrent access. The factory runs exactly once per key.
-        //TODO(Yabo): tune the cache size based on expected number of extensions, get this key from config service in the future
-        private const int cacheSize = 512;
         private LFUCache<Lazy<IExtensionIndex>>? _extensionIndices;
         private bool _disposed;
 
@@ -48,14 +44,20 @@ namespace Core.Engine
             session.GetExtensionVersion = () => string.Empty;
             session.LoadAssembly = assemblyLoadingService.LoadExtension;
             session.BindProcessor = argumentParsingService.BindArgumentsToProcessor;
-            session.CreateProcessorContext = CreateProcessorContext;
-            session.CacheGetOrAdd = CacheGetOrAdd;
+            session.Option = GetOption();
+            session.CreateProcessorContext = s => CreateProcessorContext(s);
+            session.CacheGetOrAdd = (name, version, getIndex) => CacheGetOrAdd(name, version, getIndex);
             return session;
+        }
+
+        private CoreOptions GetOption()
+        {
+            return configurationService.GetConfiguration<CoreOptions>();
         }
 
         private IExtensionIndex CacheGetOrAdd(string name, string version, Func<IExtensionIndex> getIndex)
         {
-            _extensionIndices ??= new(cacheSize);
+            _extensionIndices ??= new(configurationService.GetConfiguration<CoreOptions>().Engine.ExtensionIndexCacheSize);
             string key = string.IsNullOrEmpty(version) ? name : $"{name}-{version}";
             return _extensionIndices.GetOrAdd(
                     key,
@@ -83,7 +85,10 @@ namespace Core.Engine
                 WriteOutput = session.ProcessorOutputWriter
             };
 
-            IRuntimeHttpPipeline httpPipeline = new HttpPipeline(new HttpClientFactory(httpClient));
+            IRuntimeHttpPipeline httpPipeline = new HttpPipeline(
+                new HttpClientFactory(httpClient),
+                session.Option.Http.MaxRetries,
+                session.Option.Http.MaxRetriesFor429);
             ProcessorContext context = new ProcessorContext
             (
                 HttpPipeline: httpPipeline.Prepend(authHandler.SendAsync),

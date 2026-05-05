@@ -10,27 +10,39 @@ namespace Core.Runtime
     public class HttpPipeline : IRuntimeHttpPipeline
     {
         private const int DefaultMaxRetry = 3;
+        private const int DefaultMaxRetryFor429 = 5;
         private ISendAsync pipeline = null!;
         private ISendAsyncTerminalFactory terminal = null!;
         private List<ISendAsyncFactory> steps = new List<ISendAsyncFactory>();
+        private readonly int _maxRetry;
+        private readonly int _maxRetryFor429;
 
         public HttpPipeline() : this(new HttpClientFactory())
         {
         }
 
-        public HttpPipeline(ISendAsyncTerminalFactory terminalStep)
+        public HttpPipeline(ISendAsyncTerminalFactory terminalStep) : this(
+            terminalStep,
+            DefaultMaxRetry,
+            DefaultMaxRetryFor429)
+        {
+        }
+
+        public HttpPipeline(ISendAsyncTerminalFactory terminalStep, int maxRetry, int maxRetryFor429)
         {
             if (terminalStep == null)
             {
                 throw new System.ArgumentNullException(nameof(terminalStep), "Terminal Step Factory in HttpPipeline may not be null");
             }
             TerminalFactory = terminalStep;
+            _maxRetry = maxRetry;
+            _maxRetryFor429 = maxRetryFor429;
         }
 
         /// <summary>
         /// Returns an HttpPipeline with the current state of this pipeline.
         /// </summary>
-        public HttpPipeline Clone() => new HttpPipeline(terminal) { steps = this.steps.ToList(), pipeline = this.pipeline };
+        public HttpPipeline Clone() => new HttpPipeline(terminal, _maxRetry, _maxRetryFor429) { steps = this.steps.ToList(), pipeline = this.pipeline };
 
         private bool shouldRetry429(HttpResponseMessage response)
         {
@@ -50,27 +62,10 @@ namespace Core.Runtime
         /// </summary>
         public async Task<HttpResponseMessage> Retry429(HttpRequestMessage request, IEventListener callback, ISendAsync next)
         {
-            int retryCount = int.MaxValue;
-
-            try
-            {
-                try
-                {
-                    retryCount = int.Parse(System.Environment.GetEnvironmentVariable("PS_HTTP_MAX_RETRIES_FOR_429")!);
-                }
-                finally
-                {
-                    retryCount = int.Parse(System.Environment.GetEnvironmentVariable("AZURE_PS_HTTP_MAX_RETRIES_FOR_429")!);
-                }
-            }
-            catch (System.Exception)
-            {
-                //no action
-            }
             var cloneRequest = await request.CloneWithContent();
             var response = await next.SendAsync(request, callback);
             int count = 0;
-            while (shouldRetry429(response) && count++ < retryCount)
+            while (shouldRetry429(response) && count++ < _maxRetryFor429)
             {
                 request = await cloneRequest.CloneWithContent();
                 var retryAfter = response.Headers.RetryAfter;
@@ -110,27 +105,10 @@ namespace Core.Runtime
         /// </summary>
         public async Task<HttpResponseMessage> RetryError(HttpRequestMessage request, IEventListener callback, ISendAsync next)
         {
-            int retryCount = DefaultMaxRetry;
-
-            try
-            {
-                try
-                {
-                    retryCount = int.Parse(System.Environment.GetEnvironmentVariable("PS_HTTP_MAX_RETRIES")!);
-                }
-                finally
-                {
-                    retryCount = int.Parse(System.Environment.GetEnvironmentVariable("AZURE_PS_HTTP_MAX_RETRIES")!);
-                }
-            }
-            catch (System.Exception)
-            {
-                //no action
-            }
             var cloneRequest = await request.CloneWithContent();
             var response = await next.SendAsync(request, callback);
             int count = 0;
-            while (shouldRetryError(response) && count++ < retryCount)
+            while (shouldRetryError(response) && count++ < _maxRetry)
             {
                 await callback.Signal("Debug", $"Start to retry {count} time(s) on status code {response.StatusCode}");
                 request = await cloneRequest.CloneWithContent();

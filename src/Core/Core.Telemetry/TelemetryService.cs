@@ -28,31 +28,38 @@ public class TelemetryService : ITelemetryService
             TraceDirectoryName,
             "traces");
 
-    private readonly TracerProvider _tracerProvider;
+    private readonly TracerProvider? _tracerProvider;
     private readonly ITelemetrySender _sender;
+    private readonly TelemetryOptions _telemetryOptions;
     private bool _disposed;
 
     public ActivitySource ActivitySource { get; }
 
-    public TelemetryService(ClientType clientType)
+    public TelemetryService(ClientType clientType, TelemetryOptions telemetryOptions)
     {
         ActivitySource = new ActivitySource(clientType.ToString());
         _sender = TelemetrySenderFactory.Create(clientType);
+        _telemetryOptions = telemetryOptions;
+
+        if (!_telemetryOptions.Enabled)
+        {
+            return;
+        }
+
         var serviceName = ActivitySource.Name;
 
         var logDirectory = GetTraceDirectory();
 
-        var builder = Sdk.CreateTracerProviderBuilder()
-            .AddSource(serviceName)
-            .AddHttpClientInstrumentation(options => // auto-instrument HttpClient calls
+        var builder = Sdk.CreateTracerProviderBuilder().AddSource(serviceName);
+
+        builder.AddHttpClientInstrumentation(options =>
+        {
+            options.RecordException = true;
+            options.EnrichWithHttpRequestMessage = (activity, request) =>
             {
-                options.RecordException = true;
-                options.EnrichWithHttpRequestMessage = (activity, request) =>
-                {
-                    // user agent is not included by default
-                    activity.SetTag("http.request.header.user-agent", request.Headers.UserAgent?.ToString());
-                };
-            });
+                activity.SetTag("http.request.header.user-agent", request.Headers.UserAgent?.ToString());
+            };
+        });
 
         // Let the SDK use its default cloud_RoleName (entry assembly name):
         //   CLI  → "Core.Cli" (or azv2)
@@ -66,7 +73,7 @@ public class TelemetryService : ITelemetryService
         _tracerProvider = builder.Build()!;
     }
 
-    public Activity StartActivity(string name, ActivityKind kind = ActivityKind.Internal) => ActivitySource.StartActivity(name, kind)!;
+    public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal) => ActivitySource.StartActivity(name, kind);
 
     public void ProcessInvocation(CommandInvocation invocation)
     {
