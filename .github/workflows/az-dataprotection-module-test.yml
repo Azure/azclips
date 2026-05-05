@@ -26,6 +26,29 @@ jobs:
           Write-Host "Installing latest Az PowerShell module..."
           Install-Module -Name Az -Repository PSGallery -Scope CurrentUser -Force -AllowClobber
 
+          Write-Host "Running customer regression test: Install-Module Az + Import-Module Az..."
+          $importAzErrors = @()
+          try {
+            Import-Module Az -Force -ErrorAction Stop -ErrorVariable +importAzErrors
+          }
+          catch {
+            Write-Host "Import-Module Az failed with exception: $($_.Exception.Message)"
+            throw
+          }
+
+          if ($importAzErrors.Count -gt 0) {
+            Write-Host "Import-Module Az reported non-terminating errors:"
+            $importAzErrors | ForEach-Object { Write-Host "- $($_.ToString())" }
+            throw "Regression detected: Import-Module Az produced errors after Install-Module Az."
+          }
+
+          $importedAz = Get-Module -Name Az
+          if (-not $importedAz) {
+            throw "Regression detected: Import-Module Az completed but Az is not loaded in session."
+          }
+
+          Write-Host "Regression check passed: Import-Module Az succeeded without errors."
+
           Write-Host "Importing Az.DataProtection module..."
           Import-Module Az.DataProtection -Force
 
