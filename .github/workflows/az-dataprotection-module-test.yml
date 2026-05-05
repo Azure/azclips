@@ -17,7 +17,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install latest Azure PowerShell and validate Az.DataProtection
+      - name: Install latest Azure PowerShell
         shell: pwsh
         run: |
           Set-StrictMode -Version Latest
@@ -25,6 +25,12 @@ jobs:
 
           Write-Host "Installing latest Az PowerShell module..."
           Install-Module -Name Az -Repository PSGallery -Scope CurrentUser -Force -AllowClobber
+
+      - name: Import Az rollup (customer regression)
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
 
           Write-Host "Running customer regression test: Install-Module Az + Import-Module Az..."
           $importAzErrors = @()
@@ -48,6 +54,12 @@ jobs:
           }
 
           Write-Host "Regression check passed: Import-Module Az succeeded without errors."
+
+      - name: Import Az.DataProtection and validate module
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
 
           Write-Host "Importing Az.DataProtection module..."
           Import-Module Az.DataProtection -Force
