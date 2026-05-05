@@ -88,7 +88,11 @@ namespace Core.Engine
             IRuntimeHttpPipeline httpPipeline = new HttpPipeline(
                 new HttpClientFactory(httpClient),
                 session.Option.Http.MaxRetries,
-                session.Option.Http.MaxRetriesFor429);
+                session.Option.Http.MaxRetriesFor429)
+            {
+                // TODO(Yabo): Get this from config service
+                PollingInterval = 1000
+            };
             ProcessorContext context = new ProcessorContext
             (
                 HttpPipeline: httpPipeline.Prepend(authHandler.SendAsync),

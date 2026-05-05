@@ -18,6 +18,8 @@ namespace Core.Runtime
         private readonly int _maxRetry;
         private readonly int _maxRetryFor429;
 
+        public int PollingInterval { get; set; } = 10000;
+
         public HttpPipeline() : this(new HttpClientFactory())
         {
         }
