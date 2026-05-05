@@ -48,8 +48,8 @@ jobs:
           Write-Host "Az.DataProtection module path: $($module.ModuleBase)"
 
           Write-Host "Validating module exports..."
-          $allDataProtectionCommands = Get-Command -Module Az.DataProtection -ErrorAction Stop
-          $exportedCmdlets = $allDataProtectionCommands | Where-Object { $_.CommandType -eq 'Cmdlet' }
+          $allDataProtectionCommands = @(Get-Command -Module Az.DataProtection -ErrorAction Stop)
+          $exportedCmdlets = @($allDataProtectionCommands | Where-Object { $_.CommandType -eq 'Cmdlet' })
 
           if (-not $exportedCmdlets -or $exportedCmdlets.Count -lt 10) {
             throw "Unexpectedly low number of exported cmdlets from Az.DataProtection: $($exportedCmdlets.Count)"
@@ -97,7 +97,7 @@ jobs:
           Write-Host "Verified policy command: $($foundPolicyCommand.Name)"
 
           Write-Host "Validating policy command coverage..."
-          $policyCommands = Get-Command -Module Az.DataProtection -Name '*Policy*' -ErrorAction SilentlyContinue
+          $policyCommands = @(Get-Command -Module Az.DataProtection -Name '*Policy*' -ErrorAction SilentlyContinue)
           if (-not $policyCommands) {
             throw 'No *Policy* commands were found in Az.DataProtection.'
           }
