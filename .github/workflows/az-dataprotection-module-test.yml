@@ -19,7 +19,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Bootstrap PowerShell gallery prerequisites
+        id: bootstrap_pwsh
         shell: pwsh
+        continue-on-error: true
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
@@ -34,7 +36,10 @@ jobs:
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
 
       - name: Install latest Azure PowerShell
+        id: install_pwsh
+        if: always()
         shell: pwsh
+        continue-on-error: true
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
@@ -65,11 +70,65 @@ jobs:
           Write-Host "Installing latest Az PowerShell module..."
           Install-ModuleWithRetry -Name Az
 
-      - name: Import Az rollup (customer regression)
+      - name: Validate Az.DataProtection source parseability
+        id: parse_pwsh
+        if: always()
         shell: pwsh
+        continue-on-error: true
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
+
+          $module = Get-Module -Name Az.DataProtection -ListAvailable |
+            Sort-Object Version -Descending |
+            Select-Object -First 1
+
+          if (-not $module) {
+            throw 'Az.DataProtection module was not found after installation.'
+          }
+
+          $files = @(Get-ChildItem -Path $module.ModuleBase -Recurse -Include '*.ps1', '*.psm1' -File)
+          Write-Host "Parsing Az.DataProtection source files: $($files.Count)"
+
+          $parseErrors = @()
+          foreach ($file in $files) {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$errors)
+            if ($errors) {
+              foreach ($error in $errors) {
+                $parseErrors += [pscustomobject]@{
+                  File = $file.FullName
+                  Line = $error.Extent.StartLineNumber
+                  Message = $error.Message
+                }
+              }
+            }
+          }
+
+          if ($parseErrors.Count -gt 0) {
+            Write-Host 'Detected parse errors in installed Az.DataProtection files (showing first 20):'
+            $parseErrors |
+              Select-Object -First 20 |
+              ForEach-Object { Write-Host "- $($_.File):$($_.Line) $($_.Message)" }
+            throw "Az.DataProtection source parse validation failed with $($parseErrors.Count) parse errors."
+          }
+
+          Write-Host 'Az.DataProtection source parse validation passed.'
+
+      - name: Import Az rollup (customer regression)
+        id: import_az_pwsh
+        if: always()
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          Write-Host "Shell: pwsh"
+          Write-Host "PowerShell edition: $($PSVersionTable.PSEdition)"
+          Write-Host "PowerShell version: $($PSVersionTable.PSVersion)"
+          Write-Host "PowerShell path: $PSHOME"
 
           Write-Host "Running customer regression test: Install-Module Az + Import-Module Az..."
           $importAzErrors = @()
@@ -95,7 +154,10 @@ jobs:
           Write-Host "Regression check passed: Import-Module Az succeeded without errors."
 
       - name: Import Az.DataProtection and validate module
+        id: validate_dp_pwsh
+        if: always()
         shell: pwsh
+        continue-on-error: true
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
@@ -214,6 +276,29 @@ jobs:
 
           Write-Host "Az.DataProtection module import and command tests completed successfully."
 
+      - name: Finalize pwsh job result
+        if: always()
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          $failed = @()
+
+          if ('${{ steps.bootstrap_pwsh.outcome }}' -eq 'failure') { $failed += 'Bootstrap PowerShell gallery prerequisites' }
+          if ('${{ steps.install_pwsh.outcome }}' -eq 'failure') { $failed += 'Install latest Azure PowerShell' }
+          if ('${{ steps.parse_pwsh.outcome }}' -eq 'failure') { $failed += 'Validate Az.DataProtection source parseability' }
+          if ('${{ steps.import_az_pwsh.outcome }}' -eq 'failure') { $failed += 'Import Az rollup (customer regression)' }
+          if ('${{ steps.validate_dp_pwsh.outcome }}' -eq 'failure') { $failed += 'Import Az.DataProtection and validate module' }
+
+          if ($failed.Count -gt 0) {
+            Write-Host 'One or more pwsh steps failed (after running all steps):'
+            $failed | ForEach-Object { Write-Host "- $_" }
+            throw "pwsh job failed after running all steps."
+          }
+
+          Write-Host 'pwsh job passed. All steps completed successfully.'
+
   test-az-dataprotection-windows-powershell:
     runs-on: windows-latest
     timeout-minutes: 30
@@ -222,7 +307,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Bootstrap PowerShell gallery prerequisites
+        id: bootstrap_powershell
         shell: powershell
+        continue-on-error: true
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
@@ -234,7 +321,10 @@ jobs:
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
 
       - name: Install latest Azure PowerShell
+        id: install_powershell
+        if: always()
         shell: powershell
+        continue-on-error: true
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
@@ -265,11 +355,65 @@ jobs:
           Write-Host "Installing latest Az PowerShell module..."
           Install-ModuleWithRetry -Name Az
 
-      - name: Import Az rollup (customer regression)
+      - name: Validate Az.DataProtection source parseability
+        id: parse_powershell
+        if: always()
         shell: powershell
+        continue-on-error: true
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
+
+          $module = Get-Module -Name Az.DataProtection -ListAvailable |
+            Sort-Object Version -Descending |
+            Select-Object -First 1
+
+          if (-not $module) {
+            throw 'Az.DataProtection module was not found after installation.'
+          }
+
+          $files = @(Get-ChildItem -Path $module.ModuleBase -Recurse -Include '*.ps1', '*.psm1' -File)
+          Write-Host "Parsing Az.DataProtection source files: $($files.Count)"
+
+          $parseErrors = @()
+          foreach ($file in $files) {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$errors)
+            if ($errors) {
+              foreach ($error in $errors) {
+                $parseErrors += [pscustomobject]@{
+                  File = $file.FullName
+                  Line = $error.Extent.StartLineNumber
+                  Message = $error.Message
+                }
+              }
+            }
+          }
+
+          if ($parseErrors.Count -gt 0) {
+            Write-Host 'Detected parse errors in installed Az.DataProtection files (showing first 20):'
+            $parseErrors |
+              Select-Object -First 20 |
+              ForEach-Object { Write-Host "- $($_.File):$($_.Line) $($_.Message)" }
+            throw "Az.DataProtection source parse validation failed with $($parseErrors.Count) parse errors."
+          }
+
+          Write-Host 'Az.DataProtection source parse validation passed.'
+
+      - name: Import Az rollup (customer regression)
+        id: import_az_powershell
+        if: always()
+        shell: powershell
+        continue-on-error: true
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          Write-Host "Shell: powershell"
+          Write-Host "PowerShell edition: $($PSVersionTable.PSEdition)"
+          Write-Host "PowerShell version: $($PSVersionTable.PSVersion)"
+          Write-Host "PowerShell path: $PSHOME"
 
           Write-Host "Running customer regression test: Install-Module Az + Import-Module Az..."
           $importAzErrors = @()
@@ -295,7 +439,10 @@ jobs:
           Write-Host "Regression check passed: Import-Module Az succeeded without errors."
 
       - name: Import Az.DataProtection and validate module
+        id: validate_dp_powershell
+        if: always()
         shell: powershell
+        continue-on-error: true
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
@@ -412,3 +559,26 @@ jobs:
           }
 
           Write-Host "Az.DataProtection module import and command tests completed successfully."
+
+      - name: Finalize Windows PowerShell job result
+        if: always()
+        shell: powershell
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          $failed = @()
+
+          if ('${{ steps.bootstrap_powershell.outcome }}' -eq 'failure') { $failed += 'Bootstrap PowerShell gallery prerequisites' }
+          if ('${{ steps.install_powershell.outcome }}' -eq 'failure') { $failed += 'Install latest Azure PowerShell' }
+          if ('${{ steps.parse_powershell.outcome }}' -eq 'failure') { $failed += 'Validate Az.DataProtection source parseability' }
+          if ('${{ steps.import_az_powershell.outcome }}' -eq 'failure') { $failed += 'Import Az rollup (customer regression)' }
+          if ('${{ steps.validate_dp_powershell.outcome }}' -eq 'failure') { $failed += 'Import Az.DataProtection and validate module' }
+
+          if ($failed.Count -gt 0) {
+            Write-Host 'One or more Windows PowerShell steps failed (after running all steps):'
+            $failed | ForEach-Object { Write-Host "- $_" }
+            throw "Windows PowerShell job failed after running all steps."
+          }
+
+          Write-Host 'Windows PowerShell job passed. All steps completed successfully.'
