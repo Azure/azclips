@@ -18,10 +18,10 @@ variables:
 
 stages:
   - stage: Init
-    displayName: Initialize workflow and fan out stages
+    displayName: Init
     jobs:
       - job: Start
-        displayName: Emit start marker
+        displayName: 'Init: Start'
         pool:
           vmImage: ubuntu-latest
         steps:
@@ -29,13 +29,13 @@ stages:
             displayName: Emit start marker
 
   - stage: Build
-    displayName: Restore, build, test, and upload solution artifacts
+    displayName: Build/Test
     dependsOn: Init
     condition: succeeded()
     jobs:
 
       - job: BuildArtifacts
-        displayName: Restore/build/test solution and upload artifacts
+        displayName: 'Build: Artifacts'
         strategy:
           matrix:
             Debug_win_x64:
@@ -73,12 +73,12 @@ stages:
               publishLocation: pipeline
 
   - stage: Publish
-    displayName: Build and publish CLI and extension outputs
+    displayName: Publish
     dependsOn: Init
     condition: succeeded()
     jobs:
       - job: PublishCli
-        displayName: Restore/build/publish Windows CLI and package MSIX
+        displayName: 'Publish: CLI Win + MSIX'
         strategy:
           matrix:
             Debug_win_x64:
@@ -159,7 +159,7 @@ stages:
               publishLocation: pipeline
 
       - job: PublishCliLinux
-        displayName: Restore/build/publish Linux CLI and create tarball
+        displayName: 'Publish: CLI Linux + tgz'
         strategy:
           matrix:
             Release_linux_x64:
@@ -196,7 +196,7 @@ stages:
               publishLocation: pipeline
 
       - job: PublishExtension
-        displayName: Restore/build/publish az extension project
+        displayName: 'Publish: Extension'
         strategy:
           matrix:
             Debug_win_x64:
@@ -231,12 +231,12 @@ stages:
               publishLocation: pipeline
 
   - stage: Extensions
-    displayName: Discover, build, and pack extensions from repository
+    displayName: Ext Build/Pack
     dependsOn: Init
     condition: succeeded()
     jobs:
       - job: DiscoverExtensions
-        displayName: Discover extension projects and emit build/pack matrices
+        displayName: 'Ext: Discover matrix'
         pool:
           vmImage: windows-latest
         steps:
@@ -301,7 +301,7 @@ stages:
             name: setExtensionMatrices
 
       - job: BuildExtension
-        displayName: Build extensions from discovery matrix
+        displayName: 'Ext: Build matrix'
         dependsOn: DiscoverExtensions
         condition: and(succeeded(), ne(dependencies.DiscoverExtensions.outputs['setExtensionMatrices.buildMatrix'], '{}'))
         strategy:
@@ -332,7 +332,7 @@ stages:
               publishLocation: pipeline
 
       - job: PackExtensionPackages
-        displayName: Build extensions and generate NuGet packages
+        displayName: 'Ext: Pack NuGet'
         dependsOn: DiscoverExtensions
         condition: and(succeeded(), ne(dependencies.DiscoverExtensions.outputs['setExtensionMatrices.packMatrix'], '{}'))
         strategy:
@@ -363,12 +363,12 @@ stages:
               publishLocation: pipeline
 
   - stage: PowerShell
-    displayName: Discover, build, and validate PowerShell modules
+    displayName: PS Build/Validate
     dependsOn: Init
     condition: succeeded()
     jobs:
       - job: DiscoverPowerShellModules
-        displayName: Discover PowerShell modules and emit build matrix
+        displayName: 'PS: Discover matrix'
         pool:
           vmImage: windows-latest
         steps:
@@ -409,7 +409,7 @@ stages:
             name: setModuleMatrix
 
       - job: BuildPowerShellModule
-        displayName: Build PowerShell modules and validate manifest dependencies
+        displayName: 'PS: Build + validate'
         dependsOn: DiscoverPowerShellModules
         condition: and(succeeded(), ne(dependencies.DiscoverPowerShellModules.outputs['setModuleMatrix.moduleMatrix'], '{}'))
         strategy:
@@ -511,7 +511,7 @@ stages:
             displayName: Validate transitive module manifest dependencies
 
   - stage: Finalize
-    displayName: Finalize workflow and report completion
+    displayName: Finalize
     dependsOn:
       - Init
       - Build
@@ -521,7 +521,7 @@ stages:
     condition: always()
     jobs:
       - job: End
-        displayName: Emit workflow end marker
+        displayName: 'Finalize: End'
         pool:
           vmImage: ubuntu-latest
         steps:
