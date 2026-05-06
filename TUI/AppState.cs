@@ -338,12 +338,12 @@ class AppState
 
         if (Mode == ShellMode.Local)
         {
-            AddHistory(new HistoryEntry(HistoryItemType.User, command));
+            AddHistory(new HistoryEntry(HistoryItemType.User, $"{Prompt}{command}"));
             _ = _processService.RunLocalAsync(command, LocalCwd, OnProcessLine, OnProcessDone);
         }
         else
         {
-            AddHistory(new HistoryEntry(HistoryItemType.User, $"azv2 {command}"));
+            AddHistory(new HistoryEntry(HistoryItemType.User, $"{Prompt}azv2 {command}"));
             _ = _processService.RunCliAsync(command, OnProcessLine, OnProcessDone);
         }
     }
@@ -406,6 +406,7 @@ class AppState
 
     private CommandContext BuildCommandContext() => new()
     {
+        Prompt = Prompt,
         AddHistory = AddHistory,
         GetHistorySnapshot = GetHistorySnapshot,
         Vfs = Vfs,
