@@ -6,8 +6,9 @@ name: Az.DataProtection Module Test v2
     branches:
       - naga/test-pr
 
-# GitHub Actions does not support ${{ matrix.* }} in the shell: field,
-# so we use two jobs: one for pwsh (7+) and one for powershell (5.1).
+# Two jobs: pwsh (7+) and powershell (5.1).
+# Flow: install → diagnose (parse + unicode scan) → import → validate.
+# Import + validate steps only run if diagnosis passes.
 
 jobs:
   # =================================================================
@@ -18,28 +19,33 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        install-mode: [rollup, targeted]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
-    name: ${{ matrix.os }} / ${{ matrix.install-mode }} / pwsh
+    name: ${{ matrix.os }} / pwsh
 
     steps:
+      - name: Report shell version
+        shell: pwsh
+        run: |
+          Write-Host '============================================'
+          Write-Host "Shell       : pwsh (PowerShell Core)"
+          Write-Host "Edition     : $($PSVersionTable.PSEdition)"
+          Write-Host "Version     : $($PSVersionTable.PSVersion)"
+          Write-Host "OS          : $($PSVersionTable.OS)"
+          Write-Host "Path        : $PSHOME"
+          Write-Host '============================================'
+
       - name: Bootstrap PowerShell gallery
         shell: pwsh
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
-
-          Write-Host "PowerShell edition: $($PSVersionTable.PSEdition)"
-          Write-Host "PowerShell version: $($PSVersionTable.PSVersion)"
-
           if ($PSVersionTable.PSEdition -eq 'Desktop') {
             Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser | Out-Null
           }
-
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
 
-      - name: Install Az module(s)
+      - name: Install Az rollup
         shell: pwsh
         run: |
           Set-StrictMode -Version Latest
@@ -61,17 +67,120 @@ jobs:
             }
           }
 
-          $mode = '${{ matrix.install-mode }}'
-          if ($mode -eq 'rollup') {
-            Write-Host 'Installing full Az rollup (customer repro path)...'
-            Install-ModuleWithRetry -Name Az
-          } else {
-            Write-Host 'Installing Az.DataProtection only (targeted path)...'
-            Install-ModuleWithRetry -Name Az.DataProtection
+          Install-ModuleWithRetry -Name Az
+
+      - name: Report installed versions
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          $azRollup = Get-Module -Name Az -ListAvailable | Sort-Object Version -Descending | Select-Object -First 1
+          $azDP = Get-Module -Name Az.DataProtection -ListAvailable | Sort-Object Version -Descending | Select-Object -First 1
+          $azAcct = Get-Module -Name Az.Accounts -ListAvailable | Sort-Object Version -Descending | Select-Object -First 1
+
+          Write-Host "Az rollup        : $($azRollup.Version)"
+          Write-Host "Az.DataProtection: $($azDP.Version)"
+          Write-Host "Az.Accounts      : $($azAcct.Version)"
+          Write-Host "Module path      : $($azDP.ModuleBase)"
+
+      # ---- DIAGNOSIS: runs BEFORE any import ----
+      - name: Diagnose - parse all Az.DataProtection source files
+        id: parse_check
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          $module = Get-Module -Name Az.DataProtection -ListAvailable |
+            Sort-Object Version -Descending | Select-Object -First 1
+          if (-not $module) { throw 'Az.DataProtection not found on disk.' }
+
+          $files = @(Get-ChildItem -Path $module.ModuleBase -Recurse -Include '*.ps1','*.psm1' -File)
+          Write-Host "Parsing $($files.Count) source files under $($module.ModuleBase)..."
+
+          $parseErrors = @()
+          foreach ($file in $files) {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$errors)
+            if ($errors) {
+              foreach ($err in $errors) {
+                $parseErrors += [pscustomobject]@{
+                  File    = $file.FullName
+                  Line    = $err.Extent.StartLineNumber
+                  Message = $err.Message
+                }
+              }
+            }
           }
 
+          if ($parseErrors.Count -gt 0) {
+            Write-Host ''
+            Write-Host "PARSE ERRORS FOUND: $($parseErrors.Count)"
+            Write-Host '--------------------------------------------'
+            $parseErrors | Select-Object -First 30 | ForEach-Object {
+              Write-Host "  $($_.File):$($_.Line)"
+              Write-Host "    $($_.Message)"
+            }
+            throw "Az.DataProtection has $($parseErrors.Count) parse error(s) on pwsh $($PSVersionTable.PSVersion)."
+          }
+
+          Write-Host "All $($files.Count) files parsed successfully."
+
+      - name: Diagnose - scan for Unicode corruption
+        id: unicode_check
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          $module = Get-Module -Name Az.DataProtection -ListAvailable |
+            Sort-Object Version -Descending | Select-Object -First 1
+          if (-not $module) { throw 'Module not found on disk.' }
+
+          # Characters that silently break PowerShell when they replace ASCII equivalents
+          $badChars = @{
+            '\u2013' = 'en-dash (U+2013) - breaks -ne, -eq, -lt etc.'
+            '\u2014' = 'em-dash (U+2014)'
+            '\u2018' = 'left single smart quote (U+2018)'
+            '\u2019' = 'right single smart quote (U+2019)'
+            '\u201C' = 'left double smart quote (U+201C)'
+            '\u201D' = 'right double smart quote (U+201D)'
+          }
+
+          $corrupted = @()
+          $files = @(Get-ChildItem -Path $module.ModuleBase -Recurse -Include '*.ps1','*.psm1' -File)
+          Write-Host "Scanning $($files.Count) files for Unicode corruption..."
+
+          foreach ($file in $files) {
+            $content = [System.IO.File]::ReadAllText($file.FullName)
+            foreach ($pattern in $badChars.Keys) {
+              $regex = [regex]$pattern
+              if ($regex.IsMatch($content)) {
+                $lines = $content.Split("`n")
+                for ($i = 0; $i -lt $lines.Count; $i++) {
+                  if ($regex.IsMatch($lines[$i])) {
+                    $corrupted += "$($file.FullName):$($i+1) - $($badChars[$pattern])"
+                  }
+                }
+              }
+            }
+          }
+
+          if ($corrupted.Count -gt 0) {
+            Write-Host ''
+            Write-Host "UNICODE CORRUPTION FOUND: $($corrupted.Count) occurrence(s)"
+            Write-Host '--------------------------------------------'
+            $corrupted | ForEach-Object { Write-Host "  $_" }
+            throw "Az.DataProtection has $($corrupted.Count) Unicode corruption(s)."
+          }
+
+          Write-Host "No Unicode corruption found."
+
+      # ---- IMPORT + VALIDATE: only if diagnosis passed ----
       - name: Import Az rollup (customer regression gate)
-        if: matrix.install-mode == 'rollup'
+        if: steps.parse_check.outcome == 'success' && steps.unicode_check.outcome == 'success'
         shell: pwsh
         run: |
           Set-StrictMode -Version Latest
@@ -93,12 +202,13 @@ jobs:
           }
 
           if (-not (Get-Module -Name Az)) {
-            throw 'Regression: Az module is not loaded after Import-Module Az.'
+            throw 'Regression: Az not loaded after Import-Module Az.'
           }
 
           Write-Host 'Import-Module Az succeeded without errors.'
 
-      - name: Import Az.DataProtection and report versions
+      - name: Validate Az.DataProtection commands
+        if: steps.parse_check.outcome == 'success' && steps.unicode_check.outcome == 'success'
         shell: pwsh
         run: |
           Set-StrictMode -Version Latest
@@ -106,82 +216,7 @@ jobs:
 
           Import-Module Az.DataProtection -Force -ErrorAction Stop
 
-          $module = Get-Module -Name Az.DataProtection
-          if (-not $module) { throw 'Az.DataProtection is NOT loaded.' }
-
-          $accounts = Get-Module -Name Az.Accounts
-          if (-not $accounts) { throw 'Az.Accounts is NOT loaded.' }
-
-          $azRollup = Get-Module -Name Az -ListAvailable |
-            Sort-Object Version -Descending | Select-Object -First 1
-          $azVer = if ($azRollup) { $azRollup.Version.ToString() } else { 'n/a' }
-
-          Write-Host "Install mode : ${{ matrix.install-mode }}"
-          Write-Host "Shell        : pwsh"
-          Write-Host "PowerShell   : $($PSVersionTable.PSVersion) ($($PSVersionTable.PSEdition))"
-          Write-Host "Az rollup    : $azVer"
-          Write-Host "Az.DataProt  : $($module.Version)"
-          Write-Host "Az.Accounts  : $($accounts.Version)"
-          Write-Host "Module path  : $($module.ModuleBase)"
-
-      - name: Scan for Unicode corruption in module source
-        shell: pwsh
-        run: |
-          Set-StrictMode -Version Latest
-          $ErrorActionPreference = 'Stop'
-
-          $module = Get-Module -Name Az.DataProtection -ListAvailable |
-            Sort-Object Version -Descending | Select-Object -First 1
-          if (-not $module) { throw 'Module not found on disk.' }
-
-          $moduleRoot = $module.ModuleBase
-          Write-Host "Scanning: $moduleRoot"
-
-          # Characters that break PowerShell when they replace ASCII equivalents
-          $badChars = @{
-            '\u2013' = 'en-dash (U+2013) - breaks -ne, -eq etc.'
-            '\u2014' = 'em-dash (U+2014)'
-            '\u2018' = 'left single smart quote (U+2018)'
-            '\u2019' = 'right single smart quote (U+2019)'
-            '\u201C' = 'left double smart quote (U+201C)'
-            '\u201D' = 'right double smart quote (U+201D)'
-          }
-
-          $corrupted = @()
-          $files = @(Get-ChildItem -Path $moduleRoot -Recurse -Include '*.ps1','*.psm1' -File)
-          Write-Host "Files to scan: $($files.Count)"
-
-          foreach ($file in $files) {
-            $content = [System.IO.File]::ReadAllText($file.FullName)
-            foreach ($pattern in $badChars.Keys) {
-              $regex = [regex]$pattern
-              if ($regex.IsMatch($content)) {
-                $lines = $content.Split("`n")
-                for ($i = 0; $i -lt $lines.Count; $i++) {
-                  if ($regex.IsMatch($lines[$i])) {
-                    $detail = "$($file.FullName):$($i+1) - $($badChars[$pattern])"
-                    Write-Host "CORRUPT  $detail"
-                    $corrupted += $detail
-                  }
-                }
-              }
-            }
-          }
-
-          if ($corrupted.Count -gt 0) {
-            throw "Found $($corrupted.Count) Unicode corruption(s):`n$($corrupted -join "`n")"
-          }
-          Write-Host "No Unicode corruption found."
-
-      - name: Validate exported commands
-        shell: pwsh
-        run: |
-          Set-StrictMode -Version Latest
-          $ErrorActionPreference = 'Stop'
-
-          Import-Module Az.DataProtection -Force -ErrorAction Stop
           $commands = @(Get-Command -Module Az.DataProtection -ErrorAction Stop)
-
           if ($commands.Count -lt 10) {
             throw "Expected >= 10 commands, found $($commands.Count)."
           }
@@ -189,105 +224,68 @@ jobs:
           $cmdlets   = @($commands | Where-Object CommandType -EQ 'Cmdlet')
           $functions = @($commands | Where-Object CommandType -EQ 'Function')
           Write-Host "Total: $($commands.Count) (cmdlets: $($cmdlets.Count), functions: $($functions.Count))"
-          $commands | Select-Object -ExpandProperty Name | Sort-Object | ForEach-Object { Write-Host "  - $_" }
 
-      - name: Verify required commands
-        shell: pwsh
-        run: |
-          Set-StrictMode -Version Latest
-          $ErrorActionPreference = 'Stop'
-
-          Import-Module Az.DataProtection -Force -ErrorAction Stop
-
+          # Required commands
           $required = @(
             'Get-AzDataProtectionBackupVault',
             'Get-AzDataProtectionBackupInstance',
             'Initialize-AzDataProtectionBackupInstance'
           )
-
           $missing = @()
           foreach ($name in $required) {
             $cmd = Get-Command -Module Az.DataProtection -Name $name -ErrorAction SilentlyContinue
-            if ($cmd) { Write-Host "OK  $name" } else { Write-Host "MISSING  $name"; $missing += $name }
+            if ($cmd) { Write-Host "OK  $name" } else { $missing += $name }
           }
           if ($missing.Count -gt 0) { throw "Missing: $($missing -join ', ')" }
 
-      - name: Verify policy commands
-        shell: pwsh
-        run: |
-          Set-StrictMode -Version Latest
-          $ErrorActionPreference = 'Stop'
-
-          Import-Module Az.DataProtection -Force -ErrorAction Stop
-
-          $found = @('Get-AzDataProtectionBackupPolicy','Get-AzDataProtectionPolicy') |
-            ForEach-Object { Get-Command -Module Az.DataProtection -Name $_ -ErrorAction SilentlyContinue } |
-            Select-Object -First 1
-
-          if (-not $found) {
-            Get-Command -Module Az.DataProtection -Name 'Get-*' |
-              Select-Object -ExpandProperty Name | Sort-Object |
-              ForEach-Object { Write-Host "  - $_" }
-            throw 'No policy Get command found.'
-          }
-          Write-Host "Policy Get: $($found.Name)"
-
-          $all = @(Get-Command -Module Az.DataProtection -Name '*Policy*' -ErrorAction SilentlyContinue)
-          if ($all.Count -lt 2) { throw "Expected >= 2 policy commands, found $($all.Count)." }
-          $all | Select-Object -ExpandProperty Name | Sort-Object | ForEach-Object { Write-Host "  - $_" }
-
-      - name: Smoke-test command metadata
-        shell: pwsh
-        run: |
-          Set-StrictMode -Version Latest
-          $ErrorActionPreference = 'Stop'
-
-          Import-Module Az.DataProtection -Force -ErrorAction Stop
-
-          $targets = @(
-            'Get-AzDataProtectionBackupVault',
-            'Get-AzDataProtectionBackupInstance',
-            'Initialize-AzDataProtectionBackupInstance'
-          )
-
+          # Policy commands
           $policyGet = @('Get-AzDataProtectionBackupPolicy','Get-AzDataProtectionPolicy') |
             ForEach-Object { Get-Command -Module Az.DataProtection -Name $_ -ErrorAction SilentlyContinue } |
             Select-Object -First 1
-          if ($policyGet) { $targets += $policyGet.Name }
-          $targets = @($targets | Select-Object -Unique)
+          if (-not $policyGet) { throw 'No policy Get command found.' }
+          Write-Host "OK  $($policyGet.Name) (policy)"
 
+          $allPolicy = @(Get-Command -Module Az.DataProtection -Name '*Policy*' -ErrorAction SilentlyContinue)
+          if ($allPolicy.Count -lt 2) { throw "Expected >= 2 policy commands, found $($allPolicy.Count)." }
+
+          # Metadata smoke test
+          $targets = @($required + $policyGet.Name | Select-Object -Unique)
           foreach ($name in $targets) {
             $cmd = Get-Command -Module Az.DataProtection -Name $name -ErrorAction SilentlyContinue
-            if (-not $cmd) { throw "Not found: $name" }
-            if ($cmd.Parameters.Count -eq 0) { throw "$name has 0 parameters." }
-            Write-Host "OK  $name - $($cmd.CommandType), $($cmd.Parameters.Count) params"
+            if ($cmd -and $cmd.Parameters.Count -eq 0) { throw "$name has 0 parameters." }
           }
+
+          Write-Host ''
+          Write-Host 'All validations passed.'
 
   # =================================================================
   # Job 2 — Windows PowerShell 5.1 (customer's exact environment)
   # =================================================================
   test-powershell51:
-    strategy:
-      fail-fast: false
-      matrix:
-        install-mode: [rollup, targeted]
     runs-on: windows-latest
     timeout-minutes: 30
-    name: windows-latest / ${{ matrix.install-mode }} / powershell-5.1
+    name: windows-latest / powershell-5.1
 
     steps:
+      - name: Report shell version
+        shell: powershell
+        run: |
+          Write-Host '============================================'
+          Write-Host "Shell       : powershell (Windows PowerShell)"
+          Write-Host "Edition     : $($PSVersionTable.PSEdition)"
+          Write-Host "Version     : $($PSVersionTable.PSVersion)"
+          Write-Host "Path        : $PSHOME"
+          Write-Host '============================================'
+
       - name: Bootstrap PowerShell gallery
         shell: powershell
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
-
-          Write-Host "PowerShell edition: $($PSVersionTable.PSEdition)"
-          Write-Host "PowerShell version: $($PSVersionTable.PSVersion)"
           Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser | Out-Null
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
 
-      - name: Install Az module(s)
+      - name: Install Az rollup
         shell: powershell
         run: |
           Set-StrictMode -Version Latest
@@ -309,17 +307,119 @@ jobs:
             }
           }
 
-          $mode = '${{ matrix.install-mode }}'
-          if ($mode -eq 'rollup') {
-            Write-Host 'Installing full Az rollup (customer repro path)...'
-            Install-ModuleWithRetry -Name Az
-          } else {
-            Write-Host 'Installing Az.DataProtection only (targeted path)...'
-            Install-ModuleWithRetry -Name Az.DataProtection
+          Install-ModuleWithRetry -Name Az
+
+      - name: Report installed versions
+        shell: powershell
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          $azRollup = Get-Module -Name Az -ListAvailable | Sort-Object Version -Descending | Select-Object -First 1
+          $azDP = Get-Module -Name Az.DataProtection -ListAvailable | Sort-Object Version -Descending | Select-Object -First 1
+          $azAcct = Get-Module -Name Az.Accounts -ListAvailable | Sort-Object Version -Descending | Select-Object -First 1
+
+          Write-Host "Az rollup        : $($azRollup.Version)"
+          Write-Host "Az.DataProtection: $($azDP.Version)"
+          Write-Host "Az.Accounts      : $($azAcct.Version)"
+          Write-Host "Module path      : $($azDP.ModuleBase)"
+
+      # ---- DIAGNOSIS: runs BEFORE any import ----
+      - name: Diagnose - parse all Az.DataProtection source files
+        id: parse_check
+        shell: powershell
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          $module = Get-Module -Name Az.DataProtection -ListAvailable |
+            Sort-Object Version -Descending | Select-Object -First 1
+          if (-not $module) { throw 'Az.DataProtection not found on disk.' }
+
+          $files = @(Get-ChildItem -Path $module.ModuleBase -Recurse -Include '*.ps1','*.psm1' -File)
+          Write-Host "Parsing $($files.Count) source files under $($module.ModuleBase)..."
+
+          $parseErrors = @()
+          foreach ($file in $files) {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$errors)
+            if ($errors) {
+              foreach ($err in $errors) {
+                $parseErrors += [pscustomobject]@{
+                  File    = $file.FullName
+                  Line    = $err.Extent.StartLineNumber
+                  Message = $err.Message
+                }
+              }
+            }
           }
 
+          if ($parseErrors.Count -gt 0) {
+            Write-Host ''
+            Write-Host "PARSE ERRORS FOUND: $($parseErrors.Count)"
+            Write-Host '--------------------------------------------'
+            $parseErrors | Select-Object -First 30 | ForEach-Object {
+              Write-Host "  $($_.File):$($_.Line)"
+              Write-Host "    $($_.Message)"
+            }
+            throw "Az.DataProtection has $($parseErrors.Count) parse error(s) on PowerShell $($PSVersionTable.PSVersion) ($($PSVersionTable.PSEdition))."
+          }
+
+          Write-Host "All $($files.Count) files parsed successfully."
+
+      - name: Diagnose - scan for Unicode corruption
+        id: unicode_check
+        shell: powershell
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          $module = Get-Module -Name Az.DataProtection -ListAvailable |
+            Sort-Object Version -Descending | Select-Object -First 1
+          if (-not $module) { throw 'Module not found on disk.' }
+
+          $badChars = @{
+            '\u2013' = 'en-dash (U+2013) - breaks -ne, -eq, -lt etc.'
+            '\u2014' = 'em-dash (U+2014)'
+            '\u2018' = 'left single smart quote (U+2018)'
+            '\u2019' = 'right single smart quote (U+2019)'
+            '\u201C' = 'left double smart quote (U+201C)'
+            '\u201D' = 'right double smart quote (U+201D)'
+          }
+
+          $corrupted = @()
+          $files = @(Get-ChildItem -Path $module.ModuleBase -Recurse -Include '*.ps1','*.psm1' -File)
+          Write-Host "Scanning $($files.Count) files for Unicode corruption..."
+
+          foreach ($file in $files) {
+            $content = [System.IO.File]::ReadAllText($file.FullName)
+            foreach ($pattern in $badChars.Keys) {
+              $regex = [regex]$pattern
+              if ($regex.IsMatch($content)) {
+                $lines = $content.Split("`n")
+                for ($i = 0; $i -lt $lines.Count; $i++) {
+                  if ($regex.IsMatch($lines[$i])) {
+                    $corrupted += "$($file.FullName):$($i+1) - $($badChars[$pattern])"
+                  }
+                }
+              }
+            }
+          }
+
+          if ($corrupted.Count -gt 0) {
+            Write-Host ''
+            Write-Host "UNICODE CORRUPTION FOUND: $($corrupted.Count) occurrence(s)"
+            Write-Host '--------------------------------------------'
+            $corrupted | ForEach-Object { Write-Host "  $_" }
+            throw "Az.DataProtection has $($corrupted.Count) Unicode corruption(s)."
+          }
+
+          Write-Host "No Unicode corruption found."
+
+      # ---- IMPORT + VALIDATE: only if diagnosis passed ----
       - name: Import Az rollup (customer regression gate)
-        if: matrix.install-mode == 'rollup'
+        if: steps.parse_check.outcome == 'success' && steps.unicode_check.outcome == 'success'
         shell: powershell
         run: |
           Set-StrictMode -Version Latest
@@ -341,12 +441,13 @@ jobs:
           }
 
           if (-not (Get-Module -Name Az)) {
-            throw 'Regression: Az module is not loaded after Import-Module Az.'
+            throw 'Regression: Az not loaded after Import-Module Az.'
           }
 
           Write-Host 'Import-Module Az succeeded without errors.'
 
-      - name: Import Az.DataProtection and report versions
+      - name: Validate Az.DataProtection commands
+        if: steps.parse_check.outcome == 'success' && steps.unicode_check.outcome == 'success'
         shell: powershell
         run: |
           Set-StrictMode -Version Latest
@@ -354,81 +455,7 @@ jobs:
 
           Import-Module Az.DataProtection -Force -ErrorAction Stop
 
-          $module = Get-Module -Name Az.DataProtection
-          if (-not $module) { throw 'Az.DataProtection is NOT loaded.' }
-
-          $accounts = Get-Module -Name Az.Accounts
-          if (-not $accounts) { throw 'Az.Accounts is NOT loaded.' }
-
-          $azRollup = Get-Module -Name Az -ListAvailable |
-            Sort-Object Version -Descending | Select-Object -First 1
-          $azVer = if ($azRollup) { $azRollup.Version.ToString() } else { 'n/a' }
-
-          Write-Host "Install mode : ${{ matrix.install-mode }}"
-          Write-Host "Shell        : powershell (5.1)"
-          Write-Host "PowerShell   : $($PSVersionTable.PSVersion) ($($PSVersionTable.PSEdition))"
-          Write-Host "Az rollup    : $azVer"
-          Write-Host "Az.DataProt  : $($module.Version)"
-          Write-Host "Az.Accounts  : $($accounts.Version)"
-          Write-Host "Module path  : $($module.ModuleBase)"
-
-      - name: Scan for Unicode corruption in module source
-        shell: powershell
-        run: |
-          Set-StrictMode -Version Latest
-          $ErrorActionPreference = 'Stop'
-
-          $module = Get-Module -Name Az.DataProtection -ListAvailable |
-            Sort-Object Version -Descending | Select-Object -First 1
-          if (-not $module) { throw 'Module not found on disk.' }
-
-          $moduleRoot = $module.ModuleBase
-          Write-Host "Scanning: $moduleRoot"
-
-          $badChars = @{
-            '\u2013' = 'en-dash (U+2013) - breaks -ne, -eq etc.'
-            '\u2014' = 'em-dash (U+2014)'
-            '\u2018' = 'left single smart quote (U+2018)'
-            '\u2019' = 'right single smart quote (U+2019)'
-            '\u201C' = 'left double smart quote (U+201C)'
-            '\u201D' = 'right double smart quote (U+201D)'
-          }
-
-          $corrupted = @()
-          $files = @(Get-ChildItem -Path $moduleRoot -Recurse -Include '*.ps1','*.psm1' -File)
-          Write-Host "Files to scan: $($files.Count)"
-
-          foreach ($file in $files) {
-            $content = [System.IO.File]::ReadAllText($file.FullName)
-            foreach ($pattern in $badChars.Keys) {
-              $regex = [regex]$pattern
-              if ($regex.IsMatch($content)) {
-                $lines = $content.Split("`n")
-                for ($i = 0; $i -lt $lines.Count; $i++) {
-                  if ($regex.IsMatch($lines[$i])) {
-                    $detail = "$($file.FullName):$($i+1) - $($badChars[$pattern])"
-                    Write-Host "CORRUPT  $detail"
-                    $corrupted += $detail
-                  }
-                }
-              }
-            }
-          }
-
-          if ($corrupted.Count -gt 0) {
-            throw "Found $($corrupted.Count) Unicode corruption(s):`n$($corrupted -join "`n")"
-          }
-          Write-Host "No Unicode corruption found."
-
-      - name: Validate exported commands
-        shell: powershell
-        run: |
-          Set-StrictMode -Version Latest
-          $ErrorActionPreference = 'Stop'
-
-          Import-Module Az.DataProtection -Force -ErrorAction Stop
           $commands = @(Get-Command -Module Az.DataProtection -ErrorAction Stop)
-
           if ($commands.Count -lt 10) {
             throw "Expected >= 10 commands, found $($commands.Count)."
           }
@@ -436,76 +463,33 @@ jobs:
           $cmdlets   = @($commands | Where-Object { $_.CommandType -eq 'Cmdlet' })
           $functions = @($commands | Where-Object { $_.CommandType -eq 'Function' })
           Write-Host "Total: $($commands.Count) (cmdlets: $($cmdlets.Count), functions: $($functions.Count))"
-          $commands | Select-Object -ExpandProperty Name | Sort-Object | ForEach-Object { Write-Host "  - $_" }
-
-      - name: Verify required commands
-        shell: powershell
-        run: |
-          Set-StrictMode -Version Latest
-          $ErrorActionPreference = 'Stop'
-
-          Import-Module Az.DataProtection -Force -ErrorAction Stop
 
           $required = @(
             'Get-AzDataProtectionBackupVault',
             'Get-AzDataProtectionBackupInstance',
             'Initialize-AzDataProtectionBackupInstance'
           )
-
           $missing = @()
           foreach ($name in $required) {
             $cmd = Get-Command -Module Az.DataProtection -Name $name -ErrorAction SilentlyContinue
-            if ($cmd) { Write-Host "OK  $name" } else { Write-Host "MISSING  $name"; $missing += $name }
+            if ($cmd) { Write-Host "OK  $name" } else { $missing += $name }
           }
           if ($missing.Count -gt 0) { throw "Missing: $($missing -join ', ')" }
-
-      - name: Verify policy commands
-        shell: powershell
-        run: |
-          Set-StrictMode -Version Latest
-          $ErrorActionPreference = 'Stop'
-
-          Import-Module Az.DataProtection -Force -ErrorAction Stop
-
-          $found = @('Get-AzDataProtectionBackupPolicy','Get-AzDataProtectionPolicy') |
-            ForEach-Object { Get-Command -Module Az.DataProtection -Name $_ -ErrorAction SilentlyContinue } |
-            Select-Object -First 1
-
-          if (-not $found) {
-            Get-Command -Module Az.DataProtection -Name 'Get-*' |
-              Select-Object -ExpandProperty Name | Sort-Object |
-              ForEach-Object { Write-Host "  - $_" }
-            throw 'No policy Get command found.'
-          }
-          Write-Host "Policy Get: $($found.Name)"
-
-          $all = @(Get-Command -Module Az.DataProtection -Name '*Policy*' -ErrorAction SilentlyContinue)
-          if ($all.Count -lt 2) { throw "Expected >= 2 policy commands, found $($all.Count)." }
-          $all | Select-Object -ExpandProperty Name | Sort-Object | ForEach-Object { Write-Host "  - $_" }
-
-      - name: Smoke-test command metadata
-        shell: powershell
-        run: |
-          Set-StrictMode -Version Latest
-          $ErrorActionPreference = 'Stop'
-
-          Import-Module Az.DataProtection -Force -ErrorAction Stop
-
-          $targets = @(
-            'Get-AzDataProtectionBackupVault',
-            'Get-AzDataProtectionBackupInstance',
-            'Initialize-AzDataProtectionBackupInstance'
-          )
 
           $policyGet = @('Get-AzDataProtectionBackupPolicy','Get-AzDataProtectionPolicy') |
             ForEach-Object { Get-Command -Module Az.DataProtection -Name $_ -ErrorAction SilentlyContinue } |
             Select-Object -First 1
-          if ($policyGet) { $targets += $policyGet.Name }
-          $targets = @($targets | Select-Object -Unique)
+          if (-not $policyGet) { throw 'No policy Get command found.' }
+          Write-Host "OK  $($policyGet.Name) (policy)"
 
+          $allPolicy = @(Get-Command -Module Az.DataProtection -Name '*Policy*' -ErrorAction SilentlyContinue)
+          if ($allPolicy.Count -lt 2) { throw "Expected >= 2 policy commands, found $($allPolicy.Count)." }
+
+          $targets = @($required + $policyGet.Name | Select-Object -Unique)
           foreach ($name in $targets) {
             $cmd = Get-Command -Module Az.DataProtection -Name $name -ErrorAction SilentlyContinue
-            if (-not $cmd) { throw "Not found: $name" }
-            if ($cmd.Parameters.Count -eq 0) { throw "$name has 0 parameters." }
-            Write-Host "OK  $name - $($cmd.CommandType), $($cmd.Parameters.Count) params"
+            if ($cmd -and $cmd.Parameters.Count -eq 0) { throw "$name has 0 parameters." }
           }
+
+          Write-Host ''
+          Write-Host 'All validations passed.'
