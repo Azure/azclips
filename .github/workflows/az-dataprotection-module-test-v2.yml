@@ -12,17 +12,23 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        # Two install paths customers actually use:
-        #   rollup  — Install-Module Az → Import-Module Az  (customer-reported repro)
-        #   targeted — Install-Module Az.DataProtection → Import-Module Az.DataProtection
         install-mode: [rollup, targeted]
+        shell: [pwsh]
+        include:
+          # Windows PowerShell 5.1 -- exact customer repro environment
+          - os: windows-latest
+            install-mode: rollup
+            shell: powershell
+          - os: windows-latest
+            install-mode: targeted
+            shell: powershell
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
-    name: ${{ matrix.os }} / ${{ matrix.install-mode }} / pwsh
+    name: ${{ matrix.os }} / ${{ matrix.install-mode }} / ${{ matrix.shell }}
 
     steps:
       - name: Bootstrap PowerShell gallery prerequisites
-        shell: pwsh
+        shell: ${{ matrix.shell }}
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
@@ -38,7 +44,7 @@ jobs:
           Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
 
       - name: Install Az module(s)
-        shell: pwsh
+        shell: ${{ matrix.shell }}
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
@@ -78,7 +84,7 @@ jobs:
 
       - name: Import module and report versions
         id: versions
-        shell: pwsh
+        shell: ${{ matrix.shell }}
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
@@ -97,7 +103,7 @@ jobs:
             Import-Module Az.DataProtection -Force -ErrorAction Stop
           }
 
-          # Ensure Az.DataProtection is explicitly imported for deterministic behavior across shells/versions.
+          # Ensure Az.DataProtection is explicitly imported for deterministic behavior.
           Import-Module Az.DataProtection -Force -ErrorAction Stop
 
           $module = Get-Module -Name Az.DataProtection
@@ -110,7 +116,7 @@ jobs:
             throw 'Az.Accounts module was not loaded (expected as a dependency).'
           }
 
-          # Gather Az rollup version if present (rollup mode).
+          # Gather Az rollup version if present.
           $azRollup = Get-Module -Name Az -ListAvailable |
             Sort-Object Version -Descending |
             Select-Object -First 1
@@ -120,7 +126,8 @@ jobs:
           | Component | Version |
           |-----------|---------|
           | Install mode | ${{ matrix.install-mode }} |
-          | PowerShell | $($PSVersionTable.PSVersion) |
+          | Shell | ${{ matrix.shell }} |
+          | PowerShell | $($PSVersionTable.PSVersion) ($($PSVersionTable.PSEdition)) |
           | Az (rollup) | $azRollupVersion |
           | Az.DataProtection | $($module.Version) |
           | Az.Accounts | $($accounts.Version) |
@@ -131,12 +138,11 @@ jobs:
           $summary >> $env:GITHUB_STEP_SUMMARY
 
       - name: Scan module source files for Unicode corruption
-        shell: pwsh
+        shell: ${{ matrix.shell }}
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
 
-          # Locate the installed Az.DataProtection module directory.
           $module = Get-Module -Name Az.DataProtection -ListAvailable |
             Sort-Object Version -Descending |
             Select-Object -First 1
@@ -148,15 +154,8 @@ jobs:
           $moduleRoot = $module.ModuleBase
           Write-Host "Scanning module files under: $moduleRoot"
 
-          # Characters that should never appear in PowerShell source:
-          #   U+2013 en-dash (breaks operators like -ne, -eq)
-          #   U+2014 em-dash
-          #   U+2018 left single smart quote
-          #   U+2019 right single smart quote
-          #   U+201C left double smart quote
-          #   U+201D right double smart quote
           $badChars = @{
-            '\u2013' = 'en-dash (U+2013) — breaks operators like -ne, -eq'
+            '\u2013' = 'en-dash (U+2013) - breaks operators like -ne, -eq'
             '\u2014' = 'em-dash (U+2014)'
             '\u2018' = 'left single smart quote (U+2018)'
             '\u2019' = 'right single smart quote (U+2019)'
@@ -172,13 +171,12 @@ jobs:
             $content = [System.IO.File]::ReadAllText($file.FullName)
             foreach ($pattern in $badChars.Keys) {
               $regex = [regex]$pattern
-              $matches = $regex.Matches($content)
-              if ($matches.Count -gt 0) {
-                # Find line numbers for each occurrence.
+              $regexMatches = $regex.Matches($content)
+              if ($regexMatches.Count -gt 0) {
                 $lines = $content.Split("`n")
                 for ($i = 0; $i -lt $lines.Count; $i++) {
                   if ($regex.IsMatch($lines[$i])) {
-                    $detail = "  $($file.FullName):$($i + 1) — $($badChars[$pattern])"
+                    $detail = "  $($file.FullName):$($i + 1) - $($badChars[$pattern])"
                     Write-Host "CORRUPT  $detail"
                     $corrupted += $detail
                   }
@@ -198,7 +196,7 @@ jobs:
           Write-Host "No Unicode corruption found in $($ps1Files.Count) files."
 
       - name: Validate exported commands
-        shell: pwsh
+        shell: ${{ matrix.shell }}
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
@@ -220,14 +218,13 @@ jobs:
           $commands | Select-Object -ExpandProperty Name | Sort-Object | ForEach-Object { Write-Host "  - $_" }
 
       - name: Verify required commands exist
-        shell: pwsh
+        shell: ${{ matrix.shell }}
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
 
           Import-Module Az.DataProtection -Force -ErrorAction Stop
 
-          # Core commands that must always be present.
           $requiredCommands = @(
             'Get-AzDataProtectionBackupVault',
             'Get-AzDataProtectionBackupInstance',
@@ -250,14 +247,13 @@ jobs:
           }
 
       - name: Verify policy commands
-        shell: pwsh
+        shell: ${{ matrix.shell }}
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
 
           Import-Module Az.DataProtection -Force -ErrorAction Stop
 
-          # The "Get" policy cmdlet name varies across module versions.
           $policyGetCandidates = @(
             'Get-AzDataProtectionBackupPolicy',
             'Get-AzDataProtectionPolicy'
@@ -282,7 +278,6 @@ jobs:
 
           Write-Host "Policy Get command: $($foundPolicyGet.Name)"
 
-          # Verify there are additional policy-related commands (New, Set, etc.)
           $allPolicyCommands = @(Get-Command -Module Az.DataProtection -Name '*Policy*' -ErrorAction SilentlyContinue)
           Write-Host "Total *Policy* commands: $($allPolicyCommands.Count)"
           $allPolicyCommands |
@@ -294,21 +289,19 @@ jobs:
           }
 
       - name: Smoke-test command metadata
-        shell: pwsh
+        shell: ${{ matrix.shell }}
         run: |
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
 
           Import-Module Az.DataProtection -Force -ErrorAction Stop
 
-          # Pick key commands to verify they have proper parameter metadata.
           $targets = @(
             'Get-AzDataProtectionBackupVault',
             'Get-AzDataProtectionBackupInstance',
             'Initialize-AzDataProtectionBackupInstance'
           )
 
-          # Also include whichever policy Get command exists.
           $policyGet = @('Get-AzDataProtectionBackupPolicy', 'Get-AzDataProtectionPolicy') |
             ForEach-Object { Get-Command -Module Az.DataProtection -Name $_ -ErrorAction SilentlyContinue } |
             Select-Object -First 1
@@ -316,7 +309,6 @@ jobs:
             $targets += $policyGet.Name
           }
 
-          # Deduplicate.
           $targets = @($targets | Select-Object -Unique)
 
           foreach ($name in $targets) {
@@ -327,110 +319,11 @@ jobs:
 
             $paramCount = $cmd.Parameters.Count
             if ($paramCount -eq 0) {
-              throw "Command $name has 0 parameters — metadata may be broken."
+              throw "Command $name has 0 parameters - metadata may be broken."
             }
 
-            Write-Host "OK  $name — $($cmd.CommandType), $paramCount parameters"
+            Write-Host "OK  $name - $($cmd.CommandType), $paramCount parameters"
           }
 
           Write-Host ''
           Write-Host 'All metadata smoke tests passed.'
-
-  test-az-dataprotection-windows-powershell:
-    strategy:
-      fail-fast: false
-      matrix:
-        install-mode: [rollup, targeted]
-    runs-on: windows-latest
-    timeout-minutes: 30
-    name: windows-latest / ${{ matrix.install-mode }} / powershell
-
-    steps:
-      - name: Bootstrap PowerShell gallery prerequisites
-        shell: powershell
-        run: |
-          Set-StrictMode -Version Latest
-          $ErrorActionPreference = 'Stop'
-
-          Write-Host "PowerShell edition: $($PSVersionTable.PSEdition)"
-          Write-Host "PowerShell version: $($PSVersionTable.PSVersion)"
-          Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser | Out-Null
-          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-
-      - name: Install Az module(s)
-        shell: powershell
-        run: |
-          Set-StrictMode -Version Latest
-          $ErrorActionPreference = 'Stop'
-
-          function Install-ModuleWithRetry {
-            param([Parameter(Mandatory = $true)][string]$Name)
-
-            $maxAttempts = 3
-            for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
-              try {
-                Write-Host "Installing module '$Name' (attempt $attempt/$maxAttempts)..."
-                Install-Module -Name $Name -Repository PSGallery -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop
-                Write-Host "Install succeeded for '$Name'."
-                return
-              }
-              catch {
-                if ($attempt -eq $maxAttempts) {
-                  throw
-                }
-                Write-Host "Install attempt failed for '$Name': $($_.Exception.Message)"
-                Write-Host "Retrying install..."
-              }
-            }
-          }
-
-          $mode = '${{ matrix.install-mode }}'
-          if ($mode -eq 'rollup') {
-            Install-ModuleWithRetry -Name Az
-          } else {
-            Install-ModuleWithRetry -Name Az.DataProtection
-          }
-
-      - name: Import module and run core checks
-        shell: powershell
-        run: |
-          Set-StrictMode -Version Latest
-          $ErrorActionPreference = 'Stop'
-
-          $mode = '${{ matrix.install-mode }}'
-          if ($mode -eq 'rollup') {
-            Import-Module Az -Force -ErrorAction Stop
-            if (-not (Get-Module -Name Az)) {
-              throw 'Az rollup was not loaded after Import-Module Az.'
-            }
-          }
-
-          Import-Module Az.DataProtection -Force -ErrorAction Stop
-
-          $module = Get-Module -Name Az.DataProtection
-          if (-not $module) {
-            throw 'Az.DataProtection module is NOT loaded after import.'
-          }
-
-          $requiredCommands = @(
-            'Get-AzDataProtectionBackupVault',
-            'Get-AzDataProtectionBackupInstance',
-            'Initialize-AzDataProtectionBackupInstance'
-          )
-
-          foreach ($name in $requiredCommands) {
-            if (-not (Get-Command -Module Az.DataProtection -Name $name -ErrorAction SilentlyContinue)) {
-              throw "Missing required command: $name"
-            }
-          }
-
-          $policyGet = @('Get-AzDataProtectionBackupPolicy', 'Get-AzDataProtectionPolicy') |
-            ForEach-Object { Get-Command -Module Az.DataProtection -Name $_ -ErrorAction SilentlyContinue } |
-            Select-Object -First 1
-          if (-not $policyGet) {
-            throw 'No policy Get command found.'
-          }
-
-          Write-Host "PowerShell version: $($PSVersionTable.PSVersion)"
-          Write-Host "Az.DataProtection version: $($module.Version)"
-          Write-Host "Policy Get command: $($policyGet.Name)"
