@@ -14,7 +14,7 @@ static class HistoryRenderer
             switch (entry.Type)
             {
                 case HistoryItemType.User:
-                    widgets.Add(ctx.Text($"  {Ansi.AccentGreen}>{Ansi.End} {Ansi.Foreground}{entry.Text}{Ansi.End}"));
+                    widgets.Add(ctx.Text($"  {Ansi.AccentGreen}{entry.Text}{Ansi.End}"));
                     break;
                 case HistoryItemType.Output:
                     widgets.Add(ctx.Text($"    {entry.Text}"));

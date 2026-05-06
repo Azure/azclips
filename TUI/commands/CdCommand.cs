@@ -31,7 +31,7 @@ class CdCommand : ISlashCommand
 
     private static bool ExecuteAzure(string? arg, CommandContext ctx)
     {
-        ctx.AddHistory(new HistoryEntry(HistoryItemType.User, $"cd {arg ?? "/"}"));
+        ctx.AddHistory(new HistoryEntry(HistoryItemType.User, $"{ctx.Prompt}/cd {arg ?? "/"}"));
         if (!ctx.VfsReady)
         {
             ctx.AddHistory(new HistoryEntry(HistoryItemType.Error, "Not authenticated. Run 'login' first."));
@@ -65,7 +65,7 @@ class CdCommand : ISlashCommand
 
     private static bool ExecuteLocal(string? arg, CommandContext ctx)
     {
-        ctx.AddHistory(new HistoryEntry(HistoryItemType.User, $"cd {arg ?? "~"}"));
+        ctx.AddHistory(new HistoryEntry(HistoryItemType.User, $"{ctx.Prompt}/cd {arg ?? "~"}"));
         var target = arg;
         if (string.IsNullOrEmpty(target) || target == "~")
             target = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);

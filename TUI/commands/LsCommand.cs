@@ -31,7 +31,7 @@ class LsCommand : ISlashCommand
 
     private static bool ExecuteAzure(string? arg, CommandContext ctx)
     {
-        ctx.AddHistory(new HistoryEntry(HistoryItemType.User, $"ls {arg ?? ""}".TrimEnd()));
+        ctx.AddHistory(new HistoryEntry(HistoryItemType.User, $"{ctx.Prompt}/ls {arg ?? ""}".TrimEnd()));
         if (!ctx.VfsReady)
         {
             ctx.AddHistory(new HistoryEntry(HistoryItemType.Error, "Not authenticated. Run 'login' first."));
@@ -73,7 +73,7 @@ class LsCommand : ISlashCommand
 
     private static bool ExecuteLocal(string? arg, CommandContext ctx)
     {
-        ctx.AddHistory(new HistoryEntry(HistoryItemType.User, $"ls {arg ?? ""}".TrimEnd()));
+        ctx.AddHistory(new HistoryEntry(HistoryItemType.User, $"{ctx.Prompt}/ls {arg ?? ""}".TrimEnd()));
         var target = string.IsNullOrEmpty(arg) ? ctx.LocalCwd
             : Path.IsPathRooted(arg) ? arg
             : Path.GetFullPath(Path.Combine(ctx.LocalCwd, arg));

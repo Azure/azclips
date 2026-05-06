@@ -10,7 +10,7 @@ class PwdCommand : ISlashCommand
 
     public bool Execute(string? arg, CommandContext ctx)
     {
-        ctx.AddHistory(new HistoryEntry(HistoryItemType.User, "pwd"));
+        ctx.AddHistory(new HistoryEntry(HistoryItemType.User, $"{ctx.Prompt}/pwd"));
 
         if (ctx.Mode == ShellMode.Local)
         {

@@ -7,6 +7,7 @@ namespace Core.Tui.Commands;
 /// </summary>
 class CommandContext
 {
+    public required string Prompt { get; init; }
     public required Action<HistoryEntry> AddHistory { get; init; }
     public required Func<List<HistoryEntry>> GetHistorySnapshot { get; init; }
     public required AzureVfs Vfs { get; init; }

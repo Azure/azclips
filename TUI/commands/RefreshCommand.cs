@@ -12,7 +12,7 @@ class RefreshCommand : ISlashCommand
 
     public bool Execute(string? arg, CommandContext ctx)
     {
-        ctx.AddHistory(new HistoryEntry(HistoryItemType.User, $"refresh {arg ?? "all"}"));
+        ctx.AddHistory(new HistoryEntry(HistoryItemType.User, $"{ctx.Prompt}/refresh {arg ?? "all"}"));
 
         var scope = (arg?.ToLowerInvariant()) switch
         {
