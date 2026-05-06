@@ -13,9 +13,25 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Bootstrap PowerShell gallery prerequisites
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          Write-Host "PowerShell edition: $($PSVersionTable.PSEdition)"
+          Write-Host "PowerShell version: $($PSVersionTable.PSVersion)"
+
+          if ($PSVersionTable.PSEdition -eq 'Desktop') {
+            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser | Out-Null
+          }
+
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
 
       - name: Install latest Azure PowerShell
         shell: pwsh
@@ -23,8 +39,31 @@ jobs:
           Set-StrictMode -Version Latest
           $ErrorActionPreference = 'Stop'
 
+          function Install-ModuleWithRetry {
+            param(
+              [Parameter(Mandatory = $true)][string]$Name
+            )
+
+            $maxAttempts = 3
+            for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+              try {
+                Write-Host "Installing module '$Name' (attempt $attempt/$maxAttempts)..."
+                Install-Module -Name $Name -Repository PSGallery -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop
+                Write-Host "Install succeeded for '$Name'."
+                return
+              }
+              catch {
+                if ($attempt -eq $maxAttempts) {
+                  throw
+                }
+                Write-Host "Install attempt failed for '$Name': $($_.Exception.Message)"
+                Write-Host "Retrying install..."
+              }
+            }
+          }
+
           Write-Host "Installing latest Az PowerShell module..."
-          Install-Module -Name Az -Repository PSGallery -Scope CurrentUser -Force -AllowClobber
+          Install-ModuleWithRetry -Name Az
 
       - name: Import Az rollup (customer regression)
         shell: pwsh
