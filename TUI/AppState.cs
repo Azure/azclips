@@ -376,6 +376,7 @@ class AppState
         AddHistory(new HistoryEntry(HistoryItemType.Separator, ""));
         OutputScrollOffset = 0;
         RefreshPrompt();
+        RefreshGitBranch();
         Invalidate?.Invoke();
     }
 
