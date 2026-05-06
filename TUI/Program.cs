@@ -48,92 +48,107 @@ public static class Program
         {
             var widgets = new List<Hex1bWidget>();
 
-            // ── Header / Welcome / Help ──
-            if (state.ShowHelp)
+            widgets.Add(v.VStack(top =>
             {
-                widgets.Add(HelpRenderer.Render(v));
-            }
-            else if (state.HistoryCount == 0)
-            {
-                widgets.Add(HeaderRenderer.RenderWelcome(v, termWidth));
-            }
-            else
-            {
-                // ── Scrollable history panel ──
-                widgets.Add((v.VScrollPanel(sv =>
+                var topWidgets = new List<Hex1bWidget>();
+
+                // ── Header / Welcome / Help ──
+                if (state.ShowHelp)
                 {
-                    var rendered = HistoryRenderer.Render(sv, state.GetHistorySnapshot());
-                    return rendered.ToArray();
-                }, showScrollbar: true).Follow()).Fill());
-            }
-
-            // ── Running indicator (always present to keep widget indices stable) ──
-            if (state.IsRunning)
-            {
-                var elapsed = state.ElapsedSeconds;
-                var timeStr = elapsed < 60 ? $"{elapsed}s" : $"{elapsed / 60}m{elapsed % 60}s";
-                widgets.Add(v.HStack(h => [
-                    h.Spinner(SpinnerStyle.Dots),
-                    h.Text($" running... ({timeStr})"),
-                ]).Height(SizeHint.Content));
-            }
-            else
-            {
-                widgets.Add(v.HStack(h => []).Height(SizeHint.Fixed(0)));
-            }
-
-            // ── Prompt + input (Text widget for display, hidden TextBox for focus/input) ──
-            var prompt = state.Prompt;
-            var input = state.InputText;
-            var cursorPos = state.CursorPos;
-
-            // Build display text: prompt + input with a block cursor via ANSI reverse video
-            var fullText = prompt + input;
-            var absCursor = prompt.Length + cursorPos;
-            var before = fullText[..Math.Min(absCursor, fullText.Length)];
-            var cursorChar = absCursor < fullText.Length ? fullText[absCursor].ToString() : " ";
-            var after = absCursor < fullText.Length ? fullText[(absCursor + 1)..] : "";
-            var cursorBlock = $"\x1b[7m{cursorChar}\x1b[27m";
-            var displayLine = $"{before}{cursorBlock}{after}";
-
-            widgets.Add(v.Text(displayLine).Wrap().Height(SizeHint.Content));
-
-            // Hidden TextBox (0 height) as a focus sink for AnyCharacter input.
-            // Character bindings only fire on the focused node (TextBoxNode),
-            // not on wrapper nodes. So we use OnTextChanged to relay typed chars.
-            // Global bindings handle Backspace/Delete/arrows etc. and fire BEFORE
-            // the TextBox sees them, so they never reach the TextBox.
-            widgets.Add(v.ThemePanel(
-                t => t
-                    .Set(TextBoxTheme.UseFillMode, true)
-                    .Set(TextBoxTheme.FillBackgroundColor, Hex1bColor.Default)
-                    .Set(TextBoxTheme.FocusedFillBackgroundColor, Hex1bColor.Default)
-                    .Set(TextBoxTheme.LeftBracket, "")
-                    .Set(TextBoxTheme.RightBracket, ""),
-                v.TextBox(state.InputText)
-                    .OnTextChanged(e =>
+                    topWidgets.Add(HelpRenderer.Render(v));
+                }
+                else if (state.HistoryCount == 0)
+                {
+                    topWidgets.Add(HeaderRenderer.RenderWelcome(v, termWidth));
+                }
+                else
+                {
+                    // ── Scrollable history panel ──
+                    topWidgets.Add((v.VScrollPanel(sv =>
                     {
-                        // TextBox cursor is always at end (reset by reconciliation).
-                        // Detect appended characters and insert at our cursor position.
-                        if (e.NewText.Length > e.OldText.Length)
+                        var rendered = HistoryRenderer.Render(sv, state.GetHistorySnapshot());
+                        return rendered.ToArray();
+                    }, showScrollbar: true).Follow()).Fill());
+                }
+
+                // ── Running indicator (always present to keep widget indices stable) ──
+                if (state.IsRunning)
+                {
+                    var elapsed = state.ElapsedSeconds;
+                    var timeStr = elapsed < 60 ? $"{elapsed}s" : $"{elapsed / 60}m{elapsed % 60}s";
+                    topWidgets.Add(v.HStack(h =>
+                    [
+                        h.Spinner(SpinnerStyle.Dots),
+                        h.Text($" running... ({timeStr})"),
+                    ]).Height(SizeHint.Content));
+                }
+                else
+                {
+                    topWidgets.Add(v.HStack(h => []).Height(SizeHint.Fixed(0)));
+                }
+
+                // ── Prompt + input (Text widget for display, hidden TextBox for focus/input) ──
+                var prompt = state.Prompt;
+                var input = state.InputText;
+                var cursorPos = state.CursorPos;
+
+                // Build display text: prompt + input with a block cursor via ANSI reverse video
+                var fullText = prompt + input;
+                var absCursor = prompt.Length + cursorPos;
+                var before = fullText[..Math.Min(absCursor, fullText.Length)];
+                var cursorChar = absCursor < fullText.Length ? fullText[absCursor].ToString() : " ";
+                var after = absCursor < fullText.Length ? fullText[(absCursor + 1)..] : "";
+                var cursorBlock = $"\x1b[7m{cursorChar}\x1b[27m";
+                var displayLine = $"{before}{cursorBlock}{after}";
+
+                topWidgets.Add(v.Text(displayLine).Wrap().Height(SizeHint.Content));
+
+                // Hidden TextBox (0 height) as a focus sink for AnyCharacter input.
+                // Character bindings only fire on the focused node (TextBoxNode),
+                // not on wrapper nodes. So we use OnTextChanged to relay typed chars.
+                // Global bindings handle Backspace/Delete/arrows etc. and fire BEFORE
+                // the TextBox sees them, so they never reach the TextBox.
+                topWidgets.Add(v.ThemePanel(
+                    t => t
+                        .Set(TextBoxTheme.UseFillMode, true)
+                        .Set(TextBoxTheme.FillBackgroundColor, Hex1bColor.Default)
+                        .Set(TextBoxTheme.FocusedFillBackgroundColor, Hex1bColor.Default)
+                        .Set(TextBoxTheme.LeftBracket, "")
+                        .Set(TextBoxTheme.RightBracket, ""),
+                    v.TextBox(state.InputText)
+                        .OnTextChanged(e =>
                         {
-                            var added = e.NewText[e.OldText.Length..];
-                            state.InputText = state.InputText.Insert(state.CursorPos, added);
-                            state.CursorPos += added.Length;
-                            state.UpdateSuggestions();
-                            app.Invalidate();
-                        }
-                    })
-            ).Height(SizeHint.Fixed(0)));
+                            // TextBox cursor is always at end (reset by reconciliation).
+                            // Detect appended characters and insert at our cursor position.
+                            if (e.NewText.Length > e.OldText.Length)
+                            {
+                                var added = e.NewText[e.OldText.Length..];
+                                state.InputText = state.InputText.Insert(state.CursorPos, added);
+                                state.CursorPos += added.Length;
+                                state.UpdateSuggestions();
+                                app.Invalidate();
+                            }
+                        })
+                ).Height(SizeHint.Fixed(0)));
 
-            // ── Inline suggestions (always present to keep widget indices stable) ──
-            if (state.Suggestions.Count > 0)
-                widgets.Add(SuggestionRenderer.Render(v, state.Suggestions, state.SelectedSuggestion));
-            else
-                widgets.Add(v.Text("").Height(SizeHint.Fixed(0)));
+                // ── Inline suggestions (always present to keep widget indices stable) ──
+                if (state.Suggestions.Count > 0)
+                    topWidgets.Add(SuggestionRenderer.Render(v, state.Suggestions, state.SelectedSuggestion));
+                else
+                    topWidgets.Add(v.Text("").Height(SizeHint.Fixed(0)));
 
-            // ── Footer ──
-            widgets.Add(FooterRenderer.Render(v, state, termWidth));
+                return topWidgets.ToArray();
+            }).Fill());
+
+            widgets.Add(v.VStack(bottom =>
+            {
+                var bottomWidgets = new List<Hex1bWidget>();
+
+                // ── Footer ──
+                bottomWidgets.Add(FooterRenderer.Render(v, state, termWidth));
+
+                return bottomWidgets.ToArray();
+            }).Height(SizeHint.Content));
 
             return widgets.ToArray();
         }).WithInputBindings(bindings =>
