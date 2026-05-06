@@ -18,24 +18,24 @@ variables:
 
 stages:
   - stage: Init
-    displayName: Initialize workflow
+    displayName: Initialize workflow and fan out stages
     jobs:
       - job: Start
-        displayName: Start workflow
+        displayName: Emit start marker
         pool:
           vmImage: ubuntu-latest
         steps:
           - script: echo "Starting 3_naga_staged workflow"
-            displayName: Start workflow
+            displayName: Emit start marker
 
   - stage: Build
-    displayName: Build and Test
+    displayName: Restore, build, test, and upload solution artifacts
     dependsOn: Init
     condition: succeeded()
     jobs:
 
       - job: BuildArtifacts
-        displayName: Build artifacts
+        displayName: Restore/build/test solution and upload artifacts
         strategy:
           matrix:
             Debug_win_x64:
@@ -51,34 +51,34 @@ stages:
             fetchDepth: 0
 
           - task: UseDotNet@2
-            displayName: Install .NET Core from global.json
+            displayName: Install .NET SDK from global.json
             inputs:
               packageType: sdk
               useGlobalJson: true
 
           - pwsh: dotnet restore $(Solution_Name)
-            displayName: Restore solution
+            displayName: Restore solution dependencies
 
           - pwsh: dotnet build $(Solution_Name) --configuration $(configuration) --no-restore
-            displayName: Build solution
+            displayName: Build solution binaries
 
           - pwsh: dotnet test $(Solution_Name) --no-build --configuration $(configuration) --verbosity normal
-            displayName: Execute unit tests
+            displayName: Run solution unit tests
 
           - task: PublishPipelineArtifact@1
-            displayName: Upload build artifacts
+            displayName: Publish solution build artifact directory
             inputs:
               targetPath: artifacts/$(configuration)
               artifact: Build_Artifacts_$(configuration)_$(rid)
               publishLocation: pipeline
 
   - stage: Publish
-    displayName: Publish CLI and Extension Outputs
+    displayName: Build and publish CLI and extension outputs
     dependsOn: Init
     condition: succeeded()
     jobs:
       - job: PublishCli
-        displayName: Publish CLI
+        displayName: Restore/build/publish Windows CLI and package MSIX
         strategy:
           matrix:
             Debug_win_x64:
@@ -94,19 +94,19 @@ stages:
             fetchDepth: 0
 
           - task: UseDotNet@2
-            displayName: Install .NET Core from global.json
+            displayName: Install .NET SDK from global.json
             inputs:
               packageType: sdk
               useGlobalJson: true
 
           - pwsh: dotnet restore src/CLI/Core.Cli.csproj -r $(rid)
-            displayName: Restore CLI project
+            displayName: Restore CLI project dependencies
 
           - pwsh: dotnet publish src/CLI/Core.Cli.csproj -c $(configuration) -r $(rid) --self-contained --no-restore -o "$(Publish_Root)/$(configuration)/$(rid)"
-            displayName: Publish the CLI application
+            displayName: Build and publish Windows CLI application
 
           - pwsh: Copy-Item src/CLI/Core.Cli.appxmanifest "$(Publish_Root)/$(configuration)/$(rid)/AppxManifest.xml"
-            displayName: Copy appx manifest
+            displayName: Copy appx manifest into publish output
 
           - pwsh: |
               $manifestPath = "$(Publish_Root)/$(configuration)/$(rid)/AppxManifest.xml"
@@ -118,7 +118,7 @@ stages:
                   $_ -replace '<PublisherDisplayName>Microsoft Corporation</PublisherDisplayName>', '<PublisherDisplayName>Cirrus Dev Signer</PublisherDisplayName>'
                 } |
                 Set-Content $manifestPath
-            displayName: Update appx manifest publisher for dev signing
+            displayName: Rewrite appx manifest publisher for packaging
 
           - pwsh: |
               $assetsSource = "assets"
@@ -127,7 +127,7 @@ stages:
                 New-Item -ItemType Directory -Path $assetsDestination -Force | Out-Null
                 Copy-Item "$assetsSource\*" $assetsDestination -Recurse -Force
               }
-            displayName: Copy appx assets
+            displayName: Copy appx assets into publish output
 
           - pwsh: |
               $windowsKitBinRoot = Join-Path "${env:ProgramFiles(x86)}" "Windows Kits\10\bin"
@@ -142,24 +142,24 @@ stages:
               $makeAppxPath = Join-Path -Path $latestBinDir.FullName -ChildPath "$sdkArch\MakeAppx.exe"
               New-Item -ItemType Directory -Path "$(Bin_Root)/$(configuration)" -Force | Out-Null
               & $makeAppxPath pack /d "$(Publish_Root)/$(configuration)/$(rid)" /p "$(Bin_Root)/$(configuration)/azv2-$(rid).msix" /nv
-            displayName: Create the appx package
+            displayName: Create unsigned MSIX package
 
           - task: PublishPipelineArtifact@1
-            displayName: Upload published CLI
+            displayName: Publish Windows CLI output artifact
             inputs:
               targetPath: $(Publish_Root)/$(configuration)/$(rid)
               artifact: Published_CLI_$(configuration)_$(rid)
               publishLocation: pipeline
 
           - task: PublishPipelineArtifact@1
-            displayName: Upload MSIX package
+            displayName: Publish Windows MSIX artifact
             inputs:
               targetPath: $(Bin_Root)/$(configuration)/azv2-$(rid).msix
               artifact: MSIX_Package_$(configuration)_$(rid)
               publishLocation: pipeline
 
       - job: PublishCliLinux
-        displayName: Publish CLI (Linux)
+        displayName: Restore/build/publish Linux CLI and create tarball
         strategy:
           matrix:
             Release_linux_x64:
@@ -172,31 +172,31 @@ stages:
             fetchDepth: 0
 
           - task: UseDotNet@2
-            displayName: Install .NET Core from global.json
+            displayName: Install .NET SDK from global.json
             inputs:
               packageType: sdk
               useGlobalJson: true
 
           - script: dotnet restore src/CLI/Core.Cli.csproj -r $(rid)
-            displayName: Restore CLI project
+            displayName: Restore CLI project dependencies
 
           - script: dotnet publish src/CLI/Core.Cli.csproj -c $(configuration) -r $(rid) --self-contained --no-restore -o "$(Publish_Root)/$(configuration)/$(rid)"
-            displayName: Publish the CLI application (Linux)
+            displayName: Build and publish Linux CLI application
 
           - script: |
               mkdir -p "$(Bin_Root)/$(configuration)"
               tar -czf "$(Bin_Root)/$(configuration)/azv2-$(rid).tar.gz" -C "$(Publish_Root)/$(configuration)/$(rid)" .
-            displayName: Create Linux tarball
+            displayName: Create Linux CLI tar.gz package
 
           - task: PublishPipelineArtifact@1
-            displayName: Upload Linux tarball
+            displayName: Publish Linux tar.gz artifact
             inputs:
               targetPath: $(Bin_Root)/$(configuration)/azv2-$(rid).tar.gz
               artifact: Linux_Tarball_$(configuration)_$(rid)
               publishLocation: pipeline
 
       - job: PublishExtension
-        displayName: Publish Extension (az extension)
+        displayName: Restore/build/publish az extension project
         strategy:
           matrix:
             Debug_win_x64:
@@ -212,31 +212,31 @@ stages:
             fetchDepth: 0
 
           - task: UseDotNet@2
-            displayName: Install .NET Core from global.json
+            displayName: Install .NET SDK from global.json
             inputs:
               packageType: sdk
               useGlobalJson: true
 
           - pwsh: dotnet restore src/Extensions/Extension/Extensions.Extension.csproj -r $(rid)
-            displayName: Restore extension project
+            displayName: Restore az extension project dependencies
 
           - pwsh: dotnet publish src/Extensions/Extension/Extensions.Extension.csproj -c $(configuration) -r $(rid) --no-restore -o "$(Publish_Root)/$(configuration)/$(rid)/Extensions/Extension"
-            displayName: Publish the Extension (az extension)
+            displayName: Build and publish az extension project
 
           - task: PublishPipelineArtifact@1
-            displayName: Upload published Extension
+            displayName: Publish az extension output artifact
             inputs:
               targetPath: $(Publish_Root)/$(configuration)/$(rid)/Extensions/Extension
               artifact: Published_Extension_$(configuration)_$(rid)
               publishLocation: pipeline
 
   - stage: Extensions
-    displayName: Build and Pack Discovered Extensions
+    displayName: Discover, build, and pack extensions from repository
     dependsOn: Init
     condition: succeeded()
     jobs:
       - job: DiscoverExtensions
-        displayName: Discover extension matrix inputs
+        displayName: Discover extension projects and emit build/pack matrices
         pool:
           vmImage: windows-latest
         steps:
@@ -297,11 +297,11 @@ stages:
               Write-Host "##vso[task.setvariable variable=packMatrix;isOutput=true]$packMatrixJson"
               Write-Host "Discovered extensions matrix: $buildMatrixJson"
               Write-Host "Discovered pack matrix: $packMatrixJson"
-            displayName: Discover and export extension matrices
+            displayName: Export extension build/pack matrices
             name: setExtensionMatrices
 
       - job: BuildExtension
-        displayName: Build discovered extensions
+        displayName: Build extensions from discovery matrix
         dependsOn: DiscoverExtensions
         condition: and(succeeded(), ne(dependencies.DiscoverExtensions.outputs['setExtensionMatrices.buildMatrix'], '{}'))
         strategy:
@@ -313,26 +313,26 @@ stages:
             fetchDepth: 0
 
           - task: UseDotNet@2
-            displayName: Install .NET Core from global.json
+            displayName: Install .NET SDK from global.json
             inputs:
               packageType: sdk
               useGlobalJson: true
 
           - pwsh: dotnet restore "$(extensionPath)"
-            displayName: Restore Extension
+            displayName: Restore extension project from matrix path
 
           - pwsh: dotnet build "$(extensionPath)" --configuration $(configuration) --no-restore
-            displayName: Build Extension
+            displayName: Build extension project from matrix path
 
           - task: PublishPipelineArtifact@1
-            displayName: Upload Extension Build Artifacts
+            displayName: Publish extension build artifact directory
             inputs:
               targetPath: artifacts/$(configuration)/$(extName)
               artifact: Extension_$(extName)_$(configuration)
               publishLocation: pipeline
 
       - job: PackExtensionPackages
-        displayName: Pack discovered extension packages
+        displayName: Build extensions and generate NuGet packages
         dependsOn: DiscoverExtensions
         condition: and(succeeded(), ne(dependencies.DiscoverExtensions.outputs['setExtensionMatrices.packMatrix'], '{}'))
         strategy:
@@ -344,31 +344,31 @@ stages:
             fetchDepth: 0
 
           - task: UseDotNet@2
-            displayName: Install .NET Core from global.json
+            displayName: Install .NET SDK from global.json
             inputs:
               packageType: sdk
               useGlobalJson: true
 
           - pwsh: dotnet restore "$(extensionPath)"
-            displayName: Restore Extension
+            displayName: Restore extension project from matrix path
 
           - pwsh: dotnet build "$(extensionPath)" --configuration $(configuration) --no-restore
-            displayName: Build Extension (Generates NuGet Package)
+            displayName: Build extension project to generate NuGet package
 
           - task: PublishPipelineArtifact@1
-            displayName: Upload Extension NuGet Package
+            displayName: Publish extension NuGet artifact directory
             inputs:
               targetPath: artifacts/$(configuration)/$(packageIdentity)
               artifact: Extension_NuGet_$(packageIdentity)_$(configuration)
               publishLocation: pipeline
 
   - stage: PowerShell
-    displayName: Build and Validate PowerShell Modules
+    displayName: Discover, build, and validate PowerShell modules
     dependsOn: Init
     condition: succeeded()
     jobs:
       - job: DiscoverPowerShellModules
-        displayName: Discover PowerShell module matrix inputs
+        displayName: Discover PowerShell modules and emit build matrix
         pool:
           vmImage: windows-latest
         steps:
@@ -405,11 +405,11 @@ stages:
 
               Write-Host "##vso[task.setvariable variable=moduleMatrix;isOutput=true]$moduleMatrixJson"
               Write-Host "Discovered modules matrix: $moduleMatrixJson"
-            displayName: Discover and export module matrix
+            displayName: Export PowerShell module build matrix
             name: setModuleMatrix
 
       - job: BuildPowerShellModule
-        displayName: Build PowerShell modules
+        displayName: Build PowerShell modules and validate manifest dependencies
         dependsOn: DiscoverPowerShellModules
         condition: and(succeeded(), ne(dependencies.DiscoverPowerShellModules.outputs['setModuleMatrix.moduleMatrix'], '{}'))
         strategy:
@@ -423,43 +423,43 @@ stages:
           - pwsh: |
               Write-Host "Using preinstalled PowerShell on windows-latest"
               $PSVersionTable | Format-List
-            displayName: Verify PowerShell runtime
+            displayName: Verify preinstalled PowerShell runtime
 
           - task: UseDotNet@2
-            displayName: Install .NET Core from global.json
+            displayName: Install .NET SDK from global.json
             inputs:
               packageType: sdk
               useGlobalJson: true
 
           - pwsh: dotnet restore $(extensionProjectPath)
-            displayName: Restore Extension
+            displayName: Restore corresponding extension project
 
           - pwsh: dotnet restore $(cmdletsProjectPath)
-            displayName: Restore Cmdlets Project
+            displayName: Restore corresponding cmdlets project
 
           - pwsh: dotnet build $(extensionProjectPath) --configuration Debug --no-restore
-            displayName: Build Corresponding Extension
+            displayName: Build corresponding extension project
 
           - pwsh: dotnet build $(cmdletsProjectPath) --configuration Debug --no-restore
-            displayName: Build Corresponding Cmdlets Project
+            displayName: Build corresponding cmdlets project
 
           - pwsh: |
               dotnet restore src/Extensions/Login/Extensions.Login.csproj
               dotnet restore src/PS/Login/Cmdlets.Login.csproj
-            displayName: Restore Login dependency projects (for Resources module)
+            displayName: Restore Login dependency projects required by Resources module
             condition: eq(variables['moduleName'], 'Resources')
 
           - pwsh: |
               dotnet build src/Extensions/Login/Extensions.Login.csproj --configuration Debug --no-restore
               dotnet build src/PS/Login/Cmdlets.Login.csproj --configuration Debug --no-restore
-            displayName: Build Login dependency projects (for Resources module)
+            displayName: Build Login dependency projects required by Resources module
             condition: eq(variables['moduleName'], 'Resources')
 
           - pwsh: dotnet restore cirrus.slnx
-            displayName: Restore solution for module import validation
+            displayName: Restore solution dependencies for module import validation
 
           - pwsh: dotnet build cirrus.slnx --configuration Debug --no-restore
-            displayName: Build solution for module import validation
+            displayName: Build solution binaries for module import validation
 
           - pwsh: |
               function Test-ManifestDependencies {
@@ -508,10 +508,10 @@ stages:
                 Get-ChildItem ./artifacts/Debug/Core -ErrorAction SilentlyContinue | ForEach-Object { Write-Host $_.FullName }
                 throw "Failed to validate module dependencies for $(moduleName). $_"
               }
-            displayName: Validate Module Manifest Dependencies
+            displayName: Validate transitive module manifest dependencies
 
   - stage: Finalize
-    displayName: End workflow
+    displayName: Finalize workflow and report completion
     dependsOn:
       - Init
       - Build
@@ -521,9 +521,9 @@ stages:
     condition: always()
     jobs:
       - job: End
-        displayName: End workflow
+        displayName: Emit workflow end marker
         pool:
           vmImage: ubuntu-latest
         steps:
           - script: echo "3_naga_staged workflow finished"
-            displayName: End workflow
+            displayName: Emit workflow end marker
