@@ -213,3 +213,202 @@ jobs:
           }
 
           Write-Host "Az.DataProtection module import and command tests completed successfully."
+
+  test-az-dataprotection-windows-powershell:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Bootstrap PowerShell gallery prerequisites
+        shell: powershell
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          Write-Host "PowerShell edition: $($PSVersionTable.PSEdition)"
+          Write-Host "PowerShell version: $($PSVersionTable.PSVersion)"
+
+          Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser | Out-Null
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+
+      - name: Install latest Azure PowerShell
+        shell: powershell
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          function Install-ModuleWithRetry {
+            param(
+              [Parameter(Mandatory = $true)][string]$Name
+            )
+
+            $maxAttempts = 3
+            for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+              try {
+                Write-Host "Installing module '$Name' (attempt $attempt/$maxAttempts)..."
+                Install-Module -Name $Name -Repository PSGallery -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop
+                Write-Host "Install succeeded for '$Name'."
+                return
+              }
+              catch {
+                if ($attempt -eq $maxAttempts) {
+                  throw
+                }
+                Write-Host "Install attempt failed for '$Name': $($_.Exception.Message)"
+                Write-Host "Retrying install..."
+              }
+            }
+          }
+
+          Write-Host "Installing latest Az PowerShell module..."
+          Install-ModuleWithRetry -Name Az
+
+      - name: Import Az rollup (customer regression)
+        shell: powershell
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          Write-Host "Running customer regression test: Install-Module Az + Import-Module Az..."
+          $importAzErrors = @()
+          try {
+            Import-Module Az -Force -ErrorAction Stop -ErrorVariable +importAzErrors
+          }
+          catch {
+            Write-Host "Import-Module Az failed with exception: $($_.Exception.Message)"
+            throw
+          }
+
+          if ($importAzErrors.Count -gt 0) {
+            Write-Host "Import-Module Az reported non-terminating errors:"
+            $importAzErrors | ForEach-Object { Write-Host "- $($_.ToString())" }
+            throw "Regression detected: Import-Module Az produced errors after Install-Module Az."
+          }
+
+          $importedAz = Get-Module -Name Az
+          if (-not $importedAz) {
+            throw "Regression detected: Import-Module Az completed but Az is not loaded in session."
+          }
+
+          Write-Host "Regression check passed: Import-Module Az succeeded without errors."
+
+      - name: Import Az.DataProtection and validate module
+        shell: powershell
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          Write-Host "Importing Az.DataProtection module..."
+          Import-Module Az.DataProtection -Force
+
+          $azRollup = Get-Module -Name Az -ListAvailable |
+            Sort-Object Version -Descending |
+            Select-Object -First 1
+
+          $azAccounts = Get-Module -Name Az.Accounts -ListAvailable |
+            Sort-Object Version -Descending |
+            Select-Object -First 1
+
+          $module = Get-Module -Name Az.DataProtection -ListAvailable |
+            Sort-Object Version -Descending |
+            Select-Object -First 1
+
+          if (-not $module) {
+            throw "Az.DataProtection module was not found after installation."
+          }
+
+          Write-Host "PowerShell version: $($PSVersionTable.PSVersion)"
+          Write-Host "Az rollup version: $($azRollup.Version)"
+          Write-Host "Az.Accounts version: $($azAccounts.Version)"
+          Write-Host "Az.DataProtection version: $($module.Version)"
+          Write-Host "Az.DataProtection module path: $($module.ModuleBase)"
+
+          Write-Host "Validating module exports..."
+          $allDataProtectionCommands = @(Get-Command -Module Az.DataProtection -ErrorAction Stop)
+          $exportedCmdlets = @($allDataProtectionCommands | Where-Object { $_.CommandType -eq 'Cmdlet' })
+          $exportedFunctions = @($allDataProtectionCommands | Where-Object { $_.CommandType -eq 'Function' })
+
+          if (-not $allDataProtectionCommands -or $allDataProtectionCommands.Count -lt 10) {
+            throw "Unexpectedly low number of exported commands from Az.DataProtection: $($allDataProtectionCommands.Count)"
+          }
+
+          Write-Host "Exported command count: $($allDataProtectionCommands.Count)"
+          Write-Host "Exported cmdlet count: $($exportedCmdlets.Count)"
+          Write-Host "Exported function count: $($exportedFunctions.Count)"
+          Write-Host "Sample exported commands:"
+          $allDataProtectionCommands |
+            Select-Object -ExpandProperty Name |
+            Sort-Object |
+            Select-Object -First 25 |
+            ForEach-Object { Write-Host "- $_" }
+
+          Write-Host "Running basic command discovery tests..."
+          $requiredCommands = @(
+            'Get-AzDataProtectionBackupVault',
+            'Get-AzDataProtectionBackupInstance'
+          )
+
+          foreach ($commandName in $requiredCommands) {
+            $command = Get-Command -Name $commandName -ErrorAction SilentlyContinue
+            if (-not $command) {
+              throw "Required command not found: $commandName"
+            }
+
+            Write-Host "Verified command: $commandName"
+          }
+
+          $policyCommandCandidates = @(
+            'Get-AzDataProtectionBackupPolicy',
+            'Get-AzDataProtectionPolicy'
+          )
+
+          $foundPolicyCommand = $policyCommandCandidates |
+            ForEach-Object { Get-Command -Name $_ -ErrorAction SilentlyContinue } |
+            Select-Object -First 1
+
+          if (-not $foundPolicyCommand) {
+            Write-Host 'Available Az.DataProtection Get-* commands:'
+            Get-Command -Module Az.DataProtection -Name 'Get-*' | Select-Object -ExpandProperty Name | Sort-Object | ForEach-Object { Write-Host "- $_" }
+            throw 'Required policy command not found. Expected one of: Get-AzDataProtectionBackupPolicy, Get-AzDataProtectionPolicy'
+          }
+
+          Write-Host "Verified policy command: $($foundPolicyCommand.Name)"
+
+          Write-Host "Validating policy command coverage..."
+          $policyCommands = @(Get-Command -Module Az.DataProtection -Name '*Policy*' -ErrorAction SilentlyContinue)
+          if (-not $policyCommands) {
+            throw 'No *Policy* commands were found in Az.DataProtection.'
+          }
+
+          Write-Host "Policy-related commands found: $($policyCommands.Count)"
+          $policyCommands |
+            Select-Object -ExpandProperty Name |
+            Sort-Object |
+            ForEach-Object { Write-Host "- $_" }
+
+          Write-Host "Running command metadata smoke tests for key commands..."
+          $syntaxTargets = @(
+            'Get-AzDataProtectionBackupVault',
+            'Get-AzDataProtectionBackupInstance',
+            $foundPolicyCommand.Name,
+            'Initialize-AzDataProtectionBackupInstance'
+          )
+
+          foreach ($syntaxCommandName in $syntaxTargets | Select-Object -Unique) {
+            $commandMetadata = Get-Command -Name $syntaxCommandName -ErrorAction SilentlyContinue
+            if (-not $commandMetadata) {
+              Write-Host "Skipping optional command not found: $syntaxCommandName"
+              continue
+            }
+
+            $parameterNames = @($commandMetadata.Parameters.Keys)
+            if (-not $parameterNames -or $parameterNames.Count -eq 0) {
+              throw "No parameter metadata found for command: $syntaxCommandName"
+            }
+
+            Write-Host "Verified command metadata: $syntaxCommandName (type: $($commandMetadata.CommandType), parameters: $($parameterNames.Count))"
+          }
+
+          Write-Host "Az.DataProtection module import and command tests completed successfully."
