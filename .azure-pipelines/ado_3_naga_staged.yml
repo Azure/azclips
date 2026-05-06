@@ -17,8 +17,8 @@ variables:
   skipNugetSecurityAnalysis: true
 
 stages:
-  - stage: Build
-    displayName: Build and Test
+  - stage: Init
+    displayName: Initialize workflow
     jobs:
       - job: Start
         displayName: Start workflow
@@ -28,9 +28,14 @@ stages:
           - script: echo "Starting 3_naga_staged workflow"
             displayName: Start workflow
 
+  - stage: Build
+    displayName: Build and Test
+    dependsOn: Init
+    condition: succeeded()
+    jobs:
+
       - job: BuildArtifacts
         displayName: Build artifacts
-        dependsOn: Start
         strategy:
           matrix:
             Debug_win_x64:
@@ -69,7 +74,7 @@ stages:
 
   - stage: Publish
     displayName: Publish CLI and Extension Outputs
-    dependsOn: Build
+    dependsOn: Init
     condition: succeeded()
     jobs:
       - job: PublishCli
@@ -227,7 +232,7 @@ stages:
 
   - stage: Extensions
     displayName: Build and Pack Discovered Extensions
-    dependsOn: Build
+    dependsOn: Init
     condition: succeeded()
     jobs:
       - job: DiscoverExtensions
@@ -359,7 +364,7 @@ stages:
 
   - stage: PowerShell
     displayName: Build and Validate PowerShell Modules
-    dependsOn: Build
+    dependsOn: Init
     condition: succeeded()
     jobs:
       - job: DiscoverPowerShellModules
@@ -508,6 +513,7 @@ stages:
   - stage: Finalize
     displayName: End workflow
     dependsOn:
+      - Init
       - Build
       - Publish
       - Extensions
