@@ -248,6 +248,7 @@ stages:
 
               $buildMatrix = @{}
               $packMatrix = @{}
+              $extIndex = 0
 
               foreach ($extension in $extensions) {
                 [xml]$csproj = Get-Content $extension.FullName
@@ -263,22 +264,25 @@ stages:
                   throw "PackageId not found in $($extension.FullName)"
                 }
 
-                $baseLegName = ($extName -replace '[^A-Za-z0-9_]', '_')
+                $extIndex++
+                $baseLegName = "ext{0:D2}" -f $extIndex
                 $path = $extension.FullName -replace '\\', '/'
 
-                $buildMatrix["${baseLegName}_Debug"] = @{
+                Write-Host "Extension matrix key $baseLegName -> $extName"
+
+                $buildMatrix["${baseLegName}_dbg"] = @{
                   extensionPath = $path
                   extName = $extName
                   configuration = 'Debug'
                 }
 
-                $buildMatrix["${baseLegName}_Release"] = @{
+                $buildMatrix["${baseLegName}_rel"] = @{
                   extensionPath = $path
                   extName = $extName
                   configuration = 'Release'
                 }
 
-                $packMatrix["${baseLegName}_Release"] = @{
+                $packMatrix["${baseLegName}_pkg"] = @{
                   extensionPath = $path
                   packageIdentity = $packageIdentity
                   configuration = 'Release'
@@ -378,6 +382,7 @@ stages:
           - pwsh: |
               $modules = Get-ChildItem -Path src/PS -Recurse -Filter *.psd1 | Sort-Object FullName
               $moduleMatrix = @{}
+              $moduleIndex = 0
 
               foreach ($moduleManifest in $modules) {
                 $moduleName = [System.IO.Path]::GetFileNameWithoutExtension($moduleManifest.FullName)
@@ -385,8 +390,11 @@ stages:
                   throw "Module name could not be determined from $($moduleManifest.FullName)"
                 }
 
-                $legName = ($moduleName -replace '[^A-Za-z0-9_]', '_')
+                $moduleIndex++
+                $legName = "mod{0:D2}" -f $moduleIndex
                 $manifestPath = $moduleManifest.FullName -replace '\\', '/'
+
+                Write-Host "Module matrix key $legName -> $moduleName"
 
                 $moduleMatrix[$legName] = @{
                   moduleName = $moduleName
