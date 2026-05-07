@@ -620,7 +620,7 @@ obj/
 llama_models/
 
 # Local markdown notes
-change.md
+changes.md
 
 # macOS
 .DS_Store
