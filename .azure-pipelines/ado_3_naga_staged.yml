@@ -18,10 +18,10 @@ variables:
 
 stages:
   - stage: Init
-    displayName: Init
+    displayName: Initialize workflow and fan out stages
     jobs:
       - job: Start
-        displayName: 'Init: Start'
+        displayName: Start
         pool:
           vmImage: ubuntu-latest
         steps:
@@ -29,13 +29,13 @@ stages:
             displayName: Emit start marker
 
   - stage: Build
-    displayName: Build/Test
+    displayName: Restore, build, test, and upload solution artifacts
     dependsOn: Init
     condition: succeeded()
     jobs:
 
       - job: BuildArtifacts
-        displayName: 'Build: Artifacts'
+        displayName: Artifacts
         strategy:
           matrix:
             Debug_win_x64:
@@ -73,12 +73,12 @@ stages:
               publishLocation: pipeline
 
   - stage: Publish
-    displayName: Publish
+    displayName: Build and publish CLI and extension outputs
     dependsOn: Init
     condition: succeeded()
     jobs:
       - job: PublishCli
-        displayName: 'Publish: CLI Win + MSIX'
+        displayName: CLI Win + MSIX
         strategy:
           matrix:
             Debug_win_x64:
@@ -159,7 +159,7 @@ stages:
               publishLocation: pipeline
 
       - job: PublishCliLinux
-        displayName: 'Publish: CLI Linux + tgz'
+        displayName: CLI Linux + tgz
         strategy:
           matrix:
             Release_linux_x64:
@@ -196,7 +196,7 @@ stages:
               publishLocation: pipeline
 
       - job: PublishExtension
-        displayName: 'Publish: Extension'
+        displayName: Extension
         strategy:
           matrix:
             Debug_win_x64:
@@ -231,12 +231,12 @@ stages:
               publishLocation: pipeline
 
   - stage: Extensions
-    displayName: Ext Build/Pack
+    displayName: Discover, build, and pack extensions from repository
     dependsOn: Init
     condition: succeeded()
     jobs:
       - job: DiscoverExtensions
-        displayName: 'Ext: Discover matrix'
+        displayName: Discover extension matrix
         pool:
           vmImage: windows-latest
         steps:
@@ -301,7 +301,7 @@ stages:
             name: setExtensionMatrices
 
       - job: BuildExtension
-        displayName: 'Ext: Build matrix'
+        displayName: Build extension matrix
         dependsOn: DiscoverExtensions
         condition: and(succeeded(), ne(dependencies.DiscoverExtensions.outputs['setExtensionMatrices.buildMatrix'], '{}'))
         strategy:
@@ -332,7 +332,7 @@ stages:
               publishLocation: pipeline
 
       - job: PackExtensionPackages
-        displayName: 'Ext: Pack NuGet'
+        displayName: Pack NuGet
         dependsOn: DiscoverExtensions
         condition: and(succeeded(), ne(dependencies.DiscoverExtensions.outputs['setExtensionMatrices.packMatrix'], '{}'))
         strategy:
@@ -363,12 +363,12 @@ stages:
               publishLocation: pipeline
 
   - stage: PowerShell
-    displayName: PS Build/Validate
+    displayName: Discover, build, and validate PowerShell modules
     dependsOn: Init
     condition: succeeded()
     jobs:
       - job: DiscoverPowerShellModules
-        displayName: 'PS: Discover matrix'
+        displayName: Discover module matrix
         pool:
           vmImage: windows-latest
         steps:
@@ -409,7 +409,7 @@ stages:
             name: setModuleMatrix
 
       - job: BuildPowerShellModule
-        displayName: 'PS: Build + validate'
+        displayName: Build modules + validate
         dependsOn: DiscoverPowerShellModules
         condition: and(succeeded(), ne(dependencies.DiscoverPowerShellModules.outputs['setModuleMatrix.moduleMatrix'], '{}'))
         strategy:
@@ -511,7 +511,7 @@ stages:
             displayName: Validate transitive module manifest dependencies
 
   - stage: Finalize
-    displayName: Finalize
+    displayName: Finalize workflow and report completion
     dependsOn:
       - Init
       - Build
@@ -521,7 +521,7 @@ stages:
     condition: always()
     jobs:
       - job: End
-        displayName: 'Finalize: End'
+        displayName: End
         pool:
           vmImage: ubuntu-latest
         steps:
