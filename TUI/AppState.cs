@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Core.Tui.Azure;
 using Core.Tui.Commands;
 using Core.Tui.Rendering;
@@ -12,10 +11,6 @@ namespace Core.Tui;
 /// </summary>
 class AppState
 {
-    private static readonly string CirrusDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".cirrus");
-    private static readonly string ContextFilePath = Path.Combine(CirrusDir, "context.json");
-
     // Azure Virtual File System
     private readonly ArmClient _armClient = new();
     public AzureVfs Vfs { get; }
@@ -106,9 +101,7 @@ class AppState
             VfsReady = await Vfs.TryAuthenticateAsync();
             if (!VfsReady) return;
 
-            var (tenantId, subId) = await ResolveAzureContextAsync();
-            if (!string.IsNullOrEmpty(tenantId))
-                await Vfs.SetInitialPathAsync(tenantId, subId);
+            await Vfs.SetInitialPathAsync();
 
             RefreshPrompt();
             Invalidate?.Invoke();
@@ -117,102 +110,6 @@ class AppState
         {
             VfsReady = false;
         }
-    }
-
-    /// <summary>
-    /// Resolve the current Azure tenant/subscription by trying:
-    ///   1. az account show (lightweight CLI)
-    ///   2. Get-AzContext (PowerShell module)
-    ///   3. context.json (cached fallback)
-    /// Updates context.json when a live source succeeds.
-    /// </summary>
-    private async Task<(string? tenantId, string? subscriptionId)> ResolveAzureContextAsync()
-    {
-        // 1. Try az account show
-        var result = await RunCliJsonAsync("az", "account show -o json");
-        if (result != null)
-        {
-            var tenantId = result.Value.TryGetProperty("tenantId", out var t) ? t.GetString() : null;
-            var subId = result.Value.TryGetProperty("id", out var s) ? s.GetString() : null;
-            if (!string.IsNullOrEmpty(tenantId))
-            {
-                await SaveContextAsync(tenantId, subId);
-                return (tenantId, subId);
-            }
-        }
-
-        // 2. Try Get-AzContext (PowerShell)
-        result = await RunCliJsonAsync("pwsh",
-            "-NoProfile -Command \"Get-AzContext | Select-Object -Property @{N='tenantId';E={$_.Tenant.Id}}, @{N='id';E={$_.Subscription.Id}} | ConvertTo-Json\"");
-        if (result != null)
-        {
-            var tenantId = result.Value.TryGetProperty("tenantId", out var t) ? t.GetString() : null;
-            var subId = result.Value.TryGetProperty("id", out var s) ? s.GetString() : null;
-            if (!string.IsNullOrEmpty(tenantId))
-            {
-                await SaveContextAsync(tenantId, subId);
-                return (tenantId, subId);
-            }
-        }
-
-        // 3. Fall back to context.json
-        if (File.Exists(ContextFilePath))
-        {
-            try
-            {
-                var json = await File.ReadAllTextAsync(ContextFilePath);
-                using var doc = JsonDocument.Parse(json);
-                var tenantId = doc.RootElement.TryGetProperty("TenantId", out var t) ? t.GetString() : null;
-                var subId = doc.RootElement.TryGetProperty("SubscriptionId", out var s) ? s.GetString() : null;
-                return (tenantId, subId);
-            }
-            catch { }
-        }
-
-        return (null, null);
-    }
-
-    private static async Task<JsonElement?> RunCliJsonAsync(string fileName, string arguments)
-    {
-        try
-        {
-            using var process = new System.Diagnostics.Process
-            {
-                StartInfo = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = fileName,
-                    Arguments = arguments,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true,
-                }
-            };
-            process.Start();
-            var output = await process.StandardOutput.ReadToEndAsync();
-            await process.WaitForExitAsync();
-
-            if (process.ExitCode != 0 || string.IsNullOrWhiteSpace(output))
-                return null;
-
-            using var doc = JsonDocument.Parse(output);
-            return doc.RootElement.Clone();
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    private static async Task SaveContextAsync(string? tenantId, string? subscriptionId)
-    {
-        try
-        {
-            Directory.CreateDirectory(CirrusDir);
-            var json = JsonSerializer.Serialize(new { TenantId = tenantId, SubscriptionId = subscriptionId });
-            await File.WriteAllTextAsync(ContextFilePath, json);
-        }
-        catch { }
     }
 
     // ── Scroll ───────────────────────────────────────────────────────
@@ -343,9 +240,29 @@ class AppState
         }
         else
         {
-            AddHistory(new HistoryEntry(HistoryItemType.User, $"{Prompt}azv2 {command}"));
-            _ = _processService.RunCliAsync(command, OnProcessLine, OnProcessDone);
+            var cliArgs = command;
+            // Auto-inject tenant/subscription for 'login' when in a subscription context
+            if (command.Equals("login", StringComparison.OrdinalIgnoreCase) && VfsReady)
+            {
+                _ = RunLoginWithContextAsync(command);
+                return;
+            }
+            AddHistory(new HistoryEntry(HistoryItemType.User, $"{Prompt}azv2 {cliArgs}"));
+            _ = _processService.RunCliAsync(cliArgs, OnProcessLine, OnProcessDone);
         }
+    }
+
+    private async Task RunLoginWithContextAsync(string command)
+    {
+        var (tenantId, subId) = await Vfs.GetCurrentContextAsync();
+        var cliArgs = "login";
+        if (!string.IsNullOrEmpty(subId))
+            cliArgs += $" -subscriptionid {subId}";
+        if (!string.IsNullOrEmpty(tenantId))
+            cliArgs += $" -tenantid {tenantId}";
+
+        AddHistory(new HistoryEntry(HistoryItemType.User, $"{Prompt}azv2 {cliArgs}"));
+        _ = _processService.RunCliAsync(cliArgs, OnProcessLine, OnProcessDone);
     }
 
     /// <summary>

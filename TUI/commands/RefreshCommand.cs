@@ -3,7 +3,7 @@ using Core.Tui.Azure;
 namespace Core.Tui.Commands;
 
 /// <summary>
-/// /refresh — Refresh cached Azure data (tenants, subscriptions, resource groups, resources).
+/// /refresh — Refresh cached Azure data (subscriptions, resource groups, resources).
 /// </summary>
 class RefreshCommand : ISlashCommand
 {
@@ -16,7 +16,6 @@ class RefreshCommand : ISlashCommand
 
         var scope = (arg?.ToLowerInvariant()) switch
         {
-            "tenants" => AzureVfs.RefreshScope.Tenants,
             "subscriptions" or "subs" => AzureVfs.RefreshScope.Subscriptions,
             "resourcegroups" or "rgs" => AzureVfs.RefreshScope.ResourceGroups,
             "resources" => AzureVfs.RefreshScope.Resources,

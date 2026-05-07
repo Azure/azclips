@@ -1,16 +1,20 @@
-using System.Net.Http.Json;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
 using Microsoft.Identity.Client;
 using Microsoft.Identity.Client.Extensions.Msal;
 
 namespace Core.Tui.Azure;
 
 /// <summary>
-/// Lightweight ARM REST client using MSAL tokens.
-/// Reuses the same MSAL cache as Core.Authentication so `login` tokens work here.
+/// Lightweight Azure client using MSAL tokens.
+/// Uses Azure Resource Graph for subscriptions, resource groups, and resources.
+/// Tenant info comes from context.json (written by Core.Authentication).
 /// </summary>
 public class ArmClient : IDisposable
 {
     private const string ArmBase = "https://management.azure.com";
+    private const string ArgEndpoint = $"{ArmBase}/providers/Microsoft.ResourceGraph/resources?api-version=2022-10-01";
     private const string ArmScope = "https://management.core.windows.net//.default";
     private const string ClientId = "1950a258-227b-4e31-a9cf-717495945fc2";
 
@@ -79,68 +83,97 @@ public class ArmClient : IDisposable
         return app;
     }
 
-    // ── ARM REST methods ──
+    // ── Azure Resource Graph queries ──
 
-    public async Task<List<AzureTenant>> GetTenantsAsync()
-    {
-        return await GetArmListAsync<AzureTenant>("/tenants?api-version=2022-12-01");
-    }
-
+    /// <summary>
+    /// Get all subscriptions via Resource Graph.
+    /// </summary>
     public async Task<List<AzureSubscription>> GetSubscriptionsAsync()
     {
-        return await GetArmListAsync<AzureSubscription>("/subscriptions?api-version=2022-12-01");
-    }
-
-    public async Task<AzureSubscription?> GetSubscriptionAsync(string subscriptionId)
-    {
-        try
+        const string kql = "ResourceContainers | where type == 'microsoft.resources/subscriptions' | project subscriptionId, name, properties.state, tenantId";
+        var rows = await QueryArgAsync(kql, subscriptionIds: null);
+        return rows.Select(cols => new AzureSubscription
         {
-            var token = await AcquireTokenAsync();
-            if (token == null) return null;
-            using var request = new HttpRequestMessage(HttpMethod.Get,
-                $"{ArmBase}/subscriptions/{subscriptionId}?api-version=2022-12-01");
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-            var response = await _http.SendAsync(request);
-            if (!response.IsSuccessStatusCode) return null;
-            return await response.Content.ReadFromJsonAsync<AzureSubscription>();
-        }
-        catch { return null; }
+            SubscriptionId = cols[0].GetString() ?? "",
+            DisplayName = cols[1].GetString(),
+            State = cols[2].GetString(),
+            TenantId = cols[3].GetString()
+        }).ToList();
     }
 
+    /// <summary>
+    /// Get resource groups for a subscription via Resource Graph.
+    /// </summary>
     public async Task<List<AzureResourceGroup>> GetResourceGroupsAsync(string subscriptionId)
     {
-        return await GetArmListAsync<AzureResourceGroup>(
-            $"/subscriptions/{subscriptionId}/resourcegroups?api-version=2024-03-01");
+        const string kql = "ResourceContainers | where type == 'microsoft.resources/subscriptions/resourcegroups' | project name, location, subscriptionId, properties.provisioningState";
+        var rows = await QueryArgAsync(kql, [subscriptionId]);
+        return rows.Select(cols => new AzureResourceGroup
+        {
+            Name = cols[0].GetString() ?? "",
+            Location = cols[1].GetString() ?? "",
+        }).ToList();
     }
 
-    public async Task<List<AzureResource>> GetResourcesAsync(string subscriptionId, string resourceGroupName)
+    /// <summary>
+    /// Get resources via Resource Graph, optionally filtered by resource group.
+    /// </summary>
+    public async Task<List<AzureResource>> GetResourcesAsync(string subscriptionId, string? resourceGroup = null)
     {
-        return await GetArmListAsync<AzureResource>(
-            $"/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/resources?api-version=2024-03-01");
+        var kql = resourceGroup != null
+            ? $"Resources | where resourceGroup =~ '{resourceGroup}' | project name, type, location, resourceGroup, subscriptionId"
+            : "Resources | project name, type, location, resourceGroup, subscriptionId";
+        var rows = await QueryArgAsync(kql, [subscriptionId]);
+        return rows.Select(cols => new AzureResource
+        {
+            Name = cols[0].GetString() ?? "",
+            Type = cols[1].GetString() ?? "",
+            Location = cols[2].GetString(),
+        }).ToList();
     }
 
-    private async Task<List<T>> GetArmListAsync<T>(string path)
+    /// <summary>
+    /// Execute an ARG query and return raw rows.
+    /// If subscriptionIds is null, queries across all accessible subscriptions.
+    /// </summary>
+    private async Task<List<List<JsonElement>>> QueryArgAsync(string kql, List<string>? subscriptionIds)
     {
         var token = await AcquireTokenAsync();
         if (token == null) throw new InvalidOperationException("Not authenticated. Run 'login' first.");
 
-        var results = new List<T>();
-        string? url = $"{ArmBase}{path}";
+        var results = new List<List<JsonElement>>();
+        string? skipToken = null;
 
-        while (url != null)
+        do
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            var body = new Dictionary<string, object> { ["query"] = kql };
+            if (subscriptionIds != null)
+                body["subscriptions"] = subscriptionIds;
+            if (skipToken != null)
+                body["options"] = new Dictionary<string, string> { ["$skipToken"] = skipToken };
+
+            var json = JsonSerializer.Serialize(body);
+            using var request = new HttpRequestMessage(HttpMethod.Post, ArgEndpoint)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             var response = await _http.SendAsync(request);
             response.EnsureSuccessStatusCode();
 
-            var listResult = await response.Content.ReadFromJsonAsync<ArmListResponse<T>>();
-            if (listResult?.Value != null)
-                results.AddRange(listResult.Value);
+            var responseBody = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(responseBody);
 
-            url = listResult?.NextLink;
-        }
+            if (doc.RootElement.TryGetProperty("data", out var data) &&
+                data.TryGetProperty("rows", out var rows))
+            {
+                foreach (var row in rows.EnumerateArray())
+                    results.Add(row.EnumerateArray().ToList());
+            }
+
+            skipToken = doc.RootElement.TryGetProperty("$skipToken", out var st) ? st.GetString() : null;
+        } while (skipToken != null);
 
         return results;
     }

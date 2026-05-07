@@ -1,27 +1,34 @@
+using System.Text.Json;
+
 namespace Core.Tui.Azure;
 
 /// <summary>
 /// Azure Virtual File System — organizes Azure resources into a navigable tree:
 ///   / (root)
-///   └─ {tenantName} (tenant)
-///      └─ {subscriptionName} (subscription)
-///         └─ {resourceGroupName} (resourceGroup)
-///            └─ {resourceName} [{resourceType}] (resource)
+///   └─ {tenantId} (tenant — from context.json)
+///      └─ {subscriptionName} (subscription — from ARG)
+///         └─ {resourceGroupName} (resourceGroup — from ARG)
+///            └─ {resourceName} [{resourceType}] (resource — from ARG)
 ///
-/// Mirrors the TypeScript AzureVFS from shell/packages/core/src/tools/azure/vfs/.
-/// Uses lazy loading with TTL-based caching.
+/// Tenant comes from context.json (written by Core.Authentication).
+/// Subscriptions, resource groups, and resources all use Azure Resource Graph.
 /// </summary>
 public class AzureVfs
 {
+    private static readonly string ContextFilePath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".cirrus", "context.json");
+
     private readonly ArmClient _arm;
-    private readonly AzureCache<List<AzureTenant>> _tenantCache = new();
     private readonly AzureCache<List<AzureSubscription>> _subscriptionCache = new();
     private readonly AzureCache<List<AzureResourceGroup>> _resourceGroupCache = new();
     private readonly AzureCache<List<AzureResource>> _resourceCache = new();
 
     private string _currentPath = "/";
+    private string? _tenantId;
+    private string _tenantDisplay = "";
 
     public string CurrentPath => _currentPath;
+    public string? TenantId => _tenantId;
     public bool IsAuthenticated => _arm.IsAuthenticated;
 
     public AzureVfs(ArmClient arm)
@@ -32,46 +39,59 @@ public class AzureVfs
     /// <summary>
     /// Try to authenticate silently using existing MSAL cache.
     /// </summary>
-    public Task<bool> TryAuthenticateAsync(string? tenantId = null)
-        => _arm.TryAuthenticateAsync(tenantId);
+    public async Task<bool> TryAuthenticateAsync()
+    {
+        var (tenantId, _) = LoadContext();
+        var ok = await _arm.TryAuthenticateAsync(tenantId);
+        if (ok && tenantId != null)
+        {
+            _tenantId = tenantId;
+            _tenantDisplay = tenantId[..Math.Min(8, tenantId.Length)];
+        }
+        return ok;
+    }
 
     /// <summary>
-    /// Set the initial VFS path from a tenantId + subscriptionId (e.g. from context.json).
-    /// Resolves IDs to display names so the path uses human-readable segments.
+    /// Set the initial VFS path from context.json (tenantId + subscriptionId).
     /// </summary>
-    public async Task SetInitialPathAsync(string? tenantId, string? subscriptionId)
+    public async Task SetInitialPathAsync()
     {
+        var (tenantId, subscriptionId) = LoadContext();
         if (string.IsNullOrEmpty(tenantId)) return;
 
-        // Resolve tenant display name
-        var tenants = await GetTenantsAsync();
-        var tenant = tenants.FirstOrDefault(t =>
-            t.TenantId.Equals(tenantId, StringComparison.OrdinalIgnoreCase));
-        if (tenant == null) return;
-        var tenantName = TenantDisplayName(tenant);
+        _tenantId = tenantId;
+        _tenantDisplay = tenantId[..Math.Min(8, tenantId.Length)];
 
         if (string.IsNullOrEmpty(subscriptionId))
         {
-            _currentPath = $"/{tenantName}";
+            _currentPath = $"/{_tenantDisplay}";
             return;
         }
 
-        // Resolve subscription display name
+        // Resolve subscription display name via ARG
         var subs = await GetSubscriptionsAsync();
         var sub = subs.FirstOrDefault(s =>
             s.SubscriptionId.Equals(subscriptionId, StringComparison.OrdinalIgnoreCase));
-        var subName = sub?.DisplayName;
+        var subName = sub?.DisplayName ?? subscriptionId;
 
-        // If not found in the list, try a direct ARM call
-        if (string.IsNullOrEmpty(subName))
+        _currentPath = $"/{_tenantDisplay}/{subName}";
+    }
+
+    /// <summary>
+    /// Read tenant/subscription from context.json (written by Core.Authentication).
+    /// </summary>
+    private static (string? tenantId, string? subscriptionId) LoadContext()
+    {
+        try
         {
-            var directSub = await _arm.GetSubscriptionAsync(subscriptionId);
-            subName = directSub?.DisplayName;
+            if (!File.Exists(ContextFilePath)) return (null, null);
+            var json = File.ReadAllText(ContextFilePath);
+            using var doc = JsonDocument.Parse(json);
+            var tenantId = doc.RootElement.TryGetProperty("TenantId", out var t) ? t.GetString() : null;
+            var subId = doc.RootElement.TryGetProperty("SubscriptionId", out var s) ? s.GetString() : null;
+            return (tenantId, subId);
         }
-
-        subName ??= subscriptionId;
-
-        _currentPath = $"/{tenantName}/{subName}";
+        catch { return (null, null); }
     }
 
     // ── Navigation ──
@@ -104,8 +124,8 @@ public class AzureVfs
 
         return parts.Length switch
         {
-            0 => await ListTenantsAsync(),
-            1 => await ListSubscriptionsAsync(parts[0]),
+            0 => ListTenant(),
+            1 => await ListSubscriptionsAsync(),
             2 => await ListResourceGroupsAsync(parts[1]),
             3 => await ListResourcesAsync(parts[1], parts[2]),
             _ => []
@@ -118,33 +138,26 @@ public class AzureVfs
     public async Task<List<string>> TreeAsync(int maxDepth = 3)
     {
         var lines = new List<string> { "/" };
-        if (maxDepth < 1) return lines;
+        if (maxDepth < 1 || _tenantId == null) return lines;
 
-        var tenants = await GetTenantsAsync();
-        for (int t = 0; t < tenants.Count; t++)
+        lines.Add($"└─ ◆ {_tenantDisplay}");
+
+        if (maxDepth < 2) return lines;
+        var subs = await GetSubscriptionsAsync();
+        for (int s = 0; s < subs.Count; s++)
         {
-            var tenant = tenants[t];
-            var tPrefix = t == tenants.Count - 1 ? "└─ " : "├─ ";
-            var tCont = t == tenants.Count - 1 ? "   " : "│  ";
-            lines.Add($"{tPrefix}◆ {TenantDisplayName(tenant)}");
+            var sub = subs[s];
+            var sPrefix = s == subs.Count - 1 ? "   └─ " : "   ├─ ";
+            var sCont = s == subs.Count - 1 ? "      " : "   │  ";
+            lines.Add($"{sPrefix}◇ {sub.DisplayName ?? sub.SubscriptionId}");
 
-            if (maxDepth < 2) continue;
-            var subs = await GetSubscriptionsAsync();
-            for (int s = 0; s < subs.Count; s++)
+            if (maxDepth < 3) continue;
+            var rgs = await GetResourceGroupsAsync(sub.SubscriptionId);
+            for (int r = 0; r < rgs.Count; r++)
             {
-                var sub = subs[s];
-                var sPrefix = s == subs.Count - 1 ? "└─ " : "├─ ";
-                var sCont = s == subs.Count - 1 ? "   " : "│  ";
-                lines.Add($"{tCont}{sPrefix}◇ {sub.DisplayName ?? sub.SubscriptionId}");
-
-                if (maxDepth < 3) continue;
-                var rgs = await GetResourceGroupsAsync(sub.SubscriptionId);
-                for (int r = 0; r < rgs.Count; r++)
-                {
-                    var rg = rgs[r];
-                    var rPrefix = r == rgs.Count - 1 ? "└─ " : "├─ ";
-                    lines.Add($"{tCont}{sCont}{rPrefix}▸ {rg.Name} ({rg.Location})");
-                }
+                var rg = rgs[r];
+                var rPrefix = r == rgs.Count - 1 ? "└─ " : "├─ ";
+                lines.Add($"{sCont}{rPrefix}▸ {rg.Name} ({rg.Location})");
             }
         }
 
@@ -167,22 +180,44 @@ public class AzureVfs
         };
     }
 
+    /// <summary>
+    /// Get the current subscription name from the VFS path (if at subscription level or deeper).
+    /// </summary>
+    public string? GetCurrentSubscriptionName()
+    {
+        var parts = ParsePath(_currentPath);
+        return parts.Length >= 2 ? parts[1] : null;
+    }
+
+    /// <summary>
+    /// Get the current context (tenantId, subscriptionId) from the VFS path.
+    /// Returns resolved IDs (not display names).
+    /// </summary>
+    public async Task<(string? tenantId, string? subscriptionId)> GetCurrentContextAsync()
+    {
+        var parts = ParsePath(_currentPath);
+        if (parts.Length < 1) return (null, null);
+
+        var tenantId = _tenantId;
+        string? subId = null;
+        if (parts.Length >= 2)
+            subId = await ResolveSubscriptionIdAsync(parts[1]);
+
+        return (tenantId, subId);
+    }
+
     // ── Cache refresh ──
 
-    public enum RefreshScope { All, Tenants, Subscriptions, ResourceGroups, Resources }
+    public enum RefreshScope { All, Subscriptions, ResourceGroups, Resources }
 
     public void Refresh(RefreshScope scope, string? subscriptionId = null, string? resourceGroupName = null)
     {
         switch (scope)
         {
             case RefreshScope.All:
-                _tenantCache.Clear();
                 _subscriptionCache.Clear();
                 _resourceGroupCache.Clear();
                 _resourceCache.Clear();
-                break;
-            case RefreshScope.Tenants:
-                _tenantCache.Clear();
                 break;
             case RefreshScope.Subscriptions:
                 _subscriptionCache.Clear();
@@ -224,8 +259,8 @@ public class AzureVfs
         {
             candidates = parentParts.Length switch
             {
-                0 => await ListTenantsAsync(),
-                1 => await ListSubscriptionsAsync(parentParts[0]),
+                0 => ListTenant(),
+                1 => await ListSubscriptionsAsync(),
                 2 => await ListResourceGroupsAsync(parentParts[1]),
                 3 => await ListResourcesAsync(parentParts[1], parentParts[2]),
                 _ => []
@@ -242,10 +277,7 @@ public class AzureVfs
             .ToList();
     }
 
-    // ── Internal data fetching (cached) ──
-
-    private Task<List<AzureTenant>> GetTenantsAsync()
-        => _tenantCache.GetOrFetchAsync("tenants", _arm.GetTenantsAsync);
+    // ── Internal data fetching (cached, all via ARG) ──
 
     private Task<List<AzureSubscription>> GetSubscriptionsAsync()
         => _subscriptionCache.GetOrFetchAsync("subs", _arm.GetSubscriptionsAsync);
@@ -260,25 +292,15 @@ public class AzureVfs
 
     // ── List helpers (return VfsEntry) ──
 
-    private async Task<List<VfsEntry>> ListTenantsAsync()
+    private List<VfsEntry> ListTenant()
     {
-        var tenants = await GetTenantsAsync();
-        return tenants.Select(t => new VfsEntry(
-            TenantDisplayName(t),
-            VfsEntryKind.Directory,
-            t.DefaultDomain ?? t.TenantId
-        )).ToList();
+        if (_tenantId == null) return [];
+        return [new VfsEntry(_tenantDisplay, VfsEntryKind.Directory, _tenantId)];
     }
 
-    private async Task<List<VfsEntry>> ListSubscriptionsAsync(string tenantNameOrId)
+    private async Task<List<VfsEntry>> ListSubscriptionsAsync()
     {
         var subs = await GetSubscriptionsAsync();
-        // Filter by tenant if we can (subscriptions have tenantId)
-        var tenants = await GetTenantsAsync();
-        var tenant = ResolveTenant(tenants, tenantNameOrId);
-        if (tenant != null)
-            subs = subs.Where(s => s.TenantId == tenant.TenantId).ToList();
-
         return subs.Select(s => new VfsEntry(
             s.DisplayName ?? s.SubscriptionId,
             VfsEntryKind.Directory,
@@ -341,9 +363,9 @@ public class AzureVfs
     {
         if (parts.Length == 0) return null; // root always valid
 
-        // Validate tenant
-        var tenants = await GetTenantsAsync();
-        if (ResolveTenant(tenants, parts[0]) == null)
+        // Validate tenant (must match current tenant from context.json)
+        if (_tenantId == null) return "No tenant configured. Run 'login' first.";
+        if (!parts[0].Equals(_tenantDisplay, StringComparison.OrdinalIgnoreCase))
             return $"Tenant not found: {parts[0]}";
         if (parts.Length == 1) return null;
 
@@ -369,15 +391,6 @@ public class AzureVfs
             (s.DisplayName?.Equals(nameOrId, StringComparison.OrdinalIgnoreCase) ?? false));
         return match?.SubscriptionId;
     }
-
-    private static AzureTenant? ResolveTenant(List<AzureTenant> tenants, string nameOrId)
-        => tenants.FirstOrDefault(t =>
-            t.TenantId.Equals(nameOrId, StringComparison.OrdinalIgnoreCase) ||
-            (t.DisplayName?.Equals(nameOrId, StringComparison.OrdinalIgnoreCase) ?? false) ||
-            (t.DefaultDomain?.Equals(nameOrId, StringComparison.OrdinalIgnoreCase) ?? false));
-
-    private static string TenantDisplayName(AzureTenant t)
-        => t.DisplayName ?? t.DefaultDomain ?? t.TenantId;
 }
 
 // ── VFS entry types ──

@@ -2,19 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace Core.Tui.Azure;
 
-// ── ARM API response wrappers ──
-
-public record AzureTenant
-{
-    [JsonPropertyName("tenantId")]
-    public required string TenantId { get; init; }
-
-    [JsonPropertyName("displayName")]
-    public string? DisplayName { get; init; }
-
-    [JsonPropertyName("defaultDomain")]
-    public string? DefaultDomain { get; init; }
-}
+// ── Azure resource models (deserialized from ARG responses) ──
 
 public record AzureSubscription
 {
@@ -41,15 +29,6 @@ public record AzureResourceGroup
 
     [JsonPropertyName("id")]
     public string? Id { get; init; }
-
-    [JsonPropertyName("properties")]
-    public ResourceGroupProperties? Properties { get; init; }
-}
-
-public record ResourceGroupProperties
-{
-    [JsonPropertyName("provisioningState")]
-    public string? ProvisioningState { get; init; }
 }
 
 public record AzureResource
@@ -68,15 +47,4 @@ public record AzureResource
 
     [JsonPropertyName("kind")]
     public string? Kind { get; init; }
-}
-
-// ── ARM list response envelopes ──
-
-public record ArmListResponse<T>
-{
-    [JsonPropertyName("value")]
-    public required List<T> Value { get; init; }
-
-    [JsonPropertyName("nextLink")]
-    public string? NextLink { get; init; }
 }
