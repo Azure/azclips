@@ -248,7 +248,6 @@ stages:
 
               $buildMatrix = @{}
               $packMatrix = @{}
-              $extIndex = 0
 
               foreach ($extension in $extensions) {
                 [xml]$csproj = Get-Content $extension.FullName
@@ -264,8 +263,27 @@ stages:
                   throw "PackageId not found in $($extension.FullName)"
                 }
 
-                $extIndex++
-                $baseLegName = "ext{0:D2}" -f $extIndex
+                $baseLegName = ($extName -replace '^Microsoft\.Azure\.Cirrus\.Extensions\.', '')
+                if ($baseLegName -eq $extName) {
+                  $baseLegName = ($extName -split '\.')[-1]
+                }
+                $baseLegName = ($baseLegName -replace '[^A-Za-z0-9_]', '_').ToLowerInvariant()
+                if (-not $baseLegName) {
+                  $baseLegName = 'ext'
+                }
+
+                $candidate = $baseLegName
+                $suffix = 2
+                while (
+                  $buildMatrix.ContainsKey("${candidate}_dbg") -or
+                  $buildMatrix.ContainsKey("${candidate}_rel") -or
+                  $packMatrix.ContainsKey("${candidate}_pkg")
+                ) {
+                  $candidate = "{0}{1}" -f $baseLegName, $suffix
+                  $suffix++
+                }
+                $baseLegName = $candidate
+
                 $path = $extension.FullName -replace '\\', '/'
 
                 Write-Host "Extension matrix key $baseLegName -> $extName"
@@ -382,7 +400,6 @@ stages:
           - pwsh: |
               $modules = Get-ChildItem -Path src/PS -Recurse -Filter *.psd1 | Sort-Object FullName
               $moduleMatrix = @{}
-              $moduleIndex = 0
 
               foreach ($moduleManifest in $modules) {
                 $moduleName = [System.IO.Path]::GetFileNameWithoutExtension($moduleManifest.FullName)
@@ -390,8 +407,19 @@ stages:
                   throw "Module name could not be determined from $($moduleManifest.FullName)"
                 }
 
-                $moduleIndex++
-                $legName = "mod{0:D2}" -f $moduleIndex
+                $legName = ($moduleName -replace '[^A-Za-z0-9_]', '_').ToLowerInvariant()
+                if (-not $legName) {
+                  $legName = 'module'
+                }
+
+                $candidate = $legName
+                $suffix = 2
+                while ($moduleMatrix.ContainsKey($candidate)) {
+                  $candidate = "{0}{1}" -f $legName, $suffix
+                  $suffix++
+                }
+                $legName = $candidate
+
                 $manifestPath = $moduleManifest.FullName -replace '\\', '/'
 
                 Write-Host "Module matrix key $legName -> $moduleName"
