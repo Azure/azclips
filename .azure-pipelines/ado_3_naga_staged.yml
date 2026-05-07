@@ -236,7 +236,7 @@ stages:
     condition: succeeded()
     jobs:
       - job: DiscoverExtensions
-        displayName: Discover extension matrix
+        displayName: Discover extensions
         pool:
           vmImage: windows-latest
         steps:
@@ -319,11 +319,11 @@ stages:
               Write-Host "##vso[task.setvariable variable=packMatrix;isOutput=true]$packMatrixJson"
               Write-Host "Discovered extensions matrix: $buildMatrixJson"
               Write-Host "Discovered pack matrix: $packMatrixJson"
-            displayName: Export extension build/pack matrices
+            displayName: Export extension build targets
             name: setExtensionMatrices
 
       - job: BuildExtension
-        displayName: Build extension matrix
+        displayName: Build extensions
         dependsOn: DiscoverExtensions
         condition: and(succeeded(), ne(dependencies.DiscoverExtensions.outputs['setExtensionMatrices.buildMatrix'], '{}'))
         strategy:
@@ -341,10 +341,10 @@ stages:
               useGlobalJson: true
 
           - pwsh: dotnet restore "$(extensionPath)"
-            displayName: Restore extension (matrix)
+            displayName: Restore extension
 
           - pwsh: dotnet build "$(extensionPath)" --configuration $(configuration) --no-restore
-            displayName: Build extension project from matrix path
+            displayName: Build extension project
 
           - task: PublishPipelineArtifact@1
             displayName: Publish extension build artifact directory
@@ -372,7 +372,7 @@ stages:
               useGlobalJson: true
 
           - pwsh: dotnet restore "$(extensionPath)"
-            displayName: Restore extension (matrix)
+            displayName: Restore extension
 
           - pwsh: dotnet build "$(extensionPath)" --configuration $(configuration) --no-restore
             displayName: Build extension project to generate NuGet package
@@ -390,7 +390,7 @@ stages:
     condition: succeeded()
     jobs:
       - job: DiscoverPowerShellModules
-        displayName: Discover module matrix
+        displayName: Discover modules
         pool:
           vmImage: windows-latest
         steps:
@@ -441,7 +441,7 @@ stages:
 
               Write-Host "##vso[task.setvariable variable=moduleMatrix;isOutput=true]$moduleMatrixJson"
               Write-Host "Discovered modules matrix: $moduleMatrixJson"
-            displayName: Export PowerShell module build matrix
+            displayName: Export PowerShell build targets
             name: setModuleMatrix
 
       - job: BuildPowerShellModule
