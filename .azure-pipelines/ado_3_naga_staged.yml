@@ -148,14 +148,14 @@ stages:
             displayName: Publish Windows CLI output artifact
             inputs:
               targetPath: $(Publish_Root)/$(configuration)/$(rid)
-              artifact: Published_CLI_$(configuration)_$(rid)
+              artifact: Publish_CLI_$(configuration)_$(rid)
               publishLocation: pipeline
 
           - task: PublishPipelineArtifact@1
             displayName: Publish Windows MSIX artifact
             inputs:
               targetPath: $(Bin_Root)/$(configuration)/azv2-$(rid).msix
-              artifact: MSIX_Package_$(configuration)_$(rid)
+              artifact: Publish_MSIX_Package_$(configuration)_$(rid)
               publishLocation: pipeline
 
       - job: PublishCliLinux
@@ -192,7 +192,7 @@ stages:
             displayName: Publish Linux tar.gz artifact
             inputs:
               targetPath: $(Bin_Root)/$(configuration)/azv2-$(rid).tar.gz
-              artifact: Linux_Tarball_$(configuration)_$(rid)
+              artifact: Publish_Linux_Tarball_$(configuration)_$(rid)
               publishLocation: pipeline
 
       - job: PublishExtension
@@ -227,7 +227,7 @@ stages:
             displayName: Publish az extension output artifact
             inputs:
               targetPath: $(Publish_Root)/$(configuration)/$(rid)/Extensions/Extension
-              artifact: Published_Extension_$(configuration)_$(rid)
+              artifact: Publish_Extension_$(configuration)_$(rid)
               publishLocation: pipeline
 
   - stage: Extensions
@@ -350,7 +350,7 @@ stages:
             displayName: Publish extension build artifact directory
             inputs:
               targetPath: artifacts/$(configuration)/$(extName)
-              artifact: Extension_$(extName)_$(configuration)
+              artifact: Extensions_Build_$(extName)_$(configuration)
               publishLocation: pipeline
 
       - job: PackExtensionPackages
@@ -381,7 +381,7 @@ stages:
             displayName: Publish extension NuGet artifact directory
             inputs:
               targetPath: artifacts/$(configuration)/$(packageIdentity)
-              artifact: Extension_NuGet_$(packageIdentity)_$(configuration)
+              artifact: Extensions_NuGet_$(packageIdentity)_$(configuration)
               publishLocation: pipeline
 
   - stage: PowerShell
