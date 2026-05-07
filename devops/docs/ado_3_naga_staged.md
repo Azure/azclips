@@ -98,8 +98,8 @@ Per matrix leg:
 - Publish MSIX artifact
 
 Published artifact name patterns:
-- Published_CLI_<configuration>_<rid>
-- MSIX_Package_<configuration>_<rid>
+- Publish_CLI_<configuration>_<rid>
+- Publish_MSIX_Package_<configuration>_<rid>
 
 ### Job: CLI Linux + tgz (ubuntu-latest, matrix)
 
@@ -113,7 +113,7 @@ Per matrix leg:
 - Publish tar.gz artifact
 
 Published artifact name pattern:
-- Linux_Tarball_<configuration>_<rid>
+- Publish_Linux_Tarball_<configuration>_<rid>
 
 ### Job: Extension (windows-latest, matrix)
 
@@ -127,7 +127,7 @@ Per matrix leg:
 - Publish extension artifact
 
 Published artifact name pattern:
-- Published_Extension_<configuration>_<rid>
+- Publish_Extension_<configuration>_<rid>
 
 ## Stage: Discover, build, and pack extensions from repository
 
@@ -155,7 +155,7 @@ Per matrix leg:
 - Publish build artifact directory
 
 Published artifact name pattern:
-- Extension_<extName>_<configuration>
+- Extensions_Build_<extName>_<configuration>
 
 ### Job: Pack NuGet (windows-latest, dynamic matrix)
 
@@ -168,7 +168,7 @@ Per matrix leg:
 - Publish NuGet artifact directory
 
 Published artifact name pattern:
-- Extension_NuGet_<packageIdentity>_<configuration>
+- Extensions_NuGet_<packageIdentity>_<configuration>
 
 ## Stage: Discover, build, and validate PowerShell modules
 
@@ -221,12 +221,12 @@ Purpose:
 Artifacts produced by this pipeline include:
 
 - Build_Artifacts_<configuration>_<rid>
-- Published_CLI_<configuration>_<rid>
-- MSIX_Package_<configuration>_<rid>
-- Linux_Tarball_<configuration>_<rid>
-- Published_Extension_<configuration>_<rid>
-- Extension_<extName>_<configuration>
-- Extension_NuGet_<packageIdentity>_<configuration>
+- Publish_CLI_<configuration>_<rid>
+- Publish_MSIX_Package_<configuration>_<rid>
+- Publish_Linux_Tarball_<configuration>_<rid>
+- Publish_Extension_<configuration>_<rid>
+- Extensions_Build_<extName>_<configuration>
+- Extensions_NuGet_<packageIdentity>_<configuration>
 
 ## Important Behavioral Notes
 
