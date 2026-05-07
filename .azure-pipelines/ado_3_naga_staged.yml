@@ -18,7 +18,7 @@ variables:
 
 stages:
   - stage: Init
-    displayName: Initialize workflow and fan out stages
+    displayName: Initialize workflow
     jobs:
       - job: Start
         displayName: Start
@@ -29,13 +29,13 @@ stages:
             displayName: Emit start marker
 
   - stage: Build
-    displayName: Restore, build, test, and upload solution artifacts
+    displayName: Build and test
     dependsOn: Init
     condition: succeeded()
     jobs:
 
       - job: BuildArtifacts
-        displayName: Artifacts
+        displayName: Build artifacts
         strategy:
           matrix:
             Debug_win_x64:
@@ -57,7 +57,7 @@ stages:
               useGlobalJson: true
 
           - pwsh: dotnet restore $(Solution_Name)
-            displayName: Restore solution dependencies
+            displayName: Restore solution
 
           - pwsh: dotnet build $(Solution_Name) --configuration $(configuration) --no-restore
             displayName: Build solution binaries
@@ -66,7 +66,7 @@ stages:
             displayName: Run solution unit tests
 
           - task: PublishPipelineArtifact@1
-            displayName: Publish solution build artifact directory
+            displayName: Publish build artifacts
             inputs:
               targetPath: artifacts/$(configuration)
               artifact: Build_Artifacts_$(configuration)_$(rid)
@@ -100,7 +100,7 @@ stages:
               useGlobalJson: true
 
           - pwsh: dotnet restore src/CLI/Core.Cli.csproj -r $(rid)
-            displayName: Restore CLI project dependencies
+            displayName: Restore CLI
 
           - pwsh: dotnet publish src/CLI/Core.Cli.csproj -c $(configuration) -r $(rid) --self-contained --no-restore -o "$(Publish_Root)/$(configuration)/$(rid)"
             displayName: Build and publish Windows CLI application
@@ -178,7 +178,7 @@ stages:
               useGlobalJson: true
 
           - script: dotnet restore src/CLI/Core.Cli.csproj -r $(rid)
-            displayName: Restore CLI project dependencies
+            displayName: Restore CLI
 
           - script: dotnet publish src/CLI/Core.Cli.csproj -c $(configuration) -r $(rid) --self-contained --no-restore -o "$(Publish_Root)/$(configuration)/$(rid)"
             displayName: Build and publish Linux CLI application
@@ -218,7 +218,7 @@ stages:
               useGlobalJson: true
 
           - pwsh: dotnet restore src/Extensions/Extension/Extensions.Extension.csproj -r $(rid)
-            displayName: Restore az extension project dependencies
+            displayName: Restore extension
 
           - pwsh: dotnet publish src/Extensions/Extension/Extensions.Extension.csproj -c $(configuration) -r $(rid) --no-restore -o "$(Publish_Root)/$(configuration)/$(rid)/Extensions/Extension"
             displayName: Build and publish az extension project
@@ -319,7 +319,7 @@ stages:
               useGlobalJson: true
 
           - pwsh: dotnet restore "$(extensionPath)"
-            displayName: Restore extension project from matrix path
+            displayName: Restore extension (matrix)
 
           - pwsh: dotnet build "$(extensionPath)" --configuration $(configuration) --no-restore
             displayName: Build extension project from matrix path
@@ -350,7 +350,7 @@ stages:
               useGlobalJson: true
 
           - pwsh: dotnet restore "$(extensionPath)"
-            displayName: Restore extension project from matrix path
+            displayName: Restore extension (matrix)
 
           - pwsh: dotnet build "$(extensionPath)" --configuration $(configuration) --no-restore
             displayName: Build extension project to generate NuGet package
@@ -432,10 +432,10 @@ stages:
               useGlobalJson: true
 
           - pwsh: dotnet restore $(extensionProjectPath)
-            displayName: Restore corresponding extension project
+            displayName: Restore extension
 
           - pwsh: dotnet restore $(cmdletsProjectPath)
-            displayName: Restore corresponding cmdlets project
+            displayName: Restore cmdlets
 
           - pwsh: dotnet build $(extensionProjectPath) --configuration Debug --no-restore
             displayName: Build corresponding extension project
@@ -446,7 +446,7 @@ stages:
           - pwsh: |
               dotnet restore src/Extensions/Login/Extensions.Login.csproj
               dotnet restore src/PS/Login/Cmdlets.Login.csproj
-            displayName: Restore Login dependency projects required by Resources module
+            displayName: Restore Resources login dependencies
             condition: eq(variables['moduleName'], 'Resources')
 
           - pwsh: |
@@ -456,7 +456,7 @@ stages:
             condition: eq(variables['moduleName'], 'Resources')
 
           - pwsh: dotnet restore cirrus.slnx
-            displayName: Restore solution dependencies for module import validation
+            displayName: Restore solution for module validation
 
           - pwsh: dotnet build cirrus.slnx --configuration Debug --no-restore
             displayName: Build solution binaries for module import validation
