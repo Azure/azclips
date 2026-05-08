@@ -471,9 +471,9 @@ The `cirrus help export` command is implemented as a Cirrus extension command it
 
 The following design decisions are considered settled for the initial implementation of the Cirrus help system:
 
-| Area | Decision |
-| ---- | -------- |
-| `Summary` authoring | Keep `Summary` as a separate field with manual authoring. |
-| PowerShell help generation | Use shared canonical help entities with surface-specific projection. Generate custom MAML for PowerShell runtime help. Keep PlatyPS optional for downstream publishing only. |
-| Examples authoring | Examples are surface-specific. Use per-surface sidecars for CLI and PowerShell with a shared command identity. Inline examples are optional seed content only. |
+| Area                           | Decision                                                                                                                                                                                                                                            |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Summary` authoring            | Keep `Summary` as a separate field with manual authoring.                                                                                                                                                                                           |
+| PowerShell help generation     | Use shared canonical help entities with surface-specific projection. Generate custom MAML for PowerShell runtime help. Keep PlatyPS optional for downstream publishing only.                                                                        |
+| Examples authoring             | Examples are surface-specific. Use per-surface sidecars for CLI and PowerShell with a shared command identity. Inline examples are optional seed content only.                                                                                      |
 | `HelpManifest.json` versioning | Do not introduce explicit manifest schema versioning yet. Rely on repo/build artifact compatibility for now, and add a lightweight version contract later only if independent extension shipping or host/extension skew becomes a real requirement. |
