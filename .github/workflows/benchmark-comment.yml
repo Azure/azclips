@@ -1,7 +1,4 @@
-# Posts benchmark results as a PR comment for fork PRs.
-# Fork PRs lack write access to the base repo, so the main benchmark
-# workflow uploads results as an artifact and this workflow (which runs
-# in the base-repo context via workflow_run) posts the comment.
+# Workflow to post comments to forked PRs with elevated GitHub token permissions
 
 name: Post Benchmark Comment
 

@@ -42,7 +42,7 @@ jobs:
 
       # - name: Restore + build
       #   run: dotnet build cirrus.slnx --configuration Release
-      # temp: use a custom build step to update the psd1 module artifact references.
+      # temp-jayson: use a custom build step to update the psd1 module artifact references.
       - name: Restore + build
         run: pwsh -File build/build.ps1 -Configuration Release
 
@@ -53,11 +53,6 @@ jobs:
           timeout_minutes: 15
           max_attempts: 2
           retry_wait_seconds: 30
-          # The runner exits non-zero on any benchmark / setup / validation
-          # The runner exits non-zero on any benchmark / setup / validation
-          # failure (see docs/spec/benchmark-fail-on-exception.md). The retry
-          # handles transient flakes; a real failure persists across both
-          # attempts.
           command: dotnet run --project tests/Benchmark -c Release --no-build -- --ci --product CLI
 
       - name: Publish CLI dashboard / gate regression

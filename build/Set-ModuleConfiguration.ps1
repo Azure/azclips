@@ -1,14 +1,4 @@
-<#
-.SYNOPSIS
-    Updates PowerShell module manifests (.psd1) to reference the correct build configuration (Debug or Release).
-
-.PARAMETER Configuration
-    The build configuration to set in the module manifests. Valid values are 'Debug' and 'Release'.
-    Defaults to 'Debug'.
-
-.EXAMPLE
-    ./Set-ModuleConfiguration.ps1 -Configuration Release
-#>
+# JAYSON: A custom build script to unblock performance benchmarking GitHub action where PS modules looking for specific Debug directories
 [CmdletBinding()]
 param(
     [ValidateSet('Debug', 'Release')]

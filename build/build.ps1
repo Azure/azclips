@@ -1,13 +1,4 @@
-<#
-.SYNOPSIS
-    Builds the Cirrus solution and updates PowerShell module manifests for the specified configuration.
-
-.PARAMETER Configuration
-    The build configuration. Valid values are 'Debug' and 'Release'. Defaults to 'Debug'.
-
-.EXAMPLE
-    ./build.ps1 -Configuration Release
-#>
+# JAYSON: A custom build script to unblock performance benchmarking GitHub action where PS modules looking for specific Debug directories
 [CmdletBinding()]
 param(
     [ValidateSet('Debug', 'Release')]
