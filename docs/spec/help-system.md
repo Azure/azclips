@@ -50,13 +50,13 @@ public class ProcessorInfoAttribute : Attribute
 
     // NEW
     public string Summary { get; set; } = "";       // one-line; used in group-level help tables
-    public string[] Examples { get; set; } = [];    // see §4
+    public string[] Examples { get; set; } = [];    // optional seed examples; see §3.3
 }
 ```
 
 `Description` is the long-form text shown in `--help` at the command level.  
 `Summary` is the short one-liner shown in parent group tables (like `az vm --help` listing commands).  
-If `Summary` is empty, the first sentence of `Description` is used as a fallback.
+`Summary` is authored explicitly; it is not auto-derived from `Description`.
 
 ### 3.2 `[ArgumentInfo]` (property-level)
 
@@ -123,7 +123,7 @@ Example shape in sidecars:
 
 At build time, a **Roslyn incremental source generator** (extending the planned `Core.Index.Generator` from the extension framework spec) walks all `[ProcessorInfo]` / `[ArgumentInfo]` attributes and emits:
 
-1. **The `ExtensionIndex`** — already planned in the extension framework spec; gains `Description`, `Summary`, `Examples`, and the new `[ArgumentInfo]` fields in the generated `ParameterMetadata`.
+1. **The `ExtensionIndex`** — already planned in the extension framework spec; gains `Description`, `Summary`, optional seed examples, and the new `[ArgumentInfo]` fields in the generated `ParameterMetadata`.
 2. **A `HelpManifest.json`** per extension — embedded as a resource into the extension DLL. Contains the full tree of command names → descriptions → parameters → surface-specific examples. Used by the CLI host's help system without loading processor types.
 3. **A CLI help index** (`HelpIndex.json`) — generated at build time, lightweight map for root/group/command lookup without loading execution assemblies.
 
@@ -172,7 +172,7 @@ At build time, a **Roslyn incremental source generator** (extending the planned 
 ```
 
 **Why build-time?**  
-Loading assemblies and reflecting over attributes at runtime is slow and requires the extension to be loaded before the user can see help. With a pre-built index and manifest, `azv2 group --help` can render without loading command execution assemblies.
+Loading assemblies and reflecting over attributes at runtime is slow and requires the execution path to be loaded before the user can see help. With a pre-built CLI help index and per-extension help manifest, `azv2 group --help` can render without loading command execution assemblies.
 
 > **Fallback:** If no manifest is present (e.g., third-party extension built without the generator), the CLI host falls back to runtime reflection over `IExtensionIndex`.
 
@@ -214,7 +214,7 @@ Global Arguments:
 Learn more: https://aka.ms/cirrus
 ```
 
-Groups at root level come from loading just the `HelpManifest.json` from each extension. No processor code runs.
+Root-level and group-level CLI help use `HelpIndex.json` first, then load only the required `HelpManifest.json` entries for the requested scope. No processor code runs.
 
 ### 5.3 Group-level help (`azv2 group --help`)
 
@@ -296,7 +296,7 @@ Cirrus uses **both**:
 - The PS script generator (already planned for the extension framework) emits `HelpMessage` on every parameter using `ParameterMetadata.Description` from the manifest.
 - A separate **MAML generator** step produces `<ModuleName>.dll-Help.xml` files per PS module at build time, placed alongside the `.psd1` manifest.
 
-The MAML generator reads the same `HelpManifest.json` embedded in each extension DLL, so there is no new authoring step.
+The MAML generator reads the same `HelpManifest.json` and per-surface example data produced at build time for each extension, so there is no new authoring step.
 
 ### 6.2 Example generated PS export (with HelpMessage)
 
@@ -380,7 +380,8 @@ The single path is:
         │
         ▼ (source generator at build time)
         ├─► ExtensionIndex.cs (C# — for runtime dispatch)
-        ├─► HelpManifest.json (embedded resource — for help without loading processor)
+        ├─► HelpManifest.json (embedded resource — structured help data per extension)
+        ├─► HelpIndex.json (CLI lookup index — root/group/command discovery)
         ├─► PS exports/*.ps1 (with HelpMessage)
         └─► PS/<Module>/<Module>.dll-Help.xml (MAML)
 ```
@@ -403,8 +404,8 @@ The single path is:
 
 The AI agent (natural language fallback) already answers "how do I…" questions. After this spec:
 
-- The agent's system prompt is augmented with a compact command table derived from all loaded `HelpManifest.json` files at startup.
-- The agent can reference the same `Examples` array to suggest real runnable commands rather than hallucinating syntax.
+- The agent's system prompt is augmented with a compact command table derived from `HelpIndex.json` and the relevant `HelpManifest.json` records.
+- The agent can reference the same surface-specific example collections used by CLI and PowerShell help to suggest real runnable commands rather than hallucinating syntax.
 - A future `HelpTool` (Azure OpenAI function tool) lets the agent query help for a specific command/parameter during a conversation.
 
 ---
@@ -466,11 +467,13 @@ The `cirrus help export` command is implemented as a Cirrus extension command it
 
 ---
 
-## 14. Open Questions
+## 14. Decisions
 
-| Question                                                                             | Options                                                                               | Decision needed by            | Status                                                                                                                                                                                                                                                |
-| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Should `Summary` be a separate attribute field or auto-derived from `Description`?   | Separate field (more control) vs. auto (less authoring)                               | Before implementation         | Decided: keep separate field with manual authoring                                                                                                                                                                                                    |
-| MAML vs. PlatyPS for PS help generation?                                             | Hand-rolled MAML generator (full control) vs. PlatyPS (community standard, MD → MAML) | Before PS help implementation | Decided: shared canonical help entities with surface-specific projection; custom MAML for PS runtime help, CLI manifest/renderer for CLI help, PlatyPS optional for downstream publishing                                                             |
-| Should examples be inline in `[ProcessorInfo]` or in sidecar `.examples.json` files? | Inline is simpler; sidecar allows richer markdown and AI-generated content            | Before implementation         | Decided: examples are surface-specific; use per-surface sidecars for CLI and PowerShell with shared command identity; optional inline seed examples only                                                                                              |
-| Who owns the `HelpManifest.json` schema versioning?                                  | Semver the schema; host rejects manifests with incompatible major version             | Before first extension ships  | Decided: do not introduce explicit manifest schema versioning yet; rely on repo/build artifact compatibility for now, and add a lightweight version contract only if independent extension shipping or host/extension skew becomes a real requirement |
+The following design decisions are considered settled for the initial implementation of the Cirrus help system:
+
+| Area | Decision |
+| ---- | -------- |
+| `Summary` authoring | Keep `Summary` as a separate field with manual authoring. |
+| PowerShell help generation | Use shared canonical help entities with surface-specific projection. Generate custom MAML for PowerShell runtime help. Keep PlatyPS optional for downstream publishing only. |
+| Examples authoring | Examples are surface-specific. Use per-surface sidecars for CLI and PowerShell with a shared command identity. Inline examples are optional seed content only. |
+| `HelpManifest.json` versioning | Do not introduce explicit manifest schema versioning yet. Rely on repo/build artifact compatibility for now, and add a lightweight version contract later only if independent extension shipping or host/extension skew becomes a real requirement. |
