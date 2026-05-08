@@ -221,7 +221,7 @@ public class ConfigCliTests
             }
 
             CirrusServiceProvider.Dispose();
-            CirrusServiceProvider.OverrideRegistration = services =>
+            CirrusServiceProvider.AddOverrideRegistration(services =>
             {
                 services.AddSingleton<IAssemblyLoadingProvider>(new StubExtensionLoader(typeof(SetConfigCommand).Assembly, "Config"));
                 services.AddSingleton<IConfigurationProvider>(new TestConfigurationProvider(_configPath));
@@ -231,7 +231,7 @@ public class ConfigCliTests
                 // Register CLI-specific services for argument parsing
                 services.AddSingleton<Core.Cli.PropertyParser>();
                 services.AddSingleton<Core.Abstractions.IArgumentParsingProvider, Core.Cli.CLIArgumentParsingProvider>();
-            };
+            });
             CirrusServiceProvider.Initialize(ClientType.CLI);
         }
 
@@ -264,8 +264,6 @@ public class ConfigCliTests
         public void Dispose()
         {
             CirrusServiceProvider.Dispose();
-            CirrusServiceProvider.PrependRegistration = null;
-            CirrusServiceProvider.OverrideRegistration = null;
 
             foreach (var entry in _originalEnvironment)
             {
@@ -341,7 +339,7 @@ public class ConfigCliTests
 
         var psModulePath = Path.Combine(repoRoot!, "src", "PS", "Config", "Config.psd1");
         Assert.True(File.Exists(psModulePath), $"PowerShell module manifest not found at {psModulePath}");
-        
+
         var manifestContent = File.ReadAllText(psModulePath);
 
         // Verify key assembly dependencies are listed
