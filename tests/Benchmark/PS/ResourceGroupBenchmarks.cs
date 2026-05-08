@@ -31,8 +31,6 @@ public class ResourceGroupBenchmarks : BenchmarkBase
         RegisterBenchmarkStubs();
     }
 
-
-
     [GlobalCleanup]
     public void GlobalCleanup()
     {
