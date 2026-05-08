@@ -2,22 +2,22 @@
 
 ## Overview
 
-During each PR. The performance benchmarks will be run and compared against the latest historical baseline.
-If any performance regression is detected, the PR check will fail and a comment will be posted to the PR with details.
-When a push to `main` is made, the new benchmark results will be published to GitHub Pages, updating the historical baseline for future comparisons.
-A dashboard is available to view the benchmark history and trends over time.
-CLI - https://azure.github.io/cirrus/dev/bench/cli/
-PS - https://azure.github.io/cirrus/dev/bench/ps/
+During each PR and push to `main`, performance benchmarks are run and compared against the latest historical baseline.
+
+- **On PR** — if any benchmark exceeds **115%** of the baseline, the check fails and a comment is posted to the PR with details.
+- **On push to `main`** — new results are published to GitHub Pages, updating the baseline for future comparisons.
+
+**Dashboard:**
+- CLI — https://azure.github.io/cirrus/dev/bench/cli/
+- PS — https://azure.github.io/cirrus/dev/bench/ps/
 
 ### `benchmark.yml` — Performance Benchmarks
 
-Runs the benchmarks of both CLI and PS extensions and uploads results as artifacts to be consumed by `benchmark-comment.yml`.
-The pipeline will fail if any benchmark exceeds **115%** of the baseline, preventing merges that degrade performance. For same-repo PRs, it also directly posts a warning comment on the PR.
+Runs CLI and PS benchmarks and uploads results as artifacts to be consumed by `benchmark-comment.yml`. The pipeline will fail if any benchmark exceeds **115%** of the baseline, preventing merges that degrade performance. For same-repo PRs, it also directly posts a warning comment on the PR.
 
 ### `benchmark-comment.yml` — Post Benchmark Comment
 
-This pipeline is triggered to post a comment on the PR with the benchmark results and regression warnings.
-It is needed as pipelines initiated from forked PR have read-only permissions and cannot post comments or push to `gh-pages`.
+Triggered after `benchmark.yml` completes to post benchmark results and regression warnings on fork PRs. This is needed as pipelines initiated from forked PRs have read-only GitHub tokens and cannot post comments or push to `gh-pages` directly.
 
 ## Workflow Architecture
 
