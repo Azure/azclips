@@ -1,0 +1,103 @@
+{
+  "extension": "login",
+  "version": "1.0.0-alpha",
+  "commands": [
+    {
+      "name": "LoginCommand",
+      "cliName": "login",
+      "psName": "Connect-CirrusAccount",
+      "summary": "Login",
+      "description": "Login",
+      "parameters": [
+        {
+          "name": "subscription-id",
+          "psName": "SubscriptionId",
+          "type": "string",
+          "required": true,
+          "description": "Azure Subscription Id.",
+          "summary": "",
+          "aliases": [],
+          "allowedValues": [],
+          "parameterSetName": "(All)",
+          "supportsPipeline": false,
+          "supportsWildcards": false
+        },
+        {
+          "name": "tenant-id",
+          "psName": "TenantId",
+          "type": "string",
+          "required": false,
+          "description": "Tenant ID to login to.",
+          "summary": "",
+          "aliases": [],
+          "allowedValues": [],
+          "parameterSetName": "(All)",
+          "supportsPipeline": false,
+          "supportsWildcards": false
+        },
+        {
+          "name": "use-device-code",
+          "psName": "UseDeviceCode",
+          "type": "bool",
+          "required": false,
+          "description": "Use device code flow for authentication.",
+          "summary": "",
+          "aliases": [],
+          "allowedValues": [],
+          "parameterSetName": "(All)",
+          "supportsPipeline": false,
+          "supportsWildcards": false
+        }
+      ],
+      "examples": {
+        "cli": [
+          {
+            "title": "Sign in with a subscription ID",
+            "command": "azv2 login connect --subscription-id 00000000-0000-0000-0000-000000000000"
+          },
+          {
+            "title": "Sign in with tenant and subscription",
+            "command": "azv2 login connect --tenant-id 11111111-1111-1111-1111-111111111111 --subscription-id 00000000-0000-0000-0000-000000000000"
+          }
+        ],
+        "powerShell": [
+          {
+            "title": "Sign in with a subscription ID",
+            "command": "Connect-CirrusAccount -SubscriptionId 00000000-0000-0000-0000-000000000000"
+          },
+          {
+            "title": "Sign in with tenant and subscription",
+            "command": "Connect-CirrusAccount -TenantId 11111111-1111-1111-1111-111111111111 -SubscriptionId 00000000-0000-0000-0000-000000000000"
+          }
+        ]
+      },
+      "tags": []
+    },
+    {
+      "name": "LogoutCommand",
+      "cliName": "login logout",
+      "psName": "Disconnect-CirrusAccount",
+      "summary": "Logout",
+      "description": "Logout",
+      "parameters": [],
+      "examples": {
+        "cli": [],
+        "powerShell": []
+      },
+      "tags": []
+    },
+    {
+      "name": "GetContextCommand",
+      "cliName": "login show",
+      "psName": "Get-CirrusAccount",
+      "summary": "GetContext",
+      "description": "GetContext",
+      "parameters": [],
+      "examples": {
+        "cli": [],
+        "powerShell": []
+      },
+      "tags": []
+    }
+  ]
+}

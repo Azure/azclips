@@ -1,0 +1,36 @@
+{
+  "groups": [
+    {
+      "name": "login",
+      "summary": "Manage login commands.",
+      "extension": "login",
+      "prefix": "login"
+    }
+  ],
+  "commands": [
+    {
+      "name": "LoginCommand",
+      "cliName": "login",
+      "psName": "Connect-CirrusAccount",
+      "extension": "login",
+      "group": "login",
+      "summary": "Login"
+    },
+    {
+      "name": "LogoutCommand",
+      "cliName": "login logout",
+      "psName": "Disconnect-CirrusAccount",
+      "extension": "login",
+      "group": "login",
+      "summary": "Logout"
+    },
+    {
+      "name": "GetContextCommand",
+      "cliName": "login show",
+      "psName": "Get-CirrusAccount",
+      "extension": "login",
+      "group": "login",
+      "summary": "GetContext"
+    }
+  ]
+}
