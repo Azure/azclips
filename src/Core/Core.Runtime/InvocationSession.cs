@@ -20,6 +20,7 @@ internal partial class InvocationSession : IInvocationSession
     internal Func<IProcessor, IDictionary<string, object>, IDictionary<string, ParameterMetadata>, IDictionary<string, string>?, IProcessor> BindProcessor { get; set; } = null!;
     internal Func<InvocationSession, Task<ProcessorContext>> CreateProcessorContext { get; set; } = null!;
     internal Func<string, string, Func<IExtensionIndex>, IExtensionIndex> CacheGetOrAdd { get; set; } = null!;
+    internal CoreOptions Option { get; set; } = null!;
     internal OutputStreamDelegate ProcessorOutputWriter = null!;
 
     public string Id { get; }
@@ -81,7 +82,7 @@ internal partial class InvocationSession : IInvocationSession
             SingleWriter = false
         });
         OutputStreamAdapter channelAdapter = new OutputStreamAdapter(GetChannelStreams(), cancellationToken);
-        loggingScope = ScopedLoggingService.UseScope(channelAdapter);
+        using var channelScope = ScopedLoggingService.UseScope(channelAdapter);
         ProcessorOutputWriter = async (value, _) => await OutputChannel.Writer.WriteAsync(new OutputObject(value), Token);
 
         /// <summary>
@@ -144,7 +145,6 @@ internal partial class InvocationSession : IInvocationSession
             // before we leave Process().
             executeProcessorTask.GetAwaiter().GetResult();
         }
-        loggingScope = ScopedLoggingService.UseScope(outputStreamAdapter);
     }
 
     private void WriteChannelOutput(object? output, OutputStreamAdapter outputStreamAdapter)

@@ -11,7 +11,13 @@ public static class DIRegisterExtensions
     /// </summary>
     public static IServiceCollection RegisterTelemetryServices(this IServiceCollection services)
     {
-        services.AddSingleton<ITelemetryService, TelemetryService>();
+        services.AddSingleton<ITelemetryService>(sp =>
+        {
+            var clientType = sp.GetRequiredService<ClientType>();
+            var configService = sp.GetRequiredService<IConfigurationService>();
+            var telemetryOptions = configService.GetConfiguration<TelemetryOptions>();
+            return new TelemetryService(clientType, telemetryOptions);
+        });
         return services;
     }
 }

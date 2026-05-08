@@ -32,5 +32,5 @@
     /// <summary>
     /// Delegate for starting an activity for telemetry.
     /// </summary>
-    public delegate Activity StartActivityDelegate(string name, ActivityKind kind = ActivityKind.Internal);
+    public delegate Activity? StartActivityDelegate(string name, ActivityKind kind = ActivityKind.Internal);
 }

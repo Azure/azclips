@@ -51,7 +51,22 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
         }
         // Yabo: arbitrarily treat argument from CLI as string for now
         // Need CLI expert to polish this logic if necessary, especially for array and complex object parsing
-        string strValue = preProcessArgument(source) is string[] arr ? arr[0] : throw new ArgumentException($"Invalid argument type for parameter '{key}': {source.GetType().FullName}");
+        if (preProcessArgument(source) is not string[] arr)
+        {
+            throw new ArgumentException($"Invalid argument type for parameter '{key}': {source.GetType().FullName}");
+        }
+
+        if (arr.Length == 0)
+        {
+            if (targetType == typeof(bool))
+            {
+                return true;
+            }
+
+            throw new ArgumentException($"Parameter '{key}' requires a value.");
+        }
+
+        string strValue = arr[0];
         return propertyParser.ConvertToType(key, strValue, targetType);
     }
 
