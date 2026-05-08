@@ -6,7 +6,6 @@ using Core.Engine;
 using Microsoft.Extensions.DependencyInjection;
 using Core.AssemblyLoading;
 using Core.ArgumentParsing;
-using Core.Configuration;
 
 namespace Core.DependencyInjection;
 
@@ -14,20 +13,29 @@ public static class CirrusServiceProvider
 {
     private static volatile IServiceProvider? _serviceProvider;
     private static readonly object _lock = new();
+    private static readonly List<Action<IServiceCollection>> _prependRegistrations = [];
+    private static readonly List<Action<IServiceCollection>> _overrideRegistrations = [];
 
     /// <summary>
-    /// Optional hook invoked before the default service registrations.
-    /// Set this from another assembly to prepend custom registrations into the DI container.
-    /// Must be set before <see cref="Initialize"/> is called.
+    /// Adds a registration action invoked before the default service registrations.
+    /// Multiple registrations are applied in insertion order.
+    /// Must be called before <see cref="Initialize"/>.
     /// </summary>
-    public static Action<IServiceCollection>? PrependRegistration { get; set; }
+    public static void AddPrependRegistration(Action<IServiceCollection> registration)
+    {
+        _prependRegistrations.Add(registration);
+    }
 
     /// <summary>
-    /// Optional hook invoked after the default service registrations.
-    /// Set this from another assembly to override or replace default registrations in the DI container.
-    /// Must be set before <see cref="Initialize"/> is called.
+    /// Adds a registration action invoked after the default service registrations.
+    /// Multiple registrations are applied in insertion order; DI last-wins semantics
+    /// means later registrations for the same service type take precedence.
+    /// Must be called before <see cref="Initialize"/>.
     /// </summary>
-    public static Action<IServiceCollection>? OverrideRegistration { get; set; }
+    public static void AddOverrideRegistration(Action<IServiceCollection> registration)
+    {
+        _overrideRegistrations.Add(registration);
+    }
 
     /// <summary>
     /// Initializes the DI container. Safe to call multiple times — only the first call takes effect.
@@ -48,16 +56,19 @@ public static class CirrusServiceProvider
             //client type should be immutable and be initialized with composition root
             services.AddSingleton(typeof(ClientType), clientType);
 
-            PrependRegistration?.Invoke(services);
+            foreach (var registration in _prependRegistrations)
+                registration(services);
+
             services = services
-                .RegisterConfigurationServices()
                 .RegisterTelemetryServices()
                 .RegisterRuntimeServices()
                 .RegisterAuthenticationServices()
                 .RegisterEngineServices()
                 .RegisterAssemblyLoadingServices()
                 .RegisterArgumentParsingServices();
-            OverrideRegistration?.Invoke(services);
+
+            foreach (var registration in _overrideRegistrations)
+                registration(services);
             _serviceProvider = services.BuildServiceProvider();
         }
     }
@@ -84,7 +95,8 @@ public static class CirrusServiceProvider
     }
 
     /// <summary>
-    /// Disposes the initialized DI container and clears the cached provider.
+    /// Disposes the initialized DI container, clears the cached provider,
+    /// and removes all prepend/override registrations.
     /// Safe to call multiple times.
     /// </summary>
     public static void Dispose()
@@ -97,6 +109,8 @@ public static class CirrusServiceProvider
             }
 
             _serviceProvider = null;
+            _prependRegistrations.Clear();
+            _overrideRegistrations.Clear();
         }
     }
 }
