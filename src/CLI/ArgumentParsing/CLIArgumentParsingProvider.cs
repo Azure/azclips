@@ -1,5 +1,6 @@
 namespace Core.Cli;
 
+using System.Collections;
 using Core.Abstractions;
 
 public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingService loggingService) : IArgumentParsingProvider
@@ -43,47 +44,160 @@ public class CLIArgumentParsingProvider(PropertyParser propertyParser, ILoggingS
 
     private object ParseArgument(string key, object source, Type targetType)
     {
-        // PS argument are already expected type
-        // otherwise plain string arguments need no type conversion
+        // Already the expected type
         if (targetType.IsInstanceOfType(source))
         {
             return source;
         }
-        // Yabo: arbitrarily treat argument from CLI as string for now
-        // Need CLI expert to polish this logic if necessary, especially for array and complex object parsing
-        if (preProcessArgument(source) is not string[] arr)
+
+        // Collection target (string[], List<string>, string[][], List<List<string>>, etc.)
+        // CLI raw value is List<List<string>>; convert it into the target collection shape.
+        if (TryGetCollectionElementType(targetType, out var elementType))
         {
-            throw new ArgumentException($"Invalid argument type for parameter '{key}': {source.GetType().FullName}");
+            return ConvertToCollection(key, source, targetType, elementType!);
         }
 
-        if (arr.Length == 0)
+        // Scalar target: flatten to string[] and take the first element
+        var flattened = FlattenToStrings(source);
+        if (flattened.Length == 0)
         {
             if (targetType == typeof(bool))
             {
                 return true;
             }
-
             throw new ArgumentException($"Parameter '{key}' requires a value.");
         }
-
-        string strValue = arr[0];
-        return propertyParser.ConvertToType(key, strValue, targetType);
+        return propertyParser.ConvertToType(key, flattened[0], targetType);
     }
 
-    private object preProcessArgument(object source)
+    // List<List<string>> -> string[] (flattened)
+    private static string[] FlattenToStrings(object source) =>
+        source switch
+        {
+            List<List<string>> listOfLists => listOfLists.SelectMany(l => l).ToArray(),
+            List<string> list => list.ToArray(),
+            string[] arr => arr,
+            string s => [s],
+            IEnumerable<string> e => e.ToArray(),
+            _ => [source?.ToString() ?? string.Empty],
+        };
+
+    private static bool TryGetCollectionElementType(Type type, out Type? elementType)
     {
-        // Yabo: invocation.Parameters from CLI is currently <string, List<List<string>>>
-        // copied over from legacy codebase, convert value
-        // List<List<string>> to string[]
-        // Need CLI expert to polish this logic if necessary
-        return (source is List<List<string>> listOfLists
-                ? listOfLists
-                : source is List<string> list
-                    ? [list]
-                    : [new List<string> { source?.ToString() ?? string.Empty }]
-                )
-                .SelectMany(innerList => innerList)
-                .ToArray();
+        if (type == typeof(string))
+        {
+            elementType = null;
+            return false;
+        }
+
+        if (type.IsArray)
+        {
+            elementType = type.GetElementType();
+            return elementType is not null;
+        }
+
+        if (type.IsGenericType)
+        {
+            var ienum = new[] { type }
+                .Concat(type.GetInterfaces())
+                .FirstOrDefault(t => t.IsGenericType && t.GetGenericTypeDefinition() == typeof(IEnumerable<>));
+            if (ienum is not null)
+            {
+                elementType = ienum.GetGenericArguments()[0];
+                return true;
+            }
+        }
+
+        elementType = null;
+        return false;
+    }
+
+    private object ConvertToCollection(string key, object source, Type targetType, Type elementType)
+    {
+        // Determine if elementType itself is a collection (nested case: List<List<string>>, string[][])
+        bool nested = TryGetCollectionElementType(elementType, out var nestedElementType);
+
+        var items = new List<object?>();
+
+        if (nested)
+        {
+            // Build outer list of inner collections
+            // Source can be List<List<string>>, List<string> (treat as single inner), or scalar (single inner of one)
+            IEnumerable<IEnumerable<string>> outer = source switch
+            {
+                List<List<string>> listOfLists => listOfLists,
+                List<string> list => [list],
+                string s => [new List<string> { s }],
+                _ => [new List<string> { source?.ToString() ?? string.Empty }],
+            };
+            foreach (var inner in outer)
+            {
+                items.Add(BuildInnerCollection(inner, elementType, nestedElementType!));
+            }
+        }
+        else
+        {
+            // Flat collection: flatten everything to strings, then convert each to elementType
+            foreach (var s in FlattenToStrings(source))
+            {
+                items.Add(ConvertScalar(key, s, elementType));
+            }
+        }
+
+        return Materialize(items, targetType, elementType);
+    }
+
+    private object BuildInnerCollection(IEnumerable<string> source, Type targetType, Type elementType)
+    {
+        var items = new List<object?>();
+        foreach (var s in source)
+        {
+            items.Add(ConvertScalar(string.Empty, s, elementType));
+        }
+        return Materialize(items, targetType, elementType);
+    }
+
+    private object ConvertScalar(string key, string value, Type targetType)
+    {
+        if (targetType == typeof(string))
+        {
+            return value;
+        }
+        return propertyParser.ConvertToType(key, value, targetType);
+    }
+
+    private static object Materialize(IList<object?> items, Type targetType, Type elementType)
+    {
+        if (targetType.IsArray)
+        {
+            var array = Array.CreateInstance(elementType, items.Count);
+            for (int i = 0; i < items.Count; i++)
+            {
+                array.SetValue(items[i], i);
+            }
+            return array;
+        }
+
+        var listType = typeof(List<>).MakeGenericType(elementType);
+        var list = (IList)Activator.CreateInstance(listType)!;
+        foreach (var item in items)
+        {
+            list.Add(item);
+        }
+
+        if (targetType.IsAssignableFrom(listType))
+        {
+            return list;
+        }
+
+        try
+        {
+            return Activator.CreateInstance(targetType, list)!;
+        }
+        catch
+        {
+            return list;
+        }
     }
 
     // PowerShell should have validated most of cases
