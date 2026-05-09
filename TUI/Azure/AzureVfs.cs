@@ -1,24 +1,23 @@
 using System.Text.Json;
+using Core.Abstractions;
 
 namespace Core.Tui.Azure;
 
 /// <summary>
 /// Azure Virtual File System — organizes Azure resources into a navigable tree:
 ///   / (root)
-///   └─ {tenantId} (tenant — from context.json)
+///   └─ {tenantId} (tenant — from Core.Authentication context)
 ///      └─ {subscriptionName} (subscription — from ARG)
 ///         └─ {resourceGroupName} (resourceGroup — from ARG)
 ///            └─ {resourceName} [{resourceType}] (resource — from ARG)
 ///
-/// Tenant comes from context.json (written by Core.Authentication).
+/// Tenant comes from IAuthContextService (Core.Authentication).
 /// Subscriptions, resource groups, and resources all use Azure Resource Graph.
 /// </summary>
 public class AzureVfs
 {
-    private static readonly string ContextFilePath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".cirrus", "context.json");
-
     private readonly ArmClient _arm;
+    private readonly IAuthContextService _authContextService;
     private readonly AzureCache<List<AzureSubscription>> _subscriptionCache = new();
     private readonly AzureCache<List<AzureResourceGroup>> _resourceGroupCache = new();
     private readonly AzureCache<List<AzureResource>> _resourceCache = new();
@@ -31,9 +30,10 @@ public class AzureVfs
     public string? TenantId => _tenantId;
     public bool IsAuthenticated => _arm.IsAuthenticated;
 
-    public AzureVfs(ArmClient arm)
+    public AzureVfs(ArmClient arm, IAuthContextService authContextService)
     {
         _arm = arm;
+        _authContextService = authContextService;
     }
 
     /// <summary>
@@ -41,7 +41,8 @@ public class AzureVfs
     /// </summary>
     public async Task<bool> TryAuthenticateAsync()
     {
-        var (tenantId, _) = LoadContext();
+        var context = await _authContextService.GetCurrentContextAsync();
+        var tenantId = context?.TenantId;
         var ok = await _arm.TryAuthenticateAsync(tenantId);
         if (ok && tenantId != null)
         {
@@ -52,11 +53,13 @@ public class AzureVfs
     }
 
     /// <summary>
-    /// Set the initial VFS path from context.json (tenantId + subscriptionId).
+    /// Set the initial VFS path from auth context (tenantId + subscriptionId).
     /// </summary>
     public async Task SetInitialPathAsync()
     {
-        var (tenantId, subscriptionId) = LoadContext();
+        var context = await _authContextService.GetCurrentContextAsync();
+        var tenantId = context?.TenantId;
+        var subscriptionId = context?.SubscriptionId;
         if (string.IsNullOrEmpty(tenantId)) return;
 
         _tenantId = tenantId;
@@ -75,23 +78,6 @@ public class AzureVfs
         var subName = sub?.DisplayName ?? subscriptionId;
 
         _currentPath = $"/{_tenantDisplay}/{subName}";
-    }
-
-    /// <summary>
-    /// Read tenant/subscription from context.json (written by Core.Authentication).
-    /// </summary>
-    private static (string? tenantId, string? subscriptionId) LoadContext()
-    {
-        try
-        {
-            if (!File.Exists(ContextFilePath)) return (null, null);
-            var json = File.ReadAllText(ContextFilePath);
-            using var doc = JsonDocument.Parse(json);
-            var tenantId = doc.RootElement.TryGetProperty("TenantId", out var t) ? t.GetString() : null;
-            var subId = doc.RootElement.TryGetProperty("SubscriptionId", out var s) ? s.GetString() : null;
-            return (tenantId, subId);
-        }
-        catch { return (null, null); }
     }
 
     // ── Navigation ──

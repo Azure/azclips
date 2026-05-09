@@ -1,3 +1,5 @@
+using Core.Abstractions;
+using Core.DependencyInjection;
 using Core.Tui.Azure;
 using Core.Tui.Commands;
 using Core.Tui.Rendering;
@@ -12,7 +14,7 @@ namespace Core.Tui;
 class AppState
 {
     // Azure Virtual File System
-    private readonly ArmClient _armClient = new();
+    private readonly ArmClient _armClient = new(CirrusServiceProvider.GetRequiredService<IAuthService>());
     public AzureVfs Vfs { get; }
     public bool VfsReady { get; private set; }
 
@@ -72,7 +74,7 @@ class AppState
 
     public AppState()
     {
-        Vfs = new AzureVfs(_armClient);
+        Vfs = new AzureVfs(_armClient, CirrusServiceProvider.GetRequiredService<IAuthContextService>());
 
         RegisterCommand(new CdCommand());
         RegisterCommand(new LsCommand());
@@ -101,7 +103,14 @@ class AppState
             VfsReady = await Vfs.TryAuthenticateAsync();
             if (!VfsReady) return;
 
-            await Vfs.SetInitialPathAsync();
+            try
+            {
+                await Vfs.SetInitialPathAsync();
+            }
+            catch
+            {
+                // Path setup failed but auth is still valid
+            }
 
             RefreshPrompt();
             Invalidate?.Invoke();
@@ -241,10 +250,11 @@ class AppState
         else
         {
             var cliArgs = command;
-            // Auto-inject tenant/subscription for 'login' when in a subscription context
-            if (command.Equals("login", StringComparison.OrdinalIgnoreCase) && VfsReady)
+            // Detect login commands (bare "login" or "login --tenant-id ..." etc.)
+            if (command.Equals("login", StringComparison.OrdinalIgnoreCase) ||
+                command.StartsWith("login ", StringComparison.OrdinalIgnoreCase))
             {
-                _ = RunLoginWithContextAsync(command);
+                RunLoginAsync(command);
                 return;
             }
             AddHistory(new HistoryEntry(HistoryItemType.User, $"{Prompt}azv2 {cliArgs}"));
@@ -252,17 +262,54 @@ class AppState
         }
     }
 
-    private async Task RunLoginWithContextAsync(string command)
+    private void RunLoginAsync(string command)
     {
-        var (tenantId, subId) = await Vfs.GetCurrentContextAsync();
-        var cliArgs = "login";
-        if (!string.IsNullOrEmpty(subId))
-            cliArgs += $" -subscriptionid {subId}";
-        if (!string.IsNullOrEmpty(tenantId))
-            cliArgs += $" -tenantid {tenantId}";
+        AddHistory(new HistoryEntry(HistoryItemType.User, $"{Prompt}azv2 {command}"));
+        _ = _processService.RunCliAsync(command, OnProcessLine, OnLoginDone);
+    }
 
-        AddHistory(new HistoryEntry(HistoryItemType.User, $"{Prompt}azv2 {cliArgs}"));
-        _ = _processService.RunCliAsync(cliArgs, OnProcessLine, OnProcessDone);
+    private void OnLoginDone(ProcessResult result)
+    {
+        AddHistory(new HistoryEntry(HistoryItemType.Info, $"[login-done] exitCode={result.ExitCode}"));
+        OnProcessDone(result);
+        if (result.ExitCode == 0)
+            _ = ReauthenticateAsync();
+    }
+
+    private async Task ReauthenticateAsync()
+    {
+        AddHistory(new HistoryEntry(HistoryItemType.Info, "[re-auth] starting..."));
+        Invalidate?.Invoke();
+        try
+        {
+            VfsReady = await Vfs.TryAuthenticateAsync();
+            if (!VfsReady)
+            {
+                AddHistory(new HistoryEntry(HistoryItemType.Error, "[re-auth] TryAuthenticateAsync returned false"));
+                Invalidate?.Invoke();
+                return;
+            }
+
+            try
+            {
+                await Vfs.SetInitialPathAsync();
+            }
+            catch (Exception ex)
+            {
+                // Path setup failed but auth is still valid
+                AddHistory(new HistoryEntry(HistoryItemType.Info, $"[re-auth] SetInitialPath failed: {ex.Message}"));
+            }
+
+            AddHistory(new HistoryEntry(HistoryItemType.Info, "[re-auth] success, VfsReady=true"));
+            RefreshPrompt();
+            Invalidate?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            VfsReady = false;
+            AddHistory(new HistoryEntry(HistoryItemType.Error, $"[re-auth] exception: {ex.Message}"));
+            Invalidate?.Invoke();
+        }
     }
 
     /// <summary>

@@ -1,3 +1,5 @@
+using Core.Abstractions;
+using Core.DependencyInjection;
 using Core.Tui.Rendering;
 using Core.Tui.Services;
 using Hex1b;
@@ -11,27 +13,42 @@ namespace Core.Tui;
 
 public static class Program
 {
+    private static ITelemetryService? _telemetryService;
+    private static ILoggingService? _logger;
+
     public static async Task Main()
     {
-        var state = new AppState();
+        CirrusServiceProvider.Initialize(ClientType.TUI);
+        _telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
+        _logger = CirrusServiceProvider.GetRequiredService<ILoggingService>();
 
-        var theme = Hex1bThemes.Ocean.Clone("cirrus");
+        try
+        {
+            var state = new AppState();
 
-        await using var terminal = Hex1bTerminal.CreateBuilder()
-            .WithHex1bApp((app, options) =>
-            {
-                options.EnableMouse = true;
-                options.Theme = theme;
+            var theme = Hex1bThemes.Ocean.Clone("cirrus");
 
-                // Wire state to app
-                state.Invalidate = () => app.Invalidate();
-                state.RequestStop = () => app.RequestStop();
+            await using var terminal = Hex1bTerminal.CreateBuilder()
+                .WithHex1bApp((app, options) =>
+                {
+                    options.EnableMouse = true;
+                    options.Theme = theme;
 
-                return ctx => BuildUI(ctx, app, state);
-            })
-            .Build();
+                    // Wire state to app
+                    state.Invalidate = () => app.Invalidate();
+                    state.RequestStop = () => app.RequestStop();
 
-        await terminal.RunAsync();
+                    return ctx => BuildUI(ctx, app, state);
+                })
+                .Build();
+
+            await terminal.RunAsync();
+        }
+        finally
+        {
+            _telemetryService?.Dispose();
+            CirrusServiceProvider.Dispose();
+        }
     }
 
     private static Hex1bWidget BuildUI<TParent>(WidgetContext<TParent> ctx, Hex1bApp app, AppState state)

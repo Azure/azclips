@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 
 namespace Core.Tui.Services;
 
@@ -164,19 +165,27 @@ class ProcessService
         while (await reader.ReadLineAsync() is { } line)
         {
             var trimmed = line.TrimEnd('\r');
-            if (IsDebugOrVerbose(trimmed)) continue;
             if (type == HistoryItemType.Error && string.IsNullOrWhiteSpace(trimmed)) continue;
-            capture?.Add(trimmed);
-            onLine(type, trimmed);
+
+            var (actualType, text) = ClassifyLine(trimmed, type);
+            capture?.Add(text);
+            onLine(actualType, text);
         }
     }
 
-    private static bool IsDebugOrVerbose(string line)
+    private static (HistoryItemType type, string text) ClassifyLine(string line, HistoryItemType defaultType)
     {
-        var trimmed = line.TrimStart();
-        return trimmed.StartsWith("[DEBUG]", StringComparison.OrdinalIgnoreCase)
-            || trimmed.StartsWith("[VERBOSE]", StringComparison.OrdinalIgnoreCase);
+        // Strip ANSI escape codes from subprocess output before matching prefixes
+        var clean = StripAnsi(line).TrimStart();
+        if (clean.StartsWith("[DEBUG]", StringComparison.OrdinalIgnoreCase))
+            return (HistoryItemType.Debug, clean["[DEBUG]".Length..].TrimStart());
+        if (clean.StartsWith("[VERBOSE]", StringComparison.OrdinalIgnoreCase))
+            return (HistoryItemType.Verbose, clean["[VERBOSE]".Length..].TrimStart());
+        return (defaultType, StripAnsi(line));
     }
+
+    private static string StripAnsi(string text)
+        => Regex.Replace(text, @"\x1b\[[0-9;]*m", "");
 
     private static string FindCliPath()
     {

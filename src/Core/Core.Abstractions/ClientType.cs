@@ -6,6 +6,7 @@ namespace Core.Abstractions
     public enum ClientType
     {
         PowerShell,
-        CLI
+        CLI,
+        TUI
     }
 }
