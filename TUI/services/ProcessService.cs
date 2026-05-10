@@ -167,24 +167,21 @@ class ProcessService
             var trimmed = line.TrimEnd('\r');
             if (type == HistoryItemType.Error && string.IsNullOrWhiteSpace(trimmed)) continue;
 
-            var (actualType, text) = ClassifyLine(trimmed, type);
+            var classified = ClassifyLine(trimmed, type);
+            if (classified is null) continue;
 
-            // Suppress verbose/debug noise from CLI subprocess output
-            if (actualType is HistoryItemType.Verbose or HistoryItemType.Debug) continue;
-
+            var (actualType, text) = classified.Value;
             capture?.Add(text);
             onLine(actualType, text);
         }
     }
 
-    private static (HistoryItemType type, string text) ClassifyLine(string line, HistoryItemType defaultType)
+    private static (HistoryItemType type, string text)? ClassifyLine(string line, HistoryItemType defaultType)
     {
         // Strip ANSI escape codes from subprocess output before matching prefixes
         var clean = StripAnsi(line).TrimStart();
-        if (clean.StartsWith("[DEBUG]", StringComparison.OrdinalIgnoreCase))
-            return (HistoryItemType.Debug, clean["[DEBUG]".Length..].TrimStart());
-        if (clean.StartsWith("[VERBOSE]", StringComparison.OrdinalIgnoreCase))
-            return (HistoryItemType.Verbose, clean["[VERBOSE]".Length..].TrimStart());
+        if (clean.StartsWith("[DEBUG]", StringComparison.OrdinalIgnoreCase)) return null;
+        if (clean.StartsWith("[VERBOSE]", StringComparison.OrdinalIgnoreCase)) return null;
         return (defaultType, StripAnsi(line));
     }
 

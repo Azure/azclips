@@ -39,12 +39,6 @@ static class HistoryRenderer
                             widgets.Add(ctx.Text(line));
                     }
                     break;
-                case HistoryItemType.Verbose:
-                    widgets.Add(ctx.Text($"    {Ansi.Comment}{entry.Text}{Ansi.End}"));
-                    break;
-                case HistoryItemType.Debug:
-                    widgets.Add(ctx.Text($"    {Ansi.Comment}[DBG] {entry.Text}{Ansi.End}"));
-                    break;
                 case HistoryItemType.Separator:
                     widgets.Add(ctx.Text(""));
                     break;
