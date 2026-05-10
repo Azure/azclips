@@ -1,5 +1,6 @@
 using Core.Abstractions;
 using Core.DependencyInjection;
+using Core.Tui.Azure;
 using Core.Tui.Rendering;
 using Core.Tui.Services;
 using Hex1b;
@@ -8,6 +9,7 @@ using Hex1b.Layout;
 using Hex1b.Nodes;
 using Hex1b.Theming;
 using Hex1b.Widgets;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Core.Tui;
 
@@ -18,13 +20,29 @@ public static class Program
 
     public static async Task Main()
     {
+        CirrusServiceProvider.PrependRegistration = services =>
+        {
+            services.AddSingleton<ArmClient>();
+            services.AddSingleton<AzureVfs>();
+            services.AddSingleton<ProcessService>();
+            services.AddSingleton<PromptService>();
+            services.AddSingleton<HistoryService>();
+            services.AddSingleton<AppState>();
+        };
+        CirrusServiceProvider.OverrideRegistration = services =>
+        {
+            // Replace the default ScopedLoggingService (which falls back to
+            // ConsoleLoggingService and writes [VERBOSE]/[DEBUG] directly to the
+            // console) with a silent implementation that won't corrupt the TUI.
+            services.AddSingleton<ILoggingService, TuiLoggingService>();
+        };
         CirrusServiceProvider.Initialize(ClientType.TUI);
         _telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
         _logger = CirrusServiceProvider.GetRequiredService<ILoggingService>();
 
         try
         {
-            var state = new AppState();
+            var state = CirrusServiceProvider.GetRequiredService<AppState>();
 
             var theme = Hex1bThemes.Ocean.Clone("cirrus");
 

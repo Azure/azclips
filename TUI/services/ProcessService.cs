@@ -168,6 +168,10 @@ class ProcessService
             if (type == HistoryItemType.Error && string.IsNullOrWhiteSpace(trimmed)) continue;
 
             var (actualType, text) = ClassifyLine(trimmed, type);
+
+            // Suppress verbose/debug noise from CLI subprocess output
+            if (actualType is HistoryItemType.Verbose or HistoryItemType.Debug) continue;
+
             capture?.Add(text);
             onLine(actualType, text);
         }

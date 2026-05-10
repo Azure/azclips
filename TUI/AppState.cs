@@ -1,5 +1,4 @@
 using Core.Abstractions;
-using Core.DependencyInjection;
 using Core.Tui.Azure;
 using Core.Tui.Commands;
 using Core.Tui.Rendering;
@@ -14,7 +13,6 @@ namespace Core.Tui;
 class AppState
 {
     // Azure Virtual File System
-    private readonly ArmClient _armClient = new(CirrusServiceProvider.GetRequiredService<IAuthService>());
     public AzureVfs Vfs { get; }
     public bool VfsReady { get; private set; }
 
@@ -64,17 +62,20 @@ class AppState
     }
 
     // Services
-    private readonly HistoryService _historyService = new();
-    private readonly ProcessService _processService = new();
-    private readonly PromptService _promptService = new();
+    private readonly HistoryService _historyService;
+    private readonly ProcessService _processService;
+    private readonly PromptService _promptService;
     private readonly CompletionService _completionService;
 
     // Command registry
     private readonly Dictionary<string, ISlashCommand> _commands = new(StringComparer.OrdinalIgnoreCase);
 
-    public AppState()
+    public AppState(AzureVfs vfs, HistoryService historyService, ProcessService processService, PromptService promptService)
     {
-        Vfs = new AzureVfs(_armClient, CirrusServiceProvider.GetRequiredService<IAuthContextService>());
+        Vfs = vfs;
+        _historyService = historyService;
+        _processService = processService;
+        _promptService = promptService;
 
         RegisterCommand(new CdCommand());
         RegisterCommand(new LsCommand());
