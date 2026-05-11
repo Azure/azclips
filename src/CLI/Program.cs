@@ -249,6 +249,14 @@ public class Program
             return _helpRenderer.RenderCommand(command, TerminalWidth());
         }
 
+        // A group root can also be a runnable command (e.g. "login" is both a group and the login command).
+        // Prefer command help when the path resolves to one, so parameters and examples are shown.
+        var rootCommand = helpProvider.GetCommandHelp(helpException.Path);
+        if (rootCommand != null)
+        {
+            return _helpRenderer.RenderCommand(rootCommand, TerminalWidth());
+        }
+
         var group = helpProvider.GetGroupHelp(helpException.Path)
             ?? throw new KeyNotFoundException($"Group help not found for path '{string.Join(" ", helpException.Path)}'.");
 
