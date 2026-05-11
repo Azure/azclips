@@ -4,12 +4,14 @@
 namespace Core.Abstractions;
 
 /// <summary>
-/// Provides lightweight help metadata for CLI rendering without loading command execution code.
+/// Provides CLI-shaped runtime help metadata for rendering without loading command execution code.
+/// This is a CLI-side contract and is typically implemented by an adapter over <see cref="IExtensionIndex"/>,
+/// not by each extension directly.
 /// </summary>
 public interface IExtensionHelpProvider
 {
     /// <summary>
-    /// Gets the extension name that owns this help provider.
+    /// Gets the extension name whose metadata is being projected.
     /// </summary>
     string ExtensionName { get; }
 

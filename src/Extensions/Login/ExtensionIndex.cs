@@ -5,7 +5,7 @@ using Core.Abstractions;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Login
 {
-    public class ExtensionIndex : IExtensionIndex, IExtensionHelpProvider
+    public class ExtensionIndex : IExtensionIndex
     {
         // ── PS Command Metadata ──
         private static readonly CommandMetadata s_login_PS = new(
@@ -101,99 +101,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
             ["show"]   = s_getContext_CLI,
         };
 
-        private static readonly RuntimeHelpGroup s_loginGroup = new(
-            GroupPath: "login",
-            Summary: "Authenticate to Azure.",
-            Subgroups: [],
-            Commands:
-            [
-                new RuntimeHelpCommandSummary(
-                    Name: "login",
-                    Summary: "Authenticate to Azure and set the current account context.",
-                    Tags: []),
-                new RuntimeHelpCommandSummary(
-                    Name: "logout",
-                    Summary: "Sign out from the current Azure account context.",
-                    Tags: []),
-                new RuntimeHelpCommandSummary(
-                    Name: "show",
-                    Summary: "Show the current Azure account context.",
-                    Tags: [])
-            ]);
-
-        private static readonly RuntimeHelpCommand s_loginCommand = new(
-            CommandPath: "login",
-            Summary: "Authenticate to Azure and set the current account context.",
-            Description: "Authenticate to Azure and persist account context for subsequent commands.",
-            Parameters:
-            [
-                new RuntimeHelpParameter(
-                    Name: "subscription-id",
-                    Aliases: [],
-                    Required: true,
-                    Description: "Azure Subscription Id.",
-                    Summary: "Azure Subscription Id.",
-                    AllowedValues: [],
-                    ParameterSetName: "(All)",
-                    SupportsPipeline: false,
-                    SupportsWildcards: false),
-                new RuntimeHelpParameter(
-                    Name: "tenant-id",
-                    Aliases: [],
-                    Required: false,
-                    Description: "Tenant ID to login to.",
-                    Summary: "Tenant ID to login to.",
-                    AllowedValues: [],
-                    ParameterSetName: "(All)",
-                    SupportsPipeline: false,
-                    SupportsWildcards: false),
-                new RuntimeHelpParameter(
-                    Name: "use-device-code",
-                    Aliases: [],
-                    Required: false,
-                    Description: "Use device code flow for authentication.",
-                    Summary: "Use device code flow for authentication.",
-                    AllowedValues: [],
-                    ParameterSetName: "(All)",
-                    SupportsPipeline: false,
-                    SupportsWildcards: false)
-            ],
-            Examples:
-            [
-                new RuntimeHelpExample(
-                    Title: "Login with subscription id",
-                    Command: "azv2 login --subscription-id 00000000-0000-0000-0000-000000000000"),
-                new RuntimeHelpExample(
-                    Title: "Login with device code",
-                    Command: "azv2 login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code")
-            ],
-            Tags: []);
-
-        private static readonly RuntimeHelpCommand s_logoutCommand = new(
-            CommandPath: "login logout",
-            Summary: "Sign out from the current Azure account context.",
-            Description: "Sign out from the current Azure account context.",
-            Parameters: [],
-            Examples:
-            [
-                new RuntimeHelpExample(
-                    Title: "Sign out",
-                    Command: "azv2 login logout")
-            ],
-            Tags: []);
-
-        private static readonly RuntimeHelpCommand s_showCommand = new(
-            CommandPath: "login show",
-            Summary: "Show the current Azure account context.",
-            Description: "Show the current Azure account context.",
-            Parameters: [],
-            Examples:
-            [
-                new RuntimeHelpExample(
-                    Title: "Show current account context",
-                    Command: "azv2 login show")
-            ],
-            Tags: []);
         // ── Lookup ──
         public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
         {
@@ -207,53 +114,20 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
                 ? metadata
                 : throw new KeyNotFoundException($"Command '{name}' not found for client type '{clientType}'.");
         }
-        public IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType)
+
+        public IReadOnlyDictionary<string, CommandMetadata> GetCommandTable(ClientType clientType)
         {
             return clientType switch
             {
-                ClientType.PowerShell => s_psTable.Values,
-                ClientType.CLI => s_cliTable.Values,
+                ClientType.PowerShell => s_psTable,
+                ClientType.CLI => s_cliTable,
                 _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
             };
         }
 
-        public string ExtensionName => "Login";
-
-        public IReadOnlyList<RuntimeHelpGroup> GetRootGroups()
-            => [s_loginGroup];
-
-        public RuntimeHelpGroup? GetGroupHelp(IReadOnlyList<string> groupPath)
+        public IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType)
         {
-            if (groupPath.Count == 1 && groupPath[0].Equals("login", StringComparison.OrdinalIgnoreCase))
-            {
-                return s_loginGroup;
-            }
-
-            return null;
-        }
-
-        public RuntimeHelpCommand? GetCommandHelp(IReadOnlyList<string> commandPath)
-        {
-            if (commandPath.Count == 1 && commandPath[0].Equals("login", StringComparison.OrdinalIgnoreCase))
-            {
-                return s_loginCommand;
-            }
-
-            if (commandPath.Count == 2 &&
-                commandPath[0].Equals("login", StringComparison.OrdinalIgnoreCase) &&
-                commandPath[1].Equals("logout", StringComparison.OrdinalIgnoreCase))
-            {
-                return s_logoutCommand;
-            }
-
-            if (commandPath.Count == 2 &&
-                commandPath[0].Equals("login", StringComparison.OrdinalIgnoreCase) &&
-                commandPath[1].Equals("show", StringComparison.OrdinalIgnoreCase))
-            {
-                return s_showCommand;
-            }
-
-            return null;
+            return GetCommandTable(clientType).Values;
         }
     }
 }

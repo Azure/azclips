@@ -254,9 +254,11 @@ IHelpRenderer
 
 `IHelpRenderer` is injected at startup and can be swapped for testing.
 
+The projection from extension metadata into `RuntimeHelpGroup` / `RuntimeHelpCommand` is CLI-specific runtime logic. Extensions author canonical metadata in `ExtensionIndex.cs`; CLI runtime code shapes that metadata for CLI rendering.
+
 ### 5.6 Runtime metadata contract and ownership
 
-CLI runtime help resolves through Engine APIs. Engine owns metadata retrieval; CLI owns tree resolution and rendering.
+CLI runtime help resolves through Engine APIs. Engine owns metadata retrieval; CLI owns tree resolution, CLI-specific DTO projection, and rendering.
 
 Runtime API shape:
 
@@ -268,7 +270,7 @@ public interface IHelpMetadataService
 }
 ```
 
-Engine API outputs are `CommandMetadata` or a dictionary of `CommandMetadata`, consistent with extension-generated `ExtensionIndex.cs`.
+Engine API outputs are `CommandMetadata` or a keyed dictionary of `CommandMetadata`, consistent with extension-generated `ExtensionIndex.cs`.
 
 CLI then projects this metadata into runtime renderer DTOs:
 
@@ -280,6 +282,8 @@ CLI then projects this metadata into runtime renderer DTOs:
 - `RuntimeHelpExample`
 
 These DTOs are intentionally CLI-runtime-focused and lightweight. They are separate from markdown/manifests/indexes, which remain optional tooling artifacts.
+
+Extensions should not implement this CLI projection by default. A generic CLI-side adapter can build these DTOs from keyed `CommandMetadata`, while PowerShell continues to use its own native runtime help path.
 
 ### 5.7 Canonical command key for nested CLI tree
 
@@ -337,6 +341,8 @@ PowerShell has two standard help delivery mechanisms:
 | **External MAML XML** (`.dll-Help.xml`) | Full Get-Help support: description, syntax, parameters, examples, related links | Required for `Get-Help -Full`, `-Examples`, `-Parameter` |
 
 Cirrus runtime does not implement a custom PowerShell help resolver. PowerShell continues to own runtime help resolution via `Get-Help`, using the cmdlet/session metadata and any generated external help that the PowerShell module ships.
+
+PowerShell does not use the CLI runtime DTOs (`RuntimeHelpGroup`, `RuntimeHelpCommand`, and related types) or the CLI adapter that builds them. Both clients read from the same extension-owned metadata, but each client owns its own projection and runtime behavior.
 
 Build-time tooling may still:
 
@@ -525,7 +531,7 @@ The following design decisions are considered settled for the initial implementa
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Summary` authoring            | Keep `Summary` as a separate field with manual authoring.                                                                                                                                                                                           |
 | Runtime CLI help source        | Runtime CLI help reads command metadata through Engine APIs backed by generated `ExtensionIndex.cs`; markdown/manifests/indexes are not runtime dependencies.                                                                                       |
-| Runtime ownership split        | Engine owns metadata retrieval (single command or dictionary). CLI owns nested command-tree resolution and rendering.                                                                                                                               |
+| Runtime ownership split        | Engine owns metadata retrieval (single command or keyed dictionary). CLI owns nested command-tree resolution, CLI-specific DTO projection, and rendering. Extensions do not implement CLI projection by default.                                    |
 | CLI command key contract       | Use canonical lower-case, full-path, space-delimited command keys for deterministic group prefix and command exact lookup.                                                                                                                          |
 | PowerShell help generation     | Keep PowerShell runtime help native to PowerShell. Generate MAML and related outputs only for packaging/publishing workflows. Keep PlatyPS optional for downstream publishing only.                                                                 |
 | Examples authoring             | Examples are authored inline in `ExtensionIndex.cs` as `CommandExample` entries on `CommandMetadata`. `ExtensionIndex.cs` is the single source of truth; no per-surface sidecar files are used.                                                     |
@@ -584,8 +590,8 @@ Intercept `--help` in CLI before execution, call Engine metadata APIs (single co
 
 1. `IHelpMetadataService` (or equivalent Engine API) implemented and exposed to CLI.
 2. CLI help interception path (`-h` / `--help` / `help`) wired before command execution.
-3. Canonical command-key contract implemented for exact and prefix lookups in nested command trees.
-4. Runtime renderer wired to `RuntimeHelpGroup` / `RuntimeHelpCommand` DTOs.
+3. Canonical command-key contract implemented for exact and prefix lookups in nested command trees, including keyed metadata retrieval from extension indexes.
+4. CLI-side runtime adapter wired to project keyed `CommandMetadata` into `RuntimeHelpGroup` / `RuntimeHelpCommand` DTOs.
 5. Tests that verify the help path does not instantiate processors.
 
 ### 15.3 Phase 3: PowerShell Runtime Help

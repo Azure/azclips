@@ -11,8 +11,8 @@ public class RuntimeHelpRendererTests
     public void RenderGroup_ShouldMatchGolden_ForLoginGroup()
     {
         var renderer = new RuntimeHelpRenderer();
-        var index = new ExtensionIndex();
-        var group = index.GetGroupHelp(["login"]);
+        var helpProvider = new ExtensionIndexHelpAdapter(new ExtensionIndex(), "Login");
+        var group = helpProvider.GetGroupHelp(["login"]);
 
         Assert.NotNull(group);
 
@@ -26,8 +26,8 @@ public class RuntimeHelpRendererTests
     public void RenderCommand_ShouldMatchGolden_ForLoginShowCommand()
     {
         var renderer = new RuntimeHelpRenderer();
-        var index = new ExtensionIndex();
-        var command = index.GetCommandHelp(["login", "show"]);
+        var helpProvider = new ExtensionIndexHelpAdapter(new ExtensionIndex(), "Login");
+        var command = helpProvider.GetCommandHelp(["login", "show"]);
 
         Assert.NotNull(command);
 

@@ -239,7 +239,7 @@ public class Program
     {
         var assemblyLoading = CirrusServiceProvider.GetRequiredService<IAssemblyLoadingService>();
         var assembly = assemblyLoading.LoadExtension(helpException.ExtensionName);
-        var helpProvider = assembly.GetExtensionHelpProvider();
+        var helpProvider = new ExtensionIndexHelpAdapter(assembly.GetExtensionIndex(), helpException.ExtensionName);
 
         if (helpException.IsCommandHelp)
         {

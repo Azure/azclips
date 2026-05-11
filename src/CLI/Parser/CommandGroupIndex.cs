@@ -42,6 +42,26 @@ namespace Core.Cli.Parser
             return extensionName;
         }
 
+        internal static string GetCommandGroupNameByExtensionName(string extensionName)
+        {
+            foreach (var kvp in _commandGroups)
+            {
+                if (kvp.Value.Equals(extensionName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return kvp.Key;
+                }
+            }
+
+            throw new KeyNotFoundException($"Extension '{extensionName}' does not have a registered command group.");
+        }
+
+        internal static string GetGroupSummary(string commandGroupName)
+        {
+            return _groupSummaries.TryGetValue(commandGroupName, out var summary)
+                ? summary
+                : string.Empty;
+        }
+
         internal static IReadOnlyList<RuntimeHelpGroup> GetRootHelpGroups()
         {
             return [

@@ -1,5 +1,6 @@
 using Core.Abstractions;
 using Core.Cli.Exceptions;
+using Core.Cli.Help;
 using Core.Cli.Parser;
 using Microsoft.Azure.Cirrus.Extensions.Config;
 using Microsoft.Azure.Cirrus.Extensions.Login;
@@ -79,12 +80,12 @@ public class ExtensionDispatcherTests
     }
 
     [Fact]
-    public void LoginExtensionIndex_ShouldProvideRuntimeCommandHelp()
+    public void LoginHelpAdapter_ShouldProvideRuntimeCommandHelp()
     {
-        var index = new Microsoft.Azure.Cirrus.Extensions.Login.ExtensionIndex();
+        var helpProvider = new ExtensionIndexHelpAdapter(new Microsoft.Azure.Cirrus.Extensions.Login.ExtensionIndex(), "Login");
 
-        var groupHelp = index.GetGroupHelp(["login"]);
-        var commandHelp = index.GetCommandHelp(["login", "show"]);
+        var groupHelp = helpProvider.GetGroupHelp(["login"]);
+        var commandHelp = helpProvider.GetCommandHelp(["login", "show"]);
 
         Assert.NotNull(groupHelp);
         Assert.NotNull(commandHelp);

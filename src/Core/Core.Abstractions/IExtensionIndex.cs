@@ -9,6 +9,12 @@ namespace Core.Abstractions
         CommandMetadata GetCommandMetadata(string name, ClientType clientType);
 
         /// <summary>
+        /// Returns the keyed command table for the given client type.
+        /// Keys are the canonical command identifiers used by that client surface.
+        /// </summary>
+        IReadOnlyDictionary<string, CommandMetadata> GetCommandTable(ClientType clientType);
+
+        /// <summary>
         /// Returns all registered commands for the given client type.
         /// Used by the help system to enumerate available commands.
         /// </summary>
