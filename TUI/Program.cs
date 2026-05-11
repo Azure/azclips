@@ -145,11 +145,8 @@ public static class Program
                 // the TextBox sees them, so they never reach the TextBox.
                 topWidgets.Add(v.ThemePanel(
                     t => t
-                        // .Set(TextBoxTheme.UseFillMode, true)
                         .Set(TextBoxTheme.FillBackgroundColor, Hex1bColor.Default)
                         .Set(TextBoxTheme.FocusedFillBackgroundColor, Hex1bColor.Default),
-                        // .Set(TextBoxTheme.LeftBracket, "")
-                        // .Set(TextBoxTheme.RightBracket, ""),
                     v.TextBox(state.InputText)
                         .OnTextChanged(e =>
                         {
