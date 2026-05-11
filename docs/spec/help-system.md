@@ -4,20 +4,21 @@
 
 > This document describes the **planned** help system for Cirrus. It does not describe current behavior.
 > See [ARCHITECTURE.md](ARCHITECTURE.md) for the current implementation state.
+> Current tooling snapshot: `tools/Help/Cirrus.Help.Tool` emits `HelpManifest.json`, `HelpIndex.json`, and generated PowerShell XML help files under `artifacts/help/powershell/`.
 
 ---
 
 ## 1. Goals
 
-| Goal                                  | Rationale                                                                                                                  |
-| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| **Single source of truth**            | Help content lives in one place per command/parameter; no duplication between CLI and PowerShell surfaces                  |
-| **Tree-aware CLI help**               | `azv2 --help`, `azv2 vm --help`, `azv2 vm start --help` each produce meaningfully different output, mirroring azure-cli UX |
-| **Flat PowerShell help**              | `Get-Help New-ResourceGroup -Full` follows standard MAML conventions; cmdlet discovery via `Get-Command`                   |
-| **Fast at runtime**                   | CLI help resolves from lightweight extension-owned metadata without loading command execution code on the cold path        |
-| **No markdown dependency at runtime** | CLI runtime help does not read markdown files; markdown is a build/publishing artifact only                                |
-| **Authorable by humans**              | Descriptions and examples live close to the code; a developer can add help without knowing the rendering pipeline          |
-| **AI-augmentable**                    | The agent can answer "how do I…" using the same help data that drives the terminal output                                  |
+| Goal                                  | Rationale                                                                                                                                   |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Single source of truth**            | Help content lives in one place per command/parameter; no duplication between CLI and PowerShell surfaces                                   |
+| **Tree-aware CLI help**               | `azv2 --help`, `azv2 vm --help`, `azv2 vm start --help` each produce meaningfully different output, mirroring azure-cli UX                  |
+| **Flat PowerShell help**              | `Get-Help New-ResourceGroup -Full` follows standard MAML conventions; cmdlet discovery via `Get-Command`                                    |
+| **Fast at runtime**                   | CLI help resolves from lightweight extension-owned metadata without loading command execution code on the cold path                         |
+| **No markdown dependency at runtime** | CLI runtime help does not read markdown files or generated artifacts; help comes from extension metadata                                    |
+| **Authorable by humans**              | Descriptions and examples live in extension metadata close to command definitions; a developer can add help without deep renderer knowledge |
+| **AI-augmentable**                    | The agent can answer "how do I…" using the same help data that drives the terminal output                                                   |
 
 ---
 
@@ -36,9 +37,9 @@
 
 ---
 
-## 3. Single Source of Truth: The Attribute Model
+## 3. Single Source of Truth: Extension Metadata
 
-All help content originates from C# attributes on processor classes. This is already mostly true today — the gap is completeness and examples.
+All help content currently originates from extension metadata (`CommandMetadata`, `ParameterMetadata`, `ProcessorInfo`, and `ArgumentInfo`). Build-time tooling projects this metadata into optional external artifacts.
 
 ### 3.1 `[ProcessorInfo]` (class-level)
 
@@ -82,79 +83,66 @@ public class ArgumentInfoAttribute : Attribute
 
 ### 3.3 Examples
 
-Examples are authored directly in `ExtensionIndex.cs` as `CommandExample` entries on the `CommandMetadata` record. This keeps examples co-located with routing metadata and eliminates a separate file format.
+Examples are authored in extension metadata as `CommandExample` entries attached to `CommandMetadata`. This keeps examples close to command routing metadata and avoids runtime file dependencies.
 
-```csharp
-private static readonly CommandMetadata s_login_CLI = new(
-    Name: "LoginCommand",
-    ...
-    Summary: "Authenticate to Azure and set the current account context.",
-    Description: "Authenticate to Azure and persist account context for subsequent commands.",
-    Examples:
-    [
-        new("Login with subscription id", "azv2 login --subscription-id 00000000-0000-0000-0000-000000000000"),
-        new("Login with device code",     "azv2 login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code"),
-    ]
-);
-```
-
-At build time, the `ExtensionHelpManifestBuilder` reads examples from `CommandMetadata.Examples` and writes them into `HelpManifest.json` for tooling/export workflows.
+At build time, the help generator reads extension metadata and emits external artifacts. At runtime, CLI help renders examples directly from metadata.
 
 ---
 
 ## 4. Build-Time and Tooling Extraction
 
-At build time, the extension generation pipeline produces command metadata for routing/discovery. Runtime CLI help reads command metadata from Engine APIs backed by generated `ExtensionIndex.cs`. Optional tooling can consume the same canonical help inputs (`[ProcessorInfo]`, `[ArgumentInfo]`, and `CommandMetadata.Examples`) to emit documentation artifacts such as:
+At build time, the extension generation pipeline produces command metadata for routing/discovery. Runtime CLI help reads command metadata from Engine APIs backed by generated extension indexes and renders syntax, parameters, descriptions, and examples directly from that metadata. Optional build-time tooling can consume the same metadata to emit external artifacts when there is a concrete validation, packaging, or publishing need.
 
-1. **A `HelpManifest.json`** per extension — for tooling, testing, and publishing workflows.
-2. **A CLI help index** (`HelpIndex.json`) — for tooling/export scenarios such as markdown generation or static validation.
+### 4.1 Ownership boundary
 
-```json
-{
-    "extension": "Resources",
-    "version": "1.0.0",
-    "commands": [
-        {
-            "name": "create",
-            "cliName": "group create",
-            "psName": "New-ResourceGroup",
-            "summary": "Create a resource group.",
-            "description": "Create a new resource group in Azure.",
-            "parameters": [
-                {
-                    "name": "name",
-                    "psName": "Name",
-                    "type": "string",
-                    "required": true,
-                    "description": "The name of the resource group.",
-                    "aliases": [],
-                    "allowedValues": [],
-                    "parameterSetName": "(All)",
-                    "supportsPipeline": false,
-                    "supportsWildcards": false
-                }
-            ],
-            "examples": {
-                "cli": [
-                    {
-                        "title": "Create a resource group in East US",
-                        "command": "azv2 group create --name myRg --location eastus"
-                    }
-                ],
-                "powershell": [
-                    {
-                        "title": "Create a resource group in East US",
-                        "command": "New-ResourceGroup -Name myRg -Location eastus"
-                    }
-                ]
-            }
-        }
-    ]
-}
+Build-time help generation is excluded from Cirrus runtime ownership.
+
+- `src/` owns runtime code and metadata: `Core`, `Extensions`, `CLI`, `PS`.
+- `tools/` owns build-time help generation, validation, markdown export, and packaging-oriented help generation.
+- Runtime clients do not read generated help artifacts.
+
+The intended layout is:
+
+```text
+/src
+    /Core
+    /Extensions
+    /CLI
+    /PS
+/tools
+    /Help
+        help-export
+        help-validate
+        help-ps
 ```
 
+### 4.2 Artifact locations
+
+Generated help artifacts should be treated as optional build outputs, not source inputs.
+
+- Staging output: `artifacts/help/`
+- Per-extension machine-readable output: `artifacts/help/<ExtensionName>/...`
+- Cross-extension shared outputs: `artifacts/help/...`
+- Generated PowerShell help XML: `artifacts/help/powershell/<ModuleName>.dll-Help.xml`
+- Optional published markdown output: `artifacts/help/markdown/` or a caller-provided output path such as `docs/reference/`
+
+These artifacts may be copied, packaged, snapshot-tested, or published by tooling, but they are not read by runtime CLI help retrieval and are not used directly by `Get-Help` unless packaging copies the generated MAML into the shipped PowerShell module layout.
+
+### 4.3 Interaction model
+
+The interaction model is:
+
+1. A build-time tool under `tools/` loads extension metadata from built assemblies or project outputs.
+2. The tool reads extension metadata through `IExtensionIndex` and related contracts.
+3. The tool emits artifacts into `artifacts/help/`.
+4. Downstream steps may validate, snapshot-test, package, or publish those artifacts.
+5. Runtime clients continue to resolve help from metadata or native session state, not from generated files.
+6. When present, CLI examples come from the same runtime metadata and are rendered in `azv2 ... --help` output.
+
+Examples of concrete outputs include generated JSON manifests/indexes and PowerShell XML help files. Those outputs are downstream projections of the same metadata; they do not replace runtime CLI examples. Machine-readable intermediate formats are optional implementation details of tooling, not part of the runtime contract.
+
 **Why separate runtime from tooling?**  
-Build-time artifacts are useful for publishing, validation, and snapshot testing, but CLI runtime help must remain on a fast cold path. Runtime help therefore comes from Engine metadata APIs (backed by `ExtensionIndex.cs`) and does not depend on markdown/manifests/index files.
+Build-time artifacts are useful for publishing, validation, and snapshot testing, but CLI runtime help must remain on a fast cold path. Runtime help therefore comes from Engine metadata APIs backed by extension metadata and does not depend on markdown/manifests/index files. This keeps the runtime mental model simple: Cirrus serves runtime metadata and rendering; external tooling generates files.
 
 ---
 
@@ -254,7 +242,7 @@ IHelpRenderer
 
 `IHelpRenderer` is injected at startup and can be swapped for testing.
 
-The projection from extension metadata into `RuntimeHelpGroup` / `RuntimeHelpCommand` is CLI-specific runtime logic. Extensions author canonical metadata in `ExtensionIndex.cs`; CLI runtime code shapes that metadata for CLI rendering.
+The projection from extension metadata into `RuntimeHelpGroup` / `RuntimeHelpCommand` is CLI-specific runtime logic. CLI runtime code shapes that metadata into terminal-friendly help output.
 
 ### 5.6 Runtime metadata contract and ownership
 
@@ -270,7 +258,7 @@ public interface IHelpMetadataService
 }
 ```
 
-Engine API outputs are `CommandMetadata` or a keyed dictionary of `CommandMetadata`, consistent with extension-generated `ExtensionIndex.cs`.
+Engine API outputs are `CommandMetadata` or a keyed dictionary of `CommandMetadata`, consistent with generated extension indexes.
 
 CLI then projects this metadata into runtime renderer DTOs:
 
@@ -431,14 +419,16 @@ The single path is:
 ```
 [ProcessorInfo] / [ArgumentInfo] attributes
         │
-        ▼ (source generator at build time)
-        ├─► ExtensionIndex.cs (C# — for runtime dispatch, outside help-system ownership)
+        ▼ (codegen/build at compile time)
+        ├─► ExtensionIndex.cs (C# runtime dispatch/help metadata projection)
         ├─► Engine metadata APIs (single command or dictionary retrieval)
         ├─► CLI runtime help projection + renderer
-        ├─► HelpManifest.json (optional tooling/publishing artifact)
-        ├─► HelpIndex.json (optional tooling/export artifact)
-        ├─► PS exports/*.ps1 (optional HelpMessage emission)
-        └─► PS/<Module>/<Module>.dll-Help.xml (optional packaging/publishing artifact)
+        └─► /tools/Help/*
+            ├─► artifacts/help/<Extension>/...
+            ├─► artifacts/help/...
+            ├─► artifacts/help/powershell/<Module>.dll-Help.xml
+            ├─► artifacts/help/markdown/*
+            └─► PS exports/*.ps1 (optional HelpMessage emission)
 ```
 
 ---
@@ -451,7 +441,7 @@ The single path is:
 | Cold-start help latency                            | CLI intercepts `--help` before command execution and renders from lightweight help metadata only             |
 | Reflection cost in runtime help path               | Runtime help uses Engine metadata APIs backed by pre-generated extension indexes                             |
 | Tooling artifact size                              | Optional manifests/indexes are for tooling and publishing only; runtime does not depend on them              |
-| Markdown/readme drift concerns                     | Markdown is generated from the same source but never used as runtime help input                              |
+| Markdown/readme drift concerns                     | Optional markdown exports may be generated from metadata but are not runtime help inputs                     |
 | PowerShell help startup latency                    | Prebuilt MAML XML is produced at build time and consumed by `Get-Help` without runtime command instantiation |
 
 ---
@@ -468,7 +458,7 @@ The AI agent (natural language fallback) already answers "how do I…" questions
 
 ## 10. Examples Generation (AI-assisted)
 
-For commands where no human-authored examples exist, a **build-time AI step** (opt-in, not blocking CI by default) can suggest examples using Azure OpenAI. Suggested examples are added to the `Examples` list in the relevant `CommandMetadata` field in `ExtensionIndex.cs`, reviewed by the developer, and committed to the repository.
+For commands where no human-authored examples exist, a **build-time AI step** (opt-in, not blocking CI by default) can suggest examples using Azure OpenAI. Suggested examples are added to `CommandMetadata.Examples`, reviewed by the developer, and committed to the repository.
 
 This keeps examples human-reviewed while reducing authoring burden.
 
@@ -515,11 +505,11 @@ The MAML sync check runs on every PR via a `dotnet tool` invocation in the CI pi
 
 When Cirrus reaches a release cadence:
 
-1. The release pipeline runs `cirrus help export --format markdown --out ./docs/reference/` to generate per-command markdown files.
+1. The release pipeline runs a help export tool from `tools/Help/` to generate per-command markdown files, for example into `artifacts/help/markdown/` and then into `docs/reference/` as a publishing step.
 2. A PR is opened in the `azure-docs-cirrus` repo (equivalent to `azure-docs-cli` / `azure-docs-powershell`).
 3. The markdown files are rendered on MSLearn.
 
-The `cirrus help export` command is implemented as tooling or a tooling-facing command, consuming the same canonical help inputs and optional tooling artifacts. It is not used by runtime CLI help retrieval.
+The export step is a build-time tooling concern, consuming the same canonical help inputs and optional tooling artifacts. It is not used by runtime CLI help retrieval.
 
 ---
 
@@ -527,15 +517,16 @@ The `cirrus help export` command is implemented as tooling or a tooling-facing c
 
 The following design decisions are considered settled for the initial implementation of the Cirrus help system:
 
-| Area                           | Decision                                                                                                                                                                                                                                            |
-| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Summary` authoring            | Keep `Summary` as a separate field with manual authoring.                                                                                                                                                                                           |
-| Runtime CLI help source        | Runtime CLI help reads command metadata through Engine APIs backed by generated `ExtensionIndex.cs`; markdown/manifests/indexes are not runtime dependencies.                                                                                       |
-| Runtime ownership split        | Engine owns metadata retrieval (single command or keyed dictionary). CLI owns nested command-tree resolution, CLI-specific DTO projection, and rendering. Extensions do not implement CLI projection by default.                                    |
-| CLI command key contract       | Use canonical lower-case, full-path, space-delimited command keys for deterministic group prefix and command exact lookup.                                                                                                                          |
-| PowerShell help generation     | Keep PowerShell runtime help native to PowerShell. Generate MAML and related outputs only for packaging/publishing workflows. Keep PlatyPS optional for downstream publishing only.                                                                 |
-| Examples authoring             | Examples are authored inline in `ExtensionIndex.cs` as `CommandExample` entries on `CommandMetadata`. `ExtensionIndex.cs` is the single source of truth; no per-surface sidecar files are used.                                                     |
-| `HelpManifest.json` versioning | Do not introduce explicit manifest schema versioning yet. Rely on repo/build artifact compatibility for now, and add a lightweight version contract later only if independent extension shipping or host/extension skew becomes a real requirement. |
+| Area                       | Decision                                                                                                                                                                                                                 |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Summary` authoring        | Keep `Summary` as a separate field with manual authoring.                                                                                                                                                                |
+| Runtime CLI help source    | Runtime CLI help reads command metadata through Engine APIs backed by a generated projection compiled from authored markdown help files; markdown/manifests/indexes are not runtime dependencies.                        |
+| Runtime ownership split    | Engine owns metadata retrieval (single command or keyed dictionary). CLI owns nested command-tree resolution, CLI-specific DTO projection, and rendering. Extensions do not implement CLI projection by default.         |
+| CLI command key contract   | Use canonical lower-case, full-path, space-delimited command keys for deterministic group prefix and command exact lookup.                                                                                               |
+| PowerShell help generation | Keep PowerShell runtime help native to PowerShell. Generate MAML and related outputs only for packaging/publishing workflows. Keep PlatyPS optional for downstream publishing only.                                      |
+| Tooling ownership          | Build-time help generation, markdown export, validation, and packaging-oriented projections live under root `tools/` and emit optional artifacts under `artifacts/help/`. They are not part of Cirrus runtime retrieval. |
+| Examples authoring         | Examples are authored in the per-cmdlet markdown help files under each module's `help/` folder. The markdown is the single source of truth; no per-surface sidecar files are used.                                       |
+| JSON tooling artifacts     | Defer `HelpManifest.json` / `HelpIndex.json` until there is a concrete tooling consumer. Runtime help does not require JSON artifacts.                                                                                   |
 
 ---
 
@@ -543,18 +534,17 @@ The following design decisions are considered settled for the initial implementa
 
 Implementation should proceed in small vertical phases so the canonical help model is validated first, then runtime CLI help can be wired on a cold-start-safe path.
 
-### 15.1 Phase 1: Shared Help Model and Build Outputs
+### 15.1 Phase 1: Shared Help Model
 
-**Objective:** establish the canonical help model and generate the tooling/export artifacts that later phases may consume.
+**Objective:** establish the canonical help model used by runtime clients and available to future tooling.
 
 **In scope:**
 
 1. Extend `ProcessorInfoAttribute` and `ArgumentInfoAttribute` with the agreed metadata surface (`Summary`, parameter-set metadata, pipeline/wildcard flags).
 2. Define canonical help domain models for commands, parameters, examples, and surface projections.
-3. Add `Summary`, `Description`, and `Examples` fields to `CommandMetadata`; populate them in each extension's `ExtensionIndex.cs`.
-4. Consume canonical extension metadata plus help-specific inputs to generate optional `HelpManifest.json` per extension for tooling/testing.
-5. Generate optional `HelpIndex.json` for tooling/export scenarios.
-6. Add build validation that required descriptions, summaries, and per-surface examples are present.
+3. Add build tooling that converts authored markdown help into a runtime projection and PowerShell help outputs.
+4. Ensure the projection model is sufficient for CLI runtime help and future PowerShell packaging/help generation.
+5. Add build validation that required descriptions, summaries, and examples are present in the authored markdown.
 
 **Out of scope:**
 
@@ -566,21 +556,21 @@ Implementation should proceed in small vertical phases so the canonical help mod
 
 **Primary deliverables:**
 
-1. Shared help contracts in code (`CommandMetadata` with `Summary`, `Description`, `Examples`).
-2. A generator or equivalent build step that produces optional `HelpManifest.json` and `HelpIndex.json` tooling artifacts from canonical extension/help metadata.
+1. Shared help contracts in code for the runtime projection (`CommandMetadata` with `Summary`, `Description`, `Examples`).
+2. Authored markdown help populated for at least one end-to-end module.
 3. CI/build checks for missing required help content.
 
 **Recommended first extension target:**
 
-1. Start with one extension that has a small command surface and clear existing metadata, such as `Login` or `Resources`.
-2. Use it to validate manifest shape, example loading, and generator ergonomics before rolling out broadly.
+1. Start with one module that has a small command surface and clear existing markdown help, such as `Login` or `Resources`.
+2. Use it to validate runtime help shape, example loading, and markdown authoring ergonomics before rolling out broadly.
 
 **Exit criteria:**
 
-1. At least one extension builds with generated tooling help artifacts.
-2. The generated tooling artifacts can be inspected and snapshot-tested.
+1. At least one module exposes enough authored markdown help for CLI runtime help to render from the generated runtime projection alone.
+2. The runtime help output can be snapshot-tested.
 3. The build fails when required help metadata is missing.
-4. The generated outputs are stable enough to snapshot-test or golden-file test.
+4. The metadata is sufficient to support future packaging/publishing tooling without changing the runtime contract.
 
 ### 15.2 Phase 2: CLI Runtime Help
 

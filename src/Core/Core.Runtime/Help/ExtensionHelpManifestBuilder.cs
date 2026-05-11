@@ -38,16 +38,14 @@ namespace Core.Runtime
 
                 var cliName = NormalizeCliName(extensionName, cliEntry.Key);
                 var psName = psEntry.Key ?? string.Empty;
-                var summary = GetSummary(processorInfo, metadataForDescription);
-                var description = GetDescription(processorInfo, metadataForDescription);
+                var markdown = MarkdownCommandHelpProvider.Get(extensionName, cliEntry.Key);
+                var summary = GetSummary(markdown, processorInfo, metadataForDescription);
+                var description = GetDescription(markdown, processorInfo, metadataForDescription);
 
                 var parameters = BuildParameters(cliMetadata, psMetadata, processorType)
                     .OrderBy(parameter => parameter.Name, StringComparer.Ordinal)
                     .ToList();
-                var rawExamples = cliMetadata?.Examples ?? [];
-                var examples = new HelpExampleSet(
-                    Cli: rawExamples.Select(static e => new HelpExample(e.Title, e.Command)).ToList(),
-                    PowerShell: []);
+                var examples = BuildExamples(markdown, processorInfo);
                 var tags = processorInfo?.Tags ?? [];
 
                 commands.Add(new HelpCommand(
@@ -158,8 +156,13 @@ namespace Core.Runtime
                 .FirstOrDefault(attribute => string.Equals(attribute?.SerializedName, parameterName, StringComparison.OrdinalIgnoreCase));
         }
 
-        private static string GetSummary(ProcessorInfoAttribute? processorInfo, CommandMetadata metadata)
+        private static string GetSummary(MarkdownCommandHelp markdown, ProcessorInfoAttribute? processorInfo, CommandMetadata metadata)
         {
+            if (!string.IsNullOrWhiteSpace(markdown.Summary))
+            {
+                return markdown.Summary;
+            }
+
             if (!string.IsNullOrWhiteSpace(processorInfo?.Summary))
             {
                 return processorInfo.Summary.Trim();
@@ -173,14 +176,59 @@ namespace Core.Runtime
             return HumanizeCommandName(metadata.Name);
         }
 
-        private static string GetDescription(ProcessorInfoAttribute? processorInfo, CommandMetadata metadata)
+        private static string GetDescription(MarkdownCommandHelp markdown, ProcessorInfoAttribute? processorInfo, CommandMetadata metadata)
         {
+            if (!string.IsNullOrWhiteSpace(markdown.Description))
+            {
+                return markdown.Description;
+            }
+
             if (!string.IsNullOrWhiteSpace(processorInfo?.Description))
             {
                 return processorInfo.Description.Trim();
             }
 
             return HumanizeCommandName(metadata.Name);
+        }
+
+        private static HelpExampleSet BuildExamples(MarkdownCommandHelp markdown, ProcessorInfoAttribute? processorInfo)
+        {
+            if (markdown.Examples.Count > 0)
+            {
+                return new HelpExampleSet(
+                    Cli: markdown.Examples.Where(static e => !e.IsPowerShell).Select(static e => new HelpExample(e.Title, e.Command)).ToList(),
+                    PowerShell: markdown.Examples.Where(static e => e.IsPowerShell).Select(static e => new HelpExample(e.Title, e.Command)).ToList());
+            }
+
+            if (processorInfo?.Examples == null || processorInfo.Examples.Length == 0)
+            {
+                return new HelpExampleSet(Cli: [], PowerShell: []);
+            }
+
+            var cliExamples = new List<HelpExample>();
+            for (var i = 0; i < processorInfo.Examples.Length; i++)
+            {
+                var raw = processorInfo.Examples[i]?.Trim();
+                if (string.IsNullOrWhiteSpace(raw))
+                {
+                    continue;
+                }
+
+                var delimiter = raw.IndexOf('|');
+                if (delimiter <= 0 || delimiter >= raw.Length - 1)
+                {
+                    cliExamples.Add(new HelpExample($"Example {i + 1}", raw));
+                    continue;
+                }
+
+                var title = raw[..delimiter].Trim();
+                var command = raw[(delimiter + 1)..].Trim();
+                cliExamples.Add(new HelpExample(
+                    string.IsNullOrWhiteSpace(title) ? $"Example {i + 1}" : title,
+                    command));
+            }
+
+            return new HelpExampleSet(Cli: cliExamples, PowerShell: []);
         }
 
         private static string HumanizeCommandName(string name)

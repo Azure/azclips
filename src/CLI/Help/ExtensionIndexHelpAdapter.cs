@@ -1,5 +1,7 @@
 using Core.Abstractions;
 using Core.Cli.Parser;
+using Core.Runtime;
+using System.Reflection;
 
 namespace Core.Cli.Help;
 
@@ -9,6 +11,7 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
     private readonly IReadOnlyDictionary<string, CommandMetadata> _cliTable;
     private readonly string _rootGroupName;
     private readonly string _rootGroupPath;
+    private readonly string _extensionHelpFolder;
 
     public ExtensionIndexHelpAdapter(IExtensionIndex extensionIndex, string extensionName)
     {
@@ -20,6 +23,7 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
         _cliTable = _extensionIndex.GetCommandTable(ClientType.CLI);
         _rootGroupName = CommandGroupIndex.GetCommandGroupNameByExtensionName(extensionName);
         _rootGroupPath = _rootGroupName.ToLowerInvariant();
+        _extensionHelpFolder = _rootGroupPath;
     }
 
     public string ExtensionName { get; }
@@ -67,14 +71,15 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
                 SupportsWildcards: false))
             .ToList();
 
-        var examples = (metadata.Examples ?? [])
-            .Select(static example => new RuntimeHelpExample(example.Title, example.Command))
-            .ToList();
+        var markdown = MarkdownCommandHelpProvider.Get(_extensionHelpFolder, relativeKey);
+        var summary = GetSummary(metadata, markdown);
+        var description = GetDescription(metadata, markdown);
+        var examples = GetExamples(metadata, markdown);
 
         return new RuntimeHelpCommand(
             CommandPath: string.Join(" ", commandPath.Select(static segment => segment.ToLowerInvariant())),
-            Summary: metadata.Summary,
-            Description: metadata.Description,
+            Summary: summary,
+            Description: description,
             Parameters: parameters,
             Examples: examples,
             Tags: []);
@@ -90,7 +95,7 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
         {
             commandSummaries.Add(new RuntimeHelpCommandSummary(
                 Name: _rootGroupPath,
-                Summary: rootCommandMetadata.Summary,
+                Summary: GetSummary(rootCommandMetadata, MarkdownCommandHelpProvider.Get(_extensionHelpFolder, string.Empty)),
                 Tags: []));
         }
 
@@ -117,7 +122,7 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
             {
                 commandSummaries.Add(new RuntimeHelpCommandSummary(
                     Name: segments[0],
-                    Summary: kvp.Value.Summary,
+                    Summary: GetSummary(kvp.Value, MarkdownCommandHelpProvider.Get(_extensionHelpFolder, kvp.Key)),
                     Tags: []));
                 continue;
             }
@@ -169,5 +174,94 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
         return key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
             ? key[prefix.Length..]
             : null;
+    }
+
+    private static ProcessorInfoAttribute? GetProcessorInfo(CommandMetadata metadata)
+        => metadata.ProcessorType.GetCustomAttribute<ProcessorInfoAttribute>();
+
+    private static string GetSummary(CommandMetadata metadata, MarkdownCommandHelp markdown)
+    {
+        if (!string.IsNullOrWhiteSpace(markdown.Summary))
+        {
+            return markdown.Summary;
+        }
+
+        var processorInfo = GetProcessorInfo(metadata);
+        if (!string.IsNullOrWhiteSpace(processorInfo?.Summary))
+        {
+            return processorInfo.Summary.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(processorInfo?.Description))
+        {
+            return processorInfo.Description.Trim();
+        }
+
+        return HumanizeCommandName(metadata.Name);
+    }
+
+    private static string GetDescription(CommandMetadata metadata, MarkdownCommandHelp markdown)
+    {
+        if (!string.IsNullOrWhiteSpace(markdown.Description))
+        {
+            return markdown.Description;
+        }
+
+        var processorInfo = GetProcessorInfo(metadata);
+        if (!string.IsNullOrWhiteSpace(processorInfo?.Description))
+        {
+            return processorInfo.Description.Trim();
+        }
+
+        return HumanizeCommandName(metadata.Name);
+    }
+
+    private static List<RuntimeHelpExample> GetExamples(CommandMetadata metadata, MarkdownCommandHelp markdown)
+    {
+        if (markdown.Examples.Count > 0)
+        {
+            return markdown.Examples
+                .Where(static example => !example.IsPowerShell)
+                .Select(static example => new RuntimeHelpExample(example.Title, example.Command))
+                .ToList();
+        }
+
+        var processorInfo = GetProcessorInfo(metadata);
+        if (processorInfo?.Examples == null || processorInfo.Examples.Length == 0)
+        {
+            return [];
+        }
+
+        var result = new List<RuntimeHelpExample>();
+        for (var i = 0; i < processorInfo.Examples.Length; i++)
+        {
+            var raw = processorInfo.Examples[i]?.Trim();
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                continue;
+            }
+
+            var delimiter = raw.IndexOf('|');
+            if (delimiter <= 0 || delimiter >= raw.Length - 1)
+            {
+                result.Add(new RuntimeHelpExample($"Example {i + 1}", raw));
+                continue;
+            }
+
+            var title = raw[..delimiter].Trim();
+            var command = raw[(delimiter + 1)..].Trim();
+            result.Add(new RuntimeHelpExample(
+                string.IsNullOrWhiteSpace(title) ? $"Example {i + 1}" : title,
+                command));
+        }
+
+        return result;
+    }
+
+    private static string HumanizeCommandName(string name)
+    {
+        return name.EndsWith("Command", StringComparison.Ordinal)
+            ? name[..^"Command".Length]
+            : name;
     }
 }

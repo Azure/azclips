@@ -55,14 +55,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
                 ["tenant-id"]       = new("TenantId", typeof(string), "Tenant ID to login to.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["use-device-code"] = new("UseDeviceCode", typeof(bool), "Use device code flow for authentication.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>(),
-            Summary: "Authenticate to Azure and set the current account context.",
-            Description: "Authenticate to Azure and persist account context for subsequent commands.",
-            Examples:
-            [
-                new("Login with subscription id", "azv2 login --subscription-id 00000000-0000-0000-0000-000000000000"),
-                new("Login with device code",      "azv2 login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code"),
-            ]
+            ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_logout_CLI = new(
             Name: "LogoutCommand",
@@ -71,10 +64,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
             ProcessorType: typeof(Processors.LogoutProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>(),
-            ParameterAliases: new Dictionary<string, string>(),
-            Summary: "Sign out from the current Azure account context.",
-            Description: "Sign out from the current Azure account context.",
-            Examples: [new("Sign out", "azv2 login logout")]
+            ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_getContext_CLI = new(
             Name: "GetContextCommand",
@@ -83,10 +73,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
             ProcessorType: typeof(Processors.GetContextProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>(),
-            ParameterAliases: new Dictionary<string, string>(),
-            Summary: "Show the current Azure account context.",
-            Description: "Show the current Azure account context.",
-            Examples: [new("Show current account context", "azv2 login show")]
+            ParameterAliases: new Dictionary<string, string>()
         );
         // ── Dispatch Tables ──
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
