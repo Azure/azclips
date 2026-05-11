@@ -2,8 +2,10 @@ using System.Diagnostics;
 using System.Reflection;
 using Core.Abstractions;
 using Core.Cli.Exceptions;
+using Core.Cli.Help;
 using Core.Cli.Parser;
 using Core.Engine;
+using Core.Runtime;
 using Core.Telemetry;
 using Core.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,6 +19,7 @@ public class Program
     private static ITelemetryService? _telemetryService;
     private static ILoggingService? _logger;
     private static readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
+    private static readonly IHelpRenderer _helpRenderer = new RuntimeHelpRenderer();
     
     // CLI by default only enable output and error streams. Optional streams enabled by global parameters
     private static OutputStreams streams = new OutputStreams(
@@ -81,8 +84,23 @@ public class Program
             }
             catch (DispatchHelpException)
             {
-                _logger?.Log("Command Line Interface Help");
+                var rootGroups = CommandGroupIndex.GetRootHelpGroups();
+                foreach (var line in _helpRenderer.RenderRoot(rootGroups, TerminalWidth()))
+                {
+                    Console.WriteLine(line);
+                }
+
                 activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
+                return 0;
+            }
+            catch (RuntimeExtensionHelpException helpException)
+            {
+                foreach (var line in RenderRuntimeHelp(helpException))
+                {
+                    Console.WriteLine(line);
+                }
+
+                activity?.SetStatus(ActivityStatusCode.Ok, "Extension help requested");
                 return 0;
             }
             catch (Exception ex)
@@ -215,5 +233,25 @@ public class Program
         {
             return null;
         }
+    }
+
+    private static IEnumerable<string> RenderRuntimeHelp(RuntimeExtensionHelpException helpException)
+    {
+        var assemblyLoading = CirrusServiceProvider.GetRequiredService<IAssemblyLoadingService>();
+        var assembly = assemblyLoading.LoadExtension(helpException.ExtensionName);
+        var helpProvider = assembly.GetExtensionHelpProvider();
+
+        if (helpException.IsCommandHelp)
+        {
+            var command = helpProvider.GetCommandHelp(helpException.Path)
+                ?? throw new KeyNotFoundException($"Command help not found for path '{string.Join(" ", helpException.Path)}'.");
+
+            return _helpRenderer.RenderCommand(command, TerminalWidth());
+        }
+
+        var group = helpProvider.GetGroupHelp(helpException.Path)
+            ?? throw new KeyNotFoundException($"Group help not found for path '{string.Join(" ", helpException.Path)}'.");
+
+        return _helpRenderer.RenderGroup(group, TerminalWidth());
     }
 }

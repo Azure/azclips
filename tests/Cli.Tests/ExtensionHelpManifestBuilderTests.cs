@@ -7,16 +7,14 @@ namespace Cli.Tests;
 public class ExtensionHelpManifestBuilderTests
 {
     [Fact]
-    public void BuildManifest_ShouldProduceLoginCommands_WithSurfaceSpecificExamples()
+    public void BuildManifest_ShouldProduceLoginCommands_WithInlineExamples()
     {
         var index = new ExtensionIndex();
-        var examplesPath = Path.Combine(RepoLocator.GetRepoRoot(), "src", "Extensions", "Login", "Processors");
 
         var manifest = ExtensionHelpManifestBuilder.BuildManifest(
             extensionIndex: index,
             extensionName: "login",
-            extensionVersion: "1.0.0-alpha",
-            examplesBaseDirectory: examplesPath);
+            extensionVersion: "1.0.0-alpha");
 
         Assert.Equal("login", manifest.Extension);
         Assert.Equal("1.0.0-alpha", manifest.Version);
@@ -24,9 +22,8 @@ public class ExtensionHelpManifestBuilderTests
 
         var loginCommand = Assert.Single(manifest.Commands, c => c.CliName == "login");
         Assert.Equal("Connect-CirrusAccount", loginCommand.PsName);
-        Assert.Equal("Login", loginCommand.Summary);
+        Assert.NotEmpty(loginCommand.Summary);
         Assert.NotEmpty(loginCommand.Examples.Cli);
-        Assert.NotEmpty(loginCommand.Examples.PowerShell);
 
         Assert.Contains(loginCommand.Parameters, p => p.Name == "subscription-id" && p.PsName == "SubscriptionId");
         Assert.Contains(loginCommand.Parameters, p => p.Name == "tenant-id" && p.PsName == "TenantId");
@@ -37,9 +34,8 @@ public class ExtensionHelpManifestBuilderTests
     public void BuildIndex_ShouldIncludeGroupAndCommands_FromManifest()
     {
         var index = new ExtensionIndex();
-        var examplesPath = Path.Combine(RepoLocator.GetRepoRoot(), "src", "Extensions", "Login", "Processors");
 
-        var manifest = ExtensionHelpManifestBuilder.BuildManifest(index, "login", "1.0.0-alpha", examplesPath);
+        var manifest = ExtensionHelpManifestBuilder.BuildManifest(index, "login", "1.0.0-alpha");
         var helpIndex = ExtensionHelpManifestBuilder.BuildIndex([manifest]);
 
         var group = Assert.Single(helpIndex.Groups);

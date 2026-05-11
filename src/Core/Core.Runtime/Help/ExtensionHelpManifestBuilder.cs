@@ -8,8 +8,7 @@ namespace Core.Runtime
         public static HelpManifest BuildManifest(
             IExtensionIndex extensionIndex,
             string extensionName,
-            string extensionVersion,
-            string examplesBaseDirectory)
+            string extensionVersion)
         {
             var cliTable = GetCommandTable(extensionIndex, "s_cliTable");
             var psTable = GetCommandTable(extensionIndex, "s_psTable");
@@ -45,7 +44,10 @@ namespace Core.Runtime
                 var parameters = BuildParameters(cliMetadata, psMetadata, processorType)
                     .OrderBy(parameter => parameter.Name, StringComparer.Ordinal)
                     .ToList();
-                var examples = HelpExampleSidecarLoader.Load(examplesBaseDirectory, processorType.Name, processorInfo?.Examples);
+                var rawExamples = cliMetadata?.Examples ?? [];
+                var examples = new HelpExampleSet(
+                    Cli: rawExamples.Select(static e => new HelpExample(e.Title, e.Command)).ToList(),
+                    PowerShell: []);
                 var tags = processorInfo?.Tags ?? [];
 
                 commands.Add(new HelpCommand(

@@ -52,24 +52,15 @@
       "examples": {
         "cli": [
           {
-            "title": "Sign in with a subscription ID",
-            "command": "azv2 login connect --subscription-id 00000000-0000-0000-0000-000000000000"
+            "title": "Login with subscription id",
+            "command": "azv2 login --subscription-id 00000000-0000-0000-0000-000000000000"
           },
           {
-            "title": "Sign in with tenant and subscription",
-            "command": "azv2 login connect --tenant-id 11111111-1111-1111-1111-111111111111 --subscription-id 00000000-0000-0000-0000-000000000000"
+            "title": "Login with device code",
+            "command": "azv2 login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code"
           }
         ],
-        "powerShell": [
-          {
-            "title": "Sign in with a subscription ID",
-            "command": "Connect-CirrusAccount -SubscriptionId 00000000-0000-0000-0000-000000000000"
-          },
-          {
-            "title": "Sign in with tenant and subscription",
-            "command": "Connect-CirrusAccount -TenantId 11111111-1111-1111-1111-111111111111 -SubscriptionId 00000000-0000-0000-0000-000000000000"
-          }
-        ]
+        "powerShell": []
       },
       "tags": []
     },
@@ -81,7 +72,12 @@
       "description": "Logout",
       "parameters": [],
       "examples": {
-        "cli": [],
+        "cli": [
+          {
+            "title": "Sign out",
+            "command": "azv2 login logout"
+          }
+        ],
         "powerShell": []
       },
       "tags": []
@@ -94,7 +90,12 @@
       "description": "GetContext",
       "parameters": [],
       "examples": {
-        "cli": [],
+        "cli": [
+          {
+            "title": "Show current account context",
+            "command": "azv2 login show"
+          }
+        ],
         "powerShell": []
       },
       "tags": []

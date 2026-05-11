@@ -21,6 +21,20 @@ namespace Core.Runtime
             return (Activator.CreateInstance(type) as IExtensionIndex)!;
         }
 
+        public static IExtensionHelpProvider GetExtensionHelpProvider(this Assembly assembly)
+        {
+            string assemblyName = assembly.GetName().Name ?? throw new InvalidOperationException($"The assembly name could not be determined for assembly '{assembly.FullName}'.");
+            string typeName = $"{assemblyName}.ExtensionIndex";
+            Type type = assembly.GetType(typeName) ?? throw new InvalidOperationException($"No extension index implementation found in assembly {assembly.FullName}");
+
+            if (!typeof(IExtensionHelpProvider).IsAssignableFrom(type))
+            {
+                throw new InvalidOperationException($"The type '{typeName}' does not implement IExtensionHelpProvider.");
+            }
+
+            return (Activator.CreateInstance(type) as IExtensionHelpProvider)!;
+        }
+
         public static IProcessor GetInstance(this CommandMetadata metadata)
         {
             IProcessor? instance = null;

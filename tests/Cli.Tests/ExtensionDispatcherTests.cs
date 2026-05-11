@@ -2,6 +2,7 @@ using Core.Abstractions;
 using Core.Cli.Exceptions;
 using Core.Cli.Parser;
 using Microsoft.Azure.Cirrus.Extensions.Config;
+using Microsoft.Azure.Cirrus.Extensions.Login;
 using Xunit;
 
 namespace Cli.Tests;
@@ -42,9 +43,59 @@ public class ExtensionDispatcherTests
     }
 
     [Fact]
+    public void Parse_ShouldThrowRuntimeExtensionHelpException_WhenGroupHelpRequested()
+    {
+        var dispatcher = new ExtensionDispatcher();
+
+        var exception = Assert.Throws<RuntimeExtensionHelpException>(() => dispatcher.Parse(["login", "--help"]));
+
+        Assert.Equal("Login", exception.ExtensionName);
+        Assert.False(exception.IsCommandHelp);
+        Assert.Equal(["login"], exception.Path);
+    }
+
+    [Fact]
+    public void Parse_ShouldThrowRuntimeExtensionHelpException_WhenHelpSubcommandUsedForCommand()
+    {
+        var dispatcher = new ExtensionDispatcher();
+
+        var exception = Assert.Throws<RuntimeExtensionHelpException>(() => dispatcher.Parse(["help", "login", "show"]));
+
+        Assert.Equal("Login", exception.ExtensionName);
+        Assert.True(exception.IsCommandHelp);
+        Assert.Equal(["login", "show"], exception.Path);
+    }
+
+    [Fact]
+    public void Parse_ShouldShortCircuitToHelp_BeforeCommandExecutionPath()
+    {
+        var dispatcher = new ExtensionDispatcher();
+
+        var exception = Assert.Throws<RuntimeExtensionHelpException>(() => dispatcher.Parse(["login", "--help", "--subscription-id", "missing"]));
+
+        Assert.Equal("Login", exception.ExtensionName);
+        Assert.False(exception.IsCommandHelp);
+        Assert.Equal(["login"], exception.Path);
+    }
+
+    [Fact]
+    public void LoginExtensionIndex_ShouldProvideRuntimeCommandHelp()
+    {
+        var index = new Microsoft.Azure.Cirrus.Extensions.Login.ExtensionIndex();
+
+        var groupHelp = index.GetGroupHelp(["login"]);
+        var commandHelp = index.GetCommandHelp(["login", "show"]);
+
+        Assert.NotNull(groupHelp);
+        Assert.NotNull(commandHelp);
+        Assert.Equal("login", groupHelp!.GroupPath);
+        Assert.Equal("login show", commandHelp!.CommandPath);
+    }
+
+    [Fact]
     public void ConfigExtensionIndex_ShouldExposeTranslatedPowerShellParameters()
     {
-        var extensionIndex = new ExtensionIndex();
+        var extensionIndex = new Microsoft.Azure.Cirrus.Extensions.Config.ExtensionIndex();
 
         var getMetadata = extensionIndex.GetCommandMetadata("Get-CirrusConfig", ClientType.PowerShell);
         Assert.Contains("Json", getMetadata.Parameters.Keys);

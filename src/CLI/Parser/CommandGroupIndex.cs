@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Core.Abstractions;
 
 namespace Core.Cli.Parser
 {
@@ -16,14 +17,22 @@ namespace Core.Cli.Parser
     static class CommandGroupIndex
     {
         private static readonly Dictionary<string, string> _commandGroups = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private static readonly Dictionary<string, string> _groupSummaries = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
         static CommandGroupIndex()
         {
             _commandGroups["Group"] = "Resources";
             _commandGroups["Login"] = "Login";
             _commandGroups["Extension"] = "Extension";
             _commandGroups["Config"] = "Config";
+
+            _groupSummaries["Group"] = "Manage resource groups.";
+            _groupSummaries["Login"] = "Authenticate to Azure.";
+            _groupSummaries["Extension"] = "Manage Cirrus extensions.";
+            _groupSummaries["Config"] = "Manage local configuration.";
             // Add more command groups as needed
         }
+
         internal static string getExtensionNameByCommandGroupName(string commandGroupName)
         {
             if (!_commandGroups.TryGetValue(commandGroupName, out var extensionName))
@@ -31,6 +40,19 @@ namespace Core.Cli.Parser
                 throw new KeyNotFoundException($"Command group '{commandGroupName}' not found.");
             }
             return extensionName;
+        }
+
+        internal static IReadOnlyList<RuntimeHelpGroup> GetRootHelpGroups()
+        {
+            return [
+                .. _commandGroups
+                    .OrderBy(static kvp => kvp.Key, StringComparer.OrdinalIgnoreCase)
+                    .Select(kvp => new RuntimeHelpGroup(
+                        GroupPath: kvp.Key.ToLowerInvariant(),
+                        Summary: _groupSummaries.TryGetValue(kvp.Key, out var summary) ? summary : string.Empty,
+                        Subgroups: [],
+                        Commands: []))
+            ];
         }
     }
 }

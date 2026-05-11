@@ -1,0 +1,70 @@
+using Core.Abstractions;
+using Core.Cli.Help;
+using Microsoft.Azure.Cirrus.Extensions.Login;
+using Tests.Common.Utilities;
+
+namespace Cli.Tests;
+
+public class RuntimeHelpRendererTests
+{
+    [Fact]
+    public void RenderGroup_ShouldMatchGolden_ForLoginGroup()
+    {
+        var renderer = new RuntimeHelpRenderer();
+        var index = new ExtensionIndex();
+        var group = index.GetGroupHelp(["login"]);
+
+        Assert.NotNull(group);
+
+        var actual = string.Join(Environment.NewLine, renderer.RenderGroup(group!, terminalWidth: null));
+        var expected = LoadGolden("Login.RuntimeGroupHelp.txt");
+
+        Assert.Equal(NormalizeLineEndings(expected), NormalizeLineEndings(actual));
+    }
+
+    [Fact]
+    public void RenderCommand_ShouldMatchGolden_ForLoginShowCommand()
+    {
+        var renderer = new RuntimeHelpRenderer();
+        var index = new ExtensionIndex();
+        var command = index.GetCommandHelp(["login", "show"]);
+
+        Assert.NotNull(command);
+
+        var actual = string.Join(Environment.NewLine, renderer.RenderCommand(command!, terminalWidth: null));
+        var expected = LoadGolden("Login.RuntimeCommandHelp.show.txt");
+
+        Assert.Equal(NormalizeLineEndings(expected), NormalizeLineEndings(actual));
+    }
+
+    [Fact]
+    public void RenderRoot_ShouldMatchGolden_ForSingleLoginGroup()
+    {
+        var renderer = new RuntimeHelpRenderer();
+        var groups = new RuntimeHelpGroup[]
+        {
+            new(
+                GroupPath: "login",
+                Summary: "Authenticate to Azure.",
+                Subgroups: [],
+                Commands: [])
+        };
+
+        var actual = string.Join(Environment.NewLine, renderer.RenderRoot(groups, terminalWidth: null));
+        var expected = LoadGolden("Root.RuntimeHelp.txt");
+
+        Assert.Equal(NormalizeLineEndings(expected), NormalizeLineEndings(actual));
+    }
+
+    private static string LoadGolden(string fileName)
+    {
+        var repoRoot = RepoLocator.GetRepoRoot();
+        var path = Path.Combine(repoRoot, "tests", "Cli.Tests", "Golden", "Help", fileName);
+        return File.ReadAllText(path).TrimEnd();
+    }
+
+    private static string NormalizeLineEndings(string value)
+    {
+        return value.Replace("\r\n", "\n").Replace("\r", "\n").TrimEnd();
+    }
+}
