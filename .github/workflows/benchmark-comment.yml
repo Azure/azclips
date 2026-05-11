@@ -57,11 +57,14 @@ jobs:
           FORK_OWNER="${HEAD_REPO%%/*}"
 
           if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" = "null" ]; then
-            PR_NUMBER=$(gh pr list \
+            if ! PR_NUMBER=$(gh pr list \
               --repo "${{ github.repository }}" \
               --state open \
               --json number,headRefOid \
-              --jq ".[] | select(.headRefOid == \"$HEAD_SHA\") | .number" 2>&1) || true
+              --jq ".[] | select(.headRefOid == \"$HEAD_SHA\") | .number" 2>/dev/null); then
+              PR_NUMBER=""
+              echo "::warning::Failed to query PRs with gh"
+            fi
             echo "Attempt 2 (headRefOid match): '$PR_NUMBER'"
           fi
 
