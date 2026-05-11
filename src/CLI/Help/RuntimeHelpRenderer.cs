@@ -1,5 +1,3 @@
-using Core.Abstractions;
-
 namespace Core.Cli.Help;
 
 public interface IHelpRenderer

@@ -84,7 +84,11 @@ public class Program
             }
             catch (DispatchHelpException)
             {
-                var rootGroups = CommandGroupIndex.GetRootHelpGroups();
+                var assemblyLoading = CirrusServiceProvider.GetRequiredService<IAssemblyLoadingService>();
+                var rootGroups = CommandGroupIndex.GetRegisteredExtensionNames()
+                    .SelectMany(extensionName => TryGetRootGroups(assemblyLoading, extensionName))
+                    .ToArray();
+
                 foreach (var line in _helpRenderer.RenderRoot(rootGroups, TerminalWidth()))
                 {
                     Console.WriteLine(line);
@@ -261,5 +265,19 @@ public class Program
             ?? throw new KeyNotFoundException($"Group help not found for path '{string.Join(" ", helpException.Path)}'.");
 
         return _helpRenderer.RenderGroup(group, TerminalWidth());
+    }
+
+    private static IEnumerable<RuntimeHelpGroup> TryGetRootGroups(IAssemblyLoadingService assemblyLoading, string extensionName)
+    {
+        try
+        {
+            var assembly = assemblyLoading.LoadExtension(extensionName);
+            var helpProvider = new ExtensionIndexHelpAdapter(assembly.GetExtensionIndex(), extensionName);
+            return helpProvider.GetRootGroups();
+        }
+        catch
+        {
+            return [];
+        }
     }
 }

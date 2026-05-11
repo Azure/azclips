@@ -1,12 +1,10 @@
-// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
+using Core.Abstractions;
 
-namespace Core.Abstractions;
+namespace Core.Cli.Help;
 
 /// <summary>
 /// Provides CLI-shaped runtime help metadata for rendering without loading command execution code.
-/// This is a CLI-side contract and is typically implemented by an adapter over <see cref="IExtensionIndex"/>,
-/// not by each extension directly.
+/// This is a CLI-side contract and is typically implemented by an adapter over <see cref="IExtensionIndex"/>.
 /// </summary>
 public interface IExtensionHelpProvider
 {

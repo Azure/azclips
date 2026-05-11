@@ -25,7 +25,7 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
     public string ExtensionName { get; }
 
     public IReadOnlyList<RuntimeHelpGroup> GetRootGroups()
-        => [BuildGroup([_rootGroupPath], CommandGroupIndex.GetGroupSummary(_rootGroupName))!];
+        => [BuildGroup([_rootGroupPath], _extensionIndex.CliRootSummary)!];
 
     public RuntimeHelpGroup? GetGroupHelp(IReadOnlyList<string> groupPath)
     {
@@ -35,7 +35,7 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
         }
 
         var summary = groupPath.Count == 1
-            ? CommandGroupIndex.GetGroupSummary(_rootGroupName)
+            ? _extensionIndex.CliRootSummary
             : string.Empty;
 
         return BuildGroup(groupPath, summary, returnNullWhenEmpty: groupPath.Count > 1);

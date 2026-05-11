@@ -1,4 +1,3 @@
-using Core.Abstractions;
 using Core.Cli.Help;
 using Microsoft.Azure.Cirrus.Extensions.Login;
 using Tests.Common.Utilities;

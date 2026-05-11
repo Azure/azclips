@@ -6,6 +6,11 @@ namespace Core.Abstractions
     // Yabo: Should these interfaces be in SharedContract or merge SharedContract to Core.Abstraction?
     public interface IExtensionIndex
     {
+        /// <summary>
+        /// Summary displayed for the extension's root CLI group.
+        /// </summary>
+        string CliRootSummary { get; }
+
         CommandMetadata GetCommandMetadata(string name, ClientType clientType);
 
         /// <summary>

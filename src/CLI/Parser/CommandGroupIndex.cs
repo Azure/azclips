@@ -4,10 +4,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Core.Abstractions;
-
 namespace Core.Cli.Parser
 {
     //This index will eventually comes from:
@@ -17,7 +13,6 @@ namespace Core.Cli.Parser
     static class CommandGroupIndex
     {
         private static readonly Dictionary<string, string> _commandGroups = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        private static readonly Dictionary<string, string> _groupSummaries = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         static CommandGroupIndex()
         {
@@ -25,11 +20,6 @@ namespace Core.Cli.Parser
             _commandGroups["Login"] = "Login";
             _commandGroups["Extension"] = "Extension";
             _commandGroups["Config"] = "Config";
-
-            _groupSummaries["Group"] = "Manage resource groups.";
-            _groupSummaries["Login"] = "Authenticate to Azure.";
-            _groupSummaries["Extension"] = "Manage Cirrus extensions.";
-            _groupSummaries["Config"] = "Manage local configuration.";
             // Add more command groups as needed
         }
 
@@ -55,24 +45,7 @@ namespace Core.Cli.Parser
             throw new KeyNotFoundException($"Extension '{extensionName}' does not have a registered command group.");
         }
 
-        internal static string GetGroupSummary(string commandGroupName)
-        {
-            return _groupSummaries.TryGetValue(commandGroupName, out var summary)
-                ? summary
-                : string.Empty;
-        }
-
-        internal static IReadOnlyList<RuntimeHelpGroup> GetRootHelpGroups()
-        {
-            return [
-                .. _commandGroups
-                    .OrderBy(static kvp => kvp.Key, StringComparer.OrdinalIgnoreCase)
-                    .Select(kvp => new RuntimeHelpGroup(
-                        GroupPath: kvp.Key.ToLowerInvariant(),
-                        Summary: _groupSummaries.TryGetValue(kvp.Key, out var summary) ? summary : string.Empty,
-                        Subgroups: [],
-                        Commands: []))
-            ];
-        }
+        internal static IReadOnlyList<string> GetRegisteredExtensionNames()
+            => [.. _commandGroups.Values.Distinct(StringComparer.OrdinalIgnoreCase)];
     }
 }
