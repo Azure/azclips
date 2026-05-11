@@ -181,7 +181,7 @@ jobs:
               lines.append("")
 
           if alert:
-              lines.append("> ⚠️ **Performance regression detected** (threshold: 130%)")
+              lines.append("> ⚠️ **Performance regression detected** (threshold: 115%)")
               lines.append("")
           run_url = os.environ["RUN_URL"]
           lines.append(f"[📋 Full details]({run_url})")
