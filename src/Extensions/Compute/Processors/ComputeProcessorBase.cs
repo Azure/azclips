@@ -110,8 +110,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
                 {
                     // TODO(Yabo): get default value from config service: engine get default from configservice and pass to processor via ProcessorContext
                     int delay = (int)(_response.Headers.RetryAfter?.Delta?.TotalSeconds ?? _httpPipeline.PollingInterval);
-                    await _eventListener.Signal(Events.DelayPolling, $"Delaying {delay/1000} seconds before polling.");
-                    Task delayTask = Task.Delay(delay, _eventListener.Token);
+                    await _eventListener.Signal(Events.DelayPolling, $"Delaying {delay} seconds before polling.");
+                    Task delayTask = Task.Delay(delay*1000, _eventListener.Token);
 
                     // while we wait, let's grab the headers and get ready to poll.
                     if (!string.IsNullOrEmpty(GetAsyncOperationUri(_response)))

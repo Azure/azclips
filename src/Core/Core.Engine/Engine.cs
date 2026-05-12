@@ -91,7 +91,7 @@ namespace Core.Engine
                 session.Option.Http.MaxRetriesFor429)
             {
                 // TODO(Yabo): Get this from config service
-                PollingInterval = 15000
+                PollingInterval = 15
             };
             ProcessorContext context = new ProcessorContext
             (
