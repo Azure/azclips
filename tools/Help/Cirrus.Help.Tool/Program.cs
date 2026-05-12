@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Runtime.Loader;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Core.Abstractions;
 using Core.Runtime;
@@ -17,6 +18,8 @@ if (!Directory.Exists(artifactsRoot))
 {
     throw new DirectoryNotFoundException($"Artifacts root not found: {artifactsRoot}");
 }
+
+ValidateMarkdownHelpFiles(repoRoot);
 
 Directory.CreateDirectory(outputRoot);
 
@@ -122,6 +125,83 @@ static string? GetArg(string[] args, string name)
 static bool HasArg(string[] args, string name)
 {
     return args.Any(arg => arg.Equals(name, StringComparison.OrdinalIgnoreCase));
+}
+
+static void ValidateMarkdownHelpFiles(string repoRoot)
+{
+    var helpRoot = Path.Combine(repoRoot, "src", "Extensions");
+    if (!Directory.Exists(helpRoot))
+    {
+        throw new DirectoryNotFoundException($"Extensions directory not found: {helpRoot}");
+    }
+
+    var markdownFiles = Directory
+        .EnumerateFiles(helpRoot, "*.md", SearchOption.AllDirectories)
+        .Where(static path => path.Contains($"{Path.DirectorySeparatorChar}help{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
+        .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
+    if (markdownFiles.Count == 0)
+    {
+        throw new InvalidOperationException("No help markdown files found under src/Extensions/*/help.");
+    }
+
+    var errors = new List<string>();
+    foreach (var file in markdownFiles)
+    {
+        var content = File.ReadAllText(file);
+        var relativePath = Path.GetRelativePath(repoRoot, file);
+
+        if (!HasBalancedCodeFences(content))
+        {
+            errors.Add($"{relativePath}: Unbalanced markdown code fences (``` markers must be paired).");
+        }
+
+        var summary = GetMarkdownField(content, "Summary");
+        if (string.IsNullOrWhiteSpace(summary))
+        {
+            errors.Add($"{relativePath}: Missing required field 'Summary:'.");
+        }
+
+        var description = GetMarkdownField(content, "Description");
+        if (string.IsNullOrWhiteSpace(description))
+        {
+            errors.Add($"{relativePath}: Missing required field 'Description:'.");
+        }
+
+        var exampleCount = Regex.Matches(
+            content,
+            @"###\s*(?<title>.+?)\s*\r?\n```(?<lang>[a-zA-Z0-9_-]*)\s*\r?\n(?<command>[\s\S]*?)\r?\n```",
+            RegexOptions.CultureInvariant | RegexOptions.IgnoreCase).Count;
+
+        if (exampleCount == 0)
+        {
+            errors.Add($"{relativePath}: Missing examples. Add at least one '### Title' + fenced code block example.");
+        }
+    }
+
+    if (errors.Count > 0)
+    {
+        throw new InvalidOperationException(
+            "Help markdown validation failed:" + Environment.NewLine +
+            string.Join(Environment.NewLine, errors.Select(static error => $" - {error}")));
+    }
+}
+
+static string GetMarkdownField(string content, string fieldName)
+{
+    var match = Regex.Match(
+        content,
+        $@"^\s*{Regex.Escape(fieldName)}\s*:\s*(?<value>[\s\S]*?)(?=^\s*[A-Za-z][A-Za-z0-9_-]*\s*:|\z)",
+        RegexOptions.Multiline | RegexOptions.CultureInvariant);
+
+    return match.Success ? match.Groups["value"].Value.Trim() : string.Empty;
+}
+
+static bool HasBalancedCodeFences(string content)
+{
+    var fenceCount = Regex.Matches(content, @"(?m)^\s*```[a-zA-Z0-9_-]*\s*$", RegexOptions.CultureInvariant).Count;
+    return fenceCount % 2 == 0;
 }
 
 static void WriteJson<T>(string path, T value)
