@@ -80,8 +80,13 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
 
         public async virtual Task<HttpResponseMessage> SendAsync()
         {
+            IRuntimeHttpPipeline _httpPipeline =  HttpPipeline ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(HttpPipeline)}.");
+            IEventListener _eventListener = EventListener ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(EventListener)}.");
             using HttpRequestMessage _request = await CreateRequestMessage();
-            return await HttpPipeline.SendAsync(_request, EventListener);
+            HttpResponseMessage _response = await _httpPipeline.SendAsync(_request, _eventListener);
+            await _eventListener.Signal(Events.TracingHttpResponseMessage, _response);
+            // TODO(Yabo): handle status codess
+            return _response;
         }
 
         public async virtual Task<HttpResponseMessage> SendAsyncLRO()
@@ -93,7 +98,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
                 IEventListener _eventListener = EventListener ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(EventListener)}.");
                 string _originalUri = _request.RequestUri!.AbsoluteUri;
                 HttpResponseMessage _response = await _httpPipeline.SendAsync(_request, _eventListener);
-                await EventListener.Signal(Events.TracingHttpResponseMessage, _response);
+                await _eventListener.Signal(Events.TracingHttpResponseMessage, _response);
                 // declared final-state-via: location
                 var _finalUri = string.IsNullOrEmpty(GetFinalUri(_response)) ? _originalUri : GetFinalUri(_response);
                 var _asyncOperationUri = GetAsyncOperationUri(_response);
@@ -132,7 +137,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
                     await _eventListener.Signal(Events.BeforePollingCall, $"Polling status: {Environment.NewLine}_finalUri: {Environment.NewLine}{_finalUri}{Environment.NewLine}_asyncOperationUri: {Environment.NewLine}{_asyncOperationUri}{Environment.NewLine}_locationUri: {Environment.NewLine}{_locationUri}{Environment.NewLine}_operationLocationUri: {Environment.NewLine}{_operationLocationUri}");
                     // make the polling call
                     _response = await _httpPipeline.SendAsync(_request, _eventListener);
-                    await EventListener.Signal(Events.TracingHttpResponseMessage, _response);
+                    await _eventListener.Signal(Events.TracingHttpResponseMessage, _response);
                     await _eventListener.Signal(Events.AfterPollingCall);
 
                     // if we got back an OK, take a peek inside and see if it's done

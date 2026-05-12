@@ -102,9 +102,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
             await EventListener.Signal(Events.ProcessorProcessAsyncStart);
             SubscriptionId = SubscriptionId ?? AuthContext.SubscriptionId ?? throw new InvalidOperationException($"SubscriptionId must be provided either via property or auth context.");
             using HttpResponseMessage response = await SendAsyncLRO();
-            await EventListener.Signal(Events.TracingHttpResponseMessage, response);
             VirtualMachine body = (await response.Content.ReadFromJsonAsync<VirtualMachine>(JsonOptions))!;
-            // TODO(Yabo): handle status codes
             await WriteOutput(body);
             await EventListener.Signal(Events.ProcessorProcessAsyncEnd);
         }

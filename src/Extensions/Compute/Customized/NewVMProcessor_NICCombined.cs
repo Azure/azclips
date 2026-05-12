@@ -57,7 +57,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
                 p.RuleAccesses = RuleAccesses;
             });
             using HttpResponseMessage nicResponse = await nicProcessor.SendAsyncLRO();
-            await EventListener.Signal(Events.TracingHttpResponseMessage, nicResponse);
             NetworkInterface nic = (await nicResponse.Content.ReadFromJsonAsync<NetworkInterface>(JsonOptions))!;
 
             NewVMProcessor vmProcessor = CreateExtendedProcessor<NewVMProcessor>(p =>
@@ -79,7 +78,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
             await EventListener.Signal(Events.ProcessorProcessAsyncStart);
             SubscriptionId = SubscriptionId ?? AuthContext.SubscriptionId ?? throw new InvalidOperationException($"SubscriptionId must be provided either via property or auth context.");
             using HttpResponseMessage vmResponse = await SendAsyncLRO();
-            await EventListener.Signal(Events.TracingHttpResponseMessage, vmResponse);
             VirtualMachine vm = (await vmResponse.Content.ReadFromJsonAsync<VirtualMachine>(JsonOptions))!;
             await WriteOutput(vm);
             await EventListener.Signal(Events.ProcessorProcessAsyncEnd);

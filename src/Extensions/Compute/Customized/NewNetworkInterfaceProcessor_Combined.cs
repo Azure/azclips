@@ -61,9 +61,7 @@ public class NewNetworkInterfaceProcessor_Combined : ComputeProcessorBase
         Task<HttpResponseMessage> vnetResponseTask = vnetProcessor.SendAsyncLRO();
         Task<HttpResponseMessage> nsgResponseTask = nsgProcessor.SendAsyncLRO();
         using HttpResponseMessage vnetResponse = await vnetResponseTask;
-        await EventListener.Signal(Events.TracingHttpResponseMessage, vnetResponse);
         using HttpResponseMessage nsgResponse = await nsgResponseTask;
-        await EventListener.Signal(Events.TracingHttpResponseMessage, nsgResponse);
         VirtualNetwork vnet = (await vnetResponse.Content.ReadFromJsonAsync<VirtualNetwork>(JsonOptions))!;
         NetworkSecurityGroup nsg = (await nsgResponse.Content.ReadFromJsonAsync<NetworkSecurityGroup>(JsonOptions))!;
 
@@ -84,7 +82,6 @@ public class NewNetworkInterfaceProcessor_Combined : ComputeProcessorBase
         await EventListener.Signal(Events.ProcessorProcessAsyncStart);
         SubscriptionId = SubscriptionId ?? AuthContext.SubscriptionId ?? throw new InvalidOperationException($"SubscriptionId must be provided either via property or auth context.");
         using HttpResponseMessage response = await SendAsyncLRO();
-        await EventListener.Signal(Events.TracingHttpResponseMessage, response);
         NetworkInterface nic = (await response.Content.ReadFromJsonAsync<NetworkInterface>(JsonOptions))!;
         await WriteOutput(nic);
         await EventListener.Signal(Events.ProcessorProcessAsyncEnd);
