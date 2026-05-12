@@ -4,38 +4,6 @@
 
 AZV2="${AZV2:-./bin/azv2}"
 
-"$AZV2" vnet create \
-    --subscription-id 0c302431-1ad0-4187-87c9-d4cebcf7edc2 \
-    --name yabo-test-vnet-2 \
-    --resource-group yabo-test-group \
-    --location eastus \
-    --address-prefixes 10.0.0.0/16 \
-    --subnet-names yabo-test-subnet1 \
-    --subnet-address-prefixes 10.0.2.0/24
-
-"$AZV2" nsg create \
-    --subscription-id 0c302431-1ad0-4187-87c9-d4cebcf7edc2 \
-    --resource-group yabo-test-group \
-    --name yabo-test-nsg-2 \
-    --location eastus \
-    --rule-names rdp \
-    --rule-protocols tcp \
-    --rule-directions Inbound \
-    --rule-priorities 1001 \
-    --rule-source-address-prefixes "*" \
-    --rule-source-port-ranges "*" \
-    --rule-destination-port-ranges 3389 \
-    --rule-destination-address-prefixes "*" \
-    --rule-accesses Allow
-
-"$AZV2" nic create \
-    --subscription-id 0c302431-1ad0-4187-87c9-d4cebcf7edc2 \
-    --resource-group yabo-test-group \
-    --name yabo-test-nic-2 \
-    --location eastus \
-    --subnet-ids /subscriptions/0c302431-1ad0-4187-87c9-d4cebcf7edc2/resourceGroups/yabo-test-group/providers/Microsoft.Network/virtualNetworks/yabo-test-vnet-2/subnets/yabo-test-subnet1 \
-    --network-security-group-id /subscriptions/0c302431-1ad0-4187-87c9-d4cebcf7edc2/resourceGroups/yabo-test-group/providers/Microsoft.Network/networkSecurityGroups/yabo-test-nsg-2
-
 "$AZV2" vm create \
     --subscription-id 0c302431-1ad0-4187-87c9-d4cebcf7edc2 \
     --resource-group yabo-test-group \

@@ -321,11 +321,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
         };
         private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
         {
-            ["create"]          = s_newVirtualNetwork_CLI,
-            ["create"]           = s_newNetworkSecurityGroup_CLI,
-            ["create"]           = s_newNetworkInterface_CLI,
-            ["create"]            = s_newVM_CLI,
-            ["create-combined"]  = s_newNetworkInterfaceCombined_CLI,
             ["create-combined"]   = s_newVMCombined_CLI,
         };
         // ── Lookup ──
