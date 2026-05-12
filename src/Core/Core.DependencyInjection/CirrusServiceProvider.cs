@@ -29,6 +29,16 @@ public static class CirrusServiceProvider
     /// </summary>
     public static Action<IServiceCollection>? OverrideRegistration { get; set; }
 
+    public static void RegisterCirrusServices(this IServiceCollection services) =>
+        services
+            .RegisterConfigurationServices()
+            .RegisterTelemetryServices()
+            .RegisterRuntimeServices()
+            .RegisterAuthenticationServices()
+            .RegisterEngineServices()
+            .RegisterAssemblyLoadingServices()
+            .RegisterArgumentParsingServices();
+
     /// <summary>
     /// Initializes the DI container. Safe to call multiple times — only the first call takes effect.
     /// Called during module import (psm1) or CLI startup.
@@ -44,19 +54,10 @@ public static class CirrusServiceProvider
                 return;
 
             IServiceCollection services = new ServiceCollection();
-
             //client type should be immutable and be initialized with composition root
             services.AddSingleton(typeof(ClientType), clientType);
-
             PrependRegistration?.Invoke(services);
-            services = services
-                .RegisterConfigurationServices()
-                .RegisterTelemetryServices()
-                .RegisterRuntimeServices()
-                .RegisterAuthenticationServices()
-                .RegisterEngineServices()
-                .RegisterAssemblyLoadingServices()
-                .RegisterArgumentParsingServices();
+            services.RegisterCirrusServices();
             OverrideRegistration?.Invoke(services);
             _serviceProvider = services.BuildServiceProvider();
         }
