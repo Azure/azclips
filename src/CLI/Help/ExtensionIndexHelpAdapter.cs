@@ -23,7 +23,7 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
         _cliTable = _extensionIndex.GetCommandTable(ClientType.CLI);
         _rootGroupName = CommandGroupIndex.GetCommandGroupNameByExtensionName(extensionName);
         _rootGroupPath = _rootGroupName.ToLowerInvariant();
-        _extensionHelpFolder = _rootGroupPath;
+        _extensionHelpFolder = extensionName;
     }
 
     public string ExtensionName { get; }

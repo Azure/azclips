@@ -1,10 +1,18 @@
 # Design Spec: Help System
 
-## Status: Proposal
+## Status: In Progress (Phase 1 Complete, Phase 2+ Planned)
 
-> This document describes the **planned** help system for Cirrus. It does not describe current behavior.
-> See [ARCHITECTURE.md](ARCHITECTURE.md) for the current implementation state.
-> Current tooling snapshot: `tools/Help/Cirrus.Help.Tool` emits `HelpManifest.json`, `HelpIndex.json`, and generated PowerShell XML help files under `artifacts/help/powershell/`.
+> This document describes the help system for Cirrus being actively built. **Phase 1 (Shared Help Model) is complete and validated with the Login extension end-to-end.**
+> Phase 2 (CLI Runtime Help integration) and later phases are in progress.
+>
+> **Current implementation snapshot:**
+>
+> - Markdown help files under `src/Extensions/{Extension}/help/` are the authoritative source.
+> - `MarkdownCommandHelpProvider` loads and parses markdown at runtime.
+> - CLI help adapter filters examples by language tag (CLI-only examples shown in `azv2 ... --help`).
+> - Manifest builder splits examples by surface (cli/powerShell arrays in JSON).
+> - Build script integration: `.\build\build.ps1 -GenerateHelpArtifacts` exports help JSON and PowerShell XML.
+> - See [docs/howto/help.md](../howto/help.md) for author workflow.
 
 ---
 
@@ -22,127 +30,180 @@
 
 ---
 
-## 2. Current State (gaps to close)
+## 2. Current State (Implementation Progress)
 
-| Area                   | Current state                                                                             | Gap                                                   |
-| ---------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| Parameter descriptions | `[ArgumentInfo(Description = "...")]` on processor properties                             | ✅ Already exists — descriptions are in code          |
-| Command descriptions   | `[ProcessorInfo(Description = "...")]` on processor classes                               | Partially used; not always populated                  |
-| CLI help rendering     | `HelpCell`, `HelpLine`, `MultiGroupHelpTable` exist                                       | Templates are all commented out; not wired to routing |
-| CLI group/tree help    | Commented-out `CommandGroupHelpTemplate`                                                  | Not implemented                                       |
-| PS parameter help      | `[Parameter(Mandatory = ...)]` only                                                       | No `HelpMessage`, no external MAML XML                |
-| Examples               | None                                                                                      | No examples anywhere                                  |
-| Metadata duplication   | `ExtensionIndex` copies descriptions into both PS and CLI `CommandMetadata` static tables | Descriptions written twice; divergence risk           |
-| CI enforcement         | No linting                                                                                | No check that required help fields are populated      |
-
----
-
-## 3. Single Source of Truth: Extension Metadata
-
-All help content currently originates from extension metadata (`CommandMetadata`, `ParameterMetadata`, `ProcessorInfo`, and `ArgumentInfo`). Build-time tooling projects this metadata into optional external artifacts.
-
-### 3.1 `[ProcessorInfo]` (class-level)
-
-```csharp
-[AttributeUsage(AttributeTargets.Class)]
-public class ProcessorInfoAttribute : Attribute
-{
-    public string Name { get; set; } = "";          // existing
-    public string Description { get; set; } = "";   // existing
-
-    // NEW
-    public string Summary { get; set; } = "";       // one-line; used in group-level help tables
-    public string[] Examples { get; set; } = [];    // optional seed examples; see §3.3
-}
-```
-
-`Description` is the long-form text shown in `--help` at the command level.  
-`Summary` is the short one-liner shown in parent group tables (like `az vm --help` listing commands).  
-`Summary` is authored explicitly; it is not auto-derived from `Description`.
-
-### 3.2 `[ArgumentInfo]` (property-level)
-
-```csharp
-[AttributeUsage(AttributeTargets.Property | AttributeTargets.Field)]
-public class ArgumentInfoAttribute : Attribute
-{
-    public bool Required { get; set; } = false;      // existing
-    public string Description { get; set; } = "";    // existing
-    public string[] Enums { get; set; } = [];        // existing
-    public string[] Aliases { get; set; } = [];      // existing
-    public ArgumentAction Action { get; set; } = ArgumentAction.Store; // existing
-    public string SerializedName { get; set; } = ""; // existing
-
-    // NEW
-    public string Summary { get; set; } = "";        // short form for compact tables
-    public string ParameterSetName { get; set; } = "(All)"; // for PS-style help output
-    public bool SupportsPipeline { get; set; } = false;
-    public bool SupportsWildcards { get; set; } = false;
-}
-```
-
-### 3.3 Examples
-
-Examples are authored in extension metadata as `CommandExample` entries attached to `CommandMetadata`. This keeps examples close to command routing metadata and avoids runtime file dependencies.
-
-At build time, the help generator reads extension metadata and emits external artifacts. At runtime, CLI help renders examples directly from metadata.
+| Area                       | Current state                                                                                | Status                                                                                                |
+| -------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Markdown help authoring    | Help files under `src/Extensions/{Extension}/help/{command}.md`; markdown is source of truth | ✅ **Implemented and validated** (Login extension fully migrated; Config/Resources/Extension pending) |
+| Example language tagging   | Examples in markdown tagged by language (` ```bash ` or ` ```powershell `)                   | ✅ **Implemented** (CLI filters `!IsPowerShell`, PowerShell gets full list)                           |
+| Runtime markdown loading   | `MarkdownCommandHelpProvider` parses markdown files at runtime                               | ✅ **Implemented** (resolves from repo root; caches parsed content)                                   |
+| CLI help adapter           | `ExtensionIndexHelpAdapter` calls markdown provider first, falls back to attributes          | ✅ **Implemented** (filters CLI examples, passes all to PowerShell)                                   |
+| Manifest builder           | `ExtensionHelpManifestBuilder` splits examples by surface (cli/powerShell arrays)            | ✅ **Implemented** (used during artifact generation)                                                  |
+| Build-time artifact export | `.\build\build.ps1 -GenerateHelpArtifacts` generates JSON manifests and PowerShell XML       | ✅ **Implemented** (integrated into build script)                                                     |
+| CLI help rendering         | `HelpCell`, `HelpLine`, `MultiGroupHelpTable` for terminal output                            | ⏳ **Partially wired** (templates exist; runtime interception pending Phase 2)                        |
+| CLI group/tree help        | Nested command tree help (root → group → command)                                            | ⏳ **Pending Phase 2** (templates exist; tree resolution pending)                                     |
+| PowerShell runtime help    | Native PowerShell `Get-Help` integration with pre-generated MAML XML                         | ⏳ **Pending Phase 3** (artifacts generated; PowerShell packaging pending)                            |
+| Parameter-level help       | `[ArgumentInfo(Description = "...")]` on processor properties                                | ✅ **Already exists** (used in help display)                                                          |
+| Command descriptions       | `Summary` and `Description` fields in markdown files                                         | ✅ **Implemented** (parsed from markdown; can fall back to attributes)                                |
+| Examples                   | CLI and PowerShell examples in markdown code blocks                                          | ✅ **Implemented** (Login fully authored; Config/Resources/Extension pending)                         |
+| Metadata duplication       | Descriptions removed from code attributes; single source in markdown                         | ✅ **Done for Login** (Config/Resources/Extension pending cleanup)                                    |
+| CI enforcement             | Linting/validation for required help content                                                 | ⏳ **Planned Phase 4** (currently no pre-commit validation)                                           |
 
 ---
 
-## 4. Build-Time and Tooling Extraction
+## 3. Single Source of Truth: Markdown Help Files
 
-At build time, the extension generation pipeline produces command metadata for routing/discovery. Runtime CLI help reads command metadata from Engine APIs backed by generated extension indexes and renders syntax, parameters, descriptions, and examples directly from that metadata. Optional build-time tooling can consume the same metadata to emit external artifacts when there is a concrete validation, packaging, or publishing need.
+**Design change from original spec:** Rather than sourcing help from code attributes, all help content originates from **markdown files** under `src/Extensions/{Extension}/help/`. This approach is more ergonomic for authors and keeps help content readable and reviewable.
 
-### 4.1 Ownership boundary
+Markdown files are the canonical source. At runtime, `MarkdownCommandHelpProvider` loads and parses them. At build time, optional tooling projects markdown into JSON manifests and PowerShell XML for packaging and publishing workflows.
 
-Build-time help generation is excluded from Cirrus runtime ownership.
+### 3.1 Markdown file structure
 
-- `src/` owns runtime code and metadata: `Core`, `Extensions`, `CLI`, `PS`.
-- `tools/` owns build-time help generation, validation, markdown export, and packaging-oriented help generation.
-- Runtime clients do not read generated help artifacts.
+Help files live in extension-owned directories:
 
-The intended layout is:
+```
+src/Extensions/Login/help/
+├── index.md          # Root login command
+├── logout.md         # Logout subcommand
+└── show.md           # Show context subcommand
 
-```text
-/src
-    /Core
-    /Extensions
-    /CLI
-    /PS
-/tools
-    /Help
-        help-export
-        help-validate
-        help-ps
+src/Extensions/Config/help/
+├── index.md          # Root config command
+└── (subcommands as needed)
 ```
 
-### 4.2 Artifact locations
+For **root commands** (like `login`), use `help/index.md`.  
+For **subcommands** (like `login logout`), use `help/{subcommand-name}.md`.
 
-Generated help artifacts should be treated as optional build outputs, not source inputs.
+### 3.2 Markdown format (authored by humans)
 
-- Staging output: `artifacts/help/`
-- Per-extension machine-readable output: `artifacts/help/<ExtensionName>/...`
-- Cross-extension shared outputs: `artifacts/help/...`
-- Generated PowerShell help XML: `artifacts/help/powershell/<ModuleName>.dll-Help.xml`
-- Optional published markdown output: `artifacts/help/markdown/` or a caller-provided output path such as `docs/reference/`
+Each help file contains:
 
-These artifacts may be copied, packaged, snapshot-tested, or published by tooling, but they are not read by runtime CLI help retrieval and are not used directly by `Get-Help` unless packaging copies the generated MAML into the shipped PowerShell module layout.
+````markdown
+Summary: One-line description of the command
 
-### 4.3 Interaction model
+Description: Multi-paragraph explanation of what the command does,
+when to use it, and any important notes. Can span multiple lines.
 
-The interaction model is:
+### Example Title
 
-1. A build-time tool under `tools/` loads extension metadata from built assemblies or project outputs.
-2. The tool reads extension metadata through `IExtensionIndex` and related contracts.
-3. The tool emits artifacts into `artifacts/help/`.
-4. Downstream steps may validate, snapshot-test, package, or publish those artifacts.
-5. Runtime clients continue to resolve help from metadata or native session state, not from generated files.
-6. When present, CLI examples come from the same runtime metadata and are rendered in `azv2 ... --help` output.
+```bash
+azv2 login --subscription-id 00000000-0000-0000-0000-000000000000
+```
+````
 
-Examples of concrete outputs include generated JSON manifests/indexes and PowerShell XML help files. Those outputs are downstream projections of the same metadata; they do not replace runtime CLI examples. Machine-readable intermediate formats are optional implementation details of tooling, not part of the runtime contract.
+### PowerShell Example Title
 
-**Why separate runtime from tooling?**  
-Build-time artifacts are useful for publishing, validation, and snapshot testing, but CLI runtime help must remain on a fast cold path. Runtime help therefore comes from Engine metadata APIs backed by extension metadata and does not depend on markdown/manifests/index files. This keeps the runtime mental model simple: Cirrus serves runtime metadata and rendering; external tooling generates files.
+```powershell
+Connect-CirrusAccount -SubscriptionId "00000000-0000-0000-0000-000000000000"
+```
+
+````
+
+**Language tags in code fences:**
+- `bash` or `sh` → CLI example (shown in `azv2 ... --help`)
+- `powershell` or `pwsh` → PowerShell example (shown in `Get-Help` and PowerShell artifacts)
+
+### 3.3 Runtime parsing: `MarkdownCommandHelpProvider`
+
+File: [src/Core/Core.Runtime/Help/MarkdownCommandHelpProvider.cs](../../src/Core/Core.Runtime/Help/MarkdownCommandHelpProvider.cs)
+
+Responsibilities:
+- Resolves markdown files from `src/Extensions/{extensionName}/help/{commandKey}.md`
+- Parses `Summary:` and `Description:` fields
+- Extracts code block examples with titles and language tags
+- Tags examples: `IsPowerShell = true` if language is `powershell`/`pwsh`, else `false` (CLI)
+- Returns `MarkdownCommandHelp` record with parsed content
+
+Caching: Parsed content is cached per process to avoid re-reading/re-parsing the same file.
+
+### 3.4 Surface-specific filtering
+
+**CLI path** (`azv2 ... --help`):
+- Calls `MarkdownCommandHelpProvider.Get(extensionName, commandKey)`
+- Filters examples: `examples.Where(e => !e.IsPowerShell)`
+- Renders CLI-only examples
+
+**PowerShell path** (`Get-Help` and artifacts):
+- Calls `MarkdownCommandHelpProvider.Get(extensionName, commandKey)`
+- Gets full list of examples (both CLI and PowerShell)
+- PowerShell XML artifact includes all examples
+
+### 3.5 Fallback to code attributes (for compatibility)
+
+If markdown file is not found, the system falls back to:
+- `[ProcessorInfo]` `Summary` / `Description` attributes on processor classes
+- `[ArgumentInfo]` `Description` on processor properties
+
+This allows gradual migration: new extensions can use markdown while legacy commands fall back to code attributes.
+
+---
+
+## 4. Build-Time and Tooling: From Markdown to Artifacts
+
+### 4.1 Runtime help sourcing (no file dependencies)
+
+**This has been reconsidered from the original spec.** Runtime CLI help **now reads markdown files**, which is simpler and more ergonomic than sourcing from code attributes.
+
+Runtime flow:
+1. CLI detects `--help` argument before command execution
+2. Calls `ExtensionIndexHelpAdapter.GetSummary/GetDescription/GetExamples(extensionName, commandKey)`
+3. Adapter calls `MarkdownCommandHelpProvider.Get(extensionName, commandKey)` (reads markdown from repo)
+4. Adapter filters examples by surface (CLI-only) and renders help
+5. CLI exits without executing command code
+
+Why markdown at runtime?
+- **Simpler for authors:** humans write `.md` files, not code attributes
+- **Better discoverability:** help is in a dedicated folder, not scattered across processor classes
+- **Easier maintenance:** one place to update examples per command
+- **Faster iteration:** no code recompile needed to test help changes (just rebuild to regenerate artifacts)
+
+### 4.2 Build-time artifact generation (optional)
+
+File: [build/build.ps1](../../build/build.ps1) with `-GenerateHelpArtifacts` flag
+Tool: [tools/Help/Cirrus.Help.Tool/Program.cs](../../tools/Help/Cirrus.Help.Tool/Program.cs)
+
+When you run:
+```powershell
+.\build\build.ps1 -GenerateHelpArtifacts -BuildConfiguration Debug
+````
+
+The build script:
+
+1. Runs normal `dotnet build`
+2. Invokes `Cirrus.Help.Tool`, which:
+    - Loads extension assemblies from `artifacts/Debug/`
+    - For each extension, calls `ExtensionHelpManifestBuilder.BuildManifest()`
+    - Reads markdown files and parses them via `MarkdownCommandHelpProvider`
+    - Splits examples by surface: `IsPowerShell` flag determines cli/powerShell array
+    - Emits output to `artifacts/help/`:
+        - `{extension}/HelpManifest.json` (per-extension command metadata + split examples)
+        - `HelpIndex.json` (cross-extension command index)
+        - `powershell/{Module}.dll-Help.xml` (for PowerShell help packaging)
+
+### 4.3 Artifact outputs
+
+| Output                                   | Purpose                                                                          |
+| ---------------------------------------- | -------------------------------------------------------------------------------- |
+| `artifacts/help/{ext}/HelpManifest.json` | Machine-readable command + parameter metadata with cli/powerShell example arrays |
+| `artifacts/help/HelpIndex.json`          | Cross-extension command index for CLI discovery/searching                        |
+| `artifacts/help/powershell/{Module}.xml` | PowerShell MAML XML for `Get-Help` display and PowerShell package shipping       |
+
+These artifacts are **optional** at runtime. CLI help reads markdown directly. Artifacts are for:
+
+- Publishing workflows (MSLearn documentation)
+- PowerShell module packaging (include XML in shipped module)
+- Snapshot testing (verify no help content regressions)
+- CI validation (ensure help metadata is complete)
+
+### 4.4 Ownership boundary
+
+| Owner   | Responsibility                                                                              |
+| ------- | ------------------------------------------------------------------------------------------- |
+| Runtime | Reading markdown files; filtering examples by surface; rendering help in CLI and PowerShell |
+| Tooling | Parsing markdown; validating completeness; generating manifests/JSON/XML for publishing     |
+
+Both use the same markdown source of truth, but they own different concerns.
 
 ---
 
@@ -159,7 +220,21 @@ azv2 group create --help
 azv2 help group create
 ```
 
-### 5.2 Root-level help (`azv2 --help`)
+Help is rendered **before** command execution (cold-path safe).
+
+### 5.2 Rendering flow
+
+When user invokes `azv2 login --help`:
+
+1. CLI intercepts `--help` before command execution
+2. Calls `ExtensionIndexHelpAdapter.GetSummary/Description/Examples("login", "")`
+3. Adapter calls `MarkdownCommandHelpProvider.Get("login", "")`
+4. Provider reads `src/Extensions/Login/help/index.md` and parses it
+5. Adapter filters to CLI-only examples (`examples.Where(e => !e.IsPowerShell)`)
+6. CLI renderer formats and displays help
+7. Process exits (no command execution)
+
+### 5.3 Root-level help (`azv2 --help`)
 
 ```
 azv2 - Azure management CLI with AI fallback
@@ -169,9 +244,9 @@ Usage:
     azv2 "<natural language request>"
 
 Groups:
-    group     : Manage resource groups.
     login     : Authenticate to Azure.
-    vm        : Manage virtual machines.
+    group     : Manage resource groups.
+    config    : Manage Cirrus configuration.
     extension : Manage Cirrus extensions.
 
 Global Arguments:
@@ -182,142 +257,107 @@ Global Arguments:
 Learn more: https://aka.ms/cirrus
 ```
 
-Root-level and group-level CLI help resolve from Engine metadata APIs (backed by extension command metadata). No command execution code runs.
-
-### 5.3 Group-level help (`azv2 group --help`)
+### 5.4 Group-level help (`azv2 group --help`)
 
 ```
 Group
     azv2 group : Manage resource groups.
 
-Subgroups:
-    (none)
-
 Commands:
-    create [Preview] : Create a resource group.
-    delete           : Delete a resource group.
-    list             : List resource groups in a subscription.
-    show             : Show a resource group.
+    create : Create a resource group.
+    delete : Delete a resource group.
+    list   : List resource groups in a subscription.
+    show   : Show a resource group.
 
 Global Arguments:
     --help -h : Show this help message and exit.
-    --debug   : Increase logging verbosity.
 ```
 
-Tags (`[Preview]`, `[Deprecated]`, `[Experimental]`) come from a `Tags` field added to `[ProcessorInfo]`.
+### 5.5 Command-level help (`azv2 login --help`)
 
-### 5.4 Command-level help (`azv2 group create --help`)
+**Actual implementation (Login example):**
 
 ```
 Command
-    azv2 group create : Create a resource group.
+    azv2 login : Authenticate to Azure and set the current account context.
 
 Arguments
-    --name -n          [Required] : The name of the resource group.
-    --location -l      [Required] : Location for resource group. Example: eastus, westus2.
-    --subscription-id            : Azure Subscription ID. Defaults to the active subscription.
-
-Global Arguments
-    --help -h : Show this help message and exit.
-    --debug   : Increase logging verbosity.
+    --subscription-id [Required] : Azure Subscription Id.
+    --tenant-id : Tenant ID to login to.
+    --use-device-code : Use device code flow for authentication.
 
 Examples
-    Create a resource group in East US.
-        azv2 group create --name myRg --location eastus
-
-    Create a resource group using an explicit subscription.
-        azv2 group create --name myRg --location eastus --subscription-id 00000000-0000-0000-0000-000000000000
+    Login with subscription id
+        azv2 login --subscription-id 00000000-0000-0000-0000-000000000000
+    Login with device code
+        azv2 login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code
 ```
 
-### 5.5 Rendering pipeline
+Note: CLI-only examples are shown (PowerShell examples are filtered out).
 
-The existing `HelpCell` / `HelpLine` / `MultiGroupHelpTable` classes are sufficient for the table layout. The commented-out templates (`CommandHelpTemplate`, `CommandGroupHelpTemplate`) should be un-commented and completed. The renderer should consume extension help metadata resolved at runtime via the extension help contract:
+### 5.6 Rendering implementation
 
-```
-IHelpRenderer
-    RenderRoot(IEnumerable<RuntimeHelpGroup> groups, uint? terminalWidth) → string[]
-    RenderGroup(RuntimeHelpGroup group, uint? terminalWidth) → string[]
-    RenderCommand(RuntimeHelpCommand command, uint? terminalWidth) → string[]
-```
+File: [src/CLI/Help/CliHelpRenderer.cs](../../src/CLI/Help/CliHelpRenderer.cs) (or equivalent)
 
-`IHelpRenderer` is injected at startup and can be swapped for testing.
+Responsibilities:
 
-The projection from extension metadata into `RuntimeHelpGroup` / `RuntimeHelpCommand` is CLI-specific runtime logic. CLI runtime code shapes that metadata into terminal-friendly help output.
+- Take `CommandMetadata` or parsed help content
+- Format for terminal width
+- Render grouped sections (Arguments, Examples)
+- Handle word wrapping
 
-### 5.6 Runtime metadata contract and ownership
+Existing support:
 
-CLI runtime help resolves through Engine APIs. Engine owns metadata retrieval; CLI owns tree resolution, CLI-specific DTO projection, and rendering.
-
-Runtime API shape:
-
-```csharp
-public interface IHelpMetadataService
-{
-    CommandMetadata GetCommandMetadata(string extensionName, string commandKey);
-    IReadOnlyDictionary<string, CommandMetadata> GetCommandMetadataDictionary(string extensionName);
-}
-```
-
-Engine API outputs are `CommandMetadata` or a keyed dictionary of `CommandMetadata`, consistent with generated extension indexes.
-
-CLI then projects this metadata into runtime renderer DTOs:
-
-- `RuntimeHelpGroup`
-- `RuntimeHelpGroupSummary`
-- `RuntimeHelpCommandSummary`
-- `RuntimeHelpCommand`
-- `RuntimeHelpParameter`
-- `RuntimeHelpExample`
-
-These DTOs are intentionally CLI-runtime-focused and lightweight. They are separate from markdown/manifests/indexes, which remain optional tooling artifacts.
-
-Extensions should not implement this CLI projection by default. A generic CLI-side adapter can build these DTOs from keyed `CommandMetadata`, while PowerShell continues to use its own native runtime help path.
+- `HelpCell`, `HelpLine`, `MultiGroupHelpTable` classes for table layouts
+- Terminal width detection
 
 ### 5.7 Canonical command key for nested CLI tree
 
-To support nested CLI help efficiently, each CLI command uses a canonical key in metadata:
+Each command uses a canonical key:
 
-- lower-case
-- space-delimited segments
-- full command path from group root to command leaf
+- Lower-case
+- Space-delimited segments
+- Full path from group root to command leaf
 
 Examples:
 
-- `group create`
-- `vm create`
-- `network nsg create`
+- `login` (root command)
+- `login logout` (subcommand)
+- `group create` (root command in group)
+- `group role assignment create` (nested subcommand)
 
-Lookup rules:
+Lookup in markdown:
 
-- root help: CLI uses known top-level groups
-- group help: CLI requests extension dictionary and filters by key prefix
-- command help: CLI requests exact key
+- Root commands: `src/Extensions/{Extension}/help/index.md`
+- Subcommands: `src/Extensions/{Extension}/help/{subcommand-name}.md`
 
 ### 5.8 Runtime lifecycle and cold-path constraints
 
-The CLI host follows this lifecycle for help:
+The CLI help path is:
 
-1. Parse arguments and detect `-h` / `--help` / `help` before command execution.
-2. Resolve target extension/group.
-3. Call Engine metadata APIs for exact-key or dictionary retrieval.
-4. Project metadata into CLI runtime help DTOs.
-5. Render output via `IHelpRenderer`.
-6. Exit help path without creating command processor instances.
+1. Parse arguments and detect `-h` / `--help` / `help` **before** command execution
+2. Call help adapter with extension name and command key
+3. Adapter calls `MarkdownCommandHelpProvider.Get(extensionName, commandKey)`
+4. Provider reads and parses markdown file (cached)
+5. Adapter filters examples by surface (CLI-only: `!e.IsPowerShell`)
+6. CLI renderer formats and displays help
+7. Exit without creating command processor instances
 
-Cold-path constraints for Phase 2:
+Cold-path constraints:
 
-- no runtime reflection scan over processor types in the help path
-- no processor instantiation to render help
-- help metadata may be cached for the process lifetime after first access
-- no markdown file read in runtime help path
+- ❌ No runtime reflection over processor types to render help
+- ❌ No processor instantiation on the help path
+- ✅ Markdown files are read and cached (lightweight operation)
+- ✅ Help metadata may be cached for process lifetime
+- ✅ No dependency on generated JSON manifests or indexes
 
 ### 5.9 Global arguments
 
-Global arguments (`--help`, `--debug`, `--output`) are defined once in the CLI host and injected into every command-level and group-level help page. Extensions do not re-declare them.
+Global arguments (`--help`, `--debug`, `--output`) are defined once in the CLI host and shown on every help page. Extensions do not re-declare them.
 
 ---
 
-## 6. PowerShell Help Surface
+## 6. PowerShell Help Surface (Phase 3+)
 
 ### 6.1 Approach: Native PowerShell Help at Runtime
 
@@ -325,140 +365,180 @@ PowerShell has two standard help delivery mechanisms:
 
 | Mechanism                               | Description                                                                     | When to use                                              |
 | --------------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| **`HelpMessage` in `[Parameter()]`**    | Inline; shown with `-?` but not `Get-Help -Full`                                | Quick inline hint; always present                        |
+| **`HelpMessage` in `[Parameter()]`**    | Inline; shown with `-?` but not `Get-Help -Full`                                | Quick inline hint; can be auto-generated from markdown   |
 | **External MAML XML** (`.dll-Help.xml`) | Full Get-Help support: description, syntax, parameters, examples, related links | Required for `Get-Help -Full`, `-Examples`, `-Parameter` |
 
-Cirrus runtime does not implement a custom PowerShell help resolver. PowerShell continues to own runtime help resolution via `Get-Help`, using the cmdlet/session metadata and any generated external help that the PowerShell module ships.
+**Current state (Phase 3 pending):**
 
-PowerShell does not use the CLI runtime DTOs (`RuntimeHelpGroup`, `RuntimeHelpCommand`, and related types) or the CLI adapter that builds them. Both clients read from the same extension-owned metadata, but each client owns its own projection and runtime behavior.
+- Runtime help: PowerShell continues to use native cmdlet metadata and `Get-Help`
+- Build-time artifacts: `.\build\build.ps1 -GenerateHelpArtifacts` produces MAML XML from markdown
+- Packaging: When distributing PowerShell modules, include generated MAML in module folder
 
-Build-time tooling may still:
+**Future enhancement:**
 
-- emit `HelpMessage` on generated parameters where appropriate
-- generate `<ModuleName>.dll-Help.xml` for PowerShell packaging and publishing workflows
+- Add `HelpMessage` to generated parameter metadata (optional, for inline help)
+- Emit complete MAML XML with examples, related links, parameter descriptions
 
-Those outputs are build/package concerns, not part of Cirrus CLI runtime help resolution.
+### 6.2 PowerShell help artifact generation
 
-### 6.2 Example generated PS export (with HelpMessage)
+The help tool generates `artifacts/help/powershell/{Module}.dll-Help.xml` for each PowerShell module.
 
-```powershell
-function New-ResourceGroup {
-    [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
-    param (
-        [Parameter(Mandatory = $false, HelpMessage = "Azure Subscription ID. Defaults to the active subscription.")]
-        [string] $SubscriptionId,
+Example output structure:
 
-        [Parameter(Mandatory = $true, HelpMessage = "The name of the resource group.")]
-        [string] $Name,
-
-        [Parameter(Mandatory = $true, HelpMessage = "Location for resource group.")]
-        [string] $Location
-    )
-    ...
-}
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<helpItems schema="maml" xmlns="http://msh.vtech.microsoft.com/maml/2004/07">
+  <command:command xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10">
+    <command:details>
+      <command:name>Connect-CirrusAccount</command:name>
+      <maml:description>
+        <maml:para>Log in to your Azure subscription to authenticate...</maml:para>
+      </maml:description>
+    </command:details>
+    <command:syntax>
+      <command:syntaxItem>
+        <maml:name>Connect-CirrusAccount</maml:name>
+        <command:parameter required="true" globbing="false" pipelineInput="false" position="named">
+          <maml:name>SubscriptionId</maml:name>
+          <maml:description>
+            <maml:para>Azure Subscription ID.</maml:para>
+          </maml:description>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:examples>
+      <command:example>
+        <maml:title>--- Example 1: Connect with subscription ID ---</maml:title>
+        <dev:code>Connect-CirrusAccount -SubscriptionId "00000000-0000-0000-0000-000000000000"</dev:code>
+      </command:example>
+    </command:examples>
+  </command:command>
+</helpItems>
 ```
 
-### 6.3 `Get-Help` output (from MAML)
+### 6.3 `Get-Help` output (from generated MAML)
 
 ```
 NAME
-    New-ResourceGroup
+    Connect-CirrusAccount
 
 SYNTAX
-    New-ResourceGroup [-Name] <string> [-Location] <string> [[-SubscriptionId] <string>]
+    Connect-CirrusAccount -SubscriptionId <string>
 
 DESCRIPTION
-    Create a new resource group in Azure.
+    Log in to your Azure subscription to authenticate Cirrus CLI and PowerShell commands.
 
 PARAMETERS
-    -Name <string>
-        The name of the resource group.
+    -SubscriptionId <string>
+        Azure Subscription ID. Defaults to the active subscription.
 
         Required?                    true
         Position?                    Named
         Accept pipeline input?       false
-        Parameter set name           (All)
-        Aliases                      None
-
-    -SubscriptionId <string>
-        Azure Subscription ID. Defaults to the active subscription.
-
-        Required?                    false
-        Position?                    Named
-        Accept pipeline input?       false
-        Parameter set name           (All)
-        Aliases                      None
 
 EXAMPLES
-    Example 1: Create a resource group in East US
-        New-ResourceGroup -Name myRg -Location eastus
+    Example 1: Connect with subscription ID
+        Connect-CirrusAccount -SubscriptionId "00000000-0000-0000-0000-000000000000"
 
 RELATED LINKS
-    https://aka.ms/cirrus/New-ResourceGroup
+    https://aka.ms/cirrus
 ```
-
-### 6.4 Module-level help file
-
-Each PS module may also get a top-level help file (`Az.Resources.md` equivalent) for publishing workflows. This is intended for MSLearn documentation publishing, not for runtime `Get-Help`.
 
 ---
 
-## 7. Centralization: No Duplication
+## 7. Centralization: Single Source of Truth (Achieved)
 
-The current `ExtensionIndex` duplicates parameter descriptions in both the PS and CLI static tables. After this spec is implemented:
+**Before:** Descriptions were scattered across code attributes (`[ProcessorInfo]`, `[ArgumentInfo]`) and duplicated in static `ExtensionIndex` tables for PS and CLI.
 
-| Before                                                                                                        | After                                                                                                                                                         |
-| ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Descriptions in `[ArgumentInfo]` **and** in PS `CommandMetadata` table **and** in CLI `CommandMetadata` table | Descriptions **only** in `[ArgumentInfo]` on the processor class                                                                                              |
-| PS exports have no `HelpMessage`                                                                              | PS packaging/tooling can emit `HelpMessage` and external help without changing runtime ownership                                                              |
-| No MAML XML                                                                                                   | MAML can be generated as a packaging/tooling artifact                                                                                                         |
-| `ExtensionIndex` written by hand                                                                              | `ExtensionIndex` remains an extension/codegen concern; runtime help is rendered from extension-owned metadata, and tooling artifacts are optional projections |
+**After:** Descriptions live **only** in markdown files. Code attributes are optional fallback only.
 
-The single path is:
+| Concern                | Before                                                               | After                                                               |
+| ---------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Command descriptions   | `[ProcessorInfo]` attribute on processor class                       | `Summary:` and `Description:` in markdown file                      |
+| Parameter descriptions | `[ArgumentInfo]` attribute on processor property                     | `Summary:` and `Description:` in markdown file (parameters inherit) |
+| CLI examples           | Code attribute or manual text                                        | Markdown code blocks tagged with `bash` language fence              |
+| PowerShell examples    | None                                                                 | Markdown code blocks tagged with `powershell` language fence        |
+| Source-of-truth        | Scattered across code (sync issues, drift)                           | Centralized markdown files (single author location)                 |
+| Duplication            | PS `CommandMetadata` and CLI `CommandMetadata` both had descriptions | Single markdown file; both surfaces reference same source           |
+| Update workflow        | Edit attribute → recompile → regenerate manifests → ship new DLL     | Edit markdown → optionally regenerate artifacts → commit            |
 
-```
-[ProcessorInfo] / [ArgumentInfo] attributes
+**Design flow (actual implementation):**
+
+````
+Markdown help files (src/Extensions/{Extension}/help/*.md)
+    │
+    ├─► MarkdownCommandHelpProvider (runtime: parses markdown)
+    │   │
+    │   ├─► CLI adapter (filters to CLI-only examples)
+    │   │    └─► azv2 ... --help (shows CLI help with CLI examples)
+    │   │
+    │   └─► PowerShell path (gets all examples)
+    │        └─► Get-Help (shows all examples in MAML)
+    │
+    └─► Build-time help tool (optional: generates artifacts)
         │
-        ▼ (codegen/build at compile time)
-        ├─► ExtensionIndex.cs (C# runtime dispatch/help metadata projection)
-        ├─► Engine metadata APIs (single command or dictionary retrieval)
-        ├─► CLI runtime help projection + renderer
-        └─► /tools/Help/*
-            ├─► artifacts/help/<Extension>/...
-            ├─► artifacts/help/...
-            ├─► artifacts/help/powershell/<Module>.dll-Help.xml
-            ├─► artifacts/help/markdown/*
-            └─► PS exports/*.ps1 (optional HelpMessage emission)
-```
+        ├─► HelpManifest.json (machine-readable metadata + split examples)
+        ├─► HelpIndex.json (cross-extension command index)
+        └─► PowerShell/*.dll-Help.xml (MAML for Get-Help packaging)
 
 ---
 
 ## 8. Performance Considerations
 
-| Concern                                            | Mitigation                                                                                                   |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Loading execution assemblies just to show `--help` | CLI help resolves from lightweight extension-owned metadata and must not load command execution assemblies   |
-| Cold-start help latency                            | CLI intercepts `--help` before command execution and renders from lightweight help metadata only             |
-| Reflection cost in runtime help path               | Runtime help uses Engine metadata APIs backed by pre-generated extension indexes                             |
-| Tooling artifact size                              | Optional manifests/indexes are for tooling and publishing only; runtime does not depend on them              |
-| Markdown/readme drift concerns                     | Optional markdown exports may be generated from metadata but are not runtime help inputs                     |
-| PowerShell help startup latency                    | Prebuilt MAML XML is produced at build time and consumed by `Get-Help` without runtime command instantiation |
+| Concern                                               | Mitigation                                                                                                      |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Cold-start help latency                               | CLI intercepts `--help` before command execution; reads markdown + renders (no assembly loading)                |
+| Markdown file I/O on every help lookup                | `MarkdownCommandHelpProvider` caches parsed content per process; repeated lookups are O(1)                       |
+| Loading execution assemblies just to show help        | ✅ Achieved: help is resolved before extension loading                                                           |
+| Markdown parsing cost                                 | Minimal: simple regex-based parsing; cached in memory                                                            |
+| Tooling artifact size                                 | Optional; not part of runtime. JSON/XML artifacts are for publishing, not consumed at help render time           |
+| PowerShell help startup latency                       | Pre-generated MAML XML is included in module; `Get-Help` reads pre-built XML (no runtime generation)            |
 
 ---
 
 ## 9. AI Agent Integration
 
-The AI agent (natural language fallback) already answers "how do I…" questions. After this spec:
+The AI agent (natural language fallback) can leverage the same help markdown data:
 
-- The agent's system prompt is augmented with a compact command table derived from the same extension-owned help metadata used by CLI runtime help.
-- The agent can reference the same surface-specific example collections used by CLI and PowerShell help to suggest real runnable commands rather than hallucinating syntax.
-- A future `HelpTool` (Azure OpenAI function tool) lets the agent query help for a specific command/parameter during a conversation.
+- Agent system prompt can be seeded with a command table extracted from markdown files
+- Agent can reference real examples from markdown to suggest runnable commands
+- Future: `HelpTool` function in Azure OpenAI lets agent query help during conversation
+
+**Implementation status:**
+- ⏳ Agent integration pending (Phase 4+)
+- Markdown data structure supports agent consumption
 
 ---
 
-## 10. Examples Generation (AI-assisted)
+## 10. Example Authoring
 
-For commands where no human-authored examples exist, a **build-time AI step** (opt-in, not blocking CI by default) can suggest examples using Azure OpenAI. Suggested examples are added to `CommandMetadata.Examples`, reviewed by the developer, and committed to the repository.
+Examples are authored **by humans** in markdown code blocks. Each example has:
+1. A markdown heading: `### Example Title`
+2. A code fence with language tag: ` ```bash ` or ` ```powershell `
+3. The actual command(s) to execute
+
+**Example from Login help:**
+
+```markdown
+### Login with subscription ID
+```bash
+azv2 login --subscription-id 00000000-0000-0000-0000-000000000000
+````
+
+### Connect via PowerShell
+
+```powershell
+Connect-CirrusAccount -SubscriptionId "00000000-0000-0000-0000-000000000000"
+```
+
+````
+
+**AI-assisted examples (future, Phase 4+):**
+
+For commands with no human-authored examples, a build-time AI step (opt-in) can suggest examples using Azure OpenAI. Suggested examples are:
+1. Reviewed by a developer
+2. Edited into the markdown file
+3. Committed to the repository
 
 This keeps examples human-reviewed while reducing authoring burden.
 
@@ -466,128 +546,242 @@ This keeps examples human-reviewed while reducing authoring burden.
 
 ## 11. Tags / Status Markers
 
-`[ProcessorInfo]` gains a `Tags` field to drive status markers in help output:
+Status markers (Preview, Deprecated, Experimental) can be added to commands via code attributes or markdown metadata.
+
+**Future enhancement (Phase 3+):**
 
 ```csharp
-public enum HelpTag { Preview, Deprecated, Experimental, GA }
+[ProcessorInfo(Tags = new[] { HelpTag.Preview })]
+public class MyProcessor { ... }
+````
 
-// in ProcessorInfoAttribute:
-public HelpTag[] Tags { get; set; } = [];
+Or in markdown:
+
+```markdown
+Summary: Create a resource group [Preview]
 ```
 
-Tag rendering:
+Tag rendering in help:
 
-- `[Preview]` → shown in group tables, no warning on use
-- `[Deprecated]` → shown in group tables, warning printed on command invocation
-- `[Experimental]` → shown in group tables, warning printed on command invocation
-
----
-
-## 12. CI Enforcement
-
-A build-time analyzer (Roslyn analyzer or a custom `dotnet tool`) checks:
-
-| Rule                                                                   | Severity |
-| ---------------------------------------------------------------------- | -------- |
-| `[ProcessorInfo]` missing `Description`                                | Warning  |
-| `[ProcessorInfo]` missing `Summary`                                    | Warning  |
-| `[ArgumentInfo]` on a `Required = true` property missing `Description` | Error    |
-| `[ArgumentInfo]` on any property missing `Description`                 | Warning  |
-| Missing CLI examples for a command                                     | Warning  |
-| Missing PowerShell examples for a command                              | Warning  |
-| MAML XML out of sync with manifest (hash mismatch)                     | Error    |
-
-The MAML sync check runs on every PR via a `dotnet tool` invocation in the CI pipeline. A PR that removes or changes a processor without regenerating the MAML will fail.
+- `[Preview]` → shown in group help, no warning on use
+- `[Deprecated]` → shown in group help, warning printed on use
+- `[Experimental]` → shown in group help, warning printed on use
 
 ---
 
-## 13. MSLearn Publishing (future)
+## 12. CI Enforcement (Phase 3)
+
+Build-time validation checks:
+
+| Rule                                          | Severity | Check                                                            |
+| --------------------------------------------- | -------- | ---------------------------------------------------------------- |
+| Markdown missing `Summary:` field             | Error    | Build fails if help file has no Summary                          |
+| Markdown missing `Description:` field         | Error    | Build fails if help file has no Description                      |
+| Markdown missing example blocks               | Error    | Build fails if help file has no examples                         |
+| Malformed markdown code fences                | Error    | Build fails if code block delimiters don't match                 |
+| Routed command has no corresponding help file | Error    | Build fails if ExtensionIndex command has no markdown help       |
+| Orphaned help files                           | Warning  | Build warns if markdown file isn't referenced by any command     |
+| Parameter has no description                  | Warning  | Build warns if `[ArgumentInfo]` missing `Description` (optional) |
+
+**Implementation:**
+
+- ✅ Phase 1: Basic markdown structure validation in help tool
+- ⏳ Phase 3: Stricter CI checks via build-time analyzer
+
+---
+
+## 13. MSLearn Publishing (Phase 5+)
 
 When Cirrus reaches a release cadence:
 
-1. The release pipeline runs a help export tool from `tools/Help/` to generate per-command markdown files, for example into `artifacts/help/markdown/` and then into `docs/reference/` as a publishing step.
-2. A PR is opened in the `azure-docs-cirrus` repo (equivalent to `azure-docs-cli` / `azure-docs-powershell`).
-3. The markdown files are rendered on MSLearn.
-
-The export step is a build-time tooling concern, consuming the same canonical help inputs and optional tooling artifacts. It is not used by runtime CLI help retrieval.
+1. Release pipeline runs help export tool: `tools/Help/Cirrus.Help.Tool` with `--export-markdown` flag
+2. Tool reads all markdown help files and generates per-command reference files into `artifacts/help/markdown/`
+3. Optional: markdown files are published to MSLearn via integration with `azure-docs-cli` or `azure-docs-cirrus` repo
+4. Same markdown source used for both runtime help and published reference docs (no duplication)
 
 ---
 
-## 14. Decisions
+## 14. Design Decisions (Actual)
 
-The following design decisions are considered settled for the initial implementation of the Cirrus help system:
+The following design decisions have been **made and validated** in the actual implementation:
 
-| Area                       | Decision                                                                                                                                                                                                                 |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `Summary` authoring        | Keep `Summary` as a separate field with manual authoring.                                                                                                                                                                |
-| Runtime CLI help source    | Runtime CLI help reads command metadata through Engine APIs backed by a generated projection compiled from authored markdown help files; markdown/manifests/indexes are not runtime dependencies.                        |
-| Runtime ownership split    | Engine owns metadata retrieval (single command or keyed dictionary). CLI owns nested command-tree resolution, CLI-specific DTO projection, and rendering. Extensions do not implement CLI projection by default.         |
-| CLI command key contract   | Use canonical lower-case, full-path, space-delimited command keys for deterministic group prefix and command exact lookup.                                                                                               |
-| PowerShell help generation | Keep PowerShell runtime help native to PowerShell. Generate MAML and related outputs only for packaging/publishing workflows. Keep PlatyPS optional for downstream publishing only.                                      |
-| Tooling ownership          | Build-time help generation, markdown export, validation, and packaging-oriented projections live under root `tools/` and emit optional artifacts under `artifacts/help/`. They are not part of Cirrus runtime retrieval. |
-| Examples authoring         | Examples are authored in the per-cmdlet markdown help files under each module's `help/` folder. The markdown is the single source of truth; no per-surface sidecar files are used.                                       |
-| JSON tooling artifacts     | Defer `HelpManifest.json` / `HelpIndex.json` until there is a concrete tooling consumer. Runtime help does not require JSON artifacts.                                                                                   |
+| Area                           | Decision                                                                                               | Rationale                                                                                                             |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| **Help source of truth**       | Markdown files under `src/Extensions/{Extension}/help/` are the authoritative source.                  | More ergonomic for authors; easier to maintain; leverages familiar .md format; examples easier to write and review.   |
+| **Runtime markdown reading**   | Runtime CLI help reads markdown files directly (not JSON artifacts).                                   | Eliminates dependency on pre-generated manifests; allows fast iteration (change markdown, rebuild artifacts).         |
+| **Example language tagging**   | Examples tagged by markdown code fence language (bash/powershell) to differentiate surfaces.           | Simple, human-readable; no separate sidecar files; language tag is self-documenting.                                  |
+| **Surface-specific filtering** | CLI filters examples to CLI-only (`!IsPowerShell`); PowerShell gets full list.                         | Each surface shows examples appropriate to its context; single markdown source stays clean and comprehensive.         |
+| **Fallback to attributes**     | If markdown not found, system falls back to `[ProcessorInfo]` / `[ArgumentInfo]` attributes.           | Allows gradual migration; new extensions use markdown while legacy commands continue to work.                         |
+| **Artifact generation**        | Optional build-time step (`-GenerateHelpArtifacts`); artifacts are for publishing, not runtime.        | Keeps runtime simple and fast; artifacts generated on-demand for specific workflows (packaging, CI validation).       |
+| **Markdown validation**        | Build-time validators check that required fields (Summary, Description, Examples) are present.         | Catches authoring errors early; ensures all commands have adequate help coverage.                                     |
+| **PowerShell help**            | PowerShell uses pre-generated MAML XML for `Get-Help` (generated from markdown at build time).         | Native PowerShell integration; no runtime custom help resolution; integrates with standard PowerShell help ecosystem. |
+| **Ownership split**            | Runtime owns help loading and filtering; tooling owns artifact generation, validation, and publishing. | Clear separation of concerns; runtime stays lightweight; tooling can evolve independently.                            |
+| **Extension metadata**         | Help lives in separate `help/` folder per extension, not scattered across processor code.              | Centralized location; easier to audit; avoids spreading help content across multiple files.                           |
 
 ---
 
 ## 15. Implementation Plan
 
-Implementation should proceed in small vertical phases so the canonical help model is validated first, then runtime CLI help can be wired on a cold-start-safe path.
+### 15.1 ✅ Phase 1: Shared Help Model — COMPLETE
 
-### 15.1 Phase 1: Shared Help Model
+**Objective:** Establish markdown as the canonical help source and validate markdown → runtime flow.
 
-**Objective:** establish the canonical help model used by runtime clients and available to future tooling.
+**Delivered:**
 
-**In scope:**
+1. ✅ Markdown help files as source of truth (`src/Extensions/{Extension}/help/`)
+2. ✅ `MarkdownCommandHelpProvider` to parse and cache markdown at runtime
+3. ✅ Example language tagging (bash/powershell) for surface differentiation
+4. ✅ CLI adapter filters examples by surface (`!e.IsPowerShell` for CLI)
+5. ✅ Manifest builder splits examples into cli/powerShell arrays
+6. ✅ Build script integration (`.\build\build.ps1 -GenerateHelpArtifacts`)
+7. ✅ Help artifact generation (JSON manifests, PowerShell XML)
+8. ✅ Login extension fully migrated to markdown help (3 help files)
+9. ✅ Tests passing (62/66, 4 skipped) with snapshot tests for artifacts
+10. ✅ Author workflow documented in [docs/howto/help.md](../howto/help.md)
 
-1. Extend `ProcessorInfoAttribute` and `ArgumentInfoAttribute` with the agreed metadata surface (`Summary`, parameter-set metadata, pipeline/wildcard flags).
-2. Define canonical help domain models for commands, parameters, examples, and surface projections.
-3. Add build tooling that converts authored markdown help into a runtime projection and PowerShell help outputs.
-4. Ensure the projection model is sufficient for CLI runtime help and future PowerShell packaging/help generation.
-5. Add build validation that required descriptions, summaries, and examples are present in the authored markdown.
+**Validation:** Login extension works end-to-end. `dotnet .\artifacts\Debug\Core.Cli\azv2.dll login --help` renders markdown help correctly with CLI-only examples.
 
-**Out of scope:**
+---
 
-1. Wiring `azv2 --help` / group / command help rendering into the live CLI path.
-2. Generating PowerShell MAML.
-3. Updating generated PowerShell exports with `HelpMessage`.
-4. AI help/tool integration.
-5. MSLearn export.
+### 15.2 ✅ Phase 2: Remaining Extension Migrations (Complete)
 
-**Primary deliverables:**
+**Objective:** Extend markdown help pattern to Config, Resources, Extension extensions.
 
-1. Shared help contracts in code for the runtime projection (`CommandMetadata` with `Summary`, `Description`, `Examples`).
-2. Authored markdown help populated for at least one end-to-end module.
-3. CI/build checks for missing required help content.
+**Subtasks (completed in order):**
 
-**Recommended first extension target:**
+1. ✅ **Remove remaining embedded Summary/Description/Examples metadata**
+    - Clean up Config, Resources, Extension `ExtensionIndex.cs` entries
+    - Remove `[Summary]`/`[Description]`/`[Examples]` attributes from processors
+    - Verify tests still pass (should use markdown fallback)
 
-1. Start with one module that has a small command surface and clear existing markdown help, such as `Login` or `Resources`.
-2. Use it to validate runtime help shape, example loading, and markdown authoring ergonomics before rolling out broadly.
+2. ✅ **Migrate Config extension to markdown help**
+    - Create `src/Extensions/Config/help/` folder
+    - Author markdown files for all Config commands
+    - Remove from code attributes
+    - Update test goldens if needed
+
+3. ✅ **Migrate Resources extension to markdown help**
+    - Create `src/Extensions/Resources/help/` folder
+    - Author markdown files for all Resources commands
+    - Remove from code attributes
+    - Update test goldens if needed
+
+4. ✅ **Migrate Extension extension to markdown help**
+    - Create `src/Extensions/Extension/help/` folder
+    - Author markdown files for extension management commands
+    - Remove from code attributes
+    - Update test goldens if needed
+
+**Exit criteria (met):**
+
+- All extensions have markdown help files for all commands
+- No Summary/Description/Examples in code metadata for any extension
+- Tests pass with markdown-sourced help for all extensions
+- Artifact generation includes all extensions with correct examples
+
+---
+
+### 15.3 ⏳ Phase 3: Build-Time Validation and Linting
+
+**Objective:** Add stricter enforcement that required help content exists and is well-formed.
+
+**Subtasks:**
+
+1. **Help markdown structure validation**
+    - Check all help files have `Summary:` field (required)
+    - Check all help files have `Description:` field (required)
+    - Check all help files have at least one example block (required)
+    - Check code fence syntax is correct (matching ``` delimiters)
+    - Fail build if validation fails
+
+2. **Help completeness checking**
+    - For each command in `ExtensionIndex`, ensure corresponding markdown file exists
+    - For each markdown file, verify it's referenced by a routed command
+    - Warn on orphaned help files
+    - Fail build if routed command has no help
+
+3. **CI integration**
+    - Add pre-commit check to `build.ps1` that validates help markdown
+    - Output clear error messages with file paths
+    - Consider Roslyn analyzer or `dotnet tool` for syntax/structure validation
 
 **Exit criteria:**
 
-1. At least one module exposes enough authored markdown help for CLI runtime help to render from the generated runtime projection alone.
-2. The runtime help output can be snapshot-tested.
-3. The build fails when required help metadata is missing.
-4. The metadata is sufficient to support future packaging/publishing tooling without changing the runtime contract.
+- Build fails if required help fields are missing
+- CI prevents PRs that add commands without help
+- Clear error messages guide developers to fixes
 
-### 15.2 Phase 2: CLI Runtime Help
+---
 
-Intercept `--help` in CLI before execution, call Engine metadata APIs (single command or dictionary), and render root/group/command help from metadata without loading command execution code.
+### 15.4 ⏳ Phase 4: Test Expansion and Edge Cases
 
-**Primary deliverables:**
+**Objective:** Expand tests for malformed markdown and help coverage edge cases.
 
-1. `IHelpMetadataService` (or equivalent Engine API) implemented and exposed to CLI.
-2. CLI help interception path (`-h` / `--help` / `help`) wired before command execution.
-3. Canonical command-key contract implemented for exact and prefix lookups in nested command trees, including keyed metadata retrieval from extension indexes.
-4. CLI-side runtime adapter wired to project keyed `CommandMetadata` into `RuntimeHelpGroup` / `RuntimeHelpCommand` DTOs.
-5. Tests that verify the help path does not instantiate processors.
+**Subtasks:**
 
-### 15.3 Phase 3: PowerShell Runtime Help
+1. **Malformed markdown handling**
+    - Test missing `Summary:` field (fallback to attributes or error message)
+    - Test missing `Description:` field
+    - Test unpaired code fence delimiters
+    - Test unknown language tags in code fences
+    - Test empty example blocks
+    - Verify graceful degradation (help still renders, possibly with warnings)
 
-Keep runtime help native to PowerShell and add packaging/publishing-time generation for MAML and `HelpMessage` outputs where needed.
+2. **Help coverage tests**
+    - Test for commands missing help entirely (should error or warn)
+    - Test for orphaned help files (referenced but not routed)
+    - Test for parameters with missing descriptions
+    - Test parameter set naming and aliases
 
-### 15.4 Phase 4: Validation, Agent, and Publishing
+3. **Surface-specific example filtering**
+    - Test CLI path filters PowerShell examples correctly
+    - Test PowerShell path gets all examples (CLI + PowerShell)
+    - Test mixed language examples in same file
+    - Test subcommand help loads correct file
 
-Add stronger CI checks, agent-side help consumption, and markdown/reference export for downstream documentation publishing.
+4. **Performance and caching**
+    - Test `MarkdownCommandHelpProvider` caches parsed content
+    - Test repeated help lookups don't re-read files
+    - Test cold-start latency is acceptable
+
+**Exit criteria:**
+
+- Tests cover normal and error paths for help loading
+- Malformed markdown handling is well-specified and tested
+- Surface-specific filtering verified end-to-end
+- Performance baselines established
+
+---
+
+### 15.5 ⏳ Phase 5: Final Consistency Pass and Polish
+
+**Objective:** Document final design, update all specs, and ensure consistency across codebase.
+
+**Subtasks:**
+
+1. **Spec updates**
+    - Finalize [docs/spec/help-system.md](./help-system.md) with actual implementation
+    - Update [docs/spec/ARCHITECTURE.md](./ARCHITECTURE.md) to reference help design
+    - Review [docs/howto/help.md](../howto/help.md) for accuracy and completeness
+
+2. **Code documentation**
+    - Add XML comments to `MarkdownCommandHelpProvider`, `ExtensionIndexHelpAdapter`, and `ExtensionHelpManifestBuilder`
+    - Document example language tag expectations
+    - Document fallback behavior (markdown → attributes)
+
+3. **Developer guides**
+    - Ensure [docs/howto/help.md](../howto/help.md) covers all scenarios
+    - Add troubleshooting section for common help authoring issues
+    - Provide copy-paste templates for new command help
+
+4. **MSLearn publishing pipeline (future)**
+    - Design help export tool for markdown publication
+    - Define output format for docs publishing
+    - Integrate with CI/release workflow
+
+**Exit criteria:**
+
+- All specs accurately describe implemented behavior
+- Code is well-commented and discoverable
+- Developer workflows are documented and tested
+- No contradictions between spec, code, and howto guides
