@@ -170,16 +170,18 @@ static void WritePowerShellHelpXml(string path, IList<HelpCommand> commands, str
         foreach (var ex in psExamples)
         {
             examples.Add(new XElement(command + "example",
-                new XElement(maml + "title", $"-------------------------- EXAMPLE {i} --------------------------"),
+                new XElement(maml + "title", $"--- Example {i}: {ex.Title} ---"),
                 new XElement(dev + "code", ex.Command),
-                new XElement(dev + "remarks", new XElement(maml + "para", ex.Title))));
+                new XElement(dev + "remarks", new XElement(maml + "para", string.Empty))));
             i++;
         }
 
         root.Add(new XElement(command + "command",
             new XElement(command + "details",
                 new XElement(command + "name", cmd.PsName),
-                new XElement(maml + "description", new XElement(maml + "para", cmd.Description))),
+                // command:details/maml:description is shown as SYNOPSIS — use the short Summary.
+                new XElement(maml + "description", new XElement(maml + "para", cmd.Summary))),
+            // Top-level maml:description is shown as DESCRIPTION — use the full Description.
             new XElement(maml + "description", new XElement(maml + "para", cmd.Description)),
             new XElement(command + "syntax", syntaxItem),
             examples,
