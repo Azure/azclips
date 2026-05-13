@@ -771,11 +771,11 @@ The following design decisions have been **made and validated** in the actual im
     - Covers: missing `Summary:`/`Description:` fields, unpaired code fences, unknown language tags, empty examples, blank titles, mixed CLI+PS examples, null/whitespace input, stress test for malformed input
     - Verified: runtime parser is lenient (returns empty/partial content, never throws)
 
-2. **Help coverage tests**
-    - Test for commands missing help entirely (should error or warn)
-    - Test for orphaned help files (referenced but not routed)
-    - Test for parameters with missing descriptions
-    - Test parameter set naming and aliases
+2. ✅ **Help coverage tests** — COMPLETE
+    - 5 new tests added to [tests/Cli.Tests/ExtensionHelpManifestBuilderTests.cs](../../tests/Cli.Tests/ExtensionHelpManifestBuilderTests.cs)
+    - Covers: commands without markdown (fallback to defaults), parameters with empty descriptions, parameter aliases preserved, commands with no parameters, default parameter set names
+    - Uses `StubExtensionIndex` test fixture to simulate extensions without markdown coverage
+    - Note: orphaned help file detection is build-tool concern, covered by 15.3.2 (already implemented)
 
 3. **Surface-specific example filtering**
     - Test CLI path filters PowerShell examples correctly
