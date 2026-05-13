@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Core.AssemblyLoading;
 using Core.ArgumentParsing;
 using Core.Configuration;
+using System.Collections.Concurrent;
 
 namespace Core.DependencyInjection;
 
@@ -14,20 +15,36 @@ public static class CirrusServiceProvider
 {
     private static volatile IServiceProvider? _serviceProvider;
     private static readonly object _lock = new();
+    private static readonly ConcurrentQueue<Action<IServiceCollection>> _prependRegistrations = new();
+    private static readonly ConcurrentQueue<Action<IServiceCollection>> _overrideRegistrations = new();
 
     /// <summary>
     /// Optional hook invoked before the default service registrations.
     /// Set this from another assembly to prepend custom registrations into the DI container.
     /// Must be set before <see cref="Initialize"/> is called.
     /// </summary>
-    public static Action<IServiceCollection>? PrependRegistration { get; set; }
+    public static void PrependRegistration(Action<IServiceCollection>? registration)
+    {
+        if (registration is null)
+            return;
+        if (_serviceProvider is not null)
+            throw new InvalidOperationException("Cannot set PrependRegistration after the service provider has been initialized.");
+        _prependRegistrations.Enqueue(registration);
+    }
 
     /// <summary>
     /// Optional hook invoked after the default service registrations.
     /// Set this from another assembly to override or replace default registrations in the DI container.
     /// Must be set before <see cref="Initialize"/> is called.
     /// </summary>
-    public static Action<IServiceCollection>? OverrideRegistration { get; set; }
+    public static void OverrideRegistration(Action<IServiceCollection>? registration)
+    {
+        if (registration is null)
+            return;
+        if (_serviceProvider is not null)
+            throw new InvalidOperationException("Cannot set OverrideRegistration after the service provider has been initialized.");
+        _overrideRegistrations.Enqueue(registration);
+    }
 
     public static void RegisterCirrusServices(this IServiceCollection services) =>
         services
@@ -56,9 +73,15 @@ public static class CirrusServiceProvider
             IServiceCollection services = new ServiceCollection();
             //client type should be immutable and be initialized with composition root
             services.AddSingleton(typeof(ClientType), clientType);
-            PrependRegistration?.Invoke(services);
+            while (_prependRegistrations.TryDequeue(out var prependRegistration))
+            {
+                prependRegistration?.Invoke(services);
+            }
             services.RegisterCirrusServices();
-            OverrideRegistration?.Invoke(services);
+            while (_overrideRegistrations.TryDequeue(out var overrideRegistration))
+            {
+                overrideRegistration?.Invoke(services);
+            }
             _serviceProvider = services.BuildServiceProvider();
         }
     }
@@ -96,7 +119,8 @@ public static class CirrusServiceProvider
             {
                 disposable.Dispose();
             }
-
+            _prependRegistrations.Clear();
+            _overrideRegistrations.Clear();
             _serviceProvider = null;
         }
     }

@@ -28,13 +28,13 @@ public abstract class BenchmarkBase
     /// </summary>
     protected void InitializeCommon()
     {
-        CirrusServiceProvider.OverrideRegistration = services =>
+        CirrusServiceProvider.OverrideRegistration(services =>
         {
             services.AddSingleton<IHttpTerminateHandler, StubHttpTerminateHandler>();
             services.AddSingleton<ITelemetryService, StubTelemetryService>();
             services.AddSingleton<IAuthContextService, StubAuthContextService>();
             services.AddSingleton<IAuthService, StubAuthService>();
-        };
+        });
 
         RepoRoot = RepoLocator.GetRepoRoot();
     }
@@ -45,7 +45,6 @@ public abstract class BenchmarkBase
     protected void CleanupCommon()
     {
         CirrusServiceProvider.Dispose();
-        CirrusServiceProvider.OverrideRegistration = null;
     }
 
 

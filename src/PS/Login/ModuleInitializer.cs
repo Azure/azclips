@@ -9,10 +9,10 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
 {
     public void OnImport()
     {
-        CirrusServiceProvider.OverrideRegistration = services =>
+        CirrusServiceProvider.OverrideRegistration(services =>
         {
             services.AddSingleton<IArgumentParsingProvider, PSArgumentParsingProvider>();
-        };
+        });
         CirrusServiceProvider.Initialize(ClientType.PowerShell);
     }
 

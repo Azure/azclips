@@ -76,7 +76,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
         public override async Task ProcessAsync()
         {
             await EventListener.Signal(Events.ProcessorProcessAsyncStart);
-            SubscriptionId = SubscriptionId ?? AuthContext.SubscriptionId ?? throw new InvalidOperationException($"SubscriptionId must be provided either via property or auth context.");
+            SubscriptionId = string.IsNullOrEmpty(SubscriptionId) ? AuthContext.SubscriptionId : throw new InvalidOperationException($"SubscriptionId must be provided either via property or auth context.");
             using HttpResponseMessage vmResponse = await SendAsyncLRO();
             VirtualMachine vm = (await vmResponse.Content.ReadFromJsonAsync<VirtualMachine>(JsonOptions))!;
             await WriteOutput(vm);

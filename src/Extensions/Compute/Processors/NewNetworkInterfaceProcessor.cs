@@ -93,7 +93,7 @@ public class NewNetworkInterfaceProcessor : ComputeProcessorBase
     public override async Task ProcessAsync()
     {
         await EventListener.Signal(Events.ProcessorProcessAsyncStart);
-        SubscriptionId = SubscriptionId ?? AuthContext.SubscriptionId ?? throw new InvalidOperationException($"SubscriptionId must be provided either via property or auth context.");
+        SubscriptionId = string.IsNullOrEmpty(SubscriptionId) ? AuthContext.SubscriptionId : throw new InvalidOperationException($"SubscriptionId must be provided either via property or auth context.");
         using HttpResponseMessage response = await SendAsyncLRO();
         NetworkInterface body = (await response.Content.ReadFromJsonAsync<NetworkInterface>(JsonOptions))!;
         await WriteOutput(body);
