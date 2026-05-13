@@ -14,22 +14,22 @@ static class HistoryRenderer
             switch (entry.Type)
             {
                 case HistoryItemType.User:
-                    widgets.Add(ctx.Text($"  {Ansi.AccentGreen}{entry.Text}{Ansi.End}"));
+                    widgets.Add(ctx.Text($"  {Ansi.AccentGreen}{entry.Text}{Ansi.End}").Wrap());
                     break;
                 case HistoryItemType.Output:
-                    widgets.Add(ctx.Text($"    {entry.Text}"));
+                    widgets.Add(ctx.Text($"    {entry.Text}").Wrap());
                     break;
                 case HistoryItemType.Error:
-                    widgets.Add(ctx.Text($"  {Ansi.AccentRed}× {entry.Text}{Ansi.End}"));
+                    widgets.Add(ctx.Text($"  {Ansi.AccentRed}× {entry.Text}{Ansi.End}").Wrap());
                     break;
                 case HistoryItemType.Info:
-                    widgets.Add(ctx.Text($"  {Ansi.AccentYellow}◇ {entry.Text}{Ansi.End}"));
+                    widgets.Add(ctx.Text($"  {Ansi.AccentYellow}◇ {entry.Text}{Ansi.End}").Wrap());
                     break;
                 case HistoryItemType.Success:
-                    widgets.Add(ctx.Text($"  {Ansi.AccentGreen}○ {entry.Text}{Ansi.End}"));
+                    widgets.Add(ctx.Text($"  {Ansi.AccentGreen}○ {entry.Text}{Ansi.End}").Wrap());
                     break;
                 case HistoryItemType.ToolCall:
-                    widgets.Add(ctx.Text($"  {Ansi.AccentCyan}◦ {Ansi.Comment}{entry.Text}{Ansi.End}"));
+                    widgets.Add(ctx.Text($"  {Ansi.AccentCyan}◦ {Ansi.Comment}{entry.Text}{Ansi.End}").Wrap());
                     break;
                 case HistoryItemType.Table:
                     if (entry.TableData != null)
