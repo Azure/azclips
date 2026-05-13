@@ -90,35 +90,32 @@ class AppState
         _historyService.Load();
         RefreshPrompt();
         GitBranch = PromptService.GetGitBranch();
-        _ = InitVfsAsync();
     }
 
     private void RegisterCommand(ISlashCommand cmd) => _commands[cmd.Verb] = cmd;
 
     // ── VFS initialization ───────────────────────────────────────────
 
-    private async Task InitVfsAsync()
+    public async Task InitVfsAsync()
     {
         try
         {
             VfsReady = await Vfs.TryAuthenticateAsync();
-            if (!VfsReady) return;
-
-            try
+            if (!VfsReady)
             {
-                await Vfs.SetInitialPathAsync();
-            }
-            catch
-            {
-                // Path setup failed but auth is still valid
+                Invalidate?.Invoke();
+                return;
             }
 
+            await Vfs.SetInitialPathAsync();
             RefreshPrompt();
             Invalidate?.Invoke();
         }
-        catch
+        catch (Exception ex)
         {
             VfsReady = false;
+            AddHistory(new HistoryEntry(HistoryItemType.Error, $"Azure init failed: {ex.Message}"));
+            Invalidate?.Invoke();
         }
     }
 

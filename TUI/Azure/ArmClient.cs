@@ -134,6 +134,43 @@ public class ArmClient : IDisposable
     }
 
     /// <summary>
+    /// Resolve the display name for a tenant via ARM /tenants API.
+    /// Returns null if the tenant is not found or the call fails.
+    /// </summary>
+    public async Task<string?> GetTenantDisplayNameAsync(string tenantId)
+    {
+        try
+        {
+            var token = await AcquireTokenAsync(tenantId);
+            if (token == null) return null;
+
+            using var request = new HttpRequestMessage(HttpMethod.Get,
+                "https://management.azure.com/tenants?api-version=2022-12-01");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            var response = await _http.SendAsync(request);
+            response.EnsureSuccessStatusCode();
+
+            var body = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.TryGetProperty("value", out var tenants))
+            {
+                foreach (var tenant in tenants.EnumerateArray())
+                {
+                    if (tenant.TryGetProperty("tenantId", out var tid) &&
+                        tid.GetString()?.Equals(tenantId, StringComparison.OrdinalIgnoreCase) == true &&
+                        tenant.TryGetProperty("displayName", out var dn))
+                    {
+                        return dn.GetString();
+                    }
+                }
+            }
+        }
+        catch { }
+        return null;
+    }
+
+    /// <summary>
     /// Execute an ARG query and return raw rows.
     /// If subscriptionIds is null, queries across all accessible subscriptions.
     /// </summary>

@@ -43,6 +43,7 @@ public static class Program
         try
         {
             var state = CirrusServiceProvider.GetRequiredService<AppState>();
+            await state.InitVfsAsync();
 
             var theme = Hex1bThemes.Ocean.Clone("cirrus");
 

@@ -45,7 +45,8 @@ public class AzureVfs
         if (ok && tenantId != null)
         {
             _tenantId = tenantId;
-            _tenantDisplay = tenantId[..Math.Min(8, tenantId.Length)];
+            _tenantDisplay = await _arm.GetTenantDisplayNameAsync(tenantId)
+                ?? tenantId[..Math.Min(8, tenantId.Length)];
         }
         return ok;
     }
@@ -61,7 +62,9 @@ public class AzureVfs
         if (string.IsNullOrEmpty(tenantId)) return;
 
         _tenantId = tenantId;
-        _tenantDisplay = tenantId[..Math.Min(8, tenantId.Length)];
+        // _tenantDisplay already resolved in TryAuthenticateAsync; keep as fallback
+        if (string.IsNullOrEmpty(_tenantDisplay))
+            _tenantDisplay = tenantId[..Math.Min(8, tenantId.Length)];
 
         if (string.IsNullOrEmpty(subscriptionId))
         {
