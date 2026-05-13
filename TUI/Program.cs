@@ -96,11 +96,11 @@ public static class Program
                 // ── Header / Welcome / Help ──
                 if (state.ShowHelp)
                 {
-                    topWidgets.Add(HelpRenderer.Render(v));
+                    topWidgets.Add(HelpRenderer.Render(v).Fill());
                 }
                 else if (state.HistoryCount == 0)
                 {
-                    topWidgets.Add(HeaderRenderer.RenderWelcome(v, termWidth));
+                    topWidgets.Add(HeaderRenderer.RenderWelcome(v, termWidth).Fill());
                 }
                 else
                 {
@@ -128,32 +128,16 @@ public static class Program
                     topWidgets.Add(v.HStack(h => []).Height(SizeHint.Fixed(0)));
                 }
 
-                // ── Prompt + input (Text widget for display, hidden TextBox for focus/input) ──
+                topWidgets.Add(v.Separator());
+
+                // Prompt + input (visible TextBox)
                 var prompt = state.Prompt;
-                var input = state.InputText;
-                var cursorPos = state.CursorPos;
+                topWidgets.Add(v.Text(prompt).Height(SizeHint.Content));
 
-                // Build display text: prompt + input with a block cursor via ANSI reverse video
-                var fullText = prompt + input;
-                var absCursor = prompt.Length + cursorPos;
-                var before = fullText[..Math.Min(absCursor, fullText.Length)];
-                var cursorChar = absCursor < fullText.Length ? fullText[absCursor].ToString() : " ";
-                var after = absCursor < fullText.Length ? fullText[(absCursor + 1)..] : "";
-                var cursorBlock = $"\x1b[7m{cursorChar}\x1b[27m";
-                var displayLine = $"{before}{cursorBlock}{after}";
-
-                topWidgets.Add(v.Text(displayLine).Wrap().Height(SizeHint.Content));
-
-                // Hidden TextBox (0 height) as a focus sink for AnyCharacter input.
-                // Character bindings only fire on the focused node (TextBoxNode),
-                // not on wrapper nodes. So we use OnTextChanged to relay typed chars.
-                // Global bindings handle Backspace/Delete/arrows etc. and fire BEFORE
-                // the TextBox sees them, so they never reach the TextBox.
-                topWidgets.Add(v.ThemePanel(
-                    t => t
-                        .Set(TextBoxTheme.FillBackgroundColor, Hex1bColor.Default)
-                        .Set(TextBoxTheme.FocusedFillBackgroundColor, Hex1bColor.Default),
-                    v.TextBox(state.InputText)
+                topWidgets.Add(v.HStack(h =>
+                [
+                    h.Text("> "),
+                    v.TextBox(state.InputText).Multiline(2)
                         .OnTextChanged(e =>
                         {
                             // TextBox cursor is always at end (reset by reconciliation).
@@ -167,13 +151,18 @@ public static class Program
                                 app.Invalidate();
                             }
                         })
-                ).Height(SizeHint.Fixed(0)));
+                ]));
 
                 // ── Inline suggestions (always present to keep widget indices stable) ──
                 if (state.Suggestions.Count > 0)
-                    topWidgets.Add(SuggestionRenderer.Render(v, state.Suggestions, state.SelectedSuggestion));
+                {
+                    topWidgets.Add(v.Border(b => [SuggestionRenderer.Render(v, state.Suggestions, state.SelectedSuggestion)]));
+                }
                 else
+                {
                     topWidgets.Add(v.Text("").Height(SizeHint.Fixed(0)));
+                    topWidgets.Add(v.Separator());
+                }
 
                 return topWidgets.ToArray();
             }).Fill());
