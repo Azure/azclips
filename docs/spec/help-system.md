@@ -36,7 +36,7 @@
 | -------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Markdown help authoring    | Help files under `src/Extensions/{Extension}/help/{command}.md`; markdown is source of truth | ✅ **Implemented and validated** (Login extension fully migrated; Config/Resources/Extension pending) |
 | Example language tagging   | Examples in markdown tagged by language (` ```bash ` or ` ```powershell `)                   | ✅ **Implemented** (CLI filters `!IsPowerShell`, PowerShell gets full list)                           |
-| Runtime markdown loading   | `MarkdownCommandHelpProvider` parses markdown files at runtime                               | ✅ **Implemented** (resolves from repo root; caches parsed content)                                   |
+| Runtime markdown loading   | `MarkdownCommandHelpProvider` parses markdown files at runtime                               | ✅ **Implemented** (resolves from repo root; reads file on each lookup)                               |
 | CLI help adapter           | `ExtensionIndexHelpAdapter` calls markdown provider first, falls back to attributes          | ✅ **Implemented** (filters CLI examples, passes all to PowerShell)                                   |
 | Manifest builder           | `ExtensionHelpManifestBuilder` splits examples by surface (cli/powerShell arrays)            | ✅ **Implemented** (used during artifact generation)                                                  |
 | Build-time artifact export | `.\build\build.ps1 -GenerateHelpArtifacts` generates JSON manifests and PowerShell XML       | ✅ **Implemented** (integrated into build script)                                                     |
@@ -131,7 +131,7 @@ Responsibilities:
 - Tags examples: `IsPowerShell = true` if section is PowerShell, else `false` (CLI)
 - Returns `MarkdownCommandHelp` record with parsed content
 
-Caching: Parsed content is cached per process to avoid re-reading/re-parsing the same file.
+Caching: Not implemented today. The provider reads and parses the markdown file on every call. Help is invoked once per CLI process at the cold path, so I/O cost has not warranted caching yet.
 
 ### 3.4 Surface-specific filtering
 
@@ -354,7 +354,7 @@ The CLI help path is:
 1. Parse arguments and detect `-h` / `--help` / `help` **before** command execution
 2. Call help adapter with extension name and command key
 3. Adapter calls `MarkdownCommandHelpProvider.Get(extensionName, commandKey)`
-4. Provider reads and parses markdown file (cached)
+4. Provider reads and parses markdown file
 5. Adapter filters examples by surface (CLI-only: `!e.IsPowerShell`)
 6. CLI renderer formats and displays help
 7. Exit without creating command processor instances
@@ -363,8 +363,8 @@ Cold-path constraints:
 
 - ❌ No runtime reflection over processor types to render help
 - ❌ No processor instantiation on the help path
-- ✅ Markdown files are read and cached (lightweight operation)
-- ✅ Help metadata may be cached for process lifetime
+- ✅ Markdown files are read on demand (lightweight operation)
+- ⏳ Caching is not implemented; can be added later if profiling shows it is needed
 - ✅ No dependency on generated JSON manifests or indexes
 
 ### 5.9 Global arguments
@@ -504,9 +504,9 @@ Markdown help files with YAML frontmatter (src/Extensions/{Extension}/help/*.md)
 | Concern                                               | Mitigation                                                                                                      |
 | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | Cold-start help latency                               | CLI intercepts `--help` before command execution; reads markdown + renders (no assembly loading)                |
-| Markdown file I/O on every help lookup                | `MarkdownCommandHelpProvider` caches parsed content per process; repeated lookups are O(1)                       |
+| Markdown file I/O on every help lookup                | Help is shown once per CLI process invocation; one synchronous read per command lookup is acceptable             |
 | Loading execution assemblies just to show help        | ✅ Achieved: help is resolved before extension loading                                                           |
-| Markdown parsing cost                                 | Minimal: simple regex-based parsing; cached in memory                                                            |
+| Markdown parsing cost                                 | Minimal: simple regex-based parsing on cold path                                                                 |
 | Tooling artifact size                                 | Optional; not part of runtime. JSON/XML artifacts are for publishing, not consumed at help render time           |
 | PowerShell help startup latency                       | Pre-generated MAML XML is included in module; `Get-Help` reads pre-built XML (no runtime generation)            |
 
@@ -664,7 +664,7 @@ The following design decisions have been **made and validated** in the actual im
 **Delivered:**
 
 1. ✅ Markdown help files as source of truth (`src/Extensions/{Extension}/help/`)
-2. ✅ `MarkdownCommandHelpProvider` to parse and cache markdown at runtime
+2. ✅ `MarkdownCommandHelpProvider` to parse markdown at runtime
 3. ✅ Example language tagging (bash/powershell) for surface differentiation
 4. ✅ CLI adapter filters examples by surface (`!e.IsPowerShell` for CLI)
 5. ✅ Manifest builder splits examples into cli/powerShell arrays
@@ -782,10 +782,10 @@ The following design decisions have been **made and validated** in the actual im
     - 2 tests in [tests/Cli.Tests/ExtensionHelpManifestBuilderTests.cs](../../tests/Cli.Tests/ExtensionHelpManifestBuilderTests.cs): manifest correctly splits examples by language tag, CLI examples don't contain PowerShell verbs
     - Verified: CLI surface filters `!IsPowerShell`, PowerShell surface receives full unfiltered list
 
-4. **Performance and caching**
-    - Test `MarkdownCommandHelpProvider` caches parsed content
-    - Test repeated help lookups don't re-read files
-    - Test cold-start latency is acceptable
+4. ⏭️ **Performance and caching** — SKIPPED
+    - Caching is not implemented in `MarkdownCommandHelpProvider`; each `Get` call reads + parses the file
+    - Help is invoked once per CLI process at the cold path, so the I/O cost has not warranted caching
+    - If profiling later shows hot-path issues, add `ConcurrentDictionary` keyed by `(extensionName, commandKey)` with file `LastWriteTime` invalidation, then revive these tests
 
 5. **Help tool validation logic tests**
     - Location: Add new test class `HelpToolValidationTests.cs` to `tests/Cli.Tests/`
