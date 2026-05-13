@@ -716,43 +716,46 @@ The following design decisions have been **made and validated** in the actual im
 
 ---
 
-### 15.3 ⏳ Phase 3: Build-Time Validation and Linting
+### 15.3 ✅ Phase 3: Build-Time Validation and Linting — COMPLETE
 
 **Objective:** Add stricter enforcement that required help content exists and is well-formed.
 
-**Subtasks:**
+**Subtasks (completed):**
 
-1. **Help markdown structure validation**
-    - Check all help files have `Summary:` field (required)
-    - Check all help files have `Description:` field (required)
-    - Check all help files have at least one example block (required)
-    - Check code fence syntax is correct (matching ``` delimiters)
-    - Fail build if validation fails
+1. ✅ **Help markdown structure validation**
+    - Checks all help files have `Summary:` field (required)
+    - Checks all help files have `Description:` field (required)
+    - Checks all help files have at least one example block (required)
+    - Checks code fence syntax is correct (matching ``` delimiters)
+    - Build fails if validation fails
+    - Implemented in `ValidateMarkdownHelpFiles` in [tools/Help/Cirrus.Help.Tool/Program.cs](../../tools/Help/Cirrus.Help.Tool/Program.cs)
 
-2. **Help completeness checking**
-    - For each command in `ExtensionIndex`, ensure corresponding markdown file exists
-    - For each markdown file, verify it's referenced by a routed command
-    - Warn on orphaned help files
-    - Fail build if routed command has no help
+2. ✅ **Help completeness checking**
+    - For each command in `ExtensionIndex`, ensures corresponding markdown file exists
+    - For each markdown file, verifies it's referenced by a routed command
+    - Warns on orphaned help files (does not fail build)
+    - Fails build if routed command has no help
+    - Implemented in `ValidateExtensionHelpCompleteness` in [tools/Help/Cirrus.Help.Tool/Program.cs](../../tools/Help/Cirrus.Help.Tool/Program.cs)
 
-3. **CI integration**
-    - Wire help validation into PR pipeline CI (GitHub Actions or equivalent)
-    - Add build step: `.\build\build.ps1 -GenerateHelpArtifacts -BuildConfiguration Release`
+3. ✅ **CI integration**
+    - Help validation wired into PR pipeline via [.github/workflows/build-and-test.yml](../../.github/workflows/build-and-test.yml) `Validate Help Content (15.3.2)` step
+    - Runs `.\build\build.ps1 -GenerateHelpArtifacts -BuildConfiguration Debug` on every PR
     - Validation fails the PR if:
         - Any help file missing `Summary:`, `Description:`, or examples
         - Any routed command lacks a corresponding help file
         - Any code fence syntax is malformed
     - Validation warns (does not fail PR) if:
         - Orphaned help files exist (can be merged with follow-up cleanup)
-    - Output clear error messages with file paths and remediation steps
-    - Consider Roslyn analyzer or `dotnet tool` in future for pre-commit local opt-in
+    - Clear error messages with file paths and remediation steps
+    - Future: Consider Roslyn analyzer or `dotnet tool` for pre-commit local opt-in
 
-**Exit criteria:**
+**Exit criteria (met):**
 
-- Build/PR pipeline fails if required help fields are missing
-- CI prevents merging PRs that add commands without help
-- Clear error messages guide developers to fixes
-- Help validation runs as part of standard CI/CD pipeline
+- ✅ Build/PR pipeline fails if required help fields are missing
+- ✅ CI prevents merging PRs that add commands without help
+- ✅ Clear error messages guide developers to fixes
+- ✅ Help validation runs as part of standard CI/CD pipeline
+- ✅ Verified end-to-end: happy path passes; missing help file fails CI as expected
 
 ---
 
