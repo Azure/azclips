@@ -34,22 +34,22 @@ static class FooterRenderer
             var sections = new List<IInfoBarChild>();
 
             sections.Add(s.Section(modeLabel));
-            sections.Add(s.Separator("  "));
+            sections.Add(s.Spacer());
             sections.Add(s.Section(contextPath));
 
             if (!string.IsNullOrEmpty(branch))
             {
-                sections.Add(s.Separator("  "));
+                sections.Add(s.Spacer());
                 sections.Add(s.Section($" {branch}"));
             }
 
             sections.Add(s.Spacer());
             sections.Add(s.Section("F2 mode"));
-            sections.Add(s.Separator("  "));
+            sections.Add(s.Spacer());
             sections.Add(s.Section("↵ run"));
-            sections.Add(s.Separator("  "));
+            sections.Add(s.Spacer());
             sections.Add(s.Section("⇥ complete"));
-            sections.Add(s.Separator("  "));
+            sections.Add(s.Spacer());
             sections.Add(s.Section("F1 help"));
 
             return sections;

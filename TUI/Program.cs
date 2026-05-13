@@ -79,7 +79,7 @@ public static class Program
 
         var termWidth = Console.WindowWidth;
 
-        return ctx.VStack(v =>
+        Hex1bWidget hex1BWidget = ctx.VStack(v =>
         {
             var widgets = new List<Hex1bWidget>();
 
@@ -145,11 +145,8 @@ public static class Program
                 // the TextBox sees them, so they never reach the TextBox.
                 topWidgets.Add(v.ThemePanel(
                     t => t
-                        .Set(TextBoxTheme.UseFillMode, true)
                         .Set(TextBoxTheme.FillBackgroundColor, Hex1bColor.Default)
-                        .Set(TextBoxTheme.FocusedFillBackgroundColor, Hex1bColor.Default)
-                        .Set(TextBoxTheme.LeftBracket, "")
-                        .Set(TextBoxTheme.RightBracket, ""),
+                        .Set(TextBoxTheme.FocusedFillBackgroundColor, Hex1bColor.Default),
                     v.TextBox(state.InputText)
                         .OnTextChanged(e =>
                         {
@@ -186,7 +183,7 @@ public static class Program
             }).Height(SizeHint.Content));
 
             return widgets.ToArray();
-        }).WithInputBindings(bindings =>
+        }).InputBindings(bindings =>
         {
             bindings.Key(Hex1bKey.F1).Global()
                 .Action(_ =>
@@ -341,6 +338,8 @@ public static class Program
                     app.Invalidate();
                 }, "Clear history");
         });
+
+        return hex1BWidget;
     }
 
     /// <summary>
