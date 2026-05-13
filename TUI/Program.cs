@@ -20,7 +20,7 @@ public static class Program
 
     public static async Task Main()
     {
-        CirrusServiceProvider.PrependRegistration = services =>
+        CirrusServiceProvider.PrependRegistration(services =>
         {
             services.AddSingleton<ArmClient>();
             services.AddSingleton<AzureVfs>();
@@ -28,14 +28,14 @@ public static class Program
             services.AddSingleton<PromptService>();
             services.AddSingleton<HistoryService>();
             services.AddSingleton<AppState>();
-        };
-        CirrusServiceProvider.OverrideRegistration = services =>
+        });
+        CirrusServiceProvider.OverrideRegistration(services =>
         {
             // Replace the default ScopedLoggingService (which falls back to
             // ConsoleLoggingService and writes [VERBOSE]/[DEBUG] directly to the
             // console) with a silent implementation that won't corrupt the TUI.
             services.AddSingleton<ILoggingService, TuiLoggingService>();
-        };
+        });
         var bootSw = System.Diagnostics.Stopwatch.StartNew();
         CirrusServiceProvider.Initialize(ClientType.TUI);
         Console.Error.WriteLine($"[startup] DI init: {bootSw.ElapsedMilliseconds}ms");
