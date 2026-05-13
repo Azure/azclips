@@ -5,7 +5,7 @@ namespace Core.Tui.Rendering;
 
 static class HistoryRenderer
 {
-    public static List<Hex1bWidget> Render<TParent>(WidgetContext<TParent> ctx, List<HistoryEntry> history)
+    public static List<Hex1bWidget> Render<TParent>(WidgetContext<TParent> ctx, List<HistoryEntry> history, TuiTheme theme)
         where TParent : Hex1bWidget
     {
         var widgets = new List<Hex1bWidget>();
@@ -14,13 +14,15 @@ static class HistoryRenderer
             switch (entry.Type)
             {
                 case HistoryItemType.User:
-                    widgets.Add(ctx.Text($"  {Ansi.AccentGreen}{entry.Text}{Ansi.End}").Wrap());
+                    widgets.Add(ctx.Text($"  {theme.AnsiUserEntry}{entry.Text}{Ansi.End}").Wrap());
                     break;
                 case HistoryItemType.Output:
-                    widgets.Add(ctx.Text($"    {entry.Text}").Wrap());
+                    var outPre = string.IsNullOrEmpty(theme.AnsiOutput) ? "" : theme.AnsiOutput;
+                    var outSuf = string.IsNullOrEmpty(theme.AnsiOutput) ? "" : Ansi.End;
+                    widgets.Add(ctx.Text($"    {outPre}{entry.Text}{outSuf}").Wrap());
                     break;
                 case HistoryItemType.Error:
-                    widgets.Add(ctx.Text($"  {Ansi.AccentRed}× {entry.Text}{Ansi.End}").Wrap());
+                    widgets.Add(ctx.Text($"  {theme.AnsiError}× {entry.Text}{Ansi.End}").Wrap());
                     break;
                 case HistoryItemType.Info:
                     widgets.Add(ctx.Text($"  {Ansi.AccentYellow}◇ {entry.Text}{Ansi.End}").Wrap());
@@ -30,14 +32,6 @@ static class HistoryRenderer
                     break;
                 case HistoryItemType.ToolCall:
                     widgets.Add(ctx.Text($"  {Ansi.AccentCyan}◦ {Ansi.Comment}{entry.Text}{Ansi.End}").Wrap());
-                    break;
-                case HistoryItemType.Table:
-                    if (entry.TableData != null)
-                    {
-                        var tableLines = TableRenderer.Render(entry.TableData, Console.WindowWidth);
-                        foreach (var line in tableLines)
-                            widgets.Add(ctx.Text(line));
-                    }
                     break;
                 case HistoryItemType.Separator:
                     widgets.Add(ctx.Text(""));

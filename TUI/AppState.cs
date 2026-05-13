@@ -21,6 +21,9 @@ class AppState
     public ShellMode Mode { get; private set; } = ShellMode.Azure;
     public string LocalCwd { get; private set; } = Directory.GetCurrentDirectory();
 
+    // Theme
+    public TuiTheme Theme { get; set; } = TuiTheme.Load();
+
     // UI state — backed by a shared TextBoxState so the TextBox widget and
     // AppState operate on the same cursor / text buffer.
     public TextBoxState EditorState { get; } = new();
