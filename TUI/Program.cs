@@ -96,11 +96,11 @@ public static class Program
                 // ── Header / Welcome / Help ──
                 if (state.ShowHelp)
                 {
-                    topWidgets.Add(HelpRenderer.Render(v));
+                    topWidgets.Add(HelpRenderer.Render(v).Fill());
                 }
                 else if (state.HistoryCount == 0)
                 {
-                    topWidgets.Add(HeaderRenderer.RenderWelcome(v, termWidth));
+                    topWidgets.Add(HeaderRenderer.RenderWelcome(v, termWidth).Fill());
                 }
                 else
                 {
@@ -128,15 +128,16 @@ public static class Program
                     topWidgets.Add(v.HStack(h => []).Height(SizeHint.Fixed(0)));
                 }
 
-                // ── Prompt + input (Text widget for display, hidden TextBox for focus/input) ──
+                topWidgets.Add(v.Separator());
+
+                // Prompt + input (visible TextBox)
                 var prompt = state.Prompt;
                 topWidgets.Add(v.Text(prompt).Height(SizeHint.Content));
 
-                topWidgets.Add(v.ThemePanel(
-                    t => t
-                        .Set(TextBoxTheme.FillBackgroundColor, Hex1bColor.Default)
-                        .Set(TextBoxTheme.FocusedFillBackgroundColor, Hex1bColor.Default),
-                    v.TextBox(state.InputText)
+                topWidgets.Add(v.HStack(h =>
+                [
+                    h.Text("> "),
+                    v.TextBox(state.InputText).Multiline(2)
                         .OnTextChanged(e =>
                         {
                             // TextBox cursor is always at end (reset by reconciliation).
@@ -150,13 +151,18 @@ public static class Program
                                 app.Invalidate();
                             }
                         })
-                ).Height(SizeHint.Content));
+                ]));
 
                 // ── Inline suggestions (always present to keep widget indices stable) ──
                 if (state.Suggestions.Count > 0)
-                    topWidgets.Add(SuggestionRenderer.Render(v, state.Suggestions, state.SelectedSuggestion));
+                {
+                    topWidgets.Add(v.Border(b => [SuggestionRenderer.Render(v, state.Suggestions, state.SelectedSuggestion)]));
+                }
                 else
+                {
                     topWidgets.Add(v.Text("").Height(SizeHint.Fixed(0)));
+                    topWidgets.Add(v.Separator());
+                }
 
                 return topWidgets.ToArray();
             }).Fill());
