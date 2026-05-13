@@ -24,7 +24,13 @@ public static class CirrusServiceProvider
     /// </summary>
     public static void AddPrependRegistration(Action<IServiceCollection> registration)
     {
-        _prependRegistrations.Add(registration);
+        lock (_lock)
+        {
+            if (_serviceProvider is not null)
+                throw new InvalidOperationException(
+                    "Cannot add registrations after CirrusServiceProvider has been initialized.");
+            _prependRegistrations.Add(registration);
+        }
     }
 
     /// <summary>
@@ -35,7 +41,13 @@ public static class CirrusServiceProvider
     /// </summary>
     public static void AddOverrideRegistration(Action<IServiceCollection> registration)
     {
-        _overrideRegistrations.Add(registration);
+        lock (_lock)
+        {
+            if (_serviceProvider is not null)
+                throw new InvalidOperationException(
+                    "Cannot add registrations after CirrusServiceProvider has been initialized.");
+            _overrideRegistrations.Add(registration);
+        }
     }
 
     /// <summary>
