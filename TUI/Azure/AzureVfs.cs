@@ -18,9 +18,7 @@ public class AzureVfs
 {
     private readonly ArmClient _arm;
     private readonly IAuthContextService _authContextService;
-    private readonly AzureCache<List<AzureSubscription>> _subscriptionCache = new();
-    private readonly AzureCache<List<AzureResourceGroup>> _resourceGroupCache = new();
-    private readonly AzureCache<List<AzureResource>> _resourceCache = new();
+    private AzureResourceTree? _tree;
 
     private string _currentPath = "/";
     private string? _tenantId;
@@ -194,36 +192,9 @@ public class AzureVfs
 
     // ── Cache refresh ──
 
-    public enum RefreshScope { All, Subscriptions, ResourceGroups, Resources }
-
-    public void Refresh(RefreshScope scope, string? subscriptionId = null, string? resourceGroupName = null)
+    public void Refresh()
     {
-        switch (scope)
-        {
-            case RefreshScope.All:
-                _subscriptionCache.Clear();
-                _resourceGroupCache.Clear();
-                _resourceCache.Clear();
-                break;
-            case RefreshScope.Subscriptions:
-                _subscriptionCache.Clear();
-                break;
-            case RefreshScope.ResourceGroups:
-                if (subscriptionId != null) _resourceGroupCache.Invalidate(subscriptionId);
-                else _resourceGroupCache.Clear();
-                break;
-            case RefreshScope.Resources:
-                if (subscriptionId != null && resourceGroupName != null)
-                    _resourceCache.Invalidate($"{subscriptionId}/{resourceGroupName}");
-                else if (subscriptionId != null)
-                {
-                    foreach (var key in _resourceCache.Keys.Where(k => k.StartsWith($"{subscriptionId}/")))
-                        _resourceCache.Invalidate(key);
-                }
-                else
-                    _resourceCache.Clear();
-                break;
-        }
+        _tree = null;
     }
 
     // ── Completion ──
@@ -263,18 +234,19 @@ public class AzureVfs
             .ToList();
     }
 
-    // ── Internal data fetching (cached, all via ARG) ──
+    // ── Internal data fetching (single query, cached in memory) ──
 
-    private Task<List<AzureSubscription>> GetSubscriptionsAsync()
-        => _subscriptionCache.GetOrFetchAsync("subs", _arm.GetSubscriptionsAsync);
+    private async Task<AzureResourceTree> GetTreeAsync()
+        => _tree ??= await _arm.FetchResourceTreeAsync();
 
-    private Task<List<AzureResourceGroup>> GetResourceGroupsAsync(string subscriptionId)
-        => _resourceGroupCache.GetOrFetchAsync(subscriptionId,
-            () => _arm.GetResourceGroupsAsync(subscriptionId));
+    private async Task<List<AzureSubscription>> GetSubscriptionsAsync()
+        => (await GetTreeAsync()).Subscriptions;
 
-    private Task<List<AzureResource>> GetResourcesAsync(string subscriptionId, string resourceGroupName)
-        => _resourceCache.GetOrFetchAsync($"{subscriptionId}/{resourceGroupName}",
-            () => _arm.GetResourcesAsync(subscriptionId, resourceGroupName));
+    private async Task<List<AzureResourceGroup>> GetResourceGroupsAsync(string subscriptionId)
+        => (await GetTreeAsync()).GetResourceGroups(subscriptionId);
+
+    private async Task<List<AzureResource>> GetResourcesAsync(string subscriptionId, string resourceGroupName)
+        => (await GetTreeAsync()).GetResources(subscriptionId, resourceGroupName);
 
     // ── List helpers (return VfsEntry) ──
 

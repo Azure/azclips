@@ -56,50 +56,81 @@ public class ArmClient : IDisposable
     // ── Azure Resource Graph queries ──
 
     /// <summary>
-    /// Get all subscriptions via Resource Graph.
+    /// Fetch the entire resource tree (subscriptions, resource groups, resources) in a single ARG query.
     /// </summary>
-    public async Task<List<AzureSubscription>> GetSubscriptionsAsync()
+    public async Task<AzureResourceTree> FetchResourceTreeAsync()
     {
-        const string kql = "ResourceContainers | where type == 'microsoft.resources/subscriptions' | project subscriptionId, name, properties.state, tenantId";
+        const string kql = """
+            ResourceContainers
+            | where type == 'microsoft.resources/subscriptions'
+            | project subscriptionId, name, type = type, location = '', resourceGroup = '', properties_state = tostring(properties.state), tenantId
+            | union (
+                ResourceContainers
+                | where type == 'microsoft.resources/subscriptions/resourcegroups'
+                | project subscriptionId, name, type = type, location, resourceGroup = '', properties_state = tostring(properties.provisioningState), tenantId
+            )
+            | union (
+                Resources
+                | project subscriptionId, name, type, location, resourceGroup, properties_state = '', tenantId
+            )
+            """;
+
         var rows = await QueryArgAsync(kql, subscriptionIds: null);
-        return rows.Select(cols => new AzureSubscription
-        {
-            SubscriptionId = SafeGetString(cols, 0) ?? "",
-            DisplayName = SafeGetString(cols, 1),
-            State = SafeGetString(cols, 2),
-            TenantId = SafeGetString(cols, 3)
-        }).ToList();
-    }
+        var tree = new AzureResourceTree();
 
-    /// <summary>
-    /// Get resource groups for a subscription via Resource Graph.
-    /// </summary>
-    public async Task<List<AzureResourceGroup>> GetResourceGroupsAsync(string subscriptionId)
-    {
-        const string kql = "ResourceContainers | where type == 'microsoft.resources/subscriptions/resourcegroups' | project name, location, subscriptionId, properties.provisioningState";
-        var rows = await QueryArgAsync(kql, [subscriptionId]);
-        return rows.Select(cols => new AzureResourceGroup
-        {
-            Name = SafeGetString(cols, 0) ?? "",
-            Location = SafeGetString(cols, 1) ?? "",
-        }).ToList();
-    }
+        // Temporary lookups to group while iterating
+        var rgsBySubId = new Dictionary<string, List<AzureResourceGroup>>(StringComparer.OrdinalIgnoreCase);
+        var resByKey = new Dictionary<string, List<AzureResource>>(StringComparer.OrdinalIgnoreCase);
+        var seenSubs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>
-    /// Get resources via Resource Graph, optionally filtered by resource group.
-    /// </summary>
-    public async Task<List<AzureResource>> GetResourcesAsync(string subscriptionId, string? resourceGroup = null)
-    {
-        var kql = resourceGroup != null
-            ? $"Resources | where resourceGroup =~ '{resourceGroup}' | project name, type, location, resourceGroup, subscriptionId"
-            : "Resources | project name, type, location, resourceGroup, subscriptionId";
-        var rows = await QueryArgAsync(kql, [subscriptionId]);
-        return rows.Select(cols => new AzureResource
+        foreach (var cols in rows)
         {
-            Name = SafeGetString(cols, 0) ?? "",
-            Type = SafeGetString(cols, 1) ?? "",
-            Location = SafeGetString(cols, 2),
-        }).ToList();
+            var subId = SafeGetString(cols, 0) ?? "";
+            var name = SafeGetString(cols, 1) ?? "";
+            var type = SafeGetString(cols, 2) ?? "";
+            var location = SafeGetString(cols, 3) ?? "";
+            var resourceGroup = SafeGetString(cols, 4) ?? "";
+            var state = SafeGetString(cols, 5);
+            var tenantId = SafeGetString(cols, 6);
+
+            if (type.Equals("microsoft.resources/subscriptions", StringComparison.OrdinalIgnoreCase))
+            {
+                if (seenSubs.Add(subId))
+                {
+                    tree.Subscriptions.Add(new AzureSubscription
+                    {
+                        SubscriptionId = subId,
+                        DisplayName = name,
+                        State = state,
+                        TenantId = tenantId,
+                    });
+                }
+            }
+            else if (type.Equals("microsoft.resources/subscriptions/resourcegroups", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!rgsBySubId.TryGetValue(subId, out var rgList))
+                {
+                    rgList = [];
+                    rgsBySubId[subId] = rgList;
+                }
+                rgList.Add(new AzureResourceGroup { Name = name, Location = location });
+            }
+            else
+            {
+                var key = $"{subId}/{resourceGroup}";
+                if (!resByKey.TryGetValue(key, out var resList))
+                {
+                    resList = [];
+                    resByKey[key] = resList;
+                }
+                resList.Add(new AzureResource { Name = name, Type = type, Location = location });
+            }
+        }
+
+        foreach (var (k, v) in rgsBySubId) tree.ResourceGroups[k] = v;
+        foreach (var (k, v) in resByKey) tree.Resources[k] = v;
+
+        return tree;
     }
 
     /// <summary>

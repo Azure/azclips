@@ -48,3 +48,24 @@ public record AzureResource
     [JsonPropertyName("kind")]
     public string? Kind { get; init; }
 }
+
+/// <summary>
+/// In-memory tree of all Azure resources fetched in a single ARG query.
+/// Organized as: Subscriptions → ResourceGroups → Resources.
+/// </summary>
+public class AzureResourceTree
+{
+    public List<AzureSubscription> Subscriptions { get; } = [];
+
+    /// <summary>Resource groups keyed by subscriptionId.</summary>
+    public Dictionary<string, List<AzureResourceGroup>> ResourceGroups { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Resources keyed by "subscriptionId/resourceGroupName".</summary>
+    public Dictionary<string, List<AzureResource>> Resources { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public List<AzureResourceGroup> GetResourceGroups(string subscriptionId)
+        => ResourceGroups.TryGetValue(subscriptionId, out var rgs) ? rgs : [];
+
+    public List<AzureResource> GetResources(string subscriptionId, string resourceGroupName)
+        => Resources.TryGetValue($"{subscriptionId}/{resourceGroupName}", out var res) ? res : [];
+}
