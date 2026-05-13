@@ -130,25 +130,8 @@ public static class Program
 
                 // ── Prompt + input (Text widget for display, hidden TextBox for focus/input) ──
                 var prompt = state.Prompt;
-                var input = state.InputText;
-                var cursorPos = state.CursorPos;
+                topWidgets.Add(v.Text(prompt).Height(SizeHint.Content));
 
-                // Build display text: prompt + input with a block cursor via ANSI reverse video
-                var fullText = prompt + input;
-                var absCursor = prompt.Length + cursorPos;
-                var before = fullText[..Math.Min(absCursor, fullText.Length)];
-                var cursorChar = absCursor < fullText.Length ? fullText[absCursor].ToString() : " ";
-                var after = absCursor < fullText.Length ? fullText[(absCursor + 1)..] : "";
-                var cursorBlock = $"\x1b[7m{cursorChar}\x1b[27m";
-                var displayLine = $"{before}{cursorBlock}{after}";
-
-                topWidgets.Add(v.Text(displayLine).Wrap().Height(SizeHint.Content));
-
-                // Hidden TextBox (0 height) as a focus sink for AnyCharacter input.
-                // Character bindings only fire on the focused node (TextBoxNode),
-                // not on wrapper nodes. So we use OnTextChanged to relay typed chars.
-                // Global bindings handle Backspace/Delete/arrows etc. and fire BEFORE
-                // the TextBox sees them, so they never reach the TextBox.
                 topWidgets.Add(v.ThemePanel(
                     t => t
                         .Set(TextBoxTheme.FillBackgroundColor, Hex1bColor.Default)
@@ -167,7 +150,7 @@ public static class Program
                                 app.Invalidate();
                             }
                         })
-                ).Height(SizeHint.Fixed(0)));
+                ).Height(SizeHint.Content));
 
                 // ── Inline suggestions (always present to keep widget indices stable) ──
                 if (state.Suggestions.Count > 0)
