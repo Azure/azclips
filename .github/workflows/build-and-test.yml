@@ -25,7 +25,7 @@ jobs:
         run: dotnet build cirrus.slnx --no-restore --configuration Debug # Should be Release but
         # there are some issues (a) with locating extension dll and (b) with the RequiredAssemblies property
 
-      - name: Validate Help Content (15.3.2)
+      - name: Validate Help Content
         shell: pwsh
         run: |
           .\build\build.ps1 -GenerateHelpArtifacts -BuildConfiguration Debug
