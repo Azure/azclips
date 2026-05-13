@@ -7,9 +7,9 @@
 >
 > **Current implementation snapshot:**
 >
-> - Markdown help files under `src/Extensions/{Extension}/help/` are the authoritative source.
-> - `MarkdownCommandHelpProvider` loads and parses markdown at runtime.
-> - CLI help adapter filters examples by language tag (CLI-only examples shown in `azv2 ... --help`).
+> - Markdown help files under `src/Extensions/{Extension}/help/` with YAML frontmatter are the authoritative source.
+> - `MarkdownCommandHelpProvider` loads and parses markdown (YAML + structured examples) at runtime.
+> - CLI help adapter filters examples by surface section (CLI vs PowerShell).
 > - Manifest builder splits examples by surface (cli/powerShell arrays in JSON).
 > - Build script integration: `.\build\build.ps1 -GenerateHelpArtifacts` exports help JSON and PowerShell XML.
 > - See [docs/howto/help.md](../howto/help.md) for author workflow.
@@ -77,22 +77,28 @@ For **subcommands** (like `login logout`), use `help/{subcommand-name}.md`.
 
 ### 3.2 Markdown format (authored by humans)
 
-Each help file contains:
+Each help file contains YAML frontmatter for metadata, followed by structured example sections:
 
-````markdown
-Summary: One-line description of the command
+````yaml
+---
+summary: "One-line description of the command"
+description: |
+  Multi-paragraph explanation of what the command does,
+  when to use it, and any important notes. Can span multiple lines.
+---
 
-Description: Multi-paragraph explanation of what the command does,
-when to use it, and any important notes. Can span multiple lines.
+## Examples
 
-### Example Title
+### CLI
 
+#### Example Title
 ```bash
 azv2 login --subscription-id 00000000-0000-0000-0000-000000000000
-```
 ````
 
-### PowerShell Example Title
+### PowerShell
+
+#### Example Title
 
 ```powershell
 Connect-CirrusAccount -SubscriptionId "00000000-0000-0000-0000-000000000000"
@@ -100,9 +106,18 @@ Connect-CirrusAccount -SubscriptionId "00000000-0000-0000-0000-000000000000"
 
 ````
 
-**Language tags in code fences:**
-- `bash` or `sh` → CLI example (shown in `azv2 ... --help`)
-- `powershell` or `pwsh` → PowerShell example (shown in `Get-Help` and PowerShell artifacts)
+**YAML frontmatter fields:**
+- `summary` (required): One-line command description (shown in group help, help listings)
+- `description` (required): Full multi-paragraph explanation
+- `tags` (optional, Phase 5+): `[Preview]`, `[Deprecated]`, `[Experimental]`
+- `status` (optional, Phase 5+): `Preview`, `Experimental`, `Deprecated`
+- `relatedLinks` (optional, Phase 5+): List of related command names or URLs
+
+**Example sections:**
+- `## Examples` — parent heading
+- `### CLI` — CLI-specific examples (shown in `azv2 ... --help`)
+- `### PowerShell` — PowerShell-specific examples (shown in `Get-Help`)
+- Each example has a descriptive subheading (`#### Example Title`) followed by a code fence with language tag (`bash` or `powershell`)
 
 ### 3.3 Runtime parsing: `MarkdownCommandHelpProvider`
 
@@ -110,9 +125,10 @@ File: [src/Core/Core.Runtime/Help/MarkdownCommandHelpProvider.cs](../../src/Core
 
 Responsibilities:
 - Resolves markdown files from `src/Extensions/{extensionName}/help/{commandKey}.md`
-- Parses `Summary:` and `Description:` fields
-- Extracts code block examples with titles and language tags
-- Tags examples: `IsPowerShell = true` if language is `powershell`/`pwsh`, else `false` (CLI)
+- Parses YAML frontmatter (`summary`, `description`, `tags`, etc.)
+- Extracts organized example sections (CLI vs PowerShell subsections)
+- Parses code blocks with titles and language tags
+- Tags examples: `IsPowerShell = true` if section is PowerShell, else `false` (CLI)
 - Returns `MarkdownCommandHelp` record with parsed content
 
 Caching: Parsed content is cached per process to avoid re-reading/re-parsing the same file.
@@ -131,11 +147,11 @@ Caching: Parsed content is cached per process to avoid re-reading/re-parsing the
 
 ### 3.5 Fallback to code attributes (for compatibility)
 
-If markdown file is not found, the system falls back to:
+If markdown file is not found or lacks `summary` / `description` in YAML frontmatter, the system falls back to:
 - `[ProcessorInfo]` `Summary` / `Description` attributes on processor classes
 - `[ArgumentInfo]` `Description` on processor properties
 
-This allows gradual migration: new extensions can use markdown while legacy commands fall back to code attributes.
+This allows gradual migration: new extensions use YAML frontmatter markdown while legacy commands fall back to code attributes.
 
 ---
 
@@ -465,9 +481,9 @@ RELATED LINKS
 **Design flow (actual implementation):**
 
 ````
-Markdown help files (src/Extensions/{Extension}/help/*.md)
+Markdown help files with YAML frontmatter (src/Extensions/{Extension}/help/*.md)
     │
-    ├─► MarkdownCommandHelpProvider (runtime: parses markdown)
+    ├─► MarkdownCommandHelpProvider (runtime: parses YAML + examples)
     │   │
     │   ├─► CLI adapter (filters to CLI-only examples)
     │   │    └─► azv2 ... --help (shows CLI help with CLI examples)
@@ -512,26 +528,42 @@ The AI agent (natural language fallback) can leverage the same help markdown dat
 
 ## 10. Example Authoring
 
-Examples are authored **by humans** in markdown code blocks. Each example has:
-1. A markdown heading: `### Example Title`
-2. A code fence with language tag: ` ```bash ` or ` ```powershell `
-3. The actual command(s) to execute
+Examples are authored **by humans** in markdown code blocks organized by surface (CLI vs PowerShell). Each section has:
+1. A surface subsection heading: `### CLI` or `### PowerShell`
+2. Example subheadings: `#### Example Title`
+3. A code fence with language tag: ` ```bash ` or ` ```powershell `
+4. The actual command(s) to execute
 
 **Example from Login help:**
 
-```markdown
-### Login with subscription ID
+```yaml
+---
+summary: "Authenticate to Azure and set the current account context"
+description: |
+  Log in to your Azure subscription using device code, subscription ID, or tenant ID.
+---
+
+## Examples
+
+### CLI
+
+#### Login with subscription ID
 ```bash
 azv2 login --subscription-id 00000000-0000-0000-0000-000000000000
-````
+```
 
-### Connect via PowerShell
+#### Login with device code
+```bash
+azv2 login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code
+```
 
+### PowerShell
+
+#### Connect with subscription ID
 ```powershell
 Connect-CirrusAccount -SubscriptionId "00000000-0000-0000-0000-000000000000"
 ```
-
-````
+```
 
 **AI-assisted examples (future, Phase 4+):**
 
@@ -575,9 +607,10 @@ Build-time validation checks:
 
 | Rule                                          | Severity | Check                                                            |
 | --------------------------------------------- | -------- | ---------------------------------------------------------------- |
-| Markdown missing `Summary:` field             | Error    | Build fails if help file has no Summary                          |
-| Markdown missing `Description:` field         | Error    | Build fails if help file has no Description                      |
-| Markdown missing example blocks               | Error    | Build fails if help file has no examples                         |
+| YAML frontmatter is valid                     | Error    | Build fails if YAML is malformed or missing                      |
+| Markdown missing `summary` field in YAML      | Error    | Build fails if help file has no summary                          |
+| Markdown missing `description` field in YAML  | Error    | Build fails if help file has no description                      |
+| Markdown missing example sections             | Error    | Build fails if help file has no examples (CLI or PowerShell)     |
 | Malformed markdown code fences                | Error    | Build fails if code block delimiters don't match                 |
 | Routed command has no corresponding help file | Error    | Build fails if ExtensionIndex command has no markdown help       |
 | Orphaned help files                           | Warning  | Build warns if markdown file isn't referenced by any command     |
@@ -587,6 +620,7 @@ Build-time validation checks:
 
 - ✅ Phase 1: Basic markdown structure validation in help tool
 - ⏳ Phase 3: Stricter CI checks via build-time analyzer
+- ⏳ Phase 5 (Subtask 1): YAML frontmatter validation
 
 ---
 
@@ -608,12 +642,13 @@ The following design decisions have been **made and validated** in the actual im
 | Area                           | Decision                                                                                               | Rationale                                                                                                             |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
 | **Help source of truth**       | Markdown files under `src/Extensions/{Extension}/help/` are the authoritative source.                  | More ergonomic for authors; easier to maintain; leverages familiar .md format; examples easier to write and review.   |
+| **Markdown metadata format**   | YAML frontmatter for structured metadata (summary, description, tags, status).                         | Explicit structure; scalable for future enhancements; industry-standard format; easier to parse and validate.         |
+| **Example organization**       | Examples organized in clear CLI/PowerShell subsections (`## Examples → ### CLI / ### PowerShell`)      | Clear surface differentiation; human-readable; structured parsing; scalable to more surfaces.                         |
 | **Runtime markdown reading**   | Runtime CLI help reads markdown files directly (not JSON artifacts).                                   | Eliminates dependency on pre-generated manifests; allows fast iteration (change markdown, rebuild artifacts).         |
-| **Example language tagging**   | Examples tagged by markdown code fence language (bash/powershell) to differentiate surfaces.           | Simple, human-readable; no separate sidecar files; language tag is self-documenting.                                  |
-| **Surface-specific filtering** | CLI filters examples to CLI-only (`!IsPowerShell`); PowerShell gets full list.                         | Each surface shows examples appropriate to its context; single markdown source stays clean and comprehensive.         |
+| **Surface-specific filtering** | CLI shows only CLI examples; PowerShell gets all examples (both CLI and PowerShell).                   | Each surface shows examples appropriate to its context; single markdown source stays clean and comprehensive.         |
 | **Fallback to attributes**     | If markdown not found, system falls back to `[ProcessorInfo]` / `[ArgumentInfo]` attributes.           | Allows gradual migration; new extensions use markdown while legacy commands continue to work.                         |
 | **Artifact generation**        | Optional build-time step (`-GenerateHelpArtifacts`); artifacts are for publishing, not runtime.        | Keeps runtime simple and fast; artifacts generated on-demand for specific workflows (packaging, CI validation).       |
-| **Markdown validation**        | Build-time validators check that required fields (Summary, Description, Examples) are present.         | Catches authoring errors early; ensures all commands have adequate help coverage.                                     |
+| **Markdown validation**        | Build-time validators check YAML structure and required fields (summary, description, examples).       | Catches authoring errors early; ensures all commands have adequate help coverage; explicit format enforcement.        |
 | **PowerShell help**            | PowerShell uses pre-generated MAML XML for `Get-Help` (generated from markdown at build time).         | Native PowerShell integration; no runtime custom help resolution; integrates with standard PowerShell help ecosystem. |
 | **Ownership split**            | Runtime owns help loading and filtering; tooling owns artifact generation, validation, and publishing. | Clear separation of concerns; runtime stays lightweight; tooling can evolve independently.                            |
 | **Extension metadata**         | Help lives in separate `help/` folder per extension, not scattered across processor code.              | Centralized location; easier to audit; avoids spreading help content across multiple files.                           |
@@ -759,22 +794,31 @@ The following design decisions have been **made and validated** in the actual im
 
 **Subtasks:**
 
-1. **Spec updates**
-    - Finalize [docs/spec/help-system.md](./help-system.md) with actual implementation
+1. **Migrate help markdown to YAML frontmatter structure**
+    - Convert all help files to use YAML frontmatter for metadata (summary, description, tags, status)
+    - Reorganize example sections with clear CLI/PowerShell subdivisions
+    - Update `MarkdownCommandHelpProvider` to parse YAML frontmatter + structure
+    - Update validation in help tool to validate YAML structure
+    - Verify all help files parse correctly post-migration
+    - Benefits: explicit structure, easier parsing, enables future enhancements (tags, status markers, relatedLinks)
+
+2. **Spec updates**
+    - Finalize [docs/spec/help-system.md](./help-system.md) with actual implementation and YAML frontmatter format
     - Update [docs/spec/ARCHITECTURE.md](./ARCHITECTURE.md) to reference help design
     - Review [docs/howto/help.md](../howto/help.md) for accuracy and completeness
 
-2. **Code documentation**
+3. **Code documentation**
     - Add XML comments to `MarkdownCommandHelpProvider`, `ExtensionIndexHelpAdapter`, and `ExtensionHelpManifestBuilder`
+    - Document YAML frontmatter parsing logic
     - Document example language tag expectations
     - Document fallback behavior (markdown → attributes)
 
-3. **Developer guides**
-    - Ensure [docs/howto/help.md](../howto/help.md) covers all scenarios
+4. **Developer guides**
+    - Ensure [docs/howto/help.md](../howto/help.md) covers all scenarios including YAML frontmatter structure
     - Add troubleshooting section for common help authoring issues
-    - Provide copy-paste templates for new command help
+    - Provide copy-paste templates for new command help (with YAML frontmatter)
 
-4. **MSLearn publishing pipeline (future)**
+5. **MSLearn publishing pipeline (future)**
     - Design help export tool for markdown publication
     - Define output format for docs publishing
     - Integrate with CI/release workflow
