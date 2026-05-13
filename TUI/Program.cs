@@ -140,19 +140,11 @@ public static class Program
                 topWidgets.Add(v.HStack(h =>
                 [
                     h.Text("> ").ContentWidth(),
-                    v.TextBox(state.InputText).Multiline().WordWrap().Height(wrapLines)
+                    v.TextBox().State(state.EditorState).Multiline().WordWrap().Height(wrapLines)
                         .OnTextChanged(e =>
                         {
-                            // TextBox cursor is always at end (reset by reconciliation).
-                            // Detect appended characters and insert at our cursor position.
-                            if (e.NewText.Length > e.OldText.Length)
-                            {
-                                var added = e.NewText[e.OldText.Length..];
-                                state.InputText = state.InputText.Insert(state.CursorPos, added);
-                                state.CursorPos += added.Length;
-                                state.UpdateSuggestions();
-                                app.Invalidate();
-                            }
+                            state.UpdateSuggestions();
+                            app.Invalidate();
                         })
                 ]));
 
@@ -240,70 +232,6 @@ public static class Program
                     state.CursorPos++;
                     app.Invalidate();
                 }, "Insert newline");
-
-            bindings.Key(Hex1bKey.Backspace).Global()
-                .Action(_ =>
-                {
-                    if (state.CursorPos > 0)
-                    {
-                        state.InputText = state.InputText.Remove(state.CursorPos - 1, 1);
-                        state.CursorPos--;
-                        state.UpdateSuggestions();
-                        app.Invalidate();
-                    }
-                }, "Delete backward");
-
-            bindings.Key(Hex1bKey.Delete).Global()
-                .Action(_ =>
-                {
-                    if (state.CursorPos < state.InputText.Length)
-                    {
-                        state.InputText = state.InputText.Remove(state.CursorPos, 1);
-                        state.UpdateSuggestions();
-                        app.Invalidate();
-                    }
-                }, "Delete forward");
-
-            bindings.Key(Hex1bKey.LeftArrow).Global()
-                .Action(_ =>
-                {
-                    if (state.CursorPos > 0) { state.CursorPos--; app.Invalidate(); }
-                }, "Cursor left");
-
-            bindings.Key(Hex1bKey.RightArrow).Global()
-                .Action(_ =>
-                {
-                    if (state.CursorPos < state.InputText.Length) { state.CursorPos++; app.Invalidate(); }
-                }, "Cursor right");
-
-            bindings.Key(Hex1bKey.Home).Global()
-                .Action(_ =>
-                {
-                    state.CursorPos = 0;
-                    app.Invalidate();
-                }, "Cursor to start");
-
-            bindings.Key(Hex1bKey.End).Global()
-                .Action(_ =>
-                {
-                    state.CursorPos = state.InputText.Length;
-                    app.Invalidate();
-                }, "Cursor to end");
-
-            bindings.Ctrl().Key(Hex1bKey.Backspace).Global()
-                .Action(_ =>
-                {
-                    if (state.CursorPos > 0)
-                    {
-                        var pos = state.CursorPos;
-                        while (pos > 0 && state.InputText[pos - 1] == ' ') pos--;
-                        while (pos > 0 && state.InputText[pos - 1] != ' ') pos--;
-                        state.InputText = state.InputText.Remove(pos, state.CursorPos - pos);
-                        state.CursorPos = pos;
-                        state.UpdateSuggestions();
-                        app.Invalidate();
-                    }
-                }, "Delete word backward");
 
             bindings.Key(Hex1bKey.UpArrow)
                 .Global()
