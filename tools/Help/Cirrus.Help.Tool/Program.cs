@@ -46,6 +46,7 @@ if (extensionDlls.Count == 0)
 }
 
 var manifests = new List<HelpManifest>();
+var validatedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
 foreach (var dllPath in extensionDlls)
 {
@@ -69,6 +70,11 @@ foreach (var dllPath in extensionDlls)
     catch
     {
         continue;
+    }
+
+    if (validatedExtensions.Add(extensionName))
+    {
+        ValidateExtensionHelpCompleteness(repoRoot, extensionName, extensionIndex);
     }
 
     var manifest = ExtensionHelpManifestBuilder.BuildManifest(extensionIndex, extensionName, version);
@@ -186,6 +192,89 @@ static void ValidateMarkdownHelpFiles(string repoRoot)
             "Help markdown validation failed:" + Environment.NewLine +
             string.Join(Environment.NewLine, errors.Select(static error => $" - {error}")));
     }
+}
+
+static void ValidateExtensionHelpCompleteness(string repoRoot, string extensionName, IExtensionIndex extensionIndex)
+{
+    var extensionFolder = ToPascalCase(extensionName);
+    var helpDirectory = Path.Combine(repoRoot, "src", "Extensions", extensionFolder, "help");
+
+    var routedCommandKeys = extensionIndex
+        .GetCommandTable(ClientType.CLI)
+        .Keys
+        .Select(static key => NormalizeCommandKey(key))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
+    var expectedFiles = routedCommandKeys
+        .Select(static key => CommandKeyToHelpFileName(key))
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    expectedFiles.Add("index.md");
+
+    var actualFiles = Directory.Exists(helpDirectory)
+        ? Directory
+            .EnumerateFiles(helpDirectory, "*.md", SearchOption.AllDirectories)
+            .Select(path => Path.GetRelativePath(helpDirectory, path)
+                .Replace(Path.DirectorySeparatorChar, '/')
+                .Replace(Path.AltDirectorySeparatorChar, '/'))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase)
+        : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    var missing = expectedFiles
+        .Except(actualFiles, StringComparer.OrdinalIgnoreCase)
+        .OrderBy(static file => file, StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
+    if (missing.Count > 0)
+    {
+        var errors = missing.Select(file =>
+            $"src{Path.DirectorySeparatorChar}Extensions{Path.DirectorySeparatorChar}{extensionFolder}{Path.DirectorySeparatorChar}help{Path.DirectorySeparatorChar}{file}: Missing help file for routed command '{HelpFileNameToCommandKey(file)}' in extension '{extensionName}'.");
+
+        throw new InvalidOperationException(
+            "Help completeness validation failed:" + Environment.NewLine +
+            string.Join(Environment.NewLine, errors.Select(static error => $" - {error}")));
+    }
+
+    var orphaned = actualFiles
+        .Except(expectedFiles, StringComparer.OrdinalIgnoreCase)
+        .OrderBy(static file => file, StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
+    foreach (var orphan in orphaned)
+    {
+        var orphanPath = $"src{Path.DirectorySeparatorChar}Extensions{Path.DirectorySeparatorChar}{extensionFolder}{Path.DirectorySeparatorChar}help{Path.DirectorySeparatorChar}{orphan}";
+        Console.WriteLine($"Warning: {orphanPath} is not referenced by any routed CLI command in extension '{extensionName}'.");
+    }
+}
+
+static string NormalizeCommandKey(string? commandKey)
+{
+    return string.IsNullOrWhiteSpace(commandKey)
+        ? string.Empty
+        : commandKey.Trim().ToLowerInvariant();
+}
+
+static string CommandKeyToHelpFileName(string commandKey)
+{
+    return string.IsNullOrWhiteSpace(commandKey)
+        ? "index.md"
+        : commandKey.Replace(' ', '-').ToLowerInvariant() + ".md";
+}
+
+static string HelpFileNameToCommandKey(string fileName)
+{
+    if (fileName.Equals("index.md", StringComparison.OrdinalIgnoreCase))
+    {
+        return string.Empty;
+    }
+
+    var normalized = fileName.Replace('\\', '/');
+    if (normalized.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
+    {
+        normalized = normalized[..^3];
+    }
+
+    return normalized.Replace('-', ' ');
 }
 
 static string GetMarkdownField(string content, string fieldName)
