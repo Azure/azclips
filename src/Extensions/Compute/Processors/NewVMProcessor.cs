@@ -7,9 +7,8 @@ using Microsoft.Azure.Cirrus.Extensions.Compute.Models;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
 {
-    public class NewVMProcessor : ComputeProcessorBase
+    public class NewVMProcessor : ComputeProcessorBase<VirtualMachine>
     {
-        public string SubscriptionId { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string Location { get; set; } = string.Empty;
         public string ResourceGroupName { get; set; } = string.Empty;
@@ -97,14 +96,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
         protected override Func<HttpResponseMessage, string?> GetAsyncOperationUri => response => response.GetFirstHeader("Azure-AsyncOperation");
         protected override Func<HttpResponseMessage, string?> GetLocationUri => response => response.GetFirstHeader("Location");
 
-        public override async Task ProcessAsync()
-        {
-            await EventListener.Signal(Events.ProcessorProcessAsyncStart);
-            SubscriptionId = !string.IsNullOrEmpty(SubscriptionId) ? SubscriptionId : AuthContext.SubscriptionId ?? throw new InvalidOperationException($"SubscriptionId must be provided either via property or auth context.");
-            using HttpResponseMessage response = await SendAsyncLRO();
-            VirtualMachine body = (await response.Content.ReadFromJsonAsync<VirtualMachine>(JsonOptions))!;
-            await WriteOutput(body);
-            await EventListener.Signal(Events.ProcessorProcessAsyncEnd);
-        }
+        public override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();
     }
 }

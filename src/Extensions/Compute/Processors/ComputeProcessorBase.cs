@@ -1,3 +1,4 @@
+using System.Net.Http.Json;
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
@@ -7,7 +8,17 @@ using Extensions.Runtime.Json;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
 {
-    public class ComputeProcessorBase : IProcessor
+    /// <summary>
+    /// Non-generic base used as a marker so that <see cref="CreateExtendedProcessor{T}"/> and
+    /// any code that needs to reference "any compute processor" stays type-safe.
+    /// All real processors should derive from <see cref="ComputeProcessorBase{TResponse}"/>.
+    /// </summary>
+    /// <remarks>
+    /// TODO(Yabo): no rollback / compensation story yet. If an orchestrator's first child
+    /// succeeds and a later child fails, earlier resources are orphaned. Document as a non-goal
+    /// for now; revisit with an OnFailureAsync hook or a saga-style step list when needed.
+    /// </remarks>
+    public abstract class ComputeProcessorBase : IProcessor
     {
         public IRuntimeHttpPipeline HttpPipeline = null!;
         public IEventListener EventListener = null!;
@@ -106,7 +117,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
                 var _operationLocationUri = GetOperationLocationUri(_response);
 
                 //polling
-                while (_request.Method == HttpMethod.Put && _response.StatusCode == HttpStatusCode.OK || _response.StatusCode == HttpStatusCode.Created || _response.StatusCode == HttpStatusCode.Accepted)
+                while (_request.Method == HttpMethod.Put && (_response.StatusCode == HttpStatusCode.OK || _response.StatusCode == HttpStatusCode.Created || _response.StatusCode == HttpStatusCode.Accepted))
                 {
                     // TODO(Yabo): get default value from config service: engine get default from configservice and pass to processor via ProcessorContext
                     int delay = (int)(_response.Headers.RetryAfter?.Delta?.TotalSeconds ?? _httpPipeline.PollingInterval);
@@ -224,6 +235,65 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
             {
                 _request?.Dispose();
             }
+        }
+    }
+
+    /// <summary>
+    /// Generic compute processor base. The default <see cref="ProcessAsync"/> pipeline:
+    /// 1) signals start, 2) calls <see cref="SendAsync"/>,
+    /// 3) deserializes into <typeparamref name="TResponse"/>, 4) writes output, 5) signals end.
+    /// <para>
+    /// <see cref="SendAsync"/> is the universal "give me the final response" primitive.
+    /// Atomic LRO processors override it as a one-liner that delegates to <see cref="ComputeProcessorBase.SendAsyncLRO"/>.
+    /// Atomic non-LRO processors don't override at all (the inherited <see cref="SendAsync"/>
+    /// resolves <see cref="SubscriptionId"/> then dispatches a single HTTP request).
+    /// Orchestrators override <see cref="SendAsync"/> to compose children.
+    /// </para>
+    /// <para>
+    /// <see cref="SubscriptionId"/> is resolved lazily inside <see cref="SendAsync"/> /
+    /// <see cref="SendAsyncLRO"/>, so callers that bypass <see cref="ProcessAsync"/> still get a
+    /// populated value via <see cref="AuthContext"/> fallback. Orchestrators don't need to copy
+    /// <see cref="SubscriptionId"/> into children since each child resolves from the shared
+    /// <see cref="AuthContext"/>.
+    /// </para>
+    /// </summary>
+    public class ComputeProcessorBase<TResponse> : ComputeProcessorBase where TResponse : class
+    {
+        public string SubscriptionId { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Resolves <see cref="SubscriptionId"/> from the property if set, otherwise from <see cref="AuthContext"/>.
+        /// Throws if neither has a value. Idempotent. Called automatically before any HTTP transport;
+        /// custom <see cref="SendAsync"/>/<see cref="SendAsyncLRO"/> overrides that don't call <c>base</c>
+        /// are responsible for invoking this themselves if they build URIs from <see cref="SubscriptionId"/>.
+        /// </summary>
+        /// 
+        /// TODO(Yabo): update processor context to accept tenantId and subscriptionId instead of auth context
+        protected void ResolveSubscriptionId() =>
+            SubscriptionId = !string.IsNullOrEmpty(SubscriptionId)
+                ? SubscriptionId
+                : AuthContext.SubscriptionId
+                  ?? throw new InvalidOperationException("SubscriptionId must be provided either via property or auth context.");
+
+        public override Task<HttpResponseMessage> SendAsync()
+        {
+            ResolveSubscriptionId();
+            return base.SendAsync();
+        }
+
+        public override Task<HttpResponseMessage> SendAsyncLRO()
+        {
+            ResolveSubscriptionId();
+            return base.SendAsyncLRO();
+        }
+
+        public override async Task ProcessAsync()
+        {
+            await EventListener.Signal(Events.ProcessorProcessAsyncStart);
+            using HttpResponseMessage response = await SendAsync();
+            TResponse body = (await response.Content.ReadFromJsonAsync<TResponse>(JsonOptions))!;
+            await WriteOutput(body);
+            await EventListener.Signal(Events.ProcessorProcessAsyncEnd);
         }
     }
 }

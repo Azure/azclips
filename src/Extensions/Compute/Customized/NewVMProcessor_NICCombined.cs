@@ -7,9 +7,8 @@ using Microsoft.Azure.Cirrus.Extensions.Compute.Models;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
 {
-    public class NewVMProcessor_NICCombined : ComputeProcessorBase
+    public class NewVMProcessor_NICCombined : ComputeProcessorBase<VirtualMachine>
     {
-        public string SubscriptionId { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string Location { get; set; } = string.Empty;
         public string ResourceGroupName { get; set; } = string.Empty;
@@ -33,11 +32,10 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
         public List<string> RuleDestinationAddressPrefixes { get; set; } = [];
         public List<string> RuleAccesses { get; set; } = [];
 
-        public override async Task<HttpResponseMessage> SendAsyncLRO()
+        public override async Task<HttpResponseMessage> SendAsync()
         {
              NewNetworkInterfaceProcessor_Combined nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor_Combined>(p =>
             {
-                p.SubscriptionId = SubscriptionId;
                 p.Name = NetworkInterfaceName;
                 p.Location = Location;
                 p.ResourceGroupName = ResourceGroupName;
@@ -56,12 +54,11 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
                 p.RuleDestinationAddressPrefixes = RuleDestinationAddressPrefixes;
                 p.RuleAccesses = RuleAccesses;
             });
-            using HttpResponseMessage nicResponse = await nicProcessor.SendAsyncLRO();
+            using HttpResponseMessage nicResponse = await nicProcessor.SendAsync();
             NetworkInterface nic = (await nicResponse.Content.ReadFromJsonAsync<NetworkInterface>(JsonOptions))!;
 
             NewVMProcessor vmProcessor = CreateExtendedProcessor<NewVMProcessor>(p =>
             {
-                p.SubscriptionId = SubscriptionId;
                 p.Name = Name;
                 p.Location = Location;
                 p.ResourceGroupName = ResourceGroupName;
@@ -70,17 +67,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
                 p.AdminPassword = AdminPassword;
                 p.NetworkInterfaceId = nic.Id;
              });
-            return await vmProcessor.SendAsyncLRO();
-        }
-
-        public override async Task ProcessAsync()
-        {
-            await EventListener.Signal(Events.ProcessorProcessAsyncStart);
-            SubscriptionId = !string.IsNullOrEmpty(SubscriptionId) ? SubscriptionId : AuthContext.SubscriptionId ?? throw new InvalidOperationException($"SubscriptionId must be provided either via property or auth context.");
-            using HttpResponseMessage vmResponse = await SendAsyncLRO();
-            VirtualMachine vm = (await vmResponse.Content.ReadFromJsonAsync<VirtualMachine>(JsonOptions))!;
-            await WriteOutput(vm);
-            await EventListener.Signal(Events.ProcessorProcessAsyncEnd);
+            return await vmProcessor.SendAsync();
         }
     }
 }

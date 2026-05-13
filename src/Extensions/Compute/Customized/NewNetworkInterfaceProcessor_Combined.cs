@@ -7,9 +7,8 @@ using Microsoft.Azure.Cirrus.Extensions.Compute.Models;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors;
 
-public class NewNetworkInterfaceProcessor_Combined : ComputeProcessorBase
+public class NewNetworkInterfaceProcessor_Combined : ComputeProcessorBase<NetworkInterface>
 {
-    public string SubscriptionId { get; set; } = null!;
     public string Name { get; set; } = string.Empty;
     public string Location { get; set; } = string.Empty;
     public string ResourceGroupName { get; set; } = string.Empty;
@@ -28,11 +27,10 @@ public class NewNetworkInterfaceProcessor_Combined : ComputeProcessorBase
     public List<string> RuleDestinationAddressPrefixes { get; set; } = [];
     public List<string> RuleAccesses { get; set; } = [];
 
-    public override async Task<HttpResponseMessage> SendAsyncLRO()
+    public override async Task<HttpResponseMessage> SendAsync()
     {
          NewVirtualNetworkProcessor vnetProcessor = CreateExtendedProcessor<NewVirtualNetworkProcessor>(p =>
         {
-            p.SubscriptionId = SubscriptionId;
             p.Name = VirtualNetworkName;
             p.Location = Location;
             p.ResourceGroupName = ResourceGroupName;
@@ -43,7 +41,6 @@ public class NewNetworkInterfaceProcessor_Combined : ComputeProcessorBase
 
         NewNetworkSecurityGroupProcessor nsgProcessor = CreateExtendedProcessor<NewNetworkSecurityGroupProcessor>(p =>
         {
-            p.SubscriptionId = SubscriptionId;
             p.Name = NetworkSecurityGroupName;
             p.Location = Location;
             p.ResourceGroupName = ResourceGroupName;
@@ -58,8 +55,8 @@ public class NewNetworkInterfaceProcessor_Combined : ComputeProcessorBase
             p.RuleAccesses = RuleAccesses;
         });
 
-        Task<HttpResponseMessage> vnetResponseTask = vnetProcessor.SendAsyncLRO();
-        Task<HttpResponseMessage> nsgResponseTask = nsgProcessor.SendAsyncLRO();
+        Task<HttpResponseMessage> vnetResponseTask = vnetProcessor.SendAsync();
+        Task<HttpResponseMessage> nsgResponseTask = nsgProcessor.SendAsync();
         using HttpResponseMessage vnetResponse = await vnetResponseTask;
         using HttpResponseMessage nsgResponse = await nsgResponseTask;
         VirtualNetwork vnet = (await vnetResponse.Content.ReadFromJsonAsync<VirtualNetwork>(JsonOptions))!;
@@ -67,23 +64,12 @@ public class NewNetworkInterfaceProcessor_Combined : ComputeProcessorBase
 
         NewNetworkInterfaceProcessor nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor>(p =>
         {
-            p.SubscriptionId = SubscriptionId;
             p.Name = Name;
             p.Location = Location;
             p.ResourceGroupName = ResourceGroupName;
             p.SubnetIds = vnet.Properties.Subnets.Select(subnet => subnet.Id).ToList();
             p.NetworkSecurityGroupId = nsg.Id!;
         });
-        return await nicProcessor.SendAsyncLRO();
-    }
-
-    public override async Task ProcessAsync()
-    {
-        await EventListener.Signal(Events.ProcessorProcessAsyncStart);
-        SubscriptionId = !string.IsNullOrEmpty(SubscriptionId) ? SubscriptionId : AuthContext.SubscriptionId ?? throw new InvalidOperationException($"SubscriptionId must be provided either via property or auth context.");
-        using HttpResponseMessage response = await SendAsyncLRO();
-        NetworkInterface nic = (await response.Content.ReadFromJsonAsync<NetworkInterface>(JsonOptions))!;
-        await WriteOutput(nic);
-        await EventListener.Signal(Events.ProcessorProcessAsyncEnd);
+        return await nicProcessor.SendAsync();
     }
 }
