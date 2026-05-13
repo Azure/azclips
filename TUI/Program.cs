@@ -131,13 +131,16 @@ public static class Program
                 topWidgets.Add(v.Separator());
 
                 // Prompt + input (visible TextBox)
-                var prompt = state.Prompt;
+                var prompt = state.Prompt.TrimEnd(' ', '>');
                 topWidgets.Add(v.Text(prompt).Height(SizeHint.Content));
+
+                var inputWidth = Math.Max(1, termWidth - 2); // 2 = "> "
+                var wrapLines = ComputeWordWrapLines(state.InputText, inputWidth);
 
                 topWidgets.Add(v.HStack(h =>
                 [
-                    h.Text("> "),
-                    v.TextBox(state.InputText).Multiline(2)
+                    h.Text("> ").ContentWidth(),
+                    v.TextBox(state.InputText).Multiline().WordWrap().Height(wrapLines)
                         .OnTextChanged(e =>
                         {
                             // TextBox cursor is always at end (reset by reconciliation).
@@ -229,6 +232,14 @@ public static class Program
                     state.ExecuteCommand();
                     app.Invalidate();
                 }, "Submit command");
+
+            bindings.Ctrl().Key(Hex1bKey.Enter).Global()
+                .Action(_ =>
+                {
+                    state.InputText = state.InputText.Insert(state.CursorPos, "\n");
+                    state.CursorPos++;
+                    app.Invalidate();
+                }, "Insert newline");
 
             bindings.Key(Hex1bKey.Backspace).Global()
                 .Action(_ =>
