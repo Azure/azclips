@@ -736,15 +736,23 @@ The following design decisions have been **made and validated** in the actual im
     - Fail build if routed command has no help
 
 3. **CI integration**
-    - Add pre-commit check to `build.ps1` that validates help markdown
-    - Output clear error messages with file paths
-    - Consider Roslyn analyzer or `dotnet tool` for syntax/structure validation
+    - Wire help validation into PR pipeline CI (GitHub Actions or equivalent)
+    - Add build step: `.\build\build.ps1 -GenerateHelpArtifacts -BuildConfiguration Release`
+    - Validation fails the PR if:
+        - Any help file missing `Summary:`, `Description:`, or examples
+        - Any routed command lacks a corresponding help file
+        - Any code fence syntax is malformed
+    - Validation warns (does not fail PR) if:
+        - Orphaned help files exist (can be merged with follow-up cleanup)
+    - Output clear error messages with file paths and remediation steps
+    - Consider Roslyn analyzer or `dotnet tool` in future for pre-commit local opt-in
 
 **Exit criteria:**
 
-- Build fails if required help fields are missing
-- CI prevents PRs that add commands without help
+- Build/PR pipeline fails if required help fields are missing
+- CI prevents merging PRs that add commands without help
 - Clear error messages guide developers to fixes
+- Help validation runs as part of standard CI/CD pipeline
 
 ---
 
@@ -779,12 +787,29 @@ The following design decisions have been **made and validated** in the actual im
     - Test repeated help lookups don't re-read files
     - Test cold-start latency is acceptable
 
+5. **Help tool validation logic tests**
+    - Location: Add new test class `HelpToolValidationTests.cs` to `tests/Cli.Tests/`
+    - Test markdown structure validation:
+        - Test fails when `Summary:` field is missing
+        - Test fails when `Description:` field is missing
+        - Test fails when no examples are present
+        - Test fails when code fences are unbalanced
+    - Test help completeness validation:
+        - Test fails when routed CLI command has no corresponding help markdown file (error case)
+        - Test warns (doesn't fail) when orphaned help markdown files exist (warning case)
+        - Test passes when all routed commands have help files
+        - Test passes when only index.md exists for root command
+    - Test command key normalization:
+        - Test multi-word command keys (e.g., "config get") map to correct filenames ("config-get.md")
+        - Test extension name case-insensitivity
+
 **Exit criteria:**
 
 - Tests cover normal and error paths for help loading
 - Malformed markdown handling is well-specified and tested
 - Surface-specific filtering verified end-to-end
 - Performance baselines established
+- Help tool validation (15.3.2) has comprehensive unit test coverage
 
 ---
 
