@@ -238,10 +238,17 @@ public class AzureVfs
             return [];
         }
 
-        return candidates
+        // Prefix matches first, then substring matches (deduped)
+        var prefix = candidates
             .Where(c => c.Name.StartsWith(lastPart, StringComparison.OrdinalIgnoreCase))
-            .Select(c => c.Name)
-            .ToList();
+            .Select(c => c.Name);
+
+        var contains = candidates
+            .Where(c => !c.Name.StartsWith(lastPart, StringComparison.OrdinalIgnoreCase)
+                     && c.Name.Contains(lastPart, StringComparison.OrdinalIgnoreCase))
+            .Select(c => c.Name);
+
+        return prefix.Concat(contains).ToList();
     }
 
     // ── Internal data fetching (single query, cached in memory) ──
