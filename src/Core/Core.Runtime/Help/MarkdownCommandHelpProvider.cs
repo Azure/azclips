@@ -24,6 +24,21 @@ public static class MarkdownCommandHelpProvider
         }
 
         var content = File.ReadAllText(filePath);
+        return Parse(content);
+    }
+
+    /// <summary>
+    /// Parses raw markdown content into a <see cref="MarkdownCommandHelp"/>.
+    /// Designed for graceful degradation: malformed input returns empty/partial content
+    /// rather than throwing. Strict validation lives in the build-time help tool.
+    /// </summary>
+    public static MarkdownCommandHelp Parse(string? content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return MarkdownCommandHelp.Empty;
+        }
+
         var summary = GetField(content, "Summary");
         var description = GetField(content, "Description");
 

@@ -765,13 +765,11 @@ The following design decisions have been **made and validated** in the actual im
 
 **Subtasks:**
 
-1. **Malformed markdown handling**
-    - Test missing `Summary:` field (fallback to attributes or error message)
-    - Test missing `Description:` field
-    - Test unpaired code fence delimiters
-    - Test unknown language tags in code fences
-    - Test empty example blocks
-    - Verify graceful degradation (help still renders, possibly with warnings)
+1. ✅ **Malformed markdown handling** — COMPLETE
+    - Refactored `MarkdownCommandHelpProvider` to expose `Parse(string content)` for I/O-free testing
+    - 17 tests in [tests/Cli.Tests/MarkdownCommandHelpProviderTests.cs](../../tests/Cli.Tests/MarkdownCommandHelpProviderTests.cs)
+    - Covers: missing `Summary:`/`Description:` fields, unpaired code fences, unknown language tags, empty examples, blank titles, mixed CLI+PS examples, null/whitespace input, stress test for malformed input
+    - Verified: runtime parser is lenient (returns empty/partial content, never throws)
 
 2. **Help coverage tests**
     - Test for commands missing help entirely (should error or warn)
