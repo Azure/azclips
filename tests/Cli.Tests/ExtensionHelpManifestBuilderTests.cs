@@ -113,6 +113,57 @@ public class ExtensionHelpManifestBuilderTests
         Assert.All(loginCommand.Parameters, p => Assert.False(string.IsNullOrEmpty(p.ParameterSetName)));
     }
 
+    // ─────────────────────────────────────────────────────────────────
+    // 15.4.3 Surface-specific example filtering at manifest level
+    // ─────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void BuildManifest_ShouldSplitExamples_ByLanguageTag()
+    {
+        // Login extension has both CLI (bash) and PowerShell examples in its markdown.
+        var index = new ExtensionIndex();
+        var manifest = ExtensionHelpManifestBuilder.BuildManifest(index, "login", "1.0.0");
+
+        var loginCommand = Assert.Single(manifest.Commands, c => c.CliName == "login");
+
+        // CLI examples should not contain PowerShell-style commands.
+        Assert.NotEmpty(loginCommand.Examples.Cli);
+        Assert.All(loginCommand.Examples.Cli, ex => Assert.DoesNotContain("Connect-CirrusAccount", ex.Command));
+
+        // PowerShell examples (if present) should reference Connect-CirrusAccount.
+        if (loginCommand.Examples.PowerShell.Count > 0)
+        {
+            Assert.Contains(loginCommand.Examples.PowerShell, ex => ex.Command.Contains("Connect-CirrusAccount"));
+        }
+    }
+
+    [Fact]
+    public void BuildManifest_ShouldNotMixCliAndPowerShellExamples()
+    {
+        var index = new ExtensionIndex();
+        var manifest = ExtensionHelpManifestBuilder.BuildManifest(index, "login", "1.0.0");
+
+        foreach (var command in manifest.Commands)
+        {
+            // CLI examples must not contain PowerShell verbs (Get-/Set-/New-/Connect-/Disconnect-)
+            Assert.All(command.Examples.Cli, ex =>
+            {
+                Assert.False(StartsWithPowerShellVerb(ex.Command),
+                    $"CLI example '{ex.Title}' contains PowerShell verb: {ex.Command}");
+            });
+        }
+
+        static bool StartsWithPowerShellVerb(string command)
+        {
+            var trimmed = command.TrimStart();
+            return trimmed.StartsWith("Get-", StringComparison.Ordinal)
+                || trimmed.StartsWith("Set-", StringComparison.Ordinal)
+                || trimmed.StartsWith("New-", StringComparison.Ordinal)
+                || trimmed.StartsWith("Connect-", StringComparison.Ordinal)
+                || trimmed.StartsWith("Disconnect-", StringComparison.Ordinal);
+        }
+    }
+
     /// <summary>
     /// Stub IExtensionIndex with a single command and no markdown help backing.
     /// Exercises fallback paths in <see cref="ExtensionHelpManifestBuilder"/>.

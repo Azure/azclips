@@ -777,11 +777,10 @@ The following design decisions have been **made and validated** in the actual im
     - Uses `StubExtensionIndex` test fixture to simulate extensions without markdown coverage
     - Note: orphaned help file detection is build-tool concern, covered by 15.3.2 (already implemented)
 
-3. **Surface-specific example filtering**
-    - Test CLI path filters PowerShell examples correctly
-    - Test PowerShell path gets all examples (CLI + PowerShell)
-    - Test mixed language examples in same file
-    - Test subcommand help loads correct file
+3. ✅ **Surface-specific example filtering** — COMPLETE
+    - 4 tests in [tests/Cli.Tests/MarkdownCommandHelpProviderTests.cs](../../tests/Cli.Tests/MarkdownCommandHelpProviderTests.cs): CLI-only filter, PowerShell full list, example order preservation, `sh` language tag handling
+    - 2 tests in [tests/Cli.Tests/ExtensionHelpManifestBuilderTests.cs](../../tests/Cli.Tests/ExtensionHelpManifestBuilderTests.cs): manifest correctly splits examples by language tag, CLI examples don't contain PowerShell verbs
+    - Verified: CLI surface filters `!IsPowerShell`, PowerShell surface receives full unfiltered list
 
 4. **Performance and caching**
     - Test `MarkdownCommandHelpProvider` caches parsed content
