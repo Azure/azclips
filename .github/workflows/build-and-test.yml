@@ -25,6 +25,16 @@ jobs:
       run: dotnet build cirrus.slnx --no-restore --configuration Debug # Should be Release but
       # there are some issues (a) with locating extension dll and (b) with the RequiredAssemblies property
 
+    - name: Validate Help Content (15.3.2)
+      shell: pwsh
+      run: |
+        .\build\build.ps1 -GenerateHelpArtifacts -BuildConfiguration Debug
+        if ($LASTEXITCODE -ne 0) {
+          Write-Error "Help validation failed. See errors above for details."
+          exit 1
+        }
+        Write-Host "Help validation passed: all commands have required help content."
+
     - name: Run tests
       run: dotnet test cirrus.slnx --no-build --configuration Debug --verbosity normal
 
