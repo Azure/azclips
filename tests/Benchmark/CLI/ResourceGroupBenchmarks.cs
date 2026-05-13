@@ -14,6 +14,7 @@ namespace Benchmark.CLI;
 [WarmupCount(1)]
 [IterationCount(5)]
 [InProcess]
+[InvocationCount(1)]
 
 public class ResourceGroupBenchmarks : BenchmarkBase
 {
