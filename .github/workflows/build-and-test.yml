@@ -2,7 +2,7 @@ name: Build and Test
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -10,51 +10,50 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        global-json-file: global.json
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
 
-    - name: Restore dependencies
-      run: dotnet restore cirrus.slnx
+      - name: Restore dependencies
+        run: dotnet restore cirrus.slnx
 
-    - name: Build
-      run: dotnet build cirrus.slnx --no-restore --configuration Debug # Should be Release but
-      # there are some issues (a) with locating extension dll and (b) with the RequiredAssemblies property
+      - name: Build
+        run: dotnet build cirrus.slnx --no-restore --configuration Debug # Should be Release but
+        # there are some issues (a) with locating extension dll and (b) with the RequiredAssemblies property
 
-    - name: Validate Help Content (15.3.2)
-      shell: pwsh
-      run: |
-        .\build\build.ps1 -GenerateHelpArtifacts -BuildConfiguration Debug
-        if ($LASTEXITCODE -ne 0) {
-          Write-Error "Help validation failed. See errors above for details."
-          exit 1
-        }
-        Write-Host "Help validation passed: all commands have required help content."
+      - name: Validate Help Content (15.3.2)
+        shell: pwsh
+        run: |
+          .\build\build.ps1 -GenerateHelpArtifacts -BuildConfiguration Debug
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Help validation failed. See errors above for details."
+            exit 1
+          }
+          Write-Host "Help validation passed: all commands have required help content."
 
-    - name: Run tests
-      run: dotnet test cirrus.slnx --no-build --configuration Debug --verbosity normal
+      - name: Run tests
+        run: dotnet test cirrus.slnx --no-build --configuration Debug --verbosity normal
 
-    - name: E2E - CLI Help
-      run: |
-        ./artifacts/Debug/Core.Cli/azv2 --help
+      - name: E2E - CLI Help
+        run: |
+          ./artifacts/Debug/Core.Cli/azv2 --help
 
+      - name: Setup PowerShell
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y powershell
 
-    - name: Setup PowerShell
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y powershell
-
-    - name: E2E - PowerShell Module
-      shell: pwsh
-      run: |
-        Import-Module ./src/PS/Login/Login.psd1
-        $commands = Get-Command -Module Login
-        if ($commands.Count -eq 0) {
-          Write-Error "No commands found in Login module"
-          exit 1
-        }
-        Write-Host "Found $($commands.Count) commands in Login module"
+      - name: E2E - PowerShell Module
+        shell: pwsh
+        run: |
+          Import-Module ./src/PS/Login/Login.psd1
+          $commands = Get-Command -Module Login
+          if ($commands.Count -eq 0) {
+            Write-Error "No commands found in Login module"
+            exit 1
+          }
+          Write-Host "Found $($commands.Count) commands in Login module"
