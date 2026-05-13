@@ -100,14 +100,18 @@ class AppState
     {
         try
         {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             VfsReady = await Vfs.TryAuthenticateAsync();
+            Console.Error.WriteLine($"[startup]   TryAuthenticateAsync: {sw.ElapsedMilliseconds}ms");
             if (!VfsReady)
             {
                 Invalidate?.Invoke();
                 return;
             }
 
+            sw.Restart();
             await Vfs.SetInitialPathAsync();
+            Console.Error.WriteLine($"[startup]   SetInitialPathAsync: {sw.ElapsedMilliseconds}ms");
             RefreshPrompt();
             Invalidate?.Invoke();
         }

@@ -171,6 +171,27 @@ public class ArmClient : IDisposable
     }
 
     /// <summary>
+    /// Fetch only the subscription display name for a given subscription ID via a lightweight ARG query.
+    /// </summary>
+    public async Task<string?> FetchSubscriptionDisplayNameAsync(string subscriptionId)
+    {
+        const string kql = """
+            ResourceContainers
+            | where type == 'microsoft.resources/subscriptions'
+            | project subscriptionId, name
+            """;
+
+        var rows = await QueryArgAsync(kql, [subscriptionId]);
+        foreach (var cols in rows)
+        {
+            var subId = SafeGetString(cols, 0) ?? "";
+            if (subId.Equals(subscriptionId, StringComparison.OrdinalIgnoreCase))
+                return SafeGetString(cols, 1);
+        }
+        return null;
+    }
+
+    /// <summary>
     /// Execute an ARG query and return raw rows.
     /// If subscriptionIds is null, queries across all accessible subscriptions.
     /// </summary>

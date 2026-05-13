@@ -6,15 +6,15 @@ namespace Core.Tui.Rendering;
 
 static class HeaderRenderer
 {
-    // Full ASCII art logo lines
+    // Sleek block-style logo
     static readonly string[] FullLogoLines =
     [
-        "   _____ _                        ",
-        "  / ____(_)                       ",
-        " | |     _ _ __ _ __ _   _ ___    ",
-        " | |    | | '__| '__| | | / __|   ",
-        " | |____| | |  | |  | |_| \\__ \\  ",
-        "  \\_____|_|_|  |_|   \\__,_|___/  ",
+        "     ██████╗ ██╗██████╗ ██████╗ ██╗   ██╗███████╗",
+        "    ██╔════╝ ██║██╔══██╗██╔══██╗██║   ██║██╔════╝",
+        "    ██║      ██║██████╔╝██████╔╝██║   ██║███████╗",
+        "    ██║      ██║██╔══██╗██╔══██╗██║   ██║╚════██║",
+        "    ╚██████╗ ██║██║  ██║██║  ██║╚██████╔╝███████║",
+        "     ╚═════╝ ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚══════╝",
     ];
 
     public static Hex1bWidget RenderWelcome(WidgetContext<VStackWidget> v, int termWidth)

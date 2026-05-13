@@ -19,6 +19,7 @@ public class AzureVfs
     private readonly ArmClient _arm;
     private readonly IAuthContextService _authContextService;
     private AzureResourceTree? _tree;
+    private Task? _treePreloadTask;
 
     private string _currentPath = "/";
     private string? _tenantId;
@@ -39,20 +40,24 @@ public class AzureVfs
     /// </summary>
     public async Task<bool> TryAuthenticateAsync()
     {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         var context = await _authContextService.GetCurrentContextAsync();
+        Console.Error.WriteLine($"[startup]     GetCurrentContextAsync: {sw.ElapsedMilliseconds}ms");
         var tenantId = context?.TenantId;
+        sw.Restart();
         var ok = await _arm.TryAuthenticateAsync(tenantId);
+        Console.Error.WriteLine($"[startup]     ArmClient.TryAuthenticateAsync: {sw.ElapsedMilliseconds}ms");
         if (ok && tenantId != null)
         {
             _tenantId = tenantId;
-            _tenantDisplay = await _arm.GetTenantDisplayNameAsync(tenantId)
-                ?? tenantId[..Math.Min(8, tenantId.Length)];
         }
         return ok;
     }
 
     /// <summary>
     /// Set the initial VFS path from auth context (tenantId + subscriptionId).
+    /// Resolves tenant display name and subscription name in parallel using lightweight queries.
+    /// Also kicks off async background preload of the full resource tree.
     /// </summary>
     public async Task SetInitialPathAsync()
     {
@@ -62,23 +67,34 @@ public class AzureVfs
         if (string.IsNullOrEmpty(tenantId)) return;
 
         _tenantId = tenantId;
-        // _tenantDisplay already resolved in TryAuthenticateAsync; keep as fallback
-        if (string.IsNullOrEmpty(_tenantDisplay))
-            _tenantDisplay = tenantId[..Math.Min(8, tenantId.Length)];
 
-        if (string.IsNullOrEmpty(subscriptionId))
+        // Resolve tenant display name and subscription name in parallel
+        var tenantNameTask = _arm.GetTenantDisplayNameAsync(tenantId);
+        var subNameTask = !string.IsNullOrEmpty(subscriptionId)
+            ? _arm.FetchSubscriptionDisplayNameAsync(subscriptionId)
+            : Task.FromResult<string?>(null);
+
+        await Task.WhenAll(tenantNameTask, subNameTask);
+
+        _tenantDisplay = tenantNameTask.Result
+            ?? tenantId[..Math.Min(8, tenantId.Length)];
+
+        if (!string.IsNullOrEmpty(subscriptionId))
+        {
+            var subName = subNameTask.Result ?? subscriptionId;
+            _currentPath = $"/{_tenantDisplay}/{subName}";
+        }
+        else
         {
             _currentPath = $"/{_tenantDisplay}";
-            return;
         }
 
-        // Resolve subscription display name via ARG
-        var subs = await GetSubscriptionsAsync();
-        var sub = subs.FirstOrDefault(s =>
-            s.SubscriptionId.Equals(subscriptionId, StringComparison.OrdinalIgnoreCase));
-        var subName = sub?.DisplayName ?? subscriptionId;
-
-        _currentPath = $"/{_tenantDisplay}/{subName}";
+        // Kick off async preload of the full resource tree (non-blocking)
+        _treePreloadTask = Task.Run(async () =>
+        {
+            try { _tree = await _arm.FetchResourceTreeAsync(); }
+            catch { /* preload failure is non-fatal; will retry on demand */ }
+        });
     }
 
     // ── Navigation ──
@@ -254,7 +270,19 @@ public class AzureVfs
     // ── Internal data fetching (single query, cached in memory) ──
 
     private async Task<AzureResourceTree> GetTreeAsync()
-        => _tree ??= await _arm.FetchResourceTreeAsync();
+    {
+        if (_tree != null) return _tree;
+
+        // If a preload is in progress, await it instead of starting a new fetch
+        if (_treePreloadTask != null)
+        {
+            await _treePreloadTask;
+            if (_tree != null) return _tree;
+        }
+
+        _tree = await _arm.FetchResourceTreeAsync();
+        return _tree;
+    }
 
     private async Task<List<AzureSubscription>> GetSubscriptionsAsync()
         => (await GetTreeAsync()).Subscriptions;

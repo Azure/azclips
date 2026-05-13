@@ -36,14 +36,19 @@ public static class Program
             // console) with a silent implementation that won't corrupt the TUI.
             services.AddSingleton<ILoggingService, TuiLoggingService>();
         };
+        var bootSw = System.Diagnostics.Stopwatch.StartNew();
         CirrusServiceProvider.Initialize(ClientType.TUI);
+        Console.Error.WriteLine($"[startup] DI init: {bootSw.ElapsedMilliseconds}ms");
         _telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
         _logger = CirrusServiceProvider.GetRequiredService<ILoggingService>();
 
         try
         {
             var state = CirrusServiceProvider.GetRequiredService<AppState>();
+            var vfsSw = System.Diagnostics.Stopwatch.StartNew();
             await state.InitVfsAsync();
+            Console.Error.WriteLine($"[startup] InitVfsAsync total: {vfsSw.ElapsedMilliseconds}ms");
+            Console.Error.WriteLine($"[startup] Total before UI: {bootSw.ElapsedMilliseconds}ms");
 
             var theme = Hex1bThemes.Ocean.Clone("cirrus");
 
