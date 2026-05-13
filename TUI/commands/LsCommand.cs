@@ -61,12 +61,8 @@ class LsCommand : ISlashCommand
 
     private static async Task<List<Suggestion>> GetAzureCompletions(string partial, CommandContext ctx)
     {
-        var entries = await ctx.Vfs.LsAsync(string.IsNullOrEmpty(partial) ? null : partial);
-        return entries.Select(e =>
-        {
-            var icon = e.Kind == VfsEntryKind.Directory ? "▸" : "·";
-            return new Suggestion(e.Name, $"{icon} {e.Detail}");
-        }).ToList();
+        var completions = await ctx.Vfs.GetCompletionsAsync(partial);
+        return completions.Select(name => new Suggestion(name, "▸ azure")).ToList();
     }
 
     // ── Local ──

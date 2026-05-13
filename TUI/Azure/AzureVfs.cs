@@ -207,6 +207,13 @@ public class AzureVfs
     /// </summary>
     public async Task<List<string>> GetCompletionsAsync(string partial)
     {
+        // Empty partial → list all children of current directory
+        if (string.IsNullOrEmpty(partial))
+        {
+            var entries = await LsAsync();
+            return entries.Select(c => c.Name).ToList();
+        }
+
         var resolved = ResolvePath(partial);
         var parts = ParsePath(resolved);
         var lastPart = parts.Length > 0 ? parts[^1] : "";
