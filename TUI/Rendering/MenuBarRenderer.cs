@@ -81,7 +81,11 @@ static class MenuBarRenderer
             var h = string.IsNullOrEmpty(hex) ? null : hex;
             var isSelected = string.Equals(current, h, StringComparison.OrdinalIgnoreCase)
                 || (current == null && h == null);
-            var label = isSelected ? $"* {name}" : $"  {name}";
+
+            // Build label with color swatch
+            var prefix = isSelected ? "* " : "  ";
+            var label = BuildColorLabel(prefix, name, h);
+
             var capturedHex = h;
             yield return m.MenuItem(label).NoAccelerator().OnActivated(_ =>
             {
@@ -90,6 +94,28 @@ static class MenuBarRenderer
                 invalidate();
             });
         }
+    }
+
+    /// <summary>
+    /// Builds a menu label with a visual color swatch using ANSI codes.
+    /// Format: "[colored square] Color Name [hex code in gray]"
+    /// </summary>
+    private static string BuildColorLabel(string prefix, string name, string? hex)
+    {
+        if (string.IsNullOrEmpty(hex))
+        {
+            // Terminal default - no color swatch
+            return $"{prefix}{name}";
+        }
+
+        // Parse hex and create ANSI color codes
+        var (r, g, b) = TuiTheme.ParseHex(hex);
+        var colorCode = Ansi.Fg(r, g, b);
+        var resetCode = Ansi.End;
+        var dimCode = Ansi.Dim;
+
+        // Build: [prefix] [colored square] [color name] [hex code in dim]
+        return $"{prefix}{colorCode}■{resetCode} {name} {dimCode}{hex}{resetCode}";
     }
 
     private static IEnumerable<IMenuChild> BuildFooterSubmenu(
