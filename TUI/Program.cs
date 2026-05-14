@@ -163,10 +163,13 @@ public static class Program
                 // ── Suggestions (above prompt, if configured) ──
                 if (t.SuggestionStyle == SuggestionStyle.Above && state.Suggestions.Count > 0)
                 {
+                    topWidgets.Add(v.Separator());
                     topWidgets.Add(v.Border(b => [SuggestionRenderer.Render(v, state.Suggestions, state.SelectedSuggestion)]));
                 }
-
-                topWidgets.Add(v.Separator());
+                else
+                {
+                    topWidgets.Add(v.Separator());
+                }
 
                 // Prompt + input (visible TextBox)
                 var prompt = state.Prompt.TrimEnd(' ', '>');
