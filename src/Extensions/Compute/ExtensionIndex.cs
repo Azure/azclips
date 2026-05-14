@@ -7,6 +7,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
 {
     public class ExtensionIndex : IExtensionIndex
     {
+        public string CliRootSummary => "Manage compute resources (virtual networks, NSGs, network interfaces, and virtual machines).";
+
         // ── PS Command Metadata ──
         private static readonly CommandMetadata s_newVirtualNetwork_PS = new(
             Name: "NewVirtualNetworkProcessor",
@@ -335,6 +337,15 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
             return table.TryGetValue(name, out var metadata)
                 ? metadata
                 : throw new KeyNotFoundException($"Command '{name}' not found for client type '{clientType}'.");
+        }
+        public IReadOnlyDictionary<string, CommandMetadata> GetCommandTable(ClientType clientType)
+        {
+            return clientType switch
+            {
+                ClientType.PowerShell => s_psTable,
+                ClientType.CLI => s_cliTable,
+                _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
+            };
         }
         public IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType)
         {
