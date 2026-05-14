@@ -124,8 +124,6 @@ public static class CirrusServiceProvider
             _prependRegistrations.Clear();
             _overrideRegistrations.Clear();
             _serviceProvider = null;
-            _prependRegistrations.Clear();
-            _overrideRegistrations.Clear();
         }
     }
 }
