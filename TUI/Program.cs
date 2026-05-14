@@ -49,7 +49,7 @@ public static class Program
             Console.Error.WriteLine($"[startup] InitVfsAsync total: {vfsSw.ElapsedMilliseconds}ms");
             Console.Error.WriteLine($"[startup] Total before UI: {bootSw.ElapsedMilliseconds}ms");
 
-var theme = TuiTheme.CreateBaseTheme();
+            var theme = TuiTheme.CreateBaseTheme();
 
             await using var terminal = Hex1bTerminal.CreateBuilder()
                 .WithHex1bApp((app, options) =>
@@ -178,6 +178,10 @@ var theme = TuiTheme.CreateBaseTheme();
                 else if (t.SuggestionStyle != SuggestionStyle.Above)
                 {
                     topWidgets.Add(v.Text("").Height(SizeHint.Fixed(0)));
+                    topWidgets.Add(v.Separator());
+                }
+                else
+                {
                     topWidgets.Add(v.Separator());
                 }
 
