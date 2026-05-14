@@ -787,8 +787,20 @@ The following design decisions have been **made and validated** in the actual im
     - Help is invoked once per CLI process at the cold path, so the I/O cost has not warranted caching
     - If profiling later shows hot-path issues, add `ConcurrentDictionary` keyed by `(extensionName, commandKey)` with file `LastWriteTime` invalidation, then revive these tests
 
-5. **Help tool validation logic tests**
-    - Location: Add new test class `HelpToolValidationTests.cs` to `tests/Cli.Tests/`
+5. ✅ **Help tool validation logic tests** — COMPLETE
+    - Location: New sibling test project [tools/Help/Cirrus.Help.Tool.Tests/](../../tools/Help/Cirrus.Help.Tool.Tests/) (mirrors the azure-powershell `tools/StaticAnalysis/` ↔ `tools/StaticAnalysis/StaticAnalysis.Test/` convention; keeps tool tests co-located with the tool under `tools/`).
+    - Prerequisite refactor (delivered): Extracted validation logic out of `Program.cs` local functions into classes inside `Cirrus.Help.Tool`:
+        - [`MarkdownStructureValidator`](../../tools/Help/Cirrus.Help.Tool/Validation/MarkdownStructureValidator.cs) (formerly `ValidateMarkdownHelpFiles`)
+        - [`HelpCompletenessValidator`](../../tools/Help/Cirrus.Help.Tool/Validation/HelpCompletenessValidator.cs) (formerly `ValidateExtensionHelpCompleteness`)
+        - [`HelpCommandKey`](../../tools/Help/Cirrus.Help.Tool/Validation/HelpCommandKey.cs) — shared `Normalize` / `ToHelpFileName` / `FromHelpFileName` / `ToExtensionFolder` helpers
+        - Typed result: [`ValidationReport`](../../tools/Help/Cirrus.Help.Tool/Validation/ValidationReport.cs) + [`ValidationIssue`](../../tools/Help/Cirrus.Help.Tool/Validation/ValidationIssue.cs) replace `Console.WriteLine` + `throw` side effects.
+        - [`Program.cs`](../../tools/Help/Cirrus.Help.Tool/Program.cs) is now a thin orchestrator: run validators → aggregate → print → exit code.
+        - This shape matches azure-powershell's `IStaticAnalyzer` pattern and sets up cleanly for 15.4.6 / 15.4.7 (`ExampleSyntaxValidator`, `ExampleTypeValidator`).
+    - Tests (36 total, all passing):
+        - [`HelpCommandKeyTests`](../../tools/Help/Cirrus.Help.Tool.Tests/HelpCommandKeyTests.cs) — 18 theory cases: normalize/trim/lowercase, multi-word ↔ filename round-trip, case-insensitivity, extension folder PascalCase.
+        - [`MarkdownStructureValidatorTests`](../../tools/Help/Cirrus.Help.Tool.Tests/MarkdownStructureValidatorTests.cs) — 10 tests: missing `Summary:` / `Description:` / examples, unbalanced fences, empty content reports all 3 issues, file-path propagation, multi-extension directory walking.
+        - [`HelpCompletenessValidatorTests`](../../tools/Help/Cirrus.Help.Tool.Tests/HelpCompletenessValidatorTests.cs) — 8 tests: all-present passes, missing routed command file errors, multi-word `config get` → `config-get.md`, orphan warnings (not errors), root-only index, case-insensitive filenames, missing help directory handled gracefully.
+    - CI integration: project added to [cirrus.slnx](../../cirrus.slnx) so `dotnet test cirrus.slnx --no-build` in [.github/workflows/build-and-test.yml](../../.github/workflows/build-and-test.yml) picks it up automatically.
     - Test markdown structure validation:
         - Test fails when `Summary:` field is missing
         - Test fails when `Description:` field is missing

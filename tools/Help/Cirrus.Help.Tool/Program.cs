@@ -1,8 +1,8 @@
 using System.Reflection;
 using System.Runtime.Loader;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using System.Xml.Linq;
+using Cirrus.Help.Tool.Validation;
 using Core.Abstractions;
 using Core.Runtime;
 
@@ -19,7 +19,15 @@ if (!Directory.Exists(artifactsRoot))
     throw new DirectoryNotFoundException($"Artifacts root not found: {artifactsRoot}");
 }
 
-ValidateMarkdownHelpFiles(repoRoot);
+var aggregateReport = new ValidationReport();
+
+var structureReport = new MarkdownStructureValidator().Validate(repoRoot);
+aggregateReport.Merge(structureReport);
+if (structureReport.HasErrors)
+{
+    PrintReport(structureReport);
+    throw new InvalidOperationException("Help markdown validation failed. See errors above.");
+}
 
 Directory.CreateDirectory(outputRoot);
 
@@ -47,6 +55,7 @@ if (extensionDlls.Count == 0)
 
 var manifests = new List<HelpManifest>();
 var validatedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+var completenessValidator = new HelpCompletenessValidator();
 
 foreach (var dllPath in extensionDlls)
 {
@@ -74,7 +83,14 @@ foreach (var dllPath in extensionDlls)
 
     if (validatedExtensions.Add(extensionName))
     {
-        ValidateExtensionHelpCompleteness(repoRoot, extensionName, extensionIndex);
+        var completenessReport = completenessValidator.Validate(repoRoot, extensionName, extensionIndex);
+        aggregateReport.Merge(completenessReport);
+        if (completenessReport.HasErrors)
+        {
+            PrintReport(completenessReport);
+            throw new InvalidOperationException(
+                $"Help completeness validation failed for extension '{extensionName}'. See errors above.");
+        }
     }
 
     var manifest = ExtensionHelpManifestBuilder.BuildManifest(extensionIndex, extensionName, version);
@@ -113,6 +129,7 @@ if (generatePwshXml)
     }
 }
 
+PrintReport(aggregateReport);
 Console.WriteLine($"Generated {manifests.Count} help manifest(s), HelpIndex.json, and {generatedPwshXmlPaths.Count} PowerShell help XML file(s) in {outputRoot}");
 
 static string? GetArg(string[] args, string name)
@@ -133,164 +150,17 @@ static bool HasArg(string[] args, string name)
     return args.Any(arg => arg.Equals(name, StringComparison.OrdinalIgnoreCase));
 }
 
-static void ValidateMarkdownHelpFiles(string repoRoot)
+static void PrintReport(ValidationReport report)
 {
-    var helpRoot = Path.Combine(repoRoot, "src", "Extensions");
-    if (!Directory.Exists(helpRoot))
+    foreach (var warning in report.Warnings)
     {
-        throw new DirectoryNotFoundException($"Extensions directory not found: {helpRoot}");
+        Console.WriteLine(warning.ToString());
     }
 
-    var markdownFiles = Directory
-        .EnumerateFiles(helpRoot, "*.md", SearchOption.AllDirectories)
-        .Where(static path => path.Contains($"{Path.DirectorySeparatorChar}help{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
-        .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)
-        .ToList();
-
-    if (markdownFiles.Count == 0)
+    foreach (var error in report.Errors)
     {
-        throw new InvalidOperationException("No help markdown files found under src/Extensions/*/help.");
+        Console.Error.WriteLine(error.ToString());
     }
-
-    var errors = new List<string>();
-    foreach (var file in markdownFiles)
-    {
-        var content = File.ReadAllText(file);
-        var relativePath = Path.GetRelativePath(repoRoot, file);
-
-        if (!HasBalancedCodeFences(content))
-        {
-            errors.Add($"{relativePath}: Unbalanced markdown code fences (``` markers must be paired).");
-        }
-
-        var summary = GetMarkdownField(content, "Summary");
-        if (string.IsNullOrWhiteSpace(summary))
-        {
-            errors.Add($"{relativePath}: Missing required field 'Summary:'.");
-        }
-
-        var description = GetMarkdownField(content, "Description");
-        if (string.IsNullOrWhiteSpace(description))
-        {
-            errors.Add($"{relativePath}: Missing required field 'Description:'.");
-        }
-
-        var exampleCount = Regex.Matches(
-            content,
-            @"###\s*(?<title>.+?)\s*\r?\n```(?<lang>[a-zA-Z0-9_-]*)\s*\r?\n(?<command>[\s\S]*?)\r?\n```",
-            RegexOptions.CultureInvariant | RegexOptions.IgnoreCase).Count;
-
-        if (exampleCount == 0)
-        {
-            errors.Add($"{relativePath}: Missing examples. Add at least one '### Title' + fenced code block example.");
-        }
-    }
-
-    if (errors.Count > 0)
-    {
-        throw new InvalidOperationException(
-            "Help markdown validation failed:" + Environment.NewLine +
-            string.Join(Environment.NewLine, errors.Select(static error => $" - {error}")));
-    }
-}
-
-static void ValidateExtensionHelpCompleteness(string repoRoot, string extensionName, IExtensionIndex extensionIndex)
-{
-    var extensionFolder = ToPascalCase(extensionName);
-    var helpDirectory = Path.Combine(repoRoot, "src", "Extensions", extensionFolder, "help");
-
-    var routedCommandKeys = extensionIndex
-        .GetCommandTable(ClientType.CLI)
-        .Keys
-        .Select(static key => NormalizeCommandKey(key))
-        .Distinct(StringComparer.OrdinalIgnoreCase)
-        .ToList();
-
-    var expectedFiles = routedCommandKeys
-        .Select(static key => CommandKeyToHelpFileName(key))
-        .ToHashSet(StringComparer.OrdinalIgnoreCase);
-    expectedFiles.Add("index.md");
-
-    var actualFiles = Directory.Exists(helpDirectory)
-        ? Directory
-            .EnumerateFiles(helpDirectory, "*.md", SearchOption.AllDirectories)
-            .Select(path => Path.GetRelativePath(helpDirectory, path)
-                .Replace(Path.DirectorySeparatorChar, '/')
-                .Replace(Path.AltDirectorySeparatorChar, '/'))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase)
-        : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-    var missing = expectedFiles
-        .Except(actualFiles, StringComparer.OrdinalIgnoreCase)
-        .OrderBy(static file => file, StringComparer.OrdinalIgnoreCase)
-        .ToList();
-
-    if (missing.Count > 0)
-    {
-        var errors = missing.Select(file =>
-            $"src{Path.DirectorySeparatorChar}Extensions{Path.DirectorySeparatorChar}{extensionFolder}{Path.DirectorySeparatorChar}help{Path.DirectorySeparatorChar}{file}: Missing help file for routed command '{HelpFileNameToCommandKey(file)}' in extension '{extensionName}'.");
-
-        throw new InvalidOperationException(
-            "Help completeness validation failed:" + Environment.NewLine +
-            string.Join(Environment.NewLine, errors.Select(static error => $" - {error}")));
-    }
-
-    var orphaned = actualFiles
-        .Except(expectedFiles, StringComparer.OrdinalIgnoreCase)
-        .OrderBy(static file => file, StringComparer.OrdinalIgnoreCase)
-        .ToList();
-
-    foreach (var orphan in orphaned)
-    {
-        var orphanPath = $"src{Path.DirectorySeparatorChar}Extensions{Path.DirectorySeparatorChar}{extensionFolder}{Path.DirectorySeparatorChar}help{Path.DirectorySeparatorChar}{orphan}";
-        Console.WriteLine($"Warning: {orphanPath} is not referenced by any routed CLI command in extension '{extensionName}'.");
-    }
-}
-
-static string NormalizeCommandKey(string? commandKey)
-{
-    return string.IsNullOrWhiteSpace(commandKey)
-        ? string.Empty
-        : commandKey.Trim().ToLowerInvariant();
-}
-
-static string CommandKeyToHelpFileName(string commandKey)
-{
-    return string.IsNullOrWhiteSpace(commandKey)
-        ? "index.md"
-        : commandKey.Replace(' ', '-').ToLowerInvariant() + ".md";
-}
-
-static string HelpFileNameToCommandKey(string fileName)
-{
-    if (fileName.Equals("index.md", StringComparison.OrdinalIgnoreCase))
-    {
-        return string.Empty;
-    }
-
-    var normalized = fileName.Replace('\\', '/');
-    if (normalized.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
-    {
-        normalized = normalized[..^3];
-    }
-
-    return normalized.Replace('-', ' ');
-}
-
-static string GetMarkdownField(string content, string fieldName)
-{
-    var match = Regex.Match(
-        content,
-        $@"^\s*{Regex.Escape(fieldName)}\s*:\s*(?<value>[\s\S]*?)(?=^\s*[A-Za-z][A-Za-z0-9_-]*\s*:|\z)",
-        RegexOptions.Multiline | RegexOptions.CultureInvariant);
-
-    return match.Success ? match.Groups["value"].Value.Trim() : string.Empty;
-}
-
-static bool HasBalancedCodeFences(string content)
-{
-    var fenceCount = Regex.Matches(content, @"(?m)^\s*```[a-zA-Z0-9_-]*\s*$", RegexOptions.CultureInvariant).Count;
-    return fenceCount % 2 == 0;
 }
 
 static void WriteJson<T>(string path, T value)

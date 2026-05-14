@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- This project lives under tools/ alongside Cirrus.Help.Tool (mirroring the
+       azure-powershell tools/StaticAnalysis/StaticAnalysis.Test convention).
+       Explicitly import the shared test config from tests/ so coverlet, xunit, and
+       analyzer settings stay consistent with the rest of the suite. -->
+  <Import Project="..\..\..\tests\Directory.Build.props" />
+
+  <ItemGroup>
+    <ProjectReference Include="..\Cirrus.Help.Tool\Cirrus.Help.Tool.csproj" />
+    <ProjectReference Include="..\..\..\src\Core\Core.Abstractions\Core.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>
