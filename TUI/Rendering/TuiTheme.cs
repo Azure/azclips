@@ -1,5 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Hex1b;
+using Hex1b.Theming;
+using Hex1b.Widgets;
 
 namespace Core.Tui.Rendering;
 
@@ -218,10 +221,67 @@ class TuiTheme
             Convert.ToInt32(h[4..6], 16));
     }
 
-    internal static Hex1b.Theming.Hex1bColor ToHex1bColor(string? hex)
+    internal static Hex1bColor ToHex1bColor(string? hex)
     {
-        if (string.IsNullOrEmpty(hex)) return Hex1b.Theming.Hex1bColor.Default;
+        if (string.IsNullOrEmpty(hex)) return Hex1bColor.Default;
         var (r, g, b) = ParseHex(hex);
-        return Hex1b.Theming.Hex1bColor.FromRgb((byte)r, (byte)g, (byte)b);
+        return Hex1bColor.FromRgb((byte)r, (byte)g, (byte)b);
+    }
+
+    // ── Hex1b theme helpers ──────────────────────────────────────────
+
+    // Menu bar palette
+    private static readonly Hex1bColor MenuDark = Hex1bColor.FromRgb(30, 30, 46);
+    private static readonly Hex1bColor MenuFg = Hex1bColor.FromRgb(166, 173, 200);
+    private static readonly Hex1bColor MenuFocusBg = Hex1bColor.FromRgb(69, 71, 90);
+    private static readonly Hex1bColor MenuHoverBg = Hex1bColor.FromRgb(49, 50, 68);
+    private static readonly Hex1bColor MenuLightFg = Hex1bColor.FromRgb(205, 214, 244);
+
+    /// <summary>
+    /// Creates the base Hex1b theme used by the terminal.
+    /// </summary>
+    public static Hex1bTheme CreateBaseTheme() => Hex1bThemes.Ocean.Clone("cirrus");
+
+    /// <summary>
+    /// Wraps a widget in a ThemePanel that applies the standard menu bar /
+    /// dropdown / menu-item colors.
+    /// </summary>
+    public static Hex1bWidget ApplyMenuBarTheme<TParent>(
+        WidgetContext<TParent> ctx, Hex1bWidget inner) where TParent : Hex1bWidget
+    {
+        return ctx.ThemePanel(
+            t => t
+                  .Set(MenuBarTheme.BackgroundColor, MenuDark)
+                  .Set(MenuBarTheme.ForegroundColor, MenuFg)
+                  .Set(MenuBarTheme.FocusedBackgroundColor, MenuFocusBg)
+                  .Set(MenuBarTheme.FocusedForegroundColor, Hex1bColor.White)
+                  .Set(MenuBarTheme.HoveredBackgroundColor, MenuHoverBg)
+                  .Set(MenuBarTheme.HoveredForegroundColor, MenuLightFg)
+                  .Set(MenuBarTheme.AcceleratorForegroundColor, MenuFg)
+                  .Set(MenuBarTheme.AcceleratorUnderline, false)
+                  .Set(MenuTheme.BackgroundColor, MenuDark)
+                  .Set(MenuTheme.ForegroundColor, MenuFg)
+                  .Set(MenuTheme.BorderColor, Hex1bColor.FromRgb(69, 71, 90))
+                  .Set(MenuItemTheme.BackgroundColor, MenuDark)
+                  .Set(MenuItemTheme.ForegroundColor, MenuFg)
+                  .Set(MenuItemTheme.FocusedBackgroundColor, MenuFocusBg)
+                  .Set(MenuItemTheme.FocusedForegroundColor, Hex1bColor.White)
+                  .Set(MenuItemTheme.HoveredBackgroundColor, MenuHoverBg)
+                  .Set(MenuItemTheme.HoveredForegroundColor, MenuLightFg),
+            inner);
+    }
+
+    /// <summary>
+    /// Wraps a widget in a ThemePanel that overrides the foreground color.
+    /// Returns the widget unchanged when the color is default.
+    /// </summary>
+    public static Hex1bWidget WithForeground<TParent>(
+        WidgetContext<TParent> ctx, Hex1bColor color, Hex1bWidget inner) where TParent : Hex1bWidget
+    {
+        if (color.IsDefault)
+            return inner;
+        return ctx.ThemePanel(
+            th => th.Set(GlobalTheme.ForegroundColor, color),
+            inner);
     }
 }

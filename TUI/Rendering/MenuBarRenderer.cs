@@ -3,7 +3,7 @@ using Hex1b.Widgets;
 
 namespace Core.Tui.Rendering;
 
-static class ThemeMenuRenderer
+static class MenuBarRenderer
 {
     public static Hex1bWidget Render<TParent>(WidgetContext<TParent> ctx, AppState state, Action invalidate)
         where TParent : Hex1bWidget

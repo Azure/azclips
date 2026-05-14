@@ -7,7 +7,6 @@ using Hex1b;
 using Hex1b.Input;
 using Hex1b.Layout;
 using Hex1b.Nodes;
-using Hex1b.Theming;
 using Hex1b.Widgets;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -50,7 +49,7 @@ public static class Program
             Console.Error.WriteLine($"[startup] InitVfsAsync total: {vfsSw.ElapsedMilliseconds}ms");
             Console.Error.WriteLine($"[startup] Total before UI: {bootSw.ElapsedMilliseconds}ms");
 
-            var theme = Hex1bThemes.Ocean.Clone("cirrus");
+var theme = TuiTheme.CreateBaseTheme();
 
             await using var terminal = Hex1bTerminal.CreateBuilder()
                 .WithHex1bApp((app, options) =>
@@ -90,34 +89,8 @@ public static class Program
             var widgets = new List<Hex1bWidget>();
 
             // ── Menu bar (themed dark) ──
-            var menuDark = Hex1bColor.FromRgb(30, 30, 46);
-            var menuFg = Hex1bColor.FromRgb(166, 173, 200);
-            var menuFocusBg = Hex1bColor.FromRgb(69, 71, 90);
-            var menuHoverBg = Hex1bColor.FromRgb(49, 50, 68);
-            var menuLightFg = Hex1bColor.FromRgb(205, 214, 244);
-            widgets.Add(v.ThemePanel(
-                t => t
-                      // Menu bar (top-level)
-                      .Set(MenuBarTheme.BackgroundColor, menuDark)
-                      .Set(MenuBarTheme.ForegroundColor, menuFg)
-                      .Set(MenuBarTheme.FocusedBackgroundColor, menuFocusBg)
-                      .Set(MenuBarTheme.FocusedForegroundColor, Hex1bColor.White)
-                      .Set(MenuBarTheme.HoveredBackgroundColor, menuHoverBg)
-                      .Set(MenuBarTheme.HoveredForegroundColor, menuLightFg)
-                      .Set(MenuBarTheme.AcceleratorForegroundColor, menuFg)
-                      .Set(MenuBarTheme.AcceleratorUnderline, false)
-                      // Dropdown popup
-                      .Set(MenuTheme.BackgroundColor, menuDark)
-                      .Set(MenuTheme.ForegroundColor, menuFg)
-                      .Set(MenuTheme.BorderColor, Hex1bColor.FromRgb(69, 71, 90))
-                      // Menu items
-                      .Set(MenuItemTheme.BackgroundColor, menuDark)
-                      .Set(MenuItemTheme.ForegroundColor, menuFg)
-                      .Set(MenuItemTheme.FocusedBackgroundColor, menuFocusBg)
-                      .Set(MenuItemTheme.FocusedForegroundColor, Hex1bColor.White)
-                      .Set(MenuItemTheme.HoveredBackgroundColor, menuHoverBg)
-                      .Set(MenuItemTheme.HoveredForegroundColor, menuLightFg),
-                ThemeMenuRenderer.Render(v, state, () => app.Invalidate())));
+            widgets.Add(TuiTheme.ApplyMenuBarTheme(v,
+                MenuBarRenderer.Render(v, state, () => app.Invalidate())));
 
             widgets.Add(v.VStack(top =>
             {
@@ -175,22 +148,13 @@ public static class Program
                 var prompt = state.Prompt.TrimEnd(' ', '>');
 
                 var promptColor = TuiTheme.ToHex1bColor(t.PromptPathColor);
-                if (!promptColor.IsDefault)
-                    topWidgets.Add(v.ThemePanel(
-                        th => th.Set(GlobalTheme.ForegroundColor, promptColor),
-                        v.Text(prompt)).Height(SizeHint.Content));
-                else
-                    topWidgets.Add(v.Text(prompt).Height(SizeHint.Content));
+                topWidgets.Add(TuiTheme.WithForeground(v, promptColor, v.Text(prompt)).Height(SizeHint.Content));
 
                 var inputWidth = Math.Max(1, termWidth - 2); // 2 = "> "
                 var wrapLines = ComputeWordWrapLines(state.InputText, inputWidth);
 
                 var chevronColor = TuiTheme.ToHex1bColor(t.ChevronColor);
-                var chevronWidget = !chevronColor.IsDefault
-                    ? (Hex1bWidget)v.ThemePanel(
-                        th => th.Set(GlobalTheme.ForegroundColor, chevronColor),
-                        v.Text("> ")).ContentWidth()
-                    : v.Text("> ").ContentWidth();
+                var chevronWidget = TuiTheme.WithForeground(v, chevronColor, v.Text("> ")).ContentWidth();
 
                 topWidgets.Add(v.HStack(h =>
                 [
