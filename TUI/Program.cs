@@ -7,7 +7,6 @@ using Hex1b;
 using Hex1b.Input;
 using Hex1b.Layout;
 using Hex1b.Nodes;
-using Hex1b.Theming;
 using Hex1b.Widgets;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -20,7 +19,7 @@ public static class Program
 
     public static async Task Main()
     {
-        CirrusServiceProvider.PrependRegistration = services =>
+        CirrusServiceProvider.PrependRegistration(services =>
         {
             services.AddSingleton<ArmClient>();
             services.AddSingleton<AzureVfs>();
@@ -28,14 +27,14 @@ public static class Program
             services.AddSingleton<PromptService>();
             services.AddSingleton<HistoryService>();
             services.AddSingleton<AppState>();
-        };
-        CirrusServiceProvider.OverrideRegistration = services =>
+        });
+        CirrusServiceProvider.OverrideRegistration(services =>
         {
             // Replace the default ScopedLoggingService (which falls back to
             // ConsoleLoggingService and writes [VERBOSE]/[DEBUG] directly to the
             // console) with a silent implementation that won't corrupt the TUI.
             services.AddSingleton<ILoggingService, TuiLoggingService>();
-        };
+        });
         var bootSw = System.Diagnostics.Stopwatch.StartNew();
         CirrusServiceProvider.Initialize(ClientType.TUI);
         Console.Error.WriteLine($"[startup] DI init: {bootSw.ElapsedMilliseconds}ms");
@@ -50,7 +49,7 @@ public static class Program
             Console.Error.WriteLine($"[startup] InitVfsAsync total: {vfsSw.ElapsedMilliseconds}ms");
             Console.Error.WriteLine($"[startup] Total before UI: {bootSw.ElapsedMilliseconds}ms");
 
-            var theme = Hex1bThemes.Ocean.Clone("cirrus");
+            var theme = TuiTheme.CreateBaseTheme();
 
             await using var terminal = Hex1bTerminal.CreateBuilder()
                 .WithHex1bApp((app, options) =>
@@ -89,6 +88,10 @@ public static class Program
         {
             var widgets = new List<Hex1bWidget>();
 
+            // ── Menu bar (themed dark) ──
+            widgets.Add(TuiTheme.ApplyMenuBarTheme(v,
+                MenuBarRenderer.Render(v, state, () => app.Invalidate())));
+
             widgets.Add(v.VStack(top =>
             {
                 var topWidgets = new List<Hex1bWidget>();
@@ -107,7 +110,7 @@ public static class Program
                     // ── Scrollable history panel ──
                     topWidgets.Add((v.VScrollPanel(sv =>
                     {
-                        var rendered = HistoryRenderer.Render(sv, state.GetHistorySnapshot());
+                        var rendered = HistoryRenderer.Render(sv, state.GetHistorySnapshot(), state.Theme);
                         return rendered.ToArray();
                     }, showScrollbar: true).Follow()).Fill());
                 }
@@ -128,39 +131,57 @@ public static class Program
                     topWidgets.Add(v.HStack(h => []).Height(SizeHint.Fixed(0)));
                 }
 
-                topWidgets.Add(v.Separator());
+                var t = state.Theme;
 
-                // Prompt + input (visible TextBox)
-                var prompt = state.Prompt;
-                topWidgets.Add(v.Text(prompt).Height(SizeHint.Content));
-
-                topWidgets.Add(v.HStack(h =>
-                [
-                    h.Text("> "),
-                    v.TextBox(state.InputText).Multiline(2)
-                        .OnTextChanged(e =>
-                        {
-                            // TextBox cursor is always at end (reset by reconciliation).
-                            // Detect appended characters and insert at our cursor position.
-                            if (e.NewText.Length > e.OldText.Length)
-                            {
-                                var added = e.NewText[e.OldText.Length..];
-                                state.InputText = state.InputText.Insert(state.CursorPos, added);
-                                state.CursorPos += added.Length;
-                                state.UpdateSuggestions();
-                                app.Invalidate();
-                            }
-                        })
-                ]));
-
-                // ── Inline suggestions (always present to keep widget indices stable) ──
-                if (state.Suggestions.Count > 0)
+                // ── Suggestions (above prompt, if configured) ──
+                if (t.SuggestionStyle == SuggestionStyle.Above && state.Suggestions.Count > 0)
                 {
+                    topWidgets.Add(v.Separator());
                     topWidgets.Add(v.Border(b => [SuggestionRenderer.Render(v, state.Suggestions, state.SelectedSuggestion)]));
                 }
                 else
                 {
+                    topWidgets.Add(v.Separator());
+                }
+
+                // Prompt + input (visible TextBox)
+                var prompt = state.Prompt.TrimEnd(' ', '>');
+
+                var promptColor = TuiTheme.ToHex1bColor(t.PromptPathColor);
+                topWidgets.Add(TuiTheme.WithForeground(v, promptColor, v.Text(prompt)).Height(SizeHint.Content));
+
+                var inputWidth = Math.Max(1, termWidth - 2); // 2 = "> "
+                var wrapLines = ComputeWordWrapLines(state.InputText, inputWidth);
+
+                var chevronColor = TuiTheme.ToHex1bColor(t.ChevronColor);
+                var chevronWidget = TuiTheme.WithForeground(v, chevronColor, v.Text("> ")).ContentWidth();
+
+                topWidgets.Add(v.HStack(h =>
+                [
+                    chevronWidget,
+                    v.TextBox().State(state.EditorState).Multiline().WordWrap().Height(wrapLines)
+                        .OnTextChanged(e =>
+                        {
+                            state.UpdateSuggestions();
+                            app.Invalidate();
+                        })
+                ]));
+
+                // ── Suggestions (below input or inline) ──
+                if (t.SuggestionStyle != SuggestionStyle.Above && state.Suggestions.Count > 0)
+                {
+                    if (t.SuggestionStyle == SuggestionStyle.Inline)
+                        topWidgets.Add(SuggestionRenderer.Render(v, state.Suggestions, state.SelectedSuggestion));
+                    else
+                        topWidgets.Add(v.Border(b => [SuggestionRenderer.Render(v, state.Suggestions, state.SelectedSuggestion)]));
+                }
+                else if (t.SuggestionStyle != SuggestionStyle.Above)
+                {
                     topWidgets.Add(v.Text("").Height(SizeHint.Fixed(0)));
+                    topWidgets.Add(v.Separator());
+                }
+                else
+                {
                     topWidgets.Add(v.Separator());
                 }
 
@@ -230,69 +251,13 @@ public static class Program
                     app.Invalidate();
                 }, "Submit command");
 
-            bindings.Key(Hex1bKey.Backspace).Global()
+            bindings.Ctrl().Key(Hex1bKey.Enter).Global()
                 .Action(_ =>
                 {
-                    if (state.CursorPos > 0)
-                    {
-                        state.InputText = state.InputText.Remove(state.CursorPos - 1, 1);
-                        state.CursorPos--;
-                        state.UpdateSuggestions();
-                        app.Invalidate();
-                    }
-                }, "Delete backward");
-
-            bindings.Key(Hex1bKey.Delete).Global()
-                .Action(_ =>
-                {
-                    if (state.CursorPos < state.InputText.Length)
-                    {
-                        state.InputText = state.InputText.Remove(state.CursorPos, 1);
-                        state.UpdateSuggestions();
-                        app.Invalidate();
-                    }
-                }, "Delete forward");
-
-            bindings.Key(Hex1bKey.LeftArrow).Global()
-                .Action(_ =>
-                {
-                    if (state.CursorPos > 0) { state.CursorPos--; app.Invalidate(); }
-                }, "Cursor left");
-
-            bindings.Key(Hex1bKey.RightArrow).Global()
-                .Action(_ =>
-                {
-                    if (state.CursorPos < state.InputText.Length) { state.CursorPos++; app.Invalidate(); }
-                }, "Cursor right");
-
-            bindings.Key(Hex1bKey.Home).Global()
-                .Action(_ =>
-                {
-                    state.CursorPos = 0;
+                    state.InputText = state.InputText.Insert(state.CursorPos, "\n");
+                    state.CursorPos++;
                     app.Invalidate();
-                }, "Cursor to start");
-
-            bindings.Key(Hex1bKey.End).Global()
-                .Action(_ =>
-                {
-                    state.CursorPos = state.InputText.Length;
-                    app.Invalidate();
-                }, "Cursor to end");
-
-            bindings.Ctrl().Key(Hex1bKey.Backspace).Global()
-                .Action(_ =>
-                {
-                    if (state.CursorPos > 0)
-                    {
-                        var pos = state.CursorPos;
-                        while (pos > 0 && state.InputText[pos - 1] == ' ') pos--;
-                        while (pos > 0 && state.InputText[pos - 1] != ' ') pos--;
-                        state.InputText = state.InputText.Remove(pos, state.CursorPos - pos);
-                        state.CursorPos = pos;
-                        state.UpdateSuggestions();
-                        app.Invalidate();
-                    }
-                }, "Delete word backward");
+                }, "Insert newline");
 
             bindings.Key(Hex1bKey.UpArrow)
                 .Global()

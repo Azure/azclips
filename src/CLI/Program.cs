@@ -48,17 +48,17 @@ public class Program
             return 0;
         }
 
-        CirrusServiceProvider.PrependRegistration = services =>
+        CirrusServiceProvider.PrependRegistration(services =>
         {
             services.AddSingleton<IExtensionLoader, BuiltinExtensionLoader>();
             services.AddSingleton<IExtensionLoader, MultiVersionExtensionLoader>();
             services.AddSingleton<PropertyParser>();
-        };
-        CirrusServiceProvider.OverrideRegistration = services =>
+        });
+        CirrusServiceProvider.OverrideRegistration(services =>
         {
             services.AddSingleton<IAssemblyLoadingProvider, CLIAssemblyLoadingProvider>();
             services.AddSingleton<IArgumentParsingProvider, CLIArgumentParsingProvider>();
-        };
+        });
         CirrusServiceProvider.Initialize(_clientType);
         _telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
         _logger = CirrusServiceProvider.GetRequiredService<ILoggingService>();
