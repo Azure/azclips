@@ -21,6 +21,9 @@
     <Project Path="src/Extensions/Login/Extensions.Login.csproj" />
     <Project Path="src/Extensions/Config/Extensions.Config.csproj" />
   </Folder>
+  <Folder Name="/TUI/">
+    <Project Path="TUI/Core.Tui.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Cli.Tests/Cli.Tests.csproj" />
     <Project Path="tests/Benchmark/Benchmark.csproj" />
