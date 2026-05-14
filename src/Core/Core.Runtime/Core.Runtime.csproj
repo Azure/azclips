@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Core.Abstractions\Core.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Extensions\Extensions.Runtime\Extensions.Runtime.csproj" />
   </ItemGroup>
 
   <ItemGroup>

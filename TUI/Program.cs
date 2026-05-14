@@ -19,7 +19,7 @@ public static class Program
 
     public static async Task Main()
     {
-        CirrusServiceProvider.AddPrependRegistration(services =>
+        CirrusServiceProvider.PrependRegistration(services =>
         {
             services.AddSingleton<ArmClient>();
             services.AddSingleton<AzureVfs>();
@@ -28,7 +28,7 @@ public static class Program
             services.AddSingleton<HistoryService>();
             services.AddSingleton<AppState>();
         });
-        CirrusServiceProvider.AddOverrideRegistration(services =>
+        CirrusServiceProvider.OverrideRegistration(services =>
         {
             // Replace the default ScopedLoggingService (which falls back to
             // ConsoleLoggingService and writes [VERBOSE]/[DEBUG] directly to the

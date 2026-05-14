@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <AssemblyName>Microsoft.Azure.Cirrus.Cmdlets.Compute</AssemblyName>
+        <RootNamespace>Microsoft.Azure.Cirrus.Cmdlets.Compute</RootNamespace>
+        <Description>PowerShell binary cmdlets for Cirrus Compute module</Description>
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    </PropertyGroup>
+
+    <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
+
+    <ItemGroup>
+        <PackageReference Include="System.Management.Automation" Version="7.6.1" PrivateAssets="all" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Core.Abstractions\Core.Abstractions.csproj">
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
+        <ProjectReference Include="..\..\Core\Core.DependencyInjection\Core.DependencyInjection.csproj">
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
+    </ItemGroup>
+</Project>

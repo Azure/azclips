@@ -221,7 +221,7 @@ public class ConfigCliTests
             }
 
             CirrusServiceProvider.Dispose();
-            CirrusServiceProvider.AddOverrideRegistration(services =>
+            CirrusServiceProvider.OverrideRegistration(services =>
             {
                 services.AddSingleton<IAssemblyLoadingProvider>(new StubExtensionLoader(typeof(SetConfigCommand).Assembly, "Config"));
                 services.AddSingleton<IConfigurationProvider>(new TestConfigurationProvider(_configPath));

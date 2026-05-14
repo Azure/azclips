@@ -26,6 +26,7 @@ namespace Core.Abstractions.Runtime
     
     public interface IRuntimeHttpPipeline : ISendAsync
     {
+        public int PollingInterval { get; set; }
         public IRuntimeHttpPipeline Prepend(ISendAsyncFactory item);
 
         public IRuntimeHttpPipeline Append(SendAsyncStep item);

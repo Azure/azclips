@@ -2,6 +2,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Runtime;
 using System.Diagnostics;
+using Extensions.Runtime;
 
 namespace Core.Engine
 {
@@ -28,19 +29,19 @@ namespace Core.Engine
             {
                 var evt = (EventData)msg;
                 string id = evt.Id;
-                loggingService.Debug($"[{id}]");
+                loggingService.Verbose($"[{id}]");
             });
 
             session.Subscribe(Events.SessionCreated, (data) =>
             {
                 var evt = (EventData)data;
-                loggingService.Verbose(evt.Message);
+                loggingService.Debug(evt.Message);
             });
 
             session.Subscribe(Events.SessionDisposed, (data) =>
             {
                 var evt = (EventData)data;
-                loggingService.Verbose(evt.Message);
+                loggingService.Debug(evt.Message);
             });
 
             session.Subscribe(Events.ProcessorInitiated, (data) =>
@@ -49,6 +50,73 @@ namespace Core.Engine
                 loggingService.Debug(evt.Message);
             });
 
+            session.Subscribe(Events.ProcessorBeforeHttpRequestCreate, (data) =>
+            {
+                var evt = (EventData)data;
+                loggingService.Debug(evt.Message);
+            });
+
+            session.Subscribe(Events.ProcessorAfterHttpRequestCreate, (data) =>
+            {
+                var evt = (EventData)data;
+                loggingService.Debug(evt.Message);
+            });
+
+            session.Subscribe(Events.TracingHttpRequestMessage, async (data) =>
+            {
+                var evt = (EventData)data;
+                HttpRequestMessage request = (HttpRequestMessage)evt.RequestMessage;
+                loggingService.Debug(await request.GetLog());
+            });
+            session.Subscribe(Events.TracingHttpResponseMessage, async (data) =>
+            {
+                var evt = (EventData)data;
+                HttpResponseMessage response = (HttpResponseMessage)evt.ResponseMessage;
+                loggingService.Debug(await response.GetLog());
+            });
+
+            session.Subscribe(Events.DelayPolling, (data) =>
+            {
+                var evt = (EventData)data;
+                loggingService.Debug(evt.Message);
+            });
+
+            session.Subscribe(Events.BeforePollingCall, (data) =>
+            {
+                EventData evt = (EventData)data;
+                loggingService.Debug(evt.Message);
+            });
+
+            session.Subscribe(Events.AfterPollingCall, (data) =>
+            {
+                EventData evt = (EventData)data;
+                loggingService.Debug(evt.Message);
+            });
+
+            session.Subscribe(Events.BeforeFinalPollingCall, (data) =>
+            {
+                EventData evt = (EventData)data;
+                loggingService.Debug(evt.Message);
+            });
+
+            session.Subscribe(Events.AfterFinalPollingCall, (data) =>
+            {
+                EventData evt = (EventData)data;
+                loggingService.Debug(evt.Message);
+            });
+
+            session.Subscribe(Events.PollingFinished, (data) =>
+            {
+                var evt = (EventData)data;
+                loggingService.Info(evt.Message);
+            });
+
+            session.Subscribe(Events.PollingFailed, (data) =>
+            {
+                var evt = (EventData)data;
+                loggingService.Error(evt.Message);
+            });
+ 
             return session;
         }
 

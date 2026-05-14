@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Core.AssemblyLoading;
 using Core.ArgumentParsing;
 using Core.Configuration;
+using System.Collections.Concurrent;
 
 namespace Core.DependencyInjection;
 
@@ -14,23 +15,21 @@ public static class CirrusServiceProvider
 {
     private static volatile IServiceProvider? _serviceProvider;
     private static readonly object _lock = new();
-    private static readonly List<Action<IServiceCollection>> _prependRegistrations = [];
-    private static readonly List<Action<IServiceCollection>> _overrideRegistrations = [];
+    private static readonly ConcurrentQueue<Action<IServiceCollection>> _prependRegistrations = new();
+    private static readonly ConcurrentQueue<Action<IServiceCollection>> _overrideRegistrations = new();
 
     /// <summary>
     /// Adds a registration action invoked before the default service registrations.
     /// Multiple registrations are applied in insertion order.
     /// Must be called before <see cref="Initialize"/>.
     /// </summary>
-    public static void AddPrependRegistration(Action<IServiceCollection> registration)
+    public static void PrependRegistration(Action<IServiceCollection>? registration)
     {
-        lock (_lock)
-        {
-            if (_serviceProvider is not null)
-                throw new InvalidOperationException(
-                    "Cannot add registrations after CirrusServiceProvider has been initialized.");
-            _prependRegistrations.Add(registration);
-        }
+        if (registration is null)
+            return;
+        if (_serviceProvider is not null)
+            throw new InvalidOperationException("Cannot set PrependRegistration after the service provider has been initialized.");
+        _prependRegistrations.Enqueue(registration);
     }
 
     /// <summary>
@@ -39,16 +38,24 @@ public static class CirrusServiceProvider
     /// means later registrations for the same service type take precedence.
     /// Must be called before <see cref="Initialize"/>.
     /// </summary>
-    public static void AddOverrideRegistration(Action<IServiceCollection> registration)
+    public static void OverrideRegistration(Action<IServiceCollection>? registration)
     {
-        lock (_lock)
-        {
-            if (_serviceProvider is not null)
-                throw new InvalidOperationException(
-                    "Cannot add registrations after CirrusServiceProvider has been initialized.");
-            _overrideRegistrations.Add(registration);
-        }
+        if (registration is null)
+            return;
+        if (_serviceProvider is not null)
+            throw new InvalidOperationException("Cannot set OverrideRegistration after the service provider has been initialized.");
+        _overrideRegistrations.Enqueue(registration);
     }
+
+    public static void RegisterCirrusServices(this IServiceCollection services) =>
+        services
+            .RegisterConfigurationServices()
+            .RegisterTelemetryServices()
+            .RegisterRuntimeServices()
+            .RegisterAuthenticationServices()
+            .RegisterEngineServices()
+            .RegisterAssemblyLoadingServices()
+            .RegisterArgumentParsingServices();
 
     /// <summary>
     /// Initializes the DI container. Safe to call multiple times — only the first call takes effect.
@@ -65,24 +72,17 @@ public static class CirrusServiceProvider
                 return;
 
             IServiceCollection services = new ServiceCollection();
-
             //client type should be immutable and be initialized with composition root
             services.AddSingleton(typeof(ClientType), clientType);
-
-            foreach (var registration in _prependRegistrations)
-                registration(services);
-
-            services = services
-                .RegisterConfigurationServices()
-                .RegisterTelemetryServices()
-                .RegisterRuntimeServices()
-                .RegisterAuthenticationServices()
-                .RegisterEngineServices()
-                .RegisterAssemblyLoadingServices()
-                .RegisterArgumentParsingServices();
-
-            foreach (var registration in _overrideRegistrations)
-                registration(services);
+            while (_prependRegistrations.TryDequeue(out var prependRegistration))
+            {
+                prependRegistration?.Invoke(services);
+            }
+            services.RegisterCirrusServices();
+            while (_overrideRegistrations.TryDequeue(out var overrideRegistration))
+            {
+                overrideRegistration?.Invoke(services);
+            }
             _serviceProvider = services.BuildServiceProvider();
         }
     }
@@ -121,7 +121,8 @@ public static class CirrusServiceProvider
             {
                 disposable.Dispose();
             }
-
+            _prependRegistrations.Clear();
+            _overrideRegistrations.Clear();
             _serviceProvider = null;
             _prependRegistrations.Clear();
             _overrideRegistrations.Clear();

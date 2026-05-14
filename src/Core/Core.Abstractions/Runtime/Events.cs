@@ -1,12 +1,6 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 namespace Core.Abstractions.Runtime
 {
     public static class Events
@@ -24,22 +18,38 @@ namespace Core.Abstractions.Runtime
         public const string BeforeCall = nameof(BeforeCall);
         public const string BeforeResponseDispatch = nameof(BeforeResponseDispatch);
         public const string FollowingNextLink = nameof(FollowingNextLink);
-        public const string DelayBeforePolling = nameof(DelayBeforePolling);
-        public const string Polling = nameof(Polling);
         public const string Progress = nameof(Progress);
 
+        // processor
         public const string ProcessorInitiated = nameof(ProcessorInitiated);
         public const string ProcessorProcessAsyncStart = nameof(ProcessorProcessAsyncStart);
         public const string ProcessorProcessAsyncEnd = nameof(ProcessorProcessAsyncEnd);
         public const string ProcessorException = nameof(ProcessorException);
         public const string ProcessorBeforeAPICall = nameof(ProcessorBeforeAPICall);
         public const string ProcessorAfterAPICall = nameof(ProcessorAfterAPICall);
+        public const string ProcessorBeforeHttpRequestCreate = nameof(ProcessorBeforeHttpRequestCreate);
+        public const string ProcessorAfterHttpRequestCreate = nameof(ProcessorAfterHttpRequestCreate);
 
+        // session
         public const string SessionCreated = nameof(SessionCreated);
         public const string SessionDisposed = nameof(SessionDisposed);
         public const string EngineLoadingAssembly = nameof(EngineLoadingAssembly);
         public const string EngineBindingProcessor = nameof(EngineBindingProcessor);
 
+        // http pipeline
+        public const string TracingHttpRequestMessage = nameof(TracingHttpRequestMessage);
+        public const string TracingHttpResponseMessage = nameof(TracingHttpResponseMessage);
+
+        // polling
+        public const string DelayPolling = nameof(DelayPolling);
+        public const string BeforePollingCall = nameof(BeforePollingCall);
+        public const string AfterPollingCall = nameof(AfterPollingCall);
+        public const string BeforeFinalPollingCall = nameof(BeforeFinalPollingCall);
+        public const string AfterFinalPollingCall = nameof(AfterFinalPollingCall);
+        public const string PollingFinished = nameof(PollingFinished);
+        public const string PollingFailed = nameof(PollingFailed);
+
+        // Auth
         public const string AuthBeforeTokenAcquisition = nameof(AuthBeforeTokenAcquisition);
         public const string AuthAfterTokenAcquisition = nameof(AuthAfterTokenAcquisition);
 

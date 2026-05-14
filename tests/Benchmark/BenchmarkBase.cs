@@ -38,9 +38,9 @@ public abstract class BenchmarkBase
     /// </summary>
     protected void RegisterBenchmarkStubs()
     {
-        CirrusServiceProvider.AddOverrideRegistration(services =>
+        CirrusServiceProvider.OverrideRegistration(services =>
         {
-            services.AddSingleton<ICommandHttpMessageHandler, StubCommandMessageHandler>();
+            services.AddSingleton<IHttpTerminateHandler, StubHttpTerminateHandler>();
             services.AddSingleton<ITelemetryService, StubTelemetryService>();
             services.AddSingleton<IAuthContextService, StubAuthContextService>();
             services.AddSingleton<IAuthService, StubAuthService>();

@@ -9,7 +9,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
     {
         // ── PS Command Metadata ──
         private static readonly CommandMetadata s_login_PS = new(
-            Name: "LoginCommand",
+            Name: "LoginProcessor",
             Aliases: [],
             FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Processors.LoginProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
@@ -23,7 +23,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_logout_PS = new(
-            Name: "LogoutCommand",
+            Name: "LogoutProcessor",
             Aliases: [],
             FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Processors.LogoutProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
@@ -32,7 +32,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_getContext_PS = new(
-            Name: "GetContextCommand",
+            Name: "GetContextProcessor",
             Aliases: [],
             FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Processors.GetContextProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
@@ -42,7 +42,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
         );
         // ── CLI Command Metadata ──
         private static readonly CommandMetadata s_login_CLI = new(
-            Name: "LoginCommand",
+            Name: "LoginProcessor",
             Aliases: [],
             FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Processors.LoginProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
@@ -56,7 +56,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_logout_CLI = new(
-            Name: "LogoutCommand",
+            Name: "LogoutProcessor",
             Aliases: [],
             FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Processors.LogoutProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
@@ -65,7 +65,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_getContext_CLI = new(
-            Name: "GetContextCommand",
+            Name: "GetContextProcessor",
             Aliases: [],
             FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Processors.GetContextProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
