@@ -36,49 +36,49 @@ jobs:
     #   name: github-pages
     #   url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '24'
-        cache: 'npm'
-        cache-dependency-path: wiki/package-lock.json
-    
-    - name: Install dependencies
-      working-directory: ./wiki
-      run: npm ci
-    
-    - name: Build wiki
-      working-directory: ./wiki
-      run: npm run build
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Checkout benchmark data from gh-pages
-      uses: actions/checkout@v4
-      with:
-        ref: gh-pages
-        path: gh-pages-data
-        sparse-checkout: dev/bench
-      continue-on-error: true   # gh-pages may not exist on first run
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: wiki/package-lock.json
 
-    - name: Merge benchmark data into wiki dist
-      run: |
-        if [ -d gh-pages-data/dev/bench ]; then
-          mkdir -p wiki/.vitepress/dist/dev
-          cp -r gh-pages-data/dev/bench wiki/.vitepress/dist/dev/
-        fi
+      - name: Install dependencies
+        working-directory: ./wiki
+        run: npm ci
 
-    - name: Setup Pages
-      uses: actions/configure-pages@v5
-    
-    - name: Upload artifact
-      uses: actions/upload-pages-artifact@v3
-      with:
-        path: './wiki/.vitepress/dist'
-    
-    - name: Deploy to GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v4
+      - name: Build wiki
+        working-directory: ./wiki
+        run: npm run build
+
+      - name: Checkout benchmark data from gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages-data
+          sparse-checkout: dev/bench
+        continue-on-error: true   # gh-pages may not exist on first run
+
+      - name: Merge benchmark data into wiki dist
+        run: |
+          if [ -d gh-pages-data/dev/bench ]; then
+            mkdir -p wiki/.vitepress/dist/dev
+            cp -r gh-pages-data/dev/bench wiki/.vitepress/dist/dev/
+          fi
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './wiki/.vitepress/dist'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
