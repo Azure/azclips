@@ -3,6 +3,7 @@ using Core.Tui.Azure;
 using Core.Tui.Commands;
 using Core.Tui.Rendering;
 using Core.Tui.Services;
+using Hex1b.Widgets;
 
 namespace Core.Tui;
 
@@ -20,9 +21,22 @@ class AppState
     public ShellMode Mode { get; private set; } = ShellMode.Azure;
     public string LocalCwd { get; private set; } = Directory.GetCurrentDirectory();
 
-    // UI state
-    public string InputText { get; set; } = "";
-    public int CursorPos { get; set; }
+    // Theme
+    public TuiTheme Theme { get; set; } = TuiTheme.Load();
+
+    // UI state — backed by a shared TextBoxState so the TextBox widget and
+    // AppState operate on the same cursor / text buffer.
+    public TextBoxState EditorState { get; } = new();
+    public string InputText
+    {
+        get => EditorState.Text;
+        set => EditorState.Text = value;
+    }
+    public int CursorPos
+    {
+        get => EditorState.CursorPosition;
+        set => EditorState.CursorPosition = value;
+    }
     private readonly List<HistoryEntry> _history = new();
     private readonly object _historyLock = new();
     public List<Suggestion> Suggestions { get; private set; } = new();

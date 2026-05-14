@@ -89,6 +89,36 @@ public static class Program
         {
             var widgets = new List<Hex1bWidget>();
 
+            // ── Menu bar (themed dark) ──
+            var menuDark = Hex1bColor.FromRgb(30, 30, 46);
+            var menuFg = Hex1bColor.FromRgb(166, 173, 200);
+            var menuFocusBg = Hex1bColor.FromRgb(69, 71, 90);
+            var menuHoverBg = Hex1bColor.FromRgb(49, 50, 68);
+            var menuLightFg = Hex1bColor.FromRgb(205, 214, 244);
+            widgets.Add(v.ThemePanel(
+                t => t
+                      // Menu bar (top-level)
+                      .Set(MenuBarTheme.BackgroundColor, menuDark)
+                      .Set(MenuBarTheme.ForegroundColor, menuFg)
+                      .Set(MenuBarTheme.FocusedBackgroundColor, menuFocusBg)
+                      .Set(MenuBarTheme.FocusedForegroundColor, Hex1bColor.White)
+                      .Set(MenuBarTheme.HoveredBackgroundColor, menuHoverBg)
+                      .Set(MenuBarTheme.HoveredForegroundColor, menuLightFg)
+                      .Set(MenuBarTheme.AcceleratorForegroundColor, menuFg)
+                      .Set(MenuBarTheme.AcceleratorUnderline, false)
+                      // Dropdown popup
+                      .Set(MenuTheme.BackgroundColor, menuDark)
+                      .Set(MenuTheme.ForegroundColor, menuFg)
+                      .Set(MenuTheme.BorderColor, Hex1bColor.FromRgb(69, 71, 90))
+                      // Menu items
+                      .Set(MenuItemTheme.BackgroundColor, menuDark)
+                      .Set(MenuItemTheme.ForegroundColor, menuFg)
+                      .Set(MenuItemTheme.FocusedBackgroundColor, menuFocusBg)
+                      .Set(MenuItemTheme.FocusedForegroundColor, Hex1bColor.White)
+                      .Set(MenuItemTheme.HoveredBackgroundColor, menuHoverBg)
+                      .Set(MenuItemTheme.HoveredForegroundColor, menuLightFg),
+                ThemeMenuRenderer.Render(v, state, () => app.Invalidate())));
+
             widgets.Add(v.VStack(top =>
             {
                 var topWidgets = new List<Hex1bWidget>();
@@ -107,7 +137,7 @@ public static class Program
                     // ── Scrollable history panel ──
                     topWidgets.Add((v.VScrollPanel(sv =>
                     {
-                        var rendered = HistoryRenderer.Render(sv, state.GetHistorySnapshot());
+                        var rendered = HistoryRenderer.Render(sv, state.GetHistorySnapshot(), state.Theme);
                         return rendered.ToArray();
                     }, showScrollbar: true).Follow()).Fill());
                 }
@@ -128,37 +158,57 @@ public static class Program
                     topWidgets.Add(v.HStack(h => []).Height(SizeHint.Fixed(0)));
                 }
 
-                topWidgets.Add(v.Separator());
+                var t = state.Theme;
 
-                // Prompt + input (visible TextBox)
-                var prompt = state.Prompt;
-                topWidgets.Add(v.Text(prompt).Height(SizeHint.Content));
-
-                topWidgets.Add(v.HStack(h =>
-                [
-                    h.Text("> "),
-                    v.TextBox(state.InputText).Multiline(2)
-                        .OnTextChanged(e =>
-                        {
-                            // TextBox cursor is always at end (reset by reconciliation).
-                            // Detect appended characters and insert at our cursor position.
-                            if (e.NewText.Length > e.OldText.Length)
-                            {
-                                var added = e.NewText[e.OldText.Length..];
-                                state.InputText = state.InputText.Insert(state.CursorPos, added);
-                                state.CursorPos += added.Length;
-                                state.UpdateSuggestions();
-                                app.Invalidate();
-                            }
-                        })
-                ]));
-
-                // ── Inline suggestions (always present to keep widget indices stable) ──
-                if (state.Suggestions.Count > 0)
+                // ── Suggestions (above prompt, if configured) ──
+                if (t.SuggestionStyle == SuggestionStyle.Above && state.Suggestions.Count > 0)
                 {
                     topWidgets.Add(v.Border(b => [SuggestionRenderer.Render(v, state.Suggestions, state.SelectedSuggestion)]));
                 }
+
+                topWidgets.Add(v.Separator());
+
+                // Prompt + input (visible TextBox)
+                var prompt = state.Prompt.TrimEnd(' ', '>');
+
+                var promptColor = TuiTheme.ToHex1bColor(t.PromptPathColor);
+                if (!promptColor.IsDefault)
+                    topWidgets.Add(v.ThemePanel(
+                        th => th.Set(GlobalTheme.ForegroundColor, promptColor),
+                        v.Text(prompt)).Height(SizeHint.Content));
                 else
+                    topWidgets.Add(v.Text(prompt).Height(SizeHint.Content));
+
+                var inputWidth = Math.Max(1, termWidth - 2); // 2 = "> "
+                var wrapLines = ComputeWordWrapLines(state.InputText, inputWidth);
+
+                var chevronColor = TuiTheme.ToHex1bColor(t.ChevronColor);
+                var chevronWidget = !chevronColor.IsDefault
+                    ? (Hex1bWidget)v.ThemePanel(
+                        th => th.Set(GlobalTheme.ForegroundColor, chevronColor),
+                        v.Text("> ")).ContentWidth()
+                    : v.Text("> ").ContentWidth();
+
+                topWidgets.Add(v.HStack(h =>
+                [
+                    chevronWidget,
+                    v.TextBox().State(state.EditorState).Multiline().WordWrap().Height(wrapLines)
+                        .OnTextChanged(e =>
+                        {
+                            state.UpdateSuggestions();
+                            app.Invalidate();
+                        })
+                ]));
+
+                // ── Suggestions (below input or inline) ──
+                if (t.SuggestionStyle != SuggestionStyle.Above && state.Suggestions.Count > 0)
+                {
+                    if (t.SuggestionStyle == SuggestionStyle.Inline)
+                        topWidgets.Add(SuggestionRenderer.Render(v, state.Suggestions, state.SelectedSuggestion));
+                    else
+                        topWidgets.Add(v.Border(b => [SuggestionRenderer.Render(v, state.Suggestions, state.SelectedSuggestion)]));
+                }
+                else if (t.SuggestionStyle != SuggestionStyle.Above)
                 {
                     topWidgets.Add(v.Text("").Height(SizeHint.Fixed(0)));
                     topWidgets.Add(v.Separator());
@@ -230,69 +280,13 @@ public static class Program
                     app.Invalidate();
                 }, "Submit command");
 
-            bindings.Key(Hex1bKey.Backspace).Global()
+            bindings.Ctrl().Key(Hex1bKey.Enter).Global()
                 .Action(_ =>
                 {
-                    if (state.CursorPos > 0)
-                    {
-                        state.InputText = state.InputText.Remove(state.CursorPos - 1, 1);
-                        state.CursorPos--;
-                        state.UpdateSuggestions();
-                        app.Invalidate();
-                    }
-                }, "Delete backward");
-
-            bindings.Key(Hex1bKey.Delete).Global()
-                .Action(_ =>
-                {
-                    if (state.CursorPos < state.InputText.Length)
-                    {
-                        state.InputText = state.InputText.Remove(state.CursorPos, 1);
-                        state.UpdateSuggestions();
-                        app.Invalidate();
-                    }
-                }, "Delete forward");
-
-            bindings.Key(Hex1bKey.LeftArrow).Global()
-                .Action(_ =>
-                {
-                    if (state.CursorPos > 0) { state.CursorPos--; app.Invalidate(); }
-                }, "Cursor left");
-
-            bindings.Key(Hex1bKey.RightArrow).Global()
-                .Action(_ =>
-                {
-                    if (state.CursorPos < state.InputText.Length) { state.CursorPos++; app.Invalidate(); }
-                }, "Cursor right");
-
-            bindings.Key(Hex1bKey.Home).Global()
-                .Action(_ =>
-                {
-                    state.CursorPos = 0;
+                    state.InputText = state.InputText.Insert(state.CursorPos, "\n");
+                    state.CursorPos++;
                     app.Invalidate();
-                }, "Cursor to start");
-
-            bindings.Key(Hex1bKey.End).Global()
-                .Action(_ =>
-                {
-                    state.CursorPos = state.InputText.Length;
-                    app.Invalidate();
-                }, "Cursor to end");
-
-            bindings.Ctrl().Key(Hex1bKey.Backspace).Global()
-                .Action(_ =>
-                {
-                    if (state.CursorPos > 0)
-                    {
-                        var pos = state.CursorPos;
-                        while (pos > 0 && state.InputText[pos - 1] == ' ') pos--;
-                        while (pos > 0 && state.InputText[pos - 1] != ' ') pos--;
-                        state.InputText = state.InputText.Remove(pos, state.CursorPos - pos);
-                        state.CursorPos = pos;
-                        state.UpdateSuggestions();
-                        app.Invalidate();
-                    }
-                }, "Delete word backward");
+                }, "Insert newline");
 
             bindings.Key(Hex1bKey.UpArrow)
                 .Global()

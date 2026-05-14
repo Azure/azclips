@@ -1,4 +1,5 @@
 using Hex1b;
+using Hex1b.Theming;
 using Hex1b.Widgets;
 
 namespace Core.Tui.Rendering;
@@ -29,7 +30,7 @@ static class FooterRenderer
 
         var branch = state.GitBranch;
 
-        return v.InfoBar(s =>
+        var infoBar = v.InfoBar(s =>
         {
             var sections = new List<IInfoBarChild>();
 
@@ -48,5 +49,27 @@ static class FooterRenderer
 
             return sections;
         }).Divider("  |  ");
+
+        // Apply theme footer colors if configured
+        var theme = state.Theme;
+        if (!string.IsNullOrEmpty(theme.FooterForeground) || !string.IsNullOrEmpty(theme.FooterBackground))
+        {
+            return v.ThemePanel(t =>
+            {
+                if (!string.IsNullOrEmpty(theme.FooterForeground))
+                {
+                    var (r, g, b) = TuiTheme.ParseHex(theme.FooterForeground);
+                    t = t.Set(InfoBarTheme.ForegroundColor, Hex1bColor.FromRgb((byte)r, (byte)g, (byte)b));
+                }
+                if (!string.IsNullOrEmpty(theme.FooterBackground))
+                {
+                    var (r, g, b) = TuiTheme.ParseHex(theme.FooterBackground);
+                    t = t.Set(InfoBarTheme.BackgroundColor, Hex1bColor.FromRgb((byte)r, (byte)g, (byte)b));
+                }
+                return t;
+            }, infoBar);
+        }
+
+        return infoBar;
     }
 }
