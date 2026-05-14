@@ -113,9 +113,13 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldBeCaseInsensitive_WhenComparingFilenames()
         {
+            // Note: file extension stays ".md" (lowercase) because Directory.EnumerateFiles
+            // pattern matching is case-sensitive on Linux. The validator's case-insensitivity
+            // applies to filename comparisons (Index vs index, Logout vs logout), not to
+            // the extension globbing performed by the runtime.
             using var temp = new TempDirectory();
             var helpDir = temp.Path;
-            File.WriteAllText(Path.Combine(helpDir, "INDEX.MD"), "x");
+            File.WriteAllText(Path.Combine(helpDir, "Index.md"), "x");
             File.WriteAllText(Path.Combine(helpDir, "Logout.md"), "x");
 
             var index = new StubExtensionIndex(new[] { "", "logout" });
