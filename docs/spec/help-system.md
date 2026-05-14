@@ -951,6 +951,14 @@ The following design decisions have been **made and validated** in the actual im
     - Define output format for docs publishing
     - Integrate with CI/release workflow
 
+6. **Revisit help output formatting**
+    - Audit the rendered help across all surfaces (`azv2 --help`, `azv2 <command> --help`, `Get-Help <Cmdlet>`, agent prompt feed) for visual consistency and information density.
+    - Review section ordering (Summary / Description / Usage / Parameters / Examples / Related), heading style, indentation, column widths, and color/emphasis use.
+    - Compare against `az` and Azure PowerShell conventions and document any deliberate deviations.
+    - Decide on wrapping behavior for long parameter descriptions and examples in narrow terminals.
+    - Verify example code fences render readably in `azv2 --help` (no leftover markdown syntax) and that PowerShell examples preserve quoting in `.dll-Help.xml`.
+    - Capture before/after screenshots in [docs/howto/help.md](../howto/help.md) so future changes have a baseline.
+
 **Exit criteria:**
 
 - All specs accurately describe implemented behavior
