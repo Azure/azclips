@@ -795,7 +795,7 @@ The following design decisions have been **made and validated** in the actual im
         - [`HelpCommandKey`](../../tools/Help/Cirrus.Help.Tool/Validation/HelpCommandKey.cs) — shared `Normalize` / `ToHelpFileName` / `FromHelpFileName` / `ToExtensionFolder` helpers
         - Typed result: [`ValidationReport`](../../tools/Help/Cirrus.Help.Tool/Validation/ValidationReport.cs) + [`ValidationIssue`](../../tools/Help/Cirrus.Help.Tool/Validation/ValidationIssue.cs) replace `Console.WriteLine` + `throw` side effects.
         - [`Program.cs`](../../tools/Help/Cirrus.Help.Tool/Program.cs) is now a thin orchestrator: run validators → aggregate → print → exit code.
-        - This shape matches azure-powershell's `IStaticAnalyzer` pattern and sets up cleanly for 15.4.6 / 15.4.7 (`ExampleSyntaxValidator`, `ExampleTypeValidator`).
+        - This shape matches azure-powershell's `IStaticAnalyzer` pattern and sets up cleanly for 15.4.6 / 15.4.8 (`ExampleSyntaxValidator`, `ExampleTypeValidator`).
     - Tests (36 total, all passing):
         - [`HelpCommandKeyTests`](../../tools/Help/Cirrus.Help.Tool.Tests/HelpCommandKeyTests.cs) — 18 theory cases: normalize/trim/lowercase, multi-word ↔ filename round-trip, case-insensitivity, extension folder PascalCase.
         - [`MarkdownStructureValidatorTests`](../../tools/Help/Cirrus.Help.Tool.Tests/MarkdownStructureValidatorTests.cs) — 10 tests: missing `Summary:` / `Description:` / examples, unbalanced fences, empty content reports all 3 issues, file-path propagation, multi-extension directory walking.
@@ -815,28 +815,73 @@ The following design decisions have been **made and validated** in the actual im
         - Test multi-word command keys (e.g., "config get") map to correct filenames ("config-get.md")
         - Test extension name case-insensitivity
 
-6. **Example syntax validation (L1 + L2: command path + flag signature)**
+6. ✅ **Example syntax validation (L1 + L2: command path + flag signature)** — COMPLETE
     - Motivation: An example that no longer matches the command surface is the canonical signal that help is stale. By mechanically validating every example as a real invocation, "is help outdated?" and "does this example use real flags?" collapse into the same lint.
-    - Location: Extend [tools/Help/Cirrus.Help.Tool/Program.cs](../../tools/Help/Cirrus.Help.Tool/Program.cs) with a new `ValidateExampleSyntax(repoRoot, extensionIndex)` step, invoked after markdown structure and completeness validation.
-    - Scope (this PR): CLI examples only (bash/sh fences starting with `azv2`). PowerShell example validation is deferred (separate work; would reflect over cmdlet types).
-    - **L1 — Command path resolution:**
-        - Tokenize each `azv2 ...` line in CLI code fences (skip comments and blank lines).
-        - Walk the leading tokens against `ExtensionIndex` to resolve the command path (e.g. `azv2 group create` → `group/create`).
-        - Fail with file path + line number if the path does not resolve to a routed command.
-    - **L2 — Flag signature:**
-        - For the resolved command, collect declared parameter names + aliases from `ExtensionIndex` metadata.
-        - For every `--flag` (or `-x` short form) in the example, verify it exists on that command. Fail on unknown flags.
-        - Verify all `Required = true` parameters are present in the example. Fail if any required flag is missing.
-        - Reject unknown global flags too, but allow the documented global set (`--help`, `--debug`, `--output`).
+    - Implemented as [`ExampleSyntaxValidator`](../../tools/Help/Cirrus.Help.Tool/Validation/ExampleSyntaxValidator.cs); wired into [Program.cs](../../tools/Help/Cirrus.Help.Tool/Program.cs) after structure + completeness validation.
+    - **L1 (command path)** — every `azv2 ...` line is tokenized, the first token after `azv2` is matched against a CLI-group map (currently mirrors [`CommandGroupIndex`](../../src/CLI/Parser/CommandGroupIndex.cs)), then the remaining non-flag tokens are greedy-matched against `IExtensionIndex.GetCommandTable(CLI)`, falling back to the root key (`""`) when the longest prefix doesn't resolve.
+    - **L2 (flag signature)** — every `--flag` / `-x` token is checked against the resolved command's `Parameters` keys and `ParameterAliases` (alias→canonical). The documented global set (`--help`, `-h`, `--debug`, `--output`) is allowed everywhere. Both `--flag value` and `--flag=value` are accepted.
+    - **Tokenizer** — shell-aware: respects single/double quotes; treats `https://`, `/paths`, and negative numbers as values (not flags). Only single `-` followed by an alphabetic char qualifies as a short flag.
+    - **What's deferred** — _required-flag-presence_ (a stricter form of L2) is intentionally **not** enforced yet. The current help uses positional form for several commands (e.g. `azv2 config set output.format json`), and the framework does not expose positional parameter metadata. Once positional support lands, this check can be added with no further changes to the validator's tokenization. Documented in [docs/howto/help.md](../howto/help.md).
     - **Placeholder handling:**
-        - `<placeholder>`, `<my-rg>`, `$var`, `${var}` are treated as opaque string values — L2 still validates the flag exists, but the value is not inspected.
-        - All-zero Guid (`00000000-0000-0000-0000-000000000000`) and obvious literal values pass through.
-        - Document the accepted placeholder conventions in [docs/howto/help.md](../howto/help.md).
-    - **Multi-line / multi-command blocks:**
-        - Each line is tokenized independently. Only lines starting with `azv2` are validated; other lines (shell prompts, comments, output samples) are ignored.
-    - **Failure mode:** Hard error — fails the build/PR, same as 15.3.2. Error messages include file path, line number, command path, and the offending token.
+        - `<placeholder>`, `<my-rg>`, `$var`, `${var}`, and the all-zero GUID pass through unchanged — L1/L2 do not inspect values.
+        - Documented in [docs/howto/help.md](../howto/help.md).
+    - **Multi-line blocks:** Each line in a `bash`/`sh` fence is tokenized independently. Only `azv2`-prefixed lines are validated; comments (`#`), blank lines, and other shell lines are ignored. PowerShell fences are skipped entirely.
+    - **Failure mode:** Hard error — fails the build/PR, same as 15.3.2. Error locator is `path/to/file.md:<line>`.
+    - **Tests** — [`ExampleSyntaxValidatorTests`](../../tools/Help/Cirrus.Help.Tool.Tests/ExampleSyntaxValidatorTests.cs), 13 cases:
+        - Valid example with known group + command + flags passes.
+        - Root command resolution (`azv2 login` → `""` key) passes.
+        - Unknown group fails with clear message.
+        - Unknown subcommand fails with clear message.
+        - Unknown flag fails with clear message.
+        - Global flags (`--help`, `--debug`, `--output`) accepted everywhere.
+        - Short alias (`-n` for `--name`) resolves via `ParameterAliases`.
+        - `--flag=value` equals form supported.
+        - Comment lines and non-azv2 shell lines ignored.
+        - Multi-line block fails only on the offending line.
+        - PowerShell fences skipped (CLI metadata not applied to cmdlet examples).
+        - Error locator includes file path and 1-based line number.
+        - URLs / paths / negative numbers not misclassified as flags.
 
-7. **Example type validation (L3: parameter value shapes)**
+7. ⏳ **PowerShell example syntax validation (parallel of 15.4.6 for cmdlet fences)**
+    - Motivation: 15.4.6 only covers `bash`/`sh` fences. PowerShell fences (`powershell` / `pwsh`) are surfaced unchanged into `Get-Help` and `.dll-Help.xml`, so stale parameter names there (e.g. `Set-CirrusConfig -Keys` instead of `-Key`) still ship to users.
+    - Scope: For every `powershell`/`pwsh` fence in `src/Extensions/*/help/*.md`, tokenize each non-comment line whose first token matches a `Verb-Noun` pattern, resolve it to a cmdlet, and validate `-Parameter` tokens against the cmdlet's declared parameters and aliases.
+    - **Metadata source:**
+        - Load `Microsoft.Azure.Cirrus.Cmdlets.*.dll` from `artifacts/Debug/` alongside the existing extension load loop in [Program.cs](../../tools/Help/Cirrus.Help.Tool/Program.cs).
+        - For each loaded assembly, reflect over public types decorated with `[Cmdlet(VerbsCommon.Get, "Foo")]` (and friends). Build a `Verb-Noun → CmdletInfo` map where `CmdletInfo` contains `{ ParameterNames, ParameterAliases, MandatoryParameterNames }`.
+        - `ParameterNames` and aliases come from `[Parameter]` and `[Alias]` attributes on public properties.
+        - Alternative: prefer the already-built `HelpManifest.PowerShell` data if the manifest exposes parameter names (avoids a second reflection pass). Decide during implementation.
+    - **PS-L1 — Cmdlet resolution:**
+        - First token on the line matches `^[A-Z][a-zA-Z]+-[A-Z][a-zA-Z]+$` and resolves to a registered cmdlet.
+        - Fail with file path + line number if not.
+    - **PS-L2 — Parameter signature:**
+        - Every `-Param` token exists on that cmdlet (canonical name or `[Alias]`).
+        - Common PowerShell switches (`-Verbose`, `-Debug`, `-ErrorAction`, `-ErrorVariable`, `-WarningAction`, `-WarningVariable`, `-InformationAction`, `-InformationVariable`, `-OutVariable`, `-OutBuffer`, `-PipelineVariable`, `-WhatIf`, `-Confirm`) are allowed globally.
+        - Required-parameter presence: deferred for the same reason as 15.4.6 (positional `[Parameter(Position = N)]` metadata needs to be considered together with `-Param value` form).
+    - **Tokenizer:**
+        - PowerShell parameters use single-dash form (`-Param`) and are case-insensitive.
+        - Default to **full canonical name or declared alias** matching. Treat prefix abbreviation (`-Sub` → `-SubscriptionId`) as a separate, opt-in pass to avoid masking typos.
+        - Multi-line continuation with backtick (`` ` ``) at end-of-line is respected — join the next line.
+        - Variables (`$var`), splatted hashtables (`@params`), and double-quoted strings are passed through as values.
+    - **Failure mode:** Hard error — fails the build/PR, same as 15.4.6. Error locator is `path/to/file.md:<line>`.
+    - **Tests** (`PowerShellExampleSyntaxValidatorTests.cs`):
+        - Valid cmdlet + parameter passes.
+        - Unknown cmdlet (`Set-Unknown -Key foo`) fails.
+        - Unknown parameter (`Set-CirrusConfig -Keys "x"`) fails with clear message.
+        - Common parameter (`-Verbose`, `-ErrorAction`) accepted.
+        - Alias (`[Alias("Path")]` on `LiteralPath`) resolves.
+        - Comment lines and prompt lines (`PS>`) ignored.
+        - Multi-line block fails only on the offending line.
+        - Backtick continuation joins lines correctly.
+        - CLI `bash` fence in same file unaffected.
+    - **Open questions / risks:**
+        - Cmdlet prefix abbreviation could mask typos — default to strict matching.
+        - Some helpers wrap cmdlets in `Invoke-Expression`-style sugar — those lines should be ignored, not fail.
+    - **Out of scope (this item):**
+        - L3 (type validation) for PowerShell — covered separately if/when 15.4.8 lands for CLI first.
+        - Validating PowerShell example output (`# Output: ...`) — comments only.
+    - **CI integration:** Runs as part of the existing `Validate Help Content` step in [.github/workflows/build-and-test.yml](../../.github/workflows/build-and-test.yml). No new workflow step needed.
+
+8. **Example type validation (L3: parameter value shapes)**
     - Builds on 15.4.6. For each `--flag value` pair where the value is a literal (not a placeholder), verify the value is parseable as the parameter's declared `Type`.
     - **Supported types (initial set):**
         - `Guid` — must parse via `Guid.TryParse`.

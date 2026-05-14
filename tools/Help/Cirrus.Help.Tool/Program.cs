@@ -56,6 +56,18 @@ if (extensionDlls.Count == 0)
 var manifests = new List<HelpManifest>();
 var validatedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 var completenessValidator = new HelpCompletenessValidator();
+var indexesByCliGroup = new Dictionary<string, IExtensionIndex>(StringComparer.OrdinalIgnoreCase);
+
+// Maps the first CLI token (e.g. "group") to the extension name that owns it.
+// Mirrors src/CLI/Parser/CommandGroupIndex.cs — keep in sync until that mapping
+// is exposed on IExtensionIndex.
+var cliGroupByExtension = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+{
+    ["resources"] = "group",
+    ["login"] = "login",
+    ["extension"] = "extension",
+    ["config"] = "config",
+};
 
 foreach (var dllPath in extensionDlls)
 {
@@ -91,6 +103,11 @@ foreach (var dllPath in extensionDlls)
             throw new InvalidOperationException(
                 $"Help completeness validation failed for extension '{extensionName}'. See errors above.");
         }
+
+        if (cliGroupByExtension.TryGetValue(extensionName, out var cliGroup))
+        {
+            indexesByCliGroup[cliGroup] = extensionIndex;
+        }
     }
 
     var manifest = ExtensionHelpManifestBuilder.BuildManifest(extensionIndex, extensionName, version);
@@ -101,10 +118,16 @@ foreach (var dllPath in extensionDlls)
     WriteJson(Path.Combine(extensionOutputDir, "HelpManifest.json"), manifest);
 }
 
-var index = ExtensionHelpManifestBuilder.BuildIndex(manifests);
-WriteJson(Path.Combine(outputRoot, "HelpIndex.json"), index);
+var exampleSyntaxReport = new ExampleSyntaxValidator().Validate(repoRoot, indexesByCliGroup);
+aggregateReport.Merge(exampleSyntaxReport);
+if (exampleSyntaxReport.HasErrors)
+{
+    PrintReport(exampleSyntaxReport);
+    throw new InvalidOperationException("Help example syntax validation failed. See errors above.");
+}
 
-var generatedPwshXmlPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+var index = ExtensionHelpManifestBuilder.BuildIndex(manifests);
+WriteJson(Path.Combine(outputRoot, "HelpIndex.json"), index);var generatedPwshXmlPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 if (generatePwshXml)
 {
     var powershellOutputDir = Path.Combine(outputRoot, "powershell");

@@ -120,6 +120,26 @@ Each example must have:
 2. A code fence with language tag
 3. The command(s) to execute
 
+### Example Validation (CLI)
+
+CLI examples are mechanically validated at build time by `tools/Help/Cirrus.Help.Tool` against the live `IExtensionIndex`. The tool fails the build if:
+
+- An `azv2 ...` line uses a CLI group that isn't registered (e.g. `azv2 widget create`).
+- The remaining tokens don't resolve to a routed command (e.g. `azv2 group bogus`).
+- A `--flag` (or short `-x`) is not declared on the resolved command and isn't one of the documented globals: `--help` / `-h`, `--debug`, `--output`.
+
+Conventions:
+
+- Use the canonical kebab-case flag form: `--subscription-id`, not `--subscriptionId`.
+- The `--flag=value` form is accepted alongside `--flag value`.
+- Placeholder values are passed through unchanged. Common conventions:
+    - `<name>`, `<my-rg>`, `<placeholder>` — angle-bracket placeholder.
+    - `$var`, `${var}` — shell-style variable reference.
+    - All-zero GUID (`00000000-0000-0000-0000-000000000000`) — generic stand-in for a subscription/tenant/resource id.
+- PowerShell fences (` ```powershell ` / ` ```pwsh `) are not validated against CLI metadata — they're surfaced through `Get-Help` and `.dll-Help.xml` artifacts.
+
+> **Required-flag presence** (e.g. "every `--name` example must also include `--subscription-id`") is **not yet** enforced — it will land alongside positional parameter metadata. Examples that omit required flags are accepted today but should still be kept honest by reviewers.
+
 ## Full Example
 
 **File:** `src/Extensions/Login/help/index.md`
@@ -279,6 +299,7 @@ If you're moving an existing extension from code-embedded help to markdown:
     - Remove `[Summary]` and other help attributes from processor classes
 
 5. **Run tests:**
+
     ```powershell
     dotnet test tests/Cli.Tests/Cli.Tests.csproj
     ```
