@@ -12,7 +12,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Client
     {
         internal ActivitySource? ActivitySource { get; init; }
         private readonly HttpClient _httpClient;
-        private readonly JsonSerializerOptions _jsonOptions;
+        private readonly JsonSerializerOptions JsonOptions;
         private readonly bool _shouldDispose;
         private bool _disposed;
 
@@ -60,7 +60,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Client
         {
             _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
             _shouldDispose = shouldDispose;
-            _jsonOptions = jsonOptions ?? new JsonSerializerOptions
+            JsonOptions = jsonOptions ?? new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true,
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
@@ -102,14 +102,14 @@ Response content: {await response.Content.ReadAsStringAsync()}", ex);
 
             using var request = new HttpRequestMessage(HttpMethod.Put, requestUri)
             {
-                Content = JsonContent.Create(resourceGroup, options: _jsonOptions)
+                Content = JsonContent.Create(resourceGroup, options: JsonOptions)
             };
 
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
 
             var response = await SendAsync(request, cancellationToken);
 
-            return (await response.Content.ReadFromJsonAsync<ResourceGroup>(_jsonOptions, cancellationToken))!;
+            return (await response.Content.ReadFromJsonAsync<ResourceGroup>(JsonOptions, cancellationToken))!;
         }
 
         public async Task<ResourceGroup> GetResourceGroupAsync(string subscriptionId, string resourceGroupName, string accessToken, CancellationToken cancellationToken = default)
@@ -124,7 +124,7 @@ Response content: {await response.Content.ReadAsStringAsync()}", ex);
 
             var response = await SendAsync(request, cancellationToken);
 
-            return (await response.Content.ReadFromJsonAsync<ResourceGroup>(_jsonOptions, cancellationToken))!;
+            return (await response.Content.ReadFromJsonAsync<ResourceGroup>(JsonOptions, cancellationToken))!;
         }
 
         public async Task<IEnumerable<ResourceGroup>> ListResourceGroupsAsync(string subscriptionId, string accessToken, CancellationToken cancellationToken = default)
@@ -139,7 +139,7 @@ Response content: {await response.Content.ReadAsStringAsync()}", ex);
 
             var response = await SendAsync(request, cancellationToken);
 
-            var result = await response.Content.ReadFromJsonAsync<ResourceGroupListResult>(_jsonOptions, cancellationToken);
+            var result = await response.Content.ReadFromJsonAsync<ResourceGroupListResult>(JsonOptions, cancellationToken);
             return result?.Value ?? Array.Empty<ResourceGroup>();
         }
 

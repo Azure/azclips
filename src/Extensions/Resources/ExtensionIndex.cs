@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using Core.Abstractions;
@@ -9,7 +9,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
     {
         // ── PS Command Metadata ──
         private static readonly CommandMetadata s_newResourceGroup_PS = new(
-            Name: "NewResourceGroupCommand",
+            Name: "NewResourceGroupProcessor",
             Aliases: [],
             FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.NewResourceGroupProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
@@ -24,7 +24,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_getResourceGroup_PS = new(
-            Name: "GetResourceGroupCommand",
+            Name: "GetResourceGroupProcessor",
             Aliases: [],
             FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.GetResourceGroupProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
@@ -37,7 +37,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_listResourceGroup_PS = new(
-            Name: "ListResourceGroupCommand",
+            Name: "ListResourceGroupProcessor",
             Aliases: [],
             FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.ListResourceGroupProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
@@ -50,7 +50,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
         );
         // ── CLI Command Metadata ──
         private static readonly CommandMetadata s_newResourceGroup_CLI = new(
-            Name: "NewResourceGroupCommand",
+            Name: "NewResourceGroupProcessor",
             Aliases: [],
             FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.NewResourceGroupProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
@@ -65,7 +65,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_getResourceGroup_CLI = new(
-            Name: "GetResourceGroupCommand",
+            Name: "GetResourceGroupProcessor",
             Aliases: [],
             FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.GetResourceGroupProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
@@ -78,7 +78,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_listResourceGroup_CLI = new(
-            Name: "ListResourceGroupCommand",
+            Name: "ListResourceGroupProcessor",
             Aliases: [],
             FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.ListResourceGroupProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",

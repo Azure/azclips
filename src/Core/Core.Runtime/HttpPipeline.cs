@@ -6,6 +6,7 @@ namespace Core.Runtime
     using System.Linq;
     using System;
     using Core.Abstractions.Runtime;
+    using Extensions.Runtime;
     
     public class HttpPipeline : IRuntimeHttpPipeline
     {
@@ -16,6 +17,8 @@ namespace Core.Runtime
         private List<ISendAsyncFactory> steps = new List<ISendAsyncFactory>();
         private readonly int _maxRetry;
         private readonly int _maxRetryFor429;
+
+        public int PollingInterval { get; set; } = 30;
 
         public HttpPipeline() : this(new HttpClientFactory())
         {
