@@ -6,6 +6,10 @@ on:
     paths:
       - 'wiki/**'
       - '.github/workflows/build-wiki.yml'
+  workflow_run:
+    workflows: ["Performance Benchmarks"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
@@ -22,6 +26,11 @@ concurrency:
 
 jobs:
   deploy-wiki:
+    # Skip the deploy when triggered by a failed/cancelled benchmark run;
+    # always run on push and workflow_dispatch.
+    if: >
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
     # Temporarily remove environment for testing
     # environment:
     #   name: github-pages
@@ -46,7 +55,22 @@ jobs:
     - name: Build wiki
       working-directory: ./wiki
       run: npm run build
-    
+
+    - name: Checkout benchmark data from gh-pages
+      uses: actions/checkout@v4
+      with:
+        ref: gh-pages
+        path: gh-pages-data
+        sparse-checkout: dev/bench
+      continue-on-error: true   # gh-pages may not exist on first run
+
+    - name: Merge benchmark data into wiki dist
+      run: |
+        if [ -d gh-pages-data/dev/bench ]; then
+          mkdir -p wiki/.vitepress/dist/dev
+          cp -r gh-pages-data/dev/bench wiki/.vitepress/dist/dev/
+        fi
+
     - name: Setup Pages
       uses: actions/configure-pages@v5
     
