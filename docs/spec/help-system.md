@@ -803,6 +803,49 @@ The following design decisions have been **made and validated** in the actual im
         - Test multi-word command keys (e.g., "config get") map to correct filenames ("config-get.md")
         - Test extension name case-insensitivity
 
+6. **Example syntax validation (L1 + L2: command path + flag signature)**
+    - Motivation: An example that no longer matches the command surface is the canonical signal that help is stale. By mechanically validating every example as a real invocation, "is help outdated?" and "does this example use real flags?" collapse into the same lint.
+    - Location: Extend [tools/Help/Cirrus.Help.Tool/Program.cs](../../tools/Help/Cirrus.Help.Tool/Program.cs) with a new `ValidateExampleSyntax(repoRoot, extensionIndex)` step, invoked after markdown structure and completeness validation.
+    - Scope (this PR): CLI examples only (bash/sh fences starting with `azv2`). PowerShell example validation is deferred (separate work; would reflect over cmdlet types).
+    - **L1 — Command path resolution:**
+        - Tokenize each `azv2 ...` line in CLI code fences (skip comments and blank lines).
+        - Walk the leading tokens against `ExtensionIndex` to resolve the command path (e.g. `azv2 group create` → `group/create`).
+        - Fail with file path + line number if the path does not resolve to a routed command.
+    - **L2 — Flag signature:**
+        - For the resolved command, collect declared parameter names + aliases from `ExtensionIndex` metadata.
+        - For every `--flag` (or `-x` short form) in the example, verify it exists on that command. Fail on unknown flags.
+        - Verify all `Required = true` parameters are present in the example. Fail if any required flag is missing.
+        - Reject unknown global flags too, but allow the documented global set (`--help`, `--debug`, `--output`).
+    - **Placeholder handling:**
+        - `<placeholder>`, `<my-rg>`, `$var`, `${var}` are treated as opaque string values — L2 still validates the flag exists, but the value is not inspected.
+        - All-zero Guid (`00000000-0000-0000-0000-000000000000`) and obvious literal values pass through.
+        - Document the accepted placeholder conventions in [docs/howto/help.md](../howto/help.md).
+    - **Multi-line / multi-command blocks:**
+        - Each line is tokenized independently. Only lines starting with `azv2` are validated; other lines (shell prompts, comments, output samples) are ignored.
+    - **Failure mode:** Hard error — fails the build/PR, same as 15.3.2. Error messages include file path, line number, command path, and the offending token.
+
+7. **Example type validation (L3: parameter value shapes)**
+    - Builds on 15.4.6. For each `--flag value` pair where the value is a literal (not a placeholder), verify the value is parseable as the parameter's declared `Type`.
+    - **Supported types (initial set):**
+        - `Guid` — must parse via `Guid.TryParse`.
+        - `int` / `long` / `double` — must parse via the corresponding `TryParse`.
+        - `bool` / switch — must be `true`/`false` or flag-only form.
+        - Enums — value must be one of the declared members (case-insensitive).
+        - `string` / unknown — accepted as-is (no L3 check).
+    - **Placeholders:** Same conventions as L2. If the value matches a placeholder pattern, skip L3 for that arg.
+    - **Failure mode:** Hard error with file path, line number, flag name, value, and expected type.
+    - **Tests** (`HelpToolValidationTests.cs`):
+        - Valid example with all required flags and well-typed values passes.
+        - Unknown command path fails with clear message.
+        - Unknown flag fails with clear message.
+        - Missing required flag fails with clear message.
+        - Wrong-typed literal (e.g. `--subscription-id not-a-guid`) fails L3.
+        - Placeholder value (e.g. `--subscription-id <subId>`) passes L2/L3.
+        - Enum out-of-range value fails L3; valid enum member passes.
+        - PowerShell-only example is skipped (not validated against CLI metadata).
+        - Multi-line block with one bad line fails on that line only.
+    - **CI integration:** Runs as part of the existing `Validate Help Content` step in [.github/workflows/build-and-test.yml](../../.github/workflows/build-and-test.yml). No new workflow step needed.
+
 **Exit criteria:**
 
 - Tests cover normal and error paths for help loading
@@ -810,6 +853,9 @@ The following design decisions have been **made and validated** in the actual im
 - Surface-specific filtering verified end-to-end
 - Performance baselines established
 - Help tool validation (15.3.2) has comprehensive unit test coverage
+- CLI examples are mechanically validated against `ExtensionIndex` for command path, flag signature, and parameter value types (L1–L3)
+- Stale help (renamed/removed commands or flags) is caught by CI before merge
+- Placeholder conventions for example values are documented in [docs/howto/help.md](../howto/help.md)
 
 ---
 
