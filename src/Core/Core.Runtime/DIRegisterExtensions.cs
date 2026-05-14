@@ -1,4 +1,6 @@
 using Core.Abstractions;
+using Core.Abstractions.Runtime.Handler;
+using Core.Runtime.Handler;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Core.Runtime;
@@ -15,6 +17,9 @@ public static class DIRegisterExtensions
         // future PowerShell output formatting without changing engine logic
         services.AddSingleton<IOutputAdapter, ConsoleOutputAdapter>();
         services.AddSingleton<ILoggingService, ScopedLoggingService>();
+        services.AddSingleton<IHttpTerminateHandler, DefaultHttpTerminateHandler>();
+        services.AddSingleton<ITracingInterceptor, DefaultTracingInterceptor>();
+        services.AddSingleton<IHttpPipelineService, HttpPipelineService>();
         return services;
     }
 }

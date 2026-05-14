@@ -6,7 +6,7 @@ public class ExtensionIndex : IExtensionIndex
 {
     // ── CLI Command Metadata ──
     private static readonly CommandMetadata s_addExtension_CLI = new(
-        Name: "AddExtensionCommand",
+        Name: "AddExtensionProcessor",
         Aliases: [],
         FullName: "Microsoft.Azure.Cirrus.Extensions.Extension.Processors.AddExtensionProcessor",
         AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Extension",

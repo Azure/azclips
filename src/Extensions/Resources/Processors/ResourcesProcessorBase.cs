@@ -4,11 +4,11 @@ using Core.Abstractions.Runtime;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
 {
-    public class ResourceProcessorBase : IProcessor
+    public class ResourcesProcessorBase : IProcessor
     {
         protected IRuntimeHttpPipeline HttpPipeline = null!;
         protected IEventListener EventListener = null!;
-        protected JsonSerializerOptions _jsonOptions = null!;
+        protected JsonSerializerOptions JsonOptions = null!;
         protected OutputStreamDelegate WriteOutput = null!;
         protected AuthContext AuthContext = null!;
         protected virtual void BeforeInit() { }
@@ -23,7 +23,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
             BeforeInit();
 
             // TODO(Yabo): temporarily initialize arbitrary json options here, get from context in the future
-            _jsonOptions = new JsonSerializerOptions
+            JsonOptions = new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true,
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
@@ -38,5 +38,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
             return this;
         }
         public virtual Task ProcessAsync() => Task.CompletedTask;
+        public virtual HttpRequestMessage CreateRequestMessage() => throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(CreateRequestMessage)}");
     }
 }

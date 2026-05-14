@@ -6,7 +6,7 @@ using Core.Abstractions.Runtime.Handler;
 
 namespace Tests.Common.Stubs;
 
-public class StubCommandMessageHandler : ICommandHttpMessageHandler
+public class StubHttpTerminateHandler : IHttpTerminateHandler
 {
     public SendAsyncStep SendAsync { get; } = (request, callback, next) =>
         Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)

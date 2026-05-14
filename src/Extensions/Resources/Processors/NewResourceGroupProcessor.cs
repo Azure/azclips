@@ -6,7 +6,7 @@ using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
 {
-    public class NewResourceGroupProcessor : ResourceProcessorBase
+    public class NewResourceGroupProcessor : ResourcesProcessorBase
     {
         [ArgumentInfoAttribute(
         Required = true,
@@ -39,14 +39,15 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
             var subscriptionId = SubscriptionId ?? AuthContext.SubscriptionId;
             // construct URL
             var url = $"https://management.azure.com/subscriptions/{subscriptionId}/resourcegroups/{Name}?api-version=2025-04-01";
-            //TODO: set_jsonOptions from Processor context
+            //TODO: setJsonOptions from Processor context
             using var request = new HttpRequestMessage(HttpMethod.Put, url)
             {
-                Content = JsonContent.Create(new ResourceGroup(Location, Name), options: _jsonOptions)
+                Content = JsonContent.Create(new ResourceGroup(Location, Name), options: JsonOptions)
             };
             request.Content.Headers.ContentType = MediaTypeHeaderValue.Parse("application/json");
-            HttpResponseMessage response = await HttpPipeline.SendAsync(request, EventListener);
-            ResourceGroup rg = (await response.Content.ReadFromJsonAsync<ResourceGroup>(_jsonOptions))!;
+            using HttpResponseMessage response = await HttpPipeline.SendAsync(request, EventListener);
+            await EventListener.Signal(Events.TracingHttpResponseMessage, response);
+            ResourceGroup rg = (await response.Content.ReadFromJsonAsync<ResourceGroup>(JsonOptions))!;
             await WriteOutput(rg);
             await EventListener.Signal(Events.ProcessorProcessAsyncEnd);
         }

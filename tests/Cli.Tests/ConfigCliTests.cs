@@ -221,7 +221,7 @@ public class ConfigCliTests
             }
 
             CirrusServiceProvider.Dispose();
-            CirrusServiceProvider.OverrideRegistration = services =>
+            CirrusServiceProvider.OverrideRegistration(services =>
             {
                 services.AddSingleton<IAssemblyLoadingProvider>(new StubExtensionLoader(typeof(SetConfigCommand).Assembly, "Config"));
                 services.AddSingleton<IConfigurationProvider>(new TestConfigurationProvider(_configPath));
@@ -231,7 +231,7 @@ public class ConfigCliTests
                 // Register CLI-specific services for argument parsing
                 services.AddSingleton<Core.Cli.PropertyParser>();
                 services.AddSingleton<Core.Abstractions.IArgumentParsingProvider, Core.Cli.CLIArgumentParsingProvider>();
-            };
+            });
             CirrusServiceProvider.Initialize(ClientType.CLI);
         }
 
@@ -264,8 +264,6 @@ public class ConfigCliTests
         public void Dispose()
         {
             CirrusServiceProvider.Dispose();
-            CirrusServiceProvider.PrependRegistration = null;
-            CirrusServiceProvider.OverrideRegistration = null;
 
             foreach (var entry in _originalEnvironment)
             {
