@@ -130,19 +130,57 @@ class TuiTheme
 
     public static readonly (string Name, string Hex)[] ColorPalette =
     [
+        // ── Grayscale (Neutral) ──
+        ("Black",        "#1E1E2E"),
+        ("Darker Gray",  "#313244"),
+        ("Dark Gray",    "#45475A"),
+        ("Gray",         "#6C7086"),
+        ("Light Gray",   "#BAC2DE"),
+        ("Off White",    "#F5F5F5"),
+        ("White",        "#FFFFFF"),
+
+        // ── Reds & Pinks (0–40° hue) ──
+        ("Accent Coral", "#FF7F7F"),
+        ("Red Bright",   "#FF6B9D"),
         ("Red",          "#F38BA8"),
+        ("Red Pastel",   "#FFB3D9"),
+        ("Pink",         "#F5C2E7"),
+
+        // ── Oranges (30–60° hue) ──
+        ("Accent Gold",  "#F4AF3E"),
+        ("Orange Bright","#FFB347"),
         ("Orange",       "#FAB387"),
+        ("Orange Pastel","#FFD4A3"),
+
+        // ── Yellows (60–90° hue) ──
+        ("Accent Lime",  "#CCFF00"),
         ("Yellow",       "#F9E2AF"),
+        ("Yellow Pastel","#FFFACD"),
+
+        // ── Greens (90–150° hue) ──
+        ("Green Bright", "#5FD068"),
         ("Green",        "#A6E3A1"),
+        ("Green Pastel", "#C8E6C9"),
+
+        // ── Cyans & Teals (160–200° hue) ──
+        ("Blue Bright",  "#4ECDC4"),
         ("Teal",         "#94E2D5"),
         ("Cyan",         "#89DCEB"),
+        ("Blue Pastel",  "#B3E5FC"),
+
+        // ── Blues (210–240° hue) ──
         ("Blue",         "#89B4FA"),
+
+        // ── Purples & Magentas (240–300° hue) ──
+        ("Purple Bright","#DA70D6"),
         ("Purple",       "#CBA6F7"),
-        ("Pink",         "#F5C2E7"),
-        ("White",        "#FFFFFF"),
-        ("Light Gray",   "#BAC2DE"),
-        ("Gray",         "#6C7086"),
+        ("Purple Pastel","#E1BEE7"),
+
+        // ── Theme Defaults ──
         ("Foreground",   "#CDD6F4"),
+        ("Background",   "#1E1E2E"),
+
+        // ── Terminal Default ──
         ("Terminal Default", ""),
     ];
 
