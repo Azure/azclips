@@ -842,43 +842,65 @@ The following design decisions have been **made and validated** in the actual im
         - Error locator includes file path and 1-based line number.
         - URLs / paths / negative numbers not misclassified as flags.
 
-7. ⏳ **PowerShell example syntax validation (parallel of 15.4.6 for cmdlet fences)**
+7. ✅ **PowerShell example syntax validation (parallel of 15.4.6 for cmdlet fences)** — **COMPLETE**
+
+    Implemented via `tools/Help/Cirrus.Help.Tool/Validation/PowerShellExampleSyntaxValidator.cs` and `CmdletIndex.cs`. The validator uses `System.Management.Automation.Language.Parser.ParseInput` (no `PSScriptAnalyzer`, no `Runspace`) and reflects over `Microsoft.Azure.Cirrus.Cmdlets.*.dll` to build a `Verb-Noun → CmdletMetadata` index. 12 tests in `PowerShellExampleSyntaxValidatorTests.cs`. The live run flagged four real defects (3 typos + 1 documented-but-unimplemented parameter) that were fixed as part of the same change:
+    - `Get-CirrusConfig -Json` → `-AsJson` ([src/Extensions/Config/help/get.md](../../src/Extensions/Config/help/get.md))
+    - `Get-CirrusConfigList -All` → `-IncludeDefaults` and `-Json` → `-AsJson` ([src/Extensions/Config/help/list.md](../../src/Extensions/Config/help/list.md))
+    - `New-ResourceGroup -ResourceId` example removed (cmdlet doesn't support that parameter; the CLI counterpart with `--resource-id` is preserved) ([src/Extensions/Resources/help/create.md](../../src/Extensions/Resources/help/create.md))
+
+    **Implementation notes:**
     - Motivation: 15.4.6 only covers `bash`/`sh` fences. PowerShell fences (`powershell` / `pwsh`) are surfaced unchanged into `Get-Help` and `.dll-Help.xml`, so stale parameter names there (e.g. `Set-CirrusConfig -Keys` instead of `-Key`) still ship to users.
-    - Scope: For every `powershell`/`pwsh` fence in `src/Extensions/*/help/*.md`, tokenize each non-comment line whose first token matches a `Verb-Noun` pattern, resolve it to a cmdlet, and validate `-Parameter` tokens against the cmdlet's declared parameters and aliases.
-    - **Metadata source:**
-        - Load `Microsoft.Azure.Cirrus.Cmdlets.*.dll` from `artifacts/Debug/` alongside the existing extension load loop in [Program.cs](../../tools/Help/Cirrus.Help.Tool/Program.cs).
-        - For each loaded assembly, reflect over public types decorated with `[Cmdlet(VerbsCommon.Get, "Foo")]` (and friends). Build a `Verb-Noun → CmdletInfo` map where `CmdletInfo` contains `{ ParameterNames, ParameterAliases, MandatoryParameterNames }`.
-        - `ParameterNames` and aliases come from `[Parameter]` and `[Alias]` attributes on public properties.
-        - Alternative: prefer the already-built `HelpManifest.PowerShell` data if the manifest exposes parameter names (avoids a second reflection pass). Decide during implementation.
+    - Scope: For every `powershell`/`pwsh` fence in `src/Extensions/*/help/*.md`, parse the block with the PowerShell AST, walk each `CommandAst`, resolve the command name to a registered cmdlet, and validate every `CommandParameterAst` against the cmdlet's declared parameters and aliases.
+    - **Inspiration:** `azure-powershell/tools/StaticAnalysis/ExampleAnalyzer` extracts code blocks and runs `PSScriptAnalyzer` on a temp script. We take the same shape but skip PSScriptAnalyzer — for our static name/parameter checks, `System.Management.Automation.Language.Parser.ParseInput` alone gives us a typed AST with accurate line numbers, splatting detection, and backtick-continuation handling.
+    - **Parser dependency:** Add `System.Management.Automation` (via `Microsoft.PowerShell.SDK` or the PS reference assemblies) to `Cirrus.Help.Tool.csproj`. We use only the `Language.Parser` API — no `Runspace`, no script execution.
+    - **Metadata source — `CmdletIndex`:**
+        - New `tools/Help/Cirrus.Help.Tool/Validation/CmdletIndex.cs`.
+        - Reflect over already-loaded extension assemblies (the Help tool already loads `Microsoft.Azure.Cirrus.Cmdlets.*.dll` for `IExtensionIndex` discovery — reuse the same `Assembly` instances; do not load twice).
+        - For each `Type` decorated with `[Cmdlet]`, emit `CmdletMetadata { VerbNoun, ParameterNames (HashSet, OrdinalIgnoreCase), ParameterAliases (alias → canonical) }`.
+        - Parameter names: every public property with `[Parameter]`. Aliases: every `[Alias]` attribute on the same property. Union parameter names across all `ParameterSetName`s (we don't currently distinguish parameter sets — false negatives only, no false positives).
+        - Output: `Dictionary<string, CmdletMetadata>` keyed by `Verb-Noun`, OrdinalIgnoreCase.
     - **PS-L1 — Cmdlet resolution:**
-        - First token on the line matches `^[A-Z][a-zA-Z]+-[A-Z][a-zA-Z]+$` and resolves to a registered cmdlet.
-        - Fail with file path + line number if not.
+        - For each `CommandAst.GetCommandName()`, require a hit in `CmdletIndex`. Skip names that don't match `^[A-Za-z]+-[A-Za-z][A-Za-z0-9]*$` (likely native commands, executables, or expressions — not our surface to police).
+        - Fail with `path/to/file.md:<line>` (from `CommandAst.Extent.StartLineNumber`, offset by the fence's start line in the markdown).
     - **PS-L2 — Parameter signature:**
-        - Every `-Param` token exists on that cmdlet (canonical name or `[Alias]`).
-        - Common PowerShell switches (`-Verbose`, `-Debug`, `-ErrorAction`, `-ErrorVariable`, `-WarningAction`, `-WarningVariable`, `-InformationAction`, `-InformationVariable`, `-OutVariable`, `-OutBuffer`, `-PipelineVariable`, `-WhatIf`, `-Confirm`) are allowed globally.
-        - Required-parameter presence: deferred for the same reason as 15.4.6 (positional `[Parameter(Position = N)]` metadata needs to be considered together with `-Param value` form).
-    - **Tokenizer:**
-        - PowerShell parameters use single-dash form (`-Param`) and are case-insensitive.
-        - Default to **full canonical name or declared alias** matching. Treat prefix abbreviation (`-Sub` → `-SubscriptionId`) as a separate, opt-in pass to avoid masking typos.
-        - Multi-line continuation with backtick (`` ` ``) at end-of-line is respected — join the next line.
-        - Variables (`$var`), splatted hashtables (`@params`), and double-quoted strings are passed through as values.
+        - For each `CommandParameterAst` child, check `ParameterName` against the cmdlet's `ParameterNames` ∪ `ParameterAliases.Keys`.
+        - Common-parameter whitelist (allowed on every cmdlet): `Verbose`, `Debug`, `ErrorAction`, `ErrorVariable`, `WarningAction`, `WarningVariable`, `InformationAction`, `InformationVariable`, `OutVariable`, `OutBuffer`, `PipelineVariable`, `WhatIf`, `Confirm`.
+        - **Strict full-name + alias matching only.** No prefix abbreviation (`-Sub` → `-SubscriptionId`) — masks typos.
+        - Required-parameter presence: deferred for the same reason as 15.4.6 (`[Parameter(Position = N)]` positional form is widespread in our examples and not yet exposed by the index).
+    - **Splatting and dynamic constructs:**
+        - If a `CommandAst` contains a `VariableExpressionAst` with `Splatted = true` (i.e. `@params`), skip L2 for that command (we can't see inside the hashtable statically). L1 still runs.
+        - Variables as parameter values (`-Name $rg`) are accepted — no value-level checks (that's L3 / 15.4.8 territory).
+    - **Skipped lines:**
+        - Comment lines (`#`) — AST handles this naturally (no `CommandAst` produced).
+        - Prompt lines (`PS>` or `PS C:\>`) — strip the prompt prefix before parsing, or skip via regex if `ParseInput` errors on them.
+        - Pipeline fragments without a recognizable cmdlet name (native commands like `dotnet build`).
     - **Failure mode:** Hard error — fails the build/PR, same as 15.4.6. Error locator is `path/to/file.md:<line>`.
+    - **What we borrow from `azure-powershell`:**
+        - **AST-based parsing** (their parser sits on the same `SMA.Language` API; we use it directly).
+        - **Issue typing:** promote `ValidationIssue` to carry a stable `ProblemId` (e.g. `PSL1_UnknownCmdlet`, `PSL2_UnknownParameter`) — mirrors their [`ExampleIssue.cs`](https://github.com/Azure/azure-powershell/blob/main/tools/StaticAnalysis/ExampleAnalyzer/ExampleIssue.cs) pattern. Enables per-rule CI suppression later.
+        - **Common parameter whitelist** — same list they hardcode in `utils.ps1`.
+    - **What we don't borrow:**
+        - Their `Measure-MarkdownOrScript.ps1` temp-script + `PSScriptAnalyzer` pipeline (designed for execution-level lint, overkill for static name resolution).
+        - The `AnalyzeRules/`-as-PS-modules DSL — a plain C# `IValidationRule`-style split is enough for 2–3 rules.
+        - `ExampleIssues.csv` artifact — defer until CI demands richer reporting than stderr.
     - **Tests** (`PowerShellExampleSyntaxValidatorTests.cs`):
         - Valid cmdlet + parameter passes.
-        - Unknown cmdlet (`Set-Unknown -Key foo`) fails.
-        - Unknown parameter (`Set-CirrusConfig -Keys "x"`) fails with clear message.
-        - Common parameter (`-Verbose`, `-ErrorAction`) accepted.
-        - Alias (`[Alias("Path")]` on `LiteralPath`) resolves.
+        - Unknown cmdlet (`Set-Unknown -Key foo`) fails with PS-L1 error.
+        - Unknown parameter (`Set-CirrusConfig -Keys "x"`) fails with PS-L2 error and clear message.
+        - Common parameter (`-Verbose`, `-ErrorAction Stop`) accepted.
+        - Alias on a `[Parameter]` property resolves (canonical and alias names both accepted).
         - Comment lines and prompt lines (`PS>`) ignored.
-        - Multi-line block fails only on the offending line.
-        - Backtick continuation joins lines correctly.
-        - CLI `bash` fence in same file unaffected.
+        - Multi-line block fails only on the offending line; backtick continuation handled by the AST.
+        - Splatted command (`Get-Cirrus @params`) skipped at L2, still validated at L1.
+        - CLI `bash` fence in the same file unaffected (other validator).
+        - Regression: `Set-CirrusConfig -Keys "output.format"` in [src/Extensions/Config/help/set.md](../../src/Extensions/Config/help/set.md) fails (the live typo that snuck past 15.4.6).
     - **Open questions / risks:**
-        - Cmdlet prefix abbreviation could mask typos — default to strict matching.
-        - Some helpers wrap cmdlets in `Invoke-Expression`-style sugar — those lines should be ignored, not fail.
+        - PS reference assembly transitive footprint — confirm we don't pull in a full host. If too heavy, fall back to a hand-rolled tokenizer (already prototyped for CLI in 15.4.6).
+        - Cross-platform: `Parser.ParseInput` is part of PowerShell Core and ships on all `dotnet` targets via NuGet.
     - **Out of scope (this item):**
-        - L3 (type validation) for PowerShell — covered separately if/when 15.4.8 lands for CLI first.
-        - Validating PowerShell example output (`# Output: ...`) — comments only.
+        - L3 (value/type validation) for PowerShell — folded into 15.4.8 once CLI L3 lands.
+        - Validating PowerShell example output (`# Output: ...`) — informational only.
     - **CI integration:** Runs as part of the existing `Validate Help Content` step in [.github/workflows/build-and-test.yml](../../.github/workflows/build-and-test.yml). No new workflow step needed.
 
 8. **Example type validation (L3: parameter value shapes)**

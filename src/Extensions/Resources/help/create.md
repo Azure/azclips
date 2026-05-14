@@ -19,9 +19,3 @@ azv2 group create --name myrg --location westus --resource-id /subscriptions/000
 ```powershell
 New-ResourceGroup -Name "myresourcegroup" -Location "eastus" -SubscriptionId "00000000-0000-0000-0000-000000000000"
 ```
-
-### PowerShell: Create with resource ID
-
-```powershell
-New-ResourceGroup -Name "myrg" -Location "westus" -ResourceId "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myrg" -SubscriptionId "00000000-0000-0000-0000-000000000000"
-```

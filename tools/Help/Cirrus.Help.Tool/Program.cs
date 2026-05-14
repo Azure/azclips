@@ -126,6 +126,39 @@ if (exampleSyntaxReport.HasErrors)
     throw new InvalidOperationException("Help example syntax validation failed. See errors above.");
 }
 
+// Build the cmdlet index from Microsoft.Azure.Cirrus.Cmdlets.*.dll (sibling assemblies in
+// artifacts/Debug/) and validate every powershell/pwsh fence in help markdown against it.
+// See docs/spec/help-system.md §15.4 item 7.
+var cmdletIndex = new CmdletIndex();
+var cmdletDlls = Directory
+    .EnumerateFiles(artifactsRoot, "Microsoft.Azure.Cirrus.Cmdlets.*.dll", SearchOption.AllDirectories)
+    .Where(static path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase);
+
+foreach (var dllPath in cmdletDlls)
+{
+    try
+    {
+        var cmdletAssembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(dllPath));
+        cmdletIndex.AddFromAssembly(cmdletAssembly);
+    }
+    catch (Exception ex)
+    {
+        // Surface a warning but don't abort the run — PS validation is additive.
+        aggregateReport.AddWarning(
+            $"Could not load cmdlet assembly '{Path.GetFileName(dllPath)}' for PowerShell example validation: {ex.Message}");
+    }
+}
+
+var psExampleReport = new PowerShellExampleSyntaxValidator().Validate(repoRoot, cmdletIndex);
+aggregateReport.Merge(psExampleReport);
+if (psExampleReport.HasErrors)
+{
+    PrintReport(psExampleReport);
+    throw new InvalidOperationException("Help PowerShell example syntax validation failed. See errors above.");
+}
+
 var index = ExtensionHelpManifestBuilder.BuildIndex(manifests);
 WriteJson(Path.Combine(outputRoot, "HelpIndex.json"), index);var generatedPwshXmlPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 if (generatePwshXml)

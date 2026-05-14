@@ -23,5 +23,5 @@ Get-CirrusConfig -Key "output.format"
 ### PowerShell: Get output as JSON
 
 ```powershell
-Get-CirrusConfig -Key "output.format" -Json
+Get-CirrusConfig -Key "output.format" -AsJson
 ```

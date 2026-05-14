@@ -29,11 +29,11 @@ Get-CirrusConfigList
 ### PowerShell: List with defaults
 
 ```powershell
-Get-CirrusConfigList -All
+Get-CirrusConfigList -IncludeDefaults
 ```
 
 ### PowerShell: List as JSON
 
 ```powershell
-Get-CirrusConfigList -Json
+Get-CirrusConfigList -AsJson
 ```
