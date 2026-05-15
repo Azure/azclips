@@ -190,17 +190,13 @@ Tests live in [tools/Help/Cirrus.Help.Tool.Tests/](../../tools/Help/Cirrus.Help.
 - **`ProblemId` taxonomy:** New [`ProblemIds`](../../tools/Help/Cirrus.Help.Tool/Validation/ProblemIds.cs) constants class with stable string IDs (`MD_MissingSummary`, `Completeness_MissingHelpFile`, `CLI_L1_UnknownGroup`, `CLI_L2_UnknownFlag`, `CLI_L3_InvalidValue`, `PSL1_UnknownCmdlet`, `PSL2_UnknownParameter`, etc.). Every existing `AddError`/`AddWarning` call site stamped. `ValidationIssue.ProblemId` is optional in the record — issues without one fall into an `<unclassified>` bucket so nothing is silently dropped.
 - **Verified:** Existing 91 validator tests pass unchanged (they assert on `Message`/`FilePath`, not `ProblemId`). Manual two-stage break (MD frontmatter + PSL1 unknown cmdlet) produced a single grouped summary with both errors visible and exit code 1, where the old behavior would have surfaced only the first stage. CI semantics preserved: any error → red.
 
-### 9.6 Split help validation into its own CI job
+### 9.6 ✅ Split help validation into its own CI job — **DONE**
 
-- **Problem:** [build-and-test.yml](../../.github/workflows/build-and-test.yml) runs build → "Validate Help Content" → tests → E2E sequentially. Help failures block tests; the PR check surface conflates "code broke" with "help drifted"; re-running just help validation requires the whole job.
-- **Target layout:**
-    - `build` — restore + build, uploads `artifacts/Debug/`.
-    - `test` — depends on `build`, runs `dotnet test cirrus.slnx --no-build`.
-    - `help-validate` — depends on `build`, runs `build.ps1 -GenerateHelpArtifacts`. Surfaces as its own PR check.
-    - `help-tool-tests` — depends on `build`, runs `dotnet test tools/Help/Cirrus.Help.Tool.Tests/…`.
-    - `e2e-cli` / `e2e-powershell` — depends on `build`.
-- **Notes:** `actions/upload-artifact` + `download-artifact` for `artifacts/Debug/`. Concurrency cancel-in-progress at workflow level. Cache `~/.nuget/packages` keyed on lock files or slnx hash. Update branch-protection required checks.
-- **Verification:** Breaking build → only build red; breaking help → only `help-validate` red; total wall-clock not regressing vs today.
+- **What shipped:** [build-and-test.yml](../../.github/workflows/build-and-test.yml) split into three independent top-level jobs: `build-and-test` (existing code build + xUnit + E2E, minus the old help step), `help-validate` (calls the help tool directly — `dotnet run --project tools/Help/Cirrus.Help.Tool ...` — skipping `build.ps1` since CI doesn't need the en-US copy), and `help-tool-tests` (just `dotnet test tools/Help/Cirrus.Help.Tool.Tests/...`).
+- **Concurrency:** workflow-level `cancel-in-progress` on the same ref so force-push to a PR branch cancels in-flight runs across all three jobs together.
+- **Tradeoff accepted:** each job runs its own `restore` + `build`. Redundant work, but trivial workflow code and clean PR-check attribution. Tracked for follow-up as §10.10 (artifact sharing).
+- **Branch protection:** if `build-and-test` is configured as a required check, replace it with the three new check names (`build-and-test`, `help-validate`, `help-tool-tests`) in the GitHub repo settings UI. No-op if no required checks are configured.
+- **Verification:** Breaking a `.cs` file fails `build-and-test`, leaves `help-validate` green. Breaking a help example fails `help-validate`, leaves `build-and-test` green. Both jobs run on every PR; failures are clearly attributed to the slice that broke.
 
 ### 9.7 L3 error message uses routed command path
 
@@ -257,3 +253,7 @@ Add `[ValidationPattern]` (regex) or `[NamingRule]` to `ParameterMetadata` so he
 ### 10.9 Help output formatting audit
 
 Audit rendered help across surfaces (`azv2 --help`, `azv2 <command> --help`, `Get-Help`, agent prompt feed) for visual consistency and information density: section ordering, heading style, indentation, column widths, wrapping behavior. Compare against `az` and Azure PowerShell conventions and document deliberate deviations. Best done as a focused review pass once the in-flight help PR has merged so the audit is against shipped output, not a moving target. Capture findings (and any before/after deltas) in [docs/howto/help.md](../howto/help.md).
+
+### 10.10 Share build artifacts across CI jobs
+
+Today the three CI jobs (`build-and-test`, `help-validate`, `help-tool-tests`) each run their own `dotnet restore` + `dotnet build` — clean attribution at the cost of triple work. Replace with a single `build` job that uploads `artifacts/Debug/` + each project's `bin/Debug/` (likely tarred together) via `actions/upload-artifact@v4`; downstream jobs `download-artifact` and run `dotnet test --no-build` / the help tool against the shared output. Adds NuGet cache (`actions/cache@v4` keyed on `**/*.csproj` hash) to make the `build` job itself faster. Worth doing once we have multiple PRs queueing on CI minutes; not worth the workflow complexity for our current volume.

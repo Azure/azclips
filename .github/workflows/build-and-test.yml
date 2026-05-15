@@ -5,6 +5,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+concurrency:
+  group: build-and-test-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -24,16 +28,6 @@ jobs:
       - name: Build
         run: dotnet build cirrus.slnx --no-restore --configuration Debug # Should be Release but
         # there are some issues (a) with locating extension dll and (b) with the RequiredAssemblies property
-
-      - name: Validate Help Content
-        shell: pwsh
-        run: |
-          .\build\build.ps1 -GenerateHelpArtifacts -Configuration Debug
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "Help validation failed. See errors above for details."
-            exit 1
-          }
-          Write-Host "Help validation passed: all commands have required help content."
 
       - name: Run tests
         run: dotnet test cirrus.slnx --no-build --configuration Debug --verbosity normal
@@ -57,3 +51,48 @@ jobs:
             exit 1
           }
           Write-Host "Found $($commands.Count) commands in Login module"
+
+  help-validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore dependencies
+        run: dotnet restore cirrus.slnx
+
+      - name: Build
+        run: dotnet build cirrus.slnx --no-restore --configuration Debug
+
+      - name: Validate help content
+        run: |
+          dotnet run --project tools/Help/Cirrus.Help.Tool/Cirrus.Help.Tool.csproj --no-build --configuration Debug -- \
+            --artifacts-root artifacts/Debug \
+            --output-root artifacts/help
+
+  help-tool-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore dependencies
+        run: dotnet restore tools/Help/Cirrus.Help.Tool.Tests/Cirrus.Help.Tool.Tests.csproj
+
+      - name: Build help tool tests
+        run: dotnet build tools/Help/Cirrus.Help.Tool.Tests/Cirrus.Help.Tool.Tests.csproj --no-restore --configuration Debug
+
+      - name: Run help tool tests
+        run: dotnet test tools/Help/Cirrus.Help.Tool.Tests/Cirrus.Help.Tool.Tests.csproj --no-build --configuration Debug --verbosity normal
