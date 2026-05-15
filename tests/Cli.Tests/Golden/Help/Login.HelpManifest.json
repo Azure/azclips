@@ -52,21 +52,21 @@
       "examples": {
         "cli": [
           {
-            "title": "Login with subscription id",
+            "title": "Login with subscription id (CLI)",
             "command": "azv2 login --subscription-id 00000000-0000-0000-0000-000000000000"
           },
           {
-            "title": "Login with device code",
+            "title": "Login with device code (CLI)",
             "command": "azv2 login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code"
           }
         ],
         "powerShell": [
           {
-            "title": "Login with subscription id",
+            "title": "Login with subscription id (PowerShell)",
             "command": "Connect-CirrusAccount -SubscriptionId 00000000-0000-0000-0000-000000000000"
           },
           {
-            "title": "Login with device code",
+            "title": "Login with device code (PowerShell)",
             "command": "Connect-CirrusAccount -SubscriptionId 00000000-0000-0000-0000-000000000000 -UseDeviceCode"
           }
         ]
@@ -83,13 +83,13 @@
       "examples": {
         "cli": [
           {
-            "title": "Sign out",
+            "title": "Sign out (CLI)",
             "command": "azv2 login logout"
           }
         ],
         "powerShell": [
           {
-            "title": "Sign out",
+            "title": "Sign out (PowerShell)",
             "command": "Disconnect-CirrusAccount"
           }
         ]
@@ -106,13 +106,13 @@
       "examples": {
         "cli": [
           {
-            "title": "Show current account context",
+            "title": "Show current account context (CLI)",
             "command": "azv2 login show"
           }
         ],
         "powerShell": [
           {
-            "title": "Show current account context",
+            "title": "Show current account context (PowerShell)",
             "command": "Get-CirrusAccount"
           }
         ]

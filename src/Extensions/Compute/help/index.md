@@ -1,4 +1,9 @@
-Summary: Manage compute resources (virtual networks, NSGs, network interfaces, and virtual machines).
+---
+summary: Manage compute resources (virtual networks, NSGs, network interfaces, and virtual machines).
+status: ga
+schema: 1.0.0
+online version:
+---
 
 Description: Create and manage Azure compute resources. The compute extension provisions virtual networks, network security groups, network interfaces, and virtual machines, as well as combined commands that create the full networking + VM stack in a single call.
 

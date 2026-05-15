@@ -49,7 +49,10 @@ public class MarkdownCommandHelpProviderTests
     public void Parse_ShouldReturnEmptyDescription_WhenDescriptionFieldIsMissing()
     {
         var content = """
-            Summary: Short description.
+            ---
+            summary: Short description.
+            schema: 1.0.0
+            ---
 
             ### Example
             ```bash
@@ -68,7 +71,11 @@ public class MarkdownCommandHelpProviderTests
     public void Parse_ShouldReturnNoExamples_WhenCodeFencesAreUnpaired()
     {
         var content = """
-            Summary: Short description.
+            ---
+            summary: Short description.
+            schema: 1.0.0
+            ---
+
             Description: Longer description.
 
             ### Example
@@ -81,6 +88,32 @@ public class MarkdownCommandHelpProviderTests
         Assert.Equal("Short description.", result.Summary);
         Assert.Equal("Longer description.", result.Description);
         Assert.Empty(result.Examples);
+    }
+
+    [Fact]
+    public void Parse_ShouldReadSummaryFromFrontmatter()
+    {
+        // §15.5.1: summary comes from file-level frontmatter, not a body line.
+        var content = """
+            ---
+            summary: From frontmatter.
+            status: ga
+            schema: 1.0.0
+            ---
+
+            Description: Body description.
+
+            ### Example (CLI)
+            ```bash
+            azv2 do-thing
+            ```
+            """;
+
+        var result = MarkdownCommandHelpProvider.Parse(content);
+
+        Assert.Equal("From frontmatter.", result.Summary);
+        Assert.Equal("Body description.", result.Description);
+        Assert.Single(result.Examples);
     }
 
     [Fact]

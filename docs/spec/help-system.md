@@ -950,13 +950,43 @@ The following design decisions have been **made and validated** in the actual im
 
 **Subtasks:**
 
-1. **Migrate help markdown to YAML frontmatter structure**
-    - Convert all help files to use YAML frontmatter for metadata (summary, description, tags, status)
-    - Reorganize example sections with clear CLI/PowerShell subdivisions
-    - Update `MarkdownCommandHelpProvider` to parse YAML frontmatter + structure
-    - Update validation in help tool to validate YAML structure
-    - Verify all help files parse correctly post-migration
-    - Benefits: explicit structure, easier parsing, enables future enhancements (tags, status markers, relatedLinks)
+1. ✅ **Adopt PlatyPS-shaped file-level frontmatter for help markdown** — **PLANNED FOR THIS PR**
+    - **Scope** (deliberately narrow):
+        - Every help file under `src/Extensions/*/help/*.md` gains a YAML frontmatter block at the top with file-level metadata.
+        - The `Summary:` body line moves into the frontmatter as `summary:` and is removed from the body.
+        - Description and examples stay in the markdown body, unchanged structurally.
+        - All bash example H3 titles gain a `(CLI)` suffix to mirror the existing `(PowerShell)` convention — purely cosmetic disambiguation; parsing still pivots on the code-fence language tag (`bash` vs `powershell`).
+    - **Schema (v1.0.0):**
+
+        ```yaml
+        ---
+        summary: One-line description of the command. # required
+        status: ga # optional, default 'ga'; enum: ga|preview|deprecated|internal
+        schema: 1.0.0 # required, lets us version the format
+        online version: # optional, URL for MSLearn (empty for now)
+        relatedLinks: # optional, flat list of command paths or labels
+            - azv2 logout
+        ---
+        ```
+
+    - **Inspiration:** PlatyPS (Azure PowerShell's help authoring format) uses YAML frontmatter at both file and per-parameter levels. We adopt the **file-level** layer only. Per-parameter YAML blocks are deliberately out of scope (see §16) because `ParameterMetadata` in code is our single source of truth and PlatyPS-style reconciliation tooling would be a much bigger investment.
+    - **Why now:** Locks the on-disk shape so future MSLearn publishing, status markers, and related-links rendering have a stable schema to consume. The migration cost (~17 files) is small while the corpus is small.
+    - **Why a hand-rolled parser, not YamlDotNet:**
+        - The schema is 4 flat string fields plus 1 optional string list. No multi-line scalars, no nested objects, no anchors.
+        - A ~40-line `FrontmatterParser` in [src/Core/Core.Runtime/Help/](../../src/Core/Core.Runtime/Help/) covers it, owns its own error messages, and adds zero NuGet surface.
+        - If the schema ever grows multi-line scalars or nested objects (per-parameter blocks, structured `relatedLinks`), revisit. Single-line decision to flip later.
+    - **Differentiation between CLI and PowerShell examples — unchanged:** Driven entirely by the code-fence language tag (`bash` vs `powershell`/`pwsh`) parsed in [MarkdownCommandHelpProvider.cs](../../src/Core/Core.Runtime/Help/MarkdownCommandHelpProvider.cs). The `(CLI)` / `(PowerShell)` H3 suffix is for the human reader; it has no parsing effect. Two fences under one H3 are parsed as two separate `MarkdownExample` records.
+    - **Code changes:**
+        - New `FrontmatterParser` in `Core.Runtime` (reused by both runtime parser and help validator via the existing `Cirrus.Help.Tool → Core.Runtime` project reference).
+        - [MarkdownCommandHelpProvider.cs](../../src/Core/Core.Runtime/Help/MarkdownCommandHelpProvider.cs) — extracts and parses frontmatter, reads `summary` from it. Description (body line) and examples (regex) unchanged.
+        - [MarkdownStructureValidator.cs](../../tools/Help/Cirrus.Help.Tool/Validation/MarkdownStructureValidator.cs) — replaces the `^Summary:` prefix check with: frontmatter present, `summary` required, `schema` required, `status` (if present) is a valid enum.
+        - All 17 help files migrated.
+        - [docs/howto/help.md](../howto/help.md) author template updated.
+    - **Tests:**
+        - New `FrontmatterParserTests.cs` covers the 40-line parser end-to-end.
+        - [MarkdownCommandHelpProviderTests.cs](../../tests/Cli.Tests/MarkdownCommandHelpProviderTests.cs) fixtures updated to include frontmatter; behavior assertions unchanged.
+        - [MarkdownStructureValidatorTests.cs](../../tools/Help/Cirrus.Help.Tool.Tests/MarkdownStructureValidatorTests.cs) updated; new cases for missing frontmatter, missing `summary`, missing `schema`, invalid `status` enum.
+    - **Hard cutover:** Parser rejects files without frontmatter; all 17 files migrate in this PR. No dual-format support — the corpus is small enough that "two valid formats forever" is worse than a single mechanical PR.
 
 2. **Spec updates**
     - Finalize [docs/spec/help-system.md](./help-system.md) with actual implementation and YAML frontmatter format
@@ -974,12 +1004,7 @@ The following design decisions have been **made and validated** in the actual im
     - Add troubleshooting section for common help authoring issues
     - Provide copy-paste templates for new command help (with YAML frontmatter)
 
-5. **MSLearn publishing pipeline (future)**
-    - Design help export tool for markdown publication
-    - Define output format for docs publishing
-    - Integrate with CI/release workflow
-
-6. **Revisit help output formatting**
+5. **Revisit help output formatting**
     - Audit the rendered help across all surfaces (`azv2 --help`, `azv2 <command> --help`, `Get-Help <Cmdlet>`, agent prompt feed) for visual consistency and information density.
     - Review section ordering (Summary / Description / Usage / Parameters / Examples / Related), heading style, indentation, column widths, and color/emphasis use.
     - Compare against `az` and Azure PowerShell conventions and document any deliberate deviations.
@@ -987,7 +1012,7 @@ The following design decisions have been **made and validated** in the actual im
     - Verify example code fences render readably in `azv2 --help` (no leftover markdown syntax) and that PowerShell examples preserve quoting in `.dll-Help.xml`.
     - Capture before/after screenshots in [docs/howto/help.md](../howto/help.md) so future changes have a baseline.
 
-7. **Help tool: collate all validation issues before failing**
+6. **Help tool: collate all validation issues before failing**
     - **Problem:** [tools/Help/Cirrus.Help.Tool/Program.cs](../../tools/Help/Cirrus.Help.Tool/Program.cs) currently throws after the first validator stage that produces errors (markdown structure → completeness (per-extension) → CLI example syntax → PowerShell example syntax). A single missing help file in one extension hides every downstream issue (e.g. compute completeness errors hid a real `-Name3` typo flagged by PS-L2 in a different extension). Each authoring iteration only surfaces one class of problem at a time, which is friction during bulk edits and PR review.
     - **Goal:** Run every validator over every extension, aggregate all `ValidationIssue`s into the existing `aggregateReport`, print a single grouped summary at the end (errors by validator/extension/file, then warnings), and exit non-zero iff any errors were collected. Per-stage `throw` becomes a deferred `failed = true` flag.
     - **Scope of changes:**
@@ -1003,7 +1028,7 @@ The following design decisions have been **made and validated** in the actual im
         - Exit code is 0 when only warnings are present, 1 when any error is present.
     - **Why this lives in §15.5 and not §15.4:** It's a UX polish over an already-correct pipeline. The validators themselves don't need to change — only orchestration and reporting do.
 
-8. **Split help validation out of `build-and-test.yml` into its own CI job(s)**
+7. **Split help validation out of `build-and-test.yml` into its own CI job(s)**
     - **Problem:** [.github/workflows/build-and-test.yml](../../.github/workflows/build-and-test.yml) currently runs build → "Validate Help Content" → tests → E2E in a single sequential job. Help authoring failures block the test job from ever running (and vice versa), the PR check surface conflates "code broke" with "help content drifted", and re-running just the help validator requires re-running the whole job.
     - **Goal:** Each concern shows up as its own PR check with its own logs, can be re-run independently, and runs in parallel where possible.
     - **Target job layout:**
@@ -1027,7 +1052,7 @@ The following design decisions have been **made and validated** in the actual im
         - Splitting the actual help validation pipeline (still one `dotnet run` of the Help tool). Per-validator parallelism is overkill until the runtime becomes a problem.
         - Reusable workflows / composite actions — defer until a second workflow needs the same setup steps.
 
-9. **L3 error message: use routed CLI command name, not processor type name**
+8. **L3 error message: use routed CLI command name, not processor type name**
     - **Problem:** L3 (15.4.8) errors currently render as `Value 'yes' for flag '--use-device-code' on command 'LoginProcessor' is invalid: not a valid Boolean`. `LoginProcessor` is the `ProcessorType.Name` of the command class, not the user-facing command path (`login`). Help authors reading the error have to mentally translate `*Processor` → CLI verb, which is friction during bulk edits.
     - **Root cause:** [`ExampleSyntaxValidator.ValidateFlags`](../../tools/Help/Cirrus.Help.Tool/Validation/ExampleSyntaxValidator.cs) formats the error using `command.Name`, and for some commands `Name` happens to be the processor class name rather than the routed path. The L2 ("Unknown flag") branch has the same issue.
     - **Goal:** Errors should reference the same string the help author typed in the markdown — e.g. `command 'login'`, `command 'vm create-combined'` — so the error is copy-pasteable back into a search of the help corpus.
@@ -1037,8 +1062,8 @@ The following design decisions have been **made and validated** in the actual im
         - Verify `command.FullName` vs `command.Name` semantics across extensions — if `FullName` is the routed path everywhere, prefer that and skip the token-slice plumbing.
     - **Tests:** Update the existing L3 `[Fact]`s in [ExampleSyntaxValidatorTests.cs](../../tools/Help/Cirrus.Help.Tool.Tests/ExampleSyntaxValidatorTests.cs) to assert the message contains the routed path (`"command 'create'"` for the stubbed `vm create`), and add one live-style test that constructs a command whose `Name` differs from its routed path to lock in the fix.
 
-10. **Tool-level integration tests over `Program.MainAsync`**
-    - **Problem:** Today we have strong unit coverage on each validator class ([ExampleSyntaxValidatorTests.cs](../../tools/Help/Cirrus.Help.Tool.Tests/ExampleSyntaxValidatorTests.cs), [PowerShellExampleSyntaxValidatorTests.cs](../../tools/Help/Cirrus.Help.Tool.Tests/PowerShellExampleSyntaxValidatorTests.cs), [HelpCompletenessValidatorTests.cs](../../tools/Help/Cirrus.Help.Tool.Tests/HelpCompletenessValidatorTests.cs), [MarkdownStructureValidatorTests.cs](../../tools/Help/Cirrus.Help.Tool.Tests/MarkdownStructureValidatorTests.cs)) but zero tests on [Program.cs](../../tools/Help/Cirrus.Help.Tool/Program.cs) itself. Several contracts live there with no automated guard: stage ordering (markdown → completeness → CLI → PS), the exit-code contract (`0` on warnings-only, `1` on errors), manifest-emission gating (don't write JSON for an extension that failed completeness), and the CLI-group → extension map (e.g. `["compute"] = "vm"` — currently untested). When §15.5.7 lands and rewrites the orchestration to collate-before-failing, there is no test that will catch a silent revert of any of these contracts.
+9. **Tool-level integration tests over `Program.MainAsync`**
+    - **Problem:** Today we have strong unit coverage on each validator class ([ExampleSyntaxValidatorTests.cs](../../tools/Help/Cirrus.Help.Tool.Tests/ExampleSyntaxValidatorTests.cs), [PowerShellExampleSyntaxValidatorTests.cs](../../tools/Help/Cirrus.Help.Tool.Tests/PowerShellExampleSyntaxValidatorTests.cs), [HelpCompletenessValidatorTests.cs](../../tools/Help/Cirrus.Help.Tool.Tests/HelpCompletenessValidatorTests.cs), [MarkdownStructureValidatorTests.cs](../../tools/Help/Cirrus.Help.Tool.Tests/MarkdownStructureValidatorTests.cs)) but zero tests on [Program.cs](../../tools/Help/Cirrus.Help.Tool/Program.cs) itself. Several contracts live there with no automated guard: stage ordering (markdown → completeness → CLI → PS), the exit-code contract (`0` on warnings-only, `1` on errors), manifest-emission gating (don't write JSON for an extension that failed completeness), and the CLI-group → extension map (e.g. `["compute"] = "vm"` — currently untested). When §15.5.6 lands and rewrites the orchestration to collate-before-failing, there is no test that will catch a silent revert of any of these contracts.
     - **Goal:** A small integration-test surface that drives `Program.MainAsync(string[] args)` over a fixture repo and asserts on exit code + collected report. Not full E2E (no subprocess) — just enough to lock the orchestration contracts.
     - **Why "polish" and not blocker:** The help-system design itself is still solidifying. Hardening the tool too aggressively before the shape stabilises locks us into orchestration decisions that may still need to change. This item gets _prepared_ (refactor `Program.cs` to expose `MainAsync` and accept an injected fixture root) but the test suite is deliberately small and only grows once the design is cemented.
     - **Prerequisite refactor:**
@@ -1049,18 +1074,18 @@ The following design decisions have been **made and validated** in the actual im
         - `MissingHelpFile/` — completeness error in one extension. Asserts exit 1 + error references the missing file.
         - `BadL3Value/` — bool flag with `yes` literal. Asserts exit 1 + error contains `not a valid Boolean`.
         - `BadPSL2/` — `-Name3` typo in PS fence. Asserts exit 1 + error contains the cmdlet name.
-        - `MultiExtensionErrors/` — errors in extensions A _and_ B (this is the **lock** for §15.5.7: today only A's errors surface; after §15.5.7 both must surface).
+        - `MultiExtensionErrors/` — errors in extensions A _and_ B (this is the **lock** for §15.5.6: today only A's errors surface; after §15.5.6 both must surface).
     - **Tests** (target ~5 `[Fact]`s, one per fixture):
         - `Tool_ShouldExit0_AndWriteManifests_OnCleanFixture`.
         - `Tool_ShouldExit1_AndReportMissingHelpFile`.
         - `Tool_ShouldExit1_AndReportL3Violation`.
         - `Tool_ShouldExit1_AndReportPSL2Violation`.
-        - `Tool_ShouldReportErrorsFromAllExtensions_WhenMultipleFail` _(initially expected to be a failing/`Skip`ped test until §15.5.7 lands — it's the contract that drives that work)_.
+        - `Tool_ShouldReportErrorsFromAllExtensions_WhenMultipleFail` _(initially expected to be a failing/`Skip`ped test until §15.5.6 lands — it's the contract that drives that work)_.
     - **Explicitly out of scope:**
         - Subprocess-based E2E (`Process.Start("dotnet run")`) — too slow, too brittle, and adds nothing over an in-process `MainAsync` call.
         - Snapshot/golden assertions on full manifest output — [HelpArtifactWriterTests.cs](../../tests/Cli.Tests/Help/HelpArtifactWriterTests.cs) already covers that layer.
         - Hardening anything past the contracts listed above until the help-system design is cemented (post-PR-this-one).
-    - **Why this lives in §15.5 and not §15.4:** §15.4 delivers the _capability_; this delivers _durability_. The capability is verified by hand and by validator-level unit tests; durability against orchestration regression is a follow-up that should pair with §15.5.7.
+    - **Why this lives in §15.5 and not §15.4:** §15.4 delivers the _capability_; this delivers _durability_. The capability is verified by hand and by validator-level unit tests; durability against orchestration regression is a follow-up that should pair with §15.5.6.
 
 **Exit criteria:**
 
@@ -1068,3 +1093,63 @@ The following design decisions have been **made and validated** in the actual im
 - Code is well-commented and discoverable
 - Developer workflows are documented and tested
 - No contradictions between spec, code, and howto guides
+
+---
+
+## 16. Follow-ups (out of this PR)
+
+This section captures help-system work that is **deliberately deferred** beyond the current PR. Items listed here are not blockers for landing §15.4 + §15.5. They are recorded so we don't lose the design context that surfaced while building the foundation.
+
+### 16.1 MSLearn publishing pipeline
+
+- **Goal:** Export `src/Extensions/*/help/*.md` to a docs-pipeline-ready format (PlatyPS-compatible Markdown or generated `learn.microsoft.com` JSON), wire into release CI.
+- **Trigger:** When docs/release-engineering team commits to a publish cadence.
+- **Dependencies on items in this PR:**
+    - The §15.5.1 frontmatter (`summary`, `status`, `online version`, `relatedLinks`) is the on-ramp — `online version:` URLs get populated when publish destinations are known.
+- **Likely scope when it lands:**
+    - New `tools/Help/Cirrus.Help.Publish/` console app that reads the existing `artifacts/help/HelpIndex.json` + per-extension manifests and emits an `out/mslearn/` tree.
+    - Decide between (a) rewriting markdown for publication or (b) generating output from manifests + body extraction. Probably (b) — manifests are already structured.
+    - CI integration: separate workflow (`publish-docs.yml`) triggered on release tag.
+
+### 16.2 Per-parameter YAML blocks (PlatyPS-style)
+
+- **What:** Each `### -ParamName` body subsection would carry its own YAML block describing `Type`, `Required`, `Position`, `Default value`, `Accept pipeline input`, `Aliases` — the way PlatyPS does it.
+- **Why we deferred:** `ParameterMetadata` in code is currently the single source of truth. Adopting PlatyPS's per-param YAML means **duplicating** that truth into markdown and building reconciliation tooling (their `Update-MarkdownHelp` cmdlet). That's expensive and only pays off when docs-team authors edit markdown independently from C# changes — which is not our workflow yet.
+- **Reconsider when:** Docs authoring becomes a separate role from cmdlet authoring, or when MSLearn publishing demands the richer per-param schema.
+
+### 16.3 Description as `## DESCRIPTION` body header (full PlatyPS body shape)
+
+- **What:** Move from the current `Description:` prefix line to a `## DESCRIPTION` H2 header with paragraph content beneath, matching PlatyPS body layout.
+- **Why we deferred:** Mechanical churn across all 17 files for a layout change that doesn't unlock any new capability today. The parser doesn't care, the validators don't care, the renderers don't care.
+- **Reconsider when:** Bundling with another body-shape change (e.g. `## EXAMPLES` and `## RELATED LINKS` sections per full PlatyPS) — do them all in one pass to amortize the diff.
+
+### 16.4 Structured `relatedLinks` (with display name + URL)
+
+- **What:** Promote `relatedLinks:` from flat string list to `[{ name, url }]` objects so MSLearn can render proper `<a href>` links.
+- **Why we deferred:** Strings are enough for in-terminal rendering (`Get-Help` / `azv2 --help`). The structured shape pays off only when publishing to HTML.
+- **Reconsider when:** §16.1 lands.
+
+### 16.5 YamlDotNet dependency
+
+- **What:** Replace the hand-rolled `FrontmatterParser` with `YamlDotNet`.
+- **Why we deferred:** Current schema (4 flat strings + 1 string list) doesn't need it. Hand-rolled parser is ~40 lines with full control over error messages and zero NuGet surface.
+- **Reconsider when:** Schema grows multi-line scalars (e.g. `description:` in frontmatter), nested objects (§16.4), or per-parameter blocks (§16.2). Single-line decision to flip later.
+
+### 16.6 Tighten extension parameter type declarations
+
+- **What:** Audit every `ExtensionIndex.cs` parameter declaration and replace `typeof(string)` with the precise type (e.g. `typeof(Guid)` for `subscription-id`, `typeof(int)` for `--retries`).
+- **Why this matters:** L3 type validation (§15.4.8) only catches errors when the metadata declares a non-string type. Today nearly every Compute/Resources `subscription-id` is `typeof(string)`, so L3 cannot catch malformed Guids in those examples. Tightening types multiplies L3's reach across the corpus.
+- **Why we deferred:** Mechanical, touches every extension, and the L3 reach gain is "nice to have" rather than "required to ship." Best done as a focused follow-up PR.
+- **Reconsider when:** Authoring discipline indicates type-shape defects are slipping past code review, or before MSLearn publishing (so published docs surface real types).
+
+### 16.7 Help authoring CLI / scaffolder
+
+- **What:** A `cirrus help new <extension> <command>` (or `dotnet run --project tools/Help/Cirrus.Help.Tool -- new ...`) that emits a frontmatter+body template into `src/Extensions/<ext>/help/<command>.md`.
+- **Why we deferred:** Copy-paste from [docs/howto/help.md](../howto/help.md) template is fast enough at current corpus size.
+- **Reconsider when:** Corpus exceeds ~50 commands or onboarding new authors becomes friction.
+
+### 16.8 Pattern / regex validation for free-form name fields
+
+- **What:** Add `[ValidationPattern]` (regex) or `[NamingRule]` attribute to `ParameterMetadata` so help examples like `--name 123` for a VM (which must start with a letter) can fail L3.
+- **Why we deferred:** Service-side naming rules are the authoritative validator; duplicating them into help-tool metadata is brittle. Also: L3 today catches _type-shape_ errors, not _semantic-validity_ errors — keeping those concerns separate is honest design.
+- **Reconsider when:** Real defects (e.g. examples with names that violate Azure naming policy) start slipping through and surface in customer feedback.

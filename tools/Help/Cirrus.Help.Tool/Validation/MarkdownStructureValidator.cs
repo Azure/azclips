@@ -2,13 +2,14 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Text.RegularExpressions;
+using Core.Runtime;
 
 namespace Cirrus.Help.Tool.Validation
 {
     /// <summary>
     /// Validates that markdown help files under <c>src/Extensions/{Extension}/help/</c> meet
-    /// the required structural contract: balanced code fences, Summary/Description fields,
-    /// and at least one example.
+    /// the required structural contract: file-level frontmatter (§15.5.1) with required
+    /// fields, a Description body, balanced code fences, and at least one example.
     /// </summary>
     public sealed class MarkdownStructureValidator
     {
@@ -67,20 +68,51 @@ namespace Cirrus.Help.Tool.Validation
                 report.AddError("Unbalanced markdown code fences (``` markers must be paired).", relativePath);
             }
 
-            var summary = GetMarkdownField(content, "Summary");
-            if (string.IsNullOrWhiteSpace(summary))
+            // §15.5.1: every help file must carry a YAML frontmatter block at the top.
+            if (!HasFrontmatterBlock(content))
             {
-                report.AddError("Missing required field 'Summary:'.", relativePath);
+                report.AddError(
+                    "Missing required YAML frontmatter block. Help files must open with a '---' delimited block (see §15.5.1 in docs/spec/help-system.md).",
+                    relativePath);
+                // Without frontmatter, downstream summary/status/schema checks are meaningless.
+                ValidateBody(content, relativePath, report);
+                return;
             }
 
-            var description = GetMarkdownField(content, "Description");
+            var (frontmatter, body) = FrontmatterParser.Parse(content);
+
+            if (string.IsNullOrWhiteSpace(frontmatter.Summary))
+            {
+                report.AddError("Frontmatter is missing required field 'summary:'.", relativePath);
+            }
+
+            if (string.IsNullOrWhiteSpace(frontmatter.Schema))
+            {
+                report.AddError("Frontmatter is missing required field 'schema:'.", relativePath);
+            }
+
+            // status defaults to "ga" inside the parser, so a missing key is fine. Reject
+            // unknown values so typos like "stable" surface early.
+            if (!FrontmatterParser.ValidStatuses.Contains(frontmatter.Status))
+            {
+                report.AddError(
+                    $"Frontmatter 'status' value '{frontmatter.Status}' is not one of {{{string.Join(", ", FrontmatterParser.ValidStatuses)}}}.",
+                    relativePath);
+            }
+
+            ValidateBody(body, relativePath, report);
+        }
+
+        private static void ValidateBody(string body, string relativePath, ValidationReport report)
+        {
+            var description = GetMarkdownField(body, "Description");
             if (string.IsNullOrWhiteSpace(description))
             {
                 report.AddError("Missing required field 'Description:'.", relativePath);
             }
 
             var exampleCount = Regex.Matches(
-                content,
+                body,
                 @"###\s*(?<title>.+?)\s*\r?\n```(?<lang>[a-zA-Z0-9_-]*)\s*\r?\n(?<command>[\s\S]*?)\r?\n```",
                 RegexOptions.CultureInvariant | RegexOptions.IgnoreCase).Count;
 
@@ -90,6 +122,23 @@ namespace Cirrus.Help.Tool.Validation
                     "Missing examples. Add at least one '### Title' + fenced code block example.",
                     relativePath);
             }
+        }
+
+        private static bool HasFrontmatterBlock(string content)
+        {
+            // Quick check: first non-empty line is exactly '---'.
+            foreach (var line in content.Split('\n'))
+            {
+                var trimmed = line.TrimEnd('\r');
+                if (string.IsNullOrWhiteSpace(trimmed))
+                {
+                    continue;
+                }
+
+                return trimmed == "---";
+            }
+
+            return false;
         }
 
         private static string GetMarkdownField(string content, string fieldName)

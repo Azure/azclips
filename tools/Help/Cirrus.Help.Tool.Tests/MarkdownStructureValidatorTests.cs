@@ -8,13 +8,18 @@ namespace Cirrus.Help.Tool.Tests
     public class MarkdownStructureValidatorTests
     {
         private static readonly string s_validMarkdown = string.Join("\n",
-            "Summary: One-line description.",
+            "---",
+            "summary: One-line description.",
+            "status: ga",
+            "schema: 1.0.0",
+            "---",
+            "",
             "Description: Multi-line",
             "  description.",
             "",
             "## Examples",
             "",
-            "### Example title",
+            "### Example title (CLI)",
             "```bash",
             "azv2 login --subscription-id 00000000-0000-0000-0000-000000000000",
             "```",
@@ -30,24 +35,121 @@ namespace Cirrus.Help.Tool.Tests
         }
 
         [Fact]
-        public void ValidateContent_ShouldReportError_WhenSummaryFieldIsMissing()
+        public void ValidateContent_ShouldReportError_WhenFrontmatterBlockIsMissing()
         {
-            var content = s_validMarkdown.Replace("Summary: One-line description.\n", "", StringComparison.Ordinal);
+            // §15.5.1: every help file must open with a '---' delimited frontmatter block.
+            var content = string.Join("\n",
+                "Description: y",
+                "",
+                "### t (CLI)",
+                "```bash",
+                "azv2 x",
+                "```",
+                "");
 
             var report = new MarkdownStructureValidator().ValidateContent(content, "test.md");
 
-            Assert.Contains(report.Errors, e => e.Message.Contains("'Summary:'", StringComparison.Ordinal));
+            Assert.Contains(report.Errors, e => e.Message.Contains("frontmatter", StringComparison.OrdinalIgnoreCase));
+        }
+
+        [Fact]
+        public void ValidateContent_ShouldReportError_WhenSummaryFieldIsMissing()
+        {
+            var content = string.Join("\n",
+                "---",
+                "schema: 1.0.0",
+                "---",
+                "",
+                "Description: y",
+                "",
+                "### t (CLI)",
+                "```bash",
+                "azv2 x",
+                "```",
+                "");
+
+            var report = new MarkdownStructureValidator().ValidateContent(content, "test.md");
+
+            Assert.Contains(report.Errors, e => e.Message.Contains("'summary:'", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void ValidateContent_ShouldReportError_WhenSchemaFieldIsMissing()
+        {
+            var content = string.Join("\n",
+                "---",
+                "summary: x",
+                "---",
+                "",
+                "Description: y",
+                "",
+                "### t (CLI)",
+                "```bash",
+                "azv2 x",
+                "```",
+                "");
+
+            var report = new MarkdownStructureValidator().ValidateContent(content, "test.md");
+
+            Assert.Contains(report.Errors, e => e.Message.Contains("'schema:'", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void ValidateContent_ShouldReportError_WhenStatusIsInvalid()
+        {
+            var content = string.Join("\n",
+                "---",
+                "summary: x",
+                "status: stable",                // not one of ga|preview|deprecated|internal
+                "schema: 1.0.0",
+                "---",
+                "",
+                "Description: y",
+                "",
+                "### t (CLI)",
+                "```bash",
+                "azv2 x",
+                "```",
+                "");
+
+            var report = new MarkdownStructureValidator().ValidateContent(content, "test.md");
+
+            Assert.Contains(report.Errors, e => e.Message.Contains("status", StringComparison.OrdinalIgnoreCase) && e.Message.Contains("stable", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void ValidateContent_ShouldAcceptStatusDefault_WhenStatusOmitted()
+        {
+            // status defaults to "ga" inside the parser, so omitting it is fine.
+            var content = string.Join("\n",
+                "---",
+                "summary: x",
+                "schema: 1.0.0",
+                "---",
+                "",
+                "Description: y",
+                "",
+                "### t (CLI)",
+                "```bash",
+                "azv2 x",
+                "```",
+                "");
+
+            var report = new MarkdownStructureValidator().ValidateContent(content, "test.md");
+
+            Assert.DoesNotContain(report.Errors, e => e.Message.Contains("status", StringComparison.OrdinalIgnoreCase));
         }
 
         [Fact]
         public void ValidateContent_ShouldReportError_WhenDescriptionFieldIsMissing()
         {
             var content = string.Join("\n",
-                "Summary: x",
+                "---",
+                "summary: x",
+                "schema: 1.0.0",
+                "---",
                 "",
-                "## Examples",
-                "",
-                "### t",
+                "### t (CLI)",
                 "```bash",
                 "azv2 x",
                 "```",
@@ -62,7 +164,11 @@ namespace Cirrus.Help.Tool.Tests
         public void ValidateContent_ShouldReportError_WhenNoExamplesArePresent()
         {
             var content = string.Join("\n",
-                "Summary: x",
+                "---",
+                "summary: x",
+                "schema: 1.0.0",
+                "---",
+                "",
                 "Description: y",
                 "");
 
@@ -75,10 +181,14 @@ namespace Cirrus.Help.Tool.Tests
         public void ValidateContent_ShouldReportError_WhenCodeFencesAreUnbalanced()
         {
             var content = string.Join("\n",
-                "Summary: x",
+                "---",
+                "summary: x",
+                "schema: 1.0.0",
+                "---",
+                "",
                 "Description: y",
                 "",
-                "### Example",
+                "### Example (CLI)",
                 "```bash",
                 "azv2 x",
                 // missing closing fence
@@ -103,7 +213,7 @@ namespace Cirrus.Help.Tool.Tests
         {
             var report = new MarkdownStructureValidator().ValidateContent(string.Empty, "test.md");
 
-            // Empty content → missing Summary + Description + examples = 3 errors
+            // Empty content → missing frontmatter + missing Description + missing examples = 3 errors.
             Assert.Equal(3, report.Errors.Count());
         }
 
@@ -142,7 +252,7 @@ namespace Cirrus.Help.Tool.Tests
 
             var report = new MarkdownStructureValidator().Validate(tempDir.Path);
 
-            // The login file is well-formed, but config/index.md has 3 issues.
+            // The login file is well-formed, but config/index.md has issues.
             Assert.True(report.HasErrors);
             Assert.All(report.Errors, e => Assert.Contains("Config", e.FilePath ?? string.Empty, StringComparison.OrdinalIgnoreCase));
         }

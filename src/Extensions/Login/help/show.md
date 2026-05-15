@@ -1,11 +1,17 @@
+---
+summary: Show the current Azure account context.
+status: ga
+schema: 1.0.0
+online version:
+---
+
 # Login Show
 
-Summary: Show the current Azure account context.
 Description: Show the current Azure account context.
 
 ## CLI Examples
 
-### Show current account context
+### Show current account context (CLI)
 
 ```bash
 azv2 login show
@@ -13,7 +19,7 @@ azv2 login show
 
 ## PowerShell Examples
 
-### Show current account context
+### Show current account context (PowerShell)
 
 ```powershell
 Get-CirrusAccount

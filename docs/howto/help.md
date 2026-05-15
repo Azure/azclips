@@ -13,19 +13,24 @@ This guide explains how to author and test help for CLI commands and PowerShell 
 2. **Write help content:**
 
     ````markdown
-    Summary: Brief one-line description
+    ---
+    summary: Brief one-line description.
+    status: ga
+    schema: 1.0.0
+    online version:
+    ---
 
     Description: Multi-line description explaining what the command does
     and how to use it.
 
-    ### Example Title
+    ### Example Title (CLI)
 
     ```bash
     azv2 login --subscription-id 00000000-0000-0000-0000-000000000000
     ```
     ````
 
-    ### PowerShell Example Title
+    ### Example Title (PowerShell)
 
     ```powershell
     Connect-CirrusAccount -SubscriptionId "00000000-0000-0000-0000-000000000000"
@@ -70,14 +75,24 @@ For **subcommands** (like `login logout`), use `help/logout.md`.
 
 Each help file contains:
 
-### Summary (Required)
+### Frontmatter (Required)
 
-```markdown
-Summary: One-line description of the command
+Every help file opens with a YAML frontmatter block delimited by `---` on its own line. See §15.5.1 in [docs/spec/help-system.md](../spec/help-system.md) for the full schema.
+
+```yaml
+---
+summary: One-line description of the command. # required
+status: ga # optional, default 'ga'; enum: ga|preview|deprecated|internal
+schema: 1.0.0 # required
+online version: # optional, MSLearn URL (empty for now)
+relatedLinks: # optional, flat list
+    - azv2 logout
+---
 ```
 
-- Appears in command listings and brief help
-- Max ~80 characters
+- `summary:` appears in command listings and brief help. Max ~80 characters.
+- `status:` flags the command's lifecycle. `internal` hides from public listings.
+- `schema:` lets us version the format if we ever need a breaking change.
 
 ### Description (Required)
 
@@ -93,17 +108,17 @@ Can span multiple lines and paragraphs.
 
 ### Examples (Required)
 
-Examples are code blocks with a title:
+Examples are code blocks with a title. Add a `(CLI)` or `(PowerShell)` suffix to disambiguate which surface the example targets:
 
 ````markdown
-### Example Title
+### Example Title (CLI)
 
 ```bash
 azv2 login --subscription-id 00000000-0000-0000-0000-000000000000
 ```
 ````
 
-### Another Example
+### Another Example (PowerShell)
 
 ```powershell
 Connect-CirrusAccount -SubscriptionId "00000000-0000-0000-0000-000000000000"
@@ -145,30 +160,35 @@ Conventions:
 **File:** `src/Extensions/Login/help/index.md`
 
 ```markdown
-Summary: Authenticate to Azure and set the current account context.
+---
+summary: Authenticate to Azure and set the current account context.
+status: ga
+schema: 1.0.0
+online version:
+---
 
 Description: Log in to your Azure subscription to authenticate Cirrus CLI
 and PowerShell commands. You can specify a subscription ID and tenant ID,
 or use device code flow for headless environments.
 
-### Login with subscription ID
+### Login with subscription ID (CLI)
 ```bash
 azv2 login --subscription-id 00000000-0000-0000-0000-000000000000
 ````
 
-### Login with tenant ID
+### Login with tenant ID (CLI)
 
 ```bash
 azv2 login --subscription-id 00000000-0000-0000-0000-000000000000 --tenant-id 11111111-1111-1111-1111-111111111111
 ```
 
-### Login with PowerShell
+### Login with subscription ID (PowerShell)
 
 ```powershell
 Connect-CirrusAccount -SubscriptionId "00000000-0000-0000-0000-000000000000"
 ```
 
-### Login with device code flow
+### Login with device code flow (CLI)
 
 ```bash
 azv2 login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code
@@ -328,6 +348,6 @@ If you're moving an existing extension from code-embedded help to markdown:
 
 **Build fails during artifact generation:**
 
-- Check syntax of markdown (Summary:/Description:/Examples)
+- Check syntax of markdown (frontmatter/Description/Examples)
 - Verify all code blocks have matching ``` delimiters
 - Run `dotnet build cirrus.slnx` first to ensure DLLs are built

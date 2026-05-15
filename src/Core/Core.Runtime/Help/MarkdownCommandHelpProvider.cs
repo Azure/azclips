@@ -39,11 +39,16 @@ public static class MarkdownCommandHelpProvider
             return MarkdownCommandHelp.Empty;
         }
 
-        var summary = GetField(content, "Summary");
-        var description = GetField(content, "Description");
+        // Extract file-level frontmatter (§15.5.1). Summary comes from `summary:` in the
+        // frontmatter; description stays as a `Description:` body line. If the file has no
+        // frontmatter block, FrontmatterParser returns an empty doc and the original body —
+        // graceful degradation at runtime; strict validation happens in the help tool.
+        var (frontmatter, body) = FrontmatterParser.Parse(content);
+        var summary = frontmatter.Summary;
+        var description = GetField(body, "Description");
 
         var examples = new List<MarkdownExample>();
-        foreach (Match match in ExampleRegex.Matches(content))
+        foreach (Match match in ExampleRegex.Matches(body))
         {
             var title = match.Groups["title"].Value.Trim();
             var language = match.Groups["lang"].Value.Trim();
