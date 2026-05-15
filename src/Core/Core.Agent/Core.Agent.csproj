@@ -1,27 +1,36 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
+    <ExtName>Core</ExtName>
   </PropertyGroup>
 
+  <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
+
   <ItemGroup>
-    <PackageReference Include="Azure.AI.OpenAI" Version="2.1.0-beta.2" />
+    <PackageReference Include="Azure.Identity" Version="1.13.2" />
+    <PackageReference Include="Azure.ResourceManager" Version="1.13.1" />
     <PackageReference Include="DotNetEnv" Version="3.1.1" />
-    <PackageReference Include="Microsoft.Agents.AI" Version="1.0.0-preview.251110.2" />
-    <PackageReference Include="Microsoft.Agents.AI.OpenAI" Version="1.0.0-preview.251001.2" />
+    <PackageReference Include="GitHub.Copilot.SDK" Version="1.0.0-beta.3" />
+    <PackageReference Include="Microsoft.Extensions.AI" Version="9.10.0" />
     <PackageReference Include="Microsoft.Identity.Client" Version="4.67.2" />
     <PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" Version="4.67.2" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="prompt.md">
+    <ProjectReference Include="..\Core.Abstractions\Core.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="agent.md">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update=".env" Condition="Exists('.env')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Core.Agent.Tests" />
   </ItemGroup>
 
 </Project>

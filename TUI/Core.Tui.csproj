@@ -24,5 +24,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\src\Core\Core.DependencyInjection\Core.DependencyInjection.csproj" />
+    <ProjectReference Include="..\src\Core\Core.Agent\Core.Agent.csproj" />
   </ItemGroup>
 </Project>

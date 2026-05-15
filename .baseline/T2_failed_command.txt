@@ -1,0 +1,12 @@
+Response status code does not indicate success: 404 (Not Found).
+
+[cirrus chat · model=gpt-5.4-mini · type 'exit' to quit]
+  ▶ find_resources({"namePattern":"nonexistent-rg-zelin","kind":"resourceGroup","top":5})
+  ✓ find_resources 135ms · {"query":{"namePattern":"nonexistent-rg-zelin","kind":"resourceGroup","top":5},"cache":{"resources":198,"loadedAtUtc":"2…
+  ▶ LLM streaming · TTFT 6.3s
+I couldn’t find a resource group named `nonexistent-rg-zelin` in the cache.
+
+If you want, I can help you locate the correct resource group name or run the right command once you tell me the subscription or the intended RG name.
+  ✓ LLM turn 6.8s · in 4059 tok · out 90 tok · cached 0 tok
+
+> 

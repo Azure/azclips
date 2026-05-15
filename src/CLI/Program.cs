@@ -103,69 +103,75 @@ public class Program
         }
     }
 
-    private static async Task<int> TryAgentFallbackAsync(string[] args)
+    /// <summary>
+    /// Hands a failed classic-CLI invocation off to the SDK-backed agent. Spawns
+    /// <c>Core.Tui.exe --agent-mode</c> as a subprocess so the agent runs in the
+    /// TUI process — keeping <see cref="Core.Agent"/> physically isolated from
+    /// the CLI process and free of TUI / Hex1b dependencies.
+    ///
+    /// The subprocess inherits stdio so streaming tokens, the approval prompt,
+    /// and any interactive sub-tool (device-code login) surface live in the
+    /// user's terminal without in-process plumbing.
+    /// </summary>
+    private static Task<int> TryAgentFallbackAsync(string[] args)
     {
-        const int maxRetries = 5;
-        int attempt = 0;
-        string[] currentArgs = args;
-        var logger = CirrusServiceProvider.GetRequiredService<ILoggingService>();
+        // Recursion guard: a failed azv2 invoked by run_command from inside an
+        // already-running agent-mode TUI must NOT spawn another agent-mode TUI.
+        if (Environment.GetEnvironmentVariable("CIRRUS_IN_AGENT_MODE") == "1")
+        {
+            return Task.FromResult(1);
+        }
+
+        var tuiExe = FindTuiExe();
+        if (tuiExe is null)
+        {
+            _logger?.Error("agent mode unavailable: Core.Tui.exe not found alongside azv2");
+            return Task.FromResult(1);
+        }
 
         try
         {
-            // Use the singleton AgentEngine from DI container
-            var agentEngine = CirrusServiceProvider.GetRequiredService<AgentEngine>();
-            var output = CirrusServiceProvider.GetRequiredService<IOutputAdapter>();
-
-            while (attempt < maxRetries)
+            var psi = new ProcessStartInfo
             {
-                attempt++;
+                FileName = tuiExe,
+                // Inherit stdio so streaming tokens, y/n prompt, device-code links
+                // all show live in the user's terminal.
+                UseShellExecute = false,
+                RedirectStandardOutput = false,
+                RedirectStandardError = false,
+                RedirectStandardInput = false,
+            };
+            psi.Environment["CIRRUS_IN_AGENT_MODE"] = "1";
+            psi.ArgumentList.Add("--agent-mode");
+            psi.ArgumentList.Add("--failed-command");
+            psi.ArgumentList.Add(string.Join(' ', args));
 
-                await agentEngine.ExecuteCommandAsync(currentArgs, default);
-
-                var extractedCommand = agentEngine.ExtractedCommand;
-                if (string.IsNullOrWhiteSpace(extractedCommand))
-                {
-                    // AI provided info/help but no executable command
-                    return 0;
-                }
-
-                // AI generated a command - retry through extension loader
-                var retryArgs = extractedCommand.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                // Skip the first token if it matches the assembly name
-                if (retryArgs.Length > 0 && retryArgs[0].Equals(AssemblyName, StringComparison.OrdinalIgnoreCase))
-                {
-                    retryArgs = retryArgs.Skip(1).ToArray();
-                }
-
-                await output.WriteLineAsync($"\nRetrying with command: {extractedCommand}\n");
-
-                try
-                {
-                    var dispatcher = new ExtensionDispatcher();
-                    CommandInvocation invocation = dispatcher.Parse(retryArgs);
-                    //string result = Engine.Engine.GetCommand(invocation).Process(true).ToString();
-                    //Console.WriteLine(result);
-                    return 0;
-                }
-                catch (Exception ex)
-                {
-                    if (attempt >= maxRetries)
-                    {
-                        await output.WriteErrorAsync($"Failed to execute command after {maxRetries} attempts: {ex.Message}");
-                        return 1;
-                    }
-                    // Update args for next iteration
-                    currentArgs = retryArgs;
-                }
-            }
-
-            return 1;
+            using var proc = Process.Start(psi)
+                ?? throw new InvalidOperationException("Process.Start returned null");
+            proc.WaitForExit();
+            return Task.FromResult(proc.ExitCode);
         }
         catch (Exception ex)
         {
-            logger.Error($"AI agent error: {ex.Message}");
-            return 1;
+            _logger?.Error($"agent mode subprocess failed: {ex.Message}");
+            return Task.FromResult(1);
         }
+    }
+
+    private static string? FindTuiExe()
+    {
+        var baseDir = AppContext.BaseDirectory;
+        foreach (var candidate in new[]
+        {
+            Path.Combine(baseDir, "Core.Tui.exe"),
+            Path.Combine(baseDir, "Core.Tui"),
+            Path.Combine(baseDir, "..", "Core.Tui", "Core.Tui.exe"),
+            Path.Combine(baseDir, "..", "Core.Tui", "Core.Tui"),
+        })
+        {
+            if (File.Exists(candidate)) return Path.GetFullPath(candidate);
+        }
+        return null;
     }
 
     /// <summary>

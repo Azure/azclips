@@ -1,0 +1,467 @@
+using System.Collections.Concurrent;
+using System.Text.Json;
+
+namespace Core.Agent.Tools.Cache;
+
+/// <summary>
+/// Process-wide singleton over the on-disk ARM cache under
+/// <c>%USERPROFILE%/.cirrus/arm-cache/</c>.
+///
+/// Designed for the three agent tools (find_resources / get_resource_tree
+/// / get_resource_details). The cache itself (build / refresh / TTL
+/// enforcement) is owned by another component (Nori's side); we only
+/// READ. If any of the four expected files is missing, the corresponding
+/// list is empty and queries gracefully degrade.
+///
+/// Indexes built lazily on first access and rebuilt when any cache file's
+/// mtime changes (cheap stat call, no inotify needed — invocations are
+/// short-lived, the model session is the longest-living consumer).
+/// </summary>
+public sealed class ResourceCache
+{
+    private static readonly Lazy<ResourceCache> _instance = new(() => new ResourceCache());
+    public static ResourceCache Current => _instance.Value;
+
+    public static string DefaultCacheDir => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+        ".cirrus", "arm-cache");
+
+    private static readonly JsonSerializerOptions Json = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
+
+    private readonly string _dir;
+    private readonly object _lock = new();
+
+    private DateTime _loadedAt = DateTime.MinValue;
+    private Dictionary<string, DateTime> _fileMtimes = new();
+
+    public IReadOnlyList<CachedTenant> Tenants { get; private set; } = Array.Empty<CachedTenant>();
+    public IReadOnlyList<CachedSubscription> Subscriptions { get; private set; } = Array.Empty<CachedSubscription>();
+    public IReadOnlyList<CachedResourceGroup> ResourceGroups { get; private set; } = Array.Empty<CachedResourceGroup>();
+    public IReadOnlyList<CachedResource> Resources { get; private set; } = Array.Empty<CachedResource>();
+
+    // Indexes
+    private Dictionary<string, CachedResource> _resByIdCi = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, CachedResourceGroup> _rgByIdCi = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, CachedSubscription> _subById = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, List<CachedResource>> _resByNameLower = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, List<CachedResourceGroup>> _rgByNameLower = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, List<CachedResource>> _resByTypeLower = new(StringComparer.OrdinalIgnoreCase);
+    private SortedSet<string> _resIdsSorted = new(StringComparer.OrdinalIgnoreCase);
+
+    public ResourceCache(string? cacheDir = null)
+    {
+        _dir = cacheDir ?? DefaultCacheDir;
+    }
+
+    /// <summary>Forces a reload on next query.</summary>
+    public void Invalidate()
+    {
+        lock (_lock) { _loadedAt = DateTime.MinValue; }
+    }
+
+    private void EnsureLoaded()
+    {
+        lock (_lock)
+        {
+            if (!Directory.Exists(_dir))
+            {
+                return;
+            }
+
+            var files = new[] { "tenants.json", "subscriptions.json", "resource-groups.json", "resources.json" };
+            var current = files.ToDictionary(
+                f => f,
+                f => File.Exists(Path.Combine(_dir, f)) ? File.GetLastWriteTimeUtc(Path.Combine(_dir, f)) : DateTime.MinValue);
+
+            bool changed = current.Count != _fileMtimes.Count
+                || current.Any(kv => !_fileMtimes.TryGetValue(kv.Key, out var t) || t != kv.Value);
+            if (!changed && _loadedAt != DateTime.MinValue) return;
+
+            Tenants        = LoadFile<CachedTenant>("tenants.json");
+            Subscriptions  = LoadFile<CachedSubscription>("subscriptions.json");
+            ResourceGroups = LoadFile<CachedResourceGroup>("resource-groups.json");
+            Resources      = LoadFile<CachedResource>("resources.json");
+            BuildIndexes();
+
+            _fileMtimes = current;
+            _loadedAt = DateTime.UtcNow;
+        }
+    }
+
+    private List<T> LoadFile<T>(string fileName)
+    {
+        var path = Path.Combine(_dir, fileName);
+        if (!File.Exists(path)) return new List<T>();
+        try
+        {
+            using var fs = File.OpenRead(path);
+            var env = JsonSerializer.Deserialize<CacheFile<T>>(fs, Json);
+            return env?.Items ?? new List<T>();
+        }
+        catch
+        {
+            return new List<T>();
+        }
+    }
+
+    private void BuildIndexes()
+    {
+        _subById = Subscriptions.ToDictionary(s => s.SubscriptionId, s => s, StringComparer.OrdinalIgnoreCase);
+
+        _rgByIdCi = ResourceGroups.ToDictionary(r => r.Id, r => r, StringComparer.OrdinalIgnoreCase);
+        _rgByNameLower = ResourceGroups
+            .GroupBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
+        _resByIdCi = new Dictionary<string, CachedResource>(StringComparer.OrdinalIgnoreCase);
+        foreach (var r in Resources) _resByIdCi[r.Id] = r;
+
+        _resByNameLower = Resources
+            .GroupBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
+        _resByTypeLower = Resources
+            .GroupBy(r => r.Type, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
+        _resIdsSorted = new SortedSet<string>(Resources.Select(r => r.Id), StringComparer.OrdinalIgnoreCase);
+    }
+
+    // ── Public query helpers used by the three AIFunction tools ──
+
+    public CacheStats Stats()
+    {
+        EnsureLoaded();
+        return new CacheStats(
+            Tenants.Count, Subscriptions.Count, ResourceGroups.Count, Resources.Count,
+            _loadedAt == DateTime.MinValue ? null : _loadedAt);
+    }
+
+    /// <summary>
+    /// find_resources backing impl. Always returns at most <paramref name="top"/>
+    /// rows. If <paramref name="namePattern"/> is null/empty, returns the first
+    /// <paramref name="top"/> rows that match the type/scope filter.
+    /// </summary>
+    public IReadOnlyList<MatchResult> FindResources(
+        string? namePattern,
+        string? kind,
+        ScopeFilter? scope,
+        int top)
+    {
+        EnsureLoaded();
+
+        // Dispatch on kind via the central registry. When kind is null/empty
+        // we search every registered kind and merge by score; when it's
+        // provided but unknown we deliberately return empty so the tool
+        // wrapper can surface a structured error listing valid kinds.
+        IEnumerable<KindSpec> kindsToSearch;
+        if (string.IsNullOrWhiteSpace(kind))
+        {
+            kindsToSearch = CacheKinds.Registry.Values;
+        }
+        else if (CacheKinds.TryResolve(kind, out var spec))
+        {
+            kindsToSearch = new[] { spec };
+        }
+        else
+        {
+            return Array.Empty<MatchResult>();
+        }
+
+        var perKind = new List<IReadOnlyList<MatchResult>>();
+        foreach (var spec in kindsToSearch)
+        {
+            var candidates = spec.AllItems(this);
+            if (scope is not null) candidates = ApplyScope(candidates, scope);
+            perKind.Add(RankByName(candidates, namePattern, top));
+        }
+
+        // Single-kind path: already correctly capped, return as-is.
+        if (perKind.Count == 1) return perKind[0];
+
+        // Multi-kind: re-merge across kinds and re-cap to `top`.
+        return perKind
+            .SelectMany(x => x)
+            .OrderByDescending(m => m.Score)
+            .Take(top)
+            .ToList();
+    }
+
+    private static IReadOnlyList<MatchResult> RankByName(
+        IEnumerable<CachedResource> candidates,
+        string? namePattern,
+        int top)
+    {
+        var pat = namePattern?.Trim();
+        var materialized = candidates as IList<CachedResource> ?? candidates.ToList();
+
+        if (string.IsNullOrEmpty(pat))
+        {
+            return materialized
+                .Take(top)
+                .Select(c => new MatchResult(c, "scope-only", 1.0))
+                .ToList();
+        }
+
+        var patLower = pat.ToLowerInvariant();
+
+        var exact = materialized.Where(c => string.Equals(c.Name, pat, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (exact.Count > 0)
+        {
+            return exact.Take(top).Select(c => new MatchResult(c, "exact", 1.0)).ToList();
+        }
+
+        var substr = materialized
+            .Where(c => c.Name.Contains(pat, StringComparison.OrdinalIgnoreCase))
+            .Select(c => new MatchResult(c, "substring", SubstringScore(c.Name, patLower)))
+            .OrderByDescending(m => m.Score)
+            .Take(top)
+            .ToList();
+        if (substr.Count > 0) return substr;
+
+        return materialized
+            .Select(c => new MatchResult(c, "fuzzy",
+                1.0 - (Lev(c.Name.ToLowerInvariant(), patLower) /
+                       (double)Math.Max(c.Name.Length, patLower.Length))))
+            .Where(m => m.Score >= 0.55)
+            .OrderByDescending(m => m.Score)
+            .Take(top)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Resolves an identifier to a single resource. <paramref name="nameOrId"/>
+    /// can be a full ARM id, an exact name, or a unique substring. Throws
+    /// <see cref="AmbiguousMatchException"/> when multiple resources match;
+    /// returns null when none match.
+    /// </summary>
+    public CachedResource? ResolveResource(string nameOrId, string? kind, ScopeFilter? scope)
+    {
+        EnsureLoaded();
+
+        // 1) Looks like an ARM id?
+        if (nameOrId.StartsWith("/subscriptions/", StringComparison.OrdinalIgnoreCase))
+        {
+            if (_resByIdCi.TryGetValue(nameOrId, out var byResId)) return byResId;
+            // Also check RG ARM ids — same /subscriptions/X/resourceGroups/Y form.
+            if (_rgByIdCi.TryGetValue(nameOrId, out var byRgId)) return CacheKinds.ProjectResourceGroup(byRgId);
+        }
+
+        // 2) Exact name (filtered)
+        var matches = FindResources(nameOrId, kind, scope, top: 25)
+            .Where(m => m.Match == "exact")
+            .ToList();
+
+        if (matches.Count == 1) return matches[0].Resource;
+        if (matches.Count > 1)
+        {
+            throw new AmbiguousMatchException(matches.Select(m => m.Resource.Id).ToList());
+        }
+
+        // 3) No exact — try unique substring/fuzzy
+        var sub = FindResources(nameOrId, kind, scope, top: 25);
+        if (sub.Count == 1) return sub[0].Resource;
+        if (sub.Count > 1)
+        {
+            throw new AmbiguousMatchException(sub.Select(m => m.Resource.Id).ToList());
+        }
+
+        return null;
+    }
+
+    public CachedResourceGroup? ResolveResourceGroup(string nameOrId, ScopeFilter? scope)
+    {
+        EnsureLoaded();
+
+        if (nameOrId.StartsWith("/subscriptions/", StringComparison.OrdinalIgnoreCase)
+            && _rgByIdCi.TryGetValue(nameOrId, out var byId))
+        {
+            return byId;
+        }
+
+        if (!_rgByNameLower.TryGetValue(nameOrId, out var bucket) || bucket.Count == 0)
+        {
+            return null;
+        }
+
+        var filtered = scope?.Subscription is { Length: > 0 } subFilter
+            ? bucket.Where(r => MatchesSub(r.SubscriptionId, subFilter)).ToList()
+            : bucket;
+
+        if (filtered.Count == 1) return filtered[0];
+        if (filtered.Count > 1)
+        {
+            throw new AmbiguousMatchException(filtered.Select(r => r.Id).ToList());
+        }
+        return null;
+    }
+
+    public CachedSubscription? ResolveSubscription(string nameOrId)
+    {
+        EnsureLoaded();
+        if (_subById.TryGetValue(nameOrId, out var bySubId)) return bySubId;
+        var matches = Subscriptions
+            .Where(s => string.Equals(s.DisplayName, nameOrId, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (matches.Count == 1) return matches[0];
+        if (matches.Count > 1)
+        {
+            throw new AmbiguousMatchException(matches.Select(s => s.SubscriptionId).ToList());
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Returns the in-cache subtree of <paramref name="rootId"/>. Used by
+    /// get_resource_tree. The tree is built by ARM-id prefix match — works
+    /// at tenant / subscription / RG level. For leaf resources the tree
+    /// is just the node itself with empty children.
+    /// </summary>
+    public TreeNode GetTree(string rootId, string rootKind, string rootName, int maxDepth)
+    {
+        EnsureLoaded();
+        var root = new TreeNode(rootName, rootKind, rootId);
+        BuildTreeChildren(root, maxDepth, currentDepth: 0);
+        return root;
+    }
+
+    private void BuildTreeChildren(TreeNode parent, int maxDepth, int currentDepth)
+    {
+        if (currentDepth >= maxDepth) return;
+
+        switch (parent.Kind)
+        {
+            case "tenant":
+                foreach (var s in Subscriptions.Where(s => string.Equals(s.TenantId, parent.Id, StringComparison.OrdinalIgnoreCase)))
+                {
+                    var node = new TreeNode(s.DisplayName ?? s.SubscriptionId, "subscription", s.SubscriptionId);
+                    parent.Children.Add(node);
+                    BuildTreeChildren(node, maxDepth, currentDepth + 1);
+                }
+                break;
+
+            case "subscription":
+                foreach (var rg in ResourceGroups.Where(r => string.Equals(r.SubscriptionId, parent.Id, StringComparison.OrdinalIgnoreCase)))
+                {
+                    var node = new TreeNode(rg.Name, "resourceGroup", rg.Id) { Location = rg.Location };
+                    parent.Children.Add(node);
+                    BuildTreeChildren(node, maxDepth, currentDepth + 1);
+                }
+                break;
+
+            case "resourceGroup":
+                var rgPrefix = parent.Id + "/providers/";
+                foreach (var r in Resources.Where(r => r.Id.StartsWith(rgPrefix, StringComparison.OrdinalIgnoreCase)))
+                {
+                    parent.Children.Add(new TreeNode(r.Name, "resource", r.Id) { ResourceType = r.Type, Location = r.Location });
+                }
+                break;
+
+            case "resource":
+                // Leaf — no in-cache children. (Sub-resources like VM extensions
+                // would require live ARM, out of scope for the cache reader.)
+                break;
+        }
+    }
+
+    // ── helpers ──
+
+    private IEnumerable<CachedResource> ResolveTypeBuckets(string type)
+    {
+        if (_resByTypeLower.TryGetValue(type, out var exact)) return exact;
+
+        // Try short form: "virtualMachines" → "microsoft.compute/virtualmachines"
+        var typeLower = type.ToLowerInvariant().TrimStart('/');
+        return _resByTypeLower
+            .Where(kv => kv.Key.EndsWith("/" + typeLower, StringComparison.OrdinalIgnoreCase)
+                      || kv.Key.Contains(typeLower, StringComparison.OrdinalIgnoreCase))
+            .SelectMany(kv => kv.Value);
+    }
+
+    private IEnumerable<CachedResource> ApplyScope(IEnumerable<CachedResource> src, ScopeFilter scope)
+    {
+        if (!string.IsNullOrWhiteSpace(scope.Subscription))
+        {
+            src = src.Where(r => MatchesSub(r.SubscriptionId, scope.Subscription!));
+        }
+        if (!string.IsNullOrWhiteSpace(scope.ResourceGroup))
+        {
+            src = src.Where(r => string.Equals(r.ResourceGroup, scope.ResourceGroup, StringComparison.OrdinalIgnoreCase));
+        }
+        return src;
+    }
+
+    private bool MatchesSub(string subId, string filter)
+    {
+        if (string.Equals(subId, filter, StringComparison.OrdinalIgnoreCase)) return true;
+        if (_subById.TryGetValue(subId, out var sub)
+            && string.Equals(sub.DisplayName, filter, StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
+    }
+
+    private static double SubstringScore(string name, string patLower)
+    {
+        var nameLower = name.ToLowerInvariant();
+        var idx = nameLower.IndexOf(patLower, StringComparison.Ordinal);
+        if (idx < 0) return 0;
+        // Higher score for prefix and shorter name.
+        var prefixBonus = idx == 0 ? 0.3 : 0.0;
+        var lengthRatio = patLower.Length / (double)Math.Max(name.Length, 1);
+        return Math.Min(0.99, 0.5 + prefixBonus + 0.2 * lengthRatio);
+    }
+
+    private static int Lev(string a, string b)
+    {
+        if (a.Length == 0) return b.Length;
+        if (b.Length == 0) return a.Length;
+        var prev = new int[b.Length + 1];
+        var curr = new int[b.Length + 1];
+        for (var j = 0; j <= b.Length; j++) prev[j] = j;
+        for (var i = 1; i <= a.Length; i++)
+        {
+            curr[0] = i;
+            for (var j = 1; j <= b.Length; j++)
+            {
+                var cost = a[i - 1] == b[j - 1] ? 0 : 1;
+                curr[j] = Math.Min(Math.Min(curr[j - 1] + 1, prev[j] + 1), prev[j - 1] + cost);
+            }
+            (prev, curr) = (curr, prev);
+        }
+        return prev[b.Length];
+    }
+}
+
+public sealed record CacheStats(
+    int Tenants, int Subscriptions, int ResourceGroups, int Resources, DateTime? LoadedAtUtc);
+
+public sealed record MatchResult(CachedResource Resource, string Match, double Score);
+
+public sealed class TreeNode
+{
+    public string Name { get; }
+    public string Kind { get; }
+    public string Id { get; }
+    public string? ResourceType { get; set; }
+    public string? Location { get; set; }
+    public List<TreeNode> Children { get; } = new();
+
+    public TreeNode(string name, string kind, string id)
+    {
+        Name = name;
+        Kind = kind;
+        Id = id;
+    }
+}
+
+public sealed class AmbiguousMatchException : Exception
+{
+    public IReadOnlyList<string> CandidateIds { get; }
+    public AmbiguousMatchException(IReadOnlyList<string> candidateIds)
+        : base($"Ambiguous identifier matches {candidateIds.Count} resources.")
+    {
+        CandidateIds = candidateIds;
+    }
+}
