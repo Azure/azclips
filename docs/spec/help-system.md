@@ -205,13 +205,31 @@ Tests live in [tools/Help/Cirrus.Help.Tool.Tests/](../../tools/Help/Cirrus.Help.
 - **PowerShell side already correct:** [`PowerShellExampleSyntaxValidator`](../../tools/Help/Cirrus.Help.Tool/Validation/PowerShellExampleSyntaxValidator.cs) reads the cmdlet name straight from the AST (`Connect-CirrusAccount`), so `PSL2_UnknownParameter` was never affected. No change needed.
 - **Test impact:** Existing 91 tests pass unchanged — they assert on the `'--flag'` prefix, not the trailing `on command '...'` portion. No new test added since there is no extension where the routed path equals the processor class name (would just duplicate the manual smoke check).
 
-### 9.8 Tool-level integration tests over `Program.MainAsync`
+### 9.9 Decide CLI runtime help artifact format — **DECISION REQUIRED**
 
-- **Problem:** Every validator class has strong unit coverage; `Program.cs` has none. Stage ordering, exit-code contract, manifest-emission gating, and the CLI-group → extension map are all untested. §9.5 will rewrite orchestration with nothing to catch a silent revert.
-- **Prerequisite refactor:** Extract `Program.Main` body into `Program.MainAsync(string[] args, string repoRoot, TextWriter? stderr = null) → int`; inject `repoRoot` for fixture-driven tests.
-- **Fixtures** under `tools/Help/Cirrus.Help.Tool.Tests/Fixtures/`: `Clean/`, `MissingHelpFile/`, `BadL3Value/`, `BadPSL2/`, `MultiExtensionErrors/`.
-- **Tests** (~5 facts, one per fixture). `MultiExtensionErrors` is the lock for §9.5 — initially `Skip`ped, un-skipped once §9.5 lands.
-- **Out of scope:** Subprocess E2E (slow, brittle, no value over in-process `MainAsync`). Snapshot manifest assertions ([HelpArtifactWriterTests](../../tests/Cli.Tests/Help/HelpArtifactWriterTests.cs) already covers that layer).
+PowerShell is settled: emit MAML XML (`*.dll-help.xml`) per convention, copied into `en-US/` next to the cmdlet DLL so `Get-Help` finds it. CLI is _not_ settled — we need to pick before this PR merges so that whatever the help tool emits is what runtime consumes.
+
+**Today (status quo):** `azv2 <command> --help` calls [`MarkdownCommandHelpProvider.Get(extensionName, commandKey)`](../../src/Core/Core.Runtime/Help/MarkdownCommandHelpProvider.cs) which `File.ReadAllText` + regex-parses the `.md` file at request time. Separately, the help tool _also_ emits `HelpManifest.json` per extension + a flat cross-extension `HelpIndex.json` (via [`HelpArtifactWriter`](../../src/Core/Core.Runtime/Help/HelpArtifactWriter.cs)) — but **no CLI code path consumes them**. They're built-but-orphaned, presumably staged for an agent/search consumer.
+
+**Options:**
+
+- **Option A — Keep `.md` as the runtime source for CLI (formalize status quo).**
+    - _Pros:_ one source of truth (the .md file authors edit); zero-build dev loop (edit .md, re-run CLI, see new help — no rebuild needed); validation drift is harmless because runtime degrades gracefully (`FrontmatterParser` etc. tolerate malformed input and the help-validate CI job catches real errors).
+    - _Cons:_ regex parse + path probing per `--help` call (cheap, but non-zero on cold start); ships .md sidecars next to every extension DLL; single-file/AOT publish needs explicit `<Content>` includes; means `HelpManifest.json`/`HelpIndex.json` stay agent-only (we should say so explicitly to avoid future confusion).
+- **Option B — Switch CLI to consume `HelpManifest.json` at runtime.**
+    - _Pros:_ parse happens once at build time; runtime is `System.Text.Json` deserialize (source-gen-able for AOT); aligns CLI surface with the artifact the agent already wants; .md becomes a build-time-only input (cleaner shipping story — one `HelpManifest.json` per extension instead of ~N markdown files).
+    - _Cons:_ dev loop now requires `dotnet build` after editing .md; build failure ⇒ runtime cannot serve help (worse degradation); need to either embed JSON as resource (cross-extension contract change) or define a sidecar location/lookup; `MarkdownCommandHelpProvider` ⇒ deprecated.
+- **Option C — Hybrid: embed `.md` files as embedded resources in each extension DLL.**
+    - _Pros:_ single binary per extension; keeps markdown authoring; no JSON consumer to add.
+    - _Cons:_ per-extension `.csproj` changes; runtime still parses markdown via regex (no perf win); dev loop also requires rebuild.
+
+**Recommendation (to be confirmed):** **Option A.** Today the CLI works fine with .md reads; switching to JSON consumption is a contract change that should pay for itself with a concrete second consumer (agent runtime, telemetry index, search). If we're not building that second consumer this PR, leave the runtime read-path alone, mark the orphaned JSON artifacts as "for future consumers (agent prompt feed, §10.x)", and revisit when the second consumer lands.
+
+**What we'd ship for the chosen option in this PR:**
+
+- _If A:_ update [help-system.md §6](#) ("Runtime surfaces") to state CLI runtime reads `.md`, PowerShell runtime reads MAML; add a one-line note on `HelpManifest.json`/`HelpIndex.json` being agent-facing artifacts not consumed by `--help`; close §9.9 as **DONE — decision: A**.
+- _If B:_ add `HelpManifestProvider` to `Core.Runtime/Help/`, swap [`ExtensionIndexHelpAdapter`](../../src/CLI/Help/ExtensionIndexHelpAdapter.cs) to call it instead of `MarkdownCommandHelpProvider`, update [`HelpArtifactWriter`](../../src/Core/Core.Runtime/Help/HelpArtifactWriter.cs) callers to emit per-extension JSON next to the DLL (not just under `artifacts/help/`), keep `MarkdownCommandHelpProvider` for the help tool itself, write integration test that `azv2 group --help` matches markdown content via JSON path. Bigger change — likely worth a stand-alone follow-up PR, not this one.
+- _If C:_ edit each extension `.csproj` to add `<EmbeddedResource Include="Help/**/*.md" />`, change `MarkdownCommandHelpProvider.GetHelpFilePath` to resolve via `Assembly.GetManifestResourceStream`, document the convention in [docs/howto/help.md](../howto/help.md). Touches every extension.
 
 ---
 
@@ -258,3 +276,12 @@ Audit rendered help across surfaces (`azv2 --help`, `azv2 <command> --help`, `Ge
 ### 10.10 Share build artifacts across CI jobs
 
 Today the three CI jobs (`build-and-test`, `help-validate`, `help-tool-tests`) each run their own `dotnet restore` + `dotnet build` — clean attribution at the cost of triple work. Replace with a single `build` job that uploads `artifacts/Debug/` + each project's `bin/Debug/` (likely tarred together) via `actions/upload-artifact@v4`; downstream jobs `download-artifact` and run `dotnet test --no-build` / the help tool against the shared output. Adds NuGet cache (`actions/cache@v4` keyed on `**/*.csproj` hash) to make the `build` job itself faster. Worth doing once we have multiple PRs queueing on CI minutes; not worth the workflow complexity for our current volume.
+
+### 10.11 Tool-level integration tests over `Program.MainAsync`
+
+- **Problem:** Every validator class has strong unit coverage; [`Program.cs`](../../tools/Help/Cirrus.Help.Tool/Program.cs) has none. Stage ordering, exit-code contract, manifest-emission gating, and the CLI-group → extension map are all untested.
+- **Why deferred (not blocking this PR):** The orchestration layer is the most likely surface for reviewer feedback — the hardcoded `cliGroupByExtension` map already carries a "remove when `IExtensionIndex` exposes this" comment, §9.9 may change what artifacts get emitted, and reviewers may push on parallel-stage / fail-fast / structured-output options. Locking the current shape with integration tests now would mostly assert orchestration details that may churn in review. Validator-level unit coverage (91 facts) already pins the behavior contracts that matter.
+- **Prerequisite refactor (when this lands):** Extract `Program.Main` body into `Program.MainAsync(string[] args, string? repoRoot = null, TextWriter? stdout = null, TextWriter? stderr = null) → Task<int>`; auto-detect `repoRoot` from `AppContext.BaseDirectory` when `null`. Watch for two ALC landmines: (a) the `AssemblyLoadContext.Default.Resolving` handler must be `-=`d in a `try/finally` so successive calls don't fire stale closures; (b) extension DLLs load process-wide, so fixtures **must reuse the real `artifacts/Debug/` DLLs** and vary only the markdown corpus passed via `repoRoot`.
+- **Fixtures** under `tools/Help/Cirrus.Help.Tool.Tests/Fixtures/`: `Clean/`, `MissingHelpFile/`, `BadL3Value/`, `BadPSL2/`, `MultiExtensionErrors/`. Built via a `CopyRealHelpToTempDir` + targeted-mutation helper so each fixture is a delta on the shipped corpus rather than a full clone.
+- **Tests** (~5 facts, one per fixture). `MultiExtensionErrors` locks in the §9.5 no-early-exit contract.
+- **Out of scope:** Subprocess E2E (slow, brittle, no value over in-process `MainAsync`). Snapshot manifest assertions ([HelpArtifactWriterTests](../../tests/Cli.Tests/Help/HelpArtifactWriterTests.cs) already covers that layer).
