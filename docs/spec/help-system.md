@@ -981,6 +981,22 @@ The following design decisions have been **made and validated** in the actual im
     - Verify example code fences render readably in `azv2 --help` (no leftover markdown syntax) and that PowerShell examples preserve quoting in `.dll-Help.xml`.
     - Capture before/after screenshots in [docs/howto/help.md](../howto/help.md) so future changes have a baseline.
 
+7. **Help tool: collate all validation issues before failing**
+    - **Problem:** [tools/Help/Cirrus.Help.Tool/Program.cs](../../tools/Help/Cirrus.Help.Tool/Program.cs) currently throws after the first validator stage that produces errors (markdown structure → completeness (per-extension) → CLI example syntax → PowerShell example syntax). A single missing help file in one extension hides every downstream issue (e.g. compute completeness errors hid a real `-Name3` typo flagged by PS-L2 in a different extension). Each authoring iteration only surfaces one class of problem at a time, which is friction during bulk edits and PR review.
+    - **Goal:** Run every validator over every extension, aggregate all `ValidationIssue`s into the existing `aggregateReport`, print a single grouped summary at the end (errors by validator/extension/file, then warnings), and exit non-zero iff any errors were collected. Per-stage `throw` becomes a deferred `failed = true` flag.
+    - **Scope of changes:**
+        - Remove the four early `throw new InvalidOperationException(...)` sites in `Program.cs` (after `MarkdownStructureValidator`, after each per-extension `HelpCompletenessValidator`, after `ExampleSyntaxValidator`, after `PowerShellExampleSyntaxValidator`). Replace with `aggregateReport.Merge(...)` only.
+        - Skip manifest emission for an extension that has completeness errors (don't write half-baked JSON), but continue iterating to the next extension instead of bailing.
+        - At the end of `Main`, render the aggregate report grouped by `ProblemId`/validator with counts (e.g. `MarkdownStructure: 2 errors`, `Completeness[compute]: 2 errors`, `CLI-L1: 3 errors`, `PS-L2: 1 error`, `Warnings: 4`), then call `Environment.Exit(1)` if `aggregateReport.HasErrors`.
+        - Promote `ValidationIssue` to carry a stable `ProblemId` string (mirrors azure-powershell's `ExampleIssue`) so the summary can group/suppress by rule and CI can introduce per-rule baselines later. Backfill the existing call sites: `MD_MissingSummary`, `MD_MissingDescription`, `MD_NoExamples`, `MD_UnbalancedFence`, `Completeness_MissingHelpFile`, `Completeness_OrphanHelpFile`, `CLI_L1_UnknownGroup`, `CLI_L1_UnknownCommand`, `CLI_L2_UnknownFlag`, `PSL1_UnknownCmdlet`, `PSL2_UnknownParameter`.
+        - Keep `PrintReport` as the per-stage progress trace (still useful for tailing CI logs) but ensure the final grouped summary is the authoritative output.
+    - **Tests:** New cases in [tools/Help/Cirrus.Help.Tool.Tests/](../../tools/Help/Cirrus.Help.Tool.Tests/):
+        - Multiple extensions each with completeness errors → all errors collected, all reported in summary.
+        - Completeness error in extension A does not suppress PS-L2 error in extension B.
+        - `ProblemId` is populated on every issue emitted by every validator (table-driven).
+        - Exit code is 0 when only warnings are present, 1 when any error is present.
+    - **Why this lives in §15.5 and not §15.4:** It's a UX polish over an already-correct pipeline. The validators themselves don't need to change — only orchestration and reporting do.
+
 **Exit criteria:**
 
 - All specs accurately describe implemented behavior

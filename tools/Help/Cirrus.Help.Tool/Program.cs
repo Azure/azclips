@@ -67,6 +67,7 @@ var cliGroupByExtension = new Dictionary<string, string>(StringComparer.OrdinalI
     ["login"] = "login",
     ["extension"] = "extension",
     ["config"] = "config",
+    ["compute"] = "vm",
 };
 
 foreach (var dllPath in extensionDlls)
