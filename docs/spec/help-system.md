@@ -1037,6 +1037,31 @@ The following design decisions have been **made and validated** in the actual im
         - Verify `command.FullName` vs `command.Name` semantics across extensions — if `FullName` is the routed path everywhere, prefer that and skip the token-slice plumbing.
     - **Tests:** Update the existing L3 `[Fact]`s in [ExampleSyntaxValidatorTests.cs](../../tools/Help/Cirrus.Help.Tool.Tests/ExampleSyntaxValidatorTests.cs) to assert the message contains the routed path (`"command 'create'"` for the stubbed `vm create`), and add one live-style test that constructs a command whose `Name` differs from its routed path to lock in the fix.
 
+10. **Tool-level integration tests over `Program.MainAsync`**
+    - **Problem:** Today we have strong unit coverage on each validator class ([ExampleSyntaxValidatorTests.cs](../../tools/Help/Cirrus.Help.Tool.Tests/ExampleSyntaxValidatorTests.cs), [PowerShellExampleSyntaxValidatorTests.cs](../../tools/Help/Cirrus.Help.Tool.Tests/PowerShellExampleSyntaxValidatorTests.cs), [HelpCompletenessValidatorTests.cs](../../tools/Help/Cirrus.Help.Tool.Tests/HelpCompletenessValidatorTests.cs), [MarkdownStructureValidatorTests.cs](../../tools/Help/Cirrus.Help.Tool.Tests/MarkdownStructureValidatorTests.cs)) but zero tests on [Program.cs](../../tools/Help/Cirrus.Help.Tool/Program.cs) itself. Several contracts live there with no automated guard: stage ordering (markdown → completeness → CLI → PS), the exit-code contract (`0` on warnings-only, `1` on errors), manifest-emission gating (don't write JSON for an extension that failed completeness), and the CLI-group → extension map (e.g. `["compute"] = "vm"` — currently untested). When §15.5.7 lands and rewrites the orchestration to collate-before-failing, there is no test that will catch a silent revert of any of these contracts.
+    - **Goal:** A small integration-test surface that drives `Program.MainAsync(string[] args)` over a fixture repo and asserts on exit code + collected report. Not full E2E (no subprocess) — just enough to lock the orchestration contracts.
+    - **Why "polish" and not blocker:** The help-system design itself is still solidifying. Hardening the tool too aggressively before the shape stabilises locks us into orchestration decisions that may still need to change. This item gets _prepared_ (refactor `Program.cs` to expose `MainAsync` and accept an injected fixture root) but the test suite is deliberately small and only grows once the design is cemented.
+    - **Prerequisite refactor:**
+        - Extract the orchestration body of `Program.cs` into `Program.MainAsync(string[] args, string repoRoot, TextWriter? stderr = null)` returning `int`. The `Main` entrypoint becomes a one-liner.
+        - Inject `repoRoot` so tests can point at a `tests/Fixtures/HelpToolFixtures/<scenario>/` tree instead of mutating the real repo.
+    - **Fixture layout** under `tools/Help/Cirrus.Help.Tool.Tests/Fixtures/`:
+        - `Clean/` — one extension, well-formed help. Asserts exit 0 + manifests written.
+        - `MissingHelpFile/` — completeness error in one extension. Asserts exit 1 + error references the missing file.
+        - `BadL3Value/` — bool flag with `yes` literal. Asserts exit 1 + error contains `not a valid Boolean`.
+        - `BadPSL2/` — `-Name3` typo in PS fence. Asserts exit 1 + error contains the cmdlet name.
+        - `MultiExtensionErrors/` — errors in extensions A _and_ B (this is the **lock** for §15.5.7: today only A's errors surface; after §15.5.7 both must surface).
+    - **Tests** (target ~5 `[Fact]`s, one per fixture):
+        - `Tool_ShouldExit0_AndWriteManifests_OnCleanFixture`.
+        - `Tool_ShouldExit1_AndReportMissingHelpFile`.
+        - `Tool_ShouldExit1_AndReportL3Violation`.
+        - `Tool_ShouldExit1_AndReportPSL2Violation`.
+        - `Tool_ShouldReportErrorsFromAllExtensions_WhenMultipleFail` _(initially expected to be a failing/`Skip`ped test until §15.5.7 lands — it's the contract that drives that work)_.
+    - **Explicitly out of scope:**
+        - Subprocess-based E2E (`Process.Start("dotnet run")`) — too slow, too brittle, and adds nothing over an in-process `MainAsync` call.
+        - Snapshot/golden assertions on full manifest output — [HelpArtifactWriterTests.cs](../../tests/Cli.Tests/Help/HelpArtifactWriterTests.cs) already covers that layer.
+        - Hardening anything past the contracts listed above until the help-system design is cemented (post-PR-this-one).
+    - **Why this lives in §15.5 and not §15.4:** §15.4 delivers the _capability_; this delivers _durability_. The capability is verified by hand and by validator-level unit tests; durability against orchestration regression is a follow-up that should pair with §15.5.7.
+
 **Exit criteria:**
 
 - All specs accurately describe implemented behavior
