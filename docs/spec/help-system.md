@@ -12,15 +12,15 @@
 
 ## 2. Goals
 
-| Goal | Rationale |
-| --- | --- |
-| Single source of truth | One markdown file per command; no duplication between CLI and PowerShell. |
-| Tree-aware CLI help | `azv2 --help`, `azv2 group --help`, `azv2 group create --help` each produce meaningfully different output. |
-| Native PowerShell help | `Get-Help <Cmdlet> -Full` is served by standard MAML XML packaged with the module. |
-| Cold-path safe | CLI help renders without loading execution code or instantiating processors. |
-| Authorable by humans | Authors edit `.md` files next to the extension; no recompile to iterate. |
+| Goal                   | Rationale                                                                                                      |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Single source of truth | One markdown file per command; no duplication between CLI and PowerShell.                                      |
+| Tree-aware CLI help    | `azv2 --help`, `azv2 group --help`, `azv2 group create --help` each produce meaningfully different output.     |
+| Native PowerShell help | `Get-Help <Cmdlet> -Full` is served by standard MAML XML packaged with the module.                             |
+| Cold-path safe         | CLI help renders without loading execution code or instantiating processors.                                   |
+| Authorable by humans   | Authors edit `.md` files next to the extension; no recompile to iterate.                                       |
 | Mechanically validated | Every example is parsed and checked against live `ExtensionIndex` metadata at build time; stale help fails CI. |
-| AI-augmentable | The same markdown corpus is consumed by the agent's prompt feed. |
+| AI-augmentable         | The same markdown corpus is consumed by the agent's prompt feed.                                               |
 
 ---
 
@@ -65,11 +65,11 @@ Each file has YAML frontmatter (file-level metadata) followed by a markdown body
 ````markdown
 ---
 summary: One-line description.
-status: ga                 # ga | preview | deprecated | internal (default ga)
-schema: 1.0.0              # frontmatter schema version
-online version:            # MSLearn URL, empty until §10.1 lands
+status: ga # ga | preview | deprecated | internal (default ga)
+schema: 1.0.0 # frontmatter schema version
+online version: # MSLearn URL, empty until §10.1 lands
 relatedLinks:
-  - azv2 logout
+    - azv2 logout
 ---
 
 Description: Multi-paragraph explanation in the body.
@@ -123,12 +123,12 @@ Result: `Get-Help <Cmdlet> -Full` works natively with no custom resolver. Exampl
 
 `Cirrus.Help.Tool` runs four validators in order, each emitting structured `ValidationIssue`s with a stable `ProblemId`. CI surfaces the tool via the "Validate Help Content" step in [build-and-test.yml](../../.github/workflows/build-and-test.yml).
 
-| Validator | Checks | Failure mode |
-| --- | --- | --- |
-| `MarkdownStructureValidator` | Frontmatter present + valid; `summary` and `schema` required; `status` (if set) is a valid enum value; body has description and at least one example; code fences balanced. | Hard error. |
-| `HelpCompletenessValidator` | Every routed command in `ExtensionIndex` has a corresponding markdown file; warns on orphan markdown files. | Hard error on missing; warning on orphan. |
-| `ExampleSyntaxValidator` (CLI L1/L2/L3) | Every `azv2 …` line tokenizes; first token resolves to a known group; remaining non-flag tokens resolve via `IExtensionIndex.GetCommandTable(CLI)`; every `--flag`/`-x` exists on the resolved command (or is global); values type-check against `ParameterMetadata.Type` and `AllowedValues` (Guid, int/long, float/double/decimal, bool, enums). | Hard error. |
-| `PowerShellExampleSyntaxValidator` (PS-L1/L2) | Every `Verb-Noun` resolves via reflected cmdlet index; every `-Parameter` resolves to a declared parameter or alias; common parameters whitelisted; splatted commands skip L2 only. | Hard error. |
+| Validator                                     | Checks                                                                                                                                                                                                                                                                                                                                             | Failure mode                              |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| `MarkdownStructureValidator`                  | Frontmatter present + valid; `summary` and `schema` required; `status` (if set) is a valid enum value; body has description and at least one example; code fences balanced.                                                                                                                                                                        | Hard error.                               |
+| `HelpCompletenessValidator`                   | Every routed command in `ExtensionIndex` has a corresponding markdown file; warns on orphan markdown files.                                                                                                                                                                                                                                        | Hard error on missing; warning on orphan. |
+| `ExampleSyntaxValidator` (CLI L1/L2/L3)       | Every `azv2 …` line tokenizes; first token resolves to a known group; remaining non-flag tokens resolve via `IExtensionIndex.GetCommandTable(CLI)`; every `--flag`/`-x` exists on the resolved command (or is global); values type-check against `ParameterMetadata.Type` and `AllowedValues` (Guid, int/long, float/double/decimal, bool, enums). | Hard error.                               |
+| `PowerShellExampleSyntaxValidator` (PS-L1/L2) | Every `Verb-Noun` resolves via reflected cmdlet index; every `-Parameter` resolves to a declared parameter or alias; common parameters whitelisted; splatted commands skip L2 only.                                                                                                                                                                | Hard error.                               |
 
 **Placeholders** (`<rg>`, `$var`, `${var}`, the all-zero Guid) pass through L3 unchecked. **Positional parameters** are intentionally not yet enforced — required-flag-presence is deferred until processor metadata exposes positional bindings.
 
