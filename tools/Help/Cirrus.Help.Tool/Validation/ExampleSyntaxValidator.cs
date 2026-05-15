@@ -1,6 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Globalization;
 using System.Text.RegularExpressions;
 using Core.Abstractions;
 
@@ -12,6 +13,9 @@ namespace Cirrus.Help.Tool.Validation
     ///   <item><description><b>L1</b> — every <c>azv2 ...</c> line tokenizes to a routed command path.</description></item>
     ///   <item><description><b>L2</b> — every <c>--flag</c> / <c>-x</c> token resolves to a declared parameter
     ///   (or to the documented global flag set: <c>--help</c>, <c>--debug</c>, <c>--output</c>, <c>-h</c>).</description></item>
+    ///   <item><description><b>L3</b> — every literal value following a known flag parses as the parameter's declared
+    ///   <see cref="ParameterMetadata.ParameterType"/>, and (if specified) is a member of
+    ///   <see cref="ParameterMetadata.AllowedValues"/>. Placeholders (<c>&lt;...&gt;</c>, <c>$var</c>) are skipped.</description></item>
     /// </list>
     /// Required-parameter-presence (a stricter form of L2) is intentionally deferred until positional
     /// parameter metadata is exposed by the framework — see <c>docs/spec/help-system.md §15.4.6</c>.
@@ -182,59 +186,238 @@ namespace Cirrus.Help.Tool.Validation
                 var token = tokens[i];
                 if (!IsFlag(token))
                 {
-                    // Positional value (or value following an earlier flag) — skip in L2.
+                    // Positional value (or value following an earlier flag we already consumed). Skip.
                     continue;
                 }
 
                 // Support `--flag=value` and `-f=value` forms.
                 var flag = token;
+                string? equalsValue = null;
                 var eq = flag.IndexOf('=');
                 if (eq > 0)
                 {
+                    equalsValue = flag[(eq + 1)..];
                     flag = flag[..eq];
                 }
 
                 if (s_globalFlags.Contains(flag))
                 {
+                    // Consume a possible value (e.g. --output table). Globals are not L3-checked.
+                    if (equalsValue is null && i + 1 < tokens.Count && !IsFlag(tokens[i + 1]))
+                    {
+                        i++;
+                    }
                     continue;
                 }
 
                 var bareName = flag.TrimStart('-');
-                if (IsKnownParameter(command, bareName))
+                if (!TryGetParameter(command, bareName, out var parameter))
                 {
+                    report.AddError(
+                        $"Unknown flag '{flag}' on command '{command.Name}'. Not declared as a parameter or alias.",
+                        locator);
                     continue;
                 }
 
-                report.AddError(
-                    $"Unknown flag '{flag}' on command '{command.Name}'. Not declared as a parameter or alias.",
-                    locator);
+                // L3: determine the value (if any) and type-check it.
+                var value = equalsValue;
+                if (value is null && i + 1 < tokens.Count && !IsFlag(tokens[i + 1]))
+                {
+                    value = tokens[i + 1];
+                    i++; // consume the value token
+                }
+
+                if (value is null || IsPlaceholder(value))
+                {
+                    // Switch-form (bool flag with no value) is accepted silently \u2014 see docs/spec/help-system.md \u00a715.4.8.
+                    continue;
+                }
+
+                var typeError = CheckValue(parameter!, value);
+                if (typeError is not null)
+                {
+                    report.AddError(
+                        $"Value '{value}' for flag '{flag}' on command '{command.Name}' is invalid: {typeError}",
+                        locator);
+                }
             }
         }
 
-        private static bool IsKnownParameter(CommandMetadata command, string bareName)
+        private static bool TryGetParameter(CommandMetadata command, string bareName, out ParameterMetadata? parameter)
         {
-            // CLI parameter table keys are stored in kebab-case (matching the on-the-wire flag).
-            if (command.Parameters.ContainsKey(bareName))
+            if (command.Parameters.TryGetValue(bareName, out var direct))
             {
+                parameter = direct;
                 return true;
             }
 
-            // Aliases map alias-name → canonical-name. Either side counts as "known".
-            if (command.ParameterAliases.ContainsKey(bareName) || command.ParameterAliases.Values.Contains(bareName, StringComparer.OrdinalIgnoreCase))
+            // Aliases map alias-name \u2192 canonical-name.
+            if (command.ParameterAliases.TryGetValue(bareName, out var canonical)
+                && command.Parameters.TryGetValue(canonical, out var aliased))
             {
+                parameter = aliased;
                 return true;
             }
 
-            // Case-insensitive fallback for parameter names — defensive against extension authors using PascalCase keys.
-            foreach (var key in command.Parameters.Keys)
+            // Case-insensitive fallback for parameter names (defensive against PascalCase keys).
+            foreach (var (key, meta) in command.Parameters)
             {
                 if (string.Equals(key, bareName, StringComparison.OrdinalIgnoreCase))
                 {
+                    parameter = meta;
                     return true;
                 }
             }
 
+            // Canonical of an alias used as the flag itself.
+            foreach (var canonicalName in command.ParameterAliases.Values)
+            {
+                if (string.Equals(canonicalName, bareName, StringComparison.OrdinalIgnoreCase)
+                    && command.Parameters.TryGetValue(canonicalName, out var byCanonical))
+                {
+                    parameter = byCanonical;
+                    return true;
+                }
+            }
+
+            parameter = null;
             return false;
+        }
+
+        /// <summary>
+        /// Placeholder values that should not be type-checked. Mirrors conventions in <c>docs/howto/help.md</c>.
+        /// </summary>
+        private static bool IsPlaceholder(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return false;
+            }
+
+            if (value[0] == '<' && value[^1] == '>')
+            {
+                return true; // <my-rg>, <subId>, <password>
+            }
+
+            if (value[0] == '$')
+            {
+                return true; // $var, ${var}
+            }
+
+            if (value.Equals("00000000-0000-0000-0000-000000000000", StringComparison.Ordinal))
+            {
+                return true; // canonical example Guid
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Returns null when the value is acceptable; otherwise returns a short reason fragment
+        /// to embed in the error message (e.g. <c>"not a valid Guid"</c>).
+        /// </summary>
+        private static string? CheckValue(ParameterMetadata parameter, string value)
+        {
+            // AllowedValues takes precedence: if specified, the value MUST match (case-insensitive).
+            if (parameter.AllowedValues is { Length: > 0 })
+            {
+                foreach (var allowed in parameter.AllowedValues)
+                {
+                    if (string.Equals(allowed, value, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return null;
+                    }
+                }
+
+                return $"not in allowed values [{string.Join(", ", parameter.AllowedValues)}]";
+            }
+
+            var type = parameter.ParameterType;
+            if (type is null)
+            {
+                return null;
+            }
+
+            // Unwrap Nullable<T>.
+            type = Nullable.GetUnderlyingType(type) ?? type;
+
+            // List/IEnumerable element validation is deferred (see docs/spec/help-system.md \u00a715.4.8).
+            if (IsListLike(type))
+            {
+                return null;
+            }
+
+            if (type == typeof(string))
+            {
+                return null;
+            }
+
+            if (type == typeof(Guid))
+            {
+                return Guid.TryParse(value, out _) ? null : "not a valid Guid";
+            }
+
+            if (type == typeof(int))
+            {
+                return int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out _)
+                    ? null : "not a valid Int32";
+            }
+
+            if (type == typeof(long))
+            {
+                return long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out _)
+                    ? null : "not a valid Int64";
+            }
+
+            if (type == typeof(double) || type == typeof(float) || type == typeof(decimal))
+            {
+                return double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out _)
+                    ? null : $"not a valid {type.Name}";
+            }
+
+            if (type == typeof(bool))
+            {
+                return (string.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(value, "false", StringComparison.OrdinalIgnoreCase))
+                    ? null : "not a valid Boolean";
+            }
+
+            if (type.IsEnum)
+            {
+                var names = Enum.GetNames(type);
+                foreach (var name in names)
+                {
+                    if (string.Equals(name, value, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return null;
+                    }
+                }
+                return $"not one of [{string.Join(", ", names)}]";
+            }
+
+            // Unknown type \u2014 no L3 check.
+            return null;
+        }
+
+        private static bool IsListLike(Type type)
+        {
+            if (type.IsArray)
+            {
+                return true;
+            }
+
+            if (!type.IsGenericType)
+            {
+                return false;
+            }
+
+            var def = type.GetGenericTypeDefinition();
+            return def == typeof(List<>)
+                || def == typeof(IEnumerable<>)
+                || def == typeof(IList<>)
+                || def == typeof(ICollection<>)
+                || def == typeof(IReadOnlyList<>)
+                || def == typeof(IReadOnlyCollection<>);
         }
 
         /// <summary>

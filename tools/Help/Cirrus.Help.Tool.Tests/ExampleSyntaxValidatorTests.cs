@@ -202,6 +202,224 @@ namespace Cirrus.Help.Tool.Tests
             Assert.False(report.HasErrors);
         }
 
+        // ── L3: parameter value type validation (15.4.8) ────────────────────────
+
+        private enum StubOutputFormat { Json, Table, None }
+
+        private static IReadOnlyDictionary<string, IExtensionIndex> BuildTypedIndexes()
+        {
+            // Single command 'vm create' with mixed typed parameters to exercise L3.
+            var vm = new StubExtensionIndex(new Dictionary<string, ParameterMetadata[]>
+            {
+                ["create"] = new[]
+                {
+                    new ParameterMetadata("subscription-id", typeof(Guid), "", true, Array.Empty<string>(), Array.Empty<string>()),
+                    new ParameterMetadata("name", typeof(string), "", true, Array.Empty<string>(), Array.Empty<string>()),
+                    new ParameterMetadata("retries", typeof(int), "", false, Array.Empty<string>(), Array.Empty<string>()),
+                    new ParameterMetadata("use-device-code", typeof(bool), "", false, Array.Empty<string>(), Array.Empty<string>()),
+                    new ParameterMetadata("format", typeof(StubOutputFormat), "", false, Array.Empty<string>(), Array.Empty<string>()),
+                    new ParameterMetadata("verbosity", typeof(string), "", false, Array.Empty<string>(), new[] { "quiet", "normal", "diagnostic" }),
+                    new ParameterMetadata("tags", typeof(List<string>), "", false, Array.Empty<string>(), Array.Empty<string>()),
+                },
+            });
+
+            return new Dictionary<string, IExtensionIndex>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["vm"] = vm,
+            };
+        }
+
+        [Fact]
+        public void Validate_ShouldPass_WhenGuidValueIsWellFormed()
+        {
+            var content = Fence("azv2 vm create --name myvm --subscription-id 11111111-2222-3333-4444-555555555555");
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
+
+            Assert.False(report.HasErrors);
+        }
+
+        [Fact]
+        public void Validate_ShouldError_WhenGuidValueIsMalformed()
+        {
+            var content = Fence("azv2 vm create --name myvm --subscription-id not-a-guid");
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
+
+            Assert.True(report.HasErrors);
+            Assert.Contains(report.Errors, e =>
+                e.Message.Contains("not-a-guid", StringComparison.Ordinal)
+                && e.Message.Contains("not a valid Guid", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void Validate_ShouldError_WhenIntValueIsMalformed()
+        {
+            var content = Fence("azv2 vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --retries abc");
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
+
+            Assert.True(report.HasErrors);
+            Assert.Contains(report.Errors, e => e.Message.Contains("not a valid Int32", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void Validate_ShouldPass_WhenIntValueIsWellFormed()
+        {
+            var content = Fence("azv2 vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --retries 5");
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
+
+            Assert.False(report.HasErrors);
+        }
+
+        [Fact]
+        public void Validate_ShouldPass_WhenBoolSwitchHasNoValue()
+        {
+            var content = Fence("azv2 vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code");
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
+
+            Assert.False(report.HasErrors);
+        }
+
+        [Fact]
+        public void Validate_ShouldPass_WhenBoolExplicitValueIsTrueOrFalse()
+        {
+            var content = Fence("azv2 vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code true");
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
+
+            Assert.False(report.HasErrors);
+        }
+
+        [Fact]
+        public void Validate_ShouldError_WhenBoolValueIsNeitherTrueNorFalse()
+        {
+            var content = Fence("azv2 vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code yes");
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
+
+            Assert.True(report.HasErrors);
+            Assert.Contains(report.Errors, e => e.Message.Contains("not a valid Boolean", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void Validate_ShouldPass_WhenEnumValueMatchesCaseInsensitively()
+        {
+            var content = Fence("azv2 vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --format JSON");
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
+
+            Assert.False(report.HasErrors);
+        }
+
+        [Fact]
+        public void Validate_ShouldError_WhenEnumValueIsNotAMember()
+        {
+            var content = Fence("azv2 vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --format xml");
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
+
+            Assert.True(report.HasErrors);
+            Assert.Contains(report.Errors, e =>
+                e.Message.Contains("xml", StringComparison.Ordinal)
+                && e.Message.Contains("not one of", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void Validate_ShouldError_WhenAllowedValuesAreSetAndValueIsOutOfRange()
+        {
+            var content = Fence("azv2 vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --verbosity loud");
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
+
+            Assert.True(report.HasErrors);
+            Assert.Contains(report.Errors, e =>
+                e.Message.Contains("loud", StringComparison.Ordinal)
+                && e.Message.Contains("not in allowed values", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void Validate_ShouldPass_WhenAllowedValuesContainTheValue()
+        {
+            var content = Fence("azv2 vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --verbosity Quiet");
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
+
+            Assert.False(report.HasErrors);
+        }
+
+        [Fact]
+        public void Validate_ShouldSkipL3_WhenValueIsAngleBracketPlaceholder()
+        {
+            var content = Fence("azv2 vm create --name myvm --subscription-id <subId> --retries <count>");
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
+
+            Assert.False(report.HasErrors);
+        }
+
+        [Fact]
+        public void Validate_ShouldSkipL3_WhenValueIsShellVariable()
+        {
+            var content = Fence("azv2 vm create --name $vmName --subscription-id $subId --retries $count");
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
+
+            Assert.False(report.HasErrors);
+        }
+
+        [Fact]
+        public void Validate_ShouldSkipL3_WhenValueIsAllZeroGuidPlaceholder()
+        {
+            // The all-zero GUID is also a valid Guid, but documented as a placeholder.
+            var content = Fence("azv2 vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000");
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
+
+            Assert.False(report.HasErrors);
+        }
+
+        [Fact]
+        public void Validate_ShouldSupportEqualsForm_BothPassAndFail()
+        {
+            var pass = Fence("azv2 vm create --name myvm --subscription-id=11111111-2222-3333-4444-555555555555");
+            var fail = Fence("azv2 vm create --name myvm --subscription-id=not-a-guid");
+
+            var passReport = new ExampleSyntaxValidator().ValidateContent(pass, "fake.md", BuildTypedIndexes());
+            var failReport = new ExampleSyntaxValidator().ValidateContent(fail, "fake.md", BuildTypedIndexes());
+
+            Assert.False(passReport.HasErrors);
+            Assert.True(failReport.HasErrors);
+            Assert.Contains(failReport.Errors, e => e.Message.Contains("not a valid Guid", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void Validate_ShouldSkipL3_ForListParameters()
+        {
+            // List<string> element validation is deferred; literal value should not trigger an error.
+            var content = Fence("azv2 vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --tags foo");
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
+
+            Assert.False(report.HasErrors);
+        }
+
+        [Fact]
+        public void Validate_ShouldFireL2Only_WhenFlagIsUnknown_NotL3OnItsValue()
+        {
+            // --unknwn is unknown; the next token 'foo' should be skipped, not double-reported as a bad value.
+            var content = Fence("azv2 vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --unknwn foo");
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
+
+            Assert.True(report.HasErrors);
+            var errors = report.Errors.ToList();
+            Assert.Single(errors);
+            Assert.Contains("Unknown flag '--unknwn'", errors[0].Message, StringComparison.Ordinal);
+        }
+
         private sealed class StubExtensionIndex : IExtensionIndex
         {
             private readonly Dictionary<string, CommandMetadata> _cliTable;
@@ -220,6 +438,35 @@ namespace Cirrus.Help.Tool.Tests
                             foreach (var a in alias)
                             {
                                 aliases[a] = flag;
+                            }
+                        }
+                        return new CommandMetadata(
+                            Name: pair.Key,
+                            Aliases: Array.Empty<string>(),
+                            FullName: pair.Key,
+                            AssemblyName: "Stub",
+                            ProcessorType: typeof(StubExtensionIndex),
+                            Parameters: parameters,
+                            ParameterAliases: aliases);
+                    },
+                    StringComparer.OrdinalIgnoreCase);
+            }
+
+            // Rich constructor: pass full ParameterMetadata so tests can exercise Type and AllowedValues (L3).
+            public StubExtensionIndex(Dictionary<string, ParameterMetadata[]> commands)
+            {
+                _cliTable = commands.ToDictionary(
+                    pair => pair.Key,
+                    pair =>
+                    {
+                        var parameters = new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase);
+                        var aliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                        foreach (var p in pair.Value)
+                        {
+                            parameters[p.Name] = p;
+                            foreach (var a in p.Aliases)
+                            {
+                                aliases[a] = p.Name;
                             }
                         }
                         return new CommandMetadata(

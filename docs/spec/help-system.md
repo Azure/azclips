@@ -903,17 +903,23 @@ The following design decisions have been **made and validated** in the actual im
         - Validating PowerShell example output (`# Output: ...`) — informational only.
     - **CI integration:** Runs as part of the existing `Validate Help Content` step in [.github/workflows/build-and-test.yml](../../.github/workflows/build-and-test.yml). No new workflow step needed.
 
-8. **Example type validation (L3: parameter value shapes)**
-    - Builds on 15.4.6. For each `--flag value` pair where the value is a literal (not a placeholder), verify the value is parseable as the parameter's declared `Type`.
-    - **Supported types (initial set):**
-        - `Guid` — must parse via `Guid.TryParse`.
-        - `int` / `long` / `double` — must parse via the corresponding `TryParse`.
-        - `bool` / switch — must be `true`/`false` or flag-only form.
-        - Enums — value must be one of the declared members (case-insensitive).
-        - `string` / unknown — accepted as-is (no L3 check).
-    - **Placeholders:** Same conventions as L2. If the value matches a placeholder pattern, skip L3 for that arg.
-    - **Failure mode:** Hard error with file path, line number, flag name, value, and expected type.
-    - **Tests** (`HelpToolValidationTests.cs`):
+8. ✅ **Example type validation (L3: parameter value shapes)** — **COMPLETE**
+    - **Implementation:** Colocated in `ExampleSyntaxValidator` (tools/Help/Cirrus.Help.Tool/Validation/ExampleSyntaxValidator.cs). `ValidateFlags` now consumes the value token following each known flag (or `--flag=value`), passes it to `CheckValue(ParameterMetadata, string)`, and emits a structured error on failure. `TryGetParameter` factors lookup out of the old `IsKnownParameter` so the matched metadata flows into L3.
+    - **Supported types (shipped):**
+        - `Guid` — `Guid.TryParse`.
+        - `int` / `long` — `TryParse` with `NumberStyles.Integer`, `CultureInfo.InvariantCulture`.
+        - `float` / `double` / `decimal` — `double.TryParse` with `NumberStyles.Float`, invariant culture.
+        - `bool` — case-insensitive `true`/`false`. Switch form (flag with no following value) accepted silently.
+        - Enums — case-insensitive match against `Enum.GetNames`.
+        - `Nullable<T>` — unwrapped to `T`.
+        - `List<T>` / `IEnumerable<T>` / `IList<T>` / `ICollection<T>` / `IReadOnlyList<T>` / `IReadOnlyCollection<T>` / arrays — deferred (no element-level L3 yet).
+        - `string` / unknown — accepted as-is.
+    - **AllowedValues:** Checked **first**, regardless of declared type. Case-insensitive membership. Out-of-range values fail with `not in allowed values [a, b, c]`.
+    - **Placeholders skipped** by `IsPlaceholder`: `<...>` (angle brackets), `$var` / `${var}`, all-zero canonical Guid `00000000-0000-0000-0000-000000000000`.
+    - **Error format:** `Value '{value}' for flag '{flag}' on command '{command.Name}' is invalid: {reason}` — e.g. `Value 'not-a-guid' for flag '--subscription-id' on command 'create' is invalid: not a valid Guid`.
+    - **Live run:** Validator runs clean against shipped help (no L3 defects found on first execution).
+    - **Tests** (`ExampleSyntaxValidatorTests.cs`) — 16 new `[Fact]` covering: well-formed/malformed Guid, well-formed/malformed Int32, bool switch form, explicit bool, bad bool, enum case-insensitive pass + miss, `AllowedValues` pass + miss, angle/dollar/all-zero-Guid placeholders, `--flag=value` pass+fail, deferred list validation, and that L2 unknown-flag fires without spurious L3 noise on the following token. Added a second `StubExtensionIndex(Dictionary<string, ParameterMetadata[]>)` constructor so tests can declare Type and AllowedValues.
+    - **Original tests (kept):**
         - Valid example with all required flags and well-typed values passes.
         - Unknown command path fails with clear message.
         - Unknown flag fails with clear message.
@@ -1020,6 +1026,16 @@ The following design decisions have been **made and validated** in the actual im
     - **Out of scope (this item):**
         - Splitting the actual help validation pipeline (still one `dotnet run` of the Help tool). Per-validator parallelism is overkill until the runtime becomes a problem.
         - Reusable workflows / composite actions — defer until a second workflow needs the same setup steps.
+
+9. **L3 error message: use routed CLI command name, not processor type name**
+    - **Problem:** L3 (15.4.8) errors currently render as `Value 'yes' for flag '--use-device-code' on command 'LoginProcessor' is invalid: not a valid Boolean`. `LoginProcessor` is the `ProcessorType.Name` of the command class, not the user-facing command path (`login`). Help authors reading the error have to mentally translate `*Processor` → CLI verb, which is friction during bulk edits.
+    - **Root cause:** [`ExampleSyntaxValidator.ValidateFlags`](../../tools/Help/Cirrus.Help.Tool/Validation/ExampleSyntaxValidator.cs) formats the error using `command.Name`, and for some commands `Name` happens to be the processor class name rather than the routed path. The L2 ("Unknown flag") branch has the same issue.
+    - **Goal:** Errors should reference the same string the help author typed in the markdown — e.g. `command 'login'`, `command 'vm create-combined'` — so the error is copy-pasteable back into a search of the help corpus.
+    - **Scope of changes:**
+        - Thread the original routed command path (the tokens consumed by L1 to resolve the command) into `ValidateFlags` instead of relying on `command.Name`. The call site already has it as the slice of tokens `[1..resolveIndex]`; just join with `' '` and pass it down.
+        - Apply the same change to the L2 unknown-flag error so both messages stay consistent.
+        - Verify `command.FullName` vs `command.Name` semantics across extensions — if `FullName` is the routed path everywhere, prefer that and skip the token-slice plumbing.
+    - **Tests:** Update the existing L3 `[Fact]`s in [ExampleSyntaxValidatorTests.cs](../../tools/Help/Cirrus.Help.Tool.Tests/ExampleSyntaxValidatorTests.cs) to assert the message contains the routed path (`"command 'create'"` for the stubbed `vm create`), and add one live-style test that constructs a command whose `Name` differs from its routed path to lock in the fix.
 
 **Exit criteria:**
 
