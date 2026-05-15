@@ -339,7 +339,7 @@ public class ConfigCliTests
 
         var psModulePath = Path.Combine(repoRoot!, "src", "PS", "Config", "Config.psd1");
         Assert.True(File.Exists(psModulePath), $"PowerShell module manifest not found at {psModulePath}");
-        
+
         var manifestContent = File.ReadAllText(psModulePath);
 
         // Verify key assembly dependencies are listed

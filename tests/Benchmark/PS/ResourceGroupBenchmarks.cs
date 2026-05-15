@@ -25,6 +25,12 @@ public class ResourceGroupBenchmarks : BenchmarkBase
         Console.WriteLine("[Setup] PS benchmarks ready (stub HTTP)");
     }
 
+    [IterationSetup]
+    public void IterationSetup()
+    {
+        RegisterBenchmarkStubs();
+    }
+
     [GlobalCleanup]
     public void GlobalCleanup()
     {
