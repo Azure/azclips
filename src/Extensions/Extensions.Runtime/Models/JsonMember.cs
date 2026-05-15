@@ -6,7 +6,7 @@ using System;
 using System.Reflection;
 using System.Runtime.Serialization;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     
 
@@ -81,3 +81,7 @@ namespace Extensions.Runtime.Json
         #endregion
     }
 }
+
+
+
+

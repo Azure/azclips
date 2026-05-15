@@ -2,14 +2,14 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     using System;
     using System.Collections.Generic;
 
     public partial class JsonObject
     {
-        internal override object ToValue() => Extensions.Runtime.JsonSerializable.FromJson(this, new System.Collections.Generic.Dictionary<string, object>(), (obj) => obj.ToValue());
+        internal override object ToValue() => Microsoft.Azure.Cirrus.Extensions.Runtime.JsonSerializable.FromJson(this, new System.Collections.Generic.Dictionary<string, object>(), (obj) => obj.ToValue());
 
         public void SafeAdd(string name, Func<JsonNode> valueFn)
         {
@@ -181,3 +181,7 @@ namespace Extensions.Runtime.Json
         }
     }
 }
+
+
+
+

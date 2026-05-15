@@ -6,7 +6,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     public abstract partial class JsonArray : JsonNode, IEnumerable<JsonNode>
     {
@@ -63,3 +63,7 @@ namespace Extensions.Runtime.Json
             => (JsonArray?)JsonNode.Parse(text);
     }
 }
+
+
+
+

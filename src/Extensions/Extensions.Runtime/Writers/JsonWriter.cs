@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Web;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     internal class JsonWriter
     {
@@ -221,3 +221,8 @@ namespace Extensions.Runtime.Json
 
 
 // TODO: Replace with System.Text.Json when available
+
+
+
+
+

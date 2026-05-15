@@ -5,7 +5,7 @@
 using System;
 using System.Text;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     internal struct IsoDate
     {
@@ -212,3 +212,8 @@ namespace Extensions.Runtime.Json
 	TZD  = time zone designator (Z or +hh:mm or -hh:mm)
 	*/
 }
+
+
+
+
+

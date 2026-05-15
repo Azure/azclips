@@ -5,7 +5,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     public sealed class JsonConverterFactory
     {
@@ -89,3 +89,7 @@ namespace Extensions.Runtime.Json
         }
     }
 }
+
+
+
+

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 using System;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     public sealed class BinaryConverter : JsonConverter<byte[]>
     {
@@ -22,3 +22,7 @@ namespace Extensions.Runtime.Json
         }
     }
 }
+
+
+
+

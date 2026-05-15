@@ -5,7 +5,7 @@
 using System;
 using System.Text;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     using System.IO;
     
@@ -175,3 +175,7 @@ namespace Extensions.Runtime.Json
         }
     }
 }
+
+
+
+
