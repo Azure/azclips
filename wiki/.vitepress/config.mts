@@ -2,7 +2,6 @@ import { withMermaid } from 'vitepress-plugin-mermaid'
 
 export default withMermaid({
   title: 'Cirrus Wiki',
-  base: '/cirrus/',
   description: 'Technical documentation for the Cirrus CLI framework — a .NET 9.0 extension-based CLI with AI-powered natural language capabilities for Azure resource management',
   appearance: 'dark',
   ignoreDeadLinks: true,
