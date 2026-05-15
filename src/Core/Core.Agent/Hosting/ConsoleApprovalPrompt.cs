@@ -73,7 +73,9 @@ public sealed class ConsoleApprovalPrompt
 
         Console.WriteLine();
         WriteColor(ConsoleColor.Yellow, $"⚠ Approve '{pending.ToolName}'?");
-        WriteColor(ConsoleColor.DarkGray, $"   args: {pending.ArgsPreview}");
+        // args is decision-critical information — keep it high-contrast.
+        // DarkGray made it nearly unreadable on dark terminals.
+        WriteColor(ConsoleColor.White, $"   args: {pending.ArgsPreview}");
         Console.Write("   y/n: ");
 
         var line = Console.ReadLine();
