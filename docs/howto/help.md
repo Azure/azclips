@@ -222,7 +222,7 @@ dotnet build cirrus.slnx
 ### Build with Help Artifacts
 
 ```powershell
-.\build\build.ps1 -GenerateHelpArtifacts -BuildConfiguration Debug
+.\build\build.ps1 -GenerateHelpArtifacts -Configuration Debug
 ```
 
 - Runs standard build first

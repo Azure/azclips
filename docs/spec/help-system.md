@@ -181,7 +181,7 @@ Tool: [tools/Help/Cirrus.Help.Tool/Program.cs](../../tools/Help/Cirrus.Help.Tool
 
 When you run:
 ```powershell
-.\build\build.ps1 -GenerateHelpArtifacts -BuildConfiguration Debug
+.\build\build.ps1 -GenerateHelpArtifacts -Configuration Debug
 ````
 
 The build script:
@@ -739,7 +739,7 @@ The following design decisions have been **made and validated** in the actual im
 
 3. ✅ **CI integration**
     - Help validation wired into PR pipeline via [.github/workflows/build-and-test.yml](../../.github/workflows/build-and-test.yml) `Validate Help Content (15.3.2)` step
-    - Runs `.\build\build.ps1 -GenerateHelpArtifacts -BuildConfiguration Debug` on every PR
+    - Runs `.\build\build.ps1 -GenerateHelpArtifacts -Configuration Debug` on every PR
     - Validation fails the PR if:
         - Any help file missing `Summary:`, `Description:`, or examples
         - Any routed command lacks a corresponding help file
@@ -1009,7 +1009,7 @@ The following design decisions have been **made and validated** in the actual im
     - **Target job layout:**
         - `build` — `dotnet restore` + `dotnet build cirrus.slnx`. Uploads `artifacts/Debug/` as a workflow artifact so downstream jobs don't rebuild.
         - `test` — depends on `build`; downloads artifacts; runs `dotnet test cirrus.slnx --no-build`. (Today's "Run tests" step.)
-        - `help-validate` — depends on `build`; downloads artifacts; runs `.\build\build.ps1 -GenerateHelpArtifacts -BuildConfiguration Debug` (covers MD structure, completeness, CLI L1+L2, PS-L1+L2). Surfaces as its own PR check named `Validate Help Content`.
+        - `help-validate` — depends on `build`; downloads artifacts; runs `.\build\build.ps1 -GenerateHelpArtifacts -Configuration Debug` (covers MD structure, completeness, CLI L1+L2, PS-L1+L2). Surfaces as its own PR check named `Validate Help Content`.
         - `help-tool-tests` — depends on `build`; runs `dotnet test tools/Help/Cirrus.Help.Tool.Tests/Cirrus.Help.Tool.Tests.csproj --no-build` (currently rolled into the global `dotnet test` invocation). Splitting it makes "did the validators themselves regress?" answerable without waiting for the full test matrix.
         - `e2e-cli` — depends on `build`; runs the `azv2 --help` smoke.
         - `e2e-powershell` — depends on `build`; sets up PowerShell on the runner and imports the modules.

@@ -1,0 +1,222 @@
+# Workflow to post comments to forked PRs with elevated GitHub token permissions
+
+name: Post Benchmark Comment
+
+on:
+  workflow_run:
+    workflows: ["Performance Benchmarks"]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: write
+
+jobs:
+  comment:
+    name: Post benchmark results on PR
+    runs-on: ubuntu-latest
+    if: >
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name != github.event.workflow_run.repository.full_name
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: Download benchmark results artifact
+        id: download
+        uses: actions/download-artifact@v4
+        with:
+          name: benchmark-results
+          path: ${{ runner.temp }}/benchmark-results
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Checkout gh-pages for previous data
+        if: steps.download.outcome == 'success'
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+          sparse-checkout: |
+            dev/bench/cli/data.js
+            dev/bench/ps/data.js
+
+      - name: Find PR number
+        if: steps.download.outcome == 'success'
+        id: find-pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          FORK_OWNER="${HEAD_REPO%%/*}"
+
+          if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" = "null" ]; then
+            if ! PR_NUMBER=$(gh pr list \
+              --repo "${{ github.repository }}" \
+              --state open \
+              --json number,headRefOid \
+              --jq ".[] | select(.headRefOid == \"$HEAD_SHA\") | .number" 2>/dev/null); then
+              PR_NUMBER=""
+              echo "::warning::Failed to query PRs with gh"
+            fi
+            echo "Attempt 2 (headRefOid match): '$PR_NUMBER'"
+          fi
+
+          if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" = "null" ]; then
+            echo "::warning::Could not find PR"
+            exit 1
+          fi
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Generate and post benchmark comment
+        if: steps.download.outcome == 'success' && steps.find-pr.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.find-pr.outputs.pr_number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RESULTS_DIR: ${{ runner.temp }}/benchmark-results
+        run: |
+          python3 << 'PYEOF'
+          import json, os, re, subprocess, sys
+
+          # --- locate result JSONs and classify by product ---
+          results_dir = os.environ["RESULTS_DIR"]
+          # product -> list of json file paths
+          product_files = {"CLI": [], "PS": []}
+          for root, dirs, files in os.walk(results_dir):
+              for f in files:
+                  if not f.endswith(".json"):
+                      continue
+                  path = os.path.join(root, f)
+                  if "Benchmark.CLI." in f or "/CLI/" in path or "\\CLI\\" in path:
+                      product_files["CLI"].append(path)
+                  elif "Benchmark.PS." in f or "/PS/" in path or "\\PS\\" in path:
+                      product_files["PS"].append(path)
+
+          if not any(product_files.values()):
+              print("No benchmark results JSON found")
+              sys.exit(1)
+
+          # --- extract current values per product ---
+          def load_current(json_paths):
+              benchmarks = {}
+              for p in json_paths:
+                  with open(p) as f:
+                      data = json.load(f)
+                  for b in data.get("Benchmarks", []):
+                      name = b.get("FullName", b.get("Method", "Unknown"))
+                      stats = b.get("Statistics", {})
+                      benchmarks[name] = {
+                          "mean": stats.get("Mean", 0),
+                          "stderr": stats.get("StandardError", 0),
+                      }
+              return benchmarks
+
+          # --- load previous data from gh-pages per product ---
+          def load_previous(data_js_path):
+              prev = {}
+              if os.path.exists(data_js_path):
+                  with open(data_js_path) as f:
+                      content = f.read()
+                  m = re.search(r"window\.BENCHMARK_DATA\s*=\s*(\{.*\})", content, re.DOTALL)
+                  if m:
+                      try:
+                          bd = json.loads(m.group(1))
+                          for entries in bd.get("entries", {}).values():
+                              if entries:
+                                  for b in entries[-1].get("benches", []):
+                                      prev[b["name"]] = b.get("value", 0)
+                      except json.JSONDecodeError:
+                          pass
+              return prev
+
+          products = {
+              "CLI": {
+                  "current": load_current(product_files["CLI"]),
+                  "previous": load_previous("gh-pages/dev/bench/cli/data.js"),
+              },
+              "PS": {
+                  "current": load_current(product_files["PS"]),
+                  "previous": load_previous("gh-pages/dev/bench/ps/data.js"),
+              },
+          }
+
+          # --- build markdown table (per product) ---
+          conclusion = os.environ.get("CONCLUSION", "")
+          icon = "🔴" if conclusion == "failure" else "🟢"
+          lines = [f"## {icon} Benchmark Results", ""]
+          alert = False
+
+          for product, data in products.items():
+              cur = data["current"]
+              prev = data["previous"]
+              if not cur:
+                  continue
+              lines.append(f"### {product}")
+              lines.append("")
+              lines.append("| Benchmark | Current | Previous | Ratio |")
+              lines.append("|-----------|---------|----------|-------|")
+              for name, vals in cur.items():
+                  mean = vals["mean"]
+                  stderr = vals["stderr"]
+                  prev_val = prev.get(name)
+                  if prev_val and prev_val > 0:
+                      ratio = mean / prev_val
+                      ratio_str = f"{ratio:.2f}"
+                      if ratio > 1.15:
+                          ratio_str += " ⚠️"
+                          alert = True
+                      prev_str = f"{prev_val:,.1f} ns"
+                  else:
+                      ratio_str = "N/A"
+                      prev_str = "N/A"
+                  short = name.rsplit(".", 1)[-1]
+                  lines.append(
+                      f"| `{short}` | {mean:,.1f} ns (± {stderr:,.1f}) | {prev_str} | {ratio_str} |"
+                  )
+              lines.append("")
+
+          if alert:
+              lines.append("> ⚠️ **Performance regression detected** (threshold: 115%)")
+              lines.append("")
+          run_url = os.environ["RUN_URL"]
+          lines.append(f"[📋 Full details]({run_url})")
+          lines.append("")
+          lines.append("<!-- benchmark-results -->")
+
+          comment_body = "\n".join(lines)
+
+          # --- post or update the PR comment ---
+          pr = os.environ["PR_NUMBER"]
+          repo = os.environ["GITHUB_REPOSITORY"]
+
+          result = subprocess.run(
+              ["gh", "api", f"repos/{repo}/issues/{pr}/comments",
+               "--jq", '[.[] | select(.body | contains("<!-- benchmark-results -->")) | .id][0]'],
+              capture_output=True, text=True,
+          )
+          existing_id = result.stdout.strip()
+
+          if existing_id:
+              subprocess.run(
+                  ["gh", "api", "--method", "PATCH",
+                   f"repos/{repo}/issues/comments/{existing_id}",
+                   "-f", f"body={comment_body}"],
+                  check=True,
+              )
+          else:
+              subprocess.run(
+                  ["gh", "api", "--method", "POST",
+                   f"repos/{repo}/issues/{pr}/comments",
+                   "-f", f"body={comment_body}"],
+                  check=True,
+              )
+          print(f"Posted benchmark comment on PR #{pr}")
+          PYEOF

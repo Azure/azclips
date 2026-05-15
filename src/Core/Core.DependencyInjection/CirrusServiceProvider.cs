@@ -19,9 +19,9 @@ public static class CirrusServiceProvider
     private static readonly ConcurrentQueue<Action<IServiceCollection>> _overrideRegistrations = new();
 
     /// <summary>
-    /// Optional hook invoked before the default service registrations.
-    /// Set this from another assembly to prepend custom registrations into the DI container.
-    /// Must be set before <see cref="Initialize"/> is called.
+    /// Adds a registration action invoked before the default service registrations.
+    /// Multiple registrations are applied in insertion order.
+    /// Must be called before <see cref="Initialize"/>.
     /// </summary>
     public static void PrependRegistration(Action<IServiceCollection>? registration)
     {
@@ -33,9 +33,10 @@ public static class CirrusServiceProvider
     }
 
     /// <summary>
-    /// Optional hook invoked after the default service registrations.
-    /// Set this from another assembly to override or replace default registrations in the DI container.
-    /// Must be set before <see cref="Initialize"/> is called.
+    /// Adds a registration action invoked after the default service registrations.
+    /// Multiple registrations are applied in insertion order; DI last-wins semantics
+    /// means later registrations for the same service type take precedence.
+    /// Must be called before <see cref="Initialize"/>.
     /// </summary>
     public static void OverrideRegistration(Action<IServiceCollection>? registration)
     {
@@ -108,7 +109,8 @@ public static class CirrusServiceProvider
     }
 
     /// <summary>
-    /// Disposes the initialized DI container and clears the cached provider.
+    /// Disposes the initialized DI container, clears the cached provider,
+    /// and removes all prepend/override registrations.
     /// Safe to call multiple times.
     /// </summary>
     public static void Dispose()
