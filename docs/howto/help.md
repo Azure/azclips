@@ -201,6 +201,125 @@ azv2 login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-c
 
 ````
 
+## Templates
+
+Copy one of these into `src/Extensions/<Extension>/help/<command>.md` and fill in the blanks. Every template ships with valid frontmatter, a description, and at least one example per surface the command supports.
+
+### Group root (`help/index.md`)
+
+Use this for the **landing page of a group** — the file the runtime serves when the user types `azv2 <group> --help` with no subcommand.
+
+````markdown
+---
+summary: One-line description of what this group does.
+status: ga
+schema: 1.0.0
+online version:
+---
+
+Description: Multi-line overview of the group, when to reach for it, and any
+cross-cutting context (auth requirements, default subscription, etc.).
+
+### Show <group> help (CLI)
+
+```bash
+azv2 <group> --help
+```
+
+### Show <group> cmdlets (PowerShell)
+
+```powershell
+Get-Command -Module Cirrus.<Module>
+```
+````
+
+### Subcommand exposed on both surfaces
+
+The default shape — one CLI example, one PowerShell example. The fence language tag is what routes the example to the right surface; the `(CLI)` / `(PowerShell)` suffix on the heading is cosmetic.
+
+````markdown
+---
+summary: One-line description of the subcommand.
+status: ga
+schema: 1.0.0
+online version:
+relatedLinks:
+    - azv2 <group> <related-command>
+---
+
+Description: What the command does, when to use it, and any notable side
+effects. Keep this focused — examples carry most of the weight.
+
+### <Action> by name (CLI)
+
+```bash
+azv2 <group> <command> --name <my-resource> --subscription-id 00000000-0000-0000-0000-000000000000
+```
+
+### <Action> by name (PowerShell)
+
+```powershell
+<Verb>-Cirrus<Noun> -Name "<my-resource>" -SubscriptionId "00000000-0000-0000-0000-000000000000"
+```
+````
+
+### CLI-only subcommand
+
+For commands that don't have a PowerShell cmdlet today. Omit the PowerShell fence entirely — do **not** stub it with placeholder content.
+
+````markdown
+---
+summary: One-line description of the CLI-only subcommand.
+status: ga
+schema: 1.0.0
+online version:
+---
+
+Description: Why this lives on the CLI only (e.g. interactive prompts,
+streaming output) and what it does.
+
+### <Action> with defaults (CLI)
+
+```bash
+azv2 <group> <command> --subscription-id 00000000-0000-0000-0000-000000000000
+```
+````
+
+### PowerShell-only cmdlet
+
+Mirror of the above for cmdlets that aren't surfaced through `azv2`.
+
+````markdown
+---
+summary: One-line description of the PowerShell-only cmdlet.
+status: ga
+schema: 1.0.0
+online version:
+---
+
+Description: Why this is PowerShell-only (pipeline composition, object
+output) and what it does.
+
+### <Action> by name (PowerShell)
+
+```powershell
+<Verb>-Cirrus<Noun> -Name "<my-resource>"
+```
+````
+
+### Preview or internal command
+
+Set `status:` to flag lifecycle. `preview` is rendered with a banner in help output; `internal` hides the command from public listings but still validates and ships in artifacts.
+
+```yaml
+---
+summary: One-line description.
+status: preview # or: deprecated, internal
+schema: 1.0.0
+online version:
+---
+```
+
 ## Runtime Behavior
 
 ### CLI Help
