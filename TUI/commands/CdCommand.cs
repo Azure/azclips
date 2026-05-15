@@ -44,8 +44,6 @@ class CdCommand : ISlashCommand
             var error = await ctx.Vfs.CdAsync(arg ?? "/");
             if (error != null)
                 ctx.AddHistory(new HistoryEntry(HistoryItemType.Error, error));
-            else
-                ctx.AddHistory(new HistoryEntry(HistoryItemType.Info, ctx.Vfs.CurrentPath));
             ctx.RefreshPrompt();
         });
         return true;
@@ -56,7 +54,7 @@ class CdCommand : ISlashCommand
         // Use the VFS completion helper which resolves the parent directory
         // and prefix-matches the last segment (e.g. "az" matches "Azure SDK ...")
         var completions = await ctx.Vfs.GetCompletionsAsync(partial);
-        return completions.Select(name => new Suggestion(name, "▸ azure")).ToList();
+        return completions.Select(e => new Suggestion(e.Name, e.Detail)).ToList();
     }
 
     // ── Local ──
@@ -77,7 +75,6 @@ class CdCommand : ISlashCommand
         if (Directory.Exists(target))
         {
             ctx.SetLocalCwd(Path.GetFullPath(target));
-            ctx.AddHistory(new HistoryEntry(HistoryItemType.Info, Path.GetFullPath(target)));
             ctx.RefreshPrompt();
         }
         else
