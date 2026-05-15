@@ -1,1155 +1,262 @@
 # Design Spec: Help System
 
-## Status: In Progress (Phase 1 Complete, Phase 2+ Planned)
+## 1. Status
 
-> This document describes the help system for Cirrus being actively built. **Phase 1 (Shared Help Model) is complete and validated with the Login extension end-to-end.**
-> Phase 2 (CLI Runtime Help integration) and later phases are in progress.
->
-> **Current implementation snapshot:**
->
-> - Markdown help files under `src/Extensions/{Extension}/help/` with YAML frontmatter are the authoritative source.
-> - `MarkdownCommandHelpProvider` loads and parses markdown (YAML + structured examples) at runtime.
-> - CLI help adapter filters examples by surface section (CLI vs PowerShell).
-> - Manifest builder splits examples by surface (cli/powerShell arrays in JSON).
-> - Build script integration: `.\build\build.ps1 -GenerateHelpArtifacts` exports help JSON and PowerShell XML.
-> - See [docs/howto/help.md](../howto/help.md) for author workflow.
+**Shipped:** Phases 1–4 are complete. Markdown is the canonical source for help content across CLI and PowerShell surfaces. A four-stage validator pipeline gates every PR. The Login, Config, Resources, Extension, and Compute extensions are fully migrated.
+
+**In flight (this PR):** §9 — final consistency pass, PlatyPS-shaped frontmatter, validator UX polish, CI restructuring.
+
+**Out of scope:** MSLearn publishing pipeline and the broader PlatyPS body shape; see §10.
 
 ---
 
-## 1. Goals
+## 2. Goals
 
-| Goal                                  | Rationale                                                                                                                                   |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Single source of truth**            | Help content lives in one place per command/parameter; no duplication between CLI and PowerShell surfaces                                   |
-| **Tree-aware CLI help**               | `azv2 --help`, `azv2 vm --help`, `azv2 vm start --help` each produce meaningfully different output, mirroring azure-cli UX                  |
-| **Flat PowerShell help**              | `Get-Help New-ResourceGroup -Full` follows standard MAML conventions; cmdlet discovery via `Get-Command`                                    |
-| **Fast at runtime**                   | CLI help resolves from lightweight extension-owned metadata without loading command execution code on the cold path                         |
-| **No markdown dependency at runtime** | CLI runtime help does not read markdown files or generated artifacts; help comes from extension metadata                                    |
-| **Authorable by humans**              | Descriptions and examples live in extension metadata close to command definitions; a developer can add help without deep renderer knowledge |
-| **AI-augmentable**                    | The agent can answer "how do I…" using the same help data that drives the terminal output                                                   |
-
----
-
-## 2. Current State (Implementation Progress)
-
-| Area                       | Current state                                                                                | Status                                                                                                |
-| -------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Markdown help authoring    | Help files under `src/Extensions/{Extension}/help/{command}.md`; markdown is source of truth | ✅ **Implemented and validated** (Login extension fully migrated; Config/Resources/Extension pending) |
-| Example language tagging   | Examples in markdown tagged by language (` ```bash ` or ` ```powershell `)                   | ✅ **Implemented** (CLI filters `!IsPowerShell`, PowerShell gets full list)                           |
-| Runtime markdown loading   | `MarkdownCommandHelpProvider` parses markdown files at runtime                               | ✅ **Implemented** (resolves from repo root; reads file on each lookup)                               |
-| CLI help adapter           | `ExtensionIndexHelpAdapter` calls markdown provider first, falls back to attributes          | ✅ **Implemented** (filters CLI examples, passes all to PowerShell)                                   |
-| Manifest builder           | `ExtensionHelpManifestBuilder` splits examples by surface (cli/powerShell arrays)            | ✅ **Implemented** (used during artifact generation)                                                  |
-| Build-time artifact export | `.\build\build.ps1 -GenerateHelpArtifacts` generates JSON manifests and PowerShell XML       | ✅ **Implemented** (integrated into build script)                                                     |
-| CLI help rendering         | `HelpCell`, `HelpLine`, `MultiGroupHelpTable` for terminal output                            | ⏳ **Partially wired** (templates exist; runtime interception pending Phase 2)                        |
-| CLI group/tree help        | Nested command tree help (root → group → command)                                            | ⏳ **Pending Phase 2** (templates exist; tree resolution pending)                                     |
-| PowerShell runtime help    | Native PowerShell `Get-Help` integration with pre-generated MAML XML                         | ⏳ **Pending Phase 3** (artifacts generated; PowerShell packaging pending)                            |
-| Parameter-level help       | `[ArgumentInfo(Description = "...")]` on processor properties                                | ✅ **Already exists** (used in help display)                                                          |
-| Command descriptions       | `Summary` and `Description` fields in markdown files                                         | ✅ **Implemented** (parsed from markdown; can fall back to attributes)                                |
-| Examples                   | CLI and PowerShell examples in markdown code blocks                                          | ✅ **Implemented** (Login fully authored; Config/Resources/Extension pending)                         |
-| Metadata duplication       | Descriptions removed from code attributes; single source in markdown                         | ✅ **Done for Login** (Config/Resources/Extension pending cleanup)                                    |
-| CI enforcement             | Linting/validation for required help content                                                 | ⏳ **Planned Phase 4** (currently no pre-commit validation)                                           |
+| Goal | Rationale |
+| --- | --- |
+| Single source of truth | One markdown file per command; no duplication between CLI and PowerShell. |
+| Tree-aware CLI help | `azv2 --help`, `azv2 group --help`, `azv2 group create --help` each produce meaningfully different output. |
+| Native PowerShell help | `Get-Help <Cmdlet> -Full` is served by standard MAML XML packaged with the module. |
+| Cold-path safe | CLI help renders without loading execution code or instantiating processors. |
+| Authorable by humans | Authors edit `.md` files next to the extension; no recompile to iterate. |
+| Mechanically validated | Every example is parsed and checked against live `ExtensionIndex` metadata at build time; stale help fails CI. |
+| AI-augmentable | The same markdown corpus is consumed by the agent's prompt feed. |
 
 ---
 
-## 3. Single Source of Truth: Markdown Help Files
-
-**Design change from original spec:** Rather than sourcing help from code attributes, all help content originates from **markdown files** under `src/Extensions/{Extension}/help/`. This approach is more ergonomic for authors and keeps help content readable and reviewable.
-
-Markdown files are the canonical source. At runtime, `MarkdownCommandHelpProvider` loads and parses them. At build time, optional tooling projects markdown into JSON manifests and PowerShell XML for packaging and publishing workflows.
-
-### 3.1 Markdown file structure
-
-Help files live in extension-owned directories:
+## 3. Architecture at a Glance
 
 ```
-src/Extensions/Login/help/
-├── index.md          # Root login command
-├── logout.md         # Logout subcommand
-└── show.md           # Show context subcommand
-
-src/Extensions/Config/help/
-├── index.md          # Root config command
-└── (subcommands as needed)
-```
-
-For **root commands** (like `login`), use `help/index.md`.  
-For **subcommands** (like `login logout`), use `help/{subcommand-name}.md`.
-
-### 3.2 Markdown format (authored by humans)
-
-Each help file contains YAML frontmatter for metadata, followed by structured example sections:
-
-````yaml
----
-summary: "One-line description of the command"
-description: |
-  Multi-paragraph explanation of what the command does,
-  when to use it, and any important notes. Can span multiple lines.
----
-
-## Examples
-
-### CLI
-
-#### Example Title
-```bash
-azv2 login --subscription-id 00000000-0000-0000-0000-000000000000
-````
-
-### PowerShell
-
-#### Example Title
-
-```powershell
-Connect-CirrusAccount -SubscriptionId "00000000-0000-0000-0000-000000000000"
-```
-
-````
-
-**YAML frontmatter fields:**
-- `summary` (required): One-line command description (shown in group help, help listings)
-- `description` (required): Full multi-paragraph explanation
-- `tags` (optional, Phase 5+): `[Preview]`, `[Deprecated]`, `[Experimental]`
-- `status` (optional, Phase 5+): `Preview`, `Experimental`, `Deprecated`
-- `relatedLinks` (optional, Phase 5+): List of related command names or URLs
-
-**Example sections:**
-- `## Examples` — parent heading
-- `### CLI` — CLI-specific examples (shown in `azv2 ... --help`)
-- `### PowerShell` — PowerShell-specific examples (shown in `Get-Help`)
-- Each example has a descriptive subheading (`#### Example Title`) followed by a code fence with language tag (`bash` or `powershell`)
-
-### 3.3 Runtime parsing: `MarkdownCommandHelpProvider`
-
-File: [src/Core/Core.Runtime/Help/MarkdownCommandHelpProvider.cs](../../src/Core/Core.Runtime/Help/MarkdownCommandHelpProvider.cs)
-
-Responsibilities:
-- Resolves markdown files from `src/Extensions/{extensionName}/help/{commandKey}.md`
-- Parses YAML frontmatter (`summary`, `description`, `tags`, etc.)
-- Extracts organized example sections (CLI vs PowerShell subsections)
-- Parses code blocks with titles and language tags
-- Tags examples: `IsPowerShell = true` if section is PowerShell, else `false` (CLI)
-- Returns `MarkdownCommandHelp` record with parsed content
-
-Caching: Not implemented today. The provider reads and parses the markdown file on every call. Help is invoked once per CLI process at the cold path, so I/O cost has not warranted caching yet.
-
-### 3.4 Surface-specific filtering
-
-**CLI path** (`azv2 ... --help`):
-- Calls `MarkdownCommandHelpProvider.Get(extensionName, commandKey)`
-- Filters examples: `examples.Where(e => !e.IsPowerShell)`
-- Renders CLI-only examples
-
-**PowerShell path** (`Get-Help` and artifacts):
-- Calls `MarkdownCommandHelpProvider.Get(extensionName, commandKey)`
-- Gets full list of examples (both CLI and PowerShell)
-- PowerShell XML artifact includes all examples
-
-### 3.5 Fallback to code attributes (for compatibility)
-
-If markdown file is not found or lacks `summary` / `description` in YAML frontmatter, the system falls back to:
-- `[ProcessorInfo]` `Summary` / `Description` attributes on processor classes
-- `[ArgumentInfo]` `Description` on processor properties
-
-This allows gradual migration: new extensions use YAML frontmatter markdown while legacy commands fall back to code attributes.
-
----
-
-## 4. Build-Time and Tooling: From Markdown to Artifacts
-
-### 4.1 Runtime help sourcing (no file dependencies)
-
-**This has been reconsidered from the original spec.** Runtime CLI help **now reads markdown files**, which is simpler and more ergonomic than sourcing from code attributes.
-
-Runtime flow:
-1. CLI detects `--help` argument before command execution
-2. Calls `ExtensionIndexHelpAdapter.GetSummary/GetDescription/GetExamples(extensionName, commandKey)`
-3. Adapter calls `MarkdownCommandHelpProvider.Get(extensionName, commandKey)` (reads markdown from repo)
-4. Adapter filters examples by surface (CLI-only) and renders help
-5. CLI exits without executing command code
-
-Why markdown at runtime?
-- **Simpler for authors:** humans write `.md` files, not code attributes
-- **Better discoverability:** help is in a dedicated folder, not scattered across processor classes
-- **Easier maintenance:** one place to update examples per command
-- **Faster iteration:** no code recompile needed to test help changes (just rebuild to regenerate artifacts)
-
-### 4.2 Build-time artifact generation (optional)
-
-File: [build/build.ps1](../../build/build.ps1) with `-GenerateHelpArtifacts` flag
-Tool: [tools/Help/Cirrus.Help.Tool/Program.cs](../../tools/Help/Cirrus.Help.Tool/Program.cs)
-
-When you run:
-```powershell
-.\build\build.ps1 -GenerateHelpArtifacts -Configuration Debug
-````
-
-The build script:
-
-1. Runs normal `dotnet build`
-2. Invokes `Cirrus.Help.Tool`, which:
-    - Loads extension assemblies from `artifacts/Debug/`
-    - For each extension, calls `ExtensionHelpManifestBuilder.BuildManifest()`
-    - Reads markdown files and parses them via `MarkdownCommandHelpProvider`
-    - Splits examples by surface: `IsPowerShell` flag determines cli/powerShell array
-    - Emits output to `artifacts/help/`:
-        - `{extension}/HelpManifest.json` (per-extension command metadata + split examples)
-        - `HelpIndex.json` (cross-extension command index)
-        - `powershell/{Module}.dll-Help.xml` (for PowerShell help packaging)
-
-### 4.3 Artifact outputs
-
-| Output                                   | Purpose                                                                          |
-| ---------------------------------------- | -------------------------------------------------------------------------------- |
-| `artifacts/help/{ext}/HelpManifest.json` | Machine-readable command + parameter metadata with cli/powerShell example arrays |
-| `artifacts/help/HelpIndex.json`          | Cross-extension command index for CLI discovery/searching                        |
-| `artifacts/help/powershell/{Module}.xml` | PowerShell MAML XML for `Get-Help` display and PowerShell package shipping       |
-
-These artifacts are **optional** at runtime. CLI help reads markdown directly. Artifacts are for:
-
-- Publishing workflows (MSLearn documentation)
-- PowerShell module packaging (include XML in shipped module)
-- Snapshot testing (verify no help content regressions)
-- CI validation (ensure help metadata is complete)
-
-### 4.4 Ownership boundary
-
-| Owner   | Responsibility                                                                              |
-| ------- | ------------------------------------------------------------------------------------------- |
-| Runtime | Reading markdown files; filtering examples by surface; rendering help in CLI and PowerShell |
-| Tooling | Parsing markdown; validating completeness; generating manifests/JSON/XML for publishing     |
-
-Both use the same markdown source of truth, but they own different concerns.
-
----
-
-## 5. CLI Help Surface
-
-### 5.1 Help trigger
-
-Help is triggered by `-h` / `--help` at any position in the argument list, or by the `help` subcommand:
-
-```
-azv2 --help
-azv2 group --help
-azv2 group create --help
-azv2 help group create
-```
-
-Help is rendered **before** command execution (cold-path safe).
-
-### 5.2 Rendering flow
-
-When user invokes `azv2 login --help`:
-
-1. CLI intercepts `--help` before command execution
-2. Calls `ExtensionIndexHelpAdapter.GetSummary/Description/Examples("login", "")`
-3. Adapter calls `MarkdownCommandHelpProvider.Get("login", "")`
-4. Provider reads `src/Extensions/Login/help/index.md` and parses it
-5. Adapter filters to CLI-only examples (`examples.Where(e => !e.IsPowerShell)`)
-6. CLI renderer formats and displays help
-7. Process exits (no command execution)
-
-### 5.3 Root-level help (`azv2 --help`)
-
-```
-azv2 - Azure management CLI with AI fallback
-
-Usage:
-    azv2 [group] [command] [arguments...] [--help]
-    azv2 "<natural language request>"
-
-Groups:
-    login     : Authenticate to Azure.
-    group     : Manage resource groups.
-    config    : Manage Cirrus configuration.
-    extension : Manage Cirrus extensions.
-
-Global Arguments:
-    --help -h : Show this help message and exit.
-    --debug   : Increase logging verbosity.
-    --output  : Output format. Allowed: json, table, none. Default: table.
-
-Learn more: https://aka.ms/cirrus
-```
-
-### 5.4 Group-level help (`azv2 group --help`)
-
-```
-Group
-    azv2 group : Manage resource groups.
-
-Commands:
-    create : Create a resource group.
-    delete : Delete a resource group.
-    list   : List resource groups in a subscription.
-    show   : Show a resource group.
-
-Global Arguments:
-    --help -h : Show this help message and exit.
-```
-
-### 5.5 Command-level help (`azv2 login --help`)
-
-**Actual implementation (Login example):**
-
-```
-Command
-    azv2 login : Authenticate to Azure and set the current account context.
-
-Arguments
-    --subscription-id [Required] : Azure Subscription Id.
-    --tenant-id : Tenant ID to login to.
-    --use-device-code : Use device code flow for authentication.
-
-Examples
-    Login with subscription id
-        azv2 login --subscription-id 00000000-0000-0000-0000-000000000000
-    Login with device code
-        azv2 login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code
-```
-
-Note: CLI-only examples are shown (PowerShell examples are filtered out).
-
-### 5.6 Rendering implementation
-
-File: [src/CLI/Help/CliHelpRenderer.cs](../../src/CLI/Help/CliHelpRenderer.cs) (or equivalent)
-
-Responsibilities:
-
-- Take `CommandMetadata` or parsed help content
-- Format for terminal width
-- Render grouped sections (Arguments, Examples)
-- Handle word wrapping
-
-Existing support:
-
-- `HelpCell`, `HelpLine`, `MultiGroupHelpTable` classes for table layouts
-- Terminal width detection
-
-### 5.7 Canonical command key for nested CLI tree
-
-Each command uses a canonical key:
-
-- Lower-case
-- Space-delimited segments
-- Full path from group root to command leaf
-
-Examples:
-
-- `login` (root command)
-- `login logout` (subcommand)
-- `group create` (root command in group)
-- `group role assignment create` (nested subcommand)
-
-Lookup in markdown:
-
-- Root commands: `src/Extensions/{Extension}/help/index.md`
-- Subcommands: `src/Extensions/{Extension}/help/{subcommand-name}.md`
-
-### 5.8 Runtime lifecycle and cold-path constraints
-
-The CLI help path is:
-
-1. Parse arguments and detect `-h` / `--help` / `help` **before** command execution
-2. Call help adapter with extension name and command key
-3. Adapter calls `MarkdownCommandHelpProvider.Get(extensionName, commandKey)`
-4. Provider reads and parses markdown file
-5. Adapter filters examples by surface (CLI-only: `!e.IsPowerShell`)
-6. CLI renderer formats and displays help
-7. Exit without creating command processor instances
-
-Cold-path constraints:
-
-- ❌ No runtime reflection over processor types to render help
-- ❌ No processor instantiation on the help path
-- ✅ Markdown files are read on demand (lightweight operation)
-- ⏳ Caching is not implemented; can be added later if profiling shows it is needed
-- ✅ No dependency on generated JSON manifests or indexes
-
-### 5.9 Global arguments
-
-Global arguments (`--help`, `--debug`, `--output`) are defined once in the CLI host and shown on every help page. Extensions do not re-declare them.
-
----
-
-## 6. PowerShell Help Surface (Phase 3+)
-
-### 6.1 Approach: Native PowerShell Help at Runtime
-
-PowerShell has two standard help delivery mechanisms:
-
-| Mechanism                               | Description                                                                     | When to use                                              |
-| --------------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| **`HelpMessage` in `[Parameter()]`**    | Inline; shown with `-?` but not `Get-Help -Full`                                | Quick inline hint; can be auto-generated from markdown   |
-| **External MAML XML** (`.dll-Help.xml`) | Full Get-Help support: description, syntax, parameters, examples, related links | Required for `Get-Help -Full`, `-Examples`, `-Parameter` |
-
-**Current state (Phase 3 pending):**
-
-- Runtime help: PowerShell continues to use native cmdlet metadata and `Get-Help`
-- Build-time artifacts: `.\build\build.ps1 -GenerateHelpArtifacts` produces MAML XML from markdown
-- Packaging: When distributing PowerShell modules, include generated MAML in module folder
-
-**Future enhancement:**
-
-- Add `HelpMessage` to generated parameter metadata (optional, for inline help)
-- Emit complete MAML XML with examples, related links, parameter descriptions
-
-### 6.2 PowerShell help artifact generation
-
-The help tool generates `artifacts/help/powershell/{Module}.dll-Help.xml` for each PowerShell module.
-
-Example output structure:
-
-```xml
-<?xml version="1.0" encoding="utf-8"?>
-<helpItems schema="maml" xmlns="http://msh.vtech.microsoft.com/maml/2004/07">
-  <command:command xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10">
-    <command:details>
-      <command:name>Connect-CirrusAccount</command:name>
-      <maml:description>
-        <maml:para>Log in to your Azure subscription to authenticate...</maml:para>
-      </maml:description>
-    </command:details>
-    <command:syntax>
-      <command:syntaxItem>
-        <maml:name>Connect-CirrusAccount</maml:name>
-        <command:parameter required="true" globbing="false" pipelineInput="false" position="named">
-          <maml:name>SubscriptionId</maml:name>
-          <maml:description>
-            <maml:para>Azure Subscription ID.</maml:para>
-          </maml:description>
-        </command:parameter>
-      </command:syntaxItem>
-    </command:syntax>
-    <command:examples>
-      <command:example>
-        <maml:title>--- Example 1: Connect with subscription ID ---</maml:title>
-        <dev:code>Connect-CirrusAccount -SubscriptionId "00000000-0000-0000-0000-000000000000"</dev:code>
-      </command:example>
-    </command:examples>
-  </command:command>
-</helpItems>
-```
-
-### 6.3 `Get-Help` output (from generated MAML)
-
-```
-NAME
-    Connect-CirrusAccount
-
-SYNTAX
-    Connect-CirrusAccount -SubscriptionId <string>
-
-DESCRIPTION
-    Log in to your Azure subscription to authenticate Cirrus CLI and PowerShell commands.
-
-PARAMETERS
-    -SubscriptionId <string>
-        Azure Subscription ID. Defaults to the active subscription.
-
-        Required?                    true
-        Position?                    Named
-        Accept pipeline input?       false
-
-EXAMPLES
-    Example 1: Connect with subscription ID
-        Connect-CirrusAccount -SubscriptionId "00000000-0000-0000-0000-000000000000"
-
-RELATED LINKS
-    https://aka.ms/cirrus
-```
-
----
-
-## 7. Centralization: Single Source of Truth (Achieved)
-
-**Before:** Descriptions were scattered across code attributes (`[ProcessorInfo]`, `[ArgumentInfo]`) and duplicated in static `ExtensionIndex` tables for PS and CLI.
-
-**After:** Descriptions live **only** in markdown files. Code attributes are optional fallback only.
-
-| Concern                | Before                                                               | After                                                               |
-| ---------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| Command descriptions   | `[ProcessorInfo]` attribute on processor class                       | `Summary:` and `Description:` in markdown file                      |
-| Parameter descriptions | `[ArgumentInfo]` attribute on processor property                     | `Summary:` and `Description:` in markdown file (parameters inherit) |
-| CLI examples           | Code attribute or manual text                                        | Markdown code blocks tagged with `bash` language fence              |
-| PowerShell examples    | None                                                                 | Markdown code blocks tagged with `powershell` language fence        |
-| Source-of-truth        | Scattered across code (sync issues, drift)                           | Centralized markdown files (single author location)                 |
-| Duplication            | PS `CommandMetadata` and CLI `CommandMetadata` both had descriptions | Single markdown file; both surfaces reference same source           |
-| Update workflow        | Edit attribute → recompile → regenerate manifests → ship new DLL     | Edit markdown → optionally regenerate artifacts → commit            |
-
-**Design flow (actual implementation):**
-
-````
-Markdown help files with YAML frontmatter (src/Extensions/{Extension}/help/*.md)
-    │
-    ├─► MarkdownCommandHelpProvider (runtime: parses YAML + examples)
-    │   │
-    │   ├─► CLI adapter (filters to CLI-only examples)
-    │   │    └─► azv2 ... --help (shows CLI help with CLI examples)
-    │   │
-    │   └─► PowerShell path (gets all examples)
-    │        └─► Get-Help (shows all examples in MAML)
-    │
-    └─► Build-time help tool (optional: generates artifacts)
+src/Extensions/<Ext>/help/*.md  ◄── single source of truth
         │
-        ├─► HelpManifest.json (machine-readable metadata + split examples)
-        ├─► HelpIndex.json (cross-extension command index)
-        └─► PowerShell/*.dll-Help.xml (MAML for Get-Help packaging)
+        ├── runtime ──────────────────────────────────────────────
+        │
+        │     MarkdownCommandHelpProvider.Parse(content)
+        │       ├── FrontmatterParser  (summary, status, schema, …)
+        │       └── body regex         (description, examples)
+        │
+        │     ExtensionIndexHelpAdapter
+        │       ├── CLI:        filters !IsPowerShell, renders
+        │       └── PowerShell: full example list, MAML XML
+        │
+        └── build time ───────────────────────────────────────────
+              Cirrus.Help.Tool (dotnet run)
+                ├── MarkdownStructureValidator
+                ├── HelpCompletenessValidator     (per extension)
+                ├── ExampleSyntaxValidator        (CLI L1/L2/L3)
+                ├── PowerShellExampleSyntaxValidator (PS-L1/L2)
+                └── ExtensionHelpManifestBuilder
+                      ├── artifacts/help/<ext>/HelpManifest.json
+                      ├── artifacts/help/HelpIndex.json
+                      └── artifacts/help/powershell/<Module>.dll-Help.xml
+                          → copied into src/PS/<Module>/en-US/
+```
+
+Two consumers, one source. Runtime reads markdown directly (cold-path friendly, fast iteration). Build-time tooling consumes the same markdown plus reflected `ExtensionIndex` / cmdlet metadata to validate and emit publish-ready artifacts.
 
 ---
 
-## 8. Performance Considerations
+## 4. Authoring Model
 
-| Concern                                               | Mitigation                                                                                                      |
-| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Cold-start help latency                               | CLI intercepts `--help` before command execution; reads markdown + renders (no assembly loading)                |
-| Markdown file I/O on every help lookup                | Help is shown once per CLI process invocation; one synchronous read per command lookup is acceptable             |
-| Loading execution assemblies just to show help        | ✅ Achieved: help is resolved before extension loading                                                           |
-| Markdown parsing cost                                 | Minimal: simple regex-based parsing on cold path                                                                 |
-| Tooling artifact size                                 | Optional; not part of runtime. JSON/XML artifacts are for publishing, not consumed at help render time           |
-| PowerShell help startup latency                       | Pre-generated MAML XML is included in module; `Get-Help` reads pre-built XML (no runtime generation)            |
+Help lives under `src/Extensions/<Extension>/help/`. Root commands use `index.md`; subcommands use `<segment>-<segment>.md` (space-delimited canonical CLI key, dasherized).
 
+Each file has YAML frontmatter (file-level metadata) followed by a markdown body (description + examples):
+
+````markdown
+---
+summary: One-line description.
+status: ga                 # ga | preview | deprecated | internal (default ga)
+schema: 1.0.0              # frontmatter schema version
+online version:            # MSLearn URL, empty until §10.1 lands
+relatedLinks:
+  - azv2 logout
 ---
 
-## 9. AI Agent Integration
+Description: Multi-paragraph explanation in the body.
 
-The AI agent (natural language fallback) can leverage the same help markdown data:
+### Login with subscription id (CLI)
 
-- Agent system prompt can be seeded with a command table extracted from markdown files
-- Agent can reference real examples from markdown to suggest runnable commands
-- Future: `HelpTool` function in Azure OpenAI lets agent query help during conversation
-
-**Implementation status:**
-- ⏳ Agent integration pending (Phase 4+)
-- Markdown data structure supports agent consumption
-
----
-
-## 10. Example Authoring
-
-Examples are authored **by humans** in markdown code blocks organized by surface (CLI vs PowerShell). Each section has:
-1. A surface subsection heading: `### CLI` or `### PowerShell`
-2. Example subheadings: `#### Example Title`
-3. A code fence with language tag: ` ```bash ` or ` ```powershell `
-4. The actual command(s) to execute
-
-**Example from Login help:**
-
-```yaml
----
-summary: "Authenticate to Azure and set the current account context"
-description: |
-  Log in to your Azure subscription using device code, subscription ID, or tenant ID.
----
-
-## Examples
-
-### CLI
-
-#### Login with subscription ID
 ```bash
 azv2 login --subscription-id 00000000-0000-0000-0000-000000000000
 ```
 
-#### Login with device code
-```bash
-azv2 login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code
-```
+### Connect with subscription id (PowerShell)
 
-### PowerShell
-
-#### Connect with subscription ID
 ```powershell
 Connect-CirrusAccount -SubscriptionId "00000000-0000-0000-0000-000000000000"
 ```
-```
-
-**AI-assisted examples (future, Phase 4+):**
-
-For commands with no human-authored examples, a build-time AI step (opt-in) can suggest examples using Azure OpenAI. Suggested examples are:
-1. Reviewed by a developer
-2. Edited into the markdown file
-3. Committed to the repository
-
-This keeps examples human-reviewed while reducing authoring burden.
-
----
-
-## 11. Tags / Status Markers
-
-Status markers (Preview, Deprecated, Experimental) can be added to commands via code attributes or markdown metadata.
-
-**Future enhancement (Phase 3+):**
-
-```csharp
-[ProcessorInfo(Tags = new[] { HelpTag.Preview })]
-public class MyProcessor { ... }
 ````
 
-Or in markdown:
+**Surface differentiation is driven by the code-fence language tag** (`bash`/`sh` → CLI, `powershell`/`pwsh` → PowerShell). The `(CLI)` / `(PowerShell)` H3 suffix is cosmetic — it disambiguates for the human reader; the parser ignores it.
 
-```markdown
-Summary: Create a resource group [Preview]
-```
-
-Tag rendering in help:
-
-- `[Preview]` → shown in group help, no warning on use
-- `[Deprecated]` → shown in group help, warning printed on use
-- `[Experimental]` → shown in group help, warning printed on use
+Full author workflow lives in [docs/howto/help.md](../howto/help.md).
 
 ---
 
-## 12. CI Enforcement (Phase 3)
+## 5. CLI Surface
 
-Build-time validation checks:
+`-h` / `--help` / `help` is intercepted **before** command execution. The adapter resolves the canonical command key (full path, space-delimited, lowercased), reads the corresponding markdown file, filters examples to `!IsPowerShell`, and renders.
 
-| Rule                                          | Severity | Check                                                            |
-| --------------------------------------------- | -------- | ---------------------------------------------------------------- |
-| YAML frontmatter is valid                     | Error    | Build fails if YAML is malformed or missing                      |
-| Markdown missing `summary` field in YAML      | Error    | Build fails if help file has no summary                          |
-| Markdown missing `description` field in YAML  | Error    | Build fails if help file has no description                      |
-| Markdown missing example sections             | Error    | Build fails if help file has no examples (CLI or PowerShell)     |
-| Malformed markdown code fences                | Error    | Build fails if code block delimiters don't match                 |
-| Routed command has no corresponding help file | Error    | Build fails if ExtensionIndex command has no markdown help       |
-| Orphaned help files                           | Warning  | Build warns if markdown file isn't referenced by any command     |
-| Parameter has no description                  | Warning  | Build warns if `[ArgumentInfo]` missing `Description` (optional) |
+Cold-path guarantees:
 
-**Implementation:**
+- No reflection over processor types on the help path.
+- No processor instantiation.
+- One synchronous markdown read per invocation; no caching today (revisit if profiling demands it).
 
-- ✅ Phase 1: Basic markdown structure validation in help tool
-- ⏳ Phase 3: Stricter CI checks via build-time analyzer
-- ⏳ Phase 5 (Subtask 1): YAML frontmatter validation
+Tree shape mirrors azure-cli: `azv2 --help` lists groups, `azv2 group --help` lists subcommands, `azv2 group create --help` shows full command help. Global arguments (`--help`, `--debug`, `--output`) are owned by the CLI host and surface on every page.
 
 ---
 
-## 13. MSLearn Publishing (Phase 5+)
+## 6. PowerShell Surface
 
-When Cirrus reaches a release cadence:
+PowerShell help is delivered the standard way: a `.dll-Help.xml` MAML file colocated with the cmdlet assembly. Built from the same markdown corpus:
 
-1. Release pipeline runs help export tool: `tools/Help/Cirrus.Help.Tool` with `--export-markdown` flag
-2. Tool reads all markdown help files and generates per-command reference files into `artifacts/help/markdown/`
-3. Optional: markdown files are published to MSLearn via integration with `azure-docs-cli` or `azure-docs-cirrus` repo
-4. Same markdown source used for both runtime help and published reference docs (no duplication)
+1. `Cirrus.Help.Tool` parses markdown for every command in a PS extension.
+2. It emits `artifacts/help/powershell/Microsoft.Azure.Cirrus.Cmdlets.<Ext>.dll-Help.xml`.
+3. `build.ps1 -GenerateHelpArtifacts` copies the XML into `src/PS/<Module>/en-US/` (handles both `RootModule` and `NestedModules` manifests).
 
----
-
-## 14. Design Decisions (Actual)
-
-The following design decisions have been **made and validated** in the actual implementation:
-
-| Area                           | Decision                                                                                               | Rationale                                                                                                             |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| **Help source of truth**       | Markdown files under `src/Extensions/{Extension}/help/` are the authoritative source.                  | More ergonomic for authors; easier to maintain; leverages familiar .md format; examples easier to write and review.   |
-| **Markdown metadata format**   | YAML frontmatter for structured metadata (summary, description, tags, status).                         | Explicit structure; scalable for future enhancements; industry-standard format; easier to parse and validate.         |
-| **Example organization**       | Examples organized in clear CLI/PowerShell subsections (`## Examples → ### CLI / ### PowerShell`)      | Clear surface differentiation; human-readable; structured parsing; scalable to more surfaces.                         |
-| **Runtime markdown reading**   | Runtime CLI help reads markdown files directly (not JSON artifacts).                                   | Eliminates dependency on pre-generated manifests; allows fast iteration (change markdown, rebuild artifacts).         |
-| **Surface-specific filtering** | CLI shows only CLI examples; PowerShell gets all examples (both CLI and PowerShell).                   | Each surface shows examples appropriate to its context; single markdown source stays clean and comprehensive.         |
-| **Fallback to attributes**     | If markdown not found, system falls back to `[ProcessorInfo]` / `[ArgumentInfo]` attributes.           | Allows gradual migration; new extensions use markdown while legacy commands continue to work.                         |
-| **Artifact generation**        | Optional build-time step (`-GenerateHelpArtifacts`); artifacts are for publishing, not runtime.        | Keeps runtime simple and fast; artifacts generated on-demand for specific workflows (packaging, CI validation).       |
-| **Markdown validation**        | Build-time validators check YAML structure and required fields (summary, description, examples).       | Catches authoring errors early; ensures all commands have adequate help coverage; explicit format enforcement.        |
-| **PowerShell help**            | PowerShell uses pre-generated MAML XML for `Get-Help` (generated from markdown at build time).         | Native PowerShell integration; no runtime custom help resolution; integrates with standard PowerShell help ecosystem. |
-| **Ownership split**            | Runtime owns help loading and filtering; tooling owns artifact generation, validation, and publishing. | Clear separation of concerns; runtime stays lightweight; tooling can evolve independently.                            |
-| **Extension metadata**         | Help lives in separate `help/` folder per extension, not scattered across processor code.              | Centralized location; easier to audit; avoids spreading help content across multiple files.                           |
+Result: `Get-Help <Cmdlet> -Full` works natively with no custom resolver. Examples preserve quoting and surface in `-Examples` mode.
 
 ---
 
-## 15. Implementation Plan
+## 7. Build-Time Validation Pipeline
 
-### 15.1 ✅ Phase 1: Shared Help Model — COMPLETE
+`Cirrus.Help.Tool` runs four validators in order, each emitting structured `ValidationIssue`s with a stable `ProblemId`. CI surfaces the tool via the "Validate Help Content" step in [build-and-test.yml](../../.github/workflows/build-and-test.yml).
 
-**Objective:** Establish markdown as the canonical help source and validate markdown → runtime flow.
+| Validator | Checks | Failure mode |
+| --- | --- | --- |
+| `MarkdownStructureValidator` | Frontmatter present + valid; `summary` and `schema` required; `status` (if set) is a valid enum value; body has description and at least one example; code fences balanced. | Hard error. |
+| `HelpCompletenessValidator` | Every routed command in `ExtensionIndex` has a corresponding markdown file; warns on orphan markdown files. | Hard error on missing; warning on orphan. |
+| `ExampleSyntaxValidator` (CLI L1/L2/L3) | Every `azv2 …` line tokenizes; first token resolves to a known group; remaining non-flag tokens resolve via `IExtensionIndex.GetCommandTable(CLI)`; every `--flag`/`-x` exists on the resolved command (or is global); values type-check against `ParameterMetadata.Type` and `AllowedValues` (Guid, int/long, float/double/decimal, bool, enums). | Hard error. |
+| `PowerShellExampleSyntaxValidator` (PS-L1/L2) | Every `Verb-Noun` resolves via reflected cmdlet index; every `-Parameter` resolves to a declared parameter or alias; common parameters whitelisted; splatted commands skip L2 only. | Hard error. |
 
-**Delivered:**
+**Placeholders** (`<rg>`, `$var`, `${var}`, the all-zero Guid) pass through L3 unchecked. **Positional parameters** are intentionally not yet enforced — required-flag-presence is deferred until processor metadata exposes positional bindings.
 
-1. ✅ Markdown help files as source of truth (`src/Extensions/{Extension}/help/`)
-2. ✅ `MarkdownCommandHelpProvider` to parse markdown at runtime
-3. ✅ Example language tagging (bash/powershell) for surface differentiation
-4. ✅ CLI adapter filters examples by surface (`!e.IsPowerShell` for CLI)
-5. ✅ Manifest builder splits examples into cli/powerShell arrays
-6. ✅ Build script integration (`.\build\build.ps1 -GenerateHelpArtifacts`)
-7. ✅ Help artifact generation (JSON manifests, PowerShell XML)
-8. ✅ Login extension fully migrated to markdown help (3 help files)
-9. ✅ Tests passing (62/66, 4 skipped) with snapshot tests for artifacts
-10. ✅ Author workflow documented in [docs/howto/help.md](../howto/help.md)
-
-**Validation:** Login extension works end-to-end. `dotnet .\artifacts\Debug\Core.Cli\azv2.dll login --help` renders markdown help correctly with CLI-only examples.
+Tests live in [tools/Help/Cirrus.Help.Tool.Tests/](../../tools/Help/Cirrus.Help.Tool.Tests/) alongside the tool, mirroring the azure-powershell `StaticAnalysis` / `StaticAnalysis.Test` convention.
 
 ---
 
-### 15.2 ✅ Phase 2: Remaining Extension Migrations (Complete)
+## 8. Design Philosophy
 
-**Objective:** Extend markdown help pattern to Config, Resources, Extension extensions.
+**Markdown is the contract.** Runtime reads it directly; tooling validates and republishes it. There is no second source of truth and no "regenerate help" step between editing and running `azv2 --help`. Authors iterate at the speed of `Ctrl-S`.
 
-**Subtasks (completed in order):**
+**Lenient at runtime, strict at build.** The runtime parser tolerates malformed markdown (returns partial content, never throws) so a typo in one help file never crashes the CLI. The build-time validators are unforgiving — every defect surfaces as a CI error with a precise file:line locator.
 
-1. ✅ **Remove remaining embedded Summary/Description/Examples metadata**
-    - Clean up Config, Resources, Extension `ExtensionIndex.cs` entries
-    - Remove `[Summary]`/`[Description]`/`[Examples]` attributes from processors
-    - Verify tests still pass (should use markdown fallback)
+**Static over executable.** The PowerShell validator uses `System.Management.Automation.Language.Parser.ParseInput` — AST only, no runspace, no script execution. The CLI validator uses a small shell-aware tokenizer. We deliberately avoid `PSScriptAnalyzer` and any execution-based approach: name and signature checks are static, and statics scale.
 
-2. ✅ **Migrate Config extension to markdown help**
-    - Create `src/Extensions/Config/help/` folder
-    - Author markdown files for all Config commands
-    - Remove from code attributes
-    - Update test goldens if needed
+**Examples are tested code.** L1 (command path) + L2 (flag signature) + L3 (value type) collapse "is the example correct?" and "is the help outdated?" into a single mechanical check. Renaming a flag without updating examples is a build break, not a customer report.
 
-3. ✅ **Migrate Resources extension to markdown help**
-    - Create `src/Extensions/Resources/help/` folder
-    - Author markdown files for all Resources commands
-    - Remove from code attributes
-    - Update test goldens if needed
+**Hand-rolled where the schema is tiny.** The frontmatter parser is ~150 lines, owns its error messages, and has zero NuGet surface. We will swap in YamlDotNet when the schema actually demands it (multi-line scalars, nested objects) — not before.
 
-4. ✅ **Migrate Extension extension to markdown help**
-    - Create `src/Extensions/Extension/help/` folder
-    - Author markdown files for extension management commands
-    - Remove from code attributes
-    - Update test goldens if needed
+**Cosmetic vs structural is a sharp line.** The `(CLI)` / `(PowerShell)` H3 suffix is cosmetic — it exists for the human reader; the parser pivots on the fence language tag. Conflating the two would create two sources of truth for "which surface is this example for"; keeping them separate keeps the parser dumb and the conventions human-friendly.
 
-**Exit criteria (met):**
-
-- All extensions have markdown help files for all commands
-- No Summary/Description/Examples in code metadata for any extension
-- Tests pass with markdown-sourced help for all extensions
-- Artifact generation includes all extensions with correct examples
+**Ownership boundary.** Runtime owns help loading, surface filtering, and rendering. Tooling owns parsing-for-validation, manifest generation, and publishing. Both consume the same markdown, but they never share a parsing path — runtime stays lightweight; tooling can grow validators without touching the cold path.
 
 ---
 
-### 15.3 ✅ Phase 3: Build-Time Validation and Linting — COMPLETE
+## 9. In-Progress Polish (this PR)
 
-**Objective:** Add stricter enforcement that required help content exists and is well-formed.
+### 9.1 ✅ PlatyPS-shaped file-level frontmatter — **DONE**
 
-**Subtasks (completed):**
+- Every help file under `src/Extensions/*/help/*.md` carries a YAML frontmatter block with `summary` (required), `status` (default `ga`), `schema: 1.0.0` (required), `online version` (optional, empty), `relatedLinks` (optional list).
+- The body keeps its `Description:` line plus the example sections; bash example H3 titles gained a `(CLI)` suffix to mirror the existing `(PowerShell)` convention.
+- New `FrontmatterParser` in `Core.Runtime` (~150 lines, hand-rolled — see §8). [MarkdownCommandHelpProvider](../../src/Core/Core.Runtime/Help/MarkdownCommandHelpProvider.cs) extracts and parses frontmatter; description and example regex behavior unchanged on the body.
+- [MarkdownStructureValidator](../../tools/Help/Cirrus.Help.Tool/Validation/MarkdownStructureValidator.cs) enforces the schema: frontmatter present, `summary` and `schema` required, `status` (if set) in `ValidStatuses`.
+- All 17 help files migrated in a single mechanical pass. No dual-format support.
+- Tests: new `FrontmatterParserTests` (9), reworked `MarkdownStructureValidatorTests`, updated `MarkdownCommandHelpProviderTests` fixtures, refreshed Login golden files.
+- Author template in [docs/howto/help.md](../howto/help.md) updated.
+- **Side fix:** [build.ps1](../../build/build.ps1) `-GenerateHelpArtifacts` now copies `.dll-Help.xml` for modules using `NestedModules` (was previously only handling `RootModule`); unblocks `Get-Help` for Compute and Resources.
 
-1. ✅ **Help markdown structure validation**
-    - Checks all help files have `Summary:` field (required)
-    - Checks all help files have `Description:` field (required)
-    - Checks all help files have at least one example block (required)
-    - Checks code fence syntax is correct (matching ``` delimiters)
-    - Build fails if validation fails
-    - Implemented in `ValidateMarkdownHelpFiles` in [tools/Help/Cirrus.Help.Tool/Program.cs](../../tools/Help/Cirrus.Help.Tool/Program.cs)
+### 9.2 Spec updates
 
-2. ✅ **Help completeness checking**
-    - For each command in `ExtensionIndex`, ensures corresponding markdown file exists
-    - For each markdown file, verifies it's referenced by a routed command
-    - Warns on orphaned help files (does not fail build)
-    - Fails build if routed command has no help
-    - Implemented in `ValidateExtensionHelpCompleteness` in [tools/Help/Cirrus.Help.Tool/Program.cs](../../tools/Help/Cirrus.Help.Tool/Program.cs)
+- Finalize this document (in progress — you are reading the result).
+- Update [ARCHITECTURE.md](./ARCHITECTURE.md) to reference help design.
+- Audit [docs/howto/help.md](../howto/help.md) for accuracy against the shipped frontmatter shape.
 
-3. ✅ **CI integration**
-    - Help validation wired into PR pipeline via [.github/workflows/build-and-test.yml](../../.github/workflows/build-and-test.yml) `Validate Help Content (15.3.2)` step
-    - Runs `.\build\build.ps1 -GenerateHelpArtifacts -Configuration Debug` on every PR
-    - Validation fails the PR if:
-        - Any help file missing `Summary:`, `Description:`, or examples
-        - Any routed command lacks a corresponding help file
-        - Any code fence syntax is malformed
-    - Validation warns (does not fail PR) if:
-        - Orphaned help files exist (can be merged with follow-up cleanup)
-    - Clear error messages with file paths and remediation steps
-    - Future: Consider Roslyn analyzer or `dotnet tool` for pre-commit local opt-in
+### 9.3 Code documentation
 
-**Exit criteria (met):**
+- XML comments on `MarkdownCommandHelpProvider`, `ExtensionIndexHelpAdapter`, `ExtensionHelpManifestBuilder`, and `FrontmatterParser`.
+- Document frontmatter parsing logic, language-tag expectations, and runtime-vs-build leniency split.
 
-- ✅ Build/PR pipeline fails if required help fields are missing
-- ✅ CI prevents merging PRs that add commands without help
-- ✅ Clear error messages guide developers to fixes
-- ✅ Help validation runs as part of standard CI/CD pipeline
-- ✅ Verified end-to-end: happy path passes; missing help file fails CI as expected
+### 9.4 Developer guides
 
----
+- Troubleshooting section in [docs/howto/help.md](../howto/help.md) for common authoring failures (missing frontmatter, unknown flag in example, etc.).
+- Copy-paste templates for new command help.
 
-### 15.4 ⏳ Phase 4: Test Expansion and Edge Cases
+### 9.5 Help output formatting audit
 
-**Objective:** Expand tests for malformed markdown and help coverage edge cases.
+- Audit rendered help across surfaces (`azv2 --help`, `azv2 <command> --help`, `Get-Help`, agent prompt feed) for visual consistency and information density.
+- Review section ordering, heading style, indentation, column widths, wrapping behavior.
+- Compare against `az` and Azure PowerShell conventions; document deliberate deviations.
+- Capture before/after screenshots in [docs/howto/help.md](../howto/help.md).
 
-**Subtasks:**
+### 9.6 Collate all validator issues before failing
 
-1. ✅ **Malformed markdown handling** — COMPLETE
-    - Refactored `MarkdownCommandHelpProvider` to expose `Parse(string content)` for I/O-free testing
-    - 17 tests in [tests/Cli.Tests/MarkdownCommandHelpProviderTests.cs](../../tests/Cli.Tests/MarkdownCommandHelpProviderTests.cs)
-    - Covers: missing `Summary:`/`Description:` fields, unpaired code fences, unknown language tags, empty examples, blank titles, mixed CLI+PS examples, null/whitespace input, stress test for malformed input
-    - Verified: runtime parser is lenient (returns empty/partial content, never throws)
+- **Problem:** [Program.cs](../../tools/Help/Cirrus.Help.Tool/Program.cs) currently throws after the first stage that produces errors. A single missing help file in one extension hides every downstream issue.
+- **Goal:** Run every validator over every extension, aggregate into `aggregateReport`, render a single grouped summary at the end (errors by `ProblemId`/validator/extension/file, then warnings), exit non-zero iff any errors collected.
+- **Scope:** Replace the four early-throw sites with deferred `failed = true` flags + `aggregateReport.Merge`. Skip manifest emission for an extension with completeness errors but continue iterating. Promote `ValidationIssue.ProblemId` to a stable enum-like string (`MD_MissingSummary`, `Completeness_MissingHelpFile`, `CLI_L1_UnknownGroup`, `PSL2_UnknownParameter`, etc.) so the summary can group and CI can later baseline per rule.
+- **Tests:** Multi-extension fixtures asserting all errors surface, exit code = 0 on warnings-only / 1 on any error, `ProblemId` populated on every issue.
 
-2. ✅ **Help coverage tests** — COMPLETE
-    - 5 new tests added to [tests/Cli.Tests/ExtensionHelpManifestBuilderTests.cs](../../tests/Cli.Tests/ExtensionHelpManifestBuilderTests.cs)
-    - Covers: commands without markdown (fallback to defaults), parameters with empty descriptions, parameter aliases preserved, commands with no parameters, default parameter set names
-    - Uses `StubExtensionIndex` test fixture to simulate extensions without markdown coverage
-    - Note: orphaned help file detection is build-tool concern, covered by 15.3.2 (already implemented)
+### 9.7 Split help validation into its own CI job
 
-3. ✅ **Surface-specific example filtering** — COMPLETE
-    - 4 tests in [tests/Cli.Tests/MarkdownCommandHelpProviderTests.cs](../../tests/Cli.Tests/MarkdownCommandHelpProviderTests.cs): CLI-only filter, PowerShell full list, example order preservation, `sh` language tag handling
-    - 2 tests in [tests/Cli.Tests/ExtensionHelpManifestBuilderTests.cs](../../tests/Cli.Tests/ExtensionHelpManifestBuilderTests.cs): manifest correctly splits examples by language tag, CLI examples don't contain PowerShell verbs
-    - Verified: CLI surface filters `!IsPowerShell`, PowerShell surface receives full unfiltered list
+- **Problem:** [build-and-test.yml](../../.github/workflows/build-and-test.yml) runs build → "Validate Help Content" → tests → E2E sequentially. Help failures block tests; the PR check surface conflates "code broke" with "help drifted"; re-running just help validation requires the whole job.
+- **Target layout:**
+    - `build` — restore + build, uploads `artifacts/Debug/`.
+    - `test` — depends on `build`, runs `dotnet test cirrus.slnx --no-build`.
+    - `help-validate` — depends on `build`, runs `build.ps1 -GenerateHelpArtifacts`. Surfaces as its own PR check.
+    - `help-tool-tests` — depends on `build`, runs `dotnet test tools/Help/Cirrus.Help.Tool.Tests/…`.
+    - `e2e-cli` / `e2e-powershell` — depends on `build`.
+- **Notes:** `actions/upload-artifact` + `download-artifact` for `artifacts/Debug/`. Concurrency cancel-in-progress at workflow level. Cache `~/.nuget/packages` keyed on lock files or slnx hash. Update branch-protection required checks.
+- **Verification:** Breaking build → only build red; breaking help → only `help-validate` red; total wall-clock not regressing vs today.
 
-4. ⏭️ **Performance and caching** — SKIPPED
-    - Caching is not implemented in `MarkdownCommandHelpProvider`; each `Get` call reads + parses the file
-    - Help is invoked once per CLI process at the cold path, so the I/O cost has not warranted caching
-    - If profiling later shows hot-path issues, add `ConcurrentDictionary` keyed by `(extensionName, commandKey)` with file `LastWriteTime` invalidation, then revive these tests
+### 9.8 L3 error message uses routed command path
 
-5. ✅ **Help tool validation logic tests** — COMPLETE
-    - Location: New sibling test project [tools/Help/Cirrus.Help.Tool.Tests/](../../tools/Help/Cirrus.Help.Tool.Tests/) (mirrors the azure-powershell `tools/StaticAnalysis/` ↔ `tools/StaticAnalysis/StaticAnalysis.Test/` convention; keeps tool tests co-located with the tool under `tools/`).
-    - Prerequisite refactor (delivered): Extracted validation logic out of `Program.cs` local functions into classes inside `Cirrus.Help.Tool`:
-        - [`MarkdownStructureValidator`](../../tools/Help/Cirrus.Help.Tool/Validation/MarkdownStructureValidator.cs) (formerly `ValidateMarkdownHelpFiles`)
-        - [`HelpCompletenessValidator`](../../tools/Help/Cirrus.Help.Tool/Validation/HelpCompletenessValidator.cs) (formerly `ValidateExtensionHelpCompleteness`)
-        - [`HelpCommandKey`](../../tools/Help/Cirrus.Help.Tool/Validation/HelpCommandKey.cs) — shared `Normalize` / `ToHelpFileName` / `FromHelpFileName` / `ToExtensionFolder` helpers
-        - Typed result: [`ValidationReport`](../../tools/Help/Cirrus.Help.Tool/Validation/ValidationReport.cs) + [`ValidationIssue`](../../tools/Help/Cirrus.Help.Tool/Validation/ValidationIssue.cs) replace `Console.WriteLine` + `throw` side effects.
-        - [`Program.cs`](../../tools/Help/Cirrus.Help.Tool/Program.cs) is now a thin orchestrator: run validators → aggregate → print → exit code.
-        - This shape matches azure-powershell's `IStaticAnalyzer` pattern and sets up cleanly for 15.4.6 / 15.4.8 (`ExampleSyntaxValidator`, `ExampleTypeValidator`).
-    - Tests (36 total, all passing):
-        - [`HelpCommandKeyTests`](../../tools/Help/Cirrus.Help.Tool.Tests/HelpCommandKeyTests.cs) — 18 theory cases: normalize/trim/lowercase, multi-word ↔ filename round-trip, case-insensitivity, extension folder PascalCase.
-        - [`MarkdownStructureValidatorTests`](../../tools/Help/Cirrus.Help.Tool.Tests/MarkdownStructureValidatorTests.cs) — 10 tests: missing `Summary:` / `Description:` / examples, unbalanced fences, empty content reports all 3 issues, file-path propagation, multi-extension directory walking.
-        - [`HelpCompletenessValidatorTests`](../../tools/Help/Cirrus.Help.Tool.Tests/HelpCompletenessValidatorTests.cs) — 8 tests: all-present passes, missing routed command file errors, multi-word `config get` → `config-get.md`, orphan warnings (not errors), root-only index, case-insensitive filenames, missing help directory handled gracefully.
-    - CI integration: project added to [cirrus.slnx](../../cirrus.slnx) so `dotnet test cirrus.slnx --no-build` in [.github/workflows/build-and-test.yml](../../.github/workflows/build-and-test.yml) picks it up automatically.
-    - Test markdown structure validation:
-        - Test fails when `Summary:` field is missing
-        - Test fails when `Description:` field is missing
-        - Test fails when no examples are present
-        - Test fails when code fences are unbalanced
-    - Test help completeness validation:
-        - Test fails when routed CLI command has no corresponding help markdown file (error case)
-        - Test warns (doesn't fail) when orphaned help markdown files exist (warning case)
-        - Test passes when all routed commands have help files
-        - Test passes when only index.md exists for root command
-    - Test command key normalization:
-        - Test multi-word command keys (e.g., "config get") map to correct filenames ("config-get.md")
-        - Test extension name case-insensitivity
+- **Problem:** L3 errors render as `…on command 'LoginProcessor'…` (processor class name). Authors want `…on command 'login'…` so the error is copy-pasteable back into a search of the help corpus.
+- **Fix:** Thread the tokens consumed by L1 into [`ExampleSyntaxValidator.ValidateFlags`](../../tools/Help/Cirrus.Help.Tool/Validation/ExampleSyntaxValidator.cs); join with `' '` for the message. Apply to L2 unknown-flag errors too. Audit `command.FullName` vs `command.Name` and prefer the routed path everywhere.
+- **Tests:** Update existing L3 facts to assert the routed path; add a case where processor `Name` differs from routed path.
 
-6. ✅ **Example syntax validation (L1 + L2: command path + flag signature)** — COMPLETE
-    - Motivation: An example that no longer matches the command surface is the canonical signal that help is stale. By mechanically validating every example as a real invocation, "is help outdated?" and "does this example use real flags?" collapse into the same lint.
-    - Implemented as [`ExampleSyntaxValidator`](../../tools/Help/Cirrus.Help.Tool/Validation/ExampleSyntaxValidator.cs); wired into [Program.cs](../../tools/Help/Cirrus.Help.Tool/Program.cs) after structure + completeness validation.
-    - **L1 (command path)** — every `azv2 ...` line is tokenized, the first token after `azv2` is matched against a CLI-group map (currently mirrors [`CommandGroupIndex`](../../src/CLI/Parser/CommandGroupIndex.cs)), then the remaining non-flag tokens are greedy-matched against `IExtensionIndex.GetCommandTable(CLI)`, falling back to the root key (`""`) when the longest prefix doesn't resolve.
-    - **L2 (flag signature)** — every `--flag` / `-x` token is checked against the resolved command's `Parameters` keys and `ParameterAliases` (alias→canonical). The documented global set (`--help`, `-h`, `--debug`, `--output`) is allowed everywhere. Both `--flag value` and `--flag=value` are accepted.
-    - **Tokenizer** — shell-aware: respects single/double quotes; treats `https://`, `/paths`, and negative numbers as values (not flags). Only single `-` followed by an alphabetic char qualifies as a short flag.
-    - **What's deferred** — _required-flag-presence_ (a stricter form of L2) is intentionally **not** enforced yet. The current help uses positional form for several commands (e.g. `azv2 config set output.format json`), and the framework does not expose positional parameter metadata. Once positional support lands, this check can be added with no further changes to the validator's tokenization. Documented in [docs/howto/help.md](../howto/help.md).
-    - **Placeholder handling:**
-        - `<placeholder>`, `<my-rg>`, `$var`, `${var}`, and the all-zero GUID pass through unchanged — L1/L2 do not inspect values.
-        - Documented in [docs/howto/help.md](../howto/help.md).
-    - **Multi-line blocks:** Each line in a `bash`/`sh` fence is tokenized independently. Only `azv2`-prefixed lines are validated; comments (`#`), blank lines, and other shell lines are ignored. PowerShell fences are skipped entirely.
-    - **Failure mode:** Hard error — fails the build/PR, same as 15.3.2. Error locator is `path/to/file.md:<line>`.
-    - **Tests** — [`ExampleSyntaxValidatorTests`](../../tools/Help/Cirrus.Help.Tool.Tests/ExampleSyntaxValidatorTests.cs), 13 cases:
-        - Valid example with known group + command + flags passes.
-        - Root command resolution (`azv2 login` → `""` key) passes.
-        - Unknown group fails with clear message.
-        - Unknown subcommand fails with clear message.
-        - Unknown flag fails with clear message.
-        - Global flags (`--help`, `--debug`, `--output`) accepted everywhere.
-        - Short alias (`-n` for `--name`) resolves via `ParameterAliases`.
-        - `--flag=value` equals form supported.
-        - Comment lines and non-azv2 shell lines ignored.
-        - Multi-line block fails only on the offending line.
-        - PowerShell fences skipped (CLI metadata not applied to cmdlet examples).
-        - Error locator includes file path and 1-based line number.
-        - URLs / paths / negative numbers not misclassified as flags.
+### 9.9 Tool-level integration tests over `Program.MainAsync`
 
-7. ✅ **PowerShell example syntax validation (parallel of 15.4.6 for cmdlet fences)** — **COMPLETE**
-
-    Implemented via `tools/Help/Cirrus.Help.Tool/Validation/PowerShellExampleSyntaxValidator.cs` and `CmdletIndex.cs`. The validator uses `System.Management.Automation.Language.Parser.ParseInput` (no `PSScriptAnalyzer`, no `Runspace`) and reflects over `Microsoft.Azure.Cirrus.Cmdlets.*.dll` to build a `Verb-Noun → CmdletMetadata` index. 12 tests in `PowerShellExampleSyntaxValidatorTests.cs`. The live run flagged four real defects (3 typos + 1 documented-but-unimplemented parameter) that were fixed as part of the same change:
-    - `Get-CirrusConfig -Json` → `-AsJson` ([src/Extensions/Config/help/get.md](../../src/Extensions/Config/help/get.md))
-    - `Get-CirrusConfigList -All` → `-IncludeDefaults` and `-Json` → `-AsJson` ([src/Extensions/Config/help/list.md](../../src/Extensions/Config/help/list.md))
-    - `New-ResourceGroup -ResourceId` example removed (cmdlet doesn't support that parameter; the CLI counterpart with `--resource-id` is preserved) ([src/Extensions/Resources/help/create.md](../../src/Extensions/Resources/help/create.md))
-
-    **Implementation notes:**
-    - Motivation: 15.4.6 only covers `bash`/`sh` fences. PowerShell fences (`powershell` / `pwsh`) are surfaced unchanged into `Get-Help` and `.dll-Help.xml`, so stale parameter names there (e.g. `Set-CirrusConfig -Keys` instead of `-Key`) still ship to users.
-    - Scope: For every `powershell`/`pwsh` fence in `src/Extensions/*/help/*.md`, parse the block with the PowerShell AST, walk each `CommandAst`, resolve the command name to a registered cmdlet, and validate every `CommandParameterAst` against the cmdlet's declared parameters and aliases.
-    - **Inspiration:** `azure-powershell/tools/StaticAnalysis/ExampleAnalyzer` extracts code blocks and runs `PSScriptAnalyzer` on a temp script. We take the same shape but skip PSScriptAnalyzer — for our static name/parameter checks, `System.Management.Automation.Language.Parser.ParseInput` alone gives us a typed AST with accurate line numbers, splatting detection, and backtick-continuation handling.
-    - **Parser dependency:** Add `System.Management.Automation` (via `Microsoft.PowerShell.SDK` or the PS reference assemblies) to `Cirrus.Help.Tool.csproj`. We use only the `Language.Parser` API — no `Runspace`, no script execution.
-    - **Metadata source — `CmdletIndex`:**
-        - New `tools/Help/Cirrus.Help.Tool/Validation/CmdletIndex.cs`.
-        - Reflect over already-loaded extension assemblies (the Help tool already loads `Microsoft.Azure.Cirrus.Cmdlets.*.dll` for `IExtensionIndex` discovery — reuse the same `Assembly` instances; do not load twice).
-        - For each `Type` decorated with `[Cmdlet]`, emit `CmdletMetadata { VerbNoun, ParameterNames (HashSet, OrdinalIgnoreCase), ParameterAliases (alias → canonical) }`.
-        - Parameter names: every public property with `[Parameter]`. Aliases: every `[Alias]` attribute on the same property. Union parameter names across all `ParameterSetName`s (we don't currently distinguish parameter sets — false negatives only, no false positives).
-        - Output: `Dictionary<string, CmdletMetadata>` keyed by `Verb-Noun`, OrdinalIgnoreCase.
-    - **PS-L1 — Cmdlet resolution:**
-        - For each `CommandAst.GetCommandName()`, require a hit in `CmdletIndex`. Skip names that don't match `^[A-Za-z]+-[A-Za-z][A-Za-z0-9]*$` (likely native commands, executables, or expressions — not our surface to police).
-        - Fail with `path/to/file.md:<line>` (from `CommandAst.Extent.StartLineNumber`, offset by the fence's start line in the markdown).
-    - **PS-L2 — Parameter signature:**
-        - For each `CommandParameterAst` child, check `ParameterName` against the cmdlet's `ParameterNames` ∪ `ParameterAliases.Keys`.
-        - Common-parameter whitelist (allowed on every cmdlet): `Verbose`, `Debug`, `ErrorAction`, `ErrorVariable`, `WarningAction`, `WarningVariable`, `InformationAction`, `InformationVariable`, `OutVariable`, `OutBuffer`, `PipelineVariable`, `WhatIf`, `Confirm`.
-        - **Strict full-name + alias matching only.** No prefix abbreviation (`-Sub` → `-SubscriptionId`) — masks typos.
-        - Required-parameter presence: deferred for the same reason as 15.4.6 (`[Parameter(Position = N)]` positional form is widespread in our examples and not yet exposed by the index).
-    - **Splatting and dynamic constructs:**
-        - If a `CommandAst` contains a `VariableExpressionAst` with `Splatted = true` (i.e. `@params`), skip L2 for that command (we can't see inside the hashtable statically). L1 still runs.
-        - Variables as parameter values (`-Name $rg`) are accepted — no value-level checks (that's L3 / 15.4.8 territory).
-    - **Skipped lines:**
-        - Comment lines (`#`) — AST handles this naturally (no `CommandAst` produced).
-        - Prompt lines (`PS>` or `PS C:\>`) — strip the prompt prefix before parsing, or skip via regex if `ParseInput` errors on them.
-        - Pipeline fragments without a recognizable cmdlet name (native commands like `dotnet build`).
-    - **Failure mode:** Hard error — fails the build/PR, same as 15.4.6. Error locator is `path/to/file.md:<line>`.
-    - **What we borrow from `azure-powershell`:**
-        - **AST-based parsing** (their parser sits on the same `SMA.Language` API; we use it directly).
-        - **Issue typing:** promote `ValidationIssue` to carry a stable `ProblemId` (e.g. `PSL1_UnknownCmdlet`, `PSL2_UnknownParameter`) — mirrors their [`ExampleIssue.cs`](https://github.com/Azure/azure-powershell/blob/main/tools/StaticAnalysis/ExampleAnalyzer/ExampleIssue.cs) pattern. Enables per-rule CI suppression later.
-        - **Common parameter whitelist** — same list they hardcode in `utils.ps1`.
-    - **What we don't borrow:**
-        - Their `Measure-MarkdownOrScript.ps1` temp-script + `PSScriptAnalyzer` pipeline (designed for execution-level lint, overkill for static name resolution).
-        - The `AnalyzeRules/`-as-PS-modules DSL — a plain C# `IValidationRule`-style split is enough for 2–3 rules.
-        - `ExampleIssues.csv` artifact — defer until CI demands richer reporting than stderr.
-    - **Tests** (`PowerShellExampleSyntaxValidatorTests.cs`):
-        - Valid cmdlet + parameter passes.
-        - Unknown cmdlet (`Set-Unknown -Key foo`) fails with PS-L1 error.
-        - Unknown parameter (`Set-CirrusConfig -Keys "x"`) fails with PS-L2 error and clear message.
-        - Common parameter (`-Verbose`, `-ErrorAction Stop`) accepted.
-        - Alias on a `[Parameter]` property resolves (canonical and alias names both accepted).
-        - Comment lines and prompt lines (`PS>`) ignored.
-        - Multi-line block fails only on the offending line; backtick continuation handled by the AST.
-        - Splatted command (`Get-Cirrus @params`) skipped at L2, still validated at L1.
-        - CLI `bash` fence in the same file unaffected (other validator).
-        - Regression: `Set-CirrusConfig -Keys "output.format"` in [src/Extensions/Config/help/set.md](../../src/Extensions/Config/help/set.md) fails (the live typo that snuck past 15.4.6).
-    - **Open questions / risks:**
-        - PS reference assembly transitive footprint — confirm we don't pull in a full host. If too heavy, fall back to a hand-rolled tokenizer (already prototyped for CLI in 15.4.6).
-        - Cross-platform: `Parser.ParseInput` is part of PowerShell Core and ships on all `dotnet` targets via NuGet.
-    - **Out of scope (this item):**
-        - L3 (value/type validation) for PowerShell — folded into 15.4.8 once CLI L3 lands.
-        - Validating PowerShell example output (`# Output: ...`) — informational only.
-    - **CI integration:** Runs as part of the existing `Validate Help Content` step in [.github/workflows/build-and-test.yml](../../.github/workflows/build-and-test.yml). No new workflow step needed.
-
-8. ✅ **Example type validation (L3: parameter value shapes)** — **COMPLETE**
-    - **Implementation:** Colocated in `ExampleSyntaxValidator` (tools/Help/Cirrus.Help.Tool/Validation/ExampleSyntaxValidator.cs). `ValidateFlags` now consumes the value token following each known flag (or `--flag=value`), passes it to `CheckValue(ParameterMetadata, string)`, and emits a structured error on failure. `TryGetParameter` factors lookup out of the old `IsKnownParameter` so the matched metadata flows into L3.
-    - **Supported types (shipped):**
-        - `Guid` — `Guid.TryParse`.
-        - `int` / `long` — `TryParse` with `NumberStyles.Integer`, `CultureInfo.InvariantCulture`.
-        - `float` / `double` / `decimal` — `double.TryParse` with `NumberStyles.Float`, invariant culture.
-        - `bool` — case-insensitive `true`/`false`. Switch form (flag with no following value) accepted silently.
-        - Enums — case-insensitive match against `Enum.GetNames`.
-        - `Nullable<T>` — unwrapped to `T`.
-        - `List<T>` / `IEnumerable<T>` / `IList<T>` / `ICollection<T>` / `IReadOnlyList<T>` / `IReadOnlyCollection<T>` / arrays — deferred (no element-level L3 yet).
-        - `string` / unknown — accepted as-is.
-    - **AllowedValues:** Checked **first**, regardless of declared type. Case-insensitive membership. Out-of-range values fail with `not in allowed values [a, b, c]`.
-    - **Placeholders skipped** by `IsPlaceholder`: `<...>` (angle brackets), `$var` / `${var}`, all-zero canonical Guid `00000000-0000-0000-0000-000000000000`.
-    - **Error format:** `Value '{value}' for flag '{flag}' on command '{command.Name}' is invalid: {reason}` — e.g. `Value 'not-a-guid' for flag '--subscription-id' on command 'create' is invalid: not a valid Guid`.
-    - **Live run:** Validator runs clean against shipped help (no L3 defects found on first execution).
-    - **Tests** (`ExampleSyntaxValidatorTests.cs`) — 16 new `[Fact]` covering: well-formed/malformed Guid, well-formed/malformed Int32, bool switch form, explicit bool, bad bool, enum case-insensitive pass + miss, `AllowedValues` pass + miss, angle/dollar/all-zero-Guid placeholders, `--flag=value` pass+fail, deferred list validation, and that L2 unknown-flag fires without spurious L3 noise on the following token. Added a second `StubExtensionIndex(Dictionary<string, ParameterMetadata[]>)` constructor so tests can declare Type and AllowedValues.
-    - **Original tests (kept):**
-        - Valid example with all required flags and well-typed values passes.
-        - Unknown command path fails with clear message.
-        - Unknown flag fails with clear message.
-        - Missing required flag fails with clear message.
-        - Wrong-typed literal (e.g. `--subscription-id not-a-guid`) fails L3.
-        - Placeholder value (e.g. `--subscription-id <subId>`) passes L2/L3.
-        - Enum out-of-range value fails L3; valid enum member passes.
-        - PowerShell-only example is skipped (not validated against CLI metadata).
-        - Multi-line block with one bad line fails on that line only.
-    - **CI integration:** Runs as part of the existing `Validate Help Content` step in [.github/workflows/build-and-test.yml](../../.github/workflows/build-and-test.yml). No new workflow step needed.
-
-**Exit criteria:**
-
-- Tests cover normal and error paths for help loading
-- Malformed markdown handling is well-specified and tested
-- Surface-specific filtering verified end-to-end
-- Performance baselines established
-- Help tool validation (15.3.2) has comprehensive unit test coverage
-- CLI examples are mechanically validated against `ExtensionIndex` for command path, flag signature, and parameter value types (L1–L3)
-- Stale help (renamed/removed commands or flags) is caught by CI before merge
-- Placeholder conventions for example values are documented in [docs/howto/help.md](../howto/help.md)
+- **Problem:** Every validator class has strong unit coverage; `Program.cs` has none. Stage ordering, exit-code contract, manifest-emission gating, and the CLI-group → extension map are all untested. §9.6 will rewrite orchestration with nothing to catch a silent revert.
+- **Prerequisite refactor:** Extract `Program.Main` body into `Program.MainAsync(string[] args, string repoRoot, TextWriter? stderr = null) → int`; inject `repoRoot` for fixture-driven tests.
+- **Fixtures** under `tools/Help/Cirrus.Help.Tool.Tests/Fixtures/`: `Clean/`, `MissingHelpFile/`, `BadL3Value/`, `BadPSL2/`, `MultiExtensionErrors/`.
+- **Tests** (~5 facts, one per fixture). `MultiExtensionErrors` is the lock for §9.6 — initially `Skip`ped, un-skipped once §9.6 lands.
+- **Out of scope:** Subprocess E2E (slow, brittle, no value over in-process `MainAsync`). Snapshot manifest assertions ([HelpArtifactWriterTests](../../tests/Cli.Tests/Help/HelpArtifactWriterTests.cs) already covers that layer).
 
 ---
 
-### 15.5 ⏳ Phase 5: Final Consistency Pass and Polish
+## 10. Follow-ups (out of this PR)
 
-**Objective:** Document final design, update all specs, and ensure consistency across codebase.
+Recorded so we don't lose design context; **not blockers** for landing this PR.
 
-**Subtasks:**
+### 10.1 MSLearn publishing pipeline
 
-1. ✅ **Adopt PlatyPS-shaped file-level frontmatter for help markdown** — **PLANNED FOR THIS PR**
-    - **Scope** (deliberately narrow):
-        - Every help file under `src/Extensions/*/help/*.md` gains a YAML frontmatter block at the top with file-level metadata.
-        - The `Summary:` body line moves into the frontmatter as `summary:` and is removed from the body.
-        - Description and examples stay in the markdown body, unchanged structurally.
-        - All bash example H3 titles gain a `(CLI)` suffix to mirror the existing `(PowerShell)` convention — purely cosmetic disambiguation; parsing still pivots on the code-fence language tag (`bash` vs `powershell`).
-    - **Schema (v1.0.0):**
+Export `src/Extensions/*/help/*.md` to a docs-pipeline-ready format (PlatyPS Markdown or `learn.microsoft.com` JSON) and wire into release CI. Likely shape: a new `tools/Help/Cirrus.Help.Publish/` console app that reads existing manifests + body extraction and emits an `out/mslearn/` tree. Triggered on release tag, separate workflow. The §9.1 frontmatter (`online version`, `relatedLinks`) is the on-ramp.
 
-        ```yaml
-        ---
-        summary: One-line description of the command. # required
-        status: ga # optional, default 'ga'; enum: ga|preview|deprecated|internal
-        schema: 1.0.0 # required, lets us version the format
-        online version: # optional, URL for MSLearn (empty for now)
-        relatedLinks: # optional, flat list of command paths or labels
-            - azv2 logout
-        ---
-        ```
+### 10.2 Per-parameter YAML blocks (full PlatyPS shape)
 
-    - **Inspiration:** PlatyPS (Azure PowerShell's help authoring format) uses YAML frontmatter at both file and per-parameter levels. We adopt the **file-level** layer only. Per-parameter YAML blocks are deliberately out of scope (see §16) because `ParameterMetadata` in code is our single source of truth and PlatyPS-style reconciliation tooling would be a much bigger investment.
-    - **Why now:** Locks the on-disk shape so future MSLearn publishing, status markers, and related-links rendering have a stable schema to consume. The migration cost (~17 files) is small while the corpus is small.
-    - **Why a hand-rolled parser, not YamlDotNet:**
-        - The schema is 4 flat string fields plus 1 optional string list. No multi-line scalars, no nested objects, no anchors.
-        - A ~40-line `FrontmatterParser` in [src/Core/Core.Runtime/Help/](../../src/Core/Core.Runtime/Help/) covers it, owns its own error messages, and adds zero NuGet surface.
-        - If the schema ever grows multi-line scalars or nested objects (per-parameter blocks, structured `relatedLinks`), revisit. Single-line decision to flip later.
-    - **Differentiation between CLI and PowerShell examples — unchanged:** Driven entirely by the code-fence language tag (`bash` vs `powershell`/`pwsh`) parsed in [MarkdownCommandHelpProvider.cs](../../src/Core/Core.Runtime/Help/MarkdownCommandHelpProvider.cs). The `(CLI)` / `(PowerShell)` H3 suffix is for the human reader; it has no parsing effect. Two fences under one H3 are parsed as two separate `MarkdownExample` records.
-    - **Code changes:**
-        - New `FrontmatterParser` in `Core.Runtime` (reused by both runtime parser and help validator via the existing `Cirrus.Help.Tool → Core.Runtime` project reference).
-        - [MarkdownCommandHelpProvider.cs](../../src/Core/Core.Runtime/Help/MarkdownCommandHelpProvider.cs) — extracts and parses frontmatter, reads `summary` from it. Description (body line) and examples (regex) unchanged.
-        - [MarkdownStructureValidator.cs](../../tools/Help/Cirrus.Help.Tool/Validation/MarkdownStructureValidator.cs) — replaces the `^Summary:` prefix check with: frontmatter present, `summary` required, `schema` required, `status` (if present) is a valid enum.
-        - All 17 help files migrated.
-        - [docs/howto/help.md](../howto/help.md) author template updated.
-    - **Tests:**
-        - New `FrontmatterParserTests.cs` covers the 40-line parser end-to-end.
-        - [MarkdownCommandHelpProviderTests.cs](../../tests/Cli.Tests/MarkdownCommandHelpProviderTests.cs) fixtures updated to include frontmatter; behavior assertions unchanged.
-        - [MarkdownStructureValidatorTests.cs](../../tools/Help/Cirrus.Help.Tool.Tests/MarkdownStructureValidatorTests.cs) updated; new cases for missing frontmatter, missing `summary`, missing `schema`, invalid `status` enum.
-    - **Hard cutover:** Parser rejects files without frontmatter; all 17 files migrate in this PR. No dual-format support — the corpus is small enough that "two valid formats forever" is worse than a single mechanical PR.
+Each `### -ParamName` body subsection would carry its own YAML block with `Type`, `Required`, `Position`, `Default value`, `Accept pipeline input`, `Aliases`. Deferred because `ParameterMetadata` in code is the single source of truth today — adopting PlatyPS's per-param YAML duplicates that into markdown and requires reconciliation tooling (their `Update-MarkdownHelp` cmdlet). Reconsider when docs authoring becomes a separate role from cmdlet authoring.
 
-2. **Spec updates**
-    - Finalize [docs/spec/help-system.md](./help-system.md) with actual implementation and YAML frontmatter format
-    - Update [docs/spec/ARCHITECTURE.md](./ARCHITECTURE.md) to reference help design
-    - Review [docs/howto/help.md](../howto/help.md) for accuracy and completeness
+### 10.3 `## DESCRIPTION` body header (PlatyPS body shape)
 
-3. **Code documentation**
-    - Add XML comments to `MarkdownCommandHelpProvider`, `ExtensionIndexHelpAdapter`, and `ExtensionHelpManifestBuilder`
-    - Document YAML frontmatter parsing logic
-    - Document example language tag expectations
-    - Document fallback behavior (markdown → attributes)
+Move from `Description:` prefix line to `## DESCRIPTION` H2. Mechanical churn across 17 files for no capability gain today. Bundle with other body-shape changes (`## EXAMPLES`, `## RELATED LINKS`) if/when adopted, to amortize the diff.
 
-4. **Developer guides**
-    - Ensure [docs/howto/help.md](../howto/help.md) covers all scenarios including YAML frontmatter structure
-    - Add troubleshooting section for common help authoring issues
-    - Provide copy-paste templates for new command help (with YAML frontmatter)
+### 10.4 Structured `relatedLinks`
 
-5. **Revisit help output formatting**
-    - Audit the rendered help across all surfaces (`azv2 --help`, `azv2 <command> --help`, `Get-Help <Cmdlet>`, agent prompt feed) for visual consistency and information density.
-    - Review section ordering (Summary / Description / Usage / Parameters / Examples / Related), heading style, indentation, column widths, and color/emphasis use.
-    - Compare against `az` and Azure PowerShell conventions and document any deliberate deviations.
-    - Decide on wrapping behavior for long parameter descriptions and examples in narrow terminals.
-    - Verify example code fences render readably in `azv2 --help` (no leftover markdown syntax) and that PowerShell examples preserve quoting in `.dll-Help.xml`.
-    - Capture before/after screenshots in [docs/howto/help.md](../howto/help.md) so future changes have a baseline.
+Promote `relatedLinks` from flat string list to `[{ name, url }]` objects. Strings suffice for terminal rendering; the structured shape pays off when publishing to HTML (§10.1).
 
-6. **Help tool: collate all validation issues before failing**
-    - **Problem:** [tools/Help/Cirrus.Help.Tool/Program.cs](../../tools/Help/Cirrus.Help.Tool/Program.cs) currently throws after the first validator stage that produces errors (markdown structure → completeness (per-extension) → CLI example syntax → PowerShell example syntax). A single missing help file in one extension hides every downstream issue (e.g. compute completeness errors hid a real `-Name3` typo flagged by PS-L2 in a different extension). Each authoring iteration only surfaces one class of problem at a time, which is friction during bulk edits and PR review.
-    - **Goal:** Run every validator over every extension, aggregate all `ValidationIssue`s into the existing `aggregateReport`, print a single grouped summary at the end (errors by validator/extension/file, then warnings), and exit non-zero iff any errors were collected. Per-stage `throw` becomes a deferred `failed = true` flag.
-    - **Scope of changes:**
-        - Remove the four early `throw new InvalidOperationException(...)` sites in `Program.cs` (after `MarkdownStructureValidator`, after each per-extension `HelpCompletenessValidator`, after `ExampleSyntaxValidator`, after `PowerShellExampleSyntaxValidator`). Replace with `aggregateReport.Merge(...)` only.
-        - Skip manifest emission for an extension that has completeness errors (don't write half-baked JSON), but continue iterating to the next extension instead of bailing.
-        - At the end of `Main`, render the aggregate report grouped by `ProblemId`/validator with counts (e.g. `MarkdownStructure: 2 errors`, `Completeness[compute]: 2 errors`, `CLI-L1: 3 errors`, `PS-L2: 1 error`, `Warnings: 4`), then call `Environment.Exit(1)` if `aggregateReport.HasErrors`.
-        - Promote `ValidationIssue` to carry a stable `ProblemId` string (mirrors azure-powershell's `ExampleIssue`) so the summary can group/suppress by rule and CI can introduce per-rule baselines later. Backfill the existing call sites: `MD_MissingSummary`, `MD_MissingDescription`, `MD_NoExamples`, `MD_UnbalancedFence`, `Completeness_MissingHelpFile`, `Completeness_OrphanHelpFile`, `CLI_L1_UnknownGroup`, `CLI_L1_UnknownCommand`, `CLI_L2_UnknownFlag`, `PSL1_UnknownCmdlet`, `PSL2_UnknownParameter`.
-        - Keep `PrintReport` as the per-stage progress trace (still useful for tailing CI logs) but ensure the final grouped summary is the authoritative output.
-    - **Tests:** New cases in [tools/Help/Cirrus.Help.Tool.Tests/](../../tools/Help/Cirrus.Help.Tool.Tests/):
-        - Multiple extensions each with completeness errors → all errors collected, all reported in summary.
-        - Completeness error in extension A does not suppress PS-L2 error in extension B.
-        - `ProblemId` is populated on every issue emitted by every validator (table-driven).
-        - Exit code is 0 when only warnings are present, 1 when any error is present.
-    - **Why this lives in §15.5 and not §15.4:** It's a UX polish over an already-correct pipeline. The validators themselves don't need to change — only orchestration and reporting do.
+### 10.5 YamlDotNet swap
 
-7. **Split help validation out of `build-and-test.yml` into its own CI job(s)**
-    - **Problem:** [.github/workflows/build-and-test.yml](../../.github/workflows/build-and-test.yml) currently runs build → "Validate Help Content" → tests → E2E in a single sequential job. Help authoring failures block the test job from ever running (and vice versa), the PR check surface conflates "code broke" with "help content drifted", and re-running just the help validator requires re-running the whole job.
-    - **Goal:** Each concern shows up as its own PR check with its own logs, can be re-run independently, and runs in parallel where possible.
-    - **Target job layout:**
-        - `build` — `dotnet restore` + `dotnet build cirrus.slnx`. Uploads `artifacts/Debug/` as a workflow artifact so downstream jobs don't rebuild.
-        - `test` — depends on `build`; downloads artifacts; runs `dotnet test cirrus.slnx --no-build`. (Today's "Run tests" step.)
-        - `help-validate` — depends on `build`; downloads artifacts; runs `.\build\build.ps1 -GenerateHelpArtifacts -Configuration Debug` (covers MD structure, completeness, CLI L1+L2, PS-L1+L2). Surfaces as its own PR check named `Validate Help Content`.
-        - `help-tool-tests` — depends on `build`; runs `dotnet test tools/Help/Cirrus.Help.Tool.Tests/Cirrus.Help.Tool.Tests.csproj --no-build` (currently rolled into the global `dotnet test` invocation). Splitting it makes "did the validators themselves regress?" answerable without waiting for the full test matrix.
-        - `e2e-cli` — depends on `build`; runs the `azv2 --help` smoke.
-        - `e2e-powershell` — depends on `build`; sets up PowerShell on the runner and imports the modules.
-    - **Implementation notes:**
-        - Use `actions/upload-artifact` + `actions/download-artifact` to share `artifacts/Debug/` between jobs; avoid `--no-restore`/`--no-build` mismatches by uploading the entire `artifacts/` tree.
-        - Keep the existing `name: Build and Test` workflow file or split into `ci.yml` (build + test) and `help.yml` (help-validate + help-tool-tests) — open question, decide during implementation. Either way, `branch protection` rules need updating so the new checks are required.
-        - Concurrency: add `concurrency: { group: ci-${{ github.ref }}, cancel-in-progress: true }` at the workflow level so pushing a new commit cancels in-flight runs.
-        - Cache `~/.nuget/packages` keyed on `**/packages.lock.json` (or `cirrus.slnx` hash if lock files are absent) to keep `restore` cheap across jobs.
-    - **Tests / verification:**
-        - Trigger a PR that breaks only the build → only `build` (and downstream-dependent jobs) shows red; `help-validate` is skipped, not failed.
-        - Trigger a PR that breaks only a help markdown file → only `help-validate` shows red; `test` still runs and passes.
-        - Trigger a PR that breaks a help-tool validator → only `help-tool-tests` shows red.
-        - Total wall-clock for a green PR should not regress vs. today (parallel jobs offset the artifact upload/download overhead).
-    - **Out of scope (this item):**
-        - Splitting the actual help validation pipeline (still one `dotnet run` of the Help tool). Per-validator parallelism is overkill until the runtime becomes a problem.
-        - Reusable workflows / composite actions — defer until a second workflow needs the same setup steps.
+Replace the hand-rolled `FrontmatterParser` with YamlDotNet when the schema grows multi-line scalars, nested objects (§10.4), or per-parameter blocks (§10.2). Single-line decision to flip.
 
-8. **L3 error message: use routed CLI command name, not processor type name**
-    - **Problem:** L3 (15.4.8) errors currently render as `Value 'yes' for flag '--use-device-code' on command 'LoginProcessor' is invalid: not a valid Boolean`. `LoginProcessor` is the `ProcessorType.Name` of the command class, not the user-facing command path (`login`). Help authors reading the error have to mentally translate `*Processor` → CLI verb, which is friction during bulk edits.
-    - **Root cause:** [`ExampleSyntaxValidator.ValidateFlags`](../../tools/Help/Cirrus.Help.Tool/Validation/ExampleSyntaxValidator.cs) formats the error using `command.Name`, and for some commands `Name` happens to be the processor class name rather than the routed path. The L2 ("Unknown flag") branch has the same issue.
-    - **Goal:** Errors should reference the same string the help author typed in the markdown — e.g. `command 'login'`, `command 'vm create-combined'` — so the error is copy-pasteable back into a search of the help corpus.
-    - **Scope of changes:**
-        - Thread the original routed command path (the tokens consumed by L1 to resolve the command) into `ValidateFlags` instead of relying on `command.Name`. The call site already has it as the slice of tokens `[1..resolveIndex]`; just join with `' '` and pass it down.
-        - Apply the same change to the L2 unknown-flag error so both messages stay consistent.
-        - Verify `command.FullName` vs `command.Name` semantics across extensions — if `FullName` is the routed path everywhere, prefer that and skip the token-slice plumbing.
-    - **Tests:** Update the existing L3 `[Fact]`s in [ExampleSyntaxValidatorTests.cs](../../tools/Help/Cirrus.Help.Tool.Tests/ExampleSyntaxValidatorTests.cs) to assert the message contains the routed path (`"command 'create'"` for the stubbed `vm create`), and add one live-style test that constructs a command whose `Name` differs from its routed path to lock in the fix.
+### 10.6 Tighten extension parameter types
 
-9. **Tool-level integration tests over `Program.MainAsync`**
-    - **Problem:** Today we have strong unit coverage on each validator class ([ExampleSyntaxValidatorTests.cs](../../tools/Help/Cirrus.Help.Tool.Tests/ExampleSyntaxValidatorTests.cs), [PowerShellExampleSyntaxValidatorTests.cs](../../tools/Help/Cirrus.Help.Tool.Tests/PowerShellExampleSyntaxValidatorTests.cs), [HelpCompletenessValidatorTests.cs](../../tools/Help/Cirrus.Help.Tool.Tests/HelpCompletenessValidatorTests.cs), [MarkdownStructureValidatorTests.cs](../../tools/Help/Cirrus.Help.Tool.Tests/MarkdownStructureValidatorTests.cs)) but zero tests on [Program.cs](../../tools/Help/Cirrus.Help.Tool/Program.cs) itself. Several contracts live there with no automated guard: stage ordering (markdown → completeness → CLI → PS), the exit-code contract (`0` on warnings-only, `1` on errors), manifest-emission gating (don't write JSON for an extension that failed completeness), and the CLI-group → extension map (e.g. `["compute"] = "vm"` — currently untested). When §15.5.6 lands and rewrites the orchestration to collate-before-failing, there is no test that will catch a silent revert of any of these contracts.
-    - **Goal:** A small integration-test surface that drives `Program.MainAsync(string[] args)` over a fixture repo and asserts on exit code + collected report. Not full E2E (no subprocess) — just enough to lock the orchestration contracts.
-    - **Why "polish" and not blocker:** The help-system design itself is still solidifying. Hardening the tool too aggressively before the shape stabilises locks us into orchestration decisions that may still need to change. This item gets _prepared_ (refactor `Program.cs` to expose `MainAsync` and accept an injected fixture root) but the test suite is deliberately small and only grows once the design is cemented.
-    - **Prerequisite refactor:**
-        - Extract the orchestration body of `Program.cs` into `Program.MainAsync(string[] args, string repoRoot, TextWriter? stderr = null)` returning `int`. The `Main` entrypoint becomes a one-liner.
-        - Inject `repoRoot` so tests can point at a `tests/Fixtures/HelpToolFixtures/<scenario>/` tree instead of mutating the real repo.
-    - **Fixture layout** under `tools/Help/Cirrus.Help.Tool.Tests/Fixtures/`:
-        - `Clean/` — one extension, well-formed help. Asserts exit 0 + manifests written.
-        - `MissingHelpFile/` — completeness error in one extension. Asserts exit 1 + error references the missing file.
-        - `BadL3Value/` — bool flag with `yes` literal. Asserts exit 1 + error contains `not a valid Boolean`.
-        - `BadPSL2/` — `-Name3` typo in PS fence. Asserts exit 1 + error contains the cmdlet name.
-        - `MultiExtensionErrors/` — errors in extensions A _and_ B (this is the **lock** for §15.5.6: today only A's errors surface; after §15.5.6 both must surface).
-    - **Tests** (target ~5 `[Fact]`s, one per fixture):
-        - `Tool_ShouldExit0_AndWriteManifests_OnCleanFixture`.
-        - `Tool_ShouldExit1_AndReportMissingHelpFile`.
-        - `Tool_ShouldExit1_AndReportL3Violation`.
-        - `Tool_ShouldExit1_AndReportPSL2Violation`.
-        - `Tool_ShouldReportErrorsFromAllExtensions_WhenMultipleFail` _(initially expected to be a failing/`Skip`ped test until §15.5.6 lands — it's the contract that drives that work)_.
-    - **Explicitly out of scope:**
-        - Subprocess-based E2E (`Process.Start("dotnet run")`) — too slow, too brittle, and adds nothing over an in-process `MainAsync` call.
-        - Snapshot/golden assertions on full manifest output — [HelpArtifactWriterTests.cs](../../tests/Cli.Tests/Help/HelpArtifactWriterTests.cs) already covers that layer.
-        - Hardening anything past the contracts listed above until the help-system design is cemented (post-PR-this-one).
-    - **Why this lives in §15.5 and not §15.4:** §15.4 delivers the _capability_; this delivers _durability_. The capability is verified by hand and by validator-level unit tests; durability against orchestration regression is a follow-up that should pair with §15.5.6.
+Audit every `ExtensionIndex.cs` parameter declaration and replace `typeof(string)` with the precise type (`typeof(Guid)` for `subscription-id`, `typeof(int)` for `--retries`, etc.). L3 (§7) only catches type-shape errors when metadata declares a non-string type — tightening types multiplies L3's reach. Mechanical, touches every extension, best as a focused follow-up.
 
-**Exit criteria:**
+### 10.7 Help authoring scaffolder
 
-- All specs accurately describe implemented behavior
-- Code is well-commented and discoverable
-- Developer workflows are documented and tested
-- No contradictions between spec, code, and howto guides
+`cirrus help new <extension> <command>` (or `dotnet run --project tools/Help/Cirrus.Help.Tool -- new …`) that emits a frontmatter+body template. Copy-paste from the howto is fast enough at current corpus size. Reconsider past ~50 commands or when onboarding new authors becomes friction.
 
----
+### 10.8 Pattern / regex validation for name fields
 
-## 16. Follow-ups (out of this PR)
-
-This section captures help-system work that is **deliberately deferred** beyond the current PR. Items listed here are not blockers for landing §15.4 + §15.5. They are recorded so we don't lose the design context that surfaced while building the foundation.
-
-### 16.1 MSLearn publishing pipeline
-
-- **Goal:** Export `src/Extensions/*/help/*.md` to a docs-pipeline-ready format (PlatyPS-compatible Markdown or generated `learn.microsoft.com` JSON), wire into release CI.
-- **Trigger:** When docs/release-engineering team commits to a publish cadence.
-- **Dependencies on items in this PR:**
-    - The §15.5.1 frontmatter (`summary`, `status`, `online version`, `relatedLinks`) is the on-ramp — `online version:` URLs get populated when publish destinations are known.
-- **Likely scope when it lands:**
-    - New `tools/Help/Cirrus.Help.Publish/` console app that reads the existing `artifacts/help/HelpIndex.json` + per-extension manifests and emits an `out/mslearn/` tree.
-    - Decide between (a) rewriting markdown for publication or (b) generating output from manifests + body extraction. Probably (b) — manifests are already structured.
-    - CI integration: separate workflow (`publish-docs.yml`) triggered on release tag.
-
-### 16.2 Per-parameter YAML blocks (PlatyPS-style)
-
-- **What:** Each `### -ParamName` body subsection would carry its own YAML block describing `Type`, `Required`, `Position`, `Default value`, `Accept pipeline input`, `Aliases` — the way PlatyPS does it.
-- **Why we deferred:** `ParameterMetadata` in code is currently the single source of truth. Adopting PlatyPS's per-param YAML means **duplicating** that truth into markdown and building reconciliation tooling (their `Update-MarkdownHelp` cmdlet). That's expensive and only pays off when docs-team authors edit markdown independently from C# changes — which is not our workflow yet.
-- **Reconsider when:** Docs authoring becomes a separate role from cmdlet authoring, or when MSLearn publishing demands the richer per-param schema.
-
-### 16.3 Description as `## DESCRIPTION` body header (full PlatyPS body shape)
-
-- **What:** Move from the current `Description:` prefix line to a `## DESCRIPTION` H2 header with paragraph content beneath, matching PlatyPS body layout.
-- **Why we deferred:** Mechanical churn across all 17 files for a layout change that doesn't unlock any new capability today. The parser doesn't care, the validators don't care, the renderers don't care.
-- **Reconsider when:** Bundling with another body-shape change (e.g. `## EXAMPLES` and `## RELATED LINKS` sections per full PlatyPS) — do them all in one pass to amortize the diff.
-
-### 16.4 Structured `relatedLinks` (with display name + URL)
-
-- **What:** Promote `relatedLinks:` from flat string list to `[{ name, url }]` objects so MSLearn can render proper `<a href>` links.
-- **Why we deferred:** Strings are enough for in-terminal rendering (`Get-Help` / `azv2 --help`). The structured shape pays off only when publishing to HTML.
-- **Reconsider when:** §16.1 lands.
-
-### 16.5 YamlDotNet dependency
-
-- **What:** Replace the hand-rolled `FrontmatterParser` with `YamlDotNet`.
-- **Why we deferred:** Current schema (4 flat strings + 1 string list) doesn't need it. Hand-rolled parser is ~40 lines with full control over error messages and zero NuGet surface.
-- **Reconsider when:** Schema grows multi-line scalars (e.g. `description:` in frontmatter), nested objects (§16.4), or per-parameter blocks (§16.2). Single-line decision to flip later.
-
-### 16.6 Tighten extension parameter type declarations
-
-- **What:** Audit every `ExtensionIndex.cs` parameter declaration and replace `typeof(string)` with the precise type (e.g. `typeof(Guid)` for `subscription-id`, `typeof(int)` for `--retries`).
-- **Why this matters:** L3 type validation (§15.4.8) only catches errors when the metadata declares a non-string type. Today nearly every Compute/Resources `subscription-id` is `typeof(string)`, so L3 cannot catch malformed Guids in those examples. Tightening types multiplies L3's reach across the corpus.
-- **Why we deferred:** Mechanical, touches every extension, and the L3 reach gain is "nice to have" rather than "required to ship." Best done as a focused follow-up PR.
-- **Reconsider when:** Authoring discipline indicates type-shape defects are slipping past code review, or before MSLearn publishing (so published docs surface real types).
-
-### 16.7 Help authoring CLI / scaffolder
-
-- **What:** A `cirrus help new <extension> <command>` (or `dotnet run --project tools/Help/Cirrus.Help.Tool -- new ...`) that emits a frontmatter+body template into `src/Extensions/<ext>/help/<command>.md`.
-- **Why we deferred:** Copy-paste from [docs/howto/help.md](../howto/help.md) template is fast enough at current corpus size.
-- **Reconsider when:** Corpus exceeds ~50 commands or onboarding new authors becomes friction.
-
-### 16.8 Pattern / regex validation for free-form name fields
-
-- **What:** Add `[ValidationPattern]` (regex) or `[NamingRule]` attribute to `ParameterMetadata` so help examples like `--name 123` for a VM (which must start with a letter) can fail L3.
-- **Why we deferred:** Service-side naming rules are the authoritative validator; duplicating them into help-tool metadata is brittle. Also: L3 today catches _type-shape_ errors, not _semantic-validity_ errors — keeping those concerns separate is honest design.
-- **Reconsider when:** Real defects (e.g. examples with names that violate Azure naming policy) start slipping through and surface in customer feedback.
+Add `[ValidationPattern]` (regex) or `[NamingRule]` to `ParameterMetadata` so help examples like `--name 123` for a VM (must start with a letter) fail L3. Service-side naming rules are the authoritative validator; duplicating them is brittle. L3 today catches type-shape, not semantic-validity — keeping those concerns separate is honest design. Reconsider if real defects start slipping through.
