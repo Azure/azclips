@@ -997,6 +997,30 @@ The following design decisions have been **made and validated** in the actual im
         - Exit code is 0 when only warnings are present, 1 when any error is present.
     - **Why this lives in §15.5 and not §15.4:** It's a UX polish over an already-correct pipeline. The validators themselves don't need to change — only orchestration and reporting do.
 
+8. **Split help validation out of `build-and-test.yml` into its own CI job(s)**
+    - **Problem:** [.github/workflows/build-and-test.yml](../../.github/workflows/build-and-test.yml) currently runs build → "Validate Help Content" → tests → E2E in a single sequential job. Help authoring failures block the test job from ever running (and vice versa), the PR check surface conflates "code broke" with "help content drifted", and re-running just the help validator requires re-running the whole job.
+    - **Goal:** Each concern shows up as its own PR check with its own logs, can be re-run independently, and runs in parallel where possible.
+    - **Target job layout:**
+        - `build` — `dotnet restore` + `dotnet build cirrus.slnx`. Uploads `artifacts/Debug/` as a workflow artifact so downstream jobs don't rebuild.
+        - `test` — depends on `build`; downloads artifacts; runs `dotnet test cirrus.slnx --no-build`. (Today's "Run tests" step.)
+        - `help-validate` — depends on `build`; downloads artifacts; runs `.\build\build.ps1 -GenerateHelpArtifacts -BuildConfiguration Debug` (covers MD structure, completeness, CLI L1+L2, PS-L1+L2). Surfaces as its own PR check named `Validate Help Content`.
+        - `help-tool-tests` — depends on `build`; runs `dotnet test tools/Help/Cirrus.Help.Tool.Tests/Cirrus.Help.Tool.Tests.csproj --no-build` (currently rolled into the global `dotnet test` invocation). Splitting it makes "did the validators themselves regress?" answerable without waiting for the full test matrix.
+        - `e2e-cli` — depends on `build`; runs the `azv2 --help` smoke.
+        - `e2e-powershell` — depends on `build`; sets up PowerShell on the runner and imports the modules.
+    - **Implementation notes:**
+        - Use `actions/upload-artifact` + `actions/download-artifact` to share `artifacts/Debug/` between jobs; avoid `--no-restore`/`--no-build` mismatches by uploading the entire `artifacts/` tree.
+        - Keep the existing `name: Build and Test` workflow file or split into `ci.yml` (build + test) and `help.yml` (help-validate + help-tool-tests) — open question, decide during implementation. Either way, `branch protection` rules need updating so the new checks are required.
+        - Concurrency: add `concurrency: { group: ci-${{ github.ref }}, cancel-in-progress: true }` at the workflow level so pushing a new commit cancels in-flight runs.
+        - Cache `~/.nuget/packages` keyed on `**/packages.lock.json` (or `cirrus.slnx` hash if lock files are absent) to keep `restore` cheap across jobs.
+    - **Tests / verification:**
+        - Trigger a PR that breaks only the build → only `build` (and downstream-dependent jobs) shows red; `help-validate` is skipped, not failed.
+        - Trigger a PR that breaks only a help markdown file → only `help-validate` shows red; `test` still runs and passes.
+        - Trigger a PR that breaks a help-tool validator → only `help-tool-tests` shows red.
+        - Total wall-clock for a green PR should not regress vs. today (parallel jobs offset the artifact upload/download overhead).
+    - **Out of scope (this item):**
+        - Splitting the actual help validation pipeline (still one `dotnet run` of the Help tool). Per-validator parallelism is overkill until the runtime becomes a problem.
+        - Reusable workflows / composite actions — defer until a second workflow needs the same setup steps.
+
 **Exit criteria:**
 
 - All specs accurately describe implemented behavior
