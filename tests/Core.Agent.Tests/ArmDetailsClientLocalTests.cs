@@ -38,7 +38,7 @@ public sealed class ArmDetailsClientLocalTests
     private static ArmDetailsClient NewClient() =>
         new ArmDetailsClient(new AzureCliAuthServiceStub());
 
-    [Fact]
+    [Fact(Skip = "Local-only — requires CIRRUS_TEST_ARM_ID. Run with: dotnet test --filter Category=Local after setting the env var.")]
     [Trait("Category", "Local")]
     public async Task GetByIdAsync_ShouldReturnResourceBody_ForRealArmId()
     {
@@ -61,7 +61,7 @@ public sealed class ArmDetailsClientLocalTests
         Assert.Null(result);
     }
 
-    [Fact]
+    [Fact(Skip = "Local-only — requires CIRRUS_TEST_ARM_ID. Run with: dotnet test --filter Category=Local after setting the env var.")]
     [Trait("Category", "Local")]
     public async Task GetByIdAsync_ShouldCacheRepeatedCalls()
     {
