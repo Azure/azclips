@@ -30,6 +30,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             using HttpResponseMessage response = await HttpPipeline.SendAsync(request, EventListener);
             await EventListener.Signal(Events.TracingHttpResponseMessage, response);
+            response.EnsureSuccessStatusCode();
             ResourceGroup rg = (await response.Content.ReadFromJsonAsync<ResourceGroup>(JsonOptions))!;
             await WriteOutput(rg);
             await EventListener.Signal(Events.ProcessorProcessAsyncEnd);
