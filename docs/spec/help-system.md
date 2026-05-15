@@ -167,16 +167,17 @@ Tests live in [tools/Help/Cirrus.Help.Tool.Tests/](../../tools/Help/Cirrus.Help.
 - Author template in [docs/howto/help.md](../howto/help.md) updated.
 - **Side fix:** [build.ps1](../../build/build.ps1) `-GenerateHelpArtifacts` now copies `.dll-Help.xml` for modules using `NestedModules` (was previously only handling `RootModule`); unblocks `Get-Help` for Compute and Resources.
 
-### 9.2 Spec updates
+### 9.2 ✅ Spec updates — **DONE**
 
-- Finalize this document (in progress — you are reading the result).
-- Update [ARCHITECTURE.md](./ARCHITECTURE.md) to reference help design.
-- Audit [docs/howto/help.md](../howto/help.md) for accuracy against the shipped frontmatter shape.
+- This document distilled from ~700 lines to ~175 — preserved §9 (in-progress polish) and §10 (follow-ups), refactored everything before into a tighter what-we-built + design-philosophy shape.
+- [ARCHITECTURE.md](./ARCHITECTURE.md) gained a Help System section, three rows in the File Locations table (`Help Markdown`, `Help Runtime Provider`, `Help Tool`), and cross-references in the Documentation list.
+- [docs/howto/help.md](../howto/help.md) audited against the shipped frontmatter: fixed broken Quick Start markdown, repaired cross-references, expanded Example Validation to cover both CLI and PowerShell surfaces in parallel, fixed stale artifact paths (`Cirrus.Login.dll-Help.xml` → `Microsoft.Azure.Cirrus.Cmdlets.<Module>.dll-Help.xml`) and import paths, documented the `build.ps1 -GenerateHelpArtifacts` step that lands MAML next to cmdlet DLLs, removed the obsolete "Migrating an Extension" section, and rewrote Troubleshooting around `ProblemId` buckets.
 
-### 9.3 Code documentation
+### 9.3 ✅ Code documentation — **DONE**
 
-- XML comments on `MarkdownCommandHelpProvider`, `ExtensionIndexHelpAdapter`, `ExtensionHelpManifestBuilder`, and `FrontmatterParser`.
-- Document frontmatter parsing logic, language-tag expectations, and runtime-vs-build leniency split.
+- Added class- and member-level XML doc comments to the four runtime entry points: [`FrontmatterParser`](../../src/Core/Core.Runtime/Help/FrontmatterParser.cs), [`MarkdownCommandHelpProvider`](../../src/Core/Core.Runtime/Help/MarkdownCommandHelpProvider.cs), [`ExtensionHelpManifestBuilder`](../../src/Core/Core.Runtime/Help/ExtensionHelpManifestBuilder.cs), and [`ExtensionIndexHelpAdapter`](../../src/CLI/Help/ExtensionIndexHelpAdapter.cs).
+- Documented the schema record (`FrontmatterDoc`), the language-tag-drives-surface rule on `MarkdownExample`, the `Empty` sentinel + fallback chain on `MarkdownCommandHelp`, the parallel-surface emission contract in `BuildManifest`, and the markdown-first / attribute-fallback resolution order in the CLI adapter.
+- Refreshed stale spec cross-references (`§15.5.1` → `§4`, `§16.5` → `§10.5`) so code comments point at the refactored spec sections.
 
 ### 9.4 Developer guides
 

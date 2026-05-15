@@ -3,8 +3,38 @@ using Core.Abstractions;
 
 namespace Core.Runtime
 {
+    /// <summary>
+    /// Build-time projection of an extension's <see cref="IExtensionIndex"/> + its markdown
+    /// help corpus into the publishable <see cref="HelpManifest"/> and
+    /// <see cref="HelpIndex"/> shapes consumed by <c>HelpManifest.json</c>,
+    /// <c>HelpIndex.json</c>, and the PowerShell MAML XML emitter.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Unlike <see cref="ExtensionIndexHelpAdapter"/> (CLI-only surface), this builder
+    /// emits both surfaces in parallel: each <see cref="HelpCommand"/> carries a
+    /// <c>CliName</c>, a <c>PsName</c>, and a <see cref="HelpExampleSet"/> split into
+    /// <see cref="HelpExampleSet.Cli"/> and <see cref="HelpExampleSet.PowerShell"/> arrays.
+    /// The split is driven by the example's fence language tag
+    /// (<see cref="MarkdownExample.IsPowerShell"/>).
+    /// </para>
+    /// <para>
+    /// Reflects over the extension index's <c>s_cliTable</c> / <c>s_psTable</c> static
+    /// fields to enumerate commands. Processor types are discovered once and joined across
+    /// both tables so a single command emits one <see cref="HelpCommand"/> with both
+    /// surface names populated.
+    /// </para>
+    /// </remarks>
     public static class ExtensionHelpManifestBuilder
     {
+        /// <summary>
+        /// Builds a <see cref="HelpManifest"/> for a single extension. Commands are sorted
+        /// by <c>CliName</c> then <c>PsName</c>; parameters within each command are sorted
+        /// by name.
+        /// </summary>
+        /// <param name="extensionIndex">The extension's index (CLI + PS tables).</param>
+        /// <param name="extensionName">Extension name used for help-folder lookup and CLI name normalization.</param>
+        /// <param name="extensionVersion">Extension version string embedded in the manifest.</param>
         public static HelpManifest BuildManifest(
             IExtensionIndex extensionIndex,
             string extensionName,
@@ -67,6 +97,12 @@ namespace Core.Runtime
             return new HelpManifest(extensionName, extensionVersion, sortedCommands);
         }
 
+        /// <summary>
+        /// Folds a sequence of per-extension <see cref="HelpManifest"/>s into a flat,
+        /// cross-extension <see cref="HelpIndex"/>: every group and every command appears
+        /// in a single sorted list keyed by extension + CLI/PS name. Drives CLI command
+        /// discovery and search (<c>HelpIndex.json</c>).
+        /// </summary>
         public static HelpIndex BuildIndex(IEnumerable<HelpManifest> manifests)
         {
             var groups = new List<HelpGroupIndexEntry>();

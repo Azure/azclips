@@ -8,43 +8,43 @@ This guide explains how to author and test help for CLI commands and PowerShell 
 
 2. **Write the content** — YAML frontmatter, then a description, then one or more example sections:
 
-   ````markdown
-   ---
-   summary: Brief one-line description.
-   status: ga
-   schema: 1.0.0
-   online version:
-   ---
+    ````markdown
+    ---
+    summary: Brief one-line description.
+    status: ga
+    schema: 1.0.0
+    online version:
+    ---
 
-   Description: Multi-line explanation of what the command does and how to use it.
+    Description: Multi-line explanation of what the command does and how to use it.
 
-   ### Login with subscription id (CLI)
+    ### Login with subscription id (CLI)
 
-   ```bash
-   azv2 login --subscription-id 00000000-0000-0000-0000-000000000000
-   ```
+    ```bash
+    azv2 login --subscription-id 00000000-0000-0000-0000-000000000000
+    ```
 
-   ### Connect with subscription id (PowerShell)
+    ### Connect with subscription id (PowerShell)
 
-   ```powershell
-   Connect-CirrusAccount -SubscriptionId "00000000-0000-0000-0000-000000000000"
-   ```
-   ````
+    ```powershell
+    Connect-CirrusAccount -SubscriptionId "00000000-0000-0000-0000-000000000000"
+    ```
+    ````
 
 3. **Build and verify CLI help:**
 
-   ```powershell
-   dotnet build cirrus.slnx
-   dotnet .\artifacts\Debug\Core.Cli\azv2.dll <command> --help
-   ```
+    ```powershell
+    dotnet build cirrus.slnx
+    dotnet .\artifacts\Debug\Core.Cli\azv2.dll <command> --help
+    ```
 
 4. **Build with help artifacts** (required for `Get-Help` to find PowerShell help XML and for CI-style validation locally):
 
-   ```powershell
-   .\build\build.ps1 -GenerateHelpArtifacts -Configuration Debug
-   Import-Module .\src\PS\<Module>\<Module>.psd1 -Force
-   Get-Help <Cmdlet> -Full
-   ```
+    ```powershell
+    .\build\build.ps1 -GenerateHelpArtifacts -Configuration Debug
+    Import-Module .\src\PS\<Module>\<Module>.psd1 -Force
+    Get-Help <Cmdlet> -Full
+    ```
 
 ## File Structure
 

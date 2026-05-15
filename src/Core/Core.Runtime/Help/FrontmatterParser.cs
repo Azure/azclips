@@ -4,10 +4,10 @@
 namespace Core.Runtime;
 
 /// <summary>
-/// File-level frontmatter for a help markdown document. See §15.5.1 of help-system.md
-/// for the v1.0.0 schema. Deliberately flat: 4 strings + 1 optional string list. If the
-/// schema ever grows multi-line scalars or nested objects, swap this parser for YamlDotNet
-/// (§16.5).
+/// File-level frontmatter for a help markdown document. See §4 (Authoring Model) of
+/// help-system.md for the v1.0.0 schema. Deliberately flat: 4 strings + 1 optional string
+/// list. If the schema ever grows multi-line scalars or nested objects, swap this parser
+/// for YamlDotNet (§10.5).
 /// </summary>
 public sealed record FrontmatterDoc(
     string Summary,

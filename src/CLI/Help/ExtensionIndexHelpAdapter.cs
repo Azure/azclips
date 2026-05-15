@@ -5,6 +5,24 @@ using System.Reflection;
 
 namespace Core.Cli.Help;
 
+/// <summary>
+/// Bridges an <see cref="IExtensionIndex"/> + its markdown help corpus into the runtime
+/// help tree (<see cref="RuntimeHelpGroup"/> / <see cref="RuntimeHelpCommand"/>) consumed
+/// by the CLI help renderer.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Resolution order for summary / description / examples is markdown-first, attribute
+/// fallback: <see cref="MarkdownCommandHelpProvider"/> is queried first; if the markdown
+/// field is empty, <c>[ProcessorInfo]</c> / <c>[ArgumentInfo]</c> attributes on the
+/// processor type are used; finally a humanized command name is the last resort.
+/// </para>
+/// <para>
+/// Surface filtering for CLI: examples with <see cref="MarkdownExample.IsPowerShell"/>
+/// are filtered out before being returned. The PowerShell surface (MAML generation) goes
+/// through <see cref="ExtensionHelpManifestBuilder"/> instead and receives the full list.
+/// </para>
+/// </remarks>
 public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
 {
     private readonly IExtensionIndex _extensionIndex;
@@ -28,9 +46,20 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
 
     public string ExtensionName { get; }
 
+    /// <summary>
+    /// Returns the top-level groups exposed by this extension. Today this is a single
+    /// group keyed on the extension's CLI group name; nested groups are discovered on
+    /// demand via <see cref="GetGroupHelp"/>.
+    /// </summary>
     public IReadOnlyList<RuntimeHelpGroup> GetRootGroups()
         => [BuildGroup([_rootGroupPath], _extensionIndex.CliRootSummary)!];
 
+    /// <summary>
+    /// Resolves group-level help for the supplied command path (e.g. <c>["group"]</c> or
+    /// <c>["group", "role"]</c>). Returns <c>null</c> when the path doesn't fall under
+    /// this extension's root group, or when a nested group resolves to no subgroups and
+    /// no commands.
+    /// </summary>
     public RuntimeHelpGroup? GetGroupHelp(IReadOnlyList<string> groupPath)
     {
         if (!IsUnderRootGroup(groupPath))
@@ -45,6 +74,12 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
         return BuildGroup(groupPath, summary, returnNullWhenEmpty: groupPath.Count > 1);
     }
 
+    /// <summary>
+    /// Resolves command-level help for the supplied path (e.g. <c>["group", "create"]</c>).
+    /// Returns <c>null</c> when the path doesn't resolve to a routed command in this
+    /// extension's CLI table. Examples are filtered to CLI-only
+    /// (<see cref="MarkdownExample.IsPowerShell"/> = <c>false</c>).
+    /// </summary>
     public RuntimeHelpCommand? GetCommandHelp(IReadOnlyList<string> commandPath)
     {
         if (!IsUnderRootGroup(commandPath))
