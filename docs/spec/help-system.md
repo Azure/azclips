@@ -198,11 +198,12 @@ Tests live in [tools/Help/Cirrus.Help.Tool.Tests/](../../tools/Help/Cirrus.Help.
 - **Branch protection:** if `build-and-test` is configured as a required check, replace it with the three new check names (`build-and-test`, `help-validate`, `help-tool-tests`) in the GitHub repo settings UI. No-op if no required checks are configured.
 - **Verification:** Breaking a `.cs` file fails `build-and-test`, leaves `help-validate` green. Breaking a help example fails `help-validate`, leaves `build-and-test` green. Both jobs run on every PR; failures are clearly attributed to the slice that broke.
 
-### 9.7 L3 error message uses routed command path
+### 9.7 ✅ CLI L2/L3 error message uses routed command path — **DONE**
 
-- **Problem:** L3 errors render as `…on command 'LoginProcessor'…` (processor class name). Authors want `…on command 'login'…` so the error is copy-pasteable back into a search of the help corpus.
-- **Fix:** Thread the tokens consumed by L1 into [`ExampleSyntaxValidator.ValidateFlags`](../../tools/Help/Cirrus.Help.Tool/Validation/ExampleSyntaxValidator.cs); join with `' '` for the message. Apply to L2 unknown-flag errors too. Audit `command.FullName` vs `command.Name` and prefer the routed path everywhere.
-- **Tests:** Update existing L3 facts to assert the routed path; add a case where processor `Name` differs from routed path.
+- **What shipped:** [`ExampleSyntaxValidator`](../../tools/Help/Cirrus.Help.Tool/Validation/ExampleSyntaxValidator.cs) now captures the `cliTable` key it matched, builds `routedPath = "azv2 {group}"` (or `"azv2 {group} {key}"` when the command has a sub-name), and threads it into `ValidateFlags`. Both `CLI_L2_UnknownFlag` and `CLI_L3_InvalidValue` messages quote the routed path instead of `CommandMetadata.Name` (which is the processor class name — `"LoginProcessor"`, `"NewResourceGroupProcessor"` — and is an implementation detail).
+- **Before/after:** `…on command 'LoginProcessor'…` → `…on command 'azv2 login'…`. For grouped commands: `…on command 'NewResourceGroupProcessor'…` → `…on command 'azv2 group create'…`.
+- **PowerShell side already correct:** [`PowerShellExampleSyntaxValidator`](../../tools/Help/Cirrus.Help.Tool/Validation/PowerShellExampleSyntaxValidator.cs) reads the cmdlet name straight from the AST (`Connect-CirrusAccount`), so `PSL2_UnknownParameter` was never affected. No change needed.
+- **Test impact:** Existing 91 tests pass unchanged — they assert on the `'--flag'` prefix, not the trailing `on command '...'` portion. No new test added since there is no extension where the routed path equals the processor class name (would just duplicate the manual smoke check).
 
 ### 9.8 Tool-level integration tests over `Program.MainAsync`
 

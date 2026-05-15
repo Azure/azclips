@@ -152,12 +152,14 @@ namespace Cirrus.Help.Tool.Validation
 
             // Try longest match first, shrinking until we find a table key (or fall back to root "").
             CommandMetadata? command = null;
+            string? matchedKey = null;
             for (var take = commandTokens.Count; take >= 0; take--)
             {
                 var key = string.Join(' ', commandTokens.Take(take));
                 if (cliTable.TryGetValue(key, out var match))
                 {
                     command = match;
+                    matchedKey = key;
                     consumed = 2 + take;
                     break;
                 }
@@ -173,13 +175,21 @@ namespace Cirrus.Help.Tool.Validation
                 return;
             }
 
-            ValidateFlags(tokens, consumed, command, locator, report);
+            // The routed user-facing command path — e.g. "azv2 login" or "azv2 group create".
+            // CommandMetadata.Name is the processor class name (e.g. "LoginProcessor"), which is
+            // an implementation detail. L2/L3 error messages quote what the user typed.
+            var routedPath = string.IsNullOrEmpty(matchedKey)
+                ? $"azv2 {groupName}"
+                : $"azv2 {groupName} {matchedKey}";
+
+            ValidateFlags(tokens, consumed, command, routedPath, locator, report);
         }
 
         private static void ValidateFlags(
             List<string> tokens,
             int startIndex,
             CommandMetadata command,
+            string routedPath,
             string locator,
             ValidationReport report)
         {
@@ -217,7 +227,7 @@ namespace Cirrus.Help.Tool.Validation
                 {
                     report.AddError(
                         ProblemIds.CLI_L2_UnknownFlag,
-                        $"Unknown flag '{flag}' on command '{command.Name}'. Not declared as a parameter or alias.",
+                        $"Unknown flag '{flag}' on command '{routedPath}'. Not declared as a parameter or alias.",
                         locator);
                     continue;
                 }
@@ -241,7 +251,7 @@ namespace Cirrus.Help.Tool.Validation
                 {
                     report.AddError(
                         ProblemIds.CLI_L3_InvalidValue,
-                        $"Value '{value}' for flag '{flag}' on command '{command.Name}' is invalid: {typeError}",
+                        $"Value '{value}' for flag '{flag}' on command '{routedPath}' is invalid: {typeError}",
                         locator);
                 }
             }
