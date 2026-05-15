@@ -23,11 +23,11 @@ namespace Cirrus.Help.Tool.Validation
 
         public void Add(ValidationIssue issue) => _issues.Add(issue);
 
-        public void AddError(string message, string? filePath = null) =>
-            _issues.Add(new ValidationIssue(ValidationSeverity.Error, message, filePath));
+        public void AddError(string problemId, string message, string? filePath = null) =>
+            _issues.Add(new ValidationIssue(ValidationSeverity.Error, message, filePath, problemId));
 
-        public void AddWarning(string message, string? filePath = null) =>
-            _issues.Add(new ValidationIssue(ValidationSeverity.Warning, message, filePath));
+        public void AddWarning(string problemId, string message, string? filePath = null) =>
+            _issues.Add(new ValidationIssue(ValidationSeverity.Warning, message, filePath, problemId));
 
         public void Merge(ValidationReport other)
         {

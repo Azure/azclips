@@ -19,6 +19,7 @@ if ($GenerateHelpArtifacts)
     $outputRoot = Join-Path $repoRoot "artifacts/help"
 
     dotnet run --project "$repoRoot/tools/Help/Cirrus.Help.Tool/Cirrus.Help.Tool.csproj" -- --artifacts-root "$artifactsRoot" --output-root "$outputRoot"
+    $helpToolExitCode = $LASTEXITCODE
 
     # @TODO DANIEL: Remove this copy step once artifacts module layout is refined and Get-Help can consume packaged output directly.
     # For now, copy generated MAML XML into src/PS/<Module>/en-US so local Get-Help resolves examples and descriptions.
@@ -42,5 +43,13 @@ if ($GenerateHelpArtifacts)
                 Copy-Item $src $dest -Force
             }
         }
+    }
+
+    # Propagate the help tool's exit code so CI fails when help validation fails.
+    # We run the local en-US copy step first so devs always have the latest XML for
+    # iteration, even on a partially-broken corpus, but the build itself still fails.
+    if ($helpToolExitCode -ne 0)
+    {
+        exit $helpToolExitCode
     }
 }

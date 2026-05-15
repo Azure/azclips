@@ -115,6 +115,7 @@ namespace Cirrus.Help.Tool.Validation
                     foreach (var err in parseErrors)
                     {
                         report.AddError(
+                            ProblemIds.PS_ParseError,
                             $"PowerShell parse error: {err.Message}",
                             $"{filePath}:{fenceBodyAbsoluteLine + (err.Extent?.StartLineNumber ?? 1) - 1}");
                     }
@@ -159,6 +160,7 @@ namespace Cirrus.Help.Tool.Validation
             if (!cmdlets.TryGet(name, out var metadata))
             {
                 report.AddError(
+                    ProblemIds.PSL1_UnknownCmdlet,
                     $"Unknown cmdlet '{name}' in PowerShell example. Not registered by any Cirrus cmdlet assembly.",
                     locator);
                 return;
@@ -195,6 +197,7 @@ namespace Cirrus.Help.Tool.Validation
 
                 var elementLine = fenceBodyAbsoluteLine + element.Extent.StartLineNumber - 1;
                 report.AddError(
+                    ProblemIds.PSL2_UnknownParameter,
                     $"Unknown parameter '-{paramName}' on cmdlet '{name}'. Not declared as a parameter or alias.",
                     $"{filePath}:{elementLine}");
             }

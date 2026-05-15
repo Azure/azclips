@@ -25,7 +25,7 @@ namespace Cirrus.Help.Tool.Validation
 
             if (!Directory.Exists(helpRoot))
             {
-                report.AddError($"Extensions directory not found: {helpRoot}");
+                report.AddError(ProblemIds.MD_ExtensionsDirMissing, $"Extensions directory not found: {helpRoot}");
                 return report;
             }
 
@@ -37,7 +37,7 @@ namespace Cirrus.Help.Tool.Validation
 
             if (markdownFiles.Count == 0)
             {
-                report.AddError("No help markdown files found under src/Extensions/*/help.");
+                report.AddError(ProblemIds.MD_NoMarkdownFiles, "No help markdown files found under src/Extensions/*/help.");
                 return report;
             }
 
@@ -65,13 +65,14 @@ namespace Cirrus.Help.Tool.Validation
         {
             if (!HasBalancedCodeFences(content))
             {
-                report.AddError("Unbalanced markdown code fences (``` markers must be paired).", relativePath);
+                report.AddError(ProblemIds.MD_UnbalancedFences, "Unbalanced markdown code fences (``` markers must be paired).", relativePath);
             }
 
             // §15.5.1: every help file must carry a YAML frontmatter block at the top.
             if (!HasFrontmatterBlock(content))
             {
                 report.AddError(
+                    ProblemIds.MD_MissingFrontmatter,
                     "Missing required YAML frontmatter block. Help files must open with a '---' delimited block (see §15.5.1 in docs/spec/help-system.md).",
                     relativePath);
                 // Without frontmatter, downstream summary/status/schema checks are meaningless.
@@ -83,12 +84,12 @@ namespace Cirrus.Help.Tool.Validation
 
             if (string.IsNullOrWhiteSpace(frontmatter.Summary))
             {
-                report.AddError("Frontmatter is missing required field 'summary:'.", relativePath);
+                report.AddError(ProblemIds.MD_MissingSummary, "Frontmatter is missing required field 'summary:'.", relativePath);
             }
 
             if (string.IsNullOrWhiteSpace(frontmatter.Schema))
             {
-                report.AddError("Frontmatter is missing required field 'schema:'.", relativePath);
+                report.AddError(ProblemIds.MD_MissingSchema, "Frontmatter is missing required field 'schema:'.", relativePath);
             }
 
             // status defaults to "ga" inside the parser, so a missing key is fine. Reject
@@ -96,6 +97,7 @@ namespace Cirrus.Help.Tool.Validation
             if (!FrontmatterParser.ValidStatuses.Contains(frontmatter.Status))
             {
                 report.AddError(
+                    ProblemIds.MD_InvalidStatus,
                     $"Frontmatter 'status' value '{frontmatter.Status}' is not one of {{{string.Join(", ", FrontmatterParser.ValidStatuses)}}}.",
                     relativePath);
             }
@@ -108,7 +110,7 @@ namespace Cirrus.Help.Tool.Validation
             var description = GetMarkdownField(body, "Description");
             if (string.IsNullOrWhiteSpace(description))
             {
-                report.AddError("Missing required field 'Description:'.", relativePath);
+                report.AddError(ProblemIds.MD_MissingDescription, "Missing required field 'Description:'.", relativePath);
             }
 
             var exampleCount = Regex.Matches(
@@ -119,6 +121,7 @@ namespace Cirrus.Help.Tool.Validation
             if (exampleCount == 0)
             {
                 report.AddError(
+                    ProblemIds.MD_NoExamples,
                     "Missing examples. Add at least one '### Title' + fenced code block example.",
                     relativePath);
             }

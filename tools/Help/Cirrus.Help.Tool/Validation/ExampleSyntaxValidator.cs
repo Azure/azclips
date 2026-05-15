@@ -129,6 +129,7 @@ namespace Cirrus.Help.Tool.Validation
             if (!indexesByCliGroup.TryGetValue(groupName, out var index))
             {
                 report.AddError(
+                    ProblemIds.CLI_L1_UnknownGroup,
                     $"Unknown CLI group '{groupName}' in example. No extension registers this group.",
                     locator);
                 return;
@@ -166,6 +167,7 @@ namespace Cirrus.Help.Tool.Validation
             {
                 var attempted = commandTokens.Count == 0 ? "<root>" : string.Join(' ', commandTokens);
                 report.AddError(
+                    ProblemIds.CLI_L1_UnknownCommand,
                     $"Unknown command path 'azv2 {groupName} {attempted}'. No matching command in the '{groupName}' extension.",
                     locator);
                 return;
@@ -214,6 +216,7 @@ namespace Cirrus.Help.Tool.Validation
                 if (!TryGetParameter(command, bareName, out var parameter))
                 {
                     report.AddError(
+                        ProblemIds.CLI_L2_UnknownFlag,
                         $"Unknown flag '{flag}' on command '{command.Name}'. Not declared as a parameter or alias.",
                         locator);
                     continue;
@@ -237,6 +240,7 @@ namespace Cirrus.Help.Tool.Validation
                 if (typeError is not null)
                 {
                     report.AddError(
+                        ProblemIds.CLI_L3_InvalidValue,
                         $"Value '{value}' for flag '{flag}' on command '{command.Name}' is invalid: {typeError}",
                         locator);
                 }

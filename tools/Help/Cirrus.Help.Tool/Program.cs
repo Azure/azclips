@@ -23,11 +23,6 @@ var aggregateReport = new ValidationReport();
 
 var structureReport = new MarkdownStructureValidator().Validate(repoRoot);
 aggregateReport.Merge(structureReport);
-if (structureReport.HasErrors)
-{
-    PrintReport(structureReport);
-    throw new InvalidOperationException("Help markdown validation failed. See errors above.");
-}
 
 Directory.CreateDirectory(outputRoot);
 
@@ -50,7 +45,7 @@ var extensionDlls = Directory
 if (extensionDlls.Count == 0)
 {
     Console.WriteLine($"No extension assemblies found under {artifactsRoot}");
-    return;
+    return 0;
 }
 
 var manifests = new List<HelpManifest>();
@@ -98,16 +93,19 @@ foreach (var dllPath in extensionDlls)
     {
         var completenessReport = completenessValidator.Validate(repoRoot, extensionName, extensionIndex);
         aggregateReport.Merge(completenessReport);
-        if (completenessReport.HasErrors)
-        {
-            PrintReport(completenessReport);
-            throw new InvalidOperationException(
-                $"Help completeness validation failed for extension '{extensionName}'. See errors above.");
-        }
 
         if (cliGroupByExtension.TryGetValue(extensionName, out var cliGroup))
         {
             indexesByCliGroup[cliGroup] = extensionIndex;
+        }
+
+        // Skip manifest emission for this extension if it has completeness errors:
+        // a manifest built from an incomplete corpus would be misleading. Other
+        // extensions and other validator stages still run so the author sees
+        // every problem in one pass.
+        if (completenessReport.HasErrors)
+        {
+            continue;
         }
     }
 
@@ -121,11 +119,7 @@ foreach (var dllPath in extensionDlls)
 
 var exampleSyntaxReport = new ExampleSyntaxValidator().Validate(repoRoot, indexesByCliGroup);
 aggregateReport.Merge(exampleSyntaxReport);
-if (exampleSyntaxReport.HasErrors)
-{
-    PrintReport(exampleSyntaxReport);
-    throw new InvalidOperationException("Help example syntax validation failed. See errors above.");
-}
+
 
 // Build the cmdlet index from Microsoft.Azure.Cirrus.Cmdlets.*.dll (sibling assemblies in
 // artifacts/Debug/) and validate every powershell/pwsh fence in help markdown against it.
@@ -148,20 +142,18 @@ foreach (var dllPath in cmdletDlls)
     {
         // Surface a warning but don't abort the run — PS validation is additive.
         aggregateReport.AddWarning(
+            ProblemIds.Tool_CmdletAssemblyLoadFailed,
             $"Could not load cmdlet assembly '{Path.GetFileName(dllPath)}' for PowerShell example validation: {ex.Message}");
     }
 }
 
 var psExampleReport = new PowerShellExampleSyntaxValidator().Validate(repoRoot, cmdletIndex);
 aggregateReport.Merge(psExampleReport);
-if (psExampleReport.HasErrors)
-{
-    PrintReport(psExampleReport);
-    throw new InvalidOperationException("Help PowerShell example syntax validation failed. See errors above.");
-}
 
 var index = ExtensionHelpManifestBuilder.BuildIndex(manifests);
-WriteJson(Path.Combine(outputRoot, "HelpIndex.json"), index);var generatedPwshXmlPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+WriteJson(Path.Combine(outputRoot, "HelpIndex.json"), index);
+
+var generatedPwshXmlPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 if (generatePwshXml)
 {
     var powershellOutputDir = Path.Combine(outputRoot, "powershell");
@@ -186,8 +178,17 @@ if (generatePwshXml)
     }
 }
 
-PrintReport(aggregateReport);
+PrintGroupedSummary(aggregateReport);
 Console.WriteLine($"Generated {manifests.Count} help manifest(s), HelpIndex.json, and {generatedPwshXmlPaths.Count} PowerShell help XML file(s) in {outputRoot}");
+
+if (aggregateReport.HasErrors)
+{
+    var errorCount = aggregateReport.Errors.Count();
+    Console.Error.WriteLine($"Help validation failed: {errorCount} error(s) collected across all stages. See grouped summary above.");
+    return 1;
+}
+
+return 0;
 
 static string? GetArg(string[] args, string name)
 {
@@ -207,16 +208,51 @@ static bool HasArg(string[] args, string name)
     return args.Any(arg => arg.Equals(name, StringComparison.OrdinalIgnoreCase));
 }
 
-static void PrintReport(ValidationReport report)
+// Renders the final summary: warnings first, then errors grouped by ProblemId, then
+// sorted by file path within each group. Issues without a ProblemId fall into an
+// "<unclassified>" bucket so nothing is silently dropped. This is the only summary
+// the build prints — individual stages no longer fail-fast.
+static void PrintGroupedSummary(ValidationReport report)
 {
-    foreach (var warning in report.Warnings)
+    var warnings = report.Warnings.ToList();
+    var errors = report.Errors.ToList();
+
+    if (warnings.Count == 0 && errors.Count == 0)
     {
-        Console.WriteLine(warning.ToString());
+        Console.WriteLine("Help validation: no issues.");
+        return;
     }
 
-    foreach (var error in report.Errors)
+    if (warnings.Count > 0)
     {
-        Console.Error.WriteLine(error.ToString());
+        Console.WriteLine();
+        Console.WriteLine($"Warnings ({warnings.Count}):");
+        foreach (var group in warnings
+                     .GroupBy(static i => i.ProblemId ?? "<unclassified>")
+                     .OrderBy(static g => g.Key, StringComparer.Ordinal))
+        {
+            Console.WriteLine($"  [{group.Key}] ({group.Count()})");
+            foreach (var issue in group.OrderBy(static i => i.FilePath ?? string.Empty, StringComparer.OrdinalIgnoreCase))
+            {
+                Console.WriteLine($"    {(issue.FilePath is null ? string.Empty : issue.FilePath + ": ")}{issue.Message}");
+            }
+        }
+    }
+
+    if (errors.Count > 0)
+    {
+        Console.Error.WriteLine();
+        Console.Error.WriteLine($"Errors ({errors.Count}):");
+        foreach (var group in errors
+                     .GroupBy(static i => i.ProblemId ?? "<unclassified>")
+                     .OrderBy(static g => g.Key, StringComparer.Ordinal))
+        {
+            Console.Error.WriteLine($"  [{group.Key}] ({group.Count()})");
+            foreach (var issue in group.OrderBy(static i => i.FilePath ?? string.Empty, StringComparer.OrdinalIgnoreCase))
+            {
+                Console.Error.WriteLine($"    {(issue.FilePath is null ? string.Empty : issue.FilePath + ": ")}{issue.Message}");
+            }
+        }
     }
 }
 

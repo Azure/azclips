@@ -184,21 +184,13 @@ Tests live in [tools/Help/Cirrus.Help.Tool.Tests/](../../tools/Help/Cirrus.Help.
 - Troubleshooting section in [docs/howto/help.md](../howto/help.md) covers the four common failure buckets (no examples rendered, empty `Get-Help` REMARKS, `CLI_L1/L2/L3` validator errors, `PSL1/PSL2` validator errors, malformed frontmatter) — added during the §9.2 audit and verified still accurate.
 - New **Templates** section in the same doc ships five copy-paste-ready skeletons: group root (`index.md`), dual-surface subcommand, CLI-only subcommand, PowerShell-only cmdlet, and a status-frontmatter snippet for `preview` / `deprecated` / `internal` commands.
 
-### 9.5 Help output formatting audit
+### 9.5 ✅ Collate all validator issues before failing — **DONE**
 
-- Audit rendered help across surfaces (`azv2 --help`, `azv2 <command> --help`, `Get-Help`, agent prompt feed) for visual consistency and information density.
-- Review section ordering, heading style, indentation, column widths, wrapping behavior.
-- Compare against `az` and Azure PowerShell conventions; document deliberate deviations.
-- Capture before/after screenshots in [docs/howto/help.md](../howto/help.md).
+- **What shipped:** Removed the four early-throw sites in [tools/Help/Cirrus.Help.Tool/Program.cs](../../tools/Help/Cirrus.Help.Tool/Program.cs). Every validator stage now runs over every extension; errors are merged into a single `aggregateReport`. Manifest emission for a given extension is skipped iff that extension has completeness errors (an incomplete corpus would build a misleading manifest), but iteration continues. Final summary groups warnings then errors by `ProblemId`, sorted by file path within each group, and the tool returns exit code 1 iff any errors collected (warnings-only is still exit 0).
+- **`ProblemId` taxonomy:** New [`ProblemIds`](../../tools/Help/Cirrus.Help.Tool/Validation/ProblemIds.cs) constants class with stable string IDs (`MD_MissingSummary`, `Completeness_MissingHelpFile`, `CLI_L1_UnknownGroup`, `CLI_L2_UnknownFlag`, `CLI_L3_InvalidValue`, `PSL1_UnknownCmdlet`, `PSL2_UnknownParameter`, etc.). Every existing `AddError`/`AddWarning` call site stamped. `ValidationIssue.ProblemId` is optional in the record — issues without one fall into an `<unclassified>` bucket so nothing is silently dropped.
+- **Verified:** Existing 91 validator tests pass unchanged (they assert on `Message`/`FilePath`, not `ProblemId`). Manual two-stage break (MD frontmatter + PSL1 unknown cmdlet) produced a single grouped summary with both errors visible and exit code 1, where the old behavior would have surfaced only the first stage. CI semantics preserved: any error → red.
 
-### 9.6 Collate all validator issues before failing
-
-- **Problem:** [Program.cs](../../tools/Help/Cirrus.Help.Tool/Program.cs) currently throws after the first stage that produces errors. A single missing help file in one extension hides every downstream issue.
-- **Goal:** Run every validator over every extension, aggregate into `aggregateReport`, render a single grouped summary at the end (errors by `ProblemId`/validator/extension/file, then warnings), exit non-zero iff any errors collected.
-- **Scope:** Replace the four early-throw sites with deferred `failed = true` flags + `aggregateReport.Merge`. Skip manifest emission for an extension with completeness errors but continue iterating. Promote `ValidationIssue.ProblemId` to a stable enum-like string (`MD_MissingSummary`, `Completeness_MissingHelpFile`, `CLI_L1_UnknownGroup`, `PSL2_UnknownParameter`, etc.) so the summary can group and CI can later baseline per rule.
-- **Tests:** Multi-extension fixtures asserting all errors surface, exit code = 0 on warnings-only / 1 on any error, `ProblemId` populated on every issue.
-
-### 9.7 Split help validation into its own CI job
+### 9.6 Split help validation into its own CI job
 
 - **Problem:** [build-and-test.yml](../../.github/workflows/build-and-test.yml) runs build → "Validate Help Content" → tests → E2E sequentially. Help failures block tests; the PR check surface conflates "code broke" with "help drifted"; re-running just help validation requires the whole job.
 - **Target layout:**
@@ -210,18 +202,18 @@ Tests live in [tools/Help/Cirrus.Help.Tool.Tests/](../../tools/Help/Cirrus.Help.
 - **Notes:** `actions/upload-artifact` + `download-artifact` for `artifacts/Debug/`. Concurrency cancel-in-progress at workflow level. Cache `~/.nuget/packages` keyed on lock files or slnx hash. Update branch-protection required checks.
 - **Verification:** Breaking build → only build red; breaking help → only `help-validate` red; total wall-clock not regressing vs today.
 
-### 9.8 L3 error message uses routed command path
+### 9.7 L3 error message uses routed command path
 
 - **Problem:** L3 errors render as `…on command 'LoginProcessor'…` (processor class name). Authors want `…on command 'login'…` so the error is copy-pasteable back into a search of the help corpus.
 - **Fix:** Thread the tokens consumed by L1 into [`ExampleSyntaxValidator.ValidateFlags`](../../tools/Help/Cirrus.Help.Tool/Validation/ExampleSyntaxValidator.cs); join with `' '` for the message. Apply to L2 unknown-flag errors too. Audit `command.FullName` vs `command.Name` and prefer the routed path everywhere.
 - **Tests:** Update existing L3 facts to assert the routed path; add a case where processor `Name` differs from routed path.
 
-### 9.9 Tool-level integration tests over `Program.MainAsync`
+### 9.8 Tool-level integration tests over `Program.MainAsync`
 
-- **Problem:** Every validator class has strong unit coverage; `Program.cs` has none. Stage ordering, exit-code contract, manifest-emission gating, and the CLI-group → extension map are all untested. §9.6 will rewrite orchestration with nothing to catch a silent revert.
+- **Problem:** Every validator class has strong unit coverage; `Program.cs` has none. Stage ordering, exit-code contract, manifest-emission gating, and the CLI-group → extension map are all untested. §9.5 will rewrite orchestration with nothing to catch a silent revert.
 - **Prerequisite refactor:** Extract `Program.Main` body into `Program.MainAsync(string[] args, string repoRoot, TextWriter? stderr = null) → int`; inject `repoRoot` for fixture-driven tests.
 - **Fixtures** under `tools/Help/Cirrus.Help.Tool.Tests/Fixtures/`: `Clean/`, `MissingHelpFile/`, `BadL3Value/`, `BadPSL2/`, `MultiExtensionErrors/`.
-- **Tests** (~5 facts, one per fixture). `MultiExtensionErrors` is the lock for §9.6 — initially `Skip`ped, un-skipped once §9.6 lands.
+- **Tests** (~5 facts, one per fixture). `MultiExtensionErrors` is the lock for §9.5 — initially `Skip`ped, un-skipped once §9.5 lands.
 - **Out of scope:** Subprocess E2E (slow, brittle, no value over in-process `MainAsync`). Snapshot manifest assertions ([HelpArtifactWriterTests](../../tests/Cli.Tests/Help/HelpArtifactWriterTests.cs) already covers that layer).
 
 ---
@@ -261,3 +253,7 @@ Audit every `ExtensionIndex.cs` parameter declaration and replace `typeof(string
 ### 10.8 Pattern / regex validation for name fields
 
 Add `[ValidationPattern]` (regex) or `[NamingRule]` to `ParameterMetadata` so help examples like `--name 123` for a VM (must start with a letter) fail L3. Service-side naming rules are the authoritative validator; duplicating them is brittle. L3 today catches type-shape, not semantic-validity — keeping those concerns separate is honest design. Reconsider if real defects start slipping through.
+
+### 10.9 Help output formatting audit
+
+Audit rendered help across surfaces (`azv2 --help`, `azv2 <command> --help`, `Get-Help`, agent prompt feed) for visual consistency and information density: section ordering, heading style, indentation, column widths, wrapping behavior. Compare against `az` and Azure PowerShell conventions and document deliberate deviations. Best done as a focused review pass once the in-flight help PR has merged so the audit is against shipped output, not a moving target. Capture findings (and any before/after deltas) in [docs/howto/help.md](../howto/help.md).

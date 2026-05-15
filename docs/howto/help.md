@@ -199,7 +199,7 @@ Connect-CirrusAccount -SubscriptionId "00000000-0000-0000-0000-000000000000"
 azv2 login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code
 ```
 
-````
+`````
 
 ## Templates
 
@@ -231,7 +231,7 @@ azv2 <group> --help
 ```powershell
 Get-Command -Module Cirrus.<Module>
 ```
-````
+`````
 
 ### Subcommand exposed on both surfaces
 
@@ -325,9 +325,10 @@ online version:
 ### CLI Help
 
 When you run:
+
 ```bash
 dotnet .\artifacts\Debug\Core.Cli\azv2.dll login --help
-````
+```
 
 The runtime:
 

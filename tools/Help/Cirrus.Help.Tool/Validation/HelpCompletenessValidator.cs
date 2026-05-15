@@ -68,6 +68,7 @@ namespace Cirrus.Help.Tool.Validation
             {
                 var relativePath = $"src{Path.DirectorySeparatorChar}Extensions{Path.DirectorySeparatorChar}{extensionFolder}{Path.DirectorySeparatorChar}help{Path.DirectorySeparatorChar}{file}";
                 report.AddError(
+                    ProblemIds.Completeness_MissingHelpFile,
                     $"Missing help file for routed command '{HelpCommandKey.FromHelpFileName(file)}' in extension '{extensionName}'.",
                     relativePath);
             }
@@ -81,6 +82,7 @@ namespace Cirrus.Help.Tool.Validation
             {
                 var orphanPath = $"src{Path.DirectorySeparatorChar}Extensions{Path.DirectorySeparatorChar}{extensionFolder}{Path.DirectorySeparatorChar}help{Path.DirectorySeparatorChar}{orphan}";
                 report.AddWarning(
+                    ProblemIds.Completeness_OrphanedHelpFile,
                     $"Help file is not referenced by any routed CLI command in extension '{extensionName}'.",
                     orphanPath);
             }
