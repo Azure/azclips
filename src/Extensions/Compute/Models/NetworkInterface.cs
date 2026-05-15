@@ -1,4 +1,4 @@
-using Extensions.Runtime.Json;
+using Microsoft.Azure.Cirrus.Extensions.Runtime.Json;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Compute.Models;
 
@@ -37,3 +37,7 @@ public class IPConfigurationProperties
     public bool Primary { get; set; }
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
+
+
+
+

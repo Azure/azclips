@@ -49,6 +49,11 @@ namespace Core.Abstractions.Runtime
         public const string PollingFinished = nameof(PollingFinished);
         public const string PollingFailed = nameof(PollingFailed);
 
+        // Response
+        public const string ResponseNoContent = nameof(ResponseNoContent);
+        public const string ResponseEmptyBody = nameof(ResponseEmptyBody);
+        public const string ResponseInvalidJson = nameof(ResponseInvalidJson);
+
         // Auth
         public const string AuthBeforeTokenAcquisition = nameof(AuthBeforeTokenAcquisition);
         public const string AuthAfterTokenAcquisition = nameof(AuthAfterTokenAcquisition);

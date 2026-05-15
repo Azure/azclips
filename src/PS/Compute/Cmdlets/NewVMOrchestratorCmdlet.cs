@@ -5,8 +5,8 @@ using Core.Telemetry;
 
 namespace Microsoft.Azure.Cirrus.Cmdlets.Compute;
 
-[Cmdlet(VerbsCommon.New, "VMCombined", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
-public class NewVMCombinedCmdlet : PSCmdlet
+[Cmdlet(VerbsCommon.New, "VMOrchestrator", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
+public class NewVMOrchestratorCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
@@ -89,7 +89,7 @@ public class NewVMCombinedCmdlet : PSCmdlet
             {
                 WriteError(new ErrorRecord(
                     new Exception(value?.ToString() ?? ""),
-                    "VMCombinedError",
+                    "VMOrchestratorError",
                     ErrorCategory.NotSpecified,
                     null));
                 return Task.CompletedTask;
@@ -133,7 +133,7 @@ public class NewVMCombinedCmdlet : PSCmdlet
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
-        var invocation = new CommandInvocation("Compute", "New-VMCombined", parameters, false, moduleName, moduleVersion);
+        var invocation = new CommandInvocation("Compute", "New-VMOrchestrator", parameters, false, moduleName, moduleVersion);
 
         using IInvocationSession session = engine.InvokeSession(invocation, streams, _cts.Token);
         session.Process();

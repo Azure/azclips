@@ -1,13 +1,10 @@
 using System.Net.Http.Json;
-using System.Text.Json;
-using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Extensions.Runtime;
 using Microsoft.Azure.Cirrus.Extensions.Compute.Models;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
 {
-    public class NewVMProcessor_NICCombined : ComputeProcessorBase<VirtualMachine>
+    public class NewVMProcessor_Orchestrator : ComputeProcessorBase<VirtualMachine>
     {
         public string Name { get; set; } = string.Empty;
         public string Location { get; set; } = string.Empty;
@@ -34,7 +31,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
 
         public override async Task<HttpResponseMessage> SendAsync()
         {
-             NewNetworkInterfaceProcessor_Combined nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor_Combined>(p =>
+             NewNetworkInterfaceProcessor_Orchestrator nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor_Orchestrator>(p =>
             {
                 p.Name = NetworkInterfaceName;
                 p.Location = Location;

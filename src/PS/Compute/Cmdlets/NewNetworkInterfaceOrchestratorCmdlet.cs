@@ -5,8 +5,8 @@ using Core.Telemetry;
 
 namespace Microsoft.Azure.Cirrus.Cmdlets.Compute;
 
-[Cmdlet(VerbsCommon.New, "NetworkInterfaceCombined", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
-public class NewNetworkInterfaceCombinedCmdlet : PSCmdlet
+[Cmdlet(VerbsCommon.New, "NetworkInterfaceOrchestrator", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
+public class NewNetworkInterfaceOrchestratorCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
@@ -77,7 +77,7 @@ public class NewNetworkInterfaceCombinedCmdlet : PSCmdlet
             {
                 WriteError(new ErrorRecord(
                     new Exception(value?.ToString() ?? ""),
-                    "NetworkInterfaceCombinedError",
+                    "NetworkInterfaceOrchestratorError",
                     ErrorCategory.NotSpecified,
                     null));
                 return Task.CompletedTask;
@@ -117,7 +117,7 @@ public class NewNetworkInterfaceCombinedCmdlet : PSCmdlet
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
-        var invocation = new CommandInvocation("Compute", "New-NetworkInterfaceCombined", parameters, false, moduleName, moduleVersion);
+        var invocation = new CommandInvocation("Compute", "New-NetworkInterfaceOrchestrator", parameters, false, moduleName, moduleVersion);
 
         using IInvocationSession session = engine.InvokeSession(invocation, streams, _cts.Token);
         session.Process();

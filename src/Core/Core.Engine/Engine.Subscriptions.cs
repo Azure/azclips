@@ -2,7 +2,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Runtime;
 using System.Diagnostics;
-using Extensions.Runtime;
+using Microsoft.Azure.Cirrus.Extensions.Runtime;
 
 namespace Core.Engine
 {
@@ -116,6 +116,24 @@ namespace Core.Engine
                 var evt = (EventData)data;
                 loggingService.Error(evt.Message);
             });
+
+            session.Subscribe(Events.ResponseNoContent, (data) =>
+            {
+                var evt = (EventData)data;
+                loggingService.Info(evt.Message);
+            });
+
+            session.Subscribe(Events.ResponseEmptyBody, (data) =>
+            {
+                var evt = (EventData)data;
+                loggingService.Info(evt.Message);
+            });
+
+            session.Subscribe(Events.ResponseInvalidJson, (data) =>
+            {
+                var evt = (EventData)data;
+                loggingService.Info(evt.Message);
+            });
  
             return session;
         }
@@ -206,3 +224,7 @@ namespace Core.Engine
         }
     }
 }
+
+
+
+
