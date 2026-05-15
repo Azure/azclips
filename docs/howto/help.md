@@ -4,50 +4,47 @@ This guide explains how to author and test help for CLI commands and PowerShell 
 
 ## Quick Start
 
-1. **Create markdown help file:**
+1. **Create a markdown help file** at `src/Extensions/<Extension>/help/<command>.md` (use `index.md` for the root command of a group).
 
-    ```
-    src/Extensions/{Extension}/help/{command}.md
-    ```
+2. **Write the content** — YAML frontmatter, then a description, then one or more example sections:
 
-2. **Write help content:**
+   ````markdown
+   ---
+   summary: Brief one-line description.
+   status: ga
+   schema: 1.0.0
+   online version:
+   ---
 
-    ````markdown
-    ---
-    summary: Brief one-line description.
-    status: ga
-    schema: 1.0.0
-    online version:
-    ---
+   Description: Multi-line explanation of what the command does and how to use it.
 
-    Description: Multi-line description explaining what the command does
-    and how to use it.
+   ### Login with subscription id (CLI)
 
-    ### Example Title (CLI)
+   ```bash
+   azv2 login --subscription-id 00000000-0000-0000-0000-000000000000
+   ```
 
-    ```bash
-    azv2 login --subscription-id 00000000-0000-0000-0000-000000000000
-    ```
-    ````
+   ### Connect with subscription id (PowerShell)
 
-    ### Example Title (PowerShell)
+   ```powershell
+   Connect-CirrusAccount -SubscriptionId "00000000-0000-0000-0000-000000000000"
+   ```
+   ````
 
-    ```powershell
-    Connect-CirrusAccount -SubscriptionId "00000000-0000-0000-0000-000000000000"
-    ```
+3. **Build and verify CLI help:**
 
-    ```
+   ```powershell
+   dotnet build cirrus.slnx
+   dotnet .\artifacts\Debug\Core.Cli\azv2.dll <command> --help
+   ```
 
-    ```
+4. **Build with help artifacts** (required for `Get-Help` to find PowerShell help XML and for CI-style validation locally):
 
-3. **Remove old help metadata** from `ExtensionIndex.cs`:
-    - Delete `Summary`, `Description`, `Examples` from command entries
-
-4. **Build and test:**
-    ```powershell
-    dotnet build cirrus.slnx
-    dotnet .\artifacts\Debug\Core.Cli\azv2.dll {command} --help
-    ```
+   ```powershell
+   .\build\build.ps1 -GenerateHelpArtifacts -Configuration Debug
+   Import-Module .\src\PS\<Module>\<Module>.psd1 -Force
+   Get-Help <Cmdlet> -Full
+   ```
 
 ## File Structure
 
@@ -77,7 +74,7 @@ Each help file contains:
 
 ### Frontmatter (Required)
 
-Every help file opens with a YAML frontmatter block delimited by `---` on its own line. See §15.5.1 in [docs/spec/help-system.md](../spec/help-system.md) for the full schema.
+Every help file opens with a YAML frontmatter block delimited by `---` on its own line. See §4 (Authoring Model) in [docs/spec/help-system.md](../spec/help-system.md) for the full schema.
 
 ```yaml
 ---
@@ -135,23 +132,31 @@ Each example must have:
 2. A code fence with language tag
 3. The command(s) to execute
 
-### Example Validation (CLI)
+### Example Validation
 
-CLI examples are mechanically validated at build time by `tools/Help/Cirrus.Help.Tool` against the live `IExtensionIndex`. The tool fails the build if:
+Examples are mechanically validated at build time by `tools/Help/Cirrus.Help.Tool` against the live `IExtensionIndex` (CLI) and reflected cmdlet metadata (PowerShell). The tool fails the build if any of the following are wrong; the live validators run as part of `.\build\build.ps1 -GenerateHelpArtifacts` and in the `Validate Help Content` step of [build-and-test.yml](../../.github/workflows/build-and-test.yml).
+
+**CLI fences (`bash` / `sh`):**
 
 - An `azv2 ...` line uses a CLI group that isn't registered (e.g. `azv2 widget create`).
 - The remaining tokens don't resolve to a routed command (e.g. `azv2 group bogus`).
 - A `--flag` (or short `-x`) is not declared on the resolved command and isn't one of the documented globals: `--help` / `-h`, `--debug`, `--output`.
+- A flag value doesn't match the declared parameter type (e.g. `--subscription-id not-a-guid`) or isn't in the parameter's `AllowedValues` list.
 
-Conventions:
+**PowerShell fences (`powershell` / `pwsh`):**
 
-- Use the canonical kebab-case flag form: `--subscription-id`, not `--subscriptionId`.
-- The `--flag=value` form is accepted alongside `--flag value`.
-- Placeholder values are passed through unchanged. Common conventions:
-    - `<name>`, `<my-rg>`, `<placeholder>` — angle-bracket placeholder.
+- A `Verb-Noun` doesn't resolve to a registered cmdlet (e.g. `Set-Unknown -Key foo`).
+- A `-Parameter` is not declared on the cmdlet and isn't an `[Alias]` or a common parameter (`-Verbose`, `-ErrorAction`, etc.).
+
+**Conventions:**
+
+- Use the canonical kebab-case flag form (`--subscription-id`, not `--subscriptionId`).
+- Both `--flag value` and `--flag=value` are accepted.
+- Placeholders pass through unchanged:
+    - `<name>`, `<my-rg>` — angle-bracket placeholder.
     - `$var`, `${var}` — shell-style variable reference.
-    - All-zero GUID (`00000000-0000-0000-0000-000000000000`) — generic stand-in for a subscription/tenant/resource id.
-- PowerShell fences (` ```powershell ` / ` ```pwsh `) are not validated against CLI metadata — they're surfaced through `Get-Help` and `.dll-Help.xml` artifacts.
+    - All-zero GUID (`00000000-0000-0000-0000-000000000000`) — generic stand-in for any subscription/tenant/resource id.
+- Splatted PowerShell commands (`Get-Cirrus @params`) skip parameter validation (the hashtable contents aren't statically visible).
 
 > **Required-flag presence** (e.g. "every `--name` example must also include `--subscription-id`") is **not yet** enforced — it will land alongside positional parameter metadata. Examples that omit required flags are accepted today but should still be kept honest by reviewers.
 
@@ -217,16 +222,10 @@ The runtime:
 PowerShell help is pre-generated during build into:
 
 ```
-artifacts/help/powershell/Cirrus.Login.dll-Help.xml
+artifacts/help/powershell/Microsoft.Azure.Cirrus.Cmdlets.<Module>.dll-Help.xml
 ```
 
-When you run:
-
-```powershell
-Get-Help Connect-CirrusAccount -Full
-```
-
-PowerShell reads from the XML artifact (includes both CLI and PowerShell examples).
+`.\build\build.ps1 -GenerateHelpArtifacts` copies that XML into `src/PS/<Module>/en-US/` (the directory PowerShell searches), handling manifests that use either `RootModule` or `NestedModules`. After that, `Get-Help <Cmdlet> -Full` reads from the XML artifact natively.
 
 ## Build Process
 
@@ -270,7 +269,8 @@ dotnet .\artifacts\Debug\Core.Cli\azv2.dll login logout --help
 ### PowerShell Help (after artifact generation)
 
 ```powershell
-Import-Module .\artifacts\Debug\Cirrus.Login.psd1
+.\build\build.ps1 -GenerateHelpArtifacts -Configuration Debug
+Import-Module .\src\PS\Login\Login.psd1 -Force
 Get-Help Connect-CirrusAccount -Full
 ```
 
@@ -289,65 +289,39 @@ Tests validate:
 
 ## Best Practices
 
-1. **Keep examples concise** — Show the command and key arguments, not exhaustive flags
-2. **Use realistic values** — Replace placeholders with `00000000-0000-0000-0000-000000000000` for GUIDs
-3. **One example per task** — "Login with subscription ID", not "All ways to login"
-4. **Write for both surfaces** — Provide both CLI and PowerShell examples if the command exists in both
-5. **Update markdown, not code** — Don't add help in `[Summary]` attributes or processor Summary fields
-6. **Test after changes** — Run help and visually check output after editing markdown
-7. **Validate syntax** — Ensure Summary/Description/Example blocks follow the format exactly
-
-## Migrating an Extension to Markdown Help
-
-If you're moving an existing extension from code-embedded help to markdown:
-
-1. **Create help folder:**
-
-    ```powershell
-    mkdir src/Extensions/{Extension}/help
-    ```
-
-2. **Extract help from code:**
-    - Copy `Summary` from processor attributes into `src/Extensions/{Extension}/help/index.md`
-    - Convert `Examples` to markdown code blocks with language tags
-
-3. **Update ExtensionIndex.cs:**
-    - Remove `Summary`, `Description`, `Examples` from CLI command metadata
-    - Keep the routing and command structure intact
-
-4. **Clean up processors:**
-    - Remove `[Summary]` and other help attributes from processor classes
-
-5. **Run tests:**
-
-    ```powershell
-    dotnet test tests/Cli.Tests/Cli.Tests.csproj
-    ```
-
-    - Should pass with no help-related failures
-    - If failures occur, check that markdown file names match command keys in ExtensionIndex
+1. **Keep examples concise** — show the command and key arguments, not every flag.
+2. **Use realistic placeholders** — `00000000-0000-0000-0000-000000000000` for any GUID, `<my-rg>` for free-form names.
+3. **One example per task** — "Login with subscription ID", not "All ways to login".
+4. **Cover both surfaces** — provide both CLI and PowerShell examples if the command is exposed on both.
+5. **Edit markdown, never code** — no `[Summary]` attributes, no inline help strings in processors.
+6. **Run the validators locally** — `.\build\build.ps1 -GenerateHelpArtifacts` runs the same four-stage validator pipeline CI runs, with file:line locators on every failure.
 
 ## Troubleshooting
 
 **Help shows no examples:**
 
-- Check that code fence has a language tag: ` ```bash ` or ` ```powershell `
-- Ensure `### Example Title` precedes the code block
-- Verify file path matches command routing in ExtensionIndex
+- Check that the code fence has a language tag: ` ```bash ` or ` ```powershell `.
+- Ensure `### Example Title` precedes the code block.
+- Verify the markdown filename matches the canonical command key (`group create` → `create.md` inside `Group/help/`, multi-word → `dash-separated.md`).
 
-**PowerShell help missing:**
+**`Get-Help` returns empty `REMARKS`:**
 
-- Run `.\build\build.ps1 -GenerateHelpArtifacts` to generate XML artifacts
-- Check that `artifacts/help/powershell/{Module}.dll-Help.xml` exists
-- Verify PowerShell examples use ` ```powershell ` or ` ```pwsh ` tag
+- The MAML XML wasn't deployed next to the cmdlet DLL. Run `.\build\build.ps1 -GenerateHelpArtifacts` — the script copies `artifacts/help/powershell/*.dll-Help.xml` into `src/PS/<Module>/en-US/`.
+- Confirm the XML landed: `Get-ChildItem src/PS/<Module>/en-US/`.
 
-**CLI shows PowerShell examples:**
+**Build fails with `CLI_L1_*` / `CLI_L2_*` / `CLI_L3_*` errors:**
 
-- Help system filters ` ```powershell ` code blocks from CLI output
-- If seeing PowerShell examples in CLI, file a bug (likely a language-tag parsing issue)
+- `L1`: command path doesn't resolve. The example references a group or subcommand that isn't routed. Cross-check against `ExtensionIndex.cs`.
+- `L2`: unknown flag. The flag isn't declared on the resolved command and isn't a global. Check the canonical name (kebab-case) and that it exists on the right command.
+- `L3`: value doesn't match the declared type. Either fix the literal in the example or use a placeholder (`<name>`, `$var`, all-zero GUID).
+
+**Build fails with `PSL1_*` / `PSL2_*` errors:**
+
+- `PSL1`: cmdlet name isn't registered. Check the `Verb-Noun` spelling against the cmdlet class's `[Cmdlet]` attribute.
+- `PSL2`: unknown `-Parameter`. The parameter isn't declared on the cmdlet (and isn't an `[Alias]` or a common parameter). For splatted forms, use `Cmdlet @params` — splatting is allowlisted.
 
 **Build fails during artifact generation:**
 
-- Check syntax of markdown (frontmatter/Description/Examples)
-- Verify all code blocks have matching ``` delimiters
-- Run `dotnet build cirrus.slnx` first to ensure DLLs are built
+- Confirm frontmatter is well-formed (delimited by `---`, `summary:` and `schema:` present).
+- Verify all code fences have matching ` ``` ` delimiters.
+- Run `dotnet build cirrus.slnx` first so the extension DLLs are available for reflection.

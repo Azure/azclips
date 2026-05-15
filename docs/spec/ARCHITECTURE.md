@@ -185,6 +185,9 @@ New-ResourceGroup -Name mygroup -Location eastus
 | **Cloud Agent** | `src/Core/Core.Agent/CloudAgent.cs` | Azure OpenAI integration |
 | **Prompt Template** | `src/Core/Core.Agent/prompt.md` | System instructions with {{flavor}} |
 | **PowerShell Modules** | `src/PS/` | PowerShell module source |
+| **Help Markdown** | `src/Extensions/<Ext>/help/*.md` | Canonical help source (frontmatter + body) |
+| **Help Runtime Provider** | `src/Core/Core.Runtime/Help/MarkdownCommandHelpProvider.cs` | Runtime markdown parsing for CLI + PS |
+| **Help Tool** | `tools/Help/Cirrus.Help.Tool/` | Build-time validators + manifest emitter |
 | **Login Extension** | `artifacts/*/Microsoft.Azure.Cirrus.Extensions.Login/` | Authentication commands |
 | **Resources Extension** | `artifacts/*/Microsoft.Azure.Cirrus.Extensions.Resources/` | Resource management commands |
 
@@ -456,6 +459,14 @@ static async Task<int> TryAgentFallbackAsync(string[] args)
 **Contains:**
 - PowerShell cmdlets: `New-ResourceGroup`, `Get-ResourceGroup`, etc.
 - Note: No "Az" prefix in current implementation
+
+## Help System
+
+Command help is sourced from markdown files under `src/Extensions/<Ext>/help/*.md` — a single corpus serves both CLI (`azv2 ... --help`) and PowerShell (`Get-Help <Cmdlet>`). The runtime reads markdown directly on the cold path; build-time tooling validates the corpus against live `ExtensionIndex` / cmdlet metadata and emits `HelpManifest.json` + `.dll-Help.xml` artifacts.
+
+Four validators gate every PR: markdown structure, completeness against routed commands, CLI example syntax (command path + flag signature + value type), and PowerShell example syntax (cmdlet name + parameter signature). Stale help fails CI before merge.
+
+For the design philosophy, validator details, and authoring schema, see [help-system.md](help-system.md). For the author workflow, see [docs/howto/help.md](../howto/help.md).
 
 ## Example Execution Flows
 
@@ -880,6 +891,8 @@ New-ResourceGroup -Name test -Location eastus
 ### Documentation
 
 - **Agent Experience:** [agent-experience.md](agent-experience.md) - Three scenarios (typo correction, how-to, execution)
+- **Help System:** [help-system.md](help-system.md) - Markdown-as-contract design, validator pipeline, authoring schema
+- **Help Authoring:** [../howto/help.md](../howto/help.md) - Step-by-step guide for adding help content
 - **Repository Guidelines:** [AGENTS.md](../../AGENTS.md) - Project structure, coding style, commit guidelines
 
 ### Code Locations
