@@ -7,8 +7,7 @@ namespace Core.Agent.Hosting;
 /// SDK <c>OnPermissionRequest</c> callback runs on a background dispatch thread
 /// owned by the daemon. Calling <see cref="Console.ReadLine"/> there races
 /// against any other reader the host loop might run, and on Windows the global
-/// stdin reader can return EOF instead of blocking when two threads contend —
-/// that's the "y/n: ▶ run_command" wedge the spike kept hitting.
+/// stdin reader can return EOF instead of blocking when two threads contend.
 ///
 /// This sink decouples the producer (SDK callback) from the consumer (host's
 /// main thread): callbacks post a request + <see cref="TaskCompletionSource{TResult}"/>

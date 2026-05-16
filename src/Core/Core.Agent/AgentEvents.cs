@@ -45,7 +45,7 @@ public sealed record ToolStarted(
 /// Local tool invocation finished successfully.
 /// <see cref="FullResult"/> is NOT trimmed — render layer decides display length.
 /// <see cref="IsError"/> = true when the tool itself returned an error result
-/// (e.g. <c>run_command</c> returning exit-code-non-zero); distinct from
+/// (e.g. <c>bash</c> exiting non-zero); distinct from
 /// <see cref="ToolFailed"/> which is for tool implementation exceptions.
 /// </summary>
 public sealed record ToolCompleted(

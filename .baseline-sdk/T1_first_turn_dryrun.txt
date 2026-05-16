@@ -1,8 +1,0 @@
-[ERROR] Command group 'Create' not found.
-
-[cirrus chat · model=claude-opus-4.7-1m-internal · type 'exit' to quit]
-  ▶ LLM streaming · TTFT 3.0s
-Which subscription?
-  ✓ LLM turn 3.1s · in 38995 tok · out 10 tok · cached 19106 tok
-
-> 
