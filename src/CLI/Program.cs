@@ -64,7 +64,7 @@ public class Program
         {
             using var activity = _telemetryService.StartCLIActivity(args);
             var dispatcher = new ExtensionDispatcher();
-
+            args = WireDebugStreams(args);
             try
             {
                 CommandInvocation invocation = dispatcher.Parse(args);
@@ -101,6 +101,37 @@ public class Program
             CirrusServiceProvider.Dispose();
             SpawnTelemetryUploader();
         }
+    }
+
+    // TODO(Yabo): Q&P squad to refactor global parameter handling
+    // this method is temporary and is for ease of debugging
+    private static string[] WireDebugStreams(string[] args)
+    {
+        if (!args.Contains("--debug"))
+        {
+            return args;
+        }
+        streams = new OutputStreams(
+            WriteOutput: (value, ct) =>
+            {
+                Console.WriteLine(CliOutputFormatter.FormatValue(value));
+                return Task.CompletedTask;
+            },
+            WriteError: (value, ct) =>
+            {
+                Console.Error.WriteLine(value);
+                return Task.CompletedTask;
+            },
+            WriteVerbose: (value, ct) => { Console.WriteLine($"VERBOSE: {value}"); return Task.CompletedTask; },
+            WriteDebug: (value, ct) => { Console.WriteLine($"DEBUG: {value}"); return Task.CompletedTask; },
+            WriteWarning: (value, ct) => { Console.WriteLine($"WARNING: {value}"); return Task.CompletedTask; },
+            WriteInformation: (value, ct) =>
+            {
+                Console.WriteLine($"INFO: {value}");
+                return Task.CompletedTask;
+            }
+        );
+        return args.Where(a => a != "--debug").ToArray();
     }
 
     private static async Task<int> TryAgentFallbackAsync(string[] args)
