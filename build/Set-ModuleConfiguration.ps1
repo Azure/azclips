@@ -12,6 +12,15 @@
 # from the artifact copy, so the working tree stays clean -- which lets
 # benchmark-action/github-action-benchmark switch to gh-pages without
 # hitting "local changes would be overwritten".
+#
+# Path rewrite: '../../../artifacts/<Config>/...' relative references are
+# rewritten to ABSOLUTE paths. PowerShell's RequiredAssemblies resolver
+# silently fails on '..'-relative paths when the manifest lives outside
+# the conventional src/ tree (verified: an exact byte copy of the source
+# manifest placed under artifacts/.../PS/ fails to load Core.Abstractions
+# with a misleading "file not found" error, even though the resolved path
+# is correct). Absolute paths sidestep the quirk. Staged manifests are
+# regenerated per build, so embedded absolute paths are not a concern.
 [CmdletBinding()]
 param(
     [ValidateSet('Debug', 'Release')]
@@ -20,9 +29,11 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$repoRoot     = Resolve-Path "$PSScriptRoot/.."
+$repoRoot     = (Resolve-Path "$PSScriptRoot/..").Path
 $sourceRoot   = Join-Path $repoRoot 'src/PS'
 $artifactRoot = Join-Path $repoRoot "artifacts/$Configuration/PS"
+# Absolute path to artifacts/<Configuration>/ with forward slashes for psd1.
+$absArtifacts = ((Join-Path $repoRoot "artifacts/$Configuration") -replace '\\', '/')
 
 $psd1Files = Get-ChildItem -Path $sourceRoot -Filter '*.psd1' -Recurse
 
@@ -35,9 +46,9 @@ foreach ($file in $psd1Files) {
     $null = New-Item -ItemType Directory -Path $targetDir -Force
 
     $content = Get-Content -Path $file.FullName -Raw
-    # Both Debug and Release source paths get rewritten to the target configuration,
-    # so this works regardless of whether someone manually edited the source.
-    $updated = $content -replace '/artifacts/(Debug|Release)/', "/artifacts/$Configuration/"
+    # Rewrite '../../../artifacts/(Debug|Release)/' to an absolute path matching
+    # the target configuration. Both Debug and Release source forms are accepted.
+    $updated = $content -replace '\.\./\.\./\.\./artifacts/(Debug|Release)/', "$absArtifacts/"
 
     Set-Content -Path $targetPath -Value $updated -NoNewline
     Write-Host "Staged $moduleDir/$($file.Name) -> $targetPath"
