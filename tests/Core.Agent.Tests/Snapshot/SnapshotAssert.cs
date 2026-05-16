@@ -34,7 +34,11 @@ internal static class SnapshotAssert
         }
 
         var expected = File.ReadAllText(baselinePath);
-        if (expected == actual) return;
+        if (Normalize(expected) == Normalize(actual))
+        {
+            if (File.Exists(actualPath)) File.Delete(actualPath);
+            return;
+        }
 
         File.WriteAllText(actualPath, actual);
         throw new Xunit.Sdk.XunitException(
@@ -69,6 +73,10 @@ internal static class SnapshotAssert
 
         return Path.Combine(AppContext.BaseDirectory, ".snapshots", name + ".txt");
     }
+
+    // .gitattributes normalizes snapshots to LF on commit but Windows checkout
+    // may materialize them as CRLF, so compare line-ending-agnostically.
+    private static string Normalize(string s) => s.Replace("\r\n", "\n");
 
     private static string BuildDiff(string expected, string actual)
     {
