@@ -111,7 +111,7 @@ public sealed class ChatAgent : IAsyncDisposable
             AvailableTools = null,
             Hooks = new SessionHooks
             {
-                OnPreToolUse = (input, _) => Task.FromResult(HandlePreToolUse(input, azv2ExePath)),
+                OnPreToolUse = (input, _) => HandlePreToolUseAsync(input, azv2ExePath, approvalSink, ct),
                 OnSessionStart = async (_, _) =>
                 {
                     var snap = await prober.ProbeAsync(ct).ConfigureAwait(false);
@@ -172,7 +172,11 @@ public sealed class ChatAgent : IAsyncDisposable
         try { await _session.AbortAsync(ct).ConfigureAwait(false); } catch { }
     }
 
-    private static PreToolUseHookOutput? HandlePreToolUse(PreToolUseHookInput input, string azv2ExePath)
+    private static async Task<PreToolUseHookOutput?> HandlePreToolUseAsync(
+        PreToolUseHookInput input,
+        string azv2ExePath,
+        ConsoleApprovalPrompt approvalSink,
+        CancellationToken ct)
     {
         // Both built-in shell tools take a "command" arg and may contain a bare
         // "azv2" that PowerShell would resolve via PATH. Rewrite to the absolute
@@ -195,24 +199,74 @@ public sealed class ChatAgent : IAsyncDisposable
         }
 
         var rewritten = RewriteAzv2(command, azv2ExePath);
-        if (!ReferenceEquals(rewritten, command))
+        if (ReferenceEquals(rewritten, command))
+            return null;
+
+        // SDK semantics: "allow" honors ModifiedArgs but skips OnPermissionRequest;
+        // "ask" prompts via OnPermissionRequest but discards ModifiedArgs. To get
+        // both rewrite AND user approval, take the approval here, then "allow".
+        var approved = await approvalSink.RequestRewriteAsync(input.ToolName!, rewritten, ct).ConfigureAwait(false);
+        if (!approved)
         {
             return new PreToolUseHookOutput
             {
-                PermissionDecision = "ask",
-                ModifiedArgs = new Dictionary<string, object?> { ["command"] = rewritten },
+                PermissionDecision = "deny",
+                PermissionDecisionReason = "User rejected the rewritten azv2 command.",
             };
         }
 
-        return null;
+        return new PreToolUseHookOutput
+        {
+            PermissionDecision = "allow",
+            ModifiedArgs = MergeCommand(input.ToolArgs, rewritten),
+        };
+    }
+
+    // ModifiedArgs replaces the tool args wholesale, so preserve every original
+    // field (e.g. powershell's required "description") and overwrite only "command".
+    private static Dictionary<string, object?> MergeCommand(object? originalArgs, string rewrittenCommand)
+    {
+        var merged = new Dictionary<string, object?>();
+        if (originalArgs is JsonElement je)
+        {
+            if (je.ValueKind == JsonValueKind.String)
+            {
+                try { je = JsonDocument.Parse(je.GetString()!).RootElement; }
+                catch { /* fall through with empty merged */ }
+            }
+            if (je.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var prop in je.EnumerateObject())
+                    merged[prop.Name] = prop.Value.Clone();
+            }
+        }
+        else if (originalArgs is IDictionary<string, object?> dict)
+        {
+            foreach (var kv in dict) merged[kv.Key] = kv.Value;
+        }
+        merged["command"] = rewrittenCommand;
+        return merged;
     }
 
     private static string? ExtractBashCommand(object? args)
     {
         if (args is null) return null;
-        if (args is JsonElement je && je.ValueKind == JsonValueKind.Object &&
-            je.TryGetProperty("command", out var cmd) && cmd.ValueKind == JsonValueKind.String)
-            return cmd.GetString();
+
+        // SDK may hand us the args as either a JSON object (normal case) or a
+        // JSON-encoded string of an object (observed for the built-in
+        // powershell tool). Handle both shapes uniformly.
+        if (args is JsonElement je)
+        {
+            if (je.ValueKind == JsonValueKind.String)
+            {
+                try { je = JsonDocument.Parse(je.GetString()!).RootElement; }
+                catch { return null; }
+            }
+            if (je.ValueKind == JsonValueKind.Object &&
+                je.TryGetProperty("command", out var cmd) && cmd.ValueKind == JsonValueKind.String)
+                return cmd.GetString();
+            return null;
+        }
         if (args is IDictionary<string, object?> dict && dict.TryGetValue("command", out var v))
             return v?.ToString();
         return null;

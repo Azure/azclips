@@ -57,6 +57,20 @@ public sealed class ConsoleApprovalPrompt
     }
 
     /// <summary>
+    /// Approval path for OnPreToolUse rewrites. SDK semantics force the hook to
+    /// own approval when it modifies args ("ask" discards modifiedArgs), so the
+    /// hook routes through this method instead of OnPermissionRequest.
+    /// </summary>
+    public Task<bool> RequestRewriteAsync(string toolName, string rewrittenCommand, CancellationToken ct)
+    {
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var reg = ct.Register(() => tcs.TrySetCanceled(ct));
+
+        _queue.Writer.TryWrite(new PendingApproval(toolName, Trim(rewrittenCommand, 200), tcs));
+        return tcs.Task;
+    }
+
+    /// <summary>
     /// Maps each <see cref="PermissionRequest"/> subtype to a (label, args)
     /// pair the user can read. The fallback returns <see cref="PermissionRequest.Kind"/>
     /// so when the SDK adds a new subtype we still see a recognizable tool name
