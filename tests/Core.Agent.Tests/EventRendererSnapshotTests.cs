@@ -132,4 +132,25 @@ public class EventRendererSnapshotTests
 
         SnapshotAssert.Matches("event-renderer-tool-failure", capture.ToTranscript());
     }
+
+    [Fact]
+    public void SessionError_RateLimit_EmitsSessionErroredWithMetadata()
+    {
+        var (renderer, capture) = MakeRig();
+
+        renderer.Forward(new AssistantTurnStartEvent { Data = new AssistantTurnStartData { TurnId = "t1" } });
+        renderer.Forward(new SessionErrorEvent
+        {
+            Data = new SessionErrorData
+            {
+                ErrorType = "rate_limit",
+                Message = "You have exceeded the model rate limit. Retry in 30s.",
+                ErrorCode = "user_model_rate_limited",
+                StatusCode = 429,
+                ProviderCallId = "req-abc123",
+            }
+        });
+
+        SnapshotAssert.Matches("event-renderer-session-error", capture.ToTranscript());
+    }
 }

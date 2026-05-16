@@ -57,6 +57,7 @@ internal sealed class TranscriptCollector
         ToolFailed t       => $"ToolFailed name={t.Name} error={Compact(t.Error)} callId={t.CallId}",
         LlmFirstToken _    => "LlmFirstToken ttft=<NORMALIZED>",
         LlmTurnCompleted _ => "LlmTurnCompleted in=<NORMALIZED> out=<NORMALIZED> cached=<NORMALIZED> elapsed=<NORMALIZED>",
+        SessionErrored e   => $"SessionErrored type={e.ErrorType} status={e.StatusCode?.ToString() ?? "-"} code={e.ErrorCode ?? "-"} providerCallId={e.ProviderCallId ?? "-"} msg={Compact(e.Message)}",
         _ => ev.GetType().Name
     };
 

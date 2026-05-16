@@ -1,0 +1,3 @@
+[Error]"  ✗ session.error [authentication] "
+[Default]"GitHub token has expired."
+[Muted]""

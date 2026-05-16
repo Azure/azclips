@@ -1,0 +1,2 @@
+[Muted]"  ⊲ sub-agent diagnose 2500ms · "
+[Default]"checked NSG + route table; NSG blocks 22"
