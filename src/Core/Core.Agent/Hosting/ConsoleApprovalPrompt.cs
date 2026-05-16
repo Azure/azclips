@@ -47,8 +47,7 @@ public sealed class ConsoleApprovalPrompt
     /// </summary>
     public Task<bool> RequestAsync(PermissionRequest req, CancellationToken ct)
     {
-        var toolName = (req as PermissionRequestCustomTool)?.ToolName ?? "tool";
-        var args     = (req as PermissionRequestCustomTool)?.Args?.ToString() ?? string.Empty;
+        var (toolName, args) = Describe(req);
 
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         using var reg = ct.Register(() => tcs.TrySetCanceled(ct));
@@ -56,6 +55,25 @@ public sealed class ConsoleApprovalPrompt
         _queue.Writer.TryWrite(new PendingApproval(toolName, Trim(args, 200), tcs));
         return tcs.Task;
     }
+
+    /// <summary>
+    /// Maps each <see cref="PermissionRequest"/> subtype to a (label, args)
+    /// pair the user can read. The fallback returns <see cref="PermissionRequest.Kind"/>
+    /// so when the SDK adds a new subtype we still see a recognizable tool name
+    /// in the approval prompt — and know exactly which case to add here.
+    /// </summary>
+    private static (string ToolName, string Args) Describe(PermissionRequest req) => req switch
+    {
+        PermissionRequestCustomTool c => (c.ToolName,                              c.Args?.ToString() ?? string.Empty),
+        PermissionRequestShell s      => ("shell",                                 s.FullCommandText ?? string.Empty),
+        PermissionRequestRead r       => ("read",                                  r.Path ?? string.Empty),
+        PermissionRequestWrite w      => ("write",                                 w.FileName ?? string.Empty),
+        PermissionRequestUrl u        => ("web",                                   u.Url ?? string.Empty),
+        PermissionRequestMcp m        => ($"mcp:{m.ServerName}/{m.ToolName}",      m.Args?.ToString() ?? string.Empty),
+        PermissionRequestMemory mem   => ($"memory:{mem.Action}",                  $"{mem.Subject}: {mem.Fact}"),
+        PermissionRequestHook h       => ($"hook:{h.ToolName}",                    h.ToolArgs?.ToString() ?? string.Empty),
+        _                              => (req.Kind ?? "tool",                     string.Empty),
+    };
 
     /// <summary>
     /// Synchronously consumes one pending request (if any) on the calling

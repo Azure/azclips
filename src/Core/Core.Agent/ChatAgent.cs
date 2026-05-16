@@ -174,7 +174,12 @@ public sealed class ChatAgent : IAsyncDisposable
 
     private static PreToolUseHookOutput? HandlePreToolUse(PreToolUseHookInput input, string azv2ExePath)
     {
-        if (!string.Equals(input.ToolName, "bash", StringComparison.OrdinalIgnoreCase))
+        // Both built-in shell tools take a "command" arg and may contain a bare
+        // "azv2" that PowerShell would resolve via PATH. Rewrite to the absolute
+        // azv2.exe path so the agent always invokes the cirrus binary that
+        // launched it, regardless of what else is on PATH.
+        if (!string.Equals(input.ToolName, "bash",       StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(input.ToolName, "powershell", StringComparison.OrdinalIgnoreCase))
             return null;
 
         var command = ExtractBashCommand(input.ToolArgs);
