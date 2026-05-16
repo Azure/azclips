@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778927922404,
+  "lastUpdate": 1778928763679,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus CLI Benchmarks": [
@@ -84,6 +84,48 @@ window.BENCHMARK_DATA = {
             "value": 5588866.75,
             "unit": "ns",
             "range": "± 57814.84356907546"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "110961157+NoriZC@users.noreply.github.com",
+            "name": "NoriZC",
+            "username": "NoriZC"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "17e5705c9453b08708a17ed8418ceff151e029b6",
+          "message": "remove threshold failure limitation (#243)",
+          "timestamp": "2026-05-16T10:50:59Z",
+          "tree_id": "fb8d1dc1f6880881b200564a1b7bf7c03450a5de",
+          "url": "https://github.com/Azure/cirrus/commit/17e5705c9453b08708a17ed8418ceff151e029b6"
+        },
+        "date": 1778928761976,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 7584034.5,
+            "unit": "ns",
+            "range": "± 200991.24915445116"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 8859282.2,
+            "unit": "ns",
+            "range": "± 487100.4352961512"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 9490589.2,
+            "unit": "ns",
+            "range": "± 709189.3582984025"
           }
         ]
       }
