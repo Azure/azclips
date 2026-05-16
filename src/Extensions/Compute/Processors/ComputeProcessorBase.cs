@@ -117,7 +117,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
                 var _operationLocationUri = GetOperationLocationUri(_response);
 
                 //polling
-                while (_request.Method == HttpMethod.Put && (_response.StatusCode == HttpStatusCode.OK || _response.StatusCode == HttpStatusCode.Created || _response.StatusCode == HttpStatusCode.Accepted))
+                while (_request.Method == HttpMethod.Put && _response.StatusCode == HttpStatusCode.OK || _response.StatusCode == HttpStatusCode.Created || _response.StatusCode == HttpStatusCode.Accepted)
                 {
                     // TODO(Yabo): get default value from config service: engine get default from configservice and pass to processor via ProcessorContext
                     int delay = (int)(_response.Headers.RetryAfter?.Delta?.TotalSeconds ?? _httpPipeline.PollingInterval);
