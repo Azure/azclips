@@ -303,8 +303,9 @@ public static class RuntimeExtensions
             return string.Empty;
         }
 
-        string body = response.Content == null ? string.Empty
-            : FormatString(await response.Content.ReadAsStringAsync());
+        string body = response.Content == null ? string.Empty : await response.Content.ReadAsStringAsync();
+        body = string.IsNullOrEmpty(body) ? string.Empty
+            : FormatString(body);
 
         return GetHttpResponseLog(
             response.StatusCode.ToString(),

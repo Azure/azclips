@@ -34,34 +34,49 @@ public class NewVMCmdlet : PSCmdlet
     public string AdminPassword { get; set; } = "";
 
     [Parameter(Mandatory = true)]
-    public string NetworkInterfaceId { get; set; } = "";
+    public string NetworkInterfaceName { get; set; } = "";
+
+    [Parameter(Mandatory = true)]
+    public string VirtualNetworkName { get; set; } = "";
+
+    [Parameter(Mandatory = true)]
+    public string NetworkSecurityGroupName { get; set; } = "";
 
     [Parameter(Mandatory = false)]
-    public string? OsDiskCreateOption { get; set; }
+    public string[]? SubnetNames { get; set; }
 
     [Parameter(Mandatory = false)]
-    public string? ImagePublisher { get; set; }
+    public string[][]? SubnetAddressPrefixes { get; set; }
 
     [Parameter(Mandatory = false)]
-    public string? ImageOffer { get; set; }
+    public string[]? AddressPrefixes { get; set; }
 
     [Parameter(Mandatory = false)]
-    public string? ImageSku { get; set; }
+    public string[]? RuleNames { get; set; }
 
     [Parameter(Mandatory = false)]
-    public string? ImageVersion { get; set; }
+    public string[]? RuleDirections { get; set; }
 
     [Parameter(Mandatory = false)]
-    public string? SecurityType { get; set; }
+    public string[]? RuleProtocols { get; set; }
 
     [Parameter(Mandatory = false)]
-    public bool? SecureBootEnabled { get; set; }
+    public int[]? RulePriorities { get; set; }
 
     [Parameter(Mandatory = false)]
-    public bool? VTpmEnabled { get; set; }
+    public string[]? RuleSourceAddressPrefixes { get; set; }
 
     [Parameter(Mandatory = false)]
-    public bool? BootDiagnosticsEnabled { get; set; }
+    public string[]? RuleSourcePortRanges { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string[]? RuleDestinationPortRanges { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string[]? RuleDestinationAddressPrefixes { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string[]? RuleAccesses { get; set; }
 
     protected override void BeginProcessing()
     {
@@ -74,7 +89,7 @@ public class NewVMCmdlet : PSCmdlet
             {
                 WriteError(new ErrorRecord(
                     new Exception(value?.ToString() ?? ""),
-                    "VMError",
+                    "VMOrchestratorError",
                     ErrorCategory.NotSpecified,
                     null));
                 return Task.CompletedTask;
@@ -99,17 +114,22 @@ public class NewVMCmdlet : PSCmdlet
             { "VmSize", VmSize },
             { "AdminUsername", AdminUsername },
             { "AdminPassword", AdminPassword },
-            { "NetworkInterfaceId", NetworkInterfaceId },
+            { "NetworkInterfaceName", NetworkInterfaceName },
+            { "VirtualNetworkName", VirtualNetworkName },
+            { "NetworkSecurityGroupName", NetworkSecurityGroupName },
         };
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(OsDiskCreateOption)))     { parameters.Add("OsDiskCreateOption", OsDiskCreateOption!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(ImagePublisher)))         { parameters.Add("ImagePublisher", ImagePublisher!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(ImageOffer)))             { parameters.Add("ImageOffer", ImageOffer!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(ImageSku)))               { parameters.Add("ImageSku", ImageSku!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(ImageVersion)))           { parameters.Add("ImageVersion", ImageVersion!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(SecurityType)))           { parameters.Add("SecurityType", SecurityType!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(SecureBootEnabled)))      { parameters.Add("SecureBootEnabled", SecureBootEnabled!.Value); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(VTpmEnabled)))            { parameters.Add("VTpmEnabled", VTpmEnabled!.Value); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(BootDiagnosticsEnabled))) { parameters.Add("BootDiagnosticsEnabled", BootDiagnosticsEnabled!.Value); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetNames)))                    { parameters.Add("SubnetNames", SubnetNames!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetAddressPrefixes)))          { parameters.Add("SubnetAddressPrefixes", SubnetAddressPrefixes!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(AddressPrefixes)))                { parameters.Add("AddressPrefixes", AddressPrefixes!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleNames)))                      { parameters.Add("RuleNames", RuleNames!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleDirections)))                 { parameters.Add("RuleDirections", RuleDirections!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleProtocols)))                  { parameters.Add("RuleProtocols", RuleProtocols!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(RulePriorities)))                 { parameters.Add("RulePriorities", RulePriorities!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleSourceAddressPrefixes)))      { parameters.Add("RuleSourceAddressPrefixes", RuleSourceAddressPrefixes!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleSourcePortRanges)))           { parameters.Add("RuleSourcePortRanges", RuleSourcePortRanges!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleDestinationPortRanges)))      { parameters.Add("RuleDestinationPortRanges", RuleDestinationPortRanges!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleDestinationAddressPrefixes))) { parameters.Add("RuleDestinationAddressPrefixes", RuleDestinationAddressPrefixes!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleAccesses)))                   { parameters.Add("RuleAccesses", RuleAccesses!); }
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();

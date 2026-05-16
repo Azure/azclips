@@ -219,15 +219,16 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
                 switch (_response.StatusCode)
                 {
                     case HttpStatusCode.OK:
-                        {
-                            await _eventListener.Signal(Events.PollingFinished);
-                            break;
-                        }
+                    case HttpStatusCode.NoContent:
+                    {
+                        await _eventListener.Signal(Events.PollingFinished);
+                        break;
+                    }
                     default:
-                        {
-                            await _eventListener.Signal(Events.PollingFailed);
-                            break;
-                        }
+                    {
+                        await _eventListener.Signal(Events.PollingFailed);
+                        break;
+                    }
                 }
                 return _response;
             }
