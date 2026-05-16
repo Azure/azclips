@@ -41,7 +41,7 @@ static class HistoryRenderer
                     widgets.Add(ctx.Text($"  {theme.AnsiError}× {entry.Text}{Ansi.End}").Wrap());
                     break;
                 case HistoryItemType.Info:
-                    widgets.Add(ctx.Text($"  {Ansi.AccentYellow}◇ {entry.Text}{Ansi.End}").Wrap());
+                    widgets.Add(ctx.Text($"  {Ansi.DimGray}◇ {entry.Text}{Ansi.End}").Wrap());
                     break;
                 case HistoryItemType.Success:
                     widgets.Add(ctx.Text($"  {Ansi.AccentGreen}○ {entry.Text}{Ansi.End}").Wrap());
