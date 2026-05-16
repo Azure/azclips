@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778928792501,
+  "lastUpdate": 1778929323543,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus PS Benchmarks": [
@@ -126,6 +126,48 @@ window.BENCHMARK_DATA = {
             "value": 21564648.4,
             "unit": "ns",
             "range": "± 1990033.3949204972"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yabhu@microsoft.com",
+            "name": "Yabo Hu",
+            "username": "VeryEarly"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a6ba6905e81bb01e95050295e1857d1ad1e063be",
+          "message": "Complete create/get/delete for VM (#239)",
+          "timestamp": "2026-05-16T20:59:37+10:00",
+          "tree_id": "80d39316ba2a2a50fc0a4d3734b915996daf181d",
+          "url": "https://github.com/Azure/cirrus/commit/a6ba6905e81bb01e95050295e1857d1ad1e063be"
+        },
+        "date": 1778929323511,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 20919511,
+            "unit": "ns",
+            "range": "± 2154966.257027242"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 21617593.4,
+            "unit": "ns",
+            "range": "± 2165270.997954367"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 21277373,
+            "unit": "ns",
+            "range": "± 2213368.0854691793"
           }
         ]
       }
