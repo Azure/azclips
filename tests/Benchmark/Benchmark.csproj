@@ -26,15 +26,4 @@
     <ProjectReference Include="..\Common\Tests.Common.csproj" />
   </ItemGroup>
 
-  <!--
-    Stage configuration-specific copies of src/PS/<Module>/<Module>.psd1 into
-    artifacts/$(Configuration)/PS/<Module>/. The PS benchmarks import from this
-    artifact path so we never have to mutate the tracked source manifests
-    (which previously left the working tree dirty and broke the gh-pages
-    publish step in .github/workflows/benchmark.yml).
-  -->
-  <Target Name="StagePsModuleManifests" AfterTargets="Build">
-    <Exec Command="pwsh -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)..\..\build\Set-ModuleConfiguration.ps1&quot; -Configuration $(Configuration)" />
-  </Target>
-
 </Project>
