@@ -25,7 +25,8 @@ New-VM \
     -RuleSourcePortRanges * `
     -RuleDestinationPortRanges 3389 `
     -RuleDestinationAddressPrefixes * `
-    -RuleAccesses Allow
+    -RuleAccesses Allow `
+    -debug
 
 Get-VM `
     -SubscriptionId 0c302431-1ad0-4187-87c9-d4cebcf7edc2 `

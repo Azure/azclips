@@ -20,7 +20,8 @@ vm create `
     --rule-source-port-ranges "*" `
     --rule-destination-port-ranges 3389 `
     --rule-destination-address-prefixes "*" `
-    --rule-accesses Allow
+    --rule-accesses Allow `
+    --debug
 
 vm show `
     --subscription-id 0c302431-1ad0-4187-87c9-d4cebcf7edc2 `
