@@ -173,13 +173,13 @@ jobs:
                       if ratio > 1.15:
                           ratio_str += " ⚠️"
                           alert = True
-                      prev_str = f"{prev_val:,.1f} ns"
+                      prev_str = f"{prev_val / 1e9:,.2f} s"
                   else:
                       ratio_str = "N/A"
                       prev_str = "N/A"
                   short = name.rsplit(".", 1)[-1]
                   lines.append(
-                      f"| `{short}` | {mean:,.1f} ns (± {stderr:,.1f}) | {prev_str} | {ratio_str} |"
+                      f"| `{short}` | {mean / 1e9:,.2f} s (± {stderr / 1e9:,.2f}) | {prev_str} | {ratio_str} |"
                   )
               lines.append("")
 
