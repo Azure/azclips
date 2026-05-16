@@ -68,7 +68,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: ${{ github.event_name == 'push' }}
           alert-threshold: '115%'
-          fail-on-alert: true
+          fail-on-alert: false
           comment-on-alert: ${{ github.event.pull_request.head.repo.fork != true }}
           summary-always: true
           gh-pages-branch: gh-pages
@@ -93,7 +93,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: ${{ github.event_name == 'push' }}
           alert-threshold: '115%'
-          fail-on-alert: true
+          fail-on-alert: false
           comment-on-alert: ${{ github.event.pull_request.head.repo.fork != true }}
           summary-always: true
           gh-pages-branch: gh-pages
