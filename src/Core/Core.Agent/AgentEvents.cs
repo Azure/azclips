@@ -1,7 +1,7 @@
 namespace Core.Agent;
 
 // Pattern:    Host-agnostic event surface for HITL / tool lifecycle.
-//             Today's producer is CirrusChatAgent (Copilot SDK); the projection
+//             Today's producer is ChatAgent (Copilot SDK); the projection
 //             keeps Classic CLI, future TUI, and telemetry rendering uniform.
 // Avoid:      ❌ trimming / truncating data at the event source — full data
 //                stays in the event so TUI consumers can show "expand to
@@ -97,6 +97,47 @@ public sealed record SubAgentInvokeFailed(
     string Error,
     string CallId,
     string? ParentCallId,
+    DateTimeOffset At) : AgentEvent(At);
+
+// ── Session / upstream errors ─────────────────────────────────────────
+//
+// session.error is the SDK's authoritative "something upstream broke" signal —
+// 401 / quota / rate-limit / context-limit / etc. Without listening for this
+// the host sees no completion event and silently hangs on the turn timeout.
+
+/// <summary>
+/// Upstream / SDK-level error. Distinct from <see cref="ToolFailed"/> (which
+/// is a single tool throwing) — this means the entire session can't proceed
+/// without intervention (re-auth, switch model, wait out rate-limit, etc.).
+/// Hosts should render this prominently and stop waiting on the current turn.
+/// </summary>
+public sealed record SessionErrored(
+    string ErrorType,
+    string Message,
+    string? ErrorCode,
+    int? StatusCode,
+    string? ProviderCallId,
+    DateTimeOffset At) : AgentEvent(At);
+
+// ── Host-side log routing ─────────────────────────────────────────────
+//
+// Cirrus's own services (MsalAuthService / AuthContextService / Engine) call
+// ILoggingService directly and historically wrote to stdout, racing the
+// spinner. In agent mode we redirect that channel to the renderer via this
+// event so every byte the user sees goes through the renderer's lock.
+// Verbose / Debug / Info / Log are dropped (noise); Warn / Error are
+// promoted to events so nothing is silently lost.
+
+public enum HostLogLevel { Warn, Error }
+
+/// <summary>
+/// A Warn / Error from cirrus's own services (not the LLM, not a tool).
+/// Emitted by RendererLoggingService so all stdout writes funnel through
+/// IAgentRenderer instead of bypassing its lock.
+/// </summary>
+public sealed record HostLogEmitted(
+    HostLogLevel Level,
+    string Message,
     DateTimeOffset At) : AgentEvent(At);
 
 // ── Sink delegate ─────────────────────────────────────────────────────

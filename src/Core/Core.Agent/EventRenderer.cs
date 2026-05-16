@@ -122,6 +122,19 @@ public sealed class EventRenderer
                     Elapsed: turnElapsed,
                     At: DateTimeOffset.UtcNow));
                 break;
+
+            case SessionErrorEvent err:
+                // Without surfacing this the host has no completion signal and
+                // waits out TurnTimeout. Forwarding it as a first-class event
+                // lets the host render it and abort the wait.
+                OnEvent?.Invoke(new SessionErrored(
+                    ErrorType: err.Data?.ErrorType ?? "unknown",
+                    Message: err.Data?.Message ?? "(no message)",
+                    ErrorCode: err.Data?.ErrorCode,
+                    StatusCode: err.Data?.StatusCode is { } sc ? (int)sc : null,
+                    ProviderCallId: err.Data?.ProviderCallId,
+                    At: DateTimeOffset.UtcNow));
+                break;
         }
     }
 }
