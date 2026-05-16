@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778815408886,
+  "lastUpdate": 1778927952489,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus PS Benchmarks": [
@@ -42,6 +42,48 @@ window.BENCHMARK_DATA = {
             "value": 22952618.8,
             "unit": "ns",
             "range": "± 2150444.169441792"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yabhu@microsoft.com",
+            "name": "Yabo Hu",
+            "username": "VeryEarly"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "185c465e63ab0a110ae8b8307d5dc8fe692d0a88",
+          "message": "Fix build script to update path in artifacts instead of src  (#240)\n\nfix GHA bug:\n\nhttps://github.com/Azure/cirrus/actions/runs/25958312170/job/76308977496?pr=239\n- build time patch psd1 should target artifacts instead of src\n- test case should also target artifacts/debug instead of src",
+          "timestamp": "2026-05-16T18:36:40+08:00",
+          "tree_id": "73aaac3dc4c690ed52d3b4a65ea24c3189c03a02",
+          "url": "https://github.com/Azure/cirrus/commit/185c465e63ab0a110ae8b8307d5dc8fe692d0a88"
+        },
+        "date": 1778927952466,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 23044144.8,
+            "unit": "ns",
+            "range": "± 2463120.948304955"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 22315977.4,
+            "unit": "ns",
+            "range": "± 2849797.3938796595"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 21528406.2,
+            "unit": "ns",
+            "range": "± 2122087.142965906"
           }
         ]
       }
