@@ -11,10 +11,10 @@ public class GetVMProcessor : ComputeProcessorBase<VirtualMachine>
 
     public override async Task<HttpRequestMessage> CreateRequestMessage()
     {
-        await EventListener.Signal(Events.ProcessorBeforeHttpRequestCreate);
+        await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
         string uri = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines/{Name}?api-version=2025-11-01";
         HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, uri);
-        await EventListener.Signal(Events.ProcessorAfterHttpRequestCreate);
+        await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
         return request;
     }
 }

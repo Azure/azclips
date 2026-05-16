@@ -12,43 +12,43 @@ using Microsoft.Azure.Cirrus.Extensions.Runtime.Json;
 
 public static class RuntimeExtensions
 {
-    public static async Task AssertNotNull(this IEventListener instance, string parameterName, object value)
+    public static async Task AssertNotNull(this IEventPublisher instance, string parameterName, object value)
     {
         if (value == null)
         {
-            await instance.Signal(Events.ValidationWarning, instance.Token, () => new EventData { Id = Events.ValidationWarning, Message = $"'{parameterName}' should not be null", Parameter = parameterName, Cancel = instance.Cancel });
+            await instance.Publish(Events.ValidationWarning, instance.Token, () => new EventData { Id = Events.ValidationWarning, Message = $"'{parameterName}' should not be null", Parameter = parameterName, Cancel = instance.Cancel });
         }
     }
-    public static async Task AssertMinimumLength(this IEventListener instance, string parameterName, string value, int length)
+    public static async Task AssertMinimumLength(this IEventPublisher instance, string parameterName, string value, int length)
     {
         if (value != null && value.Length < length)
         {
-            await instance.Signal(Events.ValidationWarning, instance.Token, () => new EventData { Id = Events.ValidationWarning, Message = $"Length of '{parameterName}' is less than {length}", Parameter = parameterName, Cancel = instance.Cancel });
+            await instance.Publish(Events.ValidationWarning, instance.Token, () => new EventData { Id = Events.ValidationWarning, Message = $"Length of '{parameterName}' is less than {length}", Parameter = parameterName, Cancel = instance.Cancel });
         }
     }
-    public static async Task AssertMaximumLength(this IEventListener instance, string parameterName, string value, int length)
+    public static async Task AssertMaximumLength(this IEventPublisher instance, string parameterName, string value, int length)
     {
         if (value != null && value.Length > length)
         {
-            await instance.Signal(Events.ValidationWarning, instance.Token, () => new EventData { Id = Events.ValidationWarning, Message = $"Length of '{parameterName}' is greater than {length}", Parameter = parameterName, Cancel = instance.Cancel });
+            await instance.Publish(Events.ValidationWarning, instance.Token, () => new EventData { Id = Events.ValidationWarning, Message = $"Length of '{parameterName}' is greater than {length}", Parameter = parameterName, Cancel = instance.Cancel });
         }
     }
 
-    public static async Task AssertRegEx(this IEventListener instance, string parameterName, string value, string regularExpression)
+    public static async Task AssertRegEx(this IEventPublisher instance, string parameterName, string value, string regularExpression)
     {
         if (value != null && !System.Text.RegularExpressions.Regex.Match(value, regularExpression).Success)
         {
-            await instance.Signal(Events.ValidationWarning, instance.Token, () => new EventData { Id = Events.ValidationWarning, Message = $"'{parameterName}' does not validate against pattern /{regularExpression}/", Parameter = parameterName, Cancel = instance.Cancel });
+            await instance.Publish(Events.ValidationWarning, instance.Token, () => new EventData { Id = Events.ValidationWarning, Message = $"'{parameterName}' does not validate against pattern /{regularExpression}/", Parameter = parameterName, Cancel = instance.Cancel });
         }
     }
-    public static async Task AssertEnum(this IEventListener instance, string parameterName, string value, params string[] values)
+    public static async Task AssertEnum(this IEventPublisher instance, string parameterName, string value, params string[] values)
     {
         if (!values.Any(each => each.Equals(value)))
         {
-            await instance.Signal(Events.ValidationWarning, instance.Token, () => new EventData { Id = Events.ValidationWarning, Message = $"'{parameterName}' is not one of ({values.Aggregate((c, e) => $"'{e}',{c}")}", Parameter = parameterName, Cancel = instance.Cancel });
+            await instance.Publish(Events.ValidationWarning, instance.Token, () => new EventData { Id = Events.ValidationWarning, Message = $"'{parameterName}' is not one of ({values.Aggregate((c, e) => $"'{e}',{c}")}", Parameter = parameterName, Cancel = instance.Cancel });
         }
     }
-    public static async Task AssertObjectIsValid(this IEventListener instance, string parameterName, object inst)
+    public static async Task AssertObjectIsValid(this IEventPublisher instance, string parameterName, object inst)
     {
         if (inst is IValidates validatable)
         {
@@ -56,60 +56,60 @@ public static class RuntimeExtensions
         }
     }
 
-    public static async Task AssertIsLessThan<T>(this IEventListener instance, string parameterName, T? value, T max) where T : struct, System.IComparable<T>
+    public static async Task AssertIsLessThan<T>(this IEventPublisher instance, string parameterName, T? value, T max) where T : struct, System.IComparable<T>
     {
         if (null != value && ((T)value).CompareTo(max) >= 0)
         {
-            await instance.Signal(Events.ValidationWarning, instance.Token, () => new EventData { Id = Events.ValidationWarning, Message = $"Value of '{parameterName}' must be less than {max} (value is {value})", Parameter = parameterName, Cancel = instance.Cancel });
+            await instance.Publish(Events.ValidationWarning, instance.Token, () => new EventData { Id = Events.ValidationWarning, Message = $"Value of '{parameterName}' must be less than {max} (value is {value})", Parameter = parameterName, Cancel = instance.Cancel });
         }
     }
-    public static async Task AssertIsGreaterThan<T>(this IEventListener instance, string parameterName, T? value, T max) where T : struct, System.IComparable<T>
+    public static async Task AssertIsGreaterThan<T>(this IEventPublisher instance, string parameterName, T? value, T max) where T : struct, System.IComparable<T>
     {
         if (null != value && ((T)value).CompareTo(max) <= 0)
         {
-            await instance.Signal(Events.ValidationWarning, instance.Token, () => new EventData { Id = Events.ValidationWarning, Message = $"Value of '{parameterName}' must be greater than {max} (value is {value})", Parameter = parameterName, Cancel = instance.Cancel });
+            await instance.Publish(Events.ValidationWarning, instance.Token, () => new EventData { Id = Events.ValidationWarning, Message = $"Value of '{parameterName}' must be greater than {max} (value is {value})", Parameter = parameterName, Cancel = instance.Cancel });
         }
     }
-    public static async Task AssertIsLessThanOrEqual<T>(this IEventListener instance, string parameterName, T? value, T max) where T : struct, System.IComparable<T>
+    public static async Task AssertIsLessThanOrEqual<T>(this IEventPublisher instance, string parameterName, T? value, T max) where T : struct, System.IComparable<T>
     {
         if (null != value && ((T)value).CompareTo(max) > 0)
         {
-            await instance.Signal(Events.ValidationWarning, instance.Token, () => new EventData { Id = Events.ValidationWarning, Message = $"Value of '{parameterName}' must be less than or equal to {max} (value is {value})", Parameter = parameterName, Cancel = instance.Cancel });
+            await instance.Publish(Events.ValidationWarning, instance.Token, () => new EventData { Id = Events.ValidationWarning, Message = $"Value of '{parameterName}' must be less than or equal to {max} (value is {value})", Parameter = parameterName, Cancel = instance.Cancel });
         }
     }
-    public static async Task AssertIsGreaterThanOrEqual<T>(this IEventListener instance, string parameterName, T? value, T max) where T : struct, System.IComparable<T>
+    public static async Task AssertIsGreaterThanOrEqual<T>(this IEventPublisher instance, string parameterName, T? value, T max) where T : struct, System.IComparable<T>
     {
         if (null != value && ((T)value).CompareTo(max) < 0)
         {
-            await instance.Signal(Events.ValidationWarning, instance.Token, () => new EventData { Id = Events.ValidationWarning, Message = $"Value of '{parameterName}' must be greater than or equal to {max} (value is {value})", Parameter = parameterName, Cancel = instance.Cancel });
+            await instance.Publish(Events.ValidationWarning, instance.Token, () => new EventData { Id = Events.ValidationWarning, Message = $"Value of '{parameterName}' must be greater than or equal to {max} (value is {value})", Parameter = parameterName, Cancel = instance.Cancel });
         }
     }
-    public static async Task AssertIsMultipleOf(this IEventListener instance, string parameterName, Int64? value, Int64 multiple)
+    public static async Task AssertIsMultipleOf(this IEventPublisher instance, string parameterName, Int64? value, Int64 multiple)
     {
         if (null != value && value % multiple != 0)
         {
-            await instance.Signal(Events.ValidationWarning, instance.Token, () => new EventData { Id = Events.ValidationWarning, Message = $"Value of '{parameterName}' must be multiple of {multiple} (value is {value})", Parameter = parameterName, Cancel = instance.Cancel });
+            await instance.Publish(Events.ValidationWarning, instance.Token, () => new EventData { Id = Events.ValidationWarning, Message = $"Value of '{parameterName}' must be multiple of {multiple} (value is {value})", Parameter = parameterName, Cancel = instance.Cancel });
         }
     }
-    public static async Task AssertIsMultipleOf(this IEventListener instance, string parameterName, double? value, double multiple)
+    public static async Task AssertIsMultipleOf(this IEventPublisher instance, string parameterName, double? value, double multiple)
     {
         if (null != value)
         {
             var i = (Int64)(value / multiple);
             if (i != value / multiple)
             {
-                await instance.Signal(Events.ValidationWarning, instance.Token, () => new EventData { Id = Events.ValidationWarning, Message = $"Value of '{parameterName}' must be multiple of {multiple} (value is {value})", Parameter = parameterName, Cancel = instance.Cancel });
+                await instance.Publish(Events.ValidationWarning, instance.Token, () => new EventData { Id = Events.ValidationWarning, Message = $"Value of '{parameterName}' must be multiple of {multiple} (value is {value})", Parameter = parameterName, Cancel = instance.Cancel });
             }
         }
     }
-    public static async Task AssertIsMultipleOf(this IEventListener instance, string parameterName, decimal? value, decimal multiple)
+    public static async Task AssertIsMultipleOf(this IEventPublisher instance, string parameterName, decimal? value, decimal multiple)
     {
         if (null != value)
         {
             var i = (Int64)(value / multiple);
             if (i != value / multiple)
             {
-                await instance.Signal(Events.ValidationWarning, instance.Token, () => new EventData { Id = Events.ValidationWarning, Message = $"Value of '{parameterName}' must be multiple of {multiple} (value is {value})", Parameter = parameterName, Cancel = instance.Cancel });
+                await instance.Publish(Events.ValidationWarning, instance.Token, () => new EventData { Id = Events.ValidationWarning, Message = $"Value of '{parameterName}' must be multiple of {multiple} (value is {value})", Parameter = parameterName, Cancel = instance.Cancel });
             }
         }
     }

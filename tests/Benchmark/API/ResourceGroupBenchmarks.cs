@@ -24,7 +24,7 @@ namespace Benchmark.API;
 public class ResourceGroupBenchmarks : ApiBenchmarkBase
 {
     private IRuntimeHttpPipeline _httpPipeline = null!;
-    private BenchmarkEventListener _eventListener = null!;
+    private BenchmarkEventPublisher _publisher = null!;
     private string _getRgName = null!;
 
     private readonly JsonSerializerOptions _jsonOptions = new()
@@ -40,13 +40,13 @@ public class ResourceGroupBenchmarks : ApiBenchmarkBase
 
         // Initialize HttpPipeline
         _httpPipeline = new HttpPipeline(new HttpClientFactory());
-        _eventListener = new BenchmarkEventListener();
+        _publisher = new BenchmarkEventPublisher();
 
         // Warmup: do a List RG request to establish connection
         var warmupUrl = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourcegroups?api-version={ApiVersion}";
         using var warmupRequest = new HttpRequestMessage(HttpMethod.Get, warmupUrl);
         warmupRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", AccessToken);
-        _httpPipeline.SendAsync(warmupRequest, _eventListener).GetAwaiter().GetResult();
+        _httpPipeline.SendAsync(warmupRequest, _publisher).GetAwaiter().GetResult();
 
         // Pre-create a resource group for Get benchmark
         _getRgName = $"{TestRgPrefix}{InstanceId}-api-get";
@@ -56,7 +56,7 @@ public class ResourceGroupBenchmarks : ApiBenchmarkBase
             Content = JsonContent.Create(new ResourceGroup(TestLocation, _getRgName), options: _jsonOptions)
         };
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", AccessToken);
-        _httpPipeline.SendAsync(request, _eventListener).GetAwaiter().GetResult();
+        _httpPipeline.SendAsync(request, _publisher).GetAwaiter().GetResult();
         CreatedResourceGroups.Add(_getRgName);
 
         Console.WriteLine($"[Setup] API benchmarks ready");
@@ -75,7 +75,7 @@ public class ResourceGroupBenchmarks : ApiBenchmarkBase
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", AccessToken);
 
-        var response = await _httpPipeline.SendAsync(request, _eventListener);
+        var response = await _httpPipeline.SendAsync(request, _publisher);
         response.EnsureSuccessStatusCode();
 
         var result = await response.Content.ReadFromJsonAsync<ResourceGroupListResult>(_jsonOptions);
@@ -94,7 +94,7 @@ public class ResourceGroupBenchmarks : ApiBenchmarkBase
         };
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", AccessToken);
 
-        var response = await _httpPipeline.SendAsync(request, _eventListener);
+        var response = await _httpPipeline.SendAsync(request, _publisher);
         response.EnsureSuccessStatusCode();
 
         return (await response.Content.ReadFromJsonAsync<ResourceGroup>(_jsonOptions))!;
@@ -107,7 +107,7 @@ public class ResourceGroupBenchmarks : ApiBenchmarkBase
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", AccessToken);
 
-        var response = await _httpPipeline.SendAsync(request, _eventListener);
+        var response = await _httpPipeline.SendAsync(request, _publisher);
         response.EnsureSuccessStatusCode();
 
         return (await response.Content.ReadFromJsonAsync<ResourceGroup>(_jsonOptions))!;

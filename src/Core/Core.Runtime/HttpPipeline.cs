@@ -65,7 +65,7 @@ namespace Core.Runtime
         /// <summary>
         /// The step to handle 429 response with retry-after header.
         /// </summary>
-        public async Task<HttpResponseMessage> Retry429(HttpRequestMessage request, IEventListener callback, ISendAsync next)
+        public async Task<HttpResponseMessage> Retry429(HttpRequestMessage request, IEventPublisher callback, ISendAsync next)
         {
             var cloneRequest = await request.CloneWithContent();
             var response = await next.SendAsync(request, callback);
@@ -76,7 +76,7 @@ namespace Core.Runtime
                 var retryAfter = response.Headers.RetryAfter;
                 TimeSpan Delta = retryAfter?.Delta ?? TimeSpan.FromSeconds(0);
                 await Task.Delay(Delta, callback.Token);
-                await callback.Signal("Debug", $"Start to retry {count} time(s) on status code 429 after waiting {Delta.TotalSeconds} seconds.");
+                await callback.Publish("Debug", $"Start to retry {count} time(s) on status code 429 after waiting {Delta.TotalSeconds} seconds.");
                 response = await next.SendAsync(request, callback);
             }
             return response;
@@ -108,14 +108,14 @@ namespace Core.Runtime
         /// than or equal to 500 and not NotImplemented (501) or HttpVersionNotSupported (505).
         /// Or it's 429 (TOO MANY REQUESTS) without Retry-After header.
         /// </summary>
-        public async Task<HttpResponseMessage> RetryError(HttpRequestMessage request, IEventListener callback, ISendAsync next)
+        public async Task<HttpResponseMessage> RetryError(HttpRequestMessage request, IEventPublisher callback, ISendAsync next)
         {
             var cloneRequest = await request.CloneWithContent();
             var response = await next.SendAsync(request, callback);
             int count = 0;
             while (shouldRetryError(response) && count++ < _maxRetry)
             {
-                await callback.Signal("Debug", $"Start to retry {count} time(s) on status code {response.StatusCode}");
+                await callback.Publish("Debug", $"Start to retry {count} time(s) on status code {response.StatusCode}");
                 request = await cloneRequest.CloneWithContent();
                 response = await next.SendAsync(request, callback);
             }
@@ -283,7 +283,7 @@ namespace Core.Runtime
         }
 
         // you can use this as the ISendAsync Implementation
-        public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, IEventListener callback) => Pipeline.SendAsync(request, callback);
+        public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, IEventPublisher callback) => Pipeline.SendAsync(request, callback);
     }
 }
 

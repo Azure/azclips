@@ -16,7 +16,7 @@ public class NewVirtualNetworkProcessor : ComputeProcessorBase<VirtualNetwork>
 
     public override async Task<HttpRequestMessage> CreateRequestMessage()
     {
-        await EventListener.Signal(Events.ProcessorBeforeHttpRequestCreate);
+        await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
         string uri = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/virtualNetworks/{Name}?api-version=2025-05-01";
         VirtualNetwork body = new VirtualNetwork
         {
@@ -58,7 +58,7 @@ public class NewVirtualNetworkProcessor : ComputeProcessorBase<VirtualNetwork>
         {
             Content = JsonContent.Create(body, options: JsonOptions)
         };
-        await EventListener.Signal(Events.ProcessorAfterHttpRequestCreate);
+        await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
         return request;
     }
 

@@ -33,13 +33,13 @@ namespace Core.Engine
         private LFUCache<Lazy<IExtensionIndex>>? _extensionIndices;
         private bool _disposed;
 
-        public IInvocationSession InvokeSession(CommandInvocation invocation, OutputStreams outputStreams, CancellationToken cancellationToken = default)
+        public ISession OpenExecutionSession(CommandInvocation invocation, OutputStreams outputStreams, CancellationToken cancellationToken = default)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             // Create a per-invocation channel for worker-to-caller communication
-            var session = new InvocationSession(clientType, invocation, outputStreams, cancellationToken);
-            SubscribeAll(session);
-            session.Signal(Events.SessionCreated, $"Session {session.Id} created").GetAwaiter().GetResult();
+            var session = new ExecutionSession(clientType, invocation, outputStreams, cancellationToken);
+            SubscribeAll(session.EventBus);
+            session.EventBus.Publish(Events.SessionCreated, $"Session {session.Id} created").GetAwaiter().GetResult();
             // TODO(Yabo): get extension version from config service in the future
             session.GetExtensionVersion = () => string.Empty;
             session.LoadAssembly = assemblyLoadingService.LoadExtension;
@@ -69,7 +69,7 @@ namespace Core.Engine
         /// Creates a new processor context for this invocation with channel-based output.
         /// Each processor execution gets its own isolated context.
         /// </summary>
-        private async Task<ProcessorContext> CreateProcessorContext(InvocationSession session)
+        private async Task<ProcessorContext> CreateProcessorContext(ExecutionSession session)
         {
             AuthContext authContext = await authContextService.GetCurrentContextAsync() ?? new AuthContext(TenantId: "", SubscriptionId: "");
             IAuthHandler authHandler = new AuthHandler
@@ -96,7 +96,7 @@ namespace Core.Engine
             ProcessorContext context = new ProcessorContext
             (
                 HttpPipeline: httpPipeline.Prepend(authHandler.SendAsync),
-                EventListener: session,
+                Publisher: session.EventBus,
                 AuthHandler: authHandler,
                 OutputHandler: outputHandler
             );

@@ -26,7 +26,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Processors
 
         public override async Task ProcessAsync()
         {
-            await EventListener.Signal(Events.ProcessorProcessAsyncStart);
+            await Publisher.Publish(Events.ProcessorProcessAsyncStart);
             var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
             var authService = CirrusServiceProvider.GetRequiredService<IAuthService>();
             var authContextService = CirrusServiceProvider.GetRequiredService<IAuthContextService>();
@@ -42,7 +42,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Processors
             AuthContext authContext = new AuthContext(TenantId: authResult.TenantId, SubscriptionId: SubscriptionId);
             authContextService.SaveContextAsync(authContext).GetAwaiter().GetResult();
             await WriteOutput(authContext);
-            await EventListener.Signal(Events.ProcessorProcessAsyncEnd);
+            await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
         }
     }
 }

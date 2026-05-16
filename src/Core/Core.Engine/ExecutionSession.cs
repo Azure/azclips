@@ -2,43 +2,42 @@ using System.Reflection;
 using System.Threading.Channels;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Core.Runtime;
 
-namespace Core.Runtime;
+namespace Core.Engine;
 
-internal partial class InvocationSession : IInvocationSession
+internal partial class ExecutionSession : ISession
 {
     private bool _disposed = false;
     private ClientType clientType;
     private OutputStreamDelegate sessionOutputWriter = null!;
     private IDisposable loggingScope;
-    private CancellationToken cancellationToken;
+    
     private readonly OutputStreamAdapter outputStreamAdapter;
 
     internal Channel<object> OutputChannel = null!;
     internal Func<string> GetExtensionVersion { get; set; } = null!;
     internal Func<string, string, Assembly> LoadAssembly { get; set; } = null!;
     internal Func<IProcessor, IDictionary<string, object>, IDictionary<string, ParameterMetadata>, IDictionary<string, string>?, IProcessor> BindProcessor { get; set; } = null!;
-    internal Func<InvocationSession, Task<ProcessorContext>> CreateProcessorContext { get; set; } = null!;
+    internal Func<ExecutionSession, Task<ProcessorContext>> CreateProcessorContext { get; set; } = null!;
     internal Func<string, string, Func<IExtensionIndex>, IExtensionIndex> CacheGetOrAdd { get; set; } = null!;
     internal CoreOptions Option { get; set; } = null!;
     internal OutputStreamDelegate ProcessorOutputWriter = null!;
 
     public string Id { get; }
+    public IEventBus EventBus { get; private set; }
     public CommandInvocation Invocation { get; }
-    public CancellationToken Token => cancellationToken;
-    public Action Cancel { get; private set; } = null!;
 
-    public InvocationSession(ClientType clientType, CommandInvocation invocation, OutputStreams outputStreams, CancellationToken cancellationToken = default)
+    public ExecutionSession(ClientType clientType, CommandInvocation invocation, OutputStreams outputStreams, CancellationToken cancellationToken = default)
     {
         this.clientType = clientType;
         Id = $"{clientType}-{Guid.NewGuid().ToString()}";
         Invocation = invocation;
-        this.cancellationToken = cancellationToken;
+        EventBus = new RuntimeEventBus(cancellationToken);
         // wire output streams and logging service
         sessionOutputWriter = outputStreams.WriteOutput;
-        outputStreamAdapter = new OutputStreamAdapter(outputStreams, cancellationToken);
+        outputStreamAdapter = new OutputStreamAdapter(outputStreams, EventBus.Token);
         loggingScope = ScopedLoggingService.UseScope(outputStreamAdapter);
-        subscribers = new Dictionary<string, Event>();
     }
 
     public IExtensionIndex GetExtensionIndex()
@@ -52,10 +51,10 @@ internal partial class InvocationSession : IInvocationSession
         return CacheGetOrAdd(Invocation.ExtensionName, GetExtensionVersion(), () => LoadAssembly(Invocation.ExtensionName, GetExtensionVersion()).GetExtensionIndex());
     }
 
-    public async Task ProcessAsync()
+    public async Task RunAsync()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        cancellationToken.ThrowIfCancellationRequested();
+        EventBus.Token.ThrowIfCancellationRequested();
         ProcessorOutputWriter = sessionOutputWriter;
         await (await GetProcessor()).ProcessAsync();
     }
@@ -71,19 +70,19 @@ internal partial class InvocationSession : IInvocationSession
     /// <param name="outputDelegate">The output delegate for this invocation (typically wired to $PSCmdlet.WriteObject).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="ObjectDisposedException">Thrown if the engine has been disposed.</exception>
-    public void Process()
+    public void Run()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        cancellationToken.ThrowIfCancellationRequested();
+        EventBus.Token.ThrowIfCancellationRequested();
 
         OutputChannel = Channel.CreateUnbounded<object>(new UnboundedChannelOptions
         {
             SingleReader = true,
             SingleWriter = false
         });
-        OutputStreamAdapter channelAdapter = new OutputStreamAdapter(GetChannelStreams(), cancellationToken);
+        OutputStreamAdapter channelAdapter = new OutputStreamAdapter(GetChannelStreams(), EventBus.Token);
         using var channelScope = ScopedLoggingService.UseScope(channelAdapter);
-        ProcessorOutputWriter = async (value, _) => await OutputChannel.Writer.WriteAsync(new OutputObject(value), Token);
+        ProcessorOutputWriter = async (value, _) => await OutputChannel.Writer.WriteAsync(new OutputObject(value), EventBus.Token);
 
         /// <summary>
         /// Executes the processor asynchronously, writing output to the channel.
@@ -97,12 +96,12 @@ internal partial class InvocationSession : IInvocationSession
         {
             try
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                EventBus.Token.ThrowIfCancellationRequested();
                 await (await GetProcessor()).ProcessAsync();
             }
             finally
             {
-                // Signal completion to the reader — must run regardless of success,
+                // Publish completion to the reader — must run regardless of success,
                 // failure, or cancellation to unblock the channel pump in Process().
                 OutputChannel.Writer.Complete();
             }
@@ -129,7 +128,7 @@ internal partial class InvocationSession : IInvocationSession
         ChannelReader<object> reader = OutputChannel.Reader;
         try
         {
-            while (reader.WaitToReadAsync(cancellationToken).AsTask().GetAwaiter().GetResult())
+            while (reader.WaitToReadAsync(EventBus.Token).AsTask().GetAwaiter().GetResult())
             {
                 while (reader.TryRead(out var output))
                 {
@@ -152,7 +151,7 @@ internal partial class InvocationSession : IInvocationSession
         switch (output)
         {
             case OutputObject obj:
-                sessionOutputWriter(obj.Value, cancellationToken).GetAwaiter().GetResult();
+                sessionOutputWriter(obj.Value, EventBus.Token).GetAwaiter().GetResult();
                 break;
             case VerboseMessage verbose:
                 outputStreamAdapter.Verbose(verbose.Message);
@@ -236,7 +235,7 @@ internal partial class InvocationSession : IInvocationSession
         {
             if (disposing)
             {
-                this.Signal(Events.SessionDisposed, $"Session {Id} disposed").GetAwaiter().GetResult();
+                EventBus.Publish(Events.SessionDisposed, $"Session {Id} disposed").GetAwaiter().GetResult();
 
                 loggingScope.Dispose();
             }
