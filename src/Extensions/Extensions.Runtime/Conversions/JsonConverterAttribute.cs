@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 using System;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
     public sealed class JsonConverterAttribute : Attribute
@@ -17,3 +17,7 @@ namespace Extensions.Runtime.Json
         internal IJsonConverter? Converter { get; }
     }
 }
+
+
+
+

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 using System;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     internal static class XHelper
     {
@@ -73,3 +73,7 @@ namespace Extensions.Runtime.Json
         }
     }
 }
+
+
+
+

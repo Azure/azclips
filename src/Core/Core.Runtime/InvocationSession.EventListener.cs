@@ -2,7 +2,7 @@ namespace Core.Runtime;
 
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Extensions.Runtime;
+using Microsoft.Azure.Cirrus.Extensions.Runtime;
 
 internal partial class InvocationSession : IInvocationSession
 {
@@ -114,3 +114,6 @@ internal partial class InvocationSession : IInvocationSession
     public Task Signal(string id, EventData message) => Signal(id, Token, () => { message.Id = id; message.Cancel = Cancel; return message; });
     public Task Signal(string id, Uri uri) => Signal(id, Token, () => new EventData { Id = id, Message = uri.ToString(), Cancel = Cancel });
 }
+
+
+

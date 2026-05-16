@@ -5,7 +5,7 @@
 using System.Collections;
 using System.Collections.Generic;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     public sealed partial class XNodeArray : JsonArray, ICollection<JsonNode>
     {
@@ -71,3 +71,7 @@ namespace Extensions.Runtime.Json
         #endregion
     }
 }
+
+
+
+

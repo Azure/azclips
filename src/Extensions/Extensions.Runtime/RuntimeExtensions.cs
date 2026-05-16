@@ -1,4 +1,4 @@
-namespace Extensions.Runtime;
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime;
 
 using System.Collections.Generic;
 using System.Net.Http;
@@ -8,7 +8,7 @@ using Core.Abstractions;
 using System.Text.RegularExpressions;
 using System.Text;
 using System.Net.Http.Headers;
-using Extensions.Runtime.Json;
+using Microsoft.Azure.Cirrus.Extensions.Runtime.Json;
 
 public static class RuntimeExtensions
 {
@@ -303,8 +303,9 @@ public static class RuntimeExtensions
             return string.Empty;
         }
 
-        string body = response.Content == null ? string.Empty
-            : FormatString(await response.Content.ReadAsStringAsync());
+        string body = response.Content == null ? string.Empty : await response.Content.ReadAsStringAsync();
+        body = string.IsNullOrEmpty(body) ? string.Empty
+            : FormatString(body);
 
         return GetHttpResponseLog(
             response.StatusCode.ToString(),
@@ -443,3 +444,8 @@ public static class RuntimeExtensions
             (s, i) => s.Append(delimiter).Append(i), s => s.ToString());
     }
 }
+
+
+
+
+

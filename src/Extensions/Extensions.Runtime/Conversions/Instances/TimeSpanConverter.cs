@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 using System;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     public sealed class TimeSpanConverter : JsonConverter<TimeSpan>
     {
@@ -13,3 +13,7 @@ namespace Extensions.Runtime.Json
         internal override TimeSpan FromJson(JsonNode node) => (TimeSpan)node;
     }
 }
+
+
+
+

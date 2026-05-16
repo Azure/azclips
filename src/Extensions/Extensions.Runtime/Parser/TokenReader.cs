@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 using System;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     public class TokenReader : IDisposable
     {
@@ -37,3 +37,7 @@ namespace Extensions.Runtime.Json
         }
     }
 }
+
+
+
+

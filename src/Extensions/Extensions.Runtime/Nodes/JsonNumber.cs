@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 using System;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     public sealed partial class JsonNumber : JsonNode
     {
@@ -107,3 +107,7 @@ namespace Extensions.Runtime.Json
         public override string ToString() => value;
     }
 }
+
+
+
+

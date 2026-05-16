@@ -8,7 +8,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Reflection;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     
     
@@ -114,3 +114,7 @@ namespace Extensions.Runtime.Json
         #endregion
     }
 }
+
+
+
+

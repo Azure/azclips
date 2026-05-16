@@ -96,12 +96,53 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
             },
             ParameterAliases: new Dictionary<string, string>()
         );
-        private static readonly CommandMetadata s_newNetworkInterfaceCombined_PS = new(
-            Name: "NewNetworkInterfaceProcessor_Combined",
+        private static readonly CommandMetadata s_getVM_PS = new(
+            Name: "GetVMProcessor",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.NewNetworkInterfaceProcessor_Combined",
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.GetVMProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
-            ProcessorType: typeof(Processors.NewNetworkInterfaceProcessor_Combined),
+            ProcessorType: typeof(Processors.GetVMProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Name"]              = new("Name", typeof(string), "The name of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_listVM_PS = new(
+            Name: "ListVMProcessor",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.ListVMProcessor",
+            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            ProcessorType: typeof(Processors.ListVMProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_deleteVM_PS = new(
+            Name: "DeleteVMProcessor",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.DeleteVMProcessor",
+            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            ProcessorType: typeof(Processors.DeleteVMProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Name"]              = new("Name", typeof(string), "The name of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_newNetworkInterfaceOrchestrator_PS = new(
+            Name: "NewNetworkInterfaceProcessor_Orchestrator",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.NewNetworkInterfaceProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            ProcessorType: typeof(Processors.NewNetworkInterfaceProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]                 = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -125,12 +166,12 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
             },
             ParameterAliases: new Dictionary<string, string>()
         );
-        private static readonly CommandMetadata s_newVMCombined_PS = new(
-            Name: "NewVMProcessor_NICCombined",
+        private static readonly CommandMetadata s_newVMOrchestrator_PS = new(
+            Name: "NewVMOrchestrator",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.NewVMProcessor_NICCombined",
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.NewVMProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
-            ProcessorType: typeof(Processors.NewVMProcessor_NICCombined),
+            ProcessorType: typeof(Processors.NewVMProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]                 = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -247,12 +288,53 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
             },
             ParameterAliases: new Dictionary<string, string>()
         );
-        private static readonly CommandMetadata s_newNetworkInterfaceCombined_CLI = new(
-            Name: "NewNetworkInterfaceProcessor_Combined",
+        private static readonly CommandMetadata s_getVM_CLI = new(
+            Name: "GetVMProcessor",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.NewNetworkInterfaceProcessor_Combined",
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.GetVMProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
-            ProcessorType: typeof(Processors.NewNetworkInterfaceProcessor_Combined),
+            ProcessorType: typeof(Processors.GetVMProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["name"]            = new("Name", typeof(string), "The name of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["resource-group"]  = new("ResourceGroupName", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_listVM_CLI = new(
+            Name: "ListVMProcessor",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.ListVMProcessor",
+            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            ProcessorType: typeof(Processors.ListVMProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["resource-group"]  = new("ResourceGroupName", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_deleteVM_CLI = new(
+            Name: "DeleteVMProcessor",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.DeleteVMProcessor",
+            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            ProcessorType: typeof(Processors.DeleteVMProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["name"]            = new("Name", typeof(string), "The name of the virtual machine.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["resource-group"]  = new("ResourceGroupName", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
+        private static readonly CommandMetadata s_newNetworkInterfaceOrchestrator_CLI = new(
+            Name: "NewNetworkInterfaceProcessor_Orchestrator",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.NewNetworkInterfaceProcessor_Orchestrator",
+            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            ProcessorType: typeof(Processors.NewNetworkInterfaceProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"]                  = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -276,12 +358,12 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
             },
             ParameterAliases: new Dictionary<string, string>()
         );
-        private static readonly CommandMetadata s_newVMCombined_CLI = new(
-            Name: "NewVMProcessor_NICCombined",
+        private static readonly CommandMetadata s_newVMOrchestrator_CLI = new(
+            Name: "NewVMProcessor_Orchestrator",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.NewVMProcessor_NICCombined",
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.NewVMProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
-            ProcessorType: typeof(Processors.NewVMProcessor_NICCombined),
+            ProcessorType: typeof(Processors.NewVMProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"]                  = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
@@ -312,16 +394,22 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
         // ── Dispatch Tables ──
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
         {
-            ["New-VirtualNetwork"]               = s_newVirtualNetwork_PS,
-            ["New-NetworkSecurityGroup"]         = s_newNetworkSecurityGroup_PS,
-            ["New-NetworkInterface"]             = s_newNetworkInterface_PS,
-            ["New-VM"]                           = s_newVM_PS,
-            ["New-NetworkInterfaceCombined"]     = s_newNetworkInterfaceCombined_PS,
-            ["New-VMCombined"]                   = s_newVMCombined_PS,
+            // ["New-VirtualNetwork"]               = s_newVirtualNetwork_PS,
+            // ["New-NetworkSecurityGroup"]         = s_newNetworkSecurityGroup_PS,
+            // ["New-NetworkInterface"]             = s_newNetworkInterface_PS,
+            // ["New-VM"]                           = s_newVM_PS,
+            // ["New-NetworkInterfaceOrchestrator"]     = s_newNetworkInterfaceOrchestrator_PS,
+            ["New-VM"]                   = s_newVMOrchestrator_PS,
+            ["Get-VM_Get"]                   = s_getVM_PS,
+            ["Get-VM_List"]               = s_listVM_PS,
+            ["Remove-VM"]                = s_deleteVM_PS,
         };
         private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
         {
-            ["create-combined"]   = s_newVMCombined_CLI,
+            ["create"]   = s_newVMOrchestrator_CLI,
+            ["show"]     = s_getVM_CLI,
+            ["list"]     = s_listVM_CLI,
+            ["delete"]   = s_deleteVM_CLI,
         };
         // ── Lookup ──
         public CommandMetadata GetCommandMetadata(string name, ClientType clientType)

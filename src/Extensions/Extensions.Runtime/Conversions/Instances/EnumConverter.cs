@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 using System;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     public sealed class EnumConverter : IJsonConverter
     {
@@ -28,3 +28,7 @@ namespace Extensions.Runtime.Json
         }
     }
 }
+
+
+
+

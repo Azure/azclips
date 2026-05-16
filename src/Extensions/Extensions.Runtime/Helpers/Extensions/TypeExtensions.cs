@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 using System;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     internal static class TypeExtensions
     {
@@ -59,3 +59,7 @@ namespace Extensions.Runtime.Json
         }
     }
 }
+
+
+
+

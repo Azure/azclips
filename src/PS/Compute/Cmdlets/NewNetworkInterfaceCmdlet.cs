@@ -24,14 +24,47 @@ public class NewNetworkInterfaceCmdlet : PSCmdlet
     [Parameter(Mandatory = true)]
     public string ResourceGroupName { get; set; } = "";
 
+    [Parameter(Mandatory = true)]
+    public string VirtualNetworkName { get; set; } = "";
+
+    [Parameter(Mandatory = true)]
+    public string NetworkSecurityGroupName { get; set; } = "";
+
     [Parameter(Mandatory = false)]
-    public string[]? SubnetIds { get; set; }
+    public string[]? SubnetNames { get; set; }
 
     [Parameter(Mandatory = false)]
     public string[][]? SubnetAddressPrefixes { get; set; }
 
     [Parameter(Mandatory = false)]
-    public string? NetworkSecurityGroupId { get; set; }
+    public string[]? AddressPrefixes { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string[]? RuleNames { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string[]? RuleDirections { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string[]? RuleProtocols { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public int[]? RulePriorities { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string[]? RuleSourceAddressPrefixes { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string[]? RuleSourcePortRanges { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string[]? RuleDestinationPortRanges { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string[]? RuleDestinationAddressPrefixes { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string[]? RuleAccesses { get; set; }
 
     protected override void BeginProcessing()
     {
@@ -44,7 +77,7 @@ public class NewNetworkInterfaceCmdlet : PSCmdlet
             {
                 WriteError(new ErrorRecord(
                     new Exception(value?.ToString() ?? ""),
-                    "NetworkInterfaceError",
+                    "NetworkInterfaceOrchestratorError",
                     ErrorCategory.NotSpecified,
                     null));
                 return Task.CompletedTask;
@@ -66,10 +99,21 @@ public class NewNetworkInterfaceCmdlet : PSCmdlet
             { "Name", Name },
             { "Location", Location },
             { "ResourceGroupName", ResourceGroupName },
+            { "VirtualNetworkName", VirtualNetworkName },
+            { "NetworkSecurityGroupName", NetworkSecurityGroupName },
         };
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetIds)))            { parameters.Add("SubnetIds", SubnetIds!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetAddressPrefixes)))  { parameters.Add("SubnetAddressPrefixes", SubnetAddressPrefixes!); }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(NetworkSecurityGroupId))) { parameters.Add("NetworkSecurityGroupId", NetworkSecurityGroupId!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetNames)))                    { parameters.Add("SubnetNames", SubnetNames!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SubnetAddressPrefixes)))          { parameters.Add("SubnetAddressPrefixes", SubnetAddressPrefixes!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(AddressPrefixes)))                { parameters.Add("AddressPrefixes", AddressPrefixes!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleNames)))                      { parameters.Add("RuleNames", RuleNames!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleDirections)))                 { parameters.Add("RuleDirections", RuleDirections!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleProtocols)))                  { parameters.Add("RuleProtocols", RuleProtocols!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(RulePriorities)))                 { parameters.Add("RulePriorities", RulePriorities!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleSourceAddressPrefixes)))      { parameters.Add("RuleSourceAddressPrefixes", RuleSourceAddressPrefixes!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleSourcePortRanges)))           { parameters.Add("RuleSourcePortRanges", RuleSourcePortRanges!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleDestinationPortRanges)))      { parameters.Add("RuleDestinationPortRanges", RuleDestinationPortRanges!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleDestinationAddressPrefixes))) { parameters.Add("RuleDestinationAddressPrefixes", RuleDestinationAddressPrefixes!); }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(RuleAccesses)))                   { parameters.Add("RuleAccesses", RuleAccesses!); }
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
