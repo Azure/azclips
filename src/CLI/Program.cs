@@ -144,7 +144,7 @@ public class Program
             psi.Environment["CIRRUS_IN_AGENT_MODE"] = "1";
             psi.ArgumentList.Add("--agent-mode");
             psi.ArgumentList.Add("--failed-command");
-            psi.ArgumentList.Add(string.Join(' ', args));
+            psi.ArgumentList.Add(JoinShellQuoted(args));
 
             using var proc = Process.Start(psi)
                 ?? throw new InvalidOperationException("Process.Start returned null");
@@ -156,6 +156,21 @@ public class Program
             _logger?.Error($"agent mode subprocess failed: {ex.Message}");
             return Task.FromResult(1);
         }
+    }
+
+    private static string JoinShellQuoted(string[] args)
+    {
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < args.Length; i++)
+        {
+            if (i > 0) sb.Append(' ');
+            var a = args[i];
+            if (a.Length == 0 || a.Contains(' ') || a.Contains('\t') || a.Contains('"'))
+                sb.Append('"').Append(a.Replace("\"", "\\\"")).Append('"');
+            else
+                sb.Append(a);
+        }
+        return sb.ToString();
     }
 
     private static string? FindTuiExe()
