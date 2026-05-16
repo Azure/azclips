@@ -26,6 +26,13 @@ namespace Core.Agent.Hosting;
 /// </summary>
 public sealed class ConsoleApprovalPrompt
 {
+    private readonly SpinnerService? _spinner;
+
+    public ConsoleApprovalPrompt(SpinnerService? spinner = null)
+    {
+        _spinner = spinner;
+    }
+
     private readonly Channel<PendingApproval> _queue =
         Channel.CreateUnbounded<PendingApproval>(new UnboundedChannelOptions
         {
@@ -71,14 +78,23 @@ public sealed class ConsoleApprovalPrompt
             return false;
         }
 
+        _spinner?.Pause();
         Console.WriteLine();
         WriteColor(ConsoleColor.Yellow, $"⚠ Approve '{pending.ToolName}'?");
-        // args is decision-critical information — keep it high-contrast.
-        // DarkGray made it nearly unreadable on dark terminals.
-        WriteColor(ConsoleColor.White, $"   args: {pending.ArgsPreview}");
-        Console.Write("   y/n: ");
+        // args render in the terminal's default fg — bright enough to read,
+        // not loud enough to compete with the yellow ⚠ headline above.
+        Console.WriteLine($"   args: {pending.ArgsPreview}");
+        WriteColorInline(ConsoleColor.DarkGray, "   y/n: ");
 
-        var line = Console.ReadLine();
+        string? line;
+        try
+        {
+            line = Console.ReadLine();
+        }
+        finally
+        {
+            _spinner?.Resume();
+        }
         var approved = line is not null
             && (line.Trim().Equals("y", StringComparison.OrdinalIgnoreCase)
                 || line.Trim().Equals("yes", StringComparison.OrdinalIgnoreCase));
@@ -94,6 +110,20 @@ public sealed class ConsoleApprovalPrompt
         {
             Console.ForegroundColor = color;
             Console.WriteLine(text);
+        }
+        finally
+        {
+            Console.ForegroundColor = prev;
+        }
+    }
+
+    private static void WriteColorInline(ConsoleColor color, string text)
+    {
+        var prev = Console.ForegroundColor;
+        try
+        {
+            Console.ForegroundColor = color;
+            Console.Write(text);
         }
         finally
         {

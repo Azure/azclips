@@ -1,40 +1,99 @@
 namespace Core.Agent.Hosting;
 
 /// <summary>
-/// Single-line renderer mapping an <see cref="AgentEvent"/> to a console color
-/// plus its display text. Pulled out of the host renderers so CLI / TUI /
-/// future hosts can share the same color + format choices (and so the snapshot
-/// tests in <c>tests/Core.Agent.Tests</c> can lock both axes down).
-///
-/// Pattern:    pure function (event → (color, text)); IO side-effects belong
-///             to <see cref="ConsoleEventRenderer"/>.
-/// Avoid:      ❌ duplicating these mappings in CLI and TUI hosts (the old
-///                spike had two RenderAgentEvent copies that drifted on the
-///                LlmTurnCompleted line and the run_command failure color).
+/// Pure mapping from <see cref="AgentEvent"/> to a list of styled text segments,
+/// shared by every host renderer (console / TUI / future web). Colors are
+/// expressed as semantic <see cref="AgentColorRole"/>s; the renderer resolves
+/// them to concrete terminal / palette values.
 /// </summary>
 public static class AgentEventStyle
 {
-    /// <summary>Returns the console color + formatted single-line text for an event.</summary>
-    public static (ConsoleColor Color, string Text) Format(AgentEvent ev) => ev switch
+    public readonly record struct Segment(AgentColorRole Role, string Text, bool Bold = false);
+
+    public static IReadOnlyList<Segment> Format(AgentEvent ev) => ev switch
     {
-        ToolStarted t            => (ConsoleColor.Cyan,     $"  ▶ {t.Name}({Trim(t.ArgsJson, 80)})"),
-        ToolCompleted t          => (t.IsError ? ConsoleColor.Red : ConsoleColor.Green,
-                                     $"  {(t.IsError ? "✗" : "✓")} {t.Name} {t.Elapsed.TotalMilliseconds:F0}ms · {Trim(t.FullResult, 120)}"),
-        ToolFailed t             => (ConsoleColor.Red,
-                                     $"  ✗ {t.Name} {t.Elapsed.TotalMilliseconds:F0}ms · {Trim(t.Error, 80)}"),
-        SubAgentInvokeStarted s  => (ConsoleColor.Magenta,
-                                     $"  ⊳ sub-agent {s.AgentName}({Trim(s.Query, 80)})"),
-        SubAgentInvokeCompleted s=> (ConsoleColor.Magenta,
-                                     $"  ⊲ sub-agent {s.AgentName} {s.Elapsed.TotalMilliseconds:F0}ms · {Trim(s.Response, 80)}"),
-        SubAgentInvokeFailed s   => (ConsoleColor.Red,
-                                     $"  ⊲ sub-agent {s.AgentName} {s.Elapsed.TotalMilliseconds:F0}ms · ✗ {Trim(s.Error, 80)}"),
-        LlmFirstToken e          => (ConsoleColor.DarkGray,
-                                     $"  ▶ LLM streaming · TTFT {e.TimeToFirstToken.TotalSeconds:F1}s"),
-        LlmTurnCompleted e       => (ConsoleColor.DarkGray,
-                                     $"  ✓ LLM turn {e.Elapsed.TotalSeconds:F1}s · in {e.InputTokens} · out {e.OutputTokens} · cached {e.CachedTokens}"),
-        _                        => (ConsoleColor.Gray, ev.GetType().Name),
+        ToolStarted t => new[]
+        {
+            new Segment(AgentColorRole.Muted, "  ▶ "),
+            new Segment(AgentColorRole.Default, t.Name, Bold: true),
+            new Segment(AgentColorRole.Default, $"({t.ArgsJson})"),
+        },
+
+        ToolCompleted t when t.IsError => new[]
+        {
+            new Segment(AgentColorRole.Error, $"  ✗ {t.Name} "),
+            new Segment(AgentColorRole.Muted, $"{t.Elapsed.TotalMilliseconds:F0}ms · "),
+            new Segment(AgentColorRole.Default, t.FullResult),
+        },
+        ToolCompleted t => new[]
+        {
+            new Segment(AgentColorRole.Muted, $"  ✓ {t.Name} {t.Elapsed.TotalMilliseconds:F0}ms · "),
+            new Segment(AgentColorRole.Default, t.FullResult),
+        },
+
+        ToolFailed t => new[]
+        {
+            new Segment(AgentColorRole.Error, $"  ✗ {t.Name} "),
+            new Segment(AgentColorRole.Muted, $"{t.Elapsed.TotalMilliseconds:F0}ms · "),
+            new Segment(AgentColorRole.Error, t.Error),
+        },
+
+        SubAgentInvokeStarted s => new[]
+        {
+            new Segment(AgentColorRole.Muted, "  ⊳ sub-agent "),
+            new Segment(AgentColorRole.Default, s.AgentName, Bold: true),
+            new Segment(AgentColorRole.Default, $"({s.Query})"),
+        },
+        SubAgentInvokeCompleted s => new[]
+        {
+            new Segment(AgentColorRole.Muted, $"  ⊲ sub-agent {s.AgentName} {s.Elapsed.TotalMilliseconds:F0}ms · "),
+            new Segment(AgentColorRole.Default, s.Response),
+        },
+        SubAgentInvokeFailed s => new[]
+        {
+            new Segment(AgentColorRole.Error, $"  ⊲ sub-agent {s.AgentName} "),
+            new Segment(AgentColorRole.Muted, $"{s.Elapsed.TotalMilliseconds:F0}ms · "),
+            new Segment(AgentColorRole.Error, s.Error),
+        },
+
+        LlmFirstToken e => new[]
+        {
+            new Segment(AgentColorRole.Muted, $"  ▶ LLM streaming · TTFT {e.TimeToFirstToken.TotalSeconds:F1}s"),
+        },
+        LlmTurnCompleted e => new[]
+        {
+            new Segment(AgentColorRole.Muted,
+                $"  ✓ LLM turn {e.Elapsed.TotalSeconds:F1}s · in {e.InputTokens} · out {e.OutputTokens} · cached {e.CachedTokens}"),
+        },
+
+        SessionErrored e => new[]
+        {
+            new Segment(AgentColorRole.Error, $"  ✗ session.error [{e.ErrorType}] "),
+            new Segment(AgentColorRole.Default, e.Message),
+            new Segment(AgentColorRole.Muted,
+                BuildErrorMeta(e.StatusCode, e.ErrorCode, e.ProviderCallId)),
+        },
+
+        HostLogEmitted h when h.Level == HostLogLevel.Error => new[]
+        {
+            new Segment(AgentColorRole.Error, "  ✗ [ERROR] "),
+            new Segment(AgentColorRole.Default, h.Message),
+        },
+        HostLogEmitted h => new[]
+        {
+            new Segment(AgentColorRole.Warning, "  ⚠ [WARN] "),
+            new Segment(AgentColorRole.Default, h.Message),
+        },
+
+        _ => new[] { new Segment(AgentColorRole.Muted, ev.GetType().Name) },
     };
 
-    private static string Trim(string s, int max) =>
-        string.IsNullOrEmpty(s) ? string.Empty : (s.Length > max ? s[..max] + "…" : s);
+    private static string BuildErrorMeta(int? statusCode, string? errorCode, string? providerCallId)
+    {
+        var parts = new List<string>(3);
+        if (statusCode is { } sc)         parts.Add(sc.ToString());
+        if (!string.IsNullOrEmpty(errorCode))      parts.Add(errorCode);
+        if (!string.IsNullOrEmpty(providerCallId)) parts.Add(providerCallId);
+        return parts.Count == 0 ? string.Empty : "  · " + string.Join(" · ", parts);
+    }
 }

@@ -1,24 +1,16 @@
 using Core.Abstractions;
 using Core.Agent;
 using Core.Agent.Hosting;
-using Core.Agent.Models;
 using Core.DependencyInjection;
+using Core.Runtime;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Core.Tui.AgentMode;
 
 /// <summary>
-/// TUI-process entry point for "agent mode" — the path the classic CLI hands
-/// off to via <c>Process.Start("Core.Tui.exe", "--agent-mode")</c> when a
-/// classic invocation failed. Owns:
-///
-/// - parsing <c>--failed-command</c> / <c>--error</c> args,
-/// - the banner,
-/// - constructing <see cref="CirrusChatAgent"/> with the shared
-///   <c>Core.Agent.Hosting</c> renderer / approval / process-executor,
-/// - the read-eval chat loop (so stdin has exactly one reader and the SDK
-///   approval callback pumps onto the same thread via
-///   <see cref="ConsoleApprovalPrompt.PumpOneAsync"/>).
+/// TUI-process entry point for agent mode — spawned by the classic CLI when an
+/// invocation fails. Owns the chat loop, banner, and stdin so the approval pump
+/// and prompt share a single reader.
 /// </summary>
 public static class AgentModeEntry
 {
@@ -31,26 +23,33 @@ public static class AgentModeEntry
         var failedCommand = ArgValue(args, "--failed-command") ?? string.Empty;
         var errorText     = ArgValue(args, "--error")          ?? string.Empty;
 
-        // Minimal DI — we only need IAuthService for the agent's cache tools.
         CirrusServiceProvider.Initialize(ClientType.CLI);
 
         try
         {
             PrintBanner(failedCommand, errorText);
 
-            var auth     = CirrusServiceProvider.GetRequiredService<IAuthService>();
+            var auth        = CirrusServiceProvider.GetRequiredService<IAuthService>();
+            var authContext = CirrusServiceProvider.GetRequiredService<IAuthContextService>();
             var flavor   = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure cli";
             var azv2     = FindAzv2Exe() ?? "azv2";
-            var renderer = new ConsoleEventRenderer();
-            var approval = new ConsoleApprovalPrompt();
-            var executor = new ProcessExecutor(azv2, rewriteCommand: StripLeadingAzv2);
+            var renderer = new ConsoleAgentRenderer();
+            var spinner  = new SpinnerService(renderer);
+            var approval = new ConsoleApprovalPrompt(spinner);
 
-            await using var agent = await CirrusChatAgent.CreateAsync(
+            // Funnel cirrus-internal logs through the renderer so they don't
+            // race the spinner. Verbose/Debug/Info dropped; Warn/Error become
+            // HostLogEmitted events the renderer draws under its lock.
+            using var _logScope = ScopedLoggingService.UseScope(new RendererLoggingService(renderer));
+
+            await using var agent = await ChatAgent.CreateAsync(
                 flavor: flavor,
                 auth: auth,
-                runCommand: executor.RunAsync,
+                authContext: authContext,
+                azv2ExePath: azv2,
                 approvalSink: approval,
                 renderer: renderer,
+                spinner: spinner,
                 mode: "azure",
                 ct: cts.Token);
 
@@ -58,12 +57,12 @@ public static class AgentModeEntry
                 ? $"I tried `{failedCommand}` but it failed. Help me fix it."
                 : $"I tried `{failedCommand}` but it failed:\n{errorText}\nHelp me fix it.";
 
-            await RunChatLoopAsync(agent, approval, firstPrompt, cts.Token);
+            await RunChatLoopAsync(agent, approval, spinner, firstPrompt, cts.Token);
             return 0;
         }
         catch (OperationCanceledException)
         {
-            return 130; // POSIX convention for SIGINT
+            return 130;
         }
         catch (Exception ex)
         {
@@ -76,18 +75,14 @@ public static class AgentModeEntry
         }
     }
 
-    /// <summary>
-    /// Host-owned chat loop. Reads one line of stdin, sends to the agent, and
-    /// while the agent's turn is in flight pumps any approval prompts on the
-    /// same thread — so stdin has exactly one reader at a time.
-    /// </summary>
     private static async Task RunChatLoopAsync(
-        CirrusChatAgent agent,
+        ChatAgent agent,
         ConsoleApprovalPrompt approval,
+        SpinnerService spinner,
         string firstPrompt,
         CancellationToken ct)
     {
-        await SendAndPumpAsync(agent, approval, firstPrompt, ct);
+        await SendAndPumpAsync(agent, approval, spinner, firstPrompt, ct);
 
         while (!ct.IsCancellationRequested)
         {
@@ -99,33 +94,67 @@ public static class AgentModeEntry
             if (line.Length == 0) continue;
             if (line is "exit" or "quit" or "/exit" or "/quit" or ":q") break;
 
-            await SendAndPumpAsync(agent, approval, line, ct);
+            await SendAndPumpAsync(agent, approval, spinner, line, ct);
         }
     }
 
     private static async Task SendAndPumpAsync(
-        CirrusChatAgent agent,
+        ChatAgent agent,
         ConsoleApprovalPrompt approval,
+        SpinnerService spinner,
         string prompt,
         CancellationToken ct)
     {
+        spinner.Start("thinking");
         var sendTask = agent.SendAsync(prompt, ct);
 
-        while (!sendTask.IsCompleted)
+        var watcher = new AbortKeyWatcher(agent.AbortAsync);
+        var watcherCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var watcherTask = watcher.RunAsync(watcherCts.Token);
+
+        try
         {
-            using var pumpCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            var pumpTask = approval.PumpOneAsync(pumpCts.Token);
-            var completed = await Task.WhenAny(sendTask, pumpTask).ConfigureAwait(false);
-            if (completed == sendTask)
+            while (!sendTask.IsCompleted)
             {
-                pumpCts.Cancel(); // unblock the pending pump read
-                try { await pumpTask.ConfigureAwait(false); } catch { /* cancelled */ }
-                break;
+                using var pumpCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                var pumpTask = approval.PumpOneAsync(pumpCts.Token);
+                var completed = await Task.WhenAny(sendTask, pumpTask, watcherTask).ConfigureAwait(false);
+
+                if (completed == sendTask)
+                {
+                    pumpCts.Cancel();
+                    try { await pumpTask.ConfigureAwait(false); } catch { }
+                    break;
+                }
+
+                if (completed == watcherTask)
+                {
+                    pumpCts.Cancel();
+                    try { await pumpTask.ConfigureAwait(false); } catch { }
+                    WriteColor(ConsoleColor.DarkGray, "  ↯ aborted by user");
+                    break;
+                }
+
+                watcherCts.Cancel();
+                try { await watcherTask.ConfigureAwait(false); } catch { }
+                watcherCts.Dispose();
+                watcherCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                watcherTask = watcher.RunAsync(watcherCts.Token);
             }
-            // else: pump consumed one approval; loop and keep pumping until send completes.
+        }
+        finally
+        {
+            watcherCts.Cancel();
+            try { await watcherTask.ConfigureAwait(false); } catch { }
+            watcherCts.Dispose();
+            spinner.Stop();
         }
 
-        await sendTask.ConfigureAwait(false); // surface exceptions
+        try { await sendTask.ConfigureAwait(false); }
+        catch (OperationCanceledException) when (agent.LastError is { } err)
+        {
+            WriteColor(ConsoleColor.Red, $"  ✗ session.error [{err.ErrorType}] {err.Message}");
+        }
     }
 
     private static void PrintBanner(string failedCommand, string error)
@@ -148,16 +177,6 @@ public static class AgentModeEntry
         var idx = Array.IndexOf(args, flag);
         if (idx < 0 || idx + 1 >= args.Length) return null;
         return args[idx + 1];
-    }
-
-    private static string StripLeadingAzv2(string commandLine)
-    {
-        var trimmed = commandLine.TrimStart();
-        var firstSpace = trimmed.IndexOf(' ');
-        var firstToken = firstSpace < 0 ? trimmed : trimmed[..firstSpace];
-        return firstToken.Equals("azv2", StringComparison.OrdinalIgnoreCase)
-            ? trimmed[Math.Min(trimmed.Length, firstToken.Length + 1)..]
-            : trimmed;
     }
 
     private static string? FindAzv2Exe()
