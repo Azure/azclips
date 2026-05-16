@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778815380322,
+  "lastUpdate": 1778927922404,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus CLI Benchmarks": [
@@ -42,6 +42,48 @@ window.BENCHMARK_DATA = {
             "value": 8926206,
             "unit": "ns",
             "range": "± 109240.97327773433"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yabhu@microsoft.com",
+            "name": "Yabo Hu",
+            "username": "VeryEarly"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "185c465e63ab0a110ae8b8307d5dc8fe692d0a88",
+          "message": "Fix build script to update path in artifacts instead of src  (#240)\n\nfix GHA bug:\n\nhttps://github.com/Azure/cirrus/actions/runs/25958312170/job/76308977496?pr=239\n- build time patch psd1 should target artifacts instead of src\n- test case should also target artifacts/debug instead of src",
+          "timestamp": "2026-05-16T18:36:40+08:00",
+          "tree_id": "73aaac3dc4c690ed52d3b4a65ea24c3189c03a02",
+          "url": "https://github.com/Azure/cirrus/commit/185c465e63ab0a110ae8b8307d5dc8fe692d0a88"
+        },
+        "date": 1778927921229,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 5479765.5,
+            "unit": "ns",
+            "range": "± 198045.43600732973"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 6055340.25,
+            "unit": "ns",
+            "range": "± 282680.9011003691"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 5588866.75,
+            "unit": "ns",
+            "range": "± 57814.84356907546"
           }
         ]
       }
