@@ -40,11 +40,8 @@ jobs:
         with:
           global-json-file: global.json
 
-      # - name: Restore + build
-      #   run: dotnet build cirrus.slnx --configuration Release
-      # temp-jayson: use a custom build step to update the psd1 module artifact references.
       - name: Restore + build
-        run: pwsh -File build/build.ps1 -Configuration Release
+        run: dotnet build cirrus.slnx --configuration Release
 
       # ─────────────── CLI ───────────────
       - name: Run CLI benchmarks (with retry)

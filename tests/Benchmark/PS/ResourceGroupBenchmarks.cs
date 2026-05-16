@@ -39,7 +39,13 @@ public class ResourceGroupBenchmarks : BenchmarkBase
 
     private object? RunPowerShellCommand(string command, params (string Name, object Value)[] parameters)
     {
-        var psModulePath = Path.Combine(RepoRoot, "src", "PS", "Resources", "Resources.psd1");
+        // Import from the staged artifact manifest, not src/PS/. The Benchmark
+        // project's MSBuild target (StagePsModuleManifests) writes a
+        // configuration-specific copy to artifacts/<Config>/PS/Resources/Resources.psd1.
+        // AppContext.BaseDirectory points at artifacts/<Config>/Benchmark/, so
+        // ../PS/Resources/Resources.psd1 is the staged sibling.
+        var psModulePath = Path.GetFullPath(
+            Path.Combine(AppContext.BaseDirectory, "..", "PS", "Resources", "Resources.psd1"));
 
         // Create and open a fresh runspace per invocation (cold start)
         var runspace = RunspaceFactory.CreateRunspace();
