@@ -7,7 +7,7 @@ namespace Core.Runtime
     using System.Linq;
     using System;
     using Core.Abstractions.Runtime;
-    using Microsoft.Azure.Cirrus.Extensions.Runtime;
+    using Microsoft.Azure.Cirrus.ExtensionRuntime;
     
     public class HttpPipeline : IRuntimeHttpPipeline
     {

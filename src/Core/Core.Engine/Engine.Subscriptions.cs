@@ -2,7 +2,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Runtime;
 using System.Diagnostics;
-using Microsoft.Azure.Cirrus.Extensions.Runtime;
+using Microsoft.Azure.Cirrus.ExtensionRuntime;
 
 namespace Core.Engine
 {

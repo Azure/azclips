@@ -2,7 +2,7 @@ namespace Core.Runtime;
 
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Microsoft.Azure.Cirrus.Extensions.Runtime;
+using Microsoft.Azure.Cirrus.ExtensionRuntime;
 
 internal partial class RuntimeEventBus : IEventBus
 {

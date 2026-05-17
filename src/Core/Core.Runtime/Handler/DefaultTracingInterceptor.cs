@@ -1,6 +1,6 @@
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
-using Microsoft.Azure.Cirrus.Extensions.Runtime;
+using Microsoft.Azure.Cirrus.ExtensionRuntime;
 
 namespace Core.Runtime.Handler;
 

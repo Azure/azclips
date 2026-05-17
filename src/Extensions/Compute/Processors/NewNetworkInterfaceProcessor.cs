@@ -1,6 +1,6 @@
 using System.Net.Http.Json;
 using Core.Abstractions.Runtime;
-using Microsoft.Azure.Cirrus.Extensions.Runtime;
+using Microsoft.Azure.Cirrus.ExtensionRuntime;
 using Microsoft.Azure.Cirrus.Extensions.Compute.Models;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors;

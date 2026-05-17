@@ -3,8 +3,8 @@ using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using System.Net;
-using Microsoft.Azure.Cirrus.Extensions.Runtime;
-using Microsoft.Azure.Cirrus.Extensions.Runtime.Json;
+using Microsoft.Azure.Cirrus.ExtensionRuntime;
+using Microsoft.Azure.Cirrus.ExtensionRuntime.Json;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
 {
