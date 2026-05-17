@@ -1,6 +1,6 @@
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
-using Extensions.Runtime;
+using Microsoft.Azure.Cirrus.Extensions.Runtime;
 
 namespace Core.Runtime.Handler;
 
@@ -12,3 +12,6 @@ public class DefaultTracingInterceptor : ITracingInterceptor
         return await next.SendAsync(request, callback);
     };
 }
+
+
+

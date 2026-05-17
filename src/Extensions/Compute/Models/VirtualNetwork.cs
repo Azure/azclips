@@ -1,4 +1,4 @@
-using Extensions.Runtime.Json;
+using Microsoft.Azure.Cirrus.Extensions.Runtime.Json;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Compute.Models;
 
@@ -48,3 +48,7 @@ public class AddressSpace
     public List<object> IpamPoolPrefixAllocations { get; set; } = [];
     public override string ToString() => JsonNode.FromObject(this).ToString();
 }
+
+
+
+

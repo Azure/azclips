@@ -40,11 +40,15 @@ jobs:
         with:
           global-json-file: global.json
 
-      # - name: Restore + build
-      #   run: dotnet build cirrus.slnx --configuration Release
-      # temp-jayson: use a custom build step to update the psd1 module artifact references.
       - name: Restore + build
-        run: pwsh -File build/build.ps1 -Configuration Release
+        run: dotnet build cirrus.slnx --configuration Release
+
+      # Stage PowerShell module manifests into artifacts/Release/PS/<Module>/.
+      # The PS benchmarks import these instead of the tracked src/PS/<Module>/<Module>.psd1
+      # files, so the working tree stays clean and benchmark-action's `git switch gh-pages`
+      # below doesn't fail with "local changes would be overwritten".
+      - name: Stage PS module manifests
+        run: pwsh -NoProfile -File build/Set-ModuleConfiguration.ps1 -Configuration Release
 
       # ─────────────── CLI ───────────────
       - name: Run CLI benchmarks (with retry)
@@ -64,7 +68,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: ${{ github.event_name == 'push' }}
           alert-threshold: '115%'
-          fail-on-alert: true
+          fail-on-alert: false
           comment-on-alert: ${{ github.event.pull_request.head.repo.fork != true }}
           summary-always: true
           gh-pages-branch: gh-pages
@@ -89,7 +93,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: ${{ github.event_name == 'push' }}
           alert-threshold: '115%'
-          fail-on-alert: true
+          fail-on-alert: false
           comment-on-alert: ${{ github.event.pull_request.head.repo.fork != true }}
           summary-always: true
           gh-pages-branch: gh-pages

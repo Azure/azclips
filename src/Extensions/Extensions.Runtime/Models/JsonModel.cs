@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.Runtime.Serialization;
 using System.Reflection;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     internal class JsonModel
     {
@@ -87,3 +87,7 @@ namespace Extensions.Runtime.Json
         }
     }
 }
+
+
+
+

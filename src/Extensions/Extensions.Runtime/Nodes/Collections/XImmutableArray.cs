@@ -6,7 +6,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     internal sealed class XImmutableArray<T> : JsonArray, IEnumerable<JsonNode>
     {
@@ -60,3 +60,7 @@ namespace Extensions.Runtime.Json
         #endregion
     }
 }
+
+
+
+

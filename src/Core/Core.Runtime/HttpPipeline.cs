@@ -2,17 +2,19 @@ namespace Core.Runtime
 {
     using System.Net.Http;
     using System.Collections.Generic;
+    using System.Threading;
     using System.Threading.Tasks;
     using System.Linq;
     using System;
     using Core.Abstractions.Runtime;
-    using Extensions.Runtime;
+    using Microsoft.Azure.Cirrus.Extensions.Runtime;
     
     public class HttpPipeline : IRuntimeHttpPipeline
     {
         private const int DefaultMaxRetry = 3;
         private const int DefaultMaxRetryFor429 = 5;
         private ISendAsync pipeline = null!;
+        private readonly object _pipelineLock = new();
         private ISendAsyncTerminalFactory terminal = null!;
         private List<ISendAsyncFactory> steps = new List<ISendAsyncFactory>();
         private readonly int _maxRetry;
@@ -137,25 +139,40 @@ namespace Core.Runtime
         {
             get
             {
-                // if the pipeline has been created and not invalidated, return it. 
-                if (this.pipeline != null)
+                // Fast path: pipeline already built and not invalidated.
+                // Volatile read via local copy keeps the value stable across the null check
+                // and avoids racing with concurrent writers in Prepend/Append.
+                var current = Volatile.Read(ref this.pipeline);
+                if (current != null)
                 {
-                    return this.pipeline;
+                    return current;
                 }
 
-                // create the pipeline from scratch.
-                var next = terminal.Create();
-                if (Convert.ToBoolean(@"true"))
+                // Slow path: build under lock with double-check so concurrent first-callers
+                // don't each build (and abandon) their own chain.
+                lock (_pipelineLock)
                 {
-                    next = new SendAsyncFactory(Retry429).Create(next) ?? next;
-                    next = new SendAsyncFactory(RetryError).Create(next) ?? next;
+                    current = this.pipeline;
+                    if (current != null)
+                    {
+                        return current;
+                    }
+
+                    // create the pipeline from scratch.
+                    var next = terminal.Create();
+                    if (Convert.ToBoolean(@"true"))
+                    {
+                        next = new SendAsyncFactory(Retry429).Create(next) ?? next;
+                        next = new SendAsyncFactory(RetryError).Create(next) ?? next;
+                    }
+                    foreach (var factory in steps)
+                    {
+                        // skip factories that return null.
+                        next = factory.Create(next) ?? next;
+                    }
+                    Volatile.Write(ref this.pipeline, next);
+                    return next;
                 }
-                foreach (var factory in steps)
-                {
-                    // skip factories that return null.
-                    next = factory.Create(next) ?? next;
-                }
-                return this.pipeline = next;
             }
         }
 
@@ -269,3 +286,7 @@ namespace Core.Runtime
         public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, IEventListener callback) => Pipeline.SendAsync(request, callback);
     }
 }
+
+
+
+
