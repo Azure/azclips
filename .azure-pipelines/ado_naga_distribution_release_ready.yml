@@ -1,0 +1,162 @@
+name: dist_release_ready_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+variables:
+  DistScriptsRoot: $(Build.SourcesDirectory)/devops/scripts/distribution
+  DistOutRoot: $(Build.SourcesDirectory)/devops/scripts/distribution/out
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_NOLOGO: 1
+
+stages:
+- stage: Init
+  displayName: Initialize
+  jobs:
+  - job: Start
+    displayName: Start
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 0
+    - script: |
+        echo "Starting release-ready distribution pipeline"
+        echo "Build number: $(Build.BuildNumber)"
+        echo "Branch: $(Build.SourceBranch)"
+      displayName: Print run context
+
+- stage: BuildDistribution
+  displayName: Build Distribution Artifacts
+  dependsOn: Init
+  condition: succeeded()
+  jobs:
+  - job: Build
+    displayName: Build all distribution outputs
+    timeoutInMinutes: 120
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 0
+
+    - task: UseDotNet@2
+      displayName: Use .NET SDK from global.json
+      inputs:
+        packageType: sdk
+        useGlobalJson: true
+
+    - script: |
+        set -euo pipefail
+        if ! command -v zip >/dev/null 2>&1; then
+          sudo apt-get update
+          sudo apt-get install -y zip
+        fi
+      displayName: Ensure zip is available
+
+    - script: |
+        set -euo pipefail
+        chmod +x "$(DistScriptsRoot)/build_all.sh"
+        OUT_ROOT="$(DistOutRoot)" "$(DistScriptsRoot)/build_all.sh"
+      displayName: Run build_all.sh
+
+    - task: PublishPipelineArtifact@1
+      displayName: Publish distribution output
+      inputs:
+        targetPath: $(DistOutRoot)
+        artifact: Distribution_Out
+        publishLocation: pipeline
+
+- stage: ValidateLinux
+  displayName: Validate Linux Distribution Flow
+  dependsOn: BuildDistribution
+  condition: succeeded()
+  jobs:
+  - job: LinuxValidation
+    displayName: Linux bundled plus optional extension validation
+    timeoutInMinutes: 45
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 0
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download distribution output
+      inputs:
+        artifact: Distribution_Out
+        path: $(DistOutRoot)
+
+    - script: |
+        set -euo pipefail
+        chmod +x "$(DistScriptsRoot)/test_bundled_plus_ext_linux.sh"
+        OUT_ROOT="$(DistOutRoot)" "$(DistScriptsRoot)/test_bundled_plus_ext_linux.sh"
+      displayName: Run Linux validation script
+
+    - task: PublishPipelineArtifact@1
+      displayName: Publish Linux simulation artifacts
+      condition: always()
+      inputs:
+        targetPath: $(Build.SourcesDirectory)/devops/scripts/distribution/sim-bundled-plus-linux
+        artifact: Validate_Linux_Sim
+        publishLocation: pipeline
+
+- stage: ValidateWindows
+  displayName: Validate Windows Distribution Flow
+  dependsOn: BuildDistribution
+  condition: succeeded()
+  jobs:
+  - job: WindowsValidation
+    displayName: Windows bundled plus optional extension validation
+    timeoutInMinutes: 45
+    pool:
+      vmImage: windows-latest
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 0
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download distribution output
+      inputs:
+        artifact: Distribution_Out
+        path: $(DistOutRoot)
+
+    - task: PowerShell@2
+      displayName: Run Windows validation script
+      inputs:
+        targetType: inline
+        pwsh: true
+        script: |
+          $ErrorActionPreference = 'Stop'
+          & "$(DistScriptsRoot)/test_bundled_plus_ext_win.ps1" -OutRoot "$(DistOutRoot)"
+
+    - task: PublishPipelineArtifact@1
+      displayName: Publish Windows simulation artifacts
+      condition: always()
+      inputs:
+        targetPath: $(Build.SourcesDirectory)/devops/scripts/distribution/sim-bundled-plus-win-ps
+        artifact: Validate_Windows_Sim
+        publishLocation: pipeline
+
+- stage: Finalize
+  displayName: Finalize
+  dependsOn:
+  - BuildDistribution
+  - ValidateLinux
+  - ValidateWindows
+  condition: always()
+  jobs:
+  - job: Summary
+    displayName: Summary
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - script: |
+        echo "BuildDistribution: ${{ dependencies.BuildDistribution.result }}"
+        echo "ValidateLinux: ${{ dependencies.ValidateLinux.result }}"
+        echo "ValidateWindows: ${{ dependencies.ValidateWindows.result }}"
+      displayName: Print stage outcomes
