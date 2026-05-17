@@ -149,6 +149,10 @@ stages:
   - ValidateLinux
   - ValidateWindows
   condition: always()
+  variables:
+    BuildDistributionResult: $[ stageDependencies.BuildDistribution.Build.result ]
+    ValidateLinuxResult: $[ stageDependencies.ValidateLinux.LinuxValidation.result ]
+    ValidateWindowsResult: $[ stageDependencies.ValidateWindows.WindowsValidation.result ]
   jobs:
   - job: Summary
     displayName: Summary
@@ -156,7 +160,7 @@ stages:
       vmImage: ubuntu-latest
     steps:
     - script: |
-        echo "BuildDistribution: ${{ dependencies.BuildDistribution.result }}"
-        echo "ValidateLinux: ${{ dependencies.ValidateLinux.result }}"
-        echo "ValidateWindows: ${{ dependencies.ValidateWindows.result }}"
+        echo "BuildDistribution: $(BuildDistributionResult)"
+        echo "ValidateLinux: $(ValidateLinuxResult)"
+        echo "ValidateWindows: $(ValidateWindowsResult)"
       displayName: Print stage outcomes
