@@ -11,4 +11,6 @@ public interface IAssemblyLoadingProvider
     /// <param name="extensionVersion">The optional version of the extension to load.</param>
     /// <returns>The loaded assembly.</returns>
     Assembly LoadExtension(string extensionName, string? extensionVersion = null);
+
+    IList<Tuple<string, string?>>? GetAllInstalledExtensions();
 }

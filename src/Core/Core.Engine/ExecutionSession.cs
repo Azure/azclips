@@ -6,7 +6,7 @@ using Core.Runtime;
 
 namespace Core.Engine;
 
-internal partial class ExecutionSession : ISession
+internal class ExecutionSession : ISession
 {
     private bool _disposed = false;
     private ClientType clientType;
@@ -31,7 +31,7 @@ internal partial class ExecutionSession : ISession
     public ExecutionSession(ClientType clientType, CommandInvocation invocation, OutputStreams outputStreams, CancellationToken cancellationToken = default)
     {
         this.clientType = clientType;
-        Id = $"{clientType}-{Guid.NewGuid().ToString()}";
+        Id = $"{GetType().Name}-{clientType}-{Guid.NewGuid().ToString()}";
         Invocation = invocation;
         EventBus = new RuntimeEventBus(cancellationToken);
         // wire output streams and logging service

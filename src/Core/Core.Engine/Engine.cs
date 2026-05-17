@@ -39,13 +39,27 @@ namespace Core.Engine
             // Create a per-invocation channel for worker-to-caller communication
             var session = new ExecutionSession(clientType, invocation, outputStreams, cancellationToken);
             SubscribeAll(session.EventBus);
-            session.EventBus.Publish(Events.SessionCreated, $"Session {session.Id} created").GetAwaiter().GetResult();
+            session.EventBus.Publish(Events.SessionCreated, new EventData { Message = $"{session.Id} created", ModuleName = invocation.ModuleName!, ModuleVersion = invocation.ModuleVersion! }).GetAwaiter().GetResult();
             // TODO(Yabo): get extension version from config service in the future
             session.GetExtensionVersion = () => string.Empty;
             session.LoadAssembly = assemblyLoadingService.LoadExtension;
             session.BindProcessor = argumentParsingService.BindArgumentsToProcessor;
             session.Option = GetOption();
             session.CreateProcessorContext = s => CreateProcessorContext(s);
+            session.CacheGetOrAdd = (name, version, getIndex) => CacheGetOrAdd(name, version, getIndex);
+            return session;
+        }
+
+        public ISession OpenDiscoverySession(IList<string> extensionNames, string? commandName, OutputStreams outputStreams, bool isTransient, CancellationToken cancellationToken = default)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            var session = new DiscoverySession(clientType, extensionNames, commandName, outputStreams, isTransient, cancellationToken);
+            SubscribeAll(session.EventBus);
+            session.EventBus.Publish(Events.SessionCreated, new EventData { Message = $"{session.Id} created", ModuleName = commandName ?? string.Empty }).GetAwaiter().GetResult();
+            // TODO(Yabo): get extension version from config service in the future
+            session.GetExtensionVersion = (name) => string.Empty;
+            session.LoadAssembly = assemblyLoadingService.LoadExtension;
+            session.LoadAllAssemblies = () => assemblyLoadingService.LoadAllExtensions();
             session.CacheGetOrAdd = (name, version, getIndex) => CacheGetOrAdd(name, version, getIndex);
             return session;
         }
