@@ -35,7 +35,7 @@ public static class AgentModeEntry
             var azv2     = FindAzv2Exe() ?? "azv2";
             var renderer = new ConsoleAgentRenderer();
             var spinner  = new SpinnerService(renderer);
-            var approval = new ConsoleApprovalPrompt(spinner);
+            var approval = new ConsoleApprovalPrompt(spinner, renderer);
 
             // Funnel cirrus-internal logs through the renderer so they don't
             // race the spinner. Verbose/Debug/Info dropped; Warn/Error become

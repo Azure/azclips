@@ -73,6 +73,20 @@ public sealed class ConsoleAgentRenderer : IAgentRenderer
         lock (_gate) { ClearSpinnerLine(); }
     }
 
+    public void RunExclusive(Action action)
+    {
+        lock (_gate)
+        {
+            ClearSpinnerLine();
+            if (_lastWasText)
+            {
+                Console.WriteLine();
+                _lastWasText = false;
+            }
+            action();
+        }
+    }
+
     private void ClearSpinnerLine()
     {
         if (!_spinnerActive) return;

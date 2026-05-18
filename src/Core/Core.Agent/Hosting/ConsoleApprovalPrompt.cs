@@ -26,10 +26,12 @@ namespace Core.Agent.Hosting;
 public sealed class ConsoleApprovalPrompt
 {
     private readonly SpinnerService? _spinner;
+    private readonly IAgentRenderer? _renderer;
 
-    public ConsoleApprovalPrompt(SpinnerService? spinner = null)
+    public ConsoleApprovalPrompt(SpinnerService? spinner = null, IAgentRenderer? renderer = null)
     {
         _spinner = spinner;
+        _renderer = renderer;
     }
 
     private readonly Channel<PendingApproval> _queue =
@@ -52,7 +54,7 @@ public sealed class ConsoleApprovalPrompt
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         using var reg = ct.Register(() => tcs.TrySetCanceled(ct));
 
-        _queue.Writer.TryWrite(new PendingApproval(toolName, Trim(args, 200), tcs));
+        _queue.Writer.TryWrite(new PendingApproval(toolName, args, tcs));
         return tcs.Task;
     }
 
@@ -66,7 +68,7 @@ public sealed class ConsoleApprovalPrompt
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         using var reg = ct.Register(() => tcs.TrySetCanceled(ct));
 
-        _queue.Writer.TryWrite(new PendingApproval(toolName, Trim(rewrittenCommand, 200), tcs));
+        _queue.Writer.TryWrite(new PendingApproval(toolName, rewrittenCommand ?? string.Empty, tcs));
         return tcs.Task;
     }
 
@@ -110,17 +112,25 @@ public sealed class ConsoleApprovalPrompt
         }
 
         _spinner?.Pause();
-        Console.WriteLine();
-        WriteColor(ConsoleColor.Yellow, $"⚠ Approve '{pending.ToolName}'?");
-        // args render in the terminal's default fg — bright enough to read,
-        // not loud enough to compete with the yellow ⚠ headline above.
-        Console.WriteLine($"   args: {pending.ArgsPreview}");
-        WriteColorInline(ConsoleColor.DarkGray, "   y/n: ");
-
-        string? line;
+        string? line = null;
         try
         {
-            line = Console.ReadLine();
+            // Run the whole prompt-and-read block under the renderer's lock so
+            // SDK-thread OnEvent / OnText / OnSpinnerFrame writes can't
+            // interleave with our WriteLine / ReadLine on the same line. The
+            // pump thread is the only one calling ReadLine, so holding the
+            // lock during it doesn't deadlock — SDK callbacks queue and
+            // flush when the user answers.
+            Action body = () =>
+            {
+                Console.WriteLine();
+                WriteColor(ConsoleColor.Yellow, $"⚠ Approve '{pending.ToolName}'?");
+                WriteArgs(pending.ArgsPreview);
+                WriteColorInline(ConsoleColor.DarkGray, "   y/n: ");
+                line = Console.ReadLine();
+            };
+            if (_renderer is not null) _renderer.RunExclusive(body);
+            else                       body();
         }
         finally
         {
@@ -132,6 +142,44 @@ public sealed class ConsoleApprovalPrompt
 
         pending.Result.TrySetResult(approved);
         return true;
+    }
+
+    // Soft-wrap long args across terminal width. Never truncates — the user
+    // needs to see the FULL command (passwords, unusual flags hide at the
+    // tail). Continuation lines are indented to align under the first arg
+    // char so the visual block reads as one value.
+    private const string ArgsLabel    = "   args: ";
+    private const string ArgsContinue = "         ";
+    private static void WriteArgs(string args)
+    {
+        if (string.IsNullOrEmpty(args))
+        {
+            Console.WriteLine(ArgsLabel);
+            return;
+        }
+        int width = TryGetWindowWidth();
+        int budget = Math.Max(20, width - ArgsLabel.Length);
+        bool first = true;
+        for (int i = 0; i < args.Length; i += budget)
+        {
+            int take = Math.Min(budget, args.Length - i);
+            Console.Write(first ? ArgsLabel : ArgsContinue);
+            Console.WriteLine(args.AsSpan(i, take));
+            first = false;
+        }
+    }
+
+    private static int TryGetWindowWidth()
+    {
+        try
+        {
+            int w = Console.WindowWidth;
+            return w > 0 ? w : 120;
+        }
+        catch
+        {
+            return 120; // redirected stdout / non-TTY
+        }
     }
 
     private static void WriteColor(ConsoleColor color, string text)
@@ -161,7 +209,4 @@ public sealed class ConsoleApprovalPrompt
             Console.ForegroundColor = prev;
         }
     }
-
-    private static string Trim(string s, int max) =>
-        string.IsNullOrEmpty(s) ? string.Empty : (s.Length > max ? s[..max] + "…" : s);
 }
