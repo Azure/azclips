@@ -37,7 +37,7 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void ValidateContent_ShouldReportError_WhenFrontmatterBlockIsMissing()
         {
-            // §15.5.1: every help file must open with a '---' delimited frontmatter block.
+            // Every help file must open with a '---' delimited frontmatter block.
             var content = string.Join("\n",
                 "Description: y",
                 "",

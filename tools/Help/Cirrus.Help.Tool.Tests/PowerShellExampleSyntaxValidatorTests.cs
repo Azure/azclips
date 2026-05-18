@@ -67,7 +67,7 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldError_WhenParameterIsUnknown()
         {
-            // -Keys is a typo (canonical is -Key) — the live regression that motivated 15.4.7.
+            // -Keys is a typo (canonical is -Key)
             var content = Fence("Set-FakeWidget -Keys \"output.format\" -Value \"json\"");
 
             var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());

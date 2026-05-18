@@ -6,7 +6,7 @@ using Core.Runtime;
 namespace Cirrus.Help.Tool.Tests
 {
     /// <summary>
-    /// Tests for the hand-rolled <see cref="FrontmatterParser"/> introduced by §15.5.1.
+    /// Tests for the hand-rolled <see cref="FrontmatterParser"/>
     /// </summary>
     public class FrontmatterParserTests
     {

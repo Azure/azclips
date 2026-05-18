@@ -202,8 +202,6 @@ namespace Cirrus.Help.Tool.Tests
             Assert.False(report.HasErrors);
         }
 
-        // ── L3: parameter value type validation (15.4.8) ────────────────────────
-
         private enum StubOutputFormat { Json, Table, None }
 
         private static IReadOnlyDictionary<string, IExtensionIndex> BuildTypedIndexes()
@@ -452,7 +450,6 @@ namespace Cirrus.Help.Tool.Tests
                     StringComparer.OrdinalIgnoreCase);
             }
 
-            // Rich constructor: pass full ParameterMetadata so tests can exercise Type and AllowedValues (L3).
             public StubExtensionIndex(Dictionary<string, ParameterMetadata[]> commands)
             {
                 _cliTable = commands.ToDictionary(
