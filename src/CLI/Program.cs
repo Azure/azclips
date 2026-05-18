@@ -27,7 +27,10 @@ public class Program
         },
         WriteError: (value, ct) =>
         {
-            Console.Error.WriteLine(value);
+            var originalColor = Console.ForegroundColor;
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.Error.WriteLine($"[ERROR] {value}");
+            Console.ForegroundColor = originalColor;
             return Task.CompletedTask;
         },
         WriteVerbose: (value, ct) => Task.CompletedTask,
@@ -85,6 +88,13 @@ public class Program
                 activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
                 return 0;
             }
+            catch (HttpRequestException ex)
+            {
+                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                activity?.AddException(ex);
+
+                return await TryAgentFallbackAsync(args);
+            }
             catch (Exception ex)
             {
                 _logger?.Error(ex.Message);
@@ -119,7 +129,10 @@ public class Program
             },
             WriteError: (value, ct) =>
             {
-                Console.Error.WriteLine(value);
+                var originalColor = Console.ForegroundColor;
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.Error.WriteLine($"[ERROR] {value}");
+                Console.ForegroundColor = originalColor;
                 return Task.CompletedTask;
             },
             WriteVerbose: (value, ct) => { Console.WriteLine($"VERBOSE: {value}"); return Task.CompletedTask; },

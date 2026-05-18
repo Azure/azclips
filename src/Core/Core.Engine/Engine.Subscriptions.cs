@@ -114,7 +114,8 @@ namespace Core.Engine
             session.Subscribe(Events.PollingFailed, (data) =>
             {
                 var evt = (EventData)data;
-                loggingService.Error(evt.Message);
+                if (!string.IsNullOrEmpty(evt.Message))
+                    loggingService.Error(evt.Message);
             });
 
             session.Subscribe(Events.ResponseNoContent, (data) =>
@@ -133,6 +134,12 @@ namespace Core.Engine
             {
                 var evt = (EventData)data;
                 loggingService.Info(evt.Message);
+            });
+
+            session.Subscribe(Events.ResourceOperationFailed, (data) =>
+            {
+                var evt = (EventData)data;
+                loggingService.Error(evt.Message);
             });
  
             return session;

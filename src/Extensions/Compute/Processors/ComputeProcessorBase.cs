@@ -96,8 +96,21 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
             using HttpRequestMessage _request = await CreateRequestMessage();
             HttpResponseMessage _response = await _httpPipeline.SendAsync(_request, _eventListener);
             await _eventListener.Signal(Events.TracingHttpResponseMessage, _response);
-            // TODO(Yabo): handle status codess
+            await EnsureSuccessAsync(_response, _eventListener);
             return _response;
+        }
+
+        // Reads ARM error body and signals ResourceOperationFailed so the message reaches
+        // the error stream, then throws to stop the orchestration. Orchestrators don't need
+        // to repeat this check — any child SendAsync() that fails surfaces here.
+        protected static async Task EnsureSuccessAsync(HttpResponseMessage response, IEventListener eventListener)
+        {
+            if (response.IsSuccessStatusCode) return;
+            string body = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync();
+            string uri = response.RequestMessage?.RequestUri?.ToString() ?? "(unknown)";
+            string message = $"{(int)response.StatusCode} {response.ReasonPhrase} from {uri}{(string.IsNullOrWhiteSpace(body) ? string.Empty : ": " + body)}";
+            await eventListener.Signal(Events.ResourceOperationFailed, message);
+            throw new HttpRequestException(message, inner: null, statusCode: response.StatusCode);
         }
 
         public async virtual Task<HttpResponseMessage> SendAsyncLRO()
@@ -227,6 +240,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
                     default:
                     {
                         await _eventListener.Signal(Events.PollingFailed);
+                        await EnsureSuccessAsync(_response, _eventListener);
                         break;
                     }
                 }
