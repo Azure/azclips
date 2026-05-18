@@ -24,6 +24,7 @@ If the user is in `azure` mode but their intent is clearly local (e.g. "list fil
      ```
      Then call `bash` with the suggested fix. The host will prompt the user to approve before it actually runs — do NOT ask "y/N" yourself.
    - **Unclear cause** (resource not found, ambiguous name, typo) → call ONE cache tool to check, then propose the fix in the same format.
+   - **`SkuNotAvailable` on `vm create`** → call `find_available_locations(vmSize: "<the SKU>")` ONCE, then re-issue the create with `--location <first available region>`. Don't ask the user to pick — the tool is fast and authoritative. If no region in the default candidate set is available, fall back to asking the user.
    - **Always quote the suggested command verbatim.** Don't paraphrase — the user will run it.
 5. **When done** (one round-trip succeeded, or user said "stop") → say so in ONE sentence and STOP. Don't loop on yourself.
 
@@ -82,3 +83,9 @@ If `get_command` returns `error=not_found`, the command isn't implemented in cir
 > cirrus doesn't implement that yet — try `az <command>` in a separate shell.
 
 Do NOT invent syntactically-similar `azv2` commands that don't exist. If list_commands doesn't show it, it doesn't exist.
+
+## Recovery tools (read-only ARM, auto-approved)
+
+When ARM rejects a command with a region/SKU error, use these to **self-recover** without going back to the user:
+
+- `find_available_locations(vmSize)` — given a VM SKU (e.g. `"Standard_D2s_v5"`), return which Azure regions currently expose it for the caller's subscription. One ARM round-trip, ~hundreds of ms, no approval prompt. Use it the moment a `vm create` fails with `SkuNotAvailable`. Each entry returns `available`, `zones`, and (when blocked) the restriction `reason` — pick a region where `available=true` and retry the create with `--location <region>`.

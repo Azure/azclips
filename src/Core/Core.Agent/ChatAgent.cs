@@ -5,6 +5,7 @@ using Core.Agent.Hosting;
 using Core.Agent.Probes;
 using Core.Agent.Tools.Cache;
 using Core.Agent.Tools.Help;
+using Core.Agent.Tools.Sku;
 using GitHub.Copilot.SDK;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -70,6 +71,7 @@ public sealed class ChatAgent : IAsyncDisposable
         var armDetails = new ArmDetailsClient(auth);
         var cacheTools = new CachedResourceTools(armDetails);
         var helpTools = new HelpTools();
+        var skuTools = new AvailableLocationsTool(auth, authContext);
         var prober = new EnvironmentProber(authContext, flavor);
 
         ChatAgent? self = null;
@@ -105,7 +107,7 @@ public sealed class ChatAgent : IAsyncDisposable
             Model = ModelId,
             Streaming = true,
             SystemMessage = new SystemMessageConfig { Content = systemPrompt },
-            Tools = cacheTools.All.Concat(helpTools.All).ToList(),
+            Tools = cacheTools.All.Concat(helpTools.All).Concat(skuTools.All).ToList(),
             // All built-in tools available (bash, view, edit, grep, glob,
             // web_fetch, web_search, todo, ...) plus our custom cache + help tools.
             AvailableTools = null,
