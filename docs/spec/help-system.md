@@ -205,31 +205,44 @@ Tests live in [tools/Help/Cirrus.Help.Tool.Tests/](../../tools/Help/Cirrus.Help.
 - **PowerShell side already correct:** [`PowerShellExampleSyntaxValidator`](../../tools/Help/Cirrus.Help.Tool/Validation/PowerShellExampleSyntaxValidator.cs) reads the cmdlet name straight from the AST (`Connect-CirrusAccount`), so `PSL2_UnknownParameter` was never affected. No change needed.
 - **Test impact:** Existing 91 tests pass unchanged — they assert on the `'--flag'` prefix, not the trailing `on command '...'` portion. No new test added since there is no extension where the routed path equals the processor class name (would just duplicate the manual smoke check).
 
-### 9.9 Decide CLI runtime help artifact format — **DECISION REQUIRED**
+### 9.9 ✅ CLI runtime help artifact format — **DONE — decision: C (embed `.md` as resources, with dev-loop fallback)**
 
-PowerShell is settled: emit MAML XML (`*.dll-help.xml`) per convention, copied into `en-US/` next to the cmdlet DLL so `Get-Help` finds it. CLI is _not_ settled — we need to pick before this PR merges so that whatever the help tool emits is what runtime consumes.
+PowerShell is settled: emit MAML XML (`*.dll-help.xml`), copied into `en-US/` next to the cmdlet DLL so `Get-Help` finds it. CLI now matches the industry norm (`az` YAML, `gh` `go:embed`, `kubectl` cobra tags, `gcloud` YAML, `dotnet` `.resx`): help ships **inside** the extension binary.
 
-**Today (status quo):** `azv2 <command> --help` calls [`MarkdownCommandHelpProvider.Get(extensionName, commandKey)`](../../src/Core/Core.Runtime/Help/MarkdownCommandHelpProvider.cs) which `File.ReadAllText` + regex-parses the `.md` file at request time. Separately, the help tool _also_ emits `HelpManifest.json` per extension + a flat cross-extension `HelpIndex.json` (via [`HelpArtifactWriter`](../../src/Core/Core.Runtime/Help/HelpArtifactWriter.cs)) — but **no CLI code path consumes them**. They're built-but-orphaned, presumably staged for an agent/search consumer.
+**Why the status quo had to change.** `azv2 <command> --help` called [`MarkdownCommandHelpProvider.Get(extensionName, commandKey)`](../../src/Core/Core.Runtime/Help/MarkdownCommandHelpProvider.cs), which walks up from `AppContext.BaseDirectory` looking for `cirrus.slnx` and then reads `src/Extensions/<ext>/help/<cmd>.md` off disk. No extension `.csproj` declared the `.md` files as `<Content>` or `<EmbeddedResource>`, so the published `artifacts/Debug/Microsoft.Azure.Cirrus.Extensions.*/` folders contained zero help markdown. On any machine without the source tree (i.e., the actual ship target) `--help` silently rendered empty bodies. Option A would have formalized that bug.
 
-**Options:**
+**What shipped:**
 
-- **Option A — Keep `.md` as the runtime source for CLI (formalize status quo).**
-    - _Pros:_ one source of truth (the .md file authors edit); zero-build dev loop (edit .md, re-run CLI, see new help — no rebuild needed); validation drift is harmless because runtime degrades gracefully (`FrontmatterParser` etc. tolerate malformed input and the help-validate CI job catches real errors).
-    - _Cons:_ regex parse + path probing per `--help` call (cheap, but non-zero on cold start); ships .md sidecars next to every extension DLL; single-file/AOT publish needs explicit `<Content>` includes; means `HelpManifest.json`/`HelpIndex.json` stay agent-only (we should say so explicitly to avoid future confusion).
-- **Option B — Switch CLI to consume `HelpManifest.json` at runtime.**
-    - _Pros:_ parse happens once at build time; runtime is `System.Text.Json` deserialize (source-gen-able for AOT); aligns CLI surface with the artifact the agent already wants; .md becomes a build-time-only input (cleaner shipping story — one `HelpManifest.json` per extension instead of ~N markdown files).
-    - _Cons:_ dev loop now requires `dotnet build` after editing .md; build failure ⇒ runtime cannot serve help (worse degradation); need to either embed JSON as resource (cross-extension contract change) or define a sidecar location/lookup; `MarkdownCommandHelpProvider` ⇒ deprecated.
-- **Option C — Hybrid: embed `.md` files as embedded resources in each extension DLL.**
-    - _Pros:_ single binary per extension; keeps markdown authoring; no JSON consumer to add.
-    - _Cons:_ per-extension `.csproj` changes; runtime still parses markdown via regex (no perf win); dev loop also requires rebuild.
+1. **Each extension embeds its own help.** All 5 extension `.csproj` files (Login, Resources, Config, Compute, Extension) gained the same ItemGroup:
 
-**Recommendation (to be confirmed):** **Option A.** Today the CLI works fine with .md reads; switching to JSON consumption is a contract change that should pay for itself with a concrete second consumer (agent runtime, telemetry index, search). If we're not building that second consumer this PR, leave the runtime read-path alone, mark the orphaned JSON artifacts as "for future consumers (agent prompt feed, §10.x)", and revisit when the second consumer lands.
+    ```xml
+    <ItemGroup>
+        <EmbeddedResource Include="help\**\*.md">
+            <LogicalName>help/%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
+        </EmbeddedResource>
+    </ItemGroup>
+    ```
 
-**What we'd ship for the chosen option in this PR:**
+    `LogicalName` flattens to `help/<command>.md` regardless of root namespace, so the runtime lookup is uniform across extensions. Verified post-build via `Assembly.GetManifestResourceNames()`: e.g., Login exposes `help/index.md`, `help/logout.md`, `help/show.md`; Config exposes `help/{delete,get,index,info,list,set}.md`; etc.
 
-- _If A:_ update [help-system.md §6](#) ("Runtime surfaces") to state CLI runtime reads `.md`, PowerShell runtime reads MAML; add a one-line note on `HelpManifest.json`/`HelpIndex.json` being agent-facing artifacts not consumed by `--help`; close §9.9 as **DONE — decision: A**.
-- _If B:_ add `HelpManifestProvider` to `Core.Runtime/Help/`, swap [`ExtensionIndexHelpAdapter`](../../src/CLI/Help/ExtensionIndexHelpAdapter.cs) to call it instead of `MarkdownCommandHelpProvider`, update [`HelpArtifactWriter`](../../src/Core/Core.Runtime/Help/HelpArtifactWriter.cs) callers to emit per-extension JSON next to the DLL (not just under `artifacts/help/`), keep `MarkdownCommandHelpProvider` for the help tool itself, write integration test that `azv2 group --help` matches markdown content via JSON path. Bigger change — likely worth a stand-alone follow-up PR, not this one.
-- _If C:_ edit each extension `.csproj` to add `<EmbeddedResource Include="Help/**/*.md" />`, change `MarkdownCommandHelpProvider.GetHelpFilePath` to resolve via `Assembly.GetManifestResourceStream`, document the convention in [docs/howto/help.md](../howto/help.md). Touches every extension.
+2. **New runtime overload reads from the assembly first, falls back to source.** [`MarkdownCommandHelpProvider`](../../src/Core/Core.Runtime/Help/MarkdownCommandHelpProvider.cs) added:
+
+    ```csharp
+    public static MarkdownCommandHelp Get(Assembly assembly, string commandKey)
+    ```
+
+    It opens `assembly.GetManifestResourceStream("help/<key>.md")` (production path, works on any machine); if absent, it derives the extension name from `assembly.GetName().Name` and delegates to the existing `Get(extensionName, commandKey)` (dev-loop fallback — preserves "edit .md, re-run CLI, see new help without a rebuild" for repo contributors).
+
+3. **CLI adapter routed to the new overload.** [`ExtensionIndexHelpAdapter`](../../src/CLI/Help/ExtensionIndexHelpAdapter.cs) dropped the `_extensionHelpFolder` string and now stores `_extensionAssembly = _extensionIndex.GetType().Assembly`. All three call sites (`GetCommandHelp`, `BuildGroup` for the root and per-subcommand summaries) call `Get(_extensionAssembly, key)`. `Program.cs` is unchanged — the constructor signature still takes `(IExtensionIndex, string)`.
+
+4. **Build-time tool path unchanged.** [`ExtensionHelpManifestBuilder`](../../src/Core/Core.Runtime/Help/ExtensionHelpManifestBuilder.cs) still calls the older `Get(extensionName, commandKey)` overload, which is fine because the help tool runs from the repo. The build-time path being source-of-truth for MAML emission means CLI's embedded `.md` and PowerShell's `.dll-help.xml` always derive from the same authored markdown — drift risk is zero by construction.
+
+**Trade-offs (recorded so we don't relitigate):**
+
+- Authoring loop: still one source of truth (`.md` files authors edit). Contributors editing inside the repo get the dev-loop fallback for free; everyone else gets correct help.
+- `HelpManifest.json` / `HelpIndex.json` remain orphaned (no CLI consumer). They stay built as agent-facing artifacts; revisit when the agent prompt feed or search consumer lands (§10.x).
+- We chose to keep two on-disk help shapes (embedded `.md` for CLI, MAML XML for PowerShell) rather than have CLI parse PowerShell's wire format — that would be wrong layering. Both regenerate from the same `.md` source per build.
+- Smoke verified: full solution build clean (0 warnings / 0 errors); reflection check confirms `help/*.md` resources land in all 5 extension DLLs; `dotnet test cirrus.slnx --no-build` passes 91 + 91; `azv2 login --help` renders the full body via the embedded path.
 
 ---
 

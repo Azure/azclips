@@ -29,7 +29,7 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
     private readonly IReadOnlyDictionary<string, CommandMetadata> _cliTable;
     private readonly string _rootGroupName;
     private readonly string _rootGroupPath;
-    private readonly string _extensionHelpFolder;
+    private readonly Assembly _extensionAssembly;
 
     public ExtensionIndexHelpAdapter(IExtensionIndex extensionIndex, string extensionName)
     {
@@ -41,7 +41,10 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
         _cliTable = _extensionIndex.GetCommandTable(ClientType.CLI);
         _rootGroupName = CommandGroupIndex.GetCommandGroupNameByExtensionName(extensionName);
         _rootGroupPath = _rootGroupName.ToLowerInvariant();
-        _extensionHelpFolder = extensionName;
+        // The extension's own DLL is where help/*.md was embedded by the build
+        // (§9.9 option C). Capturing the IExtensionIndex implementation's assembly
+        // resolves to the right one regardless of dynamic-load path.
+        _extensionAssembly = _extensionIndex.GetType().Assembly;
     }
 
     public string ExtensionName { get; }
@@ -106,7 +109,7 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
                 SupportsWildcards: false))
             .ToList();
 
-        var markdown = MarkdownCommandHelpProvider.Get(_extensionHelpFolder, relativeKey);
+        var markdown = MarkdownCommandHelpProvider.Get(_extensionAssembly, relativeKey);
         var summary = GetSummary(metadata, markdown);
         var description = GetDescription(metadata, markdown);
         var examples = GetExamples(metadata, markdown);
@@ -130,7 +133,7 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
         {
             commandSummaries.Add(new RuntimeHelpCommandSummary(
                 Name: _rootGroupPath,
-                Summary: GetSummary(rootCommandMetadata, MarkdownCommandHelpProvider.Get(_extensionHelpFolder, string.Empty)),
+                Summary: GetSummary(rootCommandMetadata, MarkdownCommandHelpProvider.Get(_extensionAssembly, string.Empty)),
                 Tags: []));
         }
 
@@ -157,7 +160,7 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
             {
                 commandSummaries.Add(new RuntimeHelpCommandSummary(
                     Name: segments[0],
-                    Summary: GetSummary(kvp.Value, MarkdownCommandHelpProvider.Get(_extensionHelpFolder, kvp.Key)),
+                    Summary: GetSummary(kvp.Value, MarkdownCommandHelpProvider.Get(_extensionAssembly, kvp.Key)),
                     Tags: []));
                 continue;
             }

@@ -20,6 +20,15 @@
     <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
 
     <ItemGroup>
+        <!-- Help markdown is embedded into the extension assembly so CLI runtime can
+             serve help without a sidecar tree. LogicalName flattens to `help/<file>.md`
+             regardless of root namespace; see help-system.md §9.9. -->
+        <EmbeddedResource Include="help\**\*.md">
+            <LogicalName>help/%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
+        </EmbeddedResource>
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="..\..\Core\Core.Abstractions\Core.Abstractions.csproj" >
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>

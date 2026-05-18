@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.RegularExpressions;
 
 namespace Core.Runtime;
@@ -66,6 +67,50 @@ public static class MarkdownCommandHelpProvider
 
         var content = File.ReadAllText(filePath);
         return Parse(content);
+    }
+
+    /// <summary>
+    /// Production-path overload: loads help markdown that was embedded into the extension
+    /// assembly via <c>&lt;EmbeddedResource Include="help\**\*.md"&gt;</c> (see
+    /// help-system.md §9.9). Falls back to the source-repo path-walk
+    /// (<see cref="Get(string, string)"/>) when no resource is found — this is the dev
+    /// loop: edit a .md, re-run the CLI without rebuilding, still see the new content.
+    /// </summary>
+    /// <param name="assembly">The extension assembly whose embedded help resources to read. Typically <c>extensionIndex.GetType().Assembly</c>.</param>
+    /// <param name="commandKey">Canonical CLI command key (space-separated, lowercased, dashed for file lookup). Empty string resolves to <c>index.md</c>.</param>
+    public static MarkdownCommandHelp Get(Assembly assembly, string commandKey)
+    {
+        ArgumentNullException.ThrowIfNull(assembly);
+
+        var fileName = string.IsNullOrWhiteSpace(commandKey)
+            ? "index.md"
+            : commandKey.Replace(' ', '-').ToLowerInvariant() + ".md";
+
+        // LogicalName in the .csproj produces this flat naming regardless of root namespace.
+        var resourceName = "help/" + fileName;
+        using (var stream = assembly.GetManifestResourceStream(resourceName))
+        {
+            if (stream is not null)
+            {
+                using var reader = new StreamReader(stream);
+                return Parse(reader.ReadToEnd());
+            }
+        }
+
+        // Dev-loop fallback: walk to repo source. Useful when iterating on .md without
+        // rebuilding the extension DLL. In a shipped binary the resource above is the
+        // primary (and only) source.
+        var extensionName = DeriveExtensionName(assembly);
+        return Get(extensionName, commandKey);
+    }
+
+    private static string DeriveExtensionName(Assembly assembly)
+    {
+        var name = assembly.GetName().Name ?? string.Empty;
+        const string prefix = "Microsoft.Azure.Cirrus.Extensions.";
+        return name.StartsWith(prefix, StringComparison.Ordinal)
+            ? name[prefix.Length..]
+            : name;
     }
 
     /// <summary>
