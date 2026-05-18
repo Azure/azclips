@@ -82,23 +82,36 @@ public static class AgentModeEntry
         string firstPrompt,
         CancellationToken ct)
     {
-        await SendAndPumpAsync(agent, approval, spinner, firstPrompt, ct);
+        var nextPrompt = await SendAndPumpAsync(agent, approval, spinner, firstPrompt, ct);
 
         while (!ct.IsCancellationRequested)
         {
-            Console.WriteLine();
-            Console.Write("> ");
-            var line = Console.ReadLine();
-            if (line is null) break;
-            line = line.Trim();
-            if (line.Length == 0) continue;
-            if (line is "exit" or "quit" or "/exit" or "/quit" or ":q") break;
+            string line;
+            if (nextPrompt is not null)
+            {
+                // User typed free text at the y/n prompt — replay it as the
+                // next chat turn without re-reading stdin.
+                line = nextPrompt;
+                nextPrompt = null;
+            }
+            else
+            {
+                Console.WriteLine();
+                Console.Write("> ");
+                var read = Console.ReadLine();
+                if (read is null) break;
+                line = read.Trim();
+                if (line.Length == 0) continue;
+                if (line is "exit" or "quit" or "/exit" or "/quit" or ":q") break;
+            }
 
-            await SendAndPumpAsync(agent, approval, spinner, line, ct);
+            nextPrompt = await SendAndPumpAsync(agent, approval, spinner, line, ct);
         }
     }
 
-    private static async Task SendAndPumpAsync(
+    // Returns a feedback prompt when the user typed free text at a y/n
+    // approval; null otherwise. The caller replays that text as the next turn.
+    private static async Task<string?> SendAndPumpAsync(
         ChatAgent agent,
         ConsoleApprovalPrompt approval,
         SpinnerService spinner,
@@ -112,6 +125,7 @@ public static class AgentModeEntry
         var watcherCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var watcherTask = watcher.RunAsync(watcherCts.Token);
 
+        string? redirect = null;
         try
         {
             while (!sendTask.IsCompleted)
@@ -135,6 +149,18 @@ public static class AgentModeEntry
                     break;
                 }
 
+                var outcome = await pumpTask.ConfigureAwait(false);
+                if (outcome.FeedbackPrompt is { } feedback)
+                {
+                    // Reject + redirect: abort the in-flight turn so the SDK
+                    // stops calling tools, surface a transcript line, and hand
+                    // the feedback back to the chat loop as the next prompt.
+                    redirect = feedback;
+                    await agent.AbortAsync(ct).ConfigureAwait(false);
+                    WriteColor(ConsoleColor.DarkGray, $"  ↯ told to do differently: {Truncate(feedback, 60)}");
+                    break;
+                }
+
                 watcherCts.Cancel();
                 try { await watcherTask.ConfigureAwait(false); } catch { }
                 watcherCts.Dispose();
@@ -155,6 +181,12 @@ public static class AgentModeEntry
         {
             WriteColor(ConsoleColor.Red, $"  ✗ session.error [{err.ErrorType}] {err.Message}");
         }
+        catch (OperationCanceledException) when (redirect is not null)
+        {
+            // Abort caused by user redirect — already announced; swallow.
+        }
+
+        return redirect;
     }
 
     private static void PrintBanner(string failedCommand, string error)

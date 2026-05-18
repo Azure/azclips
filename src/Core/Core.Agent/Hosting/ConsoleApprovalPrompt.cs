@@ -43,6 +43,17 @@ public sealed class ConsoleApprovalPrompt
 
     private record PendingApproval(string ToolName, string ArgsPreview, TaskCompletionSource<bool> Result);
 
+    // Outcome of one approval prompt. When Approved=false and FeedbackPrompt is
+    // set, the user typed free-form text at the y/n prompt — the host treats it
+    // as a rejection of the current tool plus the next chat-loop input.
+    public sealed record ApprovalOutcome(bool Handled, bool Approved, string? FeedbackPrompt)
+    {
+        public static readonly ApprovalOutcome NotHandled = new(false, false, null);
+        public static readonly ApprovalOutcome Yes = new(true, true, null);
+        public static readonly ApprovalOutcome No = new(true, false, null);
+        public static ApprovalOutcome Redirect(string feedback) => new(true, false, feedback);
+    }
+
     /// <summary>
     /// Called from the SDK background callback. Returns a task that completes
     /// when the host pumps the next request and the user answers.
@@ -98,8 +109,15 @@ public sealed class ConsoleApprovalPrompt
     /// so the host's main thread can pump approvals during a busy turn without
     /// spawning a second stdin reader.
     /// </summary>
-    /// <returns>true if an approval was handled; false on cancellation.</returns>
-    public async Task<bool> PumpOneAsync(CancellationToken ct)
+    /// <returns>
+    /// <see cref="ApprovalOutcome.NotHandled"/> on cancellation; otherwise
+    /// <see cref="ApprovalOutcome.Yes"/> / <see cref="ApprovalOutcome.No"/>, or
+    /// <see cref="ApprovalOutcome.Redirect(string)"/> when the user typed free
+    /// text at the prompt instead of y/n. The SDK tool call is already settled
+    /// (true for Yes, false for No/Redirect) before this method returns; the
+    /// caller only needs to act on the FeedbackPrompt.
+    /// </returns>
+    public async Task<ApprovalOutcome> PumpOneAsync(CancellationToken ct)
     {
         PendingApproval pending;
         try
@@ -108,25 +126,19 @@ public sealed class ConsoleApprovalPrompt
         }
         catch (OperationCanceledException)
         {
-            return false;
+            return ApprovalOutcome.NotHandled;
         }
 
         _spinner?.Pause();
         string? line = null;
         try
         {
-            // Run the whole prompt-and-read block under the renderer's lock so
-            // SDK-thread OnEvent / OnText / OnSpinnerFrame writes can't
-            // interleave with our WriteLine / ReadLine on the same line. The
-            // pump thread is the only one calling ReadLine, so holding the
-            // lock during it doesn't deadlock — SDK callbacks queue and
-            // flush when the user answers.
             Action body = () =>
             {
                 Console.WriteLine();
                 WriteColor(ConsoleColor.Yellow, $"⚠ Approve '{pending.ToolName}'?");
                 WriteArgs(pending.ArgsPreview);
-                WriteColorInline(ConsoleColor.DarkGray, "   y/n: ");
+                WriteColorInline(ConsoleColor.DarkGray, "   [y]es / [n]o, tell me what to do differently: ");
                 line = Console.ReadLine();
             };
             if (_renderer is not null) _renderer.RunExclusive(body);
@@ -136,12 +148,25 @@ public sealed class ConsoleApprovalPrompt
         {
             _spinner?.Resume();
         }
-        var approved = line is not null
-            && (line.Trim().Equals("y", StringComparison.OrdinalIgnoreCase)
-                || line.Trim().Equals("yes", StringComparison.OrdinalIgnoreCase));
 
-        pending.Result.TrySetResult(approved);
-        return true;
+        var trimmed = line?.Trim() ?? string.Empty;
+        if (trimmed.Equals("y", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.Equals("yes", StringComparison.OrdinalIgnoreCase))
+        {
+            pending.Result.TrySetResult(true);
+            return ApprovalOutcome.Yes;
+        }
+
+        // Inverse match: anything that isn't y/yes counts as No. Empty / n / no
+        // is a plain rejection; anything else is a rejection PLUS a feedback
+        // prompt the host should feed back into the next chat turn.
+        pending.Result.TrySetResult(false);
+        if (trimmed.Length == 0 ||
+            trimmed.Equals("n", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.Equals("no", StringComparison.OrdinalIgnoreCase))
+            return ApprovalOutcome.No;
+
+        return ApprovalOutcome.Redirect(trimmed);
     }
 
     // Soft-wrap long args across terminal width. Never truncates — the user
