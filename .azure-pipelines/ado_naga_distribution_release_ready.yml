@@ -4,8 +4,11 @@ trigger: none
 pr: none
 
 variables:
-  DistScriptsRoot: $(Build.SourcesDirectory)/devops/scripts/distribution
-  DistOutRoot: $(Build.SourcesDirectory)/devops/scripts/distribution/out
+  PackagingScriptsRoot: $(Build.SourcesDirectory)/devops/scripts/packaging
+  PackagingOutRoot: $(Build.SourcesDirectory)/devops/out
+  PackagingCommonOutRoot: $(PackagingOutRoot)/common
+  PackagingLinuxOutRoot: $(PackagingOutRoot)/linux
+  PackagingWindowsOutRoot: $(PackagingOutRoot)/windows
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
   DOTNET_NOLOGO: 1
   Codeql.Enabled: false
@@ -64,14 +67,14 @@ stages:
 
     - script: |
         set -euo pipefail
-        chmod +x "$(DistScriptsRoot)/build_common.sh"
-        OUT_ROOT="$(DistOutRoot)" "$(DistScriptsRoot)/build_common.sh"
+        chmod +x "$(PackagingScriptsRoot)/common/build_common.sh"
+        OUT_ROOT="$(PackagingCommonOutRoot)" "$(PackagingScriptsRoot)/common/build_common.sh"
       displayName: Run build_common.sh
 
     - task: PublishPipelineArtifact@1
       displayName: Publish common output
       inputs:
-        targetPath: $(DistOutRoot)
+        targetPath: $(PackagingCommonOutRoot)
         artifact: Distribution_Common
         publishLocation: pipeline
 
@@ -100,18 +103,18 @@ stages:
       displayName: Download common output
       inputs:
         artifact: Distribution_Common
-        path: $(DistOutRoot)
+        path: $(PackagingCommonOutRoot)
 
     - script: |
         set -euo pipefail
-        chmod +x "$(DistScriptsRoot)/build_linux_tarball.sh"
-        OUT_ROOT="$(DistOutRoot)" "$(DistScriptsRoot)/build_linux_tarball.sh"
+        chmod +x "$(PackagingScriptsRoot)/linux/build_linux_tarball.sh"
+        OUT_ROOT="$(PackagingLinuxOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" "$(PackagingScriptsRoot)/linux/build_linux_tarball.sh"
       displayName: Run build_linux_tarball.sh
 
     - task: PublishPipelineArtifact@1
       displayName: Publish Linux distribution output
       inputs:
-        targetPath: $(DistOutRoot)
+        targetPath: $(PackagingLinuxOutRoot)
         artifact: Distribution_Linux
         publishLocation: pipeline
 
@@ -148,18 +151,18 @@ stages:
       displayName: Download common output
       inputs:
         artifact: Distribution_Common
-        path: $(DistOutRoot)
+        path: $(PackagingCommonOutRoot)
 
     - script: |
         set -euo pipefail
-        chmod +x "$(DistScriptsRoot)/build_win_zip.sh"
-        OUT_ROOT="$(DistOutRoot)" "$(DistScriptsRoot)/build_win_zip.sh"
+        chmod +x "$(PackagingScriptsRoot)/windows/build_win_zip.sh"
+        OUT_ROOT="$(PackagingWindowsOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" "$(PackagingScriptsRoot)/windows/build_win_zip.sh"
       displayName: Run build_win_zip.sh
 
     - task: PublishPipelineArtifact@1
       displayName: Publish Windows distribution output
       inputs:
-        targetPath: $(DistOutRoot)
+        targetPath: $(PackagingWindowsOutRoot)
         artifact: Distribution_Windows
         publishLocation: pipeline
 
@@ -182,19 +185,25 @@ stages:
       displayName: Download Linux distribution output
       inputs:
         artifact: Distribution_Linux
-        path: $(DistOutRoot)
+        path: $(PackagingLinuxOutRoot)
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download common output
+      inputs:
+        artifact: Distribution_Common
+        path: $(PackagingCommonOutRoot)
 
     - script: |
         set -euo pipefail
-        chmod +x "$(DistScriptsRoot)/test_bundled_plus_ext_linux.sh"
-        OUT_ROOT="$(DistOutRoot)" "$(DistScriptsRoot)/test_bundled_plus_ext_linux.sh"
+        chmod +x "$(PackagingScriptsRoot)/linux/test_bundled_plus_ext_linux.sh"
+        OUT_ROOT="$(PackagingLinuxOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" "$(PackagingScriptsRoot)/linux/test_bundled_plus_ext_linux.sh"
       displayName: Run Linux validation script
 
     - task: PublishPipelineArtifact@1
       displayName: Publish Linux simulation artifacts
-      condition: always()
+      condition: and(always(), exists('$(Build.SourcesDirectory)/devops/sim/linux-tarball-bundled-plus-ext'))
       inputs:
-        targetPath: $(Build.SourcesDirectory)/devops/scripts/distribution/sim-bundled-plus-linux
+        targetPath: $(Build.SourcesDirectory)/devops/sim/linux-tarball-bundled-plus-ext
         artifact: Validate_Linux_Sim
         publishLocation: pipeline
 
@@ -217,7 +226,13 @@ stages:
       displayName: Download Windows distribution output
       inputs:
         artifact: Distribution_Windows
-        path: $(DistOutRoot)
+        path: $(PackagingWindowsOutRoot)
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download common output
+      inputs:
+        artifact: Distribution_Common
+        path: $(PackagingCommonOutRoot)
 
     - task: PowerShell@2
       displayName: Run Windows validation script
@@ -226,13 +241,13 @@ stages:
         pwsh: true
         script: |
           $ErrorActionPreference = 'Stop'
-          & "$(DistScriptsRoot)/test_bundled_plus_ext_win.ps1" -OutRoot "$(DistOutRoot)"
+          & "$(PackagingScriptsRoot)/windows/test_bundled_plus_ext_win.ps1" -OutRoot "$(PackagingWindowsOutRoot)" -CommonOutRoot "$(PackagingCommonOutRoot)"
 
     - task: PublishPipelineArtifact@1
       displayName: Publish Windows simulation artifacts
-      condition: always()
+      condition: and(always(), exists('$(Build.SourcesDirectory)/devops/sim/win-zip-bundled-plus-ext'))
       inputs:
-        targetPath: $(Build.SourcesDirectory)/devops/scripts/distribution/sim-bundled-plus-win-ps
+        targetPath: $(Build.SourcesDirectory)/devops/sim/win-zip-bundled-plus-ext
         artifact: Validate_Windows_Sim
         publishLocation: pipeline
 

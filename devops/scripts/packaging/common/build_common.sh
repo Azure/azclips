@@ -10,11 +10,12 @@ set -euo pipefail
 #   out/publish/cli/framework-dep/       Framework-dependent CLI publish
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="${REPO_ROOT:-$(cd "$SCRIPT_DIR/../../.." && pwd)}"
+PACKAGING_ROOT="${PACKAGING_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+REPO_ROOT="${REPO_ROOT:-$(cd "$PACKAGING_ROOT/../../.." && pwd)}"
 cd "$REPO_ROOT"
 
-OUT_ROOT="${OUT_ROOT:-$SCRIPT_DIR/out}"
-BUNDLED_EXT_CONFIG="$SCRIPT_DIR/bundled_ext.config"
+OUT_ROOT="${OUT_ROOT:-$REPO_ROOT/devops/out/common}"
+BUNDLED_EXT_CONFIG="$PACKAGING_ROOT/config/bundled_ext.config"
 CLI_PROJECT="src/CLI/Core.Cli.csproj"
 
 EXT_PACK_DIR="$OUT_ROOT/extensions-pack"

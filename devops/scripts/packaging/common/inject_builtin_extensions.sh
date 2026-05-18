@@ -10,10 +10,11 @@ set -euo pipefail
 #   --builtin-root <path>         root containing built-in publish folders (default: out/builtin-publish)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="${REPO_ROOT:-$(cd "$SCRIPT_DIR/../../.." && pwd)}"
+PACKAGING_ROOT="${PACKAGING_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+REPO_ROOT="${REPO_ROOT:-$(cd "$PACKAGING_ROOT/../../.." && pwd)}"
 cd "$REPO_ROOT"
 
-OUT_ROOT="${OUT_ROOT:-$SCRIPT_DIR/out}"
+OUT_ROOT="${OUT_ROOT:-$REPO_ROOT/devops/out}"
 BUILTIN_PUBLISH_ROOT="$OUT_ROOT/builtin-publish"
 PUBLISH_DIR=""
 
@@ -47,7 +48,7 @@ fi
 
 if [[ ! -d "$BUILTIN_PUBLISH_ROOT" ]]; then
   echo "ERROR: Built-in publish root not found at $BUILTIN_PUBLISH_ROOT"
-  echo "Run ./devops/scripts/distribution/build_common.sh first."
+  echo "Run ./devops/scripts/packaging/common/build_common.sh first."
   exit 1
 fi
 

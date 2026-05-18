@@ -1,22 +1,24 @@
 param(
-    [string]$OutRoot = "$PSScriptRoot/out",
+    [string]$OutRoot = (Join-Path $PSScriptRoot '../../../out/windows'),
+    [string]$CommonOutRoot = (Join-Path $PSScriptRoot '../../../out/common'),
     [switch]$SkipRuntime
 )
 
 $ErrorActionPreference = 'Stop'
 
 $OutRoot = [System.IO.Path]::GetFullPath($OutRoot)
-$SimRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot 'sim-bundled-plus-win-ps'))
+$CommonOutRoot = [System.IO.Path]::GetFullPath($CommonOutRoot)
+$SimRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../sim/win-zip-bundled-plus-ext'))
 
 $CliZipPath = Join-Path $OutRoot 'bin/Release/azv2-win-x64.zip'
-$ExtPackDir = Join-Path $OutRoot 'extensions-pack'
+$ExtPackDir = Join-Path $CommonOutRoot 'extensions-pack'
 
 if (-not (Test-Path -Path $CliZipPath -PathType Leaf)) {
-    throw "Windows CLI zip not found at $CliZipPath. Run ./devops/scripts/distribution/build_common.sh, then ./devops/scripts/distribution/build_win_zip.sh."
+    throw "Windows CLI zip not found at $CliZipPath. Run ./devops/scripts/packaging/common/build_common.sh, then ./devops/scripts/packaging/windows/build_win_zip.sh."
 }
 
 if (-not (Test-Path -Path $ExtPackDir -PathType Container)) {
-    throw "Extension package directory not found at $ExtPackDir. Run ./devops/scripts/distribution/build_common.sh first."
+    throw "Extension package directory not found at $ExtPackDir. Run ./devops/scripts/packaging/common/build_common.sh first."
 }
 
 Write-Host '============================================'

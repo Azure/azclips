@@ -18,8 +18,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-DIST_DIR="$REPO_ROOT/devops/scripts/distribution"
-OUT_ROOT="${OUT_ROOT:-$DIST_DIR/out}"
+PACKAGING_DIR="$REPO_ROOT/devops/scripts/packaging"
+OUT_ROOT_BASE="${OUT_ROOT_BASE:-$REPO_ROOT/devops/out}"
+COMMON_OUT_ROOT="${COMMON_OUT_ROOT:-$OUT_ROOT_BASE/common}"
+LINUX_OUT_ROOT="${LINUX_OUT_ROOT:-$OUT_ROOT_BASE/linux}"
+WINDOWS_OUT_ROOT="${WINDOWS_OUT_ROOT:-$OUT_ROOT_BASE/windows}"
 RUN_PWSH=0
 
 for arg in "$@"; do
@@ -35,9 +38,9 @@ for arg in "$@"; do
   esac
 done
 
-for required in build_common.sh build_linux_tarball.sh build_win_zip.sh test_bundled_plus_ext_linux.sh test_bundled_plus_ext_win.ps1 bundled_ext.config; do
-  if [[ ! -f "$DIST_DIR/$required" ]]; then
-    echo "ERROR: Missing required file: $DIST_DIR/$required"
+for required in common/build_common.sh linux/build_linux_tarball.sh windows/build_win_zip.sh linux/test_bundled_plus_ext_linux.sh windows/test_bundled_plus_ext_win.ps1 config/bundled_ext.config; do
+  if [[ ! -f "$PACKAGING_DIR/$required" ]]; then
+    echo "ERROR: Missing required file: $PACKAGING_DIR/$required"
     exit 1
   fi
 done
@@ -48,22 +51,24 @@ echo "============================================"
 echo " Distribution Build + E2E Validation"
 echo "============================================"
 echo "Repo root : $REPO_ROOT"
-echo "Out root  : $OUT_ROOT"
+echo "Common out: $COMMON_OUT_ROOT"
+echo "Linux out : $LINUX_OUT_ROOT"
+echo "Windows out: $WINDOWS_OUT_ROOT"
 
 echo ""
 echo "[1/4] Build common distribution assets"
-chmod +x "$DIST_DIR/build_common.sh"
-OUT_ROOT="$OUT_ROOT" "$DIST_DIR/build_common.sh"
+chmod +x "$PACKAGING_DIR/common/build_common.sh"
+OUT_ROOT="$COMMON_OUT_ROOT" "$PACKAGING_DIR/common/build_common.sh"
 
 echo ""
 echo "[2/4] Build Linux distribution artifact"
-chmod +x "$DIST_DIR/build_linux_tarball.sh"
-OUT_ROOT="$OUT_ROOT" "$DIST_DIR/build_linux_tarball.sh"
+chmod +x "$PACKAGING_DIR/linux/build_linux_tarball.sh"
+OUT_ROOT="$LINUX_OUT_ROOT" COMMON_OUT_ROOT="$COMMON_OUT_ROOT" "$PACKAGING_DIR/linux/build_linux_tarball.sh"
 
 echo ""
 echo "[3/4] Validate Linux bundled + optional extensions"
-chmod +x "$DIST_DIR/test_bundled_plus_ext_linux.sh"
-OUT_ROOT="$OUT_ROOT" "$DIST_DIR/test_bundled_plus_ext_linux.sh"
+chmod +x "$PACKAGING_DIR/linux/test_bundled_plus_ext_linux.sh"
+OUT_ROOT="$LINUX_OUT_ROOT" COMMON_OUT_ROOT="$COMMON_OUT_ROOT" "$PACKAGING_DIR/linux/test_bundled_plus_ext_linux.sh"
 
 if [[ $RUN_PWSH -eq 1 ]]; then
   echo ""
@@ -73,10 +78,10 @@ if [[ $RUN_PWSH -eq 1 ]]; then
     exit 1
   fi
 
-  chmod +x "$DIST_DIR/build_win_zip.sh"
-  OUT_ROOT="$OUT_ROOT" "$DIST_DIR/build_win_zip.sh"
+  chmod +x "$PACKAGING_DIR/windows/build_win_zip.sh"
+  OUT_ROOT="$WINDOWS_OUT_ROOT" COMMON_OUT_ROOT="$COMMON_OUT_ROOT" "$PACKAGING_DIR/windows/build_win_zip.sh"
 
-  pwsh -NoLogo -NoProfile -File "$DIST_DIR/test_bundled_plus_ext_win.ps1" -OutRoot "$OUT_ROOT"
+  pwsh -NoLogo -NoProfile -File "$PACKAGING_DIR/windows/test_bundled_plus_ext_win.ps1" -OutRoot "$WINDOWS_OUT_ROOT" -CommonOutRoot "$COMMON_OUT_ROOT"
 else
   echo ""
   echo "[4/4] Skipping PowerShell validation (use --with-pwsh to enable)"

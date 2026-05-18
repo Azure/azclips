@@ -5,25 +5,27 @@ set -euo pipefail
 # Linux scenario: install bundled Linux tarball, verify built-ins, then add optional extensions.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="${REPO_ROOT:-$(cd "$SCRIPT_DIR/../../.." && pwd)}"
+PACKAGING_ROOT="${PACKAGING_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+REPO_ROOT="${REPO_ROOT:-$(cd "$PACKAGING_ROOT/../../.." && pwd)}"
 cd "$REPO_ROOT"
 
-OUT_ROOT="$(realpath "${OUT_ROOT:-$SCRIPT_DIR/out}")"
-SIM_ROOT="$(realpath "$SCRIPT_DIR/sim-bundled-plus-linux" 2>/dev/null || echo "$SCRIPT_DIR/sim-bundled-plus-linux")"
+OUT_ROOT="$(realpath "${OUT_ROOT:-$REPO_ROOT/devops/out/linux}")"
+COMMON_OUT_ROOT="$(realpath "${COMMON_OUT_ROOT:-$REPO_ROOT/devops/out/common}")"
+SIM_ROOT="$(realpath "$REPO_ROOT/devops/sim/linux-tarball-bundled-plus-ext" 2>/dev/null || echo "$REPO_ROOT/devops/sim/linux-tarball-bundled-plus-ext")"
 
 CLI_TAR_PATH="$OUT_ROOT/bin/Release/azv2-linux-x64.tar.gz"
-EXT_PACK_DIR="$OUT_ROOT/extensions-pack"
+EXT_PACK_DIR="$COMMON_OUT_ROOT/extensions-pack"
 
 if [[ ! -f "$CLI_TAR_PATH" ]]; then
   echo "ERROR: CLI tarball not found at $CLI_TAR_PATH"
-  echo "Run: ./devops/scripts/distribution/build_common.sh"
-  echo "Then: ./devops/scripts/distribution/build_linux_tarball.sh"
+  echo "Run: ./devops/scripts/packaging/common/build_common.sh"
+  echo "Then: ./devops/scripts/packaging/linux/build_linux_tarball.sh"
   exit 1
 fi
 
 if [[ ! -d "$EXT_PACK_DIR" ]]; then
   echo "ERROR: Extension package directory not found at $EXT_PACK_DIR"
-  echo "Run: ./devops/scripts/distribution/build_common.sh"
+  echo "Run: ./devops/scripts/packaging/common/build_common.sh"
   exit 1
 fi
 
