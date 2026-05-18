@@ -2,9 +2,6 @@ using Core.Abstractions;
 using Core.Cli.Exceptions;
 using Core.Cli.Help;
 using Core.Cli.Parser;
-using Microsoft.Azure.Cirrus.Extensions.Config;
-using Microsoft.Azure.Cirrus.Extensions.Login;
-using Xunit;
 
 namespace Cli.Tests;
 

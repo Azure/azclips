@@ -113,10 +113,6 @@ public class ExtensionHelpManifestBuilderTests
         Assert.All(loginCommand.Parameters, p => Assert.False(string.IsNullOrEmpty(p.ParameterSetName)));
     }
 
-    // ─────────────────────────────────────────────────────────────────
-    // 15.4.3 Surface-specific example filtering at manifest level
-    // ─────────────────────────────────────────────────────────────────
-
     [Fact]
     public void BuildManifest_ShouldSplitExamples_ByLanguageTag()
     {

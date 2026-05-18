@@ -3,10 +3,10 @@ using Core.Runtime;
 namespace Cli.Tests;
 
 /// <summary>
-/// Tests for 15.4.1 (Malformed markdown handling).
+/// Tests for Malformed markdown handling.
 /// Verifies that <see cref="MarkdownCommandHelpProvider"/> degrades gracefully
 /// when help markdown content is missing fields or malformed. Strict validation
-/// lives in the build-time help tool (covered by 15.4.5).
+/// lives in the build-time help tool .
 /// </summary>
 public class MarkdownCommandHelpProviderTests
 {
@@ -93,7 +93,6 @@ public class MarkdownCommandHelpProviderTests
     [Fact]
     public void Parse_ShouldReadSummaryFromFrontmatter()
     {
-        // §15.5.1: summary comes from file-level frontmatter, not a body line.
         var content = """
             ---
             summary: From frontmatter.
@@ -277,10 +276,6 @@ public class MarkdownCommandHelpProviderTests
             Assert.Null(ex);
         }
     }
-
-    // ─────────────────────────────────────────────────────────────────
-    // 15.4.3 Surface-specific example filtering
-    // ─────────────────────────────────────────────────────────────────
 
     [Fact]
     public void Parse_CliFilter_ShouldYieldOnlyNonPowerShellExamples()
