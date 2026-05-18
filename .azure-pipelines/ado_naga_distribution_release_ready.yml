@@ -201,7 +201,7 @@ stages:
 
     - task: PublishPipelineArtifact@1
       displayName: Publish Linux simulation artifacts
-      condition: and(always(), exists('$(Build.SourcesDirectory)/devops/sim/linux-tarball-bundled-plus-ext'))
+      condition: always()
       inputs:
         targetPath: $(Build.SourcesDirectory)/devops/sim/linux-tarball-bundled-plus-ext
         artifact: Validate_Linux_Sim
@@ -245,7 +245,7 @@ stages:
 
     - task: PublishPipelineArtifact@1
       displayName: Publish Windows simulation artifacts
-      condition: and(always(), exists('$(Build.SourcesDirectory)/devops/sim/win-zip-bundled-plus-ext'))
+      condition: always()
       inputs:
         targetPath: $(Build.SourcesDirectory)/devops/sim/win-zip-bundled-plus-ext
         artifact: Validate_Windows_Sim
