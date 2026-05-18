@@ -146,6 +146,13 @@ public class Program
     /// </summary>
     private static Task<int> TryAgentFallbackAsync(string[] args)
     {
+        // Global disable switch. Set CIRRUS_AGENT_DISABLED=1 to keep the
+        // original classic error and skip the agent fallback entirely.
+        if (Environment.GetEnvironmentVariable("CIRRUS_AGENT_DISABLED") == "1")
+        {
+            return Task.FromResult(1);
+        }
+
         // Recursion guard: a failed azv2 invoked by run_command from inside an
         // already-running agent-mode TUI must NOT spawn another agent-mode TUI.
         if (Environment.GetEnvironmentVariable("CIRRUS_IN_AGENT_MODE") == "1")
