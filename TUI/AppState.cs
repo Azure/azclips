@@ -187,7 +187,7 @@ class AppState
 
     public void RefreshGitBranch()
     {
-        GitBranch = PromptService.GetGitBranch();
+        GitBranch = PromptService.GetGitBranch(LocalCwd);
     }
 
     // ── Suggestions (delegated to CompletionService) ─────────────────
@@ -246,6 +246,7 @@ class AppState
                 CursorPos = 0;
                 OutputScrollOffset = 0;
                 UpdateSuggestions();
+                RefreshGitBranch();
                 return;
             }
             AddHistory(new HistoryEntry(HistoryItemType.Error, $"Unknown command: {command}"));
