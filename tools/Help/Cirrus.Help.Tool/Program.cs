@@ -108,8 +108,19 @@ foreach (var dllPath in extensionDlls)
             continue;
         }
     }
+    else
+    {
+        // Already produced a manifest for this extensionName via an earlier DLL
+        // path (e.g. duplicate copies of the same extension assembly in different
+        // artifacts subfolders). Avoid emitting duplicate manifests / index entries.
+        continue;
+    }
 
-    var manifest = ExtensionHelpManifestBuilder.BuildManifest(extensionIndex, extensionName, version);
+    var manifest = ExtensionHelpManifestBuilder.BuildManifest(
+        extensionIndex,
+        extensionName,
+        version,
+        cliGroupByExtension.TryGetValue(extensionName, out var cliGroupForManifest) ? cliGroupForManifest : null);
     manifests.Add(manifest);
 
     var extensionOutputDir = Path.Combine(outputRoot, extensionName);

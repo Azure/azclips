@@ -298,3 +298,54 @@ Today the three CI jobs (`build-and-test`, `help-validate`, `help-tool-tests`) e
 - **Fixtures** under `tools/Help/Cirrus.Help.Tool.Tests/Fixtures/`: `Clean/`, `MissingHelpFile/`, `BadL3Value/`, `BadPSL2/`, `MultiExtensionErrors/`. Built via a `CopyRealHelpToTempDir` + targeted-mutation helper so each fixture is a delta on the shipped corpus rather than a full clone.
 - **Tests** (~5 facts, one per fixture). `MultiExtensionErrors` locks in the §9.5 no-early-exit contract.
 - **Out of scope:** Subprocess E2E (slow, brittle, no value over in-process `MainAsync`). Snapshot manifest assertions ([HelpArtifactWriterTests](../../tests/Cli.Tests/Help/HelpArtifactWriterTests.cs) already covers that layer).
+
+---
+
+## 11. Follow-up: Runtime help catalog API for agent / discovery consumers
+
+**Status:** Design recorded; not in this PR. Driven by the §2 "AI-augmentable" goal — the Cirrus agent will be the first real downstream consumer beyond `azv2 --help` and `Get-Help`.
+
+### 11.1 Problem
+
+For v1 the agent inlines the full help markdown into its system prompt (≈3.6k tokens for the current 17 commands). That doesn't scale: at `az`-sized surface (1k+ commands) the agent needs on-demand discovery and per-command fetch rather than a static dump. Today's runtime surface only exposes per-extension lookup ([`MarkdownCommandHelpProvider.Get(Assembly, key)`](../../src/Core/Core.Runtime/Help/MarkdownCommandHelpProvider.cs) added in §9.9); there is no cross-extension aggregator, no reverse lookup by CLI or PowerShell name, and no in-process query API. Build-time artifacts ([`HelpIndex.json`](../../artifacts/help/HelpIndex.json), per-extension `HelpManifest.json`) contain the data but require the consumer to read files off disk and build their own index.
+
+### 11.2 Proposed surface
+
+A DI-registered singleton populated once at host startup by walking already-loaded `IExtensionIndex` instances:
+
+```csharp
+public interface IHelpCatalog
+{
+    IReadOnlyList<HelpCommandSummary> ListCommands(
+        string? extension = null,
+        string? query = null,
+        ClientType? clientType = null);
+
+    IReadOnlyList<HelpCommand> GetCommand(
+        string nameOrAlias,
+        ClientType clientType,
+        string? extension = null); // optional disambiguator
+}
+```
+
+`GetCommand` returns a list (not a single record) because a PowerShell cmdlet with multiple parameter sets resolves to multiple `HelpCommand` entries with identical `PsName` but different `CliName`s (see §11.4). Same shape works for collision cases at scale (e.g. `vm create` vs `aks create` both being addressed as bare `create`).
+
+### 11.3 Why core, not agent-side
+
+- **Single source of truth**: agent, CLI runtime, future TUI, future web UI all read the same in-process catalog. No drift on "what counts as the help for X".
+- **Avoids duplicated parsing**: the markdown → `HelpCommand` parse already lives in `MarkdownCommandHelpProvider`; building the catalog on top reuses that.
+- **In-process is cheap**: catalog is built once per host from loaded assemblies (no disk read needed), and the data shape (`HelpManifest`, `HelpCommand`) is already public.
+
+### 11.4 Open design questions
+
+1. **Cmdlet parameter-set collapsing.** `s_psTable` uses `Verb-Noun_ParameterSet` keys internally (e.g. `Get-VM_Get`, `Get-VM_List`). §11's normalization (this PR) collapses these to `Get-VM` in emitted artifacts, which means reverse lookup by `psName="Get-VM"` returns two `HelpCommand` records — one per parameter set. Callers that want a single "cmdlet view" group on `PsName`; callers that want a per-parameter-set view (CLI examples are per-set anyway) use the records as-is. Decision: keep the multi-record shape, document the grouping convention.
+2. **Routed CLI prefix vs extension name.** `CliName` is now the routed prefix (`"vm create"` for the `compute` extension, `"group create"` for `resources`) — see [§11's emitter change](../../src/Core/Core.Runtime/Help/ExtensionHelpManifestBuilder.cs). The map currently lives in the help tool (`Program.cs:cliGroupByExtension`) and in [`CommandGroupIndex.cs`](../../src/CLI/Parser/CommandGroupIndex.cs); folding it onto `IExtensionIndex` (e.g. a `string CliGroupPrefix { get; }`) is a separate cleanup (§10.x candidate).
+3. **Substring vs token vs FTS for `query`.** Start with case-insensitive substring over `CliName + PsName + Summary`. Promote to scored token match when corpus crosses ~200 commands.
+
+### 11.5 Build artifact compatibility
+
+`HelpIndex.json` and per-extension `HelpManifest.json` continue to ship — they remain the right shape for out-of-process consumers (docs gen, agent v1 inline prompt, anyone who can't take a `Core.Runtime` dependency). The runtime `IHelpCatalog` is the in-process equivalent built from the same `HelpManifest` shape. Both surfaces evolve together.
+
+### 11.6 v1 unblock for the agent
+
+Until `IHelpCatalog` lands, agent v1 can consume [`HelpIndex.json`](../../artifacts/help/HelpIndex.json) directly. After §11's emitter fix, `cliName`/`psName` are user-facing (no `_ParameterSet` suffix, no extension-name-as-prefix), so the reverse-lookup dictionary is a one-liner over `commands[]`. Per-command full bodies come from the per-extension `HelpManifest.json` next to it. Net: nothing about agent v1 blocks on shipping §11.

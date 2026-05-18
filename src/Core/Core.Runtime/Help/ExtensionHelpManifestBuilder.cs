@@ -35,10 +35,18 @@ namespace Core.Runtime
         /// <param name="extensionIndex">The extension's index (CLI + PS tables).</param>
         /// <param name="extensionName">Extension name used for help-folder lookup and CLI name normalization.</param>
         /// <param name="extensionVersion">Extension version string embedded in the manifest.</param>
+        /// <param name="cliGroupName">
+        /// Optional routed CLI group prefix (e.g. <c>"vm"</c> for the <c>compute</c> extension,
+        /// <c>"group"</c> for the <c>resources</c> extension). When supplied, emitted
+        /// <c>CliName</c>s use this prefix instead of <paramref name="extensionName"/>, so the
+        /// manifest reflects the actual command users type. Defaults to <paramref name="extensionName"/>
+        /// when omitted (preserves prior behavior for callers that do not yet know the routed prefix).
+        /// </param>
         public static HelpManifest BuildManifest(
             IExtensionIndex extensionIndex,
             string extensionName,
-            string extensionVersion)
+            string extensionVersion,
+            string? cliGroupName = null)
         {
             var cliTable = GetCommandTable(extensionIndex, "s_cliTable");
             var psTable = GetCommandTable(extensionIndex, "s_psTable");
@@ -66,8 +74,8 @@ namespace Core.Runtime
                 var metadataForDescription = cliMetadata ?? psMetadata!;
                 var processorInfo = processorType.GetCustomAttribute<ProcessorInfoAttribute>();
 
-                var cliName = NormalizeCliName(extensionName, cliEntry.Key);
-                var psName = psEntry.Key ?? string.Empty;
+                var cliName = NormalizeCliName(cliGroupName ?? extensionName, cliEntry.Key);
+                var psName = NormalizePsName(psEntry.Key);
                 var markdown = MarkdownCommandHelpProvider.Get(extensionName, cliEntry.Key);
                 var summary = GetSummary(markdown, processorInfo, metadataForDescription);
                 var description = GetDescription(markdown, processorInfo, metadataForDescription);
@@ -282,6 +290,27 @@ namespace Core.Runtime
             }
 
             return $"{extensionName.ToLowerInvariant()} {rawKey}";
+        }
+
+        /// <summary>
+        /// Collapses an internal dispatch key like <c>"Get-VM_Get"</c> or <c>"Get-VM_List"</c>
+        /// down to the user-facing cmdlet name <c>"Get-VM"</c>. Some extensions use a
+        /// <c>Verb-Noun_ParameterSet</c> convention in <c>s_psTable</c> to dispatch by
+        /// parameter set; the manifest/index surface should expose only the cmdlet name
+        /// that PowerShell users actually type. Multiple parameter sets of the same cmdlet
+        /// produce multiple <see cref="HelpCommand"/> entries with identical <c>PsName</c>
+        /// but different <c>CliName</c>s — callers that want a single record per cmdlet
+        /// must group on <c>PsName</c>.
+        /// </summary>
+        private static string NormalizePsName(string? rawKey)
+        {
+            if (string.IsNullOrWhiteSpace(rawKey))
+            {
+                return string.Empty;
+            }
+
+            var underscore = rawKey.IndexOf('_');
+            return underscore > 0 ? rawKey[..underscore] : rawKey;
         }
 
         private static string NormalizeTypeName(Type type)
