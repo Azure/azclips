@@ -37,7 +37,7 @@ AssemblyLoadContext.Default.Resolving += (_, assemblyName) =>
 
 var extensionDlls = Directory
     .EnumerateFiles(artifactsRoot, "Microsoft.Azure.Cirrus.Extensions.*.dll", SearchOption.AllDirectories)
-    .Where(static path => !path.Contains("\\obj\\", StringComparison.OrdinalIgnoreCase))
+    .Where(static path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
     .Distinct(StringComparer.OrdinalIgnoreCase)
     .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)
     .ToList();
