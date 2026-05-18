@@ -10,10 +10,5 @@ namespace Core.Abstractions
         string AssemblyName,
         Type ProcessorType,
         IDictionary<string, ParameterMetadata> Parameters,
-        IDictionary<string, string> ParameterAliases,
-        string Summary = "",
-        string Description = "",
-        IList<CommandExample>? Examples = null);
-
-    public record CommandExample(string Title, string Command);
+        IDictionary<string, string> ParameterAliases);
 }

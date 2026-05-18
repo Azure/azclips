@@ -1,9 +1,9 @@
 {
   "extension": "login",
   "version": "1.0.0-alpha",
+  "rootSummary": "Authenticate to Azure.",
   "commands": [
     {
-      "name": "LoginProcessor",
       "cliName": "login",
       "psName": "Connect-CirrusAccount",
       "summary": "Authenticate to Azure and set the current account context.",
@@ -15,7 +15,6 @@
           "type": "string",
           "required": true,
           "description": "Azure Subscription Id.",
-          "summary": "",
           "aliases": [],
           "allowedValues": [],
           "parameterSetName": "(All)",
@@ -28,7 +27,6 @@
           "type": "string",
           "required": false,
           "description": "Tenant ID to login to.",
-          "summary": "",
           "aliases": [],
           "allowedValues": [],
           "parameterSetName": "(All)",
@@ -41,7 +39,6 @@
           "type": "bool",
           "required": false,
           "description": "Use device code flow for authentication.",
-          "summary": "",
           "aliases": [],
           "allowedValues": [],
           "parameterSetName": "(All)",
@@ -74,7 +71,6 @@
       "tags": []
     },
     {
-      "name": "LogoutProcessor",
       "cliName": "login logout",
       "psName": "Disconnect-CirrusAccount",
       "summary": "Sign out from the current Azure account context.",
@@ -97,7 +93,6 @@
       "tags": []
     },
     {
-      "name": "GetContextProcessor",
       "cliName": "login show",
       "psName": "Get-CirrusAccount",
       "summary": "Show the current Azure account context.",

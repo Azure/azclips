@@ -41,9 +41,6 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
         _cliTable = _extensionIndex.GetCommandTable(ClientType.CLI);
         _rootGroupName = CommandGroupIndex.GetCommandGroupNameByExtensionName(extensionName);
         _rootGroupPath = _rootGroupName.ToLowerInvariant();
-        // The extension's own DLL is where help/*.md was embedded by the build
-        // (§9.9 option C). Capturing the IExtensionIndex implementation's assembly
-        // resolves to the right one regardless of dynamic-load path.
         _extensionAssembly = _extensionIndex.GetType().Assembly;
     }
 

@@ -87,7 +87,6 @@ namespace Core.Runtime
                 var tags = processorInfo?.Tags ?? [];
 
                 commands.Add(new HelpCommand(
-                    Name: metadataForDescription.Name,
                     CliName: cliName,
                     PsName: psName,
                     Summary: summary,
@@ -102,7 +101,7 @@ namespace Core.Runtime
                 .ThenBy(command => command.PsName, StringComparer.Ordinal)
                 .ToList();
 
-            return new HelpManifest(extensionName, extensionVersion, sortedCommands);
+            return new HelpManifest(extensionName, extensionVersion, extensionIndex.CliRootSummary, sortedCommands);
         }
 
         /// <summary>
@@ -118,34 +117,30 @@ namespace Core.Runtime
 
             foreach (var manifest in manifests)
             {
-                var extensionGroup = manifest.Extension.ToLowerInvariant();
-                var extensionSummary = $"Manage {manifest.Extension} commands.";
+                var prefix = manifest.Extension.ToLowerInvariant();
 
                 groups.Add(new HelpGroupIndexEntry(
-                    Name: extensionGroup,
-                    Summary: extensionSummary,
                     Extension: manifest.Extension,
-                    Prefix: extensionGroup));
+                    Prefix: prefix,
+                    Summary: manifest.RootSummary));
 
                 foreach (var command in manifest.Commands)
                 {
                     commands.Add(new HelpCommandIndexEntry(
-                        Name: command.Name,
                         CliName: command.CliName,
                         PsName: command.PsName,
                         Extension: manifest.Extension,
-                        Group: extensionGroup,
                         Summary: command.Summary));
                 }
             }
 
             var sortedGroups = groups
-                .OrderBy(group => group.Name, StringComparer.Ordinal)
+                .OrderBy(group => group.Prefix, StringComparer.Ordinal)
                 .ThenBy(group => group.Extension, StringComparer.Ordinal)
                 .ToList();
 
             var sortedCommands = commands
-                .OrderBy(command => command.Group, StringComparer.Ordinal)
+                .OrderBy(command => command.Extension, StringComparer.Ordinal)
                 .ThenBy(command => command.CliName, StringComparer.Ordinal)
                 .ThenBy(command => command.PsName, StringComparer.Ordinal)
                 .ToList();
@@ -175,7 +170,6 @@ namespace Core.Runtime
                     Type: NormalizeTypeName(parameter.ParameterType),
                     Required: parameter.IsRequired,
                     Description: parameter.Description,
-                    Summary: attribute?.Summary ?? string.Empty,
                     Aliases: parameter.Aliases,
                     AllowedValues: parameter.AllowedValues,
                     ParameterSetName: attribute?.ParameterSetName ?? "(All)",

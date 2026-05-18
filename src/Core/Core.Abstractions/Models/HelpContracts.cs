@@ -6,10 +6,10 @@ namespace Core.Abstractions
     public record HelpManifest(
         string Extension,
         string Version,
+        string RootSummary,
         IList<HelpCommand> Commands);
 
     public record HelpCommand(
-        string Name,
         string CliName,
         string PsName,
         string Summary,
@@ -24,7 +24,6 @@ namespace Core.Abstractions
         string Type,
         bool Required,
         string Description,
-        string Summary,
         string[] Aliases,
         string[] AllowedValues,
         string ParameterSetName,
@@ -44,16 +43,13 @@ namespace Core.Abstractions
         IList<HelpCommandIndexEntry> Commands);
 
     public record HelpGroupIndexEntry(
-        string Name,
-        string Summary,
         string Extension,
-        string Prefix);
+        string Prefix,
+        string Summary);
 
     public record HelpCommandIndexEntry(
-        string Name,
         string CliName,
         string PsName,
         string Extension,
-        string Group,
         string Summary);
 }

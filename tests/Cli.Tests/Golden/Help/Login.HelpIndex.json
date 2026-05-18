@@ -1,35 +1,28 @@
 {
   "groups": [
     {
-      "name": "login",
-      "summary": "Manage login commands.",
       "extension": "login",
-      "prefix": "login"
+      "prefix": "login",
+      "summary": "Authenticate to Azure."
     }
   ],
   "commands": [
     {
-      "name": "LoginProcessor",
       "cliName": "login",
       "psName": "Connect-CirrusAccount",
       "extension": "login",
-      "group": "login",
       "summary": "Authenticate to Azure and set the current account context."
     },
     {
-      "name": "LogoutProcessor",
       "cliName": "login logout",
       "psName": "Disconnect-CirrusAccount",
       "extension": "login",
-      "group": "login",
       "summary": "Sign out from the current Azure account context."
     },
     {
-      "name": "GetContextProcessor",
       "cliName": "login show",
       "psName": "Get-CirrusAccount",
       "extension": "login",
-      "group": "login",
       "summary": "Show the current Azure account context."
     }
   ]

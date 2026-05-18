@@ -40,7 +40,7 @@ public class ExtensionHelpManifestBuilderTests
         var helpIndex = ExtensionHelpManifestBuilder.BuildIndex([manifest]);
 
         var group = Assert.Single(helpIndex.Groups);
-        Assert.Equal("login", group.Name);
+        Assert.Equal("login", group.Extension);
         Assert.Equal("login", group.Prefix);
 
         Assert.Equal(3, helpIndex.Commands.Count);

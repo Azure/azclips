@@ -285,7 +285,6 @@ public class Program
         }
 
         // A group root can also be a runnable command (e.g. "login" is both a group and the login command).
-        // Prefer command help when the path resolves to one, so parameters and examples are shown.
         var rootCommand = helpProvider.GetCommandHelp(helpException.Path);
         if (rootCommand != null)
         {
