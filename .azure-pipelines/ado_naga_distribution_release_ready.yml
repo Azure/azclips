@@ -124,7 +124,7 @@ stages:
     displayName: Build Windows zip output
     timeoutInMinutes: 60
     pool:
-      vmImage: windows-latest
+      vmImage: ubuntu-latest
     steps:
     - checkout: self
       clean: true
@@ -136,20 +136,25 @@ stages:
         packageType: sdk
         useGlobalJson: true
 
+    - script: |
+        set -euo pipefail
+        if ! command -v zip >/dev/null 2>&1; then
+          sudo apt-get update
+          sudo apt-get install -y zip
+        fi
+      displayName: Ensure zip is available
+
     - task: DownloadPipelineArtifact@2
       displayName: Download common output
       inputs:
         artifact: Distribution_Common
         path: $(DistOutRoot)
 
-    - task: PowerShell@2
-      displayName: Run build_win_zip.ps1
-      inputs:
-        targetType: inline
-        pwsh: true
-        script: |
-          $ErrorActionPreference = 'Stop'
-          & "$(DistScriptsRoot)/build_win_zip.ps1" -OutRoot "$(DistOutRoot)"
+    - script: |
+        set -euo pipefail
+        chmod +x "$(DistScriptsRoot)/build_win_zip.sh"
+        OUT_ROOT="$(DistOutRoot)" "$(DistScriptsRoot)/build_win_zip.sh"
+      displayName: Run build_win_zip.sh
 
     - task: PublishPipelineArtifact@1
       displayName: Publish Windows distribution output
