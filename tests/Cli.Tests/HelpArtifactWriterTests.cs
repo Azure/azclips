@@ -8,7 +8,7 @@ namespace Cli.Tests;
 public class HelpArtifactWriterTests
 {
     [Fact]
-    public void WriteArtifacts_ShouldMatchGoldenFiles_ForLoginExtension()
+    public void WriteArtifacts_ShouldMatchFixtures_ForLoginExtension()
     {
         var index = new ExtensionIndex();
         var repoRoot = RepoLocator.GetRepoRoot();
@@ -22,11 +22,11 @@ public class HelpArtifactWriterTests
         var generatedManifestPath = Path.Combine(output.DirectoryPath, "HelpManifest.json");
         var generatedIndexPath = Path.Combine(output.DirectoryPath, "HelpIndex.json");
 
-        var goldenManifestPath = Path.Combine(repoRoot, "tests", "Cli.Tests", "Golden", "Help", "Login.HelpManifest.json");
-        var goldenIndexPath = Path.Combine(repoRoot, "tests", "Cli.Tests", "Golden", "Help", "Login.HelpIndex.json");
+        var expectedManifestPath = Path.Combine(repoRoot, "tests", "Cli.Tests", "Fixtures", "Help", "Login.HelpManifest.json");
+        var expectedIndexPath = Path.Combine(repoRoot, "tests", "Cli.Tests", "Fixtures", "Help", "Login.HelpIndex.json");
 
-        AssertJsonEquivalent(goldenManifestPath, generatedManifestPath);
-        AssertJsonEquivalent(goldenIndexPath, generatedIndexPath);
+        AssertJsonEquivalent(expectedManifestPath, generatedManifestPath);
+        AssertJsonEquivalent(expectedIndexPath, generatedIndexPath);
     }
 
     private static void AssertJsonEquivalent(string expectedPath, string actualPath)

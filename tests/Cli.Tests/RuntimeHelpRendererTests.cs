@@ -7,7 +7,7 @@ namespace Cli.Tests;
 public class RuntimeHelpRendererTests
 {
     [Fact]
-    public void RenderGroup_ShouldMatchGolden_ForLoginGroup()
+    public void RenderGroup_ShouldMatchFixture_ForLoginGroup()
     {
         var renderer = new RuntimeHelpRenderer();
         var helpProvider = new ExtensionIndexHelpAdapter(new ExtensionIndex(), "Login");
@@ -16,13 +16,13 @@ public class RuntimeHelpRendererTests
         Assert.NotNull(group);
 
         var actual = string.Join(Environment.NewLine, renderer.RenderGroup(group!, terminalWidth: null));
-        var expected = LoadGolden("Login.RuntimeGroupHelp.txt");
+        var expected = LoadFixture("Login.RuntimeGroupHelp.txt");
 
         Assert.Equal(NormalizeLineEndings(expected), NormalizeLineEndings(actual));
     }
 
     [Fact]
-    public void RenderCommand_ShouldMatchGolden_ForLoginShowCommand()
+    public void RenderCommand_ShouldMatchFixture_ForLoginShowCommand()
     {
         var renderer = new RuntimeHelpRenderer();
         var helpProvider = new ExtensionIndexHelpAdapter(new ExtensionIndex(), "Login");
@@ -31,13 +31,13 @@ public class RuntimeHelpRendererTests
         Assert.NotNull(command);
 
         var actual = string.Join(Environment.NewLine, renderer.RenderCommand(command!, terminalWidth: null));
-        var expected = LoadGolden("Login.RuntimeCommandHelp.show.txt");
+        var expected = LoadFixture("Login.RuntimeCommandHelp.show.txt");
 
         Assert.Equal(NormalizeLineEndings(expected), NormalizeLineEndings(actual));
     }
 
     [Fact]
-    public void RenderRoot_ShouldMatchGolden_ForSingleLoginGroup()
+    public void RenderRoot_ShouldMatchFixture_ForSingleLoginGroup()
     {
         var renderer = new RuntimeHelpRenderer();
         var groups = new RuntimeHelpGroup[]
@@ -50,15 +50,15 @@ public class RuntimeHelpRendererTests
         };
 
         var actual = string.Join(Environment.NewLine, renderer.RenderRoot(groups, terminalWidth: null));
-        var expected = LoadGolden("Root.RuntimeHelp.txt");
+        var expected = LoadFixture("Root.RuntimeHelp.txt");
 
         Assert.Equal(NormalizeLineEndings(expected), NormalizeLineEndings(actual));
     }
 
-    private static string LoadGolden(string fileName)
+    private static string LoadFixture(string fileName)
     {
         var repoRoot = RepoLocator.GetRepoRoot();
-        var path = Path.Combine(repoRoot, "tests", "Cli.Tests", "Golden", "Help", fileName);
+        var path = Path.Combine(repoRoot, "tests", "Cli.Tests", "Fixtures", "Help", fileName);
         return File.ReadAllText(path).TrimEnd();
     }
 
