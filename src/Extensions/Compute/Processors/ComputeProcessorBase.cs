@@ -3,8 +3,8 @@ using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using System.Net;
-using Extensions.Runtime;
-using Extensions.Runtime.Json;
+using Microsoft.Azure.Cirrus.Extensions.Runtime;
+using Microsoft.Azure.Cirrus.Extensions.Runtime.Json;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
 {
@@ -117,7 +117,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
                 var _operationLocationUri = GetOperationLocationUri(_response);
 
                 //polling
-                while (_request.Method == HttpMethod.Put && (_response.StatusCode == HttpStatusCode.OK || _response.StatusCode == HttpStatusCode.Created || _response.StatusCode == HttpStatusCode.Accepted))
+                while (_request.Method == HttpMethod.Put && _response.StatusCode == HttpStatusCode.OK || _response.StatusCode == HttpStatusCode.Created || _response.StatusCode == HttpStatusCode.Accepted)
                 {
                     // TODO(Yabo): get default value from config service: engine get default from configservice and pass to processor via ProcessorContext
                     int delay = (int)(_response.Headers.RetryAfter?.Delta?.TotalSeconds ?? _httpPipeline.PollingInterval);
@@ -219,15 +219,16 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
                 switch (_response.StatusCode)
                 {
                     case HttpStatusCode.OK:
-                        {
-                            await _eventListener.Signal(Events.PollingFinished);
-                            break;
-                        }
+                    case HttpStatusCode.NoContent:
+                    {
+                        await _eventListener.Signal(Events.PollingFinished);
+                        break;
+                    }
                     default:
-                        {
-                            await _eventListener.Signal(Events.PollingFailed);
-                            break;
-                        }
+                    {
+                        await _eventListener.Signal(Events.PollingFailed);
+                        break;
+                    }
                 }
                 return _response;
             }
@@ -291,9 +292,39 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
         {
             await EventListener.Signal(Events.ProcessorProcessAsyncStart);
             using HttpResponseMessage response = await SendAsync();
-            TResponse body = (await response.Content.ReadFromJsonAsync<TResponse>(JsonOptions))!;
-            await WriteOutput(body);
-            await EventListener.Signal(Events.ProcessorProcessAsyncEnd);
+
+            if (response.Content is null)
+            {
+                await EventListener.Signal(Events.ResponseNoContent, $"response has no content for {response.RequestMessage?.RequestUri}");
+                await EventListener.Signal(Events.ProcessorProcessAsyncEnd);
+                return;
+            }
+
+            string rawBody = await response.Content.ReadAsStringAsync();
+            if (string.IsNullOrWhiteSpace(rawBody))
+            {
+                await EventListener.Signal(Events.ResponseEmptyBody, $"response has empty body for {response.RequestMessage?.RequestUri}");
+                await EventListener.Signal(Events.ProcessorProcessAsyncEnd);
+                return;
+            }
+
+            try
+            {
+                TResponse? body = JsonSerializer.Deserialize<TResponse>(rawBody, JsonOptions);
+                if (body is not null)
+                {
+                    await WriteOutput(body);
+                }
+            }
+            catch (JsonException)
+            {
+                await EventListener.Signal(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
+                throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}");
+            }
+            finally
+            {
+                await EventListener.Signal(Events.ProcessorProcessAsyncEnd);
+            }
         }
     }
 }

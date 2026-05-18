@@ -5,7 +5,7 @@
 using System;
 using System.Runtime.CompilerServices;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     internal static class JsonModelCache
     {
@@ -17,3 +17,7 @@ namespace Extensions.Runtime.Json
         private static JsonModel Create(Type type) => JsonModel.FromType(type);
     }
 }
+
+
+
+

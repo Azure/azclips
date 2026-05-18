@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 using System.Text;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     internal static class StringBuilderExtensions
     {
@@ -21,3 +21,7 @@ namespace Extensions.Runtime.Json
         }
     }
 }
+
+
+
+

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 using System;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     internal class PropertyTransformation
     {
@@ -19,3 +19,7 @@ namespace Extensions.Runtime.Json
         internal Func<object, object> Transformer { get; }
     }
 }
+
+
+
+

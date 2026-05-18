@@ -6,7 +6,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     internal sealed class XSet<T> : JsonArray, IEnumerable<JsonNode>
     {
@@ -58,3 +58,7 @@ namespace Extensions.Runtime.Json
         internal HashSet<T> AsHashSet() => values;
     }
 }
+
+
+
+

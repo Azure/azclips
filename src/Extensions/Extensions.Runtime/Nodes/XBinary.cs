@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 using System;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     internal sealed class XBinary : JsonNode
     {
@@ -38,3 +38,7 @@ namespace Extensions.Runtime.Json
         public override string ToString() => _base64 ?? Convert.ToBase64String(_value!);
     }
 }
+
+
+
+

@@ -3,10 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-using Extensions.Runtime.Json;
+using Microsoft.Azure.Cirrus.Extensions.Runtime.Json;
 using System;
 
-namespace Extensions.Runtime
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime
 {
     public interface IJsonSerializable
     {
@@ -134,7 +134,7 @@ namespace Extensions.Runtime
         internal static JsonNode ToJsonValue(object value)
         {
             // things that implement our interface are preferred.
-            if (value is Extensions.Runtime.IJsonSerializable jsonSerializable)
+            if (value is Microsoft.Azure.Cirrus.Extensions.Runtime.IJsonSerializable jsonSerializable)
             {
                 return jsonSerializable.ToJson();
             }
@@ -154,7 +154,7 @@ namespace Extensions.Runtime
             // dictionaries are objects that should be able to serialize
             if (value is System.Collections.Generic.IDictionary<string, object> dictionary)
             {
-                return Extensions.Runtime.JsonSerializable.ToJson(dictionary, null);
+                return Microsoft.Azure.Cirrus.Extensions.Runtime.JsonSerializable.ToJson(dictionary, null);
             }
 
             // hashtables are converted to dictionaries for serialization
@@ -162,7 +162,7 @@ namespace Extensions.Runtime
             {
                 var dict = new System.Collections.Generic.Dictionary<string, object>();
                 DictionaryExtensions.HashTableToDictionary<object>(hashtable, dict);
-                return Extensions.Runtime.JsonSerializable.ToJson(dict, null);
+                return Microsoft.Azure.Cirrus.Extensions.Runtime.JsonSerializable.ToJson(dict, null);
             }
 
             // enumerable collections are handled like arrays (again, fallback to ToJson()/ToJsonString() or literal JsonString)
@@ -261,3 +261,7 @@ namespace Extensions.Runtime
         }
     }
 }
+
+
+
+

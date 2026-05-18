@@ -6,7 +6,7 @@ using System;
 using System.Globalization;
 using System.IO;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     public sealed class SourceReader : IDisposable
     {
@@ -128,3 +128,7 @@ namespace Extensions.Runtime.Json
         }
     }
 }
+
+
+
+

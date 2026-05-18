@@ -1,8 +1,6 @@
 using System.Net.Http.Json;
-using System.Text.Json;
-using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Extensions.Runtime;
+using Microsoft.Azure.Cirrus.Extensions.Runtime;
 using Microsoft.Azure.Cirrus.Extensions.Compute.Models;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors;
@@ -80,3 +78,6 @@ public class NewVirtualNetworkProcessor : ComputeProcessorBase<VirtualNetwork>
 
     public override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();
 }
+
+
+
