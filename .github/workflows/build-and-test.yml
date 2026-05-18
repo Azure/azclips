@@ -68,26 +68,7 @@ jobs:
         run: dotnet restore cirrus.slnx
 
       - name: Build
-        run: dotnet build cirrus.slnx --no-restore --configuration Debug --verbosity normal
-
-      - name: Diagnostics — what landed in artifacts/Debug
-        run: |
-          echo "==== artifacts/Debug (top) ===="
-          ls -la artifacts/Debug || true
-          echo "==== Compute extension folder ===="
-          ls -la artifacts/Debug/Microsoft.Azure.Cirrus.Extensions.Compute/ || true
-          echo "==== All Compute-related DLLs anywhere under artifacts ===="
-          find artifacts -name 'Microsoft.Azure.Cirrus.*Compute*.dll' -ls || true
-          echo "==== Compute extension DLL: size + mtime ===="
-          stat artifacts/Debug/Microsoft.Azure.Cirrus.Extensions.Compute/Microsoft.Azure.Cirrus.Extensions.Compute.dll || true
-          echo "==== Compute source has create-combined? ===="
-          grep -c 'create-combined' src/Extensions/Compute/ExtensionIndex.cs || true
-          echo "==== Compute source line count ===="
-          wc -l src/Extensions/Compute/ExtensionIndex.cs || true
-          echo "==== Compute source SHA ===="
-          sha256sum src/Extensions/Compute/ExtensionIndex.cs || true
-          echo "==== Compute compiled DLL: does it contain 'create-combined' string? (raw bytes) ===="
-          grep -ac 'create-combined' artifacts/Debug/Microsoft.Azure.Cirrus.Extensions.Compute/Microsoft.Azure.Cirrus.Extensions.Compute.dll || true
+        run: dotnet build cirrus.slnx --no-restore --configuration Debug
 
       - name: Validate help content
         run: |
