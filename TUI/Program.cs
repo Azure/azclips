@@ -92,6 +92,8 @@ public static class Program
             widgets.Add(TuiTheme.ApplyMenuBarTheme(v,
                 MenuBarRenderer.Render(v, state, () => app.Invalidate())));
 
+            widgets.Add(v.Separator());
+
             widgets.Add(v.VStack(top =>
             {
                 var topWidgets = new List<Hex1bWidget>();

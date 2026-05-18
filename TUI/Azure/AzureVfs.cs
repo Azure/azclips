@@ -221,13 +221,12 @@ public class AzureVfs
     /// <summary>
     /// Get path completion suggestions for the given partial input.
     /// </summary>
-    public async Task<List<string>> GetCompletionsAsync(string partial)
+    public async Task<List<VfsEntry>> GetCompletionsAsync(string partial)
     {
         // Empty partial → list all children of current directory
         if (string.IsNullOrEmpty(partial))
         {
-            var entries = await LsAsync();
-            return entries.Select(c => c.Name).ToList();
+            return await LsAsync();
         }
 
         var resolved = ResolvePath(partial);
@@ -256,13 +255,11 @@ public class AzureVfs
 
         // Prefix matches first, then substring matches (deduped)
         var prefix = candidates
-            .Where(c => c.Name.StartsWith(lastPart, StringComparison.OrdinalIgnoreCase))
-            .Select(c => c.Name);
+            .Where(c => c.Name.StartsWith(lastPart, StringComparison.OrdinalIgnoreCase));
 
         var contains = candidates
             .Where(c => !c.Name.StartsWith(lastPart, StringComparison.OrdinalIgnoreCase)
-                     && c.Name.Contains(lastPart, StringComparison.OrdinalIgnoreCase))
-            .Select(c => c.Name);
+                     && c.Name.Contains(lastPart, StringComparison.OrdinalIgnoreCase));
 
         return prefix.Concat(contains).ToList();
     }
