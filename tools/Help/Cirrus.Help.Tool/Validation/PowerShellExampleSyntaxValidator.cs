@@ -9,16 +9,15 @@ namespace Cirrus.Help.Tool.Validation
     /// <summary>
     /// Validates PowerShell examples in help markdown against the live <see cref="CmdletIndex"/>:
     /// <list type="bullet">
-    ///   <item><description><b>PS-L1</b> — every command invocation resolves to a registered cmdlet
+    ///   <item><description>Every command invocation resolves to a registered cmdlet
     ///   (<c>Verb-Noun</c>). Native commands and pipeline fragments are skipped.</description></item>
-    ///   <item><description><b>PS-L2</b> — every <c>-Parameter</c> token matches a declared parameter
-    ///   name or alias on that cmdlet, or is one of the documented common parameters.</description></item>
+    ///   <item><description>Every <c>-Parameter</c> token matches a declared parameter
+    ///   name or alias on that cmdlet, or is one of the common parameters (<c>Verbose</c>,
+    ///   <c>ErrorAction</c>, <c>WhatIf</c>, etc.).</description></item>
     /// </list>
     /// Parsing is done via the PowerShell language parser (<see cref="Parser.ParseInput(string, out Token[], out ParseError[])"/>),
     /// which gives accurate line numbers, backtick-continuation handling, and splatting detection
-    /// for free. Inspired by — but lighter than — azure-powershell's <c>ExampleAnalyzer</c>, which
-    /// runs <c>PSScriptAnalyzer</c> over a generated temp script. We only need static name resolution,
-    /// so the AST alone is enough. See <c>docs/spec/help-system.md §15.4 item 7</c>.
+    /// for free.
     /// </summary>
     public sealed class PowerShellExampleSyntaxValidator
     {
@@ -107,7 +106,7 @@ namespace Cirrus.Help.Tool.Validation
 
                 var ast = Parser.ParseInput(cleanedBody, out _, out var parseErrors);
 
-                // Don't let raw parse errors prevent us from running L1/L2 — many of our examples
+                // Don't let raw parse errors prevent us from running cmdlet/parameter checks — many of our examples
                 // contain placeholder constructs that ParseInput dislikes (e.g. `<your-rg>`).
                 // We only surface parse errors when there is no usable AST at all.
                 if (ast is null)
@@ -166,7 +165,7 @@ namespace Cirrus.Help.Tool.Validation
                 return;
             }
 
-            // If the command splats (`@params`), we cannot statically see the parameter set — skip L2.
+            // If the command splats (`@params`), we cannot statically see the parameter set — skip parameter checks.
             if (HasSplattedArgument(command))
             {
                 return;

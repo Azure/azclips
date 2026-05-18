@@ -134,7 +134,6 @@ aggregateReport.Merge(exampleSyntaxReport);
 
 // Build the cmdlet index from Microsoft.Azure.Cirrus.Cmdlets.*.dll (sibling assemblies in
 // artifacts/Debug/) and validate every powershell/pwsh fence in help markdown against it.
-// See docs/spec/help-system.md §15.4 item 7.
 var cmdletIndex = new CmdletIndex();
 var cmdletDlls = Directory
     .EnumerateFiles(artifactsRoot, "Microsoft.Azure.Cirrus.Cmdlets.*.dll", SearchOption.AllDirectories)

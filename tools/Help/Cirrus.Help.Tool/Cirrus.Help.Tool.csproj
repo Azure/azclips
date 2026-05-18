@@ -12,8 +12,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Used by PowerShellExampleSyntaxValidator for AST parsing of cmdlet examples (Language.Parser only;
-         no Runspace/script execution). Matches the version used by the cmdlet projects in src/PS. -->
     <PackageReference Include="System.Management.Automation" Version="7.6.1" />
   </ItemGroup>
 </Project>

@@ -10,15 +10,13 @@ namespace Cirrus.Help.Tool.Validation
     /// <summary>
     /// Validates CLI examples in help markdown against the live <see cref="IExtensionIndex"/>:
     /// <list type="bullet">
-    ///   <item><description><b>L1</b> — every <c>azv2 ...</c> line tokenizes to a routed command path.</description></item>
-    ///   <item><description><b>L2</b> — every <c>--flag</c> / <c>-x</c> token resolves to a declared parameter
-    ///   (or to the documented global flag set: <c>--help</c>, <c>--debug</c>, <c>--output</c>, <c>-h</c>).</description></item>
-    ///   <item><description><b>L3</b> — every literal value following a known flag parses as the parameter's declared
+    ///   <item><description>Every <c>azv2 ...</c> line tokenizes to a routed command path.</description></item>
+    ///   <item><description>Every <c>--flag</c> / <c>-x</c> token resolves to a declared parameter
+    ///   (or to the global flag set: <c>--help</c>, <c>--debug</c>, <c>--output</c>, <c>-h</c>).</description></item>
+    ///   <item><description>Every literal value following a known flag parses as the parameter's declared
     ///   <see cref="ParameterMetadata.ParameterType"/>, and (if specified) is a member of
     ///   <see cref="ParameterMetadata.AllowedValues"/>. Placeholders (<c>&lt;...&gt;</c>, <c>$var</c>) are skipped.</description></item>
     /// </list>
-    /// Required-parameter-presence (a stricter form of L2) is intentionally deferred until positional
-    /// parameter metadata is exposed by the framework — see <c>docs/spec/help-system.md §15.4.6</c>.
     /// PowerShell examples and non-<c>azv2</c> shell lines are ignored.
     /// </summary>
     public sealed class ExampleSyntaxValidator
@@ -177,7 +175,7 @@ namespace Cirrus.Help.Tool.Validation
 
             // The routed user-facing command path — e.g. "azv2 login" or "azv2 group create".
             // CommandMetadata.Name is the processor class name (e.g. "LoginProcessor"), which is
-            // an implementation detail. L2/L3 error messages quote what the user typed.
+            // an implementation detail.
             var routedPath = string.IsNullOrEmpty(matchedKey)
                 ? $"azv2 {groupName}"
                 : $"azv2 {groupName} {matchedKey}";
@@ -214,7 +212,7 @@ namespace Cirrus.Help.Tool.Validation
 
                 if (s_globalFlags.Contains(flag))
                 {
-                    // Consume a possible value (e.g. --output table). Globals are not L3-checked.
+                    // Consume a possible value (e.g. --output table). Globals are not type-checked.
                     if (equalsValue is null && i + 1 < tokens.Count && !IsFlag(tokens[i + 1]))
                     {
                         i++;
@@ -232,7 +230,7 @@ namespace Cirrus.Help.Tool.Validation
                     continue;
                 }
 
-                // L3: determine the value (if any) and type-check it.
+                // Type-check the value (if any) against the parameter's declared type / AllowedValues.
                 var value = equalsValue;
                 if (value is null && i + 1 < tokens.Count && !IsFlag(tokens[i + 1]))
                 {
@@ -242,7 +240,7 @@ namespace Cirrus.Help.Tool.Validation
 
                 if (value is null || IsPlaceholder(value))
                 {
-                    // Switch-form (bool flag with no value) is accepted silently \u2014 see docs/spec/help-system.md \u00a715.4.8.
+                    // Switch-form (bool flag with no value) is accepted silently
                     continue;
                 }
 
@@ -355,7 +353,7 @@ namespace Cirrus.Help.Tool.Validation
             // Unwrap Nullable<T>.
             type = Nullable.GetUnderlyingType(type) ?? type;
 
-            // List/IEnumerable element validation is deferred (see docs/spec/help-system.md \u00a715.4.8).
+            // List/IEnumerable element validation is deferred
             if (IsListLike(type))
             {
                 return null;
@@ -409,7 +407,7 @@ namespace Cirrus.Help.Tool.Validation
                 return $"not one of [{string.Join(", ", names)}]";
             }
 
-            // Unknown type \u2014 no L3 check.
+            // Unknown type
             return null;
         }
 

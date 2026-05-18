@@ -8,7 +8,7 @@ namespace Cirrus.Help.Tool.Validation
 {
     /// <summary>
     /// Validates that markdown help files under <c>src/Extensions/{Extension}/help/</c> meet
-    /// the required structural contract: file-level frontmatter (§15.5.1) with required
+    /// the required structural contract: file-level frontmatter with required
     /// fields, a Description body, balanced code fences, and at least one example.
     /// </summary>
     public sealed class MarkdownStructureValidator
@@ -68,12 +68,12 @@ namespace Cirrus.Help.Tool.Validation
                 report.AddError(ProblemIds.MD_UnbalancedFences, "Unbalanced markdown code fences (``` markers must be paired).", relativePath);
             }
 
-            // §15.5.1: every help file must carry a YAML frontmatter block at the top.
+            // Every help file must carry a YAML frontmatter block at the top.
             if (!HasFrontmatterBlock(content))
             {
                 report.AddError(
                     ProblemIds.MD_MissingFrontmatter,
-                    "Missing required YAML frontmatter block. Help files must open with a '---' delimited block (see §15.5.1 in docs/spec/help-system.md).",
+                    "Missing required YAML frontmatter block. Help files must open with a '---' delimited block.",
                     relativePath);
                 // Without frontmatter, downstream summary/status/schema checks are meaningless.
                 ValidateBody(content, relativePath, report);
