@@ -13,11 +13,11 @@ set -euo pipefail
 #   4) Build Windows distribution artifact and run PowerShell validation script
 #
 # Examples:
-#   ./devops/scripts/build_distribution_e2e.sh
-#   ./devops/scripts/build_distribution_e2e.sh --with-pwsh
+#   ./devops/scripts/packaging/local_testing/build_distribution_e2e.sh
+#   ./devops/scripts/packaging/local_testing/build_distribution_e2e.sh --with-pwsh
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
 PACKAGING_DIR="$REPO_ROOT/devops/scripts/packaging"
 OUT_ROOT_BASE="${OUT_ROOT_BASE:-$REPO_ROOT/devops/out}"
 COMMON_OUT_ROOT="${COMMON_OUT_ROOT:-$OUT_ROOT_BASE/common}"
