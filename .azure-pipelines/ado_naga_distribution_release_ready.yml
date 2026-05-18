@@ -27,14 +27,14 @@ stages:
         echo "Branch: $(Build.SourceBranch)"
       displayName: Print run context
 
-- stage: BuildDistribution
-  displayName: Build Distribution Artifacts
+- stage: BuildCommon
+  displayName: Build Common Distribution Assets
   dependsOn: Init
   condition: succeeded()
   jobs:
-  - job: Build
-    displayName: Build all distribution outputs
-    timeoutInMinutes: 120
+  - job: BuildCommonOutputs
+    displayName: Build common outputs
+    timeoutInMinutes: 90
     pool:
       vmImage: ubuntu-latest
     steps:
@@ -50,28 +50,103 @@ stages:
 
     - script: |
         set -euo pipefail
-        if ! command -v zip >/dev/null 2>&1; then
-          sudo apt-get update
-          sudo apt-get install -y zip
-        fi
-      displayName: Ensure zip is available
+        chmod +x "$(DistScriptsRoot)/build_common.sh"
+        OUT_ROOT="$(DistOutRoot)" "$(DistScriptsRoot)/build_common.sh"
+      displayName: Run build_common.sh
+
+    - task: PublishPipelineArtifact@1
+      displayName: Publish common output
+      inputs:
+        targetPath: $(DistOutRoot)
+        artifact: Distribution_Common
+        publishLocation: pipeline
+
+- stage: BuildLinux
+  displayName: Build Linux Distribution Artifact
+  dependsOn: BuildCommon
+  condition: succeeded()
+  jobs:
+  - job: BuildLinuxOutput
+    displayName: Build Linux tarball output
+    timeoutInMinutes: 60
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 0
+
+    - task: UseDotNet@2
+      displayName: Use .NET SDK from global.json
+      inputs:
+        packageType: sdk
+        useGlobalJson: true
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download common output
+      inputs:
+        artifact: Distribution_Common
+        path: $(DistOutRoot)
 
     - script: |
         set -euo pipefail
-        chmod +x "$(DistScriptsRoot)/build_all.sh"
-        OUT_ROOT="$(DistOutRoot)" "$(DistScriptsRoot)/build_all.sh"
-      displayName: Run build_all.sh
+        chmod +x "$(DistScriptsRoot)/build_linux_tarball.sh"
+        OUT_ROOT="$(DistOutRoot)" "$(DistScriptsRoot)/build_linux_tarball.sh"
+      displayName: Run build_linux_tarball.sh
 
     - task: PublishPipelineArtifact@1
-      displayName: Publish distribution output
+      displayName: Publish Linux distribution output
       inputs:
         targetPath: $(DistOutRoot)
-        artifact: Distribution_Out
+        artifact: Distribution_Linux
+        publishLocation: pipeline
+
+- stage: BuildWindows
+  displayName: Build Windows Distribution Artifact
+  dependsOn: BuildCommon
+  condition: succeeded()
+  jobs:
+  - job: BuildWindowsOutput
+    displayName: Build Windows zip output
+    timeoutInMinutes: 60
+    pool:
+      vmImage: windows-latest
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 0
+
+    - task: UseDotNet@2
+      displayName: Use .NET SDK from global.json
+      inputs:
+        packageType: sdk
+        useGlobalJson: true
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download common output
+      inputs:
+        artifact: Distribution_Common
+        path: $(DistOutRoot)
+
+    - task: PowerShell@2
+      displayName: Run build_win_zip.ps1
+      inputs:
+        targetType: inline
+        pwsh: true
+        script: |
+          $ErrorActionPreference = 'Stop'
+          & "$(DistScriptsRoot)/build_win_zip.ps1" -OutRoot "$(DistOutRoot)"
+
+    - task: PublishPipelineArtifact@1
+      displayName: Publish Windows distribution output
+      inputs:
+        targetPath: $(DistOutRoot)
+        artifact: Distribution_Windows
         publishLocation: pipeline
 
 - stage: ValidateLinux
   displayName: Validate Linux Distribution Flow
-  dependsOn: BuildDistribution
+  dependsOn: BuildLinux
   condition: succeeded()
   jobs:
   - job: LinuxValidation
@@ -85,9 +160,9 @@ stages:
       fetchDepth: 0
 
     - task: DownloadPipelineArtifact@2
-      displayName: Download distribution output
+      displayName: Download Linux distribution output
       inputs:
-        artifact: Distribution_Out
+        artifact: Distribution_Linux
         path: $(DistOutRoot)
 
     - script: |
@@ -106,7 +181,7 @@ stages:
 
 - stage: ValidateWindows
   displayName: Validate Windows Distribution Flow
-  dependsOn: BuildDistribution
+  dependsOn: BuildWindows
   condition: succeeded()
   jobs:
   - job: WindowsValidation
@@ -120,9 +195,9 @@ stages:
       fetchDepth: 0
 
     - task: DownloadPipelineArtifact@2
-      displayName: Download distribution output
+      displayName: Download Windows distribution output
       inputs:
-        artifact: Distribution_Out
+        artifact: Distribution_Windows
         path: $(DistOutRoot)
 
     - task: PowerShell@2
@@ -145,12 +220,16 @@ stages:
 - stage: Finalize
   displayName: Finalize
   dependsOn:
-  - BuildDistribution
+  - BuildCommon
+  - BuildLinux
+  - BuildWindows
   - ValidateLinux
   - ValidateWindows
   condition: always()
   variables:
-    BuildDistributionResult: $[ stageDependencies.BuildDistribution.Build.result ]
+    BuildCommonResult: $[ stageDependencies.BuildCommon.BuildCommonOutputs.result ]
+    BuildLinuxResult: $[ stageDependencies.BuildLinux.BuildLinuxOutput.result ]
+    BuildWindowsResult: $[ stageDependencies.BuildWindows.BuildWindowsOutput.result ]
     ValidateLinuxResult: $[ stageDependencies.ValidateLinux.LinuxValidation.result ]
     ValidateWindowsResult: $[ stageDependencies.ValidateWindows.WindowsValidation.result ]
   jobs:
@@ -160,7 +239,9 @@ stages:
       vmImage: ubuntu-latest
     steps:
     - script: |
-        echo "BuildDistribution: $(BuildDistributionResult)"
+        echo "BuildCommon: $(BuildCommonResult)"
+        echo "BuildLinux: $(BuildLinuxResult)"
+        echo "BuildWindows: $(BuildWindowsResult)"
         echo "ValidateLinux: $(ValidateLinuxResult)"
         echo "ValidateWindows: $(ValidateWindowsResult)"
       displayName: Print stage outcomes

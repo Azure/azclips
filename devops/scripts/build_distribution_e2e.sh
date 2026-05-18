@@ -5,11 +5,12 @@ set -euo pipefail
 # CI entrypoint that runs distribution build and validation end-to-end.
 #
 # Default flow:
-#   1) Build all distribution artifacts
-#   2) Run Linux bundled + optional extension validation
+#   1) Build common distribution assets
+#   2) Build Linux distribution artifact
+#   3) Run Linux bundled + optional extension validation
 #
 # Optional flow:
-#   3) Run PowerShell validation script when --with-pwsh is provided
+#   4) Build Windows distribution artifact and run PowerShell validation script
 #
 # Examples:
 #   ./devops/scripts/build_distribution_e2e.sh
@@ -34,7 +35,7 @@ for arg in "$@"; do
   esac
 done
 
-for required in build_all.sh test_bundled_plus_ext_linux.sh test_bundled_plus_ext_win.ps1 bundled_ext.config; do
+for required in build_common.sh build_linux_tarball.sh build_win_zip.sh test_bundled_plus_ext_linux.sh test_bundled_plus_ext_win.ps1 bundled_ext.config; do
   if [[ ! -f "$DIST_DIR/$required" ]]; then
     echo "ERROR: Missing required file: $DIST_DIR/$required"
     exit 1
@@ -50,27 +51,35 @@ echo "Repo root : $REPO_ROOT"
 echo "Out root  : $OUT_ROOT"
 
 echo ""
-echo "[1/3] Build distribution artifacts"
-chmod +x "$DIST_DIR/build_all.sh"
-OUT_ROOT="$OUT_ROOT" "$DIST_DIR/build_all.sh"
+echo "[1/4] Build common distribution assets"
+chmod +x "$DIST_DIR/build_common.sh"
+OUT_ROOT="$OUT_ROOT" "$DIST_DIR/build_common.sh"
 
 echo ""
-echo "[2/3] Validate Linux bundled + optional extensions"
+echo "[2/4] Build Linux distribution artifact"
+chmod +x "$DIST_DIR/build_linux_tarball.sh"
+OUT_ROOT="$OUT_ROOT" "$DIST_DIR/build_linux_tarball.sh"
+
+echo ""
+echo "[3/4] Validate Linux bundled + optional extensions"
 chmod +x "$DIST_DIR/test_bundled_plus_ext_linux.sh"
 OUT_ROOT="$OUT_ROOT" "$DIST_DIR/test_bundled_plus_ext_linux.sh"
 
 if [[ $RUN_PWSH -eq 1 ]]; then
   echo ""
-  echo "[3/3] Validate bundled + optional extensions via PowerShell"
+  echo "[4/4] Build Windows distribution artifact + validate via PowerShell"
   if ! command -v pwsh >/dev/null 2>&1; then
     echo "ERROR: --with-pwsh requested, but pwsh is not installed."
     exit 1
   fi
 
+  chmod +x "$DIST_DIR/build_win_zip.sh"
+  OUT_ROOT="$OUT_ROOT" "$DIST_DIR/build_win_zip.sh"
+
   pwsh -NoLogo -NoProfile -File "$DIST_DIR/test_bundled_plus_ext_win.ps1" -OutRoot "$OUT_ROOT"
 else
   echo ""
-  echo "[3/3] Skipping PowerShell validation (use --with-pwsh to enable)"
+  echo "[4/4] Skipping PowerShell validation (use --with-pwsh to enable)"
 fi
 
 echo ""

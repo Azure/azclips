@@ -12,11 +12,11 @@ $CliZipPath = Join-Path $OutRoot 'bin/Release/azv2-win-x64.zip'
 $ExtPackDir = Join-Path $OutRoot 'extensions-pack'
 
 if (-not (Test-Path -Path $CliZipPath -PathType Leaf)) {
-    throw "Windows CLI zip not found at $CliZipPath. Run ./devops/scripts/distribution/build_all.sh first."
+    throw "Windows CLI zip not found at $CliZipPath. Run ./devops/scripts/distribution/build_common.sh, then ./devops/scripts/distribution/build_win_zip.sh."
 }
 
 if (-not (Test-Path -Path $ExtPackDir -PathType Container)) {
-    throw "Extension package directory not found at $ExtPackDir. Run ./devops/scripts/distribution/build_all.sh first."
+    throw "Extension package directory not found at $ExtPackDir. Run ./devops/scripts/distribution/build_common.sh first."
 }
 
 Write-Host '============================================'
@@ -41,7 +41,8 @@ Write-Host 'PASS: azv2.exe found'
 
 $builtins = @(
     'Microsoft.Azure.Cirrus.Extensions.Extension',
-    'Microsoft.Azure.Cirrus.Extensions.Login'
+    'Microsoft.Azure.Cirrus.Extensions.Login',
+    'Microsoft.Azure.Cirrus.Extensions.Config'
 )
 
 foreach ($ext in $builtins) {
@@ -52,13 +53,10 @@ foreach ($ext in $builtins) {
     Write-Host "PASS: Extensions/$ext present"
 }
 
-$cfgNupkg = Get-ChildItem -Path $ExtPackDir -Filter 'Microsoft.Azure.Cirrus.Extensions.Config*.nupkg' | Select-Object -First 1
 $resNupkg = Get-ChildItem -Path $ExtPackDir -Filter 'Microsoft.Azure.Cirrus.Extensions.Resources*.nupkg' | Select-Object -First 1
 
-if (-not $cfgNupkg) { throw 'FAIL: Config nupkg not found.' }
 if (-not $resNupkg) { throw 'FAIL: Resources nupkg not found.' }
 
-Write-Host "PASS: Config package found: $($cfgNupkg.FullName)"
 Write-Host "PASS: Resources package found: $($resNupkg.FullName)"
 
 if ($IsWindows -and -not $SkipRuntime) {
@@ -69,13 +67,7 @@ if ($IsWindows -and -not $SkipRuntime) {
 
     & $azv2Exe --help | Select-Object -First 20 | Out-Host
 
-    $addCfgOut = & $azv2Exe extension add --path $cfgNupkg.FullName 2>&1
-    $addCfgText = $addCfgOut | Out-String
-    $addCfgText.Trim() | Out-Host
-    if ($addCfgText -notmatch 'installedExtensionPath') {
-        throw 'FAIL: Config extension installation did not report installedExtensionPath.'
-    }
-
+    Write-Host 'Verifying bundled Config command behavior'
     & $azv2Exe config set --key core.logging.level --value debug --force | Out-Host
     $cfgGetOut = & $azv2Exe config get --key core.logging.level 2>&1
     $cfgGetText = $cfgGetOut | Out-String
@@ -96,6 +88,12 @@ if ($IsWindows -and -not $SkipRuntime) {
     $groupText.Trim() | Out-Host
     if ($groupText -match 'could not be found') {
         throw 'FAIL: Resources command not resolved after install.'
+    } elseif ($groupText -match "Required parameter 'SubscriptionId' is missing") {
+        Write-Host 'PASS: Resources command resolved (missing SubscriptionId in CI context)'
+    } elseif ($groupText -match 'AcquireTokenSilent|No account or login hint|please run .*login|AADSTS|authentication') {
+        Write-Host 'PASS: Resources command resolved (authentication context not available in CI)'
+    } else {
+        Write-Host 'PASS: Resources command resolved'
     }
 
     Write-Host 'PASS: Windows runtime extension-add flow validated'
