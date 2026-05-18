@@ -15,12 +15,14 @@
     { "name": "ListResourceGroupProcessor", "cliName": "group list", "psName": "Get-ResourceGroup_List", "extension": "resources", "group": "group", "summary": "List all resource groups in a subscription." },
     { "name": "GetResourceGroupProcessor", "cliName": "group show", "psName": "Get-ResourceGroup_Get", "extension": "resources", "group": "group", "summary": "Show details of a specific resource group." },
 
-    { "name": "NewVMProcessor_NICCombined", "cliName": "vm create-combined", "psName": "New-VMCombined", "extension": "compute", "group": "vm", "summary": "Create a VM with the full networking stack (VNet + NSG + NIC + VM) in one call." },
+    { "name": "NewVMProcessor_Orchestrator", "cliName": "vm create", "psName": "New-VM", "extension": "compute", "group": "vm", "summary": "Create a VM with the full networking stack (VNet + NSG + NIC + VM) in one call." },
+    { "name": "GetVMProcessor", "cliName": "vm show", "psName": "Get-VM_Get", "extension": "compute", "group": "vm", "summary": "Show details of a specific virtual machine." },
+    { "name": "ListVMProcessor", "cliName": "vm list", "psName": "Get-VM_List", "extension": "compute", "group": "vm", "summary": "List virtual machines in a resource group." },
+    { "name": "DeleteVMProcessor", "cliName": "vm delete", "psName": "Remove-VM", "extension": "compute", "group": "vm", "summary": "Delete a virtual machine." },
     { "name": "NewVirtualNetworkProcessor", "cliName": "", "psName": "New-VirtualNetwork", "extension": "compute", "group": "vm", "summary": "Create a virtual network (PowerShell only)." },
     { "name": "NewNetworkSecurityGroupProcessor", "cliName": "", "psName": "New-NetworkSecurityGroup", "extension": "compute", "group": "vm", "summary": "Create a network security group (PowerShell only)." },
     { "name": "NewNetworkInterfaceProcessor", "cliName": "", "psName": "New-NetworkInterface", "extension": "compute", "group": "vm", "summary": "Create a network interface (PowerShell only)." },
-    { "name": "NewVMProcessor", "cliName": "", "psName": "New-VM", "extension": "compute", "group": "vm", "summary": "Create a virtual machine, attaching an existing NIC (PowerShell only)." },
-    { "name": "NewNetworkInterfaceProcessor_Combined", "cliName": "", "psName": "New-NetworkInterfaceCombined", "extension": "compute", "group": "vm", "summary": "Create a NIC together with its VNet + NSG in one call (PowerShell only)." },
+    { "name": "NewNetworkInterfaceProcessor_Orchestrator", "cliName": "", "psName": "New-NetworkInterfaceOrchestrator", "extension": "compute", "group": "vm", "summary": "Create a NIC together with its VNet + NSG in one call (PowerShell only)." },
 
     { "name": "GetConfigCommand", "cliName": "config get", "psName": "Get-CirrusConfig", "extension": "config", "group": "config", "summary": "Retrieve a configuration value." },
     { "name": "SetConfigCommand", "cliName": "config set", "psName": "Set-CirrusConfig", "extension": "config", "group": "config", "summary": "Set or update a configuration value." },

@@ -35,7 +35,7 @@ public class HelpToolsTests
     }
 
     [Fact]
-    public async Task ListCommands_ReturnsFullCatalog_IncludingVmCreateCombined()
+    public async Task ListCommands_ReturnsFullCatalog_IncludingVmCreate()
     {
         var tools = new HelpTools();
 
@@ -46,9 +46,9 @@ public class HelpToolsTests
             $"expected ≥18 commands, got {commands.GetArrayLength()}");
 
         var vmCreate = commands.EnumerateArray()
-            .FirstOrDefault(c => c.GetProperty("cliName").GetString() == "vm create-combined");
+            .FirstOrDefault(c => c.GetProperty("cliName").GetString() == "vm create");
         Assert.NotEqual(JsonValueKind.Undefined, vmCreate.ValueKind);
-        Assert.Equal("New-VMCombined", vmCreate.GetProperty("psName").GetString());
+        Assert.Equal("New-VM", vmCreate.GetProperty("psName").GetString());
     }
 
     [Fact]
@@ -56,11 +56,11 @@ public class HelpToolsTests
     {
         var tools = new HelpTools();
 
-        var root = await InvokeAsync(tools.GetCommand, new { name = "vm create-combined" });
+        var root = await InvokeAsync(tools.GetCommand, new { name = "vm create" });
 
         Assert.False(root.TryGetProperty("error", out _));
-        Assert.Equal("vm create-combined", root.GetProperty("cliName").GetString());
-        Assert.Equal("New-VMCombined", root.GetProperty("psName").GetString());
+        Assert.Equal("vm create", root.GetProperty("cliName").GetString());
+        Assert.Equal("New-VM", root.GetProperty("psName").GetString());
     }
 
     [Fact]
@@ -68,8 +68,8 @@ public class HelpToolsTests
     {
         var tools = new HelpTools();
 
-        var byCli = await InvokeAsync(tools.GetCommand, new { name = "vm create-combined" });
-        var byPs  = await InvokeAsync(tools.GetCommand, new { name = "New-VMCombined" });
+        var byCli = await InvokeAsync(tools.GetCommand, new { name = "vm create" });
+        var byPs  = await InvokeAsync(tools.GetCommand, new { name = "New-VM" });
 
         Assert.Equal(byCli.GetProperty("name").GetString(), byPs.GetProperty("name").GetString());
     }
@@ -79,9 +79,9 @@ public class HelpToolsTests
     {
         var tools = new HelpTools();
 
-        var lower = await InvokeAsync(tools.GetCommand, new { name = "vm create-combined" });
-        var mixed = await InvokeAsync(tools.GetCommand, new { name = "VM Create-Combined" });
-        var psUpper = await InvokeAsync(tools.GetCommand, new { name = "NEW-VMCOMBINED" });
+        var lower = await InvokeAsync(tools.GetCommand, new { name = "vm create" });
+        var mixed = await InvokeAsync(tools.GetCommand, new { name = "VM Create" });
+        var psUpper = await InvokeAsync(tools.GetCommand, new { name = "NEW-VM" });
 
         Assert.Equal(lower.GetProperty("name").GetString(), mixed.GetProperty("name").GetString());
         Assert.Equal(lower.GetProperty("name").GetString(), psUpper.GetProperty("name").GetString());
@@ -99,7 +99,7 @@ public class HelpToolsTests
         Assert.True(suggestions.GetArrayLength() > 0,
             "substring match on 'vm' must surface vm-related verbs");
         var names = suggestions.EnumerateArray().Select(s => s.GetString()).ToList();
-        Assert.Contains("vm create-combined", names);
+        Assert.Contains("vm create", names);
     }
 
     [Fact]
