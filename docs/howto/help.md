@@ -332,10 +332,13 @@ dotnet .\artifacts\Debug\Core.Cli\azv2.dll login --help
 
 The runtime:
 
-1. Loads the markdown file from `src/Extensions/Login/help/index.md`
-2. Parses Summary/Description
-3. Filters examples to CLI-only (ignores `powershell`/`pwsh` code blocks)
-4. Renders formatted help output
+1. Loads the markdown from an **embedded resource** in the extension DLL (e.g. `Microsoft.Azure.Cirrus.Extensions.Login.dll` carries `help/index.md` as a resource named `help/index.md`). Each extension `.csproj` opts in with `<EmbeddedResource Include="help/**/*.md" />` and a `LogicalName` that flattens the `help/` prefix — see [docs/spec/help-system.md §9.9](../spec/help-system.md). The `src/Extensions/<Extension>/help/*.md` files are the source of truth; the DLL ships a copy.
+2. Resolves the command key (e.g. `login` → `index`, `login logout` → `logout`) and calls `MarkdownCommandHelpProvider.Get(extensionAssembly, key)`.
+3. Parses Summary/Description.
+4. Filters examples to CLI-only (ignores `powershell`/`pwsh` code blocks).
+5. Renders formatted help output.
+
+No disk read of `src/Extensions/.../help/*.md` happens at runtime — the markdown travels inside the extension assembly, which means CLI help works from a `dotnet tool` install or any other deployment that doesn't carry the source tree.
 
 ### PowerShell Help
 
