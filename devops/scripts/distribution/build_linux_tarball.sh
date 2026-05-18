@@ -11,16 +11,15 @@ cd "$REPO_ROOT"
 OUT_ROOT="${OUT_ROOT:-$SCRIPT_DIR/out}"
 CLI_PROJECT="${CLI_PROJECT:-src/CLI/Core.Cli.csproj}"
 RID="${RID:-linux-x64}"
+INJECTOR_SCRIPT="$SCRIPT_DIR/inject_builtin_extensions.sh"
 
 CLI_SC_DIR="$OUT_ROOT/publish/cli/$RID"
 CLI_TAR_DIR="$OUT_ROOT/bin/Release"
 CLI_TAR_PATH="$CLI_TAR_DIR/azv2-$RID.tar.gz"
-BUILTIN_PUBLISH_ROOT="$OUT_ROOT/builtin-publish"
 BUNDLED_DIR="$OUT_ROOT/bundled"
 
-if [[ ! -d "$BUILTIN_PUBLISH_ROOT" ]]; then
-  echo "ERROR: Built-in publish root not found at $BUILTIN_PUBLISH_ROOT"
-  echo "Run ./devops/scripts/distribution/build_common.sh first."
+if [[ ! -f "$INJECTOR_SCRIPT" ]]; then
+  echo "ERROR: Injector script not found at $INJECTOR_SCRIPT"
   exit 1
 fi
 
@@ -31,31 +30,8 @@ dotnet publish "$CLI_PROJECT" \
   --self-contained true \
   -o "$CLI_SC_DIR"
 
-echo "Injecting built-in extensions into Linux publish output"
-for builtin_dir in "$BUILTIN_PUBLISH_ROOT"/*; do
-  [[ -d "$builtin_dir" ]] || continue
-
-  ext_assembly_name=$(basename "$builtin_dir")
-  dest="$CLI_SC_DIR/Extensions/$ext_assembly_name"
-  mkdir -p "$dest"
-
-  copied=0
-  skipped=0
-  for dll in "$builtin_dir"/*.dll; do
-    [[ -f "$dll" ]] || continue
-    dll_name=$(basename "$dll")
-    host_dll="$CLI_SC_DIR/$dll_name"
-    if [[ -f "$host_dll" ]] && cmp -s "$dll" "$host_dll"; then
-      skipped=$((skipped + 1))
-    else
-      cp "$dll" "$dest/"
-      copied=$((copied + 1))
-    fi
-  done
-
-  cp "$builtin_dir"/*.deps.json "$dest/" 2>/dev/null || true
-  echo "  BUNDLE $ext_assembly_name -> $dest (copied $copied DLLs, skipped $skipped host-provided)"
-done
+chmod +x "$INJECTOR_SCRIPT"
+OUT_ROOT="$OUT_ROOT" "$INJECTOR_SCRIPT" --publish-dir "$CLI_SC_DIR"
 
 mkdir -p "$CLI_TAR_DIR"
 rm -f "$CLI_TAR_PATH"
