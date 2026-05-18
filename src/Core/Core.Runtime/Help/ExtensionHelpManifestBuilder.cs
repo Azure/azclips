@@ -30,7 +30,9 @@ namespace Core.Runtime
         /// <summary>
         /// Builds a <see cref="HelpManifest"/> for a single extension. Commands are sorted
         /// by <c>CliName</c> then <c>PsName</c>; parameters within each command are sorted
-        /// by name.
+        /// by name. <see cref="IExtensionIndex.CliRootSummary"/> is captured into
+        /// <see cref="HelpManifest.RootSummary"/> so <see cref="BuildIndex"/> can surface
+        /// it as the group-level summary in the cross-extension index.
         /// </summary>
         /// <param name="extensionIndex">The extension's index (CLI + PS tables).</param>
         /// <param name="extensionName">Extension name used for help-folder lookup and CLI name normalization.</param>
