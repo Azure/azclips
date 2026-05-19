@@ -1,0 +1,214 @@
+name: msix-build-gpt-$(Date:yyyyMMdd).$(Rev:r)
+
+trigger: none
+pr: none
+
+parameters:
+  - name: configuration
+    displayName: Build configuration
+    type: string
+    default: Release
+    values:
+      - Release
+      - Debug
+
+  - name: runtime_identifier
+    displayName: Windows runtime identifier
+    type: string
+    default: win-x64
+    values:
+      - win-x64
+      - win-arm64
+
+  - name: package_version
+    displayName: Optional MSIX version, for example 1.0.25.0
+    type: string
+    default: ''
+
+  - name: publisher
+    displayName: Manifest publisher subject used for signing
+    type: string
+    default: CN=Cirrus Development
+
+pool:
+  vmImage: windows-latest
+
+variables:
+  DOTNET_NOLOGO: true
+  CONFIGURATION: ${{ parameters.configuration }}
+  RUNTIME_IDENTIFIER: ${{ parameters.runtime_identifier }}
+  PACKAGE_VERSION_INPUT: ${{ parameters.package_version }}
+  PACKAGE_PUBLISHER: ${{ parameters.publisher }}
+  CLI_PROJECT: src/CLI/Core.Cli.csproj
+  APPX_MANIFEST: src/CLI/Core.Cli.appxmanifest
+  PACKAGE_NAME: azv2
+  PACKAGE_ROOT: $(Pipeline.Workspace)\msix\package
+  ARTIFACT_ROOT: $(Build.ArtifactStagingDirectory)\msix\out
+
+jobs:
+  - job: build_msix
+    displayName: Build ${{ parameters.runtime_identifier }} MSIX
+    steps:
+      - checkout: self
+
+      - task: UseDotNet@2
+        displayName: Setup .NET SDK
+        inputs:
+          packageType: sdk
+          useGlobalJson: true
+          workingDirectory: $(Build.SourcesDirectory)
+
+      - pwsh: |
+          Remove-Item $env:PACKAGE_ROOT, $env:ARTIFACT_ROOT -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $env:PACKAGE_ROOT, $env:ARTIFACT_ROOT -Force | Out-Null
+        displayName: Prepare package directories
+
+      - pwsh: |
+          if ([string]::IsNullOrWhiteSpace($env:RUNTIME_IDENTIFIER)) {
+            throw 'runtime_identifier resolved to an empty value.'
+          }
+
+          if ([string]::IsNullOrWhiteSpace($env:CONFIGURATION)) {
+            throw 'configuration resolved to an empty value.'
+          }
+
+          Write-Host "Configuration: $env:CONFIGURATION"
+          Write-Host "Runtime identifier: $env:RUNTIME_IDENTIFIER"
+          Write-Host "Publisher: $env:PACKAGE_PUBLISHER"
+        displayName: Validate pipeline inputs
+
+      - pwsh: dotnet restore "$env:CLI_PROJECT" --runtime "$env:RUNTIME_IDENTIFIER"
+        displayName: Restore CLI
+
+      - pwsh: |
+          dotnet publish "$env:CLI_PROJECT" `
+            --configuration "$env:CONFIGURATION" `
+            --runtime "$env:RUNTIME_IDENTIFIER" `
+            --self-contained true `
+            --no-restore `
+            -p:ContinuousIntegrationBuild=true `
+            -p:PublishSingleFile=false `
+            -p:PublishTrimmed=false `
+            -o "$env:PACKAGE_ROOT"
+        displayName: Publish CLI
+
+      - pwsh: |
+          function Get-PackageArchitecture {
+            param([string] $RuntimeIdentifier)
+
+            switch ($RuntimeIdentifier) {
+              'win-x64' { return 'x64' }
+              'win-arm64' { return 'arm64' }
+              default { throw "Unsupported runtime identifier '$RuntimeIdentifier'." }
+            }
+          }
+
+          function Get-PackageVersion {
+            if (-not [string]::IsNullOrWhiteSpace($env:PACKAGE_VERSION_INPUT)) {
+              $version = $env:PACKAGE_VERSION_INPUT.Trim()
+            }
+            else {
+              $runNumber = [int]$env:BUILD_BUILDID
+              $buildNumber = $runNumber % 65535
+              if ($buildNumber -eq 0) {
+                $buildNumber = 1
+              }
+
+              $version = "1.0.$buildNumber.0"
+            }
+
+            if ($version -notmatch '^\d{1,5}\.\d{1,5}\.\d{1,5}\.\d{1,5}$') {
+              throw "MSIX package version '$version' must use four numeric components."
+            }
+
+            foreach ($component in $version.Split('.')) {
+              if ([int]$component -gt 65535) {
+                throw "MSIX package version component '$component' is greater than 65535."
+              }
+            }
+
+            return $version
+          }
+
+          $manifestSource = Join-Path $env:BUILD_SOURCESDIRECTORY $env:APPX_MANIFEST
+          $manifestTarget = Join-Path $env:PACKAGE_ROOT 'AppxManifest.xml'
+          Copy-Item $manifestSource $manifestTarget -Force
+
+          $assetsTarget = Join-Path $env:PACKAGE_ROOT 'Assets'
+          New-Item -ItemType Directory -Path $assetsTarget -Force | Out-Null
+          Copy-Item (Join-Path $env:BUILD_SOURCESDIRECTORY 'assets\*.png') $assetsTarget -Force
+
+          [xml] $manifest = Get-Content $manifestTarget
+          $namespaceManager = New-Object System.Xml.XmlNamespaceManager($manifest.NameTable)
+          $namespaceManager.AddNamespace('manifest', 'http://schemas.microsoft.com/appx/manifest/foundation/windows10')
+          $identity = $manifest.SelectSingleNode('/manifest:Package/manifest:Identity', $namespaceManager)
+          if ($null -eq $identity) {
+            throw 'Could not find Package/Identity in AppxManifest.xml.'
+          }
+
+          $identity.SetAttribute('Version', (Get-PackageVersion))
+          $identity.SetAttribute('Publisher', $env:PACKAGE_PUBLISHER)
+          $identity.SetAttribute('ProcessorArchitecture', (Get-PackageArchitecture $env:RUNTIME_IDENTIFIER))
+          $manifest.Save($manifestTarget)
+        displayName: Stage MSIX manifest and assets
+
+      - pwsh: |
+          $windowsKitsBin = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
+          $sdkDirectory = Get-ChildItem $windowsKitsBin -Directory |
+            Sort-Object Name -Descending |
+            Where-Object { Test-Path (Join-Path $_.FullName 'x64\makeappx.exe') } |
+            Select-Object -First 1
+
+          if ($null -eq $sdkDirectory) {
+            throw 'Could not find MakeAppx.exe in the Windows SDK.'
+          }
+
+          $makeAppx = Join-Path $sdkDirectory.FullName 'x64\makeappx.exe'
+          $signTool = Join-Path $sdkDirectory.FullName 'x64\signtool.exe'
+
+          if (-not (Test-Path $signTool)) {
+            throw 'Could not find SignTool.exe in the Windows SDK.'
+          }
+
+          Write-Host "##vso[task.setvariable variable=MAKEAPPX]$makeAppx"
+          Write-Host "##vso[task.setvariable variable=SIGNTOOL]$signTool"
+        displayName: Locate Windows SDK packaging tools
+
+      - pwsh: |
+          $msixPath = Join-Path $env:ARTIFACT_ROOT "$env:PACKAGE_NAME-$env:RUNTIME_IDENTIFIER.msix"
+          & $env:MAKEAPPX pack /d $env:PACKAGE_ROOT /p $msixPath /nv
+          if ($LASTEXITCODE -ne 0) {
+            throw "MakeAppx failed with exit code $LASTEXITCODE."
+          }
+
+          Write-Host "##vso[task.setvariable variable=MSIX_PATH]$msixPath"
+        displayName: Create MSIX package
+
+      - pwsh: |
+          $certificateDirectory = Join-Path $env:ARTIFACT_ROOT 'certificate'
+          New-Item -ItemType Directory -Path $certificateDirectory -Force | Out-Null
+
+          $certificate = New-SelfSignedCertificate `
+            -Type CodeSigningCert `
+            -Subject $env:PACKAGE_PUBLISHER `
+            -CertStoreLocation 'Cert:\CurrentUser\My' `
+            -KeyExportPolicy Exportable `
+            -KeyLength 2048 `
+            -NotAfter (Get-Date).AddYears(1)
+
+          $certificatePath = Join-Path $certificateDirectory 'CirrusDevelopment.cer'
+          Export-Certificate -Cert $certificate -FilePath $certificatePath | Out-Null
+
+          & $env:SIGNTOOL sign /fd SHA256 /s My /sha1 $certificate.Thumbprint $env:MSIX_PATH
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "SignTool failed with exit code $LASTEXITCODE."
+          }
+        displayName: Sign MSIX package
+
+      - task: PublishPipelineArtifact@1
+        displayName: Publish MSIX artifact
+        inputs:
+          targetPath: $(ARTIFACT_ROOT)
+          artifact: cirrus-msix-${{ parameters.runtime_identifier }}
+          publishLocation: pipeline

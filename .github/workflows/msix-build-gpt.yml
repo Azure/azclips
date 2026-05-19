@@ -218,6 +218,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cirrus-msix-${{ inputs.runtime_identifier }}
+          retention-days: 1
           path: |
             ${{ env.ARTIFACT_ROOT }}\*.msix
             ${{ env.ARTIFACT_ROOT }}\certificate\*.cer
