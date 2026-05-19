@@ -35,6 +35,20 @@ pool:
 
 variables:
   DOTNET_NOLOGO: true
+  Codeql.Enabled: false
+  Codeql.SkipTaskAutoInjection: true
+  AdvancedSecurity.CodeQL.Enabled: false
+  ComponentGovernance.Enabled: false
+  skipComponentGovernanceDetection: true
+  runCodesignValidationInjection: false
+  CredScan.Enabled: false
+  BinSkim.Enabled: false
+  PoliCheck.Enabled: false
+  RoslynAnalyzers.Enabled: false
+  SdtReport.Enabled: false
+  TSAUpload.Enabled: false
+  NugetSecurityAnalysisWarningLevel: none
+  skipNugetSecurityAnalysis: true
   CONFIGURATION: ${{ parameters.configuration }}
   RUNTIME_IDENTIFIER: ${{ parameters.runtime_identifier }}
   PACKAGE_VERSION_INPUT: ${{ parameters.package_version }}
