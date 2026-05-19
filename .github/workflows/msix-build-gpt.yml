@@ -34,15 +34,15 @@ permissions:
 
 jobs:
   build-msix:
-    name: Build ${{ inputs.runtime_identifier }} MSIX
+    name: Build ${{ inputs.runtime_identifier || 'win-x64' }} MSIX
     runs-on: windows-latest
 
     env:
       DOTNET_NOLOGO: true
-      CONFIGURATION: ${{ inputs.configuration }}
-      RUNTIME_IDENTIFIER: ${{ inputs.runtime_identifier }}
-      PACKAGE_VERSION_INPUT: ${{ inputs.package_version }}
-      PACKAGE_PUBLISHER: ${{ inputs.publisher }}
+      CONFIGURATION: ${{ inputs.configuration || 'Release' }}
+      RUNTIME_IDENTIFIER: ${{ inputs.runtime_identifier || 'win-x64' }}
+      PACKAGE_VERSION_INPUT: ${{ inputs.package_version || '' }}
+      PACKAGE_PUBLISHER: ${{ inputs.publisher || 'CN=Cirrus Development' }}
       CLI_PROJECT: src/CLI/Core.Cli.csproj
       APPX_MANIFEST: src/CLI/Core.Cli.appxmanifest
       PACKAGE_NAME: azv2
@@ -64,22 +64,37 @@ jobs:
           Remove-Item $env:PACKAGE_ROOT, $env:ARTIFACT_ROOT -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Path $env:PACKAGE_ROOT, $env:ARTIFACT_ROOT -Force | Out-Null
 
+      - name: Validate workflow inputs
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:RUNTIME_IDENTIFIER)) {
+            throw 'runtime_identifier resolved to an empty value.'
+          }
+
+          if ([string]::IsNullOrWhiteSpace($env:CONFIGURATION)) {
+            throw 'configuration resolved to an empty value.'
+          }
+
+          Write-Host "Configuration: $env:CONFIGURATION"
+          Write-Host "Runtime identifier: $env:RUNTIME_IDENTIFIER"
+          Write-Host "Publisher: $env:PACKAGE_PUBLISHER"
+
       - name: Restore CLI
         shell: pwsh
-        run: dotnet restore $env:CLI_PROJECT --runtime $env:RUNTIME_IDENTIFIER
+        run: dotnet restore "$env:CLI_PROJECT" --runtime "$env:RUNTIME_IDENTIFIER"
 
       - name: Publish CLI
         shell: pwsh
         run: |
-          dotnet publish $env:CLI_PROJECT `
-            --configuration $env:CONFIGURATION `
-            --runtime $env:RUNTIME_IDENTIFIER `
+          dotnet publish "$env:CLI_PROJECT" `
+            --configuration "$env:CONFIGURATION" `
+            --runtime "$env:RUNTIME_IDENTIFIER" `
             --self-contained true `
             --no-restore `
             -p:ContinuousIntegrationBuild=true `
             -p:PublishSingleFile=false `
             -p:PublishTrimmed=false `
-            -o $env:PACKAGE_ROOT
+            -o "$env:PACKAGE_ROOT"
 
       - name: Stage MSIX manifest and assets
         shell: pwsh
