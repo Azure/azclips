@@ -1,0 +1,196 @@
+name: msix-build-new
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build-msix:
+    runs-on: windows-latest
+    env:
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "1"
+      DOTNET_NOLOGO: "true"
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      BUILD_CONFIGURATION: Release
+      APP_DISPLAY_NAME: Cirrus CLI
+      APP_PUBLISHER: CN=CirrusDev
+      APP_IDENTITY_NAME: Cirrus.Cli
+      APP_INSTALL_DIR: Cirrus
+      CERT_PASSWORD: Passw0rd!12345
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK from global.json
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        shell: pwsh
+        run: dotnet restore cirrus.slnx
+
+      - name: Publish win-x64 executable
+        shell: pwsh
+        run: |
+          dotnet publish src/CLI/Core.Cli.csproj `
+            -c $env:BUILD_CONFIGURATION `
+            -r win-x64 `
+            --self-contained true `
+            /p:PublishSingleFile=true `
+            /p:IncludeNativeLibrariesForSelfExtract=true `
+            -o "$env:GITHUB_WORKSPACE/out/win-x64"
+
+      - name: Prepare MSIX layout
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $packageRoot = Join-Path $env:GITHUB_WORKSPACE 'out/msix-root'
+          $vfsDir = Join-Path $packageRoot "VFS/ProgramFilesX64/$env:APP_INSTALL_DIR"
+          New-Item -ItemType Directory -Path $vfsDir -Force | Out-Null
+
+          Copy-Item "$env:GITHUB_WORKSPACE/out/win-x64/*" $vfsDir -Recurse -Force
+
+          Copy-Item "$env:GITHUB_WORKSPACE/assets/StoreLogo.png" (Join-Path $packageRoot 'StoreLogo.png') -Force
+          Copy-Item "$env:GITHUB_WORKSPACE/assets/Square44x44Logo.png" (Join-Path $packageRoot 'Square44x44Logo.png') -Force
+          Copy-Item "$env:GITHUB_WORKSPACE/assets/Square150x150Logo.png" (Join-Path $packageRoot 'Square150x150Logo.png') -Force
+
+          $rawRunNumber = [int]::Parse('${{ github.run_number }}')
+          $buildPart = $rawRunNumber % 65535
+          if ($buildPart -eq 0) { $buildPart = 1 }
+          $packageVersion = "1.0.$buildPart.0"
+
+          "PACKAGE_VERSION=$packageVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          $manifestLines = @(
+            '<?xml version="1.0" encoding="utf-8"?>'
+            '<Package'
+            '  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"'
+            '  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"'
+            '  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"'
+            '  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"'
+            '  IgnorableNamespaces="uap desktop rescap">'
+            "  <Identity Name=\"$env:APP_IDENTITY_NAME\" Publisher=\"$env:APP_PUBLISHER\" Version=\"$packageVersion\" />"
+            '  <Properties>'
+            "    <DisplayName>$env:APP_DISPLAY_NAME</DisplayName>"
+            '    <PublisherDisplayName>Cirrus</PublisherDisplayName>'
+            '    <Logo>StoreLogo.png</Logo>'
+            '  </Properties>'
+            '  <Dependencies>'
+            '    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />'
+            '  </Dependencies>'
+            '  <Resources>'
+            '    <Resource Language="en-us" />'
+            '  </Resources>'
+            '  <Applications>'
+            "    <Application Id=\"CirrusCLI\" Executable=\"VFS\\ProgramFilesX64\\$env:APP_INSTALL_DIR\\azv2.exe\" EntryPoint=\"Windows.FullTrustApplication\">"
+            '      <uap:VisualElements'
+            "        DisplayName=\"$env:APP_DISPLAY_NAME\""
+            '        Description="Cirrus command-line interface"'
+            '        Square150x150Logo="Square150x150Logo.png"'
+            '        Square44x44Logo="Square44x44Logo.png"'
+            '        BackgroundColor="transparent" />'
+            '      <Extensions>'
+            "        <desktop:Extension Category=\"windows.fullTrustProcess\" Executable=\"VFS\\ProgramFilesX64\\$env:APP_INSTALL_DIR\\azv2.exe\" />"
+            '      </Extensions>'
+            '    </Application>'
+            '  </Applications>'
+            '  <Capabilities>'
+            '    <rescap:Capability Name="runFullTrust" />'
+            '  </Capabilities>'
+            '</Package>'
+          )
+
+          Set-Content -Path (Join-Path $packageRoot 'AppxManifest.xml') -Value ($manifestLines -join [Environment]::NewLine) -Encoding utf8
+
+      - name: Find Windows SDK tools
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $makeappx = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin\*\x64\makeappx.exe' |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1 -ExpandProperty FullName
+
+          $signtool = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe' |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1 -ExpandProperty FullName
+
+          if (-not $makeappx) { throw 'makeappx.exe was not found on runner.' }
+          if (-not $signtool) { throw 'signtool.exe was not found on runner.' }
+
+          "MAKEAPPX_PATH=$makeappx" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "SIGNTOOL_PATH=$signtool" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Pack MSIX
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $packageRoot = Join-Path $env:GITHUB_WORKSPACE 'out/msix-root'
+          $msixPath = Join-Path $env:GITHUB_WORKSPACE "out/Cirrus-$env:PACKAGE_VERSION-win-x64.msix"
+
+          & "$env:MAKEAPPX_PATH" pack /d "$packageRoot" /p "$msixPath" /o
+
+          if (-not (Test-Path $msixPath)) {
+            throw "MSIX file was not produced: $msixPath"
+          }
+
+          "MSIX_PATH=$msixPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Prepare certificate
+        shell: pwsh
+        env:
+          MSIX_CERT_BASE64: ${{ secrets.MSIX_CERT_BASE64 }}
+          MSIX_CERT_PASSWORD: ${{ secrets.MSIX_CERT_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $certPath = Join-Path $env:GITHUB_WORKSPACE 'out/msix-signing-cert.pfx'
+
+          if ($env:MSIX_CERT_BASE64) {
+            [IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:MSIX_CERT_BASE64))
+            if ($env:MSIX_CERT_PASSWORD) {
+              "CERT_PASSWORD=$env:MSIX_CERT_PASSWORD" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            }
+          }
+          else {
+            $securePassword = ConvertTo-SecureString -String $env:CERT_PASSWORD -AsPlainText -Force
+            $cert = New-SelfSignedCertificate `
+              -Type CodeSigningCert `
+              -Subject $env:APP_PUBLISHER `
+              -KeyExportPolicy Exportable `
+              -KeyLength 2048 `
+              -HashAlgorithm SHA256 `
+              -CertStoreLocation Cert:\CurrentUser\My
+
+            Export-PfxCertificate -Cert $cert -FilePath $certPath -Password $securePassword | Out-Null
+          }
+
+          if (-not (Test-Path $certPath)) {
+            throw "Certificate PFX was not prepared: $certPath"
+          }
+
+          "CERT_PATH=$certPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Sign MSIX
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & "$env:SIGNTOOL_PATH" sign /fd SHA256 /f "$env:CERT_PATH" /p "$env:CERT_PASSWORD" "$env:MSIX_PATH"
+
+      - name: Upload MSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cirrus-msix-win-x64
+          path: |
+            out/*.msix
+            out/msix-signing-cert.pfx
+          if-no-files-found: error
