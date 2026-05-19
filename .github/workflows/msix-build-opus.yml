@@ -13,7 +13,7 @@
 #   * push to main      — produces unsigned dev artifacts
 #   * tag push v*       — produces a (signed if configured) release bundle + .appinstaller
 
-name: msix-build-codex
+name: msix-build-opus
 
 on:
   workflow_dispatch:
