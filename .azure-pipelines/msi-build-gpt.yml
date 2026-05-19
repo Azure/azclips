@@ -1,0 +1,340 @@
+name: msi-build-gpt-$(Date:yyyyMMdd).$(Rev:r)
+
+trigger: none
+pr: none
+
+parameters:
+  - name: configuration
+    displayName: Build configuration
+    type: string
+    default: Release
+    values:
+      - Release
+      - Debug
+
+  - name: runtime_identifier
+    displayName: Windows runtime identifier
+    type: string
+    default: win-x64
+    values:
+      - win-x64
+
+  - name: package_version
+    displayName: Optional MSI version, for example 1.0.25.0
+    type: string
+    default: ''
+
+  - name: publisher
+    displayName: Signing certificate subject
+    type: string
+    default: CN=Cirrus Development
+
+  - name: run_install_test
+    displayName: Install, smoke test, and uninstall MSI
+    type: boolean
+    default: true
+
+pool:
+  vmImage: windows-latest
+
+variables:
+  DOTNET_NOLOGO: true
+  Codeql.Enabled: false
+  Codeql.SkipTaskAutoInjection: true
+  AdvancedSecurity.CodeQL.Enabled: false
+  ComponentGovernance.Enabled: false
+  skipComponentGovernanceDetection: true
+  runCodesignValidationInjection: false
+  CredScan.Enabled: false
+  BinSkim.Enabled: false
+  PoliCheck.Enabled: false
+  RoslynAnalyzers.Enabled: false
+  SdtReport.Enabled: false
+  TSAUpload.Enabled: false
+  NugetSecurityAnalysisWarningLevel: none
+  skipNugetSecurityAnalysis: true
+  CONFIGURATION: ${{ parameters.configuration }}
+  RUNTIME_IDENTIFIER: ${{ parameters.runtime_identifier }}
+  PACKAGE_VERSION_INPUT: ${{ parameters.package_version }}
+  PACKAGE_PUBLISHER: ${{ parameters.publisher }}
+  CLI_PROJECT: src/CLI/Core.Cli.csproj
+  PACKAGE_NAME: azv2
+  PRODUCT_NAME: Cirrus CLI
+  MANUFACTURER: Cirrus Development
+  UPGRADE_CODE: D71E4F9B-A5D8-4F16-A0A3-E0D74BB989B8
+  PATH_COMPONENT_GUID: '{63C2D387-1A8D-4025-B83D-AF7321222436}'
+  PUBLISH_ROOT: $(Pipeline.Workspace)\msi\publish
+  WIX_ROOT: $(Pipeline.Workspace)\msi\wix
+  ARTIFACT_ROOT: $(Build.ArtifactStagingDirectory)\msi\out
+
+jobs:
+  - job: build_msi
+    displayName: Build ${{ parameters.runtime_identifier }} MSI
+    steps:
+      - checkout: self
+        clean: true
+
+      - task: UseDotNet@2
+        displayName: Setup .NET SDK
+        inputs:
+          packageType: sdk
+          useGlobalJson: true
+          workingDirectory: $(Build.SourcesDirectory)
+
+      - pwsh: |
+          Remove-Item $env:PUBLISH_ROOT, $env:WIX_ROOT, $env:ARTIFACT_ROOT -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $env:PUBLISH_ROOT, $env:WIX_ROOT, $env:ARTIFACT_ROOT -Force | Out-Null
+        displayName: Prepare package directories
+
+      - pwsh: |
+          if ([string]::IsNullOrWhiteSpace($env:RUNTIME_IDENTIFIER)) {
+            throw 'runtime_identifier resolved to an empty value.'
+          }
+
+          if ([string]::IsNullOrWhiteSpace($env:CONFIGURATION)) {
+            throw 'configuration resolved to an empty value.'
+          }
+
+          if ($env:RUNTIME_IDENTIFIER -ne 'win-x64') {
+            throw "This MSI pipeline currently supports win-x64 only. Received '$env:RUNTIME_IDENTIFIER'."
+          }
+
+          Write-Host "Configuration: $env:CONFIGURATION"
+          Write-Host "Runtime identifier: $env:RUNTIME_IDENTIFIER"
+          Write-Host "Publisher: $env:PACKAGE_PUBLISHER"
+        displayName: Validate pipeline inputs
+
+      - pwsh: dotnet restore "$env:CLI_PROJECT" --runtime "$env:RUNTIME_IDENTIFIER"
+        displayName: Restore CLI
+
+      - pwsh: |
+          dotnet publish "$env:CLI_PROJECT" `
+            --configuration "$env:CONFIGURATION" `
+            --runtime "$env:RUNTIME_IDENTIFIER" `
+            --self-contained true `
+            --no-restore `
+            -p:ContinuousIntegrationBuild=true `
+            -p:PublishSingleFile=false `
+            -p:PublishTrimmed=false `
+            -o "$env:PUBLISH_ROOT"
+        displayName: Publish CLI
+
+      - pwsh: |
+          choco install wixtoolset -y --no-progress
+
+          $wixDirectory = Get-ChildItem ${env:ProgramFiles(x86)} -Directory -Filter 'WiX Toolset v3*' |
+            Sort-Object Name -Descending |
+            Select-Object -First 1
+
+          if ($null -eq $wixDirectory) {
+            throw 'WiX Toolset v3 was not found after installation.'
+          }
+
+          $wixBin = Join-Path $wixDirectory.FullName 'bin'
+          $heat = Join-Path $wixBin 'heat.exe'
+          $candle = Join-Path $wixBin 'candle.exe'
+          $light = Join-Path $wixBin 'light.exe'
+
+          foreach ($tool in @($heat, $candle, $light)) {
+            if (-not (Test-Path $tool)) {
+              throw "Required WiX tool was not found: $tool"
+            }
+          }
+
+          Write-Host "##vso[task.setvariable variable=HEAT]$heat"
+          Write-Host "##vso[task.setvariable variable=CANDLE]$candle"
+          Write-Host "##vso[task.setvariable variable=LIGHT]$light"
+        displayName: Install WiX Toolset
+
+      - pwsh: |
+          function Get-PackageVersion {
+            if (-not [string]::IsNullOrWhiteSpace($env:PACKAGE_VERSION_INPUT)) {
+              $version = $env:PACKAGE_VERSION_INPUT.Trim()
+            }
+            else {
+              $runNumber = [int]$env:BUILD_BUILDID
+              $buildNumber = $runNumber % 65535
+              if ($buildNumber -eq 0) {
+                $buildNumber = 1
+              }
+
+              $version = "1.0.$buildNumber.0"
+            }
+
+            if ($version -notmatch '^\d{1,5}\.\d{1,5}\.\d{1,5}\.\d{1,5}$') {
+              throw "MSI package version '$version' must use four numeric components."
+            }
+
+            foreach ($component in $version.Split('.')) {
+              if ([int]$component -gt 65535) {
+                throw "MSI package version component '$component' is greater than 65535."
+              }
+            }
+
+            return $version
+          }
+
+          $version = Get-PackageVersion
+          $harvestPath = Join-Path $env:WIX_ROOT 'PublishedFiles.wxs'
+          $productPath = Join-Path $env:WIX_ROOT 'Product.wxs'
+          $msiPath = Join-Path $env:ARTIFACT_ROOT "$env:PACKAGE_NAME-$env:RUNTIME_IDENTIFIER.msi"
+
+          & $env:HEAT dir "$env:PUBLISH_ROOT" `
+            -cg PublishedFiles `
+            -dr INSTALLFOLDER `
+            -srd `
+            -sfrag `
+            -sreg `
+            -gg `
+            -var var.PublishRoot `
+            -out "$harvestPath"
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "heat.exe failed with exit code $LASTEXITCODE."
+          }
+
+          $harvestContent = Get-Content $harvestPath -Raw
+          $harvestContent = $harvestContent -replace '<Component Id="([^"]+)" Guid="([^"]+)">', '<Component Id="$1" Guid="$2" Win64="yes">'
+          Set-Content -Path $harvestPath -Value $harvestContent -Encoding utf8
+
+          $wixProductName = '$' + '(var.ProductName)'
+          $wixProductVersion = '$' + '(var.ProductVersion)'
+          $wixManufacturer = '$' + '(var.Manufacturer)'
+          $wixUpgradeCode = '$' + '(var.UpgradeCode)'
+          $wixPathComponentGuid = '$' + '(var.PathComponentGuid)'
+
+          $productXml = @(
+            '<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">',
+            '  <Product Id="*"',
+            "           Name=`"$wixProductName`"",
+            '           Language="1033"',
+            "           Version=`"$wixProductVersion`"",
+            "           Manufacturer=`"$wixManufacturer`"",
+            "           UpgradeCode=`"$wixUpgradeCode`">",
+            '    <Package InstallerVersion="500" Compressed="yes" InstallScope="perMachine" Platform="x64" />',
+            '    <MajorUpgrade AllowSameVersionUpgrades="yes"',
+            '                  DowngradeErrorMessage="A later version of [ProductName] is already installed." />',
+            '    <MediaTemplate EmbedCab="yes" />',
+            '    <Property Id="ARPNOMODIFY" Value="1" />',
+            '',
+            '    <Directory Id="TARGETDIR" Name="SourceDir">',
+            '      <Directory Id="ProgramFiles64Folder">',
+            '        <Directory Id="INSTALLFOLDER" Name="Cirrus CLI" />',
+            '      </Directory>',
+            '    </Directory>',
+            '',
+            '    <DirectoryRef Id="INSTALLFOLDER">',
+            "      <Component Id=`"PathEnvironment`" Guid=`"$wixPathComponentGuid`" Win64=`"yes`">",
+            '        <RegistryValue Root="HKLM" Key="Software\Cirrus CLI" Name="InstallDir" Type="string" Value="[INSTALLFOLDER]" KeyPath="yes" />',
+            '        <Environment Id="AddInstallFolderToPath" Name="PATH" Value="[INSTALLFOLDER]" Permanent="no" Part="last" Action="set" System="yes" />',
+            '      </Component>',
+            '    </DirectoryRef>',
+            '',
+            "    <Feature Id=`"MainFeature`" Title=`"$wixProductName`" Level=`"1`">",
+            '      <ComponentGroupRef Id="PublishedFiles" />',
+            '      <ComponentRef Id="PathEnvironment" />',
+            '    </Feature>',
+            '  </Product>',
+            '</Wix>'
+          )
+          $productXml | Set-Content -Path $productPath -Encoding utf8
+
+          & $env:CANDLE `
+            -arch x64 `
+            -dPublishRoot="$env:PUBLISH_ROOT" `
+            -dProductName="$env:PRODUCT_NAME" `
+            -dProductVersion="$version" `
+            -dManufacturer="$env:MANUFACTURER" `
+            -dUpgradeCode="$env:UPGRADE_CODE" `
+            -dPathComponentGuid="$env:PATH_COMPONENT_GUID" `
+            -out "$env:WIX_ROOT\" `
+            "$productPath" `
+            "$harvestPath"
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "candle.exe failed with exit code $LASTEXITCODE."
+          }
+
+          $wixObjects = Get-ChildItem $env:WIX_ROOT -Filter *.wixobj | ForEach-Object { $_.FullName }
+          & $env:LIGHT -out "$msiPath" $wixObjects
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "light.exe failed with exit code $LASTEXITCODE."
+          }
+
+          Write-Host "##vso[task.setvariable variable=MSI_PATH]$msiPath"
+          Write-Host "##vso[task.setvariable variable=PACKAGE_VERSION]$version"
+        displayName: Build MSI with WiX
+
+      - pwsh: |
+          $certificateDirectory = Join-Path $env:ARTIFACT_ROOT 'certificate'
+          New-Item -ItemType Directory -Path $certificateDirectory -Force | Out-Null
+
+          $certificate = New-SelfSignedCertificate `
+            -Type CodeSigningCert `
+            -Subject $env:PACKAGE_PUBLISHER `
+            -CertStoreLocation 'Cert:\CurrentUser\My' `
+            -KeyExportPolicy Exportable `
+            -KeyLength 2048 `
+            -NotAfter (Get-Date).AddYears(1)
+
+          $certificatePath = Join-Path $certificateDirectory 'CirrusDevelopment.cer'
+          Export-Certificate -Cert $certificate -FilePath $certificatePath | Out-Null
+          Import-Certificate -FilePath $certificatePath -CertStoreLocation 'Cert:\CurrentUser\Root' | Out-Null
+          Import-Certificate -FilePath $certificatePath -CertStoreLocation 'Cert:\CurrentUser\TrustedPublisher' | Out-Null
+
+          $windowsKitsBin = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
+          $sdkDirectory = Get-ChildItem $windowsKitsBin -Directory |
+            Sort-Object Name -Descending |
+            Where-Object { Test-Path (Join-Path $_.FullName 'x64\signtool.exe') } |
+            Select-Object -First 1
+
+          if ($null -eq $sdkDirectory) {
+            throw 'Could not find SignTool.exe in the Windows SDK.'
+          }
+
+          $signTool = Join-Path $sdkDirectory.FullName 'x64\signtool.exe'
+          & $signTool sign /fd SHA256 /s My /sha1 $certificate.Thumbprint $env:MSI_PATH
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "SignTool failed with exit code $LASTEXITCODE."
+          }
+        displayName: Sign MSI package
+
+      - pwsh: |
+          $signature = Get-AuthenticodeSignature -FilePath $env:MSI_PATH
+          Write-Host "MSI signature status: $($signature.Status)"
+          if ($signature.Status -ne 'Valid') {
+            throw "MSI signature is not valid. Status: $($signature.Status)"
+          }
+        displayName: Validate MSI signature
+
+      - ${{ if eq(parameters.run_install_test, true) }}:
+        - pwsh: |
+            $logDirectory = Join-Path $env:ARTIFACT_ROOT 'logs'
+            New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
+            $installLog = Join-Path $logDirectory 'install.log'
+            $uninstallLog = Join-Path $logDirectory 'uninstall.log'
+            $installPath = Join-Path ${env:ProgramFiles} 'Cirrus CLI'
+            $installedExe = Join-Path $installPath 'azv2.exe'
+
+            Start-Process msiexec.exe -ArgumentList "/i `"$env:MSI_PATH`" /quiet /norestart /L*V `"$installLog`"" -Wait -NoNewWindow
+            if (-not (Test-Path $installedExe)) {
+              throw "Installed executable was not found: $installedExe"
+            }
+
+            & $installedExe --help
+
+            Start-Process msiexec.exe -ArgumentList "/x `"$env:MSI_PATH`" /quiet /norestart /L*V `"$uninstallLog`"" -Wait -NoNewWindow
+            if (Test-Path $installedExe) {
+              throw "Installed executable still exists after uninstall: $installedExe"
+            }
+          displayName: Install, smoke test, and uninstall MSI
+
+      - task: PublishPipelineArtifact@1
+        displayName: Publish MSI artifact
+        condition: always()
+        inputs:
+          targetPath: $(ARTIFACT_ROOT)
+          artifact: cirrus-msi-${{ parameters.runtime_identifier }}
+          publishLocation: pipeline

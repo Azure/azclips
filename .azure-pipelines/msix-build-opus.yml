@@ -262,14 +262,20 @@ stages:
           # Swap this for the Azure Trusted Signing task when ready.
           # ------------------------------------------------------------------
           - powershell: |
-              if ([string]::IsNullOrEmpty($env:SIGN_PFX_B64) -or [string]::IsNullOrEmpty($env:SIGN_PFX_PWD)) {
-                Write-Host "##vso[task.logissue type=warning]Signing skipped — Base64_Encoded_Pfx / Pfx_Key pipeline variables not set. Bundle is UNSIGNED and cannot be installed without sideload trust."
+              $b64 = $env:SIGN_PFX_B64
+              $pwd = $env:SIGN_PFX_PWD
+              # Treat unset/empty/whitespace OR unexpanded macro literals as "not configured".
+              if ([string]::IsNullOrWhiteSpace($b64) -or [string]::IsNullOrWhiteSpace($pwd) `
+                  -or $b64 -like '*$(*)*' -or $pwd -like '*$(*)*') {
+                Write-Host "##vso[task.logissue type=warning]Signing skipped - Base64_Encoded_Pfx / Pfx_Key pipeline variables not set. Bundle is UNSIGNED and cannot be installed without sideload trust."
                 exit 0
               }
+              # Strip whitespace/newlines that can sneak in when pasting base64.
+              $b64 = ($b64 -replace '\s','')
               $pfx = "signing.pfx"
-              [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:SIGN_PFX_B64))
+              [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($b64))
               & "$(SIGNTOOL)" sign `
-                /f $pfx /p $env:SIGN_PFX_PWD `
+                /f $pfx /p $pwd `
                 /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 `
                 "$(BUNDLE_PATH)"
               $rc = $LASTEXITCODE
