@@ -1,4 +1,4 @@
-name: msix-build-new
+name: msix-build-codex
 
 on:
   workflow_dispatch:
