@@ -1,6 +1,9 @@
 name: msix-build-gpt
 
 on:
+  push:
+    branches:
+      - naga/test-pr
   workflow_dispatch:
     inputs:
       configuration:
