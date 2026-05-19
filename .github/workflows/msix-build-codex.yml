@@ -2,13 +2,6 @@ name: msix-build-codex
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - naga/test-pr
-      - main
-      - master
-    tags:
-      - "v*"
 
 permissions:
   contents: read

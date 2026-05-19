@@ -9,9 +9,8 @@
 #   * Self-contained job graph — does not depend on build.yml
 #
 # Triggers:
-#   * workflow_dispatch — manual, with knobs for version / WACK / signing
-#   * push to main      — produces unsigned dev artifacts
-#   * tag push v*       — produces a (signed if configured) release bundle + .appinstaller
+#   * workflow_dispatch — manual only, with knobs for version / WACK / signing.
+#     Dispatch from a `v*` tag ref to produce a release bundle + .appinstaller + GitHub Release.
 
 name: msix-build-opus
 
@@ -28,17 +27,9 @@ on:
         default: "false"
         type: choice
         options: ["true", "false"]
-  push:
-    branches: [ "main", "naga/test-pr" ]
-    tags:     [ "v*" ]
-    paths:
-      - "src/**"
-      - "Shared.props"
-      - "global.json"
-      - ".github/workflows/msix-build-opus.yml"
 
 permissions:
-  contents: write   # needed for release upload on tag pushes
+  contents: write   # needed for release upload when dispatched from a tag ref
 
 env:
   CLI_PROJECT: src/CLI/Core.Cli.csproj
