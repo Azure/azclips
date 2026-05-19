@@ -45,8 +45,13 @@ class AppState
     public string Prompt { get; private set; } = "/ > ";
     public bool ShowHelp { get; set; }
     public string GitBranch { get; private set; } = "";
-    public bool IsRunning => _processService.IsRunning;
-    public int ElapsedSeconds => _processService.ElapsedSeconds;
+    public bool IsRunning => _processService.IsRunning || _vfsRunning;
+    public int ElapsedSeconds => _vfsRunning
+        ? (int)_vfsStopwatch.Elapsed.TotalSeconds
+        : _processService.ElapsedSeconds;
+    private bool _vfsRunning;
+    private readonly System.Diagnostics.Stopwatch _vfsStopwatch = new();
+    private CancellationTokenSource? _vfsCts;
     public Action? Invalidate { get; set; }
     public Action? RequestStop { get; set; }
 
@@ -182,7 +187,7 @@ class AppState
 
     public void RefreshGitBranch()
     {
-        GitBranch = PromptService.GetGitBranch();
+        GitBranch = PromptService.GetGitBranch(LocalCwd);
     }
 
     // ── Suggestions (delegated to CompletionService) ─────────────────
@@ -241,6 +246,7 @@ class AppState
                 CursorPos = 0;
                 OutputScrollOffset = 0;
                 UpdateSuggestions();
+                RefreshGitBranch();
                 return;
             }
             AddHistory(new HistoryEntry(HistoryItemType.Error, $"Unknown command: {command}"));
@@ -331,7 +337,11 @@ class AppState
     /// <summary>
     /// Cancel the currently running process (Ctrl+C / Escape).
     /// </summary>
-    public void CancelRunning() => _processService.Cancel();
+    public void CancelRunning()
+    {
+        _processService.Cancel();
+        _vfsCts?.Cancel();
+    }
 
     private void OnProcessLine(HistoryItemType type, string text)
     {
@@ -403,13 +413,29 @@ class AppState
 
     private async Task RunVfsAsync(Func<Task> action)
     {
+        _vfsCts = new CancellationTokenSource();
+        _vfsRunning = true;
+        _vfsStopwatch.Restart();
+        Invalidate?.Invoke();
         try
         {
             await action();
+            _vfsCts.Token.ThrowIfCancellationRequested();
+        }
+        catch (OperationCanceledException)
+        {
+            AddHistory(new HistoryEntry(HistoryItemType.Info, "Cancelled."));
         }
         catch (Exception ex)
         {
             AddHistory(new HistoryEntry(HistoryItemType.Error, ex.Message));
+        }
+        finally
+        {
+            _vfsRunning = false;
+            _vfsStopwatch.Stop();
+            _vfsCts.Dispose();
+            _vfsCts = null;
         }
         AddHistory(new HistoryEntry(HistoryItemType.Separator, ""));
         OutputScrollOffset = 0;

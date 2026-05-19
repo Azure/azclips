@@ -5,7 +5,7 @@
 using System;
 using System.Reflection;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     public sealed class StringLikeConverter : IJsonConverter
     {
@@ -43,3 +43,7 @@ namespace Extensions.Runtime.Json
         }
     }
 }
+
+
+
+

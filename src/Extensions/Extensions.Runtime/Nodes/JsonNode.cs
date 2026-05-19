@@ -6,7 +6,7 @@ using System;
 using System.IO;
 using System.Text;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     
 
@@ -248,3 +248,7 @@ namespace Extensions.Runtime.Json
         #endregion
     }
 }
+
+
+
+

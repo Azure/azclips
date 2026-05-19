@@ -7,7 +7,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     public partial class JsonObject : JsonNode, IDictionary<string, JsonNode>
     {
@@ -170,3 +170,7 @@ namespace Extensions.Runtime.Json
         #endregion
     }
 }
+
+
+
+

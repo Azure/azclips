@@ -24,9 +24,19 @@ public abstract class BenchmarkBase
 
 
     /// <summary>
-    /// Initialize stub HTTP and find repo root.
+    /// Initialize repo root (one-time setup).
     /// </summary>
     protected void InitializeCommon()
+    {
+        RepoRoot = RepoLocator.GetRepoRoot();
+    }
+
+    /// <summary>
+    /// Registers stub DI overrides for benchmark isolation.
+    /// Call before each iteration since <see cref="CirrusServiceProvider.Dispose"/>
+    /// clears all registrations.
+    /// </summary>
+    protected void RegisterBenchmarkStubs()
     {
         CirrusServiceProvider.OverrideRegistration(services =>
         {
@@ -35,12 +45,10 @@ public abstract class BenchmarkBase
             services.AddSingleton<IAuthContextService, StubAuthContextService>();
             services.AddSingleton<IAuthService, StubAuthService>();
         });
-
-        RepoRoot = RepoLocator.GetRepoRoot();
     }
 
     /// <summary>
-    /// Cleanup stub HTTP override and dispose DI container.
+    /// Cleanup: dispose DI container (also clears registrations).
     /// </summary>
     protected void CleanupCommon()
     {

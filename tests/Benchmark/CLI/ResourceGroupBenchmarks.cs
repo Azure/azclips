@@ -14,6 +14,7 @@ namespace Benchmark.CLI;
 [WarmupCount(1)]
 [IterationCount(5)]
 [InProcess]
+[InvocationCount(1)]
 
 public class ResourceGroupBenchmarks : BenchmarkBase
 {
@@ -22,6 +23,12 @@ public class ResourceGroupBenchmarks : BenchmarkBase
     {
         InitializeCommon();
         Console.WriteLine("[Setup] CLI benchmarks ready (stub HTTP)");
+    }
+
+    [IterationSetup]
+    public void IterationSetup()
+    {
+        RegisterBenchmarkStubs();
     }
 
     [GlobalCleanup]

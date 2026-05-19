@@ -6,7 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     public class JsonParser : IDisposable
     {
@@ -178,3 +178,7 @@ namespace Extensions.Runtime.Json
         #endregion
     }
 }
+
+
+
+

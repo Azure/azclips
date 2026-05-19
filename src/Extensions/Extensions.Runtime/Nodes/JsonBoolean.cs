@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 using System;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     internal sealed partial class JsonBoolean : JsonNode
     {
@@ -40,3 +40,7 @@ namespace Extensions.Runtime.Json
         #endregion
     }
 }
+
+
+
+

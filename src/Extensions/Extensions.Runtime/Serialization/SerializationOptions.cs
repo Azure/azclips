@@ -5,7 +5,7 @@
 using System;
 using System.Linq;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     internal class SerializationOptions
     {
@@ -63,3 +63,7 @@ namespace Extensions.Runtime.Json
         }
     }
 }
+
+
+
+

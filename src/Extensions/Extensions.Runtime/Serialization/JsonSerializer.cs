@@ -6,7 +6,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     internal class JsonSerializer
     {
@@ -348,3 +348,7 @@ namespace Extensions.Runtime.Json
         #endregion
     }
 }
+
+
+
+

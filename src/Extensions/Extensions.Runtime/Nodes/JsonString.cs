@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 using System;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     public sealed partial class JsonString : JsonNode, IEquatable<JsonString>
     {
@@ -40,3 +40,7 @@ namespace Extensions.Runtime.Json
         #endregion
     }
 }
+
+
+
+

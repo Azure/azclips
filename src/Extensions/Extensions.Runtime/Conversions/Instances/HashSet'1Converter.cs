@@ -5,7 +5,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     public sealed class HashSetConverter<T> : JsonConverter<HashSet<T>>
     {
@@ -25,3 +25,7 @@ namespace Extensions.Runtime.Json
         }
     }
 }
+
+
+
+

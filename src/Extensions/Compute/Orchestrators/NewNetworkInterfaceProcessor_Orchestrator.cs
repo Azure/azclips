@@ -1,13 +1,9 @@
 using System.Net.Http.Json;
-using System.Text.Json;
-using Core.Abstractions;
-using Core.Abstractions.Runtime;
-using Extensions.Runtime;
 using Microsoft.Azure.Cirrus.Extensions.Compute.Models;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors;
 
-public class NewNetworkInterfaceProcessor_Combined : ComputeProcessorBase<NetworkInterface>
+public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<NetworkInterface>
 {
     public string Name { get; set; } = string.Empty;
     public string Location { get; set; } = string.Empty;

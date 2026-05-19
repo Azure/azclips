@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 using System;
 
-namespace Extensions.Runtime.Json
+namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
 {
     internal class ConversionException : Exception
     {
@@ -15,3 +15,7 @@ namespace Extensions.Runtime.Json
             : base($"Cannot convert '{node.Type}' to a {targetType.Name}") { }
     }
 }
+
+
+
+
