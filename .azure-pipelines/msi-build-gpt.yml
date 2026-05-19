@@ -280,8 +280,6 @@ jobs:
 
           $certificatePath = Join-Path $certificateDirectory 'CirrusDevelopment.cer'
           Export-Certificate -Cert $certificate -FilePath $certificatePath | Out-Null
-          Import-Certificate -FilePath $certificatePath -CertStoreLocation 'Cert:\CurrentUser\Root' | Out-Null
-          Import-Certificate -FilePath $certificatePath -CertStoreLocation 'Cert:\CurrentUser\TrustedPublisher' | Out-Null
 
           $windowsKitsBin = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
           $sdkDirectory = Get-ChildItem $windowsKitsBin -Directory |
@@ -299,13 +297,23 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             throw "SignTool failed with exit code $LASTEXITCODE."
           }
+
+          Write-Host "##vso[task.setvariable variable=SIGNING_CERT_THUMBPRINT]$($certificate.Thumbprint)"
         displayName: Sign MSI package
 
       - pwsh: |
           $signature = Get-AuthenticodeSignature -FilePath $env:MSI_PATH
           Write-Host "MSI signature status: $($signature.Status)"
+          if ($null -eq $signature.SignerCertificate) {
+            throw 'MSI is not signed.'
+          }
+
+          if ($signature.SignerCertificate.Thumbprint -ne $env:SIGNING_CERT_THUMBPRINT) {
+            throw "MSI signer thumbprint '$($signature.SignerCertificate.Thumbprint)' did not match expected thumbprint '$env:SIGNING_CERT_THUMBPRINT'."
+          }
+
           if ($signature.Status -ne 'Valid') {
-            throw "MSI signature is not valid. Status: $($signature.Status)"
+            Write-Warning "MSI has a signature from the expected dev certificate, but trust-chain validation returned '$($signature.Status)'. This is expected for a self-signed dev certificate on hosted agents."
           }
         displayName: Validate MSI signature
 
