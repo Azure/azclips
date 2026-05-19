@@ -1,0 +1,335 @@
+# Build a multi-architecture MSIX bundle for the Cirrus CLI (`azv2`).
+#
+# Improvements over .github/workflows/build.yml:
+#   * Multi-arch matrix (x64 + arm64) bundled into a single .msixbundle
+#   * Automated version stamping (manifest + assembly) from the run number
+#   * Optional signing (skipped unless PFX secrets are present)
+#   * Optional Windows App Certification Kit (WACK) validation
+#   * Generates an .appinstaller for auto-update distribution
+#   * Self-contained job graph — does not depend on build.yml
+#
+# Triggers:
+#   * workflow_dispatch — manual, with knobs for version / WACK / signing
+#   * push to main      — produces unsigned dev artifacts
+#   * tag push v*       — produces a (signed if configured) release bundle + .appinstaller
+
+name: msix-build-codex
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "4-part version (e.g. 1.0.123.0). Leave blank to auto-derive from run number."
+        required: false
+        default: ""
+      run_wack:
+        description: "Run Windows App Certification Kit validation"
+        required: false
+        default: "false"
+        type: choice
+        options: ["true", "false"]
+  push:
+    branches: [ "main", "naga/test-pr" ]
+    tags:     [ "v*" ]
+    paths:
+      - "src/**"
+      - "Shared.props"
+      - "global.json"
+      - ".github/workflows/msix-build-opus.yml"
+
+permissions:
+  contents: write   # needed for release upload on tag pushes
+
+env:
+  CLI_PROJECT: src/CLI/Core.Cli.csproj
+  EXT_PROJECT: src/Extensions/Extension/Extensions.Extension.csproj
+  APPX_MANIFEST: src/CLI/Core.Cli.appxmanifest
+  ASSETS_DIR: assets
+  PACKAGE_NAME: cirrus-cli
+
+jobs:
+  # ----------------------------------------------------------------------------
+  # 1. Compute version once so every arch stamps the same value.
+  # ----------------------------------------------------------------------------
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.calc.outputs.version }}
+    steps:
+      - id: calc
+        shell: bash
+        run: |
+          if [[ -n "${{ github.event.inputs.version }}" ]]; then
+            v="${{ github.event.inputs.version }}"
+          elif [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            # strip leading v, ensure 4 parts
+            raw="${GITHUB_REF#refs/tags/v}"
+            IFS='.' read -ra parts <<< "$raw"
+            while [ ${#parts[@]} -lt 4 ]; do parts+=("0"); done
+            v="${parts[0]}.${parts[1]}.${parts[2]}.${parts[3]}"
+          else
+            v="1.0.${GITHUB_RUN_NUMBER}.0"
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $v"
+
+  # ----------------------------------------------------------------------------
+  # 2. Build a self-contained publish + per-arch .msix.
+  # ----------------------------------------------------------------------------
+  build-msix:
+    needs: version
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [ x64, arm64 ]
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      RID: win-${{ matrix.arch }}
+      CONFIGURATION: Release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Stamp version in manifest
+        shell: pwsh
+        run: |
+          $manifest = "${{ env.APPX_MANIFEST }}"
+          $xml = [xml](Get-Content $manifest)
+          $xml.Package.Identity.Version = "${{ env.VERSION }}"
+          # Per-arch identity so each .msix carries the right ProcessorArchitecture
+          $xml.Package.Identity.ProcessorArchitecture = "${{ matrix.arch }}"
+          $xml.Save((Resolve-Path $manifest))
+          Write-Host "Stamped manifest version=${{ env.VERSION }} arch=${{ matrix.arch }}"
+
+      - name: Restore
+        run: dotnet restore cirrus.slnx
+
+      - name: Publish CLI (self-contained, $env:RID)
+        run: >
+          dotnet publish ${{ env.CLI_PROJECT }}
+          -c ${{ env.CONFIGURATION }}
+          -r ${{ env.RID }}
+          --self-contained true
+          -p:Version=${{ env.VERSION }}
+          -p:AssemblyVersion=${{ env.VERSION }}
+          -p:FileVersion=${{ env.VERSION }}
+          -o publish/${{ env.RID }}
+
+      - name: Publish Extension
+        run: >
+          dotnet publish ${{ env.EXT_PROJECT }}
+          -c ${{ env.CONFIGURATION }}
+          -r ${{ env.RID }}
+          -o publish/${{ env.RID }}/Extensions/Extension
+
+      - name: Stage MSIX layout (manifest + assets)
+        shell: pwsh
+        run: |
+          Copy-Item "${{ env.APPX_MANIFEST }}" "publish/${{ env.RID }}/AppxManifest.xml" -Force
+          if (Test-Path "${{ env.ASSETS_DIR }}") {
+            $dest = "publish/${{ env.RID }}/Assets"
+            New-Item -ItemType Directory -Force -Path $dest | Out-Null
+            Copy-Item "${{ env.ASSETS_DIR }}/*" $dest -Recurse -Force
+          } else {
+            Write-Warning "Assets dir '${{ env.ASSETS_DIR }}' not found — manifest may reference missing logos."
+          }
+
+      - name: Locate Windows 10 SDK tooling
+        id: sdk
+        shell: pwsh
+        run: |
+          $root = Join-Path "${env:ProgramFiles(x86)}" "Windows Kits\10\bin"
+          $bin = Get-ChildItem $root -Directory |
+            Where-Object { $_.Name -match '^10\.' } |
+            Sort-Object Name -Descending |
+            Select-Object -First 1
+          if (-not $bin) { throw "No Windows 10 SDK found under $root" }
+          # MakeAppx / signtool run on the host (x64), regardless of target arch.
+          $hostTools = Join-Path $bin.FullName 'x64'
+          "makeappx=$hostTools\MakeAppx.exe"   | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "signtool=$hostTools\signtool.exe"   | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "appcert=${env:ProgramFiles(x86)}\Windows Kits\10\App Certification Kit\appcert.exe" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Pack MSIX
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path bin/${{ env.CONFIGURATION }} | Out-Null
+          $out = "bin/${{ env.CONFIGURATION }}/${{ env.PACKAGE_NAME }}-${{ env.VERSION }}-${{ matrix.arch }}.msix"
+          & "${{ steps.sdk.outputs.makeappx }}" pack /d "publish/${{ env.RID }}" /p "$out" /nv
+          if ($LASTEXITCODE -ne 0) { throw "MakeAppx failed ($LASTEXITCODE)" }
+          Write-Host "Produced: $out"
+
+      - name: Upload per-arch MSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: msix-${{ matrix.arch }}
+          path: bin/${{ env.CONFIGURATION }}/*.msix
+          if-no-files-found: error
+
+  # ----------------------------------------------------------------------------
+  # 3. Combine per-arch MSIX files into a single .msixbundle, optionally sign,
+  #    optionally validate with WACK, and (on tags) generate .appinstaller +
+  #    publish a GitHub Release.
+  # ----------------------------------------------------------------------------
+  bundle-sign-release:
+    needs: [ version, build-msix ]
+    runs-on: windows-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      CONFIGURATION: Release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download per-arch MSIX artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: msix-*
+          path: incoming
+          merge-multiple: true
+
+      - name: Stage MSIX files for bundling
+        shell: pwsh
+        run: |
+          $stage = "bundle-input"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Get-ChildItem incoming -Recurse -Filter *.msix | ForEach-Object {
+            Copy-Item $_.FullName (Join-Path $stage $_.Name) -Force
+          }
+          Get-ChildItem $stage
+
+      - name: Locate SDK tooling
+        id: sdk
+        shell: pwsh
+        run: |
+          $root = Join-Path "${env:ProgramFiles(x86)}" "Windows Kits\10\bin"
+          $bin = Get-ChildItem $root -Directory |
+            Where-Object { $_.Name -match '^10\.' } |
+            Sort-Object Name -Descending |
+            Select-Object -First 1
+          $hostTools = Join-Path $bin.FullName 'x64'
+          "makeappx=$hostTools\MakeAppx.exe" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "signtool=$hostTools\signtool.exe" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "appcert=${env:ProgramFiles(x86)}\Windows Kits\10\App Certification Kit\appcert.exe" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Create .msixbundle
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "bin/${{ env.CONFIGURATION }}" | Out-Null
+          $out = "bin/${{ env.CONFIGURATION }}/${{ env.PACKAGE_NAME }}-${{ env.VERSION }}.msixbundle"
+          & "${{ steps.sdk.outputs.makeappx }}" bundle /d bundle-input /p "$out" /bv ${{ env.VERSION }}
+          if ($LASTEXITCODE -ne 0) { throw "MakeAppx bundle failed ($LASTEXITCODE)" }
+          "BUNDLE_PATH=$out" | Out-File -FilePath $env:GITHUB_ENV -Append
+          Write-Host "Bundle: $out"
+
+      # ------------------------------------------------------------------
+      # Signing — runs only when both secrets are present.
+      # Swap this block for the Azure Trusted Signing action when ready:
+      #   - uses: azure/trusted-signing-action@v0.5.1 ...
+      # ------------------------------------------------------------------
+      - name: Sign bundle (PFX, if configured)
+        if: ${{ env.SIGN_PFX_B64 != '' && env.SIGN_PFX_PWD != '' }}
+        env:
+          SIGN_PFX_B64: ${{ secrets.Base64_Encoded_Pfx }}
+          SIGN_PFX_PWD: ${{ secrets.Pfx_Key }}
+        shell: pwsh
+        run: |
+          $pfx = "signing.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:SIGN_PFX_B64))
+          & "${{ steps.sdk.outputs.signtool }}" sign `
+            /f $pfx /p $env:SIGN_PFX_PWD `
+            /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 `
+            "$env:BUNDLE_PATH"
+          if ($LASTEXITCODE -ne 0) { throw "signtool failed ($LASTEXITCODE)" }
+          Remove-Item $pfx -Force
+
+      - name: Skip signing notice
+        env:
+          SIGN_PFX_B64: ${{ secrets.Base64_Encoded_Pfx }}
+          SIGN_PFX_PWD: ${{ secrets.Pfx_Key }}
+        if: ${{ env.SIGN_PFX_B64 == '' || env.SIGN_PFX_PWD == '' }}
+        run: echo "::notice::Signing skipped — Base64_Encoded_Pfx / Pfx_Key secrets not configured. Bundle is UNSIGNED and cannot be installed without sideload trust."
+
+      # ------------------------------------------------------------------
+      # Optional WACK validation (heavy; only when requested).
+      # ------------------------------------------------------------------
+      - name: Windows App Certification Kit
+        if: ${{ github.event.inputs.run_wack == 'true' }}
+        shell: pwsh
+        run: |
+          $appcert = "${{ steps.sdk.outputs.appcert }}"
+          if (-not (Test-Path $appcert)) {
+            Write-Warning "WACK not installed on this runner ($appcert). Skipping."
+            exit 0
+          }
+          & $appcert reset
+          & $appcert test -appxpackagepath "$env:BUNDLE_PATH" -reportoutputpath wack-report.xml
+          if ($LASTEXITCODE -ne 0) { throw "WACK failed ($LASTEXITCODE) — see wack-report.xml" }
+
+      - name: Upload WACK report
+        if: ${{ github.event.inputs.run_wack == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: wack-report
+          path: wack-report.xml
+          if-no-files-found: ignore
+
+      # ------------------------------------------------------------------
+      # .appinstaller — only meaningful when we have a stable download URL.
+      # On tag pushes we emit one pointing at the GitHub Release asset URL.
+      # ------------------------------------------------------------------
+      - name: Generate .appinstaller (tags only)
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        shell: pwsh
+        run: |
+          $bundleName  = Split-Path "$env:BUNDLE_PATH" -Leaf
+          $tag         = "${{ github.ref_name }}"
+          $repo        = "${{ github.repository }}"
+          $baseUrl     = "https://github.com/$repo/releases/download/$tag"
+          $publisher   = "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+          $version     = "${{ env.VERSION }}"
+          $packageName = "${{ env.PACKAGE_NAME }}"
+          $appinstaller = "bin/${{ env.CONFIGURATION }}/$packageName.appinstaller"
+          $lines = @(
+            '<?xml version="1.0" encoding="utf-8"?>',
+            "<AppInstaller xmlns=`"http://schemas.microsoft.com/appx/appinstaller/2018`" Version=`"$version`" Uri=`"$baseUrl/$packageName.appinstaller`">",
+            "  <MainBundle Name=`"Cirrus.CLI`" Version=`"$version`" Publisher=`"$publisher`" Uri=`"$baseUrl/$bundleName`" />",
+            '  <UpdateSettings>',
+            '    <OnLaunch HoursBetweenUpdateChecks="12" ShowPrompt="true" UpdateBlocksActivation="false" />',
+            '    <AutomaticBackgroundTask />',
+            '  </UpdateSettings>',
+            '</AppInstaller>'
+          )
+          $lines | Set-Content -Path $appinstaller -Encoding utf8
+          Get-Content $appinstaller
+
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PACKAGE_NAME }}-${{ env.VERSION }}
+          path: |
+            bin/${{ env.CONFIGURATION }}/*.msixbundle
+            bin/${{ env.CONFIGURATION }}/*.appinstaller
+          if-no-files-found: error
+
+      # ------------------------------------------------------------------
+      # Publish a GitHub Release on tag pushes.
+      # ------------------------------------------------------------------
+      - name: Create GitHub Release
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Cirrus CLI ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            bin/${{ env.CONFIGURATION }}/*.msixbundle
+            bin/${{ env.CONFIGURATION }}/*.appinstaller
