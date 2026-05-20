@@ -58,12 +58,14 @@ variables:
   PACKAGE_VERSION_INPUT: ${{ parameters.package_version }}
   PACKAGE_PUBLISHER: ${{ parameters.publisher }}
   CLI_PROJECT: src/CLI/Core.Cli.csproj
+  BUNDLED_EXT_CONFIG: devops/scripts/packaging/config/bundled_ext.config
   PACKAGE_NAME: azv2
   PRODUCT_NAME: Cirrus CLI
   MANUFACTURER: Cirrus Development
   UPGRADE_CODE: D71E4F9B-A5D8-4F16-A0A3-E0D74BB989B8
   PATH_COMPONENT_GUID: '{63C2D387-1A8D-4025-B83D-AF7321222436}'
   PUBLISH_ROOT: $(Pipeline.Workspace)\msi\publish
+  BUILTIN_PUBLISH_ROOT: $(Pipeline.Workspace)\msi\builtin-publish
   WIX_ROOT: $(Pipeline.Workspace)\msi\wix
   ARTIFACT_ROOT: $(Build.ArtifactStagingDirectory)\msi\out
 
@@ -82,8 +84,8 @@ jobs:
           workingDirectory: $(Build.SourcesDirectory)
 
       - pwsh: |
-          Remove-Item $env:PUBLISH_ROOT, $env:WIX_ROOT, $env:ARTIFACT_ROOT -Recurse -Force -ErrorAction SilentlyContinue
-          New-Item -ItemType Directory -Path $env:PUBLISH_ROOT, $env:WIX_ROOT, $env:ARTIFACT_ROOT -Force | Out-Null
+          Remove-Item $env:PUBLISH_ROOT, $env:BUILTIN_PUBLISH_ROOT, $env:WIX_ROOT, $env:ARTIFACT_ROOT -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $env:PUBLISH_ROOT, $env:BUILTIN_PUBLISH_ROOT, $env:WIX_ROOT, $env:ARTIFACT_ROOT -Force | Out-Null
         displayName: Prepare package directories
 
       - pwsh: |
@@ -108,6 +110,38 @@ jobs:
         displayName: Restore CLI
 
       - pwsh: |
+          function Get-BuiltInExtensions {
+            $configPath = Join-Path $env:BUILD_SOURCESDIRECTORY $env:BUNDLED_EXT_CONFIG
+            if (-not (Test-Path $configPath)) {
+              throw "Bundled extension config was not found: $configPath"
+            }
+
+            foreach ($line in Get-Content $configPath) {
+              $extensionName = ($line -replace '#.*$', '').Trim()
+              if ([string]::IsNullOrWhiteSpace($extensionName)) {
+                continue
+              }
+
+              $project = Join-Path $env:BUILD_SOURCESDIRECTORY "src/Extensions/$extensionName/Extensions.$extensionName.csproj"
+              if (-not (Test-Path $project)) {
+                throw "Built-in extension project was not found for '$extensionName': $project"
+              }
+
+              $project
+            }
+          }
+
+          foreach ($project in Get-BuiltInExtensions) {
+            $relativeProject = [System.IO.Path]::GetRelativePath($env:BUILD_SOURCESDIRECTORY, $project)
+
+            dotnet restore "$project" --runtime "$env:RUNTIME_IDENTIFIER"
+            if ($LASTEXITCODE -ne 0) {
+              throw "dotnet restore failed for extension project '$relativeProject' with exit code $LASTEXITCODE."
+            }
+          }
+        displayName: Restore built-in extensions
+
+      - pwsh: |
           dotnet publish "$env:CLI_PROJECT" `
             --configuration "$env:CONFIGURATION" `
             --runtime "$env:RUNTIME_IDENTIFIER" `
@@ -118,6 +152,88 @@ jobs:
             -p:PublishTrimmed=false `
             -o "$env:PUBLISH_ROOT"
         displayName: Publish CLI
+
+      - pwsh: |
+          function Get-BuiltInExtensions {
+            $configPath = Join-Path $env:BUILD_SOURCESDIRECTORY $env:BUNDLED_EXT_CONFIG
+            if (-not (Test-Path $configPath)) {
+              throw "Bundled extension config was not found: $configPath"
+            }
+
+            foreach ($line in Get-Content $configPath) {
+              $extensionName = ($line -replace '#.*$', '').Trim()
+              if ([string]::IsNullOrWhiteSpace($extensionName)) {
+                continue
+              }
+
+              $project = Join-Path $env:BUILD_SOURCESDIRECTORY "src/Extensions/$extensionName/Extensions.$extensionName.csproj"
+              if (-not (Test-Path $project)) {
+                throw "Built-in extension project was not found for '$extensionName': $project"
+              }
+
+              [pscustomobject]@{
+                Name = $extensionName
+                Project = $project
+              }
+            }
+          }
+
+          function Get-AssemblyNameFromProject([string]$project) {
+            $projectXml = [xml](Get-Content $project)
+            $assemblyName = [string]($projectXml.Project.PropertyGroup.AssemblyName | Select-Object -First 1)
+            if ([string]::IsNullOrWhiteSpace($assemblyName)) {
+              return [System.IO.Path]::GetFileNameWithoutExtension($project)
+            }
+
+            return $assemblyName.Trim()
+          }
+
+          foreach ($extension in Get-BuiltInExtensions) {
+            $assemblyName = Get-AssemblyNameFromProject $extension.Project
+            $extensionOutput = Join-Path $env:BUILTIN_PUBLISH_ROOT $assemblyName
+
+            dotnet publish "$($extension.Project)" `
+              --configuration "$env:CONFIGURATION" `
+              --self-contained false `
+              --no-restore `
+              -p:ContinuousIntegrationBuild=true `
+              -o "$extensionOutput"
+
+            if ($LASTEXITCODE -ne 0) {
+              throw "dotnet publish failed for extension project '$($extension.Project)' with exit code $LASTEXITCODE."
+            }
+
+            $expectedAssembly = Join-Path $extensionOutput "$assemblyName.dll"
+            if (-not (Test-Path $expectedAssembly)) {
+              throw "Built-in extension assembly was not found: $expectedAssembly"
+            }
+          }
+
+          $extensionsRoot = Join-Path $env:PUBLISH_ROOT 'Extensions'
+          New-Item -ItemType Directory -Path $extensionsRoot -Force | Out-Null
+
+          Write-Host "Injecting built-in extensions into $env:PUBLISH_ROOT"
+          foreach ($builtinDirectory in Get-ChildItem $env:BUILTIN_PUBLISH_ROOT -Directory) {
+            $destination = Join-Path $extensionsRoot $builtinDirectory.Name
+            New-Item -ItemType Directory -Path $destination -Force | Out-Null
+
+            $copied = 0
+            $skipped = 0
+            foreach ($dll in Get-ChildItem $builtinDirectory.FullName -Filter *.dll -File) {
+              $hostDll = Join-Path $env:PUBLISH_ROOT $dll.Name
+              if ((Test-Path $hostDll) -and ((Get-FileHash $dll.FullName).Hash -eq (Get-FileHash $hostDll).Hash)) {
+                $skipped++
+                continue
+              }
+
+              Copy-Item $dll.FullName $destination -Force
+              $copied++
+            }
+
+            Get-ChildItem $builtinDirectory.FullName -Filter *.deps.json -File | Copy-Item -Destination $destination -Force
+            Write-Host "  BUNDLE $($builtinDirectory.Name) -> $destination (copied $copied DLLs, skipped $skipped host-provided)"
+          }
+        displayName: Publish built-in extensions
 
       - pwsh: |
           choco install wixtoolset -y --no-progress
@@ -325,10 +441,31 @@ jobs:
             $uninstallLog = Join-Path $logDirectory 'uninstall.log'
             $installPath = Join-Path ${env:ProgramFiles} 'Cirrus CLI'
             $installedExe = Join-Path $installPath 'azv2.exe'
+            $installedExtensions = Join-Path $installPath 'Extensions'
 
             Start-Process msiexec.exe -ArgumentList "/i `"$env:MSI_PATH`" /quiet /norestart /L*V `"$installLog`"" -Wait -NoNewWindow
             if (-not (Test-Path $installedExe)) {
               throw "Installed executable was not found: $installedExe"
+            }
+
+            if (-not (Test-Path $installedExtensions)) {
+              throw "Installed built-in extensions directory was not found: $installedExtensions"
+            }
+
+            $configPath = Join-Path $env:BUILD_SOURCESDIRECTORY $env:BUNDLED_EXT_CONFIG
+            foreach ($line in Get-Content $configPath) {
+              $extensionName = ($line -replace '#.*$', '').Trim()
+              if ([string]::IsNullOrWhiteSpace($extensionName)) {
+                continue
+              }
+
+              $project = Join-Path $env:BUILD_SOURCESDIRECTORY "src/Extensions/$extensionName/Extensions.$extensionName.csproj"
+              $projectXml = [xml](Get-Content $project)
+              $assemblyName = ([string]($projectXml.Project.PropertyGroup.AssemblyName | Select-Object -First 1)).Trim()
+              $installedAssembly = Join-Path $installedExtensions "$assemblyName\$assemblyName.dll"
+              if (-not (Test-Path $installedAssembly)) {
+                throw "Installed built-in extension assembly was not found: $installedAssembly"
+              }
             }
 
             & $installedExe --help
