@@ -57,16 +57,9 @@ variables:
   RUNTIME_IDENTIFIER: ${{ parameters.runtime_identifier }}
   PACKAGE_VERSION_INPUT: ${{ parameters.package_version }}
   PACKAGE_PUBLISHER: ${{ parameters.publisher }}
-  CLI_PROJECT: src/CLI/Core.Cli.csproj
-  BUNDLED_EXT_CONFIG: devops/scripts/packaging/config/bundled_ext.config
-  PACKAGE_NAME: azv2
-  PRODUCT_NAME: Cirrus CLI
-  MANUFACTURER: Cirrus Development
-  UPGRADE_CODE: D71E4F9B-A5D8-4F16-A0A3-E0D74BB989B8
-  PATH_COMPONENT_GUID: '{63C2D387-1A8D-4025-B83D-AF7321222436}'
-  PUBLISH_ROOT: $(Pipeline.Workspace)\msi\publish
-  BUILTIN_PUBLISH_ROOT: $(Pipeline.Workspace)\msi\builtin-publish
-  WIX_ROOT: $(Pipeline.Workspace)\msi\wix
+  COMMON_OUT_ROOT: $(Build.SourcesDirectory)\devops\out\common
+  WINDOWS_OUT_ROOT: $(Build.SourcesDirectory)\devops\out\windows
+  TEST_OUTPUT_ROOT: $(Build.ArtifactStagingDirectory)\msi\test
   ARTIFACT_ROOT: $(Build.ArtifactStagingDirectory)\msi\out
 
 jobs:
@@ -84,11 +77,6 @@ jobs:
           workingDirectory: $(Build.SourcesDirectory)
 
       - pwsh: |
-          Remove-Item $env:PUBLISH_ROOT, $env:BUILTIN_PUBLISH_ROOT, $env:WIX_ROOT, $env:ARTIFACT_ROOT -Recurse -Force -ErrorAction SilentlyContinue
-          New-Item -ItemType Directory -Path $env:PUBLISH_ROOT, $env:BUILTIN_PUBLISH_ROOT, $env:WIX_ROOT, $env:ARTIFACT_ROOT -Force | Out-Null
-        displayName: Prepare package directories
-
-      - pwsh: |
           if ([string]::IsNullOrWhiteSpace($env:RUNTIME_IDENTIFIER)) {
             throw 'runtime_identifier resolved to an empty value.'
           }
@@ -104,136 +92,24 @@ jobs:
           Write-Host "Configuration: $env:CONFIGURATION"
           Write-Host "Runtime identifier: $env:RUNTIME_IDENTIFIER"
           Write-Host "Publisher: $env:PACKAGE_PUBLISHER"
+          Write-Host "Common output root: $env:COMMON_OUT_ROOT"
+          Write-Host "Windows output root: $env:WINDOWS_OUT_ROOT"
         displayName: Validate pipeline inputs
 
-      - pwsh: dotnet restore "$env:CLI_PROJECT" --runtime "$env:RUNTIME_IDENTIFIER"
-        displayName: Restore CLI
+      - bash: |
+          set -euo pipefail
 
-      - pwsh: |
-          function Get-BuiltInExtensions {
-            $configPath = Join-Path $env:BUILD_SOURCESDIRECTORY $env:BUNDLED_EXT_CONFIG
-            if (-not (Test-Path $configPath)) {
-              throw "Bundled extension config was not found: $configPath"
-            }
+          if command -v cygpath >/dev/null 2>&1; then
+            common_out_root="$(cygpath -u "$COMMON_OUT_ROOT")"
+          else
+            common_out_root="$COMMON_OUT_ROOT"
+          fi
 
-            foreach ($line in Get-Content $configPath) {
-              $extensionName = ($line -replace '#.*$', '').Trim()
-              if ([string]::IsNullOrWhiteSpace($extensionName)) {
-                continue
-              }
-
-              $project = Join-Path $env:BUILD_SOURCESDIRECTORY "src/Extensions/$extensionName/Extensions.$extensionName.csproj"
-              if (-not (Test-Path $project)) {
-                throw "Built-in extension project was not found for '$extensionName': $project"
-              }
-
-              $project
-            }
-          }
-
-          foreach ($project in Get-BuiltInExtensions) {
-            $relativeProject = [System.IO.Path]::GetRelativePath($env:BUILD_SOURCESDIRECTORY, $project)
-
-            dotnet restore "$project" --runtime "$env:RUNTIME_IDENTIFIER"
-            if ($LASTEXITCODE -ne 0) {
-              throw "dotnet restore failed for extension project '$relativeProject' with exit code $LASTEXITCODE."
-            }
-          }
-        displayName: Restore built-in extensions
-
-      - pwsh: |
-          dotnet publish "$env:CLI_PROJECT" `
-            --configuration "$env:CONFIGURATION" `
-            --runtime "$env:RUNTIME_IDENTIFIER" `
-            --self-contained true `
-            --no-restore `
-            -p:ContinuousIntegrationBuild=true `
-            -p:PublishSingleFile=false `
-            -p:PublishTrimmed=false `
-            -o "$env:PUBLISH_ROOT"
-        displayName: Publish CLI
-
-      - pwsh: |
-          function Get-BuiltInExtensions {
-            $configPath = Join-Path $env:BUILD_SOURCESDIRECTORY $env:BUNDLED_EXT_CONFIG
-            if (-not (Test-Path $configPath)) {
-              throw "Bundled extension config was not found: $configPath"
-            }
-
-            foreach ($line in Get-Content $configPath) {
-              $extensionName = ($line -replace '#.*$', '').Trim()
-              if ([string]::IsNullOrWhiteSpace($extensionName)) {
-                continue
-              }
-
-              $project = Join-Path $env:BUILD_SOURCESDIRECTORY "src/Extensions/$extensionName/Extensions.$extensionName.csproj"
-              if (-not (Test-Path $project)) {
-                throw "Built-in extension project was not found for '$extensionName': $project"
-              }
-
-              [pscustomobject]@{
-                Name = $extensionName
-                Project = $project
-              }
-            }
-          }
-
-          function Get-AssemblyNameFromProject([string]$project) {
-            $projectXml = [xml](Get-Content $project)
-            $assemblyName = [string]($projectXml.Project.PropertyGroup.AssemblyName | Select-Object -First 1)
-            if ([string]::IsNullOrWhiteSpace($assemblyName)) {
-              return [System.IO.Path]::GetFileNameWithoutExtension($project)
-            }
-
-            return $assemblyName.Trim()
-          }
-
-          foreach ($extension in Get-BuiltInExtensions) {
-            $assemblyName = Get-AssemblyNameFromProject $extension.Project
-            $extensionOutput = Join-Path $env:BUILTIN_PUBLISH_ROOT $assemblyName
-
-            dotnet publish "$($extension.Project)" `
-              --configuration "$env:CONFIGURATION" `
-              --self-contained false `
-              --no-restore `
-              -p:ContinuousIntegrationBuild=true `
-              -o "$extensionOutput"
-
-            if ($LASTEXITCODE -ne 0) {
-              throw "dotnet publish failed for extension project '$($extension.Project)' with exit code $LASTEXITCODE."
-            }
-
-            $expectedAssembly = Join-Path $extensionOutput "$assemblyName.dll"
-            if (-not (Test-Path $expectedAssembly)) {
-              throw "Built-in extension assembly was not found: $expectedAssembly"
-            }
-          }
-
-          $extensionsRoot = Join-Path $env:PUBLISH_ROOT 'Extensions'
-          New-Item -ItemType Directory -Path $extensionsRoot -Force | Out-Null
-
-          Write-Host "Injecting built-in extensions into $env:PUBLISH_ROOT"
-          foreach ($builtinDirectory in Get-ChildItem $env:BUILTIN_PUBLISH_ROOT -Directory) {
-            $destination = Join-Path $extensionsRoot $builtinDirectory.Name
-            New-Item -ItemType Directory -Path $destination -Force | Out-Null
-
-            $copied = 0
-            $skipped = 0
-            foreach ($dll in Get-ChildItem $builtinDirectory.FullName -Filter *.dll -File) {
-              $hostDll = Join-Path $env:PUBLISH_ROOT $dll.Name
-              if ((Test-Path $hostDll) -and ((Get-FileHash $dll.FullName).Hash -eq (Get-FileHash $hostDll).Hash)) {
-                $skipped++
-                continue
-              }
-
-              Copy-Item $dll.FullName $destination -Force
-              $copied++
-            }
-
-            Get-ChildItem $builtinDirectory.FullName -Filter *.deps.json -File | Copy-Item -Destination $destination -Force
-            Write-Host "  BUNDLE $($builtinDirectory.Name) -> $destination (copied $copied DLLs, skipped $skipped host-provided)"
-          }
-        displayName: Publish built-in extensions
+          chmod +x devops/scripts/packaging/common/build_common.sh
+          OUT_ROOT="$common_out_root" devops/scripts/packaging/common/build_common.sh
+        displayName: Build common packaging outputs
+        env:
+          COMMON_OUT_ROOT: $(COMMON_OUT_ROOT)
 
       - pwsh: |
           choco install wixtoolset -y --no-progress
@@ -247,143 +123,48 @@ jobs:
           }
 
           $wixBin = Join-Path $wixDirectory.FullName 'bin'
-          $heat = Join-Path $wixBin 'heat.exe'
-          $candle = Join-Path $wixBin 'candle.exe'
-          $light = Join-Path $wixBin 'light.exe'
-
-          foreach ($tool in @($heat, $candle, $light)) {
-            if (-not (Test-Path $tool)) {
-              throw "Required WiX tool was not found: $tool"
+          foreach ($toolName in @('heat.exe', 'candle.exe', 'light.exe')) {
+            $toolPath = Join-Path $wixBin $toolName
+            if (-not (Test-Path $toolPath)) {
+              throw "Required WiX tool was not found: $toolPath"
             }
           }
 
-          Write-Host "##vso[task.setvariable variable=HEAT]$heat"
-          Write-Host "##vso[task.setvariable variable=CANDLE]$candle"
-          Write-Host "##vso[task.setvariable variable=LIGHT]$light"
+          Write-Host "##vso[task.setvariable variable=WIX_BIN]$wixBin"
         displayName: Install WiX Toolset
 
       - pwsh: |
-          function Get-PackageVersion {
-            if (-not [string]::IsNullOrWhiteSpace($env:PACKAGE_VERSION_INPUT)) {
-              $version = $env:PACKAGE_VERSION_INPUT.Trim()
-            }
-            else {
-              $runNumber = [int]$env:BUILD_BUILDID
-              $buildNumber = $runNumber % 65535
-              if ($buildNumber -eq 0) {
-                $buildNumber = 1
-              }
-
-              $version = "1.0.$buildNumber.0"
-            }
-
-            if ($version -notmatch '^\d{1,5}\.\d{1,5}\.\d{1,5}\.\d{1,5}$') {
-              throw "MSI package version '$version' must use four numeric components."
-            }
-
-            foreach ($component in $version.Split('.')) {
-              if ([int]$component -gt 65535) {
-                throw "MSI package version component '$component' is greater than 65535."
-              }
-            }
-
-            return $version
-          }
-
-          $version = Get-PackageVersion
-          $harvestPath = Join-Path $env:WIX_ROOT 'PublishedFiles.wxs'
-          $productPath = Join-Path $env:WIX_ROOT 'Product.wxs'
-          $msiPath = Join-Path $env:ARTIFACT_ROOT "$env:PACKAGE_NAME-$env:RUNTIME_IDENTIFIER.msi"
-
-          & $env:HEAT dir "$env:PUBLISH_ROOT" `
-            -cg PublishedFiles `
-            -dr INSTALLFOLDER `
-            -srd `
-            -sfrag `
-            -sreg `
-            -gg `
-            -var var.PublishRoot `
-            -out "$harvestPath"
-
-          if ($LASTEXITCODE -ne 0) {
-            throw "heat.exe failed with exit code $LASTEXITCODE."
-          }
-
-          $harvestContent = Get-Content $harvestPath -Raw
-          $harvestContent = $harvestContent -replace '<Component Id="([^"]+)" Guid="([^"]+)">', '<Component Id="$1" Guid="$2" Win64="yes">'
-          Set-Content -Path $harvestPath -Value $harvestContent -Encoding utf8
-
-          $wixProductName = '$' + '(var.ProductName)'
-          $wixProductVersion = '$' + '(var.ProductVersion)'
-          $wixManufacturer = '$' + '(var.Manufacturer)'
-          $wixUpgradeCode = '$' + '(var.UpgradeCode)'
-          $wixPathComponentGuid = '$' + '(var.PathComponentGuid)'
-
-          $productXml = @(
-            '<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">',
-            '  <Product Id="*"',
-            "           Name=`"$wixProductName`"",
-            '           Language="1033"',
-            "           Version=`"$wixProductVersion`"",
-            "           Manufacturer=`"$wixManufacturer`"",
-            "           UpgradeCode=`"$wixUpgradeCode`">",
-            '    <Package InstallerVersion="500" Compressed="yes" InstallScope="perMachine" Platform="x64" />',
-            '    <MajorUpgrade AllowSameVersionUpgrades="yes"',
-            '                  DowngradeErrorMessage="A later version of [ProductName] is already installed." />',
-            '    <MediaTemplate EmbedCab="yes" />',
-            '    <Property Id="ARPNOMODIFY" Value="1" />',
-            '',
-            '    <Directory Id="TARGETDIR" Name="SourceDir">',
-            '      <Directory Id="ProgramFiles64Folder">',
-            '        <Directory Id="INSTALLFOLDER" Name="Cirrus CLI" />',
-            '      </Directory>',
-            '    </Directory>',
-            '',
-            '    <DirectoryRef Id="INSTALLFOLDER">',
-            "      <Component Id=`"PathEnvironment`" Guid=`"$wixPathComponentGuid`" Win64=`"yes`">",
-            '        <RegistryValue Root="HKLM" Key="Software\Cirrus CLI" Name="InstallDir" Type="string" Value="[INSTALLFOLDER]" KeyPath="yes" />',
-            '        <Environment Id="AddInstallFolderToPath" Name="PATH" Value="[INSTALLFOLDER]" Permanent="no" Part="last" Action="set" System="yes" />',
-            '      </Component>',
-            '    </DirectoryRef>',
-            '',
-            "    <Feature Id=`"MainFeature`" Title=`"$wixProductName`" Level=`"1`">",
-            '      <ComponentGroupRef Id="PublishedFiles" />',
-            '      <ComponentRef Id="PathEnvironment" />',
-            '    </Feature>',
-            '  </Product>',
-            '</Wix>'
+          $script = Join-Path $env:BUILD_SOURCESDIRECTORY 'devops/scripts/packaging/windows/build_win_msi.ps1'
+          $buildArgs = @(
+            '-Configuration', $env:CONFIGURATION,
+            '-Rid', $env:RUNTIME_IDENTIFIER,
+            '-Publisher', $env:PACKAGE_PUBLISHER,
+            '-RepoRoot', $env:BUILD_SOURCESDIRECTORY,
+            '-OutRoot', $env:WINDOWS_OUT_ROOT,
+            '-CommonOutRoot', $env:COMMON_OUT_ROOT,
+            '-WixBin', $env:WIX_BIN,
+            '-SkipSign'
           )
-          $productXml | Set-Content -Path $productPath -Encoding utf8
 
-          & $env:CANDLE `
-            -arch x64 `
-            -dPublishRoot="$env:PUBLISH_ROOT" `
-            -dProductName="$env:PRODUCT_NAME" `
-            -dProductVersion="$version" `
-            -dManufacturer="$env:MANUFACTURER" `
-            -dUpgradeCode="$env:UPGRADE_CODE" `
-            -dPathComponentGuid="$env:PATH_COMPONENT_GUID" `
-            -out "$env:WIX_ROOT\" `
-            "$productPath" `
-            "$harvestPath"
-
-          if ($LASTEXITCODE -ne 0) {
-            throw "candle.exe failed with exit code $LASTEXITCODE."
+          if (-not [string]::IsNullOrWhiteSpace($env:PACKAGE_VERSION_INPUT)) {
+            $buildArgs += @('-ProductVersion', $env:PACKAGE_VERSION_INPUT)
           }
 
-          $wixObjects = Get-ChildItem $env:WIX_ROOT -Filter *.wixobj | ForEach-Object { $_.FullName }
-          & $env:LIGHT -out "$msiPath" $wixObjects
-
+          & $script @buildArgs
           if ($LASTEXITCODE -ne 0) {
-            throw "light.exe failed with exit code $LASTEXITCODE."
+            throw "build_win_msi.ps1 failed with exit code $LASTEXITCODE."
+          }
+
+          $msiPath = Join-Path $env:WINDOWS_OUT_ROOT "bin/Release/azv2-$env:RUNTIME_IDENTIFIER.msi"
+          if (-not (Test-Path $msiPath)) {
+            throw "MSI was not found after build: $msiPath"
           }
 
           Write-Host "##vso[task.setvariable variable=MSI_PATH]$msiPath"
-          Write-Host "##vso[task.setvariable variable=PACKAGE_VERSION]$version"
-        displayName: Build MSI with WiX
+        displayName: Build MSI package
 
       - pwsh: |
-          $certificateDirectory = Join-Path $env:ARTIFACT_ROOT 'certificate'
+          $certificateDirectory = Join-Path $env:WINDOWS_OUT_ROOT 'bin/Release/certificate'
           New-Item -ItemType Directory -Path $certificateDirectory -Force | Out-Null
 
           $certificate = New-SelfSignedCertificate `
@@ -435,46 +216,28 @@ jobs:
 
       - ${{ if eq(parameters.run_install_test, true) }}:
         - pwsh: |
-            $logDirectory = Join-Path $env:ARTIFACT_ROOT 'logs'
-            New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
-            $installLog = Join-Path $logDirectory 'install.log'
-            $uninstallLog = Join-Path $logDirectory 'uninstall.log'
-            $installPath = Join-Path ${env:ProgramFiles} 'Cirrus CLI'
-            $installedExe = Join-Path $installPath 'azv2.exe'
-            $installedExtensions = Join-Path $installPath 'Extensions'
-
-            Start-Process msiexec.exe -ArgumentList "/i `"$env:MSI_PATH`" /quiet /norestart /L*V `"$installLog`"" -Wait -NoNewWindow
-            if (-not (Test-Path $installedExe)) {
-              throw "Installed executable was not found: $installedExe"
-            }
-
-            if (-not (Test-Path $installedExtensions)) {
-              throw "Installed built-in extensions directory was not found: $installedExtensions"
-            }
-
-            $configPath = Join-Path $env:BUILD_SOURCESDIRECTORY $env:BUNDLED_EXT_CONFIG
-            foreach ($line in Get-Content $configPath) {
-              $extensionName = ($line -replace '#.*$', '').Trim()
-              if ([string]::IsNullOrWhiteSpace($extensionName)) {
-                continue
-              }
-
-              $project = Join-Path $env:BUILD_SOURCESDIRECTORY "src/Extensions/$extensionName/Extensions.$extensionName.csproj"
-              $projectXml = [xml](Get-Content $project)
-              $assemblyName = ([string]($projectXml.Project.PropertyGroup.AssemblyName | Select-Object -First 1)).Trim()
-              $installedAssembly = Join-Path $installedExtensions "$assemblyName\$assemblyName.dll"
-              if (-not (Test-Path $installedAssembly)) {
-                throw "Installed built-in extension assembly was not found: $installedAssembly"
-              }
-            }
-
-            & $installedExe --help
-
-            Start-Process msiexec.exe -ArgumentList "/x `"$env:MSI_PATH`" /quiet /norestart /L*V `"$uninstallLog`"" -Wait -NoNewWindow
-            if (Test-Path $installedExe) {
-              throw "Installed executable still exists after uninstall: $installedExe"
-            }
+            $script = Join-Path $env:BUILD_SOURCESDIRECTORY 'devops/scripts/packaging/windows/test_bundled_plus_ext_msi.ps1'
+            & $script `
+              -OutRoot $env:WINDOWS_OUT_ROOT `
+              -CommonOutRoot $env:COMMON_OUT_ROOT `
+              -SimRoot $env:TEST_OUTPUT_ROOT
           displayName: Install, smoke test, and uninstall MSI
+
+      - pwsh: |
+          New-Item -ItemType Directory -Path $env:ARTIFACT_ROOT -Force | Out-Null
+
+          $releaseRoot = Join-Path $env:WINDOWS_OUT_ROOT 'bin/Release'
+          if (Test-Path $releaseRoot) {
+            Copy-Item (Join-Path $releaseRoot '*') $env:ARTIFACT_ROOT -Recurse -Force
+          }
+
+          if (Test-Path $env:TEST_OUTPUT_ROOT) {
+            $logsRoot = Join-Path $env:ARTIFACT_ROOT 'logs'
+            New-Item -ItemType Directory -Path $logsRoot -Force | Out-Null
+            Copy-Item (Join-Path $env:TEST_OUTPUT_ROOT '*') $logsRoot -Recurse -Force
+          }
+        displayName: Collect MSI artifacts
+        condition: always()
 
       - task: PublishPipelineArtifact@1
         displayName: Publish MSI artifact
