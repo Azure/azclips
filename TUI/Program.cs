@@ -220,13 +220,11 @@ public static class Program
             bindings.Key(Hex1bKey.Escape).Global()
                 .Action(_ =>
                 {
-                    if (state.IsSuggestionSelected())
-                    {
-                        state.ResetSelectedSuggestion();
-                    }
+                    if (state.IsSuggestionSelected()) { state.ResetSelectedSuggestion(); }
                     else if (state.ShowHelp) { state.ShowHelp = false; app.Invalidate(); }
                     else if (state.IsRunning) { state.CancelRunning(); }
-                }, "Reset Suggestion Status/Close/Cancel");
+                    else { app.RequestStop(); }
+                }, "Reset Suggestion Status/Close Help Panel/Cancel Running/Exit Application");
 
             bindings.Ctrl().Key(Hex1bKey.C).Global()
                 .Action(_ =>
