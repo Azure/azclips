@@ -13,8 +13,9 @@ namespace Core.Telemetry;
 /// </summary>
 public class TelemetryService : ITelemetryService
 {
+    //TODO: Jayson remove this on making PR
     public const string AzureMonitorConnectionString =
-        "InstrumentationKey=75095e49-0ed7-43bf-9a9b-145ce55963c5;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=c4b7bab3-d4b6-4f80-8440-0f529a622b2f";
+        "InstrumentationKey=e349be5f-409f-46d6-8e65-8629638e42cd;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=cfa261c2-6700-44f5-b50d-e133d26324a1";
 
     private const string TraceDirectoryName = "Cirrus";
 
