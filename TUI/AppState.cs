@@ -206,25 +206,55 @@ class AppState
         if (result != null)
         {
             Suggestions = result;
-            SelectedSuggestion = 0;
+            ResetSelectedSuggestion();
         }
     }
 
     private void OnAsyncSuggestions(List<Suggestion> suggestions)
     {
         Suggestions = suggestions;
-        SelectedSuggestion = 0;
+        ResetSelectedSuggestion();
         Invalidate?.Invoke();
     }
 
     public void AcceptSuggestion()
     {
-        if (Suggestions.Count == 0 || SelectedSuggestion >= Suggestions.Count) return;
+        if (Suggestions.Count == 0 || SelectedSuggestion >= Suggestions.Count || !IsSuggestionSelected()) return;
 
         var suggestion = Suggestions[SelectedSuggestion].Text;
         InputText = _completionService.AcceptSuggestion(InputText, suggestion);
         CursorPos = InputText.Length;
         UpdateSuggestions();
+    }
+
+    public void ResetSelectedSuggestion()
+    {
+        SelectedSuggestion = -1;
+    }
+
+    public bool IsSuggestionSelected()
+    {
+        return SelectedSuggestion != -1;
+    }
+
+    public void NavigateSuggestion(int direction)
+    {
+        if (Suggestions.Count == 0) return;
+
+        if (direction == -1)
+        {
+            if (!IsSuggestionSelected())
+                SelectedSuggestion = Suggestions.Count - 1;
+            else
+                SelectedSuggestion = (SelectedSuggestion - 1 + Suggestions.Count) % Suggestions.Count;
+        }
+        else
+        {
+            if (!IsSuggestionSelected())
+                SelectedSuggestion = 0;
+            else
+                SelectedSuggestion = (SelectedSuggestion + 1) % Suggestions.Count;
+        }
     }
 
     // ── Command execution ────────────────────────────────────────────
