@@ -241,27 +241,12 @@ class AppState
     {
         if (Suggestions.Count == 0) return;
 
-        if (direction == -1)
-        {
-            if (!IsSuggestionSelected())
-                SelectedSuggestion = Suggestions.Count - 1;
-            else
-            {
-                SelectedSuggestion -= 1;
-            }
-        }
-        else
-        {
-            if (!IsSuggestionSelected())
-                SelectedSuggestion = 0;
-            else
-            {
-                if (SelectedSuggestion == Suggestions.Count - 1)
-                    ResetSelectedSuggestion();
-                else
-                    SelectedSuggestion += 1;
-            }
-        }
+        SelectedSuggestion += direction;
+        if (SelectedSuggestion < -1)
+            SelectedSuggestion = Suggestions.Count - 1;
+
+        if (SelectedSuggestion == Suggestions.Count)
+            ResetSelectedSuggestion();
     }
 
     // ── Command execution ────────────────────────────────────────────
