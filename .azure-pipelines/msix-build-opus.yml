@@ -294,9 +294,25 @@ stages:
                 Write-Warning "WACK not installed on this runner ($(APPCERT)). Skipping."
                 exit 0
               }
+
+              # appcert.exe REQUIRES an absolute path for -reportoutputpath;
+              # relative paths produce: "The '/reportoutputpath' argument must
+              # be valid path to the report file."
+              $reportDir  = Join-Path "$(Build.ArtifactStagingDirectory)" 'wack'
+              New-Item -ItemType Directory -Force -Path $reportDir | Out-Null
+              $reportPath = Join-Path $reportDir 'wack-report.xml'
+
+              # Bundle path must also be absolute.
+              $bundlePath = (Resolve-Path "$(BUNDLE_PATH)").Path
+
+              Write-Host "Bundle : $bundlePath"
+              Write-Host "Report : $reportPath"
+
               & "$(APPCERT)" reset
-              & "$(APPCERT)" test -appxpackagepath "$(BUNDLE_PATH)" -reportoutputpath wack-report.xml
-              if ($LASTEXITCODE -ne 0) { throw "WACK failed ($LASTEXITCODE) — see wack-report.xml" }
+              & "$(APPCERT)" test -appxpackagepath "$bundlePath" -reportoutputpath "$reportPath"
+              if ($LASTEXITCODE -ne 0) { throw "WACK failed ($LASTEXITCODE) — see $reportPath" }
+
+              Write-Host "##vso[task.setvariable variable=WACK_REPORT_PATH]$reportPath"
             displayName: Windows App Certification Kit
             condition: and(succeeded(), eq('${{ parameters.runWack }}', 'true'))
 
@@ -304,7 +320,7 @@ stages:
             displayName: Upload WACK report
             condition: and(succeededOrFailed(), eq('${{ parameters.runWack }}', 'true'))
             inputs:
-              targetPath: wack-report.xml
+              targetPath: $(Build.ArtifactStagingDirectory)/wack
               artifact: wack-report
               publishLocation: pipeline
 
