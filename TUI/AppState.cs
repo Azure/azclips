@@ -246,14 +246,21 @@ class AppState
             if (!IsSuggestionSelected())
                 SelectedSuggestion = Suggestions.Count - 1;
             else
-                SelectedSuggestion = (SelectedSuggestion - 1 + Suggestions.Count) % Suggestions.Count;
+            {
+                SelectedSuggestion -= 1;
+            }
         }
         else
         {
             if (!IsSuggestionSelected())
                 SelectedSuggestion = 0;
             else
-                SelectedSuggestion = (SelectedSuggestion + 1) % Suggestions.Count;
+            {
+                if (SelectedSuggestion == Suggestions.Count - 1)
+                    ResetSelectedSuggestion();
+                else
+                    SelectedSuggestion += 1;
+            }
         }
     }
 
