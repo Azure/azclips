@@ -347,10 +347,13 @@ _Checkpoint: Shape A is real end-to-end. Host ships with three built-ins; `vm` a
 ### Phase 5 — Polish
 
 16. ✅ Error surface: exit codes 0–6, symbolic codes in JSON, `--output json` wired (§4.4).
-17. Multi-token command keys: parser/dispatcher tweak for "prefix matches no leaf"; Compute ships a nested command as the validation case.
 18. ✅ ALC caching: `ConcurrentDictionary<(pkg, version), Lazy<ALC>>`, no eviction, `--no-cache` test hook (§5.5).
 
 _Checkpoint: shippable v1._
+
+### Deferred
+
+17. Multi-token command keys: parser/dispatcher tweak for "prefix matches no leaf"; Compute ships a nested command as the validation case. Includes positional-residual binding so shorthand like `extension remove vm` routes to the `remove` processor with `vm` bound to the first unset required argument.
 
 ---
 
