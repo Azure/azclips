@@ -4,6 +4,7 @@ using Core.Abstractions;
 using Core.Cli.Exceptions;
 using Core.Cli.Parser;
 using Core.Engine;
+using Core.Extensions;
 using Core.Telemetry;
 using Core.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
@@ -65,6 +66,8 @@ public class Program
             using var activity = _telemetryService.StartCLIActivity(args);
             var dispatcher = new ExtensionDispatcher();
             args = WireDebugStreams(args);
+            args = ParseOutputFlag(args, out var outputJson);
+            args = ParseNoCacheFlag(args);
             try
             {
                 CommandInvocation invocation = dispatcher.Parse(args);
@@ -84,6 +87,14 @@ public class Program
                 _logger?.Log("Command Line Interface Help");
                 activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
                 return 0;
+            }
+            catch (CirrusErrorException ex)
+            {
+                // Structured Cirrus error: render per --output mode and return the symbolic exit code.
+                // No AI fallback — the failure is well-known and the user's intent is unambiguous.
+                EmitStructuredError(ex, outputJson);
+                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                return ex.ExitCode;
             }
             catch (Exception ex)
             {
@@ -132,6 +143,69 @@ public class Program
             }
         );
         return args.Where(a => a != "--debug").ToArray();
+    }
+
+    // Strips `--output json` / `--output plain` (and `--output=json`) from args and reports
+    // whether JSON shape was requested. Per docs/spec/extension-management.md §4.4: when
+    // `--output json` is active, errors render as { "error": { code, message, details } }.
+    private static string[] ParseOutputFlag(string[] args, out bool outputJson)
+    {
+        outputJson = false;
+        var result = new List<string>(args.Length);
+        for (int i = 0; i < args.Length; i++)
+        {
+            var a = args[i];
+            if (a.Equals("--output", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
+            {
+                outputJson = args[i + 1].Equals("json", StringComparison.OrdinalIgnoreCase);
+                i++;
+                continue;
+            }
+            if (a.StartsWith("--output=", StringComparison.OrdinalIgnoreCase))
+            {
+                outputJson = a.Substring("--output=".Length).Equals("json", StringComparison.OrdinalIgnoreCase);
+                continue;
+            }
+            result.Add(a);
+        }
+        return result.ToArray();
+    }
+
+    // Strips `--no-cache` and flips the static ALC-cache bypass switch consumed by
+    // MultiVersionExtensionLoader (Phase 5 #18 test hook).
+    private static string[] ParseNoCacheFlag(string[] args)
+    {
+        if (!args.Contains("--no-cache", StringComparer.OrdinalIgnoreCase))
+        {
+            return args;
+        }
+        MultiVersionExtensionLoader.BypassCache = true;
+        return args.Where(a => !a.Equals("--no-cache", StringComparison.OrdinalIgnoreCase)).ToArray();
+    }
+
+    private static void EmitStructuredError(CirrusErrorException ex, bool outputJson)
+    {
+        if (outputJson)
+        {
+            var payload = new
+            {
+                error = new
+                {
+                    code = ex.Code,
+                    message = ex.Message,
+                    details = ex.Details,
+                },
+            };
+            Console.Error.WriteLine(System.Text.Json.JsonSerializer.Serialize(payload, new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented = true,
+                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+            }));
+        }
+        else
+        {
+            Console.Error.WriteLine($"error: [{ex.Code}] {ex.Message}");
+        }
     }
 
     private static async Task<int> TryAgentFallbackAsync(string[] args)

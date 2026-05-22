@@ -5,6 +5,7 @@ using Core.Abstractions;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Resources
 {
+    [ExtensionVerb("group")]
     public class ExtensionIndex : IExtensionIndex
     {
         // ── PS Command Metadata ──

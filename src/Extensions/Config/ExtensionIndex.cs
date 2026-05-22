@@ -2,6 +2,7 @@ using Core.Abstractions;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Config;
 
+[ExtensionVerb("config")]
 public class ExtensionIndex : IExtensionIndex
 {
     // ── PS Command Metadata ──

@@ -107,6 +107,14 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
 
 public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfigurationService configurationService) : IExtensionLoader
 {
+    // Per docs/spec/extension-management.md §5.5: cache one ALC per (packageId, version) for the
+    // process lifetime. No eviction — versions are immutable on disk, and a new version always
+    // produces a new key. `BypassCache` is the `--no-cache` test hook wired in Program.cs.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string Directory, string AssemblyPath), Lazy<(ExtensionLoadContext Ctx, Assembly Assembly)>> s_cache =
+        new();
+
+    public static bool BypassCache { get; set; }
+
     internal class ExtensionLoadContext(string extensionDirectory, ILoggingService? loggingService = null) : AssemblyLoadContext
     {
         public string ExtensionDirectory { get; } = extensionDirectory;
@@ -205,7 +213,23 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
             _loggingService?.Debug($"Extension '{extensionNameFull}' version '{version}' not found in multi-version extensions directory. Checked path: '{extensionPath}'");
             return null;
         }
-        var loadContext = new ExtensionLoadContext(extensionPath, _loggingService);
-        return loadContext.LoadFromAssemblyPath(extensionPath);
+
+        if (BypassCache)
+        {
+            var freshCtx = new ExtensionLoadContext(extensionPath, _loggingService);
+            return freshCtx.LoadFromAssemblyPath(extensionPath);
+        }
+
+        // Key by (resolved directory, dll path) so wildcard 'latest' resolutions and explicit
+        // version pins share a slot once they pick the same folder.
+        var entry = s_cache.GetOrAdd(
+            (extensionDir, extensionPath),
+            key => new Lazy<(ExtensionLoadContext, Assembly)>(() =>
+            {
+                var ctx = new ExtensionLoadContext(key.Directory, _loggingService);
+                var asm = ctx.LoadFromAssemblyPath(key.AssemblyPath);
+                return (ctx, asm);
+            }));
+        return entry.Value.Assembly;
     }
 }

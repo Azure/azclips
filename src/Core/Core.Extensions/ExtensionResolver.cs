@@ -1,0 +1,90 @@
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+
+namespace Core.Extensions
+{
+    /// <summary>
+    /// Result of resolving a top-level verb to the extension that owns it.
+    /// </summary>
+    /// <param name="Verb">The verb that was matched (preserves the seed/registry casing).</param>
+    /// <param name="PackageId">Full extension package id (e.g. <c>Microsoft.Azure.Cirrus.Extensions.Compute</c>).</param>
+    /// <param name="Version">Installed version. <c>null</c> for built-ins, which ship with the host.</param>
+    /// <param name="IsBuiltIn">True if the verb is satisfied by the built-in seed.</param>
+    public sealed record ResolvedExtension(string Verb, string PackageId, string? Version, bool IsBuiltIn);
+
+    /// <summary>
+    /// Resolves a top-level CLI verb (e.g. <c>"vm"</c>) to the extension that should handle it.
+    /// </summary>
+    /// <remarks>
+    /// Replacement for <c>CommandGroupIndex</c>. Source order, per the spec:
+    /// <list type="number">
+    ///   <item>Built-in seed (<see cref="BuiltInExtensions.Map"/>) — wins on conflict.</item>
+    ///   <item>On-disk registry (<c>~/.cirrus/extensions/registry.json</c>).</item>
+    /// </list>
+    /// </remarks>
+    public interface IExtensionResolver
+    {
+        /// <summary>
+        /// Try to resolve <paramref name="verb"/> to an extension.
+        /// </summary>
+        /// <returns>True if a built-in or installed extension claims the verb.</returns>
+        bool TryResolve(string verb, out ResolvedExtension? resolved);
+    }
+
+    /// <summary>
+    /// Default <see cref="IExtensionResolver"/> backed by an <see cref="IExtensionRegistryStore"/>.
+    /// </summary>
+    public sealed class ExtensionResolver : IExtensionResolver
+    {
+        private readonly IExtensionRegistryStore _registryStore;
+        private readonly IReadOnlyDictionary<string, BuiltInExtension> _builtIns;
+
+        /// <summary>
+        /// Creates a resolver that consults the default built-in seed and the supplied registry store.
+        /// </summary>
+        public ExtensionResolver(IExtensionRegistryStore registryStore)
+            : this(registryStore, BuiltInExtensions.Map)
+        {
+        }
+
+        /// <summary>
+        /// Test-friendly overload that takes an explicit built-in seed.
+        /// </summary>
+        public ExtensionResolver(IExtensionRegistryStore registryStore, IReadOnlyDictionary<string, BuiltInExtension> builtIns)
+        {
+            _registryStore = registryStore;
+            _builtIns = builtIns;
+        }
+
+        /// <inheritdoc />
+        public bool TryResolve(string verb, out ResolvedExtension? resolved)
+        {
+            if (string.IsNullOrWhiteSpace(verb))
+            {
+                resolved = null;
+                return false;
+            }
+
+            // Built-ins win on conflict (defensive — extension add must refuse colliding verbs).
+            if (_builtIns.TryGetValue(verb, out var builtIn))
+            {
+                resolved = new ResolvedExtension(builtIn.Verb, builtIn.PackageId, Version: null, IsBuiltIn: true);
+                return true;
+            }
+
+            // Fall through to installed extensions.
+            var registry = _registryStore.Load();
+            foreach (var (packageId, entry) in registry.Extensions)
+            {
+                if (string.Equals(entry.Verb, verb, StringComparison.OrdinalIgnoreCase))
+                {
+                    resolved = new ResolvedExtension(entry.Verb, packageId, entry.Version, IsBuiltIn: false);
+                    return true;
+                }
+            }
+
+            resolved = null;
+            return false;
+        }
+    }
+}

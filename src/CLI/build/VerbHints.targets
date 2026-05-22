@@ -1,0 +1,104 @@
+<Project>
+  <!--
+    Scans src/Extensions/** for [ExtensionVerb("...")] attributes and emits a
+    verb-hints.json file that is embedded into Core.Cli. The dispatcher consults
+    this at runtime to produce "install this extension" hints when the user
+    types a verb that maps to an extension that isn't installed yet.
+
+    Spec: docs/spec/extension-management.md §4.3 + phase 4 step 12.
+  -->
+  <UsingTask
+    TaskName="GenerateVerbHintsTask"
+    TaskFactory="RoslynCodeTaskFactory"
+    AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <ScanRoot ParameterType="System.String" Required="true" />
+      <OutputFile ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Text" />
+      <Using Namespace="System.Text.RegularExpressions" />
+      <Using Namespace="System.Collections.Generic" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        var attrPattern = new Regex(@"\[\s*ExtensionVerb\s*\(\s*""([^""]+)""\s*\)\s*\]", RegexOptions.Multiline);
+        var entries = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        if (Directory.Exists(ScanRoot))
+        {
+          foreach (var csproj in Directory.EnumerateFiles(ScanRoot, "*.csproj", SearchOption.AllDirectories))
+          {
+            var projDir = Path.GetDirectoryName(csproj);
+            if (projDir == null) { continue; }
+
+            var csprojText = File.ReadAllText(csproj);
+            string packageId = null;
+            var pkgMatch = Regex.Match(csprojText, @"<PackageId>([^<]+)</PackageId>");
+            if (pkgMatch.Success)
+            {
+              packageId = pkgMatch.Groups[1].Value.Trim();
+            }
+            else
+            {
+              var asmMatch = Regex.Match(csprojText, @"<AssemblyName>([^<]+)</AssemblyName>");
+              if (asmMatch.Success)
+              {
+                packageId = asmMatch.Groups[1].Value.Trim();
+              }
+            }
+            if (string.IsNullOrEmpty(packageId)) { continue; }
+
+            foreach (var cs in Directory.EnumerateFiles(projDir, "*.cs", SearchOption.AllDirectories))
+            {
+              if (cs.IndexOf(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) >= 0) { continue; }
+              if (cs.IndexOf(Path.DirectorySeparatorChar + "bin" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) >= 0) { continue; }
+
+              var text = File.ReadAllText(cs);
+              foreach (Match m in attrPattern.Matches(text))
+              {
+                var verb = m.Groups[1].Value;
+                if (!entries.ContainsKey(verb))
+                {
+                  entries[verb] = packageId;
+                }
+              }
+            }
+          }
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine("{");
+        sb.AppendLine("  \"schemaVersion\": 1,");
+        sb.AppendLine("  \"verbs\": {");
+        int i = 0;
+        foreach (var kv in entries)
+        {
+          var comma = (++i == entries.Count) ? "" : ",";
+          sb.Append("    \"").Append(kv.Key).Append("\": \"").Append(kv.Value).Append("\"").AppendLine(comma);
+        }
+        sb.AppendLine("  }");
+        sb.AppendLine("}");
+
+        Directory.CreateDirectory(Path.GetDirectoryName(OutputFile));
+        File.WriteAllText(OutputFile, sb.ToString());
+        Log.LogMessage(MessageImportance.Normal, $"Wrote {entries.Count} verb hint(s) to {OutputFile}");
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="GenerateVerbHints"
+          BeforeTargets="PrepareForBuild;CoreCompile"
+          Outputs="$(IntermediateOutputPath)verb-hints.json">
+    <GenerateVerbHintsTask
+      ScanRoot="$(MSBuildProjectDirectory)\..\Extensions"
+      OutputFile="$(IntermediateOutputPath)verb-hints.json" />
+
+    <ItemGroup>
+      <EmbeddedResource Include="$(IntermediateOutputPath)verb-hints.json">
+        <LogicalName>verb-hints.json</LogicalName>
+        <Visible>false</Visible>
+      </EmbeddedResource>
+    </ItemGroup>
+  </Target>
+</Project>

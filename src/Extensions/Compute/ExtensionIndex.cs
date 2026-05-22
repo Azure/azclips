@@ -5,6 +5,7 @@ using Core.Abstractions;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Compute
 {
+    [ExtensionVerb("vm")]
     public class ExtensionIndex : IExtensionIndex
     {
         // ── PS Command Metadata ──

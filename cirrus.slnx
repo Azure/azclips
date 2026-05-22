@@ -14,6 +14,7 @@
     <Project Path="src/Core/Core.AssemblyLoading/Core.AssemblyLoading.csproj" />
     <Project Path="src/Core/Core.ArgumentParsing/Core.ArgumentParsing.csproj" />
     <Project Path="src/Core/Core.Configuration/Core.Configuration.csproj" />
+    <Project Path="src/Core/Core.Extensions/Core.Extensions.csproj" />
   </Folder>
   <Folder Name="/src/Extensions/">
     <Project Path="src/Extensions/Extensions.Runtime/Extensions.Runtime.csproj" />
@@ -30,6 +31,7 @@
     <Project Path="tests/Cli.Tests/Cli.Tests.csproj" />
     <Project Path="tests/Benchmark/Benchmark.csproj" />
     <Project Path="tests/Common/Tests.Common.csproj" />
+    <Project Path="tests/Core.Extensions.Tests/Core.Extensions.Tests.csproj" />
   </Folder>
   <Folder Name="/src/PS/">
     <Project Path="src/PS/Resources/Cmdlets.Resources.csproj" />
