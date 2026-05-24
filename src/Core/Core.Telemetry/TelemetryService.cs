@@ -15,7 +15,7 @@ public class TelemetryService : ITelemetryService
 {
     //TODO: Jayson remove this on making PR
     public const string AzureMonitorConnectionString =
-        "InstrumentationKey=e349be5f-409f-46d6-8e65-8629638e42cd;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=cfa261c2-6700-44f5-b50d-e133d26324a1";
+        "InstrumentationKey=75095e49-0ed7-43bf-9a9b-145ce55963c5;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=c4b7bab3-d4b6-4f80-8440-0f529a622b2f";
 
     private const string TraceDirectoryName = "Cirrus";
 
@@ -76,24 +76,25 @@ public class TelemetryService : ITelemetryService
 
     public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal) => ActivitySource.StartActivity(name, kind);
 
-    public void ProcessInvocation(CommandInvocation invocation)
+    public void AddProperty(string key, string? value)
+    {
+        if (string.IsNullOrEmpty(key)) return;
+        Activity.Current?.SetTag($"properties.{key}", value);
+    }
+
+    public void AddMeasure(string key, double value)
+    {
+        if (string.IsNullOrEmpty(key)) return;
+        Activity.Current?.SetTag($"measures.{key}", value);
+    }
+
+    private static Activity? GetRootActivity()
     {
         var activity = Activity.Current;
-        Console.WriteLine($"[DEBUG ProcessInvocation] Activity.Current={activity?.DisplayName ?? "NULL"}, ModuleName='{invocation.ModuleName}', ModuleVersion='{invocation.ModuleVersion}'");
-        if (activity is null) return;
-
-        // Walk up to the root activity so module tags appear on the top-level span
+        if (activity is null) return null;
         while (activity.Parent is not null)
             activity = activity.Parent;
-
-        Console.WriteLine($"[DEBUG ProcessInvocation] Root activity={activity.DisplayName}, setting tags...");
-        // NOTE: On the CLI side "module.name" currently maps to the extension name.
-        // The tag key may be renamed to "extension.name" in the future — TBD.
-        if (!string.IsNullOrEmpty(invocation.ModuleName))
-            activity.SetTag("module.name", invocation.ModuleName);
-        if (!string.IsNullOrEmpty(invocation.ModuleVersion))
-            activity.SetTag("module.version", invocation.ModuleVersion);
-        Console.WriteLine($"[DEBUG ProcessInvocation] Tags set. Verifying: module.name={activity.GetTagItem("module.name")}, module.version={activity.GetTagItem("module.version")}");
+        return activity;
     }
 
     public void Flush()

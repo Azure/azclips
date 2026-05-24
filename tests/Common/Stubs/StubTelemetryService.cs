@@ -13,7 +13,10 @@ public class StubTelemetryService : ITelemetryService
     public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal) =>
         ActivitySource.StartActivity(name, kind);
 
-    public void ProcessInvocation(CommandInvocation invocation) { }
+
+    public void AddProperty(string key, string? value) { }
+
+    public void AddMeasure(string key, double value) { }
 
     public void Flush() { }
 

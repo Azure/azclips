@@ -17,7 +17,7 @@ public class Program
     private static ITelemetryService? _telemetryService;
     private static ILoggingService? _logger;
     private static readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
-    
+
     // CLI by default only enable output and error streams. Optional streams enabled by global parameters
     private static OutputStreams streams = new OutputStreams(
         WriteOutput: (value, ct) =>
@@ -69,14 +69,10 @@ public class Program
             {
                 CommandInvocation invocation = dispatcher.Parse(args);
 
-                using var commandActivity = _telemetryService.ActivitySource.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
-                commandActivity?.SetTag("command.type", _clientType.ToString());
-
                 var engine = CirrusServiceProvider.GetRequiredService<IEngine>() ?? throw new InvalidOperationException("Engine service not found.");
                 using IInvocationSession session = engine.InvokeSession(invocation, streams, _cancellationTokenSource.Token);
                 session.Process();
 
-                activity?.SetStatus(ActivityStatusCode.Ok);
                 return 0;
             }
             catch (DispatchHelpException)
@@ -88,9 +84,6 @@ public class Program
             catch (Exception ex)
             {
                 _logger?.Error(ex.Message);
-
-                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-                activity?.AddException(ex);
 
                 return await TryAgentFallbackAsync(args);
             }

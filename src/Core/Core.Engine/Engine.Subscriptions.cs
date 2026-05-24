@@ -1,6 +1,7 @@
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Runtime;
+using Core.Telemetry;
 using System.Diagnostics;
 using Microsoft.Azure.Cirrus.Extensions.Runtime;
 
@@ -8,7 +9,7 @@ namespace Core.Engine
 {
     public partial class Engine
     {
-        // session subscribes messages first, then each service 
+        // session subscribes messages first, then each service
         private InvocationSession SubscribeAll(InvocationSession session)
         {
             SubscribeMessages(session);
@@ -22,8 +23,8 @@ namespace Core.Engine
         // session made this wired loggingService to channel during process, all messages subscribe loggingService
         private InvocationSession SubscribeMessages(InvocationSession session)
         {
-            // Print every event id for debugging purpose, 
-            // SubscribeAll() subscribers are guaranteed executed before everyone else 
+            // Print every event id for debugging purpose,
+            // SubscribeAll() subscribers are guaranteed executed before everyone else
             // No need to print event id for subsequent events
             session.SubscribeAll(msg =>
             {
@@ -134,7 +135,7 @@ namespace Core.Engine
                 var evt = (EventData)data;
                 loggingService.Info(evt.Message);
             });
- 
+
             return session;
         }
 
@@ -149,25 +150,19 @@ namespace Core.Engine
 
             string sessionId = session.Id;
 
-            // Set activity root
-            session.Subscribe(Events.SessionCreated, (data) =>
+            // Set activity root: single tagging point for all DevDiv-mandated core
+            // properties plus per-invocation tags (ClientType, module info, EventName,
+            // DisplayName). Squads should not tag the root activity directly; use
+            // ITelemetryService.AddProperty / AddMeasure instead.
+            session.Subscribe(Events.SessionCreated, _ =>
             {
                 Activity? activity = Activity.Current;
-                if (activity != null)
-                {
-                    // Walk up to the root activity so module tags appear on the top-level span
-                    while (activity.Parent is not null)
-                        activity = activity.Parent;
-                    loggingService.Debug($"Root activity={activity.DisplayName}, setting tags...");
-                    activity.SetTag("ClientType", clientType);
-                    // NOTE: On the CLI side "module.name" currently maps to the extension name.
-                    // The tag key may be renamed to "extension.name" in the future — TBD.
-                    if (!string.IsNullOrEmpty(session.Invocation.ModuleName))
-                        activity.SetTag("module.name", session.Invocation.ModuleName);
-                    if (!string.IsNullOrEmpty(session.Invocation.ModuleVersion))
-                        activity.SetTag("module.version", session.Invocation.ModuleVersion);
-                    loggingService.Debug($"Tags set. Verifying: module.name={activity.GetTagItem("module.name")}, module.version={activity.GetTagItem("module.version")}");
-                }
+                if (activity == null) return;
+
+                var root = TelemetryUtils.GetActivityRoot(activity);
+                ApplyBaseProperties(root, session);
+
+                loggingService.Debug($"Root activity tagged: DisplayName={root.DisplayName}");
             });
 
             // Paired: SessionCreated - SessionDisposed
@@ -181,6 +176,20 @@ namespace Core.Engine
             });
             session.Subscribe(Events.SessionDisposed, (data) =>
             {
+                // Tag root with totalDuration before disposing the paired session activity
+                // so the value lands on the same span that carries the DevDiv core properties.
+                Activity? currentActivity = Activity.Current;
+                if (currentActivity != null)
+                {
+                    var root = TelemetryUtils.GetActivityRoot(currentActivity);
+                    // Activity.Duration only populates after Stop(); compute manually while
+                    // the root is still live so totalDuration reflects the full invocation.
+                    var elapsed = root.Duration > TimeSpan.Zero
+                        ? root.Duration
+                        : DateTime.UtcNow - root.StartTimeUtc;
+                    root.SetTag("totalDuration", (long)elapsed.TotalMilliseconds);
+                }
+
                 while (pairedStages.TryPop(out var activity))
                     activity.Dispose();
                 pairedStages.Clear();
@@ -212,7 +221,26 @@ namespace Core.Engine
                 sequentialStage = null;
             });
 
-            //TODO(Yabo): Observability Squad to subscribe more events for telemetry
+            // Map processor lifecycle to root-span Status. Signaled by InvocationSession
+            // around the single processor.ProcessAsync() call site so CLI and PowerShell
+            // produce identical Status semantics without host-specific plumbing.
+            session.Subscribe(Events.ProcessorCompleted, (data) =>
+            {
+                Activity? root = Activity.Current;
+                if (root == null) return;
+                TelemetryUtils.GetActivityRoot(root);
+                root.SetStatus(ActivityStatusCode.Ok);
+            });
+            session.Subscribe(Events.ProcessorException, (data) =>
+            {
+                var evt = (EventData)data;
+                Activity? root = Activity.Current;
+                if (root == null) return;
+                TelemetryUtils.GetActivityRoot(root);
+                root.SetStatus(ActivityStatusCode.Error, evt.ExtendedData);
+                root.AddException(new Exception(evt.ExtendedData));
+            });
+
             return session;
         }
 
@@ -221,6 +249,25 @@ namespace Core.Engine
         private InvocationSession SubscribeMetric(InvocationSession session)
         {
             return session;
+        }
+
+        private void ApplyBaseProperties(Activity root, InvocationSession session)
+        {
+            root.SetTag("ClientType", clientType);
+
+            // NOTE: On the CLI side "module.name" currently maps to the extension name.
+            // The tag key may be renamed to "extension.name" in the future — TBD.
+            if (!string.IsNullOrEmpty(session.Invocation.ModuleName))
+                root.SetTag("module.name", session.Invocation.ModuleName);
+            if (!string.IsNullOrEmpty(session.Invocation.ModuleVersion))
+                root.SetTag("module.version", session.Invocation.ModuleVersion);
+
+            CoreTelemetryProperties.ApplyTo(root);
+
+            var extension = session.Invocation.ExtensionName;
+            var command = session.Invocation.CommandName;
+            root.SetTag("EventName", $"cirrus.{extension}.{command}.executed");
+            root.DisplayName = $"cirrus {extension} {command}";
         }
     }
 }

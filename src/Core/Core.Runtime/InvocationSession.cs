@@ -57,7 +57,16 @@ internal partial class InvocationSession : IInvocationSession
         ObjectDisposedException.ThrowIf(_disposed, this);
         cancellationToken.ThrowIfCancellationRequested();
         ProcessorOutputWriter = sessionOutputWriter;
-        await (await GetProcessor()).ProcessAsync();
+        try
+        {
+            await (await GetProcessor()).ProcessAsync();
+            await Signal(Events.ProcessorCompleted, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            await Signal(Events.ProcessorException, cancellationToken, new EventData { ExtendedData = ex.Message });
+            throw;
+        }
     }
 
     //TODO(Yabo): Consider implement ProcessAsync separately if we want to expose async processing in the future. For PowerShell, Process() must remain sync due to thread-affinity of cmdlet API, but other hosts could benefit from async.
@@ -98,7 +107,16 @@ internal partial class InvocationSession : IInvocationSession
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                await (await GetProcessor()).ProcessAsync();
+                try
+                {
+                    await (await GetProcessor()).ProcessAsync();
+                    await Signal(Events.ProcessorCompleted, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    await Signal(Events.ProcessorException, cancellationToken, new EventData { ExtendedData = ex.Message });
+                    throw;
+                }
             }
             finally
             {
@@ -107,6 +125,7 @@ internal partial class InvocationSession : IInvocationSession
                 OutputChannel.Writer.Complete();
             }
         }
+
         Task executeProcessorTask = ExecuteProcessorAsync();
 
         // Sync-over-async channel pump — intentional, not an anti-pattern here.

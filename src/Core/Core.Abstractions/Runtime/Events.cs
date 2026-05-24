@@ -24,6 +24,7 @@ namespace Core.Abstractions.Runtime
         public const string ProcessorInitiated = nameof(ProcessorInitiated);
         public const string ProcessorProcessAsyncStart = nameof(ProcessorProcessAsyncStart);
         public const string ProcessorProcessAsyncEnd = nameof(ProcessorProcessAsyncEnd);
+        public const string ProcessorCompleted = nameof(ProcessorCompleted);
         public const string ProcessorException = nameof(ProcessorException);
         public const string ProcessorBeforeAPICall = nameof(ProcessorBeforeAPICall);
         public const string ProcessorAfterAPICall = nameof(ProcessorAfterAPICall);
