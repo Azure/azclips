@@ -262,7 +262,7 @@ Set-Content -Path $productPath -Value $productXml -Encoding utf8
 
 & $wixTools.Candle `
     -arch x64 `
-    -dPublishRoot=$publishRoot `
+    "-dPublishRoot=$publishRoot" `
     -out "$wixRoot\" `
     $productPath `
     $harvestPath
