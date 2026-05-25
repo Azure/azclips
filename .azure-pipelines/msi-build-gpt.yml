@@ -135,19 +135,19 @@ jobs:
 
       - pwsh: |
           $script = Join-Path $env:BUILD_SOURCESDIRECTORY 'devops/scripts/packaging/windows/build_win_msi.ps1'
-          $buildArgs = @(
-            '-Configuration', $env:CONFIGURATION,
-            '-Rid', $env:RUNTIME_IDENTIFIER,
-            '-Publisher', $env:PACKAGE_PUBLISHER,
-            '-RepoRoot', $env:BUILD_SOURCESDIRECTORY,
-            '-OutRoot', $env:WINDOWS_OUT_ROOT,
-            '-CommonOutRoot', $env:COMMON_OUT_ROOT,
-            '-WixBin', $env:WIX_BIN,
-            '-SkipSign'
-          )
+          $buildArgs = @{
+            Configuration = $env:CONFIGURATION
+            Rid = $env:RUNTIME_IDENTIFIER
+            Publisher = $env:PACKAGE_PUBLISHER
+            RepoRoot = $env:BUILD_SOURCESDIRECTORY
+            OutRoot = $env:WINDOWS_OUT_ROOT
+            CommonOutRoot = $env:COMMON_OUT_ROOT
+            WixBin = $env:WIX_BIN
+            SkipSign = $true
+          }
 
           if (-not [string]::IsNullOrWhiteSpace($env:PACKAGE_VERSION_INPUT)) {
-            $buildArgs += @('-ProductVersion', $env:PACKAGE_VERSION_INPUT)
+            $buildArgs.ProductVersion = $env:PACKAGE_VERSION_INPUT
           }
 
           & $script @buildArgs
