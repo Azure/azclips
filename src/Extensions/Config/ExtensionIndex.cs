@@ -155,13 +155,14 @@ public class ExtensionIndex : IExtensionIndex
         ["Get-CirrusConfigList"] = s_listConfig_PS,
         ["Get-CirrusConfigInfo"] = s_infoConfig_PS,
     };
+    // Shape B (§11.2): full-path keys.
     private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
     {
-        ["get"] = s_getConfig_CLI,
-        ["set"] = s_setConfig_CLI,
-        ["delete"] = s_deleteConfig_CLI,
-        ["list"] = s_listConfig_CLI,
-        ["info"] = s_infoConfig_CLI,
+        ["config get"]    = s_getConfig_CLI,
+        ["config set"]    = s_setConfig_CLI,
+        ["config delete"] = s_deleteConfig_CLI,
+        ["config list"]   = s_listConfig_CLI,
+        ["config info"]   = s_infoConfig_CLI,
     };
 
     public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
@@ -184,6 +185,15 @@ public class ExtensionIndex : IExtensionIndex
         {
             ClientType.PowerShell => s_psTable.Values,
             ClientType.CLI => s_cliTable.Values,
+            _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
+        };
+    }
+    public IEnumerable<string> GetCommandKeys(ClientType clientType)
+    {
+        return clientType switch
+        {
+            ClientType.PowerShell => s_psTable.Keys,
+            ClientType.CLI => s_cliTable.Keys,
             _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
         };
     }

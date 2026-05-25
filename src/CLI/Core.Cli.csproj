@@ -18,7 +18,7 @@
   </ItemGroup>
   
   <Import Project="$(MSBuildThisFileDirectory)..\..\Shared.props" />
-  <Import Project="$(MSBuildThisFileDirectory)build\VerbHints.targets" />
+  <Import Project="$(MSBuildThisFileDirectory)build\ExtensionHints.targets" />
 
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.Agent\Core.Agent.csproj" />

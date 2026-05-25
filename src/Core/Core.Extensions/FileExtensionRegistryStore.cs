@@ -19,6 +19,13 @@ namespace Core.Extensions
 
         private readonly string _path;
 
+        // Phase 8.5 optimistic-concurrency state: timestamp captured at the most recent Load(),
+        // checked at Save() to detect another writer interleaving between the two calls. A null
+        // value means "we never observed the file" — in that case Save() proceeds unconditionally
+        // (first-write semantics). The state is per-instance; concurrency across process
+        // boundaries is the actual race we're guarding against, not in-process threading.
+        private DateTime? _lastObservedWriteUtc;
+
         /// <summary>
         /// Creates a store at <paramref name="path"/>, or at the default user-scoped location if null.
         /// </summary>
@@ -32,13 +39,36 @@ namespace Core.Extensions
         /// </summary>
         public string Path => _path;
 
+        /// <summary>
+        /// Directory that holds installed extension payloads: by convention the parent of
+        /// <see cref="Path"/>. Used by <see cref="RegistryReconciler"/>.
+        /// </summary>
+        public string InstallRoot => System.IO.Path.GetDirectoryName(_path) ?? string.Empty;
+
+        /// <summary>
+        /// Loads the registry then drops entries whose install payload is missing on disk
+        /// (Phase 8.5). The on-disk file is not modified; this is purely a view filter so
+        /// the dispatcher never routes to a stale entry. Use <see cref="Load"/> when you need
+        /// the verbatim file contents (e.g. for an <c>extension list --include-stale</c>).
+        /// </summary>
+        public ExtensionRegistry LoadReconciled()
+        {
+            var raw = Load();
+            return RegistryReconciler.Reconcile(raw, InstallRoot).Live;
+        }
+
         /// <inheritdoc />
         public ExtensionRegistry Load()
         {
             if (!File.Exists(_path))
             {
+                // Sentinel: file didn't exist. Save() can still succeed without a concurrency
+                // check because there's nothing to conflict with.
+                _lastObservedWriteUtc = null;
                 return new ExtensionRegistry();
             }
+
+            _lastObservedWriteUtc = File.GetLastWriteTimeUtc(_path);
 
             using var stream = File.OpenRead(_path);
             var registry = JsonSerializer.Deserialize<ExtensionRegistry>(stream, s_jsonOptions)
@@ -56,6 +86,17 @@ namespace Core.Extensions
                 registry.Extensions,
                 StringComparer.OrdinalIgnoreCase);
 
+            // v1 -> v2 tolerant upgrade (in memory only): an entry with a legacy `verb` field but no
+            // `contributions` is normalized into a single (verb, "") contribution. See spec §11.7.
+            foreach (var entry in registry.Extensions.Values)
+            {
+                NormalizeEntry(entry);
+            }
+
+            // Phase 8.5 invariant check: no two entries may claim the same (verb, path) tuple.
+            // Catches a hand-edited file before the dispatcher ever consults the LeafIndex.
+            ValidateNoDuplicateContributions(registry);
+
             return registry;
         }
 
@@ -64,10 +105,43 @@ namespace Core.Extensions
         {
             ArgumentNullException.ThrowIfNull(registry);
 
+            // Always write the current schema version; in-memory entries may have been loaded from
+            // a v1 file but are normalized to v2 shape by NormalizeEntry below.
+            registry.SchemaVersion = ExtensionRegistry.CurrentSchemaVersion;
+            foreach (var entry in registry.Extensions.Values)
+            {
+                NormalizeEntry(entry);
+            }
+
+            // Validate before writing so a buggy caller can't corrupt the file with a duplicate
+            // contribution. Mirror Load()'s invariant check.
+            ValidateNoDuplicateContributions(registry);
+
             var directory = System.IO.Path.GetDirectoryName(_path);
             if (!string.IsNullOrEmpty(directory))
             {
                 Directory.CreateDirectory(directory);
+            }
+
+            // Phase 8.5 optimistic-concurrency check: if we previously observed a write time and
+            // the file's current write time disagrees, another process touched it between our
+            // Load and Save. Surface as a structured error so the caller can retry or inform the
+            // user — silently overwriting would be the worst outcome.
+            if (_lastObservedWriteUtc is { } expected && File.Exists(_path))
+            {
+                var current = File.GetLastWriteTimeUtc(_path);
+                if (current != expected)
+                {
+                    throw CirrusErrorException.RegistryConcurrency(
+                        $"Registry file '{_path}' was modified by another process between this command's read " +
+                        $"and write. Retry the command. (expected write time {expected:o}, current {current:o})",
+                        new Dictionary<string, object?>
+                        {
+                            ["path"] = _path,
+                            ["expectedWriteUtc"] = expected,
+                            ["currentWriteUtc"] = current,
+                        });
+                }
             }
 
             var tempPath = _path + ".tmp";
@@ -79,6 +153,68 @@ namespace Core.Extensions
 
             // Atomic rename on the same volume; overwrites any existing file.
             File.Move(tempPath, _path, overwrite: true);
+
+            // Refresh our observation so a subsequent Save in the same instance doesn't
+            // mistakenly flag itself as a concurrent edit.
+            _lastObservedWriteUtc = File.GetLastWriteTimeUtc(_path);
+        }
+
+        /// <summary>
+        /// Verifies the §11.4 leaf-uniqueness invariant: no two entries may declare the same
+        /// <c>(verb, path)</c> contribution. Throws <see cref="CirrusErrorException.RegistryInvalid"/>
+        /// on violation so callers can recover (e.g. by editing the file).
+        /// </summary>
+        private static void ValidateNoDuplicateContributions(ExtensionRegistry registry)
+        {
+            var seen = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (packageId, entry) in registry.Extensions)
+            {
+                foreach (var c in entry.Contributions)
+                {
+                    var key = string.IsNullOrEmpty(c.Path) ? c.Verb : $"{c.Verb} {c.Path}";
+                    if (seen.TryGetValue(key, out var owner) &&
+                        !string.Equals(owner, packageId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw CirrusErrorException.RegistryInvalid(
+                            $"Registry contains duplicate contribution '{key}' claimed by both '{owner}' and '{packageId}'. " +
+                            $"Edit registry.json to remove one, or run 'azv2 extension remove' for the offender.",
+                            new Dictionary<string, object?>
+                            {
+                                ["leafKey"] = key,
+                                ["firstOwner"] = owner,
+                                ["secondOwner"] = packageId,
+                            });
+                    }
+                    seen[key] = packageId;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Brings an entry to Shape B v2 shape: synthesizes a single <c>(Verb, "")</c> contribution
+        /// from the legacy <c>Verb</c> field if no contributions are present, then re-derives the
+        /// <c>Namespaces</c> field from the distinct verbs in <c>Contributions</c>. Idempotent.
+        /// </summary>
+        private static void NormalizeEntry(ExtensionRegistryEntry entry)
+        {
+            if (entry.Contributions.Count == 0 && !string.IsNullOrEmpty(entry.Verb))
+            {
+                entry.Contributions.Add(new Contribution { Verb = entry.Verb, Path = string.Empty });
+            }
+
+            // Re-derive namespaces from the contribution set (case-insensitive distinct, preserve
+            // first-seen casing). Mirrors the §11.3 invariant: namespaces is a denormalized view.
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var namespaces = new List<string>();
+            foreach (var contribution in entry.Contributions)
+            {
+                if (seen.Add(contribution.Verb))
+                {
+                    namespaces.Add(contribution.Verb);
+                }
+            }
+
+            entry.Namespaces = namespaces;
         }
 
         /// <summary>

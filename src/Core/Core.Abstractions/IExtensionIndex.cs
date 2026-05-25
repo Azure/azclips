@@ -13,5 +13,14 @@ namespace Core.Abstractions
         /// Used by the help system to enumerate available commands.
         /// </summary>
         IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType);
+
+        /// <summary>
+        /// Returns all command-table keys (e.g. <c>"vm create"</c>) for the given client type.
+        /// Used at <c>extension add</c> time to enumerate the extension's contributed leaves
+        /// (per <c>docs/spec/extension-management.md §11.7</c>) without executing any processor
+        /// code. Default implementation returns an empty enumerable for back-compat; in-tree
+        /// extensions override to expose <c>s_cliTable.Keys</c>.
+        /// </summary>
+        IEnumerable<string> GetCommandKeys(ClientType clientType) => Array.Empty<string>();
     }
 }

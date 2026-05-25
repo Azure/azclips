@@ -180,5 +180,243 @@ namespace Core.Extensions.Tests
             Assert.StartsWith(home, path, StringComparison.OrdinalIgnoreCase);
             Assert.EndsWith(Path.Combine(".cirrus", "extensions", "registry.json"), path, StringComparison.OrdinalIgnoreCase);
         }
+
+        // -------- Shape B (schema v2) tolerance and round-trip --------
+
+        [Fact]
+        public void Load_ShouldSynthesizeContribution_FromLegacyV1Entry()
+        {
+            var store = new FileExtensionRegistryStore(_registryPath);
+            Directory.CreateDirectory(_tempDir);
+            // Hand-write a v1-style file (no contributions, no namespaces, schemaVersion=1).
+            File.WriteAllText(_registryPath,
+                """
+                {
+                  "schemaVersion": 1,
+                  "extensions": {
+                    "Microsoft.Azure.Cirrus.Extensions.Compute": {
+                      "verb": "vm",
+                      "version": "1.0.0",
+                      "pinned": false,
+                      "installedAt": "2026-04-12T10:23:00+00:00"
+                    }
+                  }
+                }
+                """);
+
+            var loaded = store.Load();
+
+            var entry = loaded.Extensions["Microsoft.Azure.Cirrus.Extensions.Compute"];
+            Assert.Single(entry.Contributions);
+            Assert.Equal("vm", entry.Contributions[0].Verb);
+            Assert.Equal(string.Empty, entry.Contributions[0].Path);
+            Assert.Single(entry.Namespaces);
+            Assert.Equal("vm", entry.Namespaces[0]);
+            // Legacy verb field is preserved in memory for back-compat with Shape A callers.
+            Assert.Equal("vm", entry.Verb);
+        }
+
+        [Fact]
+        public void SaveThenLoad_ShouldRoundTripMultipleContributions()
+        {
+            var store = new FileExtensionRegistryStore(_registryPath);
+            var original = new ExtensionRegistry
+            {
+                Extensions =
+                {
+                    ["Microsoft.Azure.Cirrus.Extensions.Compute"] = new ExtensionRegistryEntry
+                    {
+                        Version = "1.1.0",
+                        InstalledAt = DateTimeOffset.UtcNow,
+                        Contributions =
+                        {
+                            new Contribution { Verb = "vm",   Path = "create" },
+                            new Contribution { Verb = "vm",   Path = "delete" },
+                            new Contribution { Verb = "disk", Path = "attach" },
+                        },
+                    },
+                },
+            };
+
+            store.Save(original);
+            var loaded = store.Load();
+
+            var entry = loaded.Extensions["Microsoft.Azure.Cirrus.Extensions.Compute"];
+            Assert.Equal(3, entry.Contributions.Count);
+            Assert.Contains(entry.Contributions, c => c.Verb == "vm"   && c.Path == "create");
+            Assert.Contains(entry.Contributions, c => c.Verb == "vm"   && c.Path == "delete");
+            Assert.Contains(entry.Contributions, c => c.Verb == "disk" && c.Path == "attach");
+
+            // Namespaces is a derived view: distinct (case-insensitive), first-seen order.
+            Assert.Equal(new[] { "vm", "disk" }, entry.Namespaces);
+        }
+
+        [Fact]
+        public void Save_ShouldDeriveNamespaces_FromContributions()
+        {
+            var store = new FileExtensionRegistryStore(_registryPath);
+            var registry = new ExtensionRegistry
+            {
+                Extensions =
+                {
+                    ["Contoso.MultiNs"] = new ExtensionRegistryEntry
+                    {
+                        Version = "0.1.0",
+                        InstalledAt = DateTimeOffset.UtcNow,
+                        Contributions =
+                        {
+                            new Contribution { Verb = "alpha", Path = "do" },
+                            new Contribution { Verb = "ALPHA", Path = "undo" }, // case duplicate
+                            new Contribution { Verb = "beta",  Path = "" },
+                        },
+                        // Namespaces deliberately left bogus; Save should overwrite.
+                        Namespaces = { "stale" },
+                    },
+                },
+            };
+
+            store.Save(registry);
+            var loaded = store.Load();
+
+            var entry = loaded.Extensions["Contoso.MultiNs"];
+            Assert.Equal(new[] { "alpha", "beta" }, entry.Namespaces);
+        }
+
+        [Fact]
+        public void Save_ShouldAlwaysWriteCurrentSchemaVersion_EvenWhenLoadedAsV1()
+        {
+            var store = new FileExtensionRegistryStore(_registryPath);
+            Directory.CreateDirectory(_tempDir);
+            File.WriteAllText(_registryPath,
+                """
+                {
+                  "schemaVersion": 1,
+                  "extensions": {
+                    "Microsoft.Azure.Cirrus.Extensions.Compute": {
+                      "verb": "vm",
+                      "version": "1.0.0",
+                      "installedAt": "2026-04-12T10:23:00+00:00"
+                    }
+                  }
+                }
+                """);
+
+            var registry = store.Load();
+            store.Save(registry);
+
+            var raw = File.ReadAllText(_registryPath);
+            Assert.Contains("\"schemaVersion\": 2", raw, StringComparison.Ordinal);
+            Assert.Contains("\"contributions\"", raw, StringComparison.Ordinal);
+            Assert.Contains("\"namespaces\"", raw, StringComparison.Ordinal);
+        }
+
+        // -------- Phase 8.5: optimistic concurrency + load-time validation + InstallRoot --------
+
+        [Fact]
+        public void InstallRoot_ShouldReturnParentDirectoryOfRegistryPath()
+        {
+            var store = new FileExtensionRegistryStore(_registryPath);
+            Assert.Equal(_tempDir, store.InstallRoot);
+        }
+
+        [Fact]
+        public void Save_ShouldThrowConcurrency_WhenFileChangedBetweenLoadAndSave()
+        {
+            Directory.CreateDirectory(_tempDir);
+            // Seed an initial file so Load captures a timestamp.
+            File.WriteAllText(_registryPath, """{"schemaVersion":2,"extensions":{}}""");
+
+            var store = new FileExtensionRegistryStore(_registryPath);
+            var registry = store.Load();
+
+            // Simulate another process writing the file after our Load.
+            // Bump file write time deterministically.
+            var newWriteTime = File.GetLastWriteTimeUtc(_registryPath).AddSeconds(5);
+            File.WriteAllText(_registryPath, """{"schemaVersion":2,"extensions":{}}""");
+            File.SetLastWriteTimeUtc(_registryPath, newWriteTime);
+
+            var ex = Assert.Throws<CirrusErrorException>(() => store.Save(registry));
+            Assert.Equal("RegistryConcurrency", ex.Code);
+        }
+
+        [Fact]
+        public void Save_ShouldSucceed_WhenFileDidNotExistAtLoadTime()
+        {
+            var store = new FileExtensionRegistryStore(_registryPath);
+            var registry = store.Load(); // file absent
+
+            registry.Extensions["Some.Package"] = new ExtensionRegistryEntry
+            {
+                Verb = "demo",
+                Version = "1.0.0",
+            };
+
+            store.Save(registry); // must not throw
+
+            var reloaded = new FileExtensionRegistryStore(_registryPath).Load();
+            Assert.True(reloaded.Extensions.ContainsKey("Some.Package"));
+        }
+
+        [Fact]
+        public void Save_ShouldSucceed_OnRepeatedSaves_FromSameInstance()
+        {
+            var store = new FileExtensionRegistryStore(_registryPath);
+            var registry = store.Load();
+
+            registry.Extensions["Pkg.One"] = new ExtensionRegistryEntry { Verb = "one", Version = "1.0.0" };
+            store.Save(registry);
+
+            registry.Extensions["Pkg.Two"] = new ExtensionRegistryEntry { Verb = "two", Version = "1.0.0" };
+            store.Save(registry); // must not flag itself as a concurrent edit
+        }
+
+        [Fact]
+        public void Load_ShouldThrow_WhenTwoEntriesClaimSameLeafContribution()
+        {
+            Directory.CreateDirectory(_tempDir);
+            File.WriteAllText(_registryPath, """
+                {
+                  "schemaVersion": 2,
+                  "extensions": {
+                    "Pkg.A": {
+                      "version": "1.0.0",
+                      "contributions": [ { "verb": "vm", "path": "create" } ]
+                    },
+                    "Pkg.B": {
+                      "version": "1.0.0",
+                      "contributions": [ { "verb": "vm", "path": "create" } ]
+                    }
+                  }
+                }
+                """);
+
+            var store = new FileExtensionRegistryStore(_registryPath);
+            var ex = Assert.Throws<CirrusErrorException>(() => store.Load());
+            Assert.Equal("RegistryInvalid", ex.Code);
+        }
+
+        [Fact]
+        public void LoadReconciled_ShouldDropEntries_WithMissingInstallDirectory()
+        {
+            Directory.CreateDirectory(_tempDir);
+            // Create payload only for Pkg.A.
+            Directory.CreateDirectory(Path.Combine(_tempDir, "Pkg.A", "1.0.0"));
+
+            File.WriteAllText(_registryPath, """
+                {
+                  "schemaVersion": 2,
+                  "extensions": {
+                    "Pkg.A": { "version": "1.0.0", "contributions": [ { "verb": "a", "path": "" } ] },
+                    "Pkg.B": { "version": "1.0.0", "contributions": [ { "verb": "b", "path": "" } ] }
+                  }
+                }
+                """);
+
+            var store = new FileExtensionRegistryStore(_registryPath);
+            var live = store.LoadReconciled();
+
+            Assert.Single(live.Extensions);
+            Assert.True(live.Extensions.ContainsKey("Pkg.A"));
+        }
     }
 }

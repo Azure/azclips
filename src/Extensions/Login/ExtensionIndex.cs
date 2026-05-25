@@ -81,12 +81,13 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
             ["Disconnect-CirrusAccount"] = s_logout_PS,
             ["Get-CirrusAccount"]        = s_getContext_PS,
         };
+        // Shape B (§11.2): full-path keys. The root verb (`azv2 login`) keys as just "login";
+        // sub-leaves are `login {path}`.
         private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
         {
-            // login is a special command that the command group and command name are the same
-            [""]       = s_login_CLI,
-            ["logout"] = s_logout_CLI,
-            ["show"]   = s_getContext_CLI,
+            ["login"]        = s_login_CLI,
+            ["login logout"] = s_logout_CLI,
+            ["login show"]   = s_getContext_CLI,
         };
         // ── Lookup ──
         public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
@@ -107,6 +108,15 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
             {
                 ClientType.PowerShell => s_psTable.Values,
                 ClientType.CLI => s_cliTable.Values,
+                _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
+            };
+        }
+        public IEnumerable<string> GetCommandKeys(ClientType clientType)
+        {
+            return clientType switch
+            {
+                ClientType.PowerShell => s_psTable.Keys,
+                ClientType.CLI => s_cliTable.Keys,
                 _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
             };
         }

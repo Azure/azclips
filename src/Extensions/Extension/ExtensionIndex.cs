@@ -102,15 +102,16 @@ public class ExtensionIndex : IExtensionIndex
     );
     // ── Dispatch Tables ──
     private static readonly Dictionary<string, CommandMetadata> s_psTable = new();
+    // Shape B (§11.2): full-path keys.
     private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
     {
-        ["add"]    = s_addExtension_CLI,
-        ["list"]   = s_listExtensions_CLI,
-        ["show"]   = s_showExtension_CLI,
-        ["remove"] = s_removeExtension_CLI,
-        ["update"] = s_updateExtension_CLI,
-        ["pin"]    = s_pinExtension_CLI,
-        ["unpin"]  = s_unpinExtension_CLI,
+        ["extension add"]    = s_addExtension_CLI,
+        ["extension list"]   = s_listExtensions_CLI,
+        ["extension show"]   = s_showExtension_CLI,
+        ["extension remove"] = s_removeExtension_CLI,
+        ["extension update"] = s_updateExtension_CLI,
+        ["extension pin"]    = s_pinExtension_CLI,
+        ["extension unpin"]  = s_unpinExtension_CLI,
     };
     // ── Lookup ──
     public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
@@ -131,6 +132,15 @@ public class ExtensionIndex : IExtensionIndex
         {
             ClientType.PowerShell => s_psTable.Values,
             ClientType.CLI => s_cliTable.Values,
+            _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
+        };
+    }
+    public IEnumerable<string> GetCommandKeys(ClientType clientType)
+    {
+        return clientType switch
+        {
+            ClientType.PowerShell => s_psTable.Keys,
+            ClientType.CLI => s_cliTable.Keys,
             _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
         };
     }

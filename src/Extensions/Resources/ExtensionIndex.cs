@@ -97,11 +97,12 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             ["Get-ResourceGroup_Get"]  = s_getResourceGroup_PS,
             ["Get-ResourceGroup_List"] = s_listResourceGroup_PS,
         };
+        // Shape B (§11.2): full-path keys. Verb is "group" per [ExtensionVerb("group")] above.
         private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
         {
-            ["create"] = s_newResourceGroup_CLI,
-            ["list"]   = s_listResourceGroup_CLI,
-            ["show"]   = s_getResourceGroup_CLI,
+            ["group create"] = s_newResourceGroup_CLI,
+            ["group list"]   = s_listResourceGroup_CLI,
+            ["group show"]   = s_getResourceGroup_CLI,
         };
         // ── Lookup ──
         public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
@@ -122,6 +123,15 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             {
                 ClientType.PowerShell => s_psTable.Values,
                 ClientType.CLI => s_cliTable.Values,
+                _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
+            };
+        }
+        public IEnumerable<string> GetCommandKeys(ClientType clientType)
+        {
+            return clientType switch
+            {
+                ClientType.PowerShell => s_psTable.Keys,
+                ClientType.CLI => s_cliTable.Keys,
                 _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
             };
         }

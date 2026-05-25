@@ -6,6 +6,7 @@ using Core.Abstractions;
 namespace Microsoft.Azure.Cirrus.Extensions.Compute
 {
     [ExtensionVerb("vm")]
+    [ExtensionVerb("disk")]
     public class ExtensionIndex : IExtensionIndex
     {
         // ── PS Command Metadata ──
@@ -330,6 +331,22 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+        // Phase 9 (§11) multi-namespace stub: this leaf lives under the `disk` verb declared by the
+        // class-level [ExtensionVerb("disk")] attribute, proving that one extension can contribute
+        // to more than one top-level namespace.
+        private static readonly CommandMetadata s_listDisk_CLI = new(
+            Name: "ListDiskProcessor",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Compute.Processors.ListDiskProcessor",
+            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            ProcessorType: typeof(Processors.ListDiskProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"] = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["resource-group"]  = new("ResourceGroupName", typeof(string), "The resource group name.", IsRequired: true, Aliases: [], AllowedValues: []),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
         private static readonly CommandMetadata s_newNetworkInterfaceOrchestrator_CLI = new(
             Name: "NewNetworkInterfaceProcessor_Orchestrator",
             Aliases: [],
@@ -405,12 +422,16 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
             ["Get-VM_List"]               = s_listVM_PS,
             ["Remove-VM"]                = s_deleteVM_PS,
         };
+        // Shape B (§11.2): keys are full-path form. Each key is `{verb} {path}` where `verb` matches
+        // an [ExtensionVerb] declaration on this class; the dispatcher does longest-prefix match on the
+        // (verb, path) tuple via Core.Extensions.LeafIndex.
         private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
         {
-            ["create"]   = s_newVMOrchestrator_CLI,
-            ["show"]     = s_getVM_CLI,
-            ["list"]     = s_listVM_CLI,
-            ["delete"]   = s_deleteVM_CLI,
+            ["vm create"]   = s_newVMOrchestrator_CLI,
+            ["vm show"]     = s_getVM_CLI,
+            ["vm list"]     = s_listVM_CLI,
+            ["vm delete"]   = s_deleteVM_CLI,
+            ["disk list"]   = s_listDisk_CLI,
         };
         // ── Lookup ──
         public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
@@ -431,6 +452,15 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
             {
                 ClientType.PowerShell => s_psTable.Values,
                 ClientType.CLI => s_cliTable.Values,
+                _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
+            };
+        }
+        public IEnumerable<string> GetCommandKeys(ClientType clientType)
+        {
+            return clientType switch
+            {
+                ClientType.PowerShell => s_psTable.Keys,
+                ClientType.CLI => s_cliTable.Keys,
                 _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
             };
         }

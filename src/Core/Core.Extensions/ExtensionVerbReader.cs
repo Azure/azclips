@@ -23,14 +23,14 @@ namespace Core.Extensions
         private const string AttributeFullName = "Core.Abstractions.ExtensionVerbAttribute";
 
         /// <summary>
-        /// Scan all DLLs in <paramref name="extensionDirectory"/> for an <c>[ExtensionVerb]</c>
-        /// attribute and return the declared verb.
+        /// Scan all DLLs in <paramref name="extensionDirectory"/> for <c>[ExtensionVerb]</c>
+        /// attributes and return every declared verb. Phase 9: an extension may declare multiple
+        /// verbs (the attribute is repeatable), so this returns a list rather than a single value.
         /// </summary>
-        /// <returns>The verb string, or <c>null</c> if no DLL declares one.</returns>
-        /// <exception cref="InvalidOperationException">
-        /// Thrown if multiple DLLs declare different verbs (an extension can only own one verb).
-        /// </exception>
-        public static string? ReadVerb(string extensionDirectory)
+        /// <returns>
+        /// Distinct verb strings in first-seen order. Empty if no DLL declares one.
+        /// </returns>
+        public static IReadOnlyList<string> ReadVerbs(string extensionDirectory)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(extensionDirectory);
 
@@ -42,7 +42,7 @@ namespace Core.Extensions
             var dllPaths = Directory.GetFiles(extensionDirectory, "*.dll", SearchOption.TopDirectoryOnly);
             if (dllPaths.Length == 0)
             {
-                return null;
+                return Array.Empty<string>();
             }
 
             // MetadataLoadContext needs access to runtime BCL assemblies to resolve TypeRefs,
@@ -58,8 +58,9 @@ namespace Core.Extensions
             var resolver = new PathAssemblyResolver(allPaths);
             using var mlc = new MetadataLoadContext(resolver);
 
-            string? foundVerb = null;
-            string? foundIn = null;
+            // Preserve first-seen casing; ignore case for membership tests.
+            var verbs = new List<string>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var dllPath in dllPaths)
             {
@@ -89,21 +90,25 @@ namespace Core.Extensions
                             continue;
                         }
 
-                        if (foundVerb is not null && !string.Equals(foundVerb, verb, StringComparison.OrdinalIgnoreCase))
+                        if (seen.Add(verb))
                         {
-                            throw new InvalidOperationException(
-                                $"Extension at '{extensionDirectory}' declares multiple verbs " +
-                                $"('{foundVerb}' in '{foundIn}', '{verb}' in '{Path.GetFileName(dllPath)}'). " +
-                                $"Shape A requires exactly one verb per extension.");
+                            verbs.Add(verb);
                         }
-
-                        foundVerb = verb;
-                        foundIn = Path.GetFileName(dllPath);
                     }
                 }
             }
 
-            return foundVerb;
+            return verbs;
+        }
+
+        /// <summary>
+        /// Back-compat single-verb accessor. Returns the first declared verb, or <c>null</c> if
+        /// none. New code should prefer <see cref="ReadVerbs"/>.
+        /// </summary>
+        public static string? ReadVerb(string extensionDirectory)
+        {
+            var verbs = ReadVerbs(extensionDirectory);
+            return verbs.Count == 0 ? null : verbs[0];
         }
 
         private static IEnumerable<Type> SafeGetTypes(Assembly assembly)

@@ -72,14 +72,25 @@ namespace Core.Extensions
                 return true;
             }
 
-            // Fall through to installed extensions.
+            // Fall through to installed extensions. Phase 9: an entry may claim multiple
+            // namespaces (e.g. Compute contributes both `vm` and `disk`); consult Namespaces
+            // first, fall back to the legacy v1 `Verb` field or the first contribution.
             var registry = _registryStore.Load();
             foreach (var (packageId, entry) in registry.Extensions)
             {
-                if (string.Equals(entry.Verb, verb, StringComparison.OrdinalIgnoreCase))
+                IReadOnlyList<string> entryVerbs =
+                    entry.Namespaces.Count > 0 ? entry.Namespaces :
+                    entry.Verb is not null ? new[] { entry.Verb } :
+                    entry.Contributions.Count > 0 ? new[] { entry.Contributions[0].Verb } :
+                    Array.Empty<string>();
+
+                foreach (var entryVerb in entryVerbs)
                 {
-                    resolved = new ResolvedExtension(entry.Verb, packageId, entry.Version, IsBuiltIn: false);
-                    return true;
+                    if (string.Equals(entryVerb, verb, StringComparison.OrdinalIgnoreCase))
+                    {
+                        resolved = new ResolvedExtension(entryVerb, packageId, entry.Version, IsBuiltIn: false);
+                        return true;
+                    }
                 }
             }
 

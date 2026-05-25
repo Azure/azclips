@@ -97,47 +97,91 @@ public class UpdateExtensionProcessor : IProcessor
 
         try
         {
-            var verb = ExtensionVerbReader.ReadVerb(installPath)
-                ?? throw CirrusErrorException.VerbConflict(
-                    $"Updated package '{packageId}' does not declare an [ExtensionVerb] attribute.",
-                    new Dictionary<string, object?> { ["packageId"] = packageId });
-
-            // A package changing its verb across versions would silently rebind the command surface.
-            // Block it: the user can `remove` then `add` if they really want that.
-            if (!string.Equals(verb, existing.Verb, StringComparison.OrdinalIgnoreCase))
+            var verbs = ExtensionVerbReader.ReadVerbs(installPath);
+            if (verbs.Count == 0)
             {
                 throw CirrusErrorException.VerbConflict(
-                    $"Updated package '{packageId}' declares verb '{verb}', but the previously installed version owned '{existing.Verb}'. " +
+                    $"Updated package '{packageId}' does not declare an [ExtensionVerb] attribute.",
+                    new Dictionary<string, object?> { ["packageId"] = packageId });
+            }
+
+            // The set of namespaces the previously installed version owned. Prefer the v2
+            // Namespaces list; fall back to the legacy single Verb field for entries that pre-date
+            // multi-namespace support.
+            var existingVerbs = existing.Namespaces.Count > 0
+                ? new HashSet<string>(existing.Namespaces, StringComparer.OrdinalIgnoreCase)
+                : new HashSet<string>(
+                    existing.Verb is null ? Array.Empty<string>() : new[] { existing.Verb },
+                    StringComparer.OrdinalIgnoreCase);
+            var newVerbSet = new HashSet<string>(verbs, StringComparer.OrdinalIgnoreCase);
+
+            // A package changing its claimed namespaces across versions would silently rebind the
+            // command surface. Block it: the user can `remove` then `add` if they really want that.
+            if (!existingVerbs.SetEquals(newVerbSet))
+            {
+                throw CirrusErrorException.VerbConflict(
+                    $"Updated package '{packageId}' declares verbs [{string.Join(", ", verbs)}], " +
+                    $"but the previously installed version owned [{string.Join(", ", existingVerbs)}]. " +
                     $"Refusing to silently rebind. Run 'extension remove {packageId}' then 'extension add' to change verbs.",
                     new Dictionary<string, object?>
                     {
                         ["packageId"] = packageId,
-                        ["newVerb"] = verb,
-                        ["existingVerb"] = existing.Verb,
+                        ["newVerbs"] = verbs,
+                        ["existingVerbs"] = existingVerbs.ToArray(),
                     });
             }
 
+            var primaryVerb = existing.Verb ?? verbs[0];
+
             // Recover the resolved version from the install path layout: {root}/{pkgId}/{version}/
             var resolvedVersion = new DirectoryInfo(installPath).Name;
+
+            // Shape B (§11.7): re-read the candidate's leaves and persist them. Cross-package leaf
+            // conflicts are impossible by definition during an update of an existing package, but
+            // a self-update can change the set of contributed leaves (e.g., adding a new sub-leaf
+            // in a new minor version) so we still need to refresh Contributions on disk.
+            var leafKeys = LeafReader.ReadCliLeafKeys(installPath);
+            var contributions = new List<Contribution>();
+            foreach (var leafKey in leafKeys)
+            {
+                var (leafVerb, leafPath) = LeafReader.SplitLeafKey(leafKey);
+                if (!newVerbSet.Contains(leafVerb))
+                {
+                    throw CirrusErrorException.LeafConflict(
+                        $"Updated package '{packageId}' contributes leaf '{leafKey}' whose first token is '{leafVerb}', " +
+                        $"but only verbs [{string.Join(", ", verbs)}] are declared via [ExtensionVerb]. " +
+                        $"Every s_cliTable key must start with a declared verb.",
+                        new Dictionary<string, object?>
+                        {
+                            ["packageId"] = packageId,
+                            ["declaredVerbs"] = verbs,
+                            ["leafKey"] = leafKey,
+                            ["leafVerb"] = leafVerb,
+                        });
+                }
+                contributions.Add(new Contribution { Verb = leafVerb, Path = leafPath });
+            }
 
             // Q6 strict single-version: only the just-installed version stays on disk.
             PurgeSiblingVersions(installer.InstallPath, packageId, keepVersion: resolvedVersion);
 
             registry.Extensions[packageId] = new ExtensionRegistryEntry
             {
-                Verb = existing.Verb,
+                Verb = primaryVerb,
                 Version = resolvedVersion,
                 // Forced update breaks the pin (the version it pinned no longer exists on disk).
                 Pinned = existing.Pinned && !Force,
                 Source = FeedUrl ?? existing.Source,
                 InstalledAt = DateTimeOffset.UtcNow,
+                Contributions = contributions,
             };
             store.Save(registry);
 
             return new
             {
                 PackageId = packageId,
-                Verb = existing.Verb,
+                Verb = primaryVerb,
+                Verbs = verbs,
                 PreviousVersion = existing.Version,
                 Version = resolvedVersion,
                 Pinned = existing.Pinned && !Force,

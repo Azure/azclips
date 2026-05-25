@@ -85,27 +85,40 @@ public class AddExtensionProcessor : IProcessor
 
         try
         {
-            // Per docs/spec/extension-management.md §5.2: read the declared verb from the installed
-            // DLLs *without* executing extension code, then validate against built-ins + registry
-            // before committing the registry write.
-            var verb = ExtensionVerbReader.ReadVerb(installPath)
-                ?? throw CirrusErrorException.VerbConflict(
-                    $"Extension '{packageId}' does not declare an [ExtensionVerb] attribute. " +
-                    $"Cirrus extensions must declare exactly one top-level verb.",
-                    new Dictionary<string, object?> { ["packageId"] = packageId });
-
-            if (BuiltInExtensions.IsBuiltInVerb(verb))
+            // Per docs/spec/extension-management.md §5.2: read the declared verb(s) from the
+            // installed DLLs *without* executing extension code, then validate against built-ins +
+            // registry before committing the registry write. Phase 9 makes [ExtensionVerb]
+            // repeatable, so an extension may claim more than one namespace.
+            var verbs = ExtensionVerbReader.ReadVerbs(installPath);
+            if (verbs.Count == 0)
             {
                 throw CirrusErrorException.VerbConflict(
-                    $"Extension '{packageId}' wants to register verb '{verb}', but '{verb}' is reserved for a built-in extension and cannot be claimed by an installed extension.",
-                    new Dictionary<string, object?> { ["packageId"] = packageId, ["verb"] = verb });
+                    $"Extension '{packageId}' does not declare an [ExtensionVerb] attribute. " +
+                    $"Cirrus extensions must declare at least one top-level verb.",
+                    new Dictionary<string, object?> { ["packageId"] = packageId });
+            }
+
+            // First declared verb is the canonical "primary" for the v1 `verb` field; readers that
+            // pre-date the multi-namespace model continue to see something sensible.
+            var primaryVerb = verbs[0];
+
+            // Built-in collision check (§4.2): a built-in verb is non-overridable.
+            foreach (var v in verbs)
+            {
+                if (BuiltInExtensions.IsBuiltInVerb(v))
+                {
+                    throw CirrusErrorException.VerbConflict(
+                        $"Extension '{packageId}' wants to register verb '{v}', but '{v}' is reserved for a built-in extension and cannot be claimed by an installed extension.",
+                        new Dictionary<string, object?> { ["packageId"] = packageId, ["verb"] = v });
+                }
             }
 
             var store = new FileExtensionRegistryStore();
             var registry = store.Load();
 
-            // Conflict check: another extension already claims this verb?
-            // Re-installing the same package is fine (upsert).
+            // Conflict check: every declared verb must be free of other-package ownership.
+            // Self-upsert (same packageId reinstalling) is fine.
+            var declaredVerbSet = new HashSet<string>(verbs, StringComparer.OrdinalIgnoreCase);
             foreach (var (existingPackageId, existingEntry) in registry.Extensions)
             {
                 if (string.Equals(existingPackageId, packageId, StringComparison.OrdinalIgnoreCase))
@@ -113,18 +126,104 @@ public class AddExtensionProcessor : IProcessor
                     continue;
                 }
 
-                if (string.Equals(existingEntry.Verb, verb, StringComparison.OrdinalIgnoreCase))
+                // Build the set of namespaces the existing entry claims so multi-namespace
+                // packages can't be partially shadowed.
+                var existingNamespaces = existingEntry.Namespaces.Count > 0
+                    ? (IEnumerable<string>)existingEntry.Namespaces
+                    : (existingEntry.Verb is null ? Array.Empty<string>() : new[] { existingEntry.Verb });
+
+                foreach (var existingVerb in existingNamespaces)
                 {
-                    throw CirrusErrorException.VerbConflict(
-                        $"Extension '{packageId}' wants to register verb '{verb}', but it is already owned by '{existingPackageId}'. " +
-                        $"Remove the existing extension first: azv2 extension remove {existingPackageId}",
+                    if (declaredVerbSet.Contains(existingVerb))
+                    {
+                        throw CirrusErrorException.VerbConflict(
+                            $"Extension '{packageId}' wants to register verb '{existingVerb}', but it is already owned by '{existingPackageId}'. " +
+                            $"Remove the existing extension first: azv2 extension remove {existingPackageId}",
+                            new Dictionary<string, object?>
+                            {
+                                ["packageId"] = packageId,
+                                ["verb"] = existingVerb,
+                                ["existingPackageId"] = existingPackageId,
+                            });
+                    }
+                }
+            }
+
+            // Shape B (§11.7): read the candidate's leaves (s_cliTable keys) from the just-
+            // installed DLLs and conflict-check every (verb, path) tuple against the registry
+            // and the built-in seed. This is finer-grained than the verb-only check above and
+            // catches the cross-namespace case where two extensions share a verb but contribute
+            // different paths (allowed) vs. the same path (rejected).
+            var leafKeys = LeafReader.ReadCliLeafKeys(installPath);
+            var contributions = new List<Contribution>();
+            foreach (var leafKey in leafKeys)
+            {
+                var (leafVerb, leafPath) = LeafReader.SplitLeafKey(leafKey);
+
+                // The first token of every leaf key must match one of the declared [ExtensionVerb]
+                // attributes (§11.2, Q10). For multi-namespace extensions any declared verb is
+                // fair game — the build-time `ExtensionHints.targets` validation enforces the
+                // same rule at PR time.
+                if (!declaredVerbSet.Contains(leafVerb))
+                {
+                    throw CirrusErrorException.LeafConflict(
+                        $"Extension '{packageId}' contributes leaf '{leafKey}' whose first token is '{leafVerb}', " +
+                        $"but only verbs [{string.Join(", ", verbs)}] are declared via [ExtensionVerb]. " +
+                        $"Every s_cliTable key must start with a declared verb.",
                         new Dictionary<string, object?>
                         {
                             ["packageId"] = packageId,
-                            ["verb"] = verb,
-                            ["existingPackageId"] = existingPackageId,
+                            ["declaredVerbs"] = verbs,
+                            ["leafKey"] = leafKey,
+                            ["leafVerb"] = leafVerb,
                         });
                 }
+
+                // Built-in collision: built-ins occupy (verb, "") only, so a leaf with empty path
+                // for a built-in verb collides; the verb-level check above already caught this,
+                // but be defensive.
+                if (BuiltInExtensions.IsBuiltInVerb(leafVerb) && string.IsNullOrEmpty(leafPath))
+                {
+                    throw CirrusErrorException.LeafConflict(
+                        $"Extension '{packageId}' contributes root leaf '{leafKey}', which is reserved for " +
+                        $"the built-in '{leafVerb}' extension.",
+                        new Dictionary<string, object?>
+                        {
+                            ["packageId"] = packageId,
+                            ["leafKey"] = leafKey,
+                        });
+                }
+
+                // Registry collision: another installed package already contributes the same
+                // (verb, path). Self-upsert is allowed.
+                foreach (var (existingPackageId, existingEntry) in registry.Extensions)
+                {
+                    if (string.Equals(existingPackageId, packageId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+                    foreach (var existingContribution in existingEntry.Contributions)
+                    {
+                        if (string.Equals(existingContribution.Verb, leafVerb, StringComparison.OrdinalIgnoreCase) &&
+                            string.Equals(existingContribution.Path, leafPath, StringComparison.OrdinalIgnoreCase))
+                        {
+                            throw CirrusErrorException.LeafConflict(
+                                $"Extension '{packageId}' wants to contribute leaf '{leafKey}', but it is already " +
+                                $"owned by '{existingPackageId}'. Remove the existing extension first: " +
+                                $"azv2 extension remove {existingPackageId}",
+                                new Dictionary<string, object?>
+                                {
+                                    ["packageId"] = packageId,
+                                    ["leafKey"] = leafKey,
+                                    ["verb"] = leafVerb,
+                                    ["path"] = leafPath,
+                                    ["existingPackageId"] = existingPackageId,
+                                });
+                        }
+                    }
+                }
+
+                contributions.Add(new Contribution { Verb = leafVerb, Path = leafPath });
             }
 
             // Per Q6 (strict single-version): purge any sibling version directories under the
@@ -133,11 +232,12 @@ public class AddExtensionProcessor : IProcessor
 
             registry.Extensions[packageId] = new ExtensionRegistryEntry
             {
-                Verb = verb,
+                Verb = primaryVerb,
                 Version = version,
                 Pinned = Pin,
                 Source = FeedUrl,
                 InstalledAt = DateTimeOffset.UtcNow,
+                Contributions = contributions,
             };
             store.Save(registry);
 
@@ -145,9 +245,11 @@ public class AddExtensionProcessor : IProcessor
             {
                 PackageId = packageId,
                 Version = version,
-                Verb = verb,
+                Verb = primaryVerb,
+                Verbs = verbs,
                 Pinned = Pin,
                 InstalledExtensionPath = installPath,
+                Contributions = contributions.Select(c => new { c.Verb, c.Path }).ToArray(),
             };
         }
         catch

@@ -10,9 +10,9 @@ namespace Core.Extensions
     /// Tracks every installed (non-built-in) extension. Built-ins live in the host's static seed.
     /// </summary>
     /// <remarks>
-    /// Schema is documented in <c>docs/spec/extension-management.md §5.1</c>.
-    /// Shape A: exactly one entry per extension package; <see cref="ExtensionRegistryEntry.Verb"/>
-    /// is the single top-level verb that extension claims.
+    /// Schema is documented in <c>docs/spec/extension-management.md §5.1</c> (Shape A) and
+    /// <c>§11.3</c> (Shape B v2). Shape B widens entries with a <c>contributions</c> list of
+    /// <c>(verb, path)</c> pairs and a derived <c>namespaces</c> field.
     /// </remarks>
     public sealed class ExtensionRegistry
     {
@@ -31,7 +31,31 @@ namespace Core.Extensions
         /// <summary>
         /// The schema version this codebase writes and accepts on read.
         /// </summary>
-        public const int CurrentSchemaVersion = 1;
+        /// <remarks>
+        /// v1 (Shape A): single <c>verb</c> field per entry. v2 (Shape B): <c>contributions</c> list of
+        /// <c>(verb, path)</c> leaves plus a derived <c>namespaces</c> list. v1 entries are read
+        /// tolerantly and synthesized into a single <c>(verb, "")</c> contribution.
+        /// </remarks>
+        public const int CurrentSchemaVersion = 2;
+    }
+
+    /// <summary>
+    /// A single leaf an extension contributes: the <see cref="Verb"/> top-level namespace plus the
+    /// remaining command <see cref="Path"/> within it. Empty <c>Path</c> means "the namespace root".
+    /// </summary>
+    /// <remarks>
+    /// See <c>docs/spec/extension-management.md §11.3</c>. The full CLI key for the leaf is
+    /// <c>{Verb} {Path}</c> (e.g. <c>vm create</c>, where <c>Verb="vm"</c> and <c>Path="create"</c>).
+    /// </remarks>
+    public sealed class Contribution
+    {
+        /// <summary>Top-level namespace verb (e.g. <c>"vm"</c>).</summary>
+        [JsonPropertyName("verb")]
+        public required string Verb { get; set; }
+
+        /// <summary>Path within the namespace (e.g. <c>"create"</c>, <c>"disk attach"</c>, or <c>""</c> for the namespace root).</summary>
+        [JsonPropertyName("path")]
+        public required string Path { get; set; }
     }
 
     /// <summary>
@@ -40,10 +64,14 @@ namespace Core.Extensions
     public sealed class ExtensionRegistryEntry
     {
         /// <summary>
-        /// Top-level verb this extension claims (declared via <c>[ExtensionVerb]</c> on its <c>IExtensionIndex</c>).
+        /// Legacy v1 field: top-level verb this extension claims. Retained for back-compat —
+        /// v2 entries synthesize a single <c>(Verb, "")</c> <see cref="Contributions"/> when this is set
+        /// and no contributions are present. New v2-only entries leave this null and rely on
+        /// <see cref="Contributions"/>.
         /// </summary>
         [JsonPropertyName("verb")]
-        public required string Verb { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? Verb { get; set; }
 
         /// <summary>
         /// Installed version. Per §5.1 Shape A is strict single-version; <c>update</c> overwrites in place.
@@ -68,5 +96,20 @@ namespace Core.Extensions
         /// </summary>
         [JsonPropertyName("installedAt")]
         public DateTimeOffset InstalledAt { get; set; }
+
+        /// <summary>
+        /// v2: the set of <c>(verb, path)</c> leaves this extension contributes. v1 entries are
+        /// normalized into a single-element list with <c>Path = ""</c> on load.
+        /// </summary>
+        [JsonPropertyName("contributions")]
+        public List<Contribution> Contributions { get; set; } = new();
+
+        /// <summary>
+        /// v2: derived list of distinct top-level namespaces this extension contributes to. Always
+        /// re-derived from <see cref="Contributions"/> before write; persisted for read-side ergonomics
+        /// (e.g. <c>extension list --by-verb</c>) without forcing readers to scan contributions.
+        /// </summary>
+        [JsonPropertyName("namespaces")]
+        public List<string> Namespaces { get; set; } = new();
     }
 }
