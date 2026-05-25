@@ -41,7 +41,11 @@ public sealed class ConsoleApprovalPrompt
             SingleWriter = false,
         });
 
-    private record PendingApproval(string ToolName, string ArgsPreview, TaskCompletionSource<bool> Result);
+    private record PendingApproval(
+        string ToolName,
+        string ArgsPreview,
+        TaskCompletionSource<bool> Result,
+        CancellationTokenRegistration Reg);
 
     // Outcome of one approval prompt. When Approved=false and FeedbackPrompt is
     // set, the user typed free-form text at the y/n prompt — the host treats it
@@ -63,9 +67,9 @@ public sealed class ConsoleApprovalPrompt
         var (toolName, args) = Describe(req);
 
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var reg = ct.Register(() => tcs.TrySetCanceled(ct));
+        var reg = ct.Register(() => tcs.TrySetCanceled(ct));
 
-        _queue.Writer.TryWrite(new PendingApproval(toolName, args, tcs));
+        _queue.Writer.TryWrite(new PendingApproval(toolName, args, tcs, reg));
         return tcs.Task;
     }
 
@@ -77,9 +81,9 @@ public sealed class ConsoleApprovalPrompt
     public Task<bool> RequestRewriteAsync(string toolName, string rewrittenCommand, CancellationToken ct)
     {
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var reg = ct.Register(() => tcs.TrySetCanceled(ct));
+        var reg = ct.Register(() => tcs.TrySetCanceled(ct));
 
-        _queue.Writer.TryWrite(new PendingApproval(toolName, rewrittenCommand ?? string.Empty, tcs));
+        _queue.Writer.TryWrite(new PendingApproval(toolName, rewrittenCommand ?? string.Empty, tcs, reg));
         return tcs.Task;
     }
 
@@ -147,6 +151,7 @@ public sealed class ConsoleApprovalPrompt
         finally
         {
             _spinner?.Resume();
+            pending.Reg.Dispose();
         }
 
         var trimmed = line?.Trim() ?? string.Empty;
