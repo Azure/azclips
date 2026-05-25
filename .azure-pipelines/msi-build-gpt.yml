@@ -22,7 +22,7 @@ parameters:
   - name: package_version
     displayName: Optional MSI version, for example 1.0.25.0
     type: string
-    default: ''
+    default: 1.0.0.0
 
   - name: publisher
     displayName: Signing certificate subject
