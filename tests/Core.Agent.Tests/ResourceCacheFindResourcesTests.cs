@@ -13,8 +13,7 @@ namespace Core.Agent.Tests;
 /// initial implementation only indexed the Resources collection, so any
 /// search whose target was a resource group returned 0 hits regardless
 /// of pattern, and the diagnose model would panic-search with progressively
-/// broader patterns (see the spike/diagnose-prompt-iteration session
-/// 2026-05-04).
+/// broader patterns.
 ///
 /// Each test owns its own temp cache directory and ResourceCache instance
 /// so they are fully parallel-safe and independent of the user's real

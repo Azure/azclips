@@ -1,18 +1,14 @@
 using System.Text;
 
-namespace Core.Agent.Tests.Snapshot;
+namespace Core.Agent.Tests.SnapshotTesting;
 
 /// <summary>
 /// Minimal snapshot harness: read / write / compare a text blob against a
-/// baseline file under <c>.snapshots/</c>. On mismatch the actual output is
-/// written to <c>.snapshots/&lt;name&gt;.actual.txt</c> and the test fails
+/// baseline file under <c>Snapshots/</c>. On mismatch the actual output is
+/// written to <c>Snapshots/&lt;name&gt;.actual.txt</c> and the test fails
 /// with a unified-style diff. Set <c>UPDATE_SNAPSHOTS=1</c> in the test
 /// runner environment to rebaseline (writes <c>&lt;name&gt;.txt</c> from
 /// actual and passes).
-///
-/// Modeled after the main-repo spike commit 9159959c's SnapshotAssert, but
-/// reimplemented because the spike runs against MAF's IChatClient stubs
-/// while we feed the SDK's SessionEvent stream into EventRenderer directly.
 /// </summary>
 internal static class SnapshotAssert
 {
@@ -52,12 +48,12 @@ internal static class SnapshotAssert
     private static string LocateBaseline(string name)
     {
         // Walk up from the test binary directory until we find the project
-        // root (the folder that contains .snapshots/). Falls back to writing
+        // root (the folder that contains Snapshots/). Falls back to writing
         // next to the test dll if we can't locate one.
         var dir = AppContext.BaseDirectory;
         while (!string.IsNullOrEmpty(dir))
         {
-            var candidate = Path.Combine(dir, ".snapshots");
+            var candidate = Path.Combine(dir, "Snapshots");
             if (Directory.Exists(candidate))
                 return Path.Combine(candidate, name + ".txt");
 
@@ -66,12 +62,12 @@ internal static class SnapshotAssert
 
             // Bail at the test project root (csproj sibling).
             if (Directory.GetFiles(parent.FullName, "*.csproj").Length > 0)
-                return Path.Combine(parent.FullName, ".snapshots", name + ".txt");
+                return Path.Combine(parent.FullName, "Snapshots", name + ".txt");
 
             dir = parent.FullName;
         }
 
-        return Path.Combine(AppContext.BaseDirectory, ".snapshots", name + ".txt");
+        return Path.Combine(AppContext.BaseDirectory, "Snapshots", name + ".txt");
     }
 
     // .gitattributes normalizes snapshots to LF on commit but Windows checkout

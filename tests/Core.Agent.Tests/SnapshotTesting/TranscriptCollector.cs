@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace Core.Agent.Tests.Snapshot;
+namespace Core.Agent.Tests.SnapshotTesting;
 
 /// <summary>
 /// Captures the EventRenderer's OnText + OnEvent stream as a normalized

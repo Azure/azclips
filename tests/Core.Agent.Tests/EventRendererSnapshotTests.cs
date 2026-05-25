@@ -1,4 +1,4 @@
-using Core.Agent.Tests.Snapshot;
+using Core.Agent.Tests.SnapshotTesting;
 using GitHub.Copilot.SDK;
 using Xunit;
 
@@ -13,11 +13,6 @@ namespace Core.Agent.Tests;
 /// and assert on the transcript it produces. The unit under test is the
 /// ~130-line translation layer in src/Core/Core.Agent/EventRenderer.cs;
 /// the SDK daemon is treated as a black box per plan-v3 §3.
-///
-/// Borrows the snapshot infrastructure pattern from main-repo spike
-/// 9159959c (SnapshotAssert / TranscriptCollector / .snapshots/) but
-/// substitutes SessionEvent-stub harness in place of that commit's
-/// MAF-specific IChatClient stub.
 /// </summary>
 public class EventRendererSnapshotTests
 {

@@ -8,7 +8,7 @@
   <ItemGroup>
     <!-- Snapshot baselines: copy alongside the test dll so SnapshotAssert
          can locate them via its walk-up-from-test-bin search. -->
-    <None Update=".snapshots\*.txt">
+    <None Update="Snapshots\*.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

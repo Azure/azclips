@@ -1,5 +1,5 @@
 using Core.Agent.Hosting;
-using Core.Agent.Tests.Snapshot;
+using Core.Agent.Tests.SnapshotTesting;
 using Xunit;
 
 namespace Core.Agent.Tests;
