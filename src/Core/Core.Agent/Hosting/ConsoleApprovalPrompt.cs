@@ -27,11 +27,16 @@ public sealed class ConsoleApprovalPrompt
 {
     private readonly SpinnerService? _spinner;
     private readonly IAgentRenderer? _renderer;
+    private readonly AbortKeyWatcher? _abortWatcher;
 
-    public ConsoleApprovalPrompt(SpinnerService? spinner = null, IAgentRenderer? renderer = null)
+    public ConsoleApprovalPrompt(
+        SpinnerService? spinner = null,
+        IAgentRenderer? renderer = null,
+        AbortKeyWatcher? abortWatcher = null)
     {
         _spinner = spinner;
         _renderer = renderer;
+        _abortWatcher = abortWatcher;
     }
 
     private readonly Channel<PendingApproval> _queue =
@@ -134,6 +139,7 @@ public sealed class ConsoleApprovalPrompt
         }
 
         _spinner?.Pause();
+        _abortWatcher?.Pause();
         string? line = null;
         try
         {
@@ -150,6 +156,7 @@ public sealed class ConsoleApprovalPrompt
         }
         finally
         {
+            _abortWatcher?.Resume();
             _spinner?.Resume();
             pending.Reg.Dispose();
         }

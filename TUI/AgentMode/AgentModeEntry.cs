@@ -35,7 +35,16 @@ public static class AgentModeEntry
             var azv2     = FindAzv2Exe() ?? "azv2";
             var renderer = new ConsoleAgentRenderer();
             var spinner  = new SpinnerService(renderer);
-            var approval = new ConsoleApprovalPrompt(spinner, renderer);
+
+            // Watcher is shared across all turns and paused (not destroyed) while
+            // the approval pump reads y/n — that's how single-reader stdin is
+            // preserved. The abort callback closes over agentRef so we can wire
+            // the watcher before the agent exists.
+            ChatAgent? agentRef = null;
+            var watcher  = new AbortKeyWatcher(
+                onAbort: ct => agentRef!.AbortAsync(ct),
+                onQuit:  () => cts.Cancel());
+            var approval = new ConsoleApprovalPrompt(spinner, renderer, abortWatcher: watcher);
 
             // Funnel cirrus-internal logs through the renderer so they don't
             // race the spinner. Verbose/Debug/Info dropped; Warn/Error become
@@ -52,12 +61,13 @@ public static class AgentModeEntry
                 spinner: spinner,
                 mode: "azure",
                 ct: cts.Token);
+            agentRef = agent;
 
             var firstPrompt = string.IsNullOrWhiteSpace(errorText)
                 ? $"I tried `{failedCommand}` but it failed. Help me fix it."
                 : $"I tried `{failedCommand}` but it failed:\n{errorText}\nHelp me fix it.";
 
-            await RunChatLoopAsync(agent, approval, spinner, firstPrompt, cts.Token);
+            await RunChatLoopAsync(agent, approval, watcher, spinner, firstPrompt, cts.Token);
             return 0;
         }
         catch (OperationCanceledException)
@@ -78,11 +88,12 @@ public static class AgentModeEntry
     private static async Task RunChatLoopAsync(
         ChatAgent agent,
         ConsoleApprovalPrompt approval,
+        AbortKeyWatcher watcher,
         SpinnerService spinner,
         string firstPrompt,
         CancellationToken ct)
     {
-        var nextPrompt = await SendAndPumpAsync(agent, approval, spinner, firstPrompt, ct);
+        var nextPrompt = await SendAndPumpAsync(agent, approval, watcher, spinner, firstPrompt, ct);
 
         while (!ct.IsCancellationRequested)
         {
@@ -105,7 +116,7 @@ public static class AgentModeEntry
                 if (line is "exit" or "quit" or "/exit" or "/quit" or ":q") break;
             }
 
-            nextPrompt = await SendAndPumpAsync(agent, approval, spinner, line, ct);
+            nextPrompt = await SendAndPumpAsync(agent, approval, watcher, spinner, line, ct);
         }
     }
 
@@ -114,6 +125,7 @@ public static class AgentModeEntry
     private static async Task<string?> SendAndPumpAsync(
         ChatAgent agent,
         ConsoleApprovalPrompt approval,
+        AbortKeyWatcher watcher,
         SpinnerService spinner,
         string prompt,
         CancellationToken ct)
@@ -121,7 +133,6 @@ public static class AgentModeEntry
         spinner.Start("thinking");
         var sendTask = agent.SendAsync(prompt, ct);
 
-        var watcher = new AbortKeyWatcher(agent.AbortAsync);
         var watcherCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var watcherTask = watcher.RunAsync(watcherCts.Token);
 
@@ -160,12 +171,6 @@ public static class AgentModeEntry
                     WriteColor(ConsoleColor.DarkGray, $"  ↯ told to do differently: {Truncate(feedback, 60)}");
                     break;
                 }
-
-                watcherCts.Cancel();
-                try { await watcherTask.ConfigureAwait(false); } catch { }
-                watcherCts.Dispose();
-                watcherCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                watcherTask = watcher.RunAsync(watcherCts.Token);
             }
         }
         finally

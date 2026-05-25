@@ -5,8 +5,10 @@ namespace Core.Agent.Hosting;
 /// <summary>
 /// During a busy agent turn, watches stdin for Esc / Ctrl+C and swallows every
 /// other keypress so the user can't queue up garbage that lands in the next
-/// prompt. Started right before <c>SendAsync</c> and stopped the instant the
-/// turn ends (or an approval needs to read y/n via <see cref="Console.ReadLine"/>).
+/// prompt. Esc aborts the current turn (calls <c>_onAbort</c>); Ctrl+C quits
+/// the whole session (calls <c>_onQuit</c>). Started right before
+/// <c>SendAsync</c> and stopped the instant the turn ends (or an approval
+/// needs to read y/n via <see cref="Console.ReadLine"/>).
 ///
 /// Pattern:    cooperative polling on <see cref="Console.KeyAvailable"/> so we
 ///             never sit inside a blocking <see cref="Console.ReadKey(bool)"/>
@@ -32,13 +34,29 @@ namespace Core.Agent.Hosting;
 public sealed class AbortKeyWatcher
 {
     private readonly Func<CancellationToken, Task> _onAbort;
+    private readonly Action? _onQuit;
     private readonly TimeSpan _pollInterval;
+    private readonly ManualResetEventSlim _gate = new(initialState: true);
 
-    public AbortKeyWatcher(Func<CancellationToken, Task> onAbort, TimeSpan? pollInterval = null)
+    public AbortKeyWatcher(
+        Func<CancellationToken, Task> onAbort,
+        Action? onQuit = null,
+        TimeSpan? pollInterval = null)
     {
         _onAbort = onAbort;
+        _onQuit = onQuit;
         _pollInterval = pollInterval ?? TimeSpan.FromMilliseconds(50);
     }
+
+    /// <summary>
+    /// Suspend polling so another reader (the approval pump) can own stdin
+    /// without contention. Any keystrokes typed while paused stay in the OS
+    /// input buffer and are visible to whoever is reading instead.
+    /// </summary>
+    public void Pause() => _gate.Reset();
+
+    /// <summary>Resume polling after <see cref="Pause"/>.</summary>
+    public void Resume() => _gate.Set();
 
     /// <summary>
     /// Run the watch loop until <paramref name="ct"/> is cancelled or the user
@@ -57,6 +75,9 @@ public sealed class AbortKeyWatcher
 
         while (!ct.IsCancellationRequested)
         {
+            try { _gate.Wait(ct); }
+            catch (OperationCanceledException) { return false; }
+
             if (!Console.KeyAvailable)
             {
                 try { await Task.Delay(_pollInterval, ct).ConfigureAwait(false); }
@@ -66,10 +87,13 @@ public sealed class AbortKeyWatcher
 
             var key = Console.ReadKey(intercept: true);
 
-            var isAbort = key.Key == ConsoleKey.Escape
-                       || (key.Key == ConsoleKey.C && (key.Modifiers & ConsoleModifiers.Control) != 0);
+            if (key.Key == ConsoleKey.C && (key.Modifiers & ConsoleModifiers.Control) != 0)
+            {
+                _onQuit?.Invoke();
+                return true;
+            }
 
-            if (isAbort)
+            if (key.Key == ConsoleKey.Escape)
             {
                 try { await _onAbort(ct).ConfigureAwait(false); } catch { }
                 return true;
