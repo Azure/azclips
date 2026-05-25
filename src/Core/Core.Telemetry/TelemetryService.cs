@@ -36,6 +36,14 @@ public class TelemetryService : ITelemetryService
 
     public ActivitySource ActivitySource { get; }
 
+    private static readonly AsyncLocal<Activity?> _currentStage = new();
+
+    public Activity? CurrentStage
+    {
+        get => _currentStage.Value;
+        set => _currentStage.Value = value;
+    }
+
     public TelemetryService(ClientType clientType, TelemetryOptions telemetryOptions)
     {
         ActivitySource = new ActivitySource(clientType.ToString());
@@ -74,7 +82,10 @@ public class TelemetryService : ITelemetryService
         _tracerProvider = builder.Build()!;
     }
 
-    public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal) => ActivitySource.StartActivity(name, kind);
+    public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal)
+    {
+        return ActivitySource.StartActivity(name, kind, CurrentStage?.Context ?? default);
+    }
 
     public void AddProperty(string key, string? value)
     {
@@ -86,15 +97,6 @@ public class TelemetryService : ITelemetryService
     {
         if (string.IsNullOrEmpty(key)) return;
         Activity.Current?.SetTag($"measures.{key}", value);
-    }
-
-    private static Activity? GetRootActivity()
-    {
-        var activity = Activity.Current;
-        if (activity is null) return null;
-        while (activity.Parent is not null)
-            activity = activity.Parent;
-        return activity;
     }
 
     public void Flush()

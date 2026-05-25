@@ -16,6 +16,20 @@ public interface ITelemetryService : IDisposable
     Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal);
 
     /// <summary>
+    /// Gets or sets the current sequential stage activity (e.g. the activity created for
+    /// <c>ProcessorProcessAsyncStart</c>). The engine maintains this value across the
+    /// <c>ProcessorProcessAsync*</c> lifecycle.
+    /// </summary>
+    /// <remarks>
+    /// Use <see cref="Activity.Context"/> on the returned value to explicitly parent child
+    /// activities under the current stage when crossing <c>async</c> boundaries —
+    /// <see cref="Activity.Current"/> is backed by an <c>AsyncLocal</c> and any assignment
+    /// done inside an <c>await</c>ed method is reverted when control returns to the caller,
+    /// so stage-scoped parents cannot propagate implicitly.
+    /// </remarks>
+    Activity? CurrentStage { get; set; }
+
+    /// <summary>
     /// Adds a string property to the root span for the current command invocation.
     /// </summary>
     /// <remarks>

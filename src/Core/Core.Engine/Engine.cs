@@ -1,9 +1,11 @@
+using System.Diagnostics;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
 using Core.Engine.Utils;
 using Core.Runtime;
 using Core.Runtime.Handler;
+using Core.Telemetry;
 
 namespace Core.Engine
 {
@@ -105,6 +107,24 @@ namespace Core.Engine
             // trace every http request message, record/playback request during test
             httpPipeline.Append(httpPipelineService.HttpRequestMessageTracingStep);
             return context;
+        }
+
+        private void ApplyBaseTelemetryProperties(Activity root, InvocationSession session)
+        {
+            root.SetTag(CoreTelemetryProperties.ClientTypeTag, clientType);
+
+            // NOTE: On the CLI side "module.name" currently maps to the extension name.
+            // The tag key may be renamed to "extension.name" in the future — TBD.
+            if (!string.IsNullOrEmpty(session.Invocation.ModuleName))
+                root.SetTag(CoreTelemetryProperties.ModuleNameTag, session.Invocation.ModuleName);
+            if (!string.IsNullOrEmpty(session.Invocation.ModuleVersion))
+                root.SetTag(CoreTelemetryProperties.ModuleVersionTag, session.Invocation.ModuleVersion);
+
+            CoreTelemetryProperties.ApplyStaticProperties(root);
+
+            var extension = session.Invocation.ExtensionName;
+            var command = session.Invocation.CommandName;
+            root.DisplayName = $"{CoreTelemetryProperties.ProductName} {extension} {command}";
         }
 
         /// <summary>

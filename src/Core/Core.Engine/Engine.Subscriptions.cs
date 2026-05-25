@@ -145,22 +145,18 @@ namespace Core.Engine
         // Sequential always check previous: sequentialStage?.Dispose(); sequentialStage = telemetryService.StartActivity(...);
         private InvocationSession SubscribeActivity(InvocationSession session)
         {
-            Stack<Activity> pairedStages = new Stack<Activity>();
+            Stack<Activity> pairedStages = new();
             Activity? sequentialStage = null;
 
             string sessionId = session.Id;
 
-            // Set activity root: single tagging point for all DevDiv-mandated core
-            // properties plus per-invocation tags (ClientType, module info, EventName,
-            // DisplayName). Squads should not tag the root activity directly; use
-            // ITelemetryService.AddProperty / AddMeasure instead.
             session.Subscribe(Events.SessionCreated, _ =>
             {
                 Activity? activity = Activity.Current;
                 if (activity == null) return;
 
                 var root = TelemetryUtils.GetActivityRoot(activity);
-                ApplyBaseProperties(root, session);
+                ApplyBaseTelemetryProperties(root, session);
 
                 loggingService.Debug($"Root activity tagged: DisplayName={root.DisplayName}");
             });
@@ -170,7 +166,7 @@ namespace Core.Engine
             session.Subscribe(Events.SessionCreated, (data) =>
             {
                 var evt = (EventData)data;
-                var activity = telemetryService.StartActivity(evt.Id, ActivityKind.Internal);
+                var activity = telemetryService.StartActivity(evt.Id, ActivityKind.Internal).SetEventName(evt.Id);
                 if (activity != null)
                     pairedStages.Push(activity);
             });
@@ -187,20 +183,21 @@ namespace Core.Engine
                     var elapsed = root.Duration > TimeSpan.Zero
                         ? root.Duration
                         : DateTime.UtcNow - root.StartTimeUtc;
-                    root.SetTag("totalDuration", (long)elapsed.TotalMilliseconds);
+                    root.SetTag(CoreTelemetryProperties.TotalDurationTag, (long)elapsed.TotalMilliseconds);
                 }
 
                 while (pairedStages.TryPop(out var activity))
                     activity.Dispose();
                 pairedStages.Clear();
                 sequentialStage?.Dispose();
+                telemetryService.CurrentStage = null;
             });
 
             // Paired: AuthBeforeTokenAcquisition - AuthAfterTokenAcquisition
             session.Subscribe(Events.AuthBeforeTokenAcquisition, (data) =>
             {
                 var evt = (EventData)data;
-                var activity = telemetryService.StartActivity(evt.Id, ActivityKind.Internal);
+                var activity = telemetryService.StartActivity(evt.Id, ActivityKind.Internal).SetEventName(evt.Id);
                 if (activity != null)
                     pairedStages.Push(activity);
             });
@@ -213,12 +210,14 @@ namespace Core.Engine
             session.Subscribe(Events.ProcessorProcessAsyncStart, (data) =>
             {
                 var evt = (EventData)data;
-                sequentialStage = telemetryService.StartActivity(evt.Id, ActivityKind.Internal);
+                sequentialStage = telemetryService.StartActivity(evt.Id, ActivityKind.Internal).SetEventName(evt.Id);
+                telemetryService.CurrentStage = sequentialStage;
             });
             session.Subscribe(Events.ProcessorProcessAsyncEnd, (data) =>
             {
                 sequentialStage?.Dispose();
                 sequentialStage = null;
+                telemetryService.CurrentStage = null;
             });
 
             // Map processor lifecycle to root-span Status. Signaled by InvocationSession
@@ -226,17 +225,17 @@ namespace Core.Engine
             // produce identical Status semantics without host-specific plumbing.
             session.Subscribe(Events.ProcessorCompleted, (data) =>
             {
-                Activity? root = Activity.Current;
-                if (root == null) return;
-                TelemetryUtils.GetActivityRoot(root);
+                Activity? activity = Activity.Current;
+                if (activity == null) return;
+                var root = TelemetryUtils.GetActivityRoot(activity);
                 root.SetStatus(ActivityStatusCode.Ok);
             });
             session.Subscribe(Events.ProcessorException, (data) =>
             {
                 var evt = (EventData)data;
-                Activity? root = Activity.Current;
-                if (root == null) return;
-                TelemetryUtils.GetActivityRoot(root);
+                Activity? activity = Activity.Current;
+                if (activity == null) return;
+                var root = TelemetryUtils.GetActivityRoot(activity);
                 root.SetStatus(ActivityStatusCode.Error, evt.ExtendedData);
                 root.AddException(new Exception(evt.ExtendedData));
             });
@@ -249,25 +248,6 @@ namespace Core.Engine
         private InvocationSession SubscribeMetric(InvocationSession session)
         {
             return session;
-        }
-
-        private void ApplyBaseProperties(Activity root, InvocationSession session)
-        {
-            root.SetTag("ClientType", clientType);
-
-            // NOTE: On the CLI side "module.name" currently maps to the extension name.
-            // The tag key may be renamed to "extension.name" in the future — TBD.
-            if (!string.IsNullOrEmpty(session.Invocation.ModuleName))
-                root.SetTag("module.name", session.Invocation.ModuleName);
-            if (!string.IsNullOrEmpty(session.Invocation.ModuleVersion))
-                root.SetTag("module.version", session.Invocation.ModuleVersion);
-
-            CoreTelemetryProperties.ApplyTo(root);
-
-            var extension = session.Invocation.ExtensionName;
-            var command = session.Invocation.CommandName;
-            root.SetTag("EventName", $"cirrus.{extension}.{command}.executed");
-            root.DisplayName = $"cirrus {extension} {command}";
         }
     }
 }

@@ -11,7 +11,7 @@ public static class TelemetryExtensions
     public static Activity? StartCLIActivity(this ITelemetryService service, string[] args)
     {
         var activity = service.ActivitySource.StartActivity("AzureCLI.Main", ActivityKind.Server);
-        
+
         if (activity != null)
         {
             var commandBuilder = new StringBuilder("az");
@@ -19,7 +19,7 @@ public static class TelemetryExtensions
             // Telemetry recording will be moved to engine soon.
             // Temporarily proceed with the parser here.
             var parameters = new StringBuilder();
-            
+
             bool parsingOptions = false;
             for (int i = 0; i < args.Length; i++)
             {
@@ -73,6 +73,19 @@ public static class TelemetryExtensions
             activity.SetTag("parameter", paramBuilder.ToString().Trim());
         }
 
+        return activity;
+    }
+
+    /// <summary>
+    /// Tags the activity with the DevDiv-mandated <c>eventName</c> formatted as
+    /// <c>{ProductName}.{Activity.OperationName}</c>. Null-safe and fluent: returns
+    /// the same activity so it can be chained directly off <c>StartActivity(...)</c>.
+    /// </summary>
+    public static Activity? SetEventName(this Activity? activity, string eventName)
+    {
+        activity?.SetTag(
+            CoreTelemetryProperties.EventNameTag,
+            $"{CoreTelemetryProperties.ProductName}.{eventName}");
         return activity;
     }
 }

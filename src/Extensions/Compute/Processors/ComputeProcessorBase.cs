@@ -3,6 +3,7 @@ using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using System.Net;
+using Core.DependencyInjection;
 using Microsoft.Azure.Cirrus.Extensions.Runtime;
 using Microsoft.Azure.Cirrus.Extensions.Runtime.Json;
 
@@ -25,6 +26,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
         public JsonSerializerOptions JsonOptions = null!;
         protected OutputStreamDelegate WriteOutput = null!;
         protected AuthContext AuthContext = null!;
+        protected ITelemetryService TelemetryService = null!;
+
         protected virtual void BeforeInit() { }
         protected virtual void AfterInit() { }
 
@@ -47,6 +50,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
             EventListener = context.EventListener;
             WriteOutput = context.OutputHandler.WriteOutput;
             AuthContext = context.AuthHandler.AuthContext;
+            TelemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
 
             AfterInit();
             return this;
@@ -74,7 +78,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
             return child;
         }
 
-        /* 
+        /*
             For LRO API has
                 "x-ms-long-running-operation-options": {
                 "final-state-via": "location/azure-async-operation"
@@ -87,7 +91,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
         protected virtual Func<HttpResponseMessage, string?> GetOperationLocationUri => _ => null;
         protected virtual Func<HttpResponseMessage, string?> GetAsyncOperationUri => _ => null;
         protected virtual Func<HttpResponseMessage, string?> GetLocationUri => _ => null;
-        
+
 
         public async virtual Task<HttpResponseMessage> SendAsync()
         {
@@ -191,7 +195,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
                         }
                         if (error)
                         {
-                            //TODO(Yabo): redesign exceptions for extension runtime 
+                            //TODO(Yabo): redesign exceptions for extension runtime
                             throw new Exception($"Long running operation failed with response: {_response}");
                         }
                     }
@@ -268,7 +272,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
         /// custom <see cref="SendAsync"/>/<see cref="SendAsyncLRO"/> overrides that don't call <c>base</c>
         /// are responsible for invoking this themselves if they build URIs from <see cref="SubscriptionId"/>.
         /// </summary>
-        /// 
+        ///
         /// TODO(Yabo): update processor context to accept tenantId and subscriptionId instead of auth context
         protected void ResolveSubscriptionId() =>
             SubscriptionId = !string.IsNullOrEmpty(SubscriptionId)

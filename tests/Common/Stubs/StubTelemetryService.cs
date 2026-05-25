@@ -10,6 +10,8 @@ public class StubTelemetryService : ITelemetryService
 {
     public ActivitySource ActivitySource { get; } = new("Stub");
 
+    public Activity? CurrentStage { get; set; }
+
     public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal) =>
         ActivitySource.StartActivity(name, kind);
 

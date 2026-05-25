@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net.Http.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
@@ -22,10 +23,12 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
             var url = $"https://management.azure.com/subscriptions/{subscriptionId}/resourcegroups?api-version=2025-04-01";
             //TODO(Yabo): setJsonOptions from Processor context
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            TelemetryService.Emit("Fetch resource groups", properties: new Dictionary<string, string>() { { "SubscriptionId", subscriptionId} } );
             using HttpResponseMessage response = await HttpPipeline.SendAsync(request, EventListener);
             await EventListener.Signal(Events.TracingHttpResponseMessage, response);
             ResourceGroupListResult rg = (await response.Content.ReadFromJsonAsync<ResourceGroupListResult>(JsonOptions))!;
             await WriteOutput(rg.Value);
+
             await EventListener.Signal(Events.ProcessorProcessAsyncEnd);
         }
     }

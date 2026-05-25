@@ -19,12 +19,13 @@ public abstract class ConfigCommandBase : IProcessor
     protected OutputStreamDelegate WriteOutput = null!;
     protected StartActivityDelegate StartActivity { get; set; } = null!;
     protected CancellationToken CancellationToken { get; private set; }
+    protected ITelemetryService TelemetryService = null!;
 
     public IProcessor Init(ProcessorContext context)
     {
         WriteOutput = context.OutputHandler.WriteOutput;
-        StartActivity = GetTelemetryService().StartActivity;
         CancellationToken = context.EventListener.Token;
+        TelemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
         return this;
     }
 
@@ -44,8 +45,6 @@ public abstract class ConfigCommandBase : IProcessor
             key.Replace(':', '.')
                 .Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
     }
-
-    protected static ITelemetryService GetTelemetryService() => CirrusServiceProvider.GetRequiredService<ITelemetryService>();
 
     protected static IConfigurationSchema GetConfigurationSchema() => GetConfigurationService().GetSchema();
 

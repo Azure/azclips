@@ -1,9 +1,9 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Net.NetworkInformation;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
-using Core.Abstractions;
 
 namespace Core.Telemetry;
 
@@ -13,63 +13,46 @@ namespace Core.Telemetry;
 /// </summary>
 /// <remarks>
 /// Values are computed once and cached for the lifetime of the process.
-/// Call <see cref="ApplyTo(Activity)"/> from a single tagging point (the engine)
+/// Call <see cref="ApplyStaticProperties"/> from a single tagging point (the engine)
 /// to keep the contract centralised.
 /// </remarks>
 public static class CoreTelemetryProperties
 {
-    public const string ProductNameTag = "ProductName";
-    /// <summary>Literal product name reported by Cirrus.</summary>
-    public const string ProductName = "cirrus";
+    public const string IdTag = "Id";
+    public const string MicrosoftInternalTag = "IsMicrosoftInternal";
+    public const string ProductNameTag = "productName";
+    public const string ProductVersionTag = "productVersion";
+    public const string SchemaVersionTag = "schemaVersion";
+    public const string TelemetryVersionTag = "telemetryVersion";
+    public const string TotalDurationTag = "totalDuration";
+    public const string ClientTypeTag = "clientType";
+    public const string ModuleNameTag = "module.name";
+    public const string ModuleVersionTag = "module.version";
+    public const string EventNameTag = "eventName";
 
-    /// <summary>Numeric schema version of the core property bag.</summary>
-    public const int SchemaVersion = 1;
-
-    /// <summary>String telemetry version of the core property bag.</summary>
-    public const string TelemetryVersion = "1.0";
-
-    /// <summary>Environment variable consulted to determine <see cref="IsMicrosoftInternal"/>.</summary>
-    public const string IsMicrosoftInternalEnvironmentVariable = "CIRRUS_IS_MICROSOFT_INTERNAL";
+    public static readonly string ProductName = ResolveProductName();
+    public static readonly string SchemaVersion = ResolveSchemaVersion();
+    public static readonly string TelemetryVersion = ResolveTelemetryVersion();
 
     private static readonly Lazy<string> _id = new(ComputeId);
     private static readonly Lazy<bool> _isMicrosoftInternal = new(ResolveIsMicrosoftInternal);
     private static readonly Lazy<string> _productVersion = new(ResolveProductVersion);
 
-    /// <summary>
-    /// SHA-256 hash of the first non-loopback MAC address combined with
-    /// <see cref="Environment.MachineName"/>. Deterministic per machine and
-    /// resistant to trivial reverse lookup.
-    /// </summary>
     public static string Id => _id.Value;
 
-    /// <summary>
-    /// <c>true</c> when the <c>CIRRUS_IS_MICROSOFT_INTERNAL</c> environment
-    /// variable is set to a truthy value (<c>true</c>, <c>1</c>, <c>yes</c>);
-    /// otherwise <c>false</c>.
-    /// </summary>
     public static bool IsMicrosoftInternal => _isMicrosoftInternal.Value;
 
-    /// <summary>
-    /// Informational version of the <c>Core.Abstractions</c> assembly, used as the
-    /// product version on every root span.
-    /// </summary>
     public static string ProductVersion => _productVersion.Value;
 
-    /// <summary>
-    /// Tags <paramref name="root"/> with the six DevDiv-mandated core properties:
-    /// <c>Id</c>, <c>IsMicrosoftInternal</c>, <c>productName</c>,
-    /// <c>productVersion</c>, <c>schemaVersion</c>, <c>telemetryVersion</c>.
-    /// </summary>
-    /// <param name="root">The root activity to tag. No-op when <c>null</c>.</param>
-    public static void ApplyTo(Activity? root)
+    public static void ApplyStaticProperties(Activity? root)
     {
         if (root is null) return;
-        root.SetTag("Id", Id);
-        root.SetTag("IsMicrosoftInternal", IsMicrosoftInternal);
-        root.SetTag("productName", ProductName);
-        root.SetTag(ProductNameTag, ProductVersion);
-        root.SetTag("schemaVersion", SchemaVersion);
-        root.SetTag("telemetryVersion", TelemetryVersion);
+        root.SetTag(IdTag, Id);
+        root.SetTag(MicrosoftInternalTag, IsMicrosoftInternal);
+        root.SetTag(ProductNameTag, ProductName);
+        root.SetTag(ProductVersionTag, ProductVersion);
+        root.SetTag(SchemaVersionTag, SchemaVersion);
+        root.SetTag(TelemetryVersionTag, TelemetryVersion);
     }
 
     private static string ComputeId()
@@ -105,6 +88,7 @@ public static class CoreTelemetryProperties
         return string.Empty;
     }
 
+    //todo: determine how this is configured. most likely from config maybe?
     private static bool ResolveIsMicrosoftInternal()
     {
         return false;
@@ -112,12 +96,50 @@ public static class CoreTelemetryProperties
 
     private static string ResolveProductVersion()
     {
-        var assembly = typeof(ITelemetryService).Assembly; // Core.Abstractions
+        // Prefer the entry assembly (the executable that started the process, e.g. azv2)
+        // so the reported version tracks the shipping artifact. Falls back to this
+        // assembly when no entry assembly is available (test runners, unmanaged hosts).
+        var assembly = Assembly.GetEntryAssembly() ?? typeof(CoreTelemetryProperties).Assembly;
+
         var informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
         if (!string.IsNullOrEmpty(informational?.InformationalVersion))
         {
             return informational.InformationalVersion;
         }
-        return assembly.GetName().Version?.ToString() ?? "0.0.0";
+
+        return assembly.GetName().Version?.ToString() ?? "1.0.0";
+    }
+
+    private static string ResolveProductName()
+    {
+        var product = typeof(CoreTelemetryProperties).Assembly
+            .GetCustomAttribute<AssemblyProductAttribute>()?.Product;
+
+        return !string.IsNullOrEmpty(product) ? product : "Cirrus";
+    }
+
+    private static string ResolveSchemaVersion()
+    {
+        var value = GetAssemblyMetadata("TelemetrySchemaVersion");
+        return !string.IsNullOrEmpty(value) ? value : "1.0";
+    }
+
+    private static string ResolveTelemetryVersion()
+    {
+        var value = GetAssemblyMetadata("TelemetryVersion");
+        return !string.IsNullOrEmpty(value) ? value : "1.0";
+    }
+
+    private static string? GetAssemblyMetadata(string key)
+    {
+        foreach (var attr in typeof(CoreTelemetryProperties).Assembly
+            .GetCustomAttributes<AssemblyMetadataAttribute>())
+        {
+            if (string.Equals(attr.Key, key, StringComparison.Ordinal))
+            {
+                return attr.Value;
+            }
+        }
+        return null;
     }
 }
