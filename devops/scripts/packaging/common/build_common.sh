@@ -72,7 +72,7 @@ echo "[common 2/5] Restore solution"
 dotnet restore cirrus.slnx
 
 echo "[common 3/5] Publish CLI (framework-dependent)"
-dotnet publish "$CLI_PROJECT" -c Release -o "$CLI_FD_DIR"
+dotnet publish "$CLI_PROJECT" -c Release --no-restore -o "$CLI_FD_DIR"
 
 echo "[common 4/5] Build + pack extensions"
 for ext in "${ALL_EXTENSIONS[@]}"; do

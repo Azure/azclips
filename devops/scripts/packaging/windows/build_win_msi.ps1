@@ -172,9 +172,13 @@ foreach ($builtinDirectory in Get-ChildItem $builtinPublishRoot -Directory) {
     $skipped = 0
     foreach ($dll in Get-ChildItem $builtinDirectory.FullName -Filter *.dll -File) {
         $hostDll = Join-Path $publishRoot $dll.Name
-        if ((Test-Path $hostDll) -and ((Get-FileHash $dll.FullName).Hash -eq (Get-FileHash $hostDll).Hash)) {
-            $skipped++
-            continue
+        if (Test-Path $hostDll) {
+            $sourceItem = Get-Item $dll.FullName
+            $hostItem = Get-Item $hostDll
+            if (($sourceItem.Length -eq $hostItem.Length) -and ((Get-FileHash $dll.FullName).Hash -eq (Get-FileHash $hostDll).Hash)) {
+                $skipped++
+                continue
+            }
         }
 
         Copy-Item $dll.FullName $destination -Force
