@@ -76,6 +76,13 @@ public static class TelemetryExtensions
         return activity;
     }
 
+    public static Activity GetRoot(this Activity activity)
+    {
+        while (activity.Parent is not null)
+            activity = activity.Parent;
+        return activity;
+    }
+
     /// <summary>
     /// Tags the activity with the DevDiv-mandated <c>eventName</c> formatted as
     /// <c>{ProductName}.{Activity.OperationName}</c>. Null-safe and fluent: returns

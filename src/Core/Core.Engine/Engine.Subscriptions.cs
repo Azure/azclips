@@ -154,8 +154,8 @@ namespace Core.Engine
             {
                 Activity? activity = Activity.Current;
                 if (activity == null) return;
+                var root = activity.GetRoot();
 
-                var root = TelemetryUtils.GetActivityRoot(activity);
                 ApplyBaseTelemetryProperties(root, session);
 
                 loggingService.Debug($"Root activity tagged: DisplayName={root.DisplayName}");
@@ -177,7 +177,7 @@ namespace Core.Engine
                 Activity? currentActivity = Activity.Current;
                 if (currentActivity != null)
                 {
-                    var root = TelemetryUtils.GetActivityRoot(currentActivity);
+                    var root = currentActivity.GetRoot();
                     // Activity.Duration only populates after Stop(); compute manually while
                     // the root is still live so totalDuration reflects the full invocation.
                     var elapsed = root.Duration > TimeSpan.Zero
@@ -227,7 +227,7 @@ namespace Core.Engine
             {
                 Activity? activity = Activity.Current;
                 if (activity == null) return;
-                var root = TelemetryUtils.GetActivityRoot(activity);
+                var root = activity.GetRoot();
                 root.SetStatus(ActivityStatusCode.Ok);
             });
             session.Subscribe(Events.ProcessorException, (data) =>
@@ -235,7 +235,8 @@ namespace Core.Engine
                 var evt = (EventData)data;
                 Activity? activity = Activity.Current;
                 if (activity == null) return;
-                var root = TelemetryUtils.GetActivityRoot(activity);
+
+                var root = activity.GetRoot();
                 root.SetStatus(ActivityStatusCode.Error, evt.ExtendedData);
                 root.AddException(new Exception(evt.ExtendedData));
             });

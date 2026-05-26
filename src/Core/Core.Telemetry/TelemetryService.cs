@@ -90,7 +90,7 @@ public class TelemetryService : ITelemetryService
             var currentActivity = Activity.Current;
             if (currentActivity is null) return;
 
-            var rootActivity = TelemetryUtils.GetActivityRoot(currentActivity);
+            var rootActivity = currentActivity.GetRoot();
             rootActivity.SetTag($"properties.{key}", value);
 
             return;
