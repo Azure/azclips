@@ -221,6 +221,9 @@ if ($LASTEXITCODE -ne 0) {
 
 $harvestContent = Get-Content $harvestPath -Raw
 $harvestContent = $harvestContent -replace '<Component Id="([^"]+)" Guid="([^"]+)">', '<Component Id="$1" Guid="$2" Win64="yes">'
+$escapedPublishRoot = [System.Security.SecurityElement]::Escape($publishRoot)
+$harvestContent = $harvestContent.Replace('$(var.PublishRoot)', $escapedPublishRoot)
+$harvestContent = $harvestContent.Replace('$publishRoot', $escapedPublishRoot)
 Set-Content -Path $harvestPath -Value $harvestContent -Encoding utf8
 
 $productXml = @"
@@ -262,7 +265,6 @@ Set-Content -Path $productPath -Value $productXml -Encoding utf8
 
 & $wixTools.Candle `
     -arch x64 `
-    "-dPublishRoot=$publishRoot" `
     -out "$wixRoot\" `
     $productPath `
     $harvestPath
