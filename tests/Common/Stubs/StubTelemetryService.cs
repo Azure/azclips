@@ -8,18 +8,16 @@ namespace Tests.Common.Stubs;
 
 public class StubTelemetryService : ITelemetryService
 {
-    public ActivitySource ActivitySource { get; } = new("Stub");
+    public ActivitySource ActivitySource { get; } = new(Guid.NewGuid().ToString());
 
     public Activity? CurrentStage { get; set; }
 
-    public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal) =>
-        ActivitySource.StartActivity(name, kind);
+    public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal)
+        => ActivitySource.StartActivity(name, kind);
 
-    public void AddMeasure(string key, double value) { }
-
-    public void AddProperty(string key, string? value, Activity? activity = null) => throw new NotImplementedException();
+    public void AddProperty(string key, string? value, Activity? activity = null) { }
 
     public void Flush() { }
 
-    public void Dispose() { }
+    public void Dispose() => ActivitySource.Dispose();
 }
