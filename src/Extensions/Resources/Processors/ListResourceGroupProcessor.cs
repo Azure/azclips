@@ -24,6 +24,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
             //TODO(Yabo): setJsonOptions from Processor context
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             TelemetryService.Emit("Fetch resource groups", properties: new Dictionary<string, string>() { { "SubscriptionId", subscriptionId} } );
+            TelemetryService.AddProperty("apiVersion", "2025-04-01");
             using HttpResponseMessage response = await HttpPipeline.SendAsync(request, EventListener);
             await EventListener.Signal(Events.TracingHttpResponseMessage, response);
             ResourceGroupListResult rg = (await response.Content.ReadFromJsonAsync<ResourceGroupListResult>(JsonOptions))!;

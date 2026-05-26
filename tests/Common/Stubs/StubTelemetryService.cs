@@ -15,10 +15,9 @@ public class StubTelemetryService : ITelemetryService
     public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal) =>
         ActivitySource.StartActivity(name, kind);
 
-
-    public void AddProperty(string key, string? value) { }
-
     public void AddMeasure(string key, double value) { }
+
+    public void AddProperty(string key, string? value, Activity? activity = null) => throw new NotImplementedException();
 
     public void Flush() { }
 

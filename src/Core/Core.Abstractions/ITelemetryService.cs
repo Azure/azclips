@@ -20,29 +20,20 @@ public interface ITelemetryService : IDisposable
     /// <c>ProcessorProcessAsyncStart</c>). The engine maintains this value across the
     /// <c>ProcessorProcessAsync*</c> lifecycle.
     /// </summary>
-    /// <remarks>
-    /// Use <see cref="Activity.Context"/> on the returned value to explicitly parent child
-    /// activities under the current stage when crossing <c>async</c> boundaries —
-    /// <see cref="Activity.Current"/> is backed by an <c>AsyncLocal</c> and any assignment
-    /// done inside an <c>await</c>ed method is reverted when control returns to the caller,
-    /// so stage-scoped parents cannot propagate implicitly.
-    /// </remarks>
     Activity? CurrentStage { get; set; }
 
     /// <summary>
-    /// Adds a string property to the root span for the current command invocation.
+    /// Adds a property (tag) to an activity. By default, the property is added to the root
+    /// activity. If <paramref name="activity"/> is provided (non-null), the property is added
+    /// to that specific activity instead.
     /// </summary>
-    /// <remarks>
-    /// <para>Squad-facing enrichment API. The tag is written to the <b>root</b> activity
-    /// (the top of the parent chain from <see cref="Activity.Current"/>) and is
-    /// automatically prefixed with <c>properties.</c> so Kusto/Azure Monitor
-    /// dashboards can filter cleanly (e.g. <c>properties.resourceType</c>).</para>
-    /// <para>No-op when <see cref="Activity.Current"/> is <c>null</c> (e.g. in unit tests
-    /// without an ambient activity).</para>
-    /// </remarks>
-    /// <param name="key">Property key (the <c>properties.</c> prefix is added automatically).</param>
-    /// <param name="value">Property value. <c>null</c> is permitted.</param>
-    void AddProperty(string key, string? value);
+    /// <param name="key">The property (tag) name to add.</param>
+    /// <param name="value">The property value. May be <c>null</c>.</param>
+    /// <param name="activity">
+    /// Optional activity to which the property should be added. When <c>null</c> (the default),
+    /// the property is added to the root activity.
+    /// </param>
+    void AddProperty(string key, string? value, Activity? activity = null);
 
     /// <summary>
     /// Flushes all pending telemetry data.

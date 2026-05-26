@@ -14,7 +14,6 @@ namespace Core.Telemetry;
 /// </summary>
 public class TelemetryService : ITelemetryService
 {
-    //TODO: Jayson remove this on making PR
     public const string AzureMonitorConnectionString =
         "InstrumentationKey=75095e49-0ed7-43bf-9a9b-145ce55963c5;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=c4b7bab3-d4b6-4f80-8440-0f529a622b2f";
 
@@ -82,10 +81,22 @@ public class TelemetryService : ITelemetryService
         return ActivitySource.StartActivity(name, kind, CurrentStage?.Context ?? default);
     }
 
-    public void AddProperty(string key, string? value)
+    public void AddProperty(string key, string? value, Activity? activity = null)
     {
         if (string.IsNullOrEmpty(key)) return;
-        Activity.Current?.SetTag($"properties.{key}", value);
+
+        if (activity is null)
+        {
+            var currentActivity = Activity.Current;
+            if (currentActivity is null) return;
+
+            var rootActivity = TelemetryUtils.GetActivityRoot(currentActivity);
+            rootActivity.SetTag($"properties.{key}", value);
+
+            return;
+        }
+
+        activity.SetTag($"properties.{key}", value);
     }
 
     public void AddMeasure(string key, double value)
