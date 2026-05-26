@@ -1,8 +1,9 @@
-using System;
 using System.Diagnostics;
 using Core.Abstractions;
+using Core.Common;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
+using OpenTelemetry.Resources;
 
 namespace Core.Telemetry;
 
@@ -59,7 +60,9 @@ public class TelemetryService : ITelemetryService
 
         var logDirectory = GetTraceDirectory();
 
-        var builder = Sdk.CreateTracerProviderBuilder().AddSource(serviceName);
+        var builder = Sdk.CreateTracerProviderBuilder()
+            .AddSource(serviceName)
+            .ConfigureResource(r => r.AddService(ProcessUtils.GetRunningProcessName()));
 
         builder.AddHttpClientInstrumentation(options =>
         {
@@ -70,14 +73,6 @@ public class TelemetryService : ITelemetryService
             };
         });
 
-        // Let the SDK use its default cloud_RoleName (entry assembly name):
-        //   CLI  → "Core.Cli" (or azv2)
-        //   PS 7 → "pwsh"
-        //   PS 5 → "powershell"
-
-        // Add the appropriate exporter based on client type:
-        //   CLI  → FileExporter (buffered to disk, replayed by background process)
-        //   PS   → AzureMonitorExporter (inline, no file replay needed)
         _sender.ConfigureExporter(builder, logDirectory);
         _tracerProvider = builder.Build()!;
     }
