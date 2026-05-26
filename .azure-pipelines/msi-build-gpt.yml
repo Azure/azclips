@@ -61,7 +61,6 @@ variables:
   WINDOWS_OUT_ROOT: $(Build.SourcesDirectory)\devops\out\windows
   TEST_OUTPUT_ROOT: $(Build.ArtifactStagingDirectory)\msi\test
   ARTIFACT_ROOT: $(Build.ArtifactStagingDirectory)\msi\out
-  WIX_TOOLSET_VERSION: 3.14.1
 
 jobs:
   - job: build_msi
@@ -113,7 +112,7 @@ jobs:
           COMMON_OUT_ROOT: $(COMMON_OUT_ROOT)
 
       - pwsh: |
-          choco install wixtoolset --version $env:WIX_TOOLSET_VERSION -y --no-progress
+          choco install wixtoolset -y --no-progress
 
           $wixDirectory = Get-ChildItem ${env:ProgramFiles(x86)} -Directory -Filter 'WiX Toolset v3*' |
             Sort-Object Name -Descending |
