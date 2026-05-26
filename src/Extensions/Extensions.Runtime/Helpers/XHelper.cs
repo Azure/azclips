@@ -68,8 +68,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Runtime.Json
                 case TypeCode.UInt64    : return JsonType.Number;
                 default                 : return JsonType.Object;
             }
-
-            throw new Exception($"TypeCode '{code}' does not have a fast converter");
         }
     }
 }
