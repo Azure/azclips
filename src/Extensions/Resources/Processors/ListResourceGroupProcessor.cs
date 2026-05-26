@@ -1,7 +1,7 @@
-using System.Diagnostics;
 using System.Net.Http.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Core.Telemetry;
 using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors

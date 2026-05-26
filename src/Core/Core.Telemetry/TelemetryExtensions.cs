@@ -76,23 +76,19 @@ public static class TelemetryExtensions
         return activity;
     }
 
-    public static Activity GetRoot(this Activity activity)
+    public static void Emit(this ITelemetryService telemetryService, string eventName, ActivityKind kind = ActivityKind.Internal, Dictionary<string, string>? properties = null)
     {
-        while (activity.Parent is not null)
-            activity = activity.Parent;
-        return activity;
-    }
+        var act = telemetryService.StartActivity(eventName, kind);
 
-    /// <summary>
-    /// Tags the activity with the DevDiv-mandated <c>eventName</c> formatted as
-    /// <c>{ProductName}.{Activity.OperationName}</c>. Null-safe and fluent: returns
-    /// the same activity so it can be chained directly off <c>StartActivity(...)</c>.
-    /// </summary>
-    public static Activity? SetEventName(this Activity? activity, string eventName)
-    {
-        activity?.SetTag(
-            CoreTelemetryProperties.EventNameTag,
-            $"{CoreTelemetryProperties.ProductName}.{eventName}");
-        return activity;
+        if (properties is not null)
+        {
+            foreach (var kvp in properties)
+            {
+                act?.AddTag(kvp.Key, kvp.Value);
+            }
+        }
+
+        telemetryService.CurrentStage = null;
+        act?.Dispose();
     }
 }
