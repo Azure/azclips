@@ -18,12 +18,17 @@ $ExtPackDir = Join-Path $CommonOutRoot 'extensions-pack'
 $InstallLog = Join-Path $SimRoot 'msi-install.log'
 $UninstallLog = Join-Path $SimRoot 'msi-uninstall.log'
 $IsWindowsHost = $env:OS -eq 'Windows_NT'
+$BundledExtConfig = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../config/bundled_ext.config'))
 
-$builtins = @(
-    'Microsoft.Azure.Cirrus.Extensions.Extension',
-    'Microsoft.Azure.Cirrus.Extensions.Login',
-    'Microsoft.Azure.Cirrus.Extensions.Config'
-)
+if (-not (Test-Path -Path $BundledExtConfig -PathType Leaf)) {
+    throw "Bundled extension config not found at $BundledExtConfig"
+}
+
+$builtins = foreach ($line in Get-Content $BundledExtConfig) {
+    $extensionName = ($line -replace '#.*$', '').Trim()
+    if ([string]::IsNullOrWhiteSpace($extensionName)) { continue }
+    "Microsoft.Azure.Cirrus.Extensions.$extensionName"
+}
 
 function Test-IsAdministrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -124,6 +129,7 @@ if ($existingProductCode) {
 
 $productCode = Get-MsiProductCode -Path $MsiPath
 $installCompleted = $false
+$originalUserProfile = $env:USERPROFILE
 
 try {
     Invoke-MsiExec -Arguments @('/i', "`"$MsiPath`"", '/quiet', '/norestart', '/L*V', "`"$InstallLog`"") -FailureMessage "FAIL: MSI install failed. See $InstallLog."
@@ -176,7 +182,7 @@ try {
         throw 'FAIL: Resources command not resolved after install.'
     } elseif ($groupText -match "Required parameter 'SubscriptionId' is missing") {
         Write-Host 'PASS: Resources command resolved (missing SubscriptionId in CI context)'
-    } elseif ($groupText -match 'AcquireTokenSilent|No account or login hint|please run .*login|AADSTS|authentication') {
+    } elseif ($groupText -match 'AcquireTokenSilent|No account or login hint|please run .*login|AADSTS\d+') {
         Write-Host 'PASS: Resources command resolved (authentication context not available in CI)'
     } else {
         Write-Host 'PASS: Resources command resolved'
@@ -185,6 +191,8 @@ try {
     Write-Host 'PASS: Windows MSI runtime extension-add flow validated'
 }
 finally {
+    $env:USERPROFILE = $originalUserProfile
+
     if ($installCompleted -and -not $KeepInstalled) {
         Write-Host 'Uninstalling test MSI'
         Invoke-MsiExec -Arguments @('/x', $productCode, '/quiet', '/norestart', '/L*V', "`"$UninstallLog`"") -FailureMessage "FAIL: MSI uninstall failed. See $UninstallLog."

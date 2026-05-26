@@ -139,24 +139,20 @@ jobs:
             & $script `
               -Configuration $env:CONFIGURATION `
               -Rid $env:RUNTIME_IDENTIFIER `
-              -Publisher $env:PACKAGE_PUBLISHER `
               -RepoRoot $env:BUILD_SOURCESDIRECTORY `
               -OutRoot $env:WINDOWS_OUT_ROOT `
               -CommonOutRoot $env:COMMON_OUT_ROOT `
-              -WixBin $env:WIX_BIN `
-              -SkipSign
+              -WixBin $env:WIX_BIN
           }
           else {
             & $script `
               -Configuration $env:CONFIGURATION `
               -Rid $env:RUNTIME_IDENTIFIER `
               -ProductVersion $env:PACKAGE_VERSION_INPUT `
-              -Publisher $env:PACKAGE_PUBLISHER `
               -RepoRoot $env:BUILD_SOURCESDIRECTORY `
               -OutRoot $env:WINDOWS_OUT_ROOT `
               -CommonOutRoot $env:COMMON_OUT_ROOT `
-              -WixBin $env:WIX_BIN `
-              -SkipSign
+              -WixBin $env:WIX_BIN
           }
 
           if ($LASTEXITCODE -ne 0) {
@@ -175,35 +171,43 @@ jobs:
           $certificateDirectory = Join-Path $env:WINDOWS_OUT_ROOT 'bin/Release/certificate'
           New-Item -ItemType Directory -Path $certificateDirectory -Force | Out-Null
 
-          $certificate = New-SelfSignedCertificate `
-            -Type CodeSigningCert `
-            -Subject $env:PACKAGE_PUBLISHER `
-            -CertStoreLocation 'Cert:\CurrentUser\My' `
-            -KeyExportPolicy Exportable `
-            -KeyLength 2048 `
-            -NotAfter (Get-Date).AddYears(1)
+          $certificate = $null
+          try {
+            $certificate = New-SelfSignedCertificate `
+              -Type CodeSigningCert `
+              -Subject $env:PACKAGE_PUBLISHER `
+              -CertStoreLocation 'Cert:\CurrentUser\My' `
+              -KeyExportPolicy Exportable `
+              -KeyLength 2048 `
+              -NotAfter (Get-Date).AddYears(1)
 
-          $certificatePath = Join-Path $certificateDirectory 'CirrusDevelopment.cer'
-          Export-Certificate -Cert $certificate -FilePath $certificatePath | Out-Null
+            $certificatePath = Join-Path $certificateDirectory 'CirrusDevelopment.cer'
+            Export-Certificate -Cert $certificate -FilePath $certificatePath | Out-Null
 
-          $windowsKitsBin = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
-          $sdkDirectory = Get-ChildItem $windowsKitsBin -Directory |
-            Sort-Object Name -Descending |
-            Where-Object { Test-Path (Join-Path $_.FullName 'x64\signtool.exe') } |
-            Select-Object -First 1
+            $windowsKitsBin = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
+            $sdkDirectory = Get-ChildItem $windowsKitsBin -Directory |
+              Sort-Object Name -Descending |
+              Where-Object { Test-Path (Join-Path $_.FullName 'x64\signtool.exe') } |
+              Select-Object -First 1
 
-          if ($null -eq $sdkDirectory) {
-            throw 'Could not find SignTool.exe in the Windows SDK.'
+            if ($null -eq $sdkDirectory) {
+              throw 'Could not find SignTool.exe in the Windows SDK.'
+            }
+
+            $signTool = Join-Path $sdkDirectory.FullName 'x64\signtool.exe'
+            & $signTool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /s My /sha1 $certificate.Thumbprint $env:MSI_PATH
+
+            if ($LASTEXITCODE -ne 0) {
+              throw "SignTool failed with exit code $LASTEXITCODE."
+            }
+
+            Write-Host "##vso[task.setvariable variable=SIGNING_CERT_THUMBPRINT]$($certificate.Thumbprint)"
           }
-
-          $signTool = Join-Path $sdkDirectory.FullName 'x64\signtool.exe'
-          & $signTool sign /fd SHA256 /s My /sha1 $certificate.Thumbprint $env:MSI_PATH
-
-          if ($LASTEXITCODE -ne 0) {
-            throw "SignTool failed with exit code $LASTEXITCODE."
+          finally {
+            if ($null -ne $certificate) {
+              Remove-Item "Cert:\CurrentUser\My\$($certificate.Thumbprint)" -DeleteKey -Force -ErrorAction SilentlyContinue
+            }
           }
-
-          Write-Host "##vso[task.setvariable variable=SIGNING_CERT_THUMBPRINT]$($certificate.Thumbprint)"
         displayName: Sign MSI package
 
       - pwsh: |
@@ -218,7 +222,7 @@ jobs:
           }
 
           if ($signature.Status -ne 'Valid') {
-            Write-Warning "MSI has a signature from the expected dev certificate, but trust-chain validation returned '$($signature.Status)'. This is expected for a self-signed dev certificate on hosted agents."
+            Write-Host "##vso[task.logissue type=warning]MSI has a signature from the expected dev certificate, but trust-chain validation returned '$($signature.Status)'. This is expected for a self-signed dev certificate on hosted agents."
           }
         displayName: Validate MSI signature
 
@@ -245,11 +249,11 @@ jobs:
             Copy-Item (Join-Path $env:TEST_OUTPUT_ROOT '*') $logsRoot -Recurse -Force
           }
         displayName: Collect MSI artifacts
-        condition: always()
+        condition: succeededOrFailed()
 
       - task: PublishPipelineArtifact@1
         displayName: Publish MSI artifact
-        condition: always()
+        condition: succeededOrFailed()
         inputs:
           targetPath: $(ARTIFACT_ROOT)
           artifact: cirrus-msi-${{ parameters.runtime_identifier }}

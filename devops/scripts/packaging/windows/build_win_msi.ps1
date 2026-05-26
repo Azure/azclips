@@ -9,12 +9,10 @@ param(
     [string]$Manufacturer = 'Cirrus Development',
     [string]$UpgradeCode = 'D71E4F9B-A5D8-4F16-A0A3-E0D74BB989B8',
     [string]$PathComponentGuid = '{63C2D387-1A8D-4025-B83D-AF7321222436}',
-    [string]$Publisher = 'CN=Cirrus Development',
     [string]$RepoRoot = '',
     [string]$OutRoot = '',
     [string]$CommonOutRoot = '',
     [string]$WixBin = '',
-    [switch]$SkipSign,
     [switch]$RunInstallTest
 )
 
@@ -92,19 +90,6 @@ function Resolve-WixTools([string]$RequestedWixBin) {
     throw 'WiX Toolset v3 tools were not found. Install WiX Toolset v3 or pass -WixBin <path-to-wix-bin>.'
 }
 
-function Resolve-SignTool {
-    $windowsKitsBin = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
-    if (-not (Test-Path $windowsKitsBin)) { return $null }
-
-    $sdkDirectory = Get-ChildItem $windowsKitsBin -Directory |
-        Sort-Object Name -Descending |
-        Where-Object { Test-Path (Join-Path $_.FullName 'x64\signtool.exe') } |
-        Select-Object -First 1
-
-    if ($null -eq $sdkDirectory) { return $null }
-    return Join-Path $sdkDirectory.FullName 'x64\signtool.exe'
-}
-
 function Get-MsiProductCode([string]$MsiPath) {
     $installer = New-Object -ComObject WindowsInstaller.Installer
     $database = $installer.OpenDatabase($MsiPath, 0)
@@ -146,7 +131,6 @@ $publishRoot = Join-Path $OutRoot "publish/cli/$Rid-msi"
 $wixRoot = Join-Path $OutRoot "wix/$Rid"
 $artifactRoot = Join-Path $OutRoot 'bin/Release'
 $msiPath = Join-Path $artifactRoot "azv2-$Rid.msi"
-$certificateDirectory = Join-Path $artifactRoot 'certificate'
 $version = Get-PackageVersion
 
 if (-not (Test-Path $cliProject)) {
@@ -278,30 +262,6 @@ $wixObjects = Get-ChildItem $wixRoot -Filter *.wixobj | ForEach-Object { $_.Full
 
 if ($LASTEXITCODE -ne 0) {
     throw "light.exe failed with exit code $LASTEXITCODE."
-}
-
-if (-not $SkipSign) {
-    $signTool = Resolve-SignTool
-    if ($null -eq $signTool) {
-        throw 'SignTool.exe was not found in the Windows SDK. Re-run with -SkipSign or install the Windows SDK.'
-    }
-
-    New-Item -ItemType Directory -Path $certificateDirectory -Force | Out-Null
-    $certificate = New-SelfSignedCertificate `
-        -Type CodeSigningCert `
-        -Subject $Publisher `
-        -CertStoreLocation 'Cert:\CurrentUser\My' `
-        -KeyExportPolicy Exportable `
-        -KeyLength 2048 `
-        -NotAfter (Get-Date).AddYears(1)
-
-    $certificatePath = Join-Path $certificateDirectory 'CirrusDevelopment.cer'
-    Export-Certificate -Cert $certificate -FilePath $certificatePath | Out-Null
-
-    & $signTool sign /fd SHA256 /s My /sha1 $certificate.Thumbprint $msiPath
-    if ($LASTEXITCODE -ne 0) {
-        throw "SignTool failed with exit code $LASTEXITCODE."
-    }
 }
 
 $productCode = Get-MsiProductCode $msiPath
