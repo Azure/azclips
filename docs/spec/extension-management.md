@@ -347,7 +347,7 @@ _Checkpoint: Shape A is real end-to-end. Host ships with three built-ins; `vm` a
 ### Phase 5 — Polish
 
 16. ✅ Error surface: exit codes 0–6, symbolic codes in JSON, `--output json` wired (§4.4).
-18. ✅ ALC caching: `ConcurrentDictionary<(pkg, version), Lazy<ALC>>`, no eviction, `--no-cache` test hook (§5.5).
+17. ✅ ALC caching: `ConcurrentDictionary<(pkg, version), Lazy<ALC>>`, no eviction, `--no-cache` test hook (§5.5).
 
 _Checkpoint: shippable v1._
 
