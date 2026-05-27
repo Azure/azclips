@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778929278132,
+  "lastUpdate": 1779896034822,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus CLI Benchmarks": [
@@ -168,6 +168,48 @@ window.BENCHMARK_DATA = {
             "value": 8522128.75,
             "unit": "ns",
             "range": "± 64237.06229986445"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yabhu@microsoft.com",
+            "name": "Yabo Hu",
+            "username": "VeryEarly"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c606d4ea85b60eb0499811faa5b1310422fd9c5d",
+          "message": "Redesign Engine+Session APIs (#246)",
+          "timestamp": "2026-05-27T23:30:54+08:00",
+          "tree_id": "f61ec60b453d7d6d52eafc8242eafa472422a201",
+          "url": "https://github.com/Azure/cirrus/commit/c606d4ea85b60eb0499811faa5b1310422fd9c5d"
+        },
+        "date": 1779896032555,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 7791437.5,
+            "unit": "ns",
+            "range": "± 325138.9059309885"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 9323050,
+            "unit": "ns",
+            "range": "± 102207.23307737733"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 8645959.4,
+            "unit": "ns",
+            "range": "± 545458.3199634047"
           }
         ]
       }
