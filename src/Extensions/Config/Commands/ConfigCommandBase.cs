@@ -26,6 +26,7 @@ public abstract class ConfigCommandBase : IProcessor
         WriteOutput = context.OutputHandler.WriteOutput;
         CancellationToken = context.EventListener.Token;
         TelemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
+        StartActivity = TelemetryService.StartActivity;
         return this;
     }
 
