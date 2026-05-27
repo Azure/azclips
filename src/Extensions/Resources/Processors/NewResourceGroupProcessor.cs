@@ -34,7 +34,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
 
         public override async Task ProcessAsync()
         {
-            await EventListener.Signal(Events.ProcessorProcessAsyncStart);
+            await Publisher.Publish(Events.ProcessorProcessAsyncStart);
             // Use provided subscription ID or fall back to auth context
             var subscriptionId = SubscriptionId ?? AuthContext.SubscriptionId;
             // construct URL
@@ -45,11 +45,11 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                 Content = JsonContent.Create(new ResourceGroup(Location, Name), options: JsonOptions)
             };
             request.Content.Headers.ContentType = MediaTypeHeaderValue.Parse("application/json");
-            using HttpResponseMessage response = await HttpPipeline.SendAsync(request, EventListener);
-            await EventListener.Signal(Events.TracingHttpResponseMessage, response);
+            using HttpResponseMessage response = await HttpPipeline.SendAsync(request, Publisher);
+            await Publisher.Publish(Events.TracingHttpResponseMessage, response);
             ResourceGroup rg = (await response.Content.ReadFromJsonAsync<ResourceGroup>(JsonOptions))!;
             await WriteOutput(rg);
-            await EventListener.Signal(Events.ProcessorProcessAsyncEnd);
+            await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
         }
     }
 }

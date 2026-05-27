@@ -14,4 +14,6 @@ public class CLIAssemblyLoadingProvider(IEnumerable<IExtensionLoader> extensionL
         loggingService.Info($"Processing command with extension '{Constants.cirrusPrefix + extensionName}'.");
         return LoadExtension(extensionLoaders, extensionName, extensionVersion) ?? throw new InvalidOperationException($"Extension '{Constants.cirrusPrefix + extensionName}' could not be found by any extension loader.");
     }
+
+    public IList<Tuple<string, string?>>? GetAllInstalledExtensions() => throw new NotImplementedException();
 }

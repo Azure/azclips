@@ -13,7 +13,7 @@ namespace Core.Runtime
             internal ISendAsync next = null!;
             internal SendAsyncStep implementation = null!;
 
-            public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, IEventListener callback) => implementation(request, callback, next);
+            public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, IEventPublisher callback) => implementation(request, callback, next);
         }
 
         SendAsyncStep implementation;
@@ -31,7 +31,7 @@ namespace Core.Runtime
                 request,
                 listener.Token,
                 listener.Cancel,
-                (id, token, getEventData) => listener.Signal(id, token, () => {
+                (id, token, getEventData) => listener.Publish(id, token, () => {
                     var data = new EventData(getEventData);
                     data.Id = id;
                     data.Cancel = listener.Cancel;

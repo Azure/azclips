@@ -17,7 +17,7 @@
     <Project Path="src/Core/Core.Configuration/Core.Configuration.csproj" />
   </Folder>
   <Folder Name="/src/Extensions/">
-    <Project Path="src/Extensions/Extensions.Runtime/Extensions.Runtime.csproj" />
+    <Project Path="src/Extensions/ExtensionRuntime/ExtensionRuntime.csproj" />
     <Project Path="src/Extensions/Extension/Extensions.Extension.csproj" />
     <Project Path="src/Extensions/Resources/Extensions.Resources.csproj" />
     <Project Path="src/Extensions/Login/Extensions.Login.csproj" />

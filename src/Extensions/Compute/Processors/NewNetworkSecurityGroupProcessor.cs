@@ -1,6 +1,6 @@
 using System.Net.Http.Json;
 using Core.Abstractions.Runtime;
-using Microsoft.Azure.Cirrus.Extensions.Runtime;
+using Microsoft.Azure.Cirrus.ExtensionRuntime;
 using Microsoft.Azure.Cirrus.Extensions.Compute.Models;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors;
@@ -22,7 +22,7 @@ public class NewNetworkSecurityGroupProcessor : ComputeProcessorBase<NetworkSecu
 
     public override async Task<HttpRequestMessage> CreateRequestMessage()
     {
-        await EventListener.Signal(Events.ProcessorBeforeHttpRequestCreate);
+        await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
         string uri = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/networkSecurityGroups/{Name}?api-version=2025-05-01";
         NetworkSecurityGroup body = new NetworkSecurityGroup
         {
@@ -51,7 +51,7 @@ public class NewNetworkSecurityGroupProcessor : ComputeProcessorBase<NetworkSecu
         {
             Content = JsonContent.Create(body, options: JsonOptions)
         };
-        await EventListener.Signal(Events.ProcessorAfterHttpRequestCreate);
+        await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
         return request;
     }
 

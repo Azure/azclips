@@ -24,9 +24,9 @@ public abstract class ConfigCommandBase : IProcessor
     public IProcessor Init(ProcessorContext context)
     {
         WriteOutput = context.OutputHandler.WriteOutput;
-        CancellationToken = context.EventListener.Token;
         //Todo: update this, the commaand processor should not start an activity directly
         StartActivity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartActivity;
+        CancellationToken = context.Publisher.Token;
         return this;
     }
 

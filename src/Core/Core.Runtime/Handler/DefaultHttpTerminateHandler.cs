@@ -9,5 +9,5 @@ namespace Core.Runtime.Handler;
 public class DefaultHttpTerminateHandler : IHttpTerminateHandler
 {
     /// <inheritdoc />
-    public SendAsyncStep SendAsync => async (HttpRequestMessage request, IEventListener callback, ISendAsync next) => await next.SendAsync(request, callback);
+    public SendAsyncStep SendAsync => async (HttpRequestMessage request, IEventPublisher callback, ISendAsync next) => await next.SendAsync(request, callback);
 }

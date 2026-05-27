@@ -70,8 +70,8 @@ public class Program
                 CommandInvocation invocation = dispatcher.Parse(args);
 
                 var engine = CirrusServiceProvider.GetRequiredService<IEngine>() ?? throw new InvalidOperationException("Engine service not found.");
-                using IInvocationSession session = engine.InvokeSession(invocation, streams, _cancellationTokenSource.Token);
-                session.Process();
+                using ISession session = engine.OpenExecutionSession(invocation, streams, _cancellationTokenSource.Token);
+                await session.RunAsync();
 
                 return 0;
             }
