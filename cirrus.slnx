@@ -6,7 +6,6 @@
   <Folder Name="/src/Core/">
     <Project Path="src/Core/Core.Abstractions/Core.Abstractions.csproj" />
     <Project Path="src/Core/Core.Authentication/Core.Authentication.csproj" />
-    <Project Path="src/Core/Core.Agent/Core.Agent.csproj" />
     <Project Path="src/Core/Core.Engine/Core.Engine.csproj" />
     <Project Path="src/Core/Core.Telemetry/Core.Telemetry.csproj" />
     <Project Path="src/Core/Core.Runtime/Core.Runtime.csproj" />
@@ -25,6 +24,10 @@
   </Folder>
   <Folder Name="/TUI/">
     <Project Path="TUI/Core.Tui.csproj" />
+  </Folder>
+  <Folder Name="/Agent/">
+    <Project Path="Agent/Core.Agent.csproj" />
+    <Project Path="Agent/tests/Core.Agent.Tests/Core.Agent.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Cli.Tests/Cli.Tests.csproj" />

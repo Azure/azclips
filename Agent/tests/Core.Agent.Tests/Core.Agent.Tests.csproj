@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Core\Core.Agent\Core.Agent.csproj" />
-    <ProjectReference Include="..\Common\Tests.Common.csproj" />
+    <ProjectReference Include="..\..\Core.Agent.csproj" />
+    <ProjectReference Include="..\..\..\tests\Common\Tests.Common.csproj" />
   </ItemGroup>
 
   <ItemGroup>
