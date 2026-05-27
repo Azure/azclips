@@ -134,7 +134,7 @@ public static class CoreTelemetryProperties
         return string.Empty;
     }
 
-    //todo: determine how this is configured. most likely from config maybe?
+    //todo: JAYSON how is this to be determined? From the access token or some sort of token?
     private static bool ResolveIsMicrosoftInternal()
     {
         return false;

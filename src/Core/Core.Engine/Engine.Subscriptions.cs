@@ -172,8 +172,6 @@ namespace Core.Engine
             });
             session.Subscribe(Events.SessionDisposed, (data) =>
             {
-                // Tag root with totalDuration before disposing the paired session activity
-                // so the value lands on the same span that carries the DevDiv core properties.
                 Activity? currentActivity = Activity.Current;
                 if (currentActivity != null)
                 {

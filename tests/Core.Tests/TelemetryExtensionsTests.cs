@@ -171,7 +171,7 @@ public class TelemetryExtensionsTests : IDisposable
         _service.Emit("MyEvent", properties: properties);
 
         var activity = Assert.Single(_stoppedActivities);
-        // Emit funnels through ITelemetryService.AddProperty, which applies the DevDiv
+        // Emit funnels through ITelemetryService.AddProperty, which applies the
         // "properties." prefix so emit events share the same key-shape as every other
         // user-property entry point.
         Assert.Equal("1", activity.GetTagItem("properties.alpha"));
