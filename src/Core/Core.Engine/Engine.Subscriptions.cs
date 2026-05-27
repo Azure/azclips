@@ -188,7 +188,6 @@ namespace Core.Engine
                     activity.Dispose();
                 pairedStages.Clear();
                 sequentialStage?.Dispose();
-                telemetryService.CurrentStage = null;
             });
 
             // Paired: AuthBeforeTokenAcquisition - AuthAfterTokenAcquisition
@@ -209,13 +208,11 @@ namespace Core.Engine
             {
                 var evt = (EventData)data;
                 sequentialStage = telemetryService.StartActivity(evt.Id, ActivityKind.Internal).ApplyEvent(evt.Id);
-                telemetryService.CurrentStage = sequentialStage;
             });
             session.Subscribe(Events.ProcessorProcessAsyncEnd, (data) =>
             {
                 sequentialStage?.Dispose();
                 sequentialStage = null;
-                telemetryService.CurrentStage = null;
             });
 
             // Map processor lifecycle to root-span Status. Signaled by InvocationSession

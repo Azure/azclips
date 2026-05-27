@@ -8,6 +8,7 @@ namespace Core.Telemetry;
 
 public static class TelemetryExtensions
 {
+    // Todo: hoist this to the host
     public static Activity? StartCLIActivity(this ITelemetryService service, string[] args)
     {
         var activity = service.ActivitySource.StartActivity("AzureCLI.Main", ActivityKind.Server);
@@ -71,21 +72,5 @@ public static class TelemetryExtensions
         }
 
         return activity;
-    }
-
-    public static void Emit(this ITelemetryService telemetryService, string eventName, ActivityKind kind = ActivityKind.Internal, Dictionary<string, string>? properties = null)
-    {
-        var act = telemetryService.StartActivity(eventName, kind);
-
-        if (properties is not null && act is not null)
-        {
-            foreach (var kvp in properties)
-            {
-                telemetryService.AddProperty(kvp.Key, kvp.Value, act);
-            }
-        }
-
-        telemetryService.CurrentStage = null;
-        act?.Dispose();
     }
 }

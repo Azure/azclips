@@ -16,13 +16,6 @@ public interface ITelemetryService : IDisposable
     Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal);
 
     /// <summary>
-    /// Gets or sets the current sequential stage activity (e.g. the activity created for
-    /// <c>ProcessorProcessAsyncStart</c>). The engine maintains this value across the
-    /// <c>ProcessorProcessAsync*</c> lifecycle.
-    /// </summary>
-    Activity? CurrentStage { get; set; }
-
-    /// <summary>
     /// Adds a property (tag) to an activity. By default, the property is added to the root
     /// activity. If <paramref name="activity"/> is provided (non-null), the property is added
     /// to that specific activity instead.

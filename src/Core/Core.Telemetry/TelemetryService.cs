@@ -36,14 +36,6 @@ public class TelemetryService : ITelemetryService
 
     public ActivitySource ActivitySource { get; }
 
-    private static readonly AsyncLocal<Activity?> _currentStage = new();
-
-    public Activity? CurrentStage
-    {
-        get => _currentStage.Value;
-        set => _currentStage.Value = value;
-    }
-
     public TelemetryService(ClientType clientType, TelemetryOptions telemetryOptions)
     {
         ActivitySource = new ActivitySource(clientType.ToString());
@@ -78,7 +70,7 @@ public class TelemetryService : ITelemetryService
 
     public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal)
     {
-        return ActivitySource.StartActivity(name, kind, CurrentStage?.Context ?? default);
+        return ActivitySource.StartActivity(name, kind);
     }
 
     public void AddProperty(string key, string? value, Activity? activity = null)
