@@ -12,7 +12,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Processors
         protected IEventListener EventListener = null!;
         protected readonly JsonSerializerOptions JsonOptions = null!;
         protected OutputStreamDelegate WriteOutput = null!;
-        protected ITelemetryService TelemetryService = null!;
 
         protected virtual void BeforeInit() { }
         protected virtual void AfterInit() { }
@@ -28,7 +27,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Processors
             HttpPipeline = context.HttpPipeline;
             EventListener = context.EventListener;
             WriteOutput = context.OutputHandler.WriteOutput;
-            TelemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
 
             AfterInit();
             return this;

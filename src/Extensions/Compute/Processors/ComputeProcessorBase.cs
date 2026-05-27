@@ -50,7 +50,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
             EventListener = context.EventListener;
             WriteOutput = context.OutputHandler.WriteOutput;
             AuthContext = context.AuthHandler.AuthContext;
-            TelemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
 
             AfterInit();
             return this;

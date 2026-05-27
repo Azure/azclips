@@ -6,6 +6,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Configuration.Options;
 using Core.DependencyInjection;
+using Core.Telemetry;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Config.Commands;
 
@@ -19,14 +20,13 @@ public abstract class ConfigCommandBase : IProcessor
     protected OutputStreamDelegate WriteOutput = null!;
     protected StartActivityDelegate StartActivity { get; set; } = null!;
     protected CancellationToken CancellationToken { get; private set; }
-    protected ITelemetryService TelemetryService = null!;
 
     public IProcessor Init(ProcessorContext context)
     {
         WriteOutput = context.OutputHandler.WriteOutput;
         CancellationToken = context.EventListener.Token;
-        TelemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
-        StartActivity = TelemetryService.StartActivity;
+        //Todo: update this, the commaand processor should not start an activity directly
+        StartActivity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartActivity;
         return this;
     }
 
