@@ -47,8 +47,7 @@ public static class TelemetryExtensions
                 }
             }
 
-            activity.SetTag("command", commandBuilder.ToString());
-            activity.SetTag("parameter", parameters.ToString().Trim());
+            activity.ApplyCommandLine(commandBuilder.ToString(), parameters.ToString().Trim());
         }
 
         return activity;
@@ -60,8 +59,6 @@ public static class TelemetryExtensions
 
         if (activity != null)
         {
-            activity.SetTag("command", commandName);
-
             var paramBuilder = new StringBuilder();
             if (parameters != null)
             {
@@ -70,7 +67,7 @@ public static class TelemetryExtensions
                     paramBuilder.Append($"-{kvp.Key} *** ");
                 }
             }
-            activity.SetTag("parameter", paramBuilder.ToString().Trim());
+            activity.ApplyCommandLine(commandName, paramBuilder.ToString().Trim());
         }
 
         return activity;
@@ -80,11 +77,11 @@ public static class TelemetryExtensions
     {
         var act = telemetryService.StartActivity(eventName, kind);
 
-        if (properties is not null)
+        if (properties is not null && act is not null)
         {
             foreach (var kvp in properties)
             {
-                act?.AddTag(kvp.Key, kvp.Value);
+                telemetryService.AddProperty(kvp.Key, kvp.Value, act);
             }
         }
 

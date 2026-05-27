@@ -50,8 +50,8 @@ public class TelemetryExtensionsTests : IDisposable
     {
         using var activity = _service.StartCLIActivity(new[] { "group", "list" });
 
-        Assert.Equal("az group list", activity!.GetTagItem("command"));
-        Assert.Equal("", activity.GetTagItem("parameter"));
+        Assert.Equal("az group list", activity!.GetTagItem(CoreTelemetryProperties.CommandTag));
+        Assert.Equal("", activity.GetTagItem(CoreTelemetryProperties.ParameterTag));
     }
 
     [Fact]
@@ -59,8 +59,8 @@ public class TelemetryExtensionsTests : IDisposable
     {
         using var activity = _service.StartCLIActivity(new[] { "-h" });
 
-        Assert.Equal("az", activity!.GetTagItem("command"));
-        Assert.Equal("-h", activity.GetTagItem("parameter"));
+        Assert.Equal("az", activity!.GetTagItem(CoreTelemetryProperties.CommandTag));
+        Assert.Equal("-h", activity.GetTagItem(CoreTelemetryProperties.ParameterTag));
     }
 
     [Fact]
@@ -68,8 +68,8 @@ public class TelemetryExtensionsTests : IDisposable
     {
         using var activity = _service.StartCLIActivity(new[] { "group", "-n", "myrg", "-l", "eastus" });
 
-        Assert.Equal("az group", activity!.GetTagItem("command"));
-        Assert.Equal("-n *** -l ***", activity.GetTagItem("parameter"));
+        Assert.Equal("az group", activity!.GetTagItem(CoreTelemetryProperties.CommandTag));
+        Assert.Equal("-n *** -l ***", activity.GetTagItem(CoreTelemetryProperties.ParameterTag));
     }
 
     [Fact]
@@ -77,8 +77,8 @@ public class TelemetryExtensionsTests : IDisposable
     {
         using var activity = _service.StartCLIActivity(new[] { "group", "-n", "myrg", "trailingPositional" });
 
-        Assert.Equal("az group", activity!.GetTagItem("command"));
-        Assert.Equal("-n *** trailingPositional", activity.GetTagItem("parameter"));
+        Assert.Equal("az group", activity!.GetTagItem(CoreTelemetryProperties.CommandTag));
+        Assert.Equal("-n *** trailingPositional", activity.GetTagItem(CoreTelemetryProperties.ParameterTag));
     }
 
     // --- StartPowerShellActivity ---
@@ -104,7 +104,7 @@ public class TelemetryExtensionsTests : IDisposable
 
         using var activity = _service.StartPowerShellActivity("New-AzGroup", parameters);
 
-        Assert.Equal("-Name *** -Location ***", activity!.GetTagItem("parameter"));
+        Assert.Equal("-Name *** -Location ***", activity!.GetTagItem(CoreTelemetryProperties.ParameterTag));
     }
 
     [Fact]
@@ -113,8 +113,8 @@ public class TelemetryExtensionsTests : IDisposable
         using var activity = _service.StartPowerShellActivity("Get-AzGroup", null!);
 
         Assert.NotNull(activity);
-        Assert.Equal("Get-AzGroup", activity!.GetTagItem("command"));
-        Assert.Equal("", activity.GetTagItem("parameter"));
+        Assert.Equal("Get-AzGroup", activity!.GetTagItem(CoreTelemetryProperties.CommandTag));
+        Assert.Equal("", activity.GetTagItem(CoreTelemetryProperties.ParameterTag));
     }
 
     // --- Emit ---
@@ -171,8 +171,11 @@ public class TelemetryExtensionsTests : IDisposable
         _service.Emit("MyEvent", properties: properties);
 
         var activity = Assert.Single(_stoppedActivities);
-        Assert.Equal("1", activity.GetTagItem("alpha"));
-        Assert.Equal("2", activity.GetTagItem("beta"));
+        // Emit funnels through ITelemetryService.AddProperty, which applies the DevDiv
+        // "properties." prefix so emit events share the same key-shape as every other
+        // user-property entry point.
+        Assert.Equal("1", activity.GetTagItem("properties.alpha"));
+        Assert.Equal("2", activity.GetTagItem("properties.beta"));
     }
 
     [Fact]

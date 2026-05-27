@@ -36,6 +36,14 @@ public interface ITelemetryService : IDisposable
     void AddProperty(string key, string? value, Activity? activity = null);
 
     /// <summary>
+    /// Adds a numeric measure (tag) to the root activity of the current invocation. Use this
+    /// for timings, counts, sizes, and other numeric business data.
+    /// </summary>
+    /// <param name="key">The measure name (without the <c>measures.</c> prefix).</param>
+    /// <param name="value">The numeric value.</param>
+    void AddMeasure(string key, double value);
+
+    /// <summary>
     /// Flushes all pending telemetry data.
     /// </summary>
     void Flush();

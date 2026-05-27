@@ -166,7 +166,7 @@ namespace Core.Engine
             session.Subscribe(Events.SessionCreated, (data) =>
             {
                 var evt = (EventData)data;
-                var activity = telemetryService.StartActivity(evt.Id, ActivityKind.Internal).SetEventName(evt.Id);
+                var activity = telemetryService.StartActivity(evt.Id, ActivityKind.Internal).ApplyEvent(evt.Id);
                 if (activity != null)
                     pairedStages.Push(activity);
             });
@@ -183,7 +183,7 @@ namespace Core.Engine
                     var elapsed = root.Duration > TimeSpan.Zero
                         ? root.Duration
                         : DateTime.UtcNow - root.StartTimeUtc;
-                    root.SetTag(CoreTelemetryProperties.TotalDurationTag, (long)elapsed.TotalMilliseconds);
+                    root.ApplyTotalDuration(elapsed);
                 }
 
                 while (pairedStages.TryPop(out var activity))
@@ -197,7 +197,7 @@ namespace Core.Engine
             session.Subscribe(Events.AuthBeforeTokenAcquisition, (data) =>
             {
                 var evt = (EventData)data;
-                var activity = telemetryService.StartActivity(evt.Id, ActivityKind.Internal).SetEventName(evt.Id);
+                var activity = telemetryService.StartActivity(evt.Id, ActivityKind.Internal).ApplyEvent(evt.Id);
                 if (activity != null)
                     pairedStages.Push(activity);
             });
@@ -210,7 +210,7 @@ namespace Core.Engine
             session.Subscribe(Events.ProcessorProcessAsyncStart, (data) =>
             {
                 var evt = (EventData)data;
-                sequentialStage = telemetryService.StartActivity(evt.Id, ActivityKind.Internal).SetEventName(evt.Id);
+                sequentialStage = telemetryService.StartActivity(evt.Id, ActivityKind.Internal).ApplyEvent(evt.Id);
                 telemetryService.CurrentStage = sequentialStage;
             });
             session.Subscribe(Events.ProcessorProcessAsyncEnd, (data) =>

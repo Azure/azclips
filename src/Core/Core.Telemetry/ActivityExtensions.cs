@@ -13,12 +13,4 @@ public static class ActivityExtensions
             activity = activity.Parent;
         return activity;
     }
-
-    public static Activity? SetEventName(this Activity? activity, string eventName)
-    {
-        activity?.SetTag(
-            CoreTelemetryProperties.EventNameTag,
-            $"{CoreTelemetryProperties.ProductName}.{eventName}");
-        return activity;
-    }
 }

@@ -102,7 +102,12 @@ public class TelemetryService : ITelemetryService
     public void AddMeasure(string key, double value)
     {
         if (string.IsNullOrEmpty(key)) return;
-        Activity.Current?.SetTag($"measures.{key}", value);
+
+        var currentActivity = Activity.Current;
+        if (currentActivity is null) return;
+
+        var rootActivity = currentActivity.GetRoot();
+        rootActivity.SetTag($"measures.{key}", value);
     }
 
     public void Flush()

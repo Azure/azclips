@@ -4,12 +4,12 @@ using System.Net.NetworkInformation;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
+using Core.Abstractions;
 
 namespace Core.Telemetry;
 
 /// <summary>
-/// Per-process invariants required on every Cirrus command-execution root span,
-/// per the DevDiv Azure Monitor onboarding contract.
+/// Per-process invariants required on every Cirrus command-execution root span.
 /// </summary>
 /// <remarks>
 /// Values are computed once and cached for the lifetime of the process.
@@ -29,6 +29,8 @@ public static class CoreTelemetryProperties
     public const string ModuleNameTag = "module.name";
     public const string ModuleVersionTag = "module.version";
     public const string EventNameTag = "eventName";
+    public const string CommandTag = "command";
+    public const string ParameterTag = "parameter";
 
     public static readonly string ProductName = ResolveProductName();
     public static readonly string SchemaVersion = ResolveSchemaVersion();
@@ -44,15 +46,59 @@ public static class CoreTelemetryProperties
 
     public static string ProductVersion => _productVersion.Value;
 
-    public static void ApplyStaticProperties(Activity? root)
+    public static Activity? ApplyStaticProperties(this Activity? root)
     {
-        if (root is null) return;
-        root.SetTag(IdTag, Id);
-        root.SetTag(MicrosoftInternalTag, IsMicrosoftInternal);
-        root.SetTag(ProductNameTag, ProductName);
-        root.SetTag(ProductVersionTag, ProductVersion);
-        root.SetTag(SchemaVersionTag, SchemaVersion);
-        root.SetTag(TelemetryVersionTag, TelemetryVersion);
+        root?.SetTag(IdTag, Id);
+        root?.SetTag(MicrosoftInternalTag, IsMicrosoftInternal);
+        root?.SetTag(ProductNameTag, ProductName);
+        root?.SetTag(ProductVersionTag, ProductVersion);
+        root?.SetTag(SchemaVersionTag, SchemaVersion);
+        root?.SetTag(TelemetryVersionTag, TelemetryVersion);
+        return root;
+    }
+
+    public static Activity? SetDisplayName(this Activity? activity, string extensionName, string commandName)
+    {
+        activity?.DisplayName = $"{ProductName}.{extensionName}.{commandName}";
+        return activity;
+    }
+
+    public static Activity? ApplyClientType(this Activity? activity, ClientType clientType)
+    {
+        activity?.SetTag(ClientTypeTag, clientType);
+        return activity;
+    }
+
+    public static Activity? ApplyModuleInfo(this Activity? activity, string? name, string? version)
+    {
+        if (activity is null) return activity;
+        if (!string.IsNullOrEmpty(name))
+            activity.SetTag(ModuleNameTag, name);
+        if (!string.IsNullOrEmpty(version))
+            activity.SetTag(ModuleVersionTag, version);
+        return activity;
+    }
+
+    public static Activity? ApplyTotalDuration(this Activity? activity, TimeSpan elapsed)
+    {
+        activity?.SetTag(TotalDurationTag, (long)elapsed.TotalMilliseconds);
+        return activity;
+    }
+
+    public static Activity? ApplyCommandLine(this Activity? activity, string command, string parameter)
+    {
+        if (activity is null) return activity;
+        activity.SetTag(CommandTag, command);
+        activity.SetTag(ParameterTag, parameter);
+        return activity;
+    }
+
+    public static Activity? ApplyEvent(this Activity? activity, string eventName)
+    {
+        activity?.SetTag(
+            EventNameTag,
+            $"{ProductName}.{eventName}");
+        return activity;
     }
 
     private static string ComputeId()
@@ -96,9 +142,6 @@ public static class CoreTelemetryProperties
 
     private static string ResolveProductVersion()
     {
-        // Prefer the entry assembly (the executable that started the process, e.g. azv2)
-        // so the reported version tracks the shipping artifact. Falls back to this
-        // assembly when no entry assembly is available (test runners, unmanaged hosts).
         var assembly = Assembly.GetEntryAssembly() ?? typeof(CoreTelemetryProperties).Assembly;
 
         var informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>();

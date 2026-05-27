@@ -111,20 +111,15 @@ namespace Core.Engine
 
         private void ApplyBaseTelemetryProperties(Activity root, InvocationSession session)
         {
-            root.SetTag(CoreTelemetryProperties.ClientTypeTag, clientType);
-
-            // NOTE: On the CLI side "module.name" currently maps to the extension name.
-            // The tag key may be renamed to "extension.name" in the future — TBD.
-            if (!string.IsNullOrEmpty(session.Invocation.ModuleName))
-                root.SetTag(CoreTelemetryProperties.ModuleNameTag, session.Invocation.ModuleName);
-            if (!string.IsNullOrEmpty(session.Invocation.ModuleVersion))
-                root.SetTag(CoreTelemetryProperties.ModuleVersionTag, session.Invocation.ModuleVersion);
-
-            CoreTelemetryProperties.ApplyStaticProperties(root);
-
             var extension = session.Invocation.ExtensionName;
             var command = session.Invocation.CommandName;
-            root.DisplayName = $"{CoreTelemetryProperties.ProductName} {extension} {command}";
+            var moduleName = session.Invocation.CommandName;
+            var moduleVersion = session.Invocation.CommandName;
+
+            root.SetDisplayName(extension, command)
+                .ApplyClientType(clientType)
+                .ApplyModuleInfo(moduleName, moduleVersion)
+                .ApplyStaticProperties();
         }
 
         /// <summary>

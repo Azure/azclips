@@ -17,6 +17,9 @@ public class StubTelemetryService : ITelemetryService
 
     public void AddProperty(string key, string? value, Activity? activity = null) { }
 
+    public void AddMeasure(string key, double value) { }
+
+
     public void Flush() { }
 
     public void Dispose() => ActivitySource.Dispose();
