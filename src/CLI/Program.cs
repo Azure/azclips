@@ -93,7 +93,7 @@ public class Program
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 activity?.AddException(ex);
 
-                return await TryAgentFallbackAsync(args);
+                return await TryAgentFallbackAsync(args, ex.Message);
             }
             catch (Exception ex)
             {
@@ -102,7 +102,7 @@ public class Program
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 activity?.AddException(ex);
 
-                return await TryAgentFallbackAsync(args);
+                return await TryAgentFallbackAsync(args, ex.Message);
             }
         } // activity disposed here → traces exported to file
         finally
@@ -157,7 +157,7 @@ public class Program
     /// and any interactive sub-tool (device-code login) surface live in the
     /// user's terminal without in-process plumbing.
     /// </summary>
-    private static async Task<int> TryAgentFallbackAsync(string[] args)
+    private static async Task<int> TryAgentFallbackAsync(string[] args, string? errorText)
     {
         // Global disable switch. Set CIRRUS_AGENT_DISABLED=1 to keep the
         // original classic error and skip the agent fallback entirely.
@@ -196,6 +196,11 @@ public class Program
             psi.ArgumentList.Add("--agent-mode");
             psi.ArgumentList.Add("--failed-command");
             psi.ArgumentList.Add(JoinShellQuoted(args));
+            if (!string.IsNullOrWhiteSpace(errorText))
+            {
+                psi.ArgumentList.Add("--error");
+                psi.ArgumentList.Add(errorText);
+            }
 
             using var proc = Process.Start(psi)
                 ?? throw new InvalidOperationException("Process.Start returned null");
