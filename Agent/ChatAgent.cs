@@ -39,6 +39,14 @@ public sealed class ChatAgent : IAsyncDisposable
         _session = session;
     }
 
+    /// <param name="ct">
+    /// Long-lived cancellation token expected to survive for the agent's full
+    /// lifetime — captured by SDK hooks (OnPreToolUse, OnSessionStart,
+    /// OnUserPromptSubmitted, OnPermissionRequest) and reused on every hook
+    /// invocation after CreateAsync returns. Pass the host's top-level CTS
+    /// (e.g. the one tied to Ctrl+C) rather than an init-scoped token; an
+    /// already-cancelled ct silently breaks approvals and environment probing.
+    /// </param>
     public static async Task<ChatAgent> CreateAsync(
         string flavor,
         IAuthService auth,
