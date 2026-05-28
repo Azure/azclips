@@ -5,6 +5,6 @@ namespace Core.Abstractions;
 
 public record ProcessorContext
     (IRuntimeHttpPipeline HttpPipeline,
-     IEventListener EventListener,
+     IEventPublisher Publisher,
      IAuthHandler AuthHandler,
      IOutputHandler OutputHandler);

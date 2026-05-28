@@ -39,7 +39,7 @@ static class FooterRenderer
 
             if (!string.IsNullOrEmpty(branch))
             {
-                sections.Add(s.Section($" {branch}"));
+                sections.Add(s.Section($"⎇ {branch}"));
             }
 
             sections.Add(s.Section("F2 mode"));

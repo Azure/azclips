@@ -14,7 +14,23 @@ static class HistoryRenderer
             switch (entry.Type)
             {
                 case HistoryItemType.User:
-                    widgets.Add(ctx.Text($"  {theme.AnsiUserEntry}{entry.Text}{Ansi.End}").Wrap());
+                    // Color prompt path, chevron, and command to match the live prompt.
+                    // Each ANSI Fg overrides the previous without needing End in between.
+                    var chevronIdx = entry.Text.IndexOf("> ", StringComparison.Ordinal);
+                    if (chevronIdx >= 0)
+                    {
+                        var path = entry.Text[..chevronIdx];
+                        var cmd = entry.Text[(chevronIdx + 2)..];
+                        var cmdColor = string.IsNullOrEmpty(theme.AnsiInputText) ? theme.AnsiUserEntry : theme.AnsiInputText;
+                        widgets.Add(ctx.Text(
+                            $"  {theme.AnsiPromptPath}{path}" +
+                            $"{theme.AnsiChevron}> " +
+                            $"{cmdColor}{cmd}{Ansi.End}").Wrap());
+                    }
+                    else
+                    {
+                        widgets.Add(ctx.Text($"  {theme.AnsiUserEntry}{entry.Text}{Ansi.End}").Wrap());
+                    }
                     break;
                 case HistoryItemType.Output:
                     var outPre = string.IsNullOrEmpty(theme.AnsiOutput) ? "" : theme.AnsiOutput;
@@ -25,7 +41,7 @@ static class HistoryRenderer
                     widgets.Add(ctx.Text($"  {theme.AnsiError}× {entry.Text}{Ansi.End}").Wrap());
                     break;
                 case HistoryItemType.Info:
-                    widgets.Add(ctx.Text($"  {Ansi.AccentYellow}◇ {entry.Text}{Ansi.End}").Wrap());
+                    widgets.Add(ctx.Text($"  {Ansi.DimGray}◇ {entry.Text}{Ansi.End}").Wrap());
                     break;
                 case HistoryItemType.Success:
                     widgets.Add(ctx.Text($"  {Ansi.AccentGreen}○ {entry.Text}{Ansi.End}").Wrap());

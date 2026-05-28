@@ -24,7 +24,7 @@ public abstract class ConfigCommandBase : IProcessor
     {
         WriteOutput = context.OutputHandler.WriteOutput;
         StartActivity = GetTelemetryService().StartActivity;
-        CancellationToken = context.EventListener.Token;
+        CancellationToken = context.Publisher.Token;
         return this;
     }
 

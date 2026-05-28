@@ -17,4 +17,6 @@ public interface IAssemblyLoadingService
     /// <param name="extensionVersion">Optional version string. If null, the latest available version is loaded.</param>
     /// <returns>The loaded assembly.</returns>
     Assembly LoadExtension(string extensionName, string? extensionVersion = null);
+
+    IList<Tuple<string, string, Func<Assembly>>>? LoadAllExtensions();
 }

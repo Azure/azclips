@@ -78,8 +78,8 @@ public class GetVMCmdlet : PSCmdlet
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
         var invocation = new CommandInvocation("Compute", commandName, parameters, false, moduleName, moduleVersion);
 
-        using IInvocationSession session = engine.InvokeSession(invocation, streams, _cts.Token);
-        session.Process();
+        using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);
+        session.Run();
     }
 
     protected override void EndProcessing()

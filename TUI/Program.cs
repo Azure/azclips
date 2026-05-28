@@ -96,6 +96,8 @@ public static class Program
             widgets.Add(TuiTheme.ApplyMenuBarTheme(v,
                 MenuBarRenderer.Render(v, state, () => app.Invalidate())));
 
+            widgets.Add(v.Separator());
+
             widgets.Add(v.VStack(top =>
             {
                 var topWidgets = new List<Hex1bWidget>();
@@ -222,9 +224,11 @@ public static class Program
             bindings.Key(Hex1bKey.Escape).Global()
                 .Action(_ =>
                 {
-                    if (state.ShowHelp) { state.ShowHelp = false; app.Invalidate(); }
+                    if (state.IsSuggestionSelected()) { state.ResetSelectedSuggestion(); }
+                    else if (state.ShowHelp) { state.ShowHelp = false; app.Invalidate(); }
                     else if (state.IsRunning) { state.CancelRunning(); }
-                }, "Close/Cancel");
+                    else { app.RequestStop(); }
+                }, "Reset Suggestion Status/Close Help Panel/Cancel Running/Exit Application");
 
             bindings.Ctrl().Key(Hex1bKey.C).Global()
                 .Action(_ =>
@@ -251,9 +255,17 @@ public static class Program
             bindings.Key(Hex1bKey.Enter).Global()
                 .Action(_ =>
                 {
-                    state.ExecuteCommand();
-                    app.Invalidate();
-                }, "Submit command");
+                    if (state.IsSuggestionSelected())
+                    {
+                        state.AcceptSuggestion();
+                        app.Invalidate();
+                    }
+                    else
+                    {
+                        state.ExecuteCommand();
+                        app.Invalidate();
+                    }
+                }, "Select suggestion or submit command");
 
             bindings.Ctrl().Key(Hex1bKey.Enter).Global()
                 .Action(_ =>
@@ -268,9 +280,13 @@ public static class Program
                 .Action(_ =>
                 {
                     if (state.Suggestions.Count > 0)
-                        state.SelectedSuggestion = (state.SelectedSuggestion - 1 + state.Suggestions.Count) % state.Suggestions.Count;
+                    {
+                        state.NavigateSuggestion(-1);
+                    }
                     else
+                    {
                         state.NavigateHistory(-1);
+                    }
                     app.Invalidate();
                 }, "Previous suggestion/history");
 
@@ -279,7 +295,9 @@ public static class Program
                 .Action(_ =>
                 {
                     if (state.Suggestions.Count > 0)
-                        state.SelectedSuggestion = (state.SelectedSuggestion + 1) % state.Suggestions.Count;
+                    {
+                        state.NavigateSuggestion(1);
+                    }
                     else
                         state.NavigateHistory(1);
                     app.Invalidate();
