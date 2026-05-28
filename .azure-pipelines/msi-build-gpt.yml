@@ -232,7 +232,8 @@ jobs:
             & $script `
               -OutRoot $env:WINDOWS_OUT_ROOT `
               -CommonOutRoot $env:COMMON_OUT_ROOT `
-              -SimRoot $env:TEST_OUTPUT_ROOT
+              -SimRoot $env:TEST_OUTPUT_ROOT `
+              -ProductVersion $env:PACKAGE_VERSION_INPUT
           displayName: Install, smoke test, and uninstall MSI
 
       - pwsh: |

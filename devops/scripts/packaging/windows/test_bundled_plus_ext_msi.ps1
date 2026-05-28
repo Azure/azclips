@@ -3,6 +3,7 @@ param(
     [string]$CommonOutRoot = (Join-Path $PSScriptRoot '../../../out/common'),
     [string]$SimRoot = (Join-Path $PSScriptRoot '../../../sim/win-msi-bundled-plus-ext'),
     [string]$ProductName = 'Cirrus CLI',
+    [string]$ProductVersion = '',
     [switch]$SkipRuntime,
     [switch]$KeepInstalled
 )
@@ -48,6 +49,38 @@ function Get-MsiProductCode([string]$Path) {
     }
 
     return $record.StringData(1)
+}
+
+function ConvertTo-MsiPackedVersion([string]$Version) {
+    $parts = $Version.Split('.')
+    if ($parts.Count -lt 3) {
+        throw "FAIL: ProductVersion '$Version' must contain at least major.minor.build for MSI log comparison."
+    }
+
+    return ([int]$parts[0] * 16777216) + ([int]$parts[1] * 65536) + [int]$parts[2]
+}
+
+function Get-MsiLogProductInfo([string]$LogPath) {
+    if (-not (Test-Path -Path $LogPath -PathType Leaf)) {
+        throw "FAIL: MSI install log not found at $LogPath"
+    }
+
+    $productInfoLine = Get-Content $LogPath | Where-Object { $_ -like '*ProductInfo*' } | Select-Object -First 1
+    if ([string]::IsNullOrWhiteSpace($productInfoLine)) {
+        throw "FAIL: ProductInfo line was not found in MSI install log: $LogPath"
+    }
+
+    $properties = @{}
+    if ($productInfoLine -match 'ProductInfo\((?<content>.*)\)') {
+        foreach ($entry in $Matches.content -split ',') {
+            $keyValue = $entry -split '=', 2
+            if ($keyValue.Count -eq 2) {
+                $properties[$keyValue[0].Trim()] = $keyValue[1].Trim()
+            }
+        }
+    }
+
+    return $properties
 }
 
 function Get-InstalledProductCodeByName([string]$Name) {
@@ -139,6 +172,30 @@ try {
         throw "FAIL: azv2.exe not found after MSI install: $Azv2Exe"
     }
     Write-Host 'PASS: azv2.exe found after MSI install'
+
+    $productInfo = Get-MsiLogProductInfo -LogPath $InstallLog
+    if ($productInfo.ProductName -ne $ProductName) {
+        throw "FAIL: Install log ProductName '$($productInfo.ProductName)' did not match '$ProductName'."
+    }
+    Write-Host "PASS: Install log ProductName is $ProductName"
+
+    $registryItem = Get-ItemProperty 'HKLM:\Software\Cirrus CLI' -ErrorAction Stop
+    if ([string]::IsNullOrWhiteSpace($registryItem.InstallDir)) {
+        throw 'FAIL: HKLM:\Software\Cirrus CLI InstallDir registry value was empty.'
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($ProductVersion)) {
+        $expectedPackedVersion = ConvertTo-MsiPackedVersion -Version $ProductVersion
+        if ([int]$productInfo.Version -ne $expectedPackedVersion) {
+            throw "FAIL: Install log Version '$($productInfo.Version)' did not match packed ProductVersion '$expectedPackedVersion' for '$ProductVersion'."
+        }
+
+        if ($registryItem.Version -ne $ProductVersion) {
+            throw "FAIL: HKLM:\Software\Cirrus CLI Version '$($registryItem.Version)' did not match '$ProductVersion'."
+        }
+
+        Write-Host "PASS: Install log and registry version match $ProductVersion"
+    }
 
     foreach ($ext in $builtins) {
         $extPath = Join-Path $InstalledExtensions $ext

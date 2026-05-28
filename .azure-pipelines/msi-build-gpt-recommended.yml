@@ -307,7 +307,8 @@ stages:
               & $script `
                 -OutRoot $windowsRoot `
                 -CommonOutRoot $commonRoot `
-                -SimRoot $env:TEST_OUTPUT_ROOT
+                -SimRoot $env:TEST_OUTPUT_ROOT `
+                -ProductVersion $env:PACKAGE_VERSION_INPUT
             displayName: Install, smoke test, and uninstall MSI
 
           - pwsh: |

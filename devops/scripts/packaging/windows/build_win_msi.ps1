@@ -226,7 +226,9 @@ $productXml = @"
     <MajorUpgrade AllowSameVersionUpgrades="yes"
                   DowngradeErrorMessage="A later version of [ProductName] is already installed." />
     <MediaTemplate EmbedCab="yes" />
+    <Property Id="MSIFASTINSTALL" Value="7" />
     <Property Id="ARPNOMODIFY" Value="1" />
+    <SetProperty Id="REINSTALLMODE" Value="amus" Before="CostFinalize">WIX_UPGRADE_DETECTED</SetProperty>
 
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="ProgramFiles64Folder">
@@ -237,6 +239,7 @@ $productXml = @"
     <DirectoryRef Id="INSTALLFOLDER">
       <Component Id="PathEnvironment" Guid="$PathComponentGuid" Win64="yes">
         <RegistryValue Root="HKLM" Key="Software\Cirrus CLI" Name="InstallDir" Type="string" Value="[INSTALLFOLDER]" KeyPath="yes" />
+                <RegistryValue Root="HKLM" Key="Software\Cirrus CLI" Name="Version" Type="string" Value="$version" />
         <Environment Id="AddInstallFolderToPath" Name="PATH" Value="[INSTALLFOLDER]" Permanent="no" Part="last" Action="set" System="yes" />
       </Component>
     </DirectoryRef>
@@ -245,6 +248,7 @@ $productXml = @"
       <ComponentGroupRef Id="PublishedFiles" />
       <ComponentRef Id="PathEnvironment" />
     </Feature>
+        <CustomActionRef Id="WixBroadcastEnvironmentChange" />
   </Product>
 </Wix>
 "@
@@ -253,6 +257,7 @@ Set-Content -Path $productPath -Value $productXml -Encoding utf8
 
 & $wixTools.Candle `
     -arch x64 `
+    -ext WixUtilExtension `
     -out "$wixRoot\" `
     $productPath `
     $harvestPath
@@ -262,7 +267,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $wixObjects = Get-ChildItem $wixRoot -Filter *.wixobj | ForEach-Object { $_.FullName }
-& $wixTools.Light -out $msiPath $wixObjects
+& $wixTools.Light -ext WixUtilExtension -out $msiPath $wixObjects
 
 if ($LASTEXITCODE -ne 0) {
     throw "light.exe failed with exit code $LASTEXITCODE."
