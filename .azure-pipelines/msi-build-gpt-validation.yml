@@ -125,17 +125,22 @@ stages:
               COMMON_OUT_ROOT: $(COMMON_OUT_ROOT)
 
           - pwsh: |
-              choco install wixtoolset -y --no-progress
+              $wixDownloadUrl = 'https://azurecliprod.blob.core.windows.net/msi/wix310-binaries-mirror.zip'
+              $wixBin = Join-Path $env:PIPELINE_WORKSPACE 'wix'
 
-              $wixDirectory = Get-ChildItem ${env:ProgramFiles(x86)} -Directory -Filter 'WiX Toolset v3*' |
-                Sort-Object Name -Descending |
-                Select-Object -First 1
+              if (-not (Test-Path (Join-Path $wixBin 'heat.exe'))) {
+                if (Test-Path $wixBin) {
+                  Remove-Item $wixBin -Recurse -Force
+                }
 
-              if ($null -eq $wixDirectory) {
-                throw 'WiX Toolset v3 was not found after installation.'
+                New-Item -ItemType Directory -Path $wixBin -Force | Out-Null
+                $wixArchive = Join-Path $env:AGENT_TEMPDIRECTORY 'wix-archive.zip'
+                Write-Host "Downloading WiX from $wixDownloadUrl"
+                Invoke-WebRequest -Uri $wixDownloadUrl -OutFile $wixArchive
+                Expand-Archive -Path $wixArchive -DestinationPath $wixBin -Force
+                Remove-Item $wixArchive -Force
               }
 
-              $wixBin = Join-Path $wixDirectory.FullName 'bin'
               foreach ($toolName in @('heat.exe', 'candle.exe', 'light.exe')) {
                 $toolPath = Join-Path $wixBin $toolName
                 if (-not (Test-Path $toolPath)) {
@@ -144,7 +149,7 @@ stages:
               }
 
               Write-Host "##vso[task.setvariable variable=WIX_BIN]$wixBin"
-            displayName: Install WiX Toolset
+            displayName: Download WiX Toolset
 
           - pwsh: |
               $script = Join-Path $env:BUILD_SOURCESDIRECTORY 'devops/scripts/packaging/windows/build_win_msi.ps1'
