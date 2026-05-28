@@ -213,7 +213,7 @@ stages:
                 $view.Execute()
                 $record = $view.Fetch()
                 if ($null -eq $record) { return $null }
-                return $record.StringData(1)
+                return $record.StringData(1).Trim()
               }
 
               $msiPath = Join-Path $env:AUDIT_DOWNLOAD_ROOT "windows/azv2-$env:RUNTIME_IDENTIFIER.msi"
@@ -428,7 +428,7 @@ stages:
                 $view.Execute()
                 $record = $view.Fetch()
                 if ($null -eq $record) { throw "ProductCode not found in $Path" }
-                return $record.StringData(1)
+                return $record.StringData(1).Trim()
               }
 
               function Invoke-MsiExec([string[]]$Arguments, [string]$FailureMessage) {

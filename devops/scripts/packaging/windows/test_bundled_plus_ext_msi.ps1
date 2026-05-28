@@ -15,6 +15,12 @@ $CommonOutRoot = [System.IO.Path]::GetFullPath($CommonOutRoot)
 $SimRoot = [System.IO.Path]::GetFullPath($SimRoot)
 
 $MsiPath = Join-Path $OutRoot 'bin/Release/azv2-win-x64.msi'
+if (-not (Test-Path -Path $MsiPath -PathType Leaf)) {
+    $artifactMsiPath = Join-Path $OutRoot 'azv2-win-x64.msi'
+    if (Test-Path -Path $artifactMsiPath -PathType Leaf) {
+        $MsiPath = $artifactMsiPath
+    }
+}
 $ExtPackDir = Join-Path $CommonOutRoot 'extensions-pack'
 $InstallLog = Join-Path $SimRoot 'msi-install.log'
 $UninstallLog = Join-Path $SimRoot 'msi-uninstall.log'
