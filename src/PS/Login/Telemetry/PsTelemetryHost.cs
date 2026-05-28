@@ -1,7 +1,6 @@
 using Core.Abstractions;
 using Core.Telemetry;
 using OpenTelemetry;
-using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
 namespace Microsoft.Azure.Cirrus.Cmdlets.Login.Telemetry;

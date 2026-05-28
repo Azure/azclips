@@ -16,7 +16,6 @@ namespace Core.Tui;
 
 public static class Program
 {
-    private static OtelTelemetryHost? _telemetryHost;
     private static ILoggingService? _logger;
 
     public static async Task Main()
@@ -46,7 +45,7 @@ public static class Program
         var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
         var telemetryOptions = CirrusServiceProvider.GetRequiredService<IConfigurationService>()
             .GetConfiguration<TelemetryOptions>();
-        _telemetryHost = TuiTelemetryHost.CreateBuilder(telemetryService, telemetryOptions)
+        var telemetryHost = TuiTelemetryHost.CreateBuilder(telemetryService, telemetryOptions)
             .UseFileSender(FileTelemetrySender.GetTraceDirectory())
             .Build();
 
@@ -78,7 +77,7 @@ public static class Program
         }
         finally
         {
-            await _telemetryHost.DisposeAsync();
+            await telemetryHost.DisposeAsync();
             CirrusServiceProvider.Dispose();
         }
     }

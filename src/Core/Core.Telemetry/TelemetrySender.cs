@@ -23,8 +23,7 @@ public class FileTelemetrySender : ITelemetrySender
     private const string TraceDirectoryName = "Cirrus";
 
     /// <summary>
-    /// Gets the shared trace directory. Both CLI and PS write here;
-    /// the background uploader picks up all files from one location.
+    /// Gets the shared trace directory for the background uploader picks up all files from one location.
     /// </summary>
     public static string GetTraceDirectory() =>
         Path.Combine(
