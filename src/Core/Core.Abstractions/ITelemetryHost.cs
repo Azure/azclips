@@ -13,8 +13,6 @@ namespace Core.Abstractions;
 ///   <item><description>TUI: long-running session, periodic flush, direct Azure Monitor export.</description></item>
 ///   <item><description>PowerShell: lifetime tied to module import/unload.</description></item>
 /// </list>
-/// All implementations share the same <see cref="ITelemetryRecorder"/> contract so the rest
-/// of the system depends only on recording, not on pipeline construction.
 /// </remarks>
 public interface ITelemetryHost : IAsyncDisposable
 {
