@@ -52,7 +52,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
             return this;
         }
         public virtual Task ProcessAsync() => Task.CompletedTask;
-        public virtual Task<HttpRequestMessage> CreateRequestMessage() => throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(CreateRequestMessage)}");
+        protected virtual Task<HttpRequestMessage> CreateRequestMessage() => throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(CreateRequestMessage)}");
 
         /// <summary>
         /// Creates an extended processor of type <typeparamref name="T"/> initialized with the same

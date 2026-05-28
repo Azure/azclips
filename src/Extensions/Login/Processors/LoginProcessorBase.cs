@@ -32,6 +32,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Processors
         }
 
         public virtual Task ProcessAsync() => Task.CompletedTask;
-        public virtual HttpRequestMessage CreateRequestMessage() => throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(CreateRequestMessage)}");
+        protected virtual HttpRequestMessage CreateRequestMessage() => throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(CreateRequestMessage)}");
     }
 }

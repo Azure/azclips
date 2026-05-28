@@ -20,7 +20,7 @@ public class NewNetworkSecurityGroupProcessor : ComputeProcessorBase<NetworkSecu
     public List<string> RuleDestinationAddressPrefixes { get; set; } = [];
     public List<string> RuleAccesses { get; set; } = [];
 
-    public override async Task<HttpRequestMessage> CreateRequestMessage()
+    protected override async Task<HttpRequestMessage> CreateRequestMessage()
     {
         await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
         string uri = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/networkSecurityGroups/{Name}?api-version=2025-05-01";
