@@ -214,6 +214,14 @@ $harvestContent = $harvestContent.Replace('$(var.PublishRoot)', $escapedPublishR
 $harvestContent = $harvestContent.Replace('$publishRoot', $escapedPublishRoot)
 Set-Content -Path $harvestPath -Value $harvestContent -Encoding utf8
 
+$setupMediaRoot = Join-Path $PSScriptRoot 'setup/media'
+$licenseRtfPath = Join-Path $setupMediaRoot 'License.rtf'
+if (-not (Test-Path -Path $licenseRtfPath -PathType Leaf)) {
+    throw "MSI license RTF was not found: $licenseRtfPath"
+}
+
+$escapedLicenseRtfPath = [System.Security.SecurityElement]::Escape($licenseRtfPath)
+
 $productXml = @"
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
   <Product Id="*"
@@ -228,6 +236,9 @@ $productXml = @"
     <MediaTemplate EmbedCab="yes" />
     <Property Id="MSIFASTINSTALL" Value="7" />
     <Property Id="ARPNOMODIFY" Value="1" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/Azure/cirrus" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/Azure/cirrus" />
+    <Property Id="ARPURLUPDATEINFO" Value="https://github.com/Azure/cirrus/releases" />
     <SetProperty Id="REINSTALLMODE" Value="amus" Before="CostFinalize">WIX_UPGRADE_DETECTED</SetProperty>
 
     <Directory Id="TARGETDIR" Name="SourceDir">
@@ -239,7 +250,7 @@ $productXml = @"
     <DirectoryRef Id="INSTALLFOLDER">
       <Component Id="PathEnvironment" Guid="$PathComponentGuid" Win64="yes">
         <RegistryValue Root="HKLM" Key="Software\Cirrus CLI" Name="InstallDir" Type="string" Value="[INSTALLFOLDER]" KeyPath="yes" />
-                <RegistryValue Root="HKLM" Key="Software\Cirrus CLI" Name="Version" Type="string" Value="$version" />
+        <RegistryValue Root="HKLM" Key="Software\Cirrus CLI" Name="Version" Type="string" Value="$version" />
         <Environment Id="AddInstallFolderToPath" Name="PATH" Value="[INSTALLFOLDER]" Permanent="no" Part="last" Action="set" System="yes" />
       </Component>
     </DirectoryRef>
@@ -248,7 +259,9 @@ $productXml = @"
       <ComponentGroupRef Id="PublishedFiles" />
       <ComponentRef Id="PathEnvironment" />
     </Feature>
-        <CustomActionRef Id="WixBroadcastEnvironmentChange" />
+    <CustomActionRef Id="WixBroadcastEnvironmentChange" />
+    <UIRef Id="WixUI_Minimal" />
+    <WixVariable Id="WixUILicenseRtf" Value="$escapedLicenseRtfPath" />
   </Product>
 </Wix>
 "@
@@ -257,6 +270,7 @@ Set-Content -Path $productPath -Value $productXml -Encoding utf8
 
 & $wixTools.Candle `
     -arch x64 `
+    -ext WixUIExtension `
     -ext WixUtilExtension `
     -out "$wixRoot\" `
     $productPath `
@@ -267,7 +281,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $wixObjects = Get-ChildItem $wixRoot -Filter *.wixobj | ForEach-Object { $_.FullName }
-& $wixTools.Light -ext WixUtilExtension -out $msiPath $wixObjects
+& $wixTools.Light -ext WixUIExtension -ext WixUtilExtension -out $msiPath $wixObjects
 
 if ($LASTEXITCODE -ne 0) {
     throw "light.exe failed with exit code $LASTEXITCODE."
