@@ -1,0 +1,265 @@
+name: naga-misc-tests-$(Date:yyyyMMdd).$(Rev:r)
+
+trigger: none
+pr: none
+
+parameters:
+  - name: source_pipeline_definition_id
+    displayName: Source pipeline definition id
+    type: string
+    default: '1210'
+
+  - name: source_build_id
+    displayName: Source build id containing signed MSI artifact
+    type: string
+    default: '319438'
+
+  - name: runtime_identifier
+    displayName: Windows runtime identifier
+    type: string
+    default: win-x64
+    values:
+      - win-x64
+
+  - name: package_version
+    displayName: MSI version from source build
+    type: string
+    default: 1.0.0.0
+
+variables:
+  DOTNET_NOLOGO: true
+  Codeql.Enabled: false
+  Codeql.SkipTaskAutoInjection: true
+  AdvancedSecurity.CodeQL.Enabled: false
+  ComponentGovernance.Enabled: false
+  skipComponentGovernanceDetection: true
+  runCodesignValidationInjection: false
+  CredScan.Enabled: false
+  BinSkim.Enabled: false
+  PoliCheck.Enabled: false
+  RoslynAnalyzers.Enabled: false
+  SdtReport.Enabled: false
+  TSAUpload.Enabled: false
+  NugetSecurityAnalysisWarningLevel: none
+  skipNugetSecurityAnalysis: true
+  RUNTIME_IDENTIFIER: ${{ parameters.runtime_identifier }}
+  PACKAGE_VERSION_INPUT: ${{ parameters.package_version }}
+  PRODUCT_NAME: Cirrus CLI
+  SIGNED_DOWNLOAD_ROOT: $(Pipeline.Workspace)\cirrus-msi-signed
+  TEST_OUTPUT_ROOT: $(Build.ArtifactStagingDirectory)\msi\test
+  TEST_ARTIFACT_ROOT: $(Build.ArtifactStagingDirectory)\msi\out
+
+pool:
+  vmImage: windows-latest
+
+jobs:
+  - job: test_imported_signed_msi
+    displayName: Test imported signed MSI from build ${{ parameters.source_build_id }}
+    steps:
+      - checkout: self
+        clean: true
+
+      - task: DownloadPipelineArtifact@2
+        displayName: Download signed MSI artifact from source pipeline
+        inputs:
+          buildType: specific
+          project: public
+          definition: ${{ parameters.source_pipeline_definition_id }}
+          buildVersionToDownload: specific
+          pipelineId: ${{ parameters.source_build_id }}
+          artifactName: cirrus-msi-validation-signed-${{ parameters.runtime_identifier }}
+          targetPath: $(SIGNED_DOWNLOAD_ROOT)
+
+      - pwsh: |
+          $artifactRoot = $env:SIGNED_DOWNLOAD_ROOT
+          $windowsRoot = Join-Path $artifactRoot 'windows'
+          $commonRoot = Join-Path $artifactRoot 'common'
+
+          if (-not (Test-Path $windowsRoot)) {
+            throw "Downloaded artifact did not contain windows folder: $windowsRoot"
+          }
+
+          if (-not (Test-Path $commonRoot)) {
+            throw "Downloaded artifact did not contain common folder: $commonRoot"
+          }
+
+          $msiPath = Join-Path $windowsRoot "azv2-$env:RUNTIME_IDENTIFIER.msi"
+          if (-not (Test-Path $msiPath)) {
+            throw "Downloaded artifact did not contain MSI: $msiPath"
+          }
+
+          $script = Join-Path $env:BUILD_SOURCESDIRECTORY 'devops/scripts/packaging/windows/test_bundled_plus_ext_msi.ps1'
+          & $script `
+            -OutRoot $windowsRoot `
+            -CommonOutRoot $commonRoot `
+            -SimRoot $env:TEST_OUTPUT_ROOT `
+            -ProductVersion $env:PACKAGE_VERSION_INPUT `
+            -KeepInstalled
+        displayName: Install and smoke test imported MSI, keep installed for assertions
+
+      - pwsh: |
+          function Get-MsiProductCode([string]$Path) {
+            $installer = New-Object -ComObject WindowsInstaller.Installer
+            $database = $installer.OpenDatabase($Path, 0)
+            $view = $database.OpenView("SELECT ``Value`` FROM ``Property`` WHERE ``Property`` = 'ProductCode'")
+            $view.Execute()
+            $record = $view.Fetch()
+            if ($null -eq $record) { throw "ProductCode not found in $Path" }
+
+            $rawProductCode = [string]$record.StringData(1)
+            if ($rawProductCode -notmatch '[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}') {
+              throw "ProductCode did not contain a GUID. Raw value was '$rawProductCode'."
+            }
+
+            return "{$($Matches[0].ToUpperInvariant())}"
+          }
+
+          function Get-InstalledProductCodeByName([string]$Name) {
+            $roots = @(
+              'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
+              'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'
+            )
+
+            foreach ($root in $roots) {
+              if (-not (Test-Path $root)) { continue }
+
+              foreach ($key in Get-ChildItem $root) {
+                $item = Get-ItemProperty $key.PSPath -ErrorAction SilentlyContinue
+                if ($item.DisplayName -eq $Name -and $key.PSChildName -match '^\{[0-9A-Fa-f-]+\}$') {
+                  return $key.PSChildName
+                }
+              }
+            }
+
+            return $null
+          }
+
+          function Invoke-MsiExec([string[]]$Arguments, [string]$FailureMessage) {
+            $process = Start-Process msiexec.exe -Wait -PassThru -ArgumentList $Arguments
+            if ($process.ExitCode -ne 0) {
+              throw "$FailureMessage ExitCode=$($process.ExitCode)"
+            }
+          }
+
+          $msiPath = Join-Path $env:SIGNED_DOWNLOAD_ROOT "windows/azv2-$env:RUNTIME_IDENTIFIER.msi"
+          $productCode = Get-MsiProductCode $msiPath
+          $installPath = Join-Path ${env:ProgramFiles} 'Cirrus CLI'
+          $azv2Exe = Join-Path $installPath 'azv2.exe'
+          $installedExtensions = Join-Path $installPath 'Extensions'
+          $installLog = Join-Path $env:TEST_OUTPUT_ROOT 'msi-install.log'
+          $uninstallLog = Join-Path $env:TEST_OUTPUT_ROOT 'msi-uninstall.log'
+          $arpKey = $null
+
+          try {
+            $arpKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$productCode"
+            if (-not (Test-Path $arpKey)) {
+              $installedProductCode = Get-InstalledProductCodeByName -Name $env:PRODUCT_NAME
+              if ([string]::IsNullOrWhiteSpace($installedProductCode)) {
+                throw "ARP uninstall key was not found: $arpKey"
+              }
+
+              Write-Host "ProductCode from MSI was not found in ARP; using installed ProductCode by name: $installedProductCode"
+              $productCode = $installedProductCode
+              $arpKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$productCode"
+            }
+
+            $arp = Get-ItemProperty $arpKey
+            if ($arp.DisplayName -ne $env:PRODUCT_NAME) {
+              throw "Expected ARP DisplayName '$env:PRODUCT_NAME' but found '$($arp.DisplayName)'."
+            }
+
+            if ($arp.DisplayVersion -ne $env:PACKAGE_VERSION_INPUT) {
+              throw "Expected ARP DisplayVersion '$env:PACKAGE_VERSION_INPUT' but found '$($arp.DisplayVersion)'."
+            }
+
+            $cirrusRegistry = Get-ItemProperty 'HKLM:\Software\Cirrus CLI' -ErrorAction Stop
+            $installDir = $cirrusRegistry.InstallDir
+            if ([string]::IsNullOrWhiteSpace($installDir)) {
+              throw 'HKLM:\Software\Cirrus CLI InstallDir was empty.'
+            }
+
+            if ($cirrusRegistry.Version -ne $env:PACKAGE_VERSION_INPUT) {
+              throw "HKLM:\Software\Cirrus CLI Version '$($cirrusRegistry.Version)' did not match '$env:PACKAGE_VERSION_INPUT'."
+            }
+
+            if (-not (Test-Path $installDir)) {
+              throw "Recorded InstallDir does not exist: $installDir"
+            }
+
+            if (-not (Test-Path $azv2Exe)) {
+              throw "azv2.exe missing from install path: $azv2Exe"
+            }
+
+            $machinePath = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment').Path
+            $pathEntries = $machinePath -split ';' | ForEach-Object { $_.TrimEnd('\') }
+            if ($pathEntries -notcontains $installPath.TrimEnd('\')) {
+              throw "Machine PATH does not contain install path: $installPath"
+            }
+
+            $configPath = Join-Path $env:BUILD_SOURCESDIRECTORY 'devops/scripts/packaging/config/bundled_ext.config'
+            $expectedBuiltins = foreach ($line in Get-Content $configPath) {
+              $name = ($line -replace '#.*$', '').Trim()
+              if ([string]::IsNullOrWhiteSpace($name)) { continue }
+              "Microsoft.Azure.Cirrus.Extensions.$name"
+            }
+
+            $actualBuiltins = Get-ChildItem $installedExtensions -Directory | Select-Object -ExpandProperty Name
+            foreach ($extension in $expectedBuiltins) {
+              if ($actualBuiltins -notcontains $extension) {
+                throw "Installed built-in extension directory missing: $extension"
+              }
+            }
+
+            if (-not (Test-Path $installLog)) {
+              throw "MSI install log was not found: $installLog"
+            }
+
+            Write-Host 'PASS: ARP DisplayName, DisplayVersion, InstallDir, registry Version, PATH, built-ins, and install log validated.'
+          }
+          finally {
+            if (Test-Path $azv2Exe) {
+              Write-Host "Uninstalling imported validation MSI: $productCode"
+              Invoke-MsiExec -Arguments @('/x', $productCode, '/quiet', '/norestart', '/L*V', "`"$uninstallLog`"") -FailureMessage "FAIL: MSI uninstall failed. See $uninstallLog."
+            }
+          }
+
+          if (Test-Path $azv2Exe) {
+            throw "azv2.exe still exists after uninstall: $azv2Exe"
+          }
+
+          if (-not [string]::IsNullOrWhiteSpace($arpKey) -and (Test-Path $arpKey)) {
+            throw "ARP uninstall key still exists after uninstall: $arpKey"
+          }
+
+          $machinePathAfterUninstall = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment').Path
+          $pathEntriesAfterUninstall = $machinePathAfterUninstall -split ';' | ForEach-Object { $_.TrimEnd('\') }
+          if ($pathEntriesAfterUninstall -contains $installPath.TrimEnd('\')) {
+            throw "Machine PATH still contains install path after uninstall: $installPath"
+          }
+
+          if (-not (Test-Path $uninstallLog)) {
+            throw "MSI uninstall log was not found: $uninstallLog"
+          }
+
+          Write-Host 'PASS: Imported MSI uninstalled cleanly and removed ARP/PATH entries.'
+        displayName: Validate installed registry/PATH state and uninstall
+        condition: succeededOrFailed()
+
+      - pwsh: |
+          New-Item -ItemType Directory -Path $env:TEST_ARTIFACT_ROOT -Force | Out-Null
+
+          if (Test-Path $env:TEST_OUTPUT_ROOT) {
+            $logsRoot = Join-Path $env:TEST_ARTIFACT_ROOT 'logs'
+            New-Item -ItemType Directory -Path $logsRoot -Force | Out-Null
+            Copy-Item (Join-Path $env:TEST_OUTPUT_ROOT '*') $logsRoot -Recurse -Force
+          }
+        displayName: Collect imported MSI test logs
+        condition: succeededOrFailed()
+
+      - task: PublishPipelineArtifact@1
+        displayName: Publish imported MSI test logs
+        condition: succeededOrFailed()
+        inputs:
+          targetPath: $(TEST_ARTIFACT_ROOT)
+          artifact: naga-misc-tests-msi-logs
+          publishLocation: pipeline

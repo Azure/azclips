@@ -443,7 +443,32 @@ stages:
                 $view.Execute()
                 $record = $view.Fetch()
                 if ($null -eq $record) { throw "ProductCode not found in $Path" }
-                return $record.StringData(1).Trim()
+                $rawProductCode = [string]$record.StringData(1)
+                if ($rawProductCode -notmatch '[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}') {
+                  throw "ProductCode did not contain a GUID. Raw value was '$rawProductCode'."
+                }
+
+                return "{$($Matches[0].ToUpperInvariant())}"
+              }
+
+              function Get-InstalledProductCodeByName([string]$Name) {
+                $roots = @(
+                  'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
+                  'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'
+                )
+
+                foreach ($root in $roots) {
+                  if (-not (Test-Path $root)) { continue }
+
+                  foreach ($key in Get-ChildItem $root) {
+                    $item = Get-ItemProperty $key.PSPath -ErrorAction SilentlyContinue
+                    if ($item.DisplayName -eq $Name -and $key.PSChildName -match '^\{[0-9A-Fa-f-]+\}$') {
+                      return $key.PSChildName
+                    }
+                  }
+                }
+
+                return $null
               }
 
               function Invoke-MsiExec([string[]]$Arguments, [string]$FailureMessage) {
@@ -464,7 +489,14 @@ stages:
               try {
                 $arpKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$productCode"
                 if (-not (Test-Path $arpKey)) {
-                  throw "ARP uninstall key was not found: $arpKey"
+                  $installedProductCode = Get-InstalledProductCodeByName -Name $env:PRODUCT_NAME
+                  if ([string]::IsNullOrWhiteSpace($installedProductCode)) {
+                    throw "ARP uninstall key was not found: $arpKey"
+                  }
+
+                  Write-Host "ProductCode from MSI was not found in ARP; using installed ProductCode by name: $installedProductCode"
+                  $productCode = $installedProductCode
+                  $arpKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$productCode"
                 }
 
                 $arp = Get-ItemProperty $arpKey
