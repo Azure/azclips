@@ -18,9 +18,9 @@ public static class Program
     private static ITelemetryService? _telemetryService;
     private static ILoggingService? _logger;
 
-    public static async Task Main(string[] args)
+    public static async Task<int> Main(string[] args)
     {
-        if (args.Length > 0 && args[0] == "--agent-mode") { await AgentModeEntry.RunAsync(args); return; }
+        if (args.Length > 0 && args[0] == "--agent-mode") { return await AgentModeEntry.RunAsync(args); }
 
         CirrusServiceProvider.PrependRegistration(services =>
         {
@@ -69,6 +69,7 @@ public static class Program
                 .Build();
 
             await terminal.RunAsync();
+            return 0;
         }
         finally
         {
