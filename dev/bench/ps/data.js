@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779896085277,
+  "lastUpdate": 1780011358257,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus PS Benchmarks": [
@@ -210,6 +210,48 @@ window.BENCHMARK_DATA = {
             "value": 21695570.4,
             "unit": "ns",
             "range": "± 1436226.0681530258"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yabhu@microsoft.com",
+            "name": "Yabo Hu",
+            "username": "VeryEarly"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f9e6bb4440b5e2aa3ac22e461d1a899796098dcb",
+          "message": "Extension development guide for private preview (#256)",
+          "timestamp": "2026-05-29T07:32:54+08:00",
+          "tree_id": "2b11a73f2dc2b969186360fd4c6413ecf6af34e3",
+          "url": "https://github.com/Azure/cirrus/commit/f9e6bb4440b5e2aa3ac22e461d1a899796098dcb"
+        },
+        "date": 1780011358228,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 17216161.2,
+            "unit": "ns",
+            "range": "± 2348690.5332996086"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 16879282.6,
+            "unit": "ns",
+            "range": "± 1826392.1902910941"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 19056653,
+            "unit": "ns",
+            "range": "± 7807308.797720473"
           }
         ]
       }
