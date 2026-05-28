@@ -235,7 +235,6 @@ $productXml = @"
                   DowngradeErrorMessage="A later version of [ProductName] is already installed." />
     <MediaTemplate EmbedCab="yes" />
     <Property Id="MSIFASTINSTALL" Value="7" />
-    <Property Id="ARPNOMODIFY" Value="1" />
     <Property Id="ARPHELPLINK" Value="https://github.com/Azure/cirrus" />
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/Azure/cirrus" />
     <Property Id="ARPURLUPDATEINFO" Value="https://github.com/Azure/cirrus/releases" />
