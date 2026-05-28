@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using Azure.Core;
 using Core.Abstractions;
 using Core.Agent.Tools.Cache;
@@ -34,6 +35,7 @@ public sealed class AvailableLocationsTool
     private const string ArmEndpoint = "https://management.azure.com";
     private const string SkusApiVersion = "2021-07-01";
     private static readonly string[] ArmScope = { "https://management.azure.com/.default" };
+    private static readonly Regex LocationName = new(@"^[a-z0-9]+$", RegexOptions.Compiled);
 
     // Default candidate set covers the regions cirrus customers hit 95% of
     // the time. Keeping it small bounds tool latency to ~one ARM round-trip
@@ -159,6 +161,14 @@ public sealed class AvailableLocationsTool
     private async Task<LocationAvailability> ProbeLocationAsync(
         string token, string subscriptionId, string vmSize, string location, CancellationToken ct)
     {
+        // location is interpolated into an OData $filter string literal below,
+        // and comes from LLM output. Azure region names are lowercase letters
+        // and digits only (verified against `az account list-locations`), so
+        // reject anything else up-front to keep the model from injecting quote
+        // characters or filter clauses into the ARM query.
+        if (!LocationName.IsMatch(location))
+            return LocationAvailability.Errored(location, 0, "invalid location format");
+
         var url = $"{ArmEndpoint}/subscriptions/{subscriptionId}/providers/Microsoft.Compute/skus" +
                   $"?api-version={SkusApiVersion}&$filter=location eq '{location}'";
 
