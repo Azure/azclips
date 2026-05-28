@@ -8,10 +8,10 @@ namespace Core.Telemetry;
 
 public static class TelemetryExtensions
 {
-    public static Activity? StartCLIActivity(this ITelemetryService service, string[] args)
+    public static Activity? StartCLIActivity(this ITelemetryService telemetryService, string[] args)
     {
-        var activity = service.ActivitySource.StartActivity("AzureCLI.Main", ActivityKind.Server);
-        
+        var activity = telemetryService.ActivitySource.StartActivity("AzureCLI.Main", ActivityKind.Server);
+
         if (activity != null)
         {
             var commandBuilder = new StringBuilder("az");
@@ -54,9 +54,9 @@ public static class TelemetryExtensions
         return activity;
     }
 
-    public static Activity? StartPowerShellActivity(this ITelemetryService service, string commandName, IDictionary<string, object> parameters)
+    public static Activity? StartPowerShellActivity(this ITelemetryService telemetryService, string commandName, IDictionary<string, object> parameters)
     {
-        var activity = service.ActivitySource.StartActivity("AzurePS.Cmdlet", ActivityKind.Server);
+        var activity = telemetryService.ActivitySource.StartActivity("AzurePS.Cmdlet", ActivityKind.Server);
 
         if (activity != null)
         {

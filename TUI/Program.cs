@@ -1,8 +1,10 @@
 using Core.Abstractions;
 using Core.DependencyInjection;
+using Core.Telemetry;
 using Core.Tui.Azure;
 using Core.Tui.Rendering;
 using Core.Tui.Services;
+using Core.Tui.Telemetry;
 using Hex1b;
 using Hex1b.Input;
 using Hex1b.Layout;
@@ -14,7 +16,7 @@ namespace Core.Tui;
 
 public static class Program
 {
-    private static ITelemetryService? _telemetryService;
+    private static OtelTelemetryHost? _telemetryHost;
     private static ILoggingService? _logger;
 
     public static async Task Main()
@@ -38,8 +40,15 @@ public static class Program
         var bootSw = System.Diagnostics.Stopwatch.StartNew();
         CirrusServiceProvider.Initialize(ClientType.TUI);
         Console.Error.WriteLine($"[startup] DI init: {bootSw.ElapsedMilliseconds}ms");
-        _telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
         _logger = CirrusServiceProvider.GetRequiredService<ILoggingService>();
+
+        //TUI owned telemetry pipeline
+        var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
+        var telemetryOptions = CirrusServiceProvider.GetRequiredService<IConfigurationService>()
+            .GetConfiguration<TelemetryOptions>();
+        _telemetryHost = TuiTelemetryHost.CreateBuilder(telemetryService, telemetryOptions)
+            .UseFileSender(FileTelemetrySender.GetTraceDirectory())
+            .Build();
 
         try
         {
@@ -69,7 +78,7 @@ public static class Program
         }
         finally
         {
-            _telemetryService?.Dispose();
+            await _telemetryHost.DisposeAsync();
             CirrusServiceProvider.Dispose();
         }
     }

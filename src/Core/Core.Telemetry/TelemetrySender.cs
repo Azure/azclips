@@ -20,6 +20,17 @@ namespace Core.Telemetry;
 public class FileTelemetrySender : ITelemetrySender
 {
     private const string FallbackSourceName = "CirrusTelemetryUploader";
+    private const string TraceDirectoryName = "Cirrus";
+
+    /// <summary>
+    /// Gets the shared trace directory. Both CLI and PS write here;
+    /// the background uploader picks up all files from one location.
+    /// </summary>
+    public static string GetTraceDirectory() =>
+        Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            TraceDirectoryName,
+            "traces");
 
     public void ConfigureExporter(TracerProviderBuilder builder, string traceDirectory)
     {
@@ -34,7 +45,7 @@ public class FileTelemetrySender : ITelemetrySender
     /// </summary>
     public static Task SendPendingStatic()
     {
-        var traceDir = TelemetryService.GetTraceDirectory();
+        var traceDir = GetTraceDirectory();
         if (!Directory.Exists(traceDir))
             return Task.CompletedTask;
 
@@ -106,7 +117,7 @@ public class FileTelemetrySender : ITelemetrySender
                 .ConfigureResource(r => r.AddService(serviceName: serviceName))
                 .AddAzureMonitorTraceExporter(options =>
                 {
-                    options.ConnectionString = TelemetryService.AzureMonitorConnectionString;
+                    options.ConnectionString = WellKnownEndpoints.AzureMonitorConnectionString;
                 })
                 .Build()!;
 

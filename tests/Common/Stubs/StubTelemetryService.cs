@@ -13,9 +13,5 @@ public class StubTelemetryService : ITelemetryService
     public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal) =>
         ActivitySource.StartActivity(name, kind);
 
-    public void ProcessInvocation(CommandInvocation invocation) { }
-
-    public void Flush() { }
-
-    public void Dispose() { }
+    public void Dispose() => ActivitySource.Dispose();
 }
