@@ -157,27 +157,27 @@ public class Program
     /// and any interactive sub-tool (device-code login) surface live in the
     /// user's terminal without in-process plumbing.
     /// </summary>
-    private static Task<int> TryAgentFallbackAsync(string[] args)
+    private static async Task<int> TryAgentFallbackAsync(string[] args)
     {
         // Global disable switch. Set CIRRUS_AGENT_DISABLED=1 to keep the
         // original classic error and skip the agent fallback entirely.
         if (Environment.GetEnvironmentVariable("CIRRUS_AGENT_DISABLED") == "1")
         {
-            return Task.FromResult(1);
+            return 1;
         }
 
         // Recursion guard: a failed azv2 invoked by run_command from inside an
         // already-running agent-mode TUI must NOT spawn another agent-mode TUI.
         if (Environment.GetEnvironmentVariable("CIRRUS_IN_AGENT_MODE") == "1")
         {
-            return Task.FromResult(1);
+            return 1;
         }
 
         var tuiExe = FindTuiExe();
         if (tuiExe is null)
         {
             _logger?.Error("agent mode unavailable: Core.Tui.exe not found alongside azv2");
-            return Task.FromResult(1);
+            return 1;
         }
 
         try
@@ -199,13 +199,13 @@ public class Program
 
             using var proc = Process.Start(psi)
                 ?? throw new InvalidOperationException("Process.Start returned null");
-            proc.WaitForExit();
-            return Task.FromResult(proc.ExitCode);
+            await proc.WaitForExitAsync();
+            return proc.ExitCode;
         }
         catch (Exception ex)
         {
             _logger?.Error($"agent mode subprocess failed: {ex.Message}");
-            return Task.FromResult(1);
+            return 1;
         }
     }
 
