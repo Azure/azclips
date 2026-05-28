@@ -16,7 +16,6 @@
 * <a id="Orchestrators"></a>Orchestrators: 
     * Conceptual representation of Azure or any operations
     * Classes under directory `Orchestrators` indicate customized(handwritten) operations
-    * Preferably **AVOID** using the term `customize`, use `orchestrate` instead 
 * <a id="extensionindex"></a>ExtensionIndex:
     * Dictionary representation of complete syntax extracted from extension.
     * Will be generated at build-time in the future, manually maintained for now
