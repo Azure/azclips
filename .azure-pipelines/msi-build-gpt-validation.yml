@@ -249,8 +249,10 @@ stages:
                 throw "ProductCode is not a GUID: $productCode"
               }
 
-              if ($upgradeCode -ne $env:UPGRADE_CODE) {
-                throw "Expected UpgradeCode '$env:UPGRADE_CODE' but found '$upgradeCode'."
+              $expectedUpgradeCode = $env:UPGRADE_CODE.Trim().Trim('{}')
+              $actualUpgradeCode = $upgradeCode.Trim().Trim('{}')
+              if ($actualUpgradeCode -ne $expectedUpgradeCode) {
+                throw "Expected UpgradeCode '$expectedUpgradeCode' but found '$actualUpgradeCode'. Raw MSI value was '$upgradeCode'."
               }
             displayName: Audit MSI property table
 
