@@ -96,7 +96,15 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
             using HttpRequestMessage _request = await CreateRequestMessage();
             HttpResponseMessage _response = await _httpPipeline.SendAsync(_request, _eventListener);
             await _eventListener.Signal(Events.TracingHttpResponseMessage, _response);
-            await EnsureSuccessAsync(_response, _eventListener);
+            try
+            {
+                await EnsureSuccessAsync(_response, _eventListener);
+            }
+            catch
+            {
+                _response.Dispose();
+                throw;
+            }
             return _response;
         }
 
