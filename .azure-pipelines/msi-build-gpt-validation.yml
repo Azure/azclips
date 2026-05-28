@@ -426,6 +426,19 @@ stages:
               $windowsRoot = Join-Path $artifactRoot 'windows'
               $commonRoot = Join-Path $artifactRoot 'common'
 
+              if (-not (Test-Path $windowsRoot)) {
+                throw "Downloaded artifact did not contain windows folder: $windowsRoot"
+              }
+
+              if (-not (Test-Path $commonRoot)) {
+                throw "Downloaded artifact did not contain common folder: $commonRoot"
+              }
+
+              $msiPath = Join-Path $windowsRoot "azv2-$env:RUNTIME_IDENTIFIER.msi"
+              if (-not (Test-Path $msiPath)) {
+                throw "Downloaded artifact did not contain MSI: $msiPath"
+              }
+
               $script = Join-Path $env:BUILD_SOURCESDIRECTORY 'devops/scripts/packaging/windows/test_bundled_plus_ext_msi.ps1'
               & $script `
                 -OutRoot $windowsRoot `
@@ -485,6 +498,7 @@ stages:
               $installedExtensions = Join-Path $installPath 'Extensions'
               $installLog = Join-Path $env:TEST_OUTPUT_ROOT 'msi-install.log'
               $uninstallLog = Join-Path $env:TEST_OUTPUT_ROOT 'msi-uninstall.log'
+              $arpKey = $null
 
               try {
                 $arpKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$productCode"
@@ -563,7 +577,7 @@ stages:
                 throw "azv2.exe still exists after uninstall: $azv2Exe"
               }
 
-              if (Test-Path $arpKey) {
+              if (-not [string]::IsNullOrWhiteSpace($arpKey) -and (Test-Path $arpKey)) {
                 throw "ARP uninstall key still exists after uninstall: $arpKey"
               }
 
