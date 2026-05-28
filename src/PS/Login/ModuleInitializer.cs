@@ -1,7 +1,6 @@
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
-using Core.Telemetry;
 using Microsoft.Azure.Cirrus.Cmdlets.Login.Telemetry;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -9,7 +8,7 @@ namespace Microsoft.Azure.Cirrus.Cmdlets.Login;
 
 public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyCleanup
 {
-    private static OtelTelemetryHost? _telemetryHost;
+    private static ITelemetryHost? _telemetryHost;
     private static readonly object _hostLock = new();
 
     public void OnImport()
@@ -40,7 +39,7 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
     {
         lock (_hostLock)
         {
-            _telemetryHost?.Dispose();
+            _telemetryHost?.DisposeAsync().GetAwaiter().GetResult();
             _telemetryHost = null;
         }
 

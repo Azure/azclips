@@ -12,8 +12,9 @@ namespace Core.Cli.Telemetry;
 /// — letting the CLI exit immediately without waiting on network IO.
 /// </summary>
 /// <remarks>
-/// The lifecycle wrapper itself is the shared <see cref="OtelTelemetryHost"/>; this
-/// class only owns the CLI-specific composition (which sender, which instrumentation).
+/// The lifecycle wrapper is <see cref="CliOtelTelemetryHost"/>, owned by this project.
+/// The builder produces an <see cref="ITelemetryHost"/> so consumers depend only on the
+/// abstraction; per-host policy (timeouts, flush ordering) lives inside the concrete.
 /// </remarks>
 public static class CliTelemetryHost
 {
@@ -54,11 +55,11 @@ public sealed class CliTelemetryHostBuilder
         return this;
     }
 
-    public OtelTelemetryHost Build()
+    public ITelemetryHost Build()
     {
         if (!_telemetryOptions.Enabled)
         {
-            return OtelTelemetryHost.Create(_telemetryService, tracerProvider: null);
+            return new CliOtelTelemetryHost(_telemetryService, tracerProvider: null);
         }
 
         if (_sender is null || _senderDirectory is null)
@@ -81,6 +82,7 @@ public sealed class CliTelemetryHostBuilder
 
         _sender.ConfigureExporter(builder, _senderDirectory);
         var tracerProvider = builder.Build()!;
-        return OtelTelemetryHost.Create(_telemetryService, tracerProvider);
+        return new CliOtelTelemetryHost(_telemetryService, tracerProvider);
     }
 }
+

@@ -45,11 +45,11 @@ public sealed class TuiTelemetryHostBuilder
         return this;
     }
 
-    public OtelTelemetryHost Build()
+    public ITelemetryHost Build()
     {
         if (!_telemetryOptions.Enabled)
         {
-            return OtelTelemetryHost.Create(_telemetryService, tracerProvider: null);
+            return new TuiOtelTelemetryHost(_telemetryService, tracerProvider: null);
         }
 
         if (_sender is null || _senderDirectory is null)
@@ -72,6 +72,6 @@ public sealed class TuiTelemetryHostBuilder
 
         _sender.ConfigureExporter(builder, _senderDirectory);
         var tracerProvider = builder.Build();
-        return OtelTelemetryHost.Create(_telemetryService, tracerProvider);
+        return new TuiOtelTelemetryHost(_telemetryService, tracerProvider);
     }
 }

@@ -36,11 +36,11 @@ public sealed class PsTelemetryHostBuilder
         return this;
     }
 
-    public OtelTelemetryHost Build()
+    public ITelemetryHost Build()
     {
         if (!_telemetryOptions.Enabled)
         {
-            return OtelTelemetryHost.Create(_telemetryService, tracerProvider: null);
+            return new PsOtelTelemetryHost(_telemetryService, tracerProvider: null);
         }
 
         if (_sender is null)
@@ -65,6 +65,6 @@ public sealed class PsTelemetryHostBuilder
         // ignores it for direct export — pass an empty path to satisfy the interface.
         _sender.ConfigureExporter(builder, traceDirectory: string.Empty);
         var tracerProvider = builder.Build()!;
-        return OtelTelemetryHost.Create(_telemetryService, tracerProvider);
+        return new PsOtelTelemetryHost(_telemetryService, tracerProvider);
     }
 }
