@@ -29,7 +29,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
         public List<string> RuleDestinationAddressPrefixes { get; set; } = [];
         public List<string> RuleAccesses { get; set; } = [];
 
-        public override async Task<HttpResponseMessage> SendAsync()
+        internal override async Task<HttpResponseMessage> SendAsync()
         {
              NewNetworkInterfaceProcessor_Orchestrator nicProcessor = CreateExtendedProcessor<NewNetworkInterfaceProcessor_Orchestrator>(p =>
             {

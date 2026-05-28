@@ -76,7 +76,7 @@ public class NewVirtualNetworkProcessor : ComputeProcessorBase<VirtualNetwork>
     protected override Func<HttpResponseMessage, string?> GetAsyncOperationUri => response => response.GetFirstHeader("Azure-AsyncOperation");
     protected override Func<HttpResponseMessage, string?> GetLocationUri => response => response.GetFirstHeader("Location");
 
-    public override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();
+    internal override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();
 }
 
 

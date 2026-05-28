@@ -88,8 +88,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
         protected virtual Func<HttpResponseMessage, string?> GetAsyncOperationUri => _ => null;
         protected virtual Func<HttpResponseMessage, string?> GetLocationUri => _ => null;
         
-
-        public async virtual Task<HttpResponseMessage> SendAsync()
+        internal async virtual Task<HttpResponseMessage> SendAsync()
         {
             IRuntimeHttpPipeline _httpPipeline =  HttpPipeline ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(HttpPipeline)}.");
             IEventPublisher _publisher = Publisher ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(Publisher)}.");
@@ -100,7 +99,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
             return _response;
         }
 
-        public async virtual Task<HttpResponseMessage> SendAsyncLRO()
+        internal async virtual Task<HttpResponseMessage> SendAsyncLRO()
         {
             HttpRequestMessage _request = await CreateRequestMessage();
             try
@@ -244,7 +243,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
     /// 1) Publishs start, 2) calls <see cref="SendAsync"/>,
     /// 3) deserializes into <typeparamref name="TResponse"/>, 4) writes output, 5) Publishs end.
     /// <para>
-    /// <see cref="SendAsync"/> is the universal "give me the final response" primitive.
+    /// <see cref="SendAsync"/> is the internal "give me the final response" transport primitive.
     /// Atomic LRO processors override it as a one-liner that delegates to <see cref="ComputeProcessorBase.SendAsyncLRO"/>.
     /// Atomic non-LRO processors don't override at all (the inherited <see cref="SendAsync"/>
     /// resolves <see cref="SubscriptionId"/> then dispatches a single HTTP request).
@@ -252,7 +251,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
     /// </para>
     /// <para>
     /// <see cref="SubscriptionId"/> is resolved lazily inside <see cref="SendAsync"/> /
-    /// <see cref="SendAsyncLRO"/>, so callers that bypass <see cref="ProcessAsync"/> still get a
+    /// <see cref="SendAsyncLRO"/>, so internal composition paths that call these helpers directly still get a
     /// populated value via <see cref="AuthContext"/> fallback. Orchestrators don't need to copy
     /// <see cref="SubscriptionId"/> into children since each child resolves from the shared
     /// <see cref="AuthContext"/>.
@@ -276,13 +275,13 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
                 : AuthContext.SubscriptionId
                   ?? throw new InvalidOperationException("SubscriptionId must be provided either via property or auth context.");
 
-        public override Task<HttpResponseMessage> SendAsync()
+        internal override Task<HttpResponseMessage> SendAsync()
         {
             ResolveSubscriptionId();
             return base.SendAsync();
         }
 
-        public override Task<HttpResponseMessage> SendAsyncLRO()
+        internal override Task<HttpResponseMessage> SendAsyncLRO()
         {
             ResolveSubscriptionId();
             return base.SendAsyncLRO();
