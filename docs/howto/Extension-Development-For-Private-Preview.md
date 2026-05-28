@@ -6,7 +6,7 @@
     * [Orchestrators](#orchestrators)
     * [ExtensionIndex](#extensionindex)
 * <a id="models"></a>Models: 
-    * C# class represented API schema
+    * C# class representation of API schema
     * Self-contained: Serialization/Deserialization
     * Will be generated in the future, handwritten for now
 * <a id="processors"></a>Processors: 
@@ -27,7 +27,7 @@
 * This article instructs how to develop extensions manually or agentically
 * This article aims for Cirrus private preview only
 * Most of manual works will be replaced by CodeGen in the future
-* Reference [Comupte Extension](https://github.com/Azure/cirrus/tree/main/src/Extensions/Compute) 
+* Reference [Compute Extension](https://github.com/Azure/cirrus/tree/main/src/Extensions/Compute) 
 * Azure APIs have swagger and TypeSpec as sources, to make it easier for LLM, use swagger as spec
 
 # Create a new Extension Project
@@ -107,9 +107,9 @@
 * Create processors for APIs, see [develop processors](#develop-processors)
 
 ## Orchestrators with Multi-API
-* Create `Cirrus/src/Extensions/{ExtensionName}/(APIName)Processor_Orchestrator.cs`
+* Create `Cirrus/src/Extensions/{ExtensionName}/Orchestrators/(APIName)Processor_Orchestrator.cs`
 * Generic type is the model class of the final API
-* Recurse [Multi-API Orchestrator](#orchestrators-with-multi-api) for required orchestrators if needed `Cirrus/src/Extensions/{ExtensionName}/(RequiredOrchestratorName)Processor_Orchestrator.cs`, for example nic creation is multi-API orchestrator
+* Recurse [Multi-API Orchestrator](#orchestrators-with-multi-api) for required orchestrators if needed `Cirrus/src/Extensions/{ExtensionName}/Orchestrators/(RequiredOrchestratorName)Processor_Orchestrator.cs`, for example nic creation is multi-API orchestrator
 * Ask LLM to compose public properties, should be union of all APIs (processors) in this orchestrator
 * Override [SendAsync()](#sendasync)
     * Use `CreateExtendedProcessor<T>` to create orchestrated processors
@@ -120,7 +120,7 @@
     * You can ask LLM to do it but I suggest try with bare hands.
 
 ## Orchestrators with no API calls
-* Create `Cirrus/src/Extensions/{ExtensionName}/(ArbitraryName)Processor_Orchestrator.cs`
+* Create `Cirrus/src/Extensions/{ExtensionName}/Orchestrators/(ArbitraryName)Processor_Orchestrator.cs`
 * Generic type is `object`
 * Arbitrarily compose public properties
 * Override [ProcessAsync()](#processasync), orchestrate arbitrarily
@@ -131,7 +131,7 @@
 ## Orchestrators with computation
 * Imagine API `A` requires property `P`, value of `P` can only be retrieved at runtime from DB by string `k`
 * Let's define a computation `P = Func(K)`
-* Create `Cirrus/src/Extensions/{ExtensionName}/(A)Processor_Orchestrator.cs`
+* Create `Cirrus/src/Extensions/{ExtensionName}/Orchestrators/(A)Processor_Orchestrator.cs`
 * Generic type is the model class of `A`
 * Copy entire content from processor A to orchestrator A
 * replace public property `P` with `K`
