@@ -1,0 +1,329 @@
+name: msi-build-gpt-recommended-$(Date:yyyyMMdd).$(Rev:r)
+
+trigger: none
+pr: none
+
+parameters:
+  - name: configuration
+    displayName: Build configuration
+    type: string
+    default: Release
+    values:
+      - Release
+      - Debug
+
+  - name: runtime_identifier
+    displayName: Windows runtime identifier
+    type: string
+    default: win-x64
+    values:
+      - win-x64
+
+  - name: package_version
+    displayName: MSI version, for example 1.0.25.0
+    type: string
+    default: 1.0.0.0
+
+  - name: publisher
+    displayName: Dev signing certificate subject
+    type: string
+    default: CN=Cirrus Development
+
+  - name: run_install_test
+    displayName: Install, smoke test, and uninstall MSI
+    type: boolean
+    default: true
+
+variables:
+  DOTNET_NOLOGO: true
+  Codeql.Enabled: false
+  Codeql.SkipTaskAutoInjection: true
+  AdvancedSecurity.CodeQL.Enabled: false
+  ComponentGovernance.Enabled: false
+  skipComponentGovernanceDetection: true
+  runCodesignValidationInjection: false
+  CredScan.Enabled: false
+  BinSkim.Enabled: false
+  PoliCheck.Enabled: false
+  RoslynAnalyzers.Enabled: false
+  SdtReport.Enabled: false
+  TSAUpload.Enabled: false
+  NugetSecurityAnalysisWarningLevel: none
+  skipNugetSecurityAnalysis: true
+  CONFIGURATION: ${{ parameters.configuration }}
+  RUNTIME_IDENTIFIER: ${{ parameters.runtime_identifier }}
+  PACKAGE_VERSION_INPUT: ${{ parameters.package_version }}
+  PACKAGE_PUBLISHER: ${{ parameters.publisher }}
+  COMMON_OUT_ROOT: $(Build.SourcesDirectory)\devops\out\common
+  WINDOWS_OUT_ROOT: $(Build.SourcesDirectory)\devops\out\windows
+  UNSIGNED_ARTIFACT_ROOT: $(Build.ArtifactStagingDirectory)\msi\unsigned
+  SIGNED_ARTIFACT_ROOT: $(Build.ArtifactStagingDirectory)\msi\signed
+  TEST_OUTPUT_ROOT: $(Build.ArtifactStagingDirectory)\msi\test
+  UNSIGNED_DOWNLOAD_ROOT: $(Pipeline.Workspace)\cirrus-msi-unsigned
+  SIGNED_DOWNLOAD_ROOT: $(Pipeline.Workspace)\cirrus-msi-signed
+
+stages:
+  - stage: BuildUnsigned
+    displayName: Build unsigned MSI
+    jobs:
+      - job: build_unsigned_msi
+        displayName: Build unsigned ${{ parameters.runtime_identifier }} MSI
+        pool:
+          vmImage: windows-latest
+        steps:
+          - checkout: self
+            clean: true
+
+          - task: UseDotNet@2
+            displayName: Setup .NET SDK
+            inputs:
+              packageType: sdk
+              useGlobalJson: true
+              workingDirectory: $(Build.SourcesDirectory)
+
+          - pwsh: |
+              if ([string]::IsNullOrWhiteSpace($env:RUNTIME_IDENTIFIER)) {
+                throw 'runtime_identifier resolved to an empty value.'
+              }
+
+              if ([string]::IsNullOrWhiteSpace($env:CONFIGURATION)) {
+                throw 'configuration resolved to an empty value.'
+              }
+
+              if ($env:RUNTIME_IDENTIFIER -ne 'win-x64') {
+                throw "This MSI pipeline currently supports win-x64 only. Received '$env:RUNTIME_IDENTIFIER'."
+              }
+
+              Write-Host "Configuration: $env:CONFIGURATION"
+              Write-Host "Runtime identifier: $env:RUNTIME_IDENTIFIER"
+              Write-Host "Package version: $env:PACKAGE_VERSION_INPUT"
+              Write-Host "Common output root: $env:COMMON_OUT_ROOT"
+              Write-Host "Windows output root: $env:WINDOWS_OUT_ROOT"
+            displayName: Validate inputs
+
+          - bash: |
+              set -euo pipefail
+
+              if command -v cygpath >/dev/null 2>&1; then
+                common_out_root="$(cygpath -u "$COMMON_OUT_ROOT")"
+              else
+                common_out_root="$COMMON_OUT_ROOT"
+              fi
+
+              chmod +x devops/scripts/packaging/common/build_common.sh
+              OUT_ROOT="$common_out_root" devops/scripts/packaging/common/build_common.sh
+            displayName: Build common packaging outputs
+            env:
+              COMMON_OUT_ROOT: $(COMMON_OUT_ROOT)
+
+          - pwsh: |
+              choco install wixtoolset -y --no-progress
+
+              $wixDirectory = Get-ChildItem ${env:ProgramFiles(x86)} -Directory -Filter 'WiX Toolset v3*' |
+                Sort-Object Name -Descending |
+                Select-Object -First 1
+
+              if ($null -eq $wixDirectory) {
+                throw 'WiX Toolset v3 was not found after installation.'
+              }
+
+              $wixBin = Join-Path $wixDirectory.FullName 'bin'
+              foreach ($toolName in @('heat.exe', 'candle.exe', 'light.exe')) {
+                $toolPath = Join-Path $wixBin $toolName
+                if (-not (Test-Path $toolPath)) {
+                  throw "Required WiX tool was not found: $toolPath"
+                }
+              }
+
+              Write-Host "##vso[task.setvariable variable=WIX_BIN]$wixBin"
+            displayName: Install WiX Toolset
+
+          - pwsh: |
+              $script = Join-Path $env:BUILD_SOURCESDIRECTORY 'devops/scripts/packaging/windows/build_win_msi.ps1'
+              & $script `
+                -Configuration $env:CONFIGURATION `
+                -Rid $env:RUNTIME_IDENTIFIER `
+                -ProductVersion $env:PACKAGE_VERSION_INPUT `
+                -RepoRoot $env:BUILD_SOURCESDIRECTORY `
+                -OutRoot $env:WINDOWS_OUT_ROOT `
+                -CommonOutRoot $env:COMMON_OUT_ROOT `
+                -WixBin $env:WIX_BIN
+
+              if ($LASTEXITCODE -ne 0) {
+                throw "build_win_msi.ps1 failed with exit code $LASTEXITCODE."
+              }
+
+              $msiPath = Join-Path $env:WINDOWS_OUT_ROOT "bin/Release/azv2-$env:RUNTIME_IDENTIFIER.msi"
+              if (-not (Test-Path $msiPath)) {
+                throw "MSI was not found after build: $msiPath"
+              }
+            displayName: Build unsigned MSI package
+
+          - pwsh: |
+              New-Item -ItemType Directory -Path $env:UNSIGNED_ARTIFACT_ROOT -Force | Out-Null
+
+              $windowsReleaseRoot = Join-Path $env:WINDOWS_OUT_ROOT 'bin/Release'
+              $windowsOutArtifact = Join-Path $env:UNSIGNED_ARTIFACT_ROOT 'windows'
+              $commonOutArtifact = Join-Path $env:UNSIGNED_ARTIFACT_ROOT 'common'
+              New-Item -ItemType Directory -Path $windowsOutArtifact, $commonOutArtifact -Force | Out-Null
+
+              Copy-Item (Join-Path $windowsReleaseRoot '*') $windowsOutArtifact -Recurse -Force
+              Copy-Item (Join-Path $env:COMMON_OUT_ROOT '*') $commonOutArtifact -Recurse -Force
+            displayName: Collect unsigned MSI build outputs
+
+          - task: PublishPipelineArtifact@1
+            displayName: Publish unsigned MSI artifact
+            inputs:
+              targetPath: $(UNSIGNED_ARTIFACT_ROOT)
+              artifact: cirrus-msi-unsigned-${{ parameters.runtime_identifier }}
+              publishLocation: pipeline
+
+  - stage: DevSign
+    displayName: Dev-sign MSI placeholder
+    dependsOn: BuildUnsigned
+    jobs:
+      - job: dev_sign_msi
+        displayName: Dev-sign ${{ parameters.runtime_identifier }} MSI
+        pool:
+          vmImage: windows-latest
+        steps:
+          - task: DownloadPipelineArtifact@2
+            displayName: Download unsigned MSI artifact
+            inputs:
+              buildType: current
+              artifactName: cirrus-msi-unsigned-${{ parameters.runtime_identifier }}
+              targetPath: $(UNSIGNED_DOWNLOAD_ROOT)
+
+          - pwsh: |
+              $artifactRoot = $env:UNSIGNED_DOWNLOAD_ROOT
+              $windowsRoot = Join-Path $artifactRoot 'windows'
+              $signedRoot = Join-Path $env:SIGNED_ARTIFACT_ROOT 'windows'
+              $commonRoot = Join-Path $env:SIGNED_ARTIFACT_ROOT 'common'
+              New-Item -ItemType Directory -Path $signedRoot, $commonRoot -Force | Out-Null
+
+              Copy-Item (Join-Path $windowsRoot '*') $signedRoot -Recurse -Force
+              Copy-Item (Join-Path $artifactRoot 'common\*') $commonRoot -Recurse -Force
+
+              $msiPath = Join-Path $signedRoot "azv2-$env:RUNTIME_IDENTIFIER.msi"
+              if (-not (Test-Path $msiPath)) {
+                throw "MSI was not found for signing: $msiPath"
+              }
+
+              Write-Host "##vso[task.setvariable variable=MSI_PATH]$msiPath"
+            displayName: Prepare signing inputs
+
+          - pwsh: |
+              $certificateDirectory = Join-Path $env:SIGNED_ARTIFACT_ROOT 'windows/certificate'
+              New-Item -ItemType Directory -Path $certificateDirectory -Force | Out-Null
+
+              $certificate = $null
+              try {
+                $certificate = New-SelfSignedCertificate `
+                  -Type CodeSigningCert `
+                  -Subject $env:PACKAGE_PUBLISHER `
+                  -CertStoreLocation 'Cert:\CurrentUser\My' `
+                  -KeyExportPolicy Exportable `
+                  -KeyLength 2048 `
+                  -NotAfter (Get-Date).AddYears(1)
+
+                $certificatePath = Join-Path $certificateDirectory 'CirrusDevelopment.cer'
+                Export-Certificate -Cert $certificate -FilePath $certificatePath | Out-Null
+
+                $windowsKitsBin = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
+                $sdkDirectory = Get-ChildItem $windowsKitsBin -Directory |
+                  Sort-Object Name -Descending |
+                  Where-Object { Test-Path (Join-Path $_.FullName 'x64\signtool.exe') } |
+                  Select-Object -First 1
+
+                if ($null -eq $sdkDirectory) {
+                  throw 'Could not find SignTool.exe in the Windows SDK.'
+                }
+
+                $signTool = Join-Path $sdkDirectory.FullName 'x64\signtool.exe'
+                & $signTool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /s My /sha1 $certificate.Thumbprint $env:MSI_PATH
+
+                if ($LASTEXITCODE -ne 0) {
+                  throw "SignTool failed with exit code $LASTEXITCODE."
+                }
+
+                Write-Host "##vso[task.setvariable variable=SIGNING_CERT_THUMBPRINT]$($certificate.Thumbprint)"
+              }
+              finally {
+                if ($null -ne $certificate) {
+                  Remove-Item "Cert:\CurrentUser\My\$($certificate.Thumbprint)" -DeleteKey -Force -ErrorAction SilentlyContinue
+                }
+              }
+            displayName: Dev-sign MSI package
+
+          - pwsh: |
+              $signature = Get-AuthenticodeSignature -FilePath $env:MSI_PATH
+              Write-Host "MSI signature status: $($signature.Status)"
+              if ($null -eq $signature.SignerCertificate) {
+                throw 'MSI is not signed.'
+              }
+
+              if ($signature.SignerCertificate.Thumbprint -ne $env:SIGNING_CERT_THUMBPRINT) {
+                throw "MSI signer thumbprint '$($signature.SignerCertificate.Thumbprint)' did not match expected thumbprint '$env:SIGNING_CERT_THUMBPRINT'."
+              }
+
+              if ($signature.Status -ne 'Valid') {
+                Write-Host "##vso[task.logissue type=warning]MSI has a signature from the expected dev certificate, but trust-chain validation returned '$($signature.Status)'. This is expected for a self-signed dev certificate on hosted agents."
+              }
+            displayName: Validate dev MSI signature
+
+          - task: PublishPipelineArtifact@1
+            displayName: Publish signed MSI artifact
+            inputs:
+              targetPath: $(SIGNED_ARTIFACT_ROOT)
+              artifact: cirrus-msi-signed-${{ parameters.runtime_identifier }}
+              publishLocation: pipeline
+
+  - stage: TestSigned
+    displayName: Test signed MSI
+    dependsOn: DevSign
+    condition: and(succeeded(), eq('${{ parameters.run_install_test }}', 'true'))
+    jobs:
+      - job: test_signed_msi
+        displayName: Install, smoke test, and uninstall signed MSI
+        pool:
+          vmImage: windows-latest
+        steps:
+          - checkout: self
+            clean: true
+
+          - task: DownloadPipelineArtifact@2
+            displayName: Download signed MSI artifact
+            inputs:
+              buildType: current
+              artifactName: cirrus-msi-signed-${{ parameters.runtime_identifier }}
+              targetPath: $(SIGNED_DOWNLOAD_ROOT)
+
+          - pwsh: |
+              $artifactRoot = $env:SIGNED_DOWNLOAD_ROOT
+              $windowsRoot = Join-Path $artifactRoot 'windows'
+              $commonRoot = Join-Path $artifactRoot 'common'
+
+              $script = Join-Path $env:BUILD_SOURCESDIRECTORY 'devops/scripts/packaging/windows/test_bundled_plus_ext_msi.ps1'
+              & $script `
+                -OutRoot $windowsRoot `
+                -CommonOutRoot $commonRoot `
+                -SimRoot $env:TEST_OUTPUT_ROOT
+            displayName: Install, smoke test, and uninstall MSI
+
+          - pwsh: |
+              $logsRoot = Join-Path $env:SIGNED_ARTIFACT_ROOT 'logs'
+              New-Item -ItemType Directory -Path $logsRoot -Force | Out-Null
+
+              if (Test-Path $env:TEST_OUTPUT_ROOT) {
+                Copy-Item (Join-Path $env:TEST_OUTPUT_ROOT '*') $logsRoot -Recurse -Force
+              }
+            displayName: Collect MSI test logs
+            condition: succeededOrFailed()
+
+          - task: PublishPipelineArtifact@1
+            displayName: Publish MSI test logs
+            condition: succeededOrFailed()
+            inputs:
+              targetPath: $(SIGNED_ARTIFACT_ROOT)
+              artifact: cirrus-msi-test-${{ parameters.runtime_identifier }}
+              publishLocation: pipeline
