@@ -32,6 +32,7 @@
 # Create a new Extension Project
 * Create a new directory `Cirrus/src/Extensions/{ExtensionName}`
 * Create a new file `Cirrus/src/Extensions/{ExtensionsName}/Extensions.{ExtensionName}.csproj`
+* Add `Cirrus/src/Extensions/{ExtensionsName}/Extensions.{ExtensionName}.csproj` to `Cirrus/cirrus.slnx`
 * Content 
 ```
 <Project Sdk="Microsoft.NET.Sdk">
