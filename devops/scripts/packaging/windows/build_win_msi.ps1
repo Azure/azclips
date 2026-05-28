@@ -216,11 +216,26 @@ Set-Content -Path $harvestPath -Value $harvestContent -Encoding utf8
 
 $setupMediaRoot = Join-Path $PSScriptRoot 'setup/media'
 $licenseRtfPath = Join-Path $setupMediaRoot 'License.rtf'
-if (-not (Test-Path -Path $licenseRtfPath -PathType Leaf)) {
-    throw "MSI license RTF was not found: $licenseRtfPath"
+$bannerBmpPath = Join-Path $setupMediaRoot 'BannerBmp.bmp'
+$dialogBmpPath = Join-Path $setupMediaRoot 'DialogBmp.bmp'
+$iconPath = Join-Path $setupMediaRoot 'CirrusIcon.ico'
+$requiredMedia = @(
+    @{ Name = 'MSI license RTF'; Path = $licenseRtfPath },
+    @{ Name = 'MSI banner BMP'; Path = $bannerBmpPath },
+    @{ Name = 'MSI dialog BMP'; Path = $dialogBmpPath },
+    @{ Name = 'MSI ARP icon'; Path = $iconPath }
+)
+
+foreach ($media in $requiredMedia) {
+    if (-not (Test-Path -Path $media.Path -PathType Leaf)) {
+        throw "$($media.Name) was not found: $($media.Path)"
+    }
 }
 
 $escapedLicenseRtfPath = [System.Security.SecurityElement]::Escape($licenseRtfPath)
+$escapedBannerBmpPath = [System.Security.SecurityElement]::Escape($bannerBmpPath)
+$escapedDialogBmpPath = [System.Security.SecurityElement]::Escape($dialogBmpPath)
+$escapedIconPath = [System.Security.SecurityElement]::Escape($iconPath)
 
 $productXml = @"
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
@@ -235,10 +250,15 @@ $productXml = @"
                   DowngradeErrorMessage="A later version of [ProductName] is already installed." />
     <MediaTemplate EmbedCab="yes" />
     <Property Id="MSIFASTINSTALL" Value="7" />
+    <Property Id="ARPPRODUCTICON" Value="CirrusIcon.ico" />
     <Property Id="ARPHELPLINK" Value="https://github.com/Azure/cirrus" />
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/Azure/cirrus" />
     <Property Id="ARPURLUPDATEINFO" Value="https://github.com/Azure/cirrus/releases" />
     <SetProperty Id="REINSTALLMODE" Value="amus" Before="CostFinalize">WIX_UPGRADE_DETECTED</SetProperty>
+    <Icon Id="CirrusIcon.ico" SourceFile="$escapedIconPath" />
+    <CustomAction Id="Set_WIXUI_EXITDIALOGOPTIONALTEXT"
+                  Property="WIXUI_EXITDIALOGOPTIONALTEXT"
+                  Value="Please close and reopen any active terminal window to use Cirrus CLI." />
 
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="ProgramFiles64Folder">
@@ -260,7 +280,14 @@ $productXml = @"
     </Feature>
     <CustomActionRef Id="WixBroadcastEnvironmentChange" />
     <UIRef Id="WixUI_Minimal" />
+    <UIRef Id="WixUI_ErrorProgressText" />
     <WixVariable Id="WixUILicenseRtf" Value="$escapedLicenseRtfPath" />
+    <WixVariable Id="WixUIBannerBmp" Value="$escapedBannerBmpPath" />
+    <WixVariable Id="WixUIDialogBmp" Value="$escapedDialogBmpPath" />
+
+    <InstallUISequence>
+      <Custom Action="Set_WIXUI_EXITDIALOGOPTIONALTEXT" After="CostFinalize">NOT Installed AND NOT WIX_UPGRADE_DETECTED</Custom>
+    </InstallUISequence>
   </Product>
 </Wix>
 "@
