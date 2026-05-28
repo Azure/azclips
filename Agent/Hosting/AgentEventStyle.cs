@@ -68,13 +68,7 @@ public static class AgentEventStyle
                 $"  ✓ LLM turn {e.Elapsed.TotalSeconds:F1}s · in {e.InputTokens} · out {e.OutputTokens} · cached {e.CachedTokens}"),
         },
 
-        SessionErrored e => new[]
-        {
-            new Segment(AgentColorRole.Error, $"  ✗ session.error [{e.ErrorType}] "),
-            new Segment(AgentColorRole.Default, e.Message),
-            new Segment(AgentColorRole.Muted,
-                BuildErrorMeta(e.StatusCode, e.ErrorCode, e.ProviderCallId)),
-        },
+        SessionErrored e => BuildSessionErroredSegments(e),
 
         HostLogEmitted h when h.Level == HostLogLevel.Error => new[]
         {
@@ -89,6 +83,25 @@ public static class AgentEventStyle
 
         _ => new[] { new Segment(AgentColorRole.Muted, ev.GetType().Name) },
     };
+
+    private static IReadOnlyList<Segment> BuildSessionErroredSegments(SessionErrored e)
+    {
+        var meta = BuildErrorMeta(e.StatusCode, e.ErrorCode, e.ProviderCallId);
+        if (meta.Length == 0)
+        {
+            return new[]
+            {
+                new Segment(AgentColorRole.Error, $"  ✗ session.error [{e.ErrorType}] "),
+                new Segment(AgentColorRole.Default, e.Message),
+            };
+        }
+        return new[]
+        {
+            new Segment(AgentColorRole.Error, $"  ✗ session.error [{e.ErrorType}] "),
+            new Segment(AgentColorRole.Default, e.Message),
+            new Segment(AgentColorRole.Muted, meta),
+        };
+    }
 
     private static string BuildErrorMeta(int? statusCode, string? errorCode, string? providerCallId)
     {
