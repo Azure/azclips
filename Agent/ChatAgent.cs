@@ -242,15 +242,23 @@ public sealed class ChatAgent : IAsyncDisposable
         var merged = new Dictionary<string, object?>();
         if (originalArgs is JsonElement je)
         {
-            if (je.ValueKind == JsonValueKind.String)
+            JsonDocument? parsedDoc = null;
+            try
             {
-                try { je = JsonDocument.Parse(je.GetString()!).RootElement; }
-                catch { /* fall through with empty merged */ }
+                if (je.ValueKind == JsonValueKind.String)
+                {
+                    try { parsedDoc = JsonDocument.Parse(je.GetString()!); je = parsedDoc.RootElement; }
+                    catch { /* fall through with empty merged */ }
+                }
+                if (je.ValueKind == JsonValueKind.Object)
+                {
+                    foreach (var prop in je.EnumerateObject())
+                        merged[prop.Name] = prop.Value.Clone();
+                }
             }
-            if (je.ValueKind == JsonValueKind.Object)
+            finally
             {
-                foreach (var prop in je.EnumerateObject())
-                    merged[prop.Name] = prop.Value.Clone();
+                parsedDoc?.Dispose();
             }
         }
         else if (originalArgs is IDictionary<string, object?> dict)
@@ -270,15 +278,23 @@ public sealed class ChatAgent : IAsyncDisposable
         // powershell tool). Handle both shapes uniformly.
         if (args is JsonElement je)
         {
-            if (je.ValueKind == JsonValueKind.String)
+            JsonDocument? parsedDoc = null;
+            try
             {
-                try { je = JsonDocument.Parse(je.GetString()!).RootElement; }
-                catch { return null; }
+                if (je.ValueKind == JsonValueKind.String)
+                {
+                    try { parsedDoc = JsonDocument.Parse(je.GetString()!); je = parsedDoc.RootElement; }
+                    catch { return null; }
+                }
+                if (je.ValueKind == JsonValueKind.Object &&
+                    je.TryGetProperty("command", out var cmd) && cmd.ValueKind == JsonValueKind.String)
+                    return cmd.GetString();
+                return null;
             }
-            if (je.ValueKind == JsonValueKind.Object &&
-                je.TryGetProperty("command", out var cmd) && cmd.ValueKind == JsonValueKind.String)
-                return cmd.GetString();
-            return null;
+            finally
+            {
+                parsedDoc?.Dispose();
+            }
         }
         if (args is IDictionary<string, object?> dict && dict.TryGetValue("command", out var v))
             return v?.ToString();
