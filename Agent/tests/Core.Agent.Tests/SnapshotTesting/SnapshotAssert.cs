@@ -26,6 +26,13 @@ internal static class SnapshotAssert
             Directory.CreateDirectory(Path.GetDirectoryName(baselinePath)!);
             File.WriteAllText(baselinePath, actual);
             if (File.Exists(actualPath)) File.Delete(actualPath);
+
+            if (!update && IsCI())
+            {
+                throw new Xunit.Sdk.XunitException(
+                    $"Snapshot baseline missing for '{name}' in CI. " +
+                    $"Wrote {baselinePath} — commit it locally and push.");
+            }
             return;
         }
 
@@ -73,6 +80,10 @@ internal static class SnapshotAssert
     // .gitattributes normalizes snapshots to LF on commit but Windows checkout
     // may materialize them as CRLF, so compare line-ending-agnostically.
     private static string Normalize(string s) => s.Replace("\r\n", "\n");
+
+    private static bool IsCI() =>
+        Environment.GetEnvironmentVariable("CI") is not null ||
+        Environment.GetEnvironmentVariable("GITHUB_ACTIONS") is not null;
 
     private static string BuildDiff(string expected, string actual)
     {
