@@ -216,6 +216,19 @@ stages:
                 return $record.StringData(1).Trim()
               }
 
+              function ConvertTo-NormalizedGuid([object]$Value, [string]$Name) {
+                if ($null -eq $Value) {
+                  throw "$Name was null."
+                }
+
+                $text = [string]$Value
+                if ($text -notmatch '[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}') {
+                  throw "$Name did not contain a GUID. Raw value was '$text'."
+                }
+
+                return $Matches[0].ToUpperInvariant()
+              }
+
               $msiPath = Join-Path $env:AUDIT_DOWNLOAD_ROOT "windows/azv2-$env:RUNTIME_IDENTIFIER.msi"
               if (-not (Test-Path $msiPath)) {
                 throw "MSI was not found for audit: $msiPath"
@@ -245,12 +258,12 @@ stages:
                 throw "Expected ProductVersion '$env:PACKAGE_VERSION_INPUT' but found '$productVersion'."
               }
 
-              if ($productCode -notmatch '^\{[0-9A-Fa-f-]{36}\}$') {
-                throw "ProductCode is not a GUID: $productCode"
-              }
+              $normalizedProductCode = ConvertTo-NormalizedGuid $productCode 'ProductCode'
+              Write-Host "Normalized ProductCode: $normalizedProductCode"
 
-              $expectedUpgradeCode = $env:UPGRADE_CODE.Trim().Trim('{}')
-              $actualUpgradeCode = $upgradeCode.Trim().Trim('{}')
+              $expectedUpgradeCode = ConvertTo-NormalizedGuid $env:UPGRADE_CODE 'Expected UpgradeCode'
+              $actualUpgradeCode = ConvertTo-NormalizedGuid $upgradeCode 'MSI UpgradeCode'
+              Write-Host "Normalized UpgradeCode: $actualUpgradeCode"
               if ($actualUpgradeCode -ne $expectedUpgradeCode) {
                 throw "Expected UpgradeCode '$expectedUpgradeCode' but found '$actualUpgradeCode'. Raw MSI value was '$upgradeCode'."
               }
