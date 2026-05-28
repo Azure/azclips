@@ -76,8 +76,8 @@ public class Program
                 commandActivity?.SetTag("command.type", _clientType.ToString());
 
                 var engine = CirrusServiceProvider.GetRequiredService<IEngine>() ?? throw new InvalidOperationException("Engine service not found.");
-                using IInvocationSession session = engine.InvokeSession(invocation, streams, _cancellationTokenSource.Token);
-                session.Process();
+                using ISession session = engine.OpenExecutionSession(invocation, streams, _cancellationTokenSource.Token);
+                await session.RunAsync();
 
                 activity?.SetStatus(ActivityStatusCode.Ok);
                 return 0;

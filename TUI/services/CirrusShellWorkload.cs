@@ -337,7 +337,7 @@ sealed class CirrusShellWorkload : IHex1bTerminalWorkloadAdapter
     {
         if (_state.Suggestions.Count > 0)
         {
-            _state.SelectedSuggestion = (_state.SelectedSuggestion - 1 + _state.Suggestions.Count) % _state.Suggestions.Count;
+            _state.NavigateSuggestion(-1);
         }
         else
         {
@@ -354,7 +354,7 @@ sealed class CirrusShellWorkload : IHex1bTerminalWorkloadAdapter
     {
         if (_state.Suggestions.Count > 0)
         {
-            _state.SelectedSuggestion = (_state.SelectedSuggestion + 1) % _state.Suggestions.Count;
+            _state.NavigateSuggestion(1);
         }
         else
         {

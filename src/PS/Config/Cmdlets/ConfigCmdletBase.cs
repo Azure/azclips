@@ -43,8 +43,8 @@ public abstract class ConfigCmdletBase : PSCmdlet
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
         var invocation = new CommandInvocation("Config", commandName, parameters, false, moduleName, moduleVersion);
 
-        using IInvocationSession session = Engine.InvokeSession(invocation, Streams, _cts.Token);
-        session.Process();
+        using ISession session = Engine.OpenExecutionSession(invocation, Streams, _cts.Token);
+        session.Run();
     }
 
     protected override void EndProcessing()

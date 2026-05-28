@@ -7,7 +7,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
     public class ResourcesProcessorBase : IProcessor
     {
         protected IRuntimeHttpPipeline HttpPipeline = null!;
-        protected IEventListener EventListener = null!;
+        protected IEventPublisher Publisher = null!;
         protected JsonSerializerOptions JsonOptions = null!;
         protected OutputStreamDelegate WriteOutput = null!;
         protected AuthContext AuthContext = null!;
@@ -30,7 +30,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
             };
 
             HttpPipeline = context.HttpPipeline;
-            EventListener = context.EventListener;
+            Publisher = context.Publisher;
             WriteOutput = context.OutputHandler.WriteOutput;
             AuthContext = context.AuthHandler.AuthContext;
 

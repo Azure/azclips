@@ -18,6 +18,6 @@ namespace Core.Runtime
         public HttpClientFactory(HttpClient client) => this.client = client;
 
         public ISendAsync Create() => this;
-        public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, IEventListener callback) => client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, callback.Token);
+        public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, IEventPublisher callback) => client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, callback.Token);
     }
 }

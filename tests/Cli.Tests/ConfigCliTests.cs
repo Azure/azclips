@@ -256,8 +256,8 @@ public class ConfigCliTests
                 WriteError: (_, _) => Task.CompletedTask,
                 WriteInformation: (_, _) => Task.CompletedTask);
 
-            using IInvocationSession session = engine.InvokeSession(invocation, streams);
-            session.Process();
+            using ISession session = engine.OpenExecutionSession(invocation, streams, CancellationToken.None);
+            session.Run();
 
             return _outputs.ToArray();
         }

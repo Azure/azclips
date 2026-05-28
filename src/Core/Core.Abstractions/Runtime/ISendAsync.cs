@@ -5,7 +5,7 @@ namespace Core.Abstractions.Runtime
     /// </summary>
     public interface ISendAsync
     {
-        Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, IEventListener callback);
+        Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, IEventPublisher callback);
     }
 
     /// <summary>
