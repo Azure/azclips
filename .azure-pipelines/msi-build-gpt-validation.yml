@@ -445,12 +445,16 @@ stages:
               }
 
               $script = Join-Path $env:BUILD_SOURCESDIRECTORY 'devops/scripts/packaging/windows/test_bundled_plus_ext_msi.ps1'
-              & $script `
-                -OutRoot $windowsRoot `
-                -CommonOutRoot $commonRoot `
-                -SimRoot $env:TEST_OUTPUT_ROOT `
-                -ProductVersion $env:PACKAGE_VERSION_INPUT `
-                -KeepInstalled
+              $installDuration = Measure-Command {
+                & $script `
+                  -OutRoot $windowsRoot `
+                  -CommonOutRoot $commonRoot `
+                  -SimRoot $env:TEST_OUTPUT_ROOT `
+                  -ProductVersion $env:PACKAGE_VERSION_INPUT `
+                  -KeepInstalled
+              }
+
+              Write-Host "MSI install and smoke test completed in $([math]::Round($installDuration.TotalSeconds, 2)) seconds."
             displayName: Install and smoke test MSI, keep installed for assertions
 
           - pwsh: |
@@ -503,10 +507,9 @@ stages:
               $installedExtensions = Join-Path $installPath 'Extensions'
               $installLog = Join-Path $env:TEST_OUTPUT_ROOT 'msi-install.log'
               $uninstallLog = Join-Path $env:TEST_OUTPUT_ROOT 'msi-uninstall.log'
-              $arpKey = $null
+              $arpKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$productCode"
 
               try {
-                $arpKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$productCode"
                 if (-not (Test-Path $arpKey)) {
                   $installedProductCode = Get-InstalledProductCodeByName -Name $env:PRODUCT_NAME
                   if ([string]::IsNullOrWhiteSpace($installedProductCode)) {
@@ -551,6 +554,12 @@ stages:
                   throw "Machine PATH does not contain install path: $installPath"
                 }
 
+                $freshMachinePath = & pwsh -NoProfile -Command '[Environment]::GetEnvironmentVariable("PATH", "Machine")'
+                $freshPathEntries = $freshMachinePath -split ';' | ForEach-Object { $_.TrimEnd('\') }
+                if ($freshPathEntries -notcontains $installPath.TrimEnd('\')) {
+                  throw "Fresh PowerShell process did not see install path in machine PATH: $installPath"
+                }
+
                 $configPath = Join-Path $env:BUILD_SOURCESDIRECTORY 'devops/scripts/packaging/config/bundled_ext.config'
                 $expectedBuiltins = foreach ($line in Get-Content $configPath) {
                   $name = ($line -replace '#.*$', '').Trim()
@@ -572,7 +581,7 @@ stages:
                 Write-Host 'PASS: ARP DisplayName, DisplayVersion, InstallDir, registry Version, PATH, built-ins, and install log validated.'
               }
               finally {
-                if (Test-Path $azv2Exe) {
+                if (-not [string]::IsNullOrWhiteSpace($arpKey) -and (Test-Path $arpKey)) {
                   Write-Host "Uninstalling validation MSI: $productCode"
                   Invoke-MsiExec -Arguments @('/x', $productCode, '/quiet', '/norestart', '/L*V', "`"$uninstallLog`"") -FailureMessage "FAIL: MSI uninstall failed. See $uninstallLog."
                 }
