@@ -20,7 +20,6 @@
   <Import Project="$(MSBuildThisFileDirectory)..\..\Shared.props" />
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Agent\Core.Agent.csproj" />
     <ProjectReference Include="..\Core\Core.DependencyInjection\Core.DependencyInjection.csproj" />
   </ItemGroup>
 
