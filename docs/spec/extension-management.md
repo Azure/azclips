@@ -1,478 +1,246 @@
 # Design Spec: Extension Management
 
-> **Status:** Shape A is implemented on `feature-extension-management-shape-a` (phases 1–5 complete, item #17 deferred). This branch (`feature-extension-management-shape-b`) revises the model to Shape B — shared verb namespaces with per-leaf ownership. See §11 for the Shape B delta; Shape A sections (§3–§9) are preserved as the baseline the delta is read against.
+> **Status (2026-05-28).** Branch `feature-extension-management-shape-b`. Shape B (shared verb namespaces, per-leaf ownership) is the v1 model — confirmed by the 2026-05-28 PM meeting. Phases 1–9 complete; phase 10 (polish + `[CirrusCompatibility]` + hint-schema bump) in progress.
 >
-> **Branch:** `feature-extension-management-shape-b`
+> **Compat posture.** Source-compat with az-cli is the baseline. Verbs, primary flags, and `--output json` shapes carry over; secondary flags and internals are free to improve. A migration tool is acknowledged as necessary.
 >
-> **Related:** [extension-framework.md](./extension-framework.md) — covers extension loading, ALC isolation, and processor contract. This doc covers the layer _above_ that: how extensions are registered, discovered, routed to, and managed over their lifecycle.
+> **Related.** [extension-framework.md](./extension-framework.md) covers extension loading, ALC isolation, and the processor contract. This doc covers the layer _above_ that: how extensions are registered, discovered, routed to, and managed over their lifecycle.
 
 ---
 
-## 1. Goals
+## 1. Decisions & rationale (Q&A)
+
+Every design question raised on this branch, with its current resolution. Questions are grouped by area. Skip to §2 if you want the spec body; come back here to look up "why did we decide X."
+
+### 1.1 Foundational posture
+
+- **Q0 (resolved, 2026-05-28 PM meeting): compat posture vs. az-cli.** Source-compat, not strict drop-in, not greenfield. Verbs, primary flags, and `--output json` shapes carry over; secondary flags, error structure, and internals are free to improve. A migration tool is acknowledged as necessary. Bias toward preserving the API of heavily-used modules (`vm`, `network`, etc.). Reversibility is low — user scripts will form around whatever ships — so the posture is explicit rather than emergent.
+
+### 1.2 Verb declaration & dispatch model
+
+- **Q1 (resolved): how does an extension declare its verb?** `[ExtensionVerb("…")]` attribute on the `IExtensionIndex` implementation. Colocated with the index, no separate manifest, readable by the installer in a throwaway ALC without instantiating anything. Under Shape B the attribute is **repeatable** (`AllowMultiple = true`) and purely advisory — leaves declare their own verb in their `s_cliTable` key.
+- **Q4 (resolved): tree vs. flat command keys?** Flat `Dictionary<string, CommandMetadata>` with hierarchy encoded by spaces in the key (e.g. `"vm create"`). Zero migration cost, parser already handles multi-token names, tree representation can come later when the help branch needs it.
+
+### 1.3 Namespace ownership (Shape A → Shape B)
+
+- **Q-shape (resolved, 2026-05-28 PM meeting): Shape B (many-to-many).** Multiple extensions can contribute under the same top-level verb. Ownership is per-leaf `(verb, path)`, not per-verb. Matches az-cli's monorepo. Rationale captured in the room: partner teams work independently under shared verbs; users install only what they need; preview commands can ship as separate extensions; resource families span multiple extensions.
+- **Q13 (resolved, see §1.5): per-extension, not per-verb.** Compat failure for one contributor under a shared verb does not poison the verb. Other contributors keep loading.
+- **Q14 (resolved): `extension list --by-verb` is verb-headed.** Contributors grouped under each verb so "who contributes to this verb" is one line of scanning. JSON output is `{verb: [{packageId, version, ...}]}`. Tracked as Phase 10 item 31.
+- **Q15 (deferred to help branch): aggregated namespace help.** Whether `azv2 vm --help` auto-merges leaves across contributors or each contributor advertises separately. Shape B guarantees the data shape; the help branch decides the rendering.
+
+### 1.4 Registry & storage
+
+- **Q2 (resolved): registry location.** `~/.cirrus/extensions/registry.json`, user-scoped, colocated with extension install dirs. Schema in §5.1.
+- **Q3 (resolved): true core of Cirrus.** `extension`, `login`, `config` only. Everything else (including `vm` and `group`) is installable. Seeding mechanism: hardcoded seed dict merged with on-disk registry at startup (option A; options B and C — disk-shipped registry, install-on-first-boot — rejected).
+- **Q5 (resolved): pinning UX.** Both: primary `extension pin/unpin` commands and a `--pin` flag on `extension add`. Pinning blocks `update` unless `--force` is passed.
+- **Q6 (resolved): old-version retention.** Strict single-version. `update` overwrites in place; only one version on disk at any time. Matches az-cli. Multi-version is an additive schema change later if needed.
+- **Q7 (resolved): conflict & scoping edge cases.** User-scoped only (no machine-wide install path). No `--force` for verb conflicts on install — `remove` then `add` to swap owners. `remove <name>` purges the single install. `update` on pinned fails with a clear message pointing at `unpin` or `--force`. Built-ins cannot be removed.
+- **Q8 (resolved): ALC cache strategy.** Process-lifetime `ConcurrentDictionary<(string pkg, string version), Lazy<ExtensionLoadContext>>` in `AssemblyLoadingService`. No eviction. Long-running hosts (TUI, test harness) benefit; one-shot CLI invocations are unaffected. `--no-cache` test hook for benchmarking. Bounded LRU is a vNext follow-up if memory becomes a concern.
+
+### 1.5 Compatibility metadata
+
+- **Q-compat (resolved, 2026-05-28 PM meeting): ship min/max in v1.** Extensions declare a `core` version range. Enforcement details Q16–Q22 resolved by mirroring az-cli's `ext_compat_with_cli` / `check_version_compatibility`.
+- **Q16 (resolved): source of truth = assembly attribute.** `[CirrusCompatibility(MinCoreVersion, MaxCoreVersion)]` on the extension DLL. One artifact, both CLI and PS read it identically via reflection. No manifest file (drift risk for no benefit). Mirrors az-cli's wheel `METADATA` keys.
+- **Q17 (resolved): tolerant on missing declaration.** Missing attribute = assumed compatible. Matches az-cli and Az PS. Strict mode would block every undecorated dev/internal extension for negligible safety gain.
+- **Q18 (resolved): both install-time and runtime, different failure modes.**
+    - **Install** (`extension add`): hard error, abort install, no disk write. Mirrors az-cli `check_version_compatibility` at the top of `add_extension`.
+    - **Runtime** (load): per-extension warn-and-skip. The dispatcher logs a warning, drops that extension's contributions from the live `LeafIndex` for this invocation, continues. Other contributors to the same verb keep working. Mirrors the az-cli load loop verbatim.
+- **Q19 (resolved): inverse direction shipped in v1, dictionary starts empty.** A `Dictionary<string, VersionRange> HostExtensionRequirements` in `Core.Runtime` parallels az-cli's `EXTENSION_VERSION_REQUIREMENTS`. Checked inside `CompatibilityGuard.Assert` after the extension's own range passes. Host team adds an entry in the same PR that introduces a breaking change for a specific extension.
+- **Q20 (resolved): SemVer with pre-release ordering.** Use NuGet's `NuGetVersion` (already a dependency). `1.5.0-rc1` orders correctly relative to `1.5.0`. az-cli uses PEP 440; same intent.
+- **Q21 (deferred to vNext): bypass env var `CIRRUS_DISABLE_COMPAT_CHECK=1`.** Neither az-cli nor Az PS has one. Runtime warn-and-skip is already forgiving. Additive in ~3 lines when needed.
+- **Q22 (resolved): per-extension, not per-verb on compat failure under Shape B.** Same answer as Q13. A compat failure removes one extension's contributions from the `LeafIndex`; other contributors stay routable.
+
+### 1.6 Discovery / hint catalog
+
+- **Q-hints (resolved, 2026-05-28 PM meeting): blended embed + feed.** v1 cut: embed only, but schema and resolution path are feed-ready so the fetch half is purely additive.
+- **Q9 (resolved as Q-hints, v1 = embed): feed-served verb index.** Originally tracked as non-blocking; now resolved as part of the v1 embed-only / vNext fetch plan.
+- **Q10 (resolved): build error when an `s_cliTable` key's first token isn't covered by an `[ExtensionVerb]` declaration.** The MSBuild target fails the build with a clear message. Cost: developers must keep `[ExtensionVerb]` and table contents in sync. Benefit: the build-time hint table is guaranteed complete.
+- **Q11 (open, low priority): how does an extension declare a namespace it owns but has no leaves under?** E.g. a future "Networking" extension that wants `network` for help-text purposes only. No real use case today; `[ExtensionVerb]` declarations without matching leaves currently have no effect.
+- **Q12 (deferred to help branch): aggregated namespace help.** Same as Q15.
+- **Q23 (deferred): feed endpoint location.** Don't pick now. Candidates: per-`core`-release GitHub asset, Cirrus-owned blob, NuGet feed metadata. Schema being feed-ready is enough.
+- **Q24 (deferred, lean 24h): TTL.** az-cli uses 10 days because their release cadence is ~2 weeks. Cirrus ships faster. Not worth deciding before the fetch exists.
+- **Q25 (resolved): silent embedded fallback when feed unreachable AND embedded stale.** No "your hints might be outdated" warning — it's noise the user can't act on. If the suggested install fails because the hint was wrong, the install error speaks for itself. Mirrors az-cli.
+- **Q26 (resolved): feed carries compat metadata.** Each leaf entry's schema becomes `{packageId, minCoreVersion?, maxCoreVersion?}`. v1 embed populates only `packageId`; compat fields are reserved in the schema for the feed half.
+- **Q27 (deferred, out of v1 scope): `extension list --available`.** Same source-of-truth as the hint catalog, so it comes "for free" when the feed exists. Until then, listing the embedded snapshot as "available" is misleading.
+
+### 1.7 Deferred sections (not yet discussed)
+
+- **Registry hygiene** (stale entries, schema versioning commitment, hand-edits, roaming profiles, system-wide installs) — current postures stand. Phase 8.5 covers most of stale-entry handling; hand-edits surface as `RegistryInvalid`. Schema-versioning commitment ("how many versions back do we commit to reading?") still open.
+- **Trust and provenance** — explicitly deferred. The interaction with Shape B matters: shared namespaces mean unsigned third-party extensions can contribute leaves under first-party verbs (namespace squatting). Revisit before the first third-party extension ships, not before v1.
+- **CLI/PS surface polish** (verb-accepting `add --name`, local nupkg hint, output format default, PS parity definition) — Phase 10 items 34 and 35 cover two of these; the rest decide post-v1.
+
+---
+
+## 2. Goals & non-goals
+
+### Goals
 
 - Make installed extensions first-class: usable without code changes to the host.
 - Replace the hardcoded `CommandGroupIndex` with a persistent registry populated at install/remove time.
-- Add the missing CRUD lifecycle operations: `list`, `remove`, `update`, `show` (in addition to today's `add`).
-- Lift the parser's depth-1 limitation so extensions can ship multi-level command trees (e.g. `azv2 vm boot-diagnostics enable`).
+- Add the missing CRUD lifecycle operations: `list`, `remove`, `update`, `show` (alongside `add`).
+- Lift the parser's depth-1 limitation so extensions can ship multi-level command trees (`azv2 vm boot-diagnostics enable`).
 - Cache ALCs across invocations so extension load isn't paid on every command.
+- Allow multiple extensions to contribute under the same top-level verb (Shape B), with per-leaf ownership.
+- Ship host↔extension compatibility metadata in v1 so version mismatches surface as actionable errors rather than mysterious failures.
 
-## 2. Non-goals (this branch)
+### Non-goals (this branch)
 
-- **Shape B (shared verb namespaces).** Multi-extension contribution under a single top-level verb (the az-cli `network` / `private-dns` pattern) is explicitly deferred. Design choices here should not preclude it, but no implementation work is committed.
 - **Help system.** `--help` rendering, group descriptions, MAML/online help — tracked separately on the help branch.
-- **PowerShell side.** PS module routing has its own load/isolation model (see [extension-framework.md](./extension-framework.md) §4.4). Out of scope.
+- **PowerShell side, deep.** Cross-client compat metadata (§7) is shared; PS module routing has its own load/isolation model. See [extension-framework.md](./extension-framework.md) §4.4.
 - **NativeAOT.** Conflicts with dynamic loading regardless of routing topology.
-- **Marketplace / catalog UX.** Discovery beyond "user knows the NuGet package id" is out of scope.
+- **Marketplace / catalog UX.** Discovery beyond the embedded hint catalog is out of scope (vNext).
+- **Trust / signing / provenance.** Anything in `~/.cirrus/extensions/` loads. Deferred (§1.7).
+- **Feed-fetch path for hint catalog.** v1 is embed-only; the feed half is vNext (§8).
 
-## 3. The Shape A model (explicit statement)
+---
 
-> **One top-level verb is owned by exactly one extension.** When a user types `azv2 <verb> ...`, exactly one extension is loaded to handle the invocation. Two extensions cannot both register the same top-level verb. Cross-cutting features (e.g. SQL-on-VM) ship under their own top-level verb, not as leaves under another extension's tree.
+## 3. Model
+
+> **A top-level verb is a shared namespace. Any number of extensions can contribute leaves under it. Each leaf — the full `(verb, path)` tuple — is owned by exactly one extension.**
 
 Consequences:
 
-- Routing is a flat `{verb → extension}` map. No merging, no per-verb load lists, no conflict resolution beyond "this verb is already taken."
-- An extension's command tree is an internal concern of that extension — the host doesn't merge across extensions.
-- `azv2 <verb> --help` (when help lands) lists only what the one owning extension provides. Discoverability across extensions happens at the top-level verb list, not within a verb.
+- Routing is `{(verb, path) → packageId}`. Lookup is O(1); the key is wider than Shape A's `{verb → packageId}` but the structure is identical.
+- There is no "namespace owner" role. Every contributor is equal. Namespaces exist by virtue of being contributed to.
+- A single extension may contribute to multiple namespaces — e.g. one `Compute` package contributing under `vm`, `disk`, `disk-access`. This is the common case for Azure-style resource families.
+- `azv2 vm --help` (when help lands) aggregates leaves across all extensions contributing to `vm`. The host can answer "who contributes to this namespace" without loading anything.
 
-### True core of Cirrus
+### Built-in trio
 
 The host ships with exactly three built-in extensions, present in every install:
 
-- **`extension`** — manages other extensions (this doc's CRUD surface).
+- **`extension`** — manages other extensions (the CRUD surface in §4).
 - **`login`** — authentication and tenant/subscription context.
 - **`config`** — user/host configuration.
 
-Everything else (including today's `group` / Resources and `vm` / Compute) becomes an installable extension. The host has no built-in Azure-resource verbs — those are always installed.
+Built-ins are namespaces in the same sense as installed extensions; the host is the sole contributor for each. Their verbs are **reserved** — `extension add` rejects any third-party contribution whose leaf has a built-in verb as its first token. Built-ins cannot be removed.
+
+Everything else (including today's `group` / Resources and `vm` / Compute) is an installable extension. The host has no built-in Azure-resource verbs.
+
+---
 
 ## 4. User-facing surface
 
 ### 4.1 Extension CRUD commands
 
-All under `azv2 extension`. Naming follows existing kebab-case CLI convention.
+All under `azv2 extension`. Kebab-case CLI convention.
 
 | Command                                    | Behavior                                                                                                    |
 | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
 | `azv2 extension add <pkg>[@<version>]`     | Install. Overwrites any prior version of the same package. `--pin` flag locks the version against `update`. |
-| `azv2 extension list`                      | Show installed extensions: name, version, registered top-level verb, install source, install date.          |
+| `azv2 extension list`                      | Show installed extensions: name, version, namespaces, install source, install date. `--by-verb` regroups output verb-headed (§4.5, Phase 10).             |
 | `azv2 extension remove <name>`             | Uninstall. Remove from registry, delete `~/.cirrus/extensions/<pkg>/`. Errors on built-in extensions.       |
 | `azv2 extension update <name>[@<version>]` | Install newer version, replacing the old one in place. Fails on pinned extensions unless `--force`.         |
 | `azv2 extension pin <name>[@<version>]`    | Lock active version. With no version, pins the currently installed version.                                 |
 | `azv2 extension unpin <name>`              | Remove the pin.                                                                                             |
-| `azv2 extension show <name>`               | Detail view: full path, version, registered verb, source feed, install date, dependencies.                  |
-
-**Open items:**
-
-- See §4.4 for the error surface (exit codes and structured output).
+| `azv2 extension show <name>`               | Detail view: full path, version, namespaces, contributions, source feed, install date, compat range.        |
 
 ### 4.2 Conflict at install time
 
-A user tries to install an extension whose top-level verb is already claimed:
+`extension add` validates the candidate's contributions against:
 
-```
-> azv2 extension add Contoso.Foo
-Error: Extension 'Contoso.Foo' wants to register verb 'vm', but it is already
-owned by 'Microsoft.Azure.Cirrus.Extensions.Compute' (installed 2026-04-12).
+1. **Built-in verbs.** Any leaf whose first token is a built-in verb is rejected immediately.
+2. **Compat metadata** (§7). Hard fail if the candidate's declared range excludes the current `core` version.
+3. **Per-leaf collision.** For every `(verb, path)` tuple the candidate contributes, the registry is scanned for an existing owner. First conflict aborts the install:
 
-Options:
-  - Remove the existing extension first: azv2 extension remove Compute
-  - Contact the extension author to choose a different verb
-```
+    ```
+    > azv2 extension add Contoso.Foo
+    Error: Extension 'Contoso.Foo' wants to contribute leaf 'vm contoso-magic',
+    but it is already owned by 'Microsoft.Azure.Cirrus.Extensions.Compute'.
 
-**Decision (for now): no `--force` override.** Shape A's exclusivity is meaningful only if it isn't bypassable. To swap, user runs `extension remove` then `extension add`. See §10 entry for Q7 for the broader scoping discussion.
+    Options:
+      - Remove the existing extension first: azv2 extension remove Compute
+      - Contact the extension author to choose a different leaf
+    ```
 
-### 4.3 What changes for end users today
+There is no `--force` override on collision. To swap owners of a leaf: `remove` then `add`. The per-verb ownership gate that briefly existed in early Shape B code (rejecting any extension whose declared verb was already claimed) was removed 2026-05-28 — multiple extensions advertising `[ExtensionVerb("vm")]` is fine and expected.
 
-- Built-in verbs `login`, `extension`, `config` continue to work as today.
-- Built-in verbs `group` (Resources) and `vm` (Compute) **become installable extensions**, no longer shipped with the host.
-- Existing scripts using `azv2 group ...` / `azv2 vm ...` produce an actionable error pointing at the install command (no silent network install on first run — fails badly offline and is surprising).
+### 4.3 Unknown-verb / unknown-leaf UX
 
-**Unknown-verb error UX (the discovery problem at scale):**
+When the dispatcher sees an unknown token, it consults the embedded hint catalog (§8) and falls through three cases:
 
-When the dispatcher sees an unknown top-level verb, it consults a **build-time generated hint table** shipped with the host:
+1. **Exact `(verb, path)` match** in the catalog:
 
-```
-> azv2 vm list
-Error: 'vm' is provided by extension 'Microsoft.Azure.Cirrus.Extensions.Compute',
-which is not installed. Install it with:
-  azv2 extension add Microsoft.Azure.Cirrus.Extensions.Compute
-```
+    ```
+    > azv2 vm list
+    Error: 'vm list' is provided by extension 'Microsoft.Azure.Cirrus.Extensions.Compute',
+    which is not installed. Install it with:
+      azv2 extension add --name Compute
+    ```
 
-If the verb is not in the hint table (third-party extension, or a typo):
+2. **Verb match, no path match**: "package X provides verb '<verb>' but no '<path>' leaf — try `azv2 <verb> --help` after installing."
 
-```
-> azv2 foo list
-Error: No extension is installed for verb 'foo'.
-Search for an extension that provides it:
-  azv2 extension search foo
-```
-
-(`extension search` itself is out of scope for this branch.)
-
-The AI fallback in `OrchestratorEngine` continues to handle free-form input as today; this error path only fires on the structured-command path when the verb is unknown _and_ the input doesn't look like a natural-language request.
-
-**How the hint table is produced:**
-
-A small MSBuild target in the host project scans `src/Extensions/**` for `[ExtensionVerb("…")]` attributes and emits a JSON file embedded as a resource in the host assembly. The shape is trivial:
-
-```jsonc
-{
-    "vm": "Microsoft.Azure.Cirrus.Extensions.Compute",
-    "group": "Microsoft.Azure.Cirrus.Extensions.Resources",
-}
-```
-
-**Tradeoffs (acknowledged):**
-
-- **Pro:** Zero runtime cost, no feed dependency, automatically in sync with whatever extensions ship in the monorepo at host-release time. No hand-maintained list.
-- **Con:** Hint freshness is bounded by host-release cadence. Users on a stale `azv2` get no hints for newer first-party extensions — they fall through to the generic "search" path.
-- **Limit:** Third-party extension publishers aren't covered by this table at all. If/when third-party extensions become a thing, a feed-served verb index (see Q9 in §10) is the answer. For now, `extension search` is the third-party discovery story.
+3. **No verb match**: fall through to the generic "try `extension search <verb>`" path. The AI fallback in `OrchestratorEngine` continues to handle free-form input as today.
 
 ### 4.4 Error surface
 
-**Exit codes:**
+**Exit codes** (apply to the `extension` verb's commands):
 
 | Code | Meaning                                              |
 | ---- | ---------------------------------------------------- |
 | 0    | success                                              |
 | 1    | generic error                                        |
 | 2    | usage error (bad args, unknown flag)                 |
-| 3    | verb conflict on install                             |
+| 3    | leaf conflict on install                             |
 | 4    | extension not found (in feed or registry)            |
 | 5    | feed / network error                                 |
 | 6    | pin violation (`update` on pinned without `--force`) |
+| 7    | compatibility violation (see §7)                     |
 
-These apply to the `extension` verb's commands. Other verbs keep their own exit-code conventions.
-
-**Structured output:**
-
-`extension` commands respect the host's existing `--output json` flag. On success the payload is the command's domain shape (e.g. `list` returns an array of installed extensions). On failure:
+**Structured output.** `extension` commands respect the host's existing `--output json` flag. On failure:
 
 ```jsonc
 {
     "error": {
-        "code": "VerbConflict",
-        "message": "Extension 'Contoso.Foo' wants to register verb 'vm', but it is already owned by 'Microsoft.Azure.Cirrus.Extensions.Compute'.",
+        "code": "LeafConflict",
+        "message": "Extension 'Contoso.Foo' wants to contribute leaf 'vm contoso-magic', but it is already owned by 'Microsoft.Azure.Cirrus.Extensions.Compute'.",
         "details": {
             "verb": "vm",
+            "path": "contoso-magic",
             "requestedPackage": "Contoso.Foo",
-            "existingPackage": "Microsoft.Azure.Cirrus.Extensions.Compute",
-        },
-    },
+            "existingPackage": "Microsoft.Azure.Cirrus.Extensions.Compute"
+        }
+    }
 }
 ```
 
-- `code` is a stable symbolic identifier intended for programmatic callers (`VerbConflict`, `ExtensionNotFound`, `PinViolation`, `FeedUnavailable`, `UsageError`). Exit codes are for shell scripts; symbolic codes are for tools.
+- `code` is a stable symbolic identifier intended for programmatic callers (`LeafConflict`, `ExtensionNotFound`, `PinViolation`, `FeedUnavailable`, `UsageError`, `CompatibilityViolation`, `RegistryConcurrency`, `RegistryInvalid`).
 - `message` is human-readable.
 - `details` carries operation-specific context.
 
+### 4.5 `extension list` output
+
+Default output groups by extension:
+
+```
+PackageId                                       Version   Namespaces             Pinned  InstalledAt
+Microsoft.Azure.Cirrus.Extensions.Compute       1.1.0     vm, disk               no      2026-04-12
+Microsoft.Azure.Cirrus.Extensions.Resources     1.0.0     group                  no      2026-04-12
+```
+
+`--by-verb` regroups verb-headed (Q14, Phase 10):
+
+```
+vm
+  Microsoft.Azure.Cirrus.Extensions.Compute       1.1.0
+  Contoso.VmPreviewExt                            0.3.0-preview
+disk
+  Microsoft.Azure.Cirrus.Extensions.Compute       1.1.0
+group
+  Microsoft.Azure.Cirrus.Extensions.Resources     1.0.0
+```
+
+JSON shapes are stable: default is `[{packageId, version, namespaces, ...}]`; `--by-verb` is `{verb: [{packageId, version, ...}]}`.
+
+`extension list` also surfaces stale entries (Phase 8.5): the response carries separate `Live` and `Stale` arrays. Stale entries include the missing path and a reason so the user can decide whether to `remove` them.
+
+---
+
 ## 5. Internals
 
-### 5.1 The registry
+### 5.1 Registry schema (v2)
 
-A single JSON file at `~/.cirrus/extensions/registry.json`, colocated with the extension install directories.
-
-Schema (Shape A):
-
-```jsonc
-{
-    "schemaVersion": 1,
-    "extensions": {
-        "Microsoft.Azure.Cirrus.Extensions.Compute": {
-            "verb": "vm",
-            "version": "1.1.0",
-            "pinned": false,
-            "source": "https://api.nuget.org/v3/index.json",
-            "installedAt": "2026-04-12T10:23:00Z",
-        },
-    },
-}
-```
-
-**Design points:**
-
-- One entry per extension package. The `verb` field is the top-level token the extension claims.
-- Single version per extension (`version` is a string, not an array). `update` overwrites in place. See §10 / Q6 for the rationale and the path to multi-version later if needed.
-- `pinned` controls whether `update` will move `version` forward automatically.
-- Built-in extensions (`extension`, `login`, `config`) are **not** in this file — they live in a small static seed in the host so it can boot without any installed extensions. See §6 for the seeding mechanism.
-
-**Forward-compatibility note for Shape B:** The schema is `{extension → {verb, ...}}` rather than `{verb → extension}`. This is intentional: extending to `{extension → {verbs: [...], ...}}` (an extension claims multiple verbs) or building a reverse `{verb → [extensions]}` index from this file is straightforward. Likewise, widening `version` to `versions: [...]` plus an `activeVersion` field is a non-breaking additive change if multi-version is needed later.
-
-### 5.2 Registration on install / remove
-
-`extension add` becomes a multi-step operation:
-
-1. Resolve package from feed (already done).
-2. **Load the extension's `IExtensionIndex`** in a throwaway ALC and read its declared top-level verb. The verb is declared via an attribute on the `IExtensionIndex` implementation (proposed: `[ExtensionVerb("vm")]`). The attribute is the single source of truth — no separate manifest file.
-3. Check the registry for conflicts. Abort with a clear error if the verb is taken.
-4. Extract DLLs to `~/.cirrus/extensions/<pkg>/<version>/` (already done).
-5. Update `registry.json` transactionally.
-6. On failure at any step: roll back partial state (delete extraction dir, restore registry).
-
-`extension remove`: validate name → delete dir(s) → remove registry entry → done.
-
-### 5.3 Dispatch flow (replacing CommandGroupIndex)
-
-```
-azv2 vm boot-diagnostics enable --name foo
-       │
-       ▼
-  args[0] = "vm"
-       │
-       ▼
-  Registry.LookupVerb("vm")
-       │  ↓ "Microsoft.Azure.Cirrus.Extensions.Compute" v1.1.0
-       ▼
-  AssemblyLoader.LoadOrCache(pkg, version)
-       │  (existing CLI loader chain; now with ALC caching)
-       ▼
-  IExtensionIndex.GetCommandMetadata("boot-diagnostics enable", CLI)
-       │
-       ▼
-  ExtensionParser.Parse(args[1..])
-       │
-       ▼
-  IProcessor.Init(ctx) → ProcessAsync()
-```
-
-The two changes vs. today:
-
-- Step 2 hits the registry, not a hardcoded dictionary.
-- Step 3 caches ALCs across invocations.
-
-### 5.4 Parser depth lift
-
-Today, `ExtensionParser.Parse()` already joins multi-token command names ([src/CLI/Parser/ExtensionParser.cs](../../src/CLI/Parser/ExtensionParser.cs#L31)). The depth-1 limitation is really in the extension's flat `IExtensionIndex` table — extensions just don't ship multi-token keys today.
-
-For Shape A, the change is:
-
-- Allow extensions to register multi-token command keys like `"boot-diagnostics enable"` in `s_cliTable`. Hierarchy is encoded by convention in the key string, not in a tree-of-nodes structure on `IExtensionIndex`. This keeps the migration cost near zero and defers the tree representation until the help branch needs it.
-- The dispatcher needs to handle "user typed a prefix that matches no leaf" — today it throws `KeyNotFoundException`. With multi-level trees, this case becomes more common (e.g. `azv2 vm boot-diagnostics` with no further token).
-- `[TBD]` What's the right error? Today: exception → AI fallback. With trees: ideally surface "did you mean one of: enable, get-log?" — but that's tied to the help system which is out of scope. Interim: keep the exception → AI fallback path.
-
-### 5.5 ALC caching
-
-Today, `AssemblyLoadingService` creates a new `ExtensionLoadContext` on every invocation (TODO in source). For a long-running scenario (TUI, repeated invocations from a script) this is wasteful.
-
-See §10 entry for Q8 for the full discussion. Working proposal:
-
-- Cache key: `(packageId, version)`.
-- Cache lifetime: process lifetime. No eviction.
-- One-shot CLI invocations get no benefit (process dies anyway); the cost of the cache is one `ConcurrentDictionary` add per invocation. Negligible.
-- Long-running hosts (TUI, test harness) get the full benefit.
-- Invalidation on `update`/`remove` is not handled: those operations should be followed by a fresh process. The cache is keyed on version, so the next process picks up the new version automatically.
-- Thread safety: `ConcurrentDictionary` with `GetOrAdd` and a `Lazy<ExtensionLoadContext>` value to serialize ALC creation per key.
-
-## 6. Built-in extensions: how they're seeded
-
-The host ships with exactly three built-in extensions: `extension`, `login`, `config` (see §3 "True core"). These need to be in the routing tree from first boot without an install step.
-
-**Decision: option A.** A small hardcoded seed dictionary in the host (replacing today's `CommandGroupIndex`), merged with the on-disk registry at startup.
-
-Merge semantics:
-
-- Built-in entries are never written to `registry.json`. They live only in memory, sourced from the host seed.
-- On startup, the dispatcher's verb → extension map is `built-in seed ∪ on-disk registry`.
-- On verb conflict between a built-in and an installed extension, **built-in wins.** Defensive: prevents an installed extension from shadowing `extension`/`login`/`config`. The conflict should be impossible because `extension add` refuses to register any verb that collides with a built-in (validation happens in the install path, not at load time).
-
-Alternatives considered and rejected:
-
-- **B.** Build copies built-in metadata into a shipped `registry.json`. Duplicates merge logic for marginal benefit. Also creates a footgun where users might edit the built-in entries.
-- **C.** Treat built-ins as installed extensions, install on first boot. Adds first-boot failure modes (network? disk?) for uniformity that doesn't pay back at this scale.
-
-## 7. Open questions
-
-Resolved (see §10 Discussion log):
-
-- ~~Q1: How does an extension declare its verb?~~ → `[ExtensionVerb("…")]` attribute on `IExtensionIndex` implementation.
-- ~~Q2: Registry location / schema?~~ → `~/.cirrus/extensions/registry.json`, schema in §5.1.
-- ~~Q3 (partial): What's in the true core?~~ → `extension`, `login`, `config`. Seeding mechanism still pending (working rec: option A).
-- ~~Q4: Tree vs. flat in `IExtensionIndex`?~~ → Flat, hierarchy by convention.
-- ~~Q5: Pinning UX?~~ → Both: `extension pin/unpin` commands + `--pin` flag on `add`.
-- ~~Q6: Old-version retention?~~ → Strict single-version. `update` overwrites in place. Multi-version is an additive schema change later if needed.
-- ~~Q7: Conflict and scoping edge cases?~~ → No `--force` on verb conflict; user-scoped only; `remove` purges the (single) install; pinned blocks `update` without `--force`; built-ins are not removable.
-- ~~Q8: ALC cache strategy?~~ → Process-lifetime `ConcurrentDictionary<(pkg, version), Lazy<ALC>>`, no eviction.
-
-Still open:
-
-- _(none for v1 of this spec)_
-
-## 8. Non-blocking but worth tracking
-
-- **Q9: Feed-served verb index.** When/if the monorepo assumption breaks (extension release cadence decouples from host, or third-party publishers join), the build-time hint table in §4.3 stops being sufficient. The follow-up is a feed-served `verb-index.json` (az-cli `extension-index-v1` model) that the host fetches lazily and caches. Not needed for v1.
-- **Forward path to Shape B.** If we adopt Shape A and later want Shape B, what migration looks like — does the registry schema bend, or do we ship a new one alongside?
-- **Trust / signing.** Currently anything in `~/.cirrus/extensions/` gets loaded. Not addressed here, but worth not forgetting.
-- **Telemetry.** Extension install/remove/update events. Out of scope for this branch but the registry is the natural source of truth.
-
-## 9. Implementation plan
-
-Organized in five phases. Each phase is a checkpoint where the tree compiles, tests pass, and the system is coherent. Cirrus is not yet publicly released, so every phase is free to make breaking changes; no deprecation periods required.
-
-### Phase 1 — Foundation (no user-visible change) ✅
-
-1. ✅ Define `[ExtensionVerb("…")]` attribute in `Core.Abstractions`.
-2. ✅ Annotate existing extensions: `Compute → "vm"`, `Resources → "group"`, `Login → "login"`, `Extension → "extension"`, `Config → "config"`.
-3. ✅ Registry JSON read/write: schema class (§5.1), atomic write, unit tests.
-4. ✅ Built-in seed dictionary in host (initially holds all current verbs to preserve behavior; trimmed to `extension`/`login`/`config` in phase 4).
-
-_Checkpoint: code restructured, runtime behavior unchanged._
-
-### Phase 2 — Routing through the registry ✅
-
-5. ✅ Dispatcher reads `(built-in seed ∪ on-disk registry)` instead of `CommandGroupIndex`.
-6. ✅ Delete `CommandGroupIndex`.
-
-_Checkpoint: no installed extensions yet, but the routing layer is the real one._
-
-### Phase 3 — Mutating CRUD ✅
-
-7. ✅ `extension add`: load attribute in throwaway ALC, conflict-check, extract DLLs, transactional registry write, rollback on failure.
-8. ✅ `extension list` and `extension show`.
-9. ✅ `extension remove` (errors on built-in verbs).
-10. ✅ `extension update` (overwrite in place, pin-respecting, `--force` to break a pin).
-11. ✅ `extension pin` / `unpin` commands + `--pin` flag on `add`.
-
-Items #7–#11 each depend on #3 and #5 but are independent of each other afterwards — parallelizable across PRs.
-
-_Checkpoint: full Shape A CRUD works against the registry. Built-ins still include `vm` / `group` from phase 1._
-
-### Phase 4 — Migration: `vm` and `group` become real extensions ✅
-
-12. ✅ MSBuild target in the host project scans `src/Extensions/**` for `[ExtensionVerb]` and emits `verb-hints.json` as an embedded resource (§4.3).
-13. ✅ Dispatcher consults the hint table on unknown verbs and produces an "install this extension" message; unknown verbs fall back to the generic "try `extension search`" message.
-14. ✅ Extract Compute and Resources from the host build into standalone NuGet packages. Drop them from the built-in seed. Hard cut — no deprecation period.
-15. ✅ Built-in seed is now exactly `extension`/`login`/`config`.
-
-_Checkpoint: Shape A is real end-to-end. Host ships with three built-ins; `vm` and `group` are installable._
-
-### Phase 5 — Polish
-
-16. ✅ Error surface: exit codes 0–6, symbolic codes in JSON, `--output json` wired (§4.4).
-17. ✅ ALC caching: `ConcurrentDictionary<(pkg, version), Lazy<ALC>>`, no eviction, `--no-cache` test hook (§5.5).
-
-_Checkpoint: shippable v1._
-
-### Deferred
-
-17. Multi-token command keys: parser/dispatcher tweak for "prefix matches no leaf"; Compute ships a nested command as the validation case. Includes positional-residual binding so shorthand like `extension remove vm` routes to the `remove` processor with `vm` bound to the first unset required argument.
-
----
-
-## 10. Discussion log
-
-Use this section to capture decisions and the reasoning behind them as we work through the `[TBD]` markers.
-
-### 2026-05-22 — Initial decision pass
-
-**Q1 (resolved): Extension verb declaration.** Via an `[ExtensionVerb("vm")]` attribute on the `IExtensionIndex` implementation. Rationale: keeps the declaration colocated with the index it gates, avoids a separate manifest file, and is trivially readable by the installer in a throwaway ALC without instantiating the index. Future Shape B extension would add `[ExtensionVerbs(...)]` or repeat the attribute.
-
-**Q2 (resolved): Registry location.** `~/.cirrus/extensions/registry.json`. Colocated with the extension install directories, single file, user-scoped. Schema in §5.1.
-
-**Q3 (partial): True core.** The host ships exactly `extension`, `login`, `config`. Resources (`group`) and Compute (`vm`) are no longer built-in — they become installable extensions like everything else. Seeding mechanism for the three core extensions still open (working recommendation: option A — hardcoded seed merged with on-disk registry at startup).
-
-**Q4 (resolved): Tree vs. flat command keys.** Stick with flat string-keyed `Dictionary<string, CommandMetadata>` and let extensions encode hierarchy by spaces in the key (e.g. `"boot-diagnostics enable"`). Reason: zero migration cost for existing extensions, parser already handles multi-token names. Tree representation can come later when the help branch needs it.
-
-**Q5 (resolved): Pinning UX.** Both. Primary commands: `extension pin <name>[@<version>]` and `extension unpin <name>`. Convenience: `--pin` flag on `extension add`. Pinning blocks `update` unless `--force` is passed.
-
----
-
-### 2026-05-22 — Second pass: Q6, Q7, Q8 resolved
-
-**Q6 (resolved): Strict single-version.** `update` overwrites in place; only one version of each extension exists on disk at any time. Matches the az-cli model. Rationale: simpler mental model, bounded disk, less surface area to test in v1. Easy to extend later — the schema change is purely additive (`version: string` → `versions: string[]` + `activeVersion: string`). No `--keep-old` flag, no retention config in v1. Dev workflow for swapping between published and WIP versions is deferred; if it becomes painful, the dev-source escape hatch from the earlier discussion is the natural follow-up.
-
-Schema impact: `installedVersions: []` + `activeVersion` collapse into a single `version: string` field (see §5.1).
-
-**Q7 (resolved): Conflict and scoping edge cases.**
-
-- User-scoped only. No machine-wide install path. Built-ins ship with the host.
-- No `--force` for verb conflicts on install. To swap owners of a verb: `remove` then `add`.
-- `remove <name>` purges the install (single version, per Q6). No `--version` flag needed.
-- `update` on a pinned extension fails with a clear error pointing at `unpin` or `--force`.
-- Built-in extensions (`extension`, `login`, `config`) cannot be removed. `extension remove <built-in>` errors with a message explaining built-ins are part of the host.
-
-**Q8 (resolved): ALC cache strategy.**
-
-- `ConcurrentDictionary<(string pkg, string version), Lazy<ExtensionLoadContext>>` in `AssemblyLoadingService`.
-- Cache lifetime = process lifetime. No eviction. No attempt to unload old ALCs.
-- One-shot CLI invocations are unaffected (process dies between invocations anyway).
-- Long-running hosts (TUI, test harness) get full benefit.
-- After `update` or `remove`, the long-running host should restart to pick up changes cleanly. The cache key includes version, so any new version installed simply gets a new ALC on its first use.
-- `--no-cache` test hook for benchmarking.
-- Bounded LRU is a follow-up if memory becomes a concern (realistic worst case: ~100MB for 20 extensions, acceptable for TUI).
-
----
-
-### 2026-05-22 — Third pass: §6 and §4.1 settled
-
-**§6 (resolved): Built-in seeding = option A.** Hardcoded seed dict in the host, merged with on-disk registry at startup. Built-in entries never persisted to disk. Built-in wins on verb conflict (which `extension add` validates against anyway). Options B and C rejected (duplication and first-boot failure modes respectively).
-
-**§4.1 / §4.4 (resolved): Error surface.** Seven exit codes (0–6), symbolic error codes for JSON output (`VerbConflict`, `ExtensionNotFound`, `PinViolation`, `FeedUnavailable`, `UsageError`, etc.), `--output json` reuses the host's existing flag. Full table and JSON shape in §4.4.
-
----
-
-### 2026-05-22 — Fourth pass: §4.3 settled
-
-**§4.3 (resolved): Unknown-verb discovery via build-time generated hint table.**
-
-MSBuild target in the host project scans `src/Extensions/**` for `[ExtensionVerb("…")]` attributes and emits a `verb-hints.json` embedded as a resource. Dispatcher consults it on unknown-verb errors and produces an actionable "install this extension" message. Third-party extensions and typos fall through to a generic "try `extension search`" message.
-
-No automatic install on first run — errors are loud and explicit, no silent network calls, works offline.
-
-**Acknowledged limit:** hint freshness is bound to host release cadence. For the monorepo (first-party extensions ship with the host), this is a non-issue. Third-party publishers would need either a feed-served verb index or rely on `extension search` — deferred to a follow-up spec.
-
-**New tracked item (Q9, non-blocking):** if/when extension release cadence decouples from host release, or third-party publishers become a thing, design a feed-served verb index (az-cli `extension-index-v1` model). Not needed for v1.
-
----
-
-## 11. Shape B revision (this branch)
-
-Shape A treats top-level verbs as **exclusive**: one verb is owned by one extension, end of story. Shape B treats them as **shared namespaces**: any extension may contribute leaves under any verb, and ownership is tracked per leaf path rather than per verb. Az-cli's monorepo proves the model — the `vm` module there contributes leaves under `disk`, `disk-access`, `disk-encryption-set`, etc., with no separate "namespace owner" concept.
-
-This section is a **delta**, not a replacement. Sections of §3–§9 it supersedes are called out inline. Everything not mentioned (registry storage location, install/remove transactional flow, ALC caching strategy, exit-code table, structured-error JSON shape, built-in seeding) carries forward unchanged.
-
-### 11.1 Model (supersedes §3)
-
-> **A top-level verb is a shared namespace. Any number of extensions can contribute leaves under it. Each leaf — the full `(verb, path)` tuple — is owned by exactly one extension.**
-
-Consequences:
-
-- Routing is `{(verb, path) → packageId}`, not `{verb → packageId}`. Lookup is still O(1); the key just got wider.
-- There is no "namespace owner" role. Every contributor is equal. Namespaces exist by virtue of being contributed to.
-- `azv2 vm --help` aggregates leaves across all extensions contributing to `vm`. (Help rendering is still out of scope on the help branch; what changes here is only that the host can answer "who contributes to this namespace" without loading anything.)
-- A single extension may contribute to multiple namespaces — e.g. one `Compute` package contributing under `vm`, `disk`, `disk-access`. This is the common case for Azure-style resource families.
-
-The built-in trio (`extension`, `login`, `config`) remains unchanged. They are namespaces in the same sense; the host is the sole contributor for each.
-
-### 11.2 Where contributions are declared (supersedes §5.2 step 2)
-
-**Source of truth: the `s_cliTable` keys themselves, in full-path form.**
-
-A leaf's `s_cliTable` key encodes its full path including the namespace token. Example for Compute under Shape B:
-
-```csharp
-private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
-{
-    ["vm create"]   = s_newVMOrchestrator_CLI,
-    ["vm show"]     = s_getVM_CLI,
-    ["vm list"]     = s_listVM_CLI,
-    ["vm delete"]   = s_deleteVM_CLI,
-    ["disk create"] = s_newDisk_CLI,        // same extension, second namespace
-    ["disk list"]   = s_listDisk_CLI,
-};
-```
-
-Under Shape A, the same Compute extension declared `[ExtensionVerb("vm")]` at the class level and used relative keys like `"create"`, `"show"`. Under Shape B the namespace token moves into the key.
-
-`[ExtensionVerb]` becomes **repeatable** and is purely advisory: it lists the namespaces an extension wants advertised in the build-time hint table (so `azv2 disk list` on a host without Compute installed can produce "install Compute"). It has no runtime role. An extension that contributes under `vm` and `disk` declares:
-
-```csharp
-[ExtensionVerb("vm")]
-[ExtensionVerb("disk")]
-public class ExtensionIndex : IExtensionIndex { ... }
-```
-
-Validation: every `s_cliTable` key's first token must match one of the extension's `[ExtensionVerb]` declarations. Mismatches **fail the build** (see §11.10 / Q10). This keeps `[ExtensionVerb]` declarations and table contents in lockstep so the build-time hint table is always complete.
-
-### 11.3 Registry schema (supersedes §5.1)
+A single JSON file at `~/.cirrus/extensions/registry.json`:
 
 ```jsonc
 {
@@ -491,40 +259,75 @@ Validation: every `s_cliTable` key's first token must match one of the extension
                 { "verb": "vm", "path": "delete" },
                 { "verb": "disk", "path": "create" },
                 { "verb": "disk", "path": "list" },
-                { "verb": "disk-access", "path": "show" },
-            ],
-        },
-    },
+                { "verb": "disk-access", "path": "show" }
+            ]
+        }
+    }
 }
 ```
 
 **Design points:**
 
 - `contributions` is the authoritative per-leaf list. The dispatcher builds an in-memory `{(verb, path) → packageId}` index from this at startup.
-- `namespaces` is derived (set of distinct `verb` values across contributions) and persisted only as a convenience for fast `extension list --by-verb` rendering. Kept in sync on write.
-- `version` / `pinned` / `source` / `installedAt` are unchanged from Shape A — they're per-extension, not per-leaf.
-- `schemaVersion` bumps to 2. Reader is **tolerant**: schema-1 entries (no `contributions` array, has `verb: "<verb>"`) are interpreted as a single namespace-wide contribution `[{verb, path: ""}]`. No on-disk rewrite; tolerant reads stay v1 until the user runs `extension update` or installs anything new.
+- `namespaces` is derived (distinct `verb` values across contributions). Persisted as a convenience for fast `extension list --by-verb` rendering. Kept in sync on write.
+- `version` / `pinned` / `source` / `installedAt` are per-extension, not per-leaf.
+- `schemaVersion: 2` reader is tolerant of v1 entries: a v1 entry with `verb: "<verb>"` and no `contributions` array reads as a single namespace-wide contribution `[{verb, path: ""}]`. No on-disk rewrite forced; the next `add`/`update`/`remove` write triggers a transparent schema-2 upgrade for the touched entry.
+- Built-in extensions (`extension`, `login`, `config`) are not in this file — they live in the in-memory seed (§5.6).
 
-### 11.4 Conflict resolution (supersedes §4.2)
+### 5.2 Where contributions are declared
 
-Hard error on **duplicate `(verb, path)`**, applied at two layers:
+**Source of truth: the `s_cliTable` keys themselves, in full-path form.**
 
-**Build time (monorepo).** The MSBuild target from Shape A §4.3 already scans `src/Extensions/**` for `[ExtensionVerb]` and emits `verb-hints.json`. Extend it to also scan each project's `s_cliTable` literal entries and emit a per-leaf table. If two projects emit the same `(verb, path)` tuple, fail the build with a clear `Verb 'vm', path 'create' is registered by both 'Compute' and 'OtherPkg' (locations: …)` message. Catches monorepo conflicts at PR time.
+Each leaf's `s_cliTable` key encodes its full path including the namespace token:
 
-**Install time (third party).** `extension add` ALC-loads the candidate package, reads its `s_cliTable` keys, and checks every `(verb, path)` against the existing registry. First conflict aborts the install with `Verb 'vm', path 'create' is already owned by 'Microsoft.Azure.Cirrus.Extensions.Compute'`. No `--force` override (matches the Shape A discipline).
+```csharp
+private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
+{
+    ["vm create"]   = s_newVMOrchestrator_CLI,
+    ["vm show"]     = s_getVM_CLI,
+    ["vm list"]     = s_listVM_CLI,
+    ["vm delete"]   = s_deleteVM_CLI,
+    ["disk create"] = s_newDisk_CLI,        // same extension, second namespace
+    ["disk list"]   = s_listDisk_CLI,
+};
+```
 
-Namespace-level conflicts no longer exist — multiple extensions advertising `[ExtensionVerb("vm")]` is fine and expected.
+`[ExtensionVerb]` is **repeatable** and advisory: it lists the namespaces an extension wants advertised in the build-time hint catalog. It has no runtime role.
 
-### 11.5 Dispatch flow (supersedes §5.3)
+```csharp
+[ExtensionVerb("vm")]
+[ExtensionVerb("disk")]
+public class ExtensionIndex : IExtensionIndex { ... }
+```
+
+**Build-time validation** (`ExtensionHints.targets`, Phase 9): every `s_cliTable` key's first token must match one of the extension's `[ExtensionVerb]` declarations. Mismatches fail the build with a clear error pointing at the offending key. Keeps `[ExtensionVerb]` declarations and table contents in lockstep so the hint catalog is always complete.
+
+### 5.3 Registration on install
+
+`extension add` is multi-step and transactional:
+
+1. Resolve package from feed (or accept `--path` for a local nupkg).
+2. Extract DLLs to `~/.cirrus/extensions/<pkg>/<version>/`.
+3. Read `[ExtensionVerb]` declarations and `s_cliTable` keys from the candidate DLLs in a throwaway ALC. No extension code executes.
+4. Validate: built-in verbs rejected; compat metadata against current `core` (§7); per-leaf `(verb, path)` collision against the registry.
+5. Update `registry.json` transactionally (write-with-timestamp-guard, §5.7).
+6. On failure at any step: roll back partial state (delete extraction dir, restore registry).
+
+`extension remove`: validate name → delete dir(s) → remove registry entry → done.
+
+### 5.4 Dispatch flow
 
 ```
 azv2 vm create --name foo
        │
        ▼
-  args[0..n] = best longest-prefix match against registry's (verb, path) keys
+  args[0..n] = longest-prefix match against LeafIndex (verb, path) keys
        │  ↓ ("vm", "create")  →  "Microsoft.Azure.Cirrus.Extensions.Compute" v1.1.0
        ▼
-  AssemblyLoader.LoadOrCache(pkg, version)        ← ALC cache from §5.5, unchanged
+  CompatibilityGuard.Assert(asm)         ← warn-and-skip on failure (§7)
+       │
+       ▼
+  AssemblyLoader.LoadOrCache(pkg, version)  ← ALC cache from §5.5
        │
        ▼
   IExtensionIndex.GetCommandMetadata("vm create", CLI)
@@ -533,91 +336,344 @@ azv2 vm create --name foo
   IProcessor.Init(ctx) → ProcessAsync()
 ```
 
-Two changes vs. Shape A's flow:
+- **Longest-prefix matching.** Residual tokens (past the matched prefix) bind to positional arguments. Closes Shape A's deferred item #17.
+- **Lazy dispatch, eager help.** Dispatch loads only the extension owning the matched leaf. Help (when implemented) loads every extension whose `namespaces` array contains the requested verb so it can aggregate leaves across contributors. Both paths reuse the ALC cache.
 
-1. **Two-token (or more) dispatch.** The dispatcher needs longest-prefix matching against the keys of the derived `{(verb, path) → packageId}` index. Same problem deferred under Shape A item #17, now back in scope because Shape B _requires_ multi-token keys to function. Residual tokens (those past the matched prefix) bind to positional arguments — same proposal as the deferred #17 work.
-2. **Lazy dispatch, eager help.** Dispatch loads only the extension owning the matched leaf. Help, when implemented, loads every extension whose `namespaces` array contains the requested verb so it can aggregate leaves across contributors. The two paths reuse the ALC cache.
+### 5.5 ALC caching
 
-### 11.6 Unknown-verb / unknown-leaf hints (supersedes §4.3)
+`ConcurrentDictionary<(string pkg, string version), Lazy<ExtensionLoadContext>>` in `AssemblyLoadingService`:
 
-Today's hint table is `{verb: packageId}`. Shape B widens it to `{(verb, path): packageId}`, emitted by the same MSBuild target. Resolution order on miss:
+- Cache lifetime = process lifetime. No eviction. No attempt to unload old ALCs.
+- One-shot CLI invocations are unaffected (process dies between invocations).
+- Long-running hosts (TUI, test harness) get full benefit.
+- After `update` or `remove`, the long-running host should restart. The cache key includes version, so any new version installed simply gets a new ALC on its first use.
+- `--no-cache` test hook for benchmarking.
+- Bounded LRU is a vNext follow-up if memory becomes a concern (~100MB worst case for 20 extensions, acceptable for TUI).
 
-1. Exact `(verb, path)` match → "install package X".
-2. Verb match, no path match → "package X provides verb '<verb>' but no '<path>' leaf — try `azv2 <verb> --help` after installing".
-3. No verb match → fall through to the existing generic "try `extension search <verb>`" path.
+### 5.6 Built-in seeding
 
-### 11.7 Migration story
+A hardcoded seed dict in the host (replacing the old `CommandGroupIndex`), merged with the on-disk registry at startup:
 
-**On-disk registry.** Existing Shape A entries (`schemaVersion: 1`, single `verb` field, no `contributions` array) are read tolerantly as a single full-namespace contribution. No file rewrite forced. Next `extension add`/`update`/`remove` write triggers a transparent schema-2 upgrade for the touched entry.
+- Built-in entries are never written to `registry.json`. They live only in memory.
+- On startup, the dispatcher's `LeafIndex` is `built-in seed ∪ on-disk registry`.
+- On any collision between a built-in and an installed extension, **built-in wins.** Defensive — the collision should be impossible because `extension add` rejects built-in-rooted contributions in step 4 of §5.3.
 
-**Existing extension projects.** Each `s_cliTable` entry's key prepends the extension's `[ExtensionVerb]` value. Mechanical, scriptable. The accompanying refactor is the same change deferred as Shape A's #17 — combining them removes a phase.
+Alternatives rejected: shipping a `registry.json` with built-ins baked in (footgun — users might edit it), or treating built-ins as installed extensions that install on first boot (adds first-boot failure modes).
 
-**Public surface.** Cirrus is not publicly released; users on the Shape A branch will rebase forward. No deprecation window.
+### 5.7 Registry hardening (Phase 8.5)
 
-### 11.8 Out of scope (Shape B)
+- **`RegistryReconciler`** compares `registry.json` against the install root on every dispatch. Entries whose `~/.cirrus/extensions/{packageId}/{version}/` folder is missing are dropped from the live view so the dispatcher never routes to a stale entry. Non-destructive — the file on disk is unchanged.
+- **Concurrency guard.** `FileExtensionRegistryStore` captures the file's last-write timestamp at `Load()` and checks it at `Save()`. A mismatch throws `CirrusErrorException.RegistryConcurrency` so two interleaved CLI invocations can't silently overwrite each other.
+- **Invariant check.** `FileExtensionRegistryStore.Load()` enforces the §6.2 leaf-uniqueness invariant by scanning every entry's `Contributions`; duplicates across packages throw `CirrusErrorException.RegistryInvalid` with both offending package ids. Catches hand-edited corruption before it reaches the `LeafIndex`.
+- **Stale entries in `extension list`.** Separate `Live` and `Stale` arrays in the response (§4.5).
 
-- Help system. Aggregated namespace help (`azv2 vm --help` merging leaves from all contributors) is still on the help branch. Shape B only ensures the host _can_ answer "which extensions contribute to `vm`" cheaply.
-- Per-leaf pinning. `pinned` remains per-extension. A user can't pin `vm create` separately from `vm delete`. Not worth the complexity at v1.
-- Cross-leaf ordering / overrides. No "this leaf takes priority over that one." Conflicts are hard errors; the user resolves them by uninstalling.
-- Feed-served verb index (Q9 from §8). Still tracked, still deferred.
+---
 
-### 11.9 Implementation plan (Shape B phases)
+## 6. Conflict & validation
 
-Resumes numbering from Shape A's phase 5. Each phase compiles, tests pass, and the system is coherent.
+Three checkpoints, increasing in cost from compile-time to dispatch-time.
 
-**Phase 6 — Schema and reader (no user-visible change)**
+### 6.1 Build time (monorepo)
 
-19. ✅ Bump `ExtensionRegistry` to `schemaVersion: 2`. Add `contributions: [{verb, path}]` and `namespaces: [string]` fields. Tolerant reader for v1 entries.
-20. ✅ Build the in-memory `{(verb, path) → packageId}` index at startup from the merged seed + on-disk registry.
-21. ✅ Unit tests: v1 tolerance, v2 round-trip, index build from mixed-schema input.
+`ExtensionHints.targets` scans `src/Extensions/**` for `[ExtensionVerb]` declarations and `s_cliTable` literal entries. Two failure modes:
 
-_Checkpoint: registry can express Shape B, but nothing routes through it yet._
+1. **Cross-project leaf collision.** Two projects emit the same `(verb, path)`. Build fails: `Verb 'vm', path 'create' is registered by both 'Compute' and 'OtherPkg' (locations: …)`.
+2. **Undeclared verb in `s_cliTable`.** A leaf key's first token isn't covered by any `[ExtensionVerb]` declaration in the same project. Build fails with the offending key and the project's declared namespaces.
 
-**Phase 7 — Dispatcher rewrite**
+Catches conflicts at PR time, before any artifact ships.
 
-22. ✅ Replace single-verb lookup with longest-prefix match against the `(verb, path)` index. Surface residual tokens to the parser for positional binding.
-23. ✅ Resolve [Shape A deferred item #17](docs/spec/extension-management.md#L361) as part of this — positional-residual binding, multi-token keys.
-24. ✅ Compute (and any other in-tree extension) migrates `s_cliTable` keys to full-path form (`"vm create"` instead of `"create"`).
+### 6.2 Install time (third party)
 
-_Checkpoint: Shape B routing is real; Shape A's deferred #17 is closed._
+`extension add` step 4 (§5.3):
 
-**Phase 8 — Install-time and build-time conflict checks**
+1. **Built-in verb rejection.** Any leaf whose first token is a built-in verb (`extension`, `login`, `config`) is rejected immediately, even if no installed extension currently claims that root.
+2. **Compat metadata check** (§7). Hard fail if the candidate's `[CirrusCompatibility]` range excludes the current `core`.
+3. **Per-leaf collision against registry.** First conflict aborts the install. No `--force` override.
 
-25. ✅ `extension add` reads candidate `s_cliTable` keys in throwaway ALC, conflict-checks every `(verb, path)` against the registry. Same error surface as Shape A's verb-level conflict, finer-grained details.
-26. ✅ MSBuild `ExtensionHints.targets` collects bare-verb entries from `[ExtensionVerb]` and full-path leaf entries from `s_cliTable`, deduplicates across projects (build error on cross-project collision), and emits a single `extension-hints.json` embedded resource consumed by `ExtensionHintTable`.
-27. ✅ Dispatcher walks the longest-prefix path against `extension-hints.json` for the unknown-leaf message (§11.6 case 2).
+Namespace-level conflicts no longer exist — multiple extensions declaring the same `[ExtensionVerb]` is fine and expected.
 
-_Checkpoint: monorepo conflicts caught at PR time; third-party conflicts caught at install time._
+### 6.3 Runtime (load)
 
-**Phase 8.5 — Registry hardening**
+`CompatibilityGuard.Assert(asm)` runs after the ALC loads the extension assembly, before any `IProcessor` resolves. On failure (compat range excludes current `core`):
 
-27a. ✅ `RegistryReconciler` compares `registry.json` against the install root on every dispatch; entries whose `~/.cirrus/extensions/{packageId}/{version}/` folder is missing are dropped from the live view so the dispatcher never routes to a stale entry. Non-destructive — the file on disk is unchanged.
-27b. ✅ `FileExtensionRegistryStore` captures the file's last-write timestamp at `Load()` and checks it at `Save()`; a mismatch throws `CirrusErrorException.RegistryConcurrency` so two interleaved CLI invocations can't silently overwrite each other's installs.
-27c. ✅ `FileExtensionRegistryStore.Load()` enforces the §11.4 leaf-uniqueness invariant by scanning every entry's `Contributions`; duplicates across packages throw `CirrusErrorException.RegistryInvalid` with both offending package ids. Catches hand-edited corruption before it reaches the `LeafIndex`.
-27d. ✅ `extension list` returns separate `Live` and `Stale` lists; stale entries include the missing path and a `Reason` so the user can decide whether to remove them.
+- Log a warning identifying the extension and the range mismatch.
+- Drop that extension's contributions from the live `LeafIndex` for this invocation.
+- Continue dispatch. Other extensions — including other contributors to the same verb — keep working.
 
-_Checkpoint: the registry file is no longer an unchecked source of truth; missing payloads, concurrent writers, and corrupt invariants all surface as structured errors instead of weird routing._
+Per-extension, not per-verb. Mirrors az-cli's load loop verbatim.
 
-**Phase 9 — Multi-namespace extension validation**
+---
 
-28. ✅ Compute extension declares `[ExtensionVerb("vm")]` + `[ExtensionVerb("disk")]` and contributes a stub `disk list` leaf via `ListDiskProcessor`. Proves the multi-namespace model end-to-end with the smallest possible payload.
-29. ✅ `[ExtensionVerb]` is repeatable (`AllowMultiple = true`). `ExtensionVerbReader.ReadVerbs(...)` returns every declared verb; `Add.cs` / `Update.cs` validate each leaf's first token against the full declared set. `ExtensionHints.targets` emits a build error if any `s_cliTable` key's first token isn't declared via `[ExtensionVerb]` in the same project.
-30. ✅ Tests verify: a single registry entry with multiple `Contributions` routes correctly via `LeafIndex` under both namespaces; `ExtensionResolver` resolves both verbs to the same `PackageId`; persistence roundtrip preserves both namespaces; removing the entry purges both namespaces in one operation. `extension list` exposes the full `Namespaces` array per entry.
+## 7. Compatibility metadata
 
-_Checkpoint: Shape B is real end-to-end with a multi-namespace example proving it._
+Extensions declare a `core` version range; the host enforces it at install (hard fail) and load (warn-and-skip). Models az-cli's `ext_compat_with_cli` / `check_version_compatibility` (see [azure-cli/src/azure-cli-core/azure/cli/core/extension/__init__.py](C:/Users/dlanguiller/source/repos/azure-cli/src/azure-cli-core/azure/cli/core/extension/__init__.py) and [azure-cli/src/azure-cli-core/azure/cli/core/__init__.py](C:/Users/dlanguiller/source/repos/azure-cli/src/azure-cli-core/azure/cli/core/__init__.py)).
 
-**Phase 10 — Polish**
+### 7.1 Declaration
 
-31. `extension list --by-verb` rendering (uses the `namespaces` field).
-32. Telemetry: add a `contributionCount` dimension to install/remove events.
-33. Update [extension-framework.md](./extension-framework.md) to point at this section for the dispatch model.
-34. **Symmetry between `extension add --name` and `extension remove --name`.** Today `remove` accepts either a packageId or a verb, but `add` only accepts a short packageId suffix (auto-prefixed with `Microsoft.Azure.Cirrus.Extensions.`). Make `add --name` also accept a verb by consulting the embedded hint file (`extension-hints.json`) for a verb→packageId lookup before falling back to the prefix-strip behavior. Keep `--path` unchanged.
-35. **Smarter `ExtensionNotFound` hint.** When the dispatcher emits the "Install it with: `azv2 extension add --name <X>`" hint and the host has no NuGet feed configured (or the package is known to ship as a local artifact in this repo), surface the local nupkg path as the suggestion instead of `--name`. Concretely: if `artifacts/Debug/<packageId>/<packageId>.<version>.nupkg` exists, the message becomes `Install it with: azv2 extension add --path <absolute-path-to-nupkg>`. This closes the dev-loop gap where `--name` silently fails because no feed serves the package.
+Assembly-level attribute defined in `Core.Abstractions`:
 
-_Checkpoint: Shape B v1, shippable._
+```csharp
+[assembly: CirrusCompatibility(MinCoreVersion = "1.0.0", MaxCoreVersion = "2.0.0")]
+```
 
-### 11.10 Open questions
+Both fields optional. Missing attribute = assumed compatible (tolerant, Q17). SemVer with pre-release ordering via NuGet's `NuGetVersion` (Q20).
 
-- **Q10 (resolved): Build error when an `s_cliTable` key's first token isn't covered by an `[ExtensionVerb]` declaration.** The MSBuild target fails the build with a clear message pointing at the offending key and the extension's declared namespaces. Trade-off: developers must keep `[ExtensionVerb]` declarations in sync with table contents, but in exchange the build-time hint table is guaranteed complete — every leaf has a path that the host can suggest installing.
-- **Q11: How does an extension declare a namespace it owns but has no leaves under?** E.g. a future "Networking" extension that wants to claim `network` for help text purposes but ships zero leaves itself. Probably not a real need; `[ExtensionVerb]` declarations without matching leaves currently have no effect. Worth revisiting if a use case appears.
-- **Q12: Aggregated namespace help.** Punted to the help branch — Shape B just guarantees the data shape (`namespaces` field on each registry entry) needed to answer it.
+### 7.2 Guard
+
+`Core.Runtime.CompatibilityGuard.Assert(Assembly asm)`:
+
+1. Read `[CirrusCompatibility]` via reflection.
+2. Compare current `core` version against the declared range. Fail if outside.
+3. Look up `HostExtensionRequirements[packageId]` — the inverse direction dict, az-cli's `EXTENSION_VERSION_REQUIREMENTS` equivalent (Q19). Fail if installed extension version is below the host-required minimum.
+
+Called from:
+
+- **CLI.** `ExtensionDispatcher` after `AssemblyLoader.LoadOrCache`, before the first `IProcessor` resolves.
+- **PS.** `CirrusCmdletBase.BeginProcessing()` at cmdlet start.
+
+### 7.3 Failure modes
+
+- **Install** (`extension add`): hard error, abort install, no disk write. Exit code 7, `CompatibilityViolation` symbolic code.
+- **Runtime** (load): per-extension warn-and-skip. Contributions dropped from live `LeafIndex`. Other extensions keep working (§6.3).
+
+### 7.4 Inverse direction (`HostExtensionRequirements`)
+
+```csharp
+internal static readonly Dictionary<string, VersionRange> HostExtensionRequirements = new()
+{
+    // Populated when the host team ships a breaking change.
+    // Empty in v1.
+    // Example:
+    // ["Microsoft.Azure.Cirrus.Extensions.Compute"] = VersionRange.Parse("[2.0.0,)"),
+};
+```
+
+Ships empty. The host team adds an entry in the same PR that introduces a breaking change for a specific extension. Cost is ~10 lines; worth shipping with v1 so the escape hatch exists when the first breaking change happens.
+
+### 7.5 Bypass (deferred)
+
+`CIRRUS_DISABLE_COMPAT_CHECK=1` is **not** in v1 (Q21). Runtime warn-and-skip is already forgiving. Additive in ~3 lines when needed.
+
+---
+
+## 8. Discovery / hint catalog
+
+v1 ships an embedded `extension-hints.json`. Schema is feed-ready so the fetch half can be added in vNext without changing the file format or the resolution path.
+
+### 8.1 Schema (v2)
+
+```jsonc
+{
+    "schemaVersion": 2,
+    "generatedAt": "2026-05-28T10:00:00Z",
+    "sourceHostVersion": "1.2.0",
+    "leaves": {
+        "vm": { "packageId": "Microsoft.Azure.Cirrus.Extensions.Compute" },
+        "vm create": { "packageId": "Microsoft.Azure.Cirrus.Extensions.Compute" },
+        "vm list": { "packageId": "Microsoft.Azure.Cirrus.Extensions.Compute" },
+        "disk": { "packageId": "Microsoft.Azure.Cirrus.Extensions.Compute" },
+        "disk list": { "packageId": "Microsoft.Azure.Cirrus.Extensions.Compute" },
+        "group": { "packageId": "Microsoft.Azure.Cirrus.Extensions.Resources" },
+        "group create": { "packageId": "Microsoft.Azure.Cirrus.Extensions.Resources" }
+    }
+}
+```
+
+Per-leaf entries are objects (not bare strings) so v2 can carry optional fields without re-bumping the schema:
+
+```jsonc
+"vm contoso-magic": {
+    "packageId": "Contoso.VmPreviewExt",
+    "minCoreVersion": "1.5.0",
+    "maxCoreVersion": null
+}
+```
+
+v1 embed populates only `packageId`. Compat fields (Q26) are reserved for the feed half.
+
+### 8.2 Generation
+
+`ExtensionHints.targets` (Phase 8) scans every project in `src/Extensions/**`:
+
+- Bare verbs from `[ExtensionVerb]` declarations.
+- Full-path leaves from `s_cliTable` literal keys.
+
+Cross-project collisions fail the build (§6.1). Output is embedded as a resource in `Core.Cli` and consumed by `ExtensionHintTable`.
+
+### 8.3 Resolution (v1)
+
+On dispatch miss, `ExtensionHintTable` walks the longest-prefix path against `extension-hints.json`:
+
+1. Exact `(verb, path)` match → "install package X" (§4.3 case 1).
+2. Verb match, no path match → "package X provides verb '<verb>' but no '<path>' leaf" (§4.3 case 2).
+3. No verb match → fall through to generic "try `extension search`" (§4.3 case 3).
+
+### 8.4 vNext: feed refresh
+
+Additive — no host change beyond fetch + cache read. Same schema, fetched on a TTL (lean 24h, Q24), written to `~/.cirrus/cache/extension-hints.json`. Resolution becomes cache-first if fresh, embedded fallback if cache is missing or stale. Stale fallback is silent — no "hints may be outdated" warning (Q25).
+
+Compat-aware filtering (Q26): once feed entries populate `minCoreVersion`/`maxCoreVersion`, the host can pre-filter suggestions whose package would fail the install-time compat check. For v1 (embed only, compat fields empty), the code path is dormant.
+
+### 8.5 Deferred / open
+
+- **Feed endpoint location** (Q23) — per-`core`-release GitHub asset, Cirrus-owned blob, or NuGet feed metadata. Pick when we wire up the fetch.
+- **`extension list --available`** (Q27) — comes for free when the feed exists; out of v1 scope until then.
+- **PowerShell CNF integration** — Cirrus PS reads the same embedded `extension-hints.json` for CommandNotFound scenarios. Conversation with the PS team is pending. Out of scope for this branch.
+
+---
+
+## 9. Implementation status
+
+Phases 1–9 complete; Phase 10 in progress.
+
+### Phase 1 — Foundation ✅
+
+1. ✅ `[ExtensionVerb("…")]` attribute in `Core.Abstractions`.
+2. ✅ Annotate existing extensions: `Compute → "vm"`, `Resources → "group"`, `Login → "login"`, `Extension → "extension"`, `Config → "config"`.
+3. ✅ Registry JSON read/write: schema class (§5.1), atomic write, unit tests.
+4. ✅ Built-in seed dictionary in host.
+
+### Phase 2 — Routing through registry ✅
+
+5. ✅ Dispatcher reads `(built-in seed ∪ on-disk registry)` instead of `CommandGroupIndex`.
+6. ✅ Delete `CommandGroupIndex`.
+
+### Phase 3 — Mutating CRUD ✅
+
+7. ✅ `extension add`: load attribute in throwaway ALC, conflict-check, extract DLLs, transactional registry write, rollback on failure.
+8. ✅ `extension list` and `extension show`.
+9. ✅ `extension remove` (errors on built-in verbs).
+10. ✅ `extension update` (overwrite in place, pin-respecting, `--force` to break a pin).
+11. ✅ `extension pin` / `unpin` commands + `--pin` flag on `add`.
+
+### Phase 4 — `vm` and `group` become real extensions ✅
+
+12. ✅ MSBuild target emits `extension-hints.json` as an embedded resource.
+13. ✅ Dispatcher consults the hint table on unknown verbs.
+14. ✅ Extract Compute and Resources into standalone NuGet packages. Drop from built-in seed.
+15. ✅ Built-in seed is now exactly `extension` / `login` / `config`.
+
+### Phase 5 — Shape A polish ✅
+
+16. ✅ Error surface: exit codes 0–6, symbolic codes in JSON, `--output json` wired.
+17. ✅ ALC caching: `ConcurrentDictionary<(pkg, version), Lazy<ALC>>`, no eviction, `--no-cache` test hook.
+
+### Phase 6 — Schema and reader (Shape B foundation) ✅
+
+19. ✅ Registry `schemaVersion: 2`. `contributions: [{verb, path}]` and `namespaces: [string]` fields. Tolerant reader for v1 entries.
+20. ✅ In-memory `{(verb, path) → packageId}` index from merged seed + on-disk registry.
+21. ✅ Unit tests: v1 tolerance, v2 round-trip, mixed-schema input.
+
+### Phase 7 — Dispatcher rewrite ✅
+
+22. ✅ Longest-prefix match against `(verb, path)` index. Positional binding for residual tokens.
+23. ✅ Closes Shape A deferred item #17.
+24. ✅ Compute (and other in-tree extensions) migrate `s_cliTable` keys to full-path form.
+
+### Phase 8 — Conflict checks ✅
+
+25. ✅ `extension add` per-leaf `(verb, path)` conflict check against registry.
+26. ✅ `ExtensionHints.targets` collects bare verbs + full-path leaves, deduplicates across projects, emits single embedded `extension-hints.json`.
+27. ✅ Dispatcher walks longest-prefix path against `extension-hints.json` for unknown-leaf messages.
+
+### Phase 8.5 — Registry hardening ✅
+
+27a. ✅ `RegistryReconciler` drops missing-payload entries from the live view (§5.7).
+27b. ✅ `FileExtensionRegistryStore` write-timestamp concurrency guard.
+27c. ✅ Load-time leaf-uniqueness invariant check.
+27d. ✅ `extension list` returns separate `Live` / `Stale` arrays.
+
+### Phase 9 — Multi-namespace validation ✅
+
+28. ✅ Compute declares `[ExtensionVerb("vm")]` + `[ExtensionVerb("disk")]` and contributes a stub `disk list` leaf.
+29. ✅ `[ExtensionVerb]` is repeatable. `Add.cs` / `Update.cs` validate each leaf's first token against the full declared set. Build-time check enforces the same rule.
+30. ✅ Tests: multi-namespace routing, resolver, persistence roundtrip, remove-purges-both-namespaces, `extension list` exposes `Namespaces`.
+
+### Phase 10 — Polish (in progress)
+
+31. ⏳ `extension list --by-verb` rendering (uses the `namespaces` field; output shape per §4.5).
+32. ⏳ Telemetry: `contributionCount` dimension on install/remove events.
+33. ⏳ Update [extension-framework.md](./extension-framework.md) to point at this doc for the dispatch model.
+34. ⏳ **Symmetric `extension add --name`.** Make `add --name` also accept a verb by consulting `extension-hints.json` before the prefix-strip fallback. Keep `--path` unchanged.
+35. ⏳ **Smarter `ExtensionNotFound` hint.** When no NuGet feed is configured, surface the local `artifacts/Debug/<pkg>/<pkg>.<version>.nupkg` path as the `--path` suggestion instead of `--name`. Closes the dev-loop gap where `--name` silently fails.
+36. ⏳ **`[CirrusCompatibility]` + `CompatibilityGuard`** per §7 (attribute in `Core.Abstractions`, guard in `Core.Runtime`, install-time hard fail in `Add.cs`, runtime warn-and-skip in `ExtensionDispatcher`, empty `HostExtensionRequirements` dict).
+37. ⏳ **`extension-hints.json` schema v2** per §8.1 (`generatedAt`, `sourceHostVersion`, optional `minCoreVersion`/`maxCoreVersion` per leaf; v1 leaves compat fields unpopulated).
+38. ⏳ **Shape B contract test.** Two extensions sharing a verb with non-colliding leaves both install successfully; same verb with a colliding leaf fails the second install.
+39. ⏳ PS team conversation re: CNF integration with the embedded hint catalog.
+
+_Checkpoint at end of Phase 10: Shape B v1, shippable._
+
+### vNext (tracked, not v1)
+
+- Feed-fetch path for `extension-hints.json` (§8.4).
+- `CIRRUS_DISABLE_COMPAT_CHECK` env var (Q21).
+- `extension list --available` (Q27).
+- Bounded LRU on the ALC cache if memory matters (§5.5).
+- Multi-version retention (`versions: [...]` + `activeVersion`, additive schema change — Q6).
+
+---
+
+## 10. Open / deferred
+
+- **Q11**: how does an extension declare a namespace it owns but ships zero leaves under? Low priority; revisit if a use case appears.
+- **Q12 / Q15**: aggregated namespace help rendering. Help branch.
+- **Schema-versioning commitment**: how many registry-schema versions back do we read indefinitely? Not discussed; current posture is "v1 + v2."
+- **Trust and provenance** (full §1.7 item). Revisit before the first third-party extension ships.
+- **Roaming home directories and system-wide installs** (full §1.7 item). Current posture: per-user, unsupported on roaming.
+- **PowerShell parity definition** (full §1.7 item). "Same surface" vs. "same shape when both exist."
+
+---
+
+## Appendix A: Historical discussion log
+
+Chronological record of how we arrived at the current decisions. Resolutions live in §1; this appendix exists for context on _why_.
+
+### 2026-05-22 — Initial decision pass
+
+**Q1 (Extension verb declaration).** `[ExtensionVerb("vm")]` attribute on `IExtensionIndex`. Colocated, no manifest, readable in a throwaway ALC.
+
+**Q2 (Registry location).** `~/.cirrus/extensions/registry.json`. Colocated with install dirs, single file, user-scoped.
+
+**Q3 (True core).** `extension`, `login`, `config`. Resources (`group`) and Compute (`vm`) move to installable extensions.
+
+**Q4 (Tree vs. flat command keys).** Flat string-keyed dictionary, hierarchy by spaces. Zero migration cost.
+
+**Q5 (Pinning UX).** Both `extension pin/unpin` commands and `--pin` on `add`. Pinning blocks `update` unless `--force`.
+
+### 2026-05-22 — Second pass
+
+**Q6 (Old-version retention).** Strict single-version. Multi-version is an additive schema change later.
+
+**Q7 (Conflict & scoping).** User-scoped only. No `--force` on conflict. Pinned blocks `update` without `--force`. Built-ins not removable.
+
+**Q8 (ALC cache).** Process-lifetime `ConcurrentDictionary`, no eviction, `--no-cache` test hook.
+
+### 2026-05-22 — Third pass
+
+**§6 seeding = option A.** Hardcoded seed dict merged with on-disk registry. Built-in wins on conflict.
+
+**§4.4 error surface.** Seven exit codes (0–6), symbolic codes for JSON, `--output json` reused.
+
+### 2026-05-22 — Fourth pass
+
+**§4.3 hint table.** Build-time MSBuild target scans `[ExtensionVerb]`, emits embedded JSON. No first-run network calls. Q9 (feed-served index) tracked as non-blocking.
+
+### 2026-05-23 — Shape B revision begins
+
+Re-scoped from Shape A (one verb / one extension) to Shape B (shared namespaces, per-leaf ownership) after the az-cli monorepo precedent (`vm` module contributing to `disk`, `disk-access`, etc.) was raised as a recurring real-world shape. Registry schema bumped to v2; tolerant reader for v1 entries.
+
+### 2026-05-28 — PM meeting
+
+Three decisions landed:
+
+1. **Shape B confirmed as the v1 model.** Per-verb ownership gate removed from `Add.cs`; per-leaf `(verb, path)` collision check is now sole enforcement. Built-in verbs remain reserved.
+2. **Compatibility metadata ships in v1.** Extensions declare a `core` min/max version range.
+3. **Hint catalog moves to blended embed-plus-feed model.** v1 cut: embed only, schema feed-ready.
+
+Compat posture confirmed: source-compat with az-cli, migration tool acknowledged.
+
+Deferred from the meeting: §1.7 trust, §1.7 hygiene, §1.7 surface polish. PS-CNF integration raised as a follow-up conversation with the PS team.
+
+### 2026-05-28 — Post-meeting Q resolution pass
+
+az-cli investigation (`ext_compat_with_cli`, `check_version_compatibility`, `EXTENSION_VERSION_REQUIREMENTS`) confirmed the model for Q16–Q22 and Q13/Q22 (per-extension warn-and-skip on compat failure under Shape B, not per-verb). Q14 resolved as verb-headed `--by-verb` rendering. Q21 deferred. Q15 to help branch. Q23–Q27 resolved as "embed in v1, schema feed-ready, fetch in vNext" with Q25 silent fallback and Q26 schema reserving optional compat fields.

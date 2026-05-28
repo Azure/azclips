@@ -116,38 +116,13 @@ public class AddExtensionProcessor : IProcessor
             var store = new FileExtensionRegistryStore();
             var registry = store.Load();
 
-            // Conflict check: every declared verb must be free of other-package ownership.
-            // Self-upsert (same packageId reinstalling) is fine.
+            // Shape B: top-level verbs are shared. Multiple extensions may declare the same
+            // [ExtensionVerb] (e.g. two extensions both contributing under `vm`); collisions are
+            // resolved per-leaf below against the (verb, path) tuple. The per-verb ownership
+            // gate that existed under Shape A has been removed — matches the meeting decision
+            // (May 2026) to adopt the az-cli many-to-many model. Built-in verbs remain reserved
+            // (see the IsBuiltInVerb check above) and built-in roots are still rejected per-leaf.
             var declaredVerbSet = new HashSet<string>(verbs, StringComparer.OrdinalIgnoreCase);
-            foreach (var (existingPackageId, existingEntry) in registry.Extensions)
-            {
-                if (string.Equals(existingPackageId, packageId, StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                // Build the set of namespaces the existing entry claims so multi-namespace
-                // packages can't be partially shadowed.
-                var existingNamespaces = existingEntry.Namespaces.Count > 0
-                    ? (IEnumerable<string>)existingEntry.Namespaces
-                    : (existingEntry.Verb is null ? Array.Empty<string>() : new[] { existingEntry.Verb });
-
-                foreach (var existingVerb in existingNamespaces)
-                {
-                    if (declaredVerbSet.Contains(existingVerb))
-                    {
-                        throw CirrusErrorException.VerbConflict(
-                            $"Extension '{packageId}' wants to register verb '{existingVerb}', but it is already owned by '{existingPackageId}'. " +
-                            $"Remove the existing extension first: azv2 extension remove {existingPackageId}",
-                            new Dictionary<string, object?>
-                            {
-                                ["packageId"] = packageId,
-                                ["verb"] = existingVerb,
-                                ["existingPackageId"] = existingPackageId,
-                            });
-                    }
-                }
-            }
 
             // Shape B (§11.7): read the candidate's leaves (s_cliTable keys) from the just-
             // installed DLLs and conflict-check every (verb, path) tuple against the registry
