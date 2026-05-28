@@ -75,6 +75,7 @@ public sealed class ChatAgent : IAsyncDisposable
         var prober = new EnvironmentProber(authContext, flavor);
 
         ChatAgent? self = null;
+        SessionErrored? earlyError = null;
 
         var eventRenderer = new EventRenderer
         {
@@ -83,6 +84,7 @@ public sealed class ChatAgent : IAsyncDisposable
                 if (ev is SessionErrored err)
                 {
                     if (self is not null) self.LastError = err;
+                    else                  earlyError = err;
                     try { self?._activeTurnCts?.Cancel(); } catch { }
                 }
                 if (spinner is not null)
@@ -145,6 +147,7 @@ public sealed class ChatAgent : IAsyncDisposable
 
         var agent = new ChatAgent(client, session);
         self = agent;
+        if (earlyError is not null) agent.LastError = earlyError;
         return agent;
     }
 
