@@ -24,7 +24,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
         public bool VTpmEnabled { get; set; } = true;
         public bool BootDiagnosticsEnabled { get; set; } = false;
 
-        public override async Task<HttpRequestMessage> CreateRequestMessage()
+        protected override async Task<HttpRequestMessage> CreateRequestMessage()
         {
             await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
             string uri = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines/{Name}?api-version=2025-11-01";
@@ -94,7 +94,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
         protected override Func<HttpResponseMessage, string?> GetAsyncOperationUri => response => response.GetFirstHeader("Azure-AsyncOperation");
         protected override Func<HttpResponseMessage, string?> GetLocationUri => response => response.GetFirstHeader("Location");
 
-        public override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();
+        internal override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();
     }
 }
 

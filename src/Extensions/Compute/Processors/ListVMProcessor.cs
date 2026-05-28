@@ -8,7 +8,7 @@ public class ListVMProcessor : ComputeProcessorBase<VirtualMachine>
 {
     public string ResourceGroupName { get; set; } = string.Empty;
 
-    public override async Task<HttpRequestMessage> CreateRequestMessage()
+    protected override async Task<HttpRequestMessage> CreateRequestMessage()
     {
         await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
         string uri = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines?api-version=2025-11-01";
