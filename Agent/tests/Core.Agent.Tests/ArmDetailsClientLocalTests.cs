@@ -53,7 +53,6 @@ public sealed class ArmDetailsClientLocalTests
     }
 
     [Fact]
-    [Trait("Category", "Local")]
     public async Task GetByIdAsync_ShouldReturnNull_ForEmptyInput()
     {
         // No env var needed — this exercises the fast-path validation only.
