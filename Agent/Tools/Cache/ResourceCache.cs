@@ -250,26 +250,22 @@ public sealed class ResourceCache
             if (_rgByIdCi.TryGetValue(nameOrId, out var byRgId)) return CacheKinds.ProjectResourceGroup(byRgId);
         }
 
-        // 2) Exact name (filtered)
-        var matches = FindResources(nameOrId, kind, scope, top: 25)
-            .Where(m => m.Match == "exact")
-            .ToList();
+        // 2) Single FindResources call — RankByName short-circuits to exact /
+        // substring / fuzzy in that order, so the Match field on the first
+        // row tells us which tier we landed in.
+        var matches = FindResources(nameOrId, kind, scope, top: 25);
+        if (matches.Count == 0) return null;
 
+        if (matches[0].Match == "exact")
+        {
+            var exact = matches.Where(m => m.Match == "exact").ToList();
+            if (exact.Count == 1) return exact[0].Resource;
+            throw new AmbiguousMatchException(exact.Select(m => m.Resource.Id).ToList());
+        }
+
+        // 3) Substring/fuzzy fallback — already capped by FindResources.
         if (matches.Count == 1) return matches[0].Resource;
-        if (matches.Count > 1)
-        {
-            throw new AmbiguousMatchException(matches.Select(m => m.Resource.Id).ToList());
-        }
-
-        // 3) No exact — try unique substring/fuzzy
-        var sub = FindResources(nameOrId, kind, scope, top: 25);
-        if (sub.Count == 1) return sub[0].Resource;
-        if (sub.Count > 1)
-        {
-            throw new AmbiguousMatchException(sub.Select(m => m.Resource.Id).ToList());
-        }
-
-        return null;
+        throw new AmbiguousMatchException(matches.Select(m => m.Resource.Id).ToList());
     }
 
     public CachedResourceGroup? ResolveResourceGroup(string nameOrId, ScopeFilter? scope)
