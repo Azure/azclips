@@ -58,6 +58,11 @@ PowerShellVersion = '7.5'
 
 RequiredAssemblies = '../../../artifacts/Debug/Core/Core.Abstractions.dll',
                         '../../../artifacts/Debug/Core/Core.Telemetry.dll',
+                        '../../../artifacts/Debug/Core/OpenTelemetry.Api.dll',
+                        '../../../artifacts/Debug/Core/OpenTelemetry.dll',
+                        '../../../artifacts/Debug/Core/OpenTelemetry.Api.ProviderBuilderExtensions.dll',
+                        '../../../artifacts/Debug/Core/OpenTelemetry.Instrumentation.Http.dll',
+                        '../../../artifacts/Debug/Core/Azure.Monitor.OpenTelemetry.Exporter.dll',
                         '../../../artifacts/Debug/Core/Core.Runtime.dll',
                         '../../../artifacts/Debug/Core/Core.Engine.dll',
                         '../../../artifacts/Debug/Core/Core.AssemblyLoading.dll',
