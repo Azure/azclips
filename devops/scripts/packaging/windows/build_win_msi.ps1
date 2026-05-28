@@ -27,17 +27,41 @@ function Resolve-FullPath([string]$Path) {
     return [System.IO.Path]::GetFullPath($Path)
 }
 
-function Get-PackageVersion {
+function Get-GitCommitCount([string]$SourceRoot) {
+    $git = Get-Command git -ErrorAction SilentlyContinue
+    if ($null -eq $git) {
+        return $null
+    }
+
+    $output = & $git.Source -C $SourceRoot rev-list --count HEAD 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        return $null
+    }
+
+    $commitCount = 0
+    if ([int]::TryParse(($output | Select-Object -First 1), [ref]$commitCount)) {
+        return $commitCount
+    }
+
+    return $null
+}
+
+function Get-PackageVersion([string]$SourceRoot) {
     if (-not [string]::IsNullOrWhiteSpace($ProductVersion)) {
         $version = $ProductVersion.Trim()
     }
-    elseif (-not [string]::IsNullOrWhiteSpace($env:BUILD_BUILDID)) {
-        $buildNumber = [int]$env:BUILD_BUILDID % 65535
-        if ($buildNumber -eq 0) { $buildNumber = 1 }
-        $version = "1.0.$buildNumber.0"
-    }
     else {
-        $version = '1.0.0.0'
+        $buildNumber = Get-GitCommitCount $SourceRoot
+        if ($null -ne $buildNumber) {
+            $version = "1.0.$buildNumber.0"
+        }
+        elseif (-not [string]::IsNullOrWhiteSpace($env:BUILD_BUILDID)) {
+            $buildNumber = [int]$env:BUILD_BUILDID
+            $version = "1.0.$buildNumber.0"
+        }
+        else {
+            $version = '1.0.0.0'
+        }
     }
 
     if ($version -notmatch '^\d{1,5}\.\d{1,5}\.\d{1,5}\.\d{1,5}$') {
@@ -131,7 +155,7 @@ $publishRoot = Join-Path $OutRoot "publish/cli/$Rid-msi"
 $wixRoot = Join-Path $OutRoot "wix/$Rid"
 $artifactRoot = Join-Path $OutRoot 'bin/Release'
 $msiPath = Join-Path $artifactRoot "azv2-$Rid.msi"
-$version = Get-PackageVersion
+$version = Get-PackageVersion $RepoRoot
 
 if (-not (Test-Path $cliProject)) {
     throw "CLI project was not found: $cliProject"
@@ -191,28 +215,27 @@ foreach ($builtinDirectory in Get-ChildItem $builtinPublishRoot -Directory) {
 }
 
 $harvestPath = Join-Path $wixRoot 'PublishedFiles.wxs'
-$productPath = Join-Path $wixRoot 'Product.wxs'
+$productPath = Join-Path $PSScriptRoot 'setup/cirrus.wxs'
+
+if (-not (Test-Path $productPath)) {
+    throw "Static WiX product file was not found: $productPath"
+}
 
 & $wixTools.Heat dir $publishRoot `
     -cg PublishedFiles `
     -dr INSTALLFOLDER `
+    -platform x64 `
     -srd `
     -sfrag `
     -sreg `
     -gg `
+    -template fragment `
     -var var.PublishRoot `
     -out $harvestPath
 
 if ($LASTEXITCODE -ne 0) {
     throw "heat.exe failed with exit code $LASTEXITCODE."
 }
-
-$harvestContent = Get-Content $harvestPath -Raw
-$harvestContent = $harvestContent -replace '<Component Id="([^"]+)" Guid="([^"]+)">', '<Component Id="$1" Guid="$2" Win64="yes">'
-$escapedPublishRoot = [System.Security.SecurityElement]::Escape($publishRoot)
-$harvestContent = $harvestContent.Replace('$(var.PublishRoot)', $escapedPublishRoot)
-$harvestContent = $harvestContent.Replace('$publishRoot', $escapedPublishRoot)
-Set-Content -Path $harvestPath -Value $harvestContent -Encoding utf8
 
 $setupMediaRoot = Join-Path $PSScriptRoot 'setup/media'
 $licenseRtfPath = Join-Path $setupMediaRoot 'License.rtf'
@@ -232,72 +255,20 @@ foreach ($media in $requiredMedia) {
     }
 }
 
-$escapedLicenseRtfPath = [System.Security.SecurityElement]::Escape($licenseRtfPath)
-$escapedBannerBmpPath = [System.Security.SecurityElement]::Escape($bannerBmpPath)
-$escapedDialogBmpPath = [System.Security.SecurityElement]::Escape($dialogBmpPath)
-$escapedIconPath = [System.Security.SecurityElement]::Escape($iconPath)
-
-$productXml = @"
-<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-  <Product Id="*"
-           Name="$ProductName"
-           Language="1033"
-           Version="$version"
-           Manufacturer="$Manufacturer"
-           UpgradeCode="$UpgradeCode">
-    <Package InstallerVersion="500" Compressed="yes" InstallScope="perMachine" Platform="x64" />
-    <MajorUpgrade AllowSameVersionUpgrades="yes"
-                  DowngradeErrorMessage="A later version of [ProductName] is already installed." />
-    <MediaTemplate EmbedCab="yes" />
-    <Property Id="MSIFASTINSTALL" Value="7" />
-    <Property Id="ARPPRODUCTICON" Value="CirrusIcon.ico" />
-    <Property Id="ARPHELPLINK" Value="https://github.com/Azure/cirrus" />
-    <Property Id="ARPURLINFOABOUT" Value="https://github.com/Azure/cirrus" />
-    <Property Id="ARPURLUPDATEINFO" Value="https://github.com/Azure/cirrus/releases" />
-    <SetProperty Id="REINSTALLMODE" Value="amus" Before="CostFinalize">WIX_UPGRADE_DETECTED</SetProperty>
-    <Icon Id="CirrusIcon.ico" SourceFile="$escapedIconPath" />
-    <CustomAction Id="Set_WIXUI_EXITDIALOGOPTIONALTEXT"
-                  Property="WIXUI_EXITDIALOGOPTIONALTEXT"
-                  Value="Please close and reopen any active terminal window to use Cirrus CLI." />
-
-    <Directory Id="TARGETDIR" Name="SourceDir">
-      <Directory Id="ProgramFiles64Folder">
-        <Directory Id="INSTALLFOLDER" Name="Cirrus CLI" />
-      </Directory>
-    </Directory>
-
-    <DirectoryRef Id="INSTALLFOLDER">
-      <Component Id="PathEnvironment" Guid="$PathComponentGuid" Win64="yes">
-        <RegistryValue Root="HKLM" Key="Software\Cirrus CLI" Name="InstallDir" Type="string" Value="[INSTALLFOLDER]" KeyPath="yes" />
-        <RegistryValue Root="HKLM" Key="Software\Cirrus CLI" Name="Version" Type="string" Value="$version" />
-        <Environment Id="AddInstallFolderToPath" Name="PATH" Value="[INSTALLFOLDER]" Permanent="no" Part="last" Action="set" System="yes" />
-      </Component>
-    </DirectoryRef>
-
-    <Feature Id="MainFeature" Title="$ProductName" Level="1">
-      <ComponentGroupRef Id="PublishedFiles" />
-      <ComponentRef Id="PathEnvironment" />
-    </Feature>
-    <CustomActionRef Id="WixBroadcastEnvironmentChange" />
-    <UIRef Id="WixUI_Minimal" />
-    <UIRef Id="WixUI_ErrorProgressText" />
-    <WixVariable Id="WixUILicenseRtf" Value="$escapedLicenseRtfPath" />
-    <WixVariable Id="WixUIBannerBmp" Value="$escapedBannerBmpPath" />
-    <WixVariable Id="WixUIDialogBmp" Value="$escapedDialogBmpPath" />
-
-    <InstallUISequence>
-      <Custom Action="Set_WIXUI_EXITDIALOGOPTIONALTEXT" After="CostFinalize">NOT Installed AND NOT WIX_UPGRADE_DETECTED</Custom>
-    </InstallUISequence>
-  </Product>
-</Wix>
-"@
-
-Set-Content -Path $productPath -Value $productXml -Encoding utf8
-
 & $wixTools.Candle `
     -arch x64 `
     -ext WixUIExtension `
     -ext WixUtilExtension `
+    -dProductName="$ProductName" `
+    -dProductVersion="$version" `
+    -dManufacturer="$Manufacturer" `
+    -dUpgradeCode="$UpgradeCode" `
+    -dPathComponentGuid="$PathComponentGuid" `
+    -dPublishRoot="$publishRoot" `
+    -dLicenseRtfPath="$licenseRtfPath" `
+    -dBannerBmpPath="$bannerBmpPath" `
+    -dDialogBmpPath="$dialogBmpPath" `
+    -dCirrusIconPath="$iconPath" `
     -out "$wixRoot\" `
     $productPath `
     $harvestPath
