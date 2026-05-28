@@ -27,6 +27,8 @@ public sealed class HelpTools
     };
 
     private readonly string _indexJson;
+    private readonly int _indexCommandCount;
+    private readonly int _indexGroupCount;
     private readonly Dictionary<string, JsonElement> _byCliName;
     private readonly Dictionary<string, JsonElement> _byPsName;
 
@@ -44,7 +46,16 @@ public sealed class HelpTools
 
         _indexJson = File.ReadAllText(indexPath);
 
-        var manifestDoc = JsonDocument.Parse(File.ReadAllText(manifestPath));
+        // Index counts are surfaced in ListCommands telemetry on every call.
+        // _indexJson is read-only file content captured here, so cache the
+        // counts at construction time instead of re-parsing per invocation.
+        using (var indexDoc = JsonDocument.Parse(_indexJson))
+        {
+            _indexCommandCount = indexDoc.RootElement.GetProperty("commands").GetArrayLength();
+            _indexGroupCount   = indexDoc.RootElement.GetProperty("groups").GetArrayLength();
+        }
+
+        using var manifestDoc = JsonDocument.Parse(File.ReadAllText(manifestPath));
         _byCliName = new(StringComparer.OrdinalIgnoreCase);
         _byPsName = new(StringComparer.OrdinalIgnoreCase);
 
@@ -90,10 +101,7 @@ public sealed class HelpTools
     private string ListCommandsImpl()
     {
         using var scope = ToolInvocationLog.Start("list_commands", "full catalog");
-        var doc = JsonDocument.Parse(_indexJson);
-        var commandCount = doc.RootElement.GetProperty("commands").GetArrayLength();
-        var groupCount = doc.RootElement.GetProperty("groups").GetArrayLength();
-        scope.SetResult($"groups={groupCount} commands={commandCount}");
+        scope.SetResult($"groups={_indexGroupCount} commands={_indexCommandCount}");
         return _indexJson;
     }
 
