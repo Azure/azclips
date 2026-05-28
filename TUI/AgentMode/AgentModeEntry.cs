@@ -23,7 +23,7 @@ public static class AgentModeEntry
         var failedCommand = ArgValue(args, "--failed-command") ?? string.Empty;
         var errorText     = ArgValue(args, "--error")          ?? string.Empty;
 
-        CirrusServiceProvider.Initialize(ClientType.CLI);
+        CirrusServiceProvider.Initialize(ClientType.TUI);
 
         try
         {
