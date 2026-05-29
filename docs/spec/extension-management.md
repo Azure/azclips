@@ -125,15 +125,15 @@ Everything else (including today's `group` / Resources and `vm` / Compute) is an
 
 All under `azv2 extension`. Kebab-case CLI convention.
 
-| Command                                    | Behavior                                                                                                    |
-| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `azv2 extension add <pkg>[@<version>]`     | Install. Overwrites any prior version of the same package. `--pin` flag locks the version against `update`. |
-| `azv2 extension list`                      | Show installed extensions: name, version, namespaces, install source, install date. `--by-verb` regroups output verb-headed (§4.5, Phase 10).             |
-| `azv2 extension remove <name>`             | Uninstall. Remove from registry, delete `~/.cirrus/extensions/<pkg>/`. Errors on built-in extensions.       |
-| `azv2 extension update <name>[@<version>]` | Install newer version, replacing the old one in place. Fails on pinned extensions unless `--force`.         |
-| `azv2 extension pin <name>[@<version>]`    | Lock active version. With no version, pins the currently installed version.                                 |
-| `azv2 extension unpin <name>`              | Remove the pin.                                                                                             |
-| `azv2 extension show <name>`               | Detail view: full path, version, namespaces, contributions, source feed, install date, compat range.        |
+| Command                                    | Behavior                                                                                                                                      |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `azv2 extension add <pkg>[@<version>]`     | Install. Overwrites any prior version of the same package. `--pin` flag locks the version against `update`.                                   |
+| `azv2 extension list`                      | Show installed extensions: name, version, namespaces, install source, install date. `--by-verb` regroups output verb-headed (§4.5, Phase 10). |
+| `azv2 extension remove <name>`             | Uninstall. Remove from registry, delete `~/.cirrus/extensions/<pkg>/`. Errors on built-in extensions.                                         |
+| `azv2 extension update <name>[@<version>]` | Install newer version, replacing the old one in place. Fails on pinned extensions unless `--force`.                                           |
+| `azv2 extension pin <name>[@<version>]`    | Lock active version. With no version, pins the currently installed version.                                                                   |
+| `azv2 extension unpin <name>`              | Remove the pin.                                                                                                                               |
+| `azv2 extension show <name>`               | Detail view: full path, version, namespaces, contributions, source feed, install date, compat range.                                          |
 
 ### 4.2 Conflict at install time
 
@@ -198,9 +198,9 @@ When the dispatcher sees an unknown token, it consults the embedded hint catalog
             "verb": "vm",
             "path": "contoso-magic",
             "requestedPackage": "Contoso.Foo",
-            "existingPackage": "Microsoft.Azure.Cirrus.Extensions.Compute"
-        }
-    }
+            "existingPackage": "Microsoft.Azure.Cirrus.Extensions.Compute",
+        },
+    },
 }
 ```
 
@@ -259,10 +259,10 @@ A single JSON file at `~/.cirrus/extensions/registry.json`:
                 { "verb": "vm", "path": "delete" },
                 { "verb": "disk", "path": "create" },
                 { "verb": "disk", "path": "list" },
-                { "verb": "disk-access", "path": "show" }
-            ]
-        }
-    }
+                { "verb": "disk-access", "path": "show" },
+            ],
+        },
+    },
 }
 ```
 
@@ -406,7 +406,7 @@ Per-extension, not per-verb. Mirrors az-cli's load loop verbatim.
 
 ## 7. Compatibility metadata
 
-Extensions declare a `core` version range; the host enforces it at install (hard fail) and load (warn-and-skip). Models az-cli's `ext_compat_with_cli` / `check_version_compatibility` (see [azure-cli/src/azure-cli-core/azure/cli/core/extension/__init__.py](C:/Users/dlanguiller/source/repos/azure-cli/src/azure-cli-core/azure/cli/core/extension/__init__.py) and [azure-cli/src/azure-cli-core/azure/cli/core/__init__.py](C:/Users/dlanguiller/source/repos/azure-cli/src/azure-cli-core/azure/cli/core/__init__.py)).
+Extensions declare a `core` version range; the host enforces it at install (hard fail) and load (warn-and-skip). Models az-cli's `ext_compat_with_cli` / `check_version_compatibility` (see [azure-cli/src/azure-cli-core/azure/cli/core/extension/**init**.py](C:/Users/dlanguiller/source/repos/azure-cli/src/azure-cli-core/azure/cli/core/extension/__init__.py) and [azure-cli/src/azure-cli-core/azure/cli/core/**init**.py](C:/Users/dlanguiller/source/repos/azure-cli/src/azure-cli-core/azure/cli/core/__init__.py)).
 
 ### 7.1 Declaration
 
@@ -469,13 +469,19 @@ v1 ships an embedded `extension-hints.json`. Schema is feed-ready so the fetch h
     "sourceHostVersion": "1.2.0",
     "leaves": {
         "vm": { "packageId": "Microsoft.Azure.Cirrus.Extensions.Compute" },
-        "vm create": { "packageId": "Microsoft.Azure.Cirrus.Extensions.Compute" },
+        "vm create": {
+            "packageId": "Microsoft.Azure.Cirrus.Extensions.Compute",
+        },
         "vm list": { "packageId": "Microsoft.Azure.Cirrus.Extensions.Compute" },
         "disk": { "packageId": "Microsoft.Azure.Cirrus.Extensions.Compute" },
-        "disk list": { "packageId": "Microsoft.Azure.Cirrus.Extensions.Compute" },
+        "disk list": {
+            "packageId": "Microsoft.Azure.Cirrus.Extensions.Compute",
+        },
         "group": { "packageId": "Microsoft.Azure.Cirrus.Extensions.Resources" },
-        "group create": { "packageId": "Microsoft.Azure.Cirrus.Extensions.Resources" }
-    }
+        "group create": {
+            "packageId": "Microsoft.Azure.Cirrus.Extensions.Resources",
+        },
+    },
 }
 ```
 

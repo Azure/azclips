@@ -18,10 +18,10 @@ public class ListDiskProcessor : ComputeProcessorBase<Disk>
 
     public override async Task<HttpRequestMessage> CreateRequestMessage()
     {
-        await EventListener.Signal(Events.ProcessorBeforeHttpRequestCreate);
+        await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
         string uri = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/disks?api-version=2025-01-02";
         HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, uri);
-        await EventListener.Signal(Events.ProcessorAfterHttpRequestCreate);
+        await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
         return request;
     }
 }
