@@ -235,7 +235,15 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
                     default:
                     {
                         await _publisher.Publish(Events.PollingFailed);
-                        await _response.EnsureSuccessAsync(_publisher);
+                        try
+                        {
+                            await _response.EnsureSuccessAsync(_publisher);
+                        }
+                        catch
+                        {
+                            _response.Dispose();
+                            throw;
+                        }
                         break;
                     }
                 }
