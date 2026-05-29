@@ -23,7 +23,7 @@ public class NewNetworkInterfaceProcessor_Orchestrator : ComputeProcessorBase<Ne
     public List<string> RuleDestinationAddressPrefixes { get; set; } = [];
     public List<string> RuleAccesses { get; set; } = [];
 
-    public override async Task<HttpResponseMessage> SendAsync()
+    internal override async Task<HttpResponseMessage> SendAsync()
     {
          NewVirtualNetworkProcessor vnetProcessor = CreateExtendedProcessor<NewVirtualNetworkProcessor>(p =>
         {
