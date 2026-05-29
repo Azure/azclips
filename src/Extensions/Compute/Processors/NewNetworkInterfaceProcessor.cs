@@ -14,7 +14,7 @@ public class NewNetworkInterfaceProcessor : ComputeProcessorBase<NetworkInterfac
     public List<List<string>> SubnetAddressPrefixes { get; set; } = [];
     public string NetworkSecurityGroupId { get; set; } = string.Empty;
 
-    public override async Task<HttpRequestMessage> CreateRequestMessage()
+    protected override async Task<HttpRequestMessage> CreateRequestMessage()
     {
         await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
         string uri = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Network/networkInterfaces/{Name}?api-version=2025-05-01";
@@ -87,7 +87,7 @@ public class NewNetworkInterfaceProcessor : ComputeProcessorBase<NetworkInterfac
     protected override Func<HttpResponseMessage, string?> GetAsyncOperationUri => response => response.GetFirstHeader("Azure-AsyncOperation");
     protected override Func<HttpResponseMessage, string?> GetLocationUri => response => response.GetFirstHeader("Location");
 
-    public override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();
+    internal override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();
 }
 
 
