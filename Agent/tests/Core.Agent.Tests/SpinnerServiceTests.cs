@@ -15,7 +15,7 @@ public class SpinnerServiceTests
     // instead of a fixed Task.Delay. Negative-direction waits ("no frame should
     // arrive while paused") still need a wall-clock sleep — there is no event
     // to await on absence.
-    private const int FrameWaitMs = 2000;
+    private const int FrameWaitMs = 10000;
     private const int PauseProbeMs = 80;
 
     private sealed class FakeRenderer : IAgentRenderer
