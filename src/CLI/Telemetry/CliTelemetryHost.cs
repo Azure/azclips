@@ -1,6 +1,8 @@
 using Core.Abstractions;
+using Core.Common;
 using Core.Telemetry;
 using OpenTelemetry;
+using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
 namespace Core.Cli.Telemetry;
@@ -69,7 +71,9 @@ public sealed class CliTelemetryHostBuilder
         }
 
         var builder = Sdk.CreateTracerProviderBuilder()
-            .AddSource(_telemetryService.ActivitySource.Name);
+            .AddSource(_telemetryService.ActivitySource.Name)
+            .ConfigureResource(r => r.AddService(ProcessUtils.GetRunningProcess()));
+
 
         builder.AddHttpClientInstrumentation(options =>
         {

@@ -13,6 +13,7 @@
     <Project Path="src/Core/Core.DependencyInjection/Core.DependencyInjection.csproj" />
     <Project Path="src/Core/Core.AssemblyLoading/Core.AssemblyLoading.csproj" />
     <Project Path="src/Core/Core.ArgumentParsing/Core.ArgumentParsing.csproj" />
+    <Project Path="src/Core/Core.Common/Core.Common.csproj" />
     <Project Path="src/Core/Core.Configuration/Core.Configuration.csproj" />
   </Folder>
   <Folder Name="/src/Extensions/">

@@ -1,6 +1,8 @@
 using Core.Abstractions;
+using Core.Common;
 using Core.Telemetry;
 using OpenTelemetry;
+using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
 namespace Microsoft.Azure.Cirrus.Cmdlets.Login.Telemetry;
@@ -50,7 +52,8 @@ public sealed class PsTelemetryHostBuilder
         }
 
         var builder = Sdk.CreateTracerProviderBuilder()
-            .AddSource(_telemetryService.ActivitySource.Name);
+            .AddSource(_telemetryService.ActivitySource.Name)
+            .ConfigureResource(r => r.AddService(ProcessUtils.GetRunningProcess()));
 
         builder.AddHttpClientInstrumentation(options =>
         {
