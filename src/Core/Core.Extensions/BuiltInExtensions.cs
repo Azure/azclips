@@ -9,7 +9,19 @@ namespace Core.Extensions
     /// </summary>
     /// <param name="Verb">Top-level verb the built-in claims (e.g. <c>"login"</c>).</param>
     /// <param name="PackageId">Full assembly / package id (e.g. <c>Microsoft.Azure.Cirrus.Extensions.Login</c>).</param>
-    public sealed record BuiltInExtension(string Verb, string PackageId);
+    public sealed record BuiltInExtension(string Verb, string PackageId)
+    {
+        /// <summary>
+        /// Paths within <see cref="Verb"/> that the built-in's <c>s_cliTable</c> handles
+        /// (e.g. <c>"remove"</c> for the key <c>"extension remove"</c>). Seeded into
+        /// <see cref="LeafIndex"/> so dispatch's longest-prefix match peels positional
+        /// arguments correctly — without this, <c>azv2 extension remove Resources</c>
+        /// would fall into the verb-only fallback and join <c>"remove Resources"</c>
+        /// as the command name. Empty string represents the bare-verb leaf and is
+        /// always seeded implicitly.
+        /// </summary>
+        public IReadOnlyList<string> Leaves { get; init; } = Array.Empty<string>();
+    }
 
     /// <summary>
     /// Static seed of built-in extensions. Per <c>docs/spec/extension-management.md §3</c> ("True core"),
@@ -22,15 +34,26 @@ namespace Core.Extensions
     public static class BuiltInExtensions
     {
         /// <summary>
-        /// Map from verb (case-insensitive) to built-in descriptor.
+        /// Map from verb (case-insensitive) to built-in descriptor. Leaves must mirror each
+        /// built-in's <c>s_cliTable</c> keys (minus the verb prefix) so the leaf index can
+        /// resolve positional sub-commands like <c>extension remove &lt;name&gt;</c>.
         /// </summary>
         public static readonly IReadOnlyDictionary<string, BuiltInExtension> Map =
             new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase)
             {
                 // True core — present in every install, never removed.
-                ["extension"] = new("extension", "Microsoft.Azure.Cirrus.Extensions.Extension"),
-                ["login"]     = new("login",     "Microsoft.Azure.Cirrus.Extensions.Login"),
-                ["config"]    = new("config",    "Microsoft.Azure.Cirrus.Extensions.Config"),
+                ["extension"] = new("extension", "Microsoft.Azure.Cirrus.Extensions.Extension")
+                {
+                    Leaves = new[] { "add", "list", "show", "remove", "update", "pin", "unpin" },
+                },
+                ["login"] = new("login", "Microsoft.Azure.Cirrus.Extensions.Login")
+                {
+                    Leaves = new[] { "logout", "show" },
+                },
+                ["config"] = new("config", "Microsoft.Azure.Cirrus.Extensions.Config")
+                {
+                    Leaves = new[] { "get", "set", "delete", "list", "info" },
+                },
             };
 
         /// <summary>

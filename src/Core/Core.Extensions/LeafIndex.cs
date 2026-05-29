@@ -71,6 +71,10 @@ namespace Core.Extensions
             foreach (var builtIn in builtIns.Values)
             {
                 AddLeaf(entries, builtIn.Verb, string.Empty, builtIn.PackageId, isBuiltIn: true);
+                foreach (var path in builtIn.Leaves)
+                {
+                    AddLeaf(entries, builtIn.Verb, path, builtIn.PackageId, isBuiltIn: true);
+                }
             }
 
             foreach (var (packageId, entry) in registry.Extensions)

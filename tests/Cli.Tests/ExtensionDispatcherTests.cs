@@ -190,6 +190,33 @@ public class ExtensionDispatcherTests
         Assert.Throws<KeyNotFoundException>(() => dispatcher.Parse(["nonexistentverb"]));
     }
 
+    [Fact]
+    public void Parse_ShouldRouteBuiltInLeaf_WithPositionalResidual()
+    {
+        // Regression: `azv2 extension remove Resources` must resolve to (extension, remove) via
+        // the built-in's seeded Leaves and surface "Resources" as a positional residual under the
+        // empty parameter key — not fall through to verb-only fallback and yield the bogus
+        // command name "extension remove Resources". See BuiltInExtensions.Map.
+        var builtIns = new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["extension"] = new("extension", "Microsoft.Azure.Cirrus.Extensions.Extension")
+            {
+                Leaves = new[] { "add", "list", "show", "remove" },
+            },
+        };
+        var registry = new ExtensionRegistry();
+        var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry), builtIns);
+        var index = LeafIndex.Build(builtIns, registry);
+        var dispatcher = new ExtensionDispatcher(resolver, () => index);
+
+        var invocation = dispatcher.Parse(["extension", "remove", "Resources"]);
+
+        Assert.Equal("extension remove", invocation.CommandName);
+        Assert.True(invocation.Parameters.ContainsKey(""));
+        var positional = Assert.IsType<List<List<string>>>(invocation.Parameters[""]);
+        Assert.Equal("Resources", positional[0][0]);
+    }
+
     private sealed class InMemoryRegistryStore(ExtensionRegistry registry) : IExtensionRegistryStore
     {
         public ExtensionRegistry Load() => registry;

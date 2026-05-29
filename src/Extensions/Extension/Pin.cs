@@ -96,12 +96,13 @@ internal static class PinHelper
         var match = registry.Extensions
             .FirstOrDefault(kvp =>
                 string.Equals(kvp.Key, name, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(kvp.Value.Verb, name, StringComparison.OrdinalIgnoreCase));
+                string.Equals(kvp.Value.Verb, name, StringComparison.OrdinalIgnoreCase) ||
+                kvp.Key.EndsWith("." + name, StringComparison.OrdinalIgnoreCase));
 
         if (match.Key is null)
         {
             throw CirrusErrorException.ExtensionNotFound(
-                $"No installed extension matches '{name}' (by package id or verb).",
+                $"No installed extension matches '{name}' (by package id, short name, or verb).",
                 new Dictionary<string, object?> { ["name"] = name });
         }
 

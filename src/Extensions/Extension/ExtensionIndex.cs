@@ -43,7 +43,8 @@ public class ExtensionIndex : IExtensionIndex
         {
             ["name"] = new("Name", typeof(string), "Package id or verb of the extension to show.", IsRequired: true, Aliases: [], AllowedValues: []),
         },
-        ParameterAliases: new Dictionary<string, string>()
+        // Empty-key alias lets dispatcher-bound positional residual (e.g. `extension show Compute`) bind to Name.
+        ParameterAliases: new Dictionary<string, string> { [""] = "name" }
     );
 
     private static readonly CommandMetadata s_removeExtension_CLI = new(
@@ -56,7 +57,7 @@ public class ExtensionIndex : IExtensionIndex
         {
             ["name"] = new("Name", typeof(string), "Package id or verb of the extension to remove.", IsRequired: true, Aliases: [], AllowedValues: []),
         },
-        ParameterAliases: new Dictionary<string, string>()
+        ParameterAliases: new Dictionary<string, string> { [""] = "name" }
     );
 
     private static readonly CommandMetadata s_updateExtension_CLI = new(
@@ -72,7 +73,7 @@ public class ExtensionIndex : IExtensionIndex
             ["feed-url"] = new("FeedUrl", typeof(string), "Feed URL to install the new version from.", IsRequired: false, Aliases: [], AllowedValues: []),
             ["force"]    = new("Force", typeof(bool), "Update even if the extension is pinned.", IsRequired: false, Aliases: [], AllowedValues: []),
         },
-        ParameterAliases: new Dictionary<string, string>()
+        ParameterAliases: new Dictionary<string, string> { [""] = "name" }
     );
 
     private static readonly CommandMetadata s_pinExtension_CLI = new(
@@ -85,7 +86,7 @@ public class ExtensionIndex : IExtensionIndex
         {
             ["name"] = new("Name", typeof(string), "Package id or verb of the extension to pin.", IsRequired: true, Aliases: [], AllowedValues: []),
         },
-        ParameterAliases: new Dictionary<string, string>()
+        ParameterAliases: new Dictionary<string, string> { [""] = "name" }
     );
 
     private static readonly CommandMetadata s_unpinExtension_CLI = new(
@@ -98,7 +99,7 @@ public class ExtensionIndex : IExtensionIndex
         {
             ["name"] = new("Name", typeof(string), "Package id or verb of the extension to unpin.", IsRequired: true, Aliases: [], AllowedValues: []),
         },
-        ParameterAliases: new Dictionary<string, string>()
+        ParameterAliases: new Dictionary<string, string> { [""] = "name" }
     );
     // ── Dispatch Tables ──
     private static readonly Dictionary<string, CommandMetadata> s_psTable = new();

@@ -62,12 +62,13 @@ public class UpdateExtensionProcessor : IProcessor
         var match = registry.Extensions
             .FirstOrDefault(kvp =>
                 string.Equals(kvp.Key, Name, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(kvp.Value.Verb, Name, StringComparison.OrdinalIgnoreCase));
+                string.Equals(kvp.Value.Verb, Name, StringComparison.OrdinalIgnoreCase) ||
+                kvp.Key.EndsWith("." + Name, StringComparison.OrdinalIgnoreCase));
 
         if (match.Key is null)
         {
             throw CirrusErrorException.ExtensionNotFound(
-                $"No installed extension matches '{Name}' (by package id or verb). Use 'extension add' first.",
+                $"No installed extension matches '{Name}' (by package id, short name, or verb). Use 'extension add' first.",
                 new Dictionary<string, object?> { ["name"] = Name });
         }
 
