@@ -9,6 +9,12 @@ public class ListExtensionsProcessor : IProcessor
 {
     private OutputStreamDelegate _writeOutput = null!;
 
+    [ArgumentInfo(
+    Required = false,
+    Description = @"Regroup output verb-headed: one section per verb, listing every package that contributes to it.",
+    SerializedName = @"ByVerb")]
+    public bool ByVerb { get; set; }
+
     public IProcessor Init(ProcessorContext context)
     {
         _writeOutput = context.OutputHandler.WriteOutput;
@@ -66,11 +72,62 @@ public class ListExtensionsProcessor : IProcessor
             })
             .ToList();
 
+        if (ByVerb)
+        {
+            // Phase 10 #31: regroup the live set verb-headed so the user can answer "who contributes
+            // to this verb" in one glance. Multi-namespace extensions appear under each verb they
+            // contribute to (the duplication is intentional — it mirrors the actual routing table).
+            // Per the §5.1 stack commitment, today every (verb, packageId) pair is unique because
+            // install-time rejection prevents collisions; when vNext's --override flow lands, the
+            // same shape generalizes to ordered contributors top-wins. Stale entries stay in their
+            // own array — they aren't routable so they don't belong under a verb heading.
+            var contributors = live.Select(e => new LiveContributor(
+                PackageId: e.PackageId,
+                Version: e.Version,
+                Pinned: e.Pinned,
+                Source: e.Source,
+                InstalledAt: e.InstalledAt,
+                Namespaces: e.Namespaces));
+
+            return new
+            {
+                ByVerb = PivotByVerb(contributors),
+                Stale = stale,
+            };
+        }
+
         return new
         {
             Live = live,
             Stale = stale,
         };
+    }
+
+    /// <summary>
+    /// Phase 10 #31 pivot helper. Pure projection from <c>Live</c>-shaped contributors to a
+    /// verb-headed map. Public so unit tests can exercise it without spinning up DI + the
+    /// on-disk registry. Sort order is contract: verbs alphabetical, contributors within a verb
+    /// alphabetical by <c>PackageId</c>. Both comparisons are ordinal-ignore-case.
+    /// </summary>
+    public static IReadOnlyDictionary<string, IReadOnlyList<ContributorRow>> PivotByVerb(
+        IEnumerable<LiveContributor> contributors)
+    {
+        return contributors
+            .SelectMany(c => c.Namespaces.Select(verb => new { Verb = verb, Contributor = c }))
+            .GroupBy(x => x.Verb, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<ContributorRow>)g
+                    .Select(x => new ContributorRow(
+                        x.Contributor.PackageId,
+                        x.Contributor.Version,
+                        x.Contributor.Pinned,
+                        x.Contributor.Source,
+                        x.Contributor.InstalledAt))
+                    .OrderBy(r => r.PackageId, StringComparer.OrdinalIgnoreCase)
+                    .ToList(),
+                StringComparer.OrdinalIgnoreCase);
     }
 
     public string Process(bool Serialize)
@@ -86,3 +143,20 @@ public class ListExtensionsProcessor : IProcessor
         }
     }
 }
+
+/// <summary>Input row to <see cref="ListExtensionsProcessor.PivotByVerb"/>.</summary>
+public sealed record LiveContributor(
+    string PackageId,
+    string? Version,
+    bool Pinned,
+    string? Source,
+    DateTimeOffset? InstalledAt,
+    IReadOnlyList<string> Namespaces);
+
+/// <summary>Output row produced by <see cref="ListExtensionsProcessor.PivotByVerb"/>.</summary>
+public sealed record ContributorRow(
+    string PackageId,
+    string? Version,
+    bool Pinned,
+    string? Source,
+    DateTimeOffset? InstalledAt);

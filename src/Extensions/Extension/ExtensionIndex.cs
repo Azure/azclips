@@ -30,7 +30,10 @@ public class ExtensionIndex : IExtensionIndex
         FullName: "Microsoft.Azure.Cirrus.Extensions.Extension.Processors.ListExtensionsProcessor",
         AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Extension",
         ProcessorType: typeof(Processors.ListExtensionsProcessor),
-        Parameters: new Dictionary<string, ParameterMetadata>(),
+        Parameters: new Dictionary<string, ParameterMetadata>
+        {
+            ["by-verb"] = new("ByVerb", typeof(bool), "Regroup output verb-headed: one section per verb, listing every package that contributes to it.", IsRequired: false, Aliases: [], AllowedValues: []),
+        },
         ParameterAliases: new Dictionary<string, string>()
     );
 

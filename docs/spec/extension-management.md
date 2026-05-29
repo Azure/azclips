@@ -607,7 +607,7 @@ Phases 1–9 complete; Phase 10 in progress.
 
 ### Phase 10 — Polish (in progress)
 
-31. ⏳ `extension list --by-verb` rendering (uses the `namespaces` field; output shape per §4.5).
+31. ✅ `extension list --by-verb` rendering (uses the `namespaces` field; output shape per §4.5). Multi-namespace extensions appear under each verb they contribute to.
 32. ⏳ Telemetry: `contributionCount` dimension on install/remove events.
 33. ⏳ Update [extension-framework.md](./extension-framework.md) to point at this doc for the dispatch model.
 34. ⏳ **Symmetric `extension add --name`.** Make `add --name` also accept a verb by consulting `extension-hints.json` before the prefix-strip fallback. Keep `--path` unchanged.
