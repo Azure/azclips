@@ -19,6 +19,7 @@ public class ExtensionIndex : IExtensionIndex
             ["feed-url"] = new("FeedUrl", typeof(string), "Feed URL to install the extension from.", IsRequired: false, Aliases: [], AllowedValues: []),
             ["path"]     = new("Path", typeof(string), "Path to the extension .nupkg file to add.", IsRequired: false, Aliases: [], AllowedValues: []),
             ["pin"]      = new("Pin", typeof(bool), "Pin the installed version so future 'update' commands skip it without --force.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["force"]    = new("Force", typeof(bool), "Allow add to overwrite an existing pinned installation of the same package.", IsRequired: false, Aliases: [], AllowedValues: []),
         },
         ParameterAliases: new Dictionary<string, string>()
     );

@@ -39,6 +39,12 @@ public class AddExtensionProcessor : IProcessor
     SerializedName = @"Pin")]
     public bool Pin { get; set; }
 
+    [ArgumentInfo(
+    Required = false,
+    Description = @"Allow add to overwrite an existing pinned installation of the same package.",
+    SerializedName = @"Force")]
+    public bool Force { get; set; }
+
     public IProcessor Init(ProcessorContext context)
     {
         _writeOutput = context.OutputHandler.WriteOutput;
@@ -205,11 +211,18 @@ public class AddExtensionProcessor : IProcessor
             // package's parent dir so only the just-installed version remains on disk.
             PurgeSiblingVersions(installer.InstallPath, packageId, keepVersion: version);
 
+            // Phase 10 #41: 'add' must respect a pin set on the *existing* entry. Pinning's
+            // contract is "don't change my version under me"; without this check, a pinned
+            // 1.1.0 could be silently overwritten by `add --path …1.0.0…`. Honor the pin
+            // forward across the in-place upgrade — fail with PinViolation unless --force,
+            // and carry the pin onto the new entry when the user explicitly forces.
+            bool carryPinForward = CheckPinPrecondition(registry, packageId, version, Force, Pin);
+
             registry.Extensions[packageId] = new ExtensionRegistryEntry
             {
                 Verb = primaryVerb,
                 Version = version,
-                Pinned = Pin,
+                Pinned = Pin || carryPinForward,
                 Source = FeedUrl,
                 InstalledAt = DateTimeOffset.UtcNow,
                 Contributions = contributions,
@@ -222,7 +235,7 @@ public class AddExtensionProcessor : IProcessor
                 Version = version,
                 Verb = primaryVerb,
                 Verbs = verbs,
-                Pinned = Pin,
+                Pinned = Pin || carryPinForward,
                 InstalledExtensionPath = installPath,
                 Contributions = contributions.Select(c => new { c.Verb, c.Path }).ToArray(),
             };
@@ -247,6 +260,34 @@ public class AddExtensionProcessor : IProcessor
         {
             return result.ToString() ?? "";
         }
+    }
+
+    /// <summary>
+    /// Phase 10 #41: validate that an `extension add` for <paramref name="packageId"/> is allowed
+    /// to overwrite the existing registry entry. Throws <see cref="CirrusErrorException"/> with
+    /// <c>PinViolation</c> (exit 6) when the existing entry is pinned and neither
+    /// <paramref name="force"/> nor <paramref name="pin"/> was supplied. Returns <c>true</c> when
+    /// the caller should carry the pinned flag forward onto the new entry, <c>false</c> otherwise.
+    /// </summary>
+    public static bool CheckPinPrecondition(ExtensionRegistry registry, string packageId, string version, bool force, bool pin)
+    {
+        if (registry.Extensions.TryGetValue(packageId, out var existingEntry) && existingEntry.Pinned)
+        {
+            if (!force && !pin)
+            {
+                throw CirrusErrorException.PinViolation(
+                    $"Extension '{packageId}' is pinned at version '{existingEntry.Version}'. " +
+                    $"Pass --force to overwrite, or 'extension unpin {packageId}' first.",
+                    new Dictionary<string, object?>
+                    {
+                        ["packageId"] = packageId,
+                        ["pinnedVersion"] = existingEntry.Version,
+                        ["requestedVersion"] = version,
+                    });
+            }
+            return true;
+        }
+        return false;
     }
 
     private static (string PackageId, string Version) ParseInstallPath(string installRoot, string installPath)
