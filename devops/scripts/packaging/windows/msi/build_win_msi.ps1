@@ -129,7 +129,7 @@ function Get-MsiProductCode([string]$MsiPath) {
 }
 
 if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
-    $RepoRoot = Resolve-FullPath (Join-Path $PSScriptRoot '../../../..')
+    $RepoRoot = Resolve-FullPath (Join-Path $PSScriptRoot '../../../../..')
 }
 else {
     $RepoRoot = Resolve-FullPath $RepoRoot

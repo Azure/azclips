@@ -139,7 +139,7 @@ jobs:
         displayName: Download WiX Toolset
 
       - pwsh: |
-          $script = Join-Path $env:BUILD_SOURCESDIRECTORY 'devops/scripts/packaging/windows/build_win_msi.ps1'
+          $script = Join-Path $env:BUILD_SOURCESDIRECTORY 'devops/scripts/packaging/windows/msi/build_win_msi.ps1'
           if ([string]::IsNullOrWhiteSpace($env:PACKAGE_VERSION_INPUT)) {
             & $script `
               -Configuration $env:CONFIGURATION `
@@ -233,7 +233,7 @@ jobs:
 
       - ${{ if eq(parameters.run_install_test, true) }}:
         - pwsh: |
-            $script = Join-Path $env:BUILD_SOURCESDIRECTORY 'devops/scripts/packaging/windows/test_bundled_plus_ext_msi.ps1'
+            $script = Join-Path $env:BUILD_SOURCESDIRECTORY 'devops/scripts/packaging/windows/msi/test_bundled_plus_ext_msi.ps1'
             & $script `
               -OutRoot $env:WINDOWS_OUT_ROOT `
               -CommonOutRoot $env:COMMON_OUT_ROOT `

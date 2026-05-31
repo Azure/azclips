@@ -152,7 +152,7 @@ stages:
             displayName: Download WiX Toolset
 
           - pwsh: |
-              $script = Join-Path $env:BUILD_SOURCESDIRECTORY 'devops/scripts/packaging/windows/build_win_msi.ps1'
+              $script = Join-Path $env:BUILD_SOURCESDIRECTORY 'devops/scripts/packaging/windows/msi/build_win_msi.ps1'
               & $script `
                 -Configuration $env:CONFIGURATION `
                 -Rid $env:RUNTIME_IDENTIFIER `
@@ -444,7 +444,7 @@ stages:
                 throw "Downloaded artifact did not contain MSI: $msiPath"
               }
 
-              $script = Join-Path $env:BUILD_SOURCESDIRECTORY 'devops/scripts/packaging/windows/test_bundled_plus_ext_msi.ps1'
+              $script = Join-Path $env:BUILD_SOURCESDIRECTORY 'devops/scripts/packaging/windows/msi/test_bundled_plus_ext_msi.ps1'
               $installDuration = Measure-Command {
                 & $script `
                   -OutRoot $windowsRoot `

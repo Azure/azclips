@@ -1,7 +1,7 @@
 param(
-    [string]$OutRoot = (Join-Path $PSScriptRoot '../../../out/windows'),
-    [string]$CommonOutRoot = (Join-Path $PSScriptRoot '../../../out/common'),
-    [string]$SimRoot = (Join-Path $PSScriptRoot '../../../sim/win-msi-bundled-plus-ext'),
+    [string]$OutRoot = (Join-Path $PSScriptRoot '../../../../out/windows'),
+    [string]$CommonOutRoot = (Join-Path $PSScriptRoot '../../../../out/common'),
+    [string]$SimRoot = (Join-Path $PSScriptRoot '../../../../sim/win-msi-bundled-plus-ext'),
     [string]$ProductName = 'Cirrus CLI',
     [string]$ProductVersion = '',
     [switch]$SkipRuntime,
@@ -25,7 +25,7 @@ $ExtPackDir = Join-Path $CommonOutRoot 'extensions-pack'
 $InstallLog = Join-Path $SimRoot 'msi-install.log'
 $UninstallLog = Join-Path $SimRoot 'msi-uninstall.log'
 $IsWindowsHost = $env:OS -eq 'Windows_NT'
-$BundledExtConfig = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../config/bundled_ext.config'))
+$BundledExtConfig = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../config/bundled_ext.config'))
 
 if (-not (Test-Path -Path $BundledExtConfig -PathType Leaf)) {
     throw "Bundled extension config not found at $BundledExtConfig"
@@ -117,7 +117,7 @@ function Invoke-MsiExec([string[]]$Arguments, [string]$FailureMessage) {
 }
 
 if (-not (Test-Path -Path $MsiPath -PathType Leaf)) {
-    throw "Windows CLI MSI not found at $MsiPath. Run ./devops/scripts/packaging/common/build_common.sh, then .\devops\scripts\packaging\windows\build_win_msi.ps1."
+    throw "Windows CLI MSI not found at $MsiPath. Run ./devops/scripts/packaging/common/build_common.sh, then .\devops\scripts\packaging\windows\msi\build_win_msi.ps1."
 }
 
 if (-not (Test-Path -Path $ExtPackDir -PathType Container)) {
