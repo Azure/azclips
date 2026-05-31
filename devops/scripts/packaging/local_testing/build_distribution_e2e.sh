@@ -23,6 +23,8 @@ OUT_ROOT_BASE="${OUT_ROOT_BASE:-$REPO_ROOT/devops/out}"
 COMMON_OUT_ROOT="${COMMON_OUT_ROOT:-$OUT_ROOT_BASE/common}"
 LINUX_OUT_ROOT="${LINUX_OUT_ROOT:-$OUT_ROOT_BASE/linux}"
 WINDOWS_OUT_ROOT="${WINDOWS_OUT_ROOT:-$OUT_ROOT_BASE/windows}"
+LINUX_TARBALL_PATH="${LINUX_TARBALL_PATH:-$LINUX_OUT_ROOT/bin/Release/azv2-linux-x64.tar.gz}"
+WINDOWS_ZIP_PATH="${WINDOWS_ZIP_PATH:-$WINDOWS_OUT_ROOT/bin/Release/azv2-win-x64.zip}"
 RUN_PWSH=0
 
 for arg in "$@"; do
@@ -54,6 +56,8 @@ echo "Repo root : $REPO_ROOT"
 echo "Common out: $COMMON_OUT_ROOT"
 echo "Linux out : $LINUX_OUT_ROOT"
 echo "Windows out: $WINDOWS_OUT_ROOT"
+echo "Linux tarball path: $LINUX_TARBALL_PATH"
+echo "Windows zip path : $WINDOWS_ZIP_PATH"
 
 echo ""
 echo "[1/4] Build common distribution assets"
@@ -63,12 +67,12 @@ OUT_ROOT="$COMMON_OUT_ROOT" "$PACKAGING_DIR/common/build_common.sh"
 echo ""
 echo "[2/4] Build Linux distribution artifact"
 chmod +x "$PACKAGING_DIR/linux/build_linux_tarball.sh"
-OUT_ROOT="$LINUX_OUT_ROOT" COMMON_OUT_ROOT="$COMMON_OUT_ROOT" "$PACKAGING_DIR/linux/build_linux_tarball.sh"
+OUT_ROOT="$LINUX_OUT_ROOT" COMMON_OUT_ROOT="$COMMON_OUT_ROOT" CLI_TAR_PATH="$LINUX_TARBALL_PATH" "$PACKAGING_DIR/linux/build_linux_tarball.sh"
 
 echo ""
 echo "[3/4] Validate Linux bundled + optional extensions"
 chmod +x "$PACKAGING_DIR/linux/test_bundled_plus_ext_linux.sh"
-OUT_ROOT="$LINUX_OUT_ROOT" COMMON_OUT_ROOT="$COMMON_OUT_ROOT" "$PACKAGING_DIR/linux/test_bundled_plus_ext_linux.sh"
+OUT_ROOT="$LINUX_OUT_ROOT" COMMON_OUT_ROOT="$COMMON_OUT_ROOT" CLI_TAR_PATH="$LINUX_TARBALL_PATH" "$PACKAGING_DIR/linux/test_bundled_plus_ext_linux.sh"
 
 if [[ $RUN_PWSH -eq 1 ]]; then
   echo ""
@@ -79,9 +83,9 @@ if [[ $RUN_PWSH -eq 1 ]]; then
   fi
 
   chmod +x "$PACKAGING_DIR/windows/build_win_zip.sh"
-  OUT_ROOT="$WINDOWS_OUT_ROOT" COMMON_OUT_ROOT="$COMMON_OUT_ROOT" "$PACKAGING_DIR/windows/build_win_zip.sh"
+  OUT_ROOT="$WINDOWS_OUT_ROOT" COMMON_OUT_ROOT="$COMMON_OUT_ROOT" CLI_WIN_ZIP_PATH="$WINDOWS_ZIP_PATH" "$PACKAGING_DIR/windows/build_win_zip.sh"
 
-  pwsh -NoLogo -NoProfile -File "$PACKAGING_DIR/windows/test_bundled_plus_ext_win.ps1" -OutRoot "$WINDOWS_OUT_ROOT" -CommonOutRoot "$COMMON_OUT_ROOT"
+  pwsh -NoLogo -NoProfile -File "$PACKAGING_DIR/windows/test_bundled_plus_ext_win.ps1" -OutRoot "$WINDOWS_OUT_ROOT" -CommonOutRoot "$COMMON_OUT_ROOT" -CliZipPath "$WINDOWS_ZIP_PATH"
 else
   echo ""
   echo "[4/4] Skipping PowerShell validation (use --with-pwsh to enable)"

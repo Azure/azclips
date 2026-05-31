@@ -16,8 +16,8 @@ RID="${RID:-win-x64}"
 INJECTOR_SCRIPT="$PACKAGING_ROOT/common/inject_builtin_extensions.sh"
 
 CLI_WIN_SC_DIR="$OUT_ROOT/publish/cli/$RID"
-CLI_TAR_DIR="$OUT_ROOT/bin/Release"
-CLI_WIN_ZIP_PATH="$CLI_TAR_DIR/azv2-$RID.zip"
+CLI_ZIP_DIR="$OUT_ROOT/bin/Release"
+CLI_WIN_ZIP_PATH="${CLI_WIN_ZIP_PATH:-$CLI_ZIP_DIR/azv2-$RID.zip}"
 
 if [[ ! -f "$INJECTOR_SCRIPT" ]]; then
   echo "ERROR: Injector script not found at $INJECTOR_SCRIPT"
@@ -39,7 +39,7 @@ if ! command -v zip >/dev/null 2>&1; then
   exit 1
 fi
 
-mkdir -p "$CLI_TAR_DIR"
+mkdir -p "$(dirname "$CLI_WIN_ZIP_PATH")"
 rm -f "$CLI_WIN_ZIP_PATH"
 (cd "$CLI_WIN_SC_DIR" && zip -rq "$CLI_WIN_ZIP_PATH" .)
 echo "Created $CLI_WIN_ZIP_PATH"

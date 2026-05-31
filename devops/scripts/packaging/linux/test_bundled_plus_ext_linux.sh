@@ -11,9 +11,9 @@ cd "$REPO_ROOT"
 
 OUT_ROOT="$(realpath "${OUT_ROOT:-$REPO_ROOT/devops/out/linux}")"
 COMMON_OUT_ROOT="$(realpath "${COMMON_OUT_ROOT:-$REPO_ROOT/devops/out/common}")"
-SIM_ROOT="$(realpath "$REPO_ROOT/devops/sim/linux-tarball-bundled-plus-ext" 2>/dev/null || echo "$REPO_ROOT/devops/sim/linux-tarball-bundled-plus-ext")"
+SIM_ROOT="$(realpath "${SIM_ROOT:-$REPO_ROOT/devops/sim/linux-tarball-bundled-plus-ext}" 2>/dev/null || echo "${SIM_ROOT:-$REPO_ROOT/devops/sim/linux-tarball-bundled-plus-ext}")"
 
-CLI_TAR_PATH="$OUT_ROOT/bin/Release/azv2-linux-x64.tar.gz"
+CLI_TAR_PATH="${CLI_TAR_PATH:-$OUT_ROOT/bin/Release/azv2-linux-x64.tar.gz}"
 EXT_PACK_DIR="$COMMON_OUT_ROOT/extensions-pack"
 
 if [[ ! -f "$CLI_TAR_PATH" ]]; then

@@ -9,6 +9,8 @@ variables:
   PackagingCommonOutRoot: $(PackagingOutRoot)/common
   PackagingLinuxOutRoot: $(PackagingOutRoot)/linux
   PackagingWindowsOutRoot: $(PackagingOutRoot)/windows
+  PackagingLinuxTarballPath: $(PackagingLinuxOutRoot)/bin/Release/azv2-linux-x64.tar.gz
+  PackagingWindowsZipPath: $(PackagingWindowsOutRoot)/bin/Release/azv2-win-x64.zip
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
   DOTNET_NOLOGO: 1
   Codeql.Enabled: false
@@ -108,7 +110,7 @@ stages:
     - script: |
         set -euo pipefail
         chmod +x "$(PackagingScriptsRoot)/linux/build_linux_tarball.sh"
-        OUT_ROOT="$(PackagingLinuxOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" "$(PackagingScriptsRoot)/linux/build_linux_tarball.sh"
+        OUT_ROOT="$(PackagingLinuxOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" CLI_TAR_PATH="$(PackagingLinuxTarballPath)" "$(PackagingScriptsRoot)/linux/build_linux_tarball.sh"
       displayName: Run build_linux_tarball.sh
 
     - task: PublishPipelineArtifact@1
@@ -156,7 +158,7 @@ stages:
     - script: |
         set -euo pipefail
         chmod +x "$(PackagingScriptsRoot)/windows/build_win_zip.sh"
-        OUT_ROOT="$(PackagingWindowsOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" "$(PackagingScriptsRoot)/windows/build_win_zip.sh"
+        OUT_ROOT="$(PackagingWindowsOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" CLI_WIN_ZIP_PATH="$(PackagingWindowsZipPath)" "$(PackagingScriptsRoot)/windows/build_win_zip.sh"
       displayName: Run build_win_zip.sh
 
     - task: PublishPipelineArtifact@1
@@ -196,7 +198,7 @@ stages:
     - script: |
         set -euo pipefail
         chmod +x "$(PackagingScriptsRoot)/linux/test_bundled_plus_ext_linux.sh"
-        OUT_ROOT="$(PackagingLinuxOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" "$(PackagingScriptsRoot)/linux/test_bundled_plus_ext_linux.sh"
+        OUT_ROOT="$(PackagingLinuxOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" CLI_TAR_PATH="$(PackagingLinuxTarballPath)" "$(PackagingScriptsRoot)/linux/test_bundled_plus_ext_linux.sh"
       displayName: Run Linux validation script
 
     - task: PublishPipelineArtifact@1
@@ -241,7 +243,7 @@ stages:
         pwsh: true
         script: |
           $ErrorActionPreference = 'Stop'
-          & "$(PackagingScriptsRoot)/windows/test_bundled_plus_ext_win.ps1" -OutRoot "$(PackagingWindowsOutRoot)" -CommonOutRoot "$(PackagingCommonOutRoot)"
+          & "$(PackagingScriptsRoot)/windows/test_bundled_plus_ext_win.ps1" -OutRoot "$(PackagingWindowsOutRoot)" -CommonOutRoot "$(PackagingCommonOutRoot)" -CliZipPath "$(PackagingWindowsZipPath)"
 
     - task: PublishPipelineArtifact@1
       displayName: Publish Windows simulation artifacts

@@ -1,6 +1,8 @@
 param(
     [string]$OutRoot = (Join-Path $PSScriptRoot '../../../out/windows'),
     [string]$CommonOutRoot = (Join-Path $PSScriptRoot '../../../out/common'),
+    [string]$CliZipPath = '',
+    [string]$SimRoot = '',
     [switch]$SkipRuntime
 )
 
@@ -8,9 +10,18 @@ $ErrorActionPreference = 'Stop'
 
 $OutRoot = [System.IO.Path]::GetFullPath($OutRoot)
 $CommonOutRoot = [System.IO.Path]::GetFullPath($CommonOutRoot)
-$SimRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../sim/win-zip-bundled-plus-ext'))
 
-$CliZipPath = Join-Path $OutRoot 'bin/Release/azv2-win-x64.zip'
+if ([string]::IsNullOrWhiteSpace($SimRoot)) {
+    $SimRoot = Join-Path $PSScriptRoot '../../../sim/win-zip-bundled-plus-ext'
+}
+$SimRoot = [System.IO.Path]::GetFullPath($SimRoot)
+
+if ([string]::IsNullOrWhiteSpace($CliZipPath)) {
+    $CliZipPath = Join-Path $OutRoot 'bin/Release/azv2-win-x64.zip'
+}
+else {
+    $CliZipPath = [System.IO.Path]::GetFullPath($CliZipPath)
+}
 $ExtPackDir = Join-Path $CommonOutRoot 'extensions-pack'
 
 if (-not (Test-Path -Path $CliZipPath -PathType Leaf)) {

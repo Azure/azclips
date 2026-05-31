@@ -17,7 +17,7 @@ INJECTOR_SCRIPT="$PACKAGING_ROOT/common/inject_builtin_extensions.sh"
 
 CLI_SC_DIR="$OUT_ROOT/publish/cli/$RID"
 CLI_TAR_DIR="$OUT_ROOT/bin/Release"
-CLI_TAR_PATH="$CLI_TAR_DIR/azv2-$RID.tar.gz"
+CLI_TAR_PATH="${CLI_TAR_PATH:-$CLI_TAR_DIR/azv2-$RID.tar.gz}"
 
 if [[ ! -f "$INJECTOR_SCRIPT" ]]; then
   echo "ERROR: Injector script not found at $INJECTOR_SCRIPT"
@@ -34,7 +34,7 @@ dotnet publish "$CLI_PROJECT" \
 chmod +x "$INJECTOR_SCRIPT"
 OUT_ROOT="$OUT_ROOT" "$INJECTOR_SCRIPT" --publish-dir "$CLI_SC_DIR" --builtin-root "$COMMON_OUT_ROOT/builtin-publish"
 
-mkdir -p "$CLI_TAR_DIR"
+mkdir -p "$(dirname "$CLI_TAR_PATH")"
 rm -f "$CLI_TAR_PATH"
 tar -czf "$CLI_TAR_PATH" -C "$CLI_SC_DIR" .
 echo "Created $CLI_TAR_PATH"
