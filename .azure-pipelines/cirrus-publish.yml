@@ -17,9 +17,9 @@ parameters:
   type: string
   default: '320168'
 - name: distribution_version
-  displayName: 'Distribution version'
+  displayName: 'Distribution version (optional, auto-detect when empty)'
   type: string
-  default: '0.1.0-alpha'
+  default: ''
 
 variables:
 - template: templates/variables.yml

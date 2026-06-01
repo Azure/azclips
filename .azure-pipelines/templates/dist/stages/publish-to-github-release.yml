@@ -59,11 +59,6 @@ stages:
           exit 1
         fi
 
-        if [[ -z "${{ parameters.distribution_version }}" ]]; then
-          echo "ERROR: distribution_version is required"
-          exit 1
-        fi
-
         source_build_id="${{ parameters.source_build_id }}"
         source_pipeline_name="${{ parameters.source_pipeline_name }}"
 
@@ -99,6 +94,28 @@ stages:
           package_file_name="$(basename "$pkg")"
           echo "$package_name,$package_version,$package_file_name" >> "$package_versions_tmp"
         done
+
+        if [[ -z "$core_distribution_version" ]]; then
+          mapfile -t derived_versions < <(
+            printf '%s\n' "${assets[@]}" |
+              sed -E 's#^.*/##' |
+              grep -Eo '[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?' |
+              sort -u
+          )
+
+          if [[ ${#derived_versions[@]} -eq 1 ]]; then
+            core_distribution_version="${derived_versions[0]}"
+            echo "Auto-detected distribution version from artifacts: $core_distribution_version"
+          elif [[ ${#derived_versions[@]} -gt 1 ]]; then
+            echo "ERROR: Multiple candidate distribution versions found in artifacts: ${derived_versions[*]}"
+            echo "Pass distribution_version explicitly to disambiguate."
+            exit 1
+          else
+            echo "ERROR: Could not determine distribution version from artifacts."
+            echo "Pass distribution_version explicitly."
+            exit 1
+          fi
+        fi
 
         safe_version="${core_distribution_version//[^0-9A-Za-z._-]/-}"
         tag_name="${{ parameters.GitHubReleasePrefix }}-${safe_version}-build-${source_build_id}"
