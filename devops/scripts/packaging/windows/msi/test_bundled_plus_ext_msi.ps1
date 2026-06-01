@@ -25,7 +25,7 @@ $ExtPackDir = Join-Path $CommonOutRoot 'extensions-pack'
 $InstallLog = Join-Path $SimRoot 'msi-install.log'
 $UninstallLog = Join-Path $SimRoot 'msi-uninstall.log'
 $IsWindowsHost = $env:OS -eq 'Windows_NT'
-$BundledExtConfig = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../config/bundled_ext.config'))
+$BundledExtConfig = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../config/lean_package.config'))
 
 if (-not (Test-Path -Path $BundledExtConfig -PathType Leaf)) {
     throw "Bundled extension config not found at $BundledExtConfig"

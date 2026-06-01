@@ -11,13 +11,29 @@ $ErrorActionPreference = 'Stop'
 $OutRoot = [System.IO.Path]::GetFullPath($OutRoot)
 $CommonOutRoot = [System.IO.Path]::GetFullPath($CommonOutRoot)
 
+$packageProfile = $env:PACKAGE_PROFILE
+if ([string]::IsNullOrWhiteSpace($packageProfile)) {
+    $packageProfile = 'lean'
+}
+$packageProfile = $packageProfile.ToLowerInvariant()
+
+if ($packageProfile -eq 'full') {
+    $artifactPrefix = 'azv2'
+}
+elseif ($packageProfile -eq 'lean') {
+    $artifactPrefix = 'azv2-lean'
+}
+else {
+    throw "Unsupported PACKAGE_PROFILE '$packageProfile'. Expected 'lean' or 'full'."
+}
+
 if ([string]::IsNullOrWhiteSpace($SimRoot)) {
     $SimRoot = Join-Path $PSScriptRoot '../../../../sim/win-zip-bundled-plus-ext'
 }
 $SimRoot = [System.IO.Path]::GetFullPath($SimRoot)
 
 if ([string]::IsNullOrWhiteSpace($CliZipPath)) {
-    $CliZipPath = Join-Path $OutRoot 'Release/zip/azv2-win-x64.zip'
+    $CliZipPath = Join-Path $OutRoot "Release/zip/$artifactPrefix-win-x64.zip"
 }
 else {
     $CliZipPath = [System.IO.Path]::GetFullPath($CliZipPath)

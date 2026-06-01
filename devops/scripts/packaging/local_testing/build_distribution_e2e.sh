@@ -26,10 +26,22 @@ COMMON_OUT_ROOT="${COMMON_OUT_ROOT:-$OUT_ROOT_BASE/common}"
 LINUX_OUT_ROOT="${LINUX_OUT_ROOT:-$OUT_ROOT_BASE/linux}"
 WINDOWS_OUT_ROOT="${WINDOWS_OUT_ROOT:-$OUT_ROOT_BASE/windows}"
 MACOS_OUT_ROOT="${MACOS_OUT_ROOT:-$OUT_ROOT_BASE/macos}"
-LINUX_TARBALL_PATH="${LINUX_TARBALL_PATH:-$LINUX_OUT_ROOT/Release/tarball/azv2-linux-x64.tar.gz}"
-WINDOWS_ZIP_PATH="${WINDOWS_ZIP_PATH:-$WINDOWS_OUT_ROOT/Release/zip/azv2-win-x64.zip}"
+PACKAGE_PROFILE="${PACKAGE_PROFILE:-lean}"
+PACKAGE_PROFILE="$(echo "$PACKAGE_PROFILE" | tr '[:upper:]' '[:lower:]')"
+
+if [[ "$PACKAGE_PROFILE" == "full" ]]; then
+  ARTIFACT_PREFIX="azv2"
+elif [[ "$PACKAGE_PROFILE" == "lean" ]]; then
+  ARTIFACT_PREFIX="azv2-lean"
+else
+  echo "ERROR: Unsupported PACKAGE_PROFILE '$PACKAGE_PROFILE'. Expected 'lean' or 'full'."
+  exit 1
+fi
+
+LINUX_TARBALL_PATH="${LINUX_TARBALL_PATH:-$LINUX_OUT_ROOT/Release/tarball/$ARTIFACT_PREFIX-linux-x64.tar.gz}"
+WINDOWS_ZIP_PATH="${WINDOWS_ZIP_PATH:-$WINDOWS_OUT_ROOT/Release/zip/$ARTIFACT_PREFIX-win-x64.zip}"
 MACOS_RID="${MACOS_RID:-osx-arm64}"
-MACOS_TARBALL_PATH="${MACOS_TARBALL_PATH:-$MACOS_OUT_ROOT/Release/tarball/azv2-$MACOS_RID.tar.gz}"
+MACOS_TARBALL_PATH="${MACOS_TARBALL_PATH:-$MACOS_OUT_ROOT/Release/tarball/$ARTIFACT_PREFIX-$MACOS_RID.tar.gz}"
 RUN_PWSH=0
 RUN_MACOS=0
 
@@ -49,7 +61,7 @@ for arg in "$@"; do
   esac
 done
 
-for required in common/build_common.sh linux/tarball/build_linux_tarball.sh windows/zip/build_win_zip.sh macos/tarball/build_macos_tarball.sh linux/tarball/test_linux_tarball_bundled_plus_ext.sh windows/zip/test_windows_zip_bundled_plus_ext.ps1 macos/tarball/test_macos_tarball_bundled_plus_ext.sh config/bundled_ext.config; do
+for required in common/build_common.sh linux/tarball/build_linux_tarball.sh windows/zip/build_win_zip.sh macos/tarball/build_macos_tarball.sh linux/tarball/test_linux_tarball_bundled_plus_ext.sh windows/zip/test_windows_zip_bundled_plus_ext.ps1 macos/tarball/test_macos_tarball_bundled_plus_ext.sh config/lean_package.config config/full_package.config; do
   if [[ ! -f "$PACKAGING_DIR/$required" ]]; then
     echo "ERROR: Missing required file: $PACKAGING_DIR/$required"
     exit 1
@@ -73,17 +85,17 @@ echo "macOS tarball path: $MACOS_TARBALL_PATH"
 echo ""
 echo "[1/4] Build common distribution assets"
 chmod +x "$PACKAGING_DIR/common/build_common.sh"
-OUT_ROOT="$COMMON_OUT_ROOT" "$PACKAGING_DIR/common/build_common.sh"
+OUT_ROOT="$COMMON_OUT_ROOT" PACKAGE_PROFILE="$PACKAGE_PROFILE" "$PACKAGING_DIR/common/build_common.sh"
 
 echo ""
 echo "[2/4] Build Linux distribution artifact"
 chmod +x "$PACKAGING_DIR/linux/tarball/build_linux_tarball.sh"
-OUT_ROOT="$LINUX_OUT_ROOT" COMMON_OUT_ROOT="$COMMON_OUT_ROOT" CLI_TAR_PATH="$LINUX_TARBALL_PATH" "$PACKAGING_DIR/linux/tarball/build_linux_tarball.sh"
+OUT_ROOT="$LINUX_OUT_ROOT" COMMON_OUT_ROOT="$COMMON_OUT_ROOT" PACKAGE_PROFILE="$PACKAGE_PROFILE" CLI_TAR_PATH="$LINUX_TARBALL_PATH" "$PACKAGING_DIR/linux/tarball/build_linux_tarball.sh"
 
 echo ""
 echo "[3/4] Validate Linux bundled + optional extensions"
 chmod +x "$PACKAGING_DIR/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
-OUT_ROOT="$LINUX_OUT_ROOT" COMMON_OUT_ROOT="$COMMON_OUT_ROOT" CLI_TAR_PATH="$LINUX_TARBALL_PATH" "$PACKAGING_DIR/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
+OUT_ROOT="$LINUX_OUT_ROOT" COMMON_OUT_ROOT="$COMMON_OUT_ROOT" PACKAGE_PROFILE="$PACKAGE_PROFILE" CLI_TAR_PATH="$LINUX_TARBALL_PATH" "$PACKAGING_DIR/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
 
 if [[ $RUN_PWSH -eq 1 ]]; then
   echo ""
@@ -94,9 +106,9 @@ if [[ $RUN_PWSH -eq 1 ]]; then
   fi
 
   chmod +x "$PACKAGING_DIR/windows/zip/build_win_zip.sh"
-  OUT_ROOT="$WINDOWS_OUT_ROOT" COMMON_OUT_ROOT="$COMMON_OUT_ROOT" CLI_WIN_ZIP_PATH="$WINDOWS_ZIP_PATH" "$PACKAGING_DIR/windows/zip/build_win_zip.sh"
+  OUT_ROOT="$WINDOWS_OUT_ROOT" COMMON_OUT_ROOT="$COMMON_OUT_ROOT" PACKAGE_PROFILE="$PACKAGE_PROFILE" CLI_WIN_ZIP_PATH="$WINDOWS_ZIP_PATH" "$PACKAGING_DIR/windows/zip/build_win_zip.sh"
 
-  pwsh -NoLogo -NoProfile -File "$PACKAGING_DIR/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "$WINDOWS_OUT_ROOT" -CommonOutRoot "$COMMON_OUT_ROOT" -CliZipPath "$WINDOWS_ZIP_PATH"
+  PACKAGE_PROFILE="$PACKAGE_PROFILE" pwsh -NoLogo -NoProfile -File "$PACKAGING_DIR/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "$WINDOWS_OUT_ROOT" -CommonOutRoot "$COMMON_OUT_ROOT" -CliZipPath "$WINDOWS_ZIP_PATH"
 else
   echo ""
   echo "[4/4] Skipping PowerShell validation (use --with-pwsh to enable)"
@@ -107,10 +119,10 @@ if [[ $RUN_MACOS -eq 1 ]]; then
   echo "[5/5] Build macOS distribution artifact + validate"
 
   chmod +x "$PACKAGING_DIR/macos/tarball/build_macos_tarball.sh"
-  OUT_ROOT="$MACOS_OUT_ROOT" COMMON_OUT_ROOT="$COMMON_OUT_ROOT" RID="$MACOS_RID" CLI_TAR_PATH="$MACOS_TARBALL_PATH" "$PACKAGING_DIR/macos/tarball/build_macos_tarball.sh"
+  OUT_ROOT="$MACOS_OUT_ROOT" COMMON_OUT_ROOT="$COMMON_OUT_ROOT" PACKAGE_PROFILE="$PACKAGE_PROFILE" RID="$MACOS_RID" CLI_TAR_PATH="$MACOS_TARBALL_PATH" "$PACKAGING_DIR/macos/tarball/build_macos_tarball.sh"
 
   chmod +x "$PACKAGING_DIR/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
-  OUT_ROOT="$MACOS_OUT_ROOT" COMMON_OUT_ROOT="$COMMON_OUT_ROOT" RID="$MACOS_RID" CLI_TAR_PATH="$MACOS_TARBALL_PATH" "$PACKAGING_DIR/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
+  OUT_ROOT="$MACOS_OUT_ROOT" COMMON_OUT_ROOT="$COMMON_OUT_ROOT" PACKAGE_PROFILE="$PACKAGE_PROFILE" RID="$MACOS_RID" CLI_TAR_PATH="$MACOS_TARBALL_PATH" "$PACKAGING_DIR/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
 else
   echo ""
   echo "[5/5] Skipping macOS validation (use --with-macos to enable)"

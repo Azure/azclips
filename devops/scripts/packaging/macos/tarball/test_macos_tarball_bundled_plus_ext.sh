@@ -14,7 +14,19 @@ COMMON_OUT_ROOT="$(realpath "${COMMON_OUT_ROOT:-$REPO_ROOT/devops/out/common}")"
 SIM_ROOT="$(realpath "${SIM_ROOT:-$REPO_ROOT/devops/sim/macos-tarball-bundled-plus-ext}" 2>/dev/null || echo "${SIM_ROOT:-$REPO_ROOT/devops/sim/macos-tarball-bundled-plus-ext}")"
 
 RID="${RID:-osx-arm64}"
-CLI_TAR_PATH="${CLI_TAR_PATH:-$OUT_ROOT/Release/tarball/azv2-$RID.tar.gz}"
+PACKAGE_PROFILE="${PACKAGE_PROFILE:-lean}"
+PACKAGE_PROFILE="$(echo "$PACKAGE_PROFILE" | tr '[:upper:]' '[:lower:]')"
+
+if [[ "$PACKAGE_PROFILE" == "full" ]]; then
+  ARTIFACT_PREFIX="azv2"
+elif [[ "$PACKAGE_PROFILE" == "lean" ]]; then
+  ARTIFACT_PREFIX="azv2-lean"
+else
+  echo "ERROR: Unsupported PACKAGE_PROFILE '$PACKAGE_PROFILE'. Expected 'lean' or 'full'."
+  exit 1
+fi
+
+CLI_TAR_PATH="${CLI_TAR_PATH:-$OUT_ROOT/Release/tarball/$ARTIFACT_PREFIX-$RID.tar.gz}"
 EXT_PACK_DIR="$COMMON_OUT_ROOT/extensions-pack"
 
 if [[ ! -f "$CLI_TAR_PATH" ]]; then

@@ -19,8 +19,25 @@ if ([string]::IsNullOrWhiteSpace($OutRoot)) {
 if ([string]::IsNullOrWhiteSpace($CommonOutRoot)) {
     $CommonOutRoot = Join-Path $repoRoot 'devops/out/common'
 }
+
+$packageProfile = $env:PACKAGE_PROFILE
+if ([string]::IsNullOrWhiteSpace($packageProfile)) {
+    $packageProfile = 'lean'
+}
+$packageProfile = $packageProfile.ToLowerInvariant()
+
+if ($packageProfile -eq 'full') {
+    $artifactPrefix = 'azv2'
+}
+elseif ($packageProfile -eq 'lean') {
+    $artifactPrefix = 'azv2-lean'
+}
+else {
+    throw "Unsupported PACKAGE_PROFILE '$packageProfile'. Expected 'lean' or 'full'."
+}
+
 if ([string]::IsNullOrWhiteSpace($CliWinZipPath)) {
-    $CliWinZipPath = Join-Path $OutRoot "Release/zip/azv2-$Rid.zip"
+    $CliWinZipPath = Join-Path $OutRoot "Release/zip/$artifactPrefix-$Rid.zip"
 }
 
 $OutRoot = [System.IO.Path]::GetFullPath($OutRoot)

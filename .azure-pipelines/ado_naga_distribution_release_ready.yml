@@ -10,12 +10,10 @@ variables:
   PackagingLinuxOutRoot: $(PackagingOutRoot)/linux
   PackagingWindowsOutRoot: $(PackagingOutRoot)/windows
   PackagingMacOSOutRoot: $(PackagingOutRoot)/macos
+  PackageProfile: lean
   PackagingLinuxRid: linux-x64
   PackagingWindowsRid: win-x64
-  PackagingLinuxTarballPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-$(PackagingLinuxRid).tar.gz
-  PackagingWindowsZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-$(PackagingWindowsRid).zip
   PackagingMacOSRid: osx-arm64
-  PackagingMacOSTarballPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-$(PackagingMacOSRid).tar.gz
   ubuntu_pool: 'ubuntu-latest'
   windows_pool: 'windows-latest'
   macos_arm64_pool: 'macOS-15-arm64'
@@ -79,7 +77,7 @@ stages:
     - script: |
         set -euo pipefail
         chmod +x "$(PackagingScriptsRoot)/common/build_common.sh"
-        OUT_ROOT="$(PackagingCommonOutRoot)" "$(PackagingScriptsRoot)/common/build_common.sh"
+        OUT_ROOT="$(PackagingCommonOutRoot)" PACKAGE_PROFILE="$(PackageProfile)" "$(PackagingScriptsRoot)/common/build_common.sh"
       displayName: Build Common
 
     - task: PublishPipelineArtifact@1
@@ -101,11 +99,9 @@ stages:
       matrix:
         linux_x64:
           Rid: linux-x64
-          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-linux-x64.tar.gz
           DistributionArtifact: Distribution_Linux
         linux_arm64:
           Rid: linux-arm64
-          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-linux-arm64.tar.gz
           DistributionArtifact: Distribution_Linux_Arm64
     pool:
       vmImage: $(ubuntu_pool)
@@ -128,8 +124,18 @@ stages:
 
     - script: |
         set -euo pipefail
+        package_profile="$(echo "$(PackageProfile)" | tr '[:upper:]' '[:lower:]')"
+        if [[ "$package_profile" == "full" ]]; then
+          artifact_prefix="azv2"
+        elif [[ "$package_profile" == "lean" ]]; then
+          artifact_prefix="azv2-lean"
+        else
+          echo "ERROR: Unsupported PackageProfile '$package_profile'. Expected 'lean' or 'full'."
+          exit 1
+        fi
+        cli_tar_path="$(PackagingLinuxOutRoot)/Release/tarball/${artifact_prefix}-$(Rid).tar.gz"
         chmod +x "$(PackagingScriptsRoot)/linux/tarball/build_linux_tarball.sh"
-        OUT_ROOT="$(PackagingLinuxOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" RID="$(Rid)" CLI_TAR_PATH="$(CliTarPath)" "$(PackagingScriptsRoot)/linux/tarball/build_linux_tarball.sh"
+        OUT_ROOT="$(PackagingLinuxOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" PACKAGE_PROFILE="$package_profile" RID="$(Rid)" CLI_TAR_PATH="$cli_tar_path" "$(PackagingScriptsRoot)/linux/tarball/build_linux_tarball.sh"
       displayName: Build Linux Tarball
 
     - task: PublishPipelineArtifact@1
@@ -151,11 +157,9 @@ stages:
       matrix:
         win_x64:
           Rid: win-x64
-          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-win-x64.zip
           DistributionArtifact: Distribution_Windows
         win_arm64:
           Rid: win-arm64
-          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-win-arm64.zip
           DistributionArtifact: Distribution_Windows_Arm64
     pool:
       vmImage: $(windows_pool)
@@ -179,9 +183,23 @@ stages:
     - task: PowerShell@2
       displayName: Build Windows Zip
       inputs:
-        targetType: filePath
-        filePath: $(PackagingScriptsRoot)/windows/zip/build_win_zip.ps1
-        arguments: -OutRoot "$(PackagingWindowsOutRoot)" -CommonOutRoot "$(PackagingCommonOutRoot)" -Rid "$(Rid)" -CliWinZipPath "$(CliZipPath)"
+        targetType: inline
+        script: |
+          $ErrorActionPreference = 'Stop'
+          $packageProfile = "$(PackageProfile)".ToLowerInvariant()
+          if ($packageProfile -eq 'full') {
+            $artifactPrefix = 'azv2'
+          }
+          elseif ($packageProfile -eq 'lean') {
+            $artifactPrefix = 'azv2-lean'
+          }
+          else {
+            throw "Unsupported PackageProfile '$packageProfile'. Expected 'lean' or 'full'."
+          }
+
+          $cliZipPath = "$(PackagingWindowsOutRoot)/Release/zip/$artifactPrefix-$(Rid).zip"
+          $env:PACKAGE_PROFILE = $packageProfile
+          & "$(PackagingScriptsRoot)/windows/zip/build_win_zip.ps1" -OutRoot "$(PackagingWindowsOutRoot)" -CommonOutRoot "$(PackagingCommonOutRoot)" -Rid "$(Rid)" -CliWinZipPath $cliZipPath
         pwsh: true
 
     - task: PublishPipelineArtifact@1
@@ -203,12 +221,10 @@ stages:
       matrix:
         osx_arm64:
           Rid: osx-arm64
-          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-arm64.tar.gz
           DistributionArtifact: Distribution_MacOS
           VmImage: macOS-15-arm64
         osx_x64:
           Rid: osx-x64
-          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-x64.tar.gz
           DistributionArtifact: Distribution_MacOS_Intel
           VmImage: macOS-15
     pool:
@@ -232,8 +248,18 @@ stages:
 
     - script: |
         set -euo pipefail
+        package_profile="$(echo "$(PackageProfile)" | tr '[:upper:]' '[:lower:]')"
+        if [[ "$package_profile" == "full" ]]; then
+          artifact_prefix="azv2"
+        elif [[ "$package_profile" == "lean" ]]; then
+          artifact_prefix="azv2-lean"
+        else
+          echo "ERROR: Unsupported PackageProfile '$package_profile'. Expected 'lean' or 'full'."
+          exit 1
+        fi
+        cli_tar_path="$(PackagingMacOSOutRoot)/Release/tarball/${artifact_prefix}-$(Rid).tar.gz"
         chmod +x "$(PackagingScriptsRoot)/macos/tarball/build_macos_tarball.sh"
-        OUT_ROOT="$(PackagingMacOSOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" RID="$(Rid)" CLI_TAR_PATH="$(CliTarPath)" "$(PackagingScriptsRoot)/macos/tarball/build_macos_tarball.sh"
+        OUT_ROOT="$(PackagingMacOSOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" PACKAGE_PROFILE="$package_profile" RID="$(Rid)" CLI_TAR_PATH="$cli_tar_path" "$(PackagingScriptsRoot)/macos/tarball/build_macos_tarball.sh"
       displayName: Build macOS Tarball
 
     - task: PublishPipelineArtifact@1
@@ -255,12 +281,10 @@ stages:
       matrix:
         linux_x64:
           Rid: linux-x64
-          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-linux-x64.tar.gz
           DistributionArtifact: Distribution_Linux
           SkipRuntime: false
         linux_arm64:
           Rid: linux-arm64
-          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-linux-arm64.tar.gz
           DistributionArtifact: Distribution_Linux_Arm64
           SkipRuntime: true
     pool:
@@ -284,8 +308,18 @@ stages:
 
     - script: |
         set -euo pipefail
+        package_profile="$(echo "$(PackageProfile)" | tr '[:upper:]' '[:lower:]')"
+        if [[ "$package_profile" == "full" ]]; then
+          artifact_prefix="azv2"
+        elif [[ "$package_profile" == "lean" ]]; then
+          artifact_prefix="azv2-lean"
+        else
+          echo "ERROR: Unsupported PackageProfile '$package_profile'. Expected 'lean' or 'full'."
+          exit 1
+        fi
+        cli_tar_path="$(PackagingLinuxOutRoot)/Release/tarball/${artifact_prefix}-$(Rid).tar.gz"
         chmod +x "$(PackagingScriptsRoot)/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
-        OUT_ROOT="$(PackagingLinuxOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" CLI_TAR_PATH="$(CliTarPath)" SKIP_RUNTIME="$(SkipRuntime)" "$(PackagingScriptsRoot)/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
+        OUT_ROOT="$(PackagingLinuxOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" PACKAGE_PROFILE="$package_profile" CLI_TAR_PATH="$cli_tar_path" SKIP_RUNTIME="$(SkipRuntime)" "$(PackagingScriptsRoot)/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
       displayName: Validate Linux Tarball
 
     - task: PublishPipelineArtifact@1
@@ -308,12 +342,10 @@ stages:
       matrix:
         win_x64:
           Rid: win-x64
-          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-win-x64.zip
           DistributionArtifact: Distribution_Windows
           SkipRuntime: false
         win_arm64:
           Rid: win-arm64
-          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-win-arm64.zip
           DistributionArtifact: Distribution_Windows_Arm64
           SkipRuntime: true
     pool:
@@ -342,12 +374,25 @@ stages:
         pwsh: true
         script: |
           $ErrorActionPreference = 'Stop'
-          $skipRuntime = "$(SkipRuntime)"
-          if ($skipRuntime -eq 'true') {
-            & "$(PackagingScriptsRoot)/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "$(PackagingWindowsOutRoot)" -CommonOutRoot "$(PackagingCommonOutRoot)" -CliZipPath "$(CliZipPath)" -SkipRuntime
+          $packageProfile = "$(PackageProfile)".ToLowerInvariant()
+          if ($packageProfile -eq 'full') {
+            $artifactPrefix = 'azv2'
+          }
+          elseif ($packageProfile -eq 'lean') {
+            $artifactPrefix = 'azv2-lean'
           }
           else {
-            & "$(PackagingScriptsRoot)/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "$(PackagingWindowsOutRoot)" -CommonOutRoot "$(PackagingCommonOutRoot)" -CliZipPath "$(CliZipPath)"
+            throw "Unsupported PackageProfile '$packageProfile'. Expected 'lean' or 'full'."
+          }
+
+          $cliZipPath = "$(PackagingWindowsOutRoot)/Release/zip/$artifactPrefix-$(Rid).zip"
+          $env:PACKAGE_PROFILE = $packageProfile
+          $skipRuntime = "$(SkipRuntime)"
+          if ($skipRuntime -eq 'true') {
+            & "$(PackagingScriptsRoot)/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "$(PackagingWindowsOutRoot)" -CommonOutRoot "$(PackagingCommonOutRoot)" -CliZipPath $cliZipPath -SkipRuntime
+          }
+          else {
+            & "$(PackagingScriptsRoot)/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "$(PackagingWindowsOutRoot)" -CommonOutRoot "$(PackagingCommonOutRoot)" -CliZipPath $cliZipPath
           }
 
     - task: PublishPipelineArtifact@1
@@ -370,12 +415,10 @@ stages:
       matrix:
         osx_arm64:
           Rid: osx-arm64
-          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-arm64.tar.gz
           DistributionArtifact: Distribution_MacOS
           VmImage: macOS-15-arm64
         osx_x64:
           Rid: osx-x64
-          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-x64.tar.gz
           DistributionArtifact: Distribution_MacOS_Intel
           VmImage: macOS-15
     pool:
@@ -399,8 +442,18 @@ stages:
 
     - script: |
         set -euo pipefail
+        package_profile="$(echo "$(PackageProfile)" | tr '[:upper:]' '[:lower:]')"
+        if [[ "$package_profile" == "full" ]]; then
+          artifact_prefix="azv2"
+        elif [[ "$package_profile" == "lean" ]]; then
+          artifact_prefix="azv2-lean"
+        else
+          echo "ERROR: Unsupported PackageProfile '$package_profile'. Expected 'lean' or 'full'."
+          exit 1
+        fi
+        cli_tar_path="$(PackagingMacOSOutRoot)/Release/tarball/${artifact_prefix}-$(Rid).tar.gz"
         chmod +x "$(PackagingScriptsRoot)/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
-        OUT_ROOT="$(PackagingMacOSOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" RID="$(Rid)" CLI_TAR_PATH="$(CliTarPath)" "$(PackagingScriptsRoot)/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
+        OUT_ROOT="$(PackagingMacOSOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" PACKAGE_PROFILE="$package_profile" RID="$(Rid)" CLI_TAR_PATH="$cli_tar_path" "$(PackagingScriptsRoot)/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
       displayName: Validate macOS Tarball
 
     - task: PublishPipelineArtifact@1

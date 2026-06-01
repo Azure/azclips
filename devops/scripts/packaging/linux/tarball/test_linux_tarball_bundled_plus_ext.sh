@@ -13,8 +13,19 @@ OUT_ROOT="$(realpath "${OUT_ROOT:-$REPO_ROOT/devops/out/linux}")"
 COMMON_OUT_ROOT="$(realpath "${COMMON_OUT_ROOT:-$REPO_ROOT/devops/out/common}")"
 SIM_ROOT="$(realpath "${SIM_ROOT:-$REPO_ROOT/devops/sim/linux-tarball-bundled-plus-ext}" 2>/dev/null || echo "${SIM_ROOT:-$REPO_ROOT/devops/sim/linux-tarball-bundled-plus-ext}")"
 SKIP_RUNTIME="${SKIP_RUNTIME:-false}"
+PACKAGE_PROFILE="${PACKAGE_PROFILE:-lean}"
+PACKAGE_PROFILE="$(echo "$PACKAGE_PROFILE" | tr '[:upper:]' '[:lower:]')"
 
-CLI_TAR_PATH="${CLI_TAR_PATH:-$OUT_ROOT/Release/tarball/azv2-linux-x64.tar.gz}"
+if [[ "$PACKAGE_PROFILE" == "full" ]]; then
+  ARTIFACT_PREFIX="azv2"
+elif [[ "$PACKAGE_PROFILE" == "lean" ]]; then
+  ARTIFACT_PREFIX="azv2-lean"
+else
+  echo "ERROR: Unsupported PACKAGE_PROFILE '$PACKAGE_PROFILE'. Expected 'lean' or 'full'."
+  exit 1
+fi
+
+CLI_TAR_PATH="${CLI_TAR_PATH:-$OUT_ROOT/Release/tarball/$ARTIFACT_PREFIX-linux-x64.tar.gz}"
 EXT_PACK_DIR="$COMMON_OUT_ROOT/extensions-pack"
 
 if [[ ! -f "$CLI_TAR_PATH" ]]; then

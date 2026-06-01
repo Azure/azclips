@@ -14,9 +14,20 @@ COMMON_OUT_ROOT="${COMMON_OUT_ROOT:-$REPO_ROOT/devops/out/common}"
 CLI_PROJECT="${CLI_PROJECT:-src/CLI/Core.Cli.csproj}"
 RID="${RID:-osx-arm64}"
 INJECTOR_SCRIPT="$PACKAGING_ROOT/common/inject_builtin_extensions.sh"
+PACKAGE_PROFILE="${PACKAGE_PROFILE:-lean}"
+PACKAGE_PROFILE="$(echo "$PACKAGE_PROFILE" | tr '[:upper:]' '[:lower:]')"
+
+if [[ "$PACKAGE_PROFILE" == "full" ]]; then
+  ARTIFACT_PREFIX="azv2"
+elif [[ "$PACKAGE_PROFILE" == "lean" ]]; then
+  ARTIFACT_PREFIX="azv2-lean"
+else
+  echo "ERROR: Unsupported PACKAGE_PROFILE '$PACKAGE_PROFILE'. Expected 'lean' or 'full'."
+  exit 1
+fi
 
 CLI_SC_DIR="$OUT_ROOT/publish/cli/$RID"
-CLI_TAR_PATH="${CLI_TAR_PATH:-$OUT_ROOT/Release/tarball/azv2-$RID.tar.gz}"
+CLI_TAR_PATH="${CLI_TAR_PATH:-$OUT_ROOT/Release/tarball/$ARTIFACT_PREFIX-$RID.tar.gz}"
 
 if [[ ! -f "$INJECTOR_SCRIPT" ]]; then
   echo "ERROR: Injector script not found at $INJECTOR_SCRIPT"
