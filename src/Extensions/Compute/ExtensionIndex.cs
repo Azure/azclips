@@ -422,7 +422,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
             ["Get-VM_List"]               = s_listVM_PS,
             ["Remove-VM"]                = s_deleteVM_PS,
         };
-        // Shape B (§11.2): keys are full-path form. Each key is `{verb} {path}` where `verb` matches
+        // Full-path keys. Each key is `{verb} {path}` where `verb` matches
         // an [ExtensionVerb] declaration on this class; the dispatcher does longest-prefix match on the
         // (verb, path) tuple via Core.Extensions.LeafIndex.
         private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()

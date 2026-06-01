@@ -46,7 +46,7 @@ public class ExtensionDispatcher //: IParser
     /// Adapter that wraps a <see cref="FileExtensionRegistryStore"/> and exposes only the
     /// reconciled (live) view through the <see cref="IExtensionRegistryStore"/> contract. The
     /// dispatcher's default chain uses this so both the leaf index and the verb-only fallback
-    /// resolver see the same filtered registry (Phase 8.5).
+    /// resolver see the same filtered registry (per the reconciler contract).
     /// </summary>
     private sealed class ReconcilingStore : IExtensionRegistryStore
     {
@@ -62,7 +62,7 @@ public class ExtensionDispatcher //: IParser
     }
 
     /// <summary>
-    /// Full Shape B constructor. Tests can supply both the verb resolver (legacy fallback) and an
+    /// Full constructor. Tests can supply both the verb resolver (legacy fallback) and an
     /// explicit leaf-index factory to exercise the longest-prefix dispatch logic in isolation.
     /// </summary>
     public ExtensionDispatcher(IExtensionResolver resolver, Func<LeafIndex> leafIndexFactory)
@@ -79,10 +79,10 @@ public class ExtensionDispatcher //: IParser
 
         var verb = args[0];
 
-        // Shape B (§11.5): longest-prefix match against the (verb, path) leaf index. Walk back from
-        // the longest possible path (all leading non-flag args after the verb) down to the empty
-        // path. First hit wins. The dispatcher only needs the package owner here; the extension's
-        // s_cliTable (now full-path keyed per §11.2) does the final lookup with the same key.
+        // Longest-prefix match against the (verb, path) leaf index. Walk back from the longest
+        // possible path (all leading non-flag args after the verb) down to the empty path. First
+        // hit wins. The dispatcher only needs the package owner here; the extension's
+        // s_cliTable (full-path keyed) does the final lookup with the same key.
         var nonFlagLeadingArgs = args
             .Skip(1)
             .TakeWhile(a => !a.StartsWith("-", StringComparison.Ordinal))
@@ -102,7 +102,7 @@ public class ExtensionDispatcher //: IParser
             }
         }
 
-        // Fallback to Shape A verb-only resolution. Covers group help (`azv2 vm --help`) where the
+        // Fallback to verb-only resolution. Covers group help (`azv2 vm --help`) where the
         // user typed only the verb, and registry entries that haven't been migrated to declare a
         // root contribution. Leaf-level conflicts surface via _leafIndex above; this path is the
         // "I know the namespace but not the leaf" branch.
@@ -110,9 +110,9 @@ public class ExtensionDispatcher //: IParser
         {
             if (!_resolver.TryResolve(verb, out resolved) || resolved is null)
             {
-                // Phase 8 (§11.6): consult the single ExtensionHintTable (build-time embedded
-                // map of every in-tree verb + leaf to its owning package). Walk back from the
-                // longest possible path to the bare verb; first hit produces a precise
+                // Consult the single ExtensionHintTable (build-time embedded map of every
+                // in-tree verb + leaf to its owning package). Walk back from the longest
+                // possible path to the bare verb; first hit produces a precise
                 // `extension add` suggestion and bypasses the AI fallback. Generic misses fall
                 // through to OrchestratorEngine's AI agent.
                 for (int len = nonFlagLeadingArgs.Length; len >= 0; len--)
@@ -132,7 +132,7 @@ public class ExtensionDispatcher //: IParser
 
         // Loader compatibility: AssemblyLoadingService prepends "Microsoft.Azure.Cirrus.Extensions."
         // to its argument. Strip that prefix from the package id to obtain the short name today.
-        // Phase 5 follow-up: have the loader accept full package ids and remove this asymmetry.
+        // Follow-up: have the loader accept full package ids and remove this asymmetry.
         const string cirrusPrefix = "Microsoft.Azure.Cirrus.Extensions.";
         var extensionName = resolved.PackageId.StartsWith(cirrusPrefix, StringComparison.Ordinal)
             ? resolved.PackageId[cirrusPrefix.Length..]
@@ -141,9 +141,9 @@ public class ExtensionDispatcher //: IParser
         // After the verb (and any matched leaf-path tokens), what's left is the extension's input.
         // Behavior depends on whether we hit an exact leaf:
         //   • Exact leaf match (matchedPathTokens > 0): any further non-flag tokens are
-        //     positional residual per §11.5 — bound to the empty parameter key (closes Shape A
-        //     deferred #17: `extension remove vm` routes to (`extension`, `remove`) with `vm`
-        //     surfaced as a positional). Only flag tokens go through ExtensionParser.
+        //     positional residual — bound to the empty parameter key (e.g.
+        //     `extension remove vm` routes to (`extension`, `remove`) with `vm` surfaced as a
+        //     positional). Only flag tokens go through ExtensionParser.
         //   • Bare verb / verb-only fallback (matchedPathTokens == 0): we don't yet know the path,
         //     so ExtensionParser splits leading non-flag tokens into the subCommand which we
         //     append to form the full-path commandName.

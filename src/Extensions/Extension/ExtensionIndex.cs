@@ -107,7 +107,7 @@ public class ExtensionIndex : IExtensionIndex
     );
     // ── Dispatch Tables ──
     private static readonly Dictionary<string, CommandMetadata> s_psTable = new();
-    // Shape B (§11.2): full-path keys.
+    // Full-path keys (verb + sub-command).
     private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
     {
         ["extension add"]    = s_addExtension_CLI,

@@ -6,8 +6,8 @@ using Xunit;
 namespace Cli.Tests;
 
 /// <summary>
-/// Phase 10 #41 regression: `extension add` must not silently overwrite a pinned entry.
-/// Covers the pin-precondition helper extracted from <see cref="AddExtensionProcessor"/>.
+/// `extension add` must not silently overwrite a pinned entry. Covers the pin-precondition
+/// helper extracted from <see cref="AddExtensionProcessor"/>.
 /// </summary>
 public class ExtensionAddPinTests
 {

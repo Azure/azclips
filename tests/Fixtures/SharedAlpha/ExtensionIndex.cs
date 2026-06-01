@@ -6,8 +6,8 @@ using Core.Abstractions;
 namespace Cirrus.Tests.Fixtures.SharedAlpha;
 
 /// <summary>
-/// Phase 10 #38 fixture: declares the verb <c>sharedverb</c> and a single leaf
-/// <c>sharedverb alpha</c>. Used by the Shape B contract test to verify that two extensions
+/// Test fixture: declares the verb <c>sharedverb</c> and a single leaf
+/// <c>sharedverb alpha</c>. Used by the shared-verb contract test to verify that two extensions
 /// sharing a verb but contributing disjoint leaves can co-exist (paired with SharedBeta) and
 /// that two extensions sharing the same <c>(verb, path)</c> tuple collide (paired with itself
 /// staged under a different package id).

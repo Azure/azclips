@@ -7,8 +7,9 @@ namespace Microsoft.Azure.Cirrus.Extensions.Extension;
 
 /// <summary>
 /// Pure leaf-conflict planner extracted from <see cref="Processors.AddExtensionProcessor"/> so the
-/// Shape B contract (§11.7 — same verb across packages is fine, same <c>(verb, path)</c> tuple is
-/// not) can be exercised in tests without driving NuGet extraction or the registry filesystem.
+/// per-leaf ownership contract (same verb across packages is fine, same <c>(verb, path)</c>
+/// tuple is not) can be exercised in tests without driving NuGet extraction or the registry
+/// filesystem.
 /// </summary>
 /// <remarks>
 /// All inputs are already-resolved values supplied by <c>Add.cs</c>:
@@ -39,20 +40,20 @@ public static class ExtensionAddPlanner
         var declaredVerbSet = new HashSet<string>(verbs, StringComparer.OrdinalIgnoreCase);
         var contributions = new List<Contribution>();
 
-        // Phase 10 #41: accumulate every registry-side `(verb, path)` collision the candidate
-        // triggers and report them as a single batched LeafConflict. Operators get a complete
-        // diagnosis in one round-trip instead of a one-conflict-per-rerun loop. Conflict order
-        // follows the candidate's leaf-key iteration (deterministic across runs because the
-        // `s_cliTable` dictionary preserves insertion order). Undeclared-verb and built-in-root
-        // checks remain first-error-wins: those are usage errors in the candidate's own code,
-        // not registry-state interactions, and enumerating them adds noise without value.
+        // Accumulate every registry-side `(verb, path)` collision the candidate triggers and
+        // report them as a single batched LeafConflict. Operators get a complete diagnosis in one
+        // round-trip instead of a one-conflict-per-rerun loop. Conflict order follows the
+        // candidate's leaf-key iteration (deterministic across runs because the `s_cliTable`
+        // dictionary preserves insertion order). Undeclared-verb and built-in-root checks remain
+        // first-error-wins: those are usage errors in the candidate's own code, not
+        // registry-state interactions, and enumerating them adds noise without value.
         var registryConflicts = new List<Dictionary<string, object?>>();
 
         foreach (var leafKey in cliLeafKeys)
         {
             var (leafVerb, leafPath) = LeafReader.SplitLeafKey(leafKey);
 
-            // First token must be a declared [ExtensionVerb] (§11.2, Q10).
+            // First token must be a declared [ExtensionVerb].
             if (!declaredVerbSet.Contains(leafVerb))
             {
                 throw CirrusErrorException.LeafConflict(

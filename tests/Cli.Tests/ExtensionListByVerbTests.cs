@@ -4,9 +4,9 @@ using Xunit;
 namespace Cli.Tests;
 
 /// <summary>
-/// Phase 10 #31 regression: <c>extension list --by-verb</c> regroups contributors verb-headed,
-/// duplicating multi-namespace extensions under each verb they actually contribute to. Sort
-/// order (verbs then packageId, ordinal-ignore-case) is contract.
+/// <c>extension list --by-verb</c> regroups contributors verb-headed, duplicating
+/// multi-namespace extensions under each verb they actually contribute to. Sort order (verbs
+/// then packageId, ordinal-ignore-case) is contract.
 /// </summary>
 public class ExtensionListByVerbTests
 {

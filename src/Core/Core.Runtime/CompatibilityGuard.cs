@@ -8,12 +8,12 @@ using NuGet.Versioning;
 namespace Core.Runtime
 {
     /// <summary>
-    /// Phase 10 #36: enforces <c>[CirrusCompatibility(MinCoreVersion, MaxCoreVersion)]</c> ranges
-    /// against a caller-supplied <em>current</em> core version. Pure, callable from both install
+    /// Enforces <c>[CirrusCompatibility(MinCoreVersion, MaxCoreVersion)]</c> ranges against a
+    /// caller-supplied <em>current</em> core version. Pure, callable from both install
     /// (hard fail) and load (warn-and-skip) sites.
     /// </summary>
     /// <remarks>
-    /// Per <c>docs/spec/extension-management.md §7</c>:
+    /// Per <c>docs/spec/extension-management.md §6</c>:
     /// <list type="bullet">
     ///   <item>Missing attribute &#x2192; assumed compatible. Tolerates pre-attribute extensions.</item>
     ///   <item>Either bound missing &#x2192; that side is unbounded.</item>

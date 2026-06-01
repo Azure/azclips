@@ -131,7 +131,7 @@
         {
           var msg = "Duplicate extension hint keys detected across in-tree extension projects:\n" +
                     string.Join("\n", duplicates) +
-                    "\nEvery (verb, path) tuple must be owned by exactly one package (Shape B section 11.7).";
+                    "\nEvery (verb, path) tuple must be owned by exactly one package.";
           Log.LogError(msg);
           return false;
         }
@@ -140,7 +140,7 @@
         {
           var msg = "s_cliTable leaf keys whose first token is not declared via [ExtensionVerb]:\n" +
                     string.Join("\n", orphanLeaves) +
-                    "\nEvery leaf's first token must match one of the project's [ExtensionVerb] declarations (Shape B section 11.2 / Q10).";
+                    "\nEvery leaf's first token must match one of the project's [ExtensionVerb] declarations.";
           Log.LogError(msg);
           return false;
         }

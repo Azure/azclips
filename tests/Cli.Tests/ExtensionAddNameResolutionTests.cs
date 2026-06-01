@@ -5,9 +5,9 @@ using Xunit;
 namespace Cli.Tests;
 
 /// <summary>
-/// Phase 10 #34: <c>extension add --name</c> must accept three input shapes — a verb (resolved
-/// via the embedded hint catalog), a first-party short name (prefix-stripped), and a fully
-/// qualified package id (passthrough). These tests pin the resolver's three branches.
+/// <c>extension add --name</c> must accept three input shapes — a verb (resolved via the
+/// embedded hint catalog), a first-party short name (prefix-stripped), and a fully qualified
+/// package id (passthrough). These tests pin the resolver's three branches.
 /// </summary>
 public class ExtensionAddNameResolutionTests
 {

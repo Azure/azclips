@@ -15,7 +15,7 @@
 - Full CRUD lifecycle: `add`, `list`, `remove`, `update`, `show`, `pin`, `unpin`.
 - Multi-level command trees so extensions can ship `azv2 vm boot-diagnostics enable` and similar.
 - ALC caching across invocations for long-running hosts.
-- Multiple extensions contributing under the same top-level verb (Shape B), with per-leaf ownership.
+- Multiple extensions contributing under the same top-level verb, with per-leaf ownership.
 - Host↔extension compatibility metadata so version mismatches surface as actionable errors.
 
 ### Non-goals
@@ -465,7 +465,7 @@ Tracked, not v1.
 - **Multi-version retention.** `versions: [...]` + `activeVersion`, additive schema change. Strict single-version is the v1 stance; matches az-cli.
 - **Latency / cache guardrails.** (a) TTL/mtime-keyed cache for `RegistryReconciler` so post-cache reconcile is constant-time on network home dirs (SMB/NFS/OneDrive); local-SSD impact today is negligible. (b) BenchmarkDotNet target in `tests/Benchmark/` asserting a leaf-miss hot path stays under a p99 budget (~300ms), plus an assembly-load-counter contract test asserting the dispatcher never spins up an ALC on miss. Insurance against drift toward az-cli's load-everything-on-CNF behavior.
 - **Explicit `--override` for `extension add`** (informed by az-cli's `overwrite_order_in_cli.md`). v1 rejects all leaf collisions at install time, no exceptions. vNext relaxes this with an opt-in `--override "verb path[, ...]"` flag that lets a new extension take ownership of specific leaves while preserving the **stack** model committed in §4.1: the displaced contributor is pushed down (not removed), `extension list --by-verb` annotates the override, and `extension remove` of the top-of-stack contributor restores the next one underneath. Built-in displacement uses the same mechanism. This is a strict improvement over az-cli's silent alphabetical-name-wins overwrite (no audit trail, no restore-on-remove, see [`doc/overwrite_order_in_cli.md`](https://github.com/Azure/azure-cli/blob/main/doc/overwrite_order_in_cli.md)). Schema cost: additive only — a `displaced: [...]` field on the contribution object plus an `overriddenAt` timestamp.
-- **Aggregated namespace help.** Whether `azv2 vm --help` auto-merges leaves across contributors or each contributor advertises separately. Shape B guarantees the data shape; help branch decides the rendering.
+- **Aggregated namespace help.** Whether `azv2 vm --help` auto-merges leaves across contributors or each contributor advertises separately. The per-leaf ownership model guarantees the data shape; help branch decides the rendering.
 - **Trust / signing / provenance.** Anything in `~/.cirrus/extensions/` loads today. Shared namespaces mean unsigned third-party extensions can contribute leaves under first-party verbs (namespace squatting). Revisit before the first third-party extension ships.
 - **Registry hygiene gaps.** Schema-versioning commitment ("how many versions back do we read indefinitely?"); roaming home directories; system-wide installs. Current posture: per-user, unsupported on roaming.
 - **PowerShell parity definition.** "Same surface" vs. "same shape when both exist." Decide post-v1.

@@ -6,8 +6,8 @@ using Core.Abstractions;
 namespace Cirrus.Tests.Fixtures.SharedBeta;
 
 /// <summary>
-/// Phase 10 #38 fixture: declares the verb <c>sharedverb</c> (same as SharedAlpha) and a
-/// single leaf <c>sharedverb beta</c>. Pair with SharedAlpha to verify Shape B co-existence.
+/// Test fixture: declares the verb <c>sharedverb</c> (same as SharedAlpha) and a single leaf
+/// <c>sharedverb beta</c>. Pair with SharedAlpha to verify shared-verb co-existence.
 /// </summary>
 [ExtensionVerb("sharedverb")]
 public sealed class ExtensionIndex : IExtensionIndex

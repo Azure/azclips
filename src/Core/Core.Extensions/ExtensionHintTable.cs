@@ -9,14 +9,12 @@ namespace Core.Extensions
     /// <summary>
     /// Unified build-time map of <c>"verb"</c> or <c>"verb path"</c> &#x2192; package id for
     /// first-party extensions, embedded by Core.Cli (see
-    /// <c>src/CLI/build/ExtensionHints.targets</c>). Replaces the separate <c>VerbHintTable</c> +
-    /// <c>LeafHintTable</c> introduced in Phase 4/Phase 8 — the information was redundant in the
-    /// verb dimension and is cleaner as a single document.
+    /// <c>src/CLI/build/ExtensionHints.targets</c>).
     /// </summary>
     /// <remarks>
     /// Consulted by the dispatcher when both the live <c>LeafIndex</c> and verb resolver miss, so
     /// we can produce a precise <c>extension add</c> suggestion instead of a generic
-    /// "command not found." Per <c>docs/spec/extension-management.md §11.6</c>: covers the
+    /// "command not found." Per <c>docs/spec/extension-management.md §7.3</c>: covers the
     /// "unknown verb" case (no installed package at all) and the "verb partially served, leaf
     /// missing" case (e.g. another extension claims <c>vm</c> but not <c>vm scale</c>).
     /// </remarks>

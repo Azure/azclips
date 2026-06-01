@@ -11,8 +11,7 @@ namespace Core.Extensions
     /// <param name="Version">Installed version. <c>null</c> for built-ins, which ship with the host.</param>
     /// <remarks>
     /// Built-in vs. installed is implicit: a verb is built-in iff <see cref="BuiltInExtensions.IsBuiltInVerb"/>
-    /// returns true for <c>Verb</c>. The previous <c>IsBuiltIn</c> field had no readers and was
-    /// dropped in Phase 10 #41.
+    /// returns true for <c>Verb</c>.
     /// </remarks>
     public sealed record ResolvedExtension(string Verb, string PackageId, string? Version);
 

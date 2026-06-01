@@ -10,7 +10,7 @@
     <ProjectReference Include="../../src/Extensions/Extension/Extensions.Extension.csproj" />
     <ProjectReference Include="../Common/Tests.Common.csproj" />
 
-    <!-- Phase 10 #38: Shape B contract test fixtures. ReferenceOutputAssembly=false so fixture
+    <!-- Shared-verb contract test fixtures. ReferenceOutputAssembly=false so fixture
          types don't leak into the test compilation; we only need the DLLs built so the test can
          stage them into temp dirs and read them via LeafReader. -->
     <ProjectReference Include="../Fixtures/SharedAlpha/Cirrus.Tests.Fixtures.SharedAlpha.csproj"

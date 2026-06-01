@@ -97,7 +97,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             ["Get-ResourceGroup_Get"]  = s_getResourceGroup_PS,
             ["Get-ResourceGroup_List"] = s_listResourceGroup_PS,
         };
-        // Shape B (§11.2): full-path keys. Verb is "group" per [ExtensionVerb("group")] above.
+        // Full-path keys. Verb is "group" per [ExtensionVerb("group")] above.
         private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
         {
             ["group create"] = s_newResourceGroup_CLI,

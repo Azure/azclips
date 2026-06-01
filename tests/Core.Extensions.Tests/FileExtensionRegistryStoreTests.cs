@@ -181,7 +181,7 @@ namespace Core.Extensions.Tests
             Assert.EndsWith(Path.Combine(".cirrus", "extensions", "registry.json"), path, StringComparison.OrdinalIgnoreCase);
         }
 
-        // -------- Shape B (schema v2) tolerance and round-trip --------
+        // -------- Schema v2 tolerance and round-trip --------
 
         [Fact]
         public void Load_ShouldSynthesizeContribution_FromLegacyV1Entry()
@@ -212,7 +212,7 @@ namespace Core.Extensions.Tests
             Assert.Equal(string.Empty, entry.Contributions[0].Path);
             Assert.Single(entry.Namespaces);
             Assert.Equal("vm", entry.Namespaces[0]);
-            // Legacy verb field is preserved in memory for back-compat with Shape A callers.
+            // Legacy verb field is preserved in memory for back-compat with v1 callers.
             Assert.Equal("vm", entry.Verb);
         }
 
@@ -310,7 +310,7 @@ namespace Core.Extensions.Tests
             Assert.Contains("\"namespaces\"", raw, StringComparison.Ordinal);
         }
 
-        // -------- Phase 8.5: optimistic concurrency + load-time validation + InstallRoot --------
+        // -------- Optimistic concurrency + load-time validation + InstallRoot --------
 
         [Fact]
         public void InstallRoot_ShouldReturnParentDirectoryOfRegistryPath()

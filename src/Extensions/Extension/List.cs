@@ -35,7 +35,7 @@ public class ListExtensionsProcessor : IProcessor
         var store = new FileExtensionRegistryStore();
         var registry = store.Load();
 
-        // Phase 8.5: split the listing into live + stale so the user sees missing-payload entries
+        // Split the listing into live + stale so the user sees missing-payload entries
         // separately (e.g. when they manually deleted `~/.cirrus/extensions/<pkg>/<ver>/`). Live
         // entries are routable; stale entries are advisory until the user removes them.
         var reconciled = RegistryReconciler.Reconcile(registry, store.InstallRoot);
@@ -74,13 +74,14 @@ public class ListExtensionsProcessor : IProcessor
 
         if (ByVerb)
         {
-            // Phase 10 #31: regroup the live set verb-headed so the user can answer "who contributes
-            // to this verb" in one glance. Multi-namespace extensions appear under each verb they
+            // Regroup the live set verb-headed so the user can answer "who contributes to this
+            // verb" in one glance. Multi-namespace extensions appear under each verb they
             // contribute to (the duplication is intentional — it mirrors the actual routing table).
-            // Per the §5.1 stack commitment, today every (verb, packageId) pair is unique because
-            // install-time rejection prevents collisions; when vNext's --override flow lands, the
-            // same shape generalizes to ordered contributors top-wins. Stale entries stay in their
-            // own array — they aren't routable so they don't belong under a verb heading.
+            // Per the spec §4.1 stack commitment, today every (verb, packageId) pair is unique
+            // because install-time rejection prevents collisions; when vNext's --override flow
+            // lands, the same shape generalizes to ordered contributors top-wins. Stale entries
+            // stay in their own array — they aren't routable so they don't belong under a verb
+            // heading.
             var contributors = live.Select(e => new LiveContributor(
                 PackageId: e.PackageId,
                 Version: e.Version,
@@ -104,10 +105,10 @@ public class ListExtensionsProcessor : IProcessor
     }
 
     /// <summary>
-    /// Phase 10 #31 pivot helper. Pure projection from <c>Live</c>-shaped contributors to a
-    /// verb-headed map. Public so unit tests can exercise it without spinning up DI + the
-    /// on-disk registry. Sort order is contract: verbs alphabetical, contributors within a verb
-    /// alphabetical by <c>PackageId</c>. Both comparisons are ordinal-ignore-case.
+    /// Pivot helper. Pure projection from <c>Live</c>-shaped contributors to a verb-headed map.
+    /// Public so unit tests can exercise it without spinning up DI + the on-disk registry.
+    /// Sort order is contract: verbs alphabetical, contributors within a verb alphabetical by
+    /// <c>PackageId</c>. Both comparisons are ordinal-ignore-case.
     /// </summary>
     public static IReadOnlyDictionary<string, IReadOnlyList<ContributorRow>> PivotByVerb(
         IEnumerable<LiveContributor> contributors)

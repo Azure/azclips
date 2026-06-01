@@ -7,7 +7,7 @@ using Xunit;
 namespace Cli.Tests;
 
 /// <summary>
-/// Phase 10 #37: assertions on the embedded <c>extension-hints.json</c> shipped via Core.Cli.
+/// Assertions on the embedded <c>extension-hints.json</c> shipped via Core.Cli.
 /// Lives in <c>Cli.Tests</c> rather than <c>Core.Extensions.Tests</c> because the embedded
 /// resource is only present in assemblies that reference Core.Cli — which Cli.Tests does
 /// transitively, but Core.Extensions.Tests does not.

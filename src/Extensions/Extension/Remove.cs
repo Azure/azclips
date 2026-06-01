@@ -66,8 +66,8 @@ public class RemoveExtensionProcessor : IProcessor
         var packageId = match.Key;
         var entry = match.Value;
 
-        // Phase 10 #32: tag the activity with extension-shaped dimensions describing what's about
-        // to be removed. Source/version are best-effort (older v1 entries may have null Source).
+        // Tag the activity with extension-shaped dimensions describing what's about to be
+        // removed. Source/version are best-effort (older v1 entries may have null Source).
         // namespace_count uses the v2 Namespaces list and falls back to the legacy single Verb.
         activity?.SetTag("extension.package_id", packageId);
         activity?.SetTag("extension.version", entry.Version);
@@ -76,7 +76,7 @@ public class RemoveExtensionProcessor : IProcessor
             entry.Namespaces.Count > 0 ? entry.Namespaces.Count : (entry.Verb is null ? 0 : 1));
         activity?.SetTag("extension.contribution_count", entry.Contributions.Count);
 
-        // Per Q6 strict single-version: there's at most one version on disk, but we always wipe
+        // Strict single-version: there's at most one version on disk, but we always wipe
         // the whole package directory to be safe.
         var installer = new ExtensionInstaller(loggingService);
         var packageDir = Path.Combine(installer.InstallPath, packageId);

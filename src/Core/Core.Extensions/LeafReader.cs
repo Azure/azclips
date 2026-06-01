@@ -8,14 +8,14 @@ namespace Core.Extensions
 {
     /// <summary>
     /// Reads the leaves contributed by an extension (its <c>s_cliTable</c> keys, in full-path form
-    /// per <c>docs/spec/extension-management.md §11.2</c>) by loading the extension into a
+    /// per <c>docs/spec/extension-management.md §4.2</c>) by loading the extension into a
     /// throwaway collectible <see cref="AssemblyLoadContext"/>, instantiating its
     /// <c>IExtensionIndex</c> via reflection, and calling <c>GetCommandKeys(ClientType.CLI)</c>.
     /// </summary>
     /// <remarks>
-    /// Used by <c>extension add</c> (Phase 8 item 25) to enumerate the candidate's contributions
-    /// before committing the registry write so leaf-level conflicts can be detected up front.
-    /// Unlike <see cref="ExtensionVerbReader"/> (which uses <see cref="MetadataLoadContext"/> for
+    /// Used by <c>extension add</c> to enumerate the candidate's contributions before committing
+    /// the registry write so leaf-level conflicts can be detected up front. Unlike
+    /// <see cref="ExtensionVerbReader"/> (which uses <see cref="MetadataLoadContext"/> for
     /// code-safe attribute reads), this reader executes static initializers — that's required to
     /// materialize the dictionary, but the ALC is unloaded after the read so any side effects are
     /// scoped to a single GC cycle.

@@ -69,8 +69,8 @@ public class AddExtensionProcessor : IProcessor
         var loggingService = CirrusServiceProvider.GetRequiredService<ILoggingService>();
         using var activity = telemetryService.ActivitySource?.StartActivity($"{nameof(AddExtensionProcessor)}.{nameof(Process)}");
 
-        // Phase 10 #32: tag the activity with extension-shaped dimensions as soon as each value
-        // becomes known so failed installs still carry whatever was determined before the throw
+        // Tag the activity with extension-shaped dimensions as soon as each value becomes
+        // known so failed installs still carry whatever was determined before the throw
         // (e.g. a LeafConflict mid-iteration carries package_id/version/namespace_count and the
         // *attempted* contribution_count). OTEL semantic convention: dotted namespace, snake_case
         // attribute names. `extension.source` distinguishes feed installs from local-path side-
@@ -81,7 +81,7 @@ public class AddExtensionProcessor : IProcessor
         string installPath;
         if (!string.IsNullOrWhiteSpace(Name))
         {
-            // Phase 10 #34: resolve --name through ResolvePackageId so a verb (e.g. "vm") works
+            // Resolve --name through ResolvePackageId so a verb (e.g. "vm") works
             // symmetrically with the dispatcher's unknown-verb suggestion. Falls through to the
             // legacy prefix-strip when no hint matches; full package ids passthrough untouched.
             var resolvedPackageId = ResolvePackageId(Name!, ExtensionHintTable.Default);
@@ -97,10 +97,10 @@ public class AddExtensionProcessor : IProcessor
             }
             catch (InvalidOperationException ex) when (ex.Message.StartsWith("Could not find package", StringComparison.Ordinal))
             {
-                // Phase 10 #35: feed-miss path. Normalize the plain InvalidOperationException to
-                // a typed ExtensionNotFound (exit 4) and append a local-artifact suggestion when
-                // a freshly built nupkg exists in artifacts/Debug/. Suggestion-only — we never
-                // auto-install from local, because that would silently consume stale builds.
+                // Feed-miss path. Normalize the plain InvalidOperationException to a typed
+                // ExtensionNotFound (exit 4) and append a local-artifact suggestion when a freshly
+                // built nupkg exists in artifacts/Debug/. Suggestion-only — we never auto-install
+                // from local, because that would silently consume stale builds.
                 var localHint = LocalArtifactProbe.Find(resolvedPackageId);
                 var details = new Dictionary<string, object?>
                 {
@@ -130,7 +130,7 @@ public class AddExtensionProcessor : IProcessor
 
         try
         {
-            // Phase 10 #36 (§7): compatibility check before any expensive validation. Reads
+            // Compatibility check before any expensive validation (spec §6). Reads
             // [CirrusCompatibility] from the installed DLLs via MetadataLoadContext (no exec),
             // and hard-fails the install if the declared range excludes the current core. The
             // catch handler below rolls back the install dir, so the on-disk state is clean.
@@ -152,8 +152,8 @@ public class AddExtensionProcessor : IProcessor
 
             // Per docs/spec/extension-management.md §5.2: read the declared verb(s) from the
             // installed DLLs *without* executing extension code, then validate against built-ins +
-            // registry before committing the registry write. Phase 9 makes [ExtensionVerb]
-            // repeatable, so an extension may claim more than one namespace.
+            // registry before committing the registry write. [ExtensionVerb] is repeatable, so an
+            // extension may claim more than one namespace.
             var verbs = ExtensionVerbReader.ReadVerbs(installPath);
             if (verbs.Count == 0)
             {
@@ -182,18 +182,17 @@ public class AddExtensionProcessor : IProcessor
             var store = new FileExtensionRegistryStore();
             var registry = store.Load();
 
-            // Shape B: top-level verbs are shared. Multiple extensions may declare the same
+            // Top-level verbs are shared. Multiple extensions may declare the same
             // [ExtensionVerb] (e.g. two extensions both contributing under `vm`); collisions are
-            // resolved per-leaf below against the (verb, path) tuple. The per-verb ownership
-            // gate that existed under Shape A has been removed — matches the meeting decision
-            // (May 2026) to adopt the az-cli many-to-many model. Built-in verbs remain reserved
-            // (see the IsBuiltInVerb check above) and built-in roots are still rejected per-leaf.
+            // resolved per-leaf below against the (verb, path) tuple. Built-in verbs remain
+            // reserved (see the IsBuiltInVerb check above) and built-in roots are still rejected
+            // per-leaf.
 
-            // Shape B (§11.7): read the candidate's leaves (s_cliTable keys) from the just-
-            // installed DLLs and conflict-check every (verb, path) tuple against the registry
-            // and the built-in seed. This is finer-grained than the verb-only check above and
-            // catches the cross-namespace case where two extensions share a verb but contribute
-            // different paths (allowed) vs. the same path (rejected).
+            // Read the candidate's leaves (s_cliTable keys) from the just-installed DLLs and
+            // conflict-check every (verb, path) tuple against the registry and the built-in
+            // seed. This is finer-grained than the verb-only check above and catches the
+            // cross-namespace case where two extensions share a verb but contribute different
+            // paths (allowed) vs. the same path (rejected).
             var leafKeys = LeafReader.ReadCliLeafKeys(installPath);
             activity?.SetTag("extension.contribution_count", leafKeys.Count);
             var contributions = new List<Contribution>(
@@ -203,11 +202,11 @@ public class AddExtensionProcessor : IProcessor
             // package's parent dir so only the just-installed version remains on disk.
             PurgeSiblingVersions(installer.InstallPath, packageId, keepVersion: version);
 
-            // Phase 10 #41: 'add' must respect a pin set on the *existing* entry. Pinning's
-            // contract is "don't change my version under me"; without this check, a pinned
-            // 1.1.0 could be silently overwritten by `add --path …1.0.0…`. Honor the pin
-            // forward across the in-place upgrade — fail with PinViolation unless --force,
-            // and carry the pin onto the new entry when the user explicitly forces.
+            // 'add' must respect a pin set on the *existing* entry. Pinning's contract is
+            // "don't change my version under me"; without this check, a pinned 1.1.0 could be
+            // silently overwritten by `add --path …1.0.0…`. Honor the pin forward across the
+            // in-place upgrade — fail with PinViolation unless --force, and carry the pin onto
+            // the new entry when the user explicitly forces.
             bool carryPinForward = CheckPinPrecondition(registry, packageId, version, Force, Pin);
 
             registry.Extensions[packageId] = new ExtensionRegistryEntry
@@ -255,8 +254,8 @@ public class AddExtensionProcessor : IProcessor
     }
 
     /// <summary>
-    /// Phase 10 #41: validate that an `extension add` for <paramref name="packageId"/> is allowed
-    /// to overwrite the existing registry entry. Throws <see cref="CirrusErrorException"/> with
+    /// Validate that an `extension add` for <paramref name="packageId"/> is allowed to overwrite
+    /// the existing registry entry. Throws <see cref="CirrusErrorException"/> with
     /// <c>PinViolation</c> (exit 6) when the existing entry is pinned and neither
     /// <paramref name="force"/> nor <paramref name="pin"/> was supplied. Returns <c>true</c> when
     /// the caller should carry the pinned flag forward onto the new entry, <c>false</c> otherwise.
@@ -295,8 +294,7 @@ public class AddExtensionProcessor : IProcessor
     }
 
     /// <summary>
-    /// Phase 10 #34: resolve the user-supplied <c>--name</c> token to a NuGet package id, in this
-    /// order:
+    /// Resolve the user-supplied <c>--name</c> token to a NuGet package id, in this order:
     /// <list type="number">
     ///   <item>If the token contains a dot, treat it as a fully-qualified package id and pass it
     ///         through unchanged (e.g. <c>Contoso.Foo</c>, <c>Microsoft.Azure.Cirrus.Extensions.Compute</c>).</item>

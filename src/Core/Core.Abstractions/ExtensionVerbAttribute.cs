@@ -7,14 +7,13 @@ namespace Core.Abstractions
     /// Declares a top-level verb (command group name) that an extension claims.
     /// </summary>
     /// <remarks>
-    /// Shape B of Cirrus extension management (<c>docs/spec/extension-management.md §11</c>): an
-    /// extension may declare <em>one or more</em> top-level verbs by applying this attribute
-    /// repeatedly to its <c>IExtensionIndex</c> implementer. Each declared verb becomes a
-    /// namespace the extension contributes leaves to; every <c>s_cliTable</c> key's first token
-    /// must match one of the declared verbs.
+    /// See <c>docs/spec/extension-management.md §4.2</c>: an extension may declare <em>one or
+    /// more</em> top-level verbs by applying this attribute repeatedly to its
+    /// <c>IExtensionIndex</c> implementer. Each declared verb becomes a namespace the extension
+    /// contributes leaves to; every <c>s_cliTable</c> key's first token must match one of the
+    /// declared verbs.
     /// <para>
-    /// Phase 9 makes the attribute repeatable. Phase 6/7 single-verb extensions remain valid —
-    /// they simply declare exactly one verb. The verb is the source of truth used by:
+    /// The verb is the source of truth used by:
     /// </para>
     /// <list type="bullet">
     ///   <item>the installer (<c>extension add</c>), to detect conflicts before extracting files;</item>

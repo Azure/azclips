@@ -5,7 +5,7 @@ namespace Core.Extensions
 {
     /// <summary>
     /// A single leaf in the dispatch table: the namespace verb, the path within it, and the
-    /// package that owns it. See <c>docs/spec/extension-management.md §11.5</c> ("Dispatch").
+    /// package that owns it. See <c>docs/spec/extension-management.md §4.4</c> ("Dispatch flow").
     /// </summary>
     /// <param name="Verb">Top-level namespace (e.g. <c>"vm"</c>).</param>
     /// <param name="Path">Path within the namespace (e.g. <c>"create"</c>, or <c>""</c> for the root).</param>
@@ -14,15 +14,14 @@ namespace Core.Extensions
     /// Built-in vs. installed is implicit in the source: a leaf is built-in iff its
     /// <c>PackageId</c> matches a <see cref="BuiltInExtensions"/> seed entry, or equivalently iff
     /// <see cref="BuiltInExtensions.IsBuiltInVerb"/> returns true for <c>Verb</c> and <c>Path</c>
-    /// is empty. No live code path branches on the distinction (Phase 10 #41).
+    /// is empty. No live code path branches on the distinction.
     /// </remarks>
     public sealed record LeafEntry(string Verb, string Path, string PackageId);
 
     /// <summary>
     /// Read-only <c>(verb, path) -&gt; <see cref="LeafEntry"/></c> index built from the merged
-    /// built-in seed and on-disk registry. Phase 6 plumbing; the dispatcher rewrite in Phase 7
-    /// will replace <see cref="ExtensionResolver"/>'s single-verb lookup with longest-prefix
-    /// match over this index. See spec §11.5 and §11.9 (Phase 6, item 20).
+    /// built-in seed and on-disk registry. Drives the dispatcher's longest-prefix match.
+    /// See spec §4.1 / §4.4.
     /// </summary>
     public sealed class LeafIndex
     {
@@ -104,7 +103,7 @@ namespace Core.Extensions
             {
                 throw new InvalidOperationException(
                     $"Duplicate leaf '({verb}, {path})' claimed by both '{existing.PackageId}' and '{packageId}'. " +
-                    "Per spec §11.4, the host fails to start when two extensions claim the same (verb, path).");
+                    "The host fails to start when two extensions claim the same (verb, path).");
             }
 
             entries[key] = new LeafEntry(verb, path, packageId);

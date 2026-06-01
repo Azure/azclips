@@ -19,7 +19,7 @@ namespace Core.Extensions
 
         private readonly string _path;
 
-        // Phase 8.5 optimistic-concurrency state: timestamp captured at the most recent Load(),
+        // Optimistic-concurrency state: timestamp captured at the most recent Load(),
         // checked at Save() to detect another writer interleaving between the two calls. A null
         // value means "we never observed the file" — in that case Save() proceeds unconditionally
         // (first-write semantics). The state is per-instance; concurrency across process
@@ -47,7 +47,7 @@ namespace Core.Extensions
 
         /// <summary>
         /// Loads the registry then drops entries whose install payload is missing on disk
-        /// (Phase 8.5). The on-disk file is not modified; this is purely a view filter so
+        /// (registry reconciler). The on-disk file is not modified; this is purely a view filter so
         /// the dispatcher never routes to a stale entry. Use <see cref="Load"/> when you need
         /// the verbatim file contents (e.g. for an <c>extension list --include-stale</c>).
         /// </summary>
@@ -87,13 +87,13 @@ namespace Core.Extensions
                 StringComparer.OrdinalIgnoreCase);
 
             // v1 -> v2 tolerant upgrade (in memory only): an entry with a legacy `verb` field but no
-            // `contributions` is normalized into a single (verb, "") contribution. See spec §11.7.
+            // `contributions` is normalized into a single (verb, "") contribution.
             foreach (var entry in registry.Extensions.Values)
             {
                 NormalizeEntry(entry);
             }
 
-            // Phase 8.5 invariant check: no two entries may claim the same (verb, path) tuple.
+            // Invariant check: no two entries may claim the same (verb, path) tuple.
             // Catches a hand-edited file before the dispatcher ever consults the LeafIndex.
             ValidateNoDuplicateContributions(registry);
 
@@ -123,7 +123,7 @@ namespace Core.Extensions
                 Directory.CreateDirectory(directory);
             }
 
-            // Phase 8.5 optimistic-concurrency check: if we previously observed a write time and
+            // Optimistic-concurrency check: if we previously observed a write time and
             // the file's current write time disagrees, another process touched it between our
             // Load and Save. Surface as a structured error so the caller can retry or inform the
             // user — silently overwriting would be the worst outcome.
@@ -160,7 +160,7 @@ namespace Core.Extensions
         }
 
         /// <summary>
-        /// Verifies the §11.4 leaf-uniqueness invariant: no two entries may declare the same
+        /// Verifies the leaf-uniqueness invariant: no two entries may declare the same
         /// <c>(verb, path)</c> contribution. Throws <see cref="CirrusErrorException.RegistryInvalid"/>
         /// on violation so callers can recover (e.g. by editing the file).
         /// </summary>
@@ -191,7 +191,7 @@ namespace Core.Extensions
         }
 
         /// <summary>
-        /// Brings an entry to Shape B v2 shape: synthesizes a single <c>(Verb, "")</c> contribution
+        /// Brings an entry to v2 shape: synthesizes a single <c>(Verb, "")</c> contribution
         /// from the legacy <c>Verb</c> field if no contributions are present, then re-derives the
         /// <c>Namespaces</c> field from the distinct verbs in <c>Contributions</c>. Idempotent.
         /// </summary>
@@ -203,7 +203,7 @@ namespace Core.Extensions
             }
 
             // Re-derive namespaces from the contribution set (case-insensitive distinct, preserve
-            // first-seen casing). Mirrors the §11.3 invariant: namespaces is a denormalized view.
+            // first-seen casing). Namespaces is a denormalized view of the contribution verbs.
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var namespaces = new List<string>();
             foreach (var contribution in entry.Contributions)

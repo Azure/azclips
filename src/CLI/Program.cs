@@ -172,7 +172,7 @@ public class Program
     }
 
     // Strips `--no-cache` and flips the static ALC-cache bypass switch consumed by
-    // MultiVersionExtensionLoader (Phase 5 #18 test hook).
+    // MultiVersionExtensionLoader (test hook for benchmarking).
     private static string[] ParseNoCacheFlag(string[] args)
     {
         if (!args.Contains("--no-cache", StringComparer.OrdinalIgnoreCase))

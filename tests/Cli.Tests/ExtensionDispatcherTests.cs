@@ -55,7 +55,7 @@ public class ExtensionDispatcherTests
         Assert.Contains("Json", listMetadata.Parameters.Keys);
     }
 
-    // -------- Shape B (Phase 7) longest-prefix dispatch --------
+    // -------- Longest-prefix dispatch --------
     //
     // These tests build a dispatcher with a synthetic LeafIndex so we can exercise leaf-level
     // routing in isolation, independent of the on-disk registry.
@@ -109,7 +109,7 @@ public class ExtensionDispatcherTests
     [Fact]
     public void Parse_ShouldPreferLongerLeaf_OverShorterMatch()
     {
-        // Closes Shape A deferred #17: multi-token leaf keys with positional residual binding.
+        // Multi-token leaf keys with positional residual binding.
         // Both ("vm", "create") and ("vm", "create extra") are registered; the longer wins.
         var dispatcher = CreateLeafDispatcher(
             ("vm", "create", "Pkg.A", false),
@@ -123,7 +123,7 @@ public class ExtensionDispatcherTests
     [Fact]
     public void Parse_ShouldBindResidualPositionalArgs_PastMatchedLeaf()
     {
-        // Closes Shape A deferred #17: tokens past the longest matched leaf become positional
+        // Tokens past the longest matched leaf become positional
         // residual (parsed under the empty-string parameter key by ExtensionParser).
         var dispatcher = CreateLeafDispatcher(
             ("vm", "create", "Pkg.A", false));

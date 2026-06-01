@@ -30,7 +30,7 @@ public class CirrusErrorException : Exception
         => new("VerbConflict", 3, message, details);
 
     /// <summary>
-    /// Leaf-level conflict (Shape B §11.7): two extensions claim the same <c>(verb, path)</c>
+    /// Leaf-level conflict (spec §3.2 / §5.2): two extensions claim the same <c>(verb, path)</c>
     /// tuple, or an extension claims a leaf already provided by a built-in. Shares the same
     /// exit-code lane as <see cref="VerbConflict"/> since both express "namespace collision".
     /// </summary>
@@ -50,7 +50,7 @@ public class CirrusErrorException : Exception
         => new("UsageError", 2, message, details);
 
     /// <summary>
-    /// Compatibility violation (Phase 10 #36 / §7): the extension's <c>[CirrusCompatibility]</c>
+    /// Compatibility violation (spec §6): the extension's <c>[CirrusCompatibility]</c>
     /// declared range excludes the current core version, or the host requires a newer version of
     /// this specific extension via <c>HostExtensionRequirements</c>. Surfaced at install time as
     /// a hard error with no disk write; surfaced at load time as a warn-and-skip log line.
@@ -60,7 +60,7 @@ public class CirrusErrorException : Exception
 
     /// <summary>
     /// Optimistic-concurrency failure on <c>registry.json</c>: the file changed between this
-    /// process's <c>Load</c> and <c>Save</c> (Phase 8.5). Surfaced so the caller can retry or
+    /// process's <c>Load</c> and <c>Save</c>. Surfaced so the caller can retry or
     /// inform the user instead of silently overwriting another process's changes.
     /// </summary>
     public static CirrusErrorException RegistryConcurrency(string message, IReadOnlyDictionary<string, object?>? details = null)
@@ -70,7 +70,7 @@ public class CirrusErrorException : Exception
     /// Invariant violation discovered while loading <c>registry.json</c> (e.g. two entries claim
     /// the same <c>(verb, path)</c> contribution). Distinct from <see cref="VerbConflict"/> /
     /// <see cref="LeafConflict"/> which fire at install time; this one fires on an already-bad
-    /// on-disk file (Phase 8.5).
+    /// on-disk file (registry reconciler).
     /// </summary>
     public static CirrusErrorException RegistryInvalid(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new("RegistryInvalid", 9, message, details);

@@ -114,7 +114,7 @@ namespace Core.Extensions.Tests
         [Fact]
         public void DefaultBuiltIns_ShouldContainExactlyCoreThree()
         {
-            // Phase 4 #15: the seed is exactly extension/login/config.
+            // The seed is exactly extension/login/config.
             // group (Resources) and vm (Compute) are installable extensions, not built-ins.
             Assert.Contains("extension", BuiltInExtensions.Map.Keys);
             Assert.Contains("login", BuiltInExtensions.Map.Keys);

@@ -4,10 +4,10 @@
 namespace Microsoft.Azure.Cirrus.Extensions.Extension.Processors;
 
 /// <summary>
-/// Phase 10 #35: closes the dev-loop gap where <c>extension add --name &lt;pkg&gt;</c> fails
-/// because no NuGet feed is configured. When the feed lookup misses, the host probes the local
-/// repository for a freshly built <c>.nupkg</c> matching the requested package id and surfaces it
-/// as an <c>--path</c> suggestion in the error message. This is *suggestion only* — we never
+/// Closes the dev-loop gap where <c>extension add --name &lt;pkg&gt;</c> fails because no NuGet
+/// feed is configured. When the feed lookup misses, the host probes the local repository for a
+/// freshly built <c>.nupkg</c> matching the requested package id and surfaces it as an
+/// <c>--path</c> suggestion in the error message. This is *suggestion only* — we never
 /// auto-install from local artifacts, because doing so would silently pick up stale builds and
 /// turn a loud "not found" into a quiet "wrong bits."
 /// </summary>
@@ -15,10 +15,10 @@ namespace Microsoft.Azure.Cirrus.Extensions.Extension.Processors;
 /// Behavior: walks up from <see cref="Directory.GetCurrentDirectory"/> looking for
 /// <c>cirrus.slnx</c> as the repo-root anchor. If found, globs
 /// <c>artifacts/Debug/{packageId}/{packageId}.*.nupkg</c> and returns the most recently written
-/// match. Per the Phase 10 #35 design discussion: only Debug is probed — surfacing one path keeps
-/// the message focused, and a developer who builds Release locally will edit the suggested
-/// command to swap <c>Debug</c> for <c>Release</c>. Returns <c>null</c> when no slnx is found
-/// (e.g. user is running deployed <c>azv2</c> outside the repo) or no artifact matches.
+/// match. Only Debug is probed — surfacing one path keeps the message focused, and a developer
+/// who builds Release locally will edit the suggested command to swap <c>Debug</c> for
+/// <c>Release</c>. Returns <c>null</c> when no slnx is found (e.g. user is running deployed
+/// <c>azv2</c> outside the repo) or no artifact matches.
 /// </remarks>
 public static class LocalArtifactProbe
 {

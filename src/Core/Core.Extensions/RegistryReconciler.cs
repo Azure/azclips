@@ -5,7 +5,7 @@ namespace Core.Extensions
 {
     /// <summary>
     /// Describes the result of comparing a loaded <see cref="ExtensionRegistry"/> against the
-    /// actual contents of the extensions install root. Phase 8.5 (registry hardening).
+    /// actual contents of the extensions install root.
     /// </summary>
     /// <param name="Live">Registry containing only entries whose install directory still exists.</param>
     /// <param name="Stale">Entries whose recorded install path is missing on disk.</param>
@@ -30,8 +30,8 @@ namespace Core.Extensions
     /// routes to a package that's no longer there.
     /// </summary>
     /// <remarks>
-    /// Per <c>docs/spec/extension-management.md §11.11</c> (Phase 8.5): non-destructive — the
-    /// caller decides whether to write the live view back to disk or just inform the user.
+    /// Per <c>docs/spec/extension-management.md §4.7</c>: non-destructive — the caller decides
+    /// whether to write the live view back to disk or just inform the user.
     /// </remarks>
     public static class RegistryReconciler
     {

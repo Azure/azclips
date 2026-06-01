@@ -155,7 +155,7 @@ public class ExtensionIndex : IExtensionIndex
         ["Get-CirrusConfigList"] = s_listConfig_PS,
         ["Get-CirrusConfigInfo"] = s_infoConfig_PS,
     };
-    // Shape B (§11.2): full-path keys.
+    // Full-path keys.
     private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
     {
         ["config get"]    = s_getConfig_CLI,

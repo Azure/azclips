@@ -9,7 +9,7 @@ using Xunit;
 namespace Cli.Tests;
 
 /// <summary>
-/// Phase 10 #36: covers <see cref="CompatibilityGuard.Check"/> and the
+/// Covers <see cref="CompatibilityGuard.Check"/> and the
 /// <see cref="CompatibilityGuard.CheckAssembly"/> reader path.
 /// </summary>
 public class CompatibilityGuardTests

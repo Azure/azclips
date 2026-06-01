@@ -7,20 +7,20 @@ using Microsoft.Azure.Cirrus.Extensions.Extension;
 namespace Cli.Tests;
 
 /// <summary>
-/// Phase 10 #38: Shape B (§11.7) contract test. Drives <see cref="ExtensionAddPlanner"/> against
-/// real fixture DLLs read from disk via <see cref="LeafReader"/>, exercising the exact production
-/// branches that decide whether two extensions sharing a verb can co-exist (disjoint
+/// Contract tests for <see cref="ExtensionAddPlanner"/>. Drives the planner against real fixture
+/// DLLs read from disk via <see cref="LeafReader"/>, exercising the production branches that
+/// decide whether two extensions sharing a top-level verb can co-exist (disjoint
 /// <c>(verb, path)</c> tuples) or collide (same tuple, different package id).
 /// </summary>
 /// <remarks>
-/// This is the "B1" fidelity per the Phase-10 plan: we skip <c>ExtensionInstaller</c> / NuGet
-/// extraction (no nupkg packaging, no <c>~/.cirrus</c> involvement) and stage compiled fixture
-/// DLLs into temp directories the test owns. The planner is the same code path
+/// Skips <c>ExtensionInstaller</c> / NuGet extraction (no nupkg packaging, no <c>~/.cirrus</c>
+/// involvement) and stages compiled fixture DLLs into temp directories the test owns. The
+/// planner is the same code path
 /// <see cref="Microsoft.Azure.Cirrus.Extensions.Extension.Processors.AddExtensionProcessor.Process()"/>
 /// runs after extraction, so a passing test proves the contract end-to-end from "leaves on disk"
 /// to "registry decision".
 /// </remarks>
-public sealed class ShapeBContractTests : IDisposable
+public sealed class ExtensionAddPlannerTests : IDisposable
 {
     private readonly List<string> _tempRoots = new();
 
@@ -38,9 +38,9 @@ public sealed class ShapeBContractTests : IDisposable
     public void PlanContributions_SharedVerb_DisjointLeaves_BothSucceed()
     {
         // Alpha contributes `sharedverb alpha`, Beta contributes `sharedverb beta`. Same root
-        // verb, different leaves — Shape B's whole point. Plan Alpha into an empty registry,
-        // commit it, then plan Beta against the registry-with-Alpha. Both should produce
-        // contributions without throwing.
+        // verb, different leaves — the per-leaf-ownership invariant. Plan Alpha into an empty
+        // registry, commit it, then plan Beta against the registry-with-Alpha. Both should
+        // produce contributions without throwing.
         var alphaDir = StageFixtureDll("SharedAlpha");
         var betaDir = StageFixtureDll("SharedBeta");
 
@@ -109,8 +109,8 @@ public sealed class ShapeBContractTests : IDisposable
         Assert.Contains("sharedverb alpha", ex.Message);
         Assert.Contains("Cirrus.Tests.Fixtures.SharedAlpha", ex.Message);
 
-        // Phase 10 #41: details payload carries the structured conflict array, not just a
-        // single-row dictionary. Even with one conflict the shape is the same.
+        // Details payload carries the structured conflict array, not just a single-row
+        // dictionary. Even with one conflict the shape is the same.
         Assert.NotNull(ex.Details);
         Assert.Equal(1, Assert.IsType<int>(ex.Details!["conflictCount"]));
         var conflicts = Assert.IsAssignableFrom<IEnumerable<IReadOnlyDictionary<string, object?>>>(ex.Details["conflicts"]);
@@ -128,8 +128,8 @@ public sealed class ShapeBContractTests : IDisposable
     [Fact]
     public void PlanContributions_MultipleCollisions_AreEnumeratedInOneThrow()
     {
-        // Phase 10 #41: stack-aware enumeration. A candidate that would collide on N leaves
-        // must surface all N rows in a single throw, not abort on the first. Hand-roll the
+        // Multi-conflict enumeration: a candidate that would collide on N leaves must
+        // surface all N rows in a single throw, not abort on the first. Hand-roll the
         // candidate's leaf set (so the test isn't bound to a fixture's specific contributions)
         // and pre-populate the registry with two different already-installed packages owning
         // the colliding tuples.
@@ -226,9 +226,9 @@ public sealed class ShapeBContractTests : IDisposable
     [Fact]
     public void PlanContributions_LeafKeyWithUndeclaredVerb_Throws()
     {
-        // §11.2 Q10: every leaf-key's first token must match a declared [ExtensionVerb]. The
-        // build-time hint generator catches this at PR time; the planner enforces it again at
-        // install time so a hand-rolled DLL can't slip through.
+        // Every leaf-key's first token must match a declared [ExtensionVerb]. The build-time
+        // hint generator catches this at PR time; the planner enforces it again at install
+        // time so a hand-rolled DLL can't slip through.
         var ex = Assert.Throws<CirrusErrorException>(() =>
             ExtensionAddPlanner.PlanContributions(
                 "Cirrus.Tests.Fixtures.SharedAlpha",
@@ -253,7 +253,7 @@ public sealed class ShapeBContractTests : IDisposable
                 $"Could not locate built fixture '{fixtureName}'. Run `dotnet build " +
                 $"tests/Fixtures/{fixtureName}/Cirrus.Tests.Fixtures.{fixtureName}.csproj`.");
 
-        var tempDir = Path.Combine(Path.GetTempPath(), $"cirrus-shapeb-{Guid.NewGuid():N}");
+        var tempDir = Path.Combine(Path.GetTempPath(), $"cirrus-extadd-{Guid.NewGuid():N}");
         Directory.CreateDirectory(tempDir);
         _tempRoots.Add(tempDir);
 
@@ -268,13 +268,16 @@ public sealed class ShapeBContractTests : IDisposable
     private static string? LocateFixtureBin(string fixtureName)
     {
         // Walk up from the test's bin dir to the repo root, then descend into
-        // tests/Fixtures/<name>/bin/Debug/net10.0/. The fixture is built as a normal
+        // tests/Fixtures/<name>/bin/<Configuration>/net10.0/. The fixture is built as a normal
         // class-library output (default SDK layout, AppendTargetFrameworkToOutputPath=true).
+        // Configuration is mirrored from the test assembly's own bin path so Debug/Release
+        // matrix builds (see .github/workflows/build.yml) both resolve correctly.
+        var configuration = InferConfigurationFromBaseDirectory() ?? "Debug";
         var probe = AppContext.BaseDirectory;
         for (int i = 0; i < 10 && !string.IsNullOrEmpty(probe); i++)
         {
             var candidate = Path.Combine(
-                probe, "tests", "Fixtures", fixtureName, "bin", "Debug", "net10.0");
+                probe, "tests", "Fixtures", fixtureName, "bin", configuration, "net10.0");
             if (Directory.Exists(candidate) &&
                 File.Exists(Path.Combine(candidate, $"Cirrus.Tests.Fixtures.{fixtureName}.dll")))
             {
@@ -283,5 +286,18 @@ public sealed class ShapeBContractTests : IDisposable
             probe = Path.GetDirectoryName(probe.TrimEnd(Path.DirectorySeparatorChar));
         }
         return null;
+    }
+
+    private static string? InferConfigurationFromBaseDirectory()
+    {
+        // AppContext.BaseDirectory for Cli.Tests is .../tests/Cli.Tests/bin/<Configuration>/net10.0/.
+        // Pull the configuration token by walking two parents up from the TFM folder.
+        var tfmDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var configDir = Path.GetDirectoryName(tfmDir);
+        if (string.IsNullOrEmpty(configDir)) return null;
+        var binDir = Path.GetDirectoryName(configDir);
+        if (string.IsNullOrEmpty(binDir) || !string.Equals(Path.GetFileName(binDir), "bin", StringComparison.Ordinal))
+            return null;
+        return Path.GetFileName(configDir);
     }
 }

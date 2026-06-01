@@ -10,9 +10,9 @@ namespace Core.Extensions
     /// Tracks every installed (non-built-in) extension. Built-ins live in the host's static seed.
     /// </summary>
     /// <remarks>
-    /// Schema is documented in <c>docs/spec/extension-management.md §5.1</c> (Shape A) and
-    /// <c>§11.3</c> (Shape B v2). Shape B widens entries with a <c>contributions</c> list of
-    /// <c>(verb, path)</c> pairs and a derived <c>namespaces</c> field.
+    /// Schema is documented in <c>docs/spec/extension-management.md §4.1</c>: entries carry a
+    /// <c>contributions</c> list of <c>(verb, path)</c> pairs and a derived <c>namespaces</c>
+    /// field. The reader tolerates legacy v1 entries (single <c>verb</c> field, no contributions).
     /// </remarks>
     public sealed class ExtensionRegistry
     {
@@ -32,7 +32,7 @@ namespace Core.Extensions
         /// The schema version this codebase writes and accepts on read.
         /// </summary>
         /// <remarks>
-        /// v1 (Shape A): single <c>verb</c> field per entry. v2 (Shape B): <c>contributions</c> list of
+        /// v1: single <c>verb</c> field per entry. v2: <c>contributions</c> list of
         /// <c>(verb, path)</c> leaves plus a derived <c>namespaces</c> list. v1 entries are read
         /// tolerantly and synthesized into a single <c>(verb, "")</c> contribution.
         /// </remarks>
@@ -44,7 +44,7 @@ namespace Core.Extensions
     /// remaining command <see cref="Path"/> within it. Empty <c>Path</c> means "the namespace root".
     /// </summary>
     /// <remarks>
-    /// See <c>docs/spec/extension-management.md §11.3</c>. The full CLI key for the leaf is
+    /// See <c>docs/spec/extension-management.md §4.1</c>. The full CLI key for the leaf is
     /// <c>{Verb} {Path}</c> (e.g. <c>vm create</c>, where <c>Verb="vm"</c> and <c>Path="create"</c>).
     /// </remarks>
     public sealed class Contribution
@@ -74,7 +74,7 @@ namespace Core.Extensions
         public string? Verb { get; set; }
 
         /// <summary>
-        /// Installed version. Per §5.1 Shape A is strict single-version; <c>update</c> overwrites in place.
+        /// Installed version. Strict single-version; <c>update</c> overwrites in place.
         /// </summary>
         [JsonPropertyName("version")]
         public required string Version { get; set; }
