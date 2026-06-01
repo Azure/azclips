@@ -35,6 +35,14 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                 using HttpResponseMessage firstResponse = await SendAsync();
                 TPage? page = await DeserializePageOrNull(firstResponse);
 
+                if (page is null)
+                {
+                    // No usable body on the first page: return without writing output, matching the
+                    // default processor pipeline. (A legitimate empty list deserializes to a non-null
+                    // page with an empty Value and is still written as an empty array.)
+                    return;
+                }
+
                 while (page is not null)
                 {
                     if (page.Value is not null)

@@ -9,7 +9,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Models
     public class ResourceGroupListResult : IPagedResult<ResourceGroup>
     {
         [JsonPropertyName("value")]
-        public ResourceGroup[]? Value { get; set; } = Array.Empty<ResourceGroup>();
+        public ResourceGroup[]? Value { get; set; }
 
         //
         // Summary:
