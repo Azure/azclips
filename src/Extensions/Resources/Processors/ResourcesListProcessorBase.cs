@@ -1,18 +1,9 @@
 using System.Text.Json;
 using Core.Abstractions.Runtime;
+using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
 {
-    /// <summary>
-    /// Wire shape of an ARM list response: a page that carries the items in
-    /// <see cref="Value"/> and an optional <see cref="NextLink"/> to the next page.
-    /// </summary>
-    public interface IPagedResult<TItem>
-    {
-        TItem[]? Value { get; }
-        string? NextLink { get; }
-    }
-
     /// <summary>
     /// Base for "list" processors. ARM list endpoints return an envelope
     /// <c>{ "value": [...], "nextLink": "..." }</c>; this base unwraps the envelope and

@@ -1,5 +1,4 @@
 using System.Text.Json.Serialization;
-using Microsoft.Azure.Cirrus.Extensions.Resources.Processors;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Resources.Models
 {
