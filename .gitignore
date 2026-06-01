@@ -638,3 +638,7 @@ CLAUDE.md
 .DS_Store
 
 *scratch*
+
+# Local packaging temp output
+devops/out/
+devops/sim/
