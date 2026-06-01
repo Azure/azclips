@@ -89,7 +89,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
             using HttpRequestMessage _request = await CreateRequestMessage();
             HttpResponseMessage _response = await _httpPipeline.SendAsync(_request, _publisher);
             await _publisher.Publish(Events.TracingHttpResponseMessage, _response);
-            // TODO: handle status codess
+            // TODO: handle status codes
             return _response;
         }
 
@@ -185,7 +185,9 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                         if (error)
                         {
                             //TODO: redesign exceptions for extension runtime 
-                            throw new Exception($"Long running operation failed with response: {_response}");
+                            var failure = new Exception($"Long running operation failed with response: {_response}");
+                            _response?.Dispose();
+                            throw failure;
                         }
                     }
 
@@ -298,10 +300,10 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                     await WriteOutput(body);
                 }
             }
-            catch (JsonException)
+            catch (JsonException ex)
             {
                 await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
-                throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}");
+                throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}", ex);
             }
             finally
             {

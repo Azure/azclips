@@ -43,7 +43,12 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                         break;
                     }
 
-                    using var nextRequest = new HttpRequestMessage(HttpMethod.Get, page.NextLink);
+                    if (!Uri.TryCreate(page.NextLink, UriKind.Absolute, out Uri? nextUri))
+                    {
+                        throw new InvalidOperationException($"Service returned a nextLink that is not an absolute URI: {page.NextLink}");
+                    }
+
+                    using var nextRequest = new HttpRequestMessage(HttpMethod.Get, nextUri);
                     using HttpResponseMessage nextResponse = await HttpPipeline.SendAsync(nextRequest, Publisher);
                     await Publisher.Publish(Events.TracingHttpResponseMessage, nextResponse);
                     page = await DeserializePageOrNull(nextResponse);
@@ -80,10 +85,10 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
             {
                 return JsonSerializer.Deserialize<TPage>(rawBody, JsonOptions);
             }
-            catch (JsonException)
+            catch (JsonException ex)
             {
                 await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
-                throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TPage).Name}. Raw body: {rawBody}");
+                throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TPage).Name}. Raw body: {rawBody}", ex);
             }
         }
     }
