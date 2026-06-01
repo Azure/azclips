@@ -113,6 +113,8 @@ The host creates a per-invocation `IProcessorContext` providing everything the p
 
 > **[Proposal]** Replace `ExtensionDispatcher` with `CommandRouter` (thin routing) and `CommandActivator` (resolution + help integration).
 
+> **Dispatch model details.** The CLI dispatch path above (`Parse & Route` → `ExtensionDispatcher` → leaf resolution) is fully specified in [extension-management.md](./extension-management.md) — see §4 (resolution rules), §5 (Shape B leaf-keyed routing model: shared verbs, per-leaf `(verb, path)` ownership), and §11 (registry / hint-catalog / `s_cliTable` interaction). That document is the source of truth for how a parsed command is bound to a single extension at runtime; this document covers the surrounding host machinery (loading, contexts, packaging).
+
 ### 3.5 [Proposal] NativeAOT Compilation
 
 NativeAOT eliminates the JIT compiler, producing a fully native executable. This conflicts with several patterns the extension framework currently relies on:
