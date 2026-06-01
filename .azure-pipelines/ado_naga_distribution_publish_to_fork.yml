@@ -1,0 +1,139 @@
+name: dist_publish_fork_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+parameters:
+- name: GitHubServiceConnection
+  displayName: 'GitHub Service Connection'
+  type: string
+  default: 'github.com_naga-nandyala'
+- name: source_pipeline_definition_id
+  displayName: 'Source pipeline definition id'
+  type: string
+  default: ''
+- name: source_build_id
+  displayName: 'Source build id'
+  type: string
+  default: '320152'
+
+variables:
+  ubuntu_pool: 'ubuntu-latest'
+  SourceProject: 'public'
+  GitHubTargetRepo: 'naga-nandyala/cirrus'
+  GitHubReleasePrefix: 'dist'
+  GitHubReleaseIsPrerelease: true
+  Codeql.Enabled: false
+  Codeql.SkipTaskAutoInjection: true
+  AdvancedSecurity.CodeQL.Enabled: false
+  ComponentGovernance.Enabled: false
+  skipComponentGovernanceDetection: true
+  runCodesignValidationInjection: false
+  CredScan.Enabled: false
+  BinSkim.Enabled: false
+  PoliCheck.Enabled: false
+  RoslynAnalyzers.Enabled: false
+  SdtReport.Enabled: false
+  TSAUpload.Enabled: false
+  NugetSecurityAnalysisWarningLevel: none
+  skipNugetSecurityAnalysis: true
+
+stages:
+- stage: PublishToFork
+  displayName: Publish To Fork
+  jobs:
+  - job: PublishArtifacts
+    displayName: Publish Release Assets
+    pool:
+      vmImage: $(ubuntu_pool)
+    steps:
+    - checkout: none
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Distribution Artifacts
+      inputs:
+        buildType: specific
+        project: $(SourceProject)
+        definition: ${{ parameters.source_pipeline_definition_id }}
+        buildVersionToDownload: specific
+        pipelineId: ${{ parameters.source_build_id }}
+        targetPath: $(Pipeline.Workspace)/distBuild
+
+    - script: |
+        set -euo pipefail
+        echo "Pipeline workspace: $(Pipeline.Workspace)"
+        find "$(Pipeline.Workspace)/distBuild" -maxdepth 4 -type f | sort | sed -n '1,300p'
+      displayName: Inspect Downloaded Artifacts
+
+    - script: |
+        set -euo pipefail
+        if [[ -z "${{ parameters.source_pipeline_definition_id }}" ]]; then
+          echo "ERROR: source_pipeline_definition_id is required"
+          exit 1
+        fi
+
+        if [[ -z "${{ parameters.source_build_id }}" ]]; then
+          echo "ERROR: source_build_id is required"
+          exit 1
+        fi
+
+        source_build_id="${{ parameters.source_build_id }}"
+        source_pipeline_definition_id="${{ parameters.source_pipeline_definition_id }}"
+
+        tag_name="$(GitHubReleasePrefix)-build-${source_build_id}"
+        release_name="Distribution build ${source_build_id}"
+
+        assets_root="$(Pipeline.Workspace)/distBuild"
+        mapfile -t assets < <(find "$assets_root" -type f \( -name '*.tar.gz' -o -name '*.zip' \) | sort)
+
+        if [[ ${#assets[@]} -eq 0 ]]; then
+          echo "ERROR: No .tar.gz or .zip assets found under $assets_root"
+          exit 1
+        fi
+
+        echo "Assets to upload (${#assets[@]}):"
+        printf '  %s\n' "${assets[@]}"
+
+        release_dir="$(Build.ArtifactStagingDirectory)/release"
+        rm -rf "$release_dir"
+        mkdir -p "$release_dir"
+
+        for asset in "${assets[@]}"; do
+          cp "$asset" "$release_dir/"
+        done
+
+        echo "Release asset staging directory contents:"
+        ls -lh "$release_dir"
+
+        echo "##vso[task.setvariable variable=ReleaseTag]$tag_name"
+        echo "##vso[task.setvariable variable=ReleaseName]$release_name"
+        echo "##vso[task.setvariable variable=SourceBuildId]$source_build_id"
+        echo "##vso[task.setvariable variable=SourcePipelineDefinitionId]$source_pipeline_definition_id"
+      displayName: Prepare Release Tag And Assets
+
+    - task: GitHubRelease@1
+      displayName: Delete Existing GitHub Release (If Any)
+      continueOnError: true
+      inputs:
+        gitHubConnection: '${{ parameters.GitHubServiceConnection }}'
+        repositoryName: '$(GitHubTargetRepo)'
+        action: 'delete'
+        tag: '$(ReleaseTag)'
+
+    - task: GitHubRelease@1
+      displayName: Create GitHub Release
+      inputs:
+        gitHubConnection: '${{ parameters.GitHubServiceConnection }}'
+        repositoryName: '$(GitHubTargetRepo)'
+        action: 'create'
+        target: 'main'
+        tagSource: 'userSpecifiedTag'
+        tag: '$(ReleaseTag)'
+        title: '$(ReleaseName)'
+        releaseNotesSource: 'inline'
+        releaseNotesInline: |
+          Source project: $(SourceProject)
+          Source pipeline definition id: $(SourcePipelineDefinitionId)
+          Source build id: $(SourceBuildId)
+        assets: '$(Build.ArtifactStagingDirectory)/release/*'
+        addChangeLog: false
