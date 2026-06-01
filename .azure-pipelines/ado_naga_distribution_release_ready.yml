@@ -9,8 +9,13 @@ variables:
   PackagingCommonOutRoot: $(PackagingOutRoot)/common
   PackagingLinuxOutRoot: $(PackagingOutRoot)/linux
   PackagingWindowsOutRoot: $(PackagingOutRoot)/windows
-  PackagingLinuxTarballPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-linux-x64.tar.gz
-  PackagingWindowsZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-win-x64.zip
+  PackagingMacOSOutRoot: $(PackagingOutRoot)/macos
+  PackagingLinuxRid: linux-x64
+  PackagingWindowsRid: win-x64
+  PackagingLinuxTarballPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-$(PackagingLinuxRid).tar.gz
+  PackagingWindowsZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-$(PackagingWindowsRid).zip
+  PackagingMacOSRid: osx-arm64
+  PackagingMacOSTarballPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-$(PackagingMacOSRid).tar.gz
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
   DOTNET_NOLOGO: 1
   Codeql.Enabled: false
@@ -86,8 +91,14 @@ stages:
   condition: succeeded()
   jobs:
   - job: BuildLinuxOutput
-    displayName: Build Linux tarball output
+    displayName: Build Linux tarball output ($(Rid))
     timeoutInMinutes: 60
+    strategy:
+      matrix:
+        linux_x64:
+          Rid: linux-x64
+          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-linux-x64.tar.gz
+          DistributionArtifact: Distribution_Linux
     pool:
       vmImage: ubuntu-latest
     steps:
@@ -110,14 +121,14 @@ stages:
     - script: |
         set -euo pipefail
         chmod +x "$(PackagingScriptsRoot)/linux/tarball/build_linux_tarball.sh"
-        OUT_ROOT="$(PackagingLinuxOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" CLI_TAR_PATH="$(PackagingLinuxTarballPath)" "$(PackagingScriptsRoot)/linux/tarball/build_linux_tarball.sh"
+        OUT_ROOT="$(PackagingLinuxOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" RID="$(Rid)" CLI_TAR_PATH="$(CliTarPath)" "$(PackagingScriptsRoot)/linux/tarball/build_linux_tarball.sh"
       displayName: Run build_linux_tarball.sh
 
     - task: PublishPipelineArtifact@1
       displayName: Publish Linux distribution output
       inputs:
         targetPath: $(PackagingLinuxOutRoot)
-        artifact: Distribution_Linux
+        artifact: $(DistributionArtifact)
         publishLocation: pipeline
 
 - stage: BuildWindows
@@ -126,8 +137,14 @@ stages:
   condition: succeeded()
   jobs:
   - job: BuildWindowsOutput
-    displayName: Build Windows zip output
+    displayName: Build Windows zip output ($(Rid))
     timeoutInMinutes: 60
+    strategy:
+      matrix:
+        win_x64:
+          Rid: win-x64
+          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-win-x64.zip
+          DistributionArtifact: Distribution_Windows
     pool:
       vmImage: ubuntu-latest
     steps:
@@ -158,14 +175,60 @@ stages:
     - script: |
         set -euo pipefail
         chmod +x "$(PackagingScriptsRoot)/windows/zip/build_win_zip.sh"
-        OUT_ROOT="$(PackagingWindowsOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" CLI_WIN_ZIP_PATH="$(PackagingWindowsZipPath)" "$(PackagingScriptsRoot)/windows/zip/build_win_zip.sh"
+        OUT_ROOT="$(PackagingWindowsOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" RID="$(Rid)" CLI_WIN_ZIP_PATH="$(CliZipPath)" "$(PackagingScriptsRoot)/windows/zip/build_win_zip.sh"
       displayName: Run build_win_zip.sh
 
     - task: PublishPipelineArtifact@1
       displayName: Publish Windows distribution output
       inputs:
         targetPath: $(PackagingWindowsOutRoot)
-        artifact: Distribution_Windows
+        artifact: $(DistributionArtifact)
+        publishLocation: pipeline
+
+- stage: BuildMacOS
+  displayName: Build macOS Distribution Artifact
+  dependsOn: BuildCommon
+  condition: succeeded()
+  jobs:
+  - job: BuildMacOSOutput
+    displayName: Build macOS tarball output ($(Rid))
+    timeoutInMinutes: 60
+    strategy:
+      matrix:
+        osx_arm64:
+          Rid: osx-arm64
+          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-arm64.tar.gz
+          DistributionArtifact: Distribution_MacOS
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 0
+
+    - task: UseDotNet@2
+      displayName: Use .NET SDK from global.json
+      inputs:
+        packageType: sdk
+        useGlobalJson: true
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download common output
+      inputs:
+        artifact: Distribution_Common
+        path: $(PackagingCommonOutRoot)
+
+    - script: |
+        set -euo pipefail
+        chmod +x "$(PackagingScriptsRoot)/macos/tarball/build_macos_tarball.sh"
+        OUT_ROOT="$(PackagingMacOSOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" RID="$(Rid)" CLI_TAR_PATH="$(CliTarPath)" "$(PackagingScriptsRoot)/macos/tarball/build_macos_tarball.sh"
+      displayName: Run build_macos_tarball.sh
+
+    - task: PublishPipelineArtifact@1
+      displayName: Publish macOS distribution output
+      inputs:
+        targetPath: $(PackagingMacOSOutRoot)
+        artifact: $(DistributionArtifact)
         publishLocation: pipeline
 
 - stage: ValidateLinux
@@ -174,8 +237,14 @@ stages:
   condition: succeeded()
   jobs:
   - job: LinuxValidation
-    displayName: Linux bundled plus optional extension validation
+    displayName: Linux bundled plus optional extension validation ($(Rid))
     timeoutInMinutes: 45
+    strategy:
+      matrix:
+        linux_x64:
+          Rid: linux-x64
+          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-linux-x64.tar.gz
+          DistributionArtifact: Distribution_Linux
     pool:
       vmImage: ubuntu-latest
     steps:
@@ -186,7 +255,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: Download Linux distribution output
       inputs:
-        artifact: Distribution_Linux
+        artifact: $(DistributionArtifact)
         path: $(PackagingLinuxOutRoot)
 
     - task: DownloadPipelineArtifact@2
@@ -198,7 +267,7 @@ stages:
     - script: |
         set -euo pipefail
         chmod +x "$(PackagingScriptsRoot)/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
-        OUT_ROOT="$(PackagingLinuxOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" CLI_TAR_PATH="$(PackagingLinuxTarballPath)" "$(PackagingScriptsRoot)/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
+        OUT_ROOT="$(PackagingLinuxOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" CLI_TAR_PATH="$(CliTarPath)" "$(PackagingScriptsRoot)/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
       displayName: Run Linux validation script
 
     - task: PublishPipelineArtifact@1
@@ -215,8 +284,14 @@ stages:
   condition: succeeded()
   jobs:
   - job: WindowsValidation
-    displayName: Windows bundled plus optional extension validation
+    displayName: Windows bundled plus optional extension validation ($(Rid))
     timeoutInMinutes: 45
+    strategy:
+      matrix:
+        win_x64:
+          Rid: win-x64
+          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-win-x64.zip
+          DistributionArtifact: Distribution_Windows
     pool:
       vmImage: windows-latest
     steps:
@@ -227,7 +302,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: Download Windows distribution output
       inputs:
-        artifact: Distribution_Windows
+        artifact: $(DistributionArtifact)
         path: $(PackagingWindowsOutRoot)
 
     - task: DownloadPipelineArtifact@2
@@ -243,7 +318,7 @@ stages:
         pwsh: true
         script: |
           $ErrorActionPreference = 'Stop'
-          & "$(PackagingScriptsRoot)/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "$(PackagingWindowsOutRoot)" -CommonOutRoot "$(PackagingCommonOutRoot)" -CliZipPath "$(PackagingWindowsZipPath)"
+          & "$(PackagingScriptsRoot)/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "$(PackagingWindowsOutRoot)" -CommonOutRoot "$(PackagingCommonOutRoot)" -CliZipPath "$(CliZipPath)"
 
     - task: PublishPipelineArtifact@1
       displayName: Publish Windows simulation artifacts
@@ -253,21 +328,72 @@ stages:
         artifact: Validate_Windows_Sim
         publishLocation: pipeline
 
+- stage: ValidateMacOS
+  displayName: Validate macOS Distribution Flow
+  dependsOn: BuildMacOS
+  condition: succeeded()
+  jobs:
+  - job: MacOSValidation
+    displayName: macOS bundled plus optional extension validation ($(Rid))
+    timeoutInMinutes: 45
+    strategy:
+      matrix:
+        osx_arm64:
+          Rid: osx-arm64
+          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-arm64.tar.gz
+          DistributionArtifact: Distribution_MacOS
+    pool:
+      vmImage: macos-latest
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 0
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download macOS distribution output
+      inputs:
+        artifact: $(DistributionArtifact)
+        path: $(PackagingMacOSOutRoot)
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download common output
+      inputs:
+        artifact: Distribution_Common
+        path: $(PackagingCommonOutRoot)
+
+    - script: |
+        set -euo pipefail
+        chmod +x "$(PackagingScriptsRoot)/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
+        OUT_ROOT="$(PackagingMacOSOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" RID="$(Rid)" CLI_TAR_PATH="$(CliTarPath)" "$(PackagingScriptsRoot)/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
+      displayName: Run macOS validation script
+
+    - task: PublishPipelineArtifact@1
+      displayName: Publish macOS simulation artifacts
+      condition: always()
+      inputs:
+        targetPath: $(Build.SourcesDirectory)/devops/sim/macos-tarball-bundled-plus-ext
+        artifact: Validate_MacOS_Sim
+        publishLocation: pipeline
+
 - stage: Finalize
   displayName: Finalize
   dependsOn:
   - BuildCommon
   - BuildLinux
   - BuildWindows
+  - BuildMacOS
   - ValidateLinux
   - ValidateWindows
+  - ValidateMacOS
   condition: always()
   variables:
     BuildCommonResult: $[ stageDependencies.BuildCommon.BuildCommonOutputs.result ]
     BuildLinuxResult: $[ stageDependencies.BuildLinux.BuildLinuxOutput.result ]
     BuildWindowsResult: $[ stageDependencies.BuildWindows.BuildWindowsOutput.result ]
+    BuildMacOSResult: $[ stageDependencies.BuildMacOS.BuildMacOSOutput.result ]
     ValidateLinuxResult: $[ stageDependencies.ValidateLinux.LinuxValidation.result ]
     ValidateWindowsResult: $[ stageDependencies.ValidateWindows.WindowsValidation.result ]
+    ValidateMacOSResult: $[ stageDependencies.ValidateMacOS.MacOSValidation.result ]
   jobs:
   - job: Summary
     displayName: Summary
@@ -278,6 +404,8 @@ stages:
         echo "BuildCommon: $(BuildCommonResult)"
         echo "BuildLinux: $(BuildLinuxResult)"
         echo "BuildWindows: $(BuildWindowsResult)"
+        echo "BuildMacOS: $(BuildMacOSResult)"
         echo "ValidateLinux: $(ValidateLinuxResult)"
         echo "ValidateWindows: $(ValidateWindowsResult)"
+        echo "ValidateMacOS: $(ValidateMacOSResult)"
       displayName: Print stage outcomes

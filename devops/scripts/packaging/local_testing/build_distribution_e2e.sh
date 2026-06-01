@@ -11,10 +11,12 @@ set -euo pipefail
 #
 # Optional flow:
 #   4) Build Windows distribution artifact and run PowerShell validation script
+#   5) Build macOS distribution artifact and run validation script
 #
 # Examples:
 #   ./devops/scripts/packaging/local_testing/build_distribution_e2e.sh
 #   ./devops/scripts/packaging/local_testing/build_distribution_e2e.sh --with-pwsh
+#   ./devops/scripts/packaging/local_testing/build_distribution_e2e.sh --with-macos
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
@@ -23,24 +25,31 @@ OUT_ROOT_BASE="${OUT_ROOT_BASE:-$REPO_ROOT/devops/out}"
 COMMON_OUT_ROOT="${COMMON_OUT_ROOT:-$OUT_ROOT_BASE/common}"
 LINUX_OUT_ROOT="${LINUX_OUT_ROOT:-$OUT_ROOT_BASE/linux}"
 WINDOWS_OUT_ROOT="${WINDOWS_OUT_ROOT:-$OUT_ROOT_BASE/windows}"
+MACOS_OUT_ROOT="${MACOS_OUT_ROOT:-$OUT_ROOT_BASE/macos}"
 LINUX_TARBALL_PATH="${LINUX_TARBALL_PATH:-$LINUX_OUT_ROOT/Release/tarball/azv2-linux-x64.tar.gz}"
 WINDOWS_ZIP_PATH="${WINDOWS_ZIP_PATH:-$WINDOWS_OUT_ROOT/Release/zip/azv2-win-x64.zip}"
+MACOS_RID="${MACOS_RID:-osx-arm64}"
+MACOS_TARBALL_PATH="${MACOS_TARBALL_PATH:-$MACOS_OUT_ROOT/Release/tarball/azv2-$MACOS_RID.tar.gz}"
 RUN_PWSH=0
+RUN_MACOS=0
 
 for arg in "$@"; do
   case "$arg" in
     --with-pwsh)
       RUN_PWSH=1
       ;;
+    --with-macos)
+      RUN_MACOS=1
+      ;;
     *)
       echo "ERROR: Unknown argument: $arg"
-      echo "Usage: $0 [--with-pwsh]"
+      echo "Usage: $0 [--with-pwsh] [--with-macos]"
       exit 1
       ;;
   esac
 done
 
-for required in common/build_common.sh linux/tarball/build_linux_tarball.sh windows/zip/build_win_zip.sh linux/tarball/test_linux_tarball_bundled_plus_ext.sh windows/zip/test_windows_zip_bundled_plus_ext.ps1 config/bundled_ext.config; do
+for required in common/build_common.sh linux/tarball/build_linux_tarball.sh windows/zip/build_win_zip.sh macos/tarball/build_macos_tarball.sh linux/tarball/test_linux_tarball_bundled_plus_ext.sh windows/zip/test_windows_zip_bundled_plus_ext.ps1 macos/tarball/test_macos_tarball_bundled_plus_ext.sh config/bundled_ext.config; do
   if [[ ! -f "$PACKAGING_DIR/$required" ]]; then
     echo "ERROR: Missing required file: $PACKAGING_DIR/$required"
     exit 1
@@ -56,8 +65,10 @@ echo "Repo root : $REPO_ROOT"
 echo "Common out: $COMMON_OUT_ROOT"
 echo "Linux out : $LINUX_OUT_ROOT"
 echo "Windows out: $WINDOWS_OUT_ROOT"
+echo "macOS out : $MACOS_OUT_ROOT"
 echo "Linux tarball path: $LINUX_TARBALL_PATH"
 echo "Windows zip path : $WINDOWS_ZIP_PATH"
+echo "macOS tarball path: $MACOS_TARBALL_PATH"
 
 echo ""
 echo "[1/4] Build common distribution assets"
@@ -89,6 +100,20 @@ if [[ $RUN_PWSH -eq 1 ]]; then
 else
   echo ""
   echo "[4/4] Skipping PowerShell validation (use --with-pwsh to enable)"
+fi
+
+if [[ $RUN_MACOS -eq 1 ]]; then
+  echo ""
+  echo "[5/5] Build macOS distribution artifact + validate"
+
+  chmod +x "$PACKAGING_DIR/macos/tarball/build_macos_tarball.sh"
+  OUT_ROOT="$MACOS_OUT_ROOT" COMMON_OUT_ROOT="$COMMON_OUT_ROOT" RID="$MACOS_RID" CLI_TAR_PATH="$MACOS_TARBALL_PATH" "$PACKAGING_DIR/macos/tarball/build_macos_tarball.sh"
+
+  chmod +x "$PACKAGING_DIR/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
+  OUT_ROOT="$MACOS_OUT_ROOT" COMMON_OUT_ROOT="$COMMON_OUT_ROOT" RID="$MACOS_RID" CLI_TAR_PATH="$MACOS_TARBALL_PATH" "$PACKAGING_DIR/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
+else
+  echo ""
+  echo "[5/5] Skipping macOS validation (use --with-macos to enable)"
 fi
 
 echo ""
