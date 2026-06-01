@@ -97,6 +97,7 @@ stages:
         package_names_csv=""
         package_versions_csv=""
         package_count=0
+        package_versions_tmp="$(mktemp)"
 
         for pkg in "${nupkgs[@]}"; do
           base_name="$(basename "$pkg" .nupkg)"
@@ -115,6 +116,9 @@ stages:
             package_names_csv="$package_names_csv, $package_name"
             package_versions_csv="$package_versions_csv, $package_version"
           fi
+
+          package_file_name="$(basename "$pkg")"
+          echo "$package_name,$package_version,$package_file_name" >> "$package_versions_tmp"
 
           seen_versions["$package_version"]=1
           package_count=$((package_count + 1))
@@ -137,6 +141,15 @@ stages:
         rm -rf "$release_dir"
         mkdir -p "$release_dir"
 
+        package_versions_file="$release_dir/package-versions.csv"
+        {
+          echo "package_name,package_version,file_name"
+          if [[ -s "$package_versions_tmp" ]]; then
+            cat "$package_versions_tmp"
+          fi
+        } > "$package_versions_file"
+        rm -f "$package_versions_tmp"
+
         for asset in "${assets[@]}"; do
           cp "$asset" "$release_dir/"
         done
@@ -148,10 +161,6 @@ stages:
         echo "##vso[task.setvariable variable=ReleaseName]$release_name"
         echo "##vso[task.setvariable variable=SourceBuildId]$source_build_id"
         echo "##vso[task.setvariable variable=SourcePipelineDefinitionId]$source_pipeline_definition_id"
-        echo "##vso[task.setvariable variable=PrimaryPackageVersion]$primary_package_version"
-        echo "##vso[task.setvariable variable=SourcePackageCount]$package_count"
-        echo "##vso[task.setvariable variable=SourcePackageNames]$package_names_csv"
-        echo "##vso[task.setvariable variable=SourcePackageVersions]$package_versions_csv"
       displayName: Prepare Release Tag And Assets
 
     - task: GitHubRelease@1
@@ -175,13 +184,7 @@ stages:
         title: '$(ReleaseName)'
         releaseNotesSource: 'inline'
         releaseNotesInline: |
-          Source project: $(SourceProject)
-          Source pipeline definition id: $(SourcePipelineDefinitionId)
+          Automated distribution release.
           Source build id: $(SourceBuildId)
-          Package version: $(PrimaryPackageVersion)
-          Package count: $(SourcePackageCount)
-          Package names: $(SourcePackageNames)
-          Package versions: $(SourcePackageVersions)
-          Included assets: .tar.gz, .zip, .nupkg
         assets: '$(Build.ArtifactStagingDirectory)/release/*'
         addChangeLog: false
