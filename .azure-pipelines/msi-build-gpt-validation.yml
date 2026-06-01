@@ -35,36 +35,67 @@ parameters:
     default: true
 
 variables:
-  DOTNET_NOLOGO: true
-  Codeql.Enabled: false
-  Codeql.SkipTaskAutoInjection: true
-  AdvancedSecurity.CodeQL.Enabled: false
-  ComponentGovernance.Enabled: false
-  skipComponentGovernanceDetection: true
-  runCodesignValidationInjection: false
-  CredScan.Enabled: false
-  BinSkim.Enabled: false
-  PoliCheck.Enabled: false
-  RoslynAnalyzers.Enabled: false
-  SdtReport.Enabled: false
-  TSAUpload.Enabled: false
-  NugetSecurityAnalysisWarningLevel: none
-  skipNugetSecurityAnalysis: true
-  CONFIGURATION: ${{ parameters.configuration }}
-  RUNTIME_IDENTIFIER: ${{ parameters.runtime_identifier }}
-  PACKAGE_VERSION_INPUT: ${{ parameters.package_version }}
-  PACKAGE_PUBLISHER: ${{ parameters.publisher }}
-  PRODUCT_NAME: Cirrus CLI
-  MANUFACTURER: Cirrus Development
-  UPGRADE_CODE: D71E4F9B-A5D8-4F16-A0A3-E0D74BB989B8
-  COMMON_OUT_ROOT: $(Build.SourcesDirectory)\devops\out\common
-  WINDOWS_OUT_ROOT: $(Build.SourcesDirectory)\devops\out\windows
-  UNSIGNED_ARTIFACT_ROOT: $(Build.ArtifactStagingDirectory)\msi\unsigned
-  SIGNED_ARTIFACT_ROOT: $(Build.ArtifactStagingDirectory)\msi\signed
-  TEST_OUTPUT_ROOT: $(Build.ArtifactStagingDirectory)\msi\test
-  AUDIT_DOWNLOAD_ROOT: $(Pipeline.Workspace)\cirrus-msi-audit
-  UNSIGNED_DOWNLOAD_ROOT: $(Pipeline.Workspace)\cirrus-msi-unsigned
-  SIGNED_DOWNLOAD_ROOT: $(Pipeline.Workspace)\cirrus-msi-signed
+- template: templates/variables.yml
+- name: DOTNET_NOLOGO
+  value: true
+- name: Codeql.Enabled
+  value: false
+- name: Codeql.SkipTaskAutoInjection
+  value: true
+- name: AdvancedSecurity.CodeQL.Enabled
+  value: false
+- name: ComponentGovernance.Enabled
+  value: false
+- name: skipComponentGovernanceDetection
+  value: true
+- name: runCodesignValidationInjection
+  value: false
+- name: CredScan.Enabled
+  value: false
+- name: BinSkim.Enabled
+  value: false
+- name: PoliCheck.Enabled
+  value: false
+- name: RoslynAnalyzers.Enabled
+  value: false
+- name: SdtReport.Enabled
+  value: false
+- name: TSAUpload.Enabled
+  value: false
+- name: NugetSecurityAnalysisWarningLevel
+  value: none
+- name: skipNugetSecurityAnalysis
+  value: true
+- name: CONFIGURATION
+  value: ${{ parameters.configuration }}
+- name: RUNTIME_IDENTIFIER
+  value: ${{ parameters.runtime_identifier }}
+- name: PACKAGE_VERSION_INPUT
+  value: ${{ parameters.package_version }}
+- name: PACKAGE_PUBLISHER
+  value: ${{ parameters.publisher }}
+- name: PRODUCT_NAME
+  value: Cirrus CLI
+- name: MANUFACTURER
+  value: Cirrus Development
+- name: UPGRADE_CODE
+  value: D71E4F9B-A5D8-4F16-A0A3-E0D74BB989B8
+- name: COMMON_OUT_ROOT
+  value: $(Build.SourcesDirectory)\devops\out\common
+- name: WINDOWS_OUT_ROOT
+  value: $(Build.SourcesDirectory)\devops\out\windows
+- name: UNSIGNED_ARTIFACT_ROOT
+  value: $(Build.ArtifactStagingDirectory)\msi\unsigned
+- name: SIGNED_ARTIFACT_ROOT
+  value: $(Build.ArtifactStagingDirectory)\msi\signed
+- name: TEST_OUTPUT_ROOT
+  value: $(Build.ArtifactStagingDirectory)\msi\test
+- name: AUDIT_DOWNLOAD_ROOT
+  value: $(Pipeline.Workspace)\cirrus-msi-audit
+- name: UNSIGNED_DOWNLOAD_ROOT
+  value: $(Pipeline.Workspace)\cirrus-msi-unsigned
+- name: SIGNED_DOWNLOAD_ROOT
+  value: $(Pipeline.Workspace)\cirrus-msi-signed
 
 stages:
   - stage: BuildUnsigned
@@ -73,7 +104,7 @@ stages:
       - job: build_unsigned_msi
         displayName: Build unsigned ${{ parameters.runtime_identifier }} MSI
         pool:
-          vmImage: windows-latest
+          vmImage: $(windows_pool)
         steps:
           - checkout: self
             clean: true
@@ -198,7 +229,7 @@ stages:
       - job: audit_unsigned_msi
         displayName: Audit unsigned MSI before signing
         pool:
-          vmImage: windows-latest
+          vmImage: $(windows_pool)
         steps:
           - checkout: self
             clean: true
@@ -313,7 +344,7 @@ stages:
       - job: dev_sign_msi
         displayName: Dev-sign ${{ parameters.runtime_identifier }} MSI
         pool:
-          vmImage: windows-latest
+          vmImage: $(windows_pool)
         steps:
           - task: DownloadPipelineArtifact@2
             displayName: Download unsigned MSI artifact
@@ -414,7 +445,7 @@ stages:
       - job: test_signed_msi
         displayName: Install, assert, and uninstall signed MSI
         pool:
-          vmImage: windows-latest
+          vmImage: $(windows_pool)
         steps:
           - checkout: self
             clean: true

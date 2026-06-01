@@ -5,16 +5,27 @@ trigger: none
 pr: none
 
 variables:
-  Solution_Name: cirrus.slnx
-  Publish_Root: ./publish
-  Bin_Root: ./bin
-  Codeql.Enabled: false
-  Codeql.SkipTaskAutoInjection: true
-  runCodesignValidationInjection: false
-  DOTNET_CLI_TELEMETRY_OPTOUT: 1
-  DOTNET_NOLOGO: 1
-  NugetSecurityAnalysisWarningLevel: none
-  skipNugetSecurityAnalysis: true
+- template: ../templates/variables.yml
+- name: Solution_Name
+  value: cirrus.slnx
+- name: Publish_Root
+  value: ./publish
+- name: Bin_Root
+  value: ./bin
+- name: Codeql.Enabled
+  value: false
+- name: Codeql.SkipTaskAutoInjection
+  value: true
+- name: runCodesignValidationInjection
+  value: false
+- name: DOTNET_CLI_TELEMETRY_OPTOUT
+  value: 1
+- name: DOTNET_NOLOGO
+  value: 1
+- name: NugetSecurityAnalysisWarningLevel
+  value: none
+- name: skipNugetSecurityAnalysis
+  value: true
 
 stages:
   - stage: Init
@@ -23,7 +34,7 @@ stages:
       - job: Start
         displayName: Start
         pool:
-          vmImage: ubuntu-latest
+          vmImage: $(ubuntu_pool)
         steps:
           - script: echo "Starting 3_naga_staged workflow"
             displayName: Emit start marker
@@ -45,7 +56,7 @@ stages:
               configuration: Release
               rid: win-x64
         pool:
-          vmImage: windows-latest
+          vmImage: $(windows_pool)
         steps:
           - checkout: self
             fetchDepth: 0
@@ -88,7 +99,7 @@ stages:
               configuration: Release
               rid: win-x64
         pool:
-          vmImage: windows-latest
+          vmImage: $(windows_pool)
         steps:
           - checkout: self
             fetchDepth: 0
@@ -166,7 +177,7 @@ stages:
               configuration: Release
               rid: linux-x64
         pool:
-          vmImage: ubuntu-latest
+          vmImage: $(ubuntu_pool)
         steps:
           - checkout: self
             fetchDepth: 0
@@ -206,7 +217,7 @@ stages:
               configuration: Release
               rid: win-x64
         pool:
-          vmImage: windows-latest
+          vmImage: $(windows_pool)
         steps:
           - checkout: self
             fetchDepth: 0
@@ -238,7 +249,7 @@ stages:
       - job: DiscoverExtensions
         displayName: Discover extensions
         pool:
-          vmImage: windows-latest
+          vmImage: $(windows_pool)
         steps:
           - checkout: self
             fetchDepth: 0
@@ -329,7 +340,7 @@ stages:
         strategy:
           matrix: $[ dependencies.DiscoverExtensions.outputs['setExtensionMatrices.buildMatrix'] ]
         pool:
-          vmImage: windows-latest
+          vmImage: $(windows_pool)
         steps:
           - checkout: self
             fetchDepth: 0
@@ -360,7 +371,7 @@ stages:
         strategy:
           matrix: $[ dependencies.DiscoverExtensions.outputs['setExtensionMatrices.packMatrix'] ]
         pool:
-          vmImage: windows-latest
+          vmImage: $(windows_pool)
         steps:
           - checkout: self
             fetchDepth: 0
@@ -392,7 +403,7 @@ stages:
       - job: DiscoverPowerShellModules
         displayName: Discover modules
         pool:
-          vmImage: windows-latest
+          vmImage: $(windows_pool)
         steps:
           - checkout: self
             fetchDepth: 0
@@ -451,7 +462,7 @@ stages:
         strategy:
           matrix: $[ dependencies.DiscoverPowerShellModules.outputs['setModuleMatrix.moduleMatrix'] ]
         pool:
-          vmImage: windows-latest
+          vmImage: $(windows_pool)
         steps:
           - checkout: self
             fetchDepth: 0
@@ -559,7 +570,7 @@ stages:
       - job: End
         displayName: End
         pool:
-          vmImage: ubuntu-latest
+          vmImage: $(ubuntu_pool)
         steps:
           - script: echo "3_naga_staged workflow finished"
             displayName: Emit workflow end marker

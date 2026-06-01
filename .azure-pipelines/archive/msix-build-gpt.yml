@@ -31,33 +31,58 @@ parameters:
     default: CN=Cirrus Development
 
 pool:
-  vmImage: windows-latest
+  vmImage: $(windows_pool)
 
 variables:
-  DOTNET_NOLOGO: true
-  Codeql.Enabled: false
-  Codeql.SkipTaskAutoInjection: true
-  AdvancedSecurity.CodeQL.Enabled: false
-  ComponentGovernance.Enabled: false
-  skipComponentGovernanceDetection: true
-  runCodesignValidationInjection: false
-  CredScan.Enabled: false
-  BinSkim.Enabled: false
-  PoliCheck.Enabled: false
-  RoslynAnalyzers.Enabled: false
-  SdtReport.Enabled: false
-  TSAUpload.Enabled: false
-  NugetSecurityAnalysisWarningLevel: none
-  skipNugetSecurityAnalysis: true
-  CONFIGURATION: ${{ parameters.configuration }}
-  RUNTIME_IDENTIFIER: ${{ parameters.runtime_identifier }}
-  PACKAGE_VERSION_INPUT: ${{ parameters.package_version }}
-  PACKAGE_PUBLISHER: ${{ parameters.publisher }}
-  CLI_PROJECT: src/CLI/Core.Cli.csproj
-  APPX_MANIFEST: src/CLI/Core.Cli.appxmanifest
-  PACKAGE_NAME: azv2
-  PACKAGE_ROOT: $(Pipeline.Workspace)\msix\package
-  ARTIFACT_ROOT: $(Build.ArtifactStagingDirectory)\msix\out
+- template: ../templates/variables.yml
+- name: DOTNET_NOLOGO
+  value: true
+- name: Codeql.Enabled
+  value: false
+- name: Codeql.SkipTaskAutoInjection
+  value: true
+- name: AdvancedSecurity.CodeQL.Enabled
+  value: false
+- name: ComponentGovernance.Enabled
+  value: false
+- name: skipComponentGovernanceDetection
+  value: true
+- name: runCodesignValidationInjection
+  value: false
+- name: CredScan.Enabled
+  value: false
+- name: BinSkim.Enabled
+  value: false
+- name: PoliCheck.Enabled
+  value: false
+- name: RoslynAnalyzers.Enabled
+  value: false
+- name: SdtReport.Enabled
+  value: false
+- name: TSAUpload.Enabled
+  value: false
+- name: NugetSecurityAnalysisWarningLevel
+  value: none
+- name: skipNugetSecurityAnalysis
+  value: true
+- name: CONFIGURATION
+  value: ${{ parameters.configuration }}
+- name: RUNTIME_IDENTIFIER
+  value: ${{ parameters.runtime_identifier }}
+- name: PACKAGE_VERSION_INPUT
+  value: ${{ parameters.package_version }}
+- name: PACKAGE_PUBLISHER
+  value: ${{ parameters.publisher }}
+- name: CLI_PROJECT
+  value: src/CLI/Core.Cli.csproj
+- name: APPX_MANIFEST
+  value: src/CLI/Core.Cli.appxmanifest
+- name: PACKAGE_NAME
+  value: azv2
+- name: PACKAGE_ROOT
+  value: $(Pipeline.Workspace)\msix\package
+- name: ARTIFACT_ROOT
+  value: $(Build.ArtifactStagingDirectory)\msix\out
 
 jobs:
   - job: build_msix

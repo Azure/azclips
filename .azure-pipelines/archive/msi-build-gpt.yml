@@ -35,32 +35,56 @@ parameters:
     default: true
 
 pool:
-  vmImage: windows-latest
+  vmImage: $(windows_pool)
 
 variables:
-  DOTNET_NOLOGO: true
-  Codeql.Enabled: false
-  Codeql.SkipTaskAutoInjection: true
-  AdvancedSecurity.CodeQL.Enabled: false
-  ComponentGovernance.Enabled: false
-  skipComponentGovernanceDetection: true
-  runCodesignValidationInjection: false
-  CredScan.Enabled: false
-  BinSkim.Enabled: false
-  PoliCheck.Enabled: false
-  RoslynAnalyzers.Enabled: false
-  SdtReport.Enabled: false
-  TSAUpload.Enabled: false
-  NugetSecurityAnalysisWarningLevel: none
-  skipNugetSecurityAnalysis: true
-  CONFIGURATION: ${{ parameters.configuration }}
-  RUNTIME_IDENTIFIER: ${{ parameters.runtime_identifier }}
-  PACKAGE_VERSION_INPUT: ${{ parameters.package_version }}
-  PACKAGE_PUBLISHER: ${{ parameters.publisher }}
-  COMMON_OUT_ROOT: $(Build.SourcesDirectory)\devops\out\common
-  WINDOWS_OUT_ROOT: $(Build.SourcesDirectory)\devops\out\windows
-  TEST_OUTPUT_ROOT: $(Build.ArtifactStagingDirectory)\msi\test
-  ARTIFACT_ROOT: $(Build.ArtifactStagingDirectory)\msi\out
+- template: ../templates/variables.yml
+- name: DOTNET_NOLOGO
+  value: true
+- name: Codeql.Enabled
+  value: false
+- name: Codeql.SkipTaskAutoInjection
+  value: true
+- name: AdvancedSecurity.CodeQL.Enabled
+  value: false
+- name: ComponentGovernance.Enabled
+  value: false
+- name: skipComponentGovernanceDetection
+  value: true
+- name: runCodesignValidationInjection
+  value: false
+- name: CredScan.Enabled
+  value: false
+- name: BinSkim.Enabled
+  value: false
+- name: PoliCheck.Enabled
+  value: false
+- name: RoslynAnalyzers.Enabled
+  value: false
+- name: SdtReport.Enabled
+  value: false
+- name: TSAUpload.Enabled
+  value: false
+- name: NugetSecurityAnalysisWarningLevel
+  value: none
+- name: skipNugetSecurityAnalysis
+  value: true
+- name: CONFIGURATION
+  value: ${{ parameters.configuration }}
+- name: RUNTIME_IDENTIFIER
+  value: ${{ parameters.runtime_identifier }}
+- name: PACKAGE_VERSION_INPUT
+  value: ${{ parameters.package_version }}
+- name: PACKAGE_PUBLISHER
+  value: ${{ parameters.publisher }}
+- name: COMMON_OUT_ROOT
+  value: $(Build.SourcesDirectory)\devops\out\common
+- name: WINDOWS_OUT_ROOT
+  value: $(Build.SourcesDirectory)\devops\out\windows
+- name: TEST_OUTPUT_ROOT
+  value: $(Build.ArtifactStagingDirectory)\msi\test
+- name: ARTIFACT_ROOT
+  value: $(Build.ArtifactStagingDirectory)\msi\out
 
 jobs:
   - job: build_msi

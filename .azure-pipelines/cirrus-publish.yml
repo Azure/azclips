@@ -8,10 +8,10 @@ parameters:
   displayName: 'GitHub Service Connection'
   type: string
   default: 'github.com_naga-nandyala'
-- name: source_pipeline_definition_id
-  displayName: 'Source pipeline definition id'
+- name: source_pipeline_name
+  displayName: 'Source pipeline name'
   type: string
-  default: '1203'
+  default: 'cirrus-build'
 - name: source_build_id
   displayName: 'Source build id'
   type: string
@@ -22,8 +22,7 @@ parameters:
   default: '0.1.0-alpha'
 
 variables:
-- name: ubuntu_pool
-  value: ubuntu-latest
+- template: templates/variables.yml
 - name: SourceProject
   value: public
 - name: GitHubTargetRepo
@@ -69,6 +68,6 @@ stages:
     GitHubTargetRepo: $(GitHubTargetRepo)
     GitHubReleasePrefix: $(GitHubReleasePrefix)
     GitHubServiceConnection: ${{ parameters.GitHubServiceConnection }}
-    source_pipeline_definition_id: ${{ parameters.source_pipeline_definition_id }}
+    source_pipeline_name: ${{ parameters.source_pipeline_name }}
     source_build_id: ${{ parameters.source_build_id }}
     distribution_version: ${{ parameters.distribution_version }}

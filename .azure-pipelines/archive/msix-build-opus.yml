@@ -43,28 +43,51 @@ parameters:
     default: "github.com_naga-nandyala"
 
 variables:
-  CLI_PROJECT: src/CLI/Core.Cli.csproj
-  EXT_PROJECT: src/Extensions/Extension/Extensions.Extension.csproj
-  APPX_MANIFEST: src/CLI/Core.Cli.appxmanifest
-  ASSETS_DIR: assets
-  PACKAGE_NAME: cirrus-cli
-  CONFIGURATION: Release
-  DOTNET_CLI_TELEMETRY_OPTOUT: 1
-  DOTNET_NOLOGO: 1
-  Codeql.Enabled: false
-  Codeql.SkipTaskAutoInjection: true
-  AdvancedSecurity.CodeQL.Enabled: false
-  ComponentGovernance.Enabled: false
-  skipComponentGovernanceDetection: true
-  runCodesignValidationInjection: false
-  CredScan.Enabled: false
-  BinSkim.Enabled: false
-  PoliCheck.Enabled: false
-  RoslynAnalyzers.Enabled: false
-  SdtReport.Enabled: false
-  TSAUpload.Enabled: false
-  NugetSecurityAnalysisWarningLevel: none
-  skipNugetSecurityAnalysis: true
+- template: ../templates/variables.yml
+- name: CLI_PROJECT
+  value: src/CLI/Core.Cli.csproj
+- name: EXT_PROJECT
+  value: src/Extensions/Extension/Extensions.Extension.csproj
+- name: APPX_MANIFEST
+  value: src/CLI/Core.Cli.appxmanifest
+- name: ASSETS_DIR
+  value: assets
+- name: PACKAGE_NAME
+  value: cirrus-cli
+- name: CONFIGURATION
+  value: Release
+- name: DOTNET_CLI_TELEMETRY_OPTOUT
+  value: 1
+- name: DOTNET_NOLOGO
+  value: 1
+- name: Codeql.Enabled
+  value: false
+- name: Codeql.SkipTaskAutoInjection
+  value: true
+- name: AdvancedSecurity.CodeQL.Enabled
+  value: false
+- name: ComponentGovernance.Enabled
+  value: false
+- name: skipComponentGovernanceDetection
+  value: true
+- name: runCodesignValidationInjection
+  value: false
+- name: CredScan.Enabled
+  value: false
+- name: BinSkim.Enabled
+  value: false
+- name: PoliCheck.Enabled
+  value: false
+- name: RoslynAnalyzers.Enabled
+  value: false
+- name: SdtReport.Enabled
+  value: false
+- name: TSAUpload.Enabled
+  value: false
+- name: NugetSecurityAnalysisWarningLevel
+  value: none
+- name: skipNugetSecurityAnalysis
+  value: true
 
 stages:
   # ----------------------------------------------------------------------------
@@ -76,7 +99,7 @@ stages:
       - job: Calc
         displayName: Calculate version
         pool:
-          vmImage: ubuntu-latest
+          vmImage: $(ubuntu_pool)
         steps:
           - bash: |
               set -euo pipefail
@@ -108,7 +131,7 @@ stages:
       - job: BuildMsix
         displayName: Build MSIX
         pool:
-          vmImage: windows-latest
+          vmImage: $(windows_pool)
         strategy:
           matrix:
             x64:
@@ -213,7 +236,7 @@ stages:
       - job: BundleSignRelease
         displayName: Bundle / sign / release
         pool:
-          vmImage: windows-latest
+          vmImage: $(windows_pool)
         steps:
           - checkout: self
 

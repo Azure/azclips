@@ -13,7 +13,7 @@ parameters:
   default: 'dist'
 - name: GitHubServiceConnection
   type: string
-- name: source_pipeline_definition_id
+- name: source_pipeline_name
   type: string
 - name: source_build_id
   type: string
@@ -36,7 +36,7 @@ stages:
       inputs:
         buildType: specific
         project: ${{ parameters.SourceProject }}
-        definition: ${{ parameters.source_pipeline_definition_id }}
+        definition: ${{ parameters.source_pipeline_name }}
         buildVersionToDownload: specific
         pipelineId: ${{ parameters.source_build_id }}
         targetPath: $(Pipeline.Workspace)/distBuild
@@ -49,8 +49,8 @@ stages:
 
     - script: |
         set -euo pipefail
-        if [[ -z "${{ parameters.source_pipeline_definition_id }}" ]]; then
-          echo "ERROR: source_pipeline_definition_id is required"
+        if [[ -z "${{ parameters.source_pipeline_name }}" ]]; then
+          echo "ERROR: source_pipeline_name is required"
           exit 1
         fi
 
@@ -65,7 +65,7 @@ stages:
         fi
 
         source_build_id="${{ parameters.source_build_id }}"
-        source_pipeline_definition_id="${{ parameters.source_pipeline_definition_id }}"
+        source_pipeline_name="${{ parameters.source_pipeline_name }}"
 
         assets_root="$(Pipeline.Workspace)/distBuild"
         mapfile -t assets < <(find "$assets_root" -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.nupkg' \) ! -name '*.snupkg' | sort)
@@ -127,7 +127,7 @@ stages:
         echo "##vso[task.setvariable variable=ReleaseTag]$tag_name"
         echo "##vso[task.setvariable variable=ReleaseName]$release_name"
         echo "##vso[task.setvariable variable=SourceBuildId]$source_build_id"
-        echo "##vso[task.setvariable variable=SourcePipelineDefinitionId]$source_pipeline_definition_id"
+        echo "##vso[task.setvariable variable=SourcePipelineName]$source_pipeline_name"
       displayName: Prepare Release Tag And Assets
 
     - task: GitHubRelease@1

@@ -27,30 +27,52 @@ parameters:
     default: 1.0.0.0
 
 variables:
-  DOTNET_NOLOGO: true
-  Codeql.Enabled: false
-  Codeql.SkipTaskAutoInjection: true
-  AdvancedSecurity.CodeQL.Enabled: false
-  ComponentGovernance.Enabled: false
-  skipComponentGovernanceDetection: true
-  runCodesignValidationInjection: false
-  CredScan.Enabled: false
-  BinSkim.Enabled: false
-  PoliCheck.Enabled: false
-  RoslynAnalyzers.Enabled: false
-  SdtReport.Enabled: false
-  TSAUpload.Enabled: false
-  NugetSecurityAnalysisWarningLevel: none
-  skipNugetSecurityAnalysis: true
-  RUNTIME_IDENTIFIER: ${{ parameters.runtime_identifier }}
-  PACKAGE_VERSION_INPUT: ${{ parameters.package_version }}
-  PRODUCT_NAME: Cirrus CLI
-  SIGNED_DOWNLOAD_ROOT: $(Pipeline.Workspace)\cirrus-msi-signed
-  TEST_OUTPUT_ROOT: $(Build.ArtifactStagingDirectory)\msi\test
-  TEST_ARTIFACT_ROOT: $(Build.ArtifactStagingDirectory)\msi\out
+- template: templates/variables.yml
+- name: DOTNET_NOLOGO
+  value: true
+- name: Codeql.Enabled
+  value: false
+- name: Codeql.SkipTaskAutoInjection
+  value: true
+- name: AdvancedSecurity.CodeQL.Enabled
+  value: false
+- name: ComponentGovernance.Enabled
+  value: false
+- name: skipComponentGovernanceDetection
+  value: true
+- name: runCodesignValidationInjection
+  value: false
+- name: CredScan.Enabled
+  value: false
+- name: BinSkim.Enabled
+  value: false
+- name: PoliCheck.Enabled
+  value: false
+- name: RoslynAnalyzers.Enabled
+  value: false
+- name: SdtReport.Enabled
+  value: false
+- name: TSAUpload.Enabled
+  value: false
+- name: NugetSecurityAnalysisWarningLevel
+  value: none
+- name: skipNugetSecurityAnalysis
+  value: true
+- name: RUNTIME_IDENTIFIER
+  value: ${{ parameters.runtime_identifier }}
+- name: PACKAGE_VERSION_INPUT
+  value: ${{ parameters.package_version }}
+- name: PRODUCT_NAME
+  value: Cirrus CLI
+- name: SIGNED_DOWNLOAD_ROOT
+  value: $(Pipeline.Workspace)\cirrus-msi-signed
+- name: TEST_OUTPUT_ROOT
+  value: $(Build.ArtifactStagingDirectory)\msi\test
+- name: TEST_ARTIFACT_ROOT
+  value: $(Build.ArtifactStagingDirectory)\msi\out
 
 pool:
-  vmImage: windows-latest
+  vmImage: $(windows_pool)
 
 jobs:
   - job: test_imported_signed_msi
