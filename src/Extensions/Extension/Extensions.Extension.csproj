@@ -32,6 +32,10 @@
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
         </ProjectReference>
+        <ProjectReference Include="..\..\Core\Core.Runtime\Core.Runtime.csproj" >
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
     </ItemGroup>
 
     <ItemGroup>

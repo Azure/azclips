@@ -50,12 +50,21 @@ public class CirrusErrorException : Exception
         => new("UsageError", 2, message, details);
 
     /// <summary>
+    /// Compatibility violation (Phase 10 #36 / §7): the extension's <c>[CirrusCompatibility]</c>
+    /// declared range excludes the current core version, or the host requires a newer version of
+    /// this specific extension via <c>HostExtensionRequirements</c>. Surfaced at install time as
+    /// a hard error with no disk write; surfaced at load time as a warn-and-skip log line.
+    /// </summary>
+    public static CirrusErrorException CompatibilityViolation(string message, IReadOnlyDictionary<string, object?>? details = null)
+        => new("CompatibilityViolation", 7, message, details);
+
+    /// <summary>
     /// Optimistic-concurrency failure on <c>registry.json</c>: the file changed between this
     /// process's <c>Load</c> and <c>Save</c> (Phase 8.5). Surfaced so the caller can retry or
     /// inform the user instead of silently overwriting another process's changes.
     /// </summary>
     public static CirrusErrorException RegistryConcurrency(string message, IReadOnlyDictionary<string, object?>? details = null)
-        => new("RegistryConcurrency", 7, message, details);
+        => new("RegistryConcurrency", 8, message, details);
 
     /// <summary>
     /// Invariant violation discovered while loading <c>registry.json</c> (e.g. two entries claim
@@ -64,5 +73,5 @@ public class CirrusErrorException : Exception
     /// on-disk file (Phase 8.5).
     /// </summary>
     public static CirrusErrorException RegistryInvalid(string message, IReadOnlyDictionary<string, object?>? details = null)
-        => new("RegistryInvalid", 8, message, details);
+        => new("RegistryInvalid", 9, message, details);
 }

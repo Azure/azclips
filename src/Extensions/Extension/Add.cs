@@ -2,6 +2,7 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
 using Core.Extensions;
+using Core.Runtime;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Extension.Processors;
 
@@ -129,6 +130,26 @@ public class AddExtensionProcessor : IProcessor
 
         try
         {
+            // Phase 10 #36 (§7): compatibility check before any expensive validation. Reads
+            // [CirrusCompatibility] from the installed DLLs via MetadataLoadContext (no exec),
+            // and hard-fails the install if the declared range excludes the current core. The
+            // catch handler below rolls back the install dir, so the on-disk state is clean.
+            // The current core version is a literal here — a single host-version source-of-truth
+            // is deferred (see vNext "host version" entry in the spec). Bump in lockstep with
+            // any breaking change to the Core.Abstractions contract.
+            var compatResult = CompatibilityGuard.CheckAssembly(installPath, currentCoreVersion: "1.0.0");
+            if (!compatResult.IsCompatible)
+            {
+                throw CirrusErrorException.CompatibilityViolation(
+                    $"Extension '{packageId}' is not compatible with this host: {compatResult.Reason}.",
+                    new Dictionary<string, object?>
+                    {
+                        ["packageId"] = packageId,
+                        ["version"] = version,
+                        ["reason"] = compatResult.Reason,
+                    });
+            }
+
             // Per docs/spec/extension-management.md §5.2: read the declared verb(s) from the
             // installed DLLs *without* executing extension code, then validate against built-ins +
             // registry before committing the registry write. Phase 9 makes [ExtensionVerb]
