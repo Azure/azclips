@@ -16,7 +16,7 @@ public class ExtensionAddNameResolutionTests
         var table = new ExtensionHintTable();
         foreach (var (key, packageId) in entries)
         {
-            table.Leaves[key] = packageId;
+            table.Leaves[key] = new ExtensionHint { PackageId = packageId };
         }
         return table;
     }

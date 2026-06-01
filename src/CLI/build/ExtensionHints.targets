@@ -18,6 +18,7 @@
     <ParameterGroup>
       <ScanRoot ParameterType="System.String" Required="true" />
       <OutputFile ParameterType="System.String" Required="true" />
+      <SourceHostVersion ParameterType="System.String" Required="false" />
     </ParameterGroup>
     <Task>
       <Using Namespace="System" />
@@ -147,12 +148,18 @@
         var sb = new StringBuilder();
         sb.AppendLine("{");
         sb.AppendLine("  \"schemaVersion\": 1,");
+        sb.Append("  \"generatedAt\": \"").Append(DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")).AppendLine("\",");
+        var hostVersion = string.IsNullOrEmpty(SourceHostVersion) ? "0.0.0" : SourceHostVersion;
+        sb.Append("  \"sourceHostVersion\": \"").Append(hostVersion).AppendLine("\",");
         sb.AppendLine("  \"leaves\": {");
         int i = 0;
         foreach (var kv in leafToPackage)
         {
           var comma = (++i == leafToPackage.Count) ? "" : ",";
-          sb.Append("    \"").Append(kv.Key).Append("\": \"").Append(kv.Value).Append("\"").AppendLine(comma);
+          // Per spec §8.1: per-leaf entries are objects so optional fields (minCoreVersion /
+          // maxCoreVersion, reserved for the vNext feed half) can be added without a schema
+          // bump. v1 first-party output only populates packageId.
+          sb.Append("    \"").Append(kv.Key).Append("\": { \"packageId\": \"").Append(kv.Value).Append("\" }").AppendLine(comma);
         }
         sb.AppendLine("  }");
         sb.AppendLine("}");
@@ -169,7 +176,8 @@
           Outputs="$(IntermediateOutputPath)extension-hints.json">
     <GenerateExtensionHintsTask
       ScanRoot="$(MSBuildProjectDirectory)\..\Extensions"
-      OutputFile="$(IntermediateOutputPath)extension-hints.json" />
+      OutputFile="$(IntermediateOutputPath)extension-hints.json"
+      SourceHostVersion="$(AssemblyVersion)" />
 
     <ItemGroup>
       <EmbeddedResource Include="$(IntermediateOutputPath)extension-hints.json">

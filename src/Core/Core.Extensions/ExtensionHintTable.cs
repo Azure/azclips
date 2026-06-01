@@ -20,17 +20,56 @@ namespace Core.Extensions
     /// "unknown verb" case (no installed package at all) and the "verb partially served, leaf
     /// missing" case (e.g. another extension claims <c>vm</c> but not <c>vm scale</c>).
     /// </remarks>
+    /// <summary>
+    /// Per-leaf entry in <see cref="ExtensionHintTable"/>. The object shape (instead of a bare
+    /// package-id string) is the feed-ready commitment from <c>docs/spec/extension-management.md
+    /// §8.1</c>: optional fields can be added without re-bumping <c>schemaVersion</c>. Compat
+    /// fields (<see cref="MinCoreVersion"/> / <see cref="MaxCoreVersion"/>) are reserved for the
+    /// vNext feed half (Q26) and stay unset for v1 first-party output.
+    /// </summary>
+    /// <remarks>
+    /// Unknown JSON properties on this object are tolerated — the reader uses default
+    /// <c>System.Text.Json</c> behavior, which silently ignores extras. That's deliberate: a
+    /// future feed entry can carry richer metadata without older hosts choking.
+    /// </remarks>
+    public sealed class ExtensionHint
+    {
+        [JsonPropertyName("packageId")]
+        public string PackageId { get; set; } = string.Empty;
+
+        [JsonPropertyName("minCoreVersion")]
+        public string? MinCoreVersion { get; set; }
+
+        [JsonPropertyName("maxCoreVersion")]
+        public string? MaxCoreVersion { get; set; }
+    }
+
     public sealed class ExtensionHintTable
     {
         [JsonPropertyName("schemaVersion")]
         public int SchemaVersion { get; set; } = 1;
 
         /// <summary>
+        /// UTC timestamp at which the table was generated. Provenance for the vNext feed half;
+        /// unused at runtime in v1.
+        /// </summary>
+        [JsonPropertyName("generatedAt")]
+        public DateTimeOffset? GeneratedAt { get; set; }
+
+        /// <summary>
+        /// Cirrus host version that produced the table. Provenance for the vNext feed half (so a
+        /// host can compare a fetched table's source version against its own and decide whether
+        /// to fall back to the embedded copy); unused at runtime in v1.
+        /// </summary>
+        [JsonPropertyName("sourceHostVersion")]
+        public string? SourceHostVersion { get; set; }
+
+        /// <summary>
         /// Key is the full-path form (e.g. <c>"vm create"</c>) or just the verb (e.g. <c>"vm"</c>
-        /// for the bare-verb / group-help case); value is the package id that owns it.
+        /// for the bare-verb / group-help case); value is the owning <see cref="ExtensionHint"/>.
         /// </summary>
         [JsonPropertyName("leaves")]
-        public Dictionary<string, string> Leaves { get; set; } =
+        public Dictionary<string, ExtensionHint> Leaves { get; set; } =
             new(StringComparer.OrdinalIgnoreCase);
 
         private static readonly Lazy<ExtensionHintTable> s_default = new(LoadFromEmbeddedResource);
@@ -51,7 +90,7 @@ namespace Core.Extensions
             ArgumentException.ThrowIfNullOrWhiteSpace(verb);
             if (Leaves.TryGetValue(verb, out var found))
             {
-                packageId = found;
+                packageId = found.PackageId;
                 return true;
             }
             packageId = string.Empty;
@@ -68,7 +107,7 @@ namespace Core.Extensions
             var key = string.IsNullOrEmpty(path) ? verb : $"{verb} {path}";
             if (Leaves.TryGetValue(key, out var found))
             {
-                packageId = found;
+                packageId = found.PackageId;
                 return true;
             }
             packageId = string.Empty;
@@ -103,7 +142,7 @@ namespace Core.Extensions
                         {
                             // Rebuild with case-insensitive comparer; System.Text.Json doesn't
                             // honor the comparer specified on the property default.
-                            table.Leaves = new Dictionary<string, string>(table.Leaves, StringComparer.OrdinalIgnoreCase);
+                            table.Leaves = new Dictionary<string, ExtensionHint>(table.Leaves, StringComparer.OrdinalIgnoreCase);
                             return table;
                         }
                     }

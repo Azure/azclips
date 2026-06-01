@@ -472,11 +472,13 @@ Ships empty. The host team adds an entry in the same PR that introduces a breaki
 
 v1 ships an embedded `extension-hints.json`. Schema is feed-ready so the fetch half can be added in vNext without changing the file format or the resolution path.
 
-### 8.1 Schema (v2)
+### 8.1 Schema (v1, feed-ready)
+
+Nothing under `extension-hints.json` has shipped to main, so v1 carries the feed-ready shape directly — no v1→v2 fork in the reader, no transitional back-compat. Future additive fields can be introduced without bumping `schemaVersion` (the reader already tolerates unknown properties).
 
 ```jsonc
 {
-    "schemaVersion": 2,
+    "schemaVersion": 1,
     "generatedAt": "2026-05-28T10:00:00Z",
     "sourceHostVersion": "1.2.0",
     "leaves": {
@@ -497,7 +499,7 @@ v1 ships an embedded `extension-hints.json`. Schema is feed-ready so the fetch h
 }
 ```
 
-Per-leaf entries are objects (not bare strings) so v2 can carry optional fields without re-bumping the schema:
+Per-leaf entries are objects (not bare strings) so optional fields can be added later without bumping `schemaVersion` (additive only — the reader ignores unknown properties):
 
 ```jsonc
 "vm contoso-magic": {
@@ -507,7 +509,7 @@ Per-leaf entries are objects (not bare strings) so v2 can carry optional fields 
 }
 ```
 
-v1 embed populates only `packageId`. Compat fields (Q26) are reserved for the feed half.
+v1 first-party embed populates only `packageId`. Compat fields (Q26) are reserved for the feed half.
 
 ### 8.2 Generation
 
@@ -615,7 +617,7 @@ Phases 1–9 complete; Phase 10 in progress.
 34. ✅ **Symmetric `extension add --name`.** `Add.ResolvePackageId(name, hints)` resolves in three branches: (a) dotted token → passthrough (full package id, including third-party); (b) bare token matching a verb in the embedded `ExtensionHintTable` → resolved package id (so `add --name vm` installs `Microsoft.Azure.Cirrus.Extensions.Compute`, matching the dispatcher's unknown-verb suggestion); (c) bare token miss → legacy `Microsoft.Azure.Cirrus.Extensions.{name}` prefix-strip. Hint wins over prefix-strip when both could apply. Covered by `ExtensionAddNameResolutionTests` (7 cases). `--path` unchanged.
 35. ✅ **Smarter `ExtensionNotFound` hint.** When `extension add --name <token>` misses every configured feed, `Add.cs` now catches the feed-miss `InvalidOperationException`, normalizes it to a typed `ExtensionNotFound` (exit 4), and probes the local repo via `LocalArtifactProbe.Find`. The probe walks up from cwd looking for `cirrus.slnx`, then globs `artifacts/Debug/<packageId>/<packageId>.*.nupkg` and surfaces the most recently written match as an `--path` suggestion in the error message. Suggestion-only — never auto-installs from local, to avoid silently consuming stale builds. Debug-only by design (a Release-only developer edits the suggested command). Closes the dev-loop gap where `--name` silently failed when no NuGet feed was configured. Covered by `LocalArtifactProbeTests` (6 cases).
 36. ✅ **`[CirrusCompatibility]` + `CompatibilityGuard`** per §7 (partial; remainder in vNext). Shipped: assembly-level `[CirrusCompatibility(MinCoreVersion, MaxCoreVersion)]` in `Core.Abstractions` with init-only properties; `Core.Runtime.CompatibilityGuard` exposing a pure `Check(min, max, current)` and a `CheckAssembly(extensionDir, current)` reader that uses `MetadataLoadContext` (no execution, mirrors `ExtensionVerbReader`). NuGet `SemanticVersion` parsing with pre-release ordering and tolerant defaults: missing attribute → compatible, unparseable bound → ignored with advisory, unparseable current → compatible (treated as host bug). Install-time hard fail wired in `Add.cs` (new `CompatibilityViolation` factory on `CirrusErrorException`, exit code 7); existing rollback handles disk cleanup. First-party extensions stamped via `Compatibility.cs` files (note: `AssemblyInfo.cs` is excluded by SDK convention with `GenerateAssemblyInfo=false`). Covered by `CompatibilityGuardTests` (15 cases: pure `Check` matrix + MLC reader against the stamped Login artifact). Renumbered exit codes: `RegistryConcurrency` 7→8, `RegistryInvalid` 8→9. **Deferred to vNext** (see below): host core-version source-of-truth (today: literal `"1.0.0"` at the call site), runtime warn-and-skip filtering in the dispatch path, `HostExtensionRequirements` inverse-direction dictionary, and `CirrusCmdletBase` so PS cmdlets get the check via `BeginProcessing` without per-cmdlet duplication.
-37. ⏳ **`extension-hints.json` schema v2** per §8.1 (`generatedAt`, `sourceHostVersion`, optional `minCoreVersion`/`maxCoreVersion` per leaf; v1 leaves compat fields unpopulated).
+37. ✅ **`extension-hints.json` feed-ready shape** per §8.1. Generator emits `generatedAt` + `sourceHostVersion` provenance and per-leaf object entries (`{ "packageId": ... }`) so optional `minCoreVersion`/`maxCoreVersion` can be added later without a schema bump; reader surfaces all four fields and tolerates unknown properties. v1 first-party output leaves compat fields unset (Q26 reserves them for the feed half). `schemaVersion` stays at `1` — nothing had shipped to main, so no v1→v2 fork is needed in the reader.
 38. ⏳ **Shape B contract test.** Two extensions sharing a verb with non-colliding leaves both install successfully; same verb with a colliding leaf fails the second install.
 39. ⏳ PS team conversation re: CNF integration with the embedded hint catalog.
 40. ✅ **`extension add` respects pins.** `add` of a different version of a pinned package now fails with `[PinViolation]` (exit 6) unless `--force` is passed; on `--force` the pin is carried forward onto the new entry. Helper `CheckPinPrecondition` covered by `ExtensionAddPinTests` (5 cases).
