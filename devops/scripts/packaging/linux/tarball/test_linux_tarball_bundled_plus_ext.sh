@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# test_bundled_plus_ext_linux.sh
+# test_linux_tarball_bundled_plus_ext.sh
 # Linux scenario: install bundled Linux tarball, verify built-ins, then add optional extensions.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PACKAGING_ROOT="${PACKAGING_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+PACKAGING_ROOT="${PACKAGING_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 REPO_ROOT="${REPO_ROOT:-$(cd "$PACKAGING_ROOT/../../.." && pwd)}"
 cd "$REPO_ROOT"
 
@@ -13,13 +13,13 @@ OUT_ROOT="$(realpath "${OUT_ROOT:-$REPO_ROOT/devops/out/linux}")"
 COMMON_OUT_ROOT="$(realpath "${COMMON_OUT_ROOT:-$REPO_ROOT/devops/out/common}")"
 SIM_ROOT="$(realpath "${SIM_ROOT:-$REPO_ROOT/devops/sim/linux-tarball-bundled-plus-ext}" 2>/dev/null || echo "${SIM_ROOT:-$REPO_ROOT/devops/sim/linux-tarball-bundled-plus-ext}")"
 
-CLI_TAR_PATH="${CLI_TAR_PATH:-$OUT_ROOT/bin/Release/azv2-linux-x64.tar.gz}"
+CLI_TAR_PATH="${CLI_TAR_PATH:-$OUT_ROOT/Release/tarball/azv2-linux-x64.tar.gz}"
 EXT_PACK_DIR="$COMMON_OUT_ROOT/extensions-pack"
 
 if [[ ! -f "$CLI_TAR_PATH" ]]; then
   echo "ERROR: CLI tarball not found at $CLI_TAR_PATH"
   echo "Run: ./devops/scripts/packaging/common/build_common.sh"
-  echo "Then: ./devops/scripts/packaging/linux/build_linux_tarball.sh"
+  echo "Then: ./devops/scripts/packaging/linux/tarball/build_linux_tarball.sh"
   exit 1
 fi
 

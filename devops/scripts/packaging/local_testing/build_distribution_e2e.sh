@@ -23,8 +23,8 @@ OUT_ROOT_BASE="${OUT_ROOT_BASE:-$REPO_ROOT/devops/out}"
 COMMON_OUT_ROOT="${COMMON_OUT_ROOT:-$OUT_ROOT_BASE/common}"
 LINUX_OUT_ROOT="${LINUX_OUT_ROOT:-$OUT_ROOT_BASE/linux}"
 WINDOWS_OUT_ROOT="${WINDOWS_OUT_ROOT:-$OUT_ROOT_BASE/windows}"
-LINUX_TARBALL_PATH="${LINUX_TARBALL_PATH:-$LINUX_OUT_ROOT/bin/Release/azv2-linux-x64.tar.gz}"
-WINDOWS_ZIP_PATH="${WINDOWS_ZIP_PATH:-$WINDOWS_OUT_ROOT/bin/Release/azv2-win-x64.zip}"
+LINUX_TARBALL_PATH="${LINUX_TARBALL_PATH:-$LINUX_OUT_ROOT/Release/tarball/azv2-linux-x64.tar.gz}"
+WINDOWS_ZIP_PATH="${WINDOWS_ZIP_PATH:-$WINDOWS_OUT_ROOT/Release/zip/azv2-win-x64.zip}"
 RUN_PWSH=0
 
 for arg in "$@"; do
@@ -40,7 +40,7 @@ for arg in "$@"; do
   esac
 done
 
-for required in common/build_common.sh linux/build_linux_tarball.sh windows/build_win_zip.sh linux/test_bundled_plus_ext_linux.sh windows/test_bundled_plus_ext_win.ps1 config/bundled_ext.config; do
+for required in common/build_common.sh linux/tarball/build_linux_tarball.sh windows/zip/build_win_zip.sh linux/tarball/test_linux_tarball_bundled_plus_ext.sh windows/zip/test_windows_zip_bundled_plus_ext.ps1 config/bundled_ext.config; do
   if [[ ! -f "$PACKAGING_DIR/$required" ]]; then
     echo "ERROR: Missing required file: $PACKAGING_DIR/$required"
     exit 1
@@ -66,13 +66,13 @@ OUT_ROOT="$COMMON_OUT_ROOT" "$PACKAGING_DIR/common/build_common.sh"
 
 echo ""
 echo "[2/4] Build Linux distribution artifact"
-chmod +x "$PACKAGING_DIR/linux/build_linux_tarball.sh"
-OUT_ROOT="$LINUX_OUT_ROOT" COMMON_OUT_ROOT="$COMMON_OUT_ROOT" CLI_TAR_PATH="$LINUX_TARBALL_PATH" "$PACKAGING_DIR/linux/build_linux_tarball.sh"
+chmod +x "$PACKAGING_DIR/linux/tarball/build_linux_tarball.sh"
+OUT_ROOT="$LINUX_OUT_ROOT" COMMON_OUT_ROOT="$COMMON_OUT_ROOT" CLI_TAR_PATH="$LINUX_TARBALL_PATH" "$PACKAGING_DIR/linux/tarball/build_linux_tarball.sh"
 
 echo ""
 echo "[3/4] Validate Linux bundled + optional extensions"
-chmod +x "$PACKAGING_DIR/linux/test_bundled_plus_ext_linux.sh"
-OUT_ROOT="$LINUX_OUT_ROOT" COMMON_OUT_ROOT="$COMMON_OUT_ROOT" CLI_TAR_PATH="$LINUX_TARBALL_PATH" "$PACKAGING_DIR/linux/test_bundled_plus_ext_linux.sh"
+chmod +x "$PACKAGING_DIR/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
+OUT_ROOT="$LINUX_OUT_ROOT" COMMON_OUT_ROOT="$COMMON_OUT_ROOT" CLI_TAR_PATH="$LINUX_TARBALL_PATH" "$PACKAGING_DIR/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
 
 if [[ $RUN_PWSH -eq 1 ]]; then
   echo ""
@@ -82,10 +82,10 @@ if [[ $RUN_PWSH -eq 1 ]]; then
     exit 1
   fi
 
-  chmod +x "$PACKAGING_DIR/windows/build_win_zip.sh"
-  OUT_ROOT="$WINDOWS_OUT_ROOT" COMMON_OUT_ROOT="$COMMON_OUT_ROOT" CLI_WIN_ZIP_PATH="$WINDOWS_ZIP_PATH" "$PACKAGING_DIR/windows/build_win_zip.sh"
+  chmod +x "$PACKAGING_DIR/windows/zip/build_win_zip.sh"
+  OUT_ROOT="$WINDOWS_OUT_ROOT" COMMON_OUT_ROOT="$COMMON_OUT_ROOT" CLI_WIN_ZIP_PATH="$WINDOWS_ZIP_PATH" "$PACKAGING_DIR/windows/zip/build_win_zip.sh"
 
-  pwsh -NoLogo -NoProfile -File "$PACKAGING_DIR/windows/test_bundled_plus_ext_win.ps1" -OutRoot "$WINDOWS_OUT_ROOT" -CommonOutRoot "$COMMON_OUT_ROOT" -CliZipPath "$WINDOWS_ZIP_PATH"
+  pwsh -NoLogo -NoProfile -File "$PACKAGING_DIR/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "$WINDOWS_OUT_ROOT" -CommonOutRoot "$COMMON_OUT_ROOT" -CliZipPath "$WINDOWS_ZIP_PATH"
 else
   echo ""
   echo "[4/4] Skipping PowerShell validation (use --with-pwsh to enable)"

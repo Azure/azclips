@@ -1,6 +1,6 @@
 param(
-    [string]$OutRoot = (Join-Path $PSScriptRoot '../../../out/windows'),
-    [string]$CommonOutRoot = (Join-Path $PSScriptRoot '../../../out/common'),
+    [string]$OutRoot = (Join-Path $PSScriptRoot '../../../../out/windows'),
+    [string]$CommonOutRoot = (Join-Path $PSScriptRoot '../../../../out/common'),
     [string]$CliZipPath = '',
     [string]$SimRoot = '',
     [switch]$SkipRuntime
@@ -12,12 +12,12 @@ $OutRoot = [System.IO.Path]::GetFullPath($OutRoot)
 $CommonOutRoot = [System.IO.Path]::GetFullPath($CommonOutRoot)
 
 if ([string]::IsNullOrWhiteSpace($SimRoot)) {
-    $SimRoot = Join-Path $PSScriptRoot '../../../sim/win-zip-bundled-plus-ext'
+    $SimRoot = Join-Path $PSScriptRoot '../../../../sim/win-zip-bundled-plus-ext'
 }
 $SimRoot = [System.IO.Path]::GetFullPath($SimRoot)
 
 if ([string]::IsNullOrWhiteSpace($CliZipPath)) {
-    $CliZipPath = Join-Path $OutRoot 'bin/Release/azv2-win-x64.zip'
+    $CliZipPath = Join-Path $OutRoot 'Release/zip/azv2-win-x64.zip'
 }
 else {
     $CliZipPath = [System.IO.Path]::GetFullPath($CliZipPath)
@@ -25,7 +25,7 @@ else {
 $ExtPackDir = Join-Path $CommonOutRoot 'extensions-pack'
 
 if (-not (Test-Path -Path $CliZipPath -PathType Leaf)) {
-    throw "Windows CLI zip not found at $CliZipPath. Run ./devops/scripts/packaging/common/build_common.sh, then ./devops/scripts/packaging/windows/build_win_zip.sh."
+    throw "Windows CLI zip not found at $CliZipPath. Run ./devops/scripts/packaging/common/build_common.sh, then ./devops/scripts/packaging/windows/zip/build_win_zip.sh."
 }
 
 if (-not (Test-Path -Path $ExtPackDir -PathType Container)) {

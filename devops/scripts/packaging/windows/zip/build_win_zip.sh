@@ -5,7 +5,7 @@ set -euo pipefail
 # Builds Windows self-contained CLI, injects built-ins, and packages zip.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PACKAGING_ROOT="${PACKAGING_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+PACKAGING_ROOT="${PACKAGING_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 REPO_ROOT="${REPO_ROOT:-$(cd "$PACKAGING_ROOT/../../.." && pwd)}"
 cd "$REPO_ROOT"
 
@@ -16,8 +16,7 @@ RID="${RID:-win-x64}"
 INJECTOR_SCRIPT="$PACKAGING_ROOT/common/inject_builtin_extensions.sh"
 
 CLI_WIN_SC_DIR="$OUT_ROOT/publish/cli/$RID"
-CLI_ZIP_DIR="$OUT_ROOT/bin/Release"
-CLI_WIN_ZIP_PATH="${CLI_WIN_ZIP_PATH:-$CLI_ZIP_DIR/azv2-$RID.zip}"
+CLI_WIN_ZIP_PATH="${CLI_WIN_ZIP_PATH:-$OUT_ROOT/Release/zip/azv2-$RID.zip}"
 
 if [[ ! -f "$INJECTOR_SCRIPT" ]]; then
   echo "ERROR: Injector script not found at $INJECTOR_SCRIPT"
