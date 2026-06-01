@@ -11,6 +11,24 @@ Set-StrictMode -Version Latest
 
 $PublishDir = [System.IO.Path]::GetFullPath($PublishDir)
 $BuiltinRoot = [System.IO.Path]::GetFullPath($BuiltinRoot)
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$packagingRoot = [System.IO.Path]::GetFullPath((Join-Path $scriptDir '..'))
+
+$packageProfile = $env:PACKAGE_PROFILE
+if ([string]::IsNullOrWhiteSpace($packageProfile)) {
+    $packageProfile = 'lean'
+}
+$packageProfile = $packageProfile.ToLowerInvariant()
+
+if ($packageProfile -eq 'lean') {
+    $packageConfig = Join-Path $packagingRoot 'config/lean_package.config'
+}
+elseif ($packageProfile -eq 'full') {
+    $packageConfig = Join-Path $packagingRoot 'config/full_package.config'
+}
+else {
+    throw "Unsupported PACKAGE_PROFILE '$packageProfile'. Expected 'lean' or 'full'."
+}
 
 if (-not (Test-Path -Path $PublishDir -PathType Container)) {
     throw "Publish directory not found at $PublishDir"
@@ -20,10 +38,47 @@ if (-not (Test-Path -Path $BuiltinRoot -PathType Container)) {
     throw "Built-in publish root not found at $BuiltinRoot"
 }
 
-Write-Host "Injecting built-in extensions into $PublishDir"
+if (-not (Test-Path -Path $packageConfig -PathType Leaf)) {
+    throw "package config not found at $packageConfig"
+}
 
-$builtinDirs = Get-ChildItem -Path $BuiltinRoot -Directory
-foreach ($builtinDir in $builtinDirs) {
+$configIncludeEntries = @()
+Get-Content -Path $packageConfig | ForEach-Object {
+    $line = $_
+    $hashIndex = $line.IndexOf('#')
+    if ($hashIndex -ge 0) {
+        $line = $line.Substring(0, $hashIndex)
+    }
+    $line = $line.Trim()
+    if (-not [string]::IsNullOrWhiteSpace($line)) {
+        $configIncludeEntries += $line
+    }
+}
+
+if ($configIncludeEntries.Count -eq 0) {
+    throw "package config '$packageConfig' has no include entries"
+}
+
+$selectedBuiltinDirs = @()
+if ($configIncludeEntries -contains '*') {
+    $selectedBuiltinDirs = Get-ChildItem -Path $BuiltinRoot -Directory | Sort-Object Name
+}
+else {
+    foreach ($entry in $configIncludeEntries) {
+        $extAssemblyName = "Microsoft.Azure.Cirrus.Extensions.$entry"
+        $builtinDirPath = Join-Path $BuiltinRoot $extAssemblyName
+        if (-not (Test-Path -Path $builtinDirPath -PathType Container)) {
+            throw "Built-in publish directory not found for '$entry' at $builtinDirPath"
+        }
+        $selectedBuiltinDirs += Get-Item -Path $builtinDirPath
+    }
+}
+
+Write-Host "Injecting built-in extensions into $PublishDir"
+Write-Host "Inject profile: $packageProfile"
+Write-Host "Inject config : $packageConfig"
+
+foreach ($builtinDir in $selectedBuiltinDirs) {
     $extAssemblyName = $builtinDir.Name
     $dest = Join-Path $PublishDir "Extensions/$extAssemblyName"
     New-Item -Path $dest -ItemType Directory -Force | Out-Null

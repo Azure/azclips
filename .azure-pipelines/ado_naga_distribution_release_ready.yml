@@ -60,14 +60,6 @@ stages:
   - job: BuildCommonOutputs
     displayName: Common Output
     timeoutInMinutes: 90
-    strategy:
-      matrix:
-        lean:
-          BuildProfile: lean
-          DistributionCommonArtifact: Distribution_Common_Lean
-        full:
-          BuildProfile: full
-          DistributionCommonArtifact: Distribution_Common_Full
     pool:
       vmImage: $(ubuntu_pool)
     steps:
@@ -84,14 +76,14 @@ stages:
     - script: |
         set -euo pipefail
         chmod +x "$(PackagingScriptsRoot)/common/build_common.sh"
-        OUT_ROOT="$(PackagingCommonOutRoot)" PACKAGE_PROFILE="$(BuildProfile)" "$(PackagingScriptsRoot)/common/build_common.sh"
+        OUT_ROOT="$(PackagingCommonOutRoot)" "$(PackagingScriptsRoot)/common/build_common.sh"
       displayName: Build Common
 
     - task: PublishPipelineArtifact@1
       displayName: Publish Common
       inputs:
         targetPath: $(PackagingCommonOutRoot)
-        artifact: $(DistributionCommonArtifact)
+        artifact: Distribution_Common
         publishLocation: pipeline
 
 - stage: BuildLinux
@@ -107,25 +99,21 @@ stages:
         linux_x64_lean:
           Rid: linux-x64
           BuildProfile: lean
-          DistributionCommonArtifact: Distribution_Common_Lean
           DistributionArtifact: Distribution_Linux_Lean
           CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-lean-linux-x64.tar.gz
         linux_arm64_lean:
           Rid: linux-arm64
           BuildProfile: lean
-          DistributionCommonArtifact: Distribution_Common_Lean
           DistributionArtifact: Distribution_Linux_Arm64_Lean
           CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-lean-linux-arm64.tar.gz
         linux_x64_full:
           Rid: linux-x64
           BuildProfile: full
-          DistributionCommonArtifact: Distribution_Common_Full
           DistributionArtifact: Distribution_Linux_Full
           CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-linux-x64.tar.gz
         linux_arm64_full:
           Rid: linux-arm64
           BuildProfile: full
-          DistributionCommonArtifact: Distribution_Common_Full
           DistributionArtifact: Distribution_Linux_Arm64_Full
           CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-linux-arm64.tar.gz
     pool:
@@ -144,7 +132,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: Get Common
       inputs:
-        artifact: $(DistributionCommonArtifact)
+        artifact: Distribution_Common
         path: $(PackagingCommonOutRoot)
 
     - script: |
@@ -173,25 +161,21 @@ stages:
         win_x64_lean:
           Rid: win-x64
           BuildProfile: lean
-          DistributionCommonArtifact: Distribution_Common_Lean
           DistributionArtifact: Distribution_Windows_Lean
           CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-lean-win-x64.zip
         win_arm64_lean:
           Rid: win-arm64
           BuildProfile: lean
-          DistributionCommonArtifact: Distribution_Common_Lean
           DistributionArtifact: Distribution_Windows_Arm64_Lean
           CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-lean-win-arm64.zip
         win_x64_full:
           Rid: win-x64
           BuildProfile: full
-          DistributionCommonArtifact: Distribution_Common_Full
           DistributionArtifact: Distribution_Windows_Full
           CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-win-x64.zip
         win_arm64_full:
           Rid: win-arm64
           BuildProfile: full
-          DistributionCommonArtifact: Distribution_Common_Full
           DistributionArtifact: Distribution_Windows_Arm64_Full
           CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-win-arm64.zip
     pool:
@@ -210,7 +194,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: Get Common
       inputs:
-        artifact: $(DistributionCommonArtifact)
+        artifact: Distribution_Common
         path: $(PackagingCommonOutRoot)
 
     - task: PowerShell@2
@@ -243,28 +227,24 @@ stages:
         osx_arm64_lean:
           Rid: osx-arm64
           BuildProfile: lean
-          DistributionCommonArtifact: Distribution_Common_Lean
           DistributionArtifact: Distribution_MacOS_Lean
           VmImage: macOS-15-arm64
           CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-lean-osx-arm64.tar.gz
         osx_x64_lean:
           Rid: osx-x64
           BuildProfile: lean
-          DistributionCommonArtifact: Distribution_Common_Lean
           DistributionArtifact: Distribution_MacOS_Intel_Lean
           VmImage: macOS-15
           CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-lean-osx-x64.tar.gz
         osx_arm64_full:
           Rid: osx-arm64
           BuildProfile: full
-          DistributionCommonArtifact: Distribution_Common_Full
           DistributionArtifact: Distribution_MacOS_Full
           VmImage: macOS-15-arm64
           CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-arm64.tar.gz
         osx_x64_full:
           Rid: osx-x64
           BuildProfile: full
-          DistributionCommonArtifact: Distribution_Common_Full
           DistributionArtifact: Distribution_MacOS_Intel_Full
           VmImage: macOS-15
           CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-x64.tar.gz
@@ -284,7 +264,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: Get Common
       inputs:
-        artifact: $(DistributionCommonArtifact)
+        artifact: Distribution_Common
         path: $(PackagingCommonOutRoot)
 
     - script: |
@@ -313,28 +293,24 @@ stages:
         linux_x64_lean:
           Rid: linux-x64
           BuildProfile: lean
-          DistributionCommonArtifact: Distribution_Common_Lean
           DistributionArtifact: Distribution_Linux_Lean
           CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-lean-linux-x64.tar.gz
           SkipRuntime: false
         linux_arm64_lean:
           Rid: linux-arm64
           BuildProfile: lean
-          DistributionCommonArtifact: Distribution_Common_Lean
           DistributionArtifact: Distribution_Linux_Arm64_Lean
           CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-lean-linux-arm64.tar.gz
           SkipRuntime: true
         linux_x64_full:
           Rid: linux-x64
           BuildProfile: full
-          DistributionCommonArtifact: Distribution_Common_Full
           DistributionArtifact: Distribution_Linux_Full
           CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-linux-x64.tar.gz
           SkipRuntime: false
         linux_arm64_full:
           Rid: linux-arm64
           BuildProfile: full
-          DistributionCommonArtifact: Distribution_Common_Full
           DistributionArtifact: Distribution_Linux_Arm64_Full
           CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-linux-arm64.tar.gz
           SkipRuntime: true
@@ -354,7 +330,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: Get Common
       inputs:
-        artifact: $(DistributionCommonArtifact)
+        artifact: Distribution_Common
         path: $(PackagingCommonOutRoot)
 
     - script: |
@@ -384,28 +360,24 @@ stages:
         win_x64_lean:
           Rid: win-x64
           BuildProfile: lean
-          DistributionCommonArtifact: Distribution_Common_Lean
           DistributionArtifact: Distribution_Windows_Lean
           CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-lean-win-x64.zip
           SkipRuntime: false
         win_arm64_lean:
           Rid: win-arm64
           BuildProfile: lean
-          DistributionCommonArtifact: Distribution_Common_Lean
           DistributionArtifact: Distribution_Windows_Arm64_Lean
           CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-lean-win-arm64.zip
           SkipRuntime: true
         win_x64_full:
           Rid: win-x64
           BuildProfile: full
-          DistributionCommonArtifact: Distribution_Common_Full
           DistributionArtifact: Distribution_Windows_Full
           CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-win-x64.zip
           SkipRuntime: false
         win_arm64_full:
           Rid: win-arm64
           BuildProfile: full
-          DistributionCommonArtifact: Distribution_Common_Full
           DistributionArtifact: Distribution_Windows_Arm64_Full
           CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-win-arm64.zip
           SkipRuntime: true
@@ -425,7 +397,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: Get Common
       inputs:
-        artifact: $(DistributionCommonArtifact)
+        artifact: Distribution_Common
         path: $(PackagingCommonOutRoot)
 
     - task: PowerShell@2
@@ -465,28 +437,24 @@ stages:
         osx_arm64_lean:
           Rid: osx-arm64
           BuildProfile: lean
-          DistributionCommonArtifact: Distribution_Common_Lean
           DistributionArtifact: Distribution_MacOS_Lean
           VmImage: macOS-15-arm64
           CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-lean-osx-arm64.tar.gz
         osx_x64_lean:
           Rid: osx-x64
           BuildProfile: lean
-          DistributionCommonArtifact: Distribution_Common_Lean
           DistributionArtifact: Distribution_MacOS_Intel_Lean
           VmImage: macOS-15
           CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-lean-osx-x64.tar.gz
         osx_arm64_full:
           Rid: osx-arm64
           BuildProfile: full
-          DistributionCommonArtifact: Distribution_Common_Full
           DistributionArtifact: Distribution_MacOS_Full
           VmImage: macOS-15-arm64
           CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-arm64.tar.gz
         osx_x64_full:
           Rid: osx-x64
           BuildProfile: full
-          DistributionCommonArtifact: Distribution_Common_Full
           DistributionArtifact: Distribution_MacOS_Intel_Full
           VmImage: macOS-15
           CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-x64.tar.gz
@@ -506,7 +474,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: Get Common
       inputs:
-        artifact: $(DistributionCommonArtifact)
+        artifact: Distribution_Common
         path: $(PackagingCommonOutRoot)
 
     - script: |
