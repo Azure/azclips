@@ -1,0 +1,17 @@
+name: cirrus-signing-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+stages:
+- stage: SigningDummy
+  displayName: Signing Dummy
+  jobs:
+  - job: NoOp
+    displayName: No-op
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - script: |
+        echo "Dummy signing pipeline placeholder"
+      displayName: Placeholder

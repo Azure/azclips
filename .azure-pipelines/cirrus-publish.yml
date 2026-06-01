@@ -1,0 +1,74 @@
+name: cirrus-publish-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+parameters:
+- name: GitHubServiceConnection
+  displayName: 'GitHub Service Connection'
+  type: string
+  default: 'github.com_naga-nandyala'
+- name: source_pipeline_definition_id
+  displayName: 'Source pipeline definition id'
+  type: string
+  default: '1203'
+- name: source_build_id
+  displayName: 'Source build id'
+  type: string
+  default: '320168'
+- name: distribution_version
+  displayName: 'Distribution version'
+  type: string
+  default: '0.1.0-alpha'
+
+variables:
+- name: ubuntu_pool
+  value: ubuntu-latest
+- name: SourceProject
+  value: public
+- name: GitHubTargetRepo
+  value: naga-nandyala/cirrus
+- name: GitHubReleasePrefix
+  value: dist
+- name: GitHubReleaseIsPrerelease
+  value: true
+- name: Codeql.Enabled
+  value: false
+- name: Codeql.SkipTaskAutoInjection
+  value: true
+- name: AdvancedSecurity.CodeQL.Enabled
+  value: false
+- name: ComponentGovernance.Enabled
+  value: false
+- name: skipComponentGovernanceDetection
+  value: true
+- name: runCodesignValidationInjection
+  value: false
+- name: CredScan.Enabled
+  value: false
+- name: BinSkim.Enabled
+  value: false
+- name: PoliCheck.Enabled
+  value: false
+- name: RoslynAnalyzers.Enabled
+  value: false
+- name: SdtReport.Enabled
+  value: false
+- name: TSAUpload.Enabled
+  value: false
+- name: NugetSecurityAnalysisWarningLevel
+  value: none
+- name: skipNugetSecurityAnalysis
+  value: true
+
+stages:
+- template: templates/dist/stages/publish-to-github-release.yml
+  parameters:
+    ubuntu_pool: $(ubuntu_pool)
+    SourceProject: $(SourceProject)
+    GitHubTargetRepo: $(GitHubTargetRepo)
+    GitHubReleasePrefix: $(GitHubReleasePrefix)
+    GitHubServiceConnection: ${{ parameters.GitHubServiceConnection }}
+    source_pipeline_definition_id: ${{ parameters.source_pipeline_definition_id }}
+    source_build_id: ${{ parameters.source_build_id }}
+    distribution_version: ${{ parameters.distribution_version }}

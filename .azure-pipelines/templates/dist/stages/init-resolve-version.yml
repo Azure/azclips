@@ -1,0 +1,70 @@
+parameters:
+- name: artifact_version_override
+  type: string
+  default: ''
+- name: ubuntu_pool
+  type: string
+  default: 'ubuntu-latest'
+
+stages:
+- stage: Init
+  displayName: Init
+  jobs:
+  - job: Start
+    displayName: Kickoff
+    pool:
+      vmImage: ${{ parameters.ubuntu_pool }}
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 0
+    - task: UseDotNet@2
+      displayName: .NET SDK
+      inputs:
+        packageType: sdk
+        useGlobalJson: true
+    - script: |
+        set -euo pipefail
+        echo "Starting release-ready distribution pipeline"
+        echo "Build number: $(Build.BuildNumber)"
+        echo "Branch: $(Build.SourceBranch)"
+      displayName: Context
+    - script: |
+        set -euo pipefail
+        core_project="$(Build.SourcesDirectory)/src/CLI/Core.Cli.csproj"
+        override_version="${{ parameters.artifact_version_override }}"
+        override_version="$(echo "$override_version" | xargs)"
+
+        if [[ -n "$override_version" ]]; then
+          echo "Using artifact version override: $override_version"
+          echo "##vso[task.setvariable variable=ArtifactVersion;isOutput=true]$override_version"
+          exit 0
+        fi
+
+        if [[ ! -f "$core_project" ]]; then
+          echo "ERROR: Core project not found at $core_project"
+          exit 1
+        fi
+
+        core_version="$(grep -oPm1 '(?<=<Version>)[^<]+' "$core_project" || true)"
+        core_version="$(echo "$core_version" | xargs)"
+
+        if [[ -z "$core_version" ]]; then
+          core_version="$(grep -oPm1 '(?<=<VersionPrefix>)[^<]+' "$core_project" || true)"
+          core_version="$(echo "$core_version" | xargs)"
+        fi
+
+        if [[ -z "$core_version" ]]; then
+          core_version="$(grep -oPm1 '(?<=<AssemblyVersion>)[^<]+' "$core_project" || true)"
+          core_version="$(echo "$core_version" | xargs)"
+        fi
+
+        if [[ -z "$core_version" ]]; then
+          echo "ERROR: Unable to resolve core version from $core_project"
+          exit 1
+        fi
+
+        echo "Resolved core distribution version: $core_version"
+        echo "##vso[task.setvariable variable=ArtifactVersion;isOutput=true]$core_version"
+      name: SetCoreVersion
+      displayName: Extract Core Version

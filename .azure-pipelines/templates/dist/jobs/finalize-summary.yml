@@ -1,0 +1,20 @@
+parameters:
+- name: ubuntu_pool
+  type: string
+  default: 'ubuntu-latest'
+
+jobs:
+- job: Summary
+  displayName: Summary
+  pool:
+    vmImage: ${{ parameters.ubuntu_pool }}
+  steps:
+  - script: |
+      echo "BuildCommon: $(BuildCommonResult)"
+      echo "BuildLinux: $(BuildLinuxResult)"
+      echo "BuildWindows: $(BuildWindowsResult)"
+      echo "BuildMacOS: $(BuildMacOSResult)"
+      echo "ValidateLinux: $(ValidateLinuxResult)"
+      echo "ValidateWindows: $(ValidateWindowsResult)"
+      echo "ValidateMacOS: $(ValidateMacOSResult)"
+    displayName: Stage Summary
