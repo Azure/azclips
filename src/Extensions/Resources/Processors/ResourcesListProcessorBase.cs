@@ -9,7 +9,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
     /// </summary>
     public interface IPagedResult<TItem>
     {
-        TItem[] Value { get; }
+        TItem[]? Value { get; }
         string? NextLink { get; }
     }
 
@@ -30,13 +30,17 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
             try
             {
                 var items = new List<TItem>();
+                var seenLinks = new HashSet<string>(StringComparer.Ordinal);
 
                 using HttpResponseMessage firstResponse = await SendAsync();
                 TPage? page = await DeserializePageOrNull(firstResponse);
 
                 while (page is not null)
                 {
-                    items.AddRange(page.Value);
+                    if (page.Value is not null)
+                    {
+                        items.AddRange(page.Value);
+                    }
 
                     if (string.IsNullOrEmpty(page.NextLink))
                     {
@@ -48,7 +52,14 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                         throw new InvalidOperationException($"Service returned a nextLink that is not an absolute URI: {page.NextLink}");
                     }
 
+                    if (!seenLinks.Add(page.NextLink))
+                    {
+                        throw new InvalidOperationException($"Service returned a cyclic nextLink; aborting pagination to avoid an infinite loop: {page.NextLink}");
+                    }
+
+                    await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
                     using var nextRequest = new HttpRequestMessage(HttpMethod.Get, nextUri);
+                    await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
                     using HttpResponseMessage nextResponse = await HttpPipeline.SendAsync(nextRequest, Publisher);
                     await Publisher.Publish(Events.TracingHttpResponseMessage, nextResponse);
                     page = await DeserializePageOrNull(nextResponse);
