@@ -10,7 +10,6 @@ variables:
   PackagingLinuxOutRoot: $(PackagingOutRoot)/linux
   PackagingWindowsOutRoot: $(PackagingOutRoot)/windows
   PackagingMacOSOutRoot: $(PackagingOutRoot)/macos
-  PackageProfile: lean
   PackagingLinuxRid: linux-x64
   PackagingWindowsRid: win-x64
   PackagingMacOSRid: osx-arm64
@@ -61,6 +60,14 @@ stages:
   - job: BuildCommonOutputs
     displayName: Common Output
     timeoutInMinutes: 90
+    strategy:
+      matrix:
+        lean:
+          BuildProfile: lean
+          DistributionCommonArtifact: Distribution_Common_Lean
+        full:
+          BuildProfile: full
+          DistributionCommonArtifact: Distribution_Common_Full
     pool:
       vmImage: $(ubuntu_pool)
     steps:
@@ -77,14 +84,14 @@ stages:
     - script: |
         set -euo pipefail
         chmod +x "$(PackagingScriptsRoot)/common/build_common.sh"
-        OUT_ROOT="$(PackagingCommonOutRoot)" PACKAGE_PROFILE="$(PackageProfile)" "$(PackagingScriptsRoot)/common/build_common.sh"
+        OUT_ROOT="$(PackagingCommonOutRoot)" PACKAGE_PROFILE="$(BuildProfile)" "$(PackagingScriptsRoot)/common/build_common.sh"
       displayName: Build Common
 
     - task: PublishPipelineArtifact@1
       displayName: Publish Common
       inputs:
         targetPath: $(PackagingCommonOutRoot)
-        artifact: Distribution_Common
+        artifact: $(DistributionCommonArtifact)
         publishLocation: pipeline
 
 - stage: BuildLinux
@@ -97,12 +104,30 @@ stages:
     timeoutInMinutes: 60
     strategy:
       matrix:
-        linux_x64:
+        linux_x64_lean:
           Rid: linux-x64
-          DistributionArtifact: Distribution_Linux
-        linux_arm64:
+          BuildProfile: lean
+          DistributionCommonArtifact: Distribution_Common_Lean
+          DistributionArtifact: Distribution_Linux_Lean
+          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-lean-linux-x64.tar.gz
+        linux_arm64_lean:
           Rid: linux-arm64
-          DistributionArtifact: Distribution_Linux_Arm64
+          BuildProfile: lean
+          DistributionCommonArtifact: Distribution_Common_Lean
+          DistributionArtifact: Distribution_Linux_Arm64_Lean
+          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-lean-linux-arm64.tar.gz
+        linux_x64_full:
+          Rid: linux-x64
+          BuildProfile: full
+          DistributionCommonArtifact: Distribution_Common_Full
+          DistributionArtifact: Distribution_Linux_Full
+          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-linux-x64.tar.gz
+        linux_arm64_full:
+          Rid: linux-arm64
+          BuildProfile: full
+          DistributionCommonArtifact: Distribution_Common_Full
+          DistributionArtifact: Distribution_Linux_Arm64_Full
+          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-linux-arm64.tar.gz
     pool:
       vmImage: $(ubuntu_pool)
     steps:
@@ -119,23 +144,13 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: Get Common
       inputs:
-        artifact: Distribution_Common
+        artifact: $(DistributionCommonArtifact)
         path: $(PackagingCommonOutRoot)
 
     - script: |
         set -euo pipefail
-        package_profile="$(echo "$(PackageProfile)" | tr '[:upper:]' '[:lower:]')"
-        if [[ "$package_profile" == "full" ]]; then
-          artifact_prefix="azv2"
-        elif [[ "$package_profile" == "lean" ]]; then
-          artifact_prefix="azv2-lean"
-        else
-          echo "ERROR: Unsupported PackageProfile '$package_profile'. Expected 'lean' or 'full'."
-          exit 1
-        fi
-        cli_tar_path="$(PackagingLinuxOutRoot)/Release/tarball/${artifact_prefix}-$(Rid).tar.gz"
         chmod +x "$(PackagingScriptsRoot)/linux/tarball/build_linux_tarball.sh"
-        OUT_ROOT="$(PackagingLinuxOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" PACKAGE_PROFILE="$package_profile" RID="$(Rid)" CLI_TAR_PATH="$cli_tar_path" "$(PackagingScriptsRoot)/linux/tarball/build_linux_tarball.sh"
+        OUT_ROOT="$(PackagingLinuxOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" CLI_TAR_PATH="$(CliTarPath)" "$(PackagingScriptsRoot)/linux/tarball/build_linux_tarball.sh"
       displayName: Build Linux Tarball
 
     - task: PublishPipelineArtifact@1
@@ -155,12 +170,30 @@ stages:
     timeoutInMinutes: 60
     strategy:
       matrix:
-        win_x64:
+        win_x64_lean:
           Rid: win-x64
-          DistributionArtifact: Distribution_Windows
-        win_arm64:
+          BuildProfile: lean
+          DistributionCommonArtifact: Distribution_Common_Lean
+          DistributionArtifact: Distribution_Windows_Lean
+          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-lean-win-x64.zip
+        win_arm64_lean:
           Rid: win-arm64
-          DistributionArtifact: Distribution_Windows_Arm64
+          BuildProfile: lean
+          DistributionCommonArtifact: Distribution_Common_Lean
+          DistributionArtifact: Distribution_Windows_Arm64_Lean
+          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-lean-win-arm64.zip
+        win_x64_full:
+          Rid: win-x64
+          BuildProfile: full
+          DistributionCommonArtifact: Distribution_Common_Full
+          DistributionArtifact: Distribution_Windows_Full
+          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-win-x64.zip
+        win_arm64_full:
+          Rid: win-arm64
+          BuildProfile: full
+          DistributionCommonArtifact: Distribution_Common_Full
+          DistributionArtifact: Distribution_Windows_Arm64_Full
+          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-win-arm64.zip
     pool:
       vmImage: $(windows_pool)
     steps:
@@ -177,7 +210,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: Get Common
       inputs:
-        artifact: Distribution_Common
+        artifact: $(DistributionCommonArtifact)
         path: $(PackagingCommonOutRoot)
 
     - task: PowerShell@2
@@ -186,20 +219,8 @@ stages:
         targetType: inline
         script: |
           $ErrorActionPreference = 'Stop'
-          $packageProfile = "$(PackageProfile)".ToLowerInvariant()
-          if ($packageProfile -eq 'full') {
-            $artifactPrefix = 'azv2'
-          }
-          elseif ($packageProfile -eq 'lean') {
-            $artifactPrefix = 'azv2-lean'
-          }
-          else {
-            throw "Unsupported PackageProfile '$packageProfile'. Expected 'lean' or 'full'."
-          }
-
-          $cliZipPath = "$(PackagingWindowsOutRoot)/Release/zip/$artifactPrefix-$(Rid).zip"
-          $env:PACKAGE_PROFILE = $packageProfile
-          & "$(PackagingScriptsRoot)/windows/zip/build_win_zip.ps1" -OutRoot "$(PackagingWindowsOutRoot)" -CommonOutRoot "$(PackagingCommonOutRoot)" -Rid "$(Rid)" -CliWinZipPath $cliZipPath
+          $env:PACKAGE_PROFILE = "$(BuildProfile)"
+          & "$(PackagingScriptsRoot)/windows/zip/build_win_zip.ps1" -OutRoot "$(PackagingWindowsOutRoot)" -CommonOutRoot "$(PackagingCommonOutRoot)" -Rid "$(Rid)" -CliWinZipPath "$(CliZipPath)"
         pwsh: true
 
     - task: PublishPipelineArtifact@1
@@ -219,14 +240,34 @@ stages:
     timeoutInMinutes: 60
     strategy:
       matrix:
-        osx_arm64:
+        osx_arm64_lean:
           Rid: osx-arm64
-          DistributionArtifact: Distribution_MacOS
+          BuildProfile: lean
+          DistributionCommonArtifact: Distribution_Common_Lean
+          DistributionArtifact: Distribution_MacOS_Lean
           VmImage: macOS-15-arm64
-        osx_x64:
+          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-lean-osx-arm64.tar.gz
+        osx_x64_lean:
           Rid: osx-x64
-          DistributionArtifact: Distribution_MacOS_Intel
+          BuildProfile: lean
+          DistributionCommonArtifact: Distribution_Common_Lean
+          DistributionArtifact: Distribution_MacOS_Intel_Lean
           VmImage: macOS-15
+          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-lean-osx-x64.tar.gz
+        osx_arm64_full:
+          Rid: osx-arm64
+          BuildProfile: full
+          DistributionCommonArtifact: Distribution_Common_Full
+          DistributionArtifact: Distribution_MacOS_Full
+          VmImage: macOS-15-arm64
+          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-arm64.tar.gz
+        osx_x64_full:
+          Rid: osx-x64
+          BuildProfile: full
+          DistributionCommonArtifact: Distribution_Common_Full
+          DistributionArtifact: Distribution_MacOS_Intel_Full
+          VmImage: macOS-15
+          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-x64.tar.gz
     pool:
       vmImage: $(VmImage)
     steps:
@@ -243,23 +284,13 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: Get Common
       inputs:
-        artifact: Distribution_Common
+        artifact: $(DistributionCommonArtifact)
         path: $(PackagingCommonOutRoot)
 
     - script: |
         set -euo pipefail
-        package_profile="$(echo "$(PackageProfile)" | tr '[:upper:]' '[:lower:]')"
-        if [[ "$package_profile" == "full" ]]; then
-          artifact_prefix="azv2"
-        elif [[ "$package_profile" == "lean" ]]; then
-          artifact_prefix="azv2-lean"
-        else
-          echo "ERROR: Unsupported PackageProfile '$package_profile'. Expected 'lean' or 'full'."
-          exit 1
-        fi
-        cli_tar_path="$(PackagingMacOSOutRoot)/Release/tarball/${artifact_prefix}-$(Rid).tar.gz"
         chmod +x "$(PackagingScriptsRoot)/macos/tarball/build_macos_tarball.sh"
-        OUT_ROOT="$(PackagingMacOSOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" PACKAGE_PROFILE="$package_profile" RID="$(Rid)" CLI_TAR_PATH="$cli_tar_path" "$(PackagingScriptsRoot)/macos/tarball/build_macos_tarball.sh"
+        OUT_ROOT="$(PackagingMacOSOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" CLI_TAR_PATH="$(CliTarPath)" "$(PackagingScriptsRoot)/macos/tarball/build_macos_tarball.sh"
       displayName: Build macOS Tarball
 
     - task: PublishPipelineArtifact@1
@@ -279,13 +310,33 @@ stages:
     timeoutInMinutes: 45
     strategy:
       matrix:
-        linux_x64:
+        linux_x64_lean:
           Rid: linux-x64
-          DistributionArtifact: Distribution_Linux
+          BuildProfile: lean
+          DistributionCommonArtifact: Distribution_Common_Lean
+          DistributionArtifact: Distribution_Linux_Lean
+          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-lean-linux-x64.tar.gz
           SkipRuntime: false
-        linux_arm64:
+        linux_arm64_lean:
           Rid: linux-arm64
-          DistributionArtifact: Distribution_Linux_Arm64
+          BuildProfile: lean
+          DistributionCommonArtifact: Distribution_Common_Lean
+          DistributionArtifact: Distribution_Linux_Arm64_Lean
+          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-lean-linux-arm64.tar.gz
+          SkipRuntime: true
+        linux_x64_full:
+          Rid: linux-x64
+          BuildProfile: full
+          DistributionCommonArtifact: Distribution_Common_Full
+          DistributionArtifact: Distribution_Linux_Full
+          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-linux-x64.tar.gz
+          SkipRuntime: false
+        linux_arm64_full:
+          Rid: linux-arm64
+          BuildProfile: full
+          DistributionCommonArtifact: Distribution_Common_Full
+          DistributionArtifact: Distribution_Linux_Arm64_Full
+          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-linux-arm64.tar.gz
           SkipRuntime: true
     pool:
       vmImage: $(ubuntu_pool)
@@ -303,23 +354,13 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: Get Common
       inputs:
-        artifact: Distribution_Common
+        artifact: $(DistributionCommonArtifact)
         path: $(PackagingCommonOutRoot)
 
     - script: |
         set -euo pipefail
-        package_profile="$(echo "$(PackageProfile)" | tr '[:upper:]' '[:lower:]')"
-        if [[ "$package_profile" == "full" ]]; then
-          artifact_prefix="azv2"
-        elif [[ "$package_profile" == "lean" ]]; then
-          artifact_prefix="azv2-lean"
-        else
-          echo "ERROR: Unsupported PackageProfile '$package_profile'. Expected 'lean' or 'full'."
-          exit 1
-        fi
-        cli_tar_path="$(PackagingLinuxOutRoot)/Release/tarball/${artifact_prefix}-$(Rid).tar.gz"
         chmod +x "$(PackagingScriptsRoot)/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
-        OUT_ROOT="$(PackagingLinuxOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" PACKAGE_PROFILE="$package_profile" CLI_TAR_PATH="$cli_tar_path" SKIP_RUNTIME="$(SkipRuntime)" "$(PackagingScriptsRoot)/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
+        OUT_ROOT="$(PackagingLinuxOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" PACKAGE_PROFILE="$(BuildProfile)" CLI_TAR_PATH="$(CliTarPath)" SKIP_RUNTIME="$(SkipRuntime)" "$(PackagingScriptsRoot)/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
       displayName: Validate Linux Tarball
 
     - task: PublishPipelineArtifact@1
@@ -327,7 +368,7 @@ stages:
       condition: always()
       inputs:
         targetPath: $(Build.SourcesDirectory)/devops/sim/linux-tarball-bundled-plus-ext
-        artifact: Validate_Linux_Sim_$(Rid)
+        artifact: Validate_Linux_Sim_$(Rid)_$(BuildProfile)
         publishLocation: pipeline
 
 - stage: ValidateWindows
@@ -340,13 +381,33 @@ stages:
     timeoutInMinutes: 45
     strategy:
       matrix:
-        win_x64:
+        win_x64_lean:
           Rid: win-x64
-          DistributionArtifact: Distribution_Windows
+          BuildProfile: lean
+          DistributionCommonArtifact: Distribution_Common_Lean
+          DistributionArtifact: Distribution_Windows_Lean
+          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-lean-win-x64.zip
           SkipRuntime: false
-        win_arm64:
+        win_arm64_lean:
           Rid: win-arm64
-          DistributionArtifact: Distribution_Windows_Arm64
+          BuildProfile: lean
+          DistributionCommonArtifact: Distribution_Common_Lean
+          DistributionArtifact: Distribution_Windows_Arm64_Lean
+          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-lean-win-arm64.zip
+          SkipRuntime: true
+        win_x64_full:
+          Rid: win-x64
+          BuildProfile: full
+          DistributionCommonArtifact: Distribution_Common_Full
+          DistributionArtifact: Distribution_Windows_Full
+          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-win-x64.zip
+          SkipRuntime: false
+        win_arm64_full:
+          Rid: win-arm64
+          BuildProfile: full
+          DistributionCommonArtifact: Distribution_Common_Full
+          DistributionArtifact: Distribution_Windows_Arm64_Full
+          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-win-arm64.zip
           SkipRuntime: true
     pool:
       vmImage: $(windows_pool)
@@ -364,7 +425,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: Get Common
       inputs:
-        artifact: Distribution_Common
+        artifact: $(DistributionCommonArtifact)
         path: $(PackagingCommonOutRoot)
 
     - task: PowerShell@2
@@ -374,25 +435,13 @@ stages:
         pwsh: true
         script: |
           $ErrorActionPreference = 'Stop'
-          $packageProfile = "$(PackageProfile)".ToLowerInvariant()
-          if ($packageProfile -eq 'full') {
-            $artifactPrefix = 'azv2'
-          }
-          elseif ($packageProfile -eq 'lean') {
-            $artifactPrefix = 'azv2-lean'
-          }
-          else {
-            throw "Unsupported PackageProfile '$packageProfile'. Expected 'lean' or 'full'."
-          }
-
-          $cliZipPath = "$(PackagingWindowsOutRoot)/Release/zip/$artifactPrefix-$(Rid).zip"
-          $env:PACKAGE_PROFILE = $packageProfile
+          $env:PACKAGE_PROFILE = "$(BuildProfile)"
           $skipRuntime = "$(SkipRuntime)"
           if ($skipRuntime -eq 'true') {
-            & "$(PackagingScriptsRoot)/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "$(PackagingWindowsOutRoot)" -CommonOutRoot "$(PackagingCommonOutRoot)" -CliZipPath $cliZipPath -SkipRuntime
+            & "$(PackagingScriptsRoot)/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "$(PackagingWindowsOutRoot)" -CommonOutRoot "$(PackagingCommonOutRoot)" -CliZipPath "$(CliZipPath)" -SkipRuntime
           }
           else {
-            & "$(PackagingScriptsRoot)/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "$(PackagingWindowsOutRoot)" -CommonOutRoot "$(PackagingCommonOutRoot)" -CliZipPath $cliZipPath
+            & "$(PackagingScriptsRoot)/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "$(PackagingWindowsOutRoot)" -CommonOutRoot "$(PackagingCommonOutRoot)" -CliZipPath "$(CliZipPath)"
           }
 
     - task: PublishPipelineArtifact@1
@@ -400,7 +449,7 @@ stages:
       condition: always()
       inputs:
         targetPath: $(Build.SourcesDirectory)/devops/sim/win-zip-bundled-plus-ext
-        artifact: Validate_Windows_Sim_$(Rid)
+        artifact: Validate_Windows_Sim_$(Rid)_$(BuildProfile)
         publishLocation: pipeline
 
 - stage: ValidateMacOS
@@ -413,14 +462,34 @@ stages:
     timeoutInMinutes: 45
     strategy:
       matrix:
-        osx_arm64:
+        osx_arm64_lean:
           Rid: osx-arm64
-          DistributionArtifact: Distribution_MacOS
+          BuildProfile: lean
+          DistributionCommonArtifact: Distribution_Common_Lean
+          DistributionArtifact: Distribution_MacOS_Lean
           VmImage: macOS-15-arm64
-        osx_x64:
+          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-lean-osx-arm64.tar.gz
+        osx_x64_lean:
           Rid: osx-x64
-          DistributionArtifact: Distribution_MacOS_Intel
+          BuildProfile: lean
+          DistributionCommonArtifact: Distribution_Common_Lean
+          DistributionArtifact: Distribution_MacOS_Intel_Lean
           VmImage: macOS-15
+          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-lean-osx-x64.tar.gz
+        osx_arm64_full:
+          Rid: osx-arm64
+          BuildProfile: full
+          DistributionCommonArtifact: Distribution_Common_Full
+          DistributionArtifact: Distribution_MacOS_Full
+          VmImage: macOS-15-arm64
+          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-arm64.tar.gz
+        osx_x64_full:
+          Rid: osx-x64
+          BuildProfile: full
+          DistributionCommonArtifact: Distribution_Common_Full
+          DistributionArtifact: Distribution_MacOS_Intel_Full
+          VmImage: macOS-15
+          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-x64.tar.gz
     pool:
       vmImage: $(VmImage)
     steps:
@@ -437,23 +506,13 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: Get Common
       inputs:
-        artifact: Distribution_Common
+        artifact: $(DistributionCommonArtifact)
         path: $(PackagingCommonOutRoot)
 
     - script: |
         set -euo pipefail
-        package_profile="$(echo "$(PackageProfile)" | tr '[:upper:]' '[:lower:]')"
-        if [[ "$package_profile" == "full" ]]; then
-          artifact_prefix="azv2"
-        elif [[ "$package_profile" == "lean" ]]; then
-          artifact_prefix="azv2-lean"
-        else
-          echo "ERROR: Unsupported PackageProfile '$package_profile'. Expected 'lean' or 'full'."
-          exit 1
-        fi
-        cli_tar_path="$(PackagingMacOSOutRoot)/Release/tarball/${artifact_prefix}-$(Rid).tar.gz"
         chmod +x "$(PackagingScriptsRoot)/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
-        OUT_ROOT="$(PackagingMacOSOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" PACKAGE_PROFILE="$package_profile" RID="$(Rid)" CLI_TAR_PATH="$cli_tar_path" "$(PackagingScriptsRoot)/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
+        OUT_ROOT="$(PackagingMacOSOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" CLI_TAR_PATH="$(CliTarPath)" "$(PackagingScriptsRoot)/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
       displayName: Validate macOS Tarball
 
     - task: PublishPipelineArtifact@1
@@ -461,7 +520,7 @@ stages:
       condition: always()
       inputs:
         targetPath: $(Build.SourcesDirectory)/devops/sim/macos-tarball-bundled-plus-ext
-        artifact: Validate_MacOS_Sim_$(Rid)
+        artifact: Validate_MacOS_Sim_$(Rid)_$(BuildProfile)
         publishLocation: pipeline
 
 - stage: Finalize
