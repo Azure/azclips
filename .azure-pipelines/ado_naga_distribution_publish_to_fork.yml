@@ -11,7 +11,7 @@ parameters:
 - name: source_pipeline_definition_id
   displayName: 'Source pipeline definition id'
   type: string
-  default: ''
+  default: '1203'
 - name: source_build_id
   displayName: 'Source build id'
   type: string
@@ -80,9 +80,6 @@ stages:
         source_build_id="${{ parameters.source_build_id }}"
         source_pipeline_definition_id="${{ parameters.source_pipeline_definition_id }}"
 
-        tag_name="$(GitHubReleasePrefix)-build-${source_build_id}"
-        release_name="Distribution build ${source_build_id}"
-
         assets_root="$(Pipeline.Workspace)/distBuild"
         mapfile -t assets < <(find "$assets_root" -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.nupkg' \) ! -name '*.snupkg' | sort)
 
@@ -93,6 +90,48 @@ stages:
 
         echo "Assets to upload (${#assets[@]}):"
         printf '  %s\n' "${assets[@]}"
+
+        mapfile -t nupkgs < <(printf '%s\n' "${assets[@]}" | grep -E '\.nupkg$' || true)
+
+        declare -A seen_versions=()
+        package_names_csv=""
+        package_versions_csv=""
+        package_count=0
+
+        for pkg in "${nupkgs[@]}"; do
+          base_name="$(basename "$pkg" .nupkg)"
+          package_name="$base_name"
+          package_version="unknown"
+
+          if [[ "$base_name" =~ ^(.+)\.([0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?)$ ]]; then
+            package_name="${BASH_REMATCH[1]}"
+            package_version="${BASH_REMATCH[2]}"
+          fi
+
+          if [[ -z "$package_names_csv" ]]; then
+            package_names_csv="$package_name"
+            package_versions_csv="$package_version"
+          else
+            package_names_csv="$package_names_csv, $package_name"
+            package_versions_csv="$package_versions_csv, $package_version"
+          fi
+
+          seen_versions["$package_version"]=1
+          package_count=$((package_count + 1))
+        done
+
+        primary_package_version="unknown"
+        if [[ ${#seen_versions[@]} -eq 1 && $package_count -gt 0 ]]; then
+          for v in "${!seen_versions[@]}"; do
+            primary_package_version="$v"
+          done
+        elif [[ ${#seen_versions[@]} -gt 1 ]]; then
+          primary_package_version="mixed"
+        fi
+
+        safe_version="${primary_package_version//[^0-9A-Za-z._-]/-}"
+        tag_name="$(GitHubReleasePrefix)-${safe_version}-build-${source_build_id}"
+        release_name="Distribution ${primary_package_version} build ${source_build_id}"
 
         release_dir="$(Build.ArtifactStagingDirectory)/release"
         rm -rf "$release_dir"
@@ -109,6 +148,10 @@ stages:
         echo "##vso[task.setvariable variable=ReleaseName]$release_name"
         echo "##vso[task.setvariable variable=SourceBuildId]$source_build_id"
         echo "##vso[task.setvariable variable=SourcePipelineDefinitionId]$source_pipeline_definition_id"
+        echo "##vso[task.setvariable variable=PrimaryPackageVersion]$primary_package_version"
+        echo "##vso[task.setvariable variable=SourcePackageCount]$package_count"
+        echo "##vso[task.setvariable variable=SourcePackageNames]$package_names_csv"
+        echo "##vso[task.setvariable variable=SourcePackageVersions]$package_versions_csv"
       displayName: Prepare Release Tag And Assets
 
     - task: GitHubRelease@1
@@ -135,6 +178,10 @@ stages:
           Source project: $(SourceProject)
           Source pipeline definition id: $(SourcePipelineDefinitionId)
           Source build id: $(SourceBuildId)
+          Package version: $(PrimaryPackageVersion)
+          Package count: $(SourcePackageCount)
+          Package names: $(SourcePackageNames)
+          Package versions: $(SourcePackageVersions)
           Included assets: .tar.gz, .zip, .nupkg
         assets: '$(Build.ArtifactStagingDirectory)/release/*'
         addChangeLog: false
