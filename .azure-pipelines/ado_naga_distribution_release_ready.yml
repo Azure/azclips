@@ -3,14 +3,7 @@ name: dist_release_ready_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
 trigger: none
 pr: none
 
-parameters:
-- name: artifact_version
-  displayName: 'Artifact version suffix'
-  type: string
-  default: '0.1.0-alpha'
-
 variables:
-  ArtifactVersion: ${{ parameters.artifact_version }}
   PackagingScriptsRoot: $(Build.SourcesDirectory)/devops/scripts/packaging
   PackagingOutRoot: $(Build.SourcesDirectory)/devops/out
   PackagingCommonOutRoot: $(PackagingOutRoot)/common
@@ -53,16 +46,50 @@ stages:
     - checkout: self
       clean: true
       fetchDepth: 0
+    - task: UseDotNet@2
+      displayName: .NET SDK
+      inputs:
+        packageType: sdk
+        useGlobalJson: true
     - script: |
+        set -euo pipefail
         echo "Starting release-ready distribution pipeline"
         echo "Build number: $(Build.BuildNumber)"
         echo "Branch: $(Build.SourceBranch)"
       displayName: Context
+    - script: |
+        set -euo pipefail
+        core_project="$(Build.SourcesDirectory)/src/CLI/Core.Cli.csproj"
+
+        if [[ ! -f "$core_project" ]]; then
+          echo "ERROR: Core project not found at $core_project"
+          exit 1
+        fi
+
+        core_version="$(dotnet msbuild "$core_project" -nologo -getProperty:Version | tail -n1 | tr -d '\r')"
+        core_version="$(echo "$core_version" | xargs)"
+
+        if [[ -z "$core_version" ]]; then
+          core_version="$(grep -oPm1 '(?<=<AssemblyVersion>)[^<]+' "$core_project" || true)"
+          core_version="$(echo "$core_version" | xargs)"
+        fi
+
+        if [[ -z "$core_version" ]]; then
+          echo "ERROR: Unable to resolve core version from $core_project"
+          exit 1
+        fi
+
+        echo "Resolved core distribution version: $core_version"
+        echo "##vso[task.setvariable variable=ArtifactVersion;isOutput=true]$core_version"
+      name: SetCoreVersion
+      displayName: Extract Core Version
 
 - stage: BuildCommon
   displayName: Build Common
   dependsOn: Init
   condition: succeeded()
+  variables:
+    ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
   jobs:
   - job: BuildCommonOutputs
     displayName: Common Output
@@ -97,6 +124,8 @@ stages:
   displayName: Build Linux
   dependsOn: BuildCommon
   condition: succeeded()
+  variables:
+    ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
   jobs:
   - job: BuildLinuxOutput
     displayName: Linux Tarball
@@ -159,6 +188,8 @@ stages:
   displayName: Build Windows
   dependsOn: BuildCommon
   condition: succeeded()
+  variables:
+    ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
   jobs:
   - job: BuildWindowsOutput
     displayName: Windows Zip
@@ -225,6 +256,8 @@ stages:
   displayName: Build macOS
   dependsOn: BuildCommon
   condition: succeeded()
+  variables:
+    ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
   jobs:
   - job: BuildMacOSOutput
     displayName: macOS Tarball
@@ -291,6 +324,8 @@ stages:
   displayName: Validate Linux
   dependsOn: BuildLinux
   condition: succeeded()
+  variables:
+    ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
   jobs:
   - job: LinuxValidation
     displayName: Linux Validation
@@ -358,6 +393,8 @@ stages:
   displayName: Validate Windows
   dependsOn: BuildWindows
   condition: succeeded()
+  variables:
+    ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
   jobs:
   - job: WindowsValidation
     displayName: Windows Validation
@@ -435,6 +472,8 @@ stages:
   displayName: Validate macOS
   dependsOn: BuildMacOS
   condition: succeeded()
+  variables:
+    ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
   jobs:
   - job: MacOSValidation
     displayName: macOS Validation
