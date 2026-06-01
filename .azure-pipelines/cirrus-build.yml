@@ -128,6 +128,28 @@ stages:
       PackagingCommonOutRoot: $(PackagingCommonOutRoot)
       PackagingMacOSOutRoot: $(PackagingMacOSOutRoot)
 
+- stage: Test
+  displayName: Test
+  dependsOn:
+  - Init
+  - BuildCommon
+  condition: succeeded()
+  jobs:
+  - template: templates/dist/jobs/test-suite.yml
+    parameters:
+      ubuntu_pool: $(ubuntu_pool)
+
+- stage: Benchmark
+  displayName: Benchmark
+  dependsOn:
+  - Init
+  - BuildCommon
+  condition: succeeded()
+  jobs:
+  - template: templates/dist/jobs/benchmark-suite.yml
+    parameters:
+      ubuntu_pool: $(ubuntu_pool)
+
 - stage: ValidateLinux
   displayName: Validate Linux
   dependsOn:
@@ -182,6 +204,8 @@ stages:
   - BuildLinux
   - BuildWindows
   - BuildMacOS
+  - Test
+  - Benchmark
   - ValidateLinux
   - ValidateWindows
   - ValidateMacOS
@@ -191,6 +215,8 @@ stages:
     BuildLinuxResult: $[ stageDependencies.BuildLinux.BuildLinuxOutput.result ]
     BuildWindowsResult: $[ stageDependencies.BuildWindows.BuildWindowsOutput.result ]
     BuildMacOSResult: $[ stageDependencies.BuildMacOS.BuildMacOSOutput.result ]
+    TestResult: $[ stageDependencies.Test.UnitTests.result ]
+    BenchmarkResult: $[ stageDependencies.Benchmark.BenchmarkSuite.result ]
     ValidateLinuxResult: $[ stageDependencies.ValidateLinux.LinuxValidation.result ]
     ValidateWindowsResult: $[ stageDependencies.ValidateWindows.WindowsValidation.result ]
     ValidateMacOSResult: $[ stageDependencies.ValidateMacOS.MacOSValidation.result ]

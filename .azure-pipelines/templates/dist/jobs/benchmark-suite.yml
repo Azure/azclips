@@ -1,0 +1,37 @@
+parameters:
+- name: ubuntu_pool
+  type: string
+  default: 'ubuntu-latest'
+
+jobs:
+- job: BenchmarkSuite
+  displayName: Benchmark Suite (CLI + PS)
+  timeoutInMinutes: 120
+  continueOnError: true
+  pool:
+    vmImage: ${{ parameters.ubuntu_pool }}
+  steps:
+  - checkout: self
+    clean: true
+    fetchDepth: 0
+
+  - task: UseDotNet@2
+    displayName: .NET SDK
+    inputs:
+      packageType: sdk
+      useGlobalJson: true
+
+  - script: |
+      set -euo pipefail
+      dotnet restore tests/Benchmark/Benchmark.csproj
+      dotnet run --project tests/Benchmark/Benchmark.csproj --configuration Release -- --ci --product CLI
+      dotnet run --project tests/Benchmark/Benchmark.csproj --configuration Release -- --ci --product PS
+    displayName: Run Benchmarks
+
+  - task: PublishPipelineArtifact@1
+    displayName: Publish Benchmark Artifacts
+    condition: succeededOrFailed()
+    inputs:
+      targetPath: $(Build.SourcesDirectory)/artifacts/Benchmark/ci
+      artifact: Distribution_Benchmark
+      publishLocation: pipeline
