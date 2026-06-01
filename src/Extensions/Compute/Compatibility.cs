@@ -3,4 +3,4 @@
 
 using Core.Abstractions;
 
-[assembly: CirrusCompatibility(MinCoreVersion = "9.9.9")]
+[assembly: CirrusCompatibility(MinCoreVersion = "1.0.0")]

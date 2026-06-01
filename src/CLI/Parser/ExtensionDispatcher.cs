@@ -96,7 +96,7 @@ public class ExtensionDispatcher //: IParser
             var path = string.Join(" ", nonFlagLeadingArgs, 0, len);
             if (_leafIndex.Value.TryGet(verb, path, out var leaf) && leaf is not null)
             {
-                resolved = new ResolvedExtension(verb, leaf.PackageId, Version: null, IsBuiltIn: leaf.IsBuiltIn);
+                resolved = new ResolvedExtension(verb, leaf.PackageId, Version: null);
                 matchedPathTokens = len;
                 break;
             }

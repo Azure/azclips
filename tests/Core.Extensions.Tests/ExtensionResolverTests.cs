@@ -44,8 +44,7 @@ namespace Core.Extensions.Tests
 
             Assert.True(found);
             Assert.NotNull(resolved);
-            Assert.True(resolved!.IsBuiltIn);
-            Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Login", resolved.PackageId);
+            Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Login", resolved!.PackageId);
             Assert.Null(resolved.Version);
         }
 
@@ -68,7 +67,7 @@ namespace Core.Extensions.Tests
 
             Assert.True(found);
             Assert.NotNull(resolved);
-            Assert.False(resolved!.IsBuiltIn);
+            Assert.False(BuiltInExtensions.IsBuiltInVerb(resolved!.Verb));
             Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Compute", resolved.PackageId);
             Assert.Equal("1.1.0", resolved.Version);
         }
@@ -83,7 +82,7 @@ namespace Core.Extensions.Tests
             var found = resolver.TryResolve("login", out var resolved);
 
             Assert.True(found);
-            Assert.True(resolved!.IsBuiltIn);
+            Assert.True(BuiltInExtensions.IsBuiltInVerb(resolved!.Verb));
             Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Login", resolved.PackageId);
         }
 

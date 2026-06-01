@@ -20,7 +20,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Extension;
 /// </list>
 /// On success returns the contribution rows the caller should persist; on conflict throws the
 /// same <see cref="CirrusErrorException"/> the production install path throws (LeafConflict
-/// exit 5). Self-upsert is allowed: when a package id already owns a tuple, re-adding the same
+/// exit 3). Self-upsert is allowed: when a package id already owns a tuple, re-adding the same
 /// id is a no-conflict.
 /// </remarks>
 public static class ExtensionAddPlanner
@@ -38,6 +38,15 @@ public static class ExtensionAddPlanner
 
         var declaredVerbSet = new HashSet<string>(verbs, StringComparer.OrdinalIgnoreCase);
         var contributions = new List<Contribution>();
+
+        // Phase 10 #41: accumulate every registry-side `(verb, path)` collision the candidate
+        // triggers and report them as a single batched LeafConflict. Operators get a complete
+        // diagnosis in one round-trip instead of a one-conflict-per-rerun loop. Conflict order
+        // follows the candidate's leaf-key iteration (deterministic across runs because the
+        // `s_cliTable` dictionary preserves insertion order). Undeclared-verb and built-in-root
+        // checks remain first-error-wins: those are usage errors in the candidate's own code,
+        // not registry-state interactions, and enumerating them adds noise without value.
+        var registryConflicts = new List<Dictionary<string, object?>>();
 
         foreach (var leafKey in cliLeafKeys)
         {
@@ -75,7 +84,9 @@ public static class ExtensionAddPlanner
             }
 
             // Registry collision: another installed package already owns the (verb, path) tuple.
-            // Self-upsert is allowed (re-adding the same id is the upgrade path).
+            // Self-upsert is allowed (re-adding the same id is the upgrade path). On hit we
+            // record the row and keep walking — the throw happens once, after the loop.
+            string? collidingExistingPackageId = null;
             foreach (var (existingPackageId, existingEntry) in registry.Extensions)
             {
                 if (string.Equals(existingPackageId, packageId, StringComparison.OrdinalIgnoreCase))
@@ -87,23 +98,54 @@ public static class ExtensionAddPlanner
                     if (string.Equals(existingContribution.Verb, leafVerb, StringComparison.OrdinalIgnoreCase) &&
                         string.Equals(existingContribution.Path, leafPath, StringComparison.OrdinalIgnoreCase))
                     {
-                        throw CirrusErrorException.LeafConflict(
-                            $"Extension '{packageId}' wants to contribute leaf '{leafKey}', but it is already " +
-                            $"owned by '{existingPackageId}'. Remove the existing extension first: " +
-                            $"azv2 extension remove {existingPackageId}",
-                            new Dictionary<string, object?>
-                            {
-                                ["packageId"] = packageId,
-                                ["leafKey"] = leafKey,
-                                ["verb"] = leafVerb,
-                                ["path"] = leafPath,
-                                ["existingPackageId"] = existingPackageId,
-                            });
+                        collidingExistingPackageId = existingPackageId;
+                        break;
                     }
                 }
+                if (collidingExistingPackageId is not null) { break; }
+            }
+
+            if (collidingExistingPackageId is not null)
+            {
+                registryConflicts.Add(new Dictionary<string, object?>
+                {
+                    ["leafKey"] = leafKey,
+                    ["verb"] = leafVerb,
+                    ["path"] = leafPath,
+                    ["existingPackageId"] = collidingExistingPackageId,
+                });
+                // Skip adding this leaf to `contributions` — it's a duplicate that the throw
+                // below will reject. Prevents `contributions` from carrying a row that would
+                // never be persisted.
+                continue;
             }
 
             contributions.Add(new Contribution { Verb = leafVerb, Path = leafPath });
+        }
+
+        if (registryConflicts.Count > 0)
+        {
+            // Stable, human-friendly summary: one line for the count, then a bullet per
+            // collision. Keeps the message useful in plain-text terminals; the structured
+            // `conflicts` array under `details` is what programmatic callers should consume.
+            var summary = registryConflicts.Count == 1
+                ? $"Extension '{packageId}' has 1 leaf conflict with already-installed extensions."
+                : $"Extension '{packageId}' has {registryConflicts.Count} leaf conflicts with already-installed extensions.";
+            var lines = new List<string> { summary };
+            foreach (var c in registryConflicts)
+            {
+                lines.Add($"  - leaf '{c["leafKey"]}' is already owned by '{c["existingPackageId"]}'");
+            }
+            lines.Add("Remove the conflicting extension(s) first or rename the offending leaves.");
+
+            throw CirrusErrorException.LeafConflict(
+                string.Join("\n", lines),
+                new Dictionary<string, object?>
+                {
+                    ["packageId"] = packageId,
+                    ["conflictCount"] = registryConflicts.Count,
+                    ["conflicts"] = registryConflicts,
+                });
         }
 
         return contributions;

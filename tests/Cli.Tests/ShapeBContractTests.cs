@@ -108,9 +108,93 @@ public sealed class ShapeBContractTests : IDisposable
         Assert.Equal(3, ex.ExitCode);
         Assert.Contains("sharedverb alpha", ex.Message);
         Assert.Contains("Cirrus.Tests.Fixtures.SharedAlpha", ex.Message);
+
+        // Phase 10 #41: details payload carries the structured conflict array, not just a
+        // single-row dictionary. Even with one conflict the shape is the same.
+        Assert.NotNull(ex.Details);
+        Assert.Equal(1, Assert.IsType<int>(ex.Details!["conflictCount"]));
+        var conflicts = Assert.IsAssignableFrom<IEnumerable<IReadOnlyDictionary<string, object?>>>(ex.Details["conflicts"]);
+        var only = Assert.Single(conflicts);
+        Assert.Equal("sharedverb alpha", only["leafKey"]);
+        Assert.Equal("sharedverb", only["verb"]);
+        Assert.Equal("alpha", only["path"]);
+        Assert.Equal("Cirrus.Tests.Fixtures.SharedAlpha", only["existingPackageId"]);
+
         // Registry was not mutated by the planner (planner is pure; production caller commits).
         Assert.Single(registry.Extensions);
         Assert.True(registry.Extensions.ContainsKey("Cirrus.Tests.Fixtures.SharedAlpha"));
+    }
+
+    [Fact]
+    public void PlanContributions_MultipleCollisions_AreEnumeratedInOneThrow()
+    {
+        // Phase 10 #41: stack-aware enumeration. A candidate that would collide on N leaves
+        // must surface all N rows in a single throw, not abort on the first. Hand-roll the
+        // candidate's leaf set (so the test isn't bound to a fixture's specific contributions)
+        // and pre-populate the registry with two different already-installed packages owning
+        // the colliding tuples.
+        var registry = new ExtensionRegistry();
+        registry.Extensions["Existing.A"] = new ExtensionRegistryEntry
+        {
+            Verb = "sharedverb",
+            Version = "1.0.0",
+            Contributions = new List<Contribution>
+            {
+                new() { Verb = "sharedverb", Path = "alpha" },
+                new() { Verb = "sharedverb", Path = "gamma" },
+            },
+        };
+        registry.Extensions["Existing.B"] = new ExtensionRegistryEntry
+        {
+            Verb = "sharedverb",
+            Version = "1.0.0",
+            Contributions = new List<Contribution>
+            {
+                new() { Verb = "sharedverb", Path = "beta" },
+            },
+        };
+
+        // Candidate claims four leaves: three collide (alpha → A, beta → B, gamma → A);
+        // `delta` is fresh so we know `contributions` would have included it had the planner
+        // not bailed. The order in the throw must follow leaf-key iteration order.
+        var candidateLeaves = new[]
+        {
+            "sharedverb alpha",
+            "sharedverb beta",
+            "sharedverb delta",
+            "sharedverb gamma",
+        };
+
+        var ex = Assert.Throws<CirrusErrorException>(() =>
+            ExtensionAddPlanner.PlanContributions(
+                "Candidate.Pkg",
+                new[] { "sharedverb" },
+                candidateLeaves,
+                registry));
+
+        Assert.Equal("LeafConflict", ex.Code);
+        Assert.NotNull(ex.Details);
+        Assert.Equal(3, Assert.IsType<int>(ex.Details!["conflictCount"]));
+        Assert.Contains("3 leaf conflicts", ex.Message);
+
+        var conflicts = Assert
+            .IsAssignableFrom<IEnumerable<IReadOnlyDictionary<string, object?>>>(ex.Details["conflicts"])
+            .ToArray();
+        Assert.Equal(3, conflicts.Length);
+
+        // Order matches candidate leaf iteration: alpha, beta, gamma (delta is non-conflicting
+        // and never appears in the array).
+        Assert.Equal("sharedverb alpha", conflicts[0]["leafKey"]);
+        Assert.Equal("Existing.A", conflicts[0]["existingPackageId"]);
+        Assert.Equal("sharedverb beta", conflicts[1]["leafKey"]);
+        Assert.Equal("Existing.B", conflicts[1]["existingPackageId"]);
+        Assert.Equal("sharedverb gamma", conflicts[2]["leafKey"]);
+        Assert.Equal("Existing.A", conflicts[2]["existingPackageId"]);
+
+        // Human-readable summary mentions every colliding leaf.
+        Assert.Contains("sharedverb alpha", ex.Message);
+        Assert.Contains("sharedverb beta", ex.Message);
+        Assert.Contains("sharedverb gamma", ex.Message);
     }
 
     [Fact]

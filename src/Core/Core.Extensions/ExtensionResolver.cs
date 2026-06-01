@@ -9,8 +9,12 @@ namespace Core.Extensions
     /// <param name="Verb">The verb that was matched (preserves the seed/registry casing).</param>
     /// <param name="PackageId">Full extension package id (e.g. <c>Microsoft.Azure.Cirrus.Extensions.Compute</c>).</param>
     /// <param name="Version">Installed version. <c>null</c> for built-ins, which ship with the host.</param>
-    /// <param name="IsBuiltIn">True if the verb is satisfied by the built-in seed.</param>
-    public sealed record ResolvedExtension(string Verb, string PackageId, string? Version, bool IsBuiltIn);
+    /// <remarks>
+    /// Built-in vs. installed is implicit: a verb is built-in iff <see cref="BuiltInExtensions.IsBuiltInVerb"/>
+    /// returns true for <c>Verb</c>. The previous <c>IsBuiltIn</c> field had no readers and was
+    /// dropped in Phase 10 #41.
+    /// </remarks>
+    public sealed record ResolvedExtension(string Verb, string PackageId, string? Version);
 
     /// <summary>
     /// Resolves a top-level CLI verb (e.g. <c>"vm"</c>) to the extension that should handle it.
@@ -68,7 +72,7 @@ namespace Core.Extensions
             // Built-ins win on conflict (defensive — extension add must refuse colliding verbs).
             if (_builtIns.TryGetValue(verb, out var builtIn))
             {
-                resolved = new ResolvedExtension(builtIn.Verb, builtIn.PackageId, Version: null, IsBuiltIn: true);
+                resolved = new ResolvedExtension(builtIn.Verb, builtIn.PackageId, Version: null);
                 return true;
             }
 
@@ -88,7 +92,7 @@ namespace Core.Extensions
                 {
                     if (string.Equals(entryVerb, verb, StringComparison.OrdinalIgnoreCase))
                     {
-                        resolved = new ResolvedExtension(entryVerb, packageId, entry.Version, IsBuiltIn: false);
+                        resolved = new ResolvedExtension(entryVerb, packageId, entry.Version);
                         return true;
                     }
                 }

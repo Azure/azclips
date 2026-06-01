@@ -20,8 +20,7 @@ namespace Core.Extensions.Tests
 
             Assert.True(index.TryGet("login", "", out var login));
             Assert.NotNull(login);
-            Assert.True(login!.IsBuiltIn);
-            Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Login", login.PackageId);
+            Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Login", login!.PackageId);
 
             Assert.True(index.TryGet("config", "", out _));
             Assert.False(index.TryGet("vm", "", out _));
@@ -56,8 +55,8 @@ namespace Core.Extensions.Tests
 
             Assert.Equal(3, index.Entries.Count);
             Assert.True(index.TryGet("vm", "create", out var vmCreate));
-            Assert.False(vmCreate!.IsBuiltIn);
-            Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Compute", vmCreate.PackageId);
+            Assert.NotNull(vmCreate);
+            Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Compute", vmCreate!.PackageId);
             Assert.True(index.TryGet("disk", "attach", out _));
         }
 
