@@ -1,6 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -114,44 +115,90 @@ namespace Core.Extensions
 
         private static ExtensionHintTable LoadFromEmbeddedResource()
         {
+            // First pass: scan already-loaded assemblies (cheap, covers the common host runtime
+            // case where Core.Cli has been JIT-touched by the dispatcher).
             foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
-                Stream? stream;
+                if (TryLoadFromAssembly(assembly, out var inMemory))
+                {
+                    return inMemory;
+                }
+            }
+
+            string baseDir;
+            try
+            {
+                baseDir = AppContext.BaseDirectory;
+            }
+            catch
+            {
+                return new ExtensionHintTable();
+            }
+
+            if (!Directory.Exists(baseDir))
+            {
+                return new ExtensionHintTable();
+            }
+
+            foreach (var dll in Directory.EnumerateFiles(baseDir, "*.dll", SearchOption.TopDirectoryOnly).OrderBy(p => p, StringComparer.Ordinal))
+            {
+                Assembly probed;
                 try
                 {
-                    stream = assembly.GetManifestResourceStream("extension-hints.json");
+                    probed = Assembly.LoadFrom(dll);
                 }
                 catch
                 {
                     continue;
                 }
 
-                if (stream is null)
+                if (TryLoadFromAssembly(probed, out var fromDisk))
                 {
-                    continue;
-                }
-
-                using (stream)
-                {
-                    try
-                    {
-                        var table = JsonSerializer.Deserialize<ExtensionHintTable>(stream);
-                        if (table is not null)
-                        {
-                            // Rebuild with case-insensitive comparer; System.Text.Json doesn't
-                            // honor the comparer specified on the property default.
-                            table.Leaves = new Dictionary<string, ExtensionHint>(table.Leaves, StringComparer.OrdinalIgnoreCase);
-                            return table;
-                        }
-                    }
-                    catch (JsonException)
-                    {
-                        // Malformed resource; fall through to empty table.
-                    }
+                    return fromDisk;
                 }
             }
 
             return new ExtensionHintTable();
+        }
+
+        private static bool TryLoadFromAssembly(Assembly assembly, out ExtensionHintTable table)
+        {
+            table = null!;
+            Stream? stream;
+            try
+            {
+                stream = assembly.GetManifestResourceStream("extension-hints.json");
+            }
+            catch
+            {
+                return false;
+            }
+
+            if (stream is null)
+            {
+                return false;
+            }
+
+            using (stream)
+            {
+                try
+                {
+                    var parsed = JsonSerializer.Deserialize<ExtensionHintTable>(stream);
+                    if (parsed is not null)
+                    {
+                        // Rebuild with case-insensitive comparer; System.Text.Json doesn't
+                        // honor the comparer specified on the property default.
+                        parsed.Leaves = new Dictionary<string, ExtensionHint>(parsed.Leaves, StringComparer.OrdinalIgnoreCase);
+                        table = parsed;
+                        return true;
+                    }
+                }
+                catch (JsonException)
+                {
+                    // Malformed resource; fall through to empty table.
+                }
+            }
+            return false;
         }
     }
 }
