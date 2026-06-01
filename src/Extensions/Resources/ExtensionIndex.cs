@@ -32,7 +32,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"] = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["Name"]           = new("Name", typeof(string), "The name of the resource group.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Name"]           = new("Name", typeof(string), "The name of the resource group.", IsRequired: true, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -73,7 +73,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"] = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["name"]            = new("Name", typeof(string), "The name of the resource group.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["name"]            = new("Name", typeof(string), "The name of the resource group.", IsRequired: true, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );

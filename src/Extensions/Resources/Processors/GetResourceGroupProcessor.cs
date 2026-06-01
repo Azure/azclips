@@ -7,7 +7,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
     public class GetResourceGroupProcessor : ResourcesProcessorBase<ResourceGroup>
     {
         [ArgumentInfo(
-        Required = false,
+        Required = true,
         Description = @"The name of the resource group.",
         SerializedName = @"Name")]
         public string? Name { get; set; }

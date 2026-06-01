@@ -62,6 +62,13 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                     using HttpResponseMessage nextResponse = await HttpPipeline.SendAsync(nextRequest, Publisher);
                     await Publisher.Publish(Events.TracingHttpResponseMessage, nextResponse);
                     page = await DeserializePageOrNull(nextResponse);
+
+                    if (page is null)
+                    {
+                        // A nextLink page with no usable body would silently truncate the result
+                        // set. Fail fast rather than returning a partial list that looks complete.
+                        throw new InvalidOperationException($"Pagination returned no usable body for a nextLink page, which would truncate results: {nextUri}");
+                    }
                 }
 
                 await WriteOutput(items.ToArray());
