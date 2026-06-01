@@ -91,7 +91,7 @@ stages:
   condition: succeeded()
   jobs:
   - job: BuildLinuxOutput
-    displayName: Build Linux tarball output ($(Rid))
+    displayName: Build Linux tarball output
     timeoutInMinutes: 60
     strategy:
       matrix:
@@ -137,7 +137,7 @@ stages:
   condition: succeeded()
   jobs:
   - job: BuildWindowsOutput
-    displayName: Build Windows zip output ($(Rid))
+    displayName: Build Windows zip output
     timeoutInMinutes: 60
     strategy:
       matrix:
@@ -191,7 +191,7 @@ stages:
   condition: succeeded()
   jobs:
   - job: BuildMacOSOutput
-    displayName: Build macOS tarball output ($(Rid))
+    displayName: Build macOS tarball output
     timeoutInMinutes: 60
     strategy:
       matrix:
@@ -237,7 +237,7 @@ stages:
   condition: succeeded()
   jobs:
   - job: LinuxValidation
-    displayName: Linux bundled plus optional extension validation ($(Rid))
+    displayName: Linux bundled plus optional extension validation
     timeoutInMinutes: 45
     strategy:
       matrix:
@@ -284,7 +284,7 @@ stages:
   condition: succeeded()
   jobs:
   - job: WindowsValidation
-    displayName: Windows bundled plus optional extension validation ($(Rid))
+    displayName: Windows bundled plus optional extension validation
     timeoutInMinutes: 45
     strategy:
       matrix:
@@ -334,7 +334,7 @@ stages:
   condition: succeeded()
   jobs:
   - job: MacOSValidation
-    displayName: macOS bundled plus optional extension validation ($(Rid))
+    displayName: macOS bundled plus optional extension validation
     timeoutInMinutes: 45
     strategy:
       matrix:
