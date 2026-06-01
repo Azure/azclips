@@ -96,11 +96,20 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
         /// Throws if neither has a value. Idempotent. Called automatically before any HTTP transport.
         /// </summary>
         /// TODO: update processor context to accept tenantId and subscriptionId instead of auth context
-        protected void ResolveSubscriptionId() =>
-            SubscriptionId = !string.IsNullOrEmpty(SubscriptionId)
-                ? SubscriptionId
-                : AuthContext.SubscriptionId
-                  ?? throw new InvalidOperationException("SubscriptionId must be provided either via property or auth context.");
+        protected void ResolveSubscriptionId()
+        {
+            if (!string.IsNullOrEmpty(SubscriptionId))
+            {
+                return;
+            }
+
+            if (string.IsNullOrEmpty(AuthContext.SubscriptionId))
+            {
+                throw new InvalidOperationException("SubscriptionId must be provided either via property or auth context.");
+            }
+
+            SubscriptionId = AuthContext.SubscriptionId;
+        }
 
         internal override Task<HttpResponseMessage> SendAsync()
         {
