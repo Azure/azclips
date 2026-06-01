@@ -80,8 +80,12 @@ public class AddExtensionProcessor : IProcessor
         string installPath;
         if (!string.IsNullOrWhiteSpace(Name))
         {
+            // Phase 10 #34: resolve --name through ResolvePackageId so a verb (e.g. "vm") works
+            // symmetrically with the dispatcher's unknown-verb suggestion. Falls through to the
+            // legacy prefix-strip when no hint matches; full package ids passthrough untouched.
+            var resolvedPackageId = ResolvePackageId(Name!, ExtensionHintTable.Default);
             installPath = installer.InstallExtensionAsync(
-                $"Microsoft.Azure.Cirrus.Extensions.{Name}",
+                resolvedPackageId,
                 Version,
                 includePrerelease: true,
                 includeUnlisted: false,
@@ -312,6 +316,43 @@ public class AddExtensionProcessor : IProcessor
                 $"Installed path '{installPath}' does not match the expected '{{installRoot}}/{{packageId}}/{{version}}' layout.");
         }
         return (parts[0], parts[1]);
+    }
+
+    /// <summary>
+    /// Phase 10 #34: resolve the user-supplied <c>--name</c> token to a NuGet package id, in this
+    /// order:
+    /// <list type="number">
+    ///   <item>If the token contains a dot, treat it as a fully-qualified package id and pass it
+    ///         through unchanged (e.g. <c>Contoso.Foo</c>, <c>Microsoft.Azure.Cirrus.Extensions.Compute</c>).</item>
+    ///   <item>If the token matches a verb in the embedded <see cref="ExtensionHintTable"/>, use
+    ///         the package id that owns that verb. This is the symmetry path: the dispatcher's
+    ///         unknown-verb message says "install with `azv2 extension add --name &lt;verb&gt;`",
+    ///         so the install command must accept the verb directly.</item>
+    ///   <item>Otherwise fall back to the legacy <c>Microsoft.Azure.Cirrus.Extensions.{name}</c>
+    ///         prefix-strip convention for first-party short names (e.g. <c>Resources</c>,
+    ///         <c>Compute</c>).</item>
+    /// </list>
+    /// </summary>
+    public static string ResolvePackageId(string name, ExtensionHintTable hints)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentNullException.ThrowIfNull(hints);
+
+        // (1) Dotted token => already a package id. Don't second-guess the user; this also lets
+        // third-party extensions (Contoso.Foo) install via --name without a hint entry.
+        if (name.Contains('.'))
+        {
+            return name;
+        }
+
+        // (2) Hint catalog lookup as a bare verb. Case-insensitive (the table comparer is OIC).
+        if (hints.TryGetPackageId(name, out var hinted))
+        {
+            return hinted;
+        }
+
+        // (3) First-party prefix-strip fallback.
+        return $"Microsoft.Azure.Cirrus.Extensions.{name}";
     }
 
     private static void PurgeSiblingVersions(string installRoot, string packageId, string keepVersion)
