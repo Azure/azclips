@@ -15,9 +15,9 @@ parameters:
 - name: source_build_id
   displayName: 'Source build id'
   type: string
-  default: '320152'
+  default: '320168'
 - name: distribution_version
-  displayName: 'Distribution version (optional override)'
+  displayName: 'Distribution version'
   type: string
   default: '0.1.0-alpha'
 
@@ -81,6 +81,11 @@ stages:
           exit 1
         fi
 
+        if [[ -z "${{ parameters.distribution_version }}" ]]; then
+          echo "ERROR: distribution_version is required"
+          exit 1
+        fi
+
         source_build_id="${{ parameters.source_build_id }}"
         source_pipeline_definition_id="${{ parameters.source_pipeline_definition_id }}"
 
@@ -98,21 +103,6 @@ stages:
         core_distribution_version="${{ parameters.distribution_version }}"
         core_distribution_version="${core_distribution_version## }"
         core_distribution_version="${core_distribution_version%% }"
-
-        if [[ -z "$core_distribution_version" ]]; then
-          mapfile -t dist_archives < <(printf '%s\n' "${assets[@]}" | grep -E '\.(tar\.gz|zip)$' || true)
-          for archive in "${dist_archives[@]}"; do
-            base_archive="$(basename "$archive")"
-            if [[ "$base_archive" =~ -([0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?)\.(tar\.gz|zip)$ ]]; then
-              core_distribution_version="${BASH_REMATCH[1]}"
-              break
-            fi
-          done
-        fi
-
-        if [[ -z "$core_distribution_version" ]]; then
-          core_distribution_version="unknown"
-        fi
 
         mapfile -t nupkgs < <(printf '%s\n' "${assets[@]}" | grep -E '\.nupkg$' || true)
 
