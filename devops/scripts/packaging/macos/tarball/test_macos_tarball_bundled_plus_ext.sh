@@ -67,6 +67,31 @@ fi
 
 chmod +x "$AZV2"
 
+# Hosted macOS pools are often x86_64. When validating an osx-arm64 build there,
+# keep layout checks but skip runtime execution to avoid false failures.
+HOST_ARCH="$(uname -m)"
+BIN_INFO="$(file "$AZV2" 2>/dev/null || true)"
+if [[ -n "$BIN_INFO" ]]; then
+  echo "Binary info: $BIN_INFO"
+fi
+
+is_runnable=true
+if [[ "$HOST_ARCH" == "arm64" ]]; then
+  if [[ "$BIN_INFO" != *"arm64"* && "$BIN_INFO" != *"universal"* ]]; then
+    is_runnable=false
+  fi
+elif [[ "$HOST_ARCH" == "x86_64" ]]; then
+  if [[ "$BIN_INFO" != *"x86_64"* && "$BIN_INFO" != *"universal"* ]]; then
+    is_runnable=false
+  fi
+fi
+
+if [[ "$is_runnable" != "true" ]]; then
+  echo "NOTE: Host architecture '$HOST_ARCH' is not compatible with extracted binary."
+  echo "NOTE: Skipping runtime execution checks; package layout validation already passed."
+  exit 0
+fi
+
 echo ""
 echo "[1/4] CLI help (bundled install)"
 HOME="$SIM_ROOT/home" "$AZV2" --help 2>&1 | head -n 20 || true
