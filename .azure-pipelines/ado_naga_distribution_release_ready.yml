@@ -170,11 +170,11 @@ stages:
         packageType: sdk
         useGlobalJson: true
 
-    - script: |
+    - bash: |
         set -euo pipefail
         if ! command -v zip >/dev/null 2>&1; then
-          sudo apt-get update
-          sudo apt-get install -y zip
+          echo "zip command not found on PATH"
+          exit 1
         fi
       displayName: Ensure zip is available
 
@@ -184,7 +184,7 @@ stages:
         artifact: Distribution_Common
         path: $(PackagingCommonOutRoot)
 
-    - script: |
+    - bash: |
         set -euo pipefail
         chmod +x "$(PackagingScriptsRoot)/windows/zip/build_win_zip.sh"
         OUT_ROOT="$(PackagingWindowsOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" RID="$(Rid)" CLI_WIN_ZIP_PATH="$(CliZipPath)" "$(PackagingScriptsRoot)/windows/zip/build_win_zip.sh"
@@ -211,12 +211,12 @@ stages:
           Rid: osx-arm64
           CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-arm64.tar.gz
           DistributionArtifact: Distribution_MacOS
-          VmImage: $(macos_arm64_pool)
+          VmImage: macOS-15-arm64
         osx_x64:
           Rid: osx-x64
           CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-x64.tar.gz
           DistributionArtifact: Distribution_MacOS_Intel
-          VmImage: $(macos_intel_pool)
+          VmImage: macOS-15
     pool:
       vmImage: $(VmImage)
     steps:
@@ -299,7 +299,7 @@ stages:
       condition: always()
       inputs:
         targetPath: $(Build.SourcesDirectory)/devops/sim/linux-tarball-bundled-plus-ext
-        artifact: Validate_Linux_Sim
+        artifact: Validate_Linux_Sim_$(Rid)
         publishLocation: pipeline
 
 - stage: ValidateWindows
@@ -361,7 +361,7 @@ stages:
       condition: always()
       inputs:
         targetPath: $(Build.SourcesDirectory)/devops/sim/win-zip-bundled-plus-ext
-        artifact: Validate_Windows_Sim
+        artifact: Validate_Windows_Sim_$(Rid)
         publishLocation: pipeline
 
 - stage: ValidateMacOS
@@ -378,12 +378,12 @@ stages:
           Rid: osx-arm64
           CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-arm64.tar.gz
           DistributionArtifact: Distribution_MacOS
-          VmImage: $(macos_arm64_pool)
+          VmImage: macOS-15-arm64
         osx_x64:
           Rid: osx-x64
           CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-x64.tar.gz
           DistributionArtifact: Distribution_MacOS_Intel
-          VmImage: $(macos_intel_pool)
+          VmImage: macOS-15
     pool:
       vmImage: $(VmImage)
     steps:
@@ -414,7 +414,7 @@ stages:
       condition: always()
       inputs:
         targetPath: $(Build.SourcesDirectory)/devops/sim/macos-tarball-bundled-plus-ext
-        artifact: Validate_MacOS_Sim
+        artifact: Validate_MacOS_Sim_$(Rid)
         publishLocation: pipeline
 
 - stage: Finalize
