@@ -608,7 +608,7 @@ Phases 1–9 complete; Phase 10 in progress.
 ### Phase 10 — Polish (in progress)
 
 31. ✅ `extension list --by-verb` rendering (uses the `namespaces` field; output shape per §4.5). Multi-namespace extensions appear under each verb they contribute to.
-32. ⏳ Telemetry: `contributionCount` dimension on install/remove events.
+32. ✅ **Telemetry dimensions on extension activities.** `Add` / `Update` / `Remove` activities are tagged with five OTEL-shaped attributes: `extension.package_id`, `extension.version`, `extension.source` (feed URL or `"path"` sentinel), `extension.namespace_count`, `extension.contribution_count`. Tags are set as soon as each value becomes known, so failed installs (e.g. mid-iteration `LeafConflict`) still carry whatever was determined before the throw — including the *attempted* contribution count read from `s_cliTable`. Sideloaded (`--path`) installs are distinguishable from feed installs in the data. **PII note:** package id + version are PII-safe for first-party feeds; revisit before enabling third-party feeds.
 33. ⏳ Update [extension-framework.md](./extension-framework.md) to point at this doc for the dispatch model.
 34. ⏳ **Symmetric `extension add --name`.** Make `add --name` also accept a verb by consulting `extension-hints.json` before the prefix-strip fallback. Keep `--path` unchanged.
 35. ⏳ **Smarter `ExtensionNotFound` hint.** When no NuGet feed is configured, surface the local `artifacts/Debug/<pkg>/<pkg>.<version>.nupkg` path as the `--path` suggestion instead of `--name`. Closes the dev-loop gap where `--name` silently fails.

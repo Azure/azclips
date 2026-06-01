@@ -66,7 +66,15 @@ public class AddExtensionProcessor : IProcessor
 
         var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
         var loggingService = CirrusServiceProvider.GetRequiredService<ILoggingService>();
-        using var _ = telemetryService.ActivitySource?.StartActivity($"{nameof(AddExtensionProcessor)}.{nameof(Process)}");
+        using var activity = telemetryService.ActivitySource?.StartActivity($"{nameof(AddExtensionProcessor)}.{nameof(Process)}");
+
+        // Phase 10 #32: tag the activity with extension-shaped dimensions as soon as each value
+        // becomes known so failed installs still carry whatever was determined before the throw
+        // (e.g. a LeafConflict mid-iteration carries package_id/version/namespace_count and the
+        // *attempted* contribution_count). OTEL semantic convention: dotted namespace, snake_case
+        // attribute names. `extension.source` distinguishes feed installs from local-path side-
+        // loads ("path" sentinel) for dev-loop vs production install ratio.
+        activity?.SetTag("extension.source", FeedUrl ?? "path");
 
         var installer = new ExtensionInstaller(loggingService, feedUrl: FeedUrl);
         string installPath;
@@ -88,6 +96,8 @@ public class AddExtensionProcessor : IProcessor
         // Recover packageId and version from the install path.
         // Layout (set by ExtensionInstaller.InitializeExtensionFolder): {InstallPath}/{packageId}/{version}/
         var (packageId, version) = ParseInstallPath(installer.InstallPath, installPath);
+        activity?.SetTag("extension.package_id", packageId);
+        activity?.SetTag("extension.version", version);
 
         try
         {
@@ -103,6 +113,7 @@ public class AddExtensionProcessor : IProcessor
                     $"Cirrus extensions must declare at least one top-level verb.",
                     new Dictionary<string, object?> { ["packageId"] = packageId });
             }
+            activity?.SetTag("extension.namespace_count", verbs.Count);
 
             // First declared verb is the canonical "primary" for the v1 `verb` field; readers that
             // pre-date the multi-namespace model continue to see something sensible.
@@ -136,6 +147,7 @@ public class AddExtensionProcessor : IProcessor
             // catches the cross-namespace case where two extensions share a verb but contribute
             // different paths (allowed) vs. the same path (rejected).
             var leafKeys = LeafReader.ReadCliLeafKeys(installPath);
+            activity?.SetTag("extension.contribution_count", leafKeys.Count);
             var contributions = new List<Contribution>();
             foreach (var leafKey in leafKeys)
             {

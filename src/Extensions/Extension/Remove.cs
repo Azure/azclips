@@ -36,7 +36,7 @@ public class RemoveExtensionProcessor : IProcessor
 
         var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
         var loggingService = CirrusServiceProvider.GetRequiredService<ILoggingService>();
-        using var _ = telemetryService.ActivitySource?.StartActivity($"{nameof(RemoveExtensionProcessor)}.{nameof(Process)}");
+        using var activity = telemetryService.ActivitySource?.StartActivity($"{nameof(RemoveExtensionProcessor)}.{nameof(Process)}");
 
         // Per spec Q7: built-in verbs are not removable. They aren't in the registry, but the user
         // might still type `extension remove vm` expecting it to work — give a clear error.
@@ -65,6 +65,16 @@ public class RemoveExtensionProcessor : IProcessor
 
         var packageId = match.Key;
         var entry = match.Value;
+
+        // Phase 10 #32: tag the activity with extension-shaped dimensions describing what's about
+        // to be removed. Source/version are best-effort (older v1 entries may have null Source).
+        // namespace_count uses the v2 Namespaces list and falls back to the legacy single Verb.
+        activity?.SetTag("extension.package_id", packageId);
+        activity?.SetTag("extension.version", entry.Version);
+        activity?.SetTag("extension.source", entry.Source ?? "path");
+        activity?.SetTag("extension.namespace_count",
+            entry.Namespaces.Count > 0 ? entry.Namespaces.Count : (entry.Verb is null ? 0 : 1));
+        activity?.SetTag("extension.contribution_count", entry.Contributions.Count);
 
         // Per Q6 strict single-version: there's at most one version on disk, but we always wipe
         // the whole package directory to be safe.

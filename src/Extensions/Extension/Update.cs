@@ -54,7 +54,7 @@ public class UpdateExtensionProcessor : IProcessor
 
         var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
         var loggingService = CirrusServiceProvider.GetRequiredService<ILoggingService>();
-        using var _ = telemetryService.ActivitySource?.StartActivity($"{nameof(UpdateExtensionProcessor)}.{nameof(Process)}");
+        using var activity = telemetryService.ActivitySource?.StartActivity($"{nameof(UpdateExtensionProcessor)}.{nameof(Process)}");
 
         var store = new FileExtensionRegistryStore();
         var registry = store.Load();
@@ -74,6 +74,14 @@ public class UpdateExtensionProcessor : IProcessor
 
         var packageId = match.Key;
         var existing = match.Value;
+
+        // Phase 10 #32: tag the activity early with what's known up-front (package id + the
+        // *previous* installed version + source). The post-install reads below refresh the
+        // version/namespace/contribution tags to reflect the new payload, so failed updates
+        // carry the previous-version snapshot and successful updates carry the new shape.
+        activity?.SetTag("extension.package_id", packageId);
+        activity?.SetTag("extension.version", existing.Version);
+        activity?.SetTag("extension.source", (FeedUrl ?? existing.Source) ?? "path");
 
         // Per spec Q5: pinning blocks update unless --force is passed.
         if (existing.Pinned && !Force)
@@ -105,6 +113,7 @@ public class UpdateExtensionProcessor : IProcessor
                     $"Updated package '{packageId}' does not declare an [ExtensionVerb] attribute.",
                     new Dictionary<string, object?> { ["packageId"] = packageId });
             }
+            activity?.SetTag("extension.namespace_count", verbs.Count);
 
             // The set of namespaces the previously installed version owned. Prefer the v2
             // Namespaces list; fall back to the legacy single Verb field for entries that pre-date
@@ -136,12 +145,14 @@ public class UpdateExtensionProcessor : IProcessor
 
             // Recover the resolved version from the install path layout: {root}/{pkgId}/{version}/
             var resolvedVersion = new DirectoryInfo(installPath).Name;
+            activity?.SetTag("extension.version", resolvedVersion);
 
             // Shape B (§11.7): re-read the candidate's leaves and persist them. Cross-package leaf
             // conflicts are impossible by definition during an update of an existing package, but
             // a self-update can change the set of contributed leaves (e.g., adding a new sub-leaf
             // in a new minor version) so we still need to refresh Contributions on disk.
             var leafKeys = LeafReader.ReadCliLeafKeys(installPath);
+            activity?.SetTag("extension.contribution_count", leafKeys.Count);
             var contributions = new List<Contribution>();
             foreach (var leafKey in leafKeys)
             {
