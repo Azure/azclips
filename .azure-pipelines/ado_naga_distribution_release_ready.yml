@@ -3,7 +3,14 @@ name: dist_release_ready_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
 trigger: none
 pr: none
 
+parameters:
+- name: artifact_version
+  displayName: 'Artifact version suffix'
+  type: string
+  default: '0.1.0-alpha'
+
 variables:
+  ArtifactVersion: ${{ parameters.artifact_version }}
   PackagingScriptsRoot: $(Build.SourcesDirectory)/devops/scripts/packaging
   PackagingOutRoot: $(Build.SourcesDirectory)/devops/out
   PackagingCommonOutRoot: $(PackagingOutRoot)/common
@@ -100,22 +107,22 @@ stages:
           Rid: linux-x64
           BuildProfile: lean
           DistributionArtifact: Distribution_Linux_Lean
-          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-lean-linux-x64.tar.gz
+          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-lean-linux-x64-$(ArtifactVersion).tar.gz
         linux_arm64_lean:
           Rid: linux-arm64
           BuildProfile: lean
           DistributionArtifact: Distribution_Linux_Arm64_Lean
-          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-lean-linux-arm64.tar.gz
+          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-lean-linux-arm64-$(ArtifactVersion).tar.gz
         linux_x64_full:
           Rid: linux-x64
           BuildProfile: full
           DistributionArtifact: Distribution_Linux_Full
-          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-linux-x64.tar.gz
+          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-linux-x64-$(ArtifactVersion).tar.gz
         linux_arm64_full:
           Rid: linux-arm64
           BuildProfile: full
           DistributionArtifact: Distribution_Linux_Arm64_Full
-          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-linux-arm64.tar.gz
+          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-linux-arm64-$(ArtifactVersion).tar.gz
     pool:
       vmImage: $(ubuntu_pool)
     steps:
@@ -162,22 +169,22 @@ stages:
           Rid: win-x64
           BuildProfile: lean
           DistributionArtifact: Distribution_Windows_Lean
-          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-lean-win-x64.zip
+          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-lean-win-x64-$(ArtifactVersion).zip
         win_arm64_lean:
           Rid: win-arm64
           BuildProfile: lean
           DistributionArtifact: Distribution_Windows_Arm64_Lean
-          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-lean-win-arm64.zip
+          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-lean-win-arm64-$(ArtifactVersion).zip
         win_x64_full:
           Rid: win-x64
           BuildProfile: full
           DistributionArtifact: Distribution_Windows_Full
-          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-win-x64.zip
+          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-win-x64-$(ArtifactVersion).zip
         win_arm64_full:
           Rid: win-arm64
           BuildProfile: full
           DistributionArtifact: Distribution_Windows_Arm64_Full
-          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-win-arm64.zip
+          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-win-arm64-$(ArtifactVersion).zip
     pool:
       vmImage: $(windows_pool)
     steps:
@@ -229,25 +236,25 @@ stages:
           BuildProfile: lean
           DistributionArtifact: Distribution_MacOS_Lean
           VmImage: macOS-15-arm64
-          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-lean-osx-arm64.tar.gz
+          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-lean-osx-arm64-$(ArtifactVersion).tar.gz
         osx_x64_lean:
           Rid: osx-x64
           BuildProfile: lean
           DistributionArtifact: Distribution_MacOS_Intel_Lean
           VmImage: macOS-15
-          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-lean-osx-x64.tar.gz
+          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-lean-osx-x64-$(ArtifactVersion).tar.gz
         osx_arm64_full:
           Rid: osx-arm64
           BuildProfile: full
           DistributionArtifact: Distribution_MacOS_Full
           VmImage: macOS-15-arm64
-          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-arm64.tar.gz
+          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-arm64-$(ArtifactVersion).tar.gz
         osx_x64_full:
           Rid: osx-x64
           BuildProfile: full
           DistributionArtifact: Distribution_MacOS_Intel_Full
           VmImage: macOS-15
-          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-x64.tar.gz
+          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-x64-$(ArtifactVersion).tar.gz
     pool:
       vmImage: $(VmImage)
     steps:
@@ -294,25 +301,25 @@ stages:
           Rid: linux-x64
           BuildProfile: lean
           DistributionArtifact: Distribution_Linux_Lean
-          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-lean-linux-x64.tar.gz
+          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-lean-linux-x64-$(ArtifactVersion).tar.gz
           SkipRuntime: false
         linux_arm64_lean:
           Rid: linux-arm64
           BuildProfile: lean
           DistributionArtifact: Distribution_Linux_Arm64_Lean
-          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-lean-linux-arm64.tar.gz
+          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-lean-linux-arm64-$(ArtifactVersion).tar.gz
           SkipRuntime: true
         linux_x64_full:
           Rid: linux-x64
           BuildProfile: full
           DistributionArtifact: Distribution_Linux_Full
-          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-linux-x64.tar.gz
+          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-linux-x64-$(ArtifactVersion).tar.gz
           SkipRuntime: false
         linux_arm64_full:
           Rid: linux-arm64
           BuildProfile: full
           DistributionArtifact: Distribution_Linux_Arm64_Full
-          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-linux-arm64.tar.gz
+          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-linux-arm64-$(ArtifactVersion).tar.gz
           SkipRuntime: true
     pool:
       vmImage: $(ubuntu_pool)
@@ -361,25 +368,25 @@ stages:
           Rid: win-x64
           BuildProfile: lean
           DistributionArtifact: Distribution_Windows_Lean
-          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-lean-win-x64.zip
+          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-lean-win-x64-$(ArtifactVersion).zip
           SkipRuntime: false
         win_arm64_lean:
           Rid: win-arm64
           BuildProfile: lean
           DistributionArtifact: Distribution_Windows_Arm64_Lean
-          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-lean-win-arm64.zip
+          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-lean-win-arm64-$(ArtifactVersion).zip
           SkipRuntime: true
         win_x64_full:
           Rid: win-x64
           BuildProfile: full
           DistributionArtifact: Distribution_Windows_Full
-          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-win-x64.zip
+          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-win-x64-$(ArtifactVersion).zip
           SkipRuntime: false
         win_arm64_full:
           Rid: win-arm64
           BuildProfile: full
           DistributionArtifact: Distribution_Windows_Arm64_Full
-          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-win-arm64.zip
+          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-win-arm64-$(ArtifactVersion).zip
           SkipRuntime: true
     pool:
       vmImage: $(windows_pool)
@@ -439,25 +446,25 @@ stages:
           BuildProfile: lean
           DistributionArtifact: Distribution_MacOS_Lean
           VmImage: macOS-15-arm64
-          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-lean-osx-arm64.tar.gz
+          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-lean-osx-arm64-$(ArtifactVersion).tar.gz
         osx_x64_lean:
           Rid: osx-x64
           BuildProfile: lean
           DistributionArtifact: Distribution_MacOS_Intel_Lean
           VmImage: macOS-15
-          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-lean-osx-x64.tar.gz
+          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-lean-osx-x64-$(ArtifactVersion).tar.gz
         osx_arm64_full:
           Rid: osx-arm64
           BuildProfile: full
           DistributionArtifact: Distribution_MacOS_Full
           VmImage: macOS-15-arm64
-          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-arm64.tar.gz
+          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-arm64-$(ArtifactVersion).tar.gz
         osx_x64_full:
           Rid: osx-x64
           BuildProfile: full
           DistributionArtifact: Distribution_MacOS_Intel_Full
           VmImage: macOS-15
-          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-x64.tar.gz
+          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-x64-$(ArtifactVersion).tar.gz
     pool:
       vmImage: $(VmImage)
     steps:

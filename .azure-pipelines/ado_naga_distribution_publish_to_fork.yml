@@ -16,6 +16,10 @@ parameters:
   displayName: 'Source build id'
   type: string
   default: '320152'
+- name: distribution_version
+  displayName: 'Distribution version (optional override)'
+  type: string
+  default: '0.1.0-alpha'
 
 variables:
   ubuntu_pool: 'ubuntu-latest'
@@ -91,12 +95,27 @@ stages:
         echo "Assets to upload (${#assets[@]}):"
         printf '  %s\n' "${assets[@]}"
 
+        core_distribution_version="${{ parameters.distribution_version }}"
+        core_distribution_version="${core_distribution_version## }"
+        core_distribution_version="${core_distribution_version%% }"
+
+        if [[ -z "$core_distribution_version" ]]; then
+          mapfile -t dist_archives < <(printf '%s\n' "${assets[@]}" | grep -E '\.(tar\.gz|zip)$' || true)
+          for archive in "${dist_archives[@]}"; do
+            base_archive="$(basename "$archive")"
+            if [[ "$base_archive" =~ -([0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?)\.(tar\.gz|zip)$ ]]; then
+              core_distribution_version="${BASH_REMATCH[1]}"
+              break
+            fi
+          done
+        fi
+
+        if [[ -z "$core_distribution_version" ]]; then
+          core_distribution_version="unknown"
+        fi
+
         mapfile -t nupkgs < <(printf '%s\n' "${assets[@]}" | grep -E '\.nupkg$' || true)
 
-        declare -A seen_versions=()
-        package_names_csv=""
-        package_versions_csv=""
-        package_count=0
         package_versions_tmp="$(mktemp)"
 
         for pkg in "${nupkgs[@]}"; do
@@ -109,33 +128,13 @@ stages:
             package_version="${BASH_REMATCH[2]}"
           fi
 
-          if [[ -z "$package_names_csv" ]]; then
-            package_names_csv="$package_name"
-            package_versions_csv="$package_version"
-          else
-            package_names_csv="$package_names_csv, $package_name"
-            package_versions_csv="$package_versions_csv, $package_version"
-          fi
-
           package_file_name="$(basename "$pkg")"
           echo "$package_name,$package_version,$package_file_name" >> "$package_versions_tmp"
-
-          seen_versions["$package_version"]=1
-          package_count=$((package_count + 1))
         done
 
-        primary_package_version="unknown"
-        if [[ ${#seen_versions[@]} -eq 1 && $package_count -gt 0 ]]; then
-          for v in "${!seen_versions[@]}"; do
-            primary_package_version="$v"
-          done
-        elif [[ ${#seen_versions[@]} -gt 1 ]]; then
-          primary_package_version="mixed"
-        fi
-
-        safe_version="${primary_package_version//[^0-9A-Za-z._-]/-}"
+        safe_version="${core_distribution_version//[^0-9A-Za-z._-]/-}"
         tag_name="$(GitHubReleasePrefix)-${safe_version}-build-${source_build_id}"
-        release_name="Distribution ${primary_package_version} build ${source_build_id}"
+        release_name="Distribution ${core_distribution_version} build ${source_build_id}"
 
         release_dir="$(Build.ArtifactStagingDirectory)/release"
         rm -rf "$release_dir"
