@@ -19,6 +19,7 @@ variables:
   ubuntu_pool: 'ubuntu-latest'
   windows_pool: 'windows-latest'
   macos_arm64_pool: 'macOS-15-arm64'
+  macos_intel_pool: 'macOS-15'
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
   DOTNET_NOLOGO: 1
   Codeql.Enabled: false
@@ -102,6 +103,10 @@ stages:
           Rid: linux-x64
           CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-linux-x64.tar.gz
           DistributionArtifact: Distribution_Linux
+        linux_arm64:
+          Rid: linux-arm64
+          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-linux-arm64.tar.gz
+          DistributionArtifact: Distribution_Linux_Arm64
     pool:
       vmImage: $(ubuntu_pool)
     steps:
@@ -148,8 +153,12 @@ stages:
           Rid: win-x64
           CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-win-x64.zip
           DistributionArtifact: Distribution_Windows
+        win_arm64:
+          Rid: win-arm64
+          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-win-arm64.zip
+          DistributionArtifact: Distribution_Windows_Arm64
     pool:
-      vmImage: $(ubuntu_pool)
+      vmImage: $(windows_pool)
     steps:
     - checkout: self
       clean: true
@@ -202,8 +211,14 @@ stages:
           Rid: osx-arm64
           CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-arm64.tar.gz
           DistributionArtifact: Distribution_MacOS
+          VmImage: $(macos_arm64_pool)
+        osx_x64:
+          Rid: osx-x64
+          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-x64.tar.gz
+          DistributionArtifact: Distribution_MacOS_Intel
+          VmImage: $(macos_intel_pool)
     pool:
-      vmImage: $(ubuntu_pool)
+      vmImage: $(VmImage)
     steps:
     - checkout: self
       clean: true
@@ -248,6 +263,12 @@ stages:
           Rid: linux-x64
           CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-linux-x64.tar.gz
           DistributionArtifact: Distribution_Linux
+          SkipRuntime: false
+        linux_arm64:
+          Rid: linux-arm64
+          CliTarPath: $(PackagingLinuxOutRoot)/Release/tarball/azv2-linux-arm64.tar.gz
+          DistributionArtifact: Distribution_Linux_Arm64
+          SkipRuntime: true
     pool:
       vmImage: $(ubuntu_pool)
     steps:
@@ -270,7 +291,7 @@ stages:
     - script: |
         set -euo pipefail
         chmod +x "$(PackagingScriptsRoot)/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
-        OUT_ROOT="$(PackagingLinuxOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" CLI_TAR_PATH="$(CliTarPath)" "$(PackagingScriptsRoot)/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
+        OUT_ROOT="$(PackagingLinuxOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" CLI_TAR_PATH="$(CliTarPath)" SKIP_RUNTIME="$(SkipRuntime)" "$(PackagingScriptsRoot)/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
       displayName: Run Linux validation script
 
     - task: PublishPipelineArtifact@1
@@ -295,6 +316,12 @@ stages:
           Rid: win-x64
           CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-win-x64.zip
           DistributionArtifact: Distribution_Windows
+          SkipRuntime: false
+        win_arm64:
+          Rid: win-arm64
+          CliZipPath: $(PackagingWindowsOutRoot)/Release/zip/azv2-win-arm64.zip
+          DistributionArtifact: Distribution_Windows_Arm64
+          SkipRuntime: true
     pool:
       vmImage: $(windows_pool)
     steps:
@@ -321,7 +348,13 @@ stages:
         pwsh: true
         script: |
           $ErrorActionPreference = 'Stop'
-          & "$(PackagingScriptsRoot)/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "$(PackagingWindowsOutRoot)" -CommonOutRoot "$(PackagingCommonOutRoot)" -CliZipPath "$(CliZipPath)"
+          $skipRuntime = "$(SkipRuntime)"
+          if ($skipRuntime -eq 'true') {
+            & "$(PackagingScriptsRoot)/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "$(PackagingWindowsOutRoot)" -CommonOutRoot "$(PackagingCommonOutRoot)" -CliZipPath "$(CliZipPath)" -SkipRuntime
+          }
+          else {
+            & "$(PackagingScriptsRoot)/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "$(PackagingWindowsOutRoot)" -CommonOutRoot "$(PackagingCommonOutRoot)" -CliZipPath "$(CliZipPath)"
+          }
 
     - task: PublishPipelineArtifact@1
       displayName: Publish Windows simulation artifacts
@@ -345,8 +378,14 @@ stages:
           Rid: osx-arm64
           CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-arm64.tar.gz
           DistributionArtifact: Distribution_MacOS
+          VmImage: $(macos_arm64_pool)
+        osx_x64:
+          Rid: osx-x64
+          CliTarPath: $(PackagingMacOSOutRoot)/Release/tarball/azv2-osx-x64.tar.gz
+          DistributionArtifact: Distribution_MacOS_Intel
+          VmImage: $(macos_intel_pool)
     pool:
-      vmImage: $(macos_arm64_pool)
+      vmImage: $(VmImage)
     steps:
     - checkout: self
       clean: true

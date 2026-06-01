@@ -12,6 +12,7 @@ cd "$REPO_ROOT"
 OUT_ROOT="$(realpath "${OUT_ROOT:-$REPO_ROOT/devops/out/linux}")"
 COMMON_OUT_ROOT="$(realpath "${COMMON_OUT_ROOT:-$REPO_ROOT/devops/out/common}")"
 SIM_ROOT="$(realpath "${SIM_ROOT:-$REPO_ROOT/devops/sim/linux-tarball-bundled-plus-ext}" 2>/dev/null || echo "${SIM_ROOT:-$REPO_ROOT/devops/sim/linux-tarball-bundled-plus-ext}")"
+SKIP_RUNTIME="${SKIP_RUNTIME:-false}"
 
 CLI_TAR_PATH="${CLI_TAR_PATH:-$OUT_ROOT/Release/tarball/azv2-linux-x64.tar.gz}"
 EXT_PACK_DIR="$COMMON_OUT_ROOT/extensions-pack"
@@ -39,6 +40,32 @@ mkdir -p "$SIM_ROOT/home" "$SIM_ROOT/install"
 tar -xzf "$CLI_TAR_PATH" -C "$SIM_ROOT/install"
 chmod +x "$SIM_ROOT/install/azv2"
 AZV2="$SIM_ROOT/install/azv2"
+
+if [[ ! -f "$AZV2" ]]; then
+  echo "FAIL: azv2 binary not found in extracted tarball"
+  exit 1
+fi
+
+if [[ ! -d "$SIM_ROOT/install/Extensions/Microsoft.Azure.Cirrus.Extensions.Extension" ]]; then
+  echo "FAIL: Built-in Extension manager bundle missing"
+  exit 1
+fi
+if [[ ! -d "$SIM_ROOT/install/Extensions/Microsoft.Azure.Cirrus.Extensions.Login" ]]; then
+  echo "FAIL: Built-in Login bundle missing"
+  exit 1
+fi
+if [[ ! -d "$SIM_ROOT/install/Extensions/Microsoft.Azure.Cirrus.Extensions.Config" ]]; then
+  echo "FAIL: Built-in Config bundle missing"
+  exit 1
+fi
+
+echo "PASS: Bundled extension folders are present"
+
+if [[ "$SKIP_RUNTIME" == "true" ]]; then
+  echo "NOTE: SKIP_RUNTIME=true, skipping Linux runtime execution checks."
+  echo "Result: Linux package layout validation succeeded."
+  exit 0
+fi
 
 echo ""
 echo "[1/5] CLI help (bundled install)"
