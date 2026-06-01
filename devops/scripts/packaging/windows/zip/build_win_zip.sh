@@ -33,12 +33,34 @@ dotnet publish "$CLI_PROJECT" \
 chmod +x "$INJECTOR_SCRIPT"
 OUT_ROOT="$OUT_ROOT" "$INJECTOR_SCRIPT" --publish-dir "$CLI_WIN_SC_DIR" --builtin-root "$COMMON_OUT_ROOT/builtin-publish"
 
-if ! command -v zip >/dev/null 2>&1; then
-  echo "ERROR: 'zip' command not found. Install zip to produce $CLI_WIN_ZIP_PATH"
+mkdir -p "$(dirname "$CLI_WIN_ZIP_PATH")"
+rm -f "$CLI_WIN_ZIP_PATH"
+
+if command -v zip >/dev/null 2>&1; then
+  (cd "$CLI_WIN_SC_DIR" && zip -rq "$CLI_WIN_ZIP_PATH" .)
+elif command -v pwsh >/dev/null 2>&1 || command -v powershell.exe >/dev/null 2>&1; then
+  # On hosted Windows agents, zip may be missing; fall back to PowerShell's Compress-Archive.
+  if command -v pwsh >/dev/null 2>&1; then
+    PS_BIN="pwsh"
+  else
+    PS_BIN="powershell.exe"
+  fi
+
+  to_ps_path() {
+    if command -v cygpath >/dev/null 2>&1; then
+      cygpath -w "$1"
+    else
+      echo "$1"
+    fi
+  }
+
+  CLI_WIN_SC_DIR_PS="$(to_ps_path "$CLI_WIN_SC_DIR")"
+  CLI_WIN_ZIP_PATH_PS="$(to_ps_path "$CLI_WIN_ZIP_PATH")"
+
+  "$PS_BIN" -NoLogo -NoProfile -Command "Compress-Archive -Path '${CLI_WIN_SC_DIR_PS}\\*' -DestinationPath '${CLI_WIN_ZIP_PATH_PS}' -Force"
+else
+  echo "ERROR: Neither 'zip' nor PowerShell is available to produce $CLI_WIN_ZIP_PATH"
   exit 1
 fi
 
-mkdir -p "$(dirname "$CLI_WIN_ZIP_PATH")"
-rm -f "$CLI_WIN_ZIP_PATH"
-(cd "$CLI_WIN_SC_DIR" && zip -rq "$CLI_WIN_ZIP_PATH" .)
 echo "Created $CLI_WIN_ZIP_PATH"

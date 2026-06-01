@@ -16,7 +16,7 @@ COMMON_OUT_ROOT="${COMMON_OUT_ROOT:-$OUT_ROOT_BASE/common}"
 WINDOWS_OUT_ROOT="${WINDOWS_OUT_ROOT:-$OUT_ROOT_BASE/windows}"
 WINDOWS_ZIP_PATH="${WINDOWS_ZIP_PATH:-$WINDOWS_OUT_ROOT/Release/zip/azv2-win-x64.zip}"
 
-for required in common/build_common.sh windows/zip/build_win_zip.sh windows/zip/test_windows_zip_bundled_plus_ext.ps1 config/bundled_ext.config; do
+for required in common/build_common.sh windows/zip/build_win_zip.ps1 windows/zip/test_windows_zip_bundled_plus_ext.ps1 config/bundled_ext.config; do
   if [[ ! -f "$PACKAGING_DIR/$required" ]]; then
     echo "ERROR: Missing required file: $PACKAGING_DIR/$required"
     exit 1
@@ -45,8 +45,7 @@ OUT_ROOT="$COMMON_OUT_ROOT" "$PACKAGING_DIR/common/build_common.sh"
 
 echo ""
 echo "[2/3] Build Windows zip"
-chmod +x "$PACKAGING_DIR/windows/zip/build_win_zip.sh"
-OUT_ROOT="$WINDOWS_OUT_ROOT" COMMON_OUT_ROOT="$COMMON_OUT_ROOT" CLI_WIN_ZIP_PATH="$WINDOWS_ZIP_PATH" "$PACKAGING_DIR/windows/zip/build_win_zip.sh"
+pwsh -NoLogo -NoProfile -File "$PACKAGING_DIR/windows/zip/build_win_zip.ps1" -OutRoot "$WINDOWS_OUT_ROOT" -CommonOutRoot "$COMMON_OUT_ROOT" -CliWinZipPath "$WINDOWS_ZIP_PATH"
 
 echo ""
 echo "[3/3] Validate Windows bundled + optional extensions"

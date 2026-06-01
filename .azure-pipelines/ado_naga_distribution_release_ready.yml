@@ -170,25 +170,19 @@ stages:
         packageType: sdk
         useGlobalJson: true
 
-    - bash: |
-        set -euo pipefail
-        if ! command -v zip >/dev/null 2>&1; then
-          echo "zip command not found on PATH"
-          exit 1
-        fi
-      displayName: Ensure zip is available
-
     - task: DownloadPipelineArtifact@2
       displayName: Download common output
       inputs:
         artifact: Distribution_Common
         path: $(PackagingCommonOutRoot)
 
-    - bash: |
-        set -euo pipefail
-        chmod +x "$(PackagingScriptsRoot)/windows/zip/build_win_zip.sh"
-        OUT_ROOT="$(PackagingWindowsOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" RID="$(Rid)" CLI_WIN_ZIP_PATH="$(CliZipPath)" "$(PackagingScriptsRoot)/windows/zip/build_win_zip.sh"
-      displayName: Run build_win_zip.sh
+    - task: PowerShell@2
+      displayName: Run build_win_zip.ps1
+      inputs:
+        targetType: filePath
+        filePath: $(PackagingScriptsRoot)/windows/zip/build_win_zip.ps1
+        arguments: -OutRoot "$(PackagingWindowsOutRoot)" -CommonOutRoot "$(PackagingCommonOutRoot)" -Rid "$(Rid)" -CliWinZipPath "$(CliZipPath)"
+        pwsh: true
 
     - task: PublishPipelineArtifact@1
       displayName: Publish Windows distribution output
