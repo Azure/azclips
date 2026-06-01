@@ -16,6 +16,7 @@ RID="${RID:-linux-x64}"
 INJECTOR_SCRIPT="$PACKAGING_ROOT/common/inject_builtin_extensions.sh"
 PACKAGE_PROFILE="${PACKAGE_PROFILE:-lean}"
 PACKAGE_PROFILE="$(echo "$PACKAGE_PROFILE" | tr '[:upper:]' '[:lower:]')"
+ARTIFACT_VERSION="${ARTIFACT_VERSION:-}"
 
 if [[ "$PACKAGE_PROFILE" == "full" ]]; then
   ARTIFACT_PREFIX="azv2"
@@ -27,7 +28,11 @@ else
 fi
 
 CLI_SC_DIR="$OUT_ROOT/publish/cli/$RID"
-CLI_TAR_PATH="${CLI_TAR_PATH:-$OUT_ROOT/Release/tarball/$ARTIFACT_PREFIX-$RID.tar.gz}"
+if [[ -n "$ARTIFACT_VERSION" ]]; then
+  CLI_TAR_PATH="${CLI_TAR_PATH:-$OUT_ROOT/Release/tarball/$ARTIFACT_PREFIX-$RID-$ARTIFACT_VERSION.tar.gz}"
+else
+  CLI_TAR_PATH="${CLI_TAR_PATH:-$OUT_ROOT/Release/tarball/$ARTIFACT_PREFIX-$RID.tar.gz}"
+fi
 
 if [[ ! -f "$INJECTOR_SCRIPT" ]]; then
   echo "ERROR: Injector script not found at $INJECTOR_SCRIPT"

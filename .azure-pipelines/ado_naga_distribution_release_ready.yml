@@ -122,7 +122,9 @@ stages:
 
 - stage: BuildLinux
   displayName: Build Linux
-  dependsOn: BuildCommon
+  dependsOn:
+  - Init
+  - BuildCommon
   condition: succeeded()
   variables:
     ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
@@ -174,7 +176,7 @@ stages:
     - script: |
         set -euo pipefail
         chmod +x "$(PackagingScriptsRoot)/linux/tarball/build_linux_tarball.sh"
-        OUT_ROOT="$(PackagingLinuxOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" CLI_TAR_PATH="$(CliTarPath)" "$(PackagingScriptsRoot)/linux/tarball/build_linux_tarball.sh"
+        ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="$(PackagingLinuxOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" "$(PackagingScriptsRoot)/linux/tarball/build_linux_tarball.sh"
       displayName: Build Linux Tarball
 
     - task: PublishPipelineArtifact@1
@@ -186,7 +188,9 @@ stages:
 
 - stage: BuildWindows
   displayName: Build Windows
-  dependsOn: BuildCommon
+  dependsOn:
+  - Init
+  - BuildCommon
   condition: succeeded()
   variables:
     ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
@@ -241,8 +245,9 @@ stages:
         targetType: inline
         script: |
           $ErrorActionPreference = 'Stop'
+          $env:ARTIFACT_VERSION = "$(ArtifactVersion)"
           $env:PACKAGE_PROFILE = "$(BuildProfile)"
-          & "$(PackagingScriptsRoot)/windows/zip/build_win_zip.ps1" -OutRoot "$(PackagingWindowsOutRoot)" -CommonOutRoot "$(PackagingCommonOutRoot)" -Rid "$(Rid)" -CliWinZipPath "$(CliZipPath)"
+          & "$(PackagingScriptsRoot)/windows/zip/build_win_zip.ps1" -OutRoot "$(PackagingWindowsOutRoot)" -CommonOutRoot "$(PackagingCommonOutRoot)" -Rid "$(Rid)"
         pwsh: true
 
     - task: PublishPipelineArtifact@1
@@ -254,7 +259,9 @@ stages:
 
 - stage: BuildMacOS
   displayName: Build macOS
-  dependsOn: BuildCommon
+  dependsOn:
+  - Init
+  - BuildCommon
   condition: succeeded()
   variables:
     ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
@@ -310,7 +317,7 @@ stages:
     - script: |
         set -euo pipefail
         chmod +x "$(PackagingScriptsRoot)/macos/tarball/build_macos_tarball.sh"
-        OUT_ROOT="$(PackagingMacOSOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" CLI_TAR_PATH="$(CliTarPath)" "$(PackagingScriptsRoot)/macos/tarball/build_macos_tarball.sh"
+        ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="$(PackagingMacOSOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" "$(PackagingScriptsRoot)/macos/tarball/build_macos_tarball.sh"
       displayName: Build macOS Tarball
 
     - task: PublishPipelineArtifact@1
@@ -322,7 +329,9 @@ stages:
 
 - stage: ValidateLinux
   displayName: Validate Linux
-  dependsOn: BuildLinux
+  dependsOn:
+  - Init
+  - BuildLinux
   condition: succeeded()
   variables:
     ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
@@ -378,7 +387,7 @@ stages:
     - script: |
         set -euo pipefail
         chmod +x "$(PackagingScriptsRoot)/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
-        OUT_ROOT="$(PackagingLinuxOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" PACKAGE_PROFILE="$(BuildProfile)" CLI_TAR_PATH="$(CliTarPath)" SKIP_RUNTIME="$(SkipRuntime)" "$(PackagingScriptsRoot)/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
+        ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="$(PackagingLinuxOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" SKIP_RUNTIME="$(SkipRuntime)" "$(PackagingScriptsRoot)/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
       displayName: Validate Linux Tarball
 
     - task: PublishPipelineArtifact@1
@@ -391,7 +400,9 @@ stages:
 
 - stage: ValidateWindows
   displayName: Validate Windows
-  dependsOn: BuildWindows
+  dependsOn:
+  - Init
+  - BuildWindows
   condition: succeeded()
   variables:
     ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
@@ -451,13 +462,14 @@ stages:
         pwsh: true
         script: |
           $ErrorActionPreference = 'Stop'
+          $env:ARTIFACT_VERSION = "$(ArtifactVersion)"
           $env:PACKAGE_PROFILE = "$(BuildProfile)"
           $skipRuntime = "$(SkipRuntime)"
           if ($skipRuntime -eq 'true') {
-            & "$(PackagingScriptsRoot)/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "$(PackagingWindowsOutRoot)" -CommonOutRoot "$(PackagingCommonOutRoot)" -CliZipPath "$(CliZipPath)" -SkipRuntime
+            & "$(PackagingScriptsRoot)/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "$(PackagingWindowsOutRoot)" -CommonOutRoot "$(PackagingCommonOutRoot)" -Rid "$(Rid)" -SkipRuntime
           }
           else {
-            & "$(PackagingScriptsRoot)/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "$(PackagingWindowsOutRoot)" -CommonOutRoot "$(PackagingCommonOutRoot)" -CliZipPath "$(CliZipPath)"
+            & "$(PackagingScriptsRoot)/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "$(PackagingWindowsOutRoot)" -CommonOutRoot "$(PackagingCommonOutRoot)" -Rid "$(Rid)"
           }
 
     - task: PublishPipelineArtifact@1
@@ -470,7 +482,9 @@ stages:
 
 - stage: ValidateMacOS
   displayName: Validate macOS
-  dependsOn: BuildMacOS
+  dependsOn:
+  - Init
+  - BuildMacOS
   condition: succeeded()
   variables:
     ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
@@ -526,7 +540,7 @@ stages:
     - script: |
         set -euo pipefail
         chmod +x "$(PackagingScriptsRoot)/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
-        OUT_ROOT="$(PackagingMacOSOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" CLI_TAR_PATH="$(CliTarPath)" "$(PackagingScriptsRoot)/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
+        ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="$(PackagingMacOSOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" "$(PackagingScriptsRoot)/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
       displayName: Validate macOS Tarball
 
     - task: PublishPipelineArtifact@1

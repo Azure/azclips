@@ -1,6 +1,7 @@
 param(
     [string]$OutRoot = (Join-Path $PSScriptRoot '../../../../out/windows'),
     [string]$CommonOutRoot = (Join-Path $PSScriptRoot '../../../../out/common'),
+    [string]$Rid = 'win-x64',
     [string]$CliZipPath = '',
     [string]$SimRoot = '',
     [switch]$SkipRuntime
@@ -33,7 +34,13 @@ if ([string]::IsNullOrWhiteSpace($SimRoot)) {
 $SimRoot = [System.IO.Path]::GetFullPath($SimRoot)
 
 if ([string]::IsNullOrWhiteSpace($CliZipPath)) {
-    $CliZipPath = Join-Path $OutRoot "Release/zip/$artifactPrefix-win-x64.zip"
+    $artifactVersion = $env:ARTIFACT_VERSION
+    if (-not [string]::IsNullOrWhiteSpace($artifactVersion)) {
+        $CliZipPath = Join-Path $OutRoot "Release/zip/$artifactPrefix-$Rid-$artifactVersion.zip"
+    }
+    else {
+        $CliZipPath = Join-Path $OutRoot "Release/zip/$artifactPrefix-$Rid.zip"
+    }
 }
 else {
     $CliZipPath = [System.IO.Path]::GetFullPath($CliZipPath)

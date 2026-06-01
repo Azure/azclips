@@ -16,6 +16,7 @@ SIM_ROOT="$(realpath "${SIM_ROOT:-$REPO_ROOT/devops/sim/macos-tarball-bundled-pl
 RID="${RID:-osx-arm64}"
 PACKAGE_PROFILE="${PACKAGE_PROFILE:-lean}"
 PACKAGE_PROFILE="$(echo "$PACKAGE_PROFILE" | tr '[:upper:]' '[:lower:]')"
+ARTIFACT_VERSION="${ARTIFACT_VERSION:-}"
 
 if [[ "$PACKAGE_PROFILE" == "full" ]]; then
   ARTIFACT_PREFIX="azv2"
@@ -26,7 +27,11 @@ else
   exit 1
 fi
 
-CLI_TAR_PATH="${CLI_TAR_PATH:-$OUT_ROOT/Release/tarball/$ARTIFACT_PREFIX-$RID.tar.gz}"
+if [[ -n "$ARTIFACT_VERSION" ]]; then
+  CLI_TAR_PATH="${CLI_TAR_PATH:-$OUT_ROOT/Release/tarball/$ARTIFACT_PREFIX-$RID-$ARTIFACT_VERSION.tar.gz}"
+else
+  CLI_TAR_PATH="${CLI_TAR_PATH:-$OUT_ROOT/Release/tarball/$ARTIFACT_PREFIX-$RID.tar.gz}"
+fi
 EXT_PACK_DIR="$COMMON_OUT_ROOT/extensions-pack"
 
 if [[ ! -f "$CLI_TAR_PATH" ]]; then

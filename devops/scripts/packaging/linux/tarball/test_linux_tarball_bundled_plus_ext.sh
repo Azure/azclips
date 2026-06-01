@@ -13,8 +13,10 @@ OUT_ROOT="$(realpath "${OUT_ROOT:-$REPO_ROOT/devops/out/linux}")"
 COMMON_OUT_ROOT="$(realpath "${COMMON_OUT_ROOT:-$REPO_ROOT/devops/out/common}")"
 SIM_ROOT="$(realpath "${SIM_ROOT:-$REPO_ROOT/devops/sim/linux-tarball-bundled-plus-ext}" 2>/dev/null || echo "${SIM_ROOT:-$REPO_ROOT/devops/sim/linux-tarball-bundled-plus-ext}")"
 SKIP_RUNTIME="${SKIP_RUNTIME:-false}"
+RID="${RID:-linux-x64}"
 PACKAGE_PROFILE="${PACKAGE_PROFILE:-lean}"
 PACKAGE_PROFILE="$(echo "$PACKAGE_PROFILE" | tr '[:upper:]' '[:lower:]')"
+ARTIFACT_VERSION="${ARTIFACT_VERSION:-}"
 
 if [[ "$PACKAGE_PROFILE" == "full" ]]; then
   ARTIFACT_PREFIX="azv2"
@@ -25,7 +27,11 @@ else
   exit 1
 fi
 
-CLI_TAR_PATH="${CLI_TAR_PATH:-$OUT_ROOT/Release/tarball/$ARTIFACT_PREFIX-linux-x64.tar.gz}"
+if [[ -n "$ARTIFACT_VERSION" ]]; then
+  CLI_TAR_PATH="${CLI_TAR_PATH:-$OUT_ROOT/Release/tarball/$ARTIFACT_PREFIX-$RID-$ARTIFACT_VERSION.tar.gz}"
+else
+  CLI_TAR_PATH="${CLI_TAR_PATH:-$OUT_ROOT/Release/tarball/$ARTIFACT_PREFIX-$RID.tar.gz}"
+fi
 EXT_PACK_DIR="$COMMON_OUT_ROOT/extensions-pack"
 
 if [[ ! -f "$CLI_TAR_PATH" ]]; then

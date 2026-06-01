@@ -36,8 +36,15 @@ else {
     throw "Unsupported PACKAGE_PROFILE '$packageProfile'. Expected 'lean' or 'full'."
 }
 
+$artifactVersion = $env:ARTIFACT_VERSION
+
 if ([string]::IsNullOrWhiteSpace($CliWinZipPath)) {
-    $CliWinZipPath = Join-Path $OutRoot "Release/zip/$artifactPrefix-$Rid.zip"
+    if (-not [string]::IsNullOrWhiteSpace($artifactVersion)) {
+        $CliWinZipPath = Join-Path $OutRoot "Release/zip/$artifactPrefix-$Rid-$artifactVersion.zip"
+    }
+    else {
+        $CliWinZipPath = Join-Path $OutRoot "Release/zip/$artifactPrefix-$Rid.zip"
+    }
 }
 
 $OutRoot = [System.IO.Path]::GetFullPath($OutRoot)
