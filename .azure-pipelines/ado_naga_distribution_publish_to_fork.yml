@@ -84,10 +84,10 @@ stages:
         release_name="Distribution build ${source_build_id}"
 
         assets_root="$(Pipeline.Workspace)/distBuild"
-        mapfile -t assets < <(find "$assets_root" -type f \( -name '*.tar.gz' -o -name '*.zip' \) | sort)
+        mapfile -t assets < <(find "$assets_root" -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.nupkg' \) ! -name '*.snupkg' | sort)
 
         if [[ ${#assets[@]} -eq 0 ]]; then
-          echo "ERROR: No .tar.gz or .zip assets found under $assets_root"
+          echo "ERROR: No .tar.gz, .zip, or .nupkg assets found under $assets_root"
           exit 1
         fi
 
@@ -135,5 +135,6 @@ stages:
           Source project: $(SourceProject)
           Source pipeline definition id: $(SourcePipelineDefinitionId)
           Source build id: $(SourceBuildId)
+          Included assets: .tar.gz, .zip, .nupkg
         assets: '$(Build.ArtifactStagingDirectory)/release/*'
         addChangeLog: false
