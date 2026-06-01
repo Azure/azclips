@@ -19,12 +19,12 @@ Cirrus produces three categories of build artifact:
 
 Two host surfaces consume the same extensions:
 
-| | CLI | PowerShell |
-|---|-----|------------|
-| **Entry point** | `azv2.exe` → `Program.cs` | `Import-Module` → `.psm1` → exported functions |
-| **Engine** | `CLIEngine` | `PSEngine` |
-| **Extension loading** | File-based, into isolated ALCs | Pre-loaded via manifest, into shared ALC |
-| **Output** | `Console.WriteLine` | `$PSCmdlet.WriteObject` via channel |
+|                       | CLI                            | PowerShell                                     |
+| --------------------- | ------------------------------ | ---------------------------------------------- |
+| **Entry point**       | `azv2.exe` → `Program.cs`      | `Import-Module` → `.psm1` → exported functions |
+| **Engine**            | `CLIEngine`                    | `PSEngine`                                     |
+| **Extension loading** | File-based, into isolated ALCs | Pre-loaded via manifest, into shared ALC       |
+| **Output**            | `Console.WriteLine`            | `$PSCmdlet.WriteObject` via channel            |
 
 ---
 
@@ -41,6 +41,7 @@ An extension is a .NET class library that implements a set of commands for one A
 ### 2.2 How to Build an Extension
 
 Key `.csproj` conventions:
+
 - `EnableDynamicLoading=true` — produces `.deps.json` / `.runtimeconfig.json` for runtime dependency resolution
 - `GeneratePackageOnBuild=true` — produces a `.nupkg` for distribution
 - `Core.Abstractions` referenced as **compile-only** (`Private=false`, `ExcludeAssets=runtime`) — shared contracts come from the host at runtime, not the extension's output
@@ -66,13 +67,13 @@ The host and extensions share type identity through `Core.Abstractions`. Extensi
 
 ### 3.2 Key Interfaces
 
-| Interface | Role |
-|-----------|------|
-| `IExtensionIndex` | Extension entry point — returns command metadata by name and client type |
-| `ICommandMetadata` | Describes one processor — name, .NET type, assembly |
-| `IProcessor` | The processor — `Init(context)` receives runtime services, `ProcessAsync()` executes |
-| `IProcessorContext` | Bundle of runtime services provided by the host |
-| `ICommandInvocation` | Parsed user input — extension name, command name, parameter dictionary |
+| Interface            | Role                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------ |
+| `IExtensionIndex`    | Extension entry point — returns command metadata by name and client type             |
+| `ICommandMetadata`   | Describes one processor — name, .NET type, assembly                                  |
+| `IProcessor`         | The processor — `Init(context)` receives runtime services, `ProcessAsync()` executes |
+| `IProcessorContext`  | Bundle of runtime services provided by the host                                      |
+| `ICommandInvocation` | Parsed user input — extension name, command name, parameter dictionary               |
 
 > **[Proposal]** Replace `Init(IProcessorContext)` with **constructor injection** via `ActivatorUtilities.CreateInstance`, removing two-phase initialization.
 
@@ -80,13 +81,13 @@ The host and extensions share type identity through `Core.Abstractions`. Extensi
 
 The host creates a per-invocation `IProcessorContext` providing everything the processor needs:
 
-| Service | What It Provides |
-|---------|-----------------|
-| `IAuthHandler` | Auth context (tenant, subscription) + token acquisition delegate |
-| `IOutputHandler` | Output delegate — **[CLI]** `Console.WriteLine`, **[PS]** `$PSCmdlet.WriteObject` |
-| `ITelemetryHandler` | Distributed tracing via `StartActivity` |
-| `IRuntimeHttpPipeline` | Pre-authenticated HTTP pipeline — extensions never manage their own `HttpClient` |
-| `IRuntimeHttpPipeline` | Pre-authenticated HTTP pipeline — extensions never manage their own `HttpClient` |
+| Service                | What It Provides                                                                  |
+| ---------------------- | --------------------------------------------------------------------------------- |
+| `IAuthHandler`         | Auth context (tenant, subscription) + token acquisition delegate                  |
+| `IOutputHandler`       | Output delegate — **[CLI]** `Console.WriteLine`, **[PS]** `$PSCmdlet.WriteObject` |
+| `ITelemetryHandler`    | Distributed tracing via `StartActivity`                                           |
+| `IRuntimeHttpPipeline` | Pre-authenticated HTTP pipeline — extensions never manage their own `HttpClient`  |
+| `IRuntimeHttpPipeline` | Pre-authenticated HTTP pipeline — extensions never manage their own `HttpClient`  |
 
 ### 3.4 Execution Flow
 
@@ -149,6 +150,7 @@ A custom `AssemblyLoadContext` per extension with one rule:
 ### 4.3 [CLI] Dedicated ALC per Extension
 
 Each extension is loaded into its own `ExtensionLoadContext`. Two loaders are tried in order:
+
 1. `MultiVersionExtensionLoader` — user-installed extensions at `~/.cirrus/extensions/`
 2. `BuiltinExtensionLoader` — bundled extensions at `<appDir>/Extensions/`
 
@@ -159,23 +161,24 @@ Each loader creates a fresh ALC per extension. Dependencies between extensions c
 PowerShell modules load all assemblies into the host's default ALC via `RequiredAssemblies` in the module manifest. There are no custom ALCs. `PSEngine` resolves extension types via `Type.GetType()` from assemblies already in the default ALC.
 
 **Current Problem**:
-* For PowerShell, there are in fact **3** different runtime contexts that could cause conflicts between each other:
+
+- For PowerShell, there are in fact **3** different runtime contexts that could cause conflicts between each other:
     1. The PowerShell host process and its loaded assemblies
     2. The `runtime` / `command host` shared across all Cirrus PowerShell modules
     3. The individual extension assemblies loaded by the command host
-* If we would like to share the type between extension and PowerShell host, we have to load the extension assembly into the default ALC, which means all extensions share the same ALC and can conflict with each other.
-* When developing configuration commands, we already see conflicts between `System.Text.Json` versions used by the PowerShell host and the extension, causing runtime errors.
+- If we would like to share the type between extension and PowerShell host, we have to load the extension assembly into the default ALC, which means all extensions share the same ALC and can conflict with each other.
+- When developing configuration commands, we already see conflicts between `System.Text.Json` versions used by the PowerShell host and the extension, causing runtime errors.
 
 **Consequence**: if two modules carry different versions of the same dependency, the first imported module wins. No isolation. This could also cause conflicts with the host if an extension's dependency version differs from the host's.
 
 ### 4.5 Comparison
 
-| Aspect | CLI | PowerShell |
-|--------|-----|------------|
-| Extension isolation | Dedicated ALC per extension | All in default ALC |
-| Dependency conflicts | Impossible — sandboxed | Possible — first loaded wins |
-| Core assembly sharing | `Load()` → `null` → host fallback | Naturally shared (same ALC) |
-| Type resolution | `Activator.CreateInstance` in extension ALC | `Type.GetType()` in default ALC |
+| Aspect                | CLI                                         | PowerShell                      |
+| --------------------- | ------------------------------------------- | ------------------------------- |
+| Extension isolation   | Dedicated ALC per extension                 | All in default ALC              |
+| Dependency conflicts  | Impossible — sandboxed                      | Possible — first loaded wins    |
+| Core assembly sharing | `Load()` → `null` → host fallback           | Naturally shared (same ALC)     |
+| Type resolution       | `Activator.CreateInstance` in extension ALC | `Type.GetType()` in default ALC |
 
 > **[Proposal]** Introduce `CommandHost` with per-module ALCs for PowerShell, mirroring the CLI isolation model.
 
@@ -188,6 +191,7 @@ PowerShell modules load all assemblies into the host's default ALC via `Required
 **Build**: `dotnet publish src/CLI/Core.Cli.csproj -c Release -r win-x64 --self-contained`
 
 **Deployment layout**:
+
 ```
 publish/win-x64/
   azv2.exe                         ← Self-contained host
@@ -208,6 +212,7 @@ publish/win-x64/
 **Current state** (development only): modules live in `src/PS/` and reference `artifacts/Debug/` via relative paths in `RequiredAssemblies`.
 
 **Target production layout** (not yet implemented):
+
 ```
 Cirrus/
   Login/
@@ -224,7 +229,7 @@ A publish pipeline — copying assemblies into a portable module folder and upda
 
 ## 7. Open Items
 
-| Area | Status | Description |
-|------|--------|-------------|
+| Area                      | Status          | Description                                                                       |
+| ------------------------- | --------------- | --------------------------------------------------------------------------------- |
 | PowerShell module publish | Not implemented | Need a build step producing a portable module folder with correct assembly layout |
-| CLI publish automation | Partial | Manual steps documented; `build.yml` CI exists but `deploy.sh` is incomplete |
+| CLI publish automation    | Partial         | Manual steps documented; `build.yml` CI exists but `deploy.sh` is incomplete      |

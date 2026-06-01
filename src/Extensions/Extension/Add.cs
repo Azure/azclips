@@ -84,13 +84,37 @@ public class AddExtensionProcessor : IProcessor
             // symmetrically with the dispatcher's unknown-verb suggestion. Falls through to the
             // legacy prefix-strip when no hint matches; full package ids passthrough untouched.
             var resolvedPackageId = ResolvePackageId(Name!, ExtensionHintTable.Default);
-            installPath = installer.InstallExtensionAsync(
-                resolvedPackageId,
-                Version,
-                includePrerelease: true,
-                includeUnlisted: false,
-                CancellationToken.None
-            ).GetAwaiter().GetResult();
+            try
+            {
+                installPath = installer.InstallExtensionAsync(
+                    resolvedPackageId,
+                    Version,
+                    includePrerelease: true,
+                    includeUnlisted: false,
+                    CancellationToken.None
+                ).GetAwaiter().GetResult();
+            }
+            catch (InvalidOperationException ex) when (ex.Message.StartsWith("Could not find package", StringComparison.Ordinal))
+            {
+                // Phase 10 #35: feed-miss path. Normalize the plain InvalidOperationException to
+                // a typed ExtensionNotFound (exit 4) and append a local-artifact suggestion when
+                // a freshly built nupkg exists in artifacts/Debug/. Suggestion-only — we never
+                // auto-install from local, because that would silently consume stale builds.
+                var localHint = LocalArtifactProbe.Find(resolvedPackageId);
+                var details = new Dictionary<string, object?>
+                {
+                    ["packageId"] = resolvedPackageId,
+                    ["requestedName"] = Name,
+                };
+                if (localHint is not null)
+                {
+                    details["localArtifact"] = localHint;
+                    throw CirrusErrorException.ExtensionNotFound(
+                        $"{ex.Message}\n\nA local build artifact was found. Try:\n  azv2 extension add --path \"{localHint}\"",
+                        details);
+                }
+                throw CirrusErrorException.ExtensionNotFound(ex.Message, details);
+            }
         }
         else
         {
