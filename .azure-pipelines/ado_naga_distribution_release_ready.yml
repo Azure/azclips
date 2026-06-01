@@ -39,10 +39,10 @@ variables:
 
 stages:
 - stage: Init
-  displayName: Initialize
+  displayName: Init
   jobs:
   - job: Start
-    displayName: Start
+    displayName: Kickoff
     pool:
       vmImage: $(ubuntu_pool)
     steps:
@@ -53,15 +53,15 @@ stages:
         echo "Starting release-ready distribution pipeline"
         echo "Build number: $(Build.BuildNumber)"
         echo "Branch: $(Build.SourceBranch)"
-      displayName: Print run context
+      displayName: Context
 
 - stage: BuildCommon
-  displayName: Build Common Distribution Assets
+  displayName: Build Common
   dependsOn: Init
   condition: succeeded()
   jobs:
   - job: BuildCommonOutputs
-    displayName: Build common outputs
+    displayName: Common Output
     timeoutInMinutes: 90
     pool:
       vmImage: $(ubuntu_pool)
@@ -71,7 +71,7 @@ stages:
       fetchDepth: 0
 
     - task: UseDotNet@2
-      displayName: Use .NET SDK from global.json
+      displayName: .NET SDK
       inputs:
         packageType: sdk
         useGlobalJson: true
@@ -80,22 +80,22 @@ stages:
         set -euo pipefail
         chmod +x "$(PackagingScriptsRoot)/common/build_common.sh"
         OUT_ROOT="$(PackagingCommonOutRoot)" "$(PackagingScriptsRoot)/common/build_common.sh"
-      displayName: Run build_common.sh
+      displayName: Build Common
 
     - task: PublishPipelineArtifact@1
-      displayName: Publish common output
+      displayName: Publish Common
       inputs:
         targetPath: $(PackagingCommonOutRoot)
         artifact: Distribution_Common
         publishLocation: pipeline
 
 - stage: BuildLinux
-  displayName: Build Linux Distribution Artifact
+  displayName: Build Linux
   dependsOn: BuildCommon
   condition: succeeded()
   jobs:
   - job: BuildLinuxOutput
-    displayName: Build Linux tarball output
+    displayName: Linux Tarball
     timeoutInMinutes: 60
     strategy:
       matrix:
@@ -115,13 +115,13 @@ stages:
       fetchDepth: 0
 
     - task: UseDotNet@2
-      displayName: Use .NET SDK from global.json
+      displayName: .NET SDK
       inputs:
         packageType: sdk
         useGlobalJson: true
 
     - task: DownloadPipelineArtifact@2
-      displayName: Download common output
+      displayName: Get Common
       inputs:
         artifact: Distribution_Common
         path: $(PackagingCommonOutRoot)
@@ -130,22 +130,22 @@ stages:
         set -euo pipefail
         chmod +x "$(PackagingScriptsRoot)/linux/tarball/build_linux_tarball.sh"
         OUT_ROOT="$(PackagingLinuxOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" RID="$(Rid)" CLI_TAR_PATH="$(CliTarPath)" "$(PackagingScriptsRoot)/linux/tarball/build_linux_tarball.sh"
-      displayName: Run build_linux_tarball.sh
+      displayName: Build Linux Tarball
 
     - task: PublishPipelineArtifact@1
-      displayName: Publish Linux distribution output
+      displayName: Publish Linux
       inputs:
         targetPath: $(PackagingLinuxOutRoot)
         artifact: $(DistributionArtifact)
         publishLocation: pipeline
 
 - stage: BuildWindows
-  displayName: Build Windows Distribution Artifact
+  displayName: Build Windows
   dependsOn: BuildCommon
   condition: succeeded()
   jobs:
   - job: BuildWindowsOutput
-    displayName: Build Windows zip output
+    displayName: Windows Zip
     timeoutInMinutes: 60
     strategy:
       matrix:
@@ -165,19 +165,19 @@ stages:
       fetchDepth: 0
 
     - task: UseDotNet@2
-      displayName: Use .NET SDK from global.json
+      displayName: .NET SDK
       inputs:
         packageType: sdk
         useGlobalJson: true
 
     - task: DownloadPipelineArtifact@2
-      displayName: Download common output
+      displayName: Get Common
       inputs:
         artifact: Distribution_Common
         path: $(PackagingCommonOutRoot)
 
     - task: PowerShell@2
-      displayName: Run build_win_zip.ps1
+      displayName: Build Windows Zip
       inputs:
         targetType: filePath
         filePath: $(PackagingScriptsRoot)/windows/zip/build_win_zip.ps1
@@ -185,19 +185,19 @@ stages:
         pwsh: true
 
     - task: PublishPipelineArtifact@1
-      displayName: Publish Windows distribution output
+      displayName: Publish Windows
       inputs:
         targetPath: $(PackagingWindowsOutRoot)
         artifact: $(DistributionArtifact)
         publishLocation: pipeline
 
 - stage: BuildMacOS
-  displayName: Build macOS Distribution Artifact
+  displayName: Build macOS
   dependsOn: BuildCommon
   condition: succeeded()
   jobs:
   - job: BuildMacOSOutput
-    displayName: Build macOS tarball output
+    displayName: macOS Tarball
     timeoutInMinutes: 60
     strategy:
       matrix:
@@ -219,13 +219,13 @@ stages:
       fetchDepth: 0
 
     - task: UseDotNet@2
-      displayName: Use .NET SDK from global.json
+      displayName: .NET SDK
       inputs:
         packageType: sdk
         useGlobalJson: true
 
     - task: DownloadPipelineArtifact@2
-      displayName: Download common output
+      displayName: Get Common
       inputs:
         artifact: Distribution_Common
         path: $(PackagingCommonOutRoot)
@@ -234,22 +234,22 @@ stages:
         set -euo pipefail
         chmod +x "$(PackagingScriptsRoot)/macos/tarball/build_macos_tarball.sh"
         OUT_ROOT="$(PackagingMacOSOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" RID="$(Rid)" CLI_TAR_PATH="$(CliTarPath)" "$(PackagingScriptsRoot)/macos/tarball/build_macos_tarball.sh"
-      displayName: Run build_macos_tarball.sh
+      displayName: Build macOS Tarball
 
     - task: PublishPipelineArtifact@1
-      displayName: Publish macOS distribution output
+      displayName: Publish macOS
       inputs:
         targetPath: $(PackagingMacOSOutRoot)
         artifact: $(DistributionArtifact)
         publishLocation: pipeline
 
 - stage: ValidateLinux
-  displayName: Validate Linux Distribution Flow
+  displayName: Validate Linux
   dependsOn: BuildLinux
   condition: succeeded()
   jobs:
   - job: LinuxValidation
-    displayName: Linux bundled plus optional extension validation
+    displayName: Linux Validation
     timeoutInMinutes: 45
     strategy:
       matrix:
@@ -271,13 +271,13 @@ stages:
       fetchDepth: 0
 
     - task: DownloadPipelineArtifact@2
-      displayName: Download Linux distribution output
+      displayName: Get Linux Dist
       inputs:
         artifact: $(DistributionArtifact)
         path: $(PackagingLinuxOutRoot)
 
     - task: DownloadPipelineArtifact@2
-      displayName: Download common output
+      displayName: Get Common
       inputs:
         artifact: Distribution_Common
         path: $(PackagingCommonOutRoot)
@@ -286,10 +286,10 @@ stages:
         set -euo pipefail
         chmod +x "$(PackagingScriptsRoot)/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
         OUT_ROOT="$(PackagingLinuxOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" CLI_TAR_PATH="$(CliTarPath)" SKIP_RUNTIME="$(SkipRuntime)" "$(PackagingScriptsRoot)/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
-      displayName: Run Linux validation script
+      displayName: Validate Linux Tarball
 
     - task: PublishPipelineArtifact@1
-      displayName: Publish Linux simulation artifacts
+      displayName: Publish Linux Sim
       condition: always()
       inputs:
         targetPath: $(Build.SourcesDirectory)/devops/sim/linux-tarball-bundled-plus-ext
@@ -297,12 +297,12 @@ stages:
         publishLocation: pipeline
 
 - stage: ValidateWindows
-  displayName: Validate Windows Distribution Flow
+  displayName: Validate Windows
   dependsOn: BuildWindows
   condition: succeeded()
   jobs:
   - job: WindowsValidation
-    displayName: Windows bundled plus optional extension validation
+    displayName: Windows Validation
     timeoutInMinutes: 45
     strategy:
       matrix:
@@ -324,19 +324,19 @@ stages:
       fetchDepth: 0
 
     - task: DownloadPipelineArtifact@2
-      displayName: Download Windows distribution output
+      displayName: Get Windows Dist
       inputs:
         artifact: $(DistributionArtifact)
         path: $(PackagingWindowsOutRoot)
 
     - task: DownloadPipelineArtifact@2
-      displayName: Download common output
+      displayName: Get Common
       inputs:
         artifact: Distribution_Common
         path: $(PackagingCommonOutRoot)
 
     - task: PowerShell@2
-      displayName: Run Windows validation script
+      displayName: Validate Windows Zip
       inputs:
         targetType: inline
         pwsh: true
@@ -351,7 +351,7 @@ stages:
           }
 
     - task: PublishPipelineArtifact@1
-      displayName: Publish Windows simulation artifacts
+      displayName: Publish Windows Sim
       condition: always()
       inputs:
         targetPath: $(Build.SourcesDirectory)/devops/sim/win-zip-bundled-plus-ext
@@ -359,12 +359,12 @@ stages:
         publishLocation: pipeline
 
 - stage: ValidateMacOS
-  displayName: Validate macOS Distribution Flow
+  displayName: Validate macOS
   dependsOn: BuildMacOS
   condition: succeeded()
   jobs:
   - job: MacOSValidation
-    displayName: macOS bundled plus optional extension validation
+    displayName: macOS Validation
     timeoutInMinutes: 45
     strategy:
       matrix:
@@ -386,13 +386,13 @@ stages:
       fetchDepth: 0
 
     - task: DownloadPipelineArtifact@2
-      displayName: Download macOS distribution output
+      displayName: Get macOS Dist
       inputs:
         artifact: $(DistributionArtifact)
         path: $(PackagingMacOSOutRoot)
 
     - task: DownloadPipelineArtifact@2
-      displayName: Download common output
+      displayName: Get Common
       inputs:
         artifact: Distribution_Common
         path: $(PackagingCommonOutRoot)
@@ -401,10 +401,10 @@ stages:
         set -euo pipefail
         chmod +x "$(PackagingScriptsRoot)/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
         OUT_ROOT="$(PackagingMacOSOutRoot)" COMMON_OUT_ROOT="$(PackagingCommonOutRoot)" RID="$(Rid)" CLI_TAR_PATH="$(CliTarPath)" "$(PackagingScriptsRoot)/macos/tarball/test_macos_tarball_bundled_plus_ext.sh"
-      displayName: Run macOS validation script
+      displayName: Validate macOS Tarball
 
     - task: PublishPipelineArtifact@1
-      displayName: Publish macOS simulation artifacts
+      displayName: Publish macOS Sim
       condition: always()
       inputs:
         targetPath: $(Build.SourcesDirectory)/devops/sim/macos-tarball-bundled-plus-ext
@@ -444,4 +444,4 @@ stages:
         echo "ValidateLinux: $(ValidateLinuxResult)"
         echo "ValidateWindows: $(ValidateWindowsResult)"
         echo "ValidateMacOS: $(ValidateMacOSResult)"
-      displayName: Print stage outcomes
+      displayName: Stage Summary
