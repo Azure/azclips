@@ -188,7 +188,6 @@ public class AddExtensionProcessor : IProcessor
             // gate that existed under Shape A has been removed — matches the meeting decision
             // (May 2026) to adopt the az-cli many-to-many model. Built-in verbs remain reserved
             // (see the IsBuiltInVerb check above) and built-in roots are still rejected per-leaf.
-            var declaredVerbSet = new HashSet<string>(verbs, StringComparer.OrdinalIgnoreCase);
 
             // Shape B (§11.7): read the candidate's leaves (s_cliTable keys) from the just-
             // installed DLLs and conflict-check every (verb, path) tuple against the registry
@@ -197,76 +196,8 @@ public class AddExtensionProcessor : IProcessor
             // different paths (allowed) vs. the same path (rejected).
             var leafKeys = LeafReader.ReadCliLeafKeys(installPath);
             activity?.SetTag("extension.contribution_count", leafKeys.Count);
-            var contributions = new List<Contribution>();
-            foreach (var leafKey in leafKeys)
-            {
-                var (leafVerb, leafPath) = LeafReader.SplitLeafKey(leafKey);
-
-                // The first token of every leaf key must match one of the declared [ExtensionVerb]
-                // attributes (§11.2, Q10). For multi-namespace extensions any declared verb is
-                // fair game — the build-time `ExtensionHints.targets` validation enforces the
-                // same rule at PR time.
-                if (!declaredVerbSet.Contains(leafVerb))
-                {
-                    throw CirrusErrorException.LeafConflict(
-                        $"Extension '{packageId}' contributes leaf '{leafKey}' whose first token is '{leafVerb}', " +
-                        $"but only verbs [{string.Join(", ", verbs)}] are declared via [ExtensionVerb]. " +
-                        $"Every s_cliTable key must start with a declared verb.",
-                        new Dictionary<string, object?>
-                        {
-                            ["packageId"] = packageId,
-                            ["declaredVerbs"] = verbs,
-                            ["leafKey"] = leafKey,
-                            ["leafVerb"] = leafVerb,
-                        });
-                }
-
-                // Built-in collision: built-ins occupy (verb, "") only, so a leaf with empty path
-                // for a built-in verb collides; the verb-level check above already caught this,
-                // but be defensive.
-                if (BuiltInExtensions.IsBuiltInVerb(leafVerb) && string.IsNullOrEmpty(leafPath))
-                {
-                    throw CirrusErrorException.LeafConflict(
-                        $"Extension '{packageId}' contributes root leaf '{leafKey}', which is reserved for " +
-                        $"the built-in '{leafVerb}' extension.",
-                        new Dictionary<string, object?>
-                        {
-                            ["packageId"] = packageId,
-                            ["leafKey"] = leafKey,
-                        });
-                }
-
-                // Registry collision: another installed package already contributes the same
-                // (verb, path). Self-upsert is allowed.
-                foreach (var (existingPackageId, existingEntry) in registry.Extensions)
-                {
-                    if (string.Equals(existingPackageId, packageId, StringComparison.OrdinalIgnoreCase))
-                    {
-                        continue;
-                    }
-                    foreach (var existingContribution in existingEntry.Contributions)
-                    {
-                        if (string.Equals(existingContribution.Verb, leafVerb, StringComparison.OrdinalIgnoreCase) &&
-                            string.Equals(existingContribution.Path, leafPath, StringComparison.OrdinalIgnoreCase))
-                        {
-                            throw CirrusErrorException.LeafConflict(
-                                $"Extension '{packageId}' wants to contribute leaf '{leafKey}', but it is already " +
-                                $"owned by '{existingPackageId}'. Remove the existing extension first: " +
-                                $"azv2 extension remove {existingPackageId}",
-                                new Dictionary<string, object?>
-                                {
-                                    ["packageId"] = packageId,
-                                    ["leafKey"] = leafKey,
-                                    ["verb"] = leafVerb,
-                                    ["path"] = leafPath,
-                                    ["existingPackageId"] = existingPackageId,
-                                });
-                        }
-                    }
-                }
-
-                contributions.Add(new Contribution { Verb = leafVerb, Path = leafPath });
-            }
+            var contributions = new List<Contribution>(
+                ExtensionAddPlanner.PlanContributions(packageId, verbs, leafKeys, registry));
 
             // Per Q6 (strict single-version): purge any sibling version directories under the
             // package's parent dir so only the just-installed version remains on disk.
