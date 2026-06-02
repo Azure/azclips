@@ -35,19 +35,12 @@ public static class Program
             // ConsoleLoggingService and writes [VERBOSE]/[DEBUG] directly to the
             // console) with a silent implementation that won't corrupt the TUI.
             services.AddSingleton<ILoggingService, TuiLoggingService>();
+            services.AddSingleton<ITelemetryProvider, TUITelemetryProvider>();
         });
         var bootSw = System.Diagnostics.Stopwatch.StartNew();
         CirrusServiceProvider.Initialize(ClientType.TUI);
         Console.Error.WriteLine($"[startup] DI init: {bootSw.ElapsedMilliseconds}ms");
         _logger = CirrusServiceProvider.GetRequiredService<ILoggingService>();
-
-        //TUI owned telemetry pipeline
-        var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
-        var telemetryOptions = CirrusServiceProvider.GetRequiredService<IConfigurationService>()
-            .GetConfiguration<TelemetryOptions>();
-        var telemetryHost = TuiTelemetryHost.CreateBuilder(telemetryService, telemetryOptions)
-            .UseFileSender(FileTelemetrySender.GetTraceDirectory())
-            .Build();
 
         try
         {
@@ -77,7 +70,6 @@ public static class Program
         }
         finally
         {
-            await telemetryHost.DisposeAsync();
             CirrusServiceProvider.Dispose();
         }
     }

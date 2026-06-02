@@ -11,7 +11,7 @@ public class AuthContextService(ILoggingService Logger, ITelemetryService Teleme
 
     public async Task SaveContextAsync(AuthContext authContext, CancellationToken cancellationToken = default)
     {
-        using var _ = TelemetryService.ActivitySource?.StartActivity($"{nameof(AuthContextService)}.{nameof(SaveContextAsync)}");
+        using var _ = TelemetryService.StartActivity($"{nameof(AuthContextService)}.{nameof(SaveContextAsync)}");
         try
         {
             Directory.CreateDirectory(ContextDirectory);
@@ -28,7 +28,7 @@ public class AuthContextService(ILoggingService Logger, ITelemetryService Teleme
 
     public async Task<AuthContext?> GetCurrentContextAsync(CancellationToken cancellationToken = default)
     {
-        using var _ = TelemetryService.ActivitySource?.StartActivity($"{nameof(AuthContextService)}.{nameof(GetCurrentContextAsync)}");
+        using var _ = TelemetryService.StartActivity($"{nameof(AuthContextService)}.{nameof(GetCurrentContextAsync)}");
         _currentContext = await LoadContextAsync(cancellationToken);  // todo: proper cache management (synchronization, multi-account, etc.) instead of hard-reloading
         return _currentContext;
     }
@@ -57,7 +57,7 @@ public class AuthContextService(ILoggingService Logger, ITelemetryService Teleme
 
     public Task ClearContextAsync(CancellationToken cancellationToken = default)
     {
-        using var _ = TelemetryService.ActivitySource?.StartActivity($"{nameof(AuthContextService)}.{nameof(ClearContextAsync)}");
+        using var _ = TelemetryService.StartActivity($"{nameof(AuthContextService)}.{nameof(ClearContextAsync)}");
         _currentContext = null;
         if (File.Exists(ContextFilePath))
         {

@@ -17,17 +17,18 @@ namespace Core.Telemetry;
 /// </remarks>
 public class TelemetryService : ITelemetryService
 {
-    public ActivitySource ActivitySource { get; }
+    private readonly ITelemetryProvider _telemetryProvider;
 
-    public TelemetryService(ClientType clientType)
+    public TelemetryService(ITelemetryProvider telemetryProvider)
     {
-        ActivitySource = new ActivitySource(clientType.ToString());
+        _telemetryProvider = telemetryProvider;
     }
 
-    public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal) => ActivitySource.StartActivity(name, kind);
+    public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal) => _telemetryProvider.ActivitySource.StartActivity(name, kind);
 
     public void Dispose()
     {
+        _telemetryProvider.TracerProvider.Dispose();
         GC.SuppressFinalize(this);
     }
 }

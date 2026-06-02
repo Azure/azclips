@@ -10,6 +10,7 @@ public static class DIRegisterExtensions
     /// </summary>
     public static IServiceCollection RegisterTelemetryServices(this IServiceCollection services)
     {
+        services.AddSingleton<ITelemetryProvider, DefaultTelemetryProvider>();
         services.AddSingleton<ITelemetryService, TelemetryService>();
         return services;
     }

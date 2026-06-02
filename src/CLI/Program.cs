@@ -55,17 +55,12 @@ public class Program
         {
             services.AddSingleton<IAssemblyLoadingProvider, CLIAssemblyLoadingProvider>();
             services.AddSingleton<IArgumentParsingProvider, CLIArgumentParsingProvider>();
+            services.AddSingleton<ITelemetryProvider, CLITelemetryProvider>();
         });
         CirrusServiceProvider.Initialize(_clientType);
         _logger = CirrusServiceProvider.GetRequiredService<ILoggingService>();
 
-        //CLI owned telemetry pipeline
         var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
-        var telemetryOptions = CirrusServiceProvider.GetRequiredService<IConfigurationService>()
-            .GetConfiguration<TelemetryOptions>();
-        var telemetryHost = CliTelemetryHost.CreateBuilder(telemetryService, telemetryOptions)
-            .UseFileSender(FileTelemetrySender.GetTraceDirectory())
-            .Build();
 
         try
         {
@@ -104,10 +99,7 @@ public class Program
         } // activity disposed here → traces exported to file
         finally
         {
-            // Disposal order matters: flush + dispose the TracerProvider (exports traces to
-            // file) before tearing down DI, then fire the background uploader child process
-            // which reads those files.
-            await telemetryHost.DisposeAsync();
+            // await telemetryService.DisposeAsync();
             CirrusServiceProvider.Dispose();
             SpawnTelemetryUploader();
         }
