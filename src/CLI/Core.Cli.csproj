@@ -16,11 +16,10 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Cli.Tests" />
   </ItemGroup>
-  
+
   <Import Project="$(MSBuildThisFileDirectory)..\..\Shared.props" />
 
   <ItemGroup>
-    <ProjectReference Include="..\Core\Core.Agent\Core.Agent.csproj" />
     <ProjectReference Include="..\Core\Core.Common\Core.Common.csproj" />
     <ProjectReference Include="..\Core\Core.DependencyInjection\Core.DependencyInjection.csproj" />
   </ItemGroup>
