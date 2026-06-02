@@ -157,6 +157,11 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                 return;
             }
 
+            if (AuthContext is null)
+            {
+                throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(AuthContext)}, so SubscriptionId cannot be resolved. Provide it via the property instead.");
+            }
+
             if (string.IsNullOrWhiteSpace(AuthContext.SubscriptionId))
             {
                 throw new InvalidOperationException("SubscriptionId must be provided either via property or auth context.");
