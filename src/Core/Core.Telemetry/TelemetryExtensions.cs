@@ -10,7 +10,7 @@ public static class TelemetryExtensions
 {
     public static Activity? StartCLIActivity(this ITelemetryService telemetryService, string[] args)
     {
-        var activity = telemetryService.ActivitySource.StartActivity("AzureCLI.Main", ActivityKind.Server);
+        var activity = telemetryService.StartActivity("AzureCLI.Main", ActivityKind.Server);
 
         if (activity != null)
         {
@@ -19,7 +19,7 @@ public static class TelemetryExtensions
             // Telemetry recording will be moved to engine soon.
             // Temporarily proceed with the parser here.
             var parameters = new StringBuilder();
-            
+
             bool parsingOptions = false;
             for (int i = 0; i < args.Length; i++)
             {
@@ -56,7 +56,7 @@ public static class TelemetryExtensions
 
     public static Activity? StartPowerShellActivity(this ITelemetryService telemetryService, string commandName, IDictionary<string, object> parameters)
     {
-        var activity = telemetryService.ActivitySource.StartActivity("AzurePS.Cmdlet", ActivityKind.Server);
+        var activity = telemetryService.StartActivity("AzurePS.Cmdlet", ActivityKind.Server);
 
         if (activity != null)
         {
