@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <ProjectReference Include="..\Core.Abstractions\Core.Abstractions.csproj" />
+    <ProjectReference Include="..\Core.Runtime\Core.Runtime.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="System.Reflection.MetadataLoadContext" Version="9.0.0" />

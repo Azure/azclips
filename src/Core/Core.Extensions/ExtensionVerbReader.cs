@@ -2,7 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Reflection;
-using System.Runtime.InteropServices;
+using Core.Runtime;
 
 namespace Core.Extensions
 {
@@ -24,39 +24,19 @@ namespace Core.Extensions
 
         /// <summary>
         /// Scan all DLLs in <paramref name="extensionDirectory"/> for <c>[ExtensionVerb]</c>
-        /// attributes and return every declared verb. Phase 9: an extension may declare multiple
-        /// verbs (the attribute is repeatable), so this returns a list rather than a single value.
+        /// attributes and return every declared verb. The attribute is repeatable, so this
+        /// returns a list rather than a single value.
         /// </summary>
         /// <returns>
         /// Distinct verb strings in first-seen order. Empty if no DLL declares one.
         /// </returns>
         public static IReadOnlyList<string> ReadVerbs(string extensionDirectory)
         {
-            ArgumentException.ThrowIfNullOrWhiteSpace(extensionDirectory);
-
-            if (!Directory.Exists(extensionDirectory))
-            {
-                throw new DirectoryNotFoundException($"Extension directory not found: {extensionDirectory}");
-            }
-
-            var dllPaths = Directory.GetFiles(extensionDirectory, "*.dll", SearchOption.TopDirectoryOnly);
+            using var mlc = ExtensionMetadataContext.Create(extensionDirectory, out var dllPaths);
             if (dllPaths.Length == 0)
             {
                 return Array.Empty<string>();
             }
-
-            // MetadataLoadContext needs access to runtime BCL assemblies to resolve TypeRefs,
-            // even though we only read CustomAttributeData. Include them in the resolver,
-            // plus the host's own directory so references like Core.Abstractions resolve.
-            var runtimeAssemblies = Directory.GetFiles(RuntimeEnvironment.GetRuntimeDirectory(), "*.dll");
-            var hostAssemblies = Directory.GetFiles(AppContext.BaseDirectory, "*.dll");
-            var allPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var p in runtimeAssemblies) allPaths.Add(p);
-            foreach (var p in hostAssemblies)    allPaths.Add(p);
-            foreach (var p in dllPaths)          allPaths.Add(p);
-
-            var resolver = new PathAssemblyResolver(allPaths);
-            using var mlc = new MetadataLoadContext(resolver);
 
             // Preserve first-seen casing; ignore case for membership tests.
             var verbs = new List<string>();

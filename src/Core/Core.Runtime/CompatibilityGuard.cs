@@ -2,7 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Reflection;
-using System.Runtime.InteropServices;
 using NuGet.Versioning;
 
 namespace Core.Runtime
@@ -121,29 +120,13 @@ namespace Core.Runtime
         /// </remarks>
         public static Result CheckAssembly(string extensionDirectory, string currentCoreVersion)
         {
-            ArgumentException.ThrowIfNullOrWhiteSpace(extensionDirectory);
             ArgumentException.ThrowIfNullOrWhiteSpace(currentCoreVersion);
 
-            if (!Directory.Exists(extensionDirectory))
-            {
-                throw new DirectoryNotFoundException($"Extension directory not found: {extensionDirectory}");
-            }
-
-            var dllPaths = Directory.GetFiles(extensionDirectory, "*.dll", SearchOption.TopDirectoryOnly);
+            using var mlc = ExtensionMetadataContext.Create(extensionDirectory, out var dllPaths);
             if (dllPaths.Length == 0)
             {
                 return new Result(true, null);
             }
-
-            var runtimeAssemblies = Directory.GetFiles(RuntimeEnvironment.GetRuntimeDirectory(), "*.dll");
-            var hostAssemblies = Directory.GetFiles(AppContext.BaseDirectory, "*.dll");
-            var allPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var p in runtimeAssemblies) allPaths.Add(p);
-            foreach (var p in hostAssemblies) allPaths.Add(p);
-            foreach (var p in dllPaths) allPaths.Add(p);
-
-            var resolver = new PathAssemblyResolver(allPaths);
-            using var mlc = new MetadataLoadContext(resolver);
 
             foreach (var dllPath in dllPaths)
             {
