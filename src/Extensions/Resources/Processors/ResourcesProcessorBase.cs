@@ -117,7 +117,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
         /// Returns a length-bounded version of a raw response body for safe inclusion in exception
         /// messages. Exceptions can propagate into logs/telemetry, so the full (potentially large or
         /// sensitive) body is never embedded — it is truncated with an indicator of how much was
-        /// omitted. The full body remains available via the <c>ResponseInvalidJson</c> diagnostic event.
+        /// omitted. The full body remains available via the <c>ResponseInvalidJson</c> diagnostic
+        /// event's <see cref="EventData.ExtendedData"/> (kept out of the user-facing message).
         /// </summary>
         private protected static string TruncateBodyForExceptionMessage(string body)
         {
@@ -200,7 +201,11 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                 }
                 catch (JsonException ex)
                 {
-                    await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}. Raw body: {rawBody}");
+                    await Publisher.Publish(Events.ResponseInvalidJson, new EventData
+                    {
+                        Message = $"response has invalid JSON for {response.RequestMessage?.RequestUri}",
+                        ExtendedData = rawBody,
+                    });
                     throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {TruncateBodyForExceptionMessage(rawBody)}", ex);
                 }
             }

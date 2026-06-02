@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
 
@@ -103,7 +104,11 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
             }
             catch (JsonException ex)
             {
-                await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}. Raw body: {rawBody}");
+                await Publisher.Publish(Events.ResponseInvalidJson, new EventData
+                {
+                    Message = $"response has invalid JSON for {response.RequestMessage?.RequestUri}",
+                    ExtendedData = rawBody,
+                });
                 throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TPage).Name}. Raw body: {TruncateBodyForExceptionMessage(rawBody)}", ex);
             }
         }
