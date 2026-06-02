@@ -31,13 +31,8 @@ public sealed class ExtensionNotInstalledException : CirrusErrorException
         $"Verb '{verb}' is provided by extension '{packageId}', which is not installed.\n" +
         $"Install it with: azv2 extension add --name {Strip(packageId)}";
 
-    // The 'add --name' surface today wants the short name; the dispatcher's loader-compat shim
-    // does the same prefix strip. Keep these in sync until the loader accepts full ids.
-    private static string Strip(string packageId)
-    {
-        const string prefix = "Microsoft.Azure.Cirrus.Extensions.";
-        return packageId.StartsWith(prefix, StringComparison.Ordinal)
-            ? packageId[prefix.Length..]
+    private static string Strip(string packageId) =>
+        packageId.StartsWith(Constants.cirrusPrefix, StringComparison.Ordinal)
+            ? packageId[Constants.cirrusPrefix.Length..]
             : packageId;
-    }
 }
