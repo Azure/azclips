@@ -9,9 +9,6 @@ namespace Microsoft.Azure.Cirrus.Cmdlets.Login;
 
 public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyCleanup
 {
-    // private static ITelemetryHost? _telemetryHost;
-    private static readonly object _hostLock = new();
-
     public void OnImport()
     {
         CirrusServiceProvider.OverrideRegistration(services =>
