@@ -443,6 +443,20 @@ public static class RuntimeExtensions
             : array.Skip(1).Aggregate(new StringBuilder(array[0]!.ToString()),
             (s, i) => s.Append(delimiter).Append(i), s => s.ToString());
     }
+
+    // Reads ARM error body and publishes ResourceOperationFailed so the message reaches
+    // the error stream, then throws to stop the orchestration. Callers that need to keep
+    // ownership of the response (i.e. return it to a caller) are responsible for disposing
+    // it when this throws.
+    public static async Task EnsureSuccessAsync(this HttpResponseMessage response, IEventPublisher publisher)
+    {
+        if (response.IsSuccessStatusCode) return;
+        string body = response.Content is null ? string.Empty : await response.Content.ReadAsStringAsync();
+        string uri = response.RequestMessage?.RequestUri?.ToString() ?? "(unknown)";
+        string message = $"{(int)response.StatusCode} {response.ReasonPhrase} from {uri}{(string.IsNullOrWhiteSpace(body) ? string.Empty : ": " + body)}";
+        await publisher.Publish(Events.ResourceOperationFailed, message);
+        throw new HttpRequestException(message, inner: null, statusCode: response.StatusCode);
+    }
 }
 
 

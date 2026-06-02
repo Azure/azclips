@@ -95,7 +95,15 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
             using HttpRequestMessage _request = await CreateRequestMessage();
             HttpResponseMessage _response = await _httpPipeline.SendAsync(_request, _publisher);
             await _publisher.Publish(Events.TracingHttpResponseMessage, _response);
-            // TODO(Yabo): handle status codess
+            try
+            {
+                await _response.EnsureSuccessAsync(_publisher);
+            }
+            catch
+            {
+                _response.Dispose();
+                throw;
+            }
             return _response;
         }
 
@@ -226,6 +234,15 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors
                     default:
                     {
                         await _publisher.Publish(Events.PollingFailed);
+                        try
+                        {
+                            await _response.EnsureSuccessAsync(_publisher);
+                        }
+                        catch
+                        {
+                            _response.Dispose();
+                            throw;
+                        }
                         break;
                     }
                 }
