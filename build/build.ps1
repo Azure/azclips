@@ -18,36 +18,42 @@ if ($GenerateHelpArtifacts)
     $artifactsRoot = Join-Path $repoRoot "artifacts/$Configuration"
     $outputRoot = Join-Path $repoRoot "artifacts/help"
 
+    # Ensure PlatyPS (and any other build-time PS modules) are installed and pinned.
+    & "$PSScriptRoot/Install-BuildDependencies.ps1"
+    Import-Module platyPS -RequiredVersion 0.14.2
+
     dotnet run --project "$repoRoot/tools/Help/Cirrus.Help.Tool/Cirrus.Help.Tool.csproj" -- --artifacts-root "$artifactsRoot" --output-root "$outputRoot"
     $helpToolExitCode = $LASTEXITCODE
 
-    # @TODO DANIEL: Remove this copy step once artifacts module layout is refined and Get-Help can consume packaged output directly.
-    # For now, copy generated MAML XML into src/PS/<Module>/en-US so local Get-Help resolves examples and descriptions.
-    Get-ChildItem "$repoRoot/src/PS" -Filter *.psd1 -Recurse | ForEach-Object {
-        $psd1 = $_
-        $manifest = Import-PowerShellDataFile $psd1.FullName
-        $moduleRefs = @()
-        if ($manifest.RootModule) { $moduleRefs += $manifest.RootModule }
-        if ($manifest.NestedModules) { $moduleRefs += @($manifest.NestedModules) }
-        if (-not $moduleRefs) { return }
+    # Generate MAML XML from per-module markdown using PlatyPS. Write into both
+    # src/PS/<Module>/en-US (source-of-truth, committed) and the staged
+    # artifacts/Debug/PS/<Module>/en-US (so `Import-Module artifacts/.../X.psd1` +
+    # `Get-Help` resolves examples — PowerShell looks for <ModuleBase>/<culture>/
+    # <Dll>-Help.xml next to the manifest).
+    $psHelpXmlCount = 0
+    $stagedPsRoot = Join-Path $artifactsRoot "PS"
+    Get-ChildItem "$repoRoot/src/PS" -Directory | ForEach-Object {
+        $moduleDir = $_
+        $helpDir = Join-Path $moduleDir.FullName "help"
+        if (-not (Test-Path $helpDir)) { return }
+        if (-not (Get-ChildItem -Path $helpDir -Filter *.md -ErrorAction SilentlyContinue)) { return }
 
-        $dest = Join-Path $psd1.DirectoryName "en-US"
-        foreach ($moduleRef in $moduleRefs)
+        $enUs = Join-Path $moduleDir.FullName "en-US"
+        New-Item -ItemType Directory -Force -Path $enUs | Out-Null
+        New-ExternalHelp -Path $helpDir -OutputPath $enUs -Force | Out-Null
+
+        $stagedEnUs = Join-Path $stagedPsRoot (Join-Path $moduleDir.Name "en-US")
+        if (Test-Path (Join-Path $stagedPsRoot $moduleDir.Name))
         {
-            $dllName = [System.IO.Path]::GetFileNameWithoutExtension($moduleRef)
-            $xmlName = "$dllName.dll-Help.xml"
-            $src = Join-Path $outputRoot "powershell/$xmlName"
-            if (Test-Path $src)
-            {
-                New-Item -ItemType Directory -Force -Path $dest | Out-Null
-                Copy-Item $src $dest -Force
-            }
+            New-Item -ItemType Directory -Force -Path $stagedEnUs | Out-Null
+            Copy-Item (Join-Path $enUs "*.xml") -Destination $stagedEnUs -Force
         }
+
+        $psHelpXmlCount++
     }
+    Write-Host "Generated MAML help for $psHelpXmlCount PowerShell module(s)."
 
     # Propagate the help tool's exit code so CI fails when help validation fails.
-    # We run the local en-US copy step first so devs always have the latest XML for
-    # iteration, even on a partially-broken corpus, but the build itself still fails.
     if ($helpToolExitCode -ne 0)
     {
         exit $helpToolExitCode

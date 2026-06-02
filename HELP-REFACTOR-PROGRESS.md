@@ -59,40 +59,43 @@ Tracks execution of the bifurcation refactor agreed in the design call.
 
 ### Build infrastructure
 
-- [ ] Add `build/Install-BuildDependencies.ps1` (PlatyPS pinned)
-- [ ] Wire into `build.ps1` `-GenerateHelpArtifacts` block
+- [x] Add `build/Install-BuildDependencies.ps1` (PlatyPS pinned to 0.14.2)
+- [x] Wire into `build.ps1` `-GenerateHelpArtifacts` block
 - [ ] README note about pinned version
 
 ### Generate PS markdown
 
-- [ ] `New-MarkdownHelp` per module → `src/PS/<Module>/help/`
-- [ ] Hand-fill synopses/descriptions/examples (port from old extension help)
-- [ ] Commit `src/PS/<Module>/help/*.md`
+- [x] `New-MarkdownHelp` per module → `src/PS/<Module>/help/` (helper at `build/New-PSHelpMarkdown.ps1`)
+- [x] Hand-fill synopses/descriptions/examples (ported from old extension help)
+- [x] Commit `src/PS/<Module>/help/*.md` (Compute 6, Config 5, Login 3, Resources 2)
 
 ### MAML emission
 
-- [ ] `New-ExternalHelp` per module → `artifacts/help/powershell/`
-- [ ] Verify filenames match `Get-Help` expectations
-- [ ] Confirm copy-into-`en-US` step still works
+- [x] `New-ExternalHelp` per module → `src/PS/<Module>/en-US/` (writes directly into module folder, no separate `artifacts/help/powershell/` staging)
+- [x] Verify filenames match `Get-Help` expectations
+- [x] Confirm copy-into-`en-US` step still works (now done by PlatyPS itself)
 
 ### Strip PS paths from `Cirrus.Help.Tool`
 
-- [ ] Remove PS MAML writer
-- [ ] Remove PS example validation
-- [ ] Tool emits CLI-only artifacts
+- [x] Remove PS MAML writer (`WritePowerShellHelpXml` + `--skip-pwsh-xml` flag deleted; PlatyPS now owns MAML)
+- [ ] ~~Remove PS example validation~~ — **kept** per locked plan ("Keep everything, repoint paths"); validator now scans `src/PS/<Module>/help/`
+- [x] Tool emits CLI-only artifacts (manifests + HelpIndex.json; PlatyPS emits MAML)
 
 ### Phase 2 verification
 
-- [ ] `Import-Module .\artifacts\Debug\PS\<Mod>\<Mod>.psd1`
-- [ ] `Get-Help <Cmdlet> -Full` returns full content for one cmdlet per module
-- [ ] `Get-Help <Cmdlet> -Examples` returns examples
+- [x] `dotnet build cirrus.slnx` clean
+- [x] `Help validation: no issues.` (validator now scans new PS path)
+- [x] All tests pass (91 CLI + 92 help tool)
+- [x] `Import-Module .\artifacts\Debug\PS\<Mod>\<Mod>.psd1`
+- [x] `Get-Help <Cmdlet> -Full` returns full content for one cmdlet per module
+- [x] `Get-Help <Cmdlet> -Examples` returns examples
 
 ---
 
 ## Phase 3 — CLI markdown scaffolder
 
-- [ ] Add `--scaffold <extension>` (or sibling tool) — walks `s_cliTable`, emits templates
-- [ ] Idempotent (skip existing files)
+- [x] Add `--scaffold <extension>` (sibling tool inside `Cirrus.Help.Tool`) — walks `GetCommandTable(ClientType.CLI)`, emits templates
+- [x] Idempotent (skip existing files)
 - [ ] Document in `docs/howto/help.md`
 
 ---
