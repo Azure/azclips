@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Microsoft.Azure.Cirrus.ExtensionRuntime;
 using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
@@ -30,6 +31,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             using HttpResponseMessage response = await HttpPipeline.SendAsync(request, Publisher);
             await Publisher.Publish(Events.TracingHttpResponseMessage, response);
+            await response.EnsureSuccessAsync(Publisher);
             ResourceGroup rg = (await response.Content.ReadFromJsonAsync<ResourceGroup>(JsonOptions))!;
             await WriteOutput(rg);
             await Publisher.Publish(Events.ProcessorProcessAsyncEnd);

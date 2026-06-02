@@ -53,6 +53,7 @@ namespace Core.Abstractions.Runtime
         public const string ResponseNoContent = nameof(ResponseNoContent);
         public const string ResponseEmptyBody = nameof(ResponseEmptyBody);
         public const string ResponseInvalidJson = nameof(ResponseInvalidJson);
+        public const string ResourceOperationFailed = nameof(ResourceOperationFailed);
 
         // Auth
         public const string AuthBeforeTokenAcquisition = nameof(AuthBeforeTokenAcquisition);

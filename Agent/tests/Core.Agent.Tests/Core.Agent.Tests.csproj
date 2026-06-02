@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core.Agent.csproj" />
+    <ProjectReference Include="..\..\..\tests\Common\Tests.Common.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Snapshot baselines: copy alongside the test dll so SnapshotAssert
+         can locate them via its walk-up-from-test-bin search. -->
+    <None Update="Snapshots\*.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>
+

@@ -47,7 +47,6 @@
 ## Security & Configuration Tips
 - SDK pinned via `global.json`; ensure your local `dotnet` matches
 - Avoid committing secrets; use environment variables or user secrets for local dev
-- Azure OpenAI credentials: use `.env` file in `src/Core/Core.Agent/` (see `.env.example`)
 
 ## Documentation
 - **Architecture**: See `src/ARCHITECTURE.md` for detailed system design

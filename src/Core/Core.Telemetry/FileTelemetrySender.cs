@@ -19,10 +19,12 @@ public class FileTelemetrySender : ITelemetrySender
 
     /// <summary>
     /// Gets the shared trace directory for the background uploader picks up all files from one location.
-    public static string GetTraceDirectory() => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        TraceDirectoryName,
-        "traces");
+    /// </summary>
+    public static string GetTraceDirectory() =>
+        Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            TraceDirectoryName,
+            "traces");
 
     public void ConfigureExporter(TracerProviderBuilder builder, string traceDirectory)
     {

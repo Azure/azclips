@@ -114,7 +114,8 @@ namespace Core.Engine
             subscriber.Subscribe(Events.PollingFailed, (data) =>
             {
                 var evt = (EventData)data;
-                loggingService.Error(evt.Message);
+                if (!string.IsNullOrEmpty(evt.Message))
+                    loggingService.Error(evt.Message);
             });
 
             subscriber.Subscribe(Events.ResponseNoContent, (data) =>
@@ -133,6 +134,12 @@ namespace Core.Engine
             {
                 var evt = (EventData)data;
                 loggingService.Info(evt.Message);
+            });
+
+            subscriber.Subscribe(Events.ResourceOperationFailed, (data) =>
+            {
+                var evt = (EventData)data;
+                loggingService.Error(evt.Message);
             });
  
             return subscriber;
