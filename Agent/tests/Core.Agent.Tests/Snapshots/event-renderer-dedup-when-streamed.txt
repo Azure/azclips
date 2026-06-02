@@ -1,0 +1,3 @@
+LlmFirstToken ttft=<NORMALIZED>
+Text len=14
+LlmTurnCompleted in=<NORMALIZED> out=<NORMALIZED> cached=<NORMALIZED> elapsed=<NORMALIZED>
