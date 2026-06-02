@@ -67,6 +67,9 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
 
         internal async virtual Task<HttpResponseMessage> SendAsync()
         {
+            // Validate runtime context before CreateRequestMessage(), since derived implementations
+            // may publish events (using Publisher) while building the request.
+            EnsureRuntimeContext();
             using HttpRequestMessage _request = await CreateRequestMessage();
             // TODO: handle status codes
             return await SendRequestAsync(_request);
@@ -82,11 +85,27 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
         /// </summary>
         internal async Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request)
         {
-            IRuntimeHttpPipeline _httpPipeline = HttpPipeline ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(HttpPipeline)}.");
-            IEventPublisher _publisher = Publisher ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(Publisher)}.");
-            HttpResponseMessage _response = await _httpPipeline.SendAsync(request, _publisher);
-            await _publisher.Publish(Events.TracingHttpResponseMessage, _response);
+            EnsureRuntimeContext();
+            HttpResponseMessage _response = await HttpPipeline.SendAsync(request, Publisher);
+            await Publisher.Publish(Events.TracingHttpResponseMessage, _response);
             return _response;
+        }
+
+        /// <summary>
+        /// Verifies the processor was initialized with the runtime context required to issue requests
+        /// and publish events. Throws a deterministic <see cref="InvalidOperationException"/> (rather
+        /// than letting a later access throw <see cref="NullReferenceException"/>) when it was not.
+        /// </summary>
+        private void EnsureRuntimeContext()
+        {
+            if (HttpPipeline is null)
+            {
+                throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(HttpPipeline)}.");
+            }
+            if (Publisher is null)
+            {
+                throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(Publisher)}.");
+            }
         }
     }
 
