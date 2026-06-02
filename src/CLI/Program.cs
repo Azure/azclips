@@ -3,6 +3,7 @@ using System.Reflection;
 using Core.Abstractions;
 using Core.Cli.Exceptions;
 using Core.Cli.Parser;
+using Core.Cli.Telemetry;
 using Core.Engine;
 using Core.Telemetry;
 using Core.DependencyInjection;
@@ -14,10 +15,9 @@ public class Program
 {
     private static readonly ClientType _clientType = ClientType.CLI;
     private static readonly string AssemblyName = Assembly.GetExecutingAssembly().GetName().Name!;
-    private static ITelemetryService? _telemetryService;
     private static ILoggingService? _logger;
     private static readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
-    
+
     // CLI by default only enable output and error streams. Optional streams enabled by global parameters
     private static OutputStreams streams = new OutputStreams(
         WriteOutput: (value, ct) =>
@@ -58,21 +58,23 @@ public class Program
         {
             services.AddSingleton<IAssemblyLoadingProvider, CLIAssemblyLoadingProvider>();
             services.AddSingleton<IArgumentParsingProvider, CLIArgumentParsingProvider>();
+            services.AddSingleton<ITelemetryProvider, CLITelemetryProvider>();
         });
         CirrusServiceProvider.Initialize(_clientType);
-        _telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
         _logger = CirrusServiceProvider.GetRequiredService<ILoggingService>();
+
+        var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
 
         try
         {
-            using var activity = _telemetryService.StartCLIActivity(args);
+            using var activity = telemetryService.StartCLIActivity(args);
             var dispatcher = new ExtensionDispatcher();
             args = WireDebugStreams(args);
             try
             {
                 CommandInvocation invocation = dispatcher.Parse(args);
 
-                using var commandActivity = _telemetryService.ActivitySource.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
+                using var commandActivity = telemetryService.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
                 commandActivity?.SetTag("command.type", _clientType.ToString());
 
                 var engine = CirrusServiceProvider.GetRequiredService<IEngine>() ?? throw new InvalidOperationException("Engine service not found.");
@@ -107,7 +109,6 @@ public class Program
         } // activity disposed here → traces exported to file
         finally
         {
-            _telemetryService?.Dispose();
             CirrusServiceProvider.Dispose();
             SpawnTelemetryUploader();
         }

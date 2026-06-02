@@ -4,6 +4,7 @@ using Core.Tui.AgentMode;
 using Core.Tui.Azure;
 using Core.Tui.Rendering;
 using Core.Tui.Services;
+using Core.Tui.Telemetry;
 using Hex1b;
 using Hex1b.Input;
 using Hex1b.Layout;
@@ -15,7 +16,6 @@ namespace Core.Tui;
 
 public static class Program
 {
-    private static ITelemetryService? _telemetryService;
     private static ILoggingService? _logger;
 
     public static async Task<int> Main(string[] args)
@@ -37,11 +37,11 @@ public static class Program
             // ConsoleLoggingService and writes [VERBOSE]/[DEBUG] directly to the
             // console) with a silent implementation that won't corrupt the TUI.
             services.AddSingleton<ILoggingService, TuiLoggingService>();
+            services.AddSingleton<ITelemetryProvider, TUITelemetryProvider>();
         });
         var bootSw = System.Diagnostics.Stopwatch.StartNew();
         CirrusServiceProvider.Initialize(ClientType.TUI);
         Console.Error.WriteLine($"[startup] DI init: {bootSw.ElapsedMilliseconds}ms");
-        _telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
         _logger = CirrusServiceProvider.GetRequiredService<ILoggingService>();
 
         try
@@ -73,7 +73,6 @@ public static class Program
         }
         finally
         {
-            _telemetryService?.Dispose();
             CirrusServiceProvider.Dispose();
         }
     }

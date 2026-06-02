@@ -53,7 +53,7 @@ public class AddExtensionProcessor : IProcessor
 
         var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
         var loggingService = CirrusServiceProvider.GetRequiredService<ILoggingService>();
-        using var _ = telemetryService.ActivitySource?.StartActivity($"{nameof(AddExtensionProcessor)}.{nameof(Process)}");
+        using var _ = telemetryService.StartActivity($"{nameof(AddExtensionProcessor)}.{nameof(Process)}");
 
         var installer = new ExtensionInstaller(loggingService, feedUrl: FeedUrl);
         if (!string.IsNullOrWhiteSpace(Name))
