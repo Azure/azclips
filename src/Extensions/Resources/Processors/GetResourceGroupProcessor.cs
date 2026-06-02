@@ -10,7 +10,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
         Required = true,
         Description = @"The name of the resource group.",
         SerializedName = @"Name")]
-        public string? Name { get; set; }
+        public string Name { get; set; } = "";
 
         protected override async Task<HttpRequestMessage> CreateRequestMessage()
         {
