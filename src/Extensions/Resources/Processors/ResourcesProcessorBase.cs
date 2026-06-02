@@ -67,12 +67,25 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
 
         internal async virtual Task<HttpResponseMessage> SendAsync()
         {
+            using HttpRequestMessage _request = await CreateRequestMessage();
+            // TODO: handle status codes
+            return await SendRequestAsync(_request);
+        }
+
+        /// <summary>
+        /// Sends an already-constructed request through the initialized pipeline. Applies the same
+        /// null-checks as <see cref="SendAsync"/> so an uninitialized processor fails with a
+        /// deterministic <see cref="InvalidOperationException"/> instead of a
+        /// <see cref="NullReferenceException"/>, and publishes the standard response-tracing event.
+        /// Used by both the single-request path and the nextLink pagination path so failures are
+        /// consistent regardless of how the request was built.
+        /// </summary>
+        internal async Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request)
+        {
             IRuntimeHttpPipeline _httpPipeline = HttpPipeline ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(HttpPipeline)}.");
             IEventPublisher _publisher = Publisher ?? throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(Publisher)}.");
-            using HttpRequestMessage _request = await CreateRequestMessage();
-            HttpResponseMessage _response = await _httpPipeline.SendAsync(_request, _publisher);
+            HttpResponseMessage _response = await _httpPipeline.SendAsync(request, _publisher);
             await _publisher.Publish(Events.TracingHttpResponseMessage, _response);
-            // TODO: handle status codes
             return _response;
         }
     }

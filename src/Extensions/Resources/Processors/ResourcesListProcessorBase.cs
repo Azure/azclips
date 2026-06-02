@@ -59,8 +59,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                     await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
                     using var nextRequest = new HttpRequestMessage(HttpMethod.Get, nextUri);
                     await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
-                    using HttpResponseMessage nextResponse = await HttpPipeline.SendAsync(nextRequest, Publisher);
-                    await Publisher.Publish(Events.TracingHttpResponseMessage, nextResponse);
+                    using HttpResponseMessage nextResponse = await SendRequestAsync(nextRequest);
                     page = await DeserializePageOrNull(nextResponse);
 
                     if (page is null)
