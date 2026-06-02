@@ -1,16 +1,4 @@
 <Project>
-  <!--
-    Scans src/Extensions/** and emits a single extension-hints.json embedded resource
-    consumed by the dispatcher. The map keys are either:
-
-      - bare verbs (e.g. "vm")          - from `[ExtensionVerb("vm")]` declarations
-      - full-path leaves (e.g. "vm create") - from `s_cliTable` initializer keys
-
-    Values are the package id that owns each entry. Duplicate `(verb, path)` keys
-    across in-tree projects fail the build.
-
-    Spec: docs/spec/extension-management.md sections 4.3, 11.6, 11.9 (Phase 8).
-  -->
   <UsingTask
     TaskName="GenerateExtensionHintsTask"
     TaskFactory="RoslynCodeTaskFactory"

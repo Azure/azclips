@@ -10,7 +10,7 @@ namespace Core.Extensions
     /// <summary>
     /// Unified build-time map of <c>"verb"</c> or <c>"verb path"</c> &#x2192; package id for
     /// first-party extensions, embedded by Core.Cli (see
-    /// <c>src/CLI/build/ExtensionHints.targets</c>).
+    /// <c>src/CLI/Targets/ExtensionHints.targets</c>).
     /// </summary>
     /// <remarks>
     /// Consulted by the dispatcher when both the live <c>LeafIndex</c> and verb resolver miss, so

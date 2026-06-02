@@ -215,8 +215,6 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
             return freshCtx.LoadFromAssemblyPath(extensionPath);
         }
 
-        // Key by (resolved directory, dll path) so wildcard 'latest' resolutions and explicit
-        // version pins share a slot once they pick the same folder.
         var entry = s_cache.GetOrAdd(
             (extensionDir, extensionPath),
             key => new Lazy<(ExtensionLoadContext, Assembly)>(() =>
