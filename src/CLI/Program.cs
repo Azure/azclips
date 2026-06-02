@@ -171,15 +171,16 @@ public class Program
         return result.ToArray();
     }
 
-    // Strips `--no-cache` and flips the static ALC-cache bypass switch consumed by
-    // MultiVersionExtensionLoader (test hook for benchmarking).
+    // Strips `--no-cache` and propagates the bypass via the CIRRUS_NO_EXTENSION_CACHE env var,
+    // which AssemblyLoadingOptions.BypassExtensionCache reads through ConfigurationService.
+    // Test hook for benchmarking.
     private static string[] ParseNoCacheFlag(string[] args)
     {
         if (!args.Contains("--no-cache", StringComparer.OrdinalIgnoreCase))
         {
             return args;
         }
-        MultiVersionExtensionLoader.BypassCache = true;
+        Environment.SetEnvironmentVariable("CIRRUS_NO_EXTENSION_CACHE", "true");
         return args.Where(a => !a.Equals("--no-cache", StringComparison.OrdinalIgnoreCase)).ToArray();
     }
 

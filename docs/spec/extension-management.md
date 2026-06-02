@@ -471,3 +471,46 @@ Tracked, not v1.
 - **PowerShell parity definition.** "Same surface" vs. "same shape when both exist." Decide post-v1.
 - **PowerShell CNF integration with the embedded hint catalog.** The hint catalog already works for the CLI dispatcher's verb-miss → extension-name suggestion path. Whether the PS surface should consume the same catalog from a CNF (Command-Not-Found) handler is open: PS modules are loaded by name (`Import-Module Cirrus.Vm`) rather than dispatched by verb, so the unknown-verb shape doesn't map cleanly. Revisit when the PS team has a concrete scenario.
 - **Empty-namespace declarations.** How does an extension declare a namespace it owns but ships zero leaves under (e.g. a future "Networking" extension wanting `network` for help-text purposes only)? Low priority; revisit if a use case appears.
+
+---
+
+## 9. PR review notes (delete before merge)
+
+Fresh-eyes review pass against `origin/main`. Findings ordered by severity. Each entry is a discussion point for the PR thread, not a commitment to fix in this branch.
+
+### Critical
+
+1. **Optimistic concurrency uses filesystem mtime.** `FileExtensionRegistryStore` captures `File.GetLastWriteTimeUtc()` at `Load()` and re-checks at `Save()`. Millisecond resolution + clock skew + same-tick writes leave a race window where two interleaved saves both think they were unopposed. Fix: replace mtime with a content hash or an integer `revision` field bumped on every write, or wrap load+save in an OS file lock with timeout. Spec §4.7 promises the guard; the implementation is best-effort.
+
+### High
+
+2. **`ExtensionHintTable.LoadFromEmbeddedResource` disk fallback is too broad.** The CI fix walks every `*.dll` in `AppContext.BaseDirectory` and `Assembly.LoadFrom`s each one until the embedded resource is found. That's an unbounded code-execution surface and slow on populated bin dirs. Tighten to `Path.Combine(BaseDirectory, "azv2.dll")` (the assembly the build target actually embeds into), with the existing in-memory scan as the fast path. Today's broad probe was a thirty-second fix for the CI flake; replace with the targeted version before merge.
+
+3. **Reflection paths swallow malformed input.** `LeafReader` parses an enum without a guard against unknown values; `CompatibilityGuard` treats unparseable `MinCoreVersion` / `MaxCoreVersion` as "no bound" with only an inline advisory. A typo in a manifest (`"main"`, `"1.0.0.0"`, `"latest"`) currently looks indistinguishable from "compatible." Surface unparseable bounds as a warning at minimum, ideally fail closed unless an explicit "I really mean unbounded" sentinel is used.
+
+### Medium
+
+4. **TOCTOU between compatibility check and registry persistence in `Add.cs`.** `CompatibilityGuard.CheckAssembly(installPath, ...)` runs ~40 lines before the registry write. Between those points, another process can mutate `installPath`. Fix: move the compat check next to the write, or hold the registry concurrency guard across both.
+
+5. **`NormalizeEntry` skips contributions validation when a v1 entry already has a `Contributions` array.** Hand-edited or partially upgraded registry files can carry duplicates / null verbs / malformed paths past `Load()`. Run `ValidateNoDuplicateContributions` per-entry during normalization, not only at the cross-entry level.
+
+6. **Whitespace-only paths bypass key collapse.** `string.IsNullOrEmpty(c.Path) ? c.Verb : $"{c.Verb} {c.Path}"` treats `" "` as a non-empty path, producing `"vm "` keys that collide with neither `"vm"` nor `"vm create"`. Trim on load; reject or coerce to `string.Empty`.
+
+7. **`ExtensionHints.targets` regex is fragile.** `s_cliTable\s*=\s*new[^{}]*\{(?<body>[^{}]*)\}` breaks on nested braces (collection initializers with object initializers, lambdas, string interpolation, `//` comments containing `{`). Today's first-party tables happen to be flat, but a contributor adding a single nested `new()` silently produces an incomplete hint catalog with no error. Either codify the constraint as a build-time assertion ("no nested braces inside `s_cliTable`") or replace the regex with a Roslyn syntax walk.
+
+8. **No concurrency / corruption tests.** Test suite covers single-process happy paths and cross-entry duplicate detection. Missing: simultaneous writes from two processes, mtime going backward (clock skew, NTP, restored backup), temp-file cleanup when the rename step fails, and recovery from a half-written `registry.json`. These are the scenarios the §4.7 hardening was specifically designed for.
+
+### Low
+
+9. **`ExtensionResolver.TryResolve` is O(n) per call** with no caching. Negligible at today's installed-extension counts; flag for revisit if anyone actually ships dozens of extensions in a single user profile.
+
+10. **`SplitLeafKey` accepts garbage.** `""`, `"   "`, leading/trailing whitespace produce `("", "")` or surprising splits. Add input guards or trim+revalidate.
+
+11. **Namespace ordering contract is implicit.** §4.1 says "kept in sync on write" but doesn't pin order semantics. Implementation preserves first-seen casing from `Contributions`. Either document the contract in the spec ("Namespaces order = first appearance in Contributions; reordering Contributions may diverge until next save") or sort canonically (case-insensitive ordinal) for determinism across writers.
+
+### Nits
+
+- `Remove.cs` doesn't re-validate the registry between match and save; idempotency under racing removes is not documented.
+- `Add.cs` doesn't re-read the registry after the compat check, so a vanishingly rare race could install two extensions both "valid" against snapshots taken seconds apart.
+- The MSBuild task silently skips unreadable `.csproj` files. Should log a warning so misconfigured projects don't quietly drop from the hint catalog.
+- Built-in seed (§4.6) lives in code as a `Dictionary` literal. If the trio ever changes, the only signal is a `BuiltInExtensions.Map.Count == 3` test. A `[Flags]`-style enum or an `internal const` array would make the surface explicit.

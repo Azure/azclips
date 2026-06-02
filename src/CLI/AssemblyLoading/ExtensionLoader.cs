@@ -107,13 +107,8 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
 
 public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfigurationService configurationService) : IExtensionLoader
 {
-    // Per docs/spec/extension-management.md §5.5: cache one ALC per (packageId, version) for the
-    // process lifetime. No eviction — versions are immutable on disk, and a new version always
-    // produces a new key. `BypassCache` is the `--no-cache` test hook wired in Program.cs.
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string Directory, string AssemblyPath), Lazy<(ExtensionLoadContext Ctx, Assembly Assembly)>> s_cache =
         new();
-
-    public static bool BypassCache { get; set; }
 
     internal class ExtensionLoadContext(string extensionDirectory, ILoggingService? loggingService = null) : AssemblyLoadContext
     {
@@ -214,7 +209,7 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
             return null;
         }
 
-        if (BypassCache)
+        if (_options.BypassExtensionCache)
         {
             var freshCtx = new ExtensionLoadContext(extensionPath, _loggingService);
             return freshCtx.LoadFromAssemblyPath(extensionPath);
