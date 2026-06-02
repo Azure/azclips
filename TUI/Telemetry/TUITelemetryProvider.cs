@@ -9,17 +9,17 @@ using OpenTelemetry.Trace;
 
 namespace Core.Tui.Telemetry;
 
-public class TUITelemetryProvider : ITelemetryProvider
+public class TUITelemetryProvider : DefaultTelemetryProvider
 {
-    public ActivitySource ActivitySource { get; }
-    public TracerProvider TracerProvider { get; }
-
-    public TUITelemetryProvider()
+    public TUITelemetryProvider(IConfigurationService configurationService)
     {
+        var isTelemetryEnabled = configurationService.GetConfiguration<TelemetryOptions>().Enabled;
+        if (!isTelemetryEnabled) return;
+
         FileTelemetrySender sender = new();
-        ActivitySource = new ActivitySource(ClientType.CLI.ToString());
+        ActivitySource = new ActivitySource(ClientType.TUI.ToString());
         var builder = Sdk.CreateTracerProviderBuilder()
-            .AddSource(ClientType.CLI.ToString());
+            .AddSource(ClientType.TUI.ToString());
 
         builder.AddHttpClientInstrumentation(options =>
         {

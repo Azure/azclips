@@ -9,17 +9,12 @@ namespace Core.Telemetry;
 
 public class DefaultTelemetryProvider : ITelemetryProvider
 {
-    public ActivitySource ActivitySource { get; }
-    public TracerProvider TracerProvider { get; }
+    public ActivitySource ActivitySource { get; protected init; }
+    public TracerProvider TracerProvider { get; protected init; }
 
     public DefaultTelemetryProvider()
     {
         ActivitySource = new ActivitySource("Default");
         TracerProvider = TracerProvider.Default;
-    }
-
-    public Activity? StartActivity()
-    {
-        return null;
     }
 }

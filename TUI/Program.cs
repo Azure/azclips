@@ -35,12 +35,7 @@ public static class Program
             // ConsoleLoggingService and writes [VERBOSE]/[DEBUG] directly to the
             // console) with a silent implementation that won't corrupt the TUI.
             services.AddSingleton<ILoggingService, TuiLoggingService>();
-            services.AddSingleton<ITelemetryProvider>(sp =>
-            {
-                var configurationService = sp.GetRequiredService<IConfigurationService>();
-                var isTelemetryEnabled = configurationService.GetConfiguration<TelemetryOptions>().Enabled;
-                return isTelemetryEnabled ? new TUITelemetryProvider() : new DefaultTelemetryProvider();
-            });
+            services.AddSingleton<ITelemetryProvider, TUITelemetryProvider>();
         });
         var bootSw = System.Diagnostics.Stopwatch.StartNew();
         CirrusServiceProvider.Initialize(ClientType.TUI);

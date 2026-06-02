@@ -9,13 +9,13 @@ using OpenTelemetry.Trace;
 
 namespace Core.Cli.Telemetry;
 
-public class CLITelemetryProvider : ITelemetryProvider
+public class CLITelemetryProvider : DefaultTelemetryProvider
 {
-    public ActivitySource ActivitySource { get; }
-    public TracerProvider TracerProvider { get; }
-
-    public CLITelemetryProvider()
+    public CLITelemetryProvider(IConfigurationService configurationService)
     {
+        var isTelemetryEnabled = configurationService.GetConfiguration<TelemetryOptions>().Enabled;
+        if (!isTelemetryEnabled) return;
+
         FileTelemetrySender sender = new();
         ActivitySource = new ActivitySource(ClientType.CLI.ToString());
         var builder = Sdk.CreateTracerProviderBuilder()
@@ -31,6 +31,6 @@ public class CLITelemetryProvider : ITelemetryProvider
         });
 
         sender.ConfigureExporter(builder, FileTelemetrySender.GetTraceDirectory());
-        TracerProvider = builder.Build()!;
+        TracerProvider = builder.Build();
     }
 }

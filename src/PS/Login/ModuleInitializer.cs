@@ -17,40 +17,14 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
         CirrusServiceProvider.OverrideRegistration(services =>
         {
             services.AddSingleton<IArgumentParsingProvider, PSArgumentParsingProvider>();
-            services.AddSingleton<ITelemetryProvider>(sp =>
-            {
-                var configurationService = sp.GetRequiredService<IConfigurationService>();
-                var isTelemetryEnabled = configurationService.GetConfiguration<TelemetryOptions>().Enabled;
-                return isTelemetryEnabled ? new PSTelemetryProvider() : new DefaultTelemetryProvider();
-            });
+            services.AddSingleton<ITelemetryProvider, PSTelemetryProvider>();
 
         });
         CirrusServiceProvider.Initialize(ClientType.PowerShell);
-
-        // lock (_hostLock)
-        // {
-        //     if (_telemetryHost is not null)
-        //     {
-        //         return;
-        //     }
-        //
-        //     var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
-        //     var telemetryOptions = CirrusServiceProvider.GetRequiredService<IConfigurationService>()
-        //         .GetConfiguration<TelemetryOptions>();
-        //     _telemetryHost = PsTelemetryHost.CreateBuilder(telemetryService, telemetryOptions)
-        //         .UseDirectSender()
-        //         .Build();
-        // }
     }
 
     public void OnRemove(PSModuleInfo module)
     {
-        // lock (_hostLock)
-        // {
-        //     _telemetryHost?.DisposeAsync().GetAwaiter().GetResult();
-        //     _telemetryHost = null;
-        // }
-
         CirrusServiceProvider.Dispose();
     }
 }

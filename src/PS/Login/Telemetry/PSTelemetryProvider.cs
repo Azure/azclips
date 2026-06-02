@@ -9,13 +9,13 @@ using OpenTelemetry.Trace;
 
 namespace Microsoft.Azure.Cirrus.Cmdlets.Login.Telemetry;
 
-public class PSTelemetryProvider : ITelemetryProvider
+public class PSTelemetryProvider : DefaultTelemetryProvider
 {
-    public ActivitySource ActivitySource { get; }
-    public TracerProvider TracerProvider { get; }
-
-    public PSTelemetryProvider()
+    public PSTelemetryProvider(IConfigurationService configurationService)
     {
+        var isTelemetryEnabled = configurationService.GetConfiguration<TelemetryOptions>().Enabled;
+        if (!isTelemetryEnabled) return;
+
         var sender = new DirectTelemetrySender();
         ActivitySource = new ActivitySource(ClientType.PowerShell.ToString());
         var builder = Sdk.CreateTracerProviderBuilder()

@@ -55,17 +55,11 @@ public class Program
         {
             services.AddSingleton<IAssemblyLoadingProvider, CLIAssemblyLoadingProvider>();
             services.AddSingleton<IArgumentParsingProvider, CLIArgumentParsingProvider>();
-            services.AddSingleton<ITelemetryProvider>(sp =>
-            {
-                var configurationService = sp.GetRequiredService<IConfigurationService>();
-                var isTelemetryEnabled = configurationService.GetConfiguration<TelemetryOptions>().Enabled;
-                return isTelemetryEnabled ? new CLITelemetryProvider() : new DefaultTelemetryProvider();
-            });
+            services.AddSingleton<ITelemetryProvider, CLITelemetryProvider>();
         });
         CirrusServiceProvider.Initialize(_clientType);
         _logger = CirrusServiceProvider.GetRequiredService<ILoggingService>();
 
-        //CLI owned telemetry pipeline
         var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
 
         try
