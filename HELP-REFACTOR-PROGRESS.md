@@ -61,7 +61,7 @@ Tracks execution of the bifurcation refactor agreed in the design call.
 
 - [x] Add `build/Install-BuildDependencies.ps1` (PlatyPS pinned to 0.14.2)
 - [x] Wire into `build.ps1` `-GenerateHelpArtifacts` block
-- [ ] README note about pinned version
+- [x] README note about pinned version
 
 ### Generate PS markdown
 
@@ -96,7 +96,7 @@ Tracks execution of the bifurcation refactor agreed in the design call.
 
 - [x] Add `--scaffold <extension>` (sibling tool inside `Cirrus.Help.Tool`) — walks `GetCommandTable(ClientType.CLI)`, emits templates
 - [x] Idempotent (skip existing files)
-- [ ] Document in `docs/howto/help.md`
+- [x] Document in `docs/howto/help.md`
 
 ---
 
