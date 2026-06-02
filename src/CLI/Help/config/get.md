@@ -7,26 +7,14 @@ online version:
 
 Description: Get the current value of a configuration setting by key. Configuration keys use dot notation (e.g., output.format, core.debug). If the key is not found, an error is displayed.
 
-### Get output format setting (CLI)
+### Get output format setting
 
 ```bash
 azv2 config get output.format
 ```
 
-### Get output as JSON (CLI)
+### Get output as JSON
 
 ```bash
 azv2 config get output.format --json
-```
-
-### Get a configuration value (PowerShell)
-
-```powershell
-Get-CirrusConfig -Key "output.format"
-```
-
-### Get output as JSON (PowerShell)
-
-```powershell
-Get-CirrusConfig -Key "output.format" -AsJson
 ```

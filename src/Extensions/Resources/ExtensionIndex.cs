@@ -7,8 +7,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
 {
     public class ExtensionIndex : IExtensionIndex
     {
-        public string CliRootSummary => "Manage resource groups.";
-
         // ── PS Command Metadata ──
         private static readonly CommandMetadata s_newResourceGroup_PS = new(
             Name: "NewResourceGroupProcessor",

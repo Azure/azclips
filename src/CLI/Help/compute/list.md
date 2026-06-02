@@ -7,14 +7,8 @@ online version:
 
 Description: Lists all virtual machines in the specified resource group and subscription.
 
-### List all VMs in a resource group (CLI)
+### List all VMs in a resource group
 
 ```bash
 azv2 vm list --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000
-```
-
-### List VMs (PowerShell)
-
-```powershell
-Get-VM -SubscriptionId "00000000-0000-0000-0000-000000000000" -ResourceGroupName "myrg"
 ```

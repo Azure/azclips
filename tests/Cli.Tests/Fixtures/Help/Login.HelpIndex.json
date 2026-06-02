@@ -11,7 +11,7 @@
       "cliName": "login",
       "psName": "Connect-CirrusAccount",
       "extension": "login",
-      "summary": "Authenticate to Azure and set the current account context."
+      "summary": "Authenticate to Azure."
     },
     {
       "cliName": "login logout",

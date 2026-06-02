@@ -5,5 +5,5 @@ Arguments
     (none)
 
 Examples
-    Show current account context (CLI)
+    Show current account context
         azv2 login show

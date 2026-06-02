@@ -1,7 +1,6 @@
 using System.Text.Json;
-using Core.Abstractions;
 
-namespace Core.Runtime
+namespace Core.Cli.Help
 {
     public static class HelpArtifactWriter
     {

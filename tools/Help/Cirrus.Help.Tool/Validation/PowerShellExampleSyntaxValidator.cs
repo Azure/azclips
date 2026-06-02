@@ -52,13 +52,13 @@ namespace Cirrus.Help.Tool.Validation
             RegexOptions.CultureInvariant | RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         /// <summary>
-        /// Walks every markdown file under <c>src/Extensions/*/help/</c> and validates the
+        /// Walks every markdown file under <c>src/CLI/help/*/</c> and validates the
         /// PowerShell examples it contains.
         /// </summary>
         public ValidationReport Validate(string repoRoot, CmdletIndex cmdlets)
         {
             var report = new ValidationReport();
-            var helpRoot = Path.Combine(repoRoot, "src", "Extensions");
+            var helpRoot = Path.Combine(repoRoot, "src", "CLI", "help");
 
             if (!Directory.Exists(helpRoot))
             {
@@ -67,7 +67,6 @@ namespace Cirrus.Help.Tool.Validation
 
             var markdownFiles = Directory
                 .EnumerateFiles(helpRoot, "*.md", SearchOption.AllDirectories)
-                .Where(static path => path.Contains($"{Path.DirectorySeparatorChar}help{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
                 .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase);
 
             foreach (var file in markdownFiles)

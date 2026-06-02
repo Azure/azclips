@@ -2,6 +2,6 @@ Group
     azv2 login : Authenticate to Azure.
 
 Commands:
-    login : Authenticate to Azure and set the current account context.
+    login : Authenticate to Azure.
     logout : Sign out from the current Azure account context.
     show : Show the current Azure account context.

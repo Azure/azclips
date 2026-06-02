@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Xml.Linq;
 using Cirrus.Help.Tool.Validation;
 using Core.Abstractions;
+using Core.Cli.Help;
 using Core.Runtime;
 
 var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", ".."));

@@ -202,10 +202,10 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void ValidateContent_ShouldIncludeFilePath_WhenReportingErrors()
         {
-            var report = new MarkdownStructureValidator().ValidateContent(string.Empty, "src/Extensions/Foo/help/bar.md");
+            var report = new MarkdownStructureValidator().ValidateContent(string.Empty, "src/CLI/help/foo/bar.md");
 
             Assert.NotEmpty(report.Errors);
-            Assert.All(report.Errors, e => Assert.Equal("src/Extensions/Foo/help/bar.md", e.FilePath));
+            Assert.All(report.Errors, e => Assert.Equal("src/CLI/help/foo/bar.md", e.FilePath));
         }
 
         [Fact]
@@ -218,20 +218,20 @@ namespace Cirrus.Help.Tool.Tests
         }
 
         [Fact]
-        public void Validate_ShouldReportError_WhenExtensionsDirectoryDoesNotExist()
+        public void Validate_ShouldReportError_WhenHelpDirectoryDoesNotExist()
         {
             using var tempDir = new TempDirectory();
 
             var report = new MarkdownStructureValidator().Validate(tempDir.Path);
 
-            Assert.Contains(report.Errors, e => e.Message.Contains("Extensions directory not found", StringComparison.Ordinal));
+            Assert.Contains(report.Errors, e => e.Message.Contains("CLI help directory not found", StringComparison.Ordinal));
         }
 
         [Fact]
         public void Validate_ShouldReportError_WhenNoHelpMarkdownFilesExist()
         {
             using var tempDir = new TempDirectory();
-            Directory.CreateDirectory(Path.Combine(tempDir.Path, "src", "Extensions"));
+            Directory.CreateDirectory(Path.Combine(tempDir.Path, "src", "CLI", "help"));
 
             var report = new MarkdownStructureValidator().Validate(tempDir.Path);
 
@@ -242,8 +242,8 @@ namespace Cirrus.Help.Tool.Tests
         public void Validate_ShouldWalkAllHelpFiles_WhenMultipleExtensionsExist()
         {
             using var tempDir = new TempDirectory();
-            var loginHelp = Path.Combine(tempDir.Path, "src", "Extensions", "Login", "help");
-            var configHelp = Path.Combine(tempDir.Path, "src", "Extensions", "Config", "help");
+            var loginHelp = Path.Combine(tempDir.Path, "src", "CLI", "help", "login");
+            var configHelp = Path.Combine(tempDir.Path, "src", "CLI", "help", "config");
             Directory.CreateDirectory(loginHelp);
             Directory.CreateDirectory(configHelp);
 
@@ -254,7 +254,7 @@ namespace Cirrus.Help.Tool.Tests
 
             // The login file is well-formed, but config/index.md has issues.
             Assert.True(report.HasErrors);
-            Assert.All(report.Errors, e => Assert.Contains("Config", e.FilePath ?? string.Empty, StringComparison.OrdinalIgnoreCase));
+            Assert.All(report.Errors, e => Assert.Contains("config", e.FilePath ?? string.Empty, StringComparison.OrdinalIgnoreCase));
         }
     }
 }

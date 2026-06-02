@@ -2,12 +2,12 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Text.RegularExpressions;
-using Core.Runtime;
+using Core.Cli.Help;
 
 namespace Cirrus.Help.Tool.Validation
 {
     /// <summary>
-    /// Validates that markdown help files under <c>src/Extensions/{Extension}/help/</c> meet
+    /// Validates that markdown help files under <c>src/CLI/help/{extension}/</c> meet
     /// the required structural contract: file-level frontmatter with required
     /// fields, a Description body, balanced code fences, and at least one example.
     /// </summary>
@@ -21,23 +21,22 @@ namespace Cirrus.Help.Tool.Validation
         public ValidationReport Validate(string repoRoot)
         {
             var report = new ValidationReport();
-            var helpRoot = Path.Combine(repoRoot, "src", "Extensions");
+            var helpRoot = Path.Combine(repoRoot, "src", "CLI", "help");
 
             if (!Directory.Exists(helpRoot))
             {
-                report.AddError(ProblemIds.MD_ExtensionsDirMissing, $"Extensions directory not found: {helpRoot}");
+                report.AddError(ProblemIds.MD_ExtensionsDirMissing, $"CLI help directory not found: {helpRoot}");
                 return report;
             }
 
             var markdownFiles = Directory
                 .EnumerateFiles(helpRoot, "*.md", SearchOption.AllDirectories)
-                .Where(static path => path.Contains($"{Path.DirectorySeparatorChar}help{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
                 .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
             if (markdownFiles.Count == 0)
             {
-                report.AddError(ProblemIds.MD_NoMarkdownFiles, "No help markdown files found under src/Extensions/*/help.");
+                report.AddError(ProblemIds.MD_NoMarkdownFiles, "No help markdown files found under src/CLI/help/*.");
                 return report;
             }
 

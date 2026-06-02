@@ -21,7 +21,7 @@ namespace Cirrus.Help.Tool.Validation
         public ValidationReport Validate(string repoRoot, string extensionName, IExtensionIndex extensionIndex)
         {
             var extensionFolder = HelpCommandKey.ToExtensionFolder(extensionName);
-            var helpDirectory = Path.Combine(repoRoot, "src", "Extensions", extensionFolder, "help");
+            var helpDirectory = Path.Combine(repoRoot, "src", "CLI", "help", extensionFolder);
 
             return Validate(extensionName, extensionFolder, helpDirectory, extensionIndex);
         }
@@ -66,7 +66,7 @@ namespace Cirrus.Help.Tool.Validation
 
             foreach (var file in missing)
             {
-                var relativePath = $"src{Path.DirectorySeparatorChar}Extensions{Path.DirectorySeparatorChar}{extensionFolder}{Path.DirectorySeparatorChar}help{Path.DirectorySeparatorChar}{file}";
+                var relativePath = $"src{Path.DirectorySeparatorChar}CLI{Path.DirectorySeparatorChar}help{Path.DirectorySeparatorChar}{extensionFolder}{Path.DirectorySeparatorChar}{file}";
                 report.AddError(
                     ProblemIds.Completeness_MissingHelpFile,
                     $"Missing help file for routed command '{HelpCommandKey.FromHelpFileName(file)}' in extension '{extensionName}'.",
@@ -80,7 +80,7 @@ namespace Cirrus.Help.Tool.Validation
 
             foreach (var orphan in orphaned)
             {
-                var orphanPath = $"src{Path.DirectorySeparatorChar}Extensions{Path.DirectorySeparatorChar}{extensionFolder}{Path.DirectorySeparatorChar}help{Path.DirectorySeparatorChar}{orphan}";
+                var orphanPath = $"src{Path.DirectorySeparatorChar}CLI{Path.DirectorySeparatorChar}help{Path.DirectorySeparatorChar}{extensionFolder}{Path.DirectorySeparatorChar}{orphan}";
                 report.AddWarning(
                     ProblemIds.Completeness_OrphanedHelpFile,
                     $"Help file is not referenced by any routed CLI command in extension '{extensionName}'.",

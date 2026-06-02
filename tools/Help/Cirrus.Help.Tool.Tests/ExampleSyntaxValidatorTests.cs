@@ -478,8 +478,6 @@ namespace Cirrus.Help.Tool.Tests
                     StringComparer.OrdinalIgnoreCase);
             }
 
-            public string CliRootSummary => "Stub";
-
             public CommandMetadata GetCommandMetadata(string name, ClientType clientType) => _cliTable[name];
 
             public IReadOnlyDictionary<string, CommandMetadata> GetCommandTable(ClientType clientType) => _cliTable;

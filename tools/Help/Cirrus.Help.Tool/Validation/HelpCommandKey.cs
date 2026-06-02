@@ -47,18 +47,15 @@ namespace Cirrus.Help.Tool.Validation
         }
 
         /// <summary>
-        /// Converts an extension's lowercase name to its source folder PascalCase form.
+        /// Returns the on-disk folder name used for an extension's CLI help directory
+        /// (e.g. <c>src/CLI/help/&lt;folder&gt;/</c>). Folder names are lowercase to match
+        /// the runtime lookup in <see cref="Core.Cli.Help.MarkdownCommandHelpProvider"/>.
         /// </summary>
         public static string ToExtensionFolder(string extensionName)
         {
-            if (string.IsNullOrWhiteSpace(extensionName))
-            {
-                return extensionName;
-            }
-
-            return extensionName.Length == 1
-                ? extensionName.ToUpperInvariant()
-                : char.ToUpperInvariant(extensionName[0]) + extensionName[1..];
+            return string.IsNullOrWhiteSpace(extensionName)
+                ? extensionName
+                : extensionName.ToLowerInvariant();
         }
     }
 }

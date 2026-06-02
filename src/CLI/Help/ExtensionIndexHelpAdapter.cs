@@ -1,6 +1,5 @@
 using Core.Abstractions;
 using Core.Cli.Parser;
-using Core.Runtime;
 using System.Reflection;
 
 namespace Core.Cli.Help;
@@ -29,7 +28,6 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
     private readonly IReadOnlyDictionary<string, CommandMetadata> _cliTable;
     private readonly string _rootGroupName;
     private readonly string _rootGroupPath;
-    private readonly Assembly _extensionAssembly;
 
     public ExtensionIndexHelpAdapter(IExtensionIndex extensionIndex, string extensionName)
     {
@@ -41,7 +39,6 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
         _cliTable = _extensionIndex.GetCommandTable(ClientType.CLI);
         _rootGroupName = CommandGroupIndex.GetCommandGroupNameByExtensionName(extensionName);
         _rootGroupPath = _rootGroupName.ToLowerInvariant();
-        _extensionAssembly = _extensionIndex.GetType().Assembly;
     }
 
     public string ExtensionName { get; }
@@ -49,10 +46,11 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
     /// <summary>
     /// Returns the top-level groups exposed by this extension. Today this is a single
     /// group keyed on the extension's CLI group name; nested groups are discovered on
-    /// demand via <see cref="GetGroupHelp"/>.
+    /// demand via <see cref="GetGroupHelp"/>. Group summary is sourced from the
+    /// extension's <c>index.md</c> frontmatter (<c>summary:</c>).
     /// </summary>
     public IReadOnlyList<RuntimeHelpGroup> GetRootGroups()
-        => [BuildGroup([_rootGroupPath], _extensionIndex.CliRootSummary)!];
+        => [BuildGroup([_rootGroupPath], MarkdownCommandHelpProvider.Get(ExtensionName, string.Empty).Summary)!];
 
     /// <summary>
     /// Resolves group-level help for the supplied command path (e.g. <c>["group"]</c> or
@@ -68,7 +66,7 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
         }
 
         var summary = groupPath.Count == 1
-            ? _extensionIndex.CliRootSummary
+            ? MarkdownCommandHelpProvider.Get(ExtensionName, string.Empty).Summary
             : string.Empty;
 
         return BuildGroup(groupPath, summary, returnNullWhenEmpty: groupPath.Count > 1);
@@ -106,7 +104,7 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
                 SupportsWildcards: false))
             .ToList();
 
-        var markdown = MarkdownCommandHelpProvider.Get(_extensionAssembly, relativeKey);
+        var markdown = MarkdownCommandHelpProvider.Get(ExtensionName, relativeKey);
         var summary = GetSummary(metadata, markdown);
         var description = GetDescription(metadata, markdown);
         var examples = GetExamples(metadata, markdown);
@@ -130,7 +128,7 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
         {
             commandSummaries.Add(new RuntimeHelpCommandSummary(
                 Name: _rootGroupPath,
-                Summary: GetSummary(rootCommandMetadata, MarkdownCommandHelpProvider.Get(_extensionAssembly, string.Empty)),
+                Summary: GetSummary(rootCommandMetadata, MarkdownCommandHelpProvider.Get(ExtensionName, string.Empty)),
                 Tags: []));
         }
 
@@ -157,7 +155,7 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
             {
                 commandSummaries.Add(new RuntimeHelpCommandSummary(
                     Name: segments[0],
-                    Summary: GetSummary(kvp.Value, MarkdownCommandHelpProvider.Get(_extensionAssembly, kvp.Key)),
+                    Summary: GetSummary(kvp.Value, MarkdownCommandHelpProvider.Get(ExtensionName, kvp.Key)),
                     Tags: []));
                 continue;
             }

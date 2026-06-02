@@ -7,8 +7,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
 {
     public class ExtensionIndex : IExtensionIndex
     {
-        public string CliRootSummary => "Authenticate to Azure.";
-
         // ── PS Command Metadata ──
         private static readonly CommandMetadata s_login_PS = new(
             Name: "LoginProcessor",

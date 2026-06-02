@@ -7,8 +7,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
 {
     public class ExtensionIndex : IExtensionIndex
     {
-        public string CliRootSummary => "Manage compute resources (virtual networks, NSGs, network interfaces, and virtual machines).";
-
         // ── PS Command Metadata ──
         private static readonly CommandMetadata s_newVirtualNetwork_PS = new(
             Name: "NewVirtualNetworkProcessor",

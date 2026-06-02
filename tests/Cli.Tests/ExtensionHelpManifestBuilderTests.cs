@@ -1,5 +1,5 @@
 using Core.Abstractions;
-using Core.Runtime;
+using Core.Cli.Help;
 using Microsoft.Azure.Cirrus.Extensions.Login;
 using Tests.Common.Utilities;
 
@@ -167,8 +167,6 @@ public class ExtensionHelpManifestBuilderTests
     /// </summary>
     private sealed class StubExtensionIndex : IExtensionIndex
     {
-        public string CliRootSummary => "Stub extension for tests.";
-
         private static readonly CommandMetadata s_stubCommand = new(
             Name: "StubCommand",
             Aliases: [],

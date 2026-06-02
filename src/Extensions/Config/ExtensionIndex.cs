@@ -4,8 +4,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Config;
 
 public class ExtensionIndex : IExtensionIndex
 {
-    public string CliRootSummary => "Manage local configuration.";
-
     // ── PS Command Metadata ──
     private static readonly CommandMetadata s_getConfig_PS = new(
         Name: "GetConfigCommand",

@@ -4,8 +4,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Extension;
 
 public class ExtensionIndex : IExtensionIndex
 {
-    public string CliRootSummary => "Manage Cirrus extensions.";
-
     // ── CLI Command Metadata ──
     private static readonly CommandMetadata s_addExtension_CLI = new(
         Name: "AddExtensionProcessor",

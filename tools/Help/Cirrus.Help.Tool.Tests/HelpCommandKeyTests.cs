@@ -40,11 +40,12 @@ namespace Cirrus.Help.Tool.Tests
         }
 
         [Theory]
-        [InlineData("login", "Login")]
-        [InlineData("config", "Config")]
-        [InlineData("a", "A")]
+        [InlineData("login", "login")]
+        [InlineData("config", "config")]
+        [InlineData("Login", "login")]
+        [InlineData("A", "a")]
         [InlineData("", "")]
-        public void ToExtensionFolder_ShouldPascalCase_WhenGivenExtensionName(string input, string expected)
+        public void ToExtensionFolder_ShouldReturnLowercase_WhenGivenExtensionName(string input, string expected)
         {
             Assert.Equal(expected, HelpCommandKey.ToExtensionFolder(input));
         }

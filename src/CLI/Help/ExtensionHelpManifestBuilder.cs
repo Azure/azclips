@@ -1,7 +1,7 @@
 using System.Reflection;
 using Core.Abstractions;
 
-namespace Core.Runtime
+namespace Core.Cli.Help
 {
     /// <summary>
     /// Build-time projection of an extension's <see cref="IExtensionIndex"/> + its markdown
@@ -30,9 +30,9 @@ namespace Core.Runtime
         /// <summary>
         /// Builds a <see cref="HelpManifest"/> for a single extension. Commands are sorted
         /// by <c>CliName</c> then <c>PsName</c>; parameters within each command are sorted
-        /// by name. <see cref="IExtensionIndex.CliRootSummary"/> is captured into
-        /// <see cref="HelpManifest.RootSummary"/> so <see cref="BuildIndex"/> can surface
-        /// it as the group-level summary in the cross-extension index.
+        /// by name. The <see cref="HelpManifest.RootSummary"/> is sourced from the
+        /// extension's <c>index.md</c> frontmatter (<c>summary:</c>) so <see cref="BuildIndex"/>
+        /// can surface it as the group-level summary in the cross-extension index.
         /// </summary>
         /// <param name="extensionIndex">The extension's index (CLI + PS tables).</param>
         /// <param name="extensionName">Extension name used for help-folder lookup and CLI name normalization.</param>
@@ -103,7 +103,7 @@ namespace Core.Runtime
                 .ThenBy(command => command.PsName, StringComparer.Ordinal)
                 .ToList();
 
-            return new HelpManifest(extensionName, extensionVersion, extensionIndex.CliRootSummary, sortedCommands);
+            return new HelpManifest(extensionName, extensionVersion, MarkdownCommandHelpProvider.Get(extensionName, string.Empty).Summary, sortedCommands);
         }
 
         /// <summary>

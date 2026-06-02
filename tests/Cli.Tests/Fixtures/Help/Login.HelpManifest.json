@@ -6,7 +6,7 @@
     {
       "cliName": "login",
       "psName": "Connect-CirrusAccount",
-      "summary": "Authenticate to Azure and set the current account context.",
+      "summary": "Authenticate to Azure.",
       "description": "Authenticate to Azure and persist account context for subsequent commands.",
       "parameters": [
         {
@@ -49,24 +49,15 @@
       "examples": {
         "cli": [
           {
-            "title": "Login with subscription id (CLI)",
+            "title": "Login with subscription id",
             "command": "azv2 login --subscription-id 00000000-0000-0000-0000-000000000000"
           },
           {
-            "title": "Login with device code (CLI)",
+            "title": "Login with device code",
             "command": "azv2 login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code"
           }
         ],
-        "powerShell": [
-          {
-            "title": "Login with subscription id (PowerShell)",
-            "command": "Connect-CirrusAccount -SubscriptionId 00000000-0000-0000-0000-000000000000"
-          },
-          {
-            "title": "Login with device code (PowerShell)",
-            "command": "Connect-CirrusAccount -SubscriptionId 00000000-0000-0000-0000-000000000000 -UseDeviceCode"
-          }
-        ]
+        "powerShell": []
       },
       "tags": []
     },
@@ -79,16 +70,11 @@
       "examples": {
         "cli": [
           {
-            "title": "Sign out (CLI)",
+            "title": "Sign out",
             "command": "azv2 login logout"
           }
         ],
-        "powerShell": [
-          {
-            "title": "Sign out (PowerShell)",
-            "command": "Disconnect-CirrusAccount"
-          }
-        ]
+        "powerShell": []
       },
       "tags": []
     },
@@ -101,16 +87,11 @@
       "examples": {
         "cli": [
           {
-            "title": "Show current account context (CLI)",
+            "title": "Show current account context",
             "command": "azv2 login show"
           }
         ],
-        "powerShell": [
-          {
-            "title": "Show current account context (PowerShell)",
-            "command": "Get-CirrusAccount"
-          }
-        ]
+        "powerShell": []
       },
       "tags": []
     }
