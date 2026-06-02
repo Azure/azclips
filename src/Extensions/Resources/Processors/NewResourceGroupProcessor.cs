@@ -14,12 +14,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
         public string Name { get; set; } = "";
 
         [ArgumentInfo(
-        Required = false,
-        Description = @"The resource id of the resource group.",
-        SerializedName = @"ResourceId")]
-        public string ResourceId { get; set; } = "";
-
-        [ArgumentInfo(
         Required = true,
         Description = @"Location for resource group.",
         SerializedName = @"Location")]
