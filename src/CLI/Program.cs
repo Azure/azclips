@@ -99,7 +99,6 @@ public class Program
         } // activity disposed here → traces exported to file
         finally
         {
-            // await telemetryService.DisposeAsync();
             CirrusServiceProvider.Dispose();
             SpawnTelemetryUploader();
         }
