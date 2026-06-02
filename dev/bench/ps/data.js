@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780388055856,
+  "lastUpdate": 1780408842785,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus PS Benchmarks": [
@@ -294,6 +294,48 @@ window.BENCHMARK_DATA = {
             "value": 16407861,
             "unit": "ns",
             "range": "± 1904804.173371242"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "330bf977b4eb9ce72bafb59d500a1bcbadc719a5",
+          "message": "[Telemetry] Move telemetry orchestration to host layer (#255)\n\nMove telemetry orchestration to be owned by the composition root of each\nrespective client. Instead of the `TelemetryService` understanding\ninternally the telemetry orchestration requirements of each respective\nclient.\n\nThe actual activity tagging of commands will be in a separate pull\nrequest.",
+          "timestamp": "2026-06-02T21:57:46+08:00",
+          "tree_id": "62b83f1e9c1dfa7272d918386d694aab2e143a8c",
+          "url": "https://github.com/Azure/cirrus/commit/330bf977b4eb9ce72bafb59d500a1bcbadc719a5"
+        },
+        "date": 1780408842739,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 21659660.2,
+            "unit": "ns",
+            "range": "± 2394755.2695245706"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 20224610.8,
+            "unit": "ns",
+            "range": "± 2272394.994376572"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 20611257.8,
+            "unit": "ns",
+            "range": "± 2222456.012140893"
           }
         ]
       }
