@@ -107,6 +107,27 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                 throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(Publisher)}.");
             }
         }
+
+        /// <summary>
+        /// Maximum number of characters of a raw response body included in an exception message.
+        /// </summary>
+        private protected const int MaxBodyCharsInExceptionMessage = 2048;
+
+        /// <summary>
+        /// Returns a length-bounded version of a raw response body for safe inclusion in exception
+        /// messages. Exceptions can propagate into logs/telemetry, so the full (potentially large or
+        /// sensitive) body is never embedded — it is truncated with an indicator of how much was
+        /// omitted. The full body remains available via the <c>ResponseInvalidJson</c> diagnostic event.
+        /// </summary>
+        private protected static string TruncateBodyForExceptionMessage(string body)
+        {
+            if (string.IsNullOrEmpty(body) || body.Length <= MaxBodyCharsInExceptionMessage)
+            {
+                return body;
+            }
+
+            return $"{body.Substring(0, MaxBodyCharsInExceptionMessage)}... [truncated, {body.Length - MaxBodyCharsInExceptionMessage} more characters]";
+        }
     }
 
     /// <summary>
@@ -179,8 +200,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                 }
                 catch (JsonException ex)
                 {
-                    await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
-                    throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}", ex);
+                    await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}. Raw body: {rawBody}");
+                    throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {TruncateBodyForExceptionMessage(rawBody)}", ex);
                 }
             }
             finally

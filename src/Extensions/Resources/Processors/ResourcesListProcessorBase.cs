@@ -103,8 +103,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
             }
             catch (JsonException ex)
             {
-                await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
-                throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TPage).Name}. Raw body: {rawBody}", ex);
+                await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}. Raw body: {rawBody}");
+                throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TPage).Name}. Raw body: {TruncateBodyForExceptionMessage(rawBody)}", ex);
             }
         }
     }
