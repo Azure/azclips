@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780388006938,
+  "lastUpdate": 1780408793590,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus CLI Benchmarks": [
@@ -294,6 +294,48 @@ window.BENCHMARK_DATA = {
             "value": 8391606.25,
             "unit": "ns",
             "range": "± 233040.16899149254"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "330bf977b4eb9ce72bafb59d500a1bcbadc719a5",
+          "message": "[Telemetry] Move telemetry orchestration to host layer (#255)\n\nMove telemetry orchestration to be owned by the composition root of each\nrespective client. Instead of the `TelemetryService` understanding\ninternally the telemetry orchestration requirements of each respective\nclient.\n\nThe actual activity tagging of commands will be in a separate pull\nrequest.",
+          "timestamp": "2026-06-02T21:57:46+08:00",
+          "tree_id": "62b83f1e9c1dfa7272d918386d694aab2e143a8c",
+          "url": "https://github.com/Azure/cirrus/commit/330bf977b4eb9ce72bafb59d500a1bcbadc719a5"
+        },
+        "date": 1780408790346,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 7295913.25,
+            "unit": "ns",
+            "range": "± 364257.04566818883"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 8197932.2,
+            "unit": "ns",
+            "range": "± 295760.485375751"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 7770078.8,
+            "unit": "ns",
+            "range": "± 135362.1609727028"
           }
         ]
       }
