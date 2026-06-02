@@ -96,7 +96,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
         /// and publish events. Throws a deterministic <see cref="InvalidOperationException"/> (rather
         /// than letting a later access throw <see cref="NullReferenceException"/>) when it was not.
         /// </summary>
-        private void EnsureRuntimeContext()
+        private protected void EnsureRuntimeContext()
         {
             if (HttpPipeline is null)
             {
@@ -178,6 +178,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
 
         public override async Task ProcessAsync()
         {
+            EnsureRuntimeContext();
             await Publisher.Publish(Events.ProcessorProcessAsyncStart);
             try
             {

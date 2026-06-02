@@ -18,6 +18,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
     {
         public override async Task ProcessAsync()
         {
+            EnsureRuntimeContext();
             await Publisher.Publish(Events.ProcessorProcessAsyncStart);
             try
             {
@@ -42,7 +43,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                         items.AddRange(page.Value);
                     }
 
-                    if (string.IsNullOrEmpty(page.NextLink))
+                    if (string.IsNullOrWhiteSpace(page.NextLink))
                     {
                         break;
                     }
