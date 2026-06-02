@@ -46,9 +46,7 @@ public class ListExtensionsProcessor : IProcessor
             {
                 PackageId = kvp.Key,
                 Verb = kvp.Value.Verb,
-                // Phase 9: a multi-namespace extension contributes to more than one verb;
-                // surface the full list so `extension list` can render Compute under both
-                // `vm` and `disk` without duplicating the entry.
+                // Multi-namespace extensions surface every verb they contribute to.
                 Namespaces = kvp.Value.Namespaces.Count > 0
                     ? kvp.Value.Namespaces.ToArray()
                     : (kvp.Value.Verb is null ? Array.Empty<string>() : new[] { kvp.Value.Verb }),
@@ -74,14 +72,8 @@ public class ListExtensionsProcessor : IProcessor
 
         if (ByVerb)
         {
-            // Regroup the live set verb-headed so the user can answer "who contributes to this
-            // verb" in one glance. Multi-namespace extensions appear under each verb they
-            // contribute to (the duplication is intentional — it mirrors the actual routing table).
-            // Per the spec §4.1 stack commitment, today every (verb, packageId) pair is unique
-            // because install-time rejection prevents collisions; when vNext's --override flow
-            // lands, the same shape generalizes to ordered contributors top-wins. Stale entries
-            // stay in their own array — they aren't routable so they don't belong under a verb
-            // heading.
+            // Regroup live set verb-headed; multi-namespace extensions appear under each verb
+            // they contribute to (mirrors the routing table). Stale entries stay separate — not routable.
             var contributors = live.Select(e => new LiveContributor(
                 PackageId: e.PackageId,
                 Version: e.Version,

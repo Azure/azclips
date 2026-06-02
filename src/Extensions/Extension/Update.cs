@@ -75,10 +75,7 @@ public class UpdateExtensionProcessor : IProcessor
         var packageId = match.Key;
         var existing = match.Value;
 
-        // Tag the activity early with what's known up-front (package id + the *previous*
-        // installed version + source). The post-install reads below refresh the
-        // version/namespace/contribution tags to reflect the new payload, so failed updates
-        // carry the previous-version snapshot and successful updates carry the new shape.
+        // Tag activity with pre-update snapshot; post-install reads below refresh to the new shape.
         activity?.SetTag("extension.package_id", packageId);
         activity?.SetTag("extension.version", existing.Version);
         activity?.SetTag("extension.source", (FeedUrl ?? existing.Source) ?? "path");
@@ -115,9 +112,7 @@ public class UpdateExtensionProcessor : IProcessor
             }
             activity?.SetTag("extension.namespace_count", verbs.Count);
 
-            // The set of namespaces the previously installed version owned. Prefer the v2
-            // Namespaces list; fall back to the legacy single Verb field for entries that pre-date
-            // multi-namespace support.
+            // Prefer v2 Namespaces; fall back to the legacy single Verb field.
             var existingVerbs = existing.Namespaces.Count > 0
                 ? new HashSet<string>(existing.Namespaces, StringComparer.OrdinalIgnoreCase)
                 : new HashSet<string>(
@@ -125,8 +120,7 @@ public class UpdateExtensionProcessor : IProcessor
                     StringComparer.OrdinalIgnoreCase);
             var newVerbSet = new HashSet<string>(verbs, StringComparer.OrdinalIgnoreCase);
 
-            // A package changing its claimed namespaces across versions would silently rebind the
-            // command surface. Block it: the user can `remove` then `add` if they really want that.
+            // Block namespace changes across versions to prevent silent command-surface rebinding.
             if (!existingVerbs.SetEquals(newVerbSet))
             {
                 throw CirrusErrorException.VerbConflict(
@@ -147,10 +141,7 @@ public class UpdateExtensionProcessor : IProcessor
             var resolvedVersion = new DirectoryInfo(installPath).Name;
             activity?.SetTag("extension.version", resolvedVersion);
 
-            // Re-read the candidate's leaves and persist them. Cross-package leaf conflicts are
-            // impossible by definition during an update of an existing package, but a self-update
-            // can change the set of contributed leaves (e.g., adding a new sub-leaf in a new minor
-            // version) so we still need to refresh Contributions on disk.
+            // Refresh Contributions; self-update can add/remove sub-leaves across minor versions.
             var leafKeys = LeafReader.ReadCliLeafKeys(installPath);
             activity?.SetTag("extension.contribution_count", leafKeys.Count);
             var contributions = new List<Contribution>();

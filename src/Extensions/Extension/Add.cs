@@ -69,21 +69,18 @@ public class AddExtensionProcessor : IProcessor
         var loggingService = CirrusServiceProvider.GetRequiredService<ILoggingService>();
         using var activity = telemetryService.ActivitySource?.StartActivity($"{nameof(AddExtensionProcessor)}.{nameof(Process)}");
 
-        // Tag the activity with extension-shaped dimensions as soon as each value becomes
-        // known so failed installs still carry whatever was determined before the throw
-        // (e.g. a LeafConflict mid-iteration carries package_id/version/namespace_count and the
-        // *attempted* contribution_count). OTEL semantic convention: dotted namespace, snake_case
-        // attribute names. `extension.source` distinguishes feed installs from local-path side-
-        // loads ("path" sentinel) for dev-loop vs production install ratio.
+        // Tag the activity with extension dimensions early so failed installs (mid-iteration
+        // throws) still carry whatever was determined before the throw. `extension.source`
+        // distinguishes feed installs from local-path sideloads ("path" sentinel).
+        activity?.SetTag("extension.source", FeedUrl ?? "path");
         activity?.SetTag("extension.source", FeedUrl ?? "path");
 
         var installer = new ExtensionInstaller(loggingService, feedUrl: FeedUrl);
         string installPath;
         if (!string.IsNullOrWhiteSpace(Name))
         {
-            // Resolve --name through ResolvePackageId so a verb (e.g. "vm") works
-            // symmetrically with the dispatcher's unknown-verb suggestion. Falls through to the
-            // legacy prefix-strip when no hint matches; full package ids passthrough untouched.
+            // Resolve --name through the hint table so a verb (e.g. "vm") works symmetrically
+            // with the dispatcher's unknown-verb suggestion; full package ids passthrough.
             var resolvedPackageId = ResolvePackageId(Name!, ExtensionHintTable.Default);
             try
             {
@@ -97,10 +94,8 @@ public class AddExtensionProcessor : IProcessor
             }
             catch (InvalidOperationException ex) when (ex.Message.StartsWith("Could not find package", StringComparison.Ordinal))
             {
-                // Feed-miss path. Normalize the plain InvalidOperationException to a typed
-                // ExtensionNotFound (exit 4) and append a local-artifact suggestion when a freshly
-                // built nupkg exists in artifacts/Debug/. Suggestion-only — we never auto-install
-                // from local, because that would silently consume stale builds.
+                // Feed miss: normalize to typed ExtensionNotFound and append a local-artifact
+                // suggestion if a fresh nupkg exists in artifacts/Debug/.
                 var localHint = LocalArtifactProbe.Find(resolvedPackageId);
                 var details = new Dictionary<string, object?>
                 {
@@ -130,13 +125,9 @@ public class AddExtensionProcessor : IProcessor
 
         try
         {
-            // Compatibility check before any expensive validation (spec §6). Reads
-            // [CirrusCompatibility] from the installed DLLs via MetadataLoadContext (no exec),
-            // and hard-fails the install if the declared range excludes the current core. The
-            // catch handler below rolls back the install dir, so the on-disk state is clean.
-            // The current core version is a literal here — a single host-version source-of-truth
-            // is deferred (see vNext "host version" entry in the spec). Bump in lockstep with
-            // any breaking change to the Core.Abstractions contract.
+            // Compatibility check (spec §6) before any expensive validation. Reads
+            // [CirrusCompatibility] via MetadataLoadContext (no exec); failure rolls back below.
+            // TODO: replace literal "1.0.0" with a single host-version source-of-truth.
             var compatResult = CompatibilityGuard.CheckAssembly(installPath, currentCoreVersion: "1.0.0");
             if (!compatResult.IsCompatible)
             {
@@ -150,10 +141,8 @@ public class AddExtensionProcessor : IProcessor
                     });
             }
 
-            // Per docs/spec/extension-management.md §5.2: read the declared verb(s) from the
-            // installed DLLs *without* executing extension code, then validate against built-ins +
-            // registry before committing the registry write. [ExtensionVerb] is repeatable, so an
-            // extension may claim more than one namespace.
+            // Read declared verb(s) from installed DLLs without executing extension code
+            // (spec §5.2). [ExtensionVerb] is repeatable; an extension may claim multiple namespaces.
             var verbs = ExtensionVerbReader.ReadVerbs(installPath);
             if (verbs.Count == 0)
             {
@@ -164,8 +153,7 @@ public class AddExtensionProcessor : IProcessor
             }
             activity?.SetTag("extension.namespace_count", verbs.Count);
 
-            // First declared verb is the canonical "primary" for the v1 `verb` field; readers that
-            // pre-date the multi-namespace model continue to see something sensible.
+            // First declared verb is the v1 `verb` field; legacy readers see something sensible.
             var primaryVerb = verbs[0];
 
             // Built-in collision check (§4.2): a built-in verb is non-overridable.
@@ -182,17 +170,11 @@ public class AddExtensionProcessor : IProcessor
             var store = new FileExtensionRegistryStore();
             var registry = store.Load();
 
-            // Top-level verbs are shared. Multiple extensions may declare the same
-            // [ExtensionVerb] (e.g. two extensions both contributing under `vm`); collisions are
-            // resolved per-leaf below against the (verb, path) tuple. Built-in verbs remain
-            // reserved (see the IsBuiltInVerb check above) and built-in roots are still rejected
-            // per-leaf.
+            // Verbs are shared across extensions; collisions resolve per-leaf at the (verb, path)
+            // tuple level below. Built-in roots remain reserved (rejected per-leaf).
 
-            // Read the candidate's leaves (s_cliTable keys) from the just-installed DLLs and
-            // conflict-check every (verb, path) tuple against the registry and the built-in
-            // seed. This is finer-grained than the verb-only check above and catches the
-            // cross-namespace case where two extensions share a verb but contribute different
-            // paths (allowed) vs. the same path (rejected).
+            // Read leaves (s_cliTable keys) from the installed DLLs and conflict-check every
+            // (verb, path) tuple against registry + built-in seed.
             var leafKeys = LeafReader.ReadCliLeafKeys(installPath);
             activity?.SetTag("extension.contribution_count", leafKeys.Count);
             var contributions = new List<Contribution>(
@@ -202,11 +184,8 @@ public class AddExtensionProcessor : IProcessor
             // package's parent dir so only the just-installed version remains on disk.
             PurgeSiblingVersions(installer.InstallPath, packageId, keepVersion: version);
 
-            // 'add' must respect a pin set on the *existing* entry. Pinning's contract is
-            // "don't change my version under me"; without this check, a pinned 1.1.0 could be
-            // silently overwritten by `add --path …1.0.0…`. Honor the pin forward across the
-            // in-place upgrade — fail with PinViolation unless --force, and carry the pin onto
-            // the new entry when the user explicitly forces.
+            // Honor pins forward across in-place upgrades (PinViolation unless --force);
+            // carry the pin onto the new entry when --force is used.
             bool carryPinForward = CheckPinPrecondition(registry, packageId, version, Force, Pin);
 
             registry.Extensions[packageId] = new ExtensionRegistryEntry
@@ -233,8 +212,7 @@ public class AddExtensionProcessor : IProcessor
         }
         catch
         {
-            // Roll back the file-system side of the install. The registry was either not touched
-            // or its old contents are unchanged (Save throws before partial writes are visible).
+            // Roll back the install dir; registry is unchanged (Save throws before partial writes).
             TryDeleteDirectory(installPath);
             throw;
         }

@@ -56,10 +56,7 @@ namespace Core.Extensions
                 return Array.Empty<string>();
             }
 
-            // Collectible ALC; unloaded by the using block at the end so the extension's assembly
-            // bytes can be GC'd. Note: due to .NET's static-init guarantees the dictionary fields
-            // remain rooted for the duration of the call, but become eligible for collection once
-            // we drop the load context.
+            // Collectible ALC; unloaded after read so extension assembly bytes are GC-eligible.
             var alc = new ThrowawayLoadContext(extensionDirectory);
             try
             {
@@ -89,8 +86,7 @@ namespace Core.Extensions
                         types = ex.Types.Where(t => t is not null).ToArray()!;
                     }
 
-                    // Find the [ExtensionVerb]-decorated type; it is also (by convention and by
-                    // §3.1) the IExtensionIndex implementer.
+                    // Find the [ExtensionVerb]-decorated type (conventionally the IExtensionIndex implementer).
                     foreach (var type in types)
                     {
                         if (type is null) { continue; }
@@ -130,8 +126,7 @@ namespace Core.Extensions
                         var method = type.GetMethod("GetCommandKeys", BindingFlags.Instance | BindingFlags.Public);
                         if (method is null) { return Array.Empty<string>(); }
 
-                        // ClientType.CLI = 0 by convention; pass the integer to avoid needing a
-                        // hard reference to Core.Abstractions in this assembly's load graph.
+                        // Pass enum value as int to avoid a hard ref to Core.Abstractions here.
                         var clientTypeEnum = method.GetParameters()[0].ParameterType;
                         var cliValue = Enum.Parse(clientTypeEnum, "CLI", ignoreCase: true);
 
@@ -184,9 +179,7 @@ namespace Core.Extensions
 
             protected override Assembly? Load(AssemblyName assemblyName)
             {
-                // Prefer the host's already-loaded copy for shared abstractions
-                // (Core.Abstractions especially) so type identity matches across the boundary.
-                // Otherwise, probe the extension dir; fall back to the default ALC's resolution.
+                // Prefer host's copy for shared abstractions so type identity matches across the boundary.
                 var hostLoaded = Default.Assemblies
                     .FirstOrDefault(a => string.Equals(a.GetName().Name, assemblyName.Name, StringComparison.Ordinal));
                 if (hostLoaded is not null)

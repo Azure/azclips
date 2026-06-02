@@ -38,8 +38,7 @@ public class RemoveExtensionProcessor : IProcessor
         var loggingService = CirrusServiceProvider.GetRequiredService<ILoggingService>();
         using var activity = telemetryService.ActivitySource?.StartActivity($"{nameof(RemoveExtensionProcessor)}.{nameof(Process)}");
 
-        // Per spec Q7: built-in verbs are not removable. They aren't in the registry, but the user
-        // might still type `extension remove vm` expecting it to work — give a clear error.
+        // Built-in verbs aren't in the registry; give a clear error rather than "not found".
         if (BuiltInExtensions.IsBuiltInVerb(Name))
         {
             throw CirrusErrorException.VerbConflict(
@@ -66,9 +65,7 @@ public class RemoveExtensionProcessor : IProcessor
         var packageId = match.Key;
         var entry = match.Value;
 
-        // Tag the activity with extension-shaped dimensions describing what's about to be
-        // removed. Source/version are best-effort (older v1 entries may have null Source).
-        // namespace_count uses the v2 Namespaces list and falls back to the legacy single Verb.
+        // Tag activity with extension dimensions; namespace_count prefers v2 Namespaces.
         activity?.SetTag("extension.package_id", packageId);
         activity?.SetTag("extension.version", entry.Version);
         activity?.SetTag("extension.source", entry.Source ?? "path");
@@ -76,13 +73,11 @@ public class RemoveExtensionProcessor : IProcessor
             entry.Namespaces.Count > 0 ? entry.Namespaces.Count : (entry.Verb is null ? 0 : 1));
         activity?.SetTag("extension.contribution_count", entry.Contributions.Count);
 
-        // Strict single-version: there's at most one version on disk, but we always wipe
-        // the whole package directory to be safe.
+        // Always wipe the whole package directory (strict single-version means at most one).
         var installer = new ExtensionInstaller(loggingService);
         var packageDir = Path.Combine(installer.InstallPath, packageId);
 
-        // Update the registry first, then delete files. The reverse order would leave the system
-        // with a registry entry pointing at a non-existent folder if the file delete fails midway.
+        // Registry-first ordering: a partial file-delete leaves us with no orphan registry entry.
         registry.Extensions.Remove(packageId);
         store.Save(registry);
 

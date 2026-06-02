@@ -6,24 +6,10 @@ using Core.Extensions;
 namespace Microsoft.Azure.Cirrus.Extensions.Extension;
 
 /// <summary>
-/// Pure leaf-conflict planner extracted from <see cref="Processors.AddExtensionProcessor"/> so the
-/// per-leaf ownership contract (same verb across packages is fine, same <c>(verb, path)</c>
-/// tuple is not) can be exercised in tests without driving NuGet extraction or the registry
-/// filesystem.
+/// Pure leaf-conflict planner extracted from <see cref="Processors.AddExtensionProcessor"/> for
+/// testability. Validates (verb, path) tuples against the registry; same verb across packages
+/// is fine, same (verb, path) is not. Self-upsert is allowed.
 /// </summary>
-/// <remarks>
-/// All inputs are already-resolved values supplied by <c>Add.cs</c>:
-/// <list type="bullet">
-///   <item><c>packageId</c> — the candidate's NuGet id (used for self-upsert detection).</item>
-///   <item><c>verbs</c> — the candidate's declared <c>[ExtensionVerb]</c> set (read by <see cref="ExtensionVerbReader"/>).</item>
-///   <item><c>cliLeafKeys</c> — the candidate's <c>s_cliTable</c> keys (read by <see cref="LeafReader"/>).</item>
-///   <item><c>registry</c> — the current registry state to validate against.</item>
-/// </list>
-/// On success returns the contribution rows the caller should persist; on conflict throws the
-/// same <see cref="CirrusErrorException"/> the production install path throws (LeafConflict
-/// exit 3). Self-upsert is allowed: when a package id already owns a tuple, re-adding the same
-/// id is a no-conflict.
-/// </remarks>
 public static class ExtensionAddPlanner
 {
     public static IReadOnlyList<Contribution> PlanContributions(
@@ -40,13 +26,9 @@ public static class ExtensionAddPlanner
         var declaredVerbSet = new HashSet<string>(verbs, StringComparer.OrdinalIgnoreCase);
         var contributions = new List<Contribution>();
 
-        // Accumulate every registry-side `(verb, path)` collision the candidate triggers and
-        // report them as a single batched LeafConflict. Operators get a complete diagnosis in one
-        // round-trip instead of a one-conflict-per-rerun loop. Conflict order follows the
-        // candidate's leaf-key iteration (deterministic across runs because the `s_cliTable`
-        // dictionary preserves insertion order). Undeclared-verb and built-in-root checks remain
-        // first-error-wins: those are usage errors in the candidate's own code, not
-        // registry-state interactions, and enumerating them adds noise without value.
+        // Batch all registry-side (verb, path) collisions into a single LeafConflict so operators
+        // get a complete diagnosis in one round-trip. Undeclared-verb / built-in-root checks
+        // remain first-error-wins (usage errors in the candidate's own code).
         var registryConflicts = new List<Dictionary<string, object?>>();
 
         foreach (var leafKey in cliLeafKeys)

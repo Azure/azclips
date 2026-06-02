@@ -64,13 +64,11 @@ namespace Core.Runtime
 
             if (!NuGetVersion.TryParse(currentCoreVersion, out var current))
             {
-                // Caller messed up. This is a host bug, not an extension bug; tolerate it by
-                // passing — better than blocking every install on a malformed host literal.
+                // Host bug, not extension bug; pass rather than blocking every install.
                 return new Result(true, $"current core version '{currentCoreVersion}' is not a valid SemVer; compatibility check skipped");
             }
 
-            // Track an advisory note when we ignore a malformed bound. Only the *last* advisory
-            // wins (rare; no reason to allocate a list for both bounds being garbage).
+            // Last-advisory-wins (rare for both bounds to be garbage).
             string? advisory = null;
 
             if (!string.IsNullOrWhiteSpace(minCoreVersion))
