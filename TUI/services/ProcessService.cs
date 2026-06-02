@@ -190,15 +190,16 @@ class ProcessService
 
     private static string FindCliPath()
     {
+        var exeName = OperatingSystem.IsWindows() ? "azv2.exe" : "azv2";
         var baseDir = AppContext.BaseDirectory;
         var dir = new DirectoryInfo(baseDir);
 
         while (dir != null)
         {
-            var candidate = Path.Combine(dir.FullName, "artifacts", "Debug", "Core.Cli", "azv2.exe");
+            var candidate = Path.Combine(dir.FullName, "artifacts", "Debug", "Core.Cli", exeName);
             if (File.Exists(candidate)) return candidate;
 
-            candidate = Path.Combine(dir.FullName, "bin", "azv2.exe");
+            candidate = Path.Combine(dir.FullName, "bin", exeName);
             if (File.Exists(candidate)) return candidate;
 
             dir = dir.Parent;

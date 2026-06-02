@@ -24,4 +24,10 @@ public class DefaultAssemblyLoadingProvider(): IAssemblyLoadingProvider
             throw new InvalidOperationException($"Extension '{assemblyName}' could not be found by any extension loader.", ex);
         }
     }
+
+    public IList<Tuple<string, string?>>? GetAllInstalledExtensions()
+    {
+        //Yabo: Default implementation does not support extension discovery, return null to indicate no extensions found.
+        return null;
+    }
 }

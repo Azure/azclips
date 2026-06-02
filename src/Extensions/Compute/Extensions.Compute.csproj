@@ -30,7 +30,7 @@
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
         </ProjectReference>
-        <ProjectReference Include="..\Extensions.Runtime\Extensions.Runtime.csproj" >
+        <ProjectReference Include="..\ExtensionRuntime\ExtensionRuntime.csproj" >
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
         </ProjectReference>

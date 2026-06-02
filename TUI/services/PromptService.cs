@@ -38,7 +38,7 @@ class PromptService
     /// <summary>
     /// Get the current git branch name.
     /// </summary>
-    public static string GetGitBranch()
+    public static string GetGitBranch(string? workingDirectory = null)
     {
         try
         {
@@ -52,6 +52,7 @@ class PromptService
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     CreateNoWindow = true,
+                    WorkingDirectory = workingDirectory ?? "",
                 }
             };
             process.Start();

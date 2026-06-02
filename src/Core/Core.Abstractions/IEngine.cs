@@ -4,7 +4,9 @@ namespace Core.Abstractions;
 
 public interface IEngine : IDisposable
 {
-    IInvocationSession InvokeSession(CommandInvocation invocation, OutputStreams outputStreams, CancellationToken cancellationToken = default);
+    ISession OpenExecutionSession(CommandInvocation invocation, OutputStreams outputStreams, CancellationToken cancellationToken = default);
+
+    ISession OpenDiscoverySession(IList<string> extensionNames, string? commandName, OutputStreams outputStreams, bool isTransient = false, CancellationToken cancellationToken = default);
 }
 
 public interface ICommandEngine

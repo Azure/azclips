@@ -7,11 +7,11 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Processors
     public class GetContextProcessor : LoginProcessorBase
     {
         public override async Task ProcessAsync() {
-            await EventListener.Signal(Events.ProcessorProcessAsyncStart);
+            await Publisher.Publish(Events.ProcessorProcessAsyncStart);
             var authContextService = CirrusServiceProvider.GetRequiredService<IAuthContextService>();
             AuthContext Context =  authContextService.GetCurrentContextAsync().GetAwaiter().GetResult()!;
             await WriteOutput(Context);
-            await EventListener.Signal(Events.ProcessorProcessAsyncEnd);
+            await Publisher.Publish(Events.ProcessorProcessAsyncEnd);
         }
     }
 }

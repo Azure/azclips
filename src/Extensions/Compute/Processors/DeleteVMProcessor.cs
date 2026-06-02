@@ -1,5 +1,5 @@
 using Core.Abstractions.Runtime;
-using Microsoft.Azure.Cirrus.Extensions.Runtime;
+using Microsoft.Azure.Cirrus.ExtensionRuntime;
 using Microsoft.Azure.Cirrus.Extensions.Compute.Models;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors;
@@ -9,12 +9,12 @@ public class DeleteVMProcessor : ComputeProcessorBase<object>
     public string Name { get; set; } = string.Empty;
     public string ResourceGroupName { get; set; } = string.Empty;
 
-    public override async Task<HttpRequestMessage> CreateRequestMessage()
+    protected override async Task<HttpRequestMessage> CreateRequestMessage()
     {
-        await EventListener.Signal(Events.ProcessorBeforeHttpRequestCreate);
+        await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
         string uri = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.Compute/virtualMachines/{Name}?api-version=2025-11-01";
         HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Delete, uri);
-        await EventListener.Signal(Events.ProcessorAfterHttpRequestCreate);
+        await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
         return request;
     }
 
@@ -23,5 +23,5 @@ public class DeleteVMProcessor : ComputeProcessorBase<object>
     protected override Func<HttpResponseMessage, string?> GetAsyncOperationUri => response => response.GetFirstHeader("Azure-AsyncOperation");
     protected override Func<HttpResponseMessage, string?> GetLocationUri => response => response.GetFirstHeader("Location");
 
-    public override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();
+    internal override Task<HttpResponseMessage> SendAsync() => SendAsyncLRO();
 }
