@@ -1,0 +1,156 @@
+parameters:
+- name: windows_pool
+  type: string
+  default: 'windows-latest'
+- name: SourceProject
+  type: string
+  default: 'public'
+- name: source_pipeline_name
+  type: string
+- name: source_build_id
+  type: string
+- name: signed_artifact_name
+  type: string
+  default: 'Distribution_Signed'
+- name: esrp_nuget_keycode
+  type: string
+  default: 'CP-401405'
+- name: esrp_authenticode_keycode
+  type: string
+  default: 'CP-230012'
+
+stages:
+- stage: SignArtifacts
+  displayName: Sign Artifacts (ESRP)
+  jobs:
+  - job: SignAndVerify
+    displayName: Sign + Verify Distribution Assets
+    pool:
+      vmImage: ${{ parameters.windows_pool }}
+    steps:
+    - checkout: self
+      clean: true
+
+    - task: UseDotNet@2
+      displayName: Setup .NET SDK
+      inputs:
+        packageType: sdk
+        useGlobalJson: true
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Unsigned Distribution Artifacts
+      inputs:
+        buildType: specific
+        project: ${{ parameters.SourceProject }}
+        definition: ${{ parameters.source_pipeline_name }}
+        buildVersionToDownload: specific
+        pipelineId: ${{ parameters.source_build_id }}
+        targetPath: $(Pipeline.Workspace)/unsigned
+
+    - task: PowerShell@2
+      displayName: Prepare Signing Inputs
+      inputs:
+        targetType: filePath
+        filePath: devops/scripts/packaging/signing/prepare_signing_inputs.ps1
+        arguments: >-
+          -UnsignedRoot "$(Pipeline.Workspace)/unsigned"
+          -WorkingRoot "$(Pipeline.Workspace)/signing-work"
+          -ReleaseRoot "$(Build.ArtifactStagingDirectory)/signed-release"
+        pwsh: true
+
+    - task: EsrpCodeSigning@5
+      displayName: Sign NuGet Packages [NuGetSign]
+      condition: eq(variables['HasNupkg'], 'true')
+      inputs:
+        ConnectedServiceName: '$(ESRPServiceConnectionName)'
+        AppRegistrationClientId: '$(ESRPAppClientId)'
+        AppRegistrationTenantId: '$(ESRPAppTenantId)'
+        AuthAKVName: '$(ESRPKVName)'
+        AuthCertName: '$(ESRPAuthCertName)'
+        AuthSignCertName: '$(ESRPSignCertName)'
+        FolderPath: '$(Pipeline.Workspace)/signing-work/nupkg'
+        Pattern: '*.nupkg'
+        signConfigType: inlineSignParams
+        inlineOperation: |
+          [
+            {
+              "KeyCode": "${{ parameters.esrp_nuget_keycode }}",
+              "OperationCode": "NuGetSign",
+              "Parameters": {},
+              "ToolName": "sign",
+              "ToolVersion": "1.0"
+            },
+            {
+              "KeyCode": "${{ parameters.esrp_nuget_keycode }}",
+              "OperationCode": "NuGetVerify",
+              "Parameters": {},
+              "ToolName": "sign",
+              "ToolVersion": "1.0"
+            }
+          ]
+
+    - task: EsrpCodeSigning@5
+      displayName: Sign Windows Payload [Authenticode]
+      condition: eq(variables['HasWindowsPayload'], 'true')
+      inputs:
+        ConnectedServiceName: '$(ESRPServiceConnectionName)'
+        AppRegistrationClientId: '$(ESRPAppClientId)'
+        AppRegistrationTenantId: '$(ESRPAppTenantId)'
+        AuthAKVName: '$(ESRPKVName)'
+        AuthCertName: '$(ESRPAuthCertName)'
+        AuthSignCertName: '$(ESRPSignCertName)'
+        FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
+        Pattern: |
+          **/azv2.exe
+          **/Microsoft.Azure.Cirrus*.dll
+          **/Microsoft.Azure.Cirrus*.exe
+        signConfigType: inlineSignParams
+        inlineOperation: |
+          [
+            {
+              "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+              "OperationCode": "SigntoolSign",
+              "Parameters": {
+                "OpusName": "Microsoft",
+                "OpusInfo": "http://www.microsoft.com",
+                "FileDigest": "/fd SHA256",
+                "PageHash": "/NPH",
+                "TimeStamp": "/tr http://timestamp.digicert.com /td sha256"
+              },
+              "ToolName": "sign",
+              "ToolVersion": "1.0"
+            },
+            {
+              "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+              "OperationCode": "SigntoolVerify",
+              "Parameters": {},
+              "ToolName": "sign",
+              "ToolVersion": "1.0"
+            }
+          ]
+
+    - task: PowerShell@2
+      displayName: Verify Signed Outputs
+      inputs:
+        targetType: filePath
+        filePath: devops/scripts/packaging/signing/verify_signed_outputs.ps1
+        arguments: >-
+          -WorkingRoot "$(Pipeline.Workspace)/signing-work"
+        pwsh: true
+
+    - task: PowerShell@2
+      displayName: Repack Signed Outputs
+      inputs:
+        targetType: filePath
+        filePath: devops/scripts/packaging/signing/repack_signed_outputs.ps1
+        arguments: >-
+          -WorkingRoot "$(Pipeline.Workspace)/signing-work"
+          -ReleaseRoot "$(Build.ArtifactStagingDirectory)/signed-release"
+        pwsh: true
+
+    - task: PublishPipelineArtifact@1
+      displayName: Publish Signed Distribution Artifact
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)/signed-release
+        artifact: ${{ parameters.signed_artifact_name }}
+        publishLocation: pipeline

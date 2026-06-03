@@ -11,7 +11,7 @@ parameters:
 - name: source_pipeline_name
   displayName: 'Source pipeline name'
   type: string
-  default: 'cirrus-build'
+  default: 'cirrus-signing'
 - name: source_build_id
   displayName: 'Source build id'
   type: string

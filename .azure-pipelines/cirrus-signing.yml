@@ -3,8 +3,24 @@ name: cirrus-signing-$(Date:yyyyMMdd)$(Rev:.r)
 trigger: none
 pr: none
 
+parameters:
+- name: source_pipeline_name
+  displayName: 'Source pipeline name'
+  type: string
+  default: 'cirrus-build'
+- name: source_build_id
+  displayName: 'Source build id'
+  type: string
+  default: '320168'
+- name: signed_artifact_name
+  displayName: 'Signed artifact name'
+  type: string
+  default: 'Distribution_Signed'
+
 variables:
 - template: templates/variables.yml
+- name: SourceProject
+  value: public
 - name: Codeql.Enabled
   value: false
 - name: Codeql.SkipTaskAutoInjection
@@ -35,14 +51,10 @@ variables:
   value: true
 
 stages:
-- stage: SigningDummy
-  displayName: Signing Dummy
-  jobs:
-  - job: NoOp
-    displayName: No-op
-    pool:
-      vmImage: $(ubuntu_pool)
-    steps:
-    - script: |
-        echo "Dummy signing pipeline placeholder"
-      displayName: Placeholder
+- template: templates/dist/stages/sign-with-esrp.yml
+  parameters:
+    windows_pool: $(windows_pool)
+    SourceProject: $(SourceProject)
+    source_pipeline_name: ${{ parameters.source_pipeline_name }}
+    source_build_id: ${{ parameters.source_build_id }}
+    signed_artifact_name: ${{ parameters.signed_artifact_name }}
