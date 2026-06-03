@@ -25,7 +25,7 @@ parameters:
   default: ''
 - name: esrp_nuget_keycode
   type: string
-  default: 'CP-401405-NuGet'
+  default: 'CP-401405'
 - name: esrp_authenticode_keycode
   type: string
   default: 'CP-230012'
@@ -67,16 +67,29 @@ stages:
           $targetRoot = "$(Pipeline.Workspace)/unsigned"
           Remove-Item $targetRoot -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Path $targetRoot -Force | Out-Null
-          $selected = Get-ChildItem -Path $sourceRoot -Recurse -File | Where-Object {
+          $allNupkgs = Get-ChildItem -Path $sourceRoot -Recurse -File | Where-Object {
             $_.Name -like '*.nupkg' -and $_.Name -notlike '*.snupkg'
           }
+          $selected = $allNupkgs | Where-Object {
+            $_.Name -like 'Microsoft.Azure.Cirrus*.nupkg'
+          }
           if (-not $selected) {
-            throw "No NuGet release artifacts found under $sourceRoot"
+            throw "No Cirrus NuGet release artifacts found under $sourceRoot (expected Microsoft.Azure.Cirrus*.nupkg)"
           }
           foreach ($asset in $selected) {
             Copy-Item $asset.FullName -Destination (Join-Path $targetRoot $asset.Name) -Force
           }
-          Write-Host "Selected $($selected.Count) NuGet release artifacts."
+          Write-Host "Selected $($selected.Count) Cirrus NuGet release artifacts."
+
+          $excluded = $allNupkgs | Where-Object {
+            $_.Name -notlike 'Microsoft.Azure.Cirrus*.nupkg'
+          }
+          if ($excluded) {
+            Write-Host "Excluded non-Cirrus nupkgs from ESRP submission:"
+            foreach ($pkg in $excluded) {
+              Write-Host "  $($pkg.Name)"
+            }
+          }
     - task: PowerShell@2
       displayName: Prepare Signing Inputs
       inputs:
@@ -99,9 +112,11 @@ stages:
             throw "NuGet signing input folder not found: $nupkgRoot"
           }
 
-          $files = Get-ChildItem -Path $nupkgRoot -File -Filter '*.nupkg' | Sort-Object Name
+          $files = Get-ChildItem -Path $nupkgRoot -File | Where-Object {
+            $_.Name -like 'Microsoft.Azure.Cirrus*.nupkg'
+          } | Sort-Object Name
           if (-not $files) {
-            throw "No .nupkg files found for signing in $nupkgRoot"
+            throw "No Cirrus .nupkg files found for signing in $nupkgRoot"
           }
 
           Write-Host "NuGet signing candidates ($($files.Count))"
@@ -122,7 +137,8 @@ stages:
         AuthCertName: '$(ESRPAuthCertName)'
         AuthSignCertName: '$(ESRPSignCertName)'
         FolderPath: '$(Pipeline.Workspace)/signing-work/nupkg'
-        Pattern: '*.nupkg'
+        UseMinimatch: true
+        Pattern: 'Microsoft.Azure.Cirrus*.nupkg'
         signConfigType: inlineSignParams
         SessionTimeout: '60'
         MaxConcurrency: '25'
@@ -258,6 +274,7 @@ stages:
         AuthCertName: '$(ESRPAuthCertName)'
         AuthSignCertName: '$(ESRPSignCertName)'
         FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
+        UseMinimatch: true
         Pattern: 'azv2.exe'
         signConfigType: inlineSignParams
         inlineOperation: |
@@ -269,8 +286,7 @@ stages:
                 "OpusName": "Microsoft",
                 "OpusInfo": "http://www.microsoft.com",
                 "FileDigest": "/fd SHA256",
-                "PageHash": "/NPH",
-                "TimeStamp": "/tr http://timestamp.digicert.com /td sha256"
+                "PageHash": "/NPH"
               },
               "ToolName": "sign",
               "ToolVersion": "1.0"
@@ -295,6 +311,7 @@ stages:
         AuthCertName: '$(ESRPAuthCertName)'
         AuthSignCertName: '$(ESRPSignCertName)'
         FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
+        UseMinimatch: true
         Pattern: 'Microsoft.Azure.Cirrus*.dll'
         signConfigType: inlineSignParams
         inlineOperation: |
@@ -306,8 +323,7 @@ stages:
                 "OpusName": "Microsoft",
                 "OpusInfo": "http://www.microsoft.com",
                 "FileDigest": "/fd SHA256",
-                "PageHash": "/NPH",
-                "TimeStamp": "/tr http://timestamp.digicert.com /td sha256"
+                "PageHash": "/NPH"
               },
               "ToolName": "sign",
               "ToolVersion": "1.0"
@@ -332,6 +348,7 @@ stages:
         AuthCertName: '$(ESRPAuthCertName)'
         AuthSignCertName: '$(ESRPSignCertName)'
         FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
+        UseMinimatch: true
         Pattern: 'Microsoft.Azure.Cirrus*.exe'
         signConfigType: inlineSignParams
         inlineOperation: |
@@ -343,8 +360,7 @@ stages:
                 "OpusName": "Microsoft",
                 "OpusInfo": "http://www.microsoft.com",
                 "FileDigest": "/fd SHA256",
-                "PageHash": "/NPH",
-                "TimeStamp": "/tr http://timestamp.digicert.com /td sha256"
+                "PageHash": "/NPH"
               },
               "ToolName": "sign",
               "ToolVersion": "1.0"
