@@ -18,7 +18,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-Import-Module platyPS -RequiredVersion 0.14.2
+Import-Module Microsoft.PowerShell.PlatyPS -RequiredVersion 1.0.1
 
 # Replaces PlatyPS's literal `{{ Fill in ... }}` placeholders with TODO-flagged
 # defaults derived from the cmdlet name + required parameters. The intent
@@ -39,12 +39,86 @@ function Convert-PlatyPSPlaceholders
     $Content = $Content -replace '\{\{\s*Fill in the Description\s*\}\}', $descriptionDefault
     $Content = $Content -replace '\{\{\s*Add example description here\s*\}\}', "TODO - describe the example."
 
-    # Replace the example code body with a one-liner that uses the required parameters.
-    $exampleArgs = ($RequiredParameters | ForEach-Object { "-{0} <{1}>" -f $_, $_.ToLower() }) -join ' '
+    # Replace the legacy schema-2.0.0 example code body with a one-liner.
+    $exampleArgs = (@($RequiredParameters) | Where-Object { $_ } | ForEach-Object { "-{0} <{1}>" -f $_, $_.ToLower() }) -join ' '
     $exampleLine = if ($exampleArgs) { "$CmdletName $exampleArgs" } else { $CmdletName }
     $Content = $Content -replace 'PS C:\\>\s*\{\{\s*Add example code here\s*\}\}', "PS C:\> $exampleLine"
 
-    return $Content
+    # New schema (2024-05-01): PlatyPS emits `### <Title>` headings under `## EXAMPLES`
+    # with empty bodies when the cmdlet has no [Example] metadata. Backfill each empty
+    # body with a TODO description + a code fence that uses the required parameters,
+    # so `Get-Help -Examples` produces something runnable-shaped.
+    $exampleStub = @"
+TODO - describe the example.
+
+``````powershell
+$exampleLine
+``````
+"@
+
+    $lines = $Content -split "`r?`n"
+    $output = New-Object System.Collections.Generic.List[string]
+    $inExamples = $false
+    $examplesHeaderIndex = -1
+    $exampleHeadingsSeen = 0
+    $i = 0
+    while ($i -lt $lines.Count)
+    {
+        $line = $lines[$i]
+        $output.Add($line)
+
+        if ($line -match '^##\s+EXAMPLES\s*$')
+        {
+            $inExamples = $true
+            $examplesHeaderIndex = $output.Count - 1
+            $exampleHeadingsSeen = 0
+            $i++
+            continue
+        }
+        elseif ($inExamples -and $line -match '^##\s+(?!#)')
+        {
+            # Reached the next H2 — if the EXAMPLES section had zero `### <Title>` headings
+            # (e.g. PlatyPS produced an empty section), inject a default stub before the
+            # `## <Next>` line we just appended. PSL8 in the validator enforces that every
+            # cmdlet help file has at least one fenced example.
+            if ($exampleHeadingsSeen -eq 0 -and $examplesHeaderIndex -ge 0)
+            {
+                $insertAt = $output.Count - 1
+                $stubBlock = @('', "### Example 1: $CmdletName", '', 'TODO - describe the example.', '', '```powershell', $exampleLine, '```', '')
+                for ($k = 0; $k -lt $stubBlock.Count; $k++)
+                {
+                    $output.Insert($insertAt + $k, $stubBlock[$k])
+                }
+            }
+            $inExamples = $false
+        }
+
+        if ($inExamples -and $line -match '^###\s+\S')
+        {
+            $exampleHeadingsSeen++
+            # Look ahead: collect lines until next heading; if all blank, inject stub.
+            $j = $i + 1
+            $bodyBlank = $true
+            while ($j -lt $lines.Count -and $lines[$j] -notmatch '^#{2,3}\s')
+            {
+                if ($lines[$j].Trim().Length -gt 0) { $bodyBlank = $false; break }
+                $j++
+            }
+            if ($bodyBlank)
+            {
+                $output.Add('')
+                foreach ($stubLine in ($exampleStub -split "`r?`n")) { $output.Add($stubLine) }
+                $output.Add('')
+                # Skip the original blank lines.
+                $i = $j
+                continue
+            }
+        }
+
+        $i++
+    }
+
+    return ($output -join "`n")
 }
 
 $repoRoot = Resolve-Path "$PSScriptRoot/.."
@@ -78,11 +152,13 @@ foreach ($name in $modules)
         # Run PlatyPS in an isolated child session so artifact DLLs are released afterwards.
         # The child also reflects on each cmdlet to discover required parameters, which we
         # serialize as JSON next to the markdown for the post-processor below.
+        # Note: New-MarkdownCommandHelp creates a subfolder named after the module under
+        # -OutputFolder, so the .md files land at $tempDir/<ModuleName>/*.md.
         pwsh -NoProfile -Command {
             param($manifestPath, $tempDir, $moduleName)
-            Import-Module platyPS -RequiredVersion 0.14.2
-            Import-Module $manifestPath -Force
-            New-MarkdownHelp -Module $moduleName -OutputFolder $tempDir -Force -AlphabeticParamsOrder | Out-Null
+            Import-Module Microsoft.PowerShell.PlatyPS -RequiredVersion 1.0.1
+            $mod = Import-Module $manifestPath -Force -PassThru
+            New-MarkdownCommandHelp -ModuleInfo $mod -OutputFolder $tempDir -Force | Out-Null
 
             $cmdletInfo = @{}
             foreach ($cmd in (Get-Command -Module $moduleName -CommandType Cmdlet,Function))
@@ -110,9 +186,17 @@ foreach ($name in $modules)
             Get-Content $cmdletInfoPath -Raw | ConvertFrom-Json -AsHashtable
         } else { @{} }
 
+        # New-MarkdownCommandHelp emits files under $tempDir/<ModuleName>/.
+        $scaffoldRoot = Join-Path $tempDir $name
+        if (-not (Test-Path $scaffoldRoot))
+        {
+            # Fallback for legacy layout (in case a future tool change flattens output).
+            $scaffoldRoot = $tempDir
+        }
+
         $copied = 0
         $skipped = 0
-        Get-ChildItem -Path $tempDir -Filter '*.md' -File | ForEach-Object {
+        Get-ChildItem -Path $scaffoldRoot -Filter '*.md' -File | ForEach-Object {
             $target = Join-Path $helpDir $_.Name
             if (Test-Path $target)
             {

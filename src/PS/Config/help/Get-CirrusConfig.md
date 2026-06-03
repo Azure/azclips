@@ -1,8 +1,12 @@
 ---
+document type: cmdlet
 external help file: Microsoft.Azure.Cirrus.Cmdlets.Config.dll-Help.xml
+HelpUri: ''
+Locale: en-AU
 Module Name: Config
-online version:
-schema: 2.0.0
+ms.date: 06/03/2026
+PlatyPS schema version: 2024-05-01
+title: Get-CirrusConfig
 ---
 
 # Get-CirrusConfig
@@ -13,9 +17,16 @@ Retrieve a configuration value.
 
 ## SYNTAX
 
+### __AllParameterSets
+
 ```
-Get-CirrusConfig -Key <String> [-AsJson] [-ProgressAction <ActionPreference>] [<CommonParameters>]
+Get-CirrusConfig -Key <string> [-AsJson] [<CommonParameters>]
 ```
+
+## ALIASES
+
+This cmdlet has the following aliases,
+  {{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -25,16 +36,20 @@ If the key is not found, an error is displayed.
 
 ## EXAMPLES
 
-### Example 1: Get a configuration value
+### Get a configuration value
+
+TODO - describe the example.
 
 ```powershell
-Get-CirrusConfig -Key "output.format"
+Get-CirrusConfig -Key <key>
 ```
 
-### Example 2: Get output as JSON
+### Get output as JSON
+
+TODO - describe the example.
 
 ```powershell
-Get-CirrusConfig -Key "output.format" -AsJson
+Get-CirrusConfig -Key <key>
 ```
 
 ## PARAMETERS
@@ -44,15 +59,20 @@ Get-CirrusConfig -Key "output.format" -AsJson
 {{ Fill AsJson Description }}
 
 ```yaml
-Type: SwitchParameter
-Parameter Sets: (All)
-Aliases:
-
-Required: False
-Position: Named
-Default value: None
-Accept pipeline input: False
-Accept wildcard characters: False
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -Key
@@ -60,36 +80,28 @@ Accept wildcard characters: False
 Configuration key in dot notation.
 
 ```yaml
-Type: String
-Parameter Sets: (All)
-Aliases:
-
-Required: True
-Position: Named
-Default value: None
-Accept pipeline input: False
-Accept wildcard characters: False
-```
-
-### -ProgressAction
-
-{{ Fill ProgressAction Description }}
-
-```yaml
-Type: ActionPreference
-Parameter Sets: (All)
-Aliases: proga
-
-Required: False
-Position: Named
-Default value: None
-Accept pipeline input: False
-Accept wildcard characters: False
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### CommonParameters
 
-This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](http://go.microsoft.com/fwlink/?LinkID=113216).
+This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable,
+-InformationAction, -InformationVariable, -OutBuffer, -OutVariable, -PipelineVariable,
+-ProgressAction, -Verbose, -WarningAction, and -WarningVariable. For more information, see
+[about_CommonParameters](https://go.microsoft.com/fwlink/?LinkID=113216).
 
 ## INPUTS
 
@@ -99,4 +111,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 Generated help for config.
 
+
 ## RELATED LINKS
+
+- [Online Version]()

@@ -540,5 +540,48 @@ namespace Cirrus.Help.Tool.Tests
 
             Assert.False(report.HasErrors);
         }
+
+        // ----- PSL8: cmdlet help file must contain at least one example fence -----
+
+        [Fact]
+        public void Validate_ShouldError_WhenNoFencesUnderExamples()
+        {
+            // PlatyPS scaffolds `### <Title>` headings without bodies when the cmdlet has no
+            // example metadata. Those render as empty sections in `Get-Help -Examples`; PSL8
+            // forces authors to fill them in.
+            var content =
+                "## EXAMPLES\n\n" +
+                "### Get a widget\n\n" +
+                "### List widgets\n\n" +
+                "## PARAMETERS\n";
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "Set-FakeWidget.md", BuildIndex());
+
+            Assert.Contains(report.Errors, e =>
+                e.ProblemId == ProblemIds.PSL8_NoExamples &&
+                e.Message.Contains("Set-FakeWidget", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void Validate_ShouldNotEmitPSL8_WhenAtLeastOneFenceExists()
+        {
+            var content = Fence("Set-FakeWidget -Key k -Value v");
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "Set-FakeWidget.md", BuildIndex());
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.PSL8_NoExamples);
+        }
+
+        [Fact]
+        public void Validate_ShouldNotEmitPSL8_WhenFilenameIsNotVerbNounShape()
+        {
+            // Synthetic helper files (`fake.md`, README fragments, etc.) shouldn't be forced to
+            // carry examples — PSL8 mirrors PSL7's filename guard.
+            var content = "## EXAMPLES\n\n### Empty\n\n## PARAMETERS\n";
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.PSL8_NoExamples);
+        }
     }
 }

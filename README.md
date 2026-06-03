@@ -75,7 +75,7 @@ cirrus/
 - [.NET 10.0 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) (version pinned in `global.json`)
 - PowerShell 7.0+ (for PowerShell modules)
 - Azure subscription (for actual API calls)
-- [`platyPS`](https://github.com/PowerShell/platyPS) **0.14.2** (only for `-GenerateHelpArtifacts`; auto-installed by `build/Install-BuildDependencies.ps1`)
+- [`Microsoft.PowerShell.PlatyPS`](https://www.powershellgallery.com/packages/Microsoft.PowerShell.PlatyPS/1.0.1) **1.0.1** (only for `-GenerateHelpArtifacts`; auto-installed by `build/Install-BuildDependencies.ps1`)
 
 ### Build
 

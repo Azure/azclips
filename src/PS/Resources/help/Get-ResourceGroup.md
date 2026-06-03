@@ -1,8 +1,12 @@
 ---
+document type: cmdlet
 external help file: Microsoft.Azure.Cirrus.Cmdlets.Resources.dll-Help.xml
+HelpUri: ''
+Locale: en-AU
 Module Name: Resources
-online version:
-schema: 2.0.0
+ms.date: 06/03/2026
+PlatyPS schema version: 2024-05-01
+title: Get-ResourceGroup
 ---
 
 # Get-ResourceGroup
@@ -16,15 +20,19 @@ Show details of a specific resource group.
 ### List (Default)
 
 ```
-Get-ResourceGroup -SubscriptionId <String> [-ProgressAction <ActionPreference>] [<CommonParameters>]
+Get-ResourceGroup -SubscriptionId <string> [<CommonParameters>]
 ```
 
 ### Get
 
 ```
-Get-ResourceGroup -SubscriptionId <String> -Name <String> [-ProgressAction <ActionPreference>]
- [<CommonParameters>]
+Get-ResourceGroup -SubscriptionId <string> -Name <string> [<CommonParameters>]
 ```
+
+## ALIASES
+
+This cmdlet has the following aliases,
+  {{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -33,16 +41,20 @@ Specify the resource group name and optionally the subscription ID (defaults to 
 
 ## EXAMPLES
 
-### Example 1: Show a resource group
+### Show a resource group
+
+TODO - describe the example.
 
 ```powershell
-Get-ResourceGroup -SubscriptionId "00000000-0000-0000-0000-000000000000" -Name "myresourcegroup"
+Get-ResourceGroup -SubscriptionId <subscriptionid> -Name <name>
 ```
 
-### Example 2: List all resource groups in a subscription
+### List all resource groups in a subscription
+
+TODO - describe the example.
 
 ```powershell
-Get-ResourceGroup -SubscriptionId "00000000-0000-0000-0000-000000000000"
+Get-ResourceGroup -SubscriptionId <subscriptionid> -Name <name>
 ```
 
 ## PARAMETERS
@@ -52,31 +64,20 @@ Get-ResourceGroup -SubscriptionId "00000000-0000-0000-0000-000000000000"
 The name of the resource group.
 
 ```yaml
-Type: String
-Parameter Sets: Get
-Aliases:
-
-Required: True
-Position: Named
-Default value: None
-Accept pipeline input: False
-Accept wildcard characters: False
-```
-
-### -ProgressAction
-
-{{ Fill ProgressAction Description }}
-
-```yaml
-Type: ActionPreference
-Parameter Sets: (All)
-Aliases: proga
-
-Required: False
-Position: Named
-Default value: None
-Accept pipeline input: False
-Accept wildcard characters: False
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: Get
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### -SubscriptionId
@@ -84,20 +85,34 @@ Accept wildcard characters: False
 Azure Subscription Id.
 
 ```yaml
-Type: String
-Parameter Sets: (All)
-Aliases:
-
-Required: True
-Position: Named
-Default value: None
-Accept pipeline input: False
-Accept wildcard characters: False
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: Get
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+- Name: List
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### CommonParameters
 
-This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](http://go.microsoft.com/fwlink/?LinkID=113216).
+This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable,
+-InformationAction, -InformationVariable, -OutBuffer, -OutVariable, -PipelineVariable,
+-ProgressAction, -Verbose, -WarningAction, and -WarningVariable. For more information, see
+[about_CommonParameters](https://go.microsoft.com/fwlink/?LinkID=113216).
 
 ## INPUTS
 
@@ -107,4 +122,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 Generated help for resources.
 
+
 ## RELATED LINKS
+
+- [Online Version]()

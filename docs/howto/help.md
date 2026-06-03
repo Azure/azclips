@@ -4,10 +4,10 @@ This guide explains how to author and test help for CLI commands and PowerShell 
 
 CLI help and PowerShell help are authored separately, in different folders, with different formats:
 
-| Surface    | Source                              | Format                                      | Tool                            |
-| ---------- | ----------------------------------- | ------------------------------------------- | ------------------------------- |
-| CLI        | `src/CLI/Help/<group>/<command>.md` | Cirrus markdown (frontmatter + bash fences) | `Cirrus.Help.Tool` (validators) |
-| PowerShell | `src/PS/<Module>/help/<Cmdlet>.md`  | PlatyPS schema 2.0.0                        | `platyPS` 0.14.2                |
+| Surface    | Source                              | Format                                      | Tool                                 |
+| ---------- | ----------------------------------- | ------------------------------------------- | ------------------------------------ |
+| CLI        | `src/CLI/Help/<group>/<command>.md` | Cirrus markdown (frontmatter + bash fences) | `Cirrus.Help.Tool` (validators)      |
+| PowerShell | `src/PS/<Module>/help/<Cmdlet>.md`  | PlatyPS schema 2.0.0 (legacy v2 input)      | `Microsoft.PowerShell.PlatyPS` 1.0.1 |
 
 Both surfaces are validated and built by:
 
@@ -48,7 +48,7 @@ Both surfaces are validated and built by:
     .\build\New-PSHelpMarkdown.ps1 -Module Compute
     ```
 
-    This imports `Microsoft.Azure.Cirrus.Cmdlets.Compute.dll` in a child pwsh process and runs `New-MarkdownHelp` against every exported cmdlet, writing to `src/PS/Compute/help/`. Existing files are not overwritten.
+    This imports `Microsoft.Azure.Cirrus.Cmdlets.Compute.dll` in a child pwsh process and runs `New-MarkdownCommandHelp` against the imported module, writing to `src/PS/Compute/help/`. Existing files are not overwritten.
 
 2. **Hand-fill** SYNOPSIS, DESCRIPTION, and EXAMPLES. PlatyPS leaves `{{ Fill in the Synopsis }}` placeholders — replace them.
 
@@ -122,7 +122,7 @@ azv2 vm create --name myvm --location eastus --resource-group myrg --subscriptio
 
 ## PowerShell Markdown Format
 
-PowerShell help uses the [PlatyPS schema 2.0.0](https://github.com/PowerShell/platyPS) authoring format. It looks like:
+PowerShell help uses the [legacy PlatyPS schema 2.0.0](https://github.com/PowerShell/platyPS) authoring format, which is consumed at build time by the modern [`Microsoft.PowerShell.PlatyPS` 1.0.1](https://www.powershellgallery.com/packages/Microsoft.PowerShell.PlatyPS/1.0.1) module via `Import-MarkdownCommandHelp` (legacy v2 input is supported). It looks like:
 
 ````markdown
 ---
@@ -200,7 +200,7 @@ Validation errors when:
 
 `Get-Help <Cmdlet>` reads MAML XML from `<ModuleBase>/<culture>/<dll>-Help.xml`. The build:
 
-1. Runs `New-ExternalHelp` over `src/PS/<Module>/help/*.md` and writes the MAML to `src/PS/<Module>/en-US/<dll>-Help.xml` (committed; PlatyPS-owned).
+1. Runs `Import-MarkdownCommandHelp` over `src/PS/<Module>/help/*.md` and pipes through `Export-MamlCommandHelp` to write MAML XML. The produced `<Module>-Help.xml` is then renamed to whatever the per-cmdlet `external help file:` frontmatter declares (e.g. `Microsoft.Azure.Cirrus.Cmdlets.Login.dll-Help.xml`) and copied into both `src/PS/<Module>/en-US/` (gitignored local build output) and `artifacts/Debug/PS/<Module>/en-US/` (next to the staged `.psd1`).
 2. Copies that XML to `artifacts/<Config>/PS/<Module>/en-US/` so `Import-Module artifacts/<Config>/PS/<Module>/<Module>.psd1` resolves help next to the manifest.
 
 ## Build Process
@@ -220,14 +220,14 @@ dotnet build cirrus.slnx
 This:
 
 1. Builds the solution.
-2. Runs `build/Install-BuildDependencies.ps1` (pins `platyPS` to `0.14.2` if missing).
+2. Runs `build/Install-BuildDependencies.ps1` (pins `Microsoft.PowerShell.PlatyPS` to `1.0.1` if missing).
 3. Runs `Cirrus.Help.Tool`:
     - `MarkdownStructureValidator` — frontmatter shape.
     - `HelpCompletenessValidator` — every command in `IExtensionIndex` has a markdown file.
     - `ExampleSyntaxValidator` — CLI fences resolve.
     - `PowerShellExampleSyntaxValidator` — PS fences resolve against cmdlet binaries.
     - Emits `artifacts/help/<extension>/HelpManifest.json` and `artifacts/help/HelpIndex.json`.
-4. Runs `New-ExternalHelp` per module → `src/PS/<Module>/en-US/<dll>-Help.xml`, then copies into the staged `artifacts/Debug/PS/<Module>/en-US/`.
+4. Runs `Import-MarkdownCommandHelp | Export-MamlCommandHelp` per module → `src/PS/<Module>/en-US/<dll>-Help.xml` (renamed from PlatyPS's default `<Module>-Help.xml` to match the `external help file:` frontmatter), then copies into the staged `artifacts/Debug/PS/<Module>/en-US/`.
 
 The build fails non-zero if any validator emits errors.
 
@@ -307,12 +307,17 @@ dotnet test tools/Help/Cirrus.Help.Tool.Tests/Cirrus.Help.Tool.Tests.csproj
 - The validator extracts the documented cmdlet from the filename (`Connect-CirrusAccount.md` → `Connect-CirrusAccount`) and requires every fence under `## EXAMPLES` to invoke it at least once. Setup commands in the same fence are fine — what's not fine is a fence that demonstrates a different cmdlet, or worse, a CLI invocation (`azv2 ...`) inside a PowerShell help file.
 - Fix: replace the example so it actually shows the cmdlet the file documents.
 
+**Build fails with `PSL8_NoExamples`:**
+
+- The cmdlet help file has zero fenced code blocks under `## EXAMPLES`. Empty `### <Title>` headings are not enough — they render as a blank section in `Get-Help -Examples`. PlatyPS-scaffolded stubs land here when an author hasn't filled them in.
+- Fix: add at least one `### <Title>` + fenced `powershell` block that demonstrates the cmdlet.
+
 **Note on fence scanning:** the PowerShell validator only walks fences inside `## EXAMPLES` and only when the language tag is `powershell`, `pwsh`, `ps`, or empty (PlatyPS's default). Fences in `## SYNTAX`, `## PARAMETERS`, or any other section are deliberately ignored — those are PlatyPS pseudocode (`<String>` placeholders, YAML metadata) and are not real PowerShell.
 
 **Build fails locking `Core.Abstractions.dll` or other artifacts:**
 
 - A pwsh session has imported one of the cmdlet modules. Close it (`Remove-Module Compute`, etc.) or exit the pwsh window before rebuilding.
 
-**`platyPS` not found / wrong version:**
+**`Microsoft.PowerShell.PlatyPS` not found / wrong version:**
 
-- Run `.\build\Install-BuildDependencies.ps1` directly. It pins to `0.14.2`. The build script invokes this automatically; if you bypass it, you may end up with a different version.
+- Run `.\build\Install-BuildDependencies.ps1` directly. It pins to `1.0.1`. The build script invokes this automatically; if you bypass it, you may end up with a different version. The legacy `platyPS` 0.14.2 module is no longer used.

@@ -116,8 +116,10 @@ namespace Cirrus.Help.Tool.Validation
             var documentedCmdlet = Path.GetFileNameWithoutExtension(filePath);
             var hasDocumentedCmdletName = s_verbNounPattern.IsMatch(documentedCmdlet);
 
+            var fenceCount = 0;
             foreach (var (body, fenceBodyAbsoluteLine) in EnumerateExampleFences(content))
             {
+                fenceCount++;
                 // Strip PS prompt prefixes ("PS>" / "PS C:\>") line-by-line so the parser sees clean script.
                 var cleanedBody = StripPrompts(body);
 
@@ -160,6 +162,18 @@ namespace Cirrus.Help.Tool.Validation
                         $"Example does not invoke the documented cmdlet '{documentedCmdlet}'. PowerShell help examples must demonstrate the cmdlet they belong to.",
                         $"{filePath}:{fenceBodyAbsoluteLine}");
                 }
+            }
+
+            // PSL8: every cmdlet help file must contain at least one example fence under
+            // `## EXAMPLES`. Empty `### <Title>` headings with no code block don't count —
+            // they render as an empty section in `Get-Help -Examples`. PlatyPS-scaffolded
+            // stubs land here when an author hasn't filled them in yet.
+            if (hasDocumentedCmdletName && fenceCount == 0)
+            {
+                report.AddError(
+                    ProblemIds.PSL8_NoExamples,
+                    $"Cmdlet '{documentedCmdlet}' has no examples. Add at least one '### Title' + fenced PowerShell code block under '## EXAMPLES'.",
+                    filePath);
             }
         }
 

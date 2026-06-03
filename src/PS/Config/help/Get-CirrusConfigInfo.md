@@ -1,8 +1,12 @@
 ---
+document type: cmdlet
 external help file: Microsoft.Azure.Cirrus.Cmdlets.Config.dll-Help.xml
+HelpUri: ''
+Locale: en-AU
 Module Name: Config
-online version:
-schema: 2.0.0
+ms.date: 06/03/2026
+PlatyPS schema version: 2024-05-01
+title: Get-CirrusConfigInfo
 ---
 
 # Get-CirrusConfigInfo
@@ -13,9 +17,16 @@ Display information about valid configuration keys.
 
 ## SYNTAX
 
+### __AllParameterSets
+
 ```
-Get-CirrusConfigInfo [-KeysOnly] [-ProgressAction <ActionPreference>] [<CommonParameters>]
+Get-CirrusConfigInfo [-KeysOnly] [<CommonParameters>]
 ```
+
+## ALIASES
+
+This cmdlet has the following aliases,
+  {{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -24,16 +35,20 @@ Use --keys-only to show only valid key names.
 
 ## EXAMPLES
 
-### Example 1: Display configuration schema
+### Display configuration schema
+
+TODO - describe the example.
 
 ```powershell
 Get-CirrusConfigInfo
 ```
 
-### Example 2: Display only key names
+### Display only key names
+
+TODO - describe the example.
 
 ```powershell
-Get-CirrusConfigInfo -KeysOnly
+Get-CirrusConfigInfo
 ```
 
 ## PARAMETERS
@@ -43,36 +58,28 @@ Get-CirrusConfigInfo -KeysOnly
 Return only valid keys.
 
 ```yaml
-Type: SwitchParameter
-Parameter Sets: (All)
-Aliases:
-
-Required: False
-Position: Named
-Default value: None
-Accept pipeline input: False
-Accept wildcard characters: False
-```
-
-### -ProgressAction
-
-{{ Fill ProgressAction Description }}
-
-```yaml
-Type: ActionPreference
-Parameter Sets: (All)
-Aliases: proga
-
-Required: False
-Position: Named
-Default value: None
-Accept pipeline input: False
-Accept wildcard characters: False
+Type: System.Management.Automation.SwitchParameter
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: false
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
 ```
 
 ### CommonParameters
 
-This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](http://go.microsoft.com/fwlink/?LinkID=113216).
+This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable,
+-InformationAction, -InformationVariable, -OutBuffer, -OutVariable, -PipelineVariable,
+-ProgressAction, -Verbose, -WarningAction, and -WarningVariable. For more information, see
+[about_CommonParameters](https://go.microsoft.com/fwlink/?LinkID=113216).
 
 ## INPUTS
 
@@ -82,4 +89,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 Generated help for config.
 
+
 ## RELATED LINKS
+
+- [Online Version]()

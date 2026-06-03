@@ -6,7 +6,7 @@ param()
 $ErrorActionPreference = 'Stop'
 
 $dependencies = @(
-    @{ Name = 'platyPS'; RequiredVersion = '0.14.2' }
+    @{ Name = 'Microsoft.PowerShell.PlatyPS'; RequiredVersion = '1.0.1' }
 )
 
 foreach ($dep in $dependencies)
