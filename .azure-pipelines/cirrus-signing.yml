@@ -57,6 +57,24 @@ variables:
   value: true
 
 stages:
+- stage: Preflight
+  displayName: Preflight Checks
+  jobs:
+  - job: EnsureReleaseProject
+    displayName: Ensure Release Project Context
+    pool:
+      vmImage: $(ubuntu_pool)
+    steps:
+    - checkout: none
+    - bash: |
+        set -euo pipefail
+        echo "System.TeamProject=$(System.TeamProject)"
+        if [[ "$(System.TeamProject)" != "release" ]]; then
+          echo "ERROR: cirrus-signing must run in the 'release' project for ESRP access."
+          exit 1
+        fi
+      displayName: Validate Team Project Is release
+
 - template: templates/dist/stages/sign-with-esrp.yml
   parameters:
     windows_pool: $(windows_pool)
