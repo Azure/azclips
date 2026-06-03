@@ -11,12 +11,18 @@ if (-not (Test-Path $WorkingRoot)) {
 
 $nupkgRoot = Join-Path $WorkingRoot 'nupkg'
 if (Test-Path $nupkgRoot) {
-  $nupkgs = Get-ChildItem -Path $nupkgRoot -File -Filter '*.nupkg'
-  foreach ($pkg in $nupkgs) {
-    dotnet nuget verify --all $pkg.FullName | Out-Host
-    if ($LASTEXITCODE -ne 0) {
-      throw "NuGet verification failed for $($pkg.Name)"
+  Push-Location $WorkingRoot
+  try {
+    $nupkgs = Get-ChildItem -Path $nupkgRoot -File -Filter '*.nupkg'
+    foreach ($pkg in $nupkgs) {
+      dotnet nuget verify --all $pkg.FullName | Out-Host
+      if ($LASTEXITCODE -ne 0) {
+        throw "NuGet verification failed for $($pkg.Name)"
+      }
     }
+  }
+  finally {
+    Pop-Location
   }
 }
 

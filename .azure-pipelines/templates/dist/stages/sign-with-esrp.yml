@@ -290,13 +290,6 @@ stages:
               },
               "ToolName": "sign",
               "ToolVersion": "1.0"
-            },
-            {
-              "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
-              "OperationCode": "SigntoolVerify",
-              "Parameters": {},
-              "ToolName": "sign",
-              "ToolVersion": "1.0"
             }
           ]
 
@@ -327,13 +320,6 @@ stages:
               },
               "ToolName": "sign",
               "ToolVersion": "1.0"
-            },
-            {
-              "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
-              "OperationCode": "SigntoolVerify",
-              "Parameters": {},
-              "ToolName": "sign",
-              "ToolVersion": "1.0"
             }
           ]
 
@@ -362,13 +348,6 @@ stages:
                 "FileDigest": "/fd SHA256",
                 "PageHash": "/NPH"
               },
-              "ToolName": "sign",
-              "ToolVersion": "1.0"
-            },
-            {
-              "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
-              "OperationCode": "SigntoolVerify",
-              "Parameters": {},
               "ToolName": "sign",
               "ToolVersion": "1.0"
             }
