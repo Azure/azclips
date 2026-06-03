@@ -27,10 +27,10 @@ parameters:
 
 stages:
 - stage: SignArtifacts
-  displayName: Sign Artifacts (Parallel)
+  displayName: Sign Windows/NuGet And Collect Linux/macOS
   jobs:
-  - job: SignWindows
-    displayName: Sign Windows + NuGet Artifacts
+  - job: SignNuget
+    displayName: Sign NuGet Artifacts
     pool:
       vmImage: ${{ parameters.windows_pool }}
     steps:
@@ -54,7 +54,7 @@ stages:
         targetPath: $(Pipeline.Workspace)/unsigned-all
 
     - task: PowerShell@2
-      displayName: Filter Windows + NuGet Release Artifacts
+      displayName: Filter NuGet Release Artifacts
       inputs:
         targetType: inline
         pwsh: true
@@ -66,19 +66,18 @@ stages:
           New-Item -ItemType Directory -Path $targetRoot -Force | Out-Null
 
           $selected = Get-ChildItem -Path $sourceRoot -Recurse -File | Where-Object {
-            $_.Name -like '*win-*.zip' -or
-            ($_.Name -like '*.nupkg' -and $_.Name -notlike '*.snupkg')
+            $_.Name -like '*.nupkg' -and $_.Name -notlike '*.snupkg'
           }
 
           if (-not $selected) {
-            throw "No Windows/NuGet release artifacts found under $sourceRoot"
+            throw "No NuGet release artifacts found under $sourceRoot"
           }
 
           foreach ($asset in $selected) {
             Copy-Item $asset.FullName -Destination (Join-Path $targetRoot $asset.Name) -Force
           }
 
-          Write-Host "Selected $($selected.Count) Windows/NuGet release artifacts."
+          Write-Host "Selected $($selected.Count) NuGet release artifacts."
 
     - task: PowerShell@2
       displayName: Prepare Signing Inputs
@@ -104,6 +103,9 @@ stages:
         FolderPath: '$(Pipeline.Workspace)/signing-work/nupkg'
         Pattern: '*.nupkg'
         signConfigType: inlineSignParams
+        SessionTimeout: '60'
+        MaxConcurrency: '25'
+        MaxRetryAttempts: '5'
         inlineOperation: |
           [
             {
@@ -122,6 +124,93 @@ stages:
             }
           ]
 
+    - task: PowerShell@2
+      displayName: Verify Signed Outputs
+      inputs:
+        targetType: filePath
+        filePath: devops/scripts/packaging/signing/verify_signed_outputs.ps1
+        arguments: >-
+          -WorkingRoot "$(Pipeline.Workspace)/signing-work"
+        pwsh: true
+
+    - task: PowerShell@2
+      displayName: Repack Signed Outputs
+      inputs:
+        targetType: filePath
+        filePath: devops/scripts/packaging/signing/repack_signed_outputs.ps1
+        arguments: >-
+          -WorkingRoot "$(Pipeline.Workspace)/signing-work"
+          -ReleaseRoot "$(Build.ArtifactStagingDirectory)/signed-release"
+        pwsh: true
+
+    - task: PublishPipelineArtifact@1
+      displayName: Publish Signed NuGet Artifacts
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)/signed-release
+        artifact: signed-nuget
+        publishLocation: pipeline
+
+  - job: SignWindows
+    displayName: Sign Windows Artifacts
+    pool:
+      vmImage: ${{ parameters.windows_pool }}
+    steps:
+    - checkout: self
+      clean: true
+
+    - task: UseDotNet@2
+      displayName: Setup .NET SDK
+      inputs:
+        packageType: sdk
+        useGlobalJson: true
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Unsigned Distribution Artifacts
+      inputs:
+        buildType: specific
+        project: ${{ parameters.SourceProject }}
+        definition: ${{ parameters.source_pipeline_name }}
+        buildVersionToDownload: specific
+        pipelineId: ${{ parameters.source_build_id }}
+        targetPath: $(Pipeline.Workspace)/unsigned-all
+
+    - task: PowerShell@2
+      displayName: Filter Windows Release Artifacts
+      inputs:
+        targetType: inline
+        pwsh: true
+        script: |
+          $ErrorActionPreference = 'Stop'
+          $sourceRoot = "$(Pipeline.Workspace)/unsigned-all"
+          $targetRoot = "$(Pipeline.Workspace)/unsigned"
+          Remove-Item $targetRoot -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $targetRoot -Force | Out-Null
+
+          $selected = Get-ChildItem -Path $sourceRoot -Recurse -File | Where-Object {
+            $_.Name -like '*win-*.zip'
+          }
+
+          if (-not $selected) {
+            throw "No Windows release artifacts found under $sourceRoot"
+          }
+
+          foreach ($asset in $selected) {
+            Copy-Item $asset.FullName -Destination (Join-Path $targetRoot $asset.Name) -Force
+          }
+
+          Write-Host "Selected $($selected.Count) Windows release artifacts."
+
+    - task: PowerShell@2
+      displayName: Prepare Signing Inputs
+      inputs:
+        targetType: filePath
+        filePath: devops/scripts/packaging/signing/prepare_signing_inputs.ps1
+        arguments: >-
+          -UnsignedRoot "$(Pipeline.Workspace)/unsigned"
+          -WorkingRoot "$(Pipeline.Workspace)/signing-work"
+          -ReleaseRoot "$(Build.ArtifactStagingDirectory)/signed-release"
+        pwsh: true
+
     - task: EsrpCodeSigning@5
       displayName: Sign Windows Payload [Authenticode]
       condition: eq(variables['HasWindowsPayload'], 'true')
@@ -134,9 +223,9 @@ stages:
         AuthSignCertName: '$(ESRPSignCertName)'
         FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
         Pattern: |
-          **/azv2.exe
-          **/Microsoft.Azure.Cirrus*.dll
-          **/Microsoft.Azure.Cirrus*.exe
+          azv2.exe
+          Microsoft.Azure.Cirrus*.dll
+          Microsoft.Azure.Cirrus*.exe
         signConfigType: inlineSignParams
         inlineOperation: |
           [
@@ -182,14 +271,14 @@ stages:
         pwsh: true
 
     - task: PublishPipelineArtifact@1
-      displayName: Publish Signed Windows + NuGet Artifacts
+      displayName: Publish Signed Windows Artifacts
       inputs:
         targetPath: $(Build.ArtifactStagingDirectory)/signed-release
         artifact: signed-windows
         publishLocation: pipeline
 
-  - job: SignLinux
-    displayName: Process Linux Release Artifacts
+  - job: CollectLinux
+    displayName: Collect Linux Release Artifacts
     pool:
       vmImage: ${{ parameters.ubuntu_pool }}
     steps:
@@ -208,7 +297,7 @@ stages:
     - bash: |
         set -euo pipefail
         source_root="$(Pipeline.Workspace)/unsigned-all"
-        out_dir="$(Build.ArtifactStagingDirectory)/signed-linux"
+        out_dir="$(Build.ArtifactStagingDirectory)/collected-linux"
         mkdir -p "$out_dir"
 
         mapfile -t linux_assets < <(
@@ -229,14 +318,14 @@ stages:
       displayName: Collect Linux Release Artifacts
 
     - task: PublishPipelineArtifact@1
-      displayName: Publish Signed Linux Artifacts
+      displayName: Publish Collected Linux Artifacts
       inputs:
-        targetPath: $(Build.ArtifactStagingDirectory)/signed-linux
-        artifact: signed-linux
+        targetPath: $(Build.ArtifactStagingDirectory)/collected-linux
+        artifact: collected-linux
         publishLocation: pipeline
 
-  - job: SignMac
-    displayName: Process macOS Release Artifacts
+  - job: CollectMac
+    displayName: Collect macOS Release Artifacts
     pool:
       vmImage: ${{ parameters.ubuntu_pool }}
     steps:
@@ -255,7 +344,7 @@ stages:
     - bash: |
         set -euo pipefail
         source_root="$(Pipeline.Workspace)/unsigned-all"
-        out_dir="$(Build.ArtifactStagingDirectory)/signed-macos"
+        out_dir="$(Build.ArtifactStagingDirectory)/collected-macos"
         mkdir -p "$out_dir"
 
         mapfile -t mac_assets < <(
@@ -276,10 +365,10 @@ stages:
       displayName: Collect macOS Release Artifacts
 
     - task: PublishPipelineArtifact@1
-      displayName: Publish Signed macOS Artifacts
+      displayName: Publish Collected macOS Artifacts
       inputs:
-        targetPath: $(Build.ArtifactStagingDirectory)/signed-macos
-        artifact: signed-macos
+        targetPath: $(Build.ArtifactStagingDirectory)/collected-macos
+        artifact: collected-macos
         publishLocation: pipeline
 
 - stage: ValidateSignedArtifacts
@@ -301,18 +390,25 @@ stages:
         targetPath: $(Pipeline.Workspace)/signed-windows
 
     - task: DownloadPipelineArtifact@2
-      displayName: Download Signed Linux Artifacts
+      displayName: Download Signed NuGet Artifacts
       inputs:
         buildType: current
-        artifactName: signed-linux
-        targetPath: $(Pipeline.Workspace)/signed-linux
+        artifactName: signed-nuget
+        targetPath: $(Pipeline.Workspace)/signed-nuget
 
     - task: DownloadPipelineArtifact@2
-      displayName: Download Signed macOS Artifacts
+      displayName: Download Collected Linux Artifacts
       inputs:
         buildType: current
-        artifactName: signed-macos
-        targetPath: $(Pipeline.Workspace)/signed-macos
+        artifactName: collected-linux
+        targetPath: $(Pipeline.Workspace)/collected-linux
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Collected macOS Artifacts
+      inputs:
+        buildType: current
+        artifactName: collected-macos
+        targetPath: $(Pipeline.Workspace)/collected-macos
 
     - bash: |
         set -euo pipefail
@@ -320,7 +416,7 @@ stages:
         rm -rf "$release_dir"
         mkdir -p "$release_dir"
 
-        for d in "$(Pipeline.Workspace)/signed-windows" "$(Pipeline.Workspace)/signed-linux" "$(Pipeline.Workspace)/signed-macos"; do
+        for d in "$(Pipeline.Workspace)/signed-windows" "$(Pipeline.Workspace)/signed-nuget" "$(Pipeline.Workspace)/collected-linux" "$(Pipeline.Workspace)/collected-macos"; do
           find "$d" -type f ! -name 'signing-manifest.json' -exec cp {} "$release_dir" \;
         done
 
