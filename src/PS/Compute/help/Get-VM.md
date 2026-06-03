@@ -8,47 +8,40 @@ schema: 2.0.0
 # Get-VM
 
 ## SYNOPSIS
-
 Show details for a virtual machine.
 
 ## SYNTAX
 
 ### List (Default)
-
 ```
 Get-VM -SubscriptionId <String> -ResourceGroupName <String> [-ProgressAction <ActionPreference>]
  [<CommonParameters>]
 ```
 
 ### Get
-
 ```
 Get-VM -SubscriptionId <String> -ResourceGroupName <String> -Name <String> [-ProgressAction <ActionPreference>]
  [<CommonParameters>]
 ```
 
 ## DESCRIPTION
-
 Retrieves the properties of a single virtual machine identified by name within the specified resource group and subscription.
 
 ## EXAMPLES
 
 ### Example 1: Get a VM by name
-
-```powershell
+```
 Get-VM -SubscriptionId "00000000-0000-0000-0000-000000000000" -ResourceGroupName "myrg" -Name "myvm"
 ```
 
 ### Example 2: List VMs in a resource group
-
-```powershell
+```
 Get-VM -SubscriptionId "00000000-0000-0000-0000-000000000000" -ResourceGroupName "myrg"
 ```
 
 ## PARAMETERS
 
 ### -Name
-
 The name of the virtual machine.
 
 ```yaml
@@ -64,7 +57,6 @@ Accept wildcard characters: False
 ```
 
 ### -ProgressAction
-
 {{ Fill ProgressAction Description }}
 
 ```yaml
@@ -80,7 +72,6 @@ Accept wildcard characters: False
 ```
 
 ### -ResourceGroupName
-
 The resource group name.
 
 ```yaml
@@ -96,7 +87,6 @@ Accept wildcard characters: False
 ```
 
 ### -SubscriptionId
-
 Azure Subscription Id.
 
 ```yaml
@@ -112,7 +102,6 @@ Accept wildcard characters: False
 ```
 
 ### CommonParameters
-
 This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](http://go.microsoft.com/fwlink/?LinkID=113216).
 
 ## INPUTS
@@ -120,7 +109,6 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## OUTPUTS
 
 ## NOTES
-
-Generated help for compute.
+Generated help for compute. Daniel
 
 ## RELATED LINKS
