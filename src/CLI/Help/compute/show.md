@@ -1,14 +1,14 @@
 ---
-summary: Show details for a virtual machine.
+summary: TODO — short summary of `azv2 vm show`.
 status: ga
 schema: 1.0.0
 online version:
 ---
 
-Description: Retrieves the properties of a single virtual machine identified by name within the specified resource group and subscription.
+Description: TODO — describe what `azv2 vm show` does and when to use it.
 
-### Show a VM
+### show a resource
 
 ```bash
-azv2 vm show --name myvm --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000
+azv2 vm show --name <string> --resource-group <string> --subscription-id <string>
 ```

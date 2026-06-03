@@ -17,13 +17,19 @@ Both surfaces are validated and built by:
 
 ## Quick Start — CLI
 
-1. **Scaffold templates** for an extension's CLI commands:
+1. **Scaffold templates** for an extension's CLI commands. Replace `<extension>` with the extension name you're authoring help for (e.g. `compute`, `config`, `login`, `resources`, `extension`):
+
+    ```powershell
+    dotnet run --project tools/Help/Cirrus.Help.Tool -- --scaffold <extension>
+    ```
+
+    Example:
 
     ```powershell
     dotnet run --project tools/Help/Cirrus.Help.Tool -- --scaffold compute
     ```
 
-    This walks `IExtensionIndex.GetCommandTable(ClientType.CLI)` and emits one `.md` stub per command into `src/CLI/Help/compute/`. Existing files are left untouched (idempotent).
+    This walks `IExtensionIndex.GetCommandTable(ClientType.CLI)` and emits one `.md` stub per command into `src/CLI/Help/<extension>/`. Existing files are left untouched (idempotent).
 
 2. **Fill in `summary`, `Description`, and at least one bash example.** Required parameters are pre-inlined into the example as `--<name> <type>` placeholders — replace with realistic values or keep as documented placeholders.
 

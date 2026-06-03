@@ -8,7 +8,6 @@ schema: 2.0.0
 # Remove-VM
 
 ## SYNOPSIS
-
 Delete a virtual machine.
 
 ## SYNTAX
@@ -19,22 +18,19 @@ Remove-VM -SubscriptionId <String> -Name <String> -ResourceGroupName <String>
 ```
 
 ## DESCRIPTION
-
 Deletes the named virtual machine from the specified resource group and subscription.
 This operation removes only the VM resource itself; associated disks, network interfaces, and other dependent resources are not deleted.
 
 ## EXAMPLES
 
 ### Example 1: Remove a VM
-
-```powershell
+```
 Remove-VM -SubscriptionId "00000000-0000-0000-0000-000000000000" -Name "myvm" -ResourceGroupName "myrg"
 ```
 
 ## PARAMETERS
 
 ### -Name
-
 The name of the virtual machine.
 
 ```yaml
@@ -50,7 +46,6 @@ Accept wildcard characters: False
 ```
 
 ### -ProgressAction
-
 {{ Fill ProgressAction Description }}
 
 ```yaml
@@ -66,7 +61,6 @@ Accept wildcard characters: False
 ```
 
 ### -ResourceGroupName
-
 The resource group name.
 
 ```yaml
@@ -82,7 +76,6 @@ Accept wildcard characters: False
 ```
 
 ### -SubscriptionId
-
 Azure Subscription Id.
 
 ```yaml
@@ -98,7 +91,6 @@ Accept wildcard characters: False
 ```
 
 ### -Confirm
-
 Prompts you for confirmation before running the cmdlet.
 
 ```yaml
@@ -108,13 +100,12 @@ Aliases: cf
 
 Required: False
 Position: Named
-Default value: None
+Default value: False
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
 ### -WhatIf
-
 Shows what would happen if the cmdlet runs.
 The cmdlet is not run.
 
@@ -125,13 +116,12 @@ Aliases: wi
 
 Required: False
 Position: Named
-Default value: None
+Default value: False
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
 ### CommonParameters
-
 This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](http://go.microsoft.com/fwlink/?LinkID=113216).
 
 ## INPUTS
@@ -139,7 +129,6 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## OUTPUTS
 
 ## NOTES
-
 Generated help for compute.
 
 ## RELATED LINKS

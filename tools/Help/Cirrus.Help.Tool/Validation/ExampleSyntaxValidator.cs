@@ -132,6 +132,14 @@ namespace Cirrus.Help.Tool.Validation
                 return;
             }
 
+            // Help-flag invocations (`azv2 <group> [...subgroup] --help`) are intercepted by
+            // the runtime help renderer regardless of whether the path resolves to a routed
+            // command. Don't require the rest of the path to bind to a CommandMetadata.
+            if (tokens.Skip(2).Any(IsHelpFlag))
+            {
+                return;
+            }
+
             var cliTable = index.GetCommandTable(ClientType.CLI);
 
             // Greedy resolve: try the longest prefix of remaining tokens that does not look like a flag/value.
@@ -450,6 +458,16 @@ namespace Cirrus.Help.Tool.Validation
 
             return char.IsLetter(token[1]);
         }
+
+        /// <summary>
+        /// Help flags recognized by the CLI runtime: <c>--help</c>, <c>-h</c>, <c>-?</c>, <c>?</c>.
+        /// </summary>
+        private static bool IsHelpFlag(string token)
+            => token.Equals("--help", StringComparison.Ordinal)
+            || token.Equals("-h", StringComparison.Ordinal)
+            || token.Equals("-?", StringComparison.Ordinal)
+            || token.Equals("?", StringComparison.Ordinal)
+            || token.Equals("help", StringComparison.Ordinal);
 
         /// <summary>
         /// Shell-style tokenizer: splits on whitespace, honoring single/double quotes so values

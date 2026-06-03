@@ -109,6 +109,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## OUTPUTS
 
 ## NOTES
-Generated help for compute. Daniel
+Generated help for compute.
+Daniel
 
 ## RELATED LINKS

@@ -8,7 +8,6 @@ schema: 2.0.0
 # New-NetworkInterface
 
 ## SYNOPSIS
-
 Create a network interface attached to a virtual network and network security group.
 
 ## SYNTAX
@@ -24,21 +23,19 @@ New-NetworkInterface -SubscriptionId <String> -Name <String> -Location <String> 
 ```
 
 ## DESCRIPTION
-
-Provisions a new network interface (NIC) in the specified resource group, wiring it to the named virtual network and network security group. Optional parameters let you customize subnets, address prefixes, and NSG rules.
+Provisions a new network interface (NIC) in the specified resource group, wiring it to the named virtual network and network security group.
+Optional parameters let you customize subnets, address prefixes, and NSG rules.
 
 ## EXAMPLES
 
 ### Example 1: Create a network interface
-
-```powershell
+```
 New-NetworkInterface -SubscriptionId "00000000-0000-0000-0000-000000000000" -Name "mynic" -Location "eastus" -ResourceGroupName "myrg" -VirtualNetworkName "myvnet" -NetworkSecurityGroupName "mynsg"
 ```
 
 ## PARAMETERS
 
 ### -AddressPrefixes
-
 {{ Fill AddressPrefixes Description }}
 
 ```yaml
@@ -54,7 +51,6 @@ Accept wildcard characters: False
 ```
 
 ### -Location
-
 {{ Fill Location Description }}
 
 ```yaml
@@ -70,7 +66,6 @@ Accept wildcard characters: False
 ```
 
 ### -Name
-
 {{ Fill Name Description }}
 
 ```yaml
@@ -86,7 +81,6 @@ Accept wildcard characters: False
 ```
 
 ### -NetworkSecurityGroupName
-
 {{ Fill NetworkSecurityGroupName Description }}
 
 ```yaml
@@ -102,7 +96,6 @@ Accept wildcard characters: False
 ```
 
 ### -ProgressAction
-
 {{ Fill ProgressAction Description }}
 
 ```yaml
@@ -118,7 +111,6 @@ Accept wildcard characters: False
 ```
 
 ### -ResourceGroupName
-
 {{ Fill ResourceGroupName Description }}
 
 ```yaml
@@ -134,7 +126,6 @@ Accept wildcard characters: False
 ```
 
 ### -RuleAccesses
-
 {{ Fill RuleAccesses Description }}
 
 ```yaml
@@ -150,7 +141,6 @@ Accept wildcard characters: False
 ```
 
 ### -RuleDestinationAddressPrefixes
-
 {{ Fill RuleDestinationAddressPrefixes Description }}
 
 ```yaml
@@ -166,7 +156,6 @@ Accept wildcard characters: False
 ```
 
 ### -RuleDestinationPortRanges
-
 {{ Fill RuleDestinationPortRanges Description }}
 
 ```yaml
@@ -182,7 +171,6 @@ Accept wildcard characters: False
 ```
 
 ### -RuleDirections
-
 {{ Fill RuleDirections Description }}
 
 ```yaml
@@ -198,7 +186,6 @@ Accept wildcard characters: False
 ```
 
 ### -RuleNames
-
 {{ Fill RuleNames Description }}
 
 ```yaml
@@ -214,7 +201,6 @@ Accept wildcard characters: False
 ```
 
 ### -RulePriorities
-
 {{ Fill RulePriorities Description }}
 
 ```yaml
@@ -230,7 +216,6 @@ Accept wildcard characters: False
 ```
 
 ### -RuleProtocols
-
 {{ Fill RuleProtocols Description }}
 
 ```yaml
@@ -246,7 +231,6 @@ Accept wildcard characters: False
 ```
 
 ### -RuleSourceAddressPrefixes
-
 {{ Fill RuleSourceAddressPrefixes Description }}
 
 ```yaml
@@ -262,7 +246,6 @@ Accept wildcard characters: False
 ```
 
 ### -RuleSourcePortRanges
-
 {{ Fill RuleSourcePortRanges Description }}
 
 ```yaml
@@ -278,7 +261,6 @@ Accept wildcard characters: False
 ```
 
 ### -SubnetAddressPrefixes
-
 {{ Fill SubnetAddressPrefixes Description }}
 
 ```yaml
@@ -294,7 +276,6 @@ Accept wildcard characters: False
 ```
 
 ### -SubnetNames
-
 {{ Fill SubnetNames Description }}
 
 ```yaml
@@ -310,7 +291,6 @@ Accept wildcard characters: False
 ```
 
 ### -SubscriptionId
-
 {{ Fill SubscriptionId Description }}
 
 ```yaml
@@ -326,7 +306,6 @@ Accept wildcard characters: False
 ```
 
 ### -VirtualNetworkName
-
 {{ Fill VirtualNetworkName Description }}
 
 ```yaml
@@ -342,7 +321,6 @@ Accept wildcard characters: False
 ```
 
 ### -Confirm
-
 Prompts you for confirmation before running the cmdlet.
 
 ```yaml
@@ -352,13 +330,12 @@ Aliases: cf
 
 Required: False
 Position: Named
-Default value: None
+Default value: False
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
 ### -WhatIf
-
 Shows what would happen if the cmdlet runs.
 The cmdlet is not run.
 
@@ -369,23 +346,20 @@ Aliases: wi
 
 Required: False
 Position: Named
-Default value: None
+Default value: False
 Accept pipeline input: False
 Accept wildcard characters: False
 ```
 
 ### CommonParameters
-
 This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](http://go.microsoft.com/fwlink/?LinkID=113216).
 
 ## INPUTS
 
 ### None
-
 ## OUTPUTS
 
 ### System.Object
-
 ## NOTES
 
 ## RELATED LINKS

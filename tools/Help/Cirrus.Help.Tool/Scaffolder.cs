@@ -26,7 +26,10 @@ namespace Cirrus.Help.Tool
             var skipped = 0;
 
             var indexPath = Path.Combine(helpDir, "index.md");
-            if (TryWrite(indexPath, BuildIndexTemplate(extensionName, groupToken)))
+            var firstCommandKey = cliTable.Keys
+                .OrderBy(static k => k, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault();
+            if (TryWrite(indexPath, BuildIndexTemplate(extensionName, groupToken, firstCommandKey)))
             {
                 created++;
             }
@@ -64,22 +67,23 @@ namespace Cirrus.Help.Tool
             return true;
         }
 
-        private static string BuildIndexTemplate(string extensionName, string groupToken)
+        private static string BuildIndexTemplate(string extensionName, string groupToken, string? firstCommandKey)
         {
+            _ = firstCommandKey; // reserved for future per-command discovery hints
             var sb = new StringBuilder();
             sb.AppendLine("---");
-            sb.AppendLine($"summary: TODO — one-sentence description of the {extensionName} command group.");
+            sb.AppendLine($"summary: TODO \u2014 one-sentence description of the {extensionName} command group.");
             sb.AppendLine("status: ga");
             sb.AppendLine("schema: 1.0.0");
             sb.AppendLine("online version:");
             sb.AppendLine("---");
             sb.AppendLine();
-            sb.AppendLine($"Description: TODO — describe what the `azv2 {groupToken}` command group does.");
+            sb.AppendLine($"Description: TODO \u2014 describe what the `azv2 {groupToken}` command group does.");
             sb.AppendLine();
-            sb.AppendLine($"### Example {groupToken} command");
+            sb.AppendLine($"### Discover {groupToken} commands");
             sb.AppendLine();
             sb.AppendLine("```bash");
-            sb.AppendLine($"azv2 {groupToken} <command> [options]");
+            sb.AppendLine($"azv2 {groupToken} --help");
             sb.AppendLine("```");
             return sb.ToString();
         }

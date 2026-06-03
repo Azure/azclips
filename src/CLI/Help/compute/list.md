@@ -1,14 +1,14 @@
 ---
-summary: List virtual machines in a resource group.
+summary: TODO — short summary of `azv2 vm list`.
 status: ga
 schema: 1.0.0
 online version:
 ---
 
-Description: Lists all virtual machines in the specified resource group and subscription.
+Description: TODO — describe what `azv2 vm list` does and when to use it.
 
-### List all VMs in a resource group
+### list a resource
 
 ```bash
-azv2 vm list --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000
+azv2 vm list --resource-group <string> --subscription-id <string>
 ```
