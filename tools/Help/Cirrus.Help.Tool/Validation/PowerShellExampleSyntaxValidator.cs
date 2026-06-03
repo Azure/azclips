@@ -1,6 +1,8 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Collections.ObjectModel;
+using System.Management.Automation;
 using System.Management.Automation.Language;
 using System.Text.RegularExpressions;
 
@@ -128,6 +130,8 @@ namespace Cirrus.Help.Tool.Validation
                 {
                     ValidateCommand(cmd, cmdlets, filePath, fenceBodyAbsoluteLine, report);
                 }
+
+                ValidateUnassignedVariables(ast, filePath, fenceBodyAbsoluteLine, report);
             }
         }
 
@@ -171,34 +175,172 @@ namespace Cirrus.Help.Tool.Validation
                 return;
             }
 
-            foreach (var element in command.CommandElements.OfType<CommandParameterAst>())
+            // Track canonical parameter names we've seen on this invocation so we can flag
+            // duplicates (PSL4) and compute the missing-required diff (PSL3) at the end.
+            var seenCanonical = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            var elements = command.CommandElements;
+            for (var i = 0; i < elements.Count; i++)
             {
+                if (elements[i] is not CommandParameterAst element)
+                {
+                    continue;
+                }
+
                 var paramName = element.ParameterName;
                 if (string.IsNullOrEmpty(paramName))
                 {
                     continue;
                 }
 
+                var elementLine = fenceBodyAbsoluteLine + element.Extent.StartLineNumber - 1;
+                var elementLocator = $"{filePath}:{elementLine}";
+
                 if (s_commonParameters.Contains(paramName))
                 {
                     continue;
                 }
 
+                // Resolve to canonical name (alias → declared name) so duplicate detection
+                // catches `-Name foo -N bar` when N is an alias of Name.
+                string? canonical = null;
                 if (metadata.ParameterNames.Contains(paramName))
                 {
-                    continue;
+                    canonical = metadata.ParameterNames.First(n => string.Equals(n, paramName, StringComparison.OrdinalIgnoreCase));
                 }
-
-                if (metadata.ParameterAliases.ContainsKey(paramName))
+                else if (metadata.ParameterAliases.TryGetValue(paramName, out var aliased))
                 {
+                    canonical = aliased;
+                }
+                else
+                {
+                    report.AddError(
+                        ProblemIds.PSL2_UnknownParameter,
+                        $"Unknown parameter '-{paramName}' on cmdlet '{name}'. Not declared as a parameter or alias.",
+                        elementLocator);
                     continue;
                 }
 
-                var elementLine = fenceBodyAbsoluteLine + element.Extent.StartLineNumber - 1;
-                report.AddError(
-                    ProblemIds.PSL2_UnknownParameter,
-                    $"Unknown parameter '-{paramName}' on cmdlet '{name}'. Not declared as a parameter or alias.",
-                    $"{filePath}:{elementLine}");
+                if (!seenCanonical.Add(canonical))
+                {
+                    report.AddError(
+                        ProblemIds.PSL4_DuplicateParameter,
+                        $"Parameter '-{paramName}' (canonical '{canonical}') is bound more than once on cmdlet '{name}'.",
+                        elementLocator);
+                    continue;
+                }
+
+                // Value-type check (PSL6). Only fires when the value is a literal string/numeric
+                // constant — variables, expressions, and interpolated strings are out of scope.
+                if (TryResolveValueExpression(element, elements, ref i, out var valueExpr)
+                    && valueExpr is not null
+                    && metadata.ParameterTypes.TryGetValue(canonical, out var declaredType))
+                {
+                    var valueLine = fenceBodyAbsoluteLine + valueExpr.Extent.StartLineNumber - 1;
+                    var valueLocator = $"{filePath}:{valueLine}";
+                    CheckValueType(name, canonical, declaredType, valueExpr, valueLocator, report);
+                }
+            }
+
+            // Required-parameter diff (PSL3). Only fires when the cmdlet declares parameters as
+            // Mandatory in AllParameterSets — set-specific Mandatory parameters are not policed.
+            foreach (var requiredName in metadata.RequiredParameters)
+            {
+                if (!seenCanonical.Contains(requiredName))
+                {
+                    report.AddError(
+                        ProblemIds.PSL3_MissingRequiredParameter,
+                        $"Required parameter '-{requiredName}' is missing from invocation of cmdlet '{name}'.",
+                        locator);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Resolves the value expression bound to <paramref name="param"/>: either the
+        /// <c>-Foo:value</c> shorthand (carried on the <see cref="CommandParameterAst.Argument"/>)
+        /// or the next positional element (e.g. <c>-Foo value</c>). Advances <paramref name="i"/>
+        /// past the consumed value so the outer walk does not revisit it.
+        /// </summary>
+        private static bool TryResolveValueExpression(
+            CommandParameterAst param,
+            ReadOnlyCollection<CommandElementAst> elements,
+            ref int i,
+            out ExpressionAst? value)
+        {
+            // `-Foo:bar` syntax embeds the value on the param node itself.
+            if (param.Argument is not null)
+            {
+                value = param.Argument;
+                return true;
+            }
+
+            // Switch parameters consume no value. We can't tell switch from non-switch without
+            // the parameter type, so callers must filter by type after.
+            if (i + 1 < elements.Count && elements[i + 1] is not CommandParameterAst)
+            {
+                value = elements[i + 1] as ExpressionAst;
+                if (value is not null)
+                {
+                    i++;
+                    return true;
+                }
+            }
+
+            value = null;
+            return false;
+        }
+
+        private static void CheckValueType(
+            string cmdletName,
+            string canonicalParamName,
+            Type declaredType,
+            ExpressionAst valueExpr,
+            string locator,
+            ValidationReport report)
+        {
+            // Only check literal constants. Variable references, sub-expressions, splatted
+            // arguments, and `"$rg-foo"` interpolated strings are skipped — we do not know
+            // their runtime values.
+            if (valueExpr is not StringConstantExpressionAst literal)
+            {
+                return;
+            }
+
+            var rawValue = literal.Value;
+
+            // [switch] parameters: anything other than `$true`/`$false`/0/1 is a value, and a
+            // bare string after `-Force` would actually bind to a different position. We don't
+            // try to validate switch values here — too easy to misread.
+            if (declaredType == typeof(SwitchParameter))
+            {
+                return;
+            }
+
+            if (declaredType == typeof(Guid))
+            {
+                if (!Guid.TryParse(rawValue, out _) && !LooksLikePlaceholder(rawValue))
+                {
+                    report.AddError(
+                        ProblemIds.PSL6_InvalidParameterValue,
+                        $"Parameter '-{canonicalParamName}' on cmdlet '{cmdletName}' expects a Guid; '{rawValue}' is not a valid Guid.",
+                        locator);
+                }
+                return;
+            }
+
+            if (declaredType.IsEnum)
+            {
+                if (!Enum.GetNames(declaredType).Any(n => string.Equals(n, rawValue, StringComparison.OrdinalIgnoreCase))
+                    && !LooksLikePlaceholder(rawValue))
+                {
+                    var allowed = string.Join(", ", Enum.GetNames(declaredType));
+                    report.AddError(
+                        ProblemIds.PSL6_InvalidParameterValue,
+                        $"Parameter '-{canonicalParamName}' on cmdlet '{cmdletName}' expects one of [{allowed}]; got '{rawValue}'.",
+                        locator);
+                }
+                return;
             }
         }
 
@@ -208,6 +350,180 @@ namespace Cirrus.Help.Tool.Validation
             return command.CommandElements
                 .OfType<VariableExpressionAst>()
                 .Any(v => v.Splatted);
+        }
+
+        /// <summary>
+        /// Heuristic for spotting documentation placeholders like <c>&lt;your-rg-id&gt;</c>,
+        /// <c>{guid}</c>, or <c>YOUR-VALUE-HERE</c>. We don't validate those literally because
+        /// they're meant to be replaced.
+        /// </summary>
+        private static bool LooksLikePlaceholder(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return false;
+            }
+            if (value.StartsWith('<') && value.EndsWith('>')) return true;
+            if (value.StartsWith('{') && value.EndsWith('}')) return true;
+            if (value.Contains("YOUR", StringComparison.Ordinal)) return true;
+            return false;
+        }
+
+        // PowerShell automatic variables that are always defined. We deliberately keep this list
+        // tight — the goal is to catch typos like `$resourceGroup` vs `$resourceGroupName`, not to
+        // be a full PowerShell linter.
+        private static readonly HashSet<string> s_automaticVariables = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "_", "PSItem", "args", "input", "null", "true", "false", "this",
+            "matches", "error", "pwd", "home", "pid", "psversiontable", "host",
+            "lastexitcode", "?", "PSCommandPath", "PSScriptRoot", "MyInvocation",
+            "PSCmdlet", "PSBoundParameters", "ExecutionContext", "ForEach", "Switch",
+            "StackTrace", "ConsoleFileName", "Event", "EventArgs", "EventSubscriber",
+            "Sender", "ShellId", "OFS", "PSCulture", "PSUICulture", "PSDebugContext",
+            "PSEdition", "PSHOME", "PSDefaultParameterValues", "PSEmailServer",
+            "PSModuleAutoLoadingPreference", "PSSenderInfo", "PSSessionApplicationName",
+            "PSSessionConfigurationName", "PSSessionOption", "Profile",
+        };
+
+        /// <summary>
+        /// Walks every <see cref="VariableExpressionAst"/> in the script block and reports
+        /// references to variables that are never assigned. Catches stale examples where a
+        /// variable was renamed halfway through (e.g. <c>$rg</c> assigned but later read as
+        /// <c>$resourceGroup</c>).
+        /// </summary>
+        /// <remarks>
+        /// We only report read-side references; write-side variables (LHS of assignments,
+        /// loop variables, param-block names, and the targets of <c>-OutVariable</c>/
+        /// <c>-ErrorVariable</c>/etc.) are added to the defined set first. Drive-qualified
+        /// variables like <c>$env:NAME</c> and automatic variables are excluded.
+        /// </remarks>
+        private static void ValidateUnassignedVariables(
+            ScriptBlockAst ast,
+            string filePath,
+            int fenceBodyAbsoluteLine,
+            ValidationReport report)
+        {
+            var defined = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            // LHS of assignments: $foo = ...
+            foreach (var assign in ast.FindAll(n => n is AssignmentStatementAst, true).Cast<AssignmentStatementAst>())
+            {
+                CollectDefinedTargets(assign.Left, defined);
+            }
+
+            // foreach ($item in $list) { ... }
+            foreach (var fe in ast.FindAll(n => n is ForEachStatementAst, true).Cast<ForEachStatementAst>())
+            {
+                if (fe.Variable.VariablePath is { IsVariable: true } vp)
+                {
+                    defined.Add(vp.UserPath);
+                }
+            }
+
+            // param($foo, $bar) blocks anywhere (including nested script blocks).
+            foreach (var pb in ast.FindAll(n => n is ParamBlockAst, true).Cast<ParamBlockAst>())
+            {
+                foreach (var p in pb.Parameters)
+                {
+                    if (p.Name.VariablePath is { IsVariable: true } vp)
+                    {
+                        defined.Add(vp.UserPath);
+                    }
+                }
+            }
+
+            // Cmdlet-side variable creators: -OutVariable foo / -ErrorVariable err / -PipelineVariable pv.
+            foreach (var cmd in ast.FindAll(n => n is CommandAst, true).Cast<CommandAst>())
+            {
+                var elements = cmd.CommandElements;
+                for (var i = 0; i < elements.Count - 1; i++)
+                {
+                    if (elements[i] is not CommandParameterAst p)
+                    {
+                        continue;
+                    }
+                    if (!s_variableCreatingParameters.Contains(p.ParameterName))
+                    {
+                        continue;
+                    }
+                    var argExpr = p.Argument ?? elements[i + 1] as ExpressionAst;
+                    if (argExpr is StringConstantExpressionAst lit && !string.IsNullOrEmpty(lit.Value))
+                    {
+                        defined.Add(lit.Value);
+                    }
+                }
+            }
+
+            // Now walk read-side references.
+            foreach (var v in ast.FindAll(n => n is VariableExpressionAst, true).Cast<VariableExpressionAst>())
+            {
+                // Splatted variables (`@params`) are skipped: the convention in PowerShell help
+                // is to define the splat hashtable in surrounding prose or a sibling fence we
+                // cannot see, so flagging these would be a guaranteed false positive.
+                if (v.Splatted)
+                {
+                    continue;
+                }
+
+                var path = v.VariablePath;
+                var userPath = path.UserPath;
+                if (string.IsNullOrEmpty(userPath))
+                {
+                    continue;
+                }
+                if (userPath.Contains(':'))
+                {
+                    // Drive- or scope-qualified ($env:FOO, $script:Bar, $global:Baz, $using:x).
+                    // Out of scope for unassigned-variable checks.
+                    continue;
+                }
+                if (s_automaticVariables.Contains(userPath))
+                {
+                    continue;
+                }
+                if (defined.Contains(userPath))
+                {
+                    continue;
+                }
+
+                var line = fenceBodyAbsoluteLine + v.Extent.StartLineNumber - 1;
+                report.AddError(
+                    ProblemIds.PSL5_UnassignedVariable,
+                    $"Variable '${userPath}' is read but never assigned in this example.",
+                    $"{filePath}:{line}");
+            }
+        }
+
+        // Cmdlet parameters that, when bound to a literal name, *create* a variable in scope.
+        private static readonly HashSet<string> s_variableCreatingParameters = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "OutVariable", "ErrorVariable", "WarningVariable", "InformationVariable", "PipelineVariable",
+        };
+
+        private static void CollectDefinedTargets(ExpressionAst target, HashSet<string> defined)
+        {
+            switch (target)
+            {
+                case VariableExpressionAst v when v.VariablePath.IsVariable:
+                    defined.Add(v.VariablePath.UserPath);
+                    break;
+                case ArrayLiteralAst arr:
+                    // ($a, $b) = 1, 2
+                    foreach (var el in arr.Elements)
+                    {
+                        CollectDefinedTargets(el, defined);
+                    }
+                    break;
+                case ParenExpressionAst paren:
+                    // ($foo) = 1 — the inner pipeline ought to wrap a single command-expression.
+                    if (paren.Pipeline is PipelineAst pl
+                        && pl.PipelineElements.Count == 1
+                        && pl.PipelineElements[0] is CommandExpressionAst ce)
+                    {
+                        CollectDefinedTargets(ce.Expression, defined);
+                    }
+                    break;
+            }
         }
 
         private static string StripPrompts(string body)

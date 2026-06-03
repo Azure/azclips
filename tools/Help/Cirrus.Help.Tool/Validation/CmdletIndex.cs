@@ -16,10 +16,21 @@ namespace Cirrus.Help.Tool.Validation
     /// Alias → canonical parameter name. Aliases come from <c>[Alias]</c> attributes on
     /// <c>[Parameter]</c>-decorated properties. Case-insensitive keys.
     /// </param>
+    /// <param name="RequiredParameters">
+    /// Parameters that are <c>Mandatory = true</c> across <c>AllParameterSets</c>, meaning the
+    /// example must always supply them regardless of which set is invoked. We deliberately do
+    /// not flag set-specific mandatory params to avoid false positives in cross-set examples.
+    /// </param>
+    /// <param name="ParameterTypes">
+    /// Canonical parameter name → declaring CLR property type (with <see cref="Nullable{T}"/>
+    /// unwrapped). Used by the value-type validator.
+    /// </param>
     public sealed record CmdletMetadata(
         string VerbNoun,
         HashSet<string> ParameterNames,
-        Dictionary<string, string> ParameterAliases);
+        Dictionary<string, string> ParameterAliases,
+        HashSet<string> RequiredParameters,
+        Dictionary<string, Type> ParameterTypes);
 
     /// <summary>
     /// Reflection-based catalogue of every cmdlet exposed by the Cirrus cmdlet assemblies
@@ -79,16 +90,18 @@ namespace Cirrus.Help.Tool.Validation
                 }
 
                 var verbNoun = $"{cmdletAttr.VerbName}-{cmdletAttr.NounName}";
-                var (names, aliases) = ExtractParameters(type);
+                var (names, aliases, required, paramTypes) = ExtractParameters(type);
 
-                _cmdlets[verbNoun] = new CmdletMetadata(verbNoun, names, aliases);
+                _cmdlets[verbNoun] = new CmdletMetadata(verbNoun, names, aliases, required, paramTypes);
             }
         }
 
-        private static (HashSet<string> Names, Dictionary<string, string> Aliases) ExtractParameters(Type cmdletType)
+        private static (HashSet<string> Names, Dictionary<string, string> Aliases, HashSet<string> Required, Dictionary<string, Type> Types) ExtractParameters(Type cmdletType)
         {
             var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var aliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var required = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var types = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
 
             // Walk the inheritance chain so we pick up parameters declared on base classes too.
             for (var t = cmdletType; t is not null && t != typeof(object); t = t.BaseType)
@@ -105,6 +118,17 @@ namespace Cirrus.Help.Tool.Validation
                     }
 
                     names.Add(prop.Name);
+                    types[prop.Name] = Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType;
+
+                    // A parameter is "always required" only when it is Mandatory in the
+                    // AllParameterSets sentinel (or when the cmdlet declares no other sets and
+                    // the default attribute is Mandatory). Treating set-specific Mandatory as
+                    // required would falsely flag examples that pick a different set.
+                    if (parameterAttrs.Any(a => a.Mandatory
+                        && string.Equals(a.ParameterSetName, ParameterAttribute.AllParameterSets, StringComparison.Ordinal)))
+                    {
+                        required.Add(prop.Name);
+                    }
 
                     foreach (var aliasAttr in prop.GetCustomAttributes<AliasAttribute>())
                     {
@@ -116,7 +140,7 @@ namespace Cirrus.Help.Tool.Validation
                 }
             }
 
-            return (names, aliases);
+            return (names, aliases, required, types);
         }
     }
 }

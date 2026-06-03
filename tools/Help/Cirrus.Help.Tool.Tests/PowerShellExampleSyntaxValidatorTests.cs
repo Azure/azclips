@@ -33,6 +33,21 @@ namespace Cirrus.Help.Tool.Tests
             public string LiteralPath { get; set; } = string.Empty;
         }
 
+        public enum FakeWidgetMode { Read, Write, Append }
+
+        [Cmdlet(VerbsCommon.New, "FakeWidget")]
+        public sealed class NewFakeWidgetCmdlet : System.Management.Automation.Cmdlet
+        {
+            [Parameter(Mandatory = true)]
+            public Guid SubscriptionId { get; set; }
+
+            [Parameter(Mandatory = true)]
+            public FakeWidgetMode Mode { get; set; }
+
+            [Parameter]
+            public string Tag { get; set; } = string.Empty;
+        }
+
         private static CmdletIndex BuildIndex()
         {
             var index = new CmdletIndex();
@@ -124,9 +139,13 @@ namespace Cirrus.Help.Tool.Tests
 
             var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());
 
+            // Line 2 is the offending line. Multiple rules may fire on it (PSL2 unknown -Keys,
+            // PSL3 missing required -Key) — we only care that line 1 stays clean and that the
+            // typo'd flag is reported.
             var errors = report.Errors.ToList();
-            Assert.Single(errors);
-            Assert.Contains("-Keys", errors[0].Message, StringComparison.Ordinal);
+            Assert.NotEmpty(errors);
+            Assert.All(errors, e => Assert.EndsWith(":3", e.FilePath!)); // fence opens on line 1, body line 2 → absolute 3
+            Assert.Contains(errors, e => e.Message.Contains("-Keys", StringComparison.Ordinal));
         }
 
         [Fact]
@@ -186,6 +205,231 @@ namespace Cirrus.Help.Tool.Tests
             var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());
 
             Assert.False(report.HasErrors);
+        }
+
+        // ----- PSL3: Required parameter missing -----
+
+        [Fact]
+        public void Validate_ShouldError_WhenRequiredParameterIsMissing()
+        {
+            // -Value is Mandatory; omit it.
+            var content = Fence("Set-FakeWidget -Key foo");
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());
+
+            Assert.True(report.HasErrors);
+            Assert.Contains(report.Errors, e =>
+                e.ProblemId == ProblemIds.PSL3_MissingRequiredParameter
+                && e.Message.Contains("-Value", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void Validate_ShouldNotFlagRequiredMissing_WhenAllRequiredAreSupplied()
+        {
+            var content = Fence("Set-FakeWidget -Key k -Value v");
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.PSL3_MissingRequiredParameter);
+        }
+
+        [Fact]
+        public void Validate_ShouldNotFlagRequiredMissing_OnSplattedInvocation()
+        {
+            // PSL3 must not fire when params are splatted — we cannot see inside @hash.
+            var content = Fence("Set-FakeWidget @widgetParams");
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.PSL3_MissingRequiredParameter);
+        }
+
+        [Fact]
+        public void Validate_ShouldRecognizeRequiredViaAlias()
+        {
+            // -Path is an alias for the Mandatory -LiteralPath; supplying the alias must satisfy PSL3.
+            var content = Fence("Get-FakeWidget -Path foo");
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.PSL3_MissingRequiredParameter);
+        }
+
+        // ----- PSL4: Duplicate parameter -----
+
+        [Fact]
+        public void Validate_ShouldError_WhenSameParameterAppearsTwice()
+        {
+            var content = Fence("Set-FakeWidget -Key a -Value v -Key b");
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());
+
+            Assert.True(report.HasErrors);
+            Assert.Contains(report.Errors, e =>
+                e.ProblemId == ProblemIds.PSL4_DuplicateParameter
+                && e.Message.Contains("-Key", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void Validate_ShouldError_WhenAliasAndCanonicalNameCollide()
+        {
+            // -Path is an alias of -LiteralPath; using both is still a duplicate bind.
+            var content = Fence("Get-FakeWidget -LiteralPath x -Path y");
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());
+
+            Assert.Contains(report.Errors, e => e.ProblemId == ProblemIds.PSL4_DuplicateParameter);
+        }
+
+        // ----- PSL5: Unassigned variable -----
+
+        [Fact]
+        public void Validate_ShouldError_WhenVariableIsReadButNeverAssigned()
+        {
+            // $resourceGroup is never assigned in this fence.
+            var content = Fence("Set-FakeWidget -Key $resourceGroup -Value v");
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());
+
+            Assert.True(report.HasErrors);
+            Assert.Contains(report.Errors, e =>
+                e.ProblemId == ProblemIds.PSL5_UnassignedVariable
+                && e.Message.Contains("$resourceGroup", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void Validate_ShouldPass_WhenVariableIsAssignedBeforeUse()
+        {
+            var content = Fence(
+                "$rg = \"my-rg\"",
+                "Set-FakeWidget -Key $rg -Value v");
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.PSL5_UnassignedVariable);
+        }
+
+        [Fact]
+        public void Validate_ShouldNotFlag_AutomaticVariables()
+        {
+            // $_, $args, $true, $null, etc. are always defined.
+            var content = Fence(
+                "1, 2, 3 | ForEach-Object { Set-FakeWidget -Key $_ -Value $true }");
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.PSL5_UnassignedVariable);
+        }
+
+        [Fact]
+        public void Validate_ShouldNotFlag_DriveQualifiedVariables()
+        {
+            // $env:HOME and similar drive-qualified vars are out of scope.
+            var content = Fence("Set-FakeWidget -Key $env:USERNAME -Value $script:foo");
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.PSL5_UnassignedVariable);
+        }
+
+        [Fact]
+        public void Validate_ShouldNotFlag_ForeachLoopVariable()
+        {
+            var content = Fence(
+                "foreach ($item in 1, 2, 3) { Set-FakeWidget -Key $item -Value v }");
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.PSL5_UnassignedVariable);
+        }
+
+        [Fact]
+        public void Validate_ShouldNotFlag_OutVariableTarget()
+        {
+            // -OutVariable creates `$result` in scope.
+            var content = Fence(
+                "Get-FakeWidget -LiteralPath x -OutVariable result",
+                "Set-FakeWidget -Key foo -Value $result");
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.PSL5_UnassignedVariable);
+        }
+
+        // ----- PSL6: Invalid parameter value -----
+
+        [Fact]
+        public void Validate_ShouldError_WhenGuidParameterReceivesNonGuidLiteral()
+        {
+            var content = Fence(
+                "New-FakeWidget -SubscriptionId not-a-guid -Mode Read");
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());
+
+            Assert.True(report.HasErrors);
+            Assert.Contains(report.Errors, e =>
+                e.ProblemId == ProblemIds.PSL6_InvalidParameterValue
+                && e.Message.Contains("Guid", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void Validate_ShouldPass_WhenGuidParameterReceivesValidGuid()
+        {
+            var content = Fence(
+                "New-FakeWidget -SubscriptionId 11111111-2222-3333-4444-555555555555 -Mode Read");
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.PSL6_InvalidParameterValue);
+        }
+
+        [Fact]
+        public void Validate_ShouldPass_WhenGuidParameterReceivesPlaceholder()
+        {
+            // Documentation placeholders are not literal values; do not flag them.
+            var content = Fence(
+                "New-FakeWidget -SubscriptionId <your-subscription-id> -Mode Read");
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.PSL6_InvalidParameterValue);
+        }
+
+        [Fact]
+        public void Validate_ShouldError_WhenEnumParameterReceivesUndeclaredMember()
+        {
+            var content = Fence(
+                "New-FakeWidget -SubscriptionId 11111111-2222-3333-4444-555555555555 -Mode Sideways");
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());
+
+            Assert.Contains(report.Errors, e =>
+                e.ProblemId == ProblemIds.PSL6_InvalidParameterValue
+                && e.Message.Contains("Sideways", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void Validate_ShouldPass_WhenEnumParameterReceivesValidMember_CaseInsensitive()
+        {
+            var content = Fence(
+                "New-FakeWidget -SubscriptionId 11111111-2222-3333-4444-555555555555 -Mode write");
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.PSL6_InvalidParameterValue);
+        }
+
+        [Fact]
+        public void Validate_ShouldNotCheckValueType_WhenValueIsAVariable()
+        {
+            // $sub is a runtime expression — we cannot statically validate its value.
+            var content = Fence(
+                "$sub = (Get-AzContext).Subscription.Id",
+                "New-FakeWidget -SubscriptionId $sub -Mode Read");
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.PSL6_InvalidParameterValue);
         }
     }
 }

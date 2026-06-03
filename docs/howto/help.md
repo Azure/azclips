@@ -295,6 +295,13 @@ dotnet test tools/Help/Cirrus.Help.Tool.Tests/Cirrus.Help.Tool.Tests.csproj
 - `PSL1`: cmdlet name isn't registered. Check the `Verb-Noun` spelling against the cmdlet class's `[Cmdlet]` attribute.
 - `PSL2`: unknown `-Parameter`. The parameter isn't declared on the cmdlet (and isn't an `[Alias]` or a common parameter).
 
+**Build fails with `PSL3_*` / `PSL4_*` / `PSL5_*` / `PSL6_*` errors:**
+
+- `PSL3` (missing required parameter): the cmdlet declares the parameter as `Mandatory = true` in `AllParameterSets`. Add the missing flag, or — if the example splatts (`@params`) — that automatically suppresses the check.
+- `PSL4` (duplicate parameter): the same parameter (or one of its aliases) is bound twice on the same invocation. Remove the duplicate.
+- `PSL5` (unassigned variable): a `$variable` is read inside the fence but never assigned. Either assign it earlier in the same fence (`$rg = "my-rg"`), use a drive-qualified form (`$env:NAME`, `$script:foo`), or splat (`@params`) — the validator skips splatted reads.
+- `PSL6` (invalid parameter value): a literal value bound to a `Guid`- or enum-typed parameter does not parse. Substitute the all-zero GUID, an enum member name, or a placeholder like `<your-id>` / `{guid}` / a `$variable`. Variable, sub-expression, and interpolated-string values are not checked.
+
 **Build fails locking `Core.Abstractions.dll` or other artifacts:**
 
 - A pwsh session has imported one of the cmdlet modules. Close it (`Remove-Module Compute`, etc.) or exit the pwsh window before rebuilding.

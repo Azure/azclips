@@ -36,6 +36,10 @@ namespace Cirrus.Help.Tool.Validation
         public const string PS_ParseError = "PS_ParseError";
         public const string PSL1_UnknownCmdlet = "PSL1_UnknownCmdlet";
         public const string PSL2_UnknownParameter = "PSL2_UnknownParameter";
+        public const string PSL3_MissingRequiredParameter = "PSL3_MissingRequiredParameter";
+        public const string PSL4_DuplicateParameter = "PSL4_DuplicateParameter";
+        public const string PSL5_UnassignedVariable = "PSL5_UnassignedVariable";
+        public const string PSL6_InvalidParameterValue = "PSL6_InvalidParameterValue";
 
         // Tool-level (Program.cs)
         public const string Tool_CmdletAssemblyLoadFailed = "Tool_CmdletAssemblyLoadFailed";
