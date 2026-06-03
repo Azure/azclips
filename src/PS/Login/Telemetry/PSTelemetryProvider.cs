@@ -3,8 +3,10 @@
 
 using System.Diagnostics;
 using Core.Abstractions;
+using Core.Client.Shared;
 using Core.Telemetry;
 using OpenTelemetry;
+using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
 namespace Microsoft.Azure.Cirrus.Cmdlets.Login.Telemetry;
@@ -19,7 +21,8 @@ public class PSTelemetryProvider : DefaultTelemetryProvider
         var sender = new DirectTelemetrySender();
         ActivitySource = new ActivitySource(ClientType.PowerShell.ToString());
         var builder = Sdk.CreateTracerProviderBuilder()
-            .AddSource(ClientType.PowerShell.ToString());
+            .AddSource(ClientType.PowerShell.ToString())
+            .ConfigureResource(r => r.AddService(ProcessUtils.GetRunningProcess()));
 
         builder.AddHttpClientInstrumentation(options =>
         {

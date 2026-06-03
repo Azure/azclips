@@ -3,8 +3,10 @@
 
 using System.Diagnostics;
 using Core.Abstractions;
+using Core.Client.Shared;
 using Core.Telemetry;
 using OpenTelemetry;
+using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
 namespace Core.Cli.Telemetry;
@@ -19,7 +21,8 @@ public class CLITelemetryProvider : DefaultTelemetryProvider
         FileTelemetrySender sender = new();
         ActivitySource = new ActivitySource(ClientType.CLI.ToString());
         var builder = Sdk.CreateTracerProviderBuilder()
-            .AddSource(ClientType.CLI.ToString());
+            .AddSource(ClientType.CLI.ToString())
+            .ConfigureResource(r => r.AddService(ProcessUtils.GetRunningProcess()));
 
         builder.AddHttpClientInstrumentation(options =>
         {
