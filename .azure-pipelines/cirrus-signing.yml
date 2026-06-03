@@ -16,11 +16,17 @@ parameters:
   displayName: 'Signed artifact name'
   type: string
   default: 'Distribution_Signed'
+- name: ESRPServiceConnection
+  displayName: 'ESRP Service Connection'
+  type: string
+  default: 'ame_esrp_connection'
 
 variables:
 - template: templates/variables.yml
+- ${{ if eq(variables['System.TeamProject'], 'release') }}:
+  - group: 'AME ESRP Variable Group'
 - name: SourceProject
-  value: public
+  value: release
 - name: Codeql.Enabled
   value: false
 - name: Codeql.SkipTaskAutoInjection
@@ -58,3 +64,4 @@ stages:
     source_pipeline_name: ${{ parameters.source_pipeline_name }}
     source_build_id: ${{ parameters.source_build_id }}
     signed_artifact_name: ${{ parameters.signed_artifact_name }}
+    esrp_service_connection: ${{ parameters.ESRPServiceConnection }}

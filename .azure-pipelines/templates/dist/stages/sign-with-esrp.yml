@@ -12,6 +12,9 @@ parameters:
 - name: signed_artifact_name
   type: string
   default: 'Distribution_Signed'
+- name: esrp_service_connection
+  type: string
+  default: 'ame_esrp_connection'
 - name: esrp_nuget_keycode
   type: string
   default: 'CP-401405'
@@ -62,7 +65,7 @@ stages:
       displayName: Sign NuGet Packages [NuGetSign]
       condition: eq(variables['HasNupkg'], 'true')
       inputs:
-        ConnectedServiceName: '$(ESRPServiceConnectionName)'
+        ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
         AppRegistrationClientId: '$(ESRPAppClientId)'
         AppRegistrationTenantId: '$(ESRPAppTenantId)'
         AuthAKVName: '$(ESRPKVName)'
@@ -93,7 +96,7 @@ stages:
       displayName: Sign Windows Payload [Authenticode]
       condition: eq(variables['HasWindowsPayload'], 'true')
       inputs:
-        ConnectedServiceName: '$(ESRPServiceConnectionName)'
+        ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
         AppRegistrationClientId: '$(ESRPAppClientId)'
         AppRegistrationTenantId: '$(ESRPAppTenantId)'
         AuthAKVName: '$(ESRPKVName)'
