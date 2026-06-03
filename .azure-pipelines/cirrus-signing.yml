@@ -20,6 +20,26 @@ parameters:
   displayName: 'ESRP Service Connection'
   type: string
   default: 'ame_esrp_connection'
+- name: enable_esrp_nuget_verify
+  displayName: 'Enable ESRP NuGet verify pass'
+  type: boolean
+  default: false
+- name: enable_esrp_windows_verify
+  displayName: 'Enable ESRP Windows verify pass'
+  type: boolean
+  default: false
+- name: enable_windows_timestamp
+  displayName: 'Enable Windows RFC3161 timestamp parameter'
+  type: boolean
+  default: false
+- name: windows_timestamp_rfc3161
+  displayName: 'Windows RFC3161 timestamp parameter value'
+  type: string
+  default: '/tr "http://timestamp.acs.microsoft.com" /td SHA256'
+- name: require_windows_strong_name
+  displayName: 'Require strong-name verification for Cirrus DLLs'
+  type: boolean
+  default: false
 
 variables:
 - template: templates/variables.yml
@@ -74,6 +94,32 @@ stages:
           exit 1
         fi
       displayName: Validate Team Project Is release
+    - bash: |
+        set -euo pipefail
+        source_build_id='${{ parameters.source_build_id }}'
+        if [[ -z "$source_build_id" ]]; then
+          echo 'ERROR: source_build_id is required for signing provenance.'
+          exit 1
+        fi
+        if ! [[ "$source_build_id" =~ ^[0-9]+$ ]]; then
+          echo "ERROR: source_build_id must be numeric. Got: $source_build_id"
+          exit 1
+        fi
+        if [[ "$source_build_id" == "0" ]]; then
+          echo 'ERROR: source_build_id must be greater than zero.'
+          exit 1
+        fi
+        echo "source_build_id validated: $source_build_id"
+      displayName: Validate Source Build Provenance Input
+    - bash: |
+        set -euo pipefail
+        template_file='.azure-pipelines/templates/dist/stages/sign-with-esrp.yml'
+        if grep -nE 'useGlobalJson:[[:space:]]*true' "$template_file"; then
+          echo "ERROR: Found disallowed UseDotNet useGlobalJson=true in $template_file"
+          exit 1
+        fi
+        echo 'SDK pinning regression check passed (no useGlobalJson=true in signing template).'
+      displayName: Enforce SDK Regression Guardrails
 
 - template: templates/dist/stages/sign-with-esrp.yml
   parameters:
@@ -85,3 +131,8 @@ stages:
     source_build_id: ${{ parameters.source_build_id }}
     signed_artifact_name: ${{ parameters.signed_artifact_name }}
     esrp_service_connection: ${{ parameters.ESRPServiceConnection }}
+    esrp_enable_nuget_verify: ${{ parameters.enable_esrp_nuget_verify }}
+    esrp_enable_windows_verify: ${{ parameters.enable_esrp_windows_verify }}
+    esrp_enable_windows_timestamp: ${{ parameters.enable_windows_timestamp }}
+    esrp_windows_timestamp_rfc3161: ${{ parameters.windows_timestamp_rfc3161 }}
+    esrp_require_windows_strong_name: ${{ parameters.require_windows_strong_name }}

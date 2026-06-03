@@ -1,0 +1,97 @@
+## Cirrus signing pipeline (single ADO release project model).
+##
+## Runs in the same project as `cirrus-build`.  No REST orchestration; this
+## pipeline simply downloads artifacts from a specified `cirrus-build` run,
+## signs them via ESRP, validates, and publishes one consolidated drop.
+##
+## Coverage (vs the legacy `cirrus-signing.yml`):
+##   + Sign PowerShell + JS scripts (Authenticode)
+##   + Sign third-party DLLs with `Append: /as`
+##   + Sign MSI installer (when present)
+##   + Per-pass `SigntoolVerify` and RFC3161 timestamp
+##   + Test-DLL exclusion patterns
+##   + Same parallel multi-stage shape (NuGet / Windows / Linux / macOS)
+
+name: cirrus-sign-$(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+parameters:
+  - name: source_pipeline_name
+    displayName: 'Source pipeline name'
+    type: string
+    default: 'cirrus-build'
+  - name: source_build_id
+    displayName: 'Source build id (cirrus-build run to sign)'
+    type: string
+  - name: signed_artifact_name
+    displayName: 'Final signed artifact name'
+    type: string
+    default: 'Distribution_Signed'
+  - name: ESRPServiceConnection
+    displayName: 'ESRP service connection'
+    type: string
+    default: 'ame_esrp_connection'
+
+variables:
+  - template: ../templates/variables.yml
+  - ${{ if eq(variables['System.TeamProject'], 'release') }}:
+      - group: 'AME ESRP Variable Group'
+  - name: Codeql.Enabled
+    value: false
+  - name: Codeql.SkipTaskAutoInjection
+    value: true
+  - name: AdvancedSecurity.CodeQL.Enabled
+    value: false
+  - name: ComponentGovernance.Enabled
+    value: false
+  - name: skipComponentGovernanceDetection
+    value: true
+  - name: runCodesignValidationInjection
+    value: false
+  - name: CredScan.Enabled
+    value: false
+  - name: BinSkim.Enabled
+    value: false
+  - name: PoliCheck.Enabled
+    value: false
+  - name: RoslynAnalyzers.Enabled
+    value: false
+  - name: SdtReport.Enabled
+    value: false
+  - name: TSAUpload.Enabled
+    value: false
+  - name: NugetSecurityAnalysisWarningLevel
+    value: none
+  - name: skipNugetSecurityAnalysis
+    value: true
+
+stages:
+  - stage: Preflight
+    displayName: Preflight Checks
+    jobs:
+      - job: EnsureReleaseProject
+        displayName: Ensure Release Project Context
+        pool:
+          vmImage: $(ubuntu_pool)
+        steps:
+          - checkout: none
+          - bash: |
+              set -euo pipefail
+              echo "System.TeamProject=$(System.TeamProject)"
+              if [[ "$(System.TeamProject)" != "release" ]]; then
+                echo "ERROR: cirrus-sign must run in the 'release' project for ESRP access."
+                exit 1
+              fi
+            displayName: Validate Team Project Is release
+
+  - template: util/code-sign-stages.yml
+    parameters:
+      windows_pool: $(windows_pool)
+      ubuntu_pool: $(ubuntu_pool)
+      dependency_stage: Preflight
+      source_pipeline_name: ${{ parameters.source_pipeline_name }}
+      source_build_id: ${{ parameters.source_build_id }}
+      signed_artifact_name: ${{ parameters.signed_artifact_name }}
+      esrp_service_connection: ${{ parameters.ESRPServiceConnection }}

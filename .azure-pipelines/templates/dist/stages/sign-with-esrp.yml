@@ -29,6 +29,21 @@ parameters:
 - name: esrp_authenticode_keycode
   type: string
   default: 'CP-230012'
+- name: esrp_enable_nuget_verify
+  type: boolean
+  default: false
+- name: esrp_enable_windows_verify
+  type: boolean
+  default: false
+- name: esrp_enable_windows_timestamp
+  type: boolean
+  default: false
+- name: esrp_windows_timestamp_rfc3161
+  type: string
+  default: '/tr "http://timestamp.acs.microsoft.com" /td SHA256'
+- name: esrp_require_windows_strong_name
+  type: boolean
+  default: false
 
 stages:
 - stage: SignNugetArtifacts
@@ -136,6 +151,8 @@ stages:
         AuthAKVName: '$(ESRPKVName)'
         AuthCertName: '$(ESRPAuthCertName)'
         AuthSignCertName: '$(ESRPSignCertName)'
+        batchSignPolicyFile: ''
+        ciPolicyFile: ''
         FolderPath: '$(Pipeline.Workspace)/signing-work/nupkg'
         UseMinimatch: true
         Pattern: 'Microsoft.Azure.Cirrus*.nupkg'
@@ -153,6 +170,36 @@ stages:
               "ToolVersion": "1.0"
             }
           ]
+    - ${{ if eq(parameters.esrp_enable_nuget_verify, true) }}:
+      - task: EsrpCodeSigning@5
+        displayName: Verify NuGet Packages In ESRP [NuGetVerify]
+        condition: eq(variables['HasNupkg'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          batchSignPolicyFile: ''
+          ciPolicyFile: ''
+          FolderPath: '$(Pipeline.Workspace)/signing-work/nupkg'
+          UseMinimatch: true
+          Pattern: 'Microsoft.Azure.Cirrus*.nupkg'
+          signConfigType: inlineSignParams
+          SessionTimeout: '60'
+          MaxConcurrency: '25'
+          MaxRetryAttempts: '5'
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_nuget_keycode }}",
+                "OperationCode": "NuGetVerify",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
     - task: PowerShell@2
       displayName: Verify Signed Outputs
       inputs:
@@ -160,6 +207,7 @@ stages:
         filePath: devops/scripts/packaging/signing/verify_signed_outputs.ps1
         arguments: >-
           -WorkingRoot "$(Pipeline.Workspace)/signing-work"
+          -RequireNupkg $true
         pwsh: true
     - task: PowerShell@2
       displayName: Repack Signed Outputs
@@ -288,7 +336,8 @@ stages:
                 "OpusName": "Microsoft",
                 "OpusInfo": "http://www.microsoft.com",
                 "FileDigest": "/fd SHA256",
-                "PageHash": "/NPH"
+                "PageHash": "/NPH"${{ if eq(parameters.esrp_enable_windows_timestamp, true) }},
+                "TimeStamp": "${{ parameters.esrp_windows_timestamp_rfc3161 }}"
               },
               "ToolName": "sign",
               "ToolVersion": "1.0"
@@ -320,7 +369,8 @@ stages:
                 "OpusName": "Microsoft",
                 "OpusInfo": "http://www.microsoft.com",
                 "FileDigest": "/fd SHA256",
-                "PageHash": "/NPH"
+                "PageHash": "/NPH"${{ if eq(parameters.esrp_enable_windows_timestamp, true) }},
+                "TimeStamp": "${{ parameters.esrp_windows_timestamp_rfc3161 }}"
               },
               "ToolName": "sign",
               "ToolVersion": "1.0"
@@ -352,12 +402,92 @@ stages:
                 "OpusName": "Microsoft",
                 "OpusInfo": "http://www.microsoft.com",
                 "FileDigest": "/fd SHA256",
-                "PageHash": "/NPH"
+                "PageHash": "/NPH"${{ if eq(parameters.esrp_enable_windows_timestamp, true) }},
+                "TimeStamp": "${{ parameters.esrp_windows_timestamp_rfc3161 }}"
               },
               "ToolName": "sign",
               "ToolVersion": "1.0"
             }
           ]
+    - ${{ if eq(parameters.esrp_enable_windows_verify, true) }}:
+      - task: EsrpCodeSigning@5
+        displayName: Verify Windows Payload In ESRP [azv2.exe]
+        condition: eq(variables['HasWindowsPayload'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          batchSignPolicyFile: ''
+          ciPolicyFile: ''
+          FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
+          UseMinimatch: true
+          Pattern: '**/azv2.exe'
+          signConfigType: inlineSignParams
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolVerify",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
+      - task: EsrpCodeSigning@5
+        displayName: Verify Windows Payload In ESRP [Cirrus DLLs]
+        condition: eq(variables['HasWindowsPayload'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          batchSignPolicyFile: ''
+          ciPolicyFile: ''
+          FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
+          UseMinimatch: true
+          Pattern: '**/Microsoft.Azure.Cirrus*.dll'
+          signConfigType: inlineSignParams
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolVerify",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
+      - task: EsrpCodeSigning@5
+        displayName: Verify Windows Payload In ESRP [Cirrus EXEs]
+        condition: eq(variables['HasWindowsPayload'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          batchSignPolicyFile: ''
+          ciPolicyFile: ''
+          FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
+          UseMinimatch: true
+          Pattern: '**/Microsoft.Azure.Cirrus*.exe'
+          signConfigType: inlineSignParams
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolVerify",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
     - task: PowerShell@2
       displayName: Verify Signed Outputs
       inputs:
@@ -365,6 +495,8 @@ stages:
         filePath: devops/scripts/packaging/signing/verify_signed_outputs.ps1
         arguments: >-
           -WorkingRoot "$(Pipeline.Workspace)/signing-work"
+          -RequireWindowsAuthenticode $true
+          -RequireStrongName ${{ parameters.esrp_require_windows_strong_name }}
         pwsh: true
     - task: PowerShell@2
       displayName: Repack Signed Outputs
@@ -543,6 +675,26 @@ stages:
             throw "Authenticode verification failed for $($file.FullName). Status: $($signature.Status)"
           }
         }
+        if ('${{ parameters.esrp_require_windows_strong_name }}' -eq 'true') {
+          $dlls = $toVerify | Where-Object { $_.Name -like 'Microsoft.Azure.Cirrus*.dll' }
+          if (-not $dlls) {
+            throw 'Strong-name policy requires at least one Cirrus DLL in signed Windows payload.'
+          }
+
+          foreach ($dll in $dlls) {
+            try {
+              $assemblyName = [System.Reflection.AssemblyName]::GetAssemblyName($dll.FullName)
+            }
+            catch {
+              throw "Strong-name verification failed for $($dll.FullName). Unable to read managed assembly metadata."
+            }
+
+            $token = $assemblyName.GetPublicKeyToken()
+            if (-not $token -or $token.Length -eq 0) {
+              throw "Strong-name verification failed for $($dll.FullName). Public key token is missing."
+            }
+          }
+        }
       displayName: Verify Windows Signatures
 
 - stage: ValidateLinuxArtifacts
@@ -656,11 +808,33 @@ stages:
         import os
 
         release_dir = os.path.join(os.environ['BUILD_ARTIFACTSTAGINGDIRECTORY'], 'signed-release')
+        source_project = '${{ parameters.SourceProject }}'
+        source_pipeline_name = '${{ parameters.source_pipeline_name }}'
+        source_build_id = '${{ parameters.source_build_id }}'
+
+        files = [
+          name
+          for name in sorted(os.listdir(release_dir))
+          if os.path.isfile(os.path.join(release_dir, name))
+        ]
+
+        checks = {
+          'nupkg': any(name.endswith('.nupkg') for name in files),
+          'windows_zip': any('win-' in name and name.endswith('.zip') for name in files),
+          'linux_archive': any('linux' in name and (name.endswith('.tar.gz') or name.endswith('.zip')) for name in files),
+          'macos_archive': any(
+            any(token in name for token in ('mac', 'macos', 'osx', 'darwin')) and (name.endswith('.tar.gz') or name.endswith('.zip'))
+            for name in files
+          ),
+        }
+
+        missing = [kind for kind, present in checks.items() if not present]
+        if missing:
+          raise SystemExit(f'Assemble validation failed. Missing expected artifact categories: {", ".join(missing)}')
+
         entries = []
-        for name in sorted(os.listdir(release_dir)):
+        for name in files:
           path = os.path.join(release_dir, name)
-          if not os.path.isfile(path):
-            continue
           h = hashlib.sha256()
           with open(path, 'rb') as f:
             while True:
@@ -676,6 +850,33 @@ stages:
 
         with open(os.path.join(release_dir, 'signing-manifest.json'), 'w', encoding='utf-8') as f:
           json.dump(entries, f, indent=2)
+
+        provenance = {
+          'source': {
+            'project': source_project,
+            'pipeline': source_pipeline_name,
+            'buildId': source_build_id,
+          },
+          'signingRun': {
+            'project': os.getenv('SYSTEM_TEAMPROJECT', ''),
+            'pipeline': os.getenv('BUILD_DEFINITIONNAME', ''),
+            'buildId': os.getenv('BUILD_BUILDID', ''),
+            'buildNumber': os.getenv('BUILD_BUILDNUMBER', ''),
+            'sourceBranch': os.getenv('BUILD_SOURCEBRANCH', ''),
+            'sourceVersion': os.getenv('BUILD_SOURCEVERSION', ''),
+          },
+          'policy': {
+            'esrpNugetVerifyEnabled': '${{ parameters.esrp_enable_nuget_verify }}',
+            'esrpWindowsVerifyEnabled': '${{ parameters.esrp_enable_windows_verify }}',
+            'windowsTimestampEnabled': '${{ parameters.esrp_enable_windows_timestamp }}',
+            'windowsTimestampSetting': '${{ parameters.esrp_windows_timestamp_rfc3161 }}',
+            'windowsStrongNameRequired': '${{ parameters.esrp_require_windows_strong_name }}',
+          },
+          'verificationMatrix': checks,
+        }
+
+        with open(os.path.join(release_dir, 'signing-provenance.json'), 'w', encoding='utf-8') as f:
+          json.dump(provenance, f, indent=2)
         PY
 
         echo "Final signed release contents:"
