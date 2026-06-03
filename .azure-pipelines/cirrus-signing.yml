@@ -35,7 +35,7 @@ parameters:
 - name: windows_timestamp_rfc3161
   displayName: 'Windows RFC3161 timestamp parameter value'
   type: string
-  default: '/tr "http://timestamp.acs.microsoft.com" /td SHA256'
+  default: '/tr http://timestamp.acs.microsoft.com /td SHA256'
 - name: require_windows_strong_name
   displayName: 'Require strong-name verification for Cirrus DLLs'
   type: boolean
