@@ -273,6 +273,8 @@ stages:
         AuthAKVName: '$(ESRPKVName)'
         AuthCertName: '$(ESRPAuthCertName)'
         AuthSignCertName: '$(ESRPSignCertName)'
+        batchSignPolicyFile: ''
+        ciPolicyFile: ''
         FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
         UseMinimatch: true
         Pattern: '**/azv2.exe'
@@ -303,6 +305,8 @@ stages:
         AuthAKVName: '$(ESRPKVName)'
         AuthCertName: '$(ESRPAuthCertName)'
         AuthSignCertName: '$(ESRPSignCertName)'
+        batchSignPolicyFile: ''
+        ciPolicyFile: ''
         FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
         UseMinimatch: true
         Pattern: '**/Microsoft.Azure.Cirrus*.dll'
@@ -333,6 +337,8 @@ stages:
         AuthAKVName: '$(ESRPKVName)'
         AuthCertName: '$(ESRPAuthCertName)'
         AuthSignCertName: '$(ESRPSignCertName)'
+        batchSignPolicyFile: ''
+        ciPolicyFile: ''
         FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
         UseMinimatch: true
         Pattern: '**/Microsoft.Azure.Cirrus*.exe'
