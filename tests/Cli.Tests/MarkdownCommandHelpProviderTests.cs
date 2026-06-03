@@ -233,6 +233,33 @@ public class MarkdownCommandHelpProviderTests
     }
 
     [Fact]
+    public void Parse_ShouldJoinMultiLineDescription_WhenContinuationLinesArePresent()
+    {
+        // Authoring convention used by MarkdownStructureValidator tests:
+        //     Description: First line
+        //       continuation
+        // Continuation runs until the first blank line, heading, or fence.
+        var content = """
+            ---
+            summary: Short.
+            schema: 1.0.0
+            ---
+
+            Description: First line
+              continuation line.
+
+            ### Example
+            ```bash
+            azv2 do-thing
+            ```
+            """;
+
+        var result = MarkdownCommandHelpProvider.Parse(content);
+
+        Assert.Equal("First line continuation line.", result.Description);
+    }
+
+    [Fact]
     public void Parse_ShouldParseMixedCliAndPowerShellExamples()
     {
         var content = """

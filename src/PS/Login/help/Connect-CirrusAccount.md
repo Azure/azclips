@@ -8,6 +8,7 @@ schema: 2.0.0
 # Connect-CirrusAccount
 
 ## SYNOPSIS
+
 Authenticate to Azure.
 
 ## SYNTAX
@@ -18,23 +19,27 @@ Connect-CirrusAccount -SubscriptionId <String> [-TenantId <String>] [-UseDeviceC
 ```
 
 ## DESCRIPTION
+
 Authenticate to Azure and persist account context for subsequent commands.
 
 ## EXAMPLES
 
 ### Example 1: Login with subscription id
+
 ```
-azv2 login --subscription-id 00000000-0000-0000-0000-000000000000
+Connect-CirrusAccount -SubscriptionId 00000000-0000-0000-0000-000000000000
 ```
 
 ### Example 2: Login with device code
+
 ```
-azv2 login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code
+Connect-CirrusAccount -SubscriptionId 00000000-0000-0000-0000-000000000000 -UseDeviceCode
 ```
 
 ## PARAMETERS
 
 ### -ProgressAction
+
 {{ Fill ProgressAction Description }}
 
 ```yaml
@@ -50,6 +55,7 @@ Accept wildcard characters: False
 ```
 
 ### -SubscriptionId
+
 Azure Subscription Id.
 
 ```yaml
@@ -65,6 +71,7 @@ Accept wildcard characters: False
 ```
 
 ### -TenantId
+
 Tenant ID to login to.
 
 ```yaml
@@ -80,6 +87,7 @@ Accept wildcard characters: False
 ```
 
 ### -UseDeviceCode
+
 Use device code flow for authentication.
 
 ```yaml
@@ -95,6 +103,7 @@ Accept wildcard characters: False
 ```
 
 ### -Confirm
+
 Prompts you for confirmation before running the cmdlet.
 
 ```yaml
@@ -110,6 +119,7 @@ Accept wildcard characters: False
 ```
 
 ### -WhatIf
+
 Shows what would happen if the cmdlet runs.
 The cmdlet is not run.
 
@@ -126,6 +136,7 @@ Accept wildcard characters: False
 ```
 
 ### CommonParameters
+
 This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](http://go.microsoft.com/fwlink/?LinkID=113216).
 
 ## INPUTS
@@ -133,6 +144,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## OUTPUTS
 
 ## NOTES
+
 Generated help for login.
 
 ## RELATED LINKS

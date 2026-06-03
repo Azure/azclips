@@ -12,26 +12,28 @@ Cirrus is a modular Azure CLI tool with **AI-powered fallback** for natural lang
 
 ## Key Architectural Principles
 
-| Aspect | Current Implementation |
-|--------|------------------------|
-| **Entry Point** | `Program.cs` with try-catch around `ExtensionDispatcher` → AI fallback on exception |
-| **Command Routing** | `ExtensionDispatcher` → `CommandGroupIndex` → DLL loading → `ICommand` execution |
-| **AI Fallback** | `TryAgentFallbackAsync()` creates `AgentEngine` + `CloudAgent` on demand (max 5 retries) |
-| **Agent Integration** | Azure OpenAI Service (GPT-4o-mini) with streaming, configured via .env file |
-| **Flavor Detection** | `AZURECLI_FLAVOR` environment variable for potential integration scenarios |
-| **Module Discovery** | File-based DLL loading from extensions directory at runtime |
-| **Response Types** | `sample_command` (placeholders), `executable_command` (user confirms), `question`, `confirmation`, `exit` |
-| **Streaming UI** | Spinner characters (`⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏`) for "Thinking..." |
-| **Interactive Prompts** | ✅ CLI prompts user for confirmation with AI-interpreted natural language responses |
+| Aspect                  | Current Implementation                                                                                    |
+| ----------------------- | --------------------------------------------------------------------------------------------------------- |
+| **Entry Point**         | `Program.cs` with try-catch around `ExtensionDispatcher` → AI fallback on exception                       |
+| **Command Routing**     | `ExtensionDispatcher` → `CommandGroupIndex` → DLL loading → `ICommand` execution                          |
+| **AI Fallback**         | `TryAgentFallbackAsync()` creates `AgentEngine` + `CloudAgent` on demand (max 5 retries)                  |
+| **Agent Integration**   | Azure OpenAI Service (GPT-4o-mini) with streaming, configured via .env file                               |
+| **Flavor Detection**    | `AZURECLI_FLAVOR` environment variable for potential integration scenarios                                |
+| **Module Discovery**    | File-based DLL loading from extensions directory at runtime                                               |
+| **Response Types**      | `sample_command` (placeholders), `executable_command` (user confirms), `question`, `confirmation`, `exit` |
+| **Streaming UI**        | Spinner characters (`⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏`) for "Thinking..."                                                       |
+| **Interactive Prompts** | ✅ CLI prompts user for confirmation with AI-interpreted natural language responses                       |
 
 ## Architecture Comparison: Theoretical vs. Actual
 
 ### Theoretical Design (Not Implemented)
+
 - ❌ `OrchestratorEngine` actively routing to `DefaultCommandEngine` → `AgentEngine`
 - ❌ Agent setting `ExtractedCommand` property to hand back to command engine
 - ❌ Unified Business/ layer shared by Commands and Cmdlets
 
 ### Actual Implementation (Current)
+
 - ✅ `Program.Main()` try-catch around extension dispatcher
 - ✅ Exception triggers `TryAgentFallbackAsync()` with retry logic
 - ✅ Agent outputs JSON responses parsed by `AgentEngine.ExecuteCommandAsync()`
@@ -54,6 +56,7 @@ $ azv2 I would like to logni
 ```
 
 **What the Bootstrapper does:**
+
 1. Creates `ServiceCollection` and registers all dependencies as Singletons
 2. Registers services: `ILogger`, `IOutputAdapter`, `CommandParser`, `CommandBinder`
 3. Registers engines: `DefaultCommandEngine`, `AgentEngine`, `OrchestratorEngine`
@@ -176,20 +179,21 @@ New-ResourceGroup -Name mygroup -Location eastus
 
 ### File Locations
 
-| Component | File Path | Description |
-|-----------|-----------|-------------|
-| **CLI Entry Point** | `src/CLI/Program.cs` | Try-catch fallback to agent |
-| **Extension Dispatcher** | `src/CLI/Parser/ExtensionDispatcher.cs` | Parse args, load DLLs |
-| **Command Group Index** | `src/CLI/Parser/CommandGroupIndex.cs` | DLL discovery and loading |
-| **Agent Engine** | `src/Core/Core.Engine/AgentEngine.cs` | Conversation loop, streaming UI |
-| **Cloud Agent** | `src/Core/Core.Agent/CloudAgent.cs` | Azure OpenAI integration |
-| **Prompt Template** | `src/Core/Core.Agent/prompt.md` | System instructions with {{flavor}} |
-| **PowerShell Modules** | `src/PS/` | PowerShell module source |
-| **Help Markdown** | `src/Extensions/<Ext>/help/*.md` | Canonical help source (frontmatter + body) |
-| **Help Runtime Provider** | `src/Core/Core.Runtime/Help/MarkdownCommandHelpProvider.cs` | Runtime markdown parsing for CLI + PS |
-| **Help Tool** | `tools/Help/Cirrus.Help.Tool/` | Build-time validators + manifest emitter |
-| **Login Extension** | `artifacts/*/Microsoft.Azure.Cirrus.Extensions.Login/` | Authentication commands |
-| **Resources Extension** | `artifacts/*/Microsoft.Azure.Cirrus.Extensions.Resources/` | Resource management commands |
+| Component                    | File Path                                                  | Description                                   |
+| ---------------------------- | ---------------------------------------------------------- | --------------------------------------------- |
+| **CLI Entry Point**          | `src/CLI/Program.cs`                                       | Try-catch fallback to agent                   |
+| **Extension Dispatcher**     | `src/CLI/Parser/ExtensionDispatcher.cs`                    | Parse args, load DLLs                         |
+| **Command Group Index**      | `src/CLI/Parser/CommandGroupIndex.cs`                      | DLL discovery and loading                     |
+| **Agent Engine**             | `src/Core/Core.Engine/AgentEngine.cs`                      | Conversation loop, streaming UI               |
+| **Cloud Agent**              | `src/Core/Core.Agent/CloudAgent.cs`                        | Azure OpenAI integration                      |
+| **Prompt Template**          | `src/Core/Core.Agent/prompt.md`                            | System instructions with {{flavor}}           |
+| **PowerShell Modules**       | `src/PS/`                                                  | PowerShell module source                      |
+| **CLI Help Markdown**        | `src/CLI/Help/<ext>/*.md`                                  | Authored CLI help source (frontmatter + body) |
+| **PowerShell Help Markdown** | `src/PS/<Module>/help/*.md`                                | Authored PowerShell help (PlatyPS → MAML)     |
+| **Help Runtime Provider**    | `src/CLI/Help/MarkdownCommandHelpProvider.cs`              | Runtime markdown parsing for CLI              |
+| **Help Tool**                | `tools/Help/Cirrus.Help.Tool/`                             | Build-time validators + manifest emitter      |
+| **Login Extension**          | `artifacts/*/Microsoft.Azure.Cirrus.Extensions.Login/`     | Authentication commands                       |
+| **Resources Extension**      | `artifacts/*/Microsoft.Azure.Cirrus.Extensions.Resources/` | Resource management commands                  |
 
 ### Dependency Graph
 
@@ -219,6 +223,7 @@ Program.cs
 **Location:** `src/CLI/Program.cs`
 
 **Responsibilities:**
+
 - Try `ExtensionDispatcher` to parse and route commands
 - Catch all exceptions and call `TryAgentFallbackAsync()`
 - Detect `AZURECLI_FLAVOR` environment variable
@@ -226,6 +231,7 @@ Program.cs
 - Handle max 5 retry attempts for agent conversations
 
 **Actual Implementation:**
+
 ```csharp
 static async Task<int> Main(string[] args)
 {
@@ -251,16 +257,19 @@ static async Task<int> Main(string[] args)
 **Location:** `src/CLI/Parser/ExtensionDispatcher.cs`
 
 **Responsibilities:**
+
 - Parse command-line arguments into command groups
 - Use `CommandGroupIndex` to load extension DLLs
 - Return `ICommandInvocation` for execution
 - Throw exceptions on parse errors or unknown commands
 
 **Key Methods:**
+
 - `Parse(string[] args)` - Returns `ICommandInvocation` or throws
 - Uses environment variable `EXTENSIONS_ROOT_DIRECTORY` for DLL discovery
 
 **Example Flow:**
+
 ```
 args: ["group", "create", "--name", "test"]
 → CommandGroupIndex.LoadFromDirectory()
@@ -275,12 +284,14 @@ args: ["group", "create", "--name", "test"]
 **Location:** `src/CLI/Parser/CommandGroupIndex.cs`
 
 **Responsibilities:**
+
 - Scan extensions directory for DLL files
 - Load assemblies dynamically
 - Build index of command groups → DLL paths
 - Throw `KeyNotFoundException` if command group not found
 
 **Discovery Pattern:**
+
 ```
 artifacts/Release/Group/Group.dll → "group" command group
 artifacts/Release/Login/Login.dll → "login" command group
@@ -292,6 +303,7 @@ artifacts/Release/Resources/Resources.dll → "resources" command group
 **Location:** `src/Core/Core.Engine/AgentEngine.cs`
 
 **Responsibilities:**
+
 - Implement `ICommandEngine` interface
 - Stream user messages to `CloudAgent`
 - Display spinner UI (⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏ rotating characters)
@@ -301,6 +313,7 @@ artifacts/Release/Resources/Resources.dll → "resources" command group
 - For PowerShell: Output `__PSEXEC__<command>` marker
 
 **Key Response Handling:**
+
 ```csharp
 // Parse JSON response
 var response = JsonSerializer.Deserialize<AgentResponse>(aiMessage);
@@ -311,7 +324,7 @@ switch (response.Type)
         // Display help, no execution
         Console.WriteLine(response.Command);
         break;
-    
+
     case "executable_command":
         // Prompt user for confirmation
         Console.Write("Execute this command? (yes/no): ");
@@ -322,7 +335,7 @@ switch (response.Type)
             await ExecuteExtractedCommandAsync(response.Command);
         }
         break;
-    
+
     case "question":
         // Multi-turn conversation
         Console.WriteLine(response.Question);
@@ -343,6 +356,7 @@ switch (response.Type)
 **Location:** `src/Core/Core.Agent/CloudAgent.cs`
 
 **Responsibilities:**
+
 - Load .env file from agent directory
 - Create Azure OpenAI client with streaming
 - Load prompt template from `prompt.md`
@@ -351,6 +365,7 @@ switch (response.Type)
 - Return complete AI messages
 
 **Configuration (.env file):**
+
 ```env
 AZURE_OPENAI_ENDPOINT=https://<resource>.openai.azure.com
 AZURE_OPENAI_API_KEY=<key>
@@ -358,6 +373,7 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
 ```
 
 **Prompt Template (prompt.md):**
+
 - System instructions for CLI
 - JSON response schema definitions
 - Examples for each scenario type
@@ -368,6 +384,7 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
 **Location:** `src/Core/Core.Agent/prompt.md`
 
 **Key Instructions:**
+
 - Detect user intent (typo, how-to question, or execution request)
 - Return JSON with `type` field
 - Generate `az` commands
@@ -375,6 +392,7 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
 - Distinguish between help requests and execution requests
 
 **Example Response Types:**
+
 ```json
 // Typo correction or how-to
 {
@@ -402,6 +420,7 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
 **Location:** `src/CLI/Program.cs`
 
 **Responsibilities:**
+
 - Create `AgentEngine` and `CloudAgent` instances
 - Detect `AZURECLI_FLAVOR` environment variable
 - Load prompt template with flavor replacement
@@ -409,18 +428,19 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
 - Handle conversation loops until completion or cancellation
 
 **Key Logic:**
+
 ```csharp
 static async Task<int> TryAgentFallbackAsync(string[] args)
 {
-    string flavor = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") 
+    string flavor = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR")
                     ?? "azure cli";
-    
+
     var cloudAgent = await CloudAgent.CreateAsync(flavor);
     var agentEngine = new AgentEngine(cloudAgent, flavor);
-    
+
     string userInput = string.Join(" ", args);
     await agentEngine.ExecuteCommandAsync(userInput, maxTurns: 5);
-    
+
     return 0;
 }
 ```
@@ -432,12 +452,14 @@ static async Task<int> TryAgentFallbackAsync(string[] args)
 **Location:** `artifacts/Release/Group/Group.dll`
 
 **Structure:**
+
 - DLL loaded dynamically by `CommandGroupIndex`
 - Implements `ICommandInvocation` interface
 - Contains command logic for resource group operations
 - Returns JSON strings for console output
 
 **Commands:**
+
 - `group create` - Create resource group
 - `group list` - List resource groups
 - `group show` - Show resource group details
@@ -448,6 +470,7 @@ static async Task<int> TryAgentFallbackAsync(string[] args)
 **Location:** `artifacts/Release/Login/Login.dll`
 
 **Commands:**
+
 - `login` - Authenticate to Azure
 - `logout` - Sign out
 - `account show` - Display current account
@@ -457,14 +480,15 @@ static async Task<int> TryAgentFallbackAsync(string[] args)
 **Location:** `artifacts/Release/Resources/Resources.dll`
 
 **Contains:**
+
 - PowerShell cmdlets: `New-ResourceGroup`, `Get-ResourceGroup`, etc.
 - Note: No "Az" prefix in current implementation
 
 ## Help System
 
-Command help is sourced from markdown files under `src/Extensions/<Ext>/help/*.md` — a single corpus serves both CLI (`azv2 ... --help`) and PowerShell (`Get-Help <Cmdlet>`). The runtime reads markdown directly on the cold path; build-time tooling validates the corpus against live `ExtensionIndex` / cmdlet metadata and emits `HelpManifest.json` + `.dll-Help.xml` artifacts.
+Command help lives in two parallel corpora: CLI help under `src/CLI/Help/<ext>/*.md` (read by the runtime provider on the cold path), and PowerShell help under `src/PS/<Module>/help/*.md` (compiled to MAML XML via PlatyPS at build time). Build-time tooling validates both corpora against live `ExtensionIndex` / cmdlet metadata and emits `HelpManifest.json` plus per-module `*.dll-Help.xml` artifacts.
 
-Four validators gate every PR: markdown structure, completeness against routed commands, CLI example syntax (command path + flag signature + value type), and PowerShell example syntax (cmdlet name + parameter signature). Stale help fails CI before merge.
+Four validators gate every PR: markdown structure, completeness against routed commands, CLI example syntax (command path + flag signature + value type), and PowerShell example syntax (PSL1–PSL7: cmdlet name + parameter signature + required-parameter coverage + duplicate-flag check + variable-assignment check + value-type check + per-fence documented-cmdlet enforcement). Stale help fails CI before merge.
 
 For the design philosophy, validator details, and authoring schema, see [help-system.md](help-system.md). For the author workflow, see [docs/howto/help.md](../howto/help.md).
 
@@ -477,6 +501,7 @@ $ azv2 group create --name mygroup --location eastus
 ```
 
 **Flow:**
+
 1. `Program.Main()` → Try block
 2. `ExtensionDispatcher.Parse(args)` → Returns `ICommandInvocation`
 3. `Engine.GetCommand(invocation).Process(true)` → Executes command
@@ -496,6 +521,7 @@ $ azv2 grup create --name mygroup --location eastus  # Typo: "grup"
 ```
 
 **Flow:**
+
 1. `Program.Main()` → Try block
 2. `ExtensionDispatcher.Parse(args)` → Throws `KeyNotFoundException` ("grup" command group not found)
 3. Catch block → `TryAgentFallbackAsync(args)`
@@ -516,6 +542,7 @@ $ azv2 create a resource group called mygroup in westus
 ```
 
 **Flow:**
+
 1. `Program.Main()` → Try block
 2. `ExtensionDispatcher.Parse(args)` → Fails (natural language, not structured command)
 3. Catch block → `TryAgentFallbackAsync(args)`
@@ -526,8 +553,8 @@ $ azv2 create a resource group called mygroup in westus
 8. User responds with natural language (e.g., "yes", "sure", "go ahead")
 9. Agent interprets intent and returns `executable_command`
 10. Recursive call: `azv2 group create --name mygroup --location westus`
-10. Extension executes command
-11. Return 0
+11. Extension executes command
+12. Return 0
 
 **Agent converted natural language → structured command → execution.**
 
@@ -542,6 +569,7 @@ $ azv2 create a resource group called mygroup in westus
 **Response Type:** `sample_command` with placeholders
 
 **Example:**
+
 ```bash
 $ azv2 I would like to logni
 
@@ -567,6 +595,7 @@ azv2 login --use-device-code
 **Response Type:** `sample_command` with placeholders
 
 **Example:**
+
 ```bash
 $ azv2 how do I create a resource group
 
@@ -594,6 +623,7 @@ azv2 group create --name prodResourceGroup --location westus2
 **Response Type:** `executable_command` (no placeholders)
 
 **Example:**
+
 ```bash
 $ azv2 create a resource group called mygroup in westus
 
@@ -623,9 +653,11 @@ Execute this command? (yes/no): yes
 ## Key Architectural Decisions
 
 ### ✅ Exception-Driven Fallback
+
 **Decision:** Use try-catch around extension dispatcher, invoke agent on any exception.
 
 **Rationale:**
+
 - Simple implementation (no intent detection logic needed)
 - Catches all failure cases: unknown commands, typos, parse errors, natural language
 - Clear separation: structured commands vs. AI fallback
@@ -635,9 +667,11 @@ Execute this command? (yes/no): yes
 ---
 
 ### ✅ Subprocess PowerShell Integration
+
 **Decision:** PowerShell calls `az` CLI as subprocess with `__PSEXEC__` marker protocol.
 
 **Rationale:**
+
 - Reuses CLI's agent logic (no duplication)
 - PowerShell gets correct flavor-aware responses
 - Simpler than embedding agent directly in PowerShell module
@@ -649,28 +683,34 @@ Execute this command? (yes/no): yes
 ---
 
 ### ✅ Flavor Detection via Environment Variable
+
 **Decision:** Use `AZURECLI_FLAVOR` environment variable set by PowerShell.
 
 **Rationale:**
+
 - Simple, reliable detection mechanism
 - PowerShell sets it, CLI reads it
 - Allows prompt template to return correct syntax
 
 **Values:**
+
 - `"azure cli"` (default) → Returns `az` commands
 - `"azure powershell"` → Returns PowerShell cmdlets
 
 ---
 
 ### ✅ JSON Response Protocol
+
 **Decision:** Agent returns JSON with `type` field for different response types.
 
 **Rationale:**
+
 - Structured parsing (vs. free-text with markers)
 - Clear distinction between help and execution
 - Supports multi-turn conversations (`question` type)
 
 **Response Types:**
+
 1. `sample_command` - Help text with placeholders
 2. `executable_command` - Ready to execute
 3. `question` - Agent needs more info
@@ -680,23 +720,28 @@ Execute this command? (yes/no): yes
 ---
 
 ### ✅ Streaming UI with Spinner
+
 **Decision:** Display rotating spinner (⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏) during AI thinking.
 
 **Rationale:**
+
 - Immediate feedback (agent is working)
 - Better UX than silent wait
 - PowerShell uses `Write-Progress` for native progress bar
 
 **Implementation:**
+
 - CLI: Spinner characters to stdout
 - PowerShell: Regex filter to hide spinner, show progress bar instead
 
 ---
 
 ### ✅ Extension DLL Loading
+
 **Decision:** Load commands from DLL files at runtime (Group.dll, Login.dll, Resources.dll).
 
 **Rationale:**
+
 - Modular architecture (add new commands without recompiling CLI)
 - Clear separation of concerns
 - Standard .NET assembly loading
@@ -710,18 +755,20 @@ Execute this command? (yes/no): yes
 **Location:** `tests/Cli.Tests/`
 
 **Test Classes:**
+
 1. **ExtensionDispatcherTests** (10 tests)
-   - Constructor behavior with environment variables
-   - Parse method validation
-   - Error handling for unknown command groups
+    - Constructor behavior with environment variables
+    - Parse method validation
+    - Error handling for unknown command groups
 
 2. **ProgramFallbackTests** (5 tests)
-   - Verify fallback NOT invoked for help flags (`--help`, `-h`)
-   - Verify fallback IS invoked for natural language
-   - Verify fallback IS invoked for typos
-   - Note: Some tests skipped (require Azure OpenAI credentials)
+    - Verify fallback NOT invoked for help flags (`--help`, `-h`)
+    - Verify fallback IS invoked for natural language
+    - Verify fallback IS invoked for typos
+    - Note: Some tests skipped (require Azure OpenAI credentials)
 
 **Running Tests:**
+
 ```bash
 dotnet test tests/Cli.Tests/Cli.Tests.csproj
 # Or run all tests:
@@ -731,6 +778,7 @@ dotnet test
 ### Manual Verification
 
 For tests requiring Azure OpenAI:
+
 1. Set up `.env` file in `src/Core/Core.Agent/`
 2. Run CLI manually: `./artifacts/Release/Core.Cli/azv2 how do I create a resource group`
 3. Verify spinner, AI response, command output
@@ -739,16 +787,17 @@ For tests requiring Azure OpenAI:
 
 ### Environment Variables
 
-| Variable | Purpose | Default |
-|----------|---------|---------|
-| `AZURECLI_FLAVOR` | Customize execution behavior | `"azure cli"` |
-| `EXTENSIONS_ROOT_DIRECTORY` | DLL discovery path | `artifacts/Release/` |
+| Variable                    | Purpose                      | Default              |
+| --------------------------- | ---------------------------- | -------------------- |
+| `AZURECLI_FLAVOR`           | Customize execution behavior | `"azure cli"`        |
+| `EXTENSIONS_ROOT_DIRECTORY` | DLL discovery path           | `artifacts/Release/` |
 
 ### .env File (Azure OpenAI)
 
 **Location:** `src/Core/Core.Agent/.env`
 
 **Required Values:**
+
 ```env
 AZURE_OPENAI_ENDPOINT=https://<resource>.openai.azure.com
 AZURE_OPENAI_API_KEY=<key>
@@ -762,6 +811,7 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
 **Location:** `src/Core/Core.Agent/prompt.md`
 
 **Contains:**
+
 - System instructions for AI agent
 - `{{flavor}}` placeholder (replaced at runtime)
 - JSON response schema
@@ -771,6 +821,7 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
 ## Limitations & Known Issues
 
 ### ❌ No Unified Business Layer
+
 **Reason:** Extensions are standalone DLLs, not shared library
 
 **Impact:** Potential code duplication between extensions
@@ -780,6 +831,7 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
 ---
 
 ### ❌ Agent Retry Logic Limited to 5 Turns
+
 **Reason:** Prevent infinite loops in multi-turn conversations
 
 **Impact:** Complex queries may hit limit before resolution
@@ -791,11 +843,13 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
 ### Build Process
 
 **Build Command:**
+
 ```bash
 dotnet build -c Release cirrus.slnx
 ```
 
 **Steps:**
+
 1. Restore NuGet packages
 2. Build solution to `artifacts/Release/`
 3. Extensions built to their respective directories
@@ -861,30 +915,30 @@ New-ResourceGroup -Name test -Location eastus
 ### Potential Improvements
 
 1. **Shared Business Library**
-   - Create `Cirrus.Core.Business` NuGet package
-   - Extensions reference it instead of duplicating logic
-   - Consistent behavior across all extensions
+    - Create `Cirrus.Core.Business` NuGet package
+    - Extensions reference it instead of duplicating logic
+    - Consistent behavior across all extensions
 
 2. **Better Test Coverage**
-   - Mock Azure SDK calls for unit testing
-   - Integration tests with test Azure subscription
-   - Better handling of coverage in subprocess scenarios
+    - Mock Azure SDK calls for unit testing
+    - Integration tests with test Azure subscription
+    - Better handling of coverage in subprocess scenarios
 
 3. **Extended Agent Capabilities**
-   - Multi-step command sequences ("create RG then storage account")
-   - Context awareness (remember previous commands in session)
-   - Cost estimation before execution
-   - Command explanation ("what does this command do?")
+    - Multi-step command sequences ("create RG then storage account")
+    - Context awareness (remember previous commands in session)
+    - Cost estimation before execution
+    - Command explanation ("what does this command do?")
 
 4. **Telemetry and Analytics**
-   - Track agent invocation frequency
-   - Identify common typos for better corrections
-   - Measure user satisfaction (did they execute suggested command?)
+    - Track agent invocation frequency
+    - Identify common typos for better corrections
+    - Measure user satisfaction (did they execute suggested command?)
 
 5. **Local Model Support**
-   - Fallback to local LLM (Phi-3.5) when offline
-   - Faster responses for simple queries
-   - Privacy-conscious option for sensitive environments
+    - Fallback to local LLM (Phi-3.5) when offline
+    - Faster responses for simple queries
+    - Privacy-conscious option for sensitive environments
 
 ## References
 
@@ -897,20 +951,18 @@ New-ResourceGroup -Name test -Location eastus
 
 ### Code Locations
 
-| Component | Path |
-|-----------|------|
-| CLI Entry | `src/CLI/Program.cs` |
+| Component            | Path                                    |
+| -------------------- | --------------------------------------- |
+| CLI Entry            | `src/CLI/Program.cs`                    |
 | Extension Dispatcher | `src/CLI/Parser/ExtensionDispatcher.cs` |
-| Agent Engine | `src/Core/Core.Engine/AgentEngine.cs` |
-| Cloud Agent | `src/Core/Core.Agent/CloudAgent.cs` |
-| Prompt Template | `src/Core/Core.Agent/prompt.md` |
-| PowerShell Modules | `src/PS/` |
-| CLI Tests | `tests/Cli.Tests/` |
+| Agent Engine         | `src/Core/Core.Engine/AgentEngine.cs`   |
+| Cloud Agent          | `src/Core/Core.Agent/CloudAgent.cs`     |
+| Prompt Template      | `src/Core/Core.Agent/prompt.md`         |
+| PowerShell Modules   | `src/PS/`                               |
+| CLI Tests            | `tests/Cli.Tests/`                      |
 
 ### External Resources
 
 - [Azure OpenAI Service Documentation](https://learn.microsoft.com/azure/ai-services/openai/)
 - [Azure SDK for .NET](https://learn.microsoft.com/dotnet/azure/)
 - [PowerShell Module Manifests](https://learn.microsoft.com/powershell/scripting/developer/module/how-to-write-a-powershell-module-manifest)
-
-

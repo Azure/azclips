@@ -40,6 +40,7 @@ namespace Cirrus.Help.Tool.Validation
         public const string PSL4_DuplicateParameter = "PSL4_DuplicateParameter";
         public const string PSL5_UnassignedVariable = "PSL5_UnassignedVariable";
         public const string PSL6_InvalidParameterValue = "PSL6_InvalidParameterValue";
+        public const string PSL7_ExampleMustInvokeDocumentedCmdlet = "PSL7_ExampleMustInvokeDocumentedCmdlet";
 
         // Tool-level (Program.cs)
         public const string Tool_CmdletAssemblyLoadFailed = "Tool_CmdletAssemblyLoadFailed";

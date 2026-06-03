@@ -8,6 +8,7 @@ schema: 2.0.0
 # Get-CirrusAccount
 
 ## SYNOPSIS
+
 Show the current Azure account context.
 
 ## SYNTAX
@@ -17,18 +18,21 @@ Get-CirrusAccount [-ProgressAction <ActionPreference>] [<CommonParameters>]
 ```
 
 ## DESCRIPTION
+
 Show the current Azure account context.
 
 ## EXAMPLES
 
 ### Example 1: Show current account context
+
 ```
-azv2 login show
+Get-CirrusAccount
 ```
 
 ## PARAMETERS
 
 ### -ProgressAction
+
 {{ Fill ProgressAction Description }}
 
 ```yaml
@@ -44,6 +48,7 @@ Accept wildcard characters: False
 ```
 
 ### CommonParameters
+
 This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable, -InformationAction, -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable, -Verbose, -WarningAction, and -WarningVariable. For more information, see [about_CommonParameters](http://go.microsoft.com/fwlink/?LinkID=113216).
 
 ## INPUTS
@@ -51,6 +56,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## OUTPUTS
 
 ## NOTES
+
 Generated help for login.
 
 ## RELATED LINKS

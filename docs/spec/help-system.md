@@ -1,6 +1,6 @@
 # Design Spec: Help System
 
-A single markdown corpus per command, embedded in each extension assembly, drives three surfaces: `azv2 --help`, PowerShell `Get-Help`, and a JSON catalog for external tooling. Authoring guide: [docs/howto/help.md](../howto/help.md).
+Two parallel markdown corpora drive three surfaces: CLI help authored under `src/CLI/Help/<ext>/<command>.md` powers `azv2 --help` and a JSON catalog for external tooling; PowerShell help authored under `src/PS/<Module>/help/<Cmdlet>.md` is compiled to MAML XML by PlatyPS and served by `Get-Help`. Authoring guide: [docs/howto/help.md](../howto/help.md).
 
 ---
 

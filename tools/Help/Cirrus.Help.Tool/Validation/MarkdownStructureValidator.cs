@@ -36,7 +36,7 @@ namespace Cirrus.Help.Tool.Validation
 
             if (markdownFiles.Count == 0)
             {
-                report.AddError(ProblemIds.MD_NoMarkdownFiles, "No help markdown files found under src/CLI/help/*.");
+                report.AddError(ProblemIds.MD_NoMarkdownFiles, "No help markdown files found under src/CLI/Help/*.");
                 return report;
             }
 

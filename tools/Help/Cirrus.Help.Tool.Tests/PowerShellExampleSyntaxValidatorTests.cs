@@ -55,8 +55,12 @@ namespace Cirrus.Help.Tool.Tests
             return index;
         }
 
+        // The validator only walks fences that live inside `## EXAMPLES`. Tests that exercise
+        // rule behaviour wrap their fence body in that section so we don't have to repeat the
+        // heading in every test. The synthetic filename (`fake.md`) does not match `Verb-Noun`,
+        // so PSL7 does not fire on these unit tests — that rule is covered separately.
         private static string Fence(params string[] lines) =>
-            "```powershell\n" + string.Join("\n", lines) + "\n```";
+            "## EXAMPLES\n\n```powershell\n" + string.Join("\n", lines) + "\n```";
 
         [Fact]
         public void Validate_ShouldPass_WhenCmdletAndParametersAreKnown()
@@ -144,7 +148,9 @@ namespace Cirrus.Help.Tool.Tests
             // typo'd flag is reported.
             var errors = report.Errors.ToList();
             Assert.NotEmpty(errors);
-            Assert.All(errors, e => Assert.EndsWith(":3", e.FilePath!)); // fence opens on line 1, body line 2 → absolute 3
+            // Fence preamble inserted by the helper: line 1 = `## EXAMPLES`, line 2 = blank,
+            // line 3 = ```powershell, line 4 = first body line, line 5 = second (offending) line.
+            Assert.All(errors, e => Assert.EndsWith(":5", e.FilePath!));
             Assert.Contains(errors, e => e.Message.Contains("-Keys", StringComparison.Ordinal));
         }
 
@@ -176,8 +182,9 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldNotAffect_BashFences()
         {
-            // bash fences are someone else's problem (ExampleSyntaxValidator) — must be ignored here.
-            var content = "```bash\nazv2 group create --name foo --bogus value\n```";
+            // bash fences are someone else's problem (ExampleSyntaxValidator) — must be ignored here
+            // even when they sit inside the ## EXAMPLES section.
+            var content = "## EXAMPLES\n\n```bash\nazv2 group create --name foo --bogus value\n```";
 
             var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());
 
@@ -187,24 +194,30 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldIncludeFilePathAndLineNumber_InErrorLocator()
         {
-            // Three lines of preamble push the offending line to absolute line 4.
-            var content = "Some prose.\n\n```powershell\nSet-FakeWidget -Keys k -Value v\n```";
+            // Lines 1–3: prose. Line 4: `## EXAMPLES`. Line 5: blank. Line 6: ```powershell.
+            // Line 7: the offending invocation.
+            var content = "Some prose.\n\n\n## EXAMPLES\n\n```powershell\nSet-FakeWidget -Keys k -Value v\n```";
 
             var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "extensions/foo/help/set.md", BuildIndex());
 
             Assert.True(report.HasErrors);
-            Assert.Contains(report.Errors, e => e.FilePath!.EndsWith(":4", StringComparison.Ordinal));
+            Assert.Contains(report.Errors, e => e.FilePath!.EndsWith(":7", StringComparison.Ordinal));
         }
 
         [Fact]
-        public void Validate_ShouldSkip_NativeCommands()
+        public void Validate_ShouldError_OnNativeCommand()
         {
-            // `dotnet build` and similar bare names should not be policed by this validator.
-            var content = Fence("dotnet build", "git status");
+            // Help docs are for cmdlets, not arbitrary shell commands. Anything the parser sees
+            // as a CommandAst leader must resolve to a registered Cirrus cmdlet (PSL1).
+            // This is the rule that catches `azv2 ...` baked into a PowerShell help example.
+            var content = Fence("azv2 login --subscription-id 00000000-0000-0000-0000-000000000000");
 
             var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());
 
-            Assert.False(report.HasErrors);
+            Assert.True(report.HasErrors);
+            Assert.Contains(report.Errors, e =>
+                e.ProblemId == ProblemIds.PSL1_UnknownCmdlet
+                && e.Message.Contains("azv2", StringComparison.Ordinal));
         }
 
         // ----- PSL3: Required parameter missing -----
@@ -430,6 +443,102 @@ namespace Cirrus.Help.Tool.Tests
             var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());
 
             Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.PSL6_InvalidParameterValue);
+        }
+
+        // ----- PSL7: example must invoke documented cmdlet -----
+
+        [Fact]
+        public void Validate_ShouldError_WhenExampleDoesNotInvokeDocumentedCmdlet()
+        {
+            // File is named after Set-FakeWidget but the example uses Get-FakeWidget.
+            var content = Fence("Get-FakeWidget -LiteralPath x");
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "Set-FakeWidget.md", BuildIndex());
+
+            Assert.True(report.HasErrors);
+            Assert.Contains(report.Errors, e =>
+                e.ProblemId == ProblemIds.PSL7_ExampleMustInvokeDocumentedCmdlet
+                && e.Message.Contains("Set-FakeWidget", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void Validate_ShouldError_WhenExampleIsNativeCommand_InCmdletHelpFile()
+        {
+            // The bug Copilot caught: PowerShell help for Connect-CirrusAccount whose example
+            // is `azv2 login ...`. Both PSL1 (azv2 not a cmdlet) and PSL7 (Connect-CirrusAccount
+            // not invoked) must fire.
+            var content = Fence("azv2 login --subscription-id 00000000-0000-0000-0000-000000000000");
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "Set-FakeWidget.md", BuildIndex());
+
+            Assert.True(report.HasErrors);
+            Assert.Contains(report.Errors, e => e.ProblemId == ProblemIds.PSL1_UnknownCmdlet);
+            Assert.Contains(report.Errors, e => e.ProblemId == ProblemIds.PSL7_ExampleMustInvokeDocumentedCmdlet);
+        }
+
+        [Fact]
+        public void Validate_ShouldPass_WhenSetupCmdletPrecedesDocumentedCmdletInSameFence()
+        {
+            // Realistic: set up a resource with one cmdlet, then demonstrate the documented one.
+            // PSL7 fires per-fence, not per-line — as long as the documented cmdlet appears at
+            // least once in the same fence, the example is fine.
+            var content = Fence(
+                "$widget = Set-FakeWidget -Key foo -Value bar",
+                "Get-FakeWidget -LiteralPath $widget.Path");
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "Get-FakeWidget.md", BuildIndex());
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.PSL7_ExampleMustInvokeDocumentedCmdlet);
+        }
+
+        [Fact]
+        public void Validate_ShouldNotEnforce_WhenFilenameIsNotVerbNounShape()
+        {
+            // Synthetic test files are usually `fake.md` — they can't satisfy PSL7 because there
+            // is no cmdlet named `fake`. PSL7 silently disables itself in that case so unit-test
+            // helpers don't have to know about it.
+            var content = Fence("Set-FakeWidget -Key k -Value v");
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.PSL7_ExampleMustInvokeDocumentedCmdlet);
+        }
+
+        // ----- bare-fence support (PlatyPS default emits ``` not ```powershell) -----
+
+        [Fact]
+        public void Validate_ShouldWalk_BareFences_InsideExamplesSection()
+        {
+            // PlatyPS emits bare fences by default. They must still be validated so authoring
+            // bugs (like `azv2 ...` inside a cmdlet help file) cannot hide.
+            var content =
+                "## EXAMPLES\n\n" +
+                "### Example 1\n```\n" +
+                "Set-FakeWidget -Keys k -Value v\n" +
+                "```";
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());
+
+            Assert.Contains(report.Errors, e => e.ProblemId == ProblemIds.PSL2_UnknownParameter);
+        }
+
+        [Fact]
+        public void Validate_ShouldIgnore_FencesOutsideExamplesSection()
+        {
+            // ## SYNTAX in PlatyPS output contains pseudocode like `Set-FakeWidget [-Key <String>]`
+            // — `<String>` does not parse, and even when it does the surface syntax isn't a real
+            // invocation. Fences in any section other than `## EXAMPLES` are skipped.
+            var content =
+                "## SYNTAX\n\n```\n" +
+                "Set-FakeWidget -Keys <String>\n" +
+                "```\n\n" +
+                "## EXAMPLES\n\n```\n" +
+                "Set-FakeWidget -Key k -Value v\n" +
+                "```";
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());
+
+            Assert.False(report.HasErrors);
         }
     }
 }

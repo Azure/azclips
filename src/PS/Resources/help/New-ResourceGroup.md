@@ -30,7 +30,7 @@ The resource group will be created immediately and can be used to organize your 
 ### Example 1: Create a resource group
 
 ```powershell
-New-ResourceGroup -Name "myresourcegroup" -Location "eastus" -SubscriptionId "not-a-guid"
+New-ResourceGroup -Name "myresourcegroup" -Location "eastus" -SubscriptionId "00000000-0000-0000-0000-000000000000"
 ```
 
 ## PARAMETERS
@@ -145,4 +145,3 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 Generated help for resources.
 
 ## RELATED LINKS
-

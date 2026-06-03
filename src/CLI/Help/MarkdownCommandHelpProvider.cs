@@ -165,14 +165,44 @@ public static class MarkdownCommandHelpProvider
         return null;
     }
 
+    /// <summary>
+    /// Reads a <c>Name: value</c> body field, including any continuation lines that follow.
+    /// A continuation line is any non-blank, non-heading, non-fence line that comes after
+    /// the field's first line — matches the PR-#226 authoring convention demonstrated in
+    /// the structure-validator tests (`Description:` followed by indented continuation).
+    /// </summary>
     private static string GetField(string content, string name)
     {
-        foreach (var line in content.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
+        var lines = content.Split('\n');
+        var prefix = name + ":";
+        for (var i = 0; i < lines.Length; i++)
         {
-            if (line.StartsWith(name + ":", StringComparison.OrdinalIgnoreCase))
+            var line = lines[i].TrimEnd('\r');
+            if (!line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             {
-                return line[(name.Length + 1)..].Trim();
+                continue;
             }
+
+            var builder = new System.Text.StringBuilder(line[(prefix.Length)..].Trim());
+            for (var j = i + 1; j < lines.Length; j++)
+            {
+                var next = lines[j].TrimEnd('\r');
+                if (string.IsNullOrWhiteSpace(next)
+                    || next.StartsWith("#", StringComparison.Ordinal)
+                    || next.StartsWith("```", StringComparison.Ordinal))
+                {
+                    break;
+                }
+
+                if (builder.Length > 0)
+                {
+                    builder.Append(' ');
+                }
+
+                builder.Append(next.Trim());
+            }
+
+            return builder.ToString();
         }
 
         return string.Empty;

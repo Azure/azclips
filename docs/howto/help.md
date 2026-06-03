@@ -302,6 +302,13 @@ dotnet test tools/Help/Cirrus.Help.Tool.Tests/Cirrus.Help.Tool.Tests.csproj
 - `PSL5` (unassigned variable): a `$variable` is read inside the fence but never assigned. Either assign it earlier in the same fence (`$rg = "my-rg"`), use a drive-qualified form (`$env:NAME`, `$script:foo`), or splat (`@params`) — the validator skips splatted reads.
 - `PSL6` (invalid parameter value): a literal value bound to a `Guid`- or enum-typed parameter does not parse. Substitute the all-zero GUID, an enum member name, or a placeholder like `<your-id>` / `{guid}` / a `$variable`. Variable, sub-expression, and interpolated-string values are not checked.
 
+**Build fails with `PSL7_ExampleMustInvokeDocumentedCmdlet`:**
+
+- The validator extracts the documented cmdlet from the filename (`Connect-CirrusAccount.md` → `Connect-CirrusAccount`) and requires every fence under `## EXAMPLES` to invoke it at least once. Setup commands in the same fence are fine — what's not fine is a fence that demonstrates a different cmdlet, or worse, a CLI invocation (`azv2 ...`) inside a PowerShell help file.
+- Fix: replace the example so it actually shows the cmdlet the file documents.
+
+**Note on fence scanning:** the PowerShell validator only walks fences inside `## EXAMPLES` and only when the language tag is `powershell`, `pwsh`, `ps`, or empty (PlatyPS's default). Fences in `## SYNTAX`, `## PARAMETERS`, or any other section are deliberately ignored — those are PlatyPS pseudocode (`<String>` placeholders, YAML metadata) and are not real PowerShell.
+
 **Build fails locking `Core.Abstractions.dll` or other artifacts:**
 
 - A pwsh session has imported one of the cmdlet modules. Close it (`Remove-Module Compute`, etc.) or exit the pwsh window before rebuilding.

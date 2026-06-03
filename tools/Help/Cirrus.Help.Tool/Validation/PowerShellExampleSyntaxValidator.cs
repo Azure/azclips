@@ -48,9 +48,20 @@ namespace Cirrus.Help.Tool.Validation
             @"^[A-Za-z]+-[A-Za-z][A-Za-z0-9]*$",
             RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
-        // Matches a powershell/pwsh fenced code block. Captures the body for AST parsing.
-        private static readonly Regex s_pwshFenceRegex = new(
-            @"```(?:powershell|pwsh|ps)\s*\r?\n(?<body>[\s\S]*?)\r?\n```",
+        // Matches the start of an H2 markdown section heading. Used to scope fence collection
+        // to the `## EXAMPLES` block: we deliberately do not police fences in `## SYNTAX` or
+        // `## NOTES` because those are PlatyPS-generated and contain `<Type>` placeholders that
+        // cannot parse.
+        private static readonly Regex s_h2HeadingRegex = new(
+            @"(?m)^\#\#\s+(?<title>[^\r\n]+?)\s*$",
+            RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
+        // Matches any fenced code block whose language is PowerShell-flavored or empty. PlatyPS
+        // emits bare fences (no tag) by default, so we accept those alongside the explicit tags.
+        // Other languages (`bash`, `json`, `yaml`, …) are deliberately skipped — those are a
+        // different validator's job, even when they appear inside a PowerShell help file.
+        private static readonly Regex s_anyFenceInExamplesRegex = new(
+            @"```(?<lang>powershell|pwsh|ps|)\s*\r?\n(?<body>[\s\S]*?)\r?\n```",
             RegexOptions.CultureInvariant | RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         /// <summary>
@@ -98,11 +109,15 @@ namespace Cirrus.Help.Tool.Validation
             CmdletIndex cmdlets,
             ValidationReport report)
         {
-            foreach (Match fence in s_pwshFenceRegex.Matches(content))
-            {
-                var body = fence.Groups["body"].Value;
-                var fenceBodyAbsoluteLine = LineOfOffset(content, fence.Groups["body"].Index);
+            // The documented cmdlet is encoded in the filename (e.g. `Connect-CirrusAccount.md`).
+            // PSL7 enforces that every fence in the EXAMPLES section actually invokes that
+            // cmdlet — anything else means the example is wrong help, regardless of whether
+            // the individual lines parse cleanly.
+            var documentedCmdlet = Path.GetFileNameWithoutExtension(filePath);
+            var hasDocumentedCmdletName = s_verbNounPattern.IsMatch(documentedCmdlet);
 
+            foreach (var (body, fenceBodyAbsoluteLine) in EnumerateExampleFences(content))
+            {
                 // Strip PS prompt prefixes ("PS>" / "PS C:\>") line-by-line so the parser sees clean script.
                 var cleanedBody = StripPrompts(body);
 
@@ -124,7 +139,8 @@ namespace Cirrus.Help.Tool.Validation
                 }
 
                 var commands = ast.FindAll(node => node is CommandAst, searchNestedScriptBlocks: true)
-                    .Cast<CommandAst>();
+                    .Cast<CommandAst>()
+                    .ToList();
 
                 foreach (var cmd in commands)
                 {
@@ -132,6 +148,54 @@ namespace Cirrus.Help.Tool.Validation
                 }
 
                 ValidateUnassignedVariables(ast, filePath, fenceBodyAbsoluteLine, report);
+
+                // PSL7: every example fence must invoke the cmdlet whose help file it lives in.
+                // Setup commands (e.g. `$rg = New-ResourceGroup ...` in `Get-ResourceGroup.md`) are
+                // fine as long as the documented cmdlet appears at least once in the same fence.
+                if (hasDocumentedCmdletName
+                    && !commands.Any(c => string.Equals(c.GetCommandName(), documentedCmdlet, StringComparison.OrdinalIgnoreCase)))
+                {
+                    report.AddError(
+                        ProblemIds.PSL7_ExampleMustInvokeDocumentedCmdlet,
+                        $"Example does not invoke the documented cmdlet '{documentedCmdlet}'. PowerShell help examples must demonstrate the cmdlet they belong to.",
+                        $"{filePath}:{fenceBodyAbsoluteLine}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Enumerates fenced code blocks that live inside the <c>## EXAMPLES</c> H2 section
+        /// (case-insensitive). Tagged fences (<c>```powershell</c>) and bare fences (<c>```</c>)
+        /// are both collected; PlatyPS emits the latter by default. Fences in <c>## SYNTAX</c>,
+        /// <c>## PARAMETERS</c>, etc. are deliberately skipped — those contain <c>&lt;Type&gt;</c>
+        /// placeholders that are not valid PowerShell.
+        /// </summary>
+        private static IEnumerable<(string Body, int FenceBodyAbsoluteLine)> EnumerateExampleFences(string content)
+        {
+            // Find the EXAMPLES heading and the next H2 (or EOF) — that span is what we scan.
+            var headings = s_h2HeadingRegex.Matches(content);
+            for (var i = 0; i < headings.Count; i++)
+            {
+                var title = headings[i].Groups["title"].Value.Trim();
+                if (!string.Equals(title, "EXAMPLES", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var sectionStart = headings[i].Index + headings[i].Length;
+                var sectionEnd = i + 1 < headings.Count ? headings[i + 1].Index : content.Length;
+                var sectionLength = sectionEnd - sectionStart;
+
+                foreach (Match fence in s_anyFenceInExamplesRegex.Matches(content, sectionStart))
+                {
+                    if (fence.Index >= sectionEnd)
+                    {
+                        break;
+                    }
+
+                    var bodyGroup = fence.Groups["body"];
+                    yield return (bodyGroup.Value, LineOfOffset(content, bodyGroup.Index));
+                }
             }
         }
 
@@ -149,19 +213,16 @@ namespace Cirrus.Help.Tool.Validation
                 return;
             }
 
-            // Only police things that look like cmdlets. Native commands (`dotnet build`, `git`),
-            // executables, and bare functions are out of scope.
-            if (!s_verbNounPattern.IsMatch(name))
-            {
-                return;
-            }
-
             // Absolute line number = (markdown line of fence body start) + (1-based line within body) - 1.
             var lineNumber = fenceBodyAbsoluteLine + command.Extent.StartLineNumber - 1;
             var locator = $"{filePath}:{lineNumber}";
 
             if (!cmdlets.TryGet(name, out var metadata))
             {
+                // Inside a help example, every command leader must be a registered Cirrus cmdlet.
+                // Native commands (`azv2`, `dotnet`, `git`), built-in PS cmdlets we don't ship, or
+                // plain typos all fall here. We deliberately do not whitelist anything — help docs
+                // exist to demonstrate Cirrus cmdlets, not arbitrary shell commands.
                 report.AddError(
                     ProblemIds.PSL1_UnknownCmdlet,
                     $"Unknown cmdlet '{name}' in PowerShell example. Not registered by any Cirrus cmdlet assembly.",

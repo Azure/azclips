@@ -72,7 +72,7 @@ cirrus/
 
 ### Prerequisites
 
-- [.NET 9.0 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/9.0) (version pinned in `global.json`)
+- [.NET 10.0 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) (version pinned in `global.json`)
 - PowerShell 7.0+ (for PowerShell modules)
 - Azure subscription (for actual API calls)
 - [`platyPS`](https://github.com/PowerShell/platyPS) **0.14.2** (only for `-GenerateHelpArtifacts`; auto-installed by `build/Install-BuildDependencies.ps1`)
