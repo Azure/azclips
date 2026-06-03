@@ -5,7 +5,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Models
     //
     // Summary:
     //     Result of the request to list resource groups. Contains a list of resource groups.
-    public class ResourceGroupListResult : IPagedResult<ResourceGroup>
+    public class ResourceGroupListResult
     {
         [JsonPropertyName("value")]
         public ResourceGroup[]? Value { get; set; }
