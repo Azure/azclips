@@ -1,6 +1,9 @@
-﻿using System.Diagnostics;
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
 
-namespace Core.Client.Shared;
+using System.Diagnostics;
+
+namespace Core.Telemetry;
 
 public static class ProcessUtils
 {

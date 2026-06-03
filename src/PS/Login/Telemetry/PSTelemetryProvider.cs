@@ -3,7 +3,6 @@
 
 using System.Diagnostics;
 using Core.Abstractions;
-using Core.Client.Shared;
 using Core.Telemetry;
 using OpenTelemetry;
 using OpenTelemetry.Resources;

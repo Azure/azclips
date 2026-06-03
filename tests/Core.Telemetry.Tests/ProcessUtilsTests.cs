@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace Core.Client.Shared.Tests;
+namespace Core.Telemetry.Tests;
 
 public class ProcessUtilsTests
 {

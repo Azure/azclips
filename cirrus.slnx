@@ -12,7 +12,6 @@
     <Project Path="src/Core/Core.DependencyInjection/Core.DependencyInjection.csproj" />
     <Project Path="src/Core/Core.AssemblyLoading/Core.AssemblyLoading.csproj" />
     <Project Path="src/Core/Core.ArgumentParsing/Core.ArgumentParsing.csproj" />
-    <Project Path="src/Core/Core.Client.Shared/Core.Client.Shared.csproj" />
     <Project Path="src/Core/Core.Configuration/Core.Configuration.csproj" />
   </Folder>
   <Folder Name="/src/Extensions/">
@@ -34,7 +33,6 @@
     <Project Path="tests/Cli.Tests/Cli.Tests.csproj" />
     <Project Path="tests/Benchmark/Benchmark.csproj" />
     <Project Path="tests/Common/Tests.Common.csproj" />
-    <Project Path="tests/Core.Client.Shared/Core.Client.Shared.Tests.csproj" />
     <Project Path="tests/Core.Telemetry.Tests/Core.Telemetry.Tests.csproj" />
   </Folder>
   <Folder Name="/src/PS/">

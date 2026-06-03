@@ -25,7 +25,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\src\Core\Core.Client.Shared\Core.Client.Shared.csproj" />
     <ProjectReference Include="..\src\Core\Core.DependencyInjection\Core.DependencyInjection.csproj" />
     <ProjectReference Include="..\Agent\Core.Agent.csproj" />
   </ItemGroup>
