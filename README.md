@@ -23,7 +23,6 @@ cirrus/
 │   │   └── Exceptions/           # CLI-specific exceptions
 │   ├── Core/                     # Core libraries
 │   │   ├── Core.Abstractions/    # Base abstractions & interfaces
-│   │   ├── Core.Agent/           # AI agent integration
 │   │   ├── Core.Authentication/  # Authentication framework
 │   │   ├── Core.Engine/          # Command engine and bootstrapper
 │   │   └── Core.Implementation/  # Core service implementations

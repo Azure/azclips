@@ -4,6 +4,7 @@ using Core.Abstractions;
 using Core.Cli.Exceptions;
 using Core.Cli.Help;
 using Core.Cli.Parser;
+using Core.Cli.Telemetry;
 using Core.Engine;
 using Core.Runtime;
 using Core.Telemetry;
@@ -16,11 +17,10 @@ public class Program
 {
     private static readonly ClientType _clientType = ClientType.CLI;
     private static readonly string AssemblyName = Assembly.GetExecutingAssembly().GetName().Name!;
-    private static ITelemetryService? _telemetryService;
     private static ILoggingService? _logger;
     private static readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
     private static readonly IHelpRenderer _helpRenderer = new RuntimeHelpRenderer();
-    
+
     // CLI by default only enable output and error streams. Optional streams enabled by global parameters
     private static OutputStreams streams = new OutputStreams(
         WriteOutput: (value, ct) =>
@@ -30,7 +30,10 @@ public class Program
         },
         WriteError: (value, ct) =>
         {
-            Console.Error.WriteLine(value);
+            var originalColor = Console.ForegroundColor;
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.Error.WriteLine($"[ERROR] {value}");
+            Console.ForegroundColor = originalColor;
             return Task.CompletedTask;
         },
         WriteVerbose: (value, ct) => Task.CompletedTask,
@@ -58,21 +61,23 @@ public class Program
         {
             services.AddSingleton<IAssemblyLoadingProvider, CLIAssemblyLoadingProvider>();
             services.AddSingleton<IArgumentParsingProvider, CLIArgumentParsingProvider>();
+            services.AddSingleton<ITelemetryProvider, CLITelemetryProvider>();
         });
         CirrusServiceProvider.Initialize(_clientType);
-        _telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
         _logger = CirrusServiceProvider.GetRequiredService<ILoggingService>();
+
+        var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
 
         try
         {
-            using var activity = _telemetryService.StartCLIActivity(args);
+            using var activity = telemetryService.StartCLIActivity(args);
             var dispatcher = new ExtensionDispatcher();
             args = WireDebugStreams(args);
             try
             {
                 CommandInvocation invocation = dispatcher.Parse(args);
 
-                using var commandActivity = _telemetryService.ActivitySource.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
+                using var commandActivity = telemetryService.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
                 commandActivity?.SetTag("command.type", _clientType.ToString());
 
                 var engine = CirrusServiceProvider.GetRequiredService<IEngine>() ?? throw new InvalidOperationException("Engine service not found.");
@@ -107,6 +112,13 @@ public class Program
                 activity?.SetStatus(ActivityStatusCode.Ok, "Extension help requested");
                 return 0;
             }
+            catch (HttpRequestException ex)
+            {
+                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                activity?.AddException(ex);
+
+                return await TryAgentFallbackAsync(args, ex.Message);
+            }
             catch (Exception ex)
             {
                 _logger?.Error(ex.Message);
@@ -114,12 +126,11 @@ public class Program
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
                 activity?.AddException(ex);
 
-                return await TryAgentFallbackAsync(args);
+                return await TryAgentFallbackAsync(args, ex.Message);
             }
         } // activity disposed here → traces exported to file
         finally
         {
-            _telemetryService?.Dispose();
             CirrusServiceProvider.Dispose();
             SpawnTelemetryUploader();
         }
@@ -141,7 +152,10 @@ public class Program
             },
             WriteError: (value, ct) =>
             {
-                Console.Error.WriteLine(value);
+                var originalColor = Console.ForegroundColor;
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.Error.WriteLine($"[ERROR] {value}");
+                Console.ForegroundColor = originalColor;
                 return Task.CompletedTask;
             },
             WriteVerbose: (value, ct) => { Console.WriteLine($"VERBOSE: {value}"); return Task.CompletedTask; },
@@ -156,69 +170,102 @@ public class Program
         return args.Where(a => a != "--debug").ToArray();
     }
 
-    private static async Task<int> TryAgentFallbackAsync(string[] args)
+    /// <summary>
+    /// Hands a failed classic-CLI invocation off to the SDK-backed agent. Spawns
+    /// <c>Core.Tui.exe --agent-mode</c> as a subprocess so the agent runs in the
+    /// TUI process — keeping <see cref="Core.Agent"/> physically isolated from
+    /// the CLI process and free of TUI / Hex1b dependencies.
+    ///
+    /// The subprocess inherits stdio so streaming tokens, the approval prompt,
+    /// and any interactive sub-tool (device-code login) surface live in the
+    /// user's terminal without in-process plumbing.
+    /// </summary>
+    private static async Task<int> TryAgentFallbackAsync(string[] args, string? errorText)
     {
-        const int maxRetries = 5;
-        int attempt = 0;
-        string[] currentArgs = args;
-        var logger = CirrusServiceProvider.GetRequiredService<ILoggingService>();
+        // Global disable switch. Set CIRRUS_AGENT_DISABLED=1 to keep the
+        // original classic error and skip the agent fallback entirely.
+        if (Environment.GetEnvironmentVariable("CIRRUS_AGENT_DISABLED") == "1")
+        {
+            return 1;
+        }
+
+        // Recursion guard: a failed azv2 invoked by run_command from inside an
+        // already-running agent-mode TUI must NOT spawn another agent-mode TUI.
+        if (Environment.GetEnvironmentVariable("CIRRUS_IN_AGENT_MODE") == "1")
+        {
+            return 1;
+        }
+
+        var tuiExe = FindTuiExe();
+        if (tuiExe is null)
+        {
+            _logger?.Error("agent mode unavailable: Core.Tui.exe not found alongside azv2");
+            return 1;
+        }
 
         try
         {
-            // Use the singleton AgentEngine from DI container
-            var agentEngine = CirrusServiceProvider.GetRequiredService<AgentEngine>();
-            var output = CirrusServiceProvider.GetRequiredService<IOutputAdapter>();
-
-            while (attempt < maxRetries)
+            var psi = new ProcessStartInfo
             {
-                attempt++;
-
-                await agentEngine.ExecuteCommandAsync(currentArgs, default);
-
-                var extractedCommand = agentEngine.ExtractedCommand;
-                if (string.IsNullOrWhiteSpace(extractedCommand))
-                {
-                    // AI provided info/help but no executable command
-                    return 0;
-                }
-
-                // AI generated a command - retry through extension loader
-                var retryArgs = extractedCommand.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                // Skip the first token if it matches the assembly name
-                if (retryArgs.Length > 0 && retryArgs[0].Equals(AssemblyName, StringComparison.OrdinalIgnoreCase))
-                {
-                    retryArgs = retryArgs.Skip(1).ToArray();
-                }
-
-                await output.WriteLineAsync($"\nRetrying with command: {extractedCommand}\n");
-
-                try
-                {
-                    var dispatcher = new ExtensionDispatcher();
-                    CommandInvocation invocation = dispatcher.Parse(retryArgs);
-                    //string result = Engine.Engine.GetCommand(invocation).Process(true).ToString();
-                    //Console.WriteLine(result);
-                    return 0;
-                }
-                catch (Exception ex)
-                {
-                    if (attempt >= maxRetries)
-                    {
-                        await output.WriteErrorAsync($"Failed to execute command after {maxRetries} attempts: {ex.Message}");
-                        return 1;
-                    }
-                    // Update args for next iteration
-                    currentArgs = retryArgs;
-                }
+                FileName = tuiExe,
+                // Inherit stdio so streaming tokens, y/n prompt, device-code links
+                // all show live in the user's terminal.
+                UseShellExecute = false,
+                RedirectStandardOutput = false,
+                RedirectStandardError = false,
+                RedirectStandardInput = false,
+            };
+            psi.Environment["CIRRUS_IN_AGENT_MODE"] = "1";
+            psi.ArgumentList.Add("--agent-mode");
+            psi.ArgumentList.Add("--failed-command");
+            psi.ArgumentList.Add(JoinShellQuoted(args));
+            if (!string.IsNullOrWhiteSpace(errorText))
+            {
+                psi.ArgumentList.Add("--error");
+                psi.ArgumentList.Add(errorText);
             }
 
-            return 1;
+            using var proc = Process.Start(psi)
+                ?? throw new InvalidOperationException("Process.Start returned null");
+            await proc.WaitForExitAsync();
+            return proc.ExitCode;
         }
         catch (Exception ex)
         {
-            logger.Error($"AI agent error: {ex.Message}");
+            _logger?.Error($"agent mode subprocess failed: {ex.Message}");
             return 1;
         }
+    }
+
+    private static string JoinShellQuoted(string[] args)
+    {
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < args.Length; i++)
+        {
+            if (i > 0) sb.Append(' ');
+            var a = args[i];
+            if (a.Length == 0 || a.Contains(' ') || a.Contains('\t') || a.Contains('"'))
+                sb.Append('"').Append(a.Replace("\"", "\\\"")).Append('"');
+            else
+                sb.Append(a);
+        }
+        return sb.ToString();
+    }
+
+    private static string? FindTuiExe()
+    {
+        var baseDir = AppContext.BaseDirectory;
+        foreach (var candidate in new[]
+        {
+            Path.Combine(baseDir, "Core.Tui.exe"),
+            Path.Combine(baseDir, "Core.Tui"),
+            Path.Combine(baseDir, "..", "Core.Tui", "Core.Tui.exe"),
+            Path.Combine(baseDir, "..", "Core.Tui", "Core.Tui"),
+        })
+        {
+            if (File.Exists(candidate)) return Path.GetFullPath(candidate);
+        }
+        return null;
     }
 
     /// <summary>

@@ -14,7 +14,7 @@ public class DirectTelemetrySender : ITelemetrySender
     {
         builder.AddAzureMonitorTraceExporter(options =>
         {
-            options.ConnectionString = TelemetryService.AzureMonitorConnectionString;
+            options.ConnectionString = WellKnownEndpoints.AzureMonitorConnectionString;
         });
     }
 

@@ -627,5 +627,12 @@ llama_models/
 # Local markdown notes
 changes.md
 
+# LinkSwitcher build cache
+*.lscache
+
+# Claude Code workspace files (per-developer, not shared)
+.claude/
+CLAUDE.md
+
 # macOS
 .DS_Store
