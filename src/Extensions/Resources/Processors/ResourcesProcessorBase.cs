@@ -11,9 +11,9 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
     /// </summary>
     public abstract class ResourcesProcessorBase : IProcessor
     {
-        public IRuntimeHttpPipeline HttpPipeline = null!;
-        public IEventPublisher Publisher = null!;
-        public JsonSerializerOptions JsonOptions = null!;
+        protected IRuntimeHttpPipeline HttpPipeline = null!;
+        protected IEventPublisher Publisher = null!;
+        protected JsonSerializerOptions JsonOptions = null!;
         protected OutputStreamDelegate WriteOutput = null!;
         protected AuthContext AuthContext = null!;
         protected virtual void BeforeInit() { }
