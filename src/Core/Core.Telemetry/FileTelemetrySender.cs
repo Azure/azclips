@@ -274,9 +274,8 @@ public class FileTelemetrySender : ITelemetrySender
             }
         }
 
-        // Sweep up any entries left out by cycles or duplicate SpanIds so we
-        // never silently drop telemetry — they go on the end as best-effort roots.
-        if (ordered.Count < entries.Count)
+        // Sweep up any entries left out by cycles so we never silently drop telemetry —
+        // they go on the end as best-effort roots.
         {
             foreach (var e in entries)
             {

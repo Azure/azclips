@@ -6,8 +6,7 @@ using OpenTelemetry.Trace;
 namespace Core.Telemetry.Tests;
 
 /// <summary>
-/// Tests for <see cref="FileTelemetrySender"/> covering the pure-logic helpers
-/// (path computation, file format parsing, topological replay) and the
+/// Tests for <see cref="FileTelemetrySender"/> replay helpers (ordering and context remapping).
 /// </summary>
 public class FileTelemetrySenderTests
 {
