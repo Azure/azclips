@@ -275,7 +275,7 @@ stages:
         AuthSignCertName: '$(ESRPSignCertName)'
         FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
         UseMinimatch: true
-        Pattern: 'azv2.exe'
+        Pattern: '**/azv2.exe'
         signConfigType: inlineSignParams
         inlineOperation: |
           [
@@ -312,7 +312,7 @@ stages:
         AuthSignCertName: '$(ESRPSignCertName)'
         FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
         UseMinimatch: true
-        Pattern: 'Microsoft.Azure.Cirrus*.dll'
+        Pattern: '**/Microsoft.Azure.Cirrus*.dll'
         signConfigType: inlineSignParams
         inlineOperation: |
           [
@@ -349,7 +349,7 @@ stages:
         AuthSignCertName: '$(ESRPSignCertName)'
         FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
         UseMinimatch: true
-        Pattern: 'Microsoft.Azure.Cirrus*.exe'
+        Pattern: '**/Microsoft.Azure.Cirrus*.exe'
         signConfigType: inlineSignParams
         inlineOperation: |
           [
