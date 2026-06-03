@@ -11,7 +11,7 @@ parameters:
 - name: source_build_id
   displayName: 'Source build id'
   type: string
-  default: '320168'
+  default: '320494'
 - name: signed_artifact_name
   displayName: 'Signed artifact name'
   type: string
