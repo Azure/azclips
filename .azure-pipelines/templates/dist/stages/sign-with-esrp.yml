@@ -5,29 +5,35 @@ parameters:
 - name: ubuntu_pool
   type: string
   default: 'ubuntu-latest'
+- name: dependency_stage
+  type: string
+  default: 'Preflight'
 - name: SourceProject
   type: string
   default: 'public'
 - name: source_pipeline_name
   type: string
+  default: 'cirrus-build'
 - name: source_build_id
   type: string
+  default: ''
 - name: signed_artifact_name
   type: string
-  default: 'Distribution_Signed'
+  default: 'signed-dist'
 - name: esrp_service_connection
   type: string
-  default: 'ame_esrp_connection'
+  default: ''
 - name: esrp_nuget_keycode
   type: string
-  default: 'CP-401405'
+  default: 'CP-401405-NuGet'
 - name: esrp_authenticode_keycode
   type: string
   default: 'CP-230012'
 
 stages:
-- stage: SignArtifacts
-  displayName: Sign Windows/NuGet And Collect Linux/macOS
+- stage: SignNugetArtifacts
+  displayName: Sign NuGet Artifacts
+  dependsOn: ${{ parameters.dependency_stage }}
   jobs:
   - job: SignNuget
     displayName: Sign NuGet Artifacts
@@ -36,13 +42,11 @@ stages:
     steps:
     - checkout: self
       clean: true
-
     - task: UseDotNet@2
       displayName: Setup .NET SDK
       inputs:
         packageType: sdk
         useGlobalJson: true
-
     - task: DownloadPipelineArtifact@2
       displayName: Download Unsigned Distribution Artifacts
       inputs:
@@ -52,7 +56,6 @@ stages:
         buildVersionToDownload: specific
         pipelineId: ${{ parameters.source_build_id }}
         targetPath: $(Pipeline.Workspace)/unsigned-all
-
     - task: PowerShell@2
       displayName: Filter NuGet Release Artifacts
       inputs:
@@ -64,21 +67,16 @@ stages:
           $targetRoot = "$(Pipeline.Workspace)/unsigned"
           Remove-Item $targetRoot -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Path $targetRoot -Force | Out-Null
-
           $selected = Get-ChildItem -Path $sourceRoot -Recurse -File | Where-Object {
             $_.Name -like '*.nupkg' -and $_.Name -notlike '*.snupkg'
           }
-
           if (-not $selected) {
             throw "No NuGet release artifacts found under $sourceRoot"
           }
-
           foreach ($asset in $selected) {
             Copy-Item $asset.FullName -Destination (Join-Path $targetRoot $asset.Name) -Force
           }
-
           Write-Host "Selected $($selected.Count) NuGet release artifacts."
-
     - task: PowerShell@2
       displayName: Prepare Signing Inputs
       inputs:
@@ -89,7 +87,6 @@ stages:
           -WorkingRoot "$(Pipeline.Workspace)/signing-work"
           -ReleaseRoot "$(Build.ArtifactStagingDirectory)/signed-release"
         pwsh: true
-
     - task: EsrpCodeSigning@5
       displayName: Sign NuGet Packages [NuGetSign]
       condition: eq(variables['HasNupkg'], 'true')
@@ -123,7 +120,6 @@ stages:
               "ToolVersion": "1.0"
             }
           ]
-
     - task: PowerShell@2
       displayName: Verify Signed Outputs
       inputs:
@@ -132,7 +128,6 @@ stages:
         arguments: >-
           -WorkingRoot "$(Pipeline.Workspace)/signing-work"
         pwsh: true
-
     - task: PowerShell@2
       displayName: Repack Signed Outputs
       inputs:
@@ -142,7 +137,6 @@ stages:
           -WorkingRoot "$(Pipeline.Workspace)/signing-work"
           -ReleaseRoot "$(Build.ArtifactStagingDirectory)/signed-release"
         pwsh: true
-
     - task: PublishPipelineArtifact@1
       displayName: Publish Signed NuGet Artifacts
       inputs:
@@ -150,6 +144,10 @@ stages:
         artifact: signed-nuget
         publishLocation: pipeline
 
+- stage: SignWindowsArtifacts
+  displayName: Sign Windows Artifacts
+  dependsOn: ${{ parameters.dependency_stage }}
+  jobs:
   - job: SignWindows
     displayName: Sign Windows Artifacts
     pool:
@@ -157,13 +155,11 @@ stages:
     steps:
     - checkout: self
       clean: true
-
     - task: UseDotNet@2
       displayName: Setup .NET SDK
       inputs:
         packageType: sdk
         useGlobalJson: true
-
     - task: DownloadPipelineArtifact@2
       displayName: Download Unsigned Distribution Artifacts
       inputs:
@@ -173,7 +169,6 @@ stages:
         buildVersionToDownload: specific
         pipelineId: ${{ parameters.source_build_id }}
         targetPath: $(Pipeline.Workspace)/unsigned-all
-
     - task: PowerShell@2
       displayName: Filter Windows Release Artifacts
       inputs:
@@ -185,21 +180,16 @@ stages:
           $targetRoot = "$(Pipeline.Workspace)/unsigned"
           Remove-Item $targetRoot -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Path $targetRoot -Force | Out-Null
-
           $selected = Get-ChildItem -Path $sourceRoot -Recurse -File | Where-Object {
             $_.Name -like '*win-*.zip'
           }
-
           if (-not $selected) {
             throw "No Windows release artifacts found under $sourceRoot"
           }
-
           foreach ($asset in $selected) {
             Copy-Item $asset.FullName -Destination (Join-Path $targetRoot $asset.Name) -Force
           }
-
           Write-Host "Selected $($selected.Count) Windows release artifacts."
-
     - task: PowerShell@2
       displayName: Prepare Signing Inputs
       inputs:
@@ -210,7 +200,6 @@ stages:
           -WorkingRoot "$(Pipeline.Workspace)/signing-work"
           -ReleaseRoot "$(Build.ArtifactStagingDirectory)/signed-release"
         pwsh: true
-
     - task: EsrpCodeSigning@5
       displayName: Sign Windows Payload [Authenticode]
       condition: eq(variables['HasWindowsPayload'], 'true')
@@ -250,7 +239,6 @@ stages:
               "ToolVersion": "1.0"
             }
           ]
-
     - task: PowerShell@2
       displayName: Verify Signed Outputs
       inputs:
@@ -259,7 +247,6 @@ stages:
         arguments: >-
           -WorkingRoot "$(Pipeline.Workspace)/signing-work"
         pwsh: true
-
     - task: PowerShell@2
       displayName: Repack Signed Outputs
       inputs:
@@ -269,7 +256,6 @@ stages:
           -WorkingRoot "$(Pipeline.Workspace)/signing-work"
           -ReleaseRoot "$(Build.ArtifactStagingDirectory)/signed-release"
         pwsh: true
-
     - task: PublishPipelineArtifact@1
       displayName: Publish Signed Windows Artifacts
       inputs:
@@ -277,13 +263,16 @@ stages:
         artifact: signed-windows
         publishLocation: pipeline
 
+- stage: CollectLinuxArtifacts
+  displayName: Collect Linux Artifacts
+  dependsOn: ${{ parameters.dependency_stage }}
+  jobs:
   - job: CollectLinux
     displayName: Collect Linux Release Artifacts
     pool:
       vmImage: ${{ parameters.ubuntu_pool }}
     steps:
     - checkout: none
-
     - task: DownloadPipelineArtifact@2
       displayName: Download Unsigned Distribution Artifacts
       inputs:
@@ -293,30 +282,24 @@ stages:
         buildVersionToDownload: specific
         pipelineId: ${{ parameters.source_build_id }}
         targetPath: $(Pipeline.Workspace)/unsigned-all
-
     - bash: |
         set -euo pipefail
         source_root="$(Pipeline.Workspace)/unsigned-all"
         out_dir="$(Build.ArtifactStagingDirectory)/collected-linux"
         mkdir -p "$out_dir"
-
         mapfile -t linux_assets < <(
           find "$source_root" -type f \( -name '*linux*.tar.gz' -o -name '*linux*.zip' \) | sort
         )
-
         if [[ ${#linux_assets[@]} -eq 0 ]]; then
           echo "ERROR: No Linux release artifacts found under $source_root"
           exit 1
         fi
-
         printf 'Linux release artifacts (%s):\n' "${#linux_assets[@]}"
         printf '  %s\n' "${linux_assets[@]}"
-
         for asset in "${linux_assets[@]}"; do
           cp "$asset" "$out_dir/"
         done
       displayName: Collect Linux Release Artifacts
-
     - task: PublishPipelineArtifact@1
       displayName: Publish Collected Linux Artifacts
       inputs:
@@ -324,13 +307,16 @@ stages:
         artifact: collected-linux
         publishLocation: pipeline
 
+- stage: CollectMacOSArtifacts
+  displayName: Collect macOS Artifacts
+  dependsOn: ${{ parameters.dependency_stage }}
+  jobs:
   - job: CollectMac
     displayName: Collect macOS Release Artifacts
     pool:
       vmImage: ${{ parameters.ubuntu_pool }}
     steps:
     - checkout: none
-
     - task: DownloadPipelineArtifact@2
       displayName: Download Unsigned Distribution Artifacts
       inputs:
@@ -340,30 +326,24 @@ stages:
         buildVersionToDownload: specific
         pipelineId: ${{ parameters.source_build_id }}
         targetPath: $(Pipeline.Workspace)/unsigned-all
-
     - bash: |
         set -euo pipefail
         source_root="$(Pipeline.Workspace)/unsigned-all"
         out_dir="$(Build.ArtifactStagingDirectory)/collected-macos"
         mkdir -p "$out_dir"
-
         mapfile -t mac_assets < <(
           find "$source_root" -type f \( -name '*mac*.tar.gz' -o -name '*macos*.tar.gz' -o -name '*osx*.tar.gz' -o -name '*darwin*.tar.gz' -o -name '*mac*.zip' -o -name '*macos*.zip' \) | sort
         )
-
         if [[ ${#mac_assets[@]} -eq 0 ]]; then
           echo "ERROR: No macOS release artifacts found under $source_root"
           exit 1
         fi
-
         printf 'macOS release artifacts (%s):\n' "${#mac_assets[@]}"
         printf '  %s\n' "${mac_assets[@]}"
-
         for asset in "${mac_assets[@]}"; do
           cp "$asset" "$out_dir/"
         done
       displayName: Collect macOS Release Artifacts
-
     - task: PublishPipelineArtifact@1
       displayName: Publish Collected macOS Artifacts
       inputs:
@@ -371,9 +351,140 @@ stages:
         artifact: collected-macos
         publishLocation: pipeline
 
-- stage: ValidateSignedArtifacts
-  displayName: Validate Signed Artifacts
-  dependsOn: SignArtifacts
+- stage: ValidateNugetArtifacts
+  displayName: Validate NuGet Artifacts
+  dependsOn: SignNugetArtifacts
+  jobs:
+  - job: ValidateNuget
+    displayName: Validate Signed NuGet Packages
+    pool:
+      vmImage: ${{ parameters.windows_pool }}
+    steps:
+    - checkout: none
+    - task: UseDotNet@2
+      displayName: Setup .NET SDK
+      inputs:
+        packageType: sdk
+        useGlobalJson: true
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Signed NuGet Artifacts
+      inputs:
+        buildType: current
+        artifactName: signed-nuget
+        targetPath: $(Pipeline.Workspace)/signed-nuget
+    - pwsh: |
+        $ErrorActionPreference = 'Stop'
+        $nupkgs = Get-ChildItem -Path "$(Pipeline.Workspace)/signed-nuget" -Recurse -File -Filter '*.nupkg'
+        if (-not $nupkgs) {
+          throw 'No signed .nupkg files found in signed-nuget artifact.'
+        }
+        foreach ($pkg in $nupkgs) {
+          dotnet nuget verify --all $pkg.FullName | Out-Host
+          if ($LASTEXITCODE -ne 0) {
+            throw "NuGet verification failed for $($pkg.Name)"
+          }
+        }
+      displayName: Verify NuGet Signatures
+
+- stage: ValidateWindowsArtifacts
+  displayName: Validate Windows Artifacts
+  dependsOn: SignWindowsArtifacts
+  jobs:
+  - job: ValidateWindows
+    displayName: Validate Signed Windows Payloads
+    pool:
+      vmImage: ${{ parameters.windows_pool }}
+    steps:
+    - checkout: none
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Signed Windows Artifacts
+      inputs:
+        buildType: current
+        artifactName: signed-windows
+        targetPath: $(Pipeline.Workspace)/signed-windows
+    - pwsh: |
+        $ErrorActionPreference = 'Stop'
+        $zips = Get-ChildItem -Path "$(Pipeline.Workspace)/signed-windows" -Recurse -File | Where-Object { $_.Name -like '*win-*.zip' }
+        if (-not $zips) {
+          throw 'No signed Windows zip files found in signed-windows artifact.'
+        }
+        foreach ($zip in $zips) {
+          $extract = Join-Path "$(Pipeline.Workspace)/verify-win" $zip.BaseName
+          New-Item -ItemType Directory -Path $extract -Force | Out-Null
+          Expand-Archive -Path $zip.FullName -DestinationPath $extract -Force
+        }
+        $toVerify = Get-ChildItem -Path "$(Pipeline.Workspace)/verify-win" -Recurse -File | Where-Object {
+          $_.Name -ieq 'azv2.exe' -or
+          $_.Name -like 'Microsoft.Azure.Cirrus*.dll' -or
+          $_.Name -like 'Microsoft.Azure.Cirrus*.exe'
+        }
+        foreach ($file in $toVerify) {
+          $signature = Get-AuthenticodeSignature -FilePath $file.FullName
+          if ($signature.Status -ne 'Valid') {
+            throw "Authenticode verification failed for $($file.FullName). Status: $($signature.Status)"
+          }
+        }
+      displayName: Verify Windows Signatures
+
+- stage: ValidateLinuxArtifacts
+  displayName: Validate Linux Artifacts
+  dependsOn: CollectLinuxArtifacts
+  jobs:
+  - job: ValidateLinux
+    displayName: Validate Linux Artifact Set
+    pool:
+      vmImage: ${{ parameters.ubuntu_pool }}
+    steps:
+    - checkout: none
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Collected Linux Artifacts
+      inputs:
+        buildType: current
+        artifactName: collected-linux
+        targetPath: $(Pipeline.Workspace)/collected-linux
+    - bash: |
+        set -euo pipefail
+        count=$(find "$(Pipeline.Workspace)/collected-linux" -type f \( -name '*linux*.tar.gz' -o -name '*linux*.zip' \) | wc -l | tr -d ' ')
+        if [[ "$count" == "0" ]]; then
+          echo 'ERROR: No Linux artifacts found after collection.'
+          exit 1
+        fi
+        echo "Linux artifact count: $count"
+      displayName: Validate Linux Artifact Presence
+
+- stage: ValidateMacOSArtifacts
+  displayName: Validate macOS Artifacts
+  dependsOn: CollectMacOSArtifacts
+  jobs:
+  - job: ValidateMacOS
+    displayName: Validate macOS Artifact Set
+    pool:
+      vmImage: ${{ parameters.ubuntu_pool }}
+    steps:
+    - checkout: none
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Collected macOS Artifacts
+      inputs:
+        buildType: current
+        artifactName: collected-macos
+        targetPath: $(Pipeline.Workspace)/collected-macos
+    - bash: |
+        set -euo pipefail
+        count=$(find "$(Pipeline.Workspace)/collected-macos" -type f \( -name '*mac*.tar.gz' -o -name '*macos*.tar.gz' -o -name '*osx*.tar.gz' -o -name '*darwin*.tar.gz' -o -name '*mac*.zip' -o -name '*macos*.zip' \) | wc -l | tr -d ' ')
+        if [[ "$count" == "0" ]]; then
+          echo 'ERROR: No macOS artifacts found after collection.'
+          exit 1
+        fi
+        echo "macOS artifact count: $count"
+      displayName: Validate macOS Artifact Presence
+
+- stage: AssembleSignedArtifacts
+  displayName: Assemble Signed Artifacts
+  dependsOn:
+  - ValidateNugetArtifacts
+  - ValidateWindowsArtifacts
+  - ValidateLinuxArtifacts
+  - ValidateMacOSArtifacts
   jobs:
   - job: ValidateAndAssemble
     displayName: Validate And Assemble Final Signed Artifact
@@ -413,40 +524,35 @@ stages:
     - bash: |
         set -euo pipefail
         release_dir="$(Build.ArtifactStagingDirectory)/signed-release"
-        rm -rf "$release_dir"
         mkdir -p "$release_dir"
 
-        for d in "$(Pipeline.Workspace)/signed-windows" "$(Pipeline.Workspace)/signed-nuget" "$(Pipeline.Workspace)/collected-linux" "$(Pipeline.Workspace)/collected-macos"; do
-          find "$d" -type f ! -name 'signing-manifest.json' -exec cp {} "$release_dir" \;
-        done
+        cp -v "$(Pipeline.Workspace)/signed-windows"/* "$release_dir/" 2>/dev/null || true
+        cp -v "$(Pipeline.Workspace)/signed-nuget"/* "$release_dir/" 2>/dev/null || true
+        cp -v "$(Pipeline.Workspace)/collected-linux"/* "$release_dir/" 2>/dev/null || true
+        cp -v "$(Pipeline.Workspace)/collected-macos"/* "$release_dir/" 2>/dev/null || true
 
-        file_count=$(find "$release_dir" -type f | wc -l | tr -d ' ')
-        if [[ "$file_count" == "0" ]]; then
-          echo "ERROR: Final signed release assembly is empty"
-          exit 1
-        fi
-
-        manifest_path="$release_dir/signing-manifest.json"
-        RELEASE_DIR="$release_dir" python3 - <<'PY'
+        python3 - <<'PY'
         import hashlib
         import json
         import os
 
-        release_dir = os.environ['RELEASE_DIR']
+        release_dir = os.path.join(os.environ['BUILD_ARTIFACTSTAGINGDIRECTORY'], 'signed-release')
         entries = []
-
         for name in sorted(os.listdir(release_dir)):
-          if name == 'signing-manifest.json':
+          path = os.path.join(release_dir, name)
+          if not os.path.isfile(path):
             continue
-          full_path = os.path.join(release_dir, name)
-          if not os.path.isfile(full_path):
-            continue
-          with open(full_path, 'rb') as f:
-            digest = hashlib.sha256(f.read()).hexdigest()
+          h = hashlib.sha256()
+          with open(path, 'rb') as f:
+            while True:
+              chunk = f.read(1024 * 1024)
+              if not chunk:
+                break
+              h.update(chunk)
           entries.append({
-            'fileName': name,
-            'size': os.path.getsize(full_path),
-            'sha256': digest,
+            'file': name,
+            'sha256': h.hexdigest(),
+            'size': os.path.getsize(path),
           })
 
         with open(os.path.join(release_dir, 'signing-manifest.json'), 'w', encoding='utf-8') as f:
@@ -454,11 +560,11 @@ stages:
         PY
 
         echo "Final signed release contents:"
-        ls -lh "$release_dir"
-      displayName: Assemble Final Signed Release Artifact
+        ls -al "$release_dir"
+      displayName: Assemble Final Signed Artifact
 
     - task: PublishPipelineArtifact@1
-      displayName: Publish Signed Distribution Artifact
+      displayName: Publish Final Signed Artifact
       inputs:
         targetPath: $(Build.ArtifactStagingDirectory)/signed-release
         artifact: ${{ parameters.signed_artifact_name }}

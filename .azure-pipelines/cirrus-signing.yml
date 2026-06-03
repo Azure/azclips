@@ -79,6 +79,7 @@ stages:
   parameters:
     windows_pool: $(windows_pool)
     ubuntu_pool: $(ubuntu_pool)
+    dependency_stage: Preflight
     SourceProject: $(SourceProject)
     source_pipeline_name: ${{ parameters.source_pipeline_name }}
     source_build_id: ${{ parameters.source_build_id }}
