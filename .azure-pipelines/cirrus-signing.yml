@@ -78,6 +78,7 @@ stages:
 - template: templates/dist/stages/sign-with-esrp.yml
   parameters:
     windows_pool: $(windows_pool)
+    ubuntu_pool: $(ubuntu_pool)
     SourceProject: $(SourceProject)
     source_pipeline_name: ${{ parameters.source_pipeline_name }}
     source_build_id: ${{ parameters.source_build_id }}
