@@ -24,6 +24,7 @@ parameters:
     default: 'cirrus-build'
   - name: source_build_id
     displayName: 'Source build id (cirrus-build run to sign)'
+    default: '320494'
     type: string
   - name: signed_artifact_name
     displayName: 'Final signed artifact name'
