@@ -11,7 +11,7 @@ public class MsalAuthService(ILoggingService Logger, ITelemetryService Telemetry
 
     public async Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
-        using var _ = TelemetryService.ActivitySource?.StartActivity($"{nameof(MsalAuthService)}.{nameof(LoginAsync)}");
+        using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(LoginAsync)}");
         if (request.UseDeviceCodeFlow)
         {
             return await AcquireTokenWithDeviceCodeAsync(request.Scopes, request.TenantId, cancellationToken);
@@ -24,7 +24,7 @@ public class MsalAuthService(ILoggingService Logger, ITelemetryService Telemetry
 
     public async Task LogoutAsync(CancellationToken cancellationToken = default)
     {
-        using var _ = TelemetryService.ActivitySource?.StartActivity($"{nameof(MsalAuthService)}.{nameof(LogoutAsync)}");
+        using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(LogoutAsync)}");
         Logger.Verbose($"[{nameof(MsalAuthService)}] Clearing MSAL token cache.");
 
         // https://learn.microsoft.com/en-us/entra/msal/dotnet/acquiring-tokens/clear-token-cache#desktop-command-line-and-mobile-applications
@@ -48,7 +48,7 @@ public class MsalAuthService(ILoggingService Logger, ITelemetryService Telemetry
 
     private async Task<AuthResult> AcquireTokenInteractiveAsync(string[]? scopes, string? tenantId, CancellationToken cancellationToken = default)
     {
-        using var _ = TelemetryService.ActivitySource?.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenInteractiveAsync)}");
+        using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenInteractiveAsync)}");
         IPublicClientApplication app = BuildApp(tenantId);
         await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
 
@@ -59,7 +59,7 @@ public class MsalAuthService(ILoggingService Logger, ITelemetryService Telemetry
 
     private async Task<AuthResult> AcquireTokenWithDeviceCodeAsync(string[]? scopes, string? tenantId, CancellationToken cancellationToken = default)
     {
-        using var _ = TelemetryService.ActivitySource?.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenWithDeviceCodeAsync)}");
+        using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenWithDeviceCodeAsync)}");
         IPublicClientApplication app = BuildApp(tenantId);
         await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
 
@@ -119,7 +119,7 @@ public class MsalAuthService(ILoggingService Logger, ITelemetryService Telemetry
     /// <exception cref="MsalUiRequiredException">Thrown if silent acquisition fails and prompting is disabled.</exception>
     public async Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default)
     {
-        using var _ = TelemetryService.ActivitySource?.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenSilentlyAsync)}");
+        using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenSilentlyAsync)}");
 
         var app = BuildApp(tenantId);
         await RegisterTokenCacheAsync(app, plaintextUnsafe: true);

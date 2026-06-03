@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Microsoft.Azure.Cirrus.ExtensionRuntime;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
 {
@@ -71,7 +72,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
             // may publish events (using Publisher) while building the request.
             EnsureRuntimeContext();
             using HttpRequestMessage _request = await CreateRequestMessage();
-            // TODO: handle status codes
             return await SendRequestAsync(_request);
         }
 
@@ -88,6 +88,21 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
             EnsureRuntimeContext();
             HttpResponseMessage _response = await HttpPipeline.SendAsync(request, Publisher);
             await Publisher.Publish(Events.TracingHttpResponseMessage, _response);
+            // Surface non-2xx ARM responses (e.g. 404 on a missing resource group) as a thrown
+            // HttpRequestException after publishing ResourceOperationFailed, instead of silently
+            // deserializing an error body into a default response. Applied here so both the
+            // single-request path and the nextLink pagination path get the check.
+            // EnsureSuccessAsync only reads the body on failure, so the success-path content
+            // stream stays intact for the subsequent deserialize in ProcessAsync.
+            try
+            {
+                await _response.EnsureSuccessAsync(Publisher);
+            }
+            catch
+            {
+                _response.Dispose();
+                throw;
+            }
             return _response;
         }
 

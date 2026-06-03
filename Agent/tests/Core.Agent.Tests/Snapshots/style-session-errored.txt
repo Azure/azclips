@@ -1,0 +1,3 @@
+[Error]"  ✗ session.error [rate_limit] "
+[Default]"You have exceeded the model rate limit. Retry in 30s."
+[Muted]"  · 429 · user_model_rate_limited · req-abc123"

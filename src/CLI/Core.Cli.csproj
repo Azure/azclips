@@ -20,8 +20,12 @@
   <Import Project="$(MSBuildThisFileDirectory)..\..\Shared.props" />
 
   <ItemGroup>
-    <ProjectReference Include="..\Core\Core.Agent\Core.Agent.csproj" />
     <ProjectReference Include="..\Core\Core.DependencyInjection\Core.DependencyInjection.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="OpenTelemetry" Version="1.15.3" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
   </ItemGroup>
 
 
