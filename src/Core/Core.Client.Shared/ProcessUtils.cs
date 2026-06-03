@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 
-namespace Core.Common;
+namespace Core.Client.Shared;
 
 public static class ProcessUtils
 {

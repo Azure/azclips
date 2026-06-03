@@ -20,7 +20,7 @@
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
         </ProjectReference>
-        <ProjectReference Include="..\..\Core\Core.Common\Core.Common.csproj" />
+        <ProjectReference Include="..\..\Core\Core.Client.Shared\Core.Client.Shared.csproj" />
         <ProjectReference Include="..\..\Core\Core.DependencyInjection\Core.DependencyInjection.csproj">
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
