@@ -46,7 +46,7 @@ stages:
       displayName: Setup .NET SDK
       inputs:
         packageType: sdk
-        useGlobalJson: true
+        version: '8.0.x'
     - task: DownloadPipelineArtifact@2
       displayName: Download Unsigned Distribution Artifacts
       inputs:
@@ -192,7 +192,7 @@ stages:
       displayName: Setup .NET SDK
       inputs:
         packageType: sdk
-        useGlobalJson: true
+        version: '8.0.x'
     - task: DownloadPipelineArtifact@2
       displayName: Download Unsigned Distribution Artifacts
       inputs:
@@ -499,7 +499,7 @@ stages:
       displayName: Setup .NET SDK
       inputs:
         packageType: sdk
-        useGlobalJson: true
+        version: '8.0.x'
     - task: DownloadPipelineArtifact@2
       displayName: Download Signed NuGet Artifacts
       inputs:
