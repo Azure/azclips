@@ -31,19 +31,19 @@ parameters:
   default: 'CP-230012'
 - name: esrp_enable_nuget_verify
   type: boolean
-  default: false
+  default: true
 - name: esrp_enable_windows_verify
   type: boolean
-  default: false
+  default: true
 - name: esrp_enable_windows_timestamp
   type: boolean
-  default: false
+  default: true
 - name: esrp_windows_timestamp_rfc3161
   type: string
   default: '/tr "http://timestamp.acs.microsoft.com" /td SHA256'
 - name: esrp_require_windows_strong_name
   type: boolean
-  default: false
+  default: true
 
 stages:
 - stage: SignNugetArtifacts
@@ -311,104 +311,197 @@ stages:
 
           $totalBytes = ($files | Measure-Object -Property Length -Sum).Sum
           Write-Host "Windows total bytes to sign: $totalBytes"
-    - task: EsrpCodeSigning@5
-      displayName: Sign Windows Payload [azv2.exe]
-      condition: eq(variables['HasWindowsPayload'], 'true')
-      inputs:
-        ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
-        AppRegistrationClientId: '$(ESRPAppClientId)'
-        AppRegistrationTenantId: '$(ESRPAppTenantId)'
-        AuthAKVName: '$(ESRPKVName)'
-        AuthCertName: '$(ESRPAuthCertName)'
-        AuthSignCertName: '$(ESRPSignCertName)'
-        batchSignPolicyFile: ''
-        ciPolicyFile: ''
-        FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
-        UseMinimatch: true
-        Pattern: '**/azv2.exe'
-        signConfigType: inlineSignParams
-        inlineOperation: |
-          [
-            {
-              "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
-              "OperationCode": "SigntoolSign",
-              "Parameters": {
-                "OpusName": "Microsoft",
-                "OpusInfo": "http://www.microsoft.com",
-                "FileDigest": "/fd SHA256",
-                "PageHash": "/NPH"${{ if eq(parameters.esrp_enable_windows_timestamp, true) }},
-                "TimeStamp": "${{ parameters.esrp_windows_timestamp_rfc3161 }}"
-              },
-              "ToolName": "sign",
-              "ToolVersion": "1.0"
-            }
-          ]
-
-    - task: EsrpCodeSigning@5
-      displayName: Sign Windows Payload [Cirrus DLLs]
-      condition: eq(variables['HasWindowsPayload'], 'true')
-      inputs:
-        ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
-        AppRegistrationClientId: '$(ESRPAppClientId)'
-        AppRegistrationTenantId: '$(ESRPAppTenantId)'
-        AuthAKVName: '$(ESRPKVName)'
-        AuthCertName: '$(ESRPAuthCertName)'
-        AuthSignCertName: '$(ESRPSignCertName)'
-        batchSignPolicyFile: ''
-        ciPolicyFile: ''
-        FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
-        UseMinimatch: true
-        Pattern: '**/Microsoft.Azure.Cirrus*.dll'
-        signConfigType: inlineSignParams
-        inlineOperation: |
-          [
-            {
-              "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
-              "OperationCode": "SigntoolSign",
-              "Parameters": {
-                "OpusName": "Microsoft",
-                "OpusInfo": "http://www.microsoft.com",
-                "FileDigest": "/fd SHA256",
-                "PageHash": "/NPH"${{ if eq(parameters.esrp_enable_windows_timestamp, true) }},
-                "TimeStamp": "${{ parameters.esrp_windows_timestamp_rfc3161 }}"
-              },
-              "ToolName": "sign",
-              "ToolVersion": "1.0"
-            }
-          ]
-
-    - task: EsrpCodeSigning@5
-      displayName: Sign Windows Payload [Cirrus EXEs]
-      condition: eq(variables['HasWindowsPayload'], 'true')
-      inputs:
-        ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
-        AppRegistrationClientId: '$(ESRPAppClientId)'
-        AppRegistrationTenantId: '$(ESRPAppTenantId)'
-        AuthAKVName: '$(ESRPKVName)'
-        AuthCertName: '$(ESRPAuthCertName)'
-        AuthSignCertName: '$(ESRPSignCertName)'
-        batchSignPolicyFile: ''
-        ciPolicyFile: ''
-        FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
-        UseMinimatch: true
-        Pattern: '**/Microsoft.Azure.Cirrus*.exe'
-        signConfigType: inlineSignParams
-        inlineOperation: |
-          [
-            {
-              "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
-              "OperationCode": "SigntoolSign",
-              "Parameters": {
-                "OpusName": "Microsoft",
-                "OpusInfo": "http://www.microsoft.com",
-                "FileDigest": "/fd SHA256",
-                "PageHash": "/NPH"${{ if eq(parameters.esrp_enable_windows_timestamp, true) }},
-                "TimeStamp": "${{ parameters.esrp_windows_timestamp_rfc3161 }}"
-              },
-              "ToolName": "sign",
-              "ToolVersion": "1.0"
-            }
-          ]
+    - ${{ if eq(parameters.esrp_enable_windows_timestamp, true) }}:
+      - task: EsrpCodeSigning@5
+        displayName: Sign Windows Payload [azv2.exe]
+        condition: eq(variables['HasWindowsPayload'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          batchSignPolicyFile: ''
+          ciPolicyFile: ''
+          FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
+          UseMinimatch: true
+          Pattern: '**/azv2.exe'
+          signConfigType: inlineSignParams
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolSign",
+                "Parameters": {
+                  "OpusName": "Microsoft",
+                  "OpusInfo": "http://www.microsoft.com",
+                  "FileDigest": "/fd SHA256",
+                  "PageHash": "/NPH",
+                  "TimeStamp": "${{ parameters.esrp_windows_timestamp_rfc3161 }}"
+                },
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
+      - task: EsrpCodeSigning@5
+        displayName: Sign Windows Payload [Cirrus DLLs]
+        condition: eq(variables['HasWindowsPayload'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          batchSignPolicyFile: ''
+          ciPolicyFile: ''
+          FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
+          UseMinimatch: true
+          Pattern: '**/Microsoft.Azure.Cirrus*.dll'
+          signConfigType: inlineSignParams
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolSign",
+                "Parameters": {
+                  "OpusName": "Microsoft",
+                  "OpusInfo": "http://www.microsoft.com",
+                  "FileDigest": "/fd SHA256",
+                  "PageHash": "/NPH",
+                  "TimeStamp": "${{ parameters.esrp_windows_timestamp_rfc3161 }}"
+                },
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
+      - task: EsrpCodeSigning@5
+        displayName: Sign Windows Payload [Cirrus EXEs]
+        condition: eq(variables['HasWindowsPayload'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          batchSignPolicyFile: ''
+          ciPolicyFile: ''
+          FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
+          UseMinimatch: true
+          Pattern: '**/Microsoft.Azure.Cirrus*.exe'
+          signConfigType: inlineSignParams
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolSign",
+                "Parameters": {
+                  "OpusName": "Microsoft",
+                  "OpusInfo": "http://www.microsoft.com",
+                  "FileDigest": "/fd SHA256",
+                  "PageHash": "/NPH",
+                  "TimeStamp": "${{ parameters.esrp_windows_timestamp_rfc3161 }}"
+                },
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
+    - ${{ if ne(parameters.esrp_enable_windows_timestamp, true) }}:
+      - task: EsrpCodeSigning@5
+        displayName: Sign Windows Payload [azv2.exe]
+        condition: eq(variables['HasWindowsPayload'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          batchSignPolicyFile: ''
+          ciPolicyFile: ''
+          FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
+          UseMinimatch: true
+          Pattern: '**/azv2.exe'
+          signConfigType: inlineSignParams
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolSign",
+                "Parameters": {
+                  "OpusName": "Microsoft",
+                  "OpusInfo": "http://www.microsoft.com",
+                  "FileDigest": "/fd SHA256",
+                  "PageHash": "/NPH"
+                },
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
+      - task: EsrpCodeSigning@5
+        displayName: Sign Windows Payload [Cirrus DLLs]
+        condition: eq(variables['HasWindowsPayload'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          batchSignPolicyFile: ''
+          ciPolicyFile: ''
+          FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
+          UseMinimatch: true
+          Pattern: '**/Microsoft.Azure.Cirrus*.dll'
+          signConfigType: inlineSignParams
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolSign",
+                "Parameters": {
+                  "OpusName": "Microsoft",
+                  "OpusInfo": "http://www.microsoft.com",
+                  "FileDigest": "/fd SHA256",
+                  "PageHash": "/NPH"
+                },
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
+      - task: EsrpCodeSigning@5
+        displayName: Sign Windows Payload [Cirrus EXEs]
+        condition: eq(variables['HasWindowsPayload'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          batchSignPolicyFile: ''
+          ciPolicyFile: ''
+          FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
+          UseMinimatch: true
+          Pattern: '**/Microsoft.Azure.Cirrus*.exe'
+          signConfigType: inlineSignParams
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolSign",
+                "Parameters": {
+                  "OpusName": "Microsoft",
+                  "OpusInfo": "http://www.microsoft.com",
+                  "FileDigest": "/fd SHA256",
+                  "PageHash": "/NPH"
+                },
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
     - ${{ if eq(parameters.esrp_enable_windows_verify, true) }}:
       - task: EsrpCodeSigning@5
         displayName: Verify Windows Payload In ESRP [azv2.exe]

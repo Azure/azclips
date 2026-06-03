@@ -23,15 +23,15 @@ parameters:
 - name: enable_esrp_nuget_verify
   displayName: 'Enable ESRP NuGet verify pass'
   type: boolean
-  default: false
+  default: true
 - name: enable_esrp_windows_verify
   displayName: 'Enable ESRP Windows verify pass'
   type: boolean
-  default: false
+  default: true
 - name: enable_windows_timestamp
   displayName: 'Enable Windows RFC3161 timestamp parameter'
   type: boolean
-  default: false
+  default: true
 - name: windows_timestamp_rfc3161
   displayName: 'Windows RFC3161 timestamp parameter value'
   type: string
@@ -39,7 +39,7 @@ parameters:
 - name: require_windows_strong_name
   displayName: 'Require strong-name verification for Cirrus DLLs'
   type: boolean
-  default: false
+  default: true
 
 variables:
 - template: templates/variables.yml
