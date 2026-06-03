@@ -29,7 +29,7 @@
     <output>/help/<ext>/<key>.md, with a repo-root fallback for the dev loop.
   -->
   <ItemGroup>
-    <Content Include="help\**\*.md">
+    <Content Include="Help\**\*.md">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <Link>help\%(RecursiveDir)%(Filename)%(Extension)</Link>

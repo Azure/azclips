@@ -21,7 +21,7 @@ namespace Cirrus.Help.Tool.Validation
         public ValidationReport Validate(string repoRoot)
         {
             var report = new ValidationReport();
-            var helpRoot = Path.Combine(repoRoot, "src", "CLI", "help");
+            var helpRoot = Path.Combine(repoRoot, "src", "CLI", "Help");
 
             if (!Directory.Exists(helpRoot))
             {

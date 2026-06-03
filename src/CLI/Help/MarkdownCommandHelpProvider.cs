@@ -22,7 +22,7 @@ public sealed record MarkdownCommandHelp(string Summary, string Description, IRe
 }
 
 /// <summary>
-/// Reads and parses help markdown from <c>src/CLI/help/&lt;ext&gt;/*.md</c> at
+/// Reads and parses help markdown from <c>src/CLI/Help/&lt;ext&gt;/*.md</c> at
 /// runtime. This is the cold-path entry point for CLI help rendering.
 /// </summary>
 /// <remarks>
@@ -34,8 +34,8 @@ public sealed record MarkdownCommandHelp(string Summary, string Description, IRe
 /// Two lookup roots, in order:
 /// <list type="number">
 ///   <item><description><c>&lt;AppContext.BaseDirectory&gt;/help/&lt;ext&gt;/&lt;key&gt;.md</c> — the packaged path; the
-///   <c>Core.Cli</c> project copies <c>src/CLI/help/**/*.md</c> to its output as content.</description></item>
-///   <item><description><c>&lt;repoRoot&gt;/src/CLI/help/&lt;ext&gt;/&lt;key&gt;.md</c> — dev-loop fallback so authors can edit
+///   <c>Core.Cli</c> project copies <c>src/CLI/Help/**/*.md</c> to its output as content.</description></item>
+///   <item><description><c>&lt;repoRoot&gt;/src/CLI/Help/&lt;ext&gt;/&lt;key&gt;.md</c> — dev-loop fallback so authors can edit
 ///   markdown without re-running the build.</description></item>
 /// </list>
 /// </para>
@@ -138,7 +138,7 @@ public static class MarkdownCommandHelpProvider
         var repoRoot = FindRepoRoot();
         if (repoRoot != null)
         {
-            var source = Path.Combine(repoRoot, "src", "CLI", "help", folder, fileName);
+            var source = Path.Combine(repoRoot, "src", "CLI", "Help", folder, fileName);
             if (File.Exists(source))
             {
                 return source;
