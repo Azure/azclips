@@ -106,6 +106,14 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
             {
                 throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(Publisher)}.");
             }
+            if (WriteOutput is null)
+            {
+                throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(WriteOutput)}.");
+            }
+            if (JsonOptions is null)
+            {
+                throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(JsonOptions)}.");
+            }
         }
 
         /// <summary>
