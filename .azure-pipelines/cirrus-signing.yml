@@ -40,6 +40,23 @@ parameters:
   displayName: 'Require strong-name verification for Cirrus DLLs'
   type: boolean
   default: true
+- name: windows_sign_architectures
+  displayName: 'Windows architectures to sign'
+  type: object
+  default:
+  - x64
+- name: linux_collect_architectures
+  displayName: 'Linux architectures to collect'
+  type: object
+  default:
+  - x64
+  - arm64
+- name: macos_collect_architectures
+  displayName: 'macOS architectures to collect'
+  type: object
+  default:
+  - x64
+  - arm64
 
 variables:
 - template: templates/variables.yml
@@ -136,3 +153,6 @@ stages:
     esrp_enable_windows_timestamp: ${{ parameters.enable_windows_timestamp }}
     esrp_windows_timestamp_rfc3161: ${{ parameters.windows_timestamp_rfc3161 }}
     esrp_require_windows_strong_name: ${{ parameters.require_windows_strong_name }}
+    windows_sign_architectures: ${{ parameters.windows_sign_architectures }}
+    linux_collect_architectures: ${{ parameters.linux_collect_architectures }}
+    macos_collect_architectures: ${{ parameters.macos_collect_architectures }}

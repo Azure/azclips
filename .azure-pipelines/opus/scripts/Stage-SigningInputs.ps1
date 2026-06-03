@@ -42,9 +42,9 @@ $nupkgRoot          = Join-Path $WorkingRoot 'nupkg'
 $msiRoot            = Join-Path $WorkingRoot 'msi'
 New-Item -ItemType Directory -Force -Path $WorkingRoot, $ReleaseRoot, $windowsExtractRoot, $nupkgRoot, $msiRoot | Out-Null
 
-$assets = Get-ChildItem -Path $UnsignedRoot -Recurse -File | Where-Object {
+$assets = @(Get-ChildItem -Path $UnsignedRoot -Recurse -File | Where-Object {
     $_.Extension -in '.zip', '.tar.gz', '.nupkg', '.msi' -or $_.Name -like '*.tar.gz'
-}
+})
 
 if (-not $assets) {
     throw "No release assets (.zip, .tar.gz, .nupkg, .msi) found under $UnsignedRoot"
@@ -56,14 +56,14 @@ foreach ($asset in $assets) {
 }
 
 # Flat-copy nupkg and msi so ESRP signs them in place.
-$nupkgs = $assets | Where-Object { $_.Name -like '*.nupkg' -and $_.Name -notlike '*.snupkg' }
+$nupkgs = @($assets | Where-Object { $_.Name -like '*.nupkg' -and $_.Name -notlike '*.snupkg' })
 foreach ($p in $nupkgs) { Copy-Item $p.FullName -Destination (Join-Path $nupkgRoot $p.Name) -Force }
 
-$msis = $assets | Where-Object { $_.Extension -eq '.msi' }
+$msis = @($assets | Where-Object { $_.Extension -eq '.msi' })
 foreach ($m in $msis) { Copy-Item $m.FullName -Destination (Join-Path $msiRoot $m.Name) -Force }
 
 # Extract Windows zips (anything matching *win*.zip) so binaries can be signed.
-$windowsZips = $assets | Where-Object { $_.Name -like '*win-*' -and $_.Extension -eq '.zip' }
+$windowsZips = @($assets | Where-Object { $_.Name -like '*win-*' -and $_.Extension -eq '.zip' })
 $zipMap = @()
 foreach ($zip in $windowsZips) {
     $folderName  = [System.IO.Path]::GetFileNameWithoutExtension($zip.Name)
