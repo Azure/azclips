@@ -20,6 +20,10 @@ parameters:
   displayName: 'ESRP Service Connection'
   type: string
   default: 'ame_esrp_connection'
+- name: macos_bundle_id
+  displayName: 'macOS bundle id for notarization'
+  type: string
+  default: 'com.microsoft.cirrus.cli'
 - name: enable_esrp_nuget_verify
   displayName: 'Enable ESRP NuGet verify pass'
   type: boolean
@@ -47,13 +51,6 @@ parameters:
   default:
   - x64
   - arm64
-- name: macos_collect_architectures
-  displayName: 'macOS architectures to collect'
-  type: object
-  default:
-  - x64
-  - arm64
-
 variables:
 - template: templates/variables.yml
 - ${{ if eq(variables['System.TeamProject'], 'release') }}:
@@ -138,16 +135,18 @@ stages:
   parameters:
     windows_pool: $(windows_pool)
     ubuntu_pool: $(ubuntu_pool)
+    macos_arm64_pool: $(macos_arm64_pool)
+    macos_intel_pool: $(macos_intel_pool)
     dependency_stage: Preflight
     SourceProject: $(SourceProject)
     source_pipeline_name: ${{ parameters.source_pipeline_name }}
     source_build_id: ${{ parameters.source_build_id }}
     signed_artifact_name: ${{ parameters.signed_artifact_name }}
     esrp_service_connection: ${{ parameters.ESRPServiceConnection }}
+    macos_bundle_id: ${{ parameters.macos_bundle_id }}
     esrp_enable_nuget_verify: ${{ parameters.enable_esrp_nuget_verify }}
     esrp_enable_windows_verify: ${{ parameters.enable_esrp_windows_verify }}
     esrp_enable_windows_timestamp: ${{ parameters.enable_windows_timestamp }}
     esrp_require_windows_strong_name: ${{ parameters.require_windows_strong_name }}
     windows_sign_architectures: ${{ parameters.windows_sign_architectures }}
     linux_collect_architectures: ${{ parameters.linux_collect_architectures }}
-    macos_collect_architectures: ${{ parameters.macos_collect_architectures }}
