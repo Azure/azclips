@@ -37,7 +37,7 @@ parameters:
   default: true
 - name: esrp_enable_windows_timestamp
   type: boolean
-  default: true
+  default: false
 - name: esrp_windows_timestamp_rfc3161
   type: string
   default: '/tr http://timestamp.acs.microsoft.com /td SHA256'

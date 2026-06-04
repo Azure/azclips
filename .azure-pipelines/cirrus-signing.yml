@@ -31,7 +31,7 @@ parameters:
 - name: enable_windows_timestamp
   displayName: 'Enable Windows RFC3161 timestamp parameter'
   type: boolean
-  default: true
+  default: false
 - name: windows_timestamp_rfc3161
   displayName: 'Windows RFC3161 timestamp parameter value'
   type: string

@@ -54,7 +54,7 @@ parameters:
     default: 'CP-231522'
   - name: rfc3161_timestamp
     type: string
-    default: '/tr "http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer" /td sha256'
+    default: '/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256'
 
 stages:
 

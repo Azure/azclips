@@ -92,7 +92,7 @@ cirrus-build  ──► (artifacts: *win-*.zip, *.nupkg, *linux*.tar.gz, *macos*
 - `SessionTimeout: '60'`
 - `MaxConcurrency: '25'`
 - `MaxRetryAttempts: '5'`
-- RFC3161 timestamp: `/tr "http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer" /td sha256` (passed via the `TimeStamp` parameter to `SigntoolSign`).
+- RFC3161 timestamp: `/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256` (passed via the `TimeStamp` parameter to `SigntoolSign`; matches the azure-powershell signing pipelines exactly. The `\"` are JSON-escaped quotes — signtool receives the URL quoted).
 
 ## How to run
 
