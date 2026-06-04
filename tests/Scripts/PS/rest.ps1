@@ -28,3 +28,23 @@ Invoke-CirrusRestMethod `
 Invoke-CirrusRestMethod `
     -Method FOO `
     -Uri "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01"
+
+# Negative case: an HTTP error (>= 400) must surface the body AND raise a terminating error so
+# scripts can detect it via $? / try-catch. This GET targets a resource group that does not exist
+# and is expected to return 404; the full RestResponse (status/headers/body) is still shown.
+Invoke-CirrusRestMethod `
+    -Method GET `
+    -Uri "/subscriptions/{subscriptionId}/resourcegroups/this-rg-does-not-exist-404?api-version=2021-04-01"
+# After the call, $? should be $false (terminating error) — surface it for the test harness.
+Write-Host "After 404 case, `$? = $?"
+
+# Negative case: an absolute URL pointing at a non-ARM host must be REJECTED before any request is
+# sent, so the ARM bearer token is never leaked to an arbitrary destination (token exfiltration).
+Invoke-CirrusRestMethod `
+    -Method GET `
+    -Uri "https://example.com/steal-the-token"
+
+# Negative case: an absolute http:// (non-https) ARM URL must be rejected.
+Invoke-CirrusRestMethod `
+    -Method GET `
+    -Uri "http://management.azure.com/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01"
