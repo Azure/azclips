@@ -31,7 +31,19 @@ function Test-Authenticode([string]$Path) {
 function Test-NugetPackage([string]$Path) {
     # Use the dotnet CLI's verifier so we don't depend on the legacy nuget.exe
     # (matches the validation stages and the current cirrus signing template).
-    $output = & dotnet nuget verify --all $Path 2>&1
+    #
+    # IMPORTANT: the dotnet muxer reads `global.json` from the current
+    # directory and refuses to run *any* subcommand (including `nuget verify`)
+    # if the pinned SDK is not installed. Push to a directory without a
+    # global.json so SDK resolution is unaffected.
+    $tempCwd = [System.IO.Path]::GetTempPath()
+    Push-Location $tempCwd
+    try {
+        $output = & dotnet nuget verify --all $Path 2>&1
+    }
+    finally {
+        Pop-Location
+    }
     if ($LASTEXITCODE -ne 0) {
         $failures.Add("NUGET [exit=$LASTEXITCODE] $Path`n$output")
     }

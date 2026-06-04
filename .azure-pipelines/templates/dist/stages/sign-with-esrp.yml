@@ -37,10 +37,7 @@ parameters:
   default: true
 - name: esrp_enable_windows_timestamp
   type: boolean
-  default: false
-- name: esrp_windows_timestamp_rfc3161
-  type: string
-  default: '/tr http://timestamp.acs.microsoft.com /td SHA256'
+  default: true
 - name: esrp_require_windows_strong_name
   type: boolean
   default: true
@@ -348,30 +345,6 @@ stages:
 
           $totalBytes = ($files | Measure-Object -Property Length -Sum).Sum
           Write-Host "Windows total bytes to sign: $totalBytes"
-    - task: PowerShell@2
-      displayName: Normalize Windows Timestamp Parameter
-      inputs:
-        targetType: inline
-        pwsh: true
-        script: |
-          $ErrorActionPreference = 'Stop'
-          $timestamp = '${{ parameters.esrp_windows_timestamp_rfc3161 }}'
-          if ([string]::IsNullOrWhiteSpace($timestamp)) {
-            throw 'esrp_windows_timestamp_rfc3161 must not be empty when timestamp signing is enabled.'
-          }
-
-          # Remove quote variants so inlineOperation JSON cannot be broken by an unescaped argument.
-          $timestamp = $timestamp -replace '["''`“”]', ''
-          $timestamp = $timestamp.Trim()
-
-          # Enforce expected signtool shape; fallback to known-good argument if caller input is malformed.
-          if ($timestamp -notmatch '^/tr\s+\S+\s+/td\s+SHA256$') {
-            Write-Warning "Invalid timestamp argument format '$timestamp'. Falling back to default RFC3161 value."
-            $timestamp = '/tr http://timestamp.acs.microsoft.com /td SHA256'
-          }
-
-          Write-Host "Normalized TimeStamp argument: $timestamp"
-          Write-Host "##vso[task.setvariable variable=WindowsTimestampArg]$timestamp"
     - ${{ if eq(parameters.esrp_enable_windows_timestamp, true) }}:
       - task: EsrpCodeSigning@5
         displayName: Sign Windows Payload [azv2.exe]
@@ -399,7 +372,7 @@ stages:
                   "OpusInfo": "http://www.microsoft.com",
                   "FileDigest": "/fd SHA256",
                   "PageHash": "/NPH",
-                  "TimeStamp": "$(WindowsTimestampArg)"
+                  "TimeStamp": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
                 },
                 "ToolName": "sign",
                 "ToolVersion": "1.0"
@@ -431,7 +404,7 @@ stages:
                   "OpusInfo": "http://www.microsoft.com",
                   "FileDigest": "/fd SHA256",
                   "PageHash": "/NPH",
-                  "TimeStamp": "$(WindowsTimestampArg)"
+                  "TimeStamp": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
                 },
                 "ToolName": "sign",
                 "ToolVersion": "1.0"
@@ -463,7 +436,7 @@ stages:
                   "OpusInfo": "http://www.microsoft.com",
                   "FileDigest": "/fd SHA256",
                   "PageHash": "/NPH",
-                  "TimeStamp": "$(WindowsTimestampArg)"
+                  "TimeStamp": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
                 },
                 "ToolName": "sign",
                 "ToolVersion": "1.0"
@@ -1069,7 +1042,7 @@ stages:
             'esrpNugetVerifyEnabled': '${{ parameters.esrp_enable_nuget_verify }}',
             'esrpWindowsVerifyEnabled': '${{ parameters.esrp_enable_windows_verify }}',
             'windowsTimestampEnabled': '${{ parameters.esrp_enable_windows_timestamp }}',
-            'windowsTimestampSetting': '${{ parameters.esrp_windows_timestamp_rfc3161 }}',
+            'windowsTimestampSetting': '/tr "http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer" /td sha256',
             'windowsStrongNameRequired': '${{ parameters.esrp_require_windows_strong_name }}',
           },
           'verificationMatrix': checks,

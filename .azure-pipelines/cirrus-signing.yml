@@ -31,11 +31,7 @@ parameters:
 - name: enable_windows_timestamp
   displayName: 'Enable Windows RFC3161 timestamp parameter'
   type: boolean
-  default: false
-- name: windows_timestamp_rfc3161
-  displayName: 'Windows RFC3161 timestamp parameter value'
-  type: string
-  default: '/tr http://timestamp.acs.microsoft.com /td SHA256'
+  default: true
 - name: require_windows_strong_name
   displayName: 'Require strong-name verification for Cirrus DLLs'
   type: boolean
@@ -151,7 +147,6 @@ stages:
     esrp_enable_nuget_verify: ${{ parameters.enable_esrp_nuget_verify }}
     esrp_enable_windows_verify: ${{ parameters.enable_esrp_windows_verify }}
     esrp_enable_windows_timestamp: ${{ parameters.enable_windows_timestamp }}
-    esrp_windows_timestamp_rfc3161: ${{ parameters.windows_timestamp_rfc3161 }}
     esrp_require_windows_strong_name: ${{ parameters.require_windows_strong_name }}
     windows_sign_architectures: ${{ parameters.windows_sign_architectures }}
     linux_collect_architectures: ${{ parameters.linux_collect_architectures }}
