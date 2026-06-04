@@ -47,7 +47,7 @@ src/PS/<Module>/help/*.md       ◄── PowerShell corpus (Get-Help, MAML via 
                           → copied into src/PS/<Module>/en-US/
 ```
 
-Two consumers, one source. Runtime reads markdown directly out of the extension DLL (cold-path friendly, fast iteration). Build-time tooling consumes the same markdown plus reflected `ExtensionIndex` / cmdlet metadata to validate and emit publish-ready artifacts.
+Two consumers, one source. The CLI runtime reads markdown from the host's content output (`<AppContext.BaseDirectory>/help/<ext>/<key>.md`, with a repo-source fallback for the dev loop) — cold-path friendly, no reflection, no embedded-resource path. Build-time tooling consumes the same markdown plus reflected `ExtensionIndex` / cmdlet metadata to validate and emit publish-ready artifacts.
 
 ---
 
@@ -151,7 +151,7 @@ Tests live in [tools/Help/Cirrus.Help.Tool.Tests/](../../tools/Help/Cirrus.Help.
 
 ## 7. Design Philosophy
 
-**Markdown is the contract.** Authoring is one file per command; the CLI runtime reads it directly from the extension assembly, PowerShell consumes the MAML built from the same source, and tooling validates and republishes it. There is no second source of truth — every surface derives from the same `.md` file at build time.
+**Markdown is the contract.** Authoring is one file per command; the CLI runtime reads it from the host's content output (with a repo fallback), PowerShell consumes the MAML built from the same source, and tooling validates and republishes it. There is no second source of truth — every surface derives from the same `.md` file at build time.
 
 **Lenient at runtime, strict at build.** The runtime parser tolerates malformed markdown (returns partial content, never throws) so a typo in one help file never crashes the CLI. The build-time validators are unforgiving — every defect surfaces as a CI error with a precise file:line locator.
 

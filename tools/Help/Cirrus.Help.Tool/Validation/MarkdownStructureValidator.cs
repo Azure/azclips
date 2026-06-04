@@ -7,7 +7,7 @@ using Core.Cli.Help;
 namespace Cirrus.Help.Tool.Validation
 {
     /// <summary>
-    /// Validates that markdown help files under <c>src/CLI/help/{extension}/</c> meet
+    /// Validates that markdown help files under <c>src/CLI/Help/{extension}/</c> meet
     /// the required structural contract: file-level frontmatter with required
     /// fields, a Description body, balanced code fences, and at least one example.
     /// </summary>
