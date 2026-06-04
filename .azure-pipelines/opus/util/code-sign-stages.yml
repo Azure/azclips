@@ -52,9 +52,18 @@ parameters:
   - name: esrp_third_party_keycode
     type: string
     default: 'CP-231522'
+  - name: esrp_strong_name_keycode
+    type: string
+    default: 'CP-233863-SN'
   - name: rfc3161_timestamp
     type: string
     default: '/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256'
+  # Pattern of 3rd-party DLLs that need StrongName signing (azure-powershell
+  # signs FuzzySharp.dll this way). Override per-team if more 3P libs ship
+  # strong-name-signed.
+  - name: third_party_strong_name_pattern
+    type: string
+    default: '**/FuzzySharp.dll'
 
 stages:
 
@@ -127,6 +136,71 @@ stages:
           if (-not $files) { throw "No .nupkg files found for signing in $nupkgRoot" }
           Write-Host "NuGet signing candidates ($($files.Count))"
           foreach ($file in $files) { Write-Host ("  {0}  ({1} bytes)" -f $file.Name, $file.Length) }
+
+    # ----- psd1 signing flow (mirrors azure-powershell ExpandModules / Psd1
+    # Signing / PackModules.ps1). We expand each unsigned .nupkg into a
+    # working tree, sign every inner .psd1 via Authenticode, then repack the
+    # tree back into a .nupkg. The package-level NuGetSign below then signs
+    # the outer container.
+    - task: PowerShell@2
+      displayName: Expand NuGet Packages for psd1 Signing
+      condition: eq(variables['HasNupkg'], 'true')
+      inputs:
+        targetType: filePath
+        filePath: .azure-pipelines/opus/scripts/Expand-Nupkgs.ps1
+        arguments: >-
+          -NupkgRoot "$(Pipeline.Workspace)/signing-work/nupkg"
+          -ExpandRoot "$(Pipeline.Workspace)/signing-work/nupkg-expand"
+        pwsh: true
+    - task: EsrpCodeSigning@5
+      displayName: Sign psd1 Files Inside Nupkgs [Authenticode + Verify]
+      condition: and(eq(variables['HasNupkg'], 'true'), eq(variables['HasInnerPsd1'], 'true'))
+      inputs:
+        ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+        AppRegistrationClientId: '$(ESRPAppClientId)'
+        AppRegistrationTenantId: '$(ESRPAppTenantId)'
+        AuthAKVName: '$(ESRPKVName)'
+        AuthCertName: '$(ESRPAuthCertName)'
+        AuthSignCertName: '$(ESRPSignCertName)'
+        FolderPath: '$(Pipeline.Workspace)/signing-work/nupkg-expand'
+        UseMinimatch: true
+        Pattern: '**/*.psd1'
+        signConfigType: inlineSignParams
+        SessionTimeout: '60'
+        MaxConcurrency: '25'
+        MaxRetryAttempts: '5'
+        inlineOperation: |
+          [
+            {
+              "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+              "OperationCode": "SigntoolSign",
+              "Parameters": {
+                "OpusName": "Microsoft",
+                "OpusInfo": "http://www.microsoft.com",
+                "FileDigest": "/fd SHA256",
+                "TimeStamp": "${{ parameters.rfc3161_timestamp }}"
+              },
+              "ToolName": "sign",
+              "ToolVersion": "1.0"
+            },
+            {
+              "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+              "OperationCode": "SigntoolVerify",
+              "Parameters": {},
+              "ToolName": "sign",
+              "ToolVersion": "1.0"
+            }
+          ]
+    - task: PowerShell@2
+      displayName: Repack NuGet Packages
+      condition: eq(variables['HasNupkg'], 'true')
+      inputs:
+        targetType: filePath
+        filePath: .azure-pipelines/opus/scripts/Repack-Nupkgs.ps1
+        arguments: >-
+          -NupkgRoot "$(Pipeline.Workspace)/signing-work/nupkg"
+          -ExpandRoot "$(Pipeline.Workspace)/signing-work/nupkg-expand"
+        pwsh: true
     - task: EsrpCodeSigning@5
       displayName: Sign NuGet Packages [NuGetSign + NuGetVerify]
       condition: eq(variables['HasNupkg'], 'true')
@@ -261,9 +335,11 @@ stages:
             Write-Host ("  {0}  ({1} bytes)" -f $rel, $file.Length)
           }
 
-    # 1P binaries: Cirrus*, Az.*, azv2.exe (excludes tests via pattern below)
+    # 1P binaries: Cirrus*, Az.*, azv2.exe, *.AlcWrapper.dll (excludes tests).
+    # StrongName + Authenticode in a single ESRP call, matching the
+    # azure-powershell `Sign Dll [Authenticode + Strong Name]` pass exactly.
     - task: EsrpCodeSigning@5
-      displayName: Sign Windows Binaries [1P Authenticode + Verify]
+      displayName: Sign 1P Binaries [StrongName + Authenticode + Verify]
       condition: eq(variables['HasWindowsPayload'], 'true')
       inputs:
         ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
@@ -280,6 +356,8 @@ stages:
           **/Microsoft.Azure.Cirrus*.exe
           **/Cirrus*.dll
           **/Az.*.dll
+          **/Az.*.private.dll
+          **/*.AlcWrapper.dll
           !**/*.Test.dll
           !**/*Test*.dll
           !**/*.Tests.dll
@@ -289,6 +367,20 @@ stages:
         MaxRetryAttempts: '5'
         inlineOperation: |
           [
+            {
+              "KeyCode": "${{ parameters.esrp_strong_name_keycode }}",
+              "OperationCode": "StrongNameSign",
+              "Parameters": {},
+              "ToolName": "sign",
+              "ToolVersion": "1.0"
+            },
+            {
+              "KeyCode": "${{ parameters.esrp_strong_name_keycode }}",
+              "OperationCode": "StrongNameVerify",
+              "Parameters": {},
+              "ToolName": "sign",
+              "ToolVersion": "1.0"
+            },
             {
               "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
               "OperationCode": "SigntoolSign",
@@ -357,6 +449,43 @@ stages:
             }
           ]
 
+    # 3P libs that ship strong-name-signed (FuzzySharp etc.). Mirrors the
+    # azure-powershell `Sign 3rd Party [Strong Name]` pass.
+    - task: EsrpCodeSigning@5
+      displayName: Sign Third-Party DLLs [StrongName + Verify]
+      condition: eq(variables['HasWindowsPayload'], 'true')
+      inputs:
+        ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+        AppRegistrationClientId: '$(ESRPAppClientId)'
+        AppRegistrationTenantId: '$(ESRPAppTenantId)'
+        AuthAKVName: '$(ESRPKVName)'
+        AuthCertName: '$(ESRPAuthCertName)'
+        AuthSignCertName: '$(ESRPSignCertName)'
+        FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
+        UseMinimatch: true
+        Pattern: '${{ parameters.third_party_strong_name_pattern }}'
+        signConfigType: inlineSignParams
+        SessionTimeout: '60'
+        MaxConcurrency: '25'
+        MaxRetryAttempts: '5'
+        inlineOperation: |
+          [
+            {
+              "KeyCode": "${{ parameters.esrp_strong_name_keycode }}",
+              "OperationCode": "StrongNameSign",
+              "Parameters": {},
+              "ToolName": "sign",
+              "ToolVersion": "1.0"
+            },
+            {
+              "KeyCode": "${{ parameters.esrp_strong_name_keycode }}",
+              "OperationCode": "StrongNameVerify",
+              "Parameters": {},
+              "ToolName": "sign",
+              "ToolVersion": "1.0"
+            }
+          ]
+
     # 3P DLLs (Newtonsoft.Json, Azure.*, etc.) — Append /as
     - task: EsrpCodeSigning@5
       displayName: Sign Third-Party DLLs [Append /as + Verify]
@@ -377,6 +506,9 @@ stages:
           !**/Microsoft.Azure.Cirrus*.exe
           !**/Cirrus*.dll
           !**/Az.*.dll
+          !**/Az.*.private.dll
+          !**/*.AlcWrapper.dll
+          !**/FuzzySharp.dll
           !**/*.Test.dll
           !**/*Test*.dll
           !**/*.Tests.dll

@@ -13,6 +13,8 @@ There is **no cross-project orchestration**, no REST triggering, and no storage 
 │   └── code-sign-stages.yml         # Multi-stage signing template
 ├── scripts/
 │   ├── Stage-SigningInputs.ps1      # Stage downloaded build outputs for signing
+│   ├── Expand-Nupkgs.ps1            # Expand each .nupkg so inner *.psd1 can be signed
+│   ├── Repack-Nupkgs.ps1            # Re-zip expanded nupkg trees back into .nupkg
 │   ├── Repack-WindowsZips.ps1       # Re-zip the (now-signed) Windows payloads
 │   ├── Collect-SignedArtifacts.ps1  # Copy signed nupkg / msi to release root
 │   ├── Verify-Signatures.ps1        # Authenticode / dotnet nuget verify
@@ -69,23 +71,34 @@ cirrus-build  ──► (artifacts: *win-*.zip, *.nupkg, *linux*.tar.gz, *macos*
 
 ## ESRP key codes
 
-| KeyCode      | Used for                                                                         |
-| ------------ | -------------------------------------------------------------------------------- |
-| `CP-230012`  | 1P Authenticode — Cirrus binaries, scripts (`*.ps1`/`*.psm1`/`*.psd1`/`*.ps1xml`/`*.js`), and MSI installer. |
-| `CP-231522`  | 3P Authenticode (Append `/as`) — third-party DLLs (Newtonsoft.Json, Azure SDK, etc.). |
-| `CP-401405`  | NuGet — `NuGetSign` + `NuGetVerify`.                                             |
+| KeyCode         | Used for                                                                         |
+| --------------- | -------------------------------------------------------------------------------- |
+| `CP-230012`     | 1P Authenticode — Cirrus binaries, scripts (`*.ps1`/`*.psm1`/`*.psd1`/`*.ps1xml`/`*.js`), inner-nupkg `*.psd1`, and MSI installer. |
+| `CP-231522`     | 3P Authenticode (Append `/as`) — third-party DLLs (Newtonsoft.Json, Azure SDK, etc.). |
+| `CP-233863-SN`  | StrongName — 1P binaries (combined with Authenticode in one ESRP call) and any 3P libs that ship strong-name-signed (default pattern: `**/FuzzySharp.dll`). |
+| `CP-401405`     | NuGet — `NuGetSign` + `NuGetVerify` (after psd1 sign + repack).                  |
 
 ## What we sign
 
-| Asset class       | Pattern                                                                | Pass                                |
-| ----------------- | ---------------------------------------------------------------------- | ----------------------------------- |
-| Cirrus binaries   | `**/azv2.exe`, `**/Microsoft.Azure.Cirrus*.dll`/`.exe`, `**/Cirrus*.dll`, `**/Az.*.dll` | 1P Authenticode + `SigntoolVerify`  |
-| Test DLLs         | `!**/*.Test.dll`, `!**/*Test*.dll`, `!**/*.Tests.dll`                  | _excluded_                          |
-| Scripts           | `**/*.ps1`, `**/*.psm1`, `**/*.psd1`, `**/*.ps1xml`, `**/*.js`         | 1P Authenticode + `SigntoolVerify`  |
-| Third-party DLLs  | `**/*.dll` minus the above                                             | 3P Authenticode (`Append /as`) + `SigntoolVerify` |
-| MSI               | `*.msi`                                                                | 1P Authenticode + `SigntoolVerify`  |
-| NuPkg             | `Microsoft.Azure.Cirrus*.nupkg`                                        | `NuGetSign` + `NuGetVerify`         |
-| Linux / macOS     | `*linux*.tar.gz/zip`, `*mac*/*macos*/*osx*/*darwin*.tar.gz/zip`        | _passed through unsigned_           |
+| Asset class            | Pattern                                                                                       | Pass                                                  |
+| ---------------------- | --------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Cirrus 1P binaries     | `**/azv2.exe`, `**/Microsoft.Azure.Cirrus*.dll`/`.exe`, `**/Cirrus*.dll`, `**/Az.*.dll`, `**/Az.*.private.dll`, `**/*.AlcWrapper.dll` | StrongName + Authenticode + `SigntoolVerify` (single ESRP call, 4 ops) |
+| Test DLLs              | `!**/*.Test.dll`, `!**/*Test*.dll`, `!**/*.Tests.dll`                                         | _excluded_                                            |
+| Scripts (loose, in zips) | `**/*.ps1`, `**/*.psm1`, `**/*.psd1`, `**/*.ps1xml`, `**/*.js`                              | Authenticode + `SigntoolVerify`                       |
+| Third-party StrongName | `**/FuzzySharp.dll` (parameterized)                                                           | StrongName + Verify                                   |
+| Third-party Authenticode | `**/*.dll` minus 1P, minus 3P-SN, minus tests                                               | 3P Authenticode (`Append /as`) + `SigntoolVerify`     |
+| MSI                    | `*.msi`                                                                                       | Authenticode + `SigntoolVerify`                       |
+| `*.psd1` inside nupkg  | `nupkg-expand/**/*.psd1`                                                                      | Authenticode + `SigntoolVerify` (between expand and repack) |
+| NuPkg (outer)          | `Microsoft.Azure.Cirrus*.nupkg` (after expand → sign psd1 → repack)                            | `NuGetSign` + `NuGetVerify`                           |
+| Linux / macOS          | `*linux*.tar.gz/zip`, `*mac*/*macos*/*osx*/*darwin*.tar.gz/zip`                               | _passed through unsigned_                             |
+
+The NuGet stage runs three ESRP-related passes in order:
+
+1. **Expand** every unsigned `.nupkg` into `signing-work/nupkg-expand/<package>/`.
+2. **Sign** every inner `*.psd1` via `CP-230012` (gated on `HasInnerPsd1`).
+3. **Repack** the expanded trees back into `.nupkg` files — then `NuGetSign` the outer container.
+
+This matches the azure-powershell `ExpandModules` → `Psd1 Signing` → `PackModules.ps1` → `Nupkg Signing` sequence.
 
 ## ESRP knobs (per signing pass)
 
@@ -112,6 +125,9 @@ The final signed drop is published as the artifact named by `signed_artifact_nam
 | Per-pass `SigntoolVerify`       | ❌                                       | ✅ (each ESRP pass appends a verify operation)                    |
 | RFC3161 timestamp               | ❌                                       | ✅                                                                 |
 | Script signing (`ps1`/`psm1`/…) | ❌                                       | ✅                                                                 |
+| StrongName 1P (`CP-233863-SN`)  | ❌                                       | ✅ (combined with Authenticode in one ESRP call)                  |
+| StrongName 3P (`CP-233863-SN`)  | ❌                                       | ✅ (default pattern `**/FuzzySharp.dll`, parameterized)            |
+| Inner-nupkg `psd1` signing      | ❌                                       | ✅ (expand → sign psd1 → repack → `NuGetSign`)                    |
 | 3P DLL signing (`Append /as`)   | ❌                                       | ✅ (`CP-231522`)                                                   |
 | MSI signing                     | ❌                                       | ✅ (when `HasMsi=true`)                                            |
 | Test-DLL exclusion              | implicit (only `Cirrus*` patterns)      | explicit (`!**/*Test*.dll`)                                       |
