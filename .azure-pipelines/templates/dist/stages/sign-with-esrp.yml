@@ -897,10 +897,7 @@ stages:
         AuthAKVName: '$(ESRPKVName)'
         AuthCertName: '$(ESRPAuthCertName)'
         AuthSignCertName: '$(ESRPSignCertName)'
-        batchSignPolicyFile: ''
-        ciPolicyFile: ''
         FolderPath: '$(Pipeline.Workspace)/macos-signing-inputs/toBeSigned'
-        UseMinimatch: true
         Pattern: '*.zip'
         signConfigType: inlineSignParams
         SessionTimeout: '60'
@@ -919,11 +916,62 @@ stages:
               "ToolVersion": "1.0"
             }
           ]
+    - pwsh: |
+        $ErrorActionPreference = 'Stop'
+        $signedZipsDir = "$(Pipeline.Workspace)/macos-signing-inputs/toBeSigned"
+        $mappingPath = "$(Pipeline.Workspace)/macos-signing-inputs/file-mapping.tsv"
+        $outputDir = "$(Build.ArtifactStagingDirectory)/macos-signed-binaries"
+        $tempRoot = "$(Pipeline.Workspace)/macos-signed-extract"
+
+        New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
+        New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
+
+        $count = 0
+        Get-Content $mappingPath | ForEach-Object {
+          if ([string]::IsNullOrWhiteSpace($_)) {
+            return
+          }
+
+          $parts = $_ -split "`t", 3
+          if ($parts.Count -ne 3) {
+            throw "Invalid file mapping row: $_"
+          }
+
+          $zipName = $parts[0]
+          $baseName = $parts[1]
+          $relativePath = $parts[2]
+          $zipPath = Join-Path $signedZipsDir $zipName
+
+          if (-not (Test-Path $zipPath)) {
+            throw "Signed zip not found: $zipPath"
+          }
+
+          $extractPath = Join-Path $tempRoot ([IO.Path]::GetFileNameWithoutExtension($zipName))
+          if (Test-Path $extractPath) {
+            Remove-Item -Recurse -Force $extractPath
+          }
+          New-Item -ItemType Directory -Path $extractPath -Force | Out-Null
+          Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
+
+          $extractedFile = Get-ChildItem -Path $extractPath -File | Select-Object -First 1
+          if (-not $extractedFile) {
+            throw "Signed zip did not contain a file: $zipPath"
+          }
+
+          $targetPath = Join-Path $outputDir (Join-Path $baseName $relativePath)
+          $targetDir = Split-Path $targetPath -Parent
+          New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+          Copy-Item -Path $extractedFile.FullName -Destination $targetPath -Force
+          $count++
+        }
+
+        Write-Host "Extracted $count signed macOS binaries."
+      displayName: Extract Signed macOS Binaries
     - task: PublishPipelineArtifact@1
-      displayName: Publish Signed macOS Binary ZIPs
+      displayName: Publish Signed macOS Binaries
       inputs:
-        targetPath: $(Pipeline.Workspace)/macos-signing-inputs/toBeSigned
-        artifact: macos-signed-binary-zips-$(MacOSArchitecture)
+        targetPath: $(Build.ArtifactStagingDirectory)/macos-signed-binaries
+        artifact: macos-signed-binaries-$(MacOSArchitecture)
         publishLocation: pipeline
 
   - job: CreateMacOSNotarizationBundles
@@ -951,37 +999,36 @@ stages:
         artifactName: macos-signing-inputs-$(MacOSArchitecture)
         targetPath: $(Pipeline.Workspace)/macos-signing-inputs
     - task: DownloadPipelineArtifact@2
-      displayName: Download Signed macOS Binary ZIPs
+      displayName: Download Signed macOS Binaries
       inputs:
         buildType: current
-        artifactName: macos-signed-binary-zips-$(MacOSArchitecture)
-        targetPath: $(Pipeline.Workspace)/macos-signed-binary-zips
+        artifactName: macos-signed-binaries-$(MacOSArchitecture)
+        targetPath: $(Pipeline.Workspace)/macos-signed-binaries
     - bash: |
         set -euo pipefail
         input_root="$(Pipeline.Workspace)/macos-signing-inputs"
-        signed_zip_root="$(Pipeline.Workspace)/macos-signed-binary-zips"
+        signed_binary_root="$(Pipeline.Workspace)/macos-signed-binaries"
         signed_contents_root="$(Build.ArtifactStagingDirectory)/signed-contents"
         notarization_root="$(Build.ArtifactStagingDirectory)/macos-notarization-bundles"
         mkdir -p "$signed_contents_root" "$notarization_root"
 
         cp -R "$input_root/contents/." "$signed_contents_root/"
 
-        while IFS=$'\t' read -r zip_name base_name relative_path; do
-          [[ -z "$zip_name" ]] && continue
-          signed_zip="$signed_zip_root/$zip_name"
+        while IFS=$'\t' read -r _zip_name base_name relative_path; do
+          [[ -z "$base_name" ]] && continue
+          signed_file="$signed_binary_root/$base_name/$relative_path"
           target="$signed_contents_root/$base_name/$relative_path"
-          temp_dir="$(mktemp -d)"
-
-          unzip -q "$signed_zip" -d "$temp_dir"
-          signed_file=$(find "$temp_dir" -type f | head -n 1)
           if [[ -z "$signed_file" ]]; then
-            echo "ERROR: Signed zip did not contain a file: $signed_zip"
+            echo "ERROR: Empty signed file path for $base_name/$relative_path"
+            exit 1
+          fi
+          if [[ ! -f "$signed_file" ]]; then
+            echo "ERROR: Signed binary not found: $signed_file"
             exit 1
           fi
 
           cp "$signed_file" "$target"
           chmod +x "$target" || true
-          rm -rf "$temp_dir"
         done < "$input_root/file-mapping.tsv"
 
         for content_dir in "$signed_contents_root"/*; do
@@ -1080,37 +1127,36 @@ stages:
         artifactName: macos-signing-inputs-$(MacOSArchitecture)
         targetPath: $(Pipeline.Workspace)/macos-signing-inputs
     - task: DownloadPipelineArtifact@2
-      displayName: Download Signed macOS Binary ZIPs
+      displayName: Download Signed macOS Binaries
       inputs:
         buildType: current
-        artifactName: macos-signed-binary-zips-$(MacOSArchitecture)
-        targetPath: $(Pipeline.Workspace)/macos-signed-binary-zips
+        artifactName: macos-signed-binaries-$(MacOSArchitecture)
+        targetPath: $(Pipeline.Workspace)/macos-signed-binaries
     - bash: |
         set -euo pipefail
         input_root="$(Pipeline.Workspace)/macos-signing-inputs"
-        signed_zip_root="$(Pipeline.Workspace)/macos-signed-binary-zips"
+        signed_binary_root="$(Pipeline.Workspace)/macos-signed-binaries"
         final_contents_root="$(Build.ArtifactStagingDirectory)/final-contents"
         output_root="$(Build.ArtifactStagingDirectory)/signed-macos"
         mkdir -p "$final_contents_root" "$output_root"
 
         cp -R "$input_root/contents/." "$final_contents_root/"
 
-        while IFS=$'\t' read -r zip_name base_name relative_path; do
-          [[ -z "$zip_name" ]] && continue
-          signed_zip="$signed_zip_root/$zip_name"
+        while IFS=$'\t' read -r _zip_name base_name relative_path; do
+          [[ -z "$base_name" ]] && continue
+          signed_file="$signed_binary_root/$base_name/$relative_path"
           target="$final_contents_root/$base_name/$relative_path"
-          temp_dir="$(mktemp -d)"
-
-          unzip -q "$signed_zip" -d "$temp_dir"
-          signed_file=$(find "$temp_dir" -type f | head -n 1)
           if [[ -z "$signed_file" ]]; then
-            echo "ERROR: Signed zip did not contain a file: $signed_zip"
+            echo "ERROR: Empty signed file path for $base_name/$relative_path"
+            exit 1
+          fi
+          if [[ ! -f "$signed_file" ]]; then
+            echo "ERROR: Signed binary not found: $signed_file"
             exit 1
           fi
 
           cp "$signed_file" "$target"
           chmod +x "$target" || true
-          rm -rf "$temp_dir"
         done < "$input_root/file-mapping.tsv"
 
         verification_errors=0
