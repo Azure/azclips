@@ -159,7 +159,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest.Processors
 
             if (!AllowedArmHosts.Contains(parsed.Host))
             {
-                throw new InvalidOperationException($"Host '{parsed.Host}' is not an allowed Azure Resource Manager endpoint. The rest command only targets ARM (management.azure.com) in this release.");
+                throw new InvalidOperationException($"Host '{parsed.Host}' is not an allowed Azure Resource Manager endpoint. The rest command only targets ARM in this release. Allowed hosts: {string.Join(", ", AllowedArmHosts)}.");
             }
 
             return url;

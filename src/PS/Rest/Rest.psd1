@@ -13,7 +13,7 @@ RootModule = ''
 ModuleVersion = '0.1.0'
 
 # Supported PSEditions
-CompatiblePSEditions = 'Core', 'Desktop'
+CompatiblePSEditions = @('Core')
 
 # ID used to uniquely identify this module
 GUID = 'eded86fc-fc83-43d2-8e56-f9ad456c038b'
@@ -31,10 +31,10 @@ Copyright = 'Microsoft Corporation. All rights reserved.'
 Description = 'Cirrus - Rest'
 
 # Minimum version of the PowerShell engine required by this module
-PowerShellVersion = '5.1'
+PowerShellVersion = '7.5'
 
 # Minimum version of Microsoft .NET Framework required by this module. This prerequisite is valid for the PowerShell Desktop edition only.
-DotNetFrameworkVersion = '4.7.2'
+# DotNetFrameworkVersion = ''
 
 # Modules that must be imported into the global environment prior to importing this module
 RequiredModules = @(
