@@ -5,6 +5,7 @@ using System.Diagnostics;
 using Core.Abstractions;
 using Core.Telemetry;
 using OpenTelemetry;
+using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
 namespace Core.Tui.Telemetry;
@@ -19,7 +20,8 @@ public class TUITelemetryProvider : DefaultTelemetryProvider
         FileTelemetrySender sender = new();
         ActivitySource = new ActivitySource(ClientType.TUI.ToString());
         var builder = Sdk.CreateTracerProviderBuilder()
-            .AddSource(ClientType.TUI.ToString());
+            .AddSource(ClientType.TUI.ToString())
+            .ConfigureResource(r => r.AddService(ProcessUtils.GetRunningProcess()));
 
         builder.AddHttpClientInstrumentation(options =>
         {
