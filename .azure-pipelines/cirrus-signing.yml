@@ -35,7 +35,7 @@ parameters:
 - name: require_windows_strong_name
   displayName: 'Require strong-name verification for Cirrus DLLs'
   type: boolean
-  default: true
+  default: false
 - name: windows_sign_architectures
   displayName: 'Windows architectures to sign'
   type: object

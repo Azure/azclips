@@ -29,9 +29,6 @@ parameters:
 - name: esrp_authenticode_keycode
   type: string
   default: 'CP-230012'
-- name: esrp_strongname_keycode
-  type: string
-  default: 'CP-233863-SN'
 - name: esrp_enable_nuget_verify
   type: boolean
   default: true
@@ -43,7 +40,7 @@ parameters:
   default: true
 - name: esrp_require_windows_strong_name
   type: boolean
-  default: true
+  default: false
 - name: windows_sign_architectures
   type: object
   default:
@@ -407,20 +404,6 @@ stages:
           inlineOperation: |
             [
               {
-                "KeyCode": "${{ parameters.esrp_strongname_keycode }}",
-                "OperationCode": "StrongNameSign",
-                "Parameters": {},
-                "ToolName": "sign",
-                "ToolVersion": "1.0"
-              },
-              {
-                "KeyCode": "${{ parameters.esrp_strongname_keycode }}",
-                "OperationCode": "StrongNameVerify",
-                "Parameters": {},
-                "ToolName": "sign",
-                "ToolVersion": "1.0"
-              },
-              {
                 "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
                 "OperationCode": "SigntoolSign",
                 "Parameters": {
@@ -538,20 +521,6 @@ stages:
           inlineOperation: |
             [
               {
-                "KeyCode": "${{ parameters.esrp_strongname_keycode }}",
-                "OperationCode": "StrongNameSign",
-                "Parameters": {},
-                "ToolName": "sign",
-                "ToolVersion": "1.0"
-              },
-              {
-                "KeyCode": "${{ parameters.esrp_strongname_keycode }}",
-                "OperationCode": "StrongNameVerify",
-                "Parameters": {},
-                "ToolName": "sign",
-                "ToolVersion": "1.0"
-              },
-              {
                 "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
                 "OperationCode": "SigntoolSign",
                 "Parameters": {
@@ -654,13 +623,6 @@ stages:
           signConfigType: inlineSignParams
           inlineOperation: |
             [
-              {
-                "KeyCode": "${{ parameters.esrp_strongname_keycode }}",
-                "OperationCode": "StrongNameVerify",
-                "Parameters": {},
-                "ToolName": "sign",
-                "ToolVersion": "1.0"
-              },
               {
                 "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
                 "OperationCode": "SigntoolVerify",

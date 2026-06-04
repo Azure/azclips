@@ -575,7 +575,6 @@ stages:
           !**/Az.*.dll
           !**/Az.*.private.dll
           !**/*.AlcWrapper.dll
-          ${{ if eq(parameters.enable_strong_name_signing, true) }}!**/FuzzySharp.dll${{ else }}${{ endif }}
           !**/*.Test.dll
           !**/*Test*.dll
           !**/*.Tests.dll
