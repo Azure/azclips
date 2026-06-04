@@ -45,5 +45,6 @@ namespace Cirrus.Help.Tool.Validation
 
         // Tool-level (Program.cs)
         public const string Tool_CmdletAssemblyLoadFailed = "Tool_CmdletAssemblyLoadFailed";
+        public const string ExtensionIndexLoadFailed = "Tool_ExtensionIndexLoadFailed";
     }
 }

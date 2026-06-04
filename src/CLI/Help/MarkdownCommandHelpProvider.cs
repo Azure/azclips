@@ -130,15 +130,11 @@ public static class MarkdownCommandHelpProvider
             ? "index.md"
             : commandKey.Replace(' ', '-').ToLowerInvariant() + ".md";
 
-        // Primary: packaged path next to the CLI binary (see Core.Cli.csproj <Content Include="help\**\*.md">).
-        var packaged = Path.Combine(AppContext.BaseDirectory, "help", folder, fileName);
-        if (File.Exists(packaged))
-        {
-            return packaged;
-        }
-
-        // Dev-loop fallback: read straight from the repo source so authors don't need
-        // a rebuild to see their .md edits reflected in --help output.
+        // Repo-aware preference: if we can locate `cirrus.slnx` from BaseDirectory we're
+        // running against a developer build, so prefer the source markdown — authors
+        // can edit `src/CLI/Help/...` and see results without rebuilding. If no repo
+        // root is reachable (shipped install), fall back to the packaged copy next to
+        // the CLI binary (see Core.Cli.csproj `<Content Include="Help\**\*.md">`).
         var repoRoot = FindRepoRoot();
         if (repoRoot != null)
         {
@@ -147,6 +143,12 @@ public static class MarkdownCommandHelpProvider
             {
                 return source;
             }
+        }
+
+        var packaged = Path.Combine(AppContext.BaseDirectory, "help", folder, fileName);
+        if (File.Exists(packaged))
+        {
+            return packaged;
         }
 
         return null;

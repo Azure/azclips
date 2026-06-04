@@ -7,7 +7,11 @@ namespace Core.Cli.Parser;
 
 public class ExtensionDispatcher //: IParser
 {
-    private static readonly string[] s_helpFlags = ["--help", "-h", "help", "?", "-?"];
+    // Flag-style help tokens that may appear anywhere after the subcommand. The literal
+    // `help` is intentionally NOT here so a positional value of "help" (e.g. a config
+    // key/value) is not misinterpreted as a help request. The subcommand form
+    // (`azv2 help <group> ...`) is handled explicitly via args[0] below.
+    private static readonly string[] s_helpFlags = ["--help", "-h", "-?", "?"];
 
     private readonly record struct HelpRequest(string ExtensionName, IReadOnlyList<string> Path, bool IsCommandHelp);
 
@@ -38,7 +42,12 @@ public class ExtensionDispatcher //: IParser
     {
         if (args.Length == 0) throw new ArgumentException("Arguments cannot be empty.", nameof(args));
 
-        if (args.Length == 1 && IsHelpToken(args[0]))
+        // Bare top-level help: any of the flag forms (--help, -h, -?, ?) OR the literal
+        // `help` subcommand with no further tokens. We only honor literal `help` here
+        // (args.Length == 1) and via the explicit subcommand form below; we deliberately
+        // do NOT treat a trailing `help` token elsewhere in the command line as a help
+        // request, since "help" is a valid positional value for some commands.
+        if (args.Length == 1 && (IsHelpToken(args[0]) || args[0].Equals("help", StringComparison.OrdinalIgnoreCase)))
         {
             throw new DispatchHelpException(this);
         }

@@ -1,6 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using System.Text;
 using System.Text.RegularExpressions;
 using Core.Cli.Help;
 
@@ -146,14 +147,46 @@ namespace Cirrus.Help.Tool.Validation
             return false;
         }
 
+        // Mirror of MarkdownCommandHelpProvider.GetField so build-time validation
+        // sees fields the same way the runtime does: the value is the first line
+        // after the `Name:` prefix plus any non-blank, non-heading, non-fence
+        // continuation lines. An empty value stays empty (does not greedily
+        // absorb later examples / sections).
         private static string GetMarkdownField(string content, string fieldName)
         {
-            var match = Regex.Match(
-                content,
-                $@"^\s*{Regex.Escape(fieldName)}\s*:\s*(?<value>[\s\S]*?)(?=^\s*[A-Za-z][A-Za-z0-9_-]*\s*:|\z)",
-                RegexOptions.Multiline | RegexOptions.CultureInvariant);
+            var lines = content.Split('\n');
+            var prefix = fieldName + ":";
+            for (var i = 0; i < lines.Length; i++)
+            {
+                var line = lines[i].TrimEnd('\r').TrimStart();
+                if (!line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
 
-            return match.Success ? match.Groups["value"].Value.Trim() : string.Empty;
+                var builder = new StringBuilder(line[prefix.Length..].Trim());
+                for (var j = i + 1; j < lines.Length; j++)
+                {
+                    var next = lines[j].TrimEnd('\r');
+                    if (string.IsNullOrWhiteSpace(next)
+                        || next.TrimStart().StartsWith('#')
+                        || next.TrimStart().StartsWith("```", StringComparison.Ordinal))
+                    {
+                        break;
+                    }
+
+                    if (builder.Length > 0)
+                    {
+                        builder.Append(' ');
+                    }
+
+                    builder.Append(next.Trim());
+                }
+
+                return builder.ToString().Trim();
+            }
+
+            return string.Empty;
         }
 
         private static bool HasBalancedCodeFences(string content)

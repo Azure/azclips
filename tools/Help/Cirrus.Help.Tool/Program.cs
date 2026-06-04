@@ -112,8 +112,16 @@ foreach (var dllPath in extensionDlls)
     {
         extensionIndex = assembly.GetExtensionIndex();
     }
-    catch
+    catch (Exception ex)
     {
+        // Surface — don't swallow. A broken index would otherwise be invisible
+        // in CI and produce an incomplete manifest. Warning (not error) keeps
+        // a single corrupt DLL from failing the whole help build, but every
+        // failure is reported with its DLL path and the exception message.
+        aggregateReport.AddWarning(
+            ProblemIds.ExtensionIndexLoadFailed,
+            $"Failed to load IExtensionIndex from '{assemblyPath}': {ex.GetType().Name}: {ex.Message}",
+            assemblyPath);
         continue;
     }
 
