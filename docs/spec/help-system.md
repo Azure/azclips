@@ -6,15 +6,15 @@ Two parallel markdown corpora drive three surfaces: CLI help authored under `src
 
 ## 1. Goals
 
-| Goal                   | Rationale                                                                                                              |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Single source of truth | One markdown file per command; no duplication between CLI and PowerShell.                                              |
-| Tree-aware CLI help    | `azv2 --help`, `azv2 group --help`, `azv2 group create --help` each produce meaningfully different output.             |
-| Native PowerShell help | `Get-Help <Cmdlet> -Full` is served by standard MAML XML packaged with the module.                                     |
-| Cold-path safe         | CLI help renders without loading execution code or instantiating processors.                                           |
-| Authorable by humans   | Authors edit `.md` files next to the extension; no recompile to iterate on prose. Codegen may interject in the future. |
-| Mechanically validated | Every example is parsed and checked against live `ExtensionIndex` metadata at build time; stale help fails CI.         |
-| AI-augmentable         | The same markdown corpus is consumed by the agent's prompt feed.                                                       |
+| Goal                       | Rationale                                                                                                              |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| One file per command       | Each command/cmdlet has a single authoring source; runtime, MAML, and CI tooling consume it without duplication.       |
+| Tree-aware CLI help        | `azv2 --help`, `azv2 group --help`, `azv2 group create --help` each produce meaningfully different output.             |
+| Native PowerShell help     | `Get-Help <Cmdlet> -Full` is served by standard MAML XML packaged with the module.                                     |
+| Cold-path safe             | CLI help renders without loading execution code or instantiating processors.                                           |
+| Authorable by humans       | Authors edit `.md` files next to the extension; no recompile to iterate on prose. Codegen may interject in the future. |
+| Mechanically validated     | Every example is parsed and checked against live `ExtensionIndex` metadata at build time; stale help fails CI.         |
+| AI-augmentable             | The same markdown corpus is consumed by the agent's prompt feed.                                                       |
 
 ---
 

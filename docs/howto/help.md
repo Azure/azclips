@@ -4,10 +4,12 @@ This guide explains how to author and test help for CLI commands and PowerShell 
 
 CLI help and PowerShell help are authored separately, in different folders, with different formats:
 
-| Surface    | Source                              | Format                                      | Tool                                 |
-| ---------- | ----------------------------------- | ------------------------------------------- | ------------------------------------ |
-| CLI        | `src/CLI/Help/<group>/<command>.md` | Cirrus markdown (frontmatter + bash fences) | `Cirrus.Help.Tool` (validators)      |
-| PowerShell | `src/PS/<Module>/help/<Cmdlet>.md`  | PlatyPS schema 2.0.0 (legacy v2 input)      | `Microsoft.PowerShell.PlatyPS` 1.0.1 |
+| Surface    | Source                                                       | Format                                                         | Tool                                 |
+| ---------- | ------------------------------------------------------------ | -------------------------------------------------------------- | ------------------------------------ |
+| CLI        | `src/CLI/Help/<extension>/<command>.md`                      | Cirrus markdown (frontmatter + bash fences)                    | `Cirrus.Help.Tool` (validators)      |
+| PowerShell | `src/PS/<Module>/help/<Cmdlet>.md`                           | PlatyPS schema 2024-05-01 (current `Microsoft.PowerShell.PlatyPS` schema) | `Microsoft.PowerShell.PlatyPS` 1.0.1 |
+
+The CLI folder name is the **extension name** (`compute`, `config`, `login`, `resources`, `extension`) — it is the value passed to `MarkdownCommandHelpProvider.Get(extensionName, commandKey)`. The first CLI token shown in invocations (`azv2 vm …`, `azv2 group …`) can differ from the extension name; that mapping is owned by `CommandGroupIndex` / the scaffolder's `cliGroupByExtension` table and is independent of the folder layout.
 
 Both surfaces are validated and built by:
 
@@ -50,7 +52,7 @@ Both surfaces are validated and built by:
 
     This imports `Microsoft.Azure.Cirrus.Cmdlets.Compute.dll` in a child pwsh process and runs `New-MarkdownCommandHelp` against the imported module, writing to `src/PS/Compute/help/`. Existing files are not overwritten.
 
-2. **Hand-fill** SYNOPSIS, DESCRIPTION, and EXAMPLES. PlatyPS leaves `{{ Fill in the Synopsis }}` placeholders — replace them.
+2. **Hand-fill** SYNOPSIS, DESCRIPTION, and EXAMPLES. Our post-processor (`Convert-PlatyPSPlaceholders` in [build/New-PSHelpMarkdown.ps1](../../build/New-PSHelpMarkdown.ps1)) replaces PlatyPS's `{{ Fill in the Synopsis }}` placeholders with `TODO -` markers and seeds at least one fenced example using the cmdlet's mandatory parameters — search for `TODO` in the new markdown and fill those in.
 
 3. **Validate + generate MAML:**
 
@@ -83,7 +85,7 @@ src/PS/                        # PowerShell — PlatyPS format
 ├── Config/, Login/, Resources/
 ```
 
-The CLI `<group>` folder name matches the first CLI token (`vm`, `group`, `login`, `config`, `extension`), **not** the extension name. The mapping lives in `tools/Help/Cirrus.Help.Tool/Program.cs` (`cliGroupByExtension`).
+The CLI folder name (`compute`, `config`, `login`, `resources`, `extension`) is the **extension name**, matching the value passed to `MarkdownCommandHelpProvider.Get(extensionName, commandKey)`. The first CLI token a user types (`azv2 vm …`, `azv2 group …`) can differ; that mapping is owned by [`CommandGroupIndex.cs`](../../src/CLI/Parser/CommandGroupIndex.cs) and the scaffolder's `cliGroupByExtension` table.
 
 ## CLI Markdown Format
 
@@ -122,14 +124,18 @@ azv2 vm create --name myvm --location eastus --resource-group myrg --subscriptio
 
 ## PowerShell Markdown Format
 
-PowerShell help uses the [legacy PlatyPS schema 2.0.0](https://github.com/PowerShell/platyPS) authoring format, which is consumed at build time by the modern [`Microsoft.PowerShell.PlatyPS` 1.0.1](https://www.powershellgallery.com/packages/Microsoft.PowerShell.PlatyPS/1.0.1) module via `Import-MarkdownCommandHelp` (legacy v2 input is supported). It looks like:
+PowerShell help is authored against `Microsoft.PowerShell.PlatyPS` 1.0.1's current schema (`PlatyPS schema version: 2024-05-01`), which carries metadata as YAML frontmatter and per-parameter YAML blocks. PlatyPS rewrites `## SYNTAX` and `## PARAMETERS` from the cmdlet binary on every regeneration; only `## SYNOPSIS`, `## DESCRIPTION`, and `## EXAMPLES` are author-owned. Shape:
 
 ````markdown
 ---
+document type: cmdlet
 external help file: Microsoft.Azure.Cirrus.Cmdlets.Compute.dll-Help.xml
+HelpUri: ''
+Locale: en-US
 Module Name: Compute
-online version:
-schema: 2.0.0
+ms.date: 06/04/2026
+PlatyPS schema version: 2024-05-01
+title: New-VM
 ---
 
 # New-VM
@@ -140,13 +146,15 @@ Create a virtual machine and its networking stack in a single call.
 
 ## SYNTAX
 
+### Default
+
 ```
-New-VM -Name <String> -Location <String> -ResourceGroupName <String> -SubscriptionId <Guid> [<CommonParameters>]
+New-VM -Name <string> -Location <string> -ResourceGroupName <string> -SubscriptionId <string> [<CommonParameters>]
 ```
 
 ## DESCRIPTION
 
-Provisions the full networking + VM stack ...
+Provisions the full networking + VM stack …
 
 ## EXAMPLES
 
@@ -158,10 +166,30 @@ New-VM -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myvm -Location
 
 ## PARAMETERS
 
-...
+### -Name
+
+The name of the virtual machine.
+
+```yaml
+Type: System.String
+DefaultValue: ''
+SupportsWildcards: false
+Aliases: []
+ParameterSets:
+- Name: (All)
+  Position: Named
+  IsRequired: true
+  ValueFromPipeline: false
+  ValueFromPipelineByPropertyName: false
+  ValueFromRemainingArguments: false
+DontShow: false
+AcceptedValues: []
+HelpMessage: ''
+```
+…
 ````
 
-PlatyPS regenerates the `## SYNTAX` and `## PARAMETERS` blocks from the cmdlet binary on every run, so don't hand-edit them — only `## SYNOPSIS`, `## DESCRIPTION`, and `## EXAMPLES` are author-owned.
+Legacy `schema: 2.0.0` markdown is still accepted as input by PlatyPS 1.0.1 (`Import-MarkdownCommandHelp` reads both), but new files should use the current schema — that's what `New-PSHelpMarkdown.ps1` emits.
 
 ## Example Validation
 
@@ -178,10 +206,18 @@ Validation errors when:
 
 ### PowerShell fences (`powershell` / `pwsh`) — `src/PS/<Module>/help/`
 
-Validation errors when:
+Validation rules (full list, see Troubleshooting below for fixes):
 
-- A `Verb-Noun` doesn't resolve to a registered cmdlet.
-- A `-Parameter` isn't declared on the cmdlet, isn't an `[Alias]`, and isn't a common parameter (`-Verbose`, `-ErrorAction`, etc.).
+- **PSL1** — `Verb-Noun` doesn't resolve to a registered cmdlet.
+- **PSL2** — `-Parameter` isn't declared on the cmdlet, isn't an `[Alias]`, and isn't a common parameter.
+- **PSL3** — a parameter declared `Mandatory = true` in `AllParameterSets` is missing.
+- **PSL4** — the same parameter (after alias resolution) is bound twice on one invocation.
+- **PSL5** — a `$variable` is read but never assigned in the same fence.
+- **PSL6** — a literal value bound to a `Guid`- or enum-typed parameter doesn't parse.
+- **PSL7** — a fence under `## EXAMPLES` does not invoke the cmdlet whose name matches the file (e.g. an `azv2 …` line in `Connect-CirrusAccount.md`).
+- **PSL8** — the cmdlet help file has no fenced PowerShell example under `## EXAMPLES`.
+
+Only fences inside `## EXAMPLES` are scanned, and only when the language tag is `powershell`, `pwsh`, `ps`, or empty. Fences in `## SYNTAX` / `## PARAMETERS` (PlatyPS pseudocode) are deliberately ignored.
 
 ### Conventions
 
@@ -194,7 +230,7 @@ Validation errors when:
 
 ### CLI Help
 
-`azv2 <group> <command> --help` reads markdown from `<azv2-base>/help/<group>/<command>.md`. The build copies `src/CLI/Help/` → `artifacts/<Config>/Core.Cli/help/` so help works from a local build, and `MarkdownCommandHelpProvider` parses Summary/Description/examples on demand.
+`azv2 <group> <command> --help` reads markdown from `<azv2-base>/help/<extension>/<command-key>.md`. The build copies `src/CLI/Help/` → `artifacts/<Config>/Core.Cli/help/` so help works from a local build, and `MarkdownCommandHelpProvider` parses Summary/Description/examples on demand. If the packaged file is missing, the provider walks up to `cirrus.slnx` and reads the markdown straight from `src/CLI/Help/<extension>/` — dev-loop fallback, no rebuild required.
 
 ### PowerShell Help
 
