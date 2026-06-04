@@ -25,3 +25,21 @@ rest `
 rest `
     --method FOO `
     --uri "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01"
+
+# Negative case: an HTTP error (>= 400) must surface the body AND cause a non-zero CLI exit so
+# scripts using set -e / $? can detect it. This GET targets a resource group that does not exist
+# and is expected to return 404; the full RestResponse (status/headers/body) is still printed.
+rest `
+    --method GET `
+    --uri "/subscriptions/{subscriptionId}/resourcegroups/this-rg-does-not-exist-404?api-version=2021-04-01"
+
+# Negative case: an absolute URL pointing at a non-ARM host must be REJECTED before any request is
+# sent, so the ARM bearer token is never leaked to an arbitrary destination (token exfiltration).
+rest `
+    --method GET `
+    --uri "https://example.com/steal-the-token"
+
+# Negative case: an absolute http:// (non-https) ARM URL must be rejected.
+rest `
+    --method GET `
+    --uri "http://management.azure.com/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01"

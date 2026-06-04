@@ -17,6 +17,20 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest.Processors
         private const string ArmEndpoint = "https://management.azure.com";
         private const string SubscriptionToken = "{subscriptionId}";
 
+        /// <summary>
+        /// ARM / Azure management endpoints the rest command is allowed to target. The pipeline's
+        /// <c>AuthHandler</c> attaches the ARM bearer token to every outgoing request regardless of
+        /// host, so an absolute URL pointing anywhere else would leak a valid ARM token. Any absolute
+        /// URL must resolve to one of these hosts (public, US Gov, China, legacy Germany clouds).
+        /// </summary>
+        private static readonly HashSet<string> AllowedArmHosts = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "management.azure.com",
+            "management.usgovcloudapi.net",
+            "management.chinacloudapi.cn",
+            "management.microsoftazure.de",
+        };
+
         /// <summary>HTTP method. Case-insensitive. Defaults to GET.</summary>
         public string Method { get; set; } = "GET";
 
@@ -39,6 +53,18 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest.Processors
                 using HttpResponseMessage response = await SendRequestAsync(request);
                 Models.RestResponse result = await BuildResponseAsync(response);
                 await WriteOutput(result);
+
+                // Mirror az rest: the full untyped response (status, headers, body) is surfaced above,
+                // but an HTTP error must still produce a non-zero CLI exit so scripts using set -e / $?
+                // can detect it. Publish the failure to the error stream and throw AFTER WriteOutput so
+                // the body stays visible. Reuse the same channel typed processors use (EnsureSuccessAsync).
+                if (result.StatusCode >= 400)
+                {
+                    string uri = response.RequestMessage?.RequestUri?.ToString() ?? "(unknown)";
+                    string message = $"{result.StatusCode} {response.ReasonPhrase} from {uri}";
+                    await Publisher.Publish(Events.ResourceOperationFailed, message);
+                    throw new HttpRequestException(message, inner: null, statusCode: response.StatusCode);
+                }
             }
             finally
             {
@@ -100,13 +126,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest.Processors
         {
             string url = uri.Trim();
 
-            // Relative path: prefix with the ARM endpoint (host trailing slash stripped, single
-            // separator), matching az rest's send_raw_request.
-            if (!url.Contains("://"))
-            {
-                url = $"{ArmEndpoint.TrimEnd('/')}/{url.TrimStart('/')}";
-            }
-
+            // Substitute {subscriptionId} BEFORE resolving/validating the host so the final URL that
+            // gets sent is the one that is host-checked.
             if (url.Contains(SubscriptionToken, StringComparison.Ordinal))
             {
                 if (AuthContext is null || string.IsNullOrWhiteSpace(AuthContext.SubscriptionId))
@@ -115,6 +136,30 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest.Processors
                 }
 
                 url = url.Replace(SubscriptionToken, AuthContext.SubscriptionId, StringComparison.Ordinal);
+            }
+
+            // Use a real URI parse (not a substring check on "://") to distinguish absolute from
+            // relative: a relative ARM path can legitimately embed "://" in a query value (e.g. a
+            // redirect/targetUri parameter), which a substring check would misclassify as absolute.
+            if (!System.Uri.TryCreate(url, UriKind.Absolute, out System.Uri? parsed))
+            {
+                // Relative ARM path: prefix with the ARM endpoint (host trailing slash stripped,
+                // single separator), matching az rest's send_raw_request. The resulting host is
+                // management.azure.com, which is in the allowlist by construction.
+                return $"{ArmEndpoint.TrimEnd('/')}/{url.TrimStart('/')}";
+            }
+
+            // Absolute URL: the AuthHandler attaches the ARM bearer token to every request regardless
+            // of host, so restrict absolute URLs to https + an ARM management host to avoid leaking the
+            // token to an arbitrary destination (token-exfiltration / SSRF).
+            if (!parsed.Scheme.Equals(System.Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException($"Absolute URL '{url}' must use https. The rest command only targets ARM over https in this release.");
+            }
+
+            if (!AllowedArmHosts.Contains(parsed.Host))
+            {
+                throw new InvalidOperationException($"Host '{parsed.Host}' is not an allowed Azure Resource Manager endpoint. The rest command only targets ARM (management.azure.com) in this release.");
             }
 
             return url;
@@ -149,6 +194,9 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest.Processors
 
                 if (!request.Headers.TryAddWithoutValidation(name, value))
                 {
+                    // TryAddWithoutValidation skips header-name/value validation. CR/LF injection is
+                    // still prevented because SocketsHttpHandler rejects header values containing CR/LF
+                    // at send time.
                     request.Content?.Headers.TryAddWithoutValidation(name, value);
                 }
             }
