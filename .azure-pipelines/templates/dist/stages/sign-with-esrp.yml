@@ -1158,13 +1158,6 @@ stages:
               "ToolVersion": "1.0"
             }
           ]
-    - task: PublishPipelineArtifact@1
-      displayName: Publish Notarized macOS Bundles
-      inputs:
-        targetPath: $(Pipeline.Workspace)/toNotarize
-        artifact: macos-notarized-bundles-$(MacOSArchitecture)
-        publishLocation: pipeline
-
   - job: CreateSignedMacOSTarballs
     displayName: Create Signed macOS Tarballs
     dependsOn:
@@ -1191,15 +1184,15 @@ stages:
         artifactName: macos-signing-inputs-$(MacOSArchitecture)
         targetPath: $(Pipeline.Workspace)/macos-signing-inputs
     - task: DownloadPipelineArtifact@2
-      displayName: Download Notarized macOS Bundles
+      displayName: Download macOS Notarization Bundles
       inputs:
         buildType: current
-        artifactName: macos-notarized-bundles-$(MacOSArchitecture)
-        targetPath: $(Pipeline.Workspace)/macos-notarized-bundles
+        artifactName: macos-notarization-bundles-$(MacOSArchitecture)
+        targetPath: $(Pipeline.Workspace)/macos-notarization-bundles
     - bash: |
         set -euo pipefail
         input_root="$(Pipeline.Workspace)/macos-signing-inputs"
-        notarized_bundle_root="$(Pipeline.Workspace)/macos-notarized-bundles"
+        notarization_bundle_root="$(Pipeline.Workspace)/macos-notarization-bundles"
         final_contents_root="$(Build.ArtifactStagingDirectory)/final-contents"
         output_root="$(Build.ArtifactStagingDirectory)/signed-macos"
         mkdir -p "$final_contents_root" "$output_root"
@@ -1212,19 +1205,19 @@ stages:
           content_dir="$final_contents_root/$base_name"
           base_name=$(basename "$content_dir")
           mach_o_count=0
-          notarized_zip="$notarized_bundle_root/$base_name-signed.zip"
+          notarization_zip="$notarization_bundle_root/$base_name-signed.zip"
 
           rm -rf "$content_dir"
           mkdir -p "$content_dir"
 
-          if [[ ! -f "$notarized_zip" ]]; then
-            echo "ERROR: Notarized macOS bundle not found: $notarized_zip"
+          if [[ ! -f "$notarization_zip" ]]; then
+            echo "ERROR: macOS notarization bundle not found: $notarization_zip"
             verification_errors=1
             continue
           fi
 
-          unzip -q "$notarized_zip" -d "$content_dir"
-          echo "Extracted notarized macOS bundle: $(basename "$notarized_zip")"
+          unzip -q "$notarization_zip" -d "$content_dir"
+          echo "Extracted macOS notarization bundle after notarization gate: $(basename "$notarization_zip")"
 
           find "$content_dir" -name "*.so" -exec chmod +x {} \;
           find "$content_dir" -name "*.dylib" -exec chmod +x {} \;
