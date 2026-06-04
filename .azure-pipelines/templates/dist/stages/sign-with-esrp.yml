@@ -29,6 +29,9 @@ parameters:
 - name: esrp_authenticode_keycode
   type: string
   default: 'CP-230012'
+- name: esrp_strongname_keycode
+  type: string
+  default: 'CP-233863-SN'
 - name: esrp_enable_nuget_verify
   type: boolean
   default: true
@@ -365,6 +368,13 @@ stages:
           inlineOperation: |
             [
               {
+                "KeyCode": "${{ parameters.esrp_strongname_keycode }}",
+                "OperationCode": "StrongNameSign",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              },
+              {
                 "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
                 "OperationCode": "SigntoolSign",
                 "Parameters": {
@@ -396,6 +406,13 @@ stages:
           signConfigType: inlineSignParams
           inlineOperation: |
             [
+              {
+                "KeyCode": "${{ parameters.esrp_strongname_keycode }}",
+                "OperationCode": "StrongNameSign",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              },
               {
                 "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
                 "OperationCode": "SigntoolSign",
@@ -555,6 +572,13 @@ stages:
           signConfigType: inlineSignParams
           inlineOperation: |
             [
+              {
+                "KeyCode": "${{ parameters.esrp_strongname_keycode }}",
+                "OperationCode": "StrongNameVerify",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              },
               {
                 "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
                 "OperationCode": "SigntoolVerify",
@@ -851,21 +875,12 @@ stages:
           }
         }
         if ('${{ parameters.esrp_require_windows_strong_name }}' -eq 'true') {
-          $strongNameExcludeNames = @(
-            'Microsoft.Azure.Cirrus.ExtensionRuntime.dll'
-          )
           $dlls = $toVerify | Where-Object { $_.Name -like 'Microsoft.Azure.Cirrus*.dll' }
-          $strongNameTargets = $dlls | Where-Object { $_.Name -notin $strongNameExcludeNames }
-
-          foreach ($dll in $dlls | Where-Object { $_.Name -in $strongNameExcludeNames }) {
-            Write-Host "Skipping strong-name verification for excluded DLL: $($dll.FullName)"
+          if (-not $dlls) {
+            throw 'Strong-name policy requires at least one Cirrus DLL in signed Windows payload.'
           }
 
-          if (-not $strongNameTargets) {
-            throw 'Strong-name policy requires at least one non-excluded Cirrus DLL in signed Windows payload.'
-          }
-
-          foreach ($dll in $strongNameTargets) {
+          foreach ($dll in $dlls) {
             try {
               $assemblyName = [System.Reflection.AssemblyName]::GetAssemblyName($dll.FullName)
             }
