@@ -1,13 +1,6 @@
 # Scaffolds src/PS/<Module>/help/<Cmdlet>.md for every module via PlatyPS.
-#
-# Idempotent: PlatyPS is run against a temp directory and only files that don't
-# already exist under src/PS/<Module>/help/ are copied across. Existing
-# hand-edited markdown is never touched.
-#
-# Newly-scaffolded files are post-processed to replace PlatyPS's literal
-# `{{ Fill in ... }}` placeholders with sensible defaults derived from the
-# cmdlet binary (Verb-Noun in SYNOPSIS, an EXAMPLES block built from required
-# parameters), matching the shape of the CLI scaffolder.
+# Idempotent — only files that don't already exist are copied; hand-edited markdown is never touched.
+# Post-processes PlatyPS's `{{ Fill in ... }}` placeholders into TODO defaults derived from the cmdlet binary.
 [CmdletBinding()]
 param(
     [string]$Configuration = 'Debug',
@@ -20,10 +13,8 @@ $ErrorActionPreference = 'Stop'
 
 Import-Module Microsoft.PowerShell.PlatyPS -RequiredVersion 1.0.1
 
-# Replaces PlatyPS's literal `{{ Fill in ... }}` placeholders with TODO-flagged
-# defaults derived from the cmdlet name + required parameters. The intent
-# matches the CLI scaffolder: the file is still obviously a stub, but it has
-# enough shape that `Get-Help` is readable and authors can edit in place.
+# Replaces PlatyPS `{{ Fill in ... }}` placeholders with TODO-flagged defaults
+# derived from the cmdlet name + required parameters.
 function Convert-PlatyPSPlaceholders
 {
     param(
@@ -44,15 +35,11 @@ function Convert-PlatyPSPlaceholders
     $exampleLine = if ($exampleArgs) { "$CmdletName $exampleArgs" } else { $CmdletName }
     $Content = $Content -replace 'PS C:\\>\s*\{\{\s*Add example code here\s*\}\}', "PS C:\> $exampleLine"
 
-    # New schema (2024-05-01): PlatyPS emits `### <Title>` headings under `## EXAMPLES`
-    # with empty bodies when the cmdlet has no [Example] metadata. Backfill each empty
-    # body with a TODO description + a code fence that uses the required parameters,
-    # so `Get-Help -Examples` produces something runnable-shaped.
+    # New schema (2024-05-01): PlatyPS emits empty `### <Title>` blocks under `## EXAMPLES`
+    # when the cmdlet has no [Example] metadata. Backfill with a TODO + fenced code stub.
     #
-    # Note: the six-backtick sequences below are NOT a markdown six-fence — inside a
-    # PowerShell here-string, each backtick is the escape character, so `````` resolves
-    # to three literal backticks (a standard markdown fence). Verified output in
-    # src/PS/<Module>/help/*.md is plain ```powershell / ``` (PR #226 review false-positive).
+    # Note: `````` inside a here-string is 3 literal backticks (each backtick is the PS escape char),
+    # so the emitted markdown is a normal ```powershell fence (PR #226 review false-positive).
     $exampleStub = @"
 TODO - describe the example.
 
@@ -82,10 +69,7 @@ $exampleLine
         }
         elseif ($inExamples -and $line -match '^##\s+(?!#)')
         {
-            # Reached the next H2 — if the EXAMPLES section had zero `### <Title>` headings
-            # (e.g. PlatyPS produced an empty section), inject a default stub before the
-            # `## <Next>` line we just appended. PSL8 in the validator enforces that every
-            # cmdlet help file has at least one fenced example.
+            # Reached the next H2 with no `###` examples seen — inject a default stub so PSL8 passes.
             if ($exampleHeadingsSeen -eq 0 -and $examplesHeaderIndex -ge 0)
             {
                 $insertAt = $output.Count - 1
@@ -101,15 +85,9 @@ $exampleLine
         if ($inExamples -and $line -match '^###\s+\S')
         {
             $exampleHeadingsSeen++
-            # Look ahead until the next heading. We replace the body with our stub
-            # (TODO description + fenced code) when EITHER:
-            #   - the body is entirely blank (PlatyPS sometimes emits empty `###` blocks), OR
-            #   - the body is non-blank but contains no ``` opening fence.
-            # PlatyPS 1.0.1 + schema 2024-05-01 has started pre-rendering an unfenced
-            # invocation line from the cmdlet's mandatory parameters (e.g.
-            # `Get-VM -SubscriptionId <subscriptionid> -ResourceGroupName <...>`).
-            # Without a fence, PSL8 (NoExamples) trips. We treat such lines as a stub
-            # placeholder and overwrite them with a properly-fenced block.
+            # Look ahead to the next heading. Replace the body with our stub when it's blank
+            # OR has no ``` fence — PlatyPS 1.0.1 + schema 2024-05-01 pre-renders unfenced
+            # invocation lines that would otherwise trip PSL8 (NoExamples).
             $j = $i + 1
             $bodyBlank = $true
             $bodyHasFence = $false
@@ -121,8 +99,7 @@ $exampleLine
             }
             if ($bodyBlank -or -not $bodyHasFence)
             {
-                # Walk forward past the existing (fenceless) body to the next heading
-                # so we can swallow it before injecting the stub.
+                # Swallow the existing fenceless body up to the next heading, then inject our stub.
                 $skipTo = $i + 1
                 while ($skipTo -lt $lines.Count -and $lines[$skipTo] -notmatch '^#{2,3}\s')
                 {
@@ -139,12 +116,9 @@ $exampleLine
         $i++
     }
 
-    # Collapse duplicate `[Online Version]()` entries under `## RELATED LINKS`.
-    # PlatyPS 1.0.1's `New-MarkdownCommandHelp -ModuleInfo` seeds the Links
-    # collection with one entry per cmdlet in the module and writes each as
-    # `[Online Version]()` when no HelpUri attribute is declared on the cmdlet,
-    # producing N near-identical bullets. Deduping here keeps `Get-Help -Online`
-    # output sane until cmdlets carry real HelpUri values (PR #226 review).
+    # Collapse duplicate `[Online Version]()` entries under `## RELATED LINKS`. PlatyPS 1.0.1's
+    # New-MarkdownCommandHelp -ModuleInfo seeds Links with one entry per cmdlet (all empty when
+    # no [Cmdlet(HelpUri=...)] is set), producing N near-identical bullets (PR #226 review).
     $merged = $output -join "`n"
     $merged = [regex]::Replace(
         $merged,
@@ -190,11 +164,9 @@ foreach ($name in $modules)
 
     try
     {
-        # Run PlatyPS in an isolated child session so artifact DLLs are released afterwards.
-        # The child also reflects on each cmdlet to discover required parameters, which we
-        # serialize as JSON next to the markdown for the post-processor below.
-        # Note: New-MarkdownCommandHelp creates a subfolder named after the module under
-        # -OutputFolder, so the .md files land at $tempDir/<ModuleName>/*.md.
+        # Run PlatyPS in an isolated child session (artifact DLLs released afterward) and
+        # also reflect on each cmdlet to capture required parameters as JSON for the post-processor.
+        # New-MarkdownCommandHelp emits files under $tempDir/<ModuleName>/.
         pwsh -NoProfile -Command {
             param($manifestPath, $tempDir, $moduleName)
             Import-Module Microsoft.PowerShell.PlatyPS -RequiredVersion 1.0.1

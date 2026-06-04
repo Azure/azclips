@@ -4,10 +4,8 @@
 namespace Core.Cli.Help;
 
 /// <summary>
-/// File-level frontmatter for a help markdown document. See §4 (Authoring Model) of
-/// help-system.md for the v1.0.0 schema. Deliberately flat: 4 strings + 1 optional string
-/// list. If the schema ever grows multi-line scalars or nested objects, swap this parser
-/// for YamlDotNet (§10.5).
+/// File-level frontmatter for a help markdown document (v1.0.0 schema, see
+/// <c>docs/spec/help-system.md</c> §4).
 /// </summary>
 public sealed record FrontmatterDoc(
     string Summary,
@@ -20,25 +18,13 @@ public sealed record FrontmatterDoc(
 }
 
 /// <summary>
-/// Hand-rolled parser for the YAML-subset frontmatter at the top of each help markdown
-/// file. Recognises:
-/// <list type="bullet">
-///   <item><description>A delimited block opened by <c>---</c> on its own line and closed by <c>---</c> on its own line.</description></item>
-///   <item><description>Flat <c>key: value</c> pairs (one per line).</description></item>
-///   <item><description>One list key (<c>relatedLinks:</c>) followed by <c>- item</c> lines.</description></item>
-/// </list>
-/// Returns <see cref="FrontmatterDoc.Empty"/> and the original content as the body when no
-/// frontmatter block is present (parser is intentionally lenient at runtime — strict
-/// validation lives in the help tool's <c>MarkdownStructureValidator</c>).
+/// Hand-rolled parser for the YAML-subset frontmatter at the top of a help file:
+/// <c>---</c>-delimited block, flat <c>key: value</c> pairs, and one list key
+/// (<c>relatedLinks:</c>). Lenient at runtime; strict checks live in <c>MarkdownStructureValidator</c>.
 /// </summary>
 public static class FrontmatterParser
 {
-    /// <summary>
-    /// Parses the frontmatter block at the top of <paramref name="content"/> and returns
-    /// the parsed document plus the remaining body text. If no frontmatter delimiter is
-    /// found on the first non-empty line, returns <see cref="FrontmatterDoc.Empty"/> and
-    /// <paramref name="content"/> unmodified.
-    /// </summary>
+    /// <summary>Parses the frontmatter block at the top of <paramref name="content"/> and returns the doc + remaining body.</summary>
     public static (FrontmatterDoc Doc, string Body) Parse(string? content)
     {
         if (string.IsNullOrEmpty(content))

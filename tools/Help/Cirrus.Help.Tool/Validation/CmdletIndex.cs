@@ -7,24 +7,10 @@ using System.Reflection;
 namespace Cirrus.Help.Tool.Validation
 {
     /// <summary>
-    /// Static metadata for a single cmdlet: canonical <c>Verb-Noun</c> name plus the union of
-    /// <c>[Parameter]</c> property names and their <c>[Alias]</c> entries across all parameter sets.
+    /// Static metadata for one cmdlet: <c>Verb-Noun</c> name, the union of <c>[Parameter]</c>
+    /// names and <c>[Alias]</c> entries across parameter sets, required-mandatory-everywhere
+    /// names, and parameter type map.
     /// </summary>
-    /// <param name="VerbNoun">Canonical name (e.g. <c>Set-CirrusConfig</c>).</param>
-    /// <param name="ParameterNames">Declared <c>[Parameter]</c> property names. Case-insensitive set.</param>
-    /// <param name="ParameterAliases">
-    /// Alias → canonical parameter name. Aliases come from <c>[Alias]</c> attributes on
-    /// <c>[Parameter]</c>-decorated properties. Case-insensitive keys.
-    /// </param>
-    /// <param name="RequiredParameters">
-    /// Parameters that are <c>Mandatory = true</c> across <c>AllParameterSets</c>, meaning the
-    /// example must always supply them regardless of which set is invoked. We deliberately do
-    /// not flag set-specific mandatory params to avoid false positives in cross-set examples.
-    /// </param>
-    /// <param name="ParameterTypes">
-    /// Canonical parameter name → declaring CLR property type (with <see cref="Nullable{T}"/>
-    /// unwrapped). Used by the value-type validator.
-    /// </param>
     public sealed record CmdletMetadata(
         string VerbNoun,
         HashSet<string> ParameterNames,
@@ -33,17 +19,11 @@ namespace Cirrus.Help.Tool.Validation
         Dictionary<string, Type> ParameterTypes);
 
     /// <summary>
-    /// Reflection-based catalogue of every cmdlet exposed by the Cirrus cmdlet assemblies
-    /// (<c>Microsoft.Azure.Cirrus.Cmdlets.*.dll</c>). Built once per Help-tool run and consumed
-    /// by <see cref="PowerShellExampleSyntaxValidator"/>.
+    /// Reflection-based catalogue of every cmdlet exposed by Cirrus cmdlet assemblies
+    /// (<c>Microsoft.Azure.Cirrus.Cmdlets.*.dll</c>). Built once per Help-tool run.
+    /// Parameter names are unioned across all parameter sets to avoid false positives in
+    /// examples that mix sets.
     /// </summary>
-    /// <remarks>
-    /// We intentionally union parameter names across all <c>ParameterSetName</c> values. The
-    /// alternative — tracking parameter sets — would let us reject "you can't use -X and -Y
-    /// together", but it can also produce false positives in examples that legitimately mix
-    /// parameters from a default set with parameters from another set. Keeping the union is
-    /// the conservative choice for now.
-    /// </remarks>
     public sealed class CmdletIndex
     {
         private readonly Dictionary<string, CmdletMetadata> _cmdlets =

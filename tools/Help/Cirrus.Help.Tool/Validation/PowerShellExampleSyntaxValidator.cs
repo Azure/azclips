@@ -461,17 +461,11 @@ namespace Cirrus.Help.Tool.Validation
         };
 
         /// <summary>
-        /// Walks every <see cref="VariableExpressionAst"/> in the script block and reports
-        /// references to variables that are never assigned. Catches stale examples where a
-        /// variable was renamed halfway through (e.g. <c>$rg</c> assigned but later read as
-        /// <c>$resourceGroup</c>).
+        /// Reports references to <see cref="VariableExpressionAst"/> variables that are never
+        /// assigned in the same fence. Write-side variables (LHS, loop, param-block,
+        /// <c>-OutVariable</c>/<c>-ErrorVariable</c>/etc.), drive-qualified (<c>$env:</c>), and
+        /// automatic variables are excluded.
         /// </summary>
-        /// <remarks>
-        /// We only report read-side references; write-side variables (LHS of assignments,
-        /// loop variables, param-block names, and the targets of <c>-OutVariable</c>/
-        /// <c>-ErrorVariable</c>/etc.) are added to the defined set first. Drive-qualified
-        /// variables like <c>$env:NAME</c> and automatic variables are excluded.
-        /// </remarks>
         private static void ValidateUnassignedVariables(
             ScriptBlockAst ast,
             string filePath,

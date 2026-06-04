@@ -7,24 +7,36 @@ param(
     [switch]$GenerateHelpArtifacts
 )
 
-dotnet build "$PSScriptRoot/../cirrus.slnx" --configuration $Configuration
+function Invoke-CirrusBuild
+{
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateSet('Debug', 'Release')][string]$Configuration
+    )
 
-# Update .psd1 module manifests to reference the correct artifact paths
-& "$PSScriptRoot/Set-ModuleConfiguration.ps1" -Configuration $Configuration
+    dotnet build "$PSScriptRoot/../cirrus.slnx" --configuration $Configuration
+    if ($LASTEXITCODE -ne 0) { throw "dotnet build failed (exit $LASTEXITCODE)." }
 
-# Workaround for Microsoft.PowerShell.PlatyPS 1.0.1 `Export-MamlCommandHelp` not
-# converting fenced code blocks under `## EXAMPLES` into `<dev:code>` elements.
-# It instead emits the raw markdown (` ```powershell\n...\n``` `) into
-# `<maml:introduction>`, which `Get-Help -Examples` then prints verbatim,
-# fence markers and all.
-#
-# This repair walks each `<command:example>` and:
-#   1. Finds `<maml:para>` entries that are wholly a fenced code block,
-#   2. Joins their bodies (newline-separated) into `<dev:code>`,
-#   3. Removes those `<maml:para>` entries from `<maml:introduction>`.
-#
-# Multiple fences within the same example are concatenated. Prose paragraphs
-# stay in the introduction. If `<dev:code>` is already populated, we leave it.
+    # Update .psd1 module manifests to reference the correct artifact paths.
+    & "$PSScriptRoot/Set-ModuleConfiguration.ps1" -Configuration $Configuration
+}
+
+function Invoke-HelpValidationTool
+{
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][string]$ArtifactsRoot,
+        [Parameter(Mandatory)][string]$OutputRoot
+    )
+
+    dotnet run --project "$RepoRoot/tools/Help/Cirrus.Help.Tool/Cirrus.Help.Tool.csproj" -- --artifacts-root "$ArtifactsRoot" --output-root "$OutputRoot"
+    return $LASTEXITCODE
+}
+
+# Repairs PlatyPS 1.0.1 quirk: Export-MamlCommandHelp leaves fenced example bodies
+# inside <maml:para> instead of populating <dev:code>, so `Get-Help -Examples`
+# prints raw fence markers. We move each fenced paragraph's body into <dev:code>.
 function Repair-MamlExampleCodeBlocks
 {
     [CmdletBinding()]
@@ -59,11 +71,7 @@ function Repair-MamlExampleCodeBlocks
             $text = $para.InnerText
             if ([string]::IsNullOrWhiteSpace($text)) { continue }
 
-            # Match a paragraph whose ENTIRE content is one fenced block. The
-            # opening fence may be tagged (` ```powershell `, ` ```pwsh `,
-            # ` ```ps `) or bare. The closing fence is just ` ``` ` on its own
-            # line. We don't try to merge prose-and-fence paragraphs because
-            # PlatyPS always emits fences as their own `<maml:para>`.
+            # Match a paragraph whose ENTIRE content is one fenced block (tagged or bare).
             if ($text -match '(?ms)^\s*```[a-zA-Z0-9_-]*\s*\r?\n(?<body>.*?)\r?\n```\s*$')
             {
                 $codeFragments.Add($Matches['body'])
@@ -75,9 +83,8 @@ function Repair-MamlExampleCodeBlocks
 
         if (-not $codeNode)
         {
+            # <dev:code> belongs after <maml:introduction> for round-trip via Import-MamlCommandHelp.
             $codeNode = $doc.CreateElement('dev', 'code', 'http://schemas.microsoft.com/maml/dev/2004/10')
-            # `<dev:code>` belongs after `<maml:introduction>`. Insert it there
-            # so the resulting XML round-trips back through Import-MamlCommandHelp.
             $ex.InsertAfter($codeNode, $intro) | Out-Null
         }
         $codeNode.InnerText = ($codeFragments -join "`n`n")
@@ -96,35 +103,55 @@ function Repair-MamlExampleCodeBlocks
     }
 }
 
-if ($GenerateHelpArtifacts)
+# Generates MAML XML for one PowerShell module via PlatyPS 1.x.
+# Runs in an isolated child pwsh: parent process loads its own YamlDotNet via dotnet build,
+# and PlatyPS bundles its own copy — same-name assembly conflict if loaded together.
+function ConvertTo-CirrusModuleMaml
 {
-    $repoRoot = Resolve-Path "$PSScriptRoot/.."
-    $artifactsRoot = Join-Path $repoRoot "artifacts/$Configuration"
-    $outputRoot = Join-Path $repoRoot "artifacts/help"
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$HelpDir,
+        [Parameter(Mandatory)][string]$OutputFolder,
+        [Parameter(Mandatory)][string]$ModuleName
+    )
 
-    # Ensure PlatyPS (and any other build-time PS modules) are installed and pinned.
-    & "$PSScriptRoot/Install-BuildDependencies.ps1"
+    pwsh -NoProfile -Command {
+        param($helpDirArg, $outDirArg)
+        $ErrorActionPreference = 'Stop'
+        Import-Module Microsoft.PowerShell.PlatyPS -RequiredVersion 1.0.1
+        Get-ChildItem -Path $helpDirArg -Filter *.md -File |
+            ForEach-Object { Import-MarkdownCommandHelp -Path $_.FullName } |
+            Export-MamlCommandHelp -OutputFolder $outDirArg -Force | Out-Null
+    } -Args $HelpDir, $OutputFolder
 
-    dotnet run --project "$repoRoot/tools/Help/Cirrus.Help.Tool/Cirrus.Help.Tool.csproj" -- --artifacts-root "$artifactsRoot" --output-root "$outputRoot"
-    $helpToolExitCode = $LASTEXITCODE
+    if ($LASTEXITCODE -ne 0)
+    {
+        throw "Microsoft.PowerShell.PlatyPS pipeline failed for module '$ModuleName' (exit $LASTEXITCODE)."
+    }
 
-    # Generate MAML XML from per-module markdown using Microsoft.PowerShell.PlatyPS 1.x.
-    # Pipeline: Import-MarkdownCommandHelp (reads legacy schema 2.0.0 + new schema)
-    # → Export-MamlCommandHelp. The new tool reads `external help file:` from the .md
-    # frontmatter and writes `<that-name>.xml` into a per-module subfolder, e.g.
-    # `<outDir>/Compute/Microsoft.Azure.Cirrus.Cmdlets.Compute.dll-Help.xml`.
-    #
-    # Run the pipeline in an isolated child pwsh session: `dotnet build` loads its
-    # own YamlDotNet into the parent process, and Microsoft.PowerShell.PlatyPS 1.0.1
-    # bundles its own copy — same-name assembly conflict if loaded in one AppDomain.
-    #
-    # MAML is written into:
-    #  - src/PS/<Module>/en-US (gitignored — see .gitignore `src/PS/*/en-US/`)
-    #  - artifacts/Debug/PS/<Module>/en-US (next to the staged .psd1; what `Get-Help`
-    #    resolves when the module is imported from artifacts).
-    $psHelpXmlCount = 0
-    $stagedPsRoot = Join-Path $artifactsRoot "PS"
-    Get-ChildItem "$repoRoot/src/PS" -Directory | ForEach-Object {
+    $produced = Get-ChildItem -Path $OutputFolder -Recurse -Filter '*.xml' -File
+    if (-not $produced)
+    {
+        throw "PlatyPS produced no MAML for module '$ModuleName'."
+    }
+
+    return $produced
+}
+
+# Emits repaired MAML for every src/PS/<Module>/help/ corpus to both
+# src/PS/<Module>/en-US (gitignored) and <ArtifactsRoot>/PS/<Module>/en-US.
+function Publish-CirrusHelpArtifacts
+{
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][string]$ArtifactsRoot
+    )
+
+    $stagedPsRoot = Join-Path $ArtifactsRoot "PS"
+    $moduleCount = 0
+
+    Get-ChildItem "$RepoRoot/src/PS" -Directory | ForEach-Object {
         $moduleDir = $_
         $helpDir = Join-Path $moduleDir.FullName "help"
         if (-not (Test-Path $helpDir)) { return }
@@ -137,47 +164,48 @@ if ($GenerateHelpArtifacts)
         New-Item -ItemType Directory -Force -Path $tempOut | Out-Null
         try
         {
-            pwsh -NoProfile -Command {
-                param($helpDirArg, $outDirArg)
-                $ErrorActionPreference = 'Stop'
-                Import-Module Microsoft.PowerShell.PlatyPS -RequiredVersion 1.0.1
-                Get-ChildItem -Path $helpDirArg -Filter *.md -File |
-                    ForEach-Object { Import-MarkdownCommandHelp -Path $_.FullName } |
-                    Export-MamlCommandHelp -OutputFolder $outDirArg -Force | Out-Null
-            } -Args $helpDir, $tempOut
-            if ($LASTEXITCODE -ne 0) { throw "Microsoft.PowerShell.PlatyPS pipeline failed for module '$($moduleDir.Name)' (exit $LASTEXITCODE)." }
-
-            $produced = Get-ChildItem -Path $tempOut -Recurse -Filter '*.xml' -File
-            if (-not $produced) { throw "PlatyPS produced no MAML for module '$($moduleDir.Name)'." }
+            $produced = ConvertTo-CirrusModuleMaml -HelpDir $helpDir -OutputFolder $tempOut -ModuleName $moduleDir.Name
 
             foreach ($xml in $produced)
             {
-                # Post-fix Microsoft.PowerShell.PlatyPS 1.0.1 quirk: Export-MamlCommandHelp
-                # serializes triple-backtick fenced code blocks as literal `<maml:para>```...```</maml:para>`
-                # instead of populating `<dev:code>`. `Get-Help -Examples` then renders the
-                # raw markdown fence markers to the user. We walk each `<command:example>`,
-                # extract the first fenced block out of `<maml:introduction>` and move its
-                # body into `<dev:code>`. Surviving prose stays in `<maml:introduction>`.
                 Repair-MamlExampleCodeBlocks -Path $xml.FullName
 
                 Copy-Item -Path $xml.FullName -Destination (Join-Path $enUs $xml.Name) -Force
 
-                $stagedEnUs = Join-Path $stagedPsRoot (Join-Path $moduleDir.Name "en-US")
-                if (Test-Path (Join-Path $stagedPsRoot $moduleDir.Name))
+                $stagedModuleDir = Join-Path $stagedPsRoot $moduleDir.Name
+                if (Test-Path $stagedModuleDir)
                 {
+                    $stagedEnUs = Join-Path $stagedModuleDir "en-US"
                     New-Item -ItemType Directory -Force -Path $stagedEnUs | Out-Null
                     Copy-Item -Path $xml.FullName -Destination $stagedEnUs -Force
                 }
             }
 
-            $psHelpXmlCount++
+            $moduleCount++
         }
         finally
         {
             Remove-Item -Path $tempOut -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
-    Write-Host "Generated MAML help for $psHelpXmlCount PowerShell module(s)."
+
+    Write-Host "Generated MAML help for $moduleCount PowerShell module(s)."
+}
+
+Invoke-CirrusBuild -Configuration $Configuration
+
+if ($GenerateHelpArtifacts)
+{
+    $repoRoot = Resolve-Path "$PSScriptRoot/.."
+    $artifactsRoot = Join-Path $repoRoot "artifacts/$Configuration"
+    $outputRoot = Join-Path $repoRoot "artifacts/help"
+
+    # Ensure PlatyPS (and any other build-time PS modules) are installed and pinned.
+    & "$PSScriptRoot/Install-BuildDependencies.ps1"
+
+    $helpToolExitCode = Invoke-HelpValidationTool -RepoRoot $repoRoot -ArtifactsRoot $artifactsRoot -OutputRoot $outputRoot
+
+    Publish-CirrusHelpArtifacts -RepoRoot $repoRoot -ArtifactsRoot $artifactsRoot
 
     # Propagate the help tool's exit code so CI fails when help validation fails.
     if ($helpToolExitCode -ne 0)

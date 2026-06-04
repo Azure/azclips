@@ -3,18 +3,15 @@ using System.Text.RegularExpressions;
 namespace Core.Cli.Help;
 
 /// <summary>
-/// A single example block parsed from a help markdown file. The <see cref="IsPowerShell"/>
-/// flag is driven entirely by the fence language tag (<c>powershell</c>/<c>pwsh</c> → true,
-/// <c>bash</c>/<c>sh</c>/anything else → false); the <c>(CLI)</c> / <c>(PowerShell)</c> suffix
-/// in the H3 title is cosmetic and has no parsing effect.
+/// One example block parsed from a help markdown file. <see cref="IsPowerShell"/> is
+/// driven by the fence language tag (<c>powershell</c>/<c>pwsh</c> → true); the
+/// <c>(CLI)</c> / <c>(PowerShell)</c> suffix in the H3 title is cosmetic.
 /// </summary>
 public sealed record MarkdownExample(string Title, string Command, bool IsPowerShell);
 
 /// <summary>
-/// The parsed shape of a help markdown file: frontmatter <c>summary</c>, body
-/// <c>Description:</c> line, and the ordered list of example fences. Use
-/// <see cref="Empty"/> as the sentinel when no markdown exists for a command — callers
-/// fall back to <c>[ProcessorInfo]</c>/<c>[ArgumentInfo]</c> attributes from there.
+/// Parsed help markdown: frontmatter <c>summary</c>, body <c>Description:</c> line,
+/// and ordered example fences. <see cref="Empty"/> is the no-markdown sentinel.
 /// </summary>
 public sealed record MarkdownCommandHelp(string Summary, string Description, IReadOnlyList<MarkdownExample> Examples)
 {
@@ -22,35 +19,10 @@ public sealed record MarkdownCommandHelp(string Summary, string Description, IRe
 }
 
 /// <summary>
-/// Reads and parses help markdown from <c>src/CLI/Help/&lt;ext&gt;/*.md</c> at
-/// runtime. This is the cold-path entry point for CLI help rendering.
+/// Reads and parses help markdown from <c>src/CLI/Help/&lt;ext&gt;/*.md</c> at runtime.
+/// Lenient: malformed/missing input returns <see cref="MarkdownCommandHelp.Empty"/> rather
+/// than throwing — strict checks live in the build-time help tool.
 /// </summary>
-/// <remarks>
-/// <para>
-/// File resolution: <c>commandKey</c> is dash-joined and lower-cased; an empty key resolves
-/// to <c>index.md</c>. Extension folder names are used verbatim (lower-case, e.g. <c>compute</c>).
-/// </para>
-/// <para>
-/// Two lookup roots, in order:
-/// <list type="number">
-///   <item><description><c>&lt;AppContext.BaseDirectory&gt;/help/&lt;ext&gt;/&lt;key&gt;.md</c> — the packaged path; the
-///   <c>Core.Cli</c> project copies <c>src/CLI/Help/**/*.md</c> to its output as content.</description></item>
-///   <item><description><c>&lt;repoRoot&gt;/src/CLI/Help/&lt;ext&gt;/&lt;key&gt;.md</c> — dev-loop fallback so authors can edit
-///   markdown without re-running the build.</description></item>
-/// </list>
-/// </para>
-/// <para>
-/// Lenient at runtime, strict at build. Malformed or missing markdown returns
-/// <see cref="MarkdownCommandHelp.Empty"/> rather than throwing — a typo in one file never
-/// crashes the CLI. Structural and semantic validation is the job of
-/// <c>MarkdownStructureValidator</c> + the example validators in the help tool.
-/// </para>
-/// <para>
-/// No caching today. Help is read once per CLI process invocation; if profiling later
-/// shows I/O hot-pathing, key a <c>ConcurrentDictionary</c> on
-/// <c>(extensionName, commandKey)</c> with <c>LastWriteTime</c> invalidation.
-/// </para>
-/// </remarks>
 public static class MarkdownCommandHelpProvider
 {
     // Title line, optional blank line(s), then the opening ``` fence. Markdown
@@ -62,11 +34,8 @@ public static class MarkdownCommandHelpProvider
         RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
     /// <summary>
-    /// Loads and parses the help markdown file for a given extension + command key.
-    /// Returns <see cref="MarkdownCommandHelp.Empty"/> when the file does not exist.
+    /// Loads help markdown for an extension + command key, or <see cref="MarkdownCommandHelp.Empty"/> if no file exists.
     /// </summary>
-    /// <param name="extensionName">Extension name (case-insensitive; lower-cased for folder lookup).</param>
-    /// <param name="commandKey">Canonical CLI command key (space-separated, lowercased, dashed for file lookup). Empty string resolves to <c>index.md</c>.</param>
     public static MarkdownCommandHelp Get(string extensionName, string commandKey)
     {
         var filePath = ResolveHelpFilePath(extensionName, commandKey);
@@ -79,11 +48,7 @@ public static class MarkdownCommandHelpProvider
         return Parse(content);
     }
 
-    /// <summary>
-    /// Parses raw markdown content into a <see cref="MarkdownCommandHelp"/>.
-    /// Designed for graceful degradation: malformed input returns empty/partial content
-    /// rather than throwing. Strict validation lives in the build-time help tool.
-    /// </summary>
+    /// <summary>Parses raw markdown content. Lenient: malformed input returns empty/partial.</summary>
     public static MarkdownCommandHelp Parse(string? content)
     {
         if (string.IsNullOrWhiteSpace(content))

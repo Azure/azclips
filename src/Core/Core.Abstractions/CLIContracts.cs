@@ -30,13 +30,6 @@ public class ArgumentInfoAttribute : Attribute
     public string ParameterSetName { get; set; } = "(All)";
     public bool SupportsPipeline { get; set; } = false;
     public bool SupportsWildcards { get; set; } = false;
-    /// <summary>
-    /// Indicates if the property is positional in the command line arguments.
-    /// Each command could have one positional argument.
-    /// </summary>
-    // public bool Positional { get; set; } = false;
-    // public string NumArgs { get; set; } = "1"; // Default to 1, can be set to '*' for variable length
-    // public string? Group { get; set; } = null;
     public string SerializedName { get; set; } = "";
 }
 
