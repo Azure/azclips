@@ -1246,8 +1246,10 @@ stages:
               echo "ERROR: Strict codesign verification failed: $candidate"
               verification_errors=1
             fi
-            if ! codesign -dvv "$candidate" 2>&1 | grep -q 'Developer ID'; then
+            signature_details=$(codesign -dvvv "$candidate" 2>&1 || true)
+            if ! printf '%s\n' "$signature_details" | grep -Eq 'Authority=.*Developer ID|TeamIdentifier=UBF8T346G9'; then
               echo "ERROR: Developer ID certificate missing: $candidate"
+              printf '%s\n' "$signature_details" | grep -E '^(Authority|TeamIdentifier|Identifier|CDHash)=' || true
               verification_errors=1
             fi
           done < <(find "$content_dir" -type f -print0)
@@ -1453,8 +1455,10 @@ stages:
               echo "ERROR: Strict codesign verification failed: $candidate"
               errors=1
             fi
-            if ! codesign -dvv "$candidate" 2>&1 | grep -q 'Developer ID'; then
+            signature_details=$(codesign -dvvv "$candidate" 2>&1 || true)
+            if ! printf '%s\n' "$signature_details" | grep -Eq 'Authority=.*Developer ID|TeamIdentifier=UBF8T346G9'; then
               echo "ERROR: Developer ID certificate missing: $candidate"
+              printf '%s\n' "$signature_details" | grep -E '^(Authority|TeamIdentifier|Identifier|CDHash)=' || true
               errors=1
             fi
           done < <(find "$verify_dir" -type f -print0)
