@@ -11,8 +11,12 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest.Processors
     /// untyped transport primitive, <see cref="SendRequestAsync"/>.
     /// <para>
     /// Unlike the typed Resources base, this base does NOT deserialize the response into a fixed
-    /// model and does NOT throw on non-2xx responses: the <c>rest</c> command must surface error
-    /// payloads (status + body) so the user can inspect them, matching <c>az rest</c> behavior.
+    /// model. The transport primitive here returns non-2xx responses as-is rather than throwing, so
+    /// the full response payload (status, headers, body) can be surfaced to output first, matching
+    /// <c>az rest</c>. The concrete <see cref="RestProcessor.ProcessAsync"/> writes that payload to
+    /// output and then, for a status &gt;= 400, publishes a failure event and throws an
+    /// <see cref="System.Net.Http.HttpRequestException"/> so the command produces a non-zero,
+    /// terminating outcome after the error body has already been made visible.
     /// </para>
     /// <para>
     /// <see cref="AuthContext"/> is captured because the command performs <c>{subscriptionId}</c>

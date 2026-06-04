@@ -183,6 +183,11 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest.Processors
                 string name = header[..separator].Trim();
                 string value = header[(separator + 1)..];
 
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    throw new InvalidOperationException($"Invalid header '{header}': header name cannot be empty.");
+                }
+
                 if (name.Equals("Content-Type", StringComparison.OrdinalIgnoreCase))
                 {
                     if (request.Content is not null)
