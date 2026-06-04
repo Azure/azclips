@@ -25,9 +25,9 @@ parameters:
     default: macos-signing-inputs
 
   - name: notarized_bundles_artifact_prefix
-    displayName: macOS notarized bundles artifact prefix
+    displayName: macOS signed/notarization bundle artifact prefix
     type: string
-    default: macos-notarized-bundles
+    default: macos-notarization-bundles
 
 variables:
 - template: templates/variables.yml
