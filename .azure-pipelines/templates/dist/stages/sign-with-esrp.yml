@@ -618,12 +618,15 @@ stages:
     - task: PowerShell@2
       displayName: Verify Signed Outputs
       inputs:
-        targetType: filePath
-        filePath: devops/scripts/packaging/signing/verify_signed_outputs.ps1
-        arguments: >-
-          -WorkingRoot "$(Pipeline.Workspace)/signing-work"
-          -RequireWindowsAuthenticode $true
-          -RequireStrongName ${{ parameters.esrp_require_windows_strong_name }}
+        targetType: inline
+        pwsh: true
+        script: |
+          $ErrorActionPreference = 'Stop'
+          $requireStrongName = [System.Convert]::ToBoolean('${{ parameters.esrp_require_windows_strong_name }}')
+          & "$(Build.SourcesDirectory)/devops/scripts/packaging/signing/verify_signed_outputs.ps1" `
+            -WorkingRoot "$(Pipeline.Workspace)/signing-work" `
+            -RequireWindowsAuthenticode $true `
+            -RequireStrongName $requireStrongName
         pwsh: true
     - task: PowerShell@2
       displayName: Repack Signed Outputs
