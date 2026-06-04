@@ -126,7 +126,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
     /// resolves <see cref="SubscriptionId"/> then dispatches a single HTTP request).
     /// </para>
     /// </summary>
-    public class ResourcesProcessorBase<TResponse> : ResourcesProcessorBase where TResponse : class
+    public abstract class ResourcesProcessorBase<TResponse> : ResourcesProcessorBase where TResponse : class
     {
         public string SubscriptionId { get; set; } = string.Empty;
 
