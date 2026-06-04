@@ -72,28 +72,12 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
             // may publish events (using Publisher) while building the request.
             EnsureRuntimeContext();
             using HttpRequestMessage _request = await CreateRequestMessage();
-            return await SendRequestAsync(_request);
-        }
-
-        /// <summary>
-        /// Sends an already-constructed request through the initialized pipeline. Applies the same
-        /// null-checks as <see cref="SendAsync"/> so an uninitialized processor fails with a
-        /// deterministic <see cref="InvalidOperationException"/> instead of a
-        /// <see cref="NullReferenceException"/>, and publishes the standard response-tracing event.
-        /// Used by both the single-request path and the nextLink pagination path so failures are
-        /// consistent regardless of how the request was built.
-        /// </summary>
-        internal async Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request)
-        {
-            EnsureRuntimeContext();
-            HttpResponseMessage _response = await HttpPipeline.SendAsync(request, Publisher);
+            HttpResponseMessage _response = await HttpPipeline.SendAsync(_request, Publisher);
             await Publisher.Publish(Events.TracingHttpResponseMessage, _response);
             // Surface non-2xx ARM responses (e.g. 404 on a missing resource group) as a thrown
-            // HttpRequestException after publishing ResourceOperationFailed, instead of silently
-            // deserializing an error body into a default response. Applied here so both the
-            // single-request path and the nextLink pagination path get the check.
-            // EnsureSuccessAsync only reads the body on failure, so the success-path content
-            // stream stays intact for the subsequent deserialize in ProcessAsync.
+            // HttpRequestException after publishing ResourceOperationFailed, instead of deserializing
+            // an error body into a default response. EnsureSuccessAsync only reads the body on failure,
+            // so the success-path content stream stays intact for the deserialize in ProcessAsync.
             try
             {
                 await _response.EnsureSuccessAsync(Publisher);
@@ -129,28 +113,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
             {
                 throw new InvalidOperationException($"Processor {GetType().Name} was not initialized with {nameof(JsonOptions)}.");
             }
-        }
-
-        /// <summary>
-        /// Maximum number of characters of a raw response body included in an exception message.
-        /// </summary>
-        private protected const int MaxBodyCharsInExceptionMessage = 2048;
-
-        /// <summary>
-        /// Returns a length-bounded version of a raw response body for safe inclusion in exception
-        /// messages. Exceptions can propagate into logs/telemetry, so the full (potentially large or
-        /// sensitive) body is never embedded — it is truncated with an indicator of how much was
-        /// omitted. The full body remains available via the <c>ResponseInvalidJson</c> diagnostic
-        /// event's <see cref="EventData.ExtendedData"/> (kept out of the user-facing message).
-        /// </summary>
-        private protected static string TruncateBodyForExceptionMessage(string body)
-        {
-            if (string.IsNullOrEmpty(body) || body.Length <= MaxBodyCharsInExceptionMessage)
-            {
-                return body;
-            }
-
-            return $"{body.Substring(0, MaxBodyCharsInExceptionMessage)}... [truncated, {body.Length - MaxBodyCharsInExceptionMessage} more characters]";
         }
     }
 
@@ -230,12 +192,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                 }
                 catch (JsonException ex)
                 {
-                    await Publisher.Publish(Events.ResponseInvalidJson, new EventData
-                    {
-                        Message = $"response has invalid JSON for {response.RequestMessage?.RequestUri}",
-                        ExtendedData = rawBody,
-                    });
-                    throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {TruncateBodyForExceptionMessage(rawBody)}", ex);
+                    await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
+                    throw new InvalidOperationException($"Failed to deserialize response body into {typeof(TResponse).Name}. Raw body: {rawBody}", ex);
                 }
             }
             finally

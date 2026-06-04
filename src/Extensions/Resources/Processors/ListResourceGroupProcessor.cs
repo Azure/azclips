@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Microsoft.Azure.Cirrus.ExtensionRuntime;
 using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
@@ -67,8 +68,21 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                     await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
                     using var nextRequest = new HttpRequestMessage(HttpMethod.Get, nextUri);
                     await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
-                    using HttpResponseMessage nextResponse = await SendRequestAsync(nextRequest);
-                    page = await DeserializePageOrNull(nextResponse);
+                    HttpResponseMessage nextResponse = await HttpPipeline.SendAsync(nextRequest, Publisher);
+                    await Publisher.Publish(Events.TracingHttpResponseMessage, nextResponse);
+                    try
+                    {
+                        await nextResponse.EnsureSuccessAsync(Publisher);
+                    }
+                    catch
+                    {
+                        nextResponse.Dispose();
+                        throw;
+                    }
+                    using (nextResponse)
+                    {
+                        page = await DeserializePageOrNull(nextResponse);
+                    }
 
                     if (page is null)
                     {
@@ -111,12 +125,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
             }
             catch (JsonException ex)
             {
-                await Publisher.Publish(Events.ResponseInvalidJson, new EventData
-                {
-                    Message = $"response has invalid JSON for {response.RequestMessage?.RequestUri}",
-                    ExtendedData = rawBody,
-                });
-                throw new InvalidOperationException($"Failed to deserialize response body into {nameof(ResourceGroupListResult)}. Raw body: {TruncateBodyForExceptionMessage(rawBody)}", ex);
+                await Publisher.Publish(Events.ResponseInvalidJson, $"response has invalid JSON for {response.RequestMessage?.RequestUri}");
+                throw new InvalidOperationException($"Failed to deserialize response body into {nameof(ResourceGroupListResult)}. Raw body: {rawBody}", ex);
             }
         }
     }
