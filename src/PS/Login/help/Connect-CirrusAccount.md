@@ -2,7 +2,7 @@
 document type: cmdlet
 external help file: Microsoft.Azure.Cirrus.Cmdlets.Login.dll-Help.xml
 HelpUri: ""
-Locale: en-AU
+Locale: en-US
 Module Name: Login
 ms.date: 06/03/2026
 PlatyPS schema version: 2024-05-01

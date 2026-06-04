@@ -2,7 +2,7 @@
 document type: cmdlet
 external help file: Microsoft.Azure.Cirrus.Cmdlets.Compute.dll-Help.xml
 HelpUri: ''
-Locale: en-AU
+Locale: en-US
 Module Name: Compute
 ms.date: 06/04/2026
 PlatyPS schema version: 2024-05-01

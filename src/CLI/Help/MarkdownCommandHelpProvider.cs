@@ -77,7 +77,8 @@ public static class MarkdownCommandHelpProvider
             }
 
             var isPowerShell = language.Equals("powershell", StringComparison.OrdinalIgnoreCase)
-                || language.Equals("pwsh", StringComparison.OrdinalIgnoreCase);
+                || language.Equals("pwsh", StringComparison.OrdinalIgnoreCase)
+                || language.Equals("ps", StringComparison.OrdinalIgnoreCase);
 
             examples.Add(new MarkdownExample(
                 string.IsNullOrWhiteSpace(title) ? "Example" : title,
@@ -148,7 +149,7 @@ public static class MarkdownCommandHelpProvider
         var prefix = name + ":";
         for (var i = 0; i < lines.Length; i++)
         {
-            var line = lines[i].TrimEnd('\r');
+            var line = lines[i].TrimEnd('\r').TrimStart();
             if (!line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             {
                 continue;
@@ -159,8 +160,8 @@ public static class MarkdownCommandHelpProvider
             {
                 var next = lines[j].TrimEnd('\r');
                 if (string.IsNullOrWhiteSpace(next)
-                    || next.StartsWith("#", StringComparison.Ordinal)
-                    || next.StartsWith("```", StringComparison.Ordinal))
+                    || next.TrimStart().StartsWith("#", StringComparison.Ordinal)
+                    || next.TrimStart().StartsWith("```", StringComparison.Ordinal))
                 {
                     break;
                 }
