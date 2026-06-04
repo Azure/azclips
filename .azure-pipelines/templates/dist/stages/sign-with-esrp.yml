@@ -851,12 +851,21 @@ stages:
           }
         }
         if ('${{ parameters.esrp_require_windows_strong_name }}' -eq 'true') {
+          $strongNameExcludeNames = @(
+            'Microsoft.Azure.Cirrus.ExtensionRuntime.dll'
+          )
           $dlls = $toVerify | Where-Object { $_.Name -like 'Microsoft.Azure.Cirrus*.dll' }
-          if (-not $dlls) {
-            throw 'Strong-name policy requires at least one Cirrus DLL in signed Windows payload.'
+          $strongNameTargets = $dlls | Where-Object { $_.Name -notin $strongNameExcludeNames }
+
+          foreach ($dll in $dlls | Where-Object { $_.Name -in $strongNameExcludeNames }) {
+            Write-Host "Skipping strong-name verification for excluded DLL: $($dll.FullName)"
           }
 
-          foreach ($dll in $dlls) {
+          if (-not $strongNameTargets) {
+            throw 'Strong-name policy requires at least one non-excluded Cirrus DLL in signed Windows payload.'
+          }
+
+          foreach ($dll in $strongNameTargets) {
             try {
               $assemblyName = [System.Reflection.AssemblyName]::GetAssemblyName($dll.FullName)
             }

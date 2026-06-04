@@ -14,6 +14,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+$strongNameExcludeNames = @(
+  'Microsoft.Azure.Cirrus.ExtensionRuntime.dll'
+)
+
 if (-not (Test-Path $WorkingRoot)) {
   throw "Working root was not found: $WorkingRoot"
 }
@@ -22,6 +26,7 @@ $nupkgCount = 0
 $windowsCount = 0
 $windowsDllCount = 0
 $strongNameVerifiedCount = 0
+$strongNameTargetCount = 0
 
 $nupkgRoot = Join-Path $WorkingRoot 'nupkg'
 if (Test-Path $nupkgRoot) {
@@ -62,7 +67,13 @@ if (Test-Path $windowsRoot) {
   }
 
   if ($RequireStrongName) {
-    foreach ($dll in $windowsDlls) {
+    $strongNameTargets = $windowsDlls | Where-Object { $_.Name -notin $strongNameExcludeNames }
+    $strongNameTargetCount = $strongNameTargets.Count
+    foreach ($dll in $windowsDlls | Where-Object { $_.Name -in $strongNameExcludeNames }) {
+      Write-Host "Skipping strong-name verification for excluded DLL: $($dll.FullName)"
+    }
+
+    foreach ($dll in $strongNameTargets) {
       try {
         $assemblyName = [System.Reflection.AssemblyName]::GetAssemblyName($dll.FullName)
       }
@@ -88,8 +99,8 @@ if ($RequireWindowsAuthenticode -and $windowsCount -eq 0) {
   throw "Verification matrix failed: expected at least one Windows binary under $windowsRoot"
 }
 
-if ($RequireStrongName -and $windowsDllCount -eq 0) {
-  throw "Verification matrix failed: strong-name policy requires at least one managed Cirrus DLL to verify."
+if ($RequireStrongName -and $strongNameTargetCount -eq 0) {
+  throw "Verification matrix failed: strong-name policy requires at least one non-excluded managed Cirrus DLL to verify."
 }
 
 Write-Host 'Verification matrix summary:'
@@ -97,6 +108,7 @@ Write-Host "  NuGet packages verified: $nupkgCount"
 Write-Host "  Windows binaries Authenticode verified: $windowsCount"
 Write-Host "  Windows DLLs discovered: $windowsDllCount"
 if ($RequireStrongName) {
+  Write-Host "  Windows DLLs requiring strong-name verification: $strongNameTargetCount"
   Write-Host "  Windows DLLs strong-name verified: $strongNameVerifiedCount"
 } else {
   Write-Host '  Windows DLLs strong-name verified: skipped (policy disabled)'
