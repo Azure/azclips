@@ -53,8 +53,12 @@ public sealed record MarkdownCommandHelp(string Summary, string Description, IRe
 /// </remarks>
 public static class MarkdownCommandHelpProvider
 {
+    // Title line, optional blank line(s), then the opening ``` fence. Markdown
+    // authors commonly leave a blank line between the H3 heading and the fence;
+    // the previous tighter `\s*\r?\n```` form silently dropped every example in
+    // those files (PR #226 review).
     private static readonly Regex ExampleRegex = new(
-        @"###\s*(?<title>.+?)\s*\r?\n```(?<lang>[a-zA-Z0-9_-]*)\s*\r?\n(?<command>[\s\S]*?)\r?\n```",
+        @"###\s*(?<title>[^\r\n]+?)[ \t]*\r?\n(?:[ \t]*\r?\n)*```(?<lang>[a-zA-Z0-9_-]*)[ \t]*\r?\n(?<command>[\s\S]*?)\r?\n```",
         RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
     /// <summary>

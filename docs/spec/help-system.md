@@ -21,7 +21,8 @@ Two parallel markdown corpora drive three surfaces: CLI help authored under `src
 ## 2. Architecture at a Glance
 
 ```
-src/Extensions/<Ext>/help/*.md  ◄── single source of truth
+src/CLI/Help/<ext>/*.md         ◄── CLI corpus (azv2 --help)
+src/PS/<Module>/help/*.md       ◄── PowerShell corpus (Get-Help, MAML via PlatyPS)
         │
         ├── runtime ──────────────────────────────────────────────
         │
@@ -52,7 +53,7 @@ Two consumers, one source. Runtime reads markdown directly out of the extension 
 
 ## 3. Authoring Model
 
-Help lives under `src/Extensions/<Extension>/help/`. Root commands use `index.md`; subcommands use `<segment>-<segment>.md` (space-delimited canonical CLI key, dasherized).
+CLI help lives under `src/CLI/Help/<ext>/`; PowerShell help under `src/PS/<Module>/help/`. CLI root commands use `index.md` and subcommands use `<segment>-<segment>.md` (space-delimited canonical CLI key, dasherized). PowerShell files are named `<Verb-Noun>.md` (one per cmdlet), per PlatyPS convention.
 
 Each file has YAML frontmatter (file-level metadata) followed by a markdown body (description + examples):
 
@@ -83,19 +84,19 @@ Connect-CirrusAccount -SubscriptionId "00000000-0000-0000-0000-000000000000"
 
 **Surface differentiation is driven by the code-fence language tag** (`bash`/`sh` → CLI, `powershell`/`pwsh` → PowerShell). The `(CLI)` / `(PowerShell)` H3 suffix is cosmetic — it disambiguates for the human reader; the parser ignores it.
 
-Each extension `.csproj` embeds its help corpus into the assembly:
+The CLI host project copies the markdown corpus to its build output as content:
 
 ```xml
 <ItemGroup>
-    <EmbeddedResource Include="help\**\*.md">
-        <LogicalName>help/%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
-    </EmbeddedResource>
+    <Content Include="Help\**\*.md">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
 </ItemGroup>
 ```
 
-`LogicalName` flattens to `help/<command>.md` regardless of root namespace, so the runtime lookup is uniform across extensions.
+At runtime the provider resolves `<AppContext.BaseDirectory>/help/<ext>/<key>.md` first, with a dev-loop fallback that walks up to `cirrus.slnx` and reads `src/CLI/Help/<ext>/<key>.md` directly. There is no embedded-resource path today.
 
-Markdown is hand-authored today. Codegen may interject at this layer in the future (e.g. emitting templates from `IExtensionIndex`); the embedded-resource contract downstream stays the same.
+Markdown is hand-authored today. Codegen may interject at this layer in the future (e.g. emitting templates from `IExtensionIndex`); the on-disk contract downstream stays the same.
 
 Full author workflow lives in [docs/howto/help.md](../howto/help.md).
 
@@ -103,17 +104,17 @@ Full author workflow lives in [docs/howto/help.md](../howto/help.md).
 
 ## 4. CLI Surface
 
-`-h` / `--help` / `help` is intercepted **before** command execution. The adapter resolves the canonical command key (full path, space-delimited, lowercased), reads the corresponding markdown out of the extension assembly via `MarkdownCommandHelpProvider.Get(Assembly, key)`, filters examples to `!IsPowerShell`, and renders.
+`-h` / `--help` / `help` is intercepted **before** command execution. The adapter resolves the canonical command key (full path, space-delimited, lowercased) and calls `MarkdownCommandHelpProvider.Get(extensionName, commandKey)`, which reads the corresponding markdown file from disk, filters examples to `!IsPowerShell`, and renders.
 
 Cold-path guarantees:
 
 - No reflection over processor types on the help path.
 - No processor instantiation.
-- One synchronous resource read per invocation; no caching today.
+- One synchronous file read per invocation; no caching today.
 
 Tree shape mirrors azure-cli: `azv2 --help` lists groups, `azv2 group --help` lists subcommands, `azv2 group create --help` shows full command help. Global arguments (`--help`, `--debug`, `--output`) are owned by the CLI host and surface on every page.
 
-The runtime also supports a source-tree fallback for repo contributors: if the embedded resource is **missing** from the loaded assembly, the provider walks up from `AppContext.BaseDirectory` looking for `cirrus.slnx` and reads the markdown straight from `src/Extensions/<ext>/help/`. The fallback only fires on absence — a stale extension DLL on disk will serve its stale embedded copy, so the inner loop is still "edit `.md`, rebuild that one extension, see new help."
+The runtime supports a source-tree fallback for repo contributors: if the packaged file at `<AppContext.BaseDirectory>/help/<ext>/<key>.md` is **missing**, the provider walks up from `AppContext.BaseDirectory` looking for `cirrus.slnx` and reads the markdown straight from `src/CLI/Help/<ext>/`. The fallback only fires on absence — a stale copy in the build output will be served as-is, so the inner loop is still "edit `.md`, rebuild, see new help."
 
 ---
 

@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Text;
+using Cirrus.Help.Tool.Validation;
 using Core.Abstractions;
 
 namespace Cirrus.Help.Tool
@@ -40,7 +41,11 @@ namespace Cirrus.Help.Tool
 
             foreach (var (key, metadata) in cliTable.OrderBy(static kv => kv.Key, StringComparer.OrdinalIgnoreCase))
             {
-                var path = Path.Combine(helpDir, key + ".md");
+                // Use the canonical filename mapping so multi-word routed keys
+                // (e.g. "config get") become "config-get.md" and an empty key
+                // wouldn't accidentally produce ".md" — keeps scaffolder output
+                // in lockstep with HelpCompletenessValidator (PR #226 review).
+                var path = Path.Combine(helpDir, HelpCommandKey.ToHelpFileName(key));
                 if (TryWrite(path, BuildCommandTemplate(groupToken, key, metadata)))
                 {
                     created++;

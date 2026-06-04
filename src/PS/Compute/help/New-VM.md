@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Cirrus.Cmdlets.Compute.dll-Help.xml
 HelpUri: ''
 Locale: en-AU
 Module Name: Compute
-ms.date: 06/03/2026
+ms.date: 06/04/2026
 PlatyPS schema version: 2024-05-01
 title: New-VM
 ---
@@ -578,12 +578,5 @@ Generated help for compute.
 
 ## RELATED LINKS
 
-- [Online Version]()
-- [Online Version]()
-- [Online Version]()
-- [Online Version]()
-- [Online Version]()
-- [Online Version]()
-- [Online Version]()
-- [Online Version]()
+
 - [Online Version]()

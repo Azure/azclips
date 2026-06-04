@@ -48,6 +48,11 @@ function Convert-PlatyPSPlaceholders
     # with empty bodies when the cmdlet has no [Example] metadata. Backfill each empty
     # body with a TODO description + a code fence that uses the required parameters,
     # so `Get-Help -Examples` produces something runnable-shaped.
+    #
+    # Note: the six-backtick sequences below are NOT a markdown six-fence — inside a
+    # PowerShell here-string, each backtick is the escape character, so `````` resolves
+    # to three literal backticks (a standard markdown fence). Verified output in
+    # src/PS/<Module>/help/*.md is plain ```powershell / ``` (PR #226 review false-positive).
     $exampleStub = @"
 TODO - describe the example.
 
@@ -96,21 +101,37 @@ $exampleLine
         if ($inExamples -and $line -match '^###\s+\S')
         {
             $exampleHeadingsSeen++
-            # Look ahead: collect lines until next heading; if all blank, inject stub.
+            # Look ahead until the next heading. We replace the body with our stub
+            # (TODO description + fenced code) when EITHER:
+            #   - the body is entirely blank (PlatyPS sometimes emits empty `###` blocks), OR
+            #   - the body is non-blank but contains no ``` opening fence.
+            # PlatyPS 1.0.1 + schema 2024-05-01 has started pre-rendering an unfenced
+            # invocation line from the cmdlet's mandatory parameters (e.g.
+            # `Get-VM -SubscriptionId <subscriptionid> -ResourceGroupName <...>`).
+            # Without a fence, PSL8 (NoExamples) trips. We treat such lines as a stub
+            # placeholder and overwrite them with a properly-fenced block.
             $j = $i + 1
             $bodyBlank = $true
+            $bodyHasFence = $false
             while ($j -lt $lines.Count -and $lines[$j] -notmatch '^#{2,3}\s')
             {
-                if ($lines[$j].Trim().Length -gt 0) { $bodyBlank = $false; break }
+                if ($lines[$j].Trim().Length -gt 0) { $bodyBlank = $false }
+                if ($lines[$j] -match '^\s*```') { $bodyHasFence = $true; break }
                 $j++
             }
-            if ($bodyBlank)
+            if ($bodyBlank -or -not $bodyHasFence)
             {
+                # Walk forward past the existing (fenceless) body to the next heading
+                # so we can swallow it before injecting the stub.
+                $skipTo = $i + 1
+                while ($skipTo -lt $lines.Count -and $lines[$skipTo] -notmatch '^#{2,3}\s')
+                {
+                    $skipTo++
+                }
                 $output.Add('')
                 foreach ($stubLine in ($exampleStub -split "`r?`n")) { $output.Add($stubLine) }
                 $output.Add('')
-                # Skip the original blank lines.
-                $i = $j
+                $i = $skipTo
                 continue
             }
         }
@@ -118,7 +139,27 @@ $exampleLine
         $i++
     }
 
-    return ($output -join "`n")
+    # Collapse duplicate `[Online Version]()` entries under `## RELATED LINKS`.
+    # PlatyPS 1.0.1's `New-MarkdownCommandHelp -ModuleInfo` seeds the Links
+    # collection with one entry per cmdlet in the module and writes each as
+    # `[Online Version]()` when no HelpUri attribute is declared on the cmdlet,
+    # producing N near-identical bullets. Deduping here keeps `Get-Help -Online`
+    # output sane until cmdlets carry real HelpUri values (PR #226 review).
+    $merged = $output -join "`n"
+    $merged = [regex]::Replace(
+        $merged,
+        '(?ms)(^## RELATED LINKS\s*\r?\n)(?:\s*\r?\n)*((?:- \[[^\]]+\]\([^)]*\)\s*\r?\n?)+)',
+        {
+            param($m)
+            $header = $m.Groups[1].Value
+            $links = $m.Groups[2].Value -split "`r?`n" |
+                Where-Object { $_ -match '^- \[' } |
+                Select-Object -Unique
+            $body = if ($links) { ($links -join "`n") + "`n" } else { '' }
+            return $header + "`n" + $body
+        })
+
+    return $merged
 }
 
 $repoRoot = Resolve-Path "$PSScriptRoot/.."

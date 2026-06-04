@@ -112,9 +112,12 @@ namespace Cirrus.Help.Tool.Validation
                 report.AddError(ProblemIds.MD_MissingDescription, "Missing required field 'Description:'.", relativePath);
             }
 
+            // Allow blank line(s) between the H3 heading and the opening ``` fence —
+            // common markdown style. Must stay in lockstep with the runtime parser in
+            // MarkdownCommandHelpProvider.ExampleRegex (PR #226 review).
             var exampleCount = Regex.Matches(
                 body,
-                @"###\s*(?<title>.+?)\s*\r?\n```(?<lang>[a-zA-Z0-9_-]*)\s*\r?\n(?<command>[\s\S]*?)\r?\n```",
+                @"###\s*(?<title>[^\r\n]+?)[ \t]*\r?\n(?:[ \t]*\r?\n)*```(?<lang>[a-zA-Z0-9_-]*)[ \t]*\r?\n(?<command>[\s\S]*?)\r?\n```",
                 RegexOptions.CultureInvariant | RegexOptions.IgnoreCase).Count;
 
             if (exampleCount == 0)
