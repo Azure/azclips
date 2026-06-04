@@ -627,7 +627,6 @@ stages:
             -WorkingRoot "$(Pipeline.Workspace)/signing-work" `
             -RequireWindowsAuthenticode $true `
             -RequireStrongName $requireStrongName
-        pwsh: true
     - task: PowerShell@2
       displayName: Repack Signed Outputs
       inputs:
