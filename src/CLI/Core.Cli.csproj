@@ -16,7 +16,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Cli.Tests" />
   </ItemGroup>
-  
+
   <Import Project="$(MSBuildThisFileDirectory)..\..\Shared.props" />
 
   <ItemGroup>
