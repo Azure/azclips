@@ -133,10 +133,10 @@ stages:
 
 - template: templates/dist/stages/sign-with-esrp.yml
   parameters:
-    windows_pool: $(windows_pool)
-    ubuntu_pool: $(ubuntu_pool)
-    macos_arm64_pool: $(macos_arm64_pool)
-    macos_intel_pool: $(macos_intel_pool)
+    windows_pool: ${{ variables.windows_pool }}
+    ubuntu_pool: ${{ variables.ubuntu_pool }}
+    macos_arm64_pool: ${{ variables.macos_arm64_pool }}
+    macos_intel_pool: ${{ variables.macos_intel_pool }}
     dependency_stage: Preflight
     SourceProject: $(SourceProject)
     source_pipeline_name: ${{ parameters.source_pipeline_name }}
