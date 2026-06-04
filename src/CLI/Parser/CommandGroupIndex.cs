@@ -23,6 +23,7 @@ namespace Core.Cli.Parser
             _commandGroups["Extension"] = "Extension";
             _commandGroups["Config"] = "Config";
             _commandGroups["Vm"] = "Compute";
+            _commandGroups["Rest"] = "Rest";
             // Add more command groups as needed
         }
         internal static string getExtensionNameByCommandGroupName(string commandGroupName)
