@@ -125,8 +125,8 @@ The final signed drop is published as the artifact named by `signed_artifact_nam
 | Per-pass `SigntoolVerify`       | ❌                                       | ✅ (each ESRP pass appends a verify operation)                    |
 | RFC3161 timestamp               | ❌                                       | ✅                                                                 |
 | Script signing (`ps1`/`psm1`/…) | ❌                                       | ✅                                                                 |
-| StrongName 1P (`CP-233863-SN`)  | ❌                                       | ✅ (combined with Authenticode in one ESRP call)                  |
-| StrongName 3P (`CP-233863-SN`)  | ❌                                       | ✅ (default pattern `**/FuzzySharp.dll`, parameterized)            |
+| StrongName 1P (`CP-233863-SN`)  | ❌                                       | ⚠ opt-in via `enable_strong_name_signing` (default off; requires delay-signed csproj)  |
+| StrongName 3P (`CP-233863-SN`)  | ❌                                       | ⚠ opt-in via `enable_strong_name_signing` (default off; pattern `**/FuzzySharp.dll`)   |
 | Inner-nupkg `psd1` signing      | ❌                                       | ✅ (expand → sign psd1 → repack → `NuGetSign`)                    |
 | 3P DLL signing (`Append /as`)   | ❌                                       | ✅ (`CP-231522`)                                                   |
 | MSI signing                     | ❌                                       | ✅ (when `HasMsi=true`)                                            |

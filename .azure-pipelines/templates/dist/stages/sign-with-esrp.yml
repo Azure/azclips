@@ -368,22 +368,22 @@ stages:
           inlineOperation: |
             [
               {
-                "KeyCode": "${{ parameters.esrp_strongname_keycode }}",
-                "OperationCode": "StrongNameSign",
-                "Parameters": {},
-                "ToolName": "sign",
-                "ToolVersion": "1.0"
-              },
-              {
                 "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
                 "OperationCode": "SigntoolSign",
                 "Parameters": {
                   "OpusName": "Microsoft",
                   "OpusInfo": "http://www.microsoft.com",
-                  "FileDigest": "/fd SHA256",
+                  "FileDigest": "/fd \"SHA256\"",
                   "PageHash": "/NPH",
                   "TimeStamp": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
                 },
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              },
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolVerify",
+                "Parameters": {},
                 "ToolName": "sign",
                 "ToolVersion": "1.0"
               }
@@ -414,15 +414,29 @@ stages:
                 "ToolVersion": "1.0"
               },
               {
+                "KeyCode": "${{ parameters.esrp_strongname_keycode }}",
+                "OperationCode": "StrongNameVerify",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              },
+              {
                 "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
                 "OperationCode": "SigntoolSign",
                 "Parameters": {
                   "OpusName": "Microsoft",
                   "OpusInfo": "http://www.microsoft.com",
-                  "FileDigest": "/fd SHA256",
+                  "FileDigest": "/fd \"SHA256\"",
                   "PageHash": "/NPH",
                   "TimeStamp": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
                 },
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              },
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolVerify",
+                "Parameters": {},
                 "ToolName": "sign",
                 "ToolVersion": "1.0"
               }
@@ -451,10 +465,17 @@ stages:
                 "Parameters": {
                   "OpusName": "Microsoft",
                   "OpusInfo": "http://www.microsoft.com",
-                  "FileDigest": "/fd SHA256",
+                  "FileDigest": "/fd \"SHA256\"",
                   "PageHash": "/NPH",
                   "TimeStamp": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
                 },
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              },
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolVerify",
+                "Parameters": {},
                 "ToolName": "sign",
                 "ToolVersion": "1.0"
               }
@@ -484,9 +505,16 @@ stages:
                 "Parameters": {
                   "OpusName": "Microsoft",
                   "OpusInfo": "http://www.microsoft.com",
-                  "FileDigest": "/fd SHA256",
+                  "FileDigest": "/fd \"SHA256\"",
                   "PageHash": "/NPH"
                 },
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              },
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolVerify",
+                "Parameters": {},
                 "ToolName": "sign",
                 "ToolVersion": "1.0"
               }
@@ -510,14 +538,35 @@ stages:
           inlineOperation: |
             [
               {
+                "KeyCode": "${{ parameters.esrp_strongname_keycode }}",
+                "OperationCode": "StrongNameSign",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              },
+              {
+                "KeyCode": "${{ parameters.esrp_strongname_keycode }}",
+                "OperationCode": "StrongNameVerify",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              },
+              {
                 "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
                 "OperationCode": "SigntoolSign",
                 "Parameters": {
                   "OpusName": "Microsoft",
                   "OpusInfo": "http://www.microsoft.com",
-                  "FileDigest": "/fd SHA256",
+                  "FileDigest": "/fd \"SHA256\"",
                   "PageHash": "/NPH"
                 },
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              },
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolVerify",
+                "Parameters": {},
                 "ToolName": "sign",
                 "ToolVersion": "1.0"
               }
@@ -546,9 +595,16 @@ stages:
                 "Parameters": {
                   "OpusName": "Microsoft",
                   "OpusInfo": "http://www.microsoft.com",
-                  "FileDigest": "/fd SHA256",
+                  "FileDigest": "/fd \"SHA256\"",
                   "PageHash": "/NPH"
                 },
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              },
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolVerify",
+                "Parameters": {},
                 "ToolName": "sign",
                 "ToolVersion": "1.0"
               }
@@ -572,13 +628,6 @@ stages:
           signConfigType: inlineSignParams
           inlineOperation: |
             [
-              {
-                "KeyCode": "${{ parameters.esrp_strongname_keycode }}",
-                "OperationCode": "StrongNameVerify",
-                "Parameters": {},
-                "ToolName": "sign",
-                "ToolVersion": "1.0"
-              },
               {
                 "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
                 "OperationCode": "SigntoolVerify",
@@ -605,6 +654,13 @@ stages:
           signConfigType: inlineSignParams
           inlineOperation: |
             [
+              {
+                "KeyCode": "${{ parameters.esrp_strongname_keycode }}",
+                "OperationCode": "StrongNameVerify",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              },
               {
                 "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
                 "OperationCode": "SigntoolVerify",

@@ -55,6 +55,15 @@ parameters:
   - name: esrp_strong_name_keycode
     type: string
     default: 'CP-233863-SN'
+  # StrongName signing requires assemblies to be built delay-signed
+  # (`<DelaySign>true</DelaySign>` + `<AssemblyOriginatorKeyFile>` referencing
+  # MSSharedLibSN1024.snk). Cirrus binaries are not currently delay-signed,
+  # so leave this off until the csproj side is configured. Once enabled, the
+  # 1P pass becomes a 4-op call (StrongNameSign + Verify + Authenticode +
+  # Verify) and an extra 3P StrongName pass runs.
+  - name: enable_strong_name_signing
+    type: boolean
+    default: false
   - name: rfc3161_timestamp
     type: string
     default: '/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256'
@@ -336,72 +345,128 @@ stages:
           }
 
     # 1P binaries: Cirrus*, Az.*, azv2.exe, *.AlcWrapper.dll (excludes tests).
-    # StrongName + Authenticode in a single ESRP call, matching the
-    # azure-powershell `Sign Dll [Authenticode + Strong Name]` pass exactly.
-    - task: EsrpCodeSigning@5
-      displayName: Sign 1P Binaries [StrongName + Authenticode + Verify]
-      condition: eq(variables['HasWindowsPayload'], 'true')
-      inputs:
-        ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
-        AppRegistrationClientId: '$(ESRPAppClientId)'
-        AppRegistrationTenantId: '$(ESRPAppTenantId)'
-        AuthAKVName: '$(ESRPKVName)'
-        AuthCertName: '$(ESRPAuthCertName)'
-        AuthSignCertName: '$(ESRPSignCertName)'
-        FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
-        UseMinimatch: true
-        Pattern: |
-          **/azv2.exe
-          **/Microsoft.Azure.Cirrus*.dll
-          **/Microsoft.Azure.Cirrus*.exe
-          **/Cirrus*.dll
-          **/Az.*.dll
-          **/Az.*.private.dll
-          **/*.AlcWrapper.dll
-          !**/*.Test.dll
-          !**/*Test*.dll
-          !**/*.Tests.dll
-        signConfigType: inlineSignParams
-        SessionTimeout: '60'
-        MaxConcurrency: '25'
-        MaxRetryAttempts: '5'
-        inlineOperation: |
-          [
-            {
-              "KeyCode": "${{ parameters.esrp_strong_name_keycode }}",
-              "OperationCode": "StrongNameSign",
-              "Parameters": {},
-              "ToolName": "sign",
-              "ToolVersion": "1.0"
-            },
-            {
-              "KeyCode": "${{ parameters.esrp_strong_name_keycode }}",
-              "OperationCode": "StrongNameVerify",
-              "Parameters": {},
-              "ToolName": "sign",
-              "ToolVersion": "1.0"
-            },
-            {
-              "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
-              "OperationCode": "SigntoolSign",
-              "Parameters": {
-                "OpusName": "Microsoft",
-                "OpusInfo": "http://www.microsoft.com",
-                "FileDigest": "/fd SHA256",
-                "PageHash": "/NPH",
-                "TimeStamp": "${{ parameters.rfc3161_timestamp }}"
+    # When enable_strong_name_signing=true: StrongName + Authenticode in a
+    # single ESRP call (4 ops), matching azure-powershell's
+    # `Sign Dll [Authenticode + Strong Name]` pass. Requires delay-signed
+    # assemblies (see parameter docs above).
+    # When false: Authenticode-only (2 ops). This is the default until the
+    # csproj side is configured to delay-sign.
+    - ${{ if eq(parameters.enable_strong_name_signing, true) }}:
+      - task: EsrpCodeSigning@5
+        displayName: Sign 1P Binaries [StrongName + Authenticode + Verify]
+        condition: eq(variables['HasWindowsPayload'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
+          UseMinimatch: true
+          Pattern: |
+            **/azv2.exe
+            **/Microsoft.Azure.Cirrus*.dll
+            **/Microsoft.Azure.Cirrus*.exe
+            **/Cirrus*.dll
+            **/Az.*.dll
+            **/Az.*.private.dll
+            **/*.AlcWrapper.dll
+            !**/*.Test.dll
+            !**/*Test*.dll
+            !**/*.Tests.dll
+          signConfigType: inlineSignParams
+          SessionTimeout: '60'
+          MaxConcurrency: '25'
+          MaxRetryAttempts: '5'
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_strong_name_keycode }}",
+                "OperationCode": "StrongNameSign",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
               },
-              "ToolName": "sign",
-              "ToolVersion": "1.0"
-            },
-            {
-              "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
-              "OperationCode": "SigntoolVerify",
-              "Parameters": {},
-              "ToolName": "sign",
-              "ToolVersion": "1.0"
-            }
-          ]
+              {
+                "KeyCode": "${{ parameters.esrp_strong_name_keycode }}",
+                "OperationCode": "StrongNameVerify",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              },
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolSign",
+                "Parameters": {
+                  "OpusName": "Microsoft",
+                  "OpusInfo": "http://www.microsoft.com",
+                  "FileDigest": "/fd SHA256",
+                  "PageHash": "/NPH",
+                  "TimeStamp": "${{ parameters.rfc3161_timestamp }}"
+                },
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              },
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolVerify",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
+    - ${{ else }}:
+      - task: EsrpCodeSigning@5
+        displayName: Sign 1P Binaries [Authenticode + Verify]
+        condition: eq(variables['HasWindowsPayload'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
+          UseMinimatch: true
+          Pattern: |
+            **/azv2.exe
+            **/Microsoft.Azure.Cirrus*.dll
+            **/Microsoft.Azure.Cirrus*.exe
+            **/Cirrus*.dll
+            **/Az.*.dll
+            **/Az.*.private.dll
+            **/*.AlcWrapper.dll
+            !**/*.Test.dll
+            !**/*Test*.dll
+            !**/*.Tests.dll
+          signConfigType: inlineSignParams
+          SessionTimeout: '60'
+          MaxConcurrency: '25'
+          MaxRetryAttempts: '5'
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolSign",
+                "Parameters": {
+                  "OpusName": "Microsoft",
+                  "OpusInfo": "http://www.microsoft.com",
+                  "FileDigest": "/fd SHA256",
+                  "PageHash": "/NPH",
+                  "TimeStamp": "${{ parameters.rfc3161_timestamp }}"
+                },
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              },
+              {
+                "KeyCode": "${{ parameters.esrp_authenticode_keycode }}",
+                "OperationCode": "SigntoolVerify",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
 
     # PowerShell + JS scripts (Authenticode, no PageHash)
     - task: EsrpCodeSigning@5
@@ -450,41 +515,43 @@ stages:
           ]
 
     # 3P libs that ship strong-name-signed (FuzzySharp etc.). Mirrors the
-    # azure-powershell `Sign 3rd Party [Strong Name]` pass.
-    - task: EsrpCodeSigning@5
-      displayName: Sign Third-Party DLLs [StrongName + Verify]
-      condition: eq(variables['HasWindowsPayload'], 'true')
-      inputs:
-        ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
-        AppRegistrationClientId: '$(ESRPAppClientId)'
-        AppRegistrationTenantId: '$(ESRPAppTenantId)'
-        AuthAKVName: '$(ESRPKVName)'
-        AuthCertName: '$(ESRPAuthCertName)'
-        AuthSignCertName: '$(ESRPSignCertName)'
-        FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
-        UseMinimatch: true
-        Pattern: '${{ parameters.third_party_strong_name_pattern }}'
-        signConfigType: inlineSignParams
-        SessionTimeout: '60'
-        MaxConcurrency: '25'
-        MaxRetryAttempts: '5'
-        inlineOperation: |
-          [
-            {
-              "KeyCode": "${{ parameters.esrp_strong_name_keycode }}",
-              "OperationCode": "StrongNameSign",
-              "Parameters": {},
-              "ToolName": "sign",
-              "ToolVersion": "1.0"
-            },
-            {
-              "KeyCode": "${{ parameters.esrp_strong_name_keycode }}",
-              "OperationCode": "StrongNameVerify",
-              "Parameters": {},
-              "ToolName": "sign",
-              "ToolVersion": "1.0"
-            }
-          ]
+    # azure-powershell `Sign 3rd Party [Strong Name]` pass. Only emitted when
+    # enable_strong_name_signing=true.
+    - ${{ if eq(parameters.enable_strong_name_signing, true) }}:
+      - task: EsrpCodeSigning@5
+        displayName: Sign Third-Party DLLs [StrongName + Verify]
+        condition: eq(variables['HasWindowsPayload'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          FolderPath: '$(Pipeline.Workspace)/signing-work/windows-extracted'
+          UseMinimatch: true
+          Pattern: '${{ parameters.third_party_strong_name_pattern }}'
+          signConfigType: inlineSignParams
+          SessionTimeout: '60'
+          MaxConcurrency: '25'
+          MaxRetryAttempts: '5'
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_strong_name_keycode }}",
+                "OperationCode": "StrongNameSign",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              },
+              {
+                "KeyCode": "${{ parameters.esrp_strong_name_keycode }}",
+                "OperationCode": "StrongNameVerify",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
 
     # 3P DLLs (Newtonsoft.Json, Azure.*, etc.) — Append /as
     - task: EsrpCodeSigning@5
@@ -508,7 +575,7 @@ stages:
           !**/Az.*.dll
           !**/Az.*.private.dll
           !**/*.AlcWrapper.dll
-          !**/FuzzySharp.dll
+          ${{ if eq(parameters.enable_strong_name_signing, true) }}!**/FuzzySharp.dll${{ else }}${{ endif }}
           !**/*.Test.dll
           !**/*Test*.dll
           !**/*.Tests.dll
