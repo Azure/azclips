@@ -138,6 +138,17 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest.Processors
                 url = url.Replace(SubscriptionToken, AuthContext.SubscriptionId, StringComparison.Ordinal);
             }
 
+            // A leading-slash path (e.g. "/subscriptions/.../resourcegroups") is, by REST/HTTP
+            // convention, always a relative ARM path. Handle it explicitly BEFORE the absolute parse
+            // below: on Unix, System.Uri.TryCreate(url, UriKind.Absolute, ...) interprets a
+            // leading-slash path as an absolute "file://" URI and returns true (it does not on
+            // Windows), which would misclassify a relative ARM path as a non-https absolute URL and
+            // reject it. Resolving it here keeps behaviour identical across platforms.
+            if (url.StartsWith('/'))
+            {
+                return $"{ArmEndpoint.TrimEnd('/')}/{url.TrimStart('/')}";
+            }
+
             // Use a real URI parse (not a substring check on "://") to distinguish absolute from
             // relative: a relative ARM path can legitimately embed "://" in a query value (e.g. a
             // redirect/targetUri parameter), which a substring check would misclassify as absolute.
