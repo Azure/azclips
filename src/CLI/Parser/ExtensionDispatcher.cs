@@ -7,10 +7,8 @@ namespace Core.Cli.Parser;
 
 public class ExtensionDispatcher //: IParser
 {
-    // Flag-style help tokens that may appear anywhere after the subcommand. The literal
-    // `help` is intentionally NOT here so a positional value of "help" (e.g. a config
-    // key/value) is not misinterpreted as a help request. The subcommand form
-    // (`azv2 help <group> ...`) is handled explicitly via args[0] below.
+    // Flag forms only. Literal `help` is excluded so it isn't mistaken for a positional
+    // value; the `azv2 help <group>` subcommand form is matched explicitly via args[0].
     private static readonly string[] s_helpFlags = ["--help", "-h", "-?", "?"];
 
     private readonly record struct HelpRequest(string ExtensionName, IReadOnlyList<string> Path, bool IsCommandHelp);
@@ -42,12 +40,8 @@ public class ExtensionDispatcher //: IParser
     {
         if (args.Length == 0) throw new ArgumentException("Arguments cannot be empty.", nameof(args));
 
-        // Bare top-level help: any of the flag forms (--help, -h, -?, ?) OR the literal
-        // `help` subcommand with no further tokens. We only honor literal `help` here
-        // (args.Length == 1) and via the explicit subcommand form below; we deliberately
-        // do NOT treat a trailing `help` token elsewhere in the command line as a help
-        // request, since "help" is a valid positional value for some commands.
-        if (args.Length == 1 && (IsHelpToken(args[0]) || args[0].Equals("help", StringComparison.OrdinalIgnoreCase)))
+        // Bare top-level help: `azv2 --help`, `azv2 -h`, `azv2 help`, etc.
+        if (IsBareTopLevelHelp(args))
         {
             throw new DispatchHelpException(this);
         }
@@ -67,6 +61,12 @@ public class ExtensionDispatcher //: IParser
         return new CommandInvocation(extensionName, commandName, parameters, IsTransient: true, ModuleName: extensionName);
     }
 
+    private static bool IsBareTopLevelHelp(string[] args)
+        => args.Length == 1 && (IsHelpToken(args[0]) || IsHelpSubcommand(args[0]));
+
+    private static bool IsHelpSubcommand(string token)
+        => token.Equals("help", StringComparison.OrdinalIgnoreCase);
+
     private static bool IsHelpToken(string token)
         => s_helpFlags.Contains(token, StringComparer.OrdinalIgnoreCase);
 
@@ -74,14 +74,17 @@ public class ExtensionDispatcher //: IParser
     {
         request = default;
 
+        // Two recognized shapes:
+        //   1. `azv2 help <group> [...]`        — strip args[0]
+        //   2. `azv2 <group> [...] --help [...]` — strip the help flag in place
         string[] targetTokens;
-        if (args[0].Equals("help", StringComparison.OrdinalIgnoreCase))
+        if (IsHelpSubcommand(args[0]))
         {
-            targetTokens = args[1..].Where(static token => !IsHelpToken(token)).ToArray();
+            targetTokens = StripHelpFlags(args[1..]);
         }
         else if (args.Skip(1).Any(IsHelpToken))
         {
-            targetTokens = args.Where(static token => !IsHelpToken(token)).ToArray();
+            targetTokens = StripHelpFlags(args);
         }
         else
         {
@@ -108,4 +111,7 @@ public class ExtensionDispatcher //: IParser
         request = new HelpRequest(extensionName, path, commandSegments.Length > 0);
         return true;
     }
+
+    private static string[] StripHelpFlags(string[] tokens)
+        => tokens.Where(static t => !IsHelpToken(t)).ToArray();
 }
