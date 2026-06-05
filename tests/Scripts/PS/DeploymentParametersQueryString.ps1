@@ -86,6 +86,8 @@ Assert-Equal 'https://x/p.json?sv=2021'        (Get-ParametersLinkUri 'https://x
 Assert-Equal 'https://x/p.json?sv=2021'        (Get-ParametersLinkUri 'https://x/p.json' '&sv=2021') 'leading & trimmed (single)'
 Assert-Equal 'https://x/p.json'                (Get-ParametersLinkUri 'https://x/p.json' '') 'empty qs => unchanged uri'
 Assert-Equal 'https://x/p.json'                (Get-ParametersLinkUri 'https://x/p.json' $null) 'no qs => unchanged uri'
+Assert-Equal 'https://x/p.json'                (Get-ParametersLinkUri 'https://x/p.json' '?') 'qs of only ? trims empty => no stray separator'
+Assert-Equal 'https://x/p.json'                (Get-ParametersLinkUri 'https://x/p.json' '&') 'qs of only & trims empty => no stray separator'
 
 Write-Host "`n=== TemplateLink path UNCHANGED (uses dedicated ARM field, not embedding) ==="
 $tl = Get-TemplateLinkQueryString 'https://x/t.json' 'sv=2021&sig=ABC'

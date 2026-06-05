@@ -220,8 +220,13 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                         }
                         if (error)
                         {
-                            //TODO: redesign exceptions for extension runtime 
-                            throw new Exception($"Long running operation failed with response: {_response}");
+                            //TODO: redesign exceptions for extension runtime
+                            // Capture the message before disposing the response, then dispose the
+                            // current response (handle/socket) exactly once on this throw path.
+                            // The method exits here, so the surrounding finally only disposes _request.
+                            string message = $"Long running operation failed (terminal provisioningState 'Failed') for {_request?.RequestUri}.";
+                            _response.Dispose();
+                            throw new InvalidOperationException(message);
                         }
                     }
 

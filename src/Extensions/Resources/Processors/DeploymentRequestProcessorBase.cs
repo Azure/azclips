@@ -248,6 +248,12 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
             string trimmed = queryString.Length > 0 && (queryString[0] == '?' || queryString[0] == '&')
                 ? queryString[1..]
                 : queryString;
+            // A pathological query string of exactly "?" or "&" trims to empty; appending a
+            // separator would leave a stray trailing '?'/'&', so return the URI unchanged.
+            if (string.IsNullOrWhiteSpace(trimmed))
+            {
+                return uri;
+            }
             string separator = uri.Contains('?') ? "&" : "?";
             return uri + separator + trimmed;
         }
