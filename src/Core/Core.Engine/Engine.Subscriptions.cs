@@ -196,6 +196,24 @@ namespace Core.Engine
                 sequentialStage = null;
             });
 
+            subscriber.Subscribe(Events.ActivityStart, (data) =>
+            {
+                var evt = (EventData)data;
+                sequentialStage = telemetryService.StartActivity(evt.Id, ActivityKind.Internal);
+            });
+            subscriber.Subscribe(Events.ActivityEnd, (data) =>
+            {
+                sequentialStage?.Dispose();
+                sequentialStage = null;
+            });
+
+            subscriber.Subscribe(Events.Activity, (data) =>
+            {
+                var evt = (EventData)data;
+                var act = telemetryService.StartActivity(evt.Id, ActivityKind.Internal);
+                act?.Dispose();
+            });
+
             return subscriber;
         }
 

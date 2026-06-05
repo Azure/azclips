@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using Core.Abstractions;
+using Core.Telemetry.Constants;
 
 namespace Core.Telemetry;
 
@@ -17,7 +18,22 @@ public class TelemetryService : ITelemetryService
     }
 
     public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal) =>
-        _telemetryProvider.ActivitySource.StartActivity(name, kind);
+        _telemetryProvider.ActivitySource.StartActivity(name, kind)?.SetTag(TelemetryTags.EventName, name);
+
+    public Activity? AddTag(string propertyName, object value, Activity? activity = null)
+    {
+        if (activity is not null)
+        {
+            activity.SetTag(propertyName, value);
+            return activity;
+        }
+        var root = Activity.Current;
+        while (root?.Parent is not null)
+            root = root.Parent;
+
+        root?.SetTag(propertyName, value);
+        return root;
+    }
 
     public void Dispose()
     {

@@ -4,7 +4,6 @@ using Core.Abstractions;
 using Core.Cli.Exceptions;
 using Core.Cli.Parser;
 using Core.Cli.Telemetry;
-using Core.Engine;
 using Core.Telemetry;
 using Core.DependencyInjection;
 using Core.Telemetry.Constants;
@@ -72,13 +71,12 @@ public class Program
             activity.TagProcessInvariant(_clientType);
             var dispatcher = new ExtensionDispatcher();
             args = WireDebugStreams(args);
-            Activity? commandActivity = null;
             try
             {
                 CommandInvocation invocation = dispatcher.Parse(args);
                 activity.TagInvocation(invocation);
 
-                commandActivity =
+                using var commandActivity =
                     telemetryService.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
 
                 var engine = CirrusServiceProvider.GetRequiredService<IEngine>() ??
@@ -111,10 +109,6 @@ public class Program
                 activity?.AddException(ex);
 
                 return await TryAgentFallbackAsync(args, ex.Message);
-            }
-            finally
-            {
-                commandActivity?.Dispose();
             }
         }
         finally
