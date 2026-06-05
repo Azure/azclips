@@ -49,7 +49,7 @@ public class NewResourceGroupDeploymentCmdlet : PSCmdlet
     public SwitchParameter RollbackOnError { get; set; }
 
     [Parameter(Mandatory = false)]
-    public string? RollbackToLastDeploymentName { get; set; }
+    public string? RollbackToDeploymentName { get; set; }
 
     [Parameter(Mandatory = false)]
     public string? ValidationLevel { get; set; }
@@ -127,9 +127,9 @@ public class NewResourceGroupDeploymentCmdlet : PSCmdlet
         {
             parameters.Add("RollbackOnError", RollbackOnError.IsPresent);
         }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(RollbackToLastDeploymentName)))
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(RollbackToDeploymentName)))
         {
-            parameters.Add("RollbackToLastDeploymentName", RollbackToLastDeploymentName!);
+            parameters.Add("RollbackToDeploymentName", RollbackToDeploymentName!);
         }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(ValidationLevel)))
         {

@@ -24,8 +24,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
         [ArgumentInfo(
         Required = false,
         Description = @"Roll the resource group back to a specific named deployment on error. Mutually exclusive with RollbackOnError.",
-        SerializedName = @"RollbackToLastDeploymentName")]
-        public string? RollbackToLastDeploymentName { get; set; }
+        SerializedName = @"RollbackToDeploymentName")]
+        public string? RollbackToDeploymentName { get; set; }
 
         [ArgumentInfo(
         Required = false,
@@ -89,9 +89,9 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
         {
             base.ValidateInputs();
 
-            if (RollbackOnError && !string.IsNullOrWhiteSpace(RollbackToLastDeploymentName))
+            if (RollbackOnError && !string.IsNullOrWhiteSpace(RollbackToDeploymentName))
             {
-                throw new ArgumentException("Provide at most one of -RollbackOnError or -RollbackToLastDeploymentName; they are mutually exclusive.");
+                throw new ArgumentException("Provide at most one of -RollbackOnError or -RollbackToDeploymentName; they are mutually exclusive.");
             }
 
             if (!string.IsNullOrWhiteSpace(ValidationLevel) && NormalizeValidationLevel(ValidationLevel) is null)
@@ -102,12 +102,12 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
 
         private OnErrorDeployment? BuildOnErrorDeployment()
         {
-            if (!string.IsNullOrWhiteSpace(RollbackToLastDeploymentName))
+            if (!string.IsNullOrWhiteSpace(RollbackToDeploymentName))
             {
                 return new OnErrorDeployment
                 {
                     Type = "SpecificDeployment",
-                    DeploymentName = RollbackToLastDeploymentName,
+                    DeploymentName = RollbackToDeploymentName,
                 };
             }
 

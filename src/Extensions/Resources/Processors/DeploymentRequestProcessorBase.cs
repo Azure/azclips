@@ -53,7 +53,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
 
         [ArgumentInfo(
         Required = false,
-        Description = @"The query string (such as a SAS token) to use with the template URI. For a parameters file URI, include the SAS token in the -ParametersUri value itself.",
+        Description = @"The query string (such as a SAS token) to use with the template URI and/or the parameters URI.",
         SerializedName = @"QueryString")]
         public string? QueryString { get; set; }
 
@@ -179,7 +179,12 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
 
             if (!string.IsNullOrWhiteSpace(ParametersUri))
             {
-                parametersLink = new ParametersLink { Uri = ParametersUri };
+                // ARM's ParametersLink has no dedicated queryString field (unlike TemplateLink),
+                // so any SAS/query string must be embedded directly in the URI.
+                string uri = string.IsNullOrWhiteSpace(QueryString)
+                    ? ParametersUri
+                    : AppendQueryString(ParametersUri, QueryString);
+                parametersLink = new ParametersLink { Uri = uri };
                 return null;
             }
 
@@ -233,6 +238,18 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
             }
 
             return parameters;
+        }
+
+        // Append a query string to a URI. ParametersLink has no dedicated queryString field, so the
+        // query string must be embedded in the URI itself. A single leading '?' or '&' on the query
+        // string is trimmed, then it is joined with '&' when the URI already has a query, else '?'.
+        protected static string AppendQueryString(string uri, string queryString)
+        {
+            string trimmed = queryString.Length > 0 && (queryString[0] == '?' || queryString[0] == '&')
+                ? queryString[1..]
+                : queryString;
+            string separator = uri.Contains('?') ? "&" : "?";
+            return uri + separator + trimmed;
         }
 
         // Find an existing key in 'parameters' that equals 'key' ignoring case, returning the
