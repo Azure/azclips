@@ -15,9 +15,9 @@
 
 $ErrorActionPreference = 'Stop'
 
-$root = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
-$extDir = Join-Path $root 'artifacts\Debug\Microsoft.Azure.Cirrus.Extensions.Resources'
-$cliDir = Join-Path $root 'artifacts\Debug\Core.Cli'
+$root = Resolve-Path (Join-Path $PSScriptRoot '../../..')
+$extDir = Join-Path $root 'artifacts/Debug/Microsoft.Azure.Cirrus.Extensions.Resources'
+$cliDir = Join-Path $root 'artifacts/Debug/Core.Cli'
 $extDll = Join-Path $extDir 'Microsoft.Azure.Cirrus.Extensions.Resources.dll'
 
 if (-not (Test-Path $extDll)) { throw "Extension DLL not found at $extDll. Build the solution first." }
@@ -93,6 +93,16 @@ Write-Host "`n=== TemplateLink path UNCHANGED (uses dedicated ARM field, not emb
 $tl = Get-TemplateLinkQueryString 'https://x/t.json' 'sv=2021&sig=ABC'
 Assert-Equal 'https://x/t.json'        $tl.Uri         'template uri NOT modified'
 Assert-Equal 'sv=2021&sig=ABC'         $tl.QueryString 'template uses TemplateLink.QueryString field'
+
+Write-Host "`n=== TemplateLink.QueryString separator normalization (items A/B) ==="
+$tlLeadingQ = Get-TemplateLinkQueryString 'https://x/t.json' '?sv=abc'
+Assert-Equal 'sv=abc' $tlLeadingQ.QueryString 'leading ? trimmed from TemplateLink.QueryString'
+$tlLeadingAmp = Get-TemplateLinkQueryString 'https://x/t.json' '&sv=abc'
+Assert-Equal 'sv=abc' $tlLeadingAmp.QueryString 'leading & trimmed from TemplateLink.QueryString'
+$tlNoSep = Get-TemplateLinkQueryString 'https://x/t.json' 'sv=abc'
+Assert-Equal 'sv=abc' $tlNoSep.QueryString 'no leading separator stays unchanged'
+$tlOnlyQ = Get-TemplateLinkQueryString 'https://x/t.json' '?'
+Assert-Equal $null    $tlOnlyQ.QueryString 'qs of only ? normalizes to null'
 
 if ($failures -gt 0) {
     Write-Host "`n$failures assertion(s) failed." -ForegroundColor Red

@@ -146,7 +146,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                 templateLink = new TemplateLink
                 {
                     Uri = TemplateUri,
-                    QueryString = string.IsNullOrWhiteSpace(QueryString) ? null : QueryString,
+                    QueryString = NormalizeQueryString(QueryString),
                 };
                 return null;
             }
@@ -156,7 +156,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                 templateLink = new TemplateLink
                 {
                     Id = TemplateSpecId,
-                    QueryString = string.IsNullOrWhiteSpace(QueryString) ? null : QueryString,
+                    QueryString = NormalizeQueryString(QueryString),
                 };
                 return null;
             }
@@ -240,17 +240,29 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
             return parameters;
         }
 
+        // Trims a single leading '?' or '&' from a query string and returns null when empty/whitespace.
+        // ARM's TemplateLink.queryString field stores the raw query WITHOUT a leading separator.
+        private static string? NormalizeQueryString(string? queryString)
+        {
+            if (string.IsNullOrWhiteSpace(queryString))
+            {
+                return null;
+            }
+            string trimmed = queryString.Length > 0 && (queryString[0] == '?' || queryString[0] == '&')
+                ? queryString[1..]
+                : queryString;
+            return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
+        }
+
         // Append a query string to a URI. ParametersLink has no dedicated queryString field, so the
         // query string must be embedded in the URI itself. A single leading '?' or '&' on the query
         // string is trimmed, then it is joined with '&' when the URI already has a query, else '?'.
         protected static string AppendQueryString(string uri, string queryString)
         {
-            string trimmed = queryString.Length > 0 && (queryString[0] == '?' || queryString[0] == '&')
-                ? queryString[1..]
-                : queryString;
             // A pathological query string of exactly "?" or "&" trims to empty; appending a
             // separator would leave a stray trailing '?'/'&', so return the URI unchanged.
-            if (string.IsNullOrWhiteSpace(trimmed))
+            string? trimmed = NormalizeQueryString(queryString);
+            if (trimmed is null)
             {
                 return uri;
             }
