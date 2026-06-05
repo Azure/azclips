@@ -55,6 +55,47 @@ public class RuntimeHelpRendererTests
         Assert.Equal(NormalizeLineEndings(expected), NormalizeLineEndings(actual));
     }
 
+    [Fact]
+    public void RenderGroup_ShouldRenderSubgroupsSection_WhenSubgroupsArePresent()
+    {
+        var renderer = new RuntimeHelpRenderer();
+        var group = new RuntimeHelpGroup(
+            GroupPath: "group",
+            Summary: "Manage Azure resource groups.",
+            Subgroups:
+            [
+                new RuntimeHelpGroupSummary("role", "Manage role assignments."),
+                new RuntimeHelpGroupSummary("tag", string.Empty),
+            ],
+            Commands:
+            [
+                new RuntimeHelpCommandSummary("create", "Create a resource group.", []),
+            ]);
+
+        var actual = string.Join("\n", renderer.RenderGroup(group, terminalWidth: null));
+
+        Assert.Contains("Subgroups:", actual);
+        Assert.Contains("role : Manage role assignments.", actual);
+        Assert.Contains("tag", actual); // empty summary still listed
+        Assert.Contains("Commands:", actual);
+        Assert.Contains("create", actual);
+    }
+
+    [Fact]
+    public void RenderGroup_ShouldOmitSubgroupsSection_WhenSubgroupsAreEmpty()
+    {
+        var renderer = new RuntimeHelpRenderer();
+        var group = new RuntimeHelpGroup(
+            GroupPath: "login",
+            Summary: "Authenticate.",
+            Subgroups: [],
+            Commands: [new RuntimeHelpCommandSummary("login", "Sign in.", [])]);
+
+        var actual = string.Join("\n", renderer.RenderGroup(group, terminalWidth: null));
+
+        Assert.DoesNotContain("Subgroups:", actual);
+    }
+
     private static string LoadFixture(string fileName)
     {
         var repoRoot = RepoLocator.GetRepoRoot();

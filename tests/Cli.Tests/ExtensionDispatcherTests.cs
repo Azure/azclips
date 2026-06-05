@@ -38,6 +38,21 @@ public class ExtensionDispatcherTests
     }
 
     [Theory]
+    [InlineData("help", "")]
+    [InlineData("help", "   ")]
+    public void Parse_ShouldNotThrowIndexOutOfRange_WhenHelpSubcommandFollowedByEmptyGroupToken(string firstToken, string secondToken)
+    {
+        // `azv2 help ""` previously crashed inside TryCreateHelpRequest at groupToken[0].
+        // The guard now causes the help-request path to bail out; the dispatcher falls through
+        // to the standard command path, which raises a descriptive error instead.
+        var dispatcher = new ExtensionDispatcher();
+
+        var exception = Record.Exception(() => dispatcher.Parse([firstToken, secondToken]));
+        Assert.NotNull(exception);
+        Assert.IsNotType<IndexOutOfRangeException>(exception);
+    }
+
+    [Theory]
     [InlineData("--help")]
     [InlineData("-h")]
     [InlineData("help")]

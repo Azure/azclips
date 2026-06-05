@@ -35,6 +35,19 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
             string.Empty
         };
 
+        if (group.Subgroups.Count > 0)
+        {
+            lines.Add("Subgroups:");
+            foreach (var subgroup in group.Subgroups)
+            {
+                var subgroupSummary = string.IsNullOrWhiteSpace(subgroup.Summary)
+                    ? string.Empty
+                    : $" : {subgroup.Summary}";
+                lines.Add($"    {subgroup.Name}{subgroupSummary}");
+            }
+            lines.Add(string.Empty);
+        }
+
         lines.Add("Commands:");
 
         if (group.Commands.Count == 0)

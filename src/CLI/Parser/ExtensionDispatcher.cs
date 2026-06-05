@@ -98,6 +98,11 @@ public class ExtensionDispatcher //: IParser
         }
 
         var groupToken = targetTokens[0];
+        if (string.IsNullOrWhiteSpace(groupToken))
+        {
+            return false;
+        }
+
         var extensionName = CommandGroupIndex.getExtensionNameByCommandGroupName($"{char.ToUpperInvariant(groupToken[0])}{groupToken[1..]}");
 
         var commandSegments = targetTokens

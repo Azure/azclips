@@ -6,7 +6,7 @@ namespace Cli.Tests;
 /// Tests for Malformed markdown handling.
 /// Verifies that <see cref="MarkdownCommandHelpProvider"/> degrades gracefully
 /// when help markdown content is missing fields or malformed. Strict validation
-/// lives in the build-time help tool .
+/// lives in the build-time help tool.
 /// </summary>
 public class MarkdownCommandHelpProviderTests
 {
