@@ -42,6 +42,18 @@ public class NewResourceGroupDeploymentCmdlet : PSCmdlet
     [Parameter(Mandatory = false)]
     public string? Mode { get; set; }
 
+    [Parameter(Mandatory = false)]
+    public string[]? Parameter { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public SwitchParameter RollbackOnError { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string? RollbackToLastDeploymentName { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string? ValidationLevel { get; set; }
+
     protected override void BeginProcessing()
     {
         streams = new OutputStreams(
@@ -103,6 +115,22 @@ public class NewResourceGroupDeploymentCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Mode)))
         {
             parameters.Add("Mode", Mode!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Parameter)))
+        {
+            parameters.Add("Parameter", Parameter!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(RollbackOnError)))
+        {
+            parameters.Add("RollbackOnError", RollbackOnError.IsPresent);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(RollbackToLastDeploymentName)))
+        {
+            parameters.Add("RollbackToLastDeploymentName", RollbackToLastDeploymentName!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(ValidationLevel)))
+        {
+            parameters.Add("ValidationLevel", ValidationLevel!);
         }
 
         var moduleName = MyInvocation.MyCommand.ModuleName;

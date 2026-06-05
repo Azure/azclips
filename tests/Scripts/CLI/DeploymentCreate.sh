@@ -58,3 +58,54 @@ deployment group create `
     --template-uri https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/quickstarts/microsoft.storage/storage-account-create/azuredeploy.json `
     --mode Foo `
     --debug
+
+# Inline-parameter precedence + validation-level happy path.
+# The .bicepparam supplies storageAccountName=cirrusbicep0001 (the base); the repeatable
+# --parameter overrides it with a unique, timestamped value, proving inline overlays the file.
+# --validation-level Provider runs full provider validation as part of the deploy.
+STAMP=$(date +%y%m%d%H%M%S)
+deployment group create `
+    --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 `
+    --resource-group cirrus-test-group-1 `
+    --name "cirrus-test-inline-$STAMP" `
+    --template-file ../Bicep/sample-storage.bicep `
+    --parameters-file ../Bicep/sample-storage.bicepparam `
+    --parameter "storageAccountName=cirrusinline$STAMP" `
+    --validation-level Provider `
+    --mode Incremental `
+    --debug
+
+# Standalone --validation-level Provider case (no inline params).
+deployment group create `
+    --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 `
+    --resource-group cirrus-test-group-1 `
+    --name "cirrus-test-vlevel-$STAMP" `
+    --template-file ../Bicep/sample-storage.bicep `
+    --parameter "storageAccountName=cirrusvlevel$STAMP" `
+    --validation-level Provider `
+    --mode Incremental `
+    --debug
+
+# --rollback-on-error case: roll back to the last successful deployment if this one fails.
+deployment group create `
+    --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 `
+    --resource-group cirrus-test-group-1 `
+    --name "cirrus-test-rollback-$STAMP" `
+    --template-file ../Bicep/sample-storage.bicep `
+    --parameter "storageAccountName=cirrusrollback$STAMP" `
+    --rollback-on-error `
+    --mode Incremental `
+    --debug
+
+# Negative case: --parameters-uri combined with inline --parameter must be rejected.
+# Expected result: ArgumentException stating inline parameters cannot be combined with a
+# parameters link; no deployment is created.
+deployment group create `
+    --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 `
+    --resource-group cirrus-test-group-1 `
+    --name cirrus-test-inline-conflict-negative `
+    --template-uri https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/quickstarts/microsoft.storage/storage-account-create/azuredeploy.json `
+    --parameters-uri https://example.com/params.json `
+    --parameter storageAccountType=Standard_GRS `
+    --mode Incremental `
+    --debug

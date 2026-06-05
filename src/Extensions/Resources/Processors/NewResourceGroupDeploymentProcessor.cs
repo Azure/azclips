@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
@@ -73,6 +74,30 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
         SerializedName = @"Mode")]
         public string? Mode { get; set; }
 
+        [ArgumentInfo(
+        Required = false,
+        Description = @"Inline deployment parameter(s) in KEY=VALUE form. Repeatable. Each value is parsed as JSON when possible (so count=3 becomes a number and flag=true a bool) and otherwise treated as a string; quote a value to force a string (e.g. zip=\""01234\""). Inline values overlay same-named keys from a parameters file. Cannot be combined with ParametersUri.",
+        SerializedName = @"Parameter")]
+        public string[]? Parameter { get; set; }
+
+        [ArgumentInfo(
+        Required = false,
+        Description = @"Roll the resource group back to the last successful deployment on error.",
+        SerializedName = @"RollbackOnError")]
+        public bool RollbackOnError { get; set; }
+
+        [ArgumentInfo(
+        Required = false,
+        Description = @"Roll the resource group back to a specific named deployment on error. Mutually exclusive with RollbackOnError.",
+        SerializedName = @"RollbackToLastDeploymentName")]
+        public string? RollbackToLastDeploymentName { get; set; }
+
+        [ArgumentInfo(
+        Required = false,
+        Description = @"The validation level of the deployment. Template, Provider, or ProviderNoRbac.",
+        SerializedName = @"ValidationLevel")]
+        public string? ValidationLevel { get; set; }
+
         protected override async Task<HttpRequestMessage> CreateRequestMessage()
         {
             ValidateInputs();
@@ -88,6 +113,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                     TemplateLink = templateLink,
                     Parameters = BuildParameters(out ParametersLink? parametersLink),
                     ParametersLink = parametersLink,
+                    OnErrorDeployment = BuildOnErrorDeployment(),
+                    ValidationLevel = NormalizeValidationLevel(ValidationLevel),
                 }
             };
 
@@ -125,6 +152,31 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
             if (parameterSources > 1)
             {
                 throw new ArgumentException("Provide at most one of ParametersUri or ParametersFile.");
+            }
+
+            // ARM allows EITHER an inline "parameters" object OR a "parametersLink", never both.
+            if (Parameter is { Length: > 0 } && !string.IsNullOrWhiteSpace(ParametersUri))
+            {
+                throw new ArgumentException("Inline -Parameter cannot be combined with -ParametersUri; ARM does not allow inline parameters with a parameters link. Use -ParametersFile or remove -ParametersUri.");
+            }
+
+            // Validate inline parameter tokens up front so malformed input fails fast.
+            if (Parameter is { Length: > 0 })
+            {
+                foreach (string pair in Parameter)
+                {
+                    _ = ParseInlineParameter(pair);
+                }
+            }
+
+            if (RollbackOnError && !string.IsNullOrWhiteSpace(RollbackToLastDeploymentName))
+            {
+                throw new ArgumentException("Provide at most one of -RollbackOnError or -RollbackToLastDeploymentName; they are mutually exclusive.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(ValidationLevel) && NormalizeValidationLevel(ValidationLevel) is null)
+            {
+                throw new ArgumentException("ValidationLevel must be one of 'Template', 'Provider', or 'ProviderNoRbac'.");
             }
 
             if (!string.IsNullOrWhiteSpace(Mode)
@@ -186,20 +238,143 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                 return null;
             }
 
+            object? fileParameters = null;
             if (!string.IsNullOrWhiteSpace(ParametersFile))
             {
                 // A .bicepparam source is compiled to an ARM parameters file first.
                 if (IsBicepParamFile(ParametersFile))
                 {
                     EnsureFileExists(ParametersFile);
-                    return ReadBicepParamFile(ParametersFile);
+                    fileParameters = ReadBicepParamFile(ParametersFile);
                 }
+                else
+                {
+                    fileParameters = ReadParametersFile(ParametersFile);
+                }
+            }
 
-                return ReadParametersFile(ParametersFile);
+            // No inline overlay: preserve the original file-or-null behavior.
+            if (Parameter is not { Length: > 0 })
+            {
+                return fileParameters;
+            }
+
+            // Inline parameters present: start from the file's inner parameters object (the base)
+            // and overlay each KEY=VALUE on top, so inline values win per key.
+            JsonObject parameters;
+            if (fileParameters is JsonElement element)
+            {
+                if (element.ValueKind != JsonValueKind.Object)
+                {
+                    throw new ArgumentException("The parameters file must contain a JSON object of parameters to combine with inline -Parameter values.");
+                }
+                parameters = JsonObject.Create(element)!;
+            }
+            else
+            {
+                parameters = new JsonObject();
+            }
+
+            foreach (string pair in Parameter)
+            {
+                (string key, JsonNode? value) = ParseInlineParameter(pair);
+                // ARM parameter names are case-insensitive, but JsonObject's indexer is
+                // case-sensitive. Reuse any existing same-named key (from the file or an earlier
+                // inline token, matched case-insensitively) so the body never carries two keys
+                // differing only by case. The existing/file casing is kept, the inline value
+                // wins, and for duplicate inline keys the last one wins.
+                string targetKey = FindExistingKeyIgnoreCase(parameters, key) ?? key;
+                parameters[targetKey] = new JsonObject { ["value"] = value };
+            }
+
+            return parameters;
+        }
+
+        // Find an existing key in 'parameters' that equals 'key' ignoring case, returning the
+        // existing key (so its casing is preserved) or null when no such key exists.
+        private static string? FindExistingKeyIgnoreCase(JsonObject parameters, string key)
+        {
+            foreach (var entry in parameters)
+            {
+                if (string.Equals(entry.Key, key, StringComparison.OrdinalIgnoreCase))
+                {
+                    return entry.Key;
+                }
             }
 
             return null;
         }
+
+        // Parse a single inline "KEY=VALUE" token. The value is parsed as JSON when possible so
+        // numbers, booleans, arrays, and objects become typed; otherwise it is treated as a string.
+        private static (string Key, JsonNode? Value) ParseInlineParameter(string pair)
+        {
+            if (string.IsNullOrWhiteSpace(pair))
+            {
+                throw new ArgumentException("Invalid inline parameter: the token is empty; expected KEY=VALUE.");
+            }
+
+            int separator = pair.IndexOf('=');
+            if (separator <= 0)
+            {
+                throw new ArgumentException($"Invalid inline parameter '{pair}': expected KEY=VALUE with a non-empty key.");
+            }
+
+            string key = pair[..separator].Trim();
+            if (key.Length == 0)
+            {
+                throw new ArgumentException($"Invalid inline parameter '{pair}': the key is empty.");
+            }
+
+            string raw = pair[(separator + 1)..];
+            return (key, ParseTypedValue(raw));
+        }
+
+        private static JsonNode? ParseTypedValue(string raw)
+        {
+            try
+            {
+                // JSON-first: typed values such as 3, true, ["a","b"], {"k":"v"}.
+                return JsonNode.Parse(raw);
+            }
+            catch (JsonException)
+            {
+                // Not valid JSON: treat the raw text as a string literal.
+                return JsonValue.Create(raw);
+            }
+        }
+
+        private OnErrorDeployment? BuildOnErrorDeployment()
+        {
+            if (!string.IsNullOrWhiteSpace(RollbackToLastDeploymentName))
+            {
+                return new OnErrorDeployment
+                {
+                    Type = "SpecificDeployment",
+                    DeploymentName = RollbackToLastDeploymentName,
+                };
+            }
+
+            if (RollbackOnError)
+            {
+                return new OnErrorDeployment { Type = "LastSuccessful" };
+            }
+
+            return null;
+        }
+
+        // Returns the canonical-cased validation level when valid, or null when the input is
+        // empty (not supplied) or unrecognized. ValidateInputs rejects unrecognized values.
+        private static string? NormalizeValidationLevel(string? validationLevel) =>
+            string.IsNullOrWhiteSpace(validationLevel)
+                ? null
+                : validationLevel.Trim().ToLowerInvariant() switch
+                {
+                    "template" => "Template",
+                    "provider" => "Provider",
+                    "providernorbac" => "ProviderNoRbac",
+                    _ => null,
+                };
 
         private static object ReadJsonFile(string path)
         {

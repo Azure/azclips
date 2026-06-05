@@ -58,3 +58,54 @@ New-ResourceGroupDeployment `
     -TemplateUri https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/quickstarts/microsoft.storage/storage-account-create/azuredeploy.json `
     -Mode Foo `
     -Debug
+
+# Inline-parameter precedence + validation-level happy path.
+# The .bicepparam supplies storageAccountName=cirrusbicep0001 (the base); the repeatable
+# -Parameter (KEY=VALUE) overrides it with a unique, timestamped value, proving inline
+# overlays the file. -ValidationLevel Provider runs full provider validation during deploy.
+$stamp = (Get-Date -Format 'yyMMddHHmmss')
+New-ResourceGroupDeployment `
+    -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
+    -ResourceGroupName cirrus-test-group-1 `
+    -Name "cirrus-test-inline-$stamp" `
+    -TemplateFile ../Bicep/sample-storage.bicep `
+    -ParametersFile ../Bicep/sample-storage.bicepparam `
+    -Parameter "storageAccountName=cirrusinline$stamp" `
+    -ValidationLevel Provider `
+    -Mode Incremental `
+    -Debug
+
+# Standalone -ValidationLevel Provider case (no parameters file).
+New-ResourceGroupDeployment `
+    -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
+    -ResourceGroupName cirrus-test-group-1 `
+    -Name "cirrus-test-vlevel-$stamp" `
+    -TemplateFile ../Bicep/sample-storage.bicep `
+    -Parameter "storageAccountName=cirrusvlevel$stamp" `
+    -ValidationLevel Provider `
+    -Mode Incremental `
+    -Debug
+
+# -RollbackOnError case: roll back to the last successful deployment if this one fails.
+New-ResourceGroupDeployment `
+    -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
+    -ResourceGroupName cirrus-test-group-1 `
+    -Name "cirrus-test-rollback-$stamp" `
+    -TemplateFile ../Bicep/sample-storage.bicep `
+    -Parameter "storageAccountName=cirrusrollback$stamp" `
+    -RollbackOnError `
+    -Mode Incremental `
+    -Debug
+
+# Negative case: -ParametersUri combined with inline -Parameter must be rejected.
+# Expected result: ArgumentException stating inline parameters cannot be combined with a
+# parameters link; no deployment is created.
+New-ResourceGroupDeployment `
+    -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
+    -ResourceGroupName cirrus-test-group-1 `
+    -Name cirrus-test-inline-conflict-negative `
+    -TemplateUri https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/quickstarts/microsoft.storage/storage-account-create/azuredeploy.json `
+    -ParametersUri https://example.com/params.json `
+    -Parameter storageAccountType=Standard_GRS `
+    -Mode Incremental `
+    -Debug

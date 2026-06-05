@@ -27,6 +27,14 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Models
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public ParametersLink? ParametersLink { get; set; }
 
+        // The deployment on error behavior (rollback-on-error).
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public OnErrorDeployment? OnErrorDeployment { get; set; }
+
+        // The validation level of the deployment. Template, Provider, or ProviderNoRbac.
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? ValidationLevel { get; set; }
+
         public override string ToString() => JsonNode.FromObject(this).ToString();
     }
 
