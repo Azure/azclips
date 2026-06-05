@@ -140,6 +140,10 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                 var _asyncOperationUri = GetAsyncOperationUri(_response);
                 var _locationUri = GetLocationUri(_response);
                 var _operationLocationUri = GetOperationLocationUri(_response);
+                // Carries the ARM error detail captured during the status peek (while the body is
+                // still available) so the terminal-failure throw site below can surface it. Must be
+                // declared outside the loop to be in scope at both the peek and the throw.
+                string? failureDetail = null;
 
                 //polling
                 while ((_request.Method == HttpMethod.Put && _response.StatusCode == HttpStatusCode.OK)
@@ -186,7 +190,10 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                         var error = false;
                         try
                         {
-                            if (JsonNode.Parse(await _response.Content.ReadAsStringAsync()) is JsonObject json)
+                            // Read the body once so it can be both parsed for status and reused for
+                            // error-detail extraction without re-reading the (already buffered) stream.
+                            string bodyText = await _response.Content.ReadAsStringAsync();
+                            if (JsonNode.Parse(bodyText) is JsonObject json)
                             {
                                 var state = json.Property("properties")?.PropertyT<JsonString>("provisioningState") ?? json.PropertyT<JsonString>("status");
                                 if (state is null)
@@ -200,6 +207,30 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                                 {
                                     case "failed":
                                         error = true;
+                                        // Capture the ARM error detail now, while the body is in hand.
+                                        // ARM deployment errors live at properties.error; some payloads
+                                        // use a top-level error. Fall back to the (truncated) raw body.
+                                        try
+                                        {
+                                            var errorObj = json.Property("properties")?.Property("error") ?? json.Property("error");
+                                            var code = errorObj?.PropertyT<JsonString>("code")?.ToString();
+                                            var detailMessage = errorObj?.PropertyT<JsonString>("message")?.ToString();
+                                            if (!string.IsNullOrWhiteSpace(code) || !string.IsNullOrWhiteSpace(detailMessage))
+                                            {
+                                                failureDetail = $"{code}: {detailMessage}";
+                                            }
+                                            else if (!string.IsNullOrWhiteSpace(bodyText))
+                                            {
+                                                failureDetail = bodyText.Length > 2000 ? bodyText.Substring(0, 2000) : bodyText;
+                                            }
+                                        }
+                                        catch
+                                        {
+                                            // Best-effort: never let extraction change control flow.
+                                            failureDetail = string.IsNullOrWhiteSpace(bodyText)
+                                                ? failureDetail
+                                                : (bodyText.Length > 2000 ? bodyText.Substring(0, 2000) : bodyText);
+                                        }
                                         break;
                                     case "succeeded":
                                     case "canceled":
@@ -224,7 +255,11 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                             // Capture the message before disposing the response, then dispose the
                             // current response (handle/socket) exactly once on this throw path.
                             // The method exits here, so the surrounding finally only disposes _request.
-                            string message = $"Long running operation failed (terminal provisioningState 'Failed') for {_request?.RequestUri}.";
+                            // failureDetail was captured during the peek (above), while the body was
+                            // still available; the response is only disposed here, never re-read.
+                            string message = string.IsNullOrWhiteSpace(failureDetail)
+                                ? $"Long running operation failed (terminal provisioningState 'Failed') for {_request?.RequestUri}."
+                                : $"Long running operation failed (terminal provisioningState 'Failed') for {_request?.RequestUri}. {failureDetail}";
                             _response.Dispose();
                             throw new InvalidOperationException(message);
                         }

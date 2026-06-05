@@ -112,7 +112,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
             // ARM allows EITHER an inline "parameters" object OR a "parametersLink", never both.
             if (Parameter is { Length: > 0 } && !string.IsNullOrWhiteSpace(ParametersUri))
             {
-                throw new ArgumentException("Inline -Parameter cannot be combined with -ParametersUri; ARM does not allow inline parameters with a parameters link. Use -ParametersFile or remove -ParametersUri.");
+                throw new ArgumentException("Inline parameters cannot be combined with a parameters URI; ARM does not allow inline parameters together with a parameters link. Provide a parameters file instead, or remove the parameters URI.");
             }
 
             // Validate inline parameter tokens up front so malformed input fails fast.
@@ -216,7 +216,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
             {
                 if (element.ValueKind != JsonValueKind.Object)
                 {
-                    throw new ArgumentException("The parameters file must contain a JSON object of parameters to combine with inline -Parameter values.");
+                    throw new ArgumentException("The parameters file must contain a JSON object of parameters to combine with inline parameter values.");
                 }
                 parameters = JsonObject.Create(element)!;
             }
