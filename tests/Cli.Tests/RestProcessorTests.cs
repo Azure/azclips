@@ -116,6 +116,234 @@ public class RestProcessorTests
         Assert.Contains("missing", response.Content);
     }
 
+    // ----- ByParameters mode (Feature B) -------------------------------------------------------
+
+    [Fact]
+    public async Task ProcessAsync_ByParameters_BuildsArmUrl_AndSubstitutesAmbientSubscription()
+    {
+        Uri? sentUri = null;
+        var pipeline = CapturingPipeline(uri => sentUri = uri);
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(pipeline, output);
+        processor.ResourceGroupName = "cirrus-test-group-1";
+        processor.ResourceProviderName = "Microsoft.Storage";
+        processor.ResourceType = ["storageAccounts"];
+        processor.Name = ["myaccount"];
+        processor.ApiVersion = "2023-01-01";
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(1, pipeline.SendCount);
+        Assert.NotNull(sentUri);
+        Assert.Equal(
+            $"https://management.azure.com/subscriptions/{TestSubscriptionId}/resourceGroups/cirrus-test-group-1/providers/Microsoft.Storage/storageAccounts/myaccount?api-version=2023-01-01",
+            sentUri!.ToString());
+    }
+
+    [Fact]
+    public async Task ProcessAsync_ByParameters_OneFewerName_ProducesCollectionGet()
+    {
+        Uri? sentUri = null;
+        var pipeline = CapturingPipeline(uri => sentUri = uri);
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(pipeline, output);
+        processor.SubscriptionId = TestSubscriptionId;
+        processor.ResourceGroupName = "cirrus-test-group-1";
+        processor.ResourceProviderName = "Microsoft.Storage";
+        processor.ResourceType = ["storageAccounts"];
+        // No Name → collection GET on the last type.
+        processor.ApiVersion = "2023-01-01";
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(1, pipeline.SendCount);
+        Assert.Equal(
+            $"https://management.azure.com/subscriptions/{TestSubscriptionId}/resourceGroups/cirrus-test-group-1/providers/Microsoft.Storage/storageAccounts?api-version=2023-01-01",
+            sentUri!.ToString());
+    }
+
+    [Fact]
+    public async Task ProcessAsync_ByParameters_InterleavesMultipleTypeAndNameSegments()
+    {
+        Uri? sentUri = null;
+        var pipeline = CapturingPipeline(uri => sentUri = uri);
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(pipeline, output);
+        processor.ResourceGroupName = "rg1";
+        processor.ResourceProviderName = "Microsoft.Network";
+        processor.ResourceType = ["virtualNetworks", "subnets"];
+        processor.Name = ["vnet1", "subnet1"];
+        processor.ApiVersion = "2023-05-01";
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(
+            $"https://management.azure.com/subscriptions/{TestSubscriptionId}/resourceGroups/rg1/providers/Microsoft.Network/virtualNetworks/vnet1/subnets/subnet1?api-version=2023-05-01",
+            sentUri!.ToString());
+    }
+
+    [Fact]
+    public async Task ProcessAsync_ByParameters_MissingApiVersion_Throws()
+    {
+        var pipeline = CapturingPipeline(_ => { });
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(pipeline, output);
+        processor.ResourceProviderName = "Microsoft.Resources";
+        processor.ResourceType = ["resourceGroups"];
+        // ApiVersion omitted.
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+
+        Assert.Contains("ApiVersion is required", ex.Message);
+        Assert.Equal(0, pipeline.SendCount);
+        Assert.Empty(output.WrittenValues);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_ByParameters_TooManyNameSegments_Throws()
+    {
+        var pipeline = CapturingPipeline(_ => { });
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(pipeline, output);
+        processor.ResourceProviderName = "Microsoft.Storage";
+        processor.ResourceType = ["storageAccounts"];
+        processor.Name = ["a", "b"];
+        processor.ApiVersion = "2023-01-01";
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+
+        Assert.Contains("Too many Name segments", ex.Message);
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_SuppliesBothUriAndByParameters_Throws()
+    {
+        var pipeline = CapturingPipeline(_ => { });
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(pipeline, output);
+        processor.Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01";
+        processor.ResourceProviderName = "Microsoft.Resources";
+        processor.ApiVersion = "2021-04-01";
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+
+        Assert.Contains("not both", ex.Message);
+        Assert.Equal(0, pipeline.SendCount);
+        Assert.Empty(output.WrittenValues);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_NeitherUriNorByParameters_Throws()
+    {
+        var pipeline = CapturingPipeline(_ => { });
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(pipeline, output);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+
+        Assert.Contains("endpoint is required", ex.Message);
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_ByParameters_NoSubscriptionAvailable_Throws()
+    {
+        var pipeline = CapturingPipeline(_ => { });
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(pipeline, output, subscriptionId: "");
+        processor.ResourceProviderName = "Microsoft.Resources";
+        processor.ResourceType = ["resourceGroups"];
+        processor.ApiVersion = "2021-04-01";
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+
+        Assert.Contains("No subscription is available", ex.Message);
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    // ----- UriParameters (Feature C) -----------------------------------------------------------
+
+    [Fact]
+    public async Task ProcessAsync_UriParameters_AppendedToUrlWithNoExistingQuery()
+    {
+        Uri? sentUri = null;
+        var pipeline = CapturingPipeline(uri => sentUri = uri);
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(pipeline, output);
+        processor.Uri = "/subscriptions/{subscriptionId}/resourcegroups";
+        processor.UriParameters = ["$top=3"];
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(
+            $"https://management.azure.com/subscriptions/{TestSubscriptionId}/resourcegroups?%24top=3",
+            sentUri!.ToString());
+    }
+
+    [Fact]
+    public async Task ProcessAsync_UriParameters_AppendedWithAmpersand_WhenQueryAlreadyPresent()
+    {
+        Uri? sentUri = null;
+        var pipeline = CapturingPipeline(uri => sentUri = uri);
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(pipeline, output);
+        processor.Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01";
+        processor.UriParameters = ["$top=3", "$filter=name eq 'x'"];
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(
+            $"https://management.azure.com/subscriptions/{TestSubscriptionId}/resourcegroups?api-version=2021-04-01&%24top=3&%24filter=name%20eq%20%27x%27",
+            sentUri!.AbsoluteUri);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_UriParameters_AppendedToByParametersUrl()
+    {
+        Uri? sentUri = null;
+        var pipeline = CapturingPipeline(uri => sentUri = uri);
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(pipeline, output);
+        processor.ResourceProviderName = "Microsoft.Resources";
+        processor.ResourceType = ["resourceGroups"];
+        processor.ApiVersion = "2021-04-01";
+        processor.UriParameters = ["$top=3"];
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(
+            $"https://management.azure.com/subscriptions/{TestSubscriptionId}/providers/Microsoft.Resources/resourceGroups?api-version=2021-04-01&%24top=3",
+            sentUri!.ToString());
+    }
+
+    [Fact]
+    public async Task ProcessAsync_UriParameters_InvalidEntryWithoutEquals_Throws()
+    {
+        var pipeline = CapturingPipeline(_ => { });
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(pipeline, output);
+        processor.Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01";
+        processor.UriParameters = ["notakeyvalue"];
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+
+        Assert.Contains("Expected KEY=VALUE", ex.Message);
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    private static FakeHttpPipeline CapturingPipeline(Action<Uri?> capture)
+    {
+        return new FakeHttpPipeline((request, _) =>
+        {
+            capture(request.RequestUri);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{}", Encoding.UTF8, "application/json")
+            };
+        });
+    }
+
     // ----- Fakes -------------------------------------------------------------------------------
 
     private sealed class FakeOutputHandler : IOutputHandler

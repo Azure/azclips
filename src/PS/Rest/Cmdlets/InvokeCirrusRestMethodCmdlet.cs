@@ -17,7 +17,7 @@ public class InvokeCirrusRestMethodCmdlet : PSCmdlet
     [ValidateSet("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS", IgnoreCase = true)]
     public string Method { get; set; } = "GET";
 
-    [Parameter(Mandatory = true)]
+    [Parameter(Mandatory = false)]
     public string Uri { get; set; } = "";
 
     [Parameter(Mandatory = false)]
@@ -29,6 +29,39 @@ public class InvokeCirrusRestMethodCmdlet : PSCmdlet
     /// </summary>
     [Parameter(Mandatory = false)]
     public object? Headers { get; set; }
+
+    // ── ByParameters mode (piece-wise ARM URL builder) ──
+
+    /// <summary>Subscription id used to build an ARM URL from piece-wise parameters. Mutually exclusive with Uri.</summary>
+    [Parameter(Mandatory = false)]
+    public string? SubscriptionId { get; set; }
+
+    /// <summary>Resource group name segment for a piece-wise ARM URL. Mutually exclusive with Uri.</summary>
+    [Parameter(Mandatory = false)]
+    public string? ResourceGroupName { get; set; }
+
+    /// <summary>Resource provider namespace (e.g. Microsoft.Resources) for a piece-wise ARM URL. Mutually exclusive with Uri.</summary>
+    [Parameter(Mandatory = false)]
+    public string? ResourceProviderName { get; set; }
+
+    /// <summary>Resource type segments, interleaved with Name. Mutually exclusive with Uri.</summary>
+    [Parameter(Mandatory = false)]
+    public string[]? ResourceType { get; set; }
+
+    /// <summary>Resource name segments, interleaved with ResourceType. Mutually exclusive with Uri.</summary>
+    [Parameter(Mandatory = false)]
+    public string[]? Name { get; set; }
+
+    /// <summary>api-version for a piece-wise ARM URL. Required in ByParameters mode. Mutually exclusive with Uri.</summary>
+    [Parameter(Mandatory = false)]
+    public string? ApiVersion { get; set; }
+
+    /// <summary>
+    /// Extra query-string parameters, either as a hashtable (<c>@{ '$top' = '3' }</c>) or as a string
+    /// array in KEY=VALUE form (<c>'$top=3'</c>). Appended to the final URL in either mode.
+    /// </summary>
+    [Parameter(Mandatory = false)]
+    public object? UriParameters { get; set; }
 
     protected override void BeginProcessing()
     {
@@ -60,15 +93,46 @@ public class InvokeCirrusRestMethodCmdlet : PSCmdlet
         var parameters = new Dictionary<string, object>
         {
             { "Method", Method },
-            { "Uri", Uri },
         };
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Uri)))
+        {
+            parameters.Add("Uri", Uri);
+        }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Payload)))
         {
             parameters.Add("Payload", Payload!);
         }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Headers)) && Headers is not null)
         {
-            parameters.Add("Headers", NormalizeHeaders(Headers));
+            parameters.Add("Headers", NormalizeKeyValue(Headers));
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))
+        {
+            parameters.Add("SubscriptionId", SubscriptionId!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(ResourceGroupName)))
+        {
+            parameters.Add("ResourceGroupName", ResourceGroupName!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(ResourceProviderName)))
+        {
+            parameters.Add("ResourceProviderName", ResourceProviderName!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(ResourceType)) && ResourceType is not null)
+        {
+            parameters.Add("ResourceType", ResourceType);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Name)) && Name is not null)
+        {
+            parameters.Add("Name", Name);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(ApiVersion)))
+        {
+            parameters.Add("ApiVersion", ApiVersion!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(UriParameters)) && UriParameters is not null)
+        {
+            parameters.Add("UriParameters", NormalizeKeyValue(UriParameters));
         }
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
@@ -80,12 +144,12 @@ public class InvokeCirrusRestMethodCmdlet : PSCmdlet
     }
 
     /// <summary>
-    /// Normalizes the Headers argument to a <c>string[]</c> of <c>KEY=VALUE</c> entries, accepting
-    /// either a hashtable/dictionary or an existing string collection.
+    /// Normalizes a KEY=VALUE argument (headers or uri-parameters) to a <c>string[]</c> of
+    /// <c>KEY=VALUE</c> entries, accepting either a hashtable/dictionary or an existing string collection.
     /// </summary>
-    private static string[] NormalizeHeaders(object headers)
+    private static string[] NormalizeKeyValue(object value)
     {
-        if (headers is IDictionary dictionary)
+        if (value is IDictionary dictionary)
         {
             var entries = new List<string>();
             foreach (DictionaryEntry entry in dictionary)
@@ -95,12 +159,12 @@ public class InvokeCirrusRestMethodCmdlet : PSCmdlet
             return entries.ToArray();
         }
 
-        if (headers is string single)
+        if (value is string single)
         {
             return [single];
         }
 
-        if (headers is IEnumerable enumerable)
+        if (value is IEnumerable enumerable)
         {
             var entries = new List<string>();
             foreach (var item in enumerable)
@@ -110,7 +174,7 @@ public class InvokeCirrusRestMethodCmdlet : PSCmdlet
             return entries.ToArray();
         }
 
-        return [headers.ToString() ?? string.Empty];
+        return [value.ToString() ?? string.Empty];
     }
 
     protected override void EndProcessing()

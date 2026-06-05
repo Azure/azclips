@@ -24,10 +24,45 @@ Invoke-CirrusRestMethod `
     -Uri "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01" `
     -Headers @{ Accept = 'application/json' }
 
+# Happy path: ByParameters mode. Instead of a full URL, supply the ARM resource-id pieces and an
+# api-version; the cmdlet builds https://management.azure.com/subscriptions/.../providers/... for
+# you. This lists the resource groups in the current subscription (Microsoft.Resources provider).
+Invoke-CirrusRestMethod `
+    -ResourceProviderName Microsoft.Resources `
+    -ResourceType resourceGroups `
+    -ApiVersion 2021-04-01
+
+# Happy path: ByParameters mode targeting a single resource (interleaved ResourceType + Name).
+Invoke-CirrusRestMethod `
+    -ResourceGroupName cirrus-test-group-1 `
+    -ResourceProviderName Microsoft.Resources `
+    -ResourceType resourceGroups `
+    -Name cirrus-test-group-1 `
+    -ApiVersion 2021-04-01
+
+# Happy path: extra query-string parameters via -UriParameters (hashtable or KEY=VALUE string[]).
+# Here $top limits the number of resource groups returned. Works in both URI and ByParameters modes.
+Invoke-CirrusRestMethod `
+    -Method GET `
+    -Uri "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01" `
+    -UriParameters @{ '$top' = '3' }
+
 # Negative case: an unsupported HTTP method must be rejected (ValidateSet) with a clear message.
 Invoke-CirrusRestMethod `
     -Method FOO `
     -Uri "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01"
+
+# Negative case: the URI form and the piece-wise ByParameters parameters are mutually exclusive;
+# supplying both must be rejected before any request is sent.
+Invoke-CirrusRestMethod `
+    -Uri "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01" `
+    -ResourceProviderName Microsoft.Resources `
+    -ApiVersion 2021-04-01
+
+# Negative case: ByParameters mode requires an api-version; omitting it must be rejected.
+Invoke-CirrusRestMethod `
+    -ResourceProviderName Microsoft.Resources `
+    -ResourceType resourceGroups
 
 # Negative case: an HTTP error (>= 400) must surface the body AND raise a terminating error so
 # scripts can detect it via $? / try-catch. This GET targets a resource group that does not exist

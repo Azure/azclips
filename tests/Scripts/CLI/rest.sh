@@ -21,10 +21,45 @@ rest `
     --uri "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01" `
     --headers Accept=application/json
 
+# Happy path: ByParameters mode. Instead of a full URL, supply the ARM resource-id pieces and an
+# api-version; the command builds https://management.azure.com/subscriptions/.../providers/... for
+# you. This lists the resource groups in the current subscription (Microsoft.Resources provider).
+rest `
+    --resource-provider Microsoft.Resources `
+    --resource-type resourceGroups `
+    --api-version 2021-04-01
+
+# Happy path: ByParameters mode targeting a single resource (interleaved resource-type + name).
+rest `
+    --resource-group cirrus-test-group-1 `
+    --resource-provider Microsoft.Resources `
+    --resource-type resourceGroups `
+    --name cirrus-test-group-1 `
+    --api-version 2021-04-01
+
+# Happy path: extra query-string parameters via --uri-parameters (space-separated KEY=VALUE). Here
+# $top limits the number of resource groups returned. Works in both URI and ByParameters modes.
+rest `
+    --method GET `
+    --uri "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01" `
+    --uri-parameters '$top=3'
+
 # Negative case: an unsupported HTTP method must be rejected with a clear message.
 rest `
     --method FOO `
     --uri "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01"
+
+# Negative case: the URI form and the piece-wise ByParameters flags are mutually exclusive; supplying
+# both must be rejected before any request is sent.
+rest `
+    --uri "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01" `
+    --resource-provider Microsoft.Resources `
+    --api-version 2021-04-01
+
+# Negative case: ByParameters mode requires an api-version; omitting it must be rejected.
+rest `
+    --resource-provider Microsoft.Resources `
+    --resource-type resourceGroups
 
 # Negative case: an HTTP error (>= 400) must surface the body AND cause a non-zero CLI exit so
 # scripts using set -e / $? can detect it. This GET targets a resource group that does not exist

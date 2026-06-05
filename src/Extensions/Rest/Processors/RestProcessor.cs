@@ -43,6 +43,35 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest.Processors
         /// <summary>Optional user headers in KEY=VALUE form.</summary>
         public List<string> Headers { get; set; } = [];
 
+        // ── ByParameters mode (piece-wise ARM URL builder) ──
+        // The following inputs are an alternative to <see cref="Uri"/>: instead of supplying a full
+        // URL, the caller specifies the ARM resource id pieces and an api-version, and the processor
+        // builds the relative ARM path. Mirrors Invoke-AzRestMethod's ByParameters parameter set.
+
+        /// <summary>
+        /// Subscription id used when building a ByParameters URL. Defaults to the current auth
+        /// context subscription when omitted. Pure URL-building input — does NOT change auth.
+        /// </summary>
+        public string SubscriptionId { get; set; } = "";
+
+        /// <summary>Resource group name segment for a ByParameters URL.</summary>
+        public string ResourceGroupName { get; set; } = "";
+
+        /// <summary>Resource provider namespace (e.g. Microsoft.Resources) for a ByParameters URL.</summary>
+        public string ResourceProviderName { get; set; } = "";
+
+        /// <summary>Resource type segments, interleaved with <see cref="Name"/>.</summary>
+        public List<string> ResourceType { get; set; } = [];
+
+        /// <summary>Resource name segments, interleaved with <see cref="ResourceType"/>.</summary>
+        public List<string> Name { get; set; } = [];
+
+        /// <summary>api-version for a ByParameters URL. Required in ByParameters mode.</summary>
+        public string ApiVersion { get; set; } = "";
+
+        /// <summary>Optional query-string parameters in KEY=VALUE form, appended to the final URL.</summary>
+        public List<string> UriParameters { get; set; } = [];
+
         public override async Task ProcessAsync()
         {
             EnsureRuntimeContext();
@@ -74,13 +103,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest.Processors
 
         private async Task<HttpRequestMessage> CreateRequestMessage()
         {
-            if (string.IsNullOrWhiteSpace(Uri))
-            {
-                throw new InvalidOperationException("Uri is required.");
-            }
-
             HttpMethod method = ResolveMethod(Method);
-            string url = ResolveUrl(Uri);
+            string url = AppendUriParameters(BuildUrl());
 
             await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
             var request = new HttpRequestMessage(method, url);
@@ -120,6 +144,153 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest.Processors
                 "OPTIONS" => HttpMethod.Options,
                 _ => throw new InvalidOperationException($"Unsupported HTTP method '{method}'. Supported methods: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS.")
             };
+        }
+
+        /// <summary>
+        /// Selects the endpoint mode (URI vs piece-wise ByParameters), validates that exactly one is
+        /// supplied, and returns the resolved absolute ARM URL (before any extra query parameters are
+        /// appended). The two modes are mutually exclusive.
+        /// </summary>
+        private string BuildUrl()
+        {
+            bool hasByParameters = HasByParametersInput();
+            bool hasUri = !string.IsNullOrWhiteSpace(Uri);
+
+            if (hasUri && hasByParameters)
+            {
+                throw new InvalidOperationException(
+                    "Specify the endpoint either as a full URL (Uri) OR as the piece-wise parameters " +
+                    "(SubscriptionId/ResourceGroupName/ResourceProviderName/ResourceType/Name/ApiVersion), not both.");
+            }
+
+            if (hasUri)
+            {
+                return ResolveUrl(Uri);
+            }
+
+            if (hasByParameters)
+            {
+                return ResolveUrl(BuildByParametersPath());
+            }
+
+            throw new InvalidOperationException(
+                "An endpoint is required: supply either a full URL (Uri) or the piece-wise parameters " +
+                "(ResourceProviderName/ResourceType/Name with ApiVersion) to build an ARM URL.");
+        }
+
+        /// <summary>
+        /// True when any ByParameters input is supplied (an explicit subscription id, a resource group,
+        /// a resource provider, a resource type/name segment, or an api-version).
+        /// </summary>
+        private bool HasByParametersInput()
+        {
+            return !string.IsNullOrWhiteSpace(SubscriptionId)
+                || !string.IsNullOrWhiteSpace(ResourceGroupName)
+                || !string.IsNullOrWhiteSpace(ResourceProviderName)
+                || ResourceType.Count > 0
+                || Name.Count > 0
+                || !string.IsNullOrWhiteSpace(ApiVersion);
+        }
+
+        /// <summary>
+        /// Builds a relative ARM path from the piece-wise ByParameters inputs, matching the ordering of
+        /// Invoke-AzRestMethod's ByParameters set: subscription, optional resource group, optional
+        /// provider, interleaved resource-type/name segments, and a required api-version query.
+        /// </summary>
+        private string BuildByParametersPath()
+        {
+            string subscriptionId = !string.IsNullOrWhiteSpace(SubscriptionId)
+                ? SubscriptionId.Trim()
+                : AuthContext?.SubscriptionId ?? "";
+
+            if (string.IsNullOrWhiteSpace(subscriptionId))
+            {
+                throw new InvalidOperationException(
+                    "No subscription is available to build the ARM URL. Supply SubscriptionId or sign in first.");
+            }
+
+            if (Name.Count > ResourceType.Count)
+            {
+                throw new InvalidOperationException(
+                    $"Too many Name segments ({Name.Count}) for the number of ResourceType segments ({ResourceType.Count}). " +
+                    "Name may have at most one entry per ResourceType (one fewer to perform a collection GET on the last type).");
+            }
+
+            if (string.IsNullOrWhiteSpace(ApiVersion))
+            {
+                throw new InvalidOperationException("ApiVersion is required when building an ARM URL from piece-wise parameters.");
+            }
+
+            var builder = new StringBuilder();
+            builder.Append("/subscriptions/").Append(subscriptionId);
+
+            if (!string.IsNullOrWhiteSpace(ResourceGroupName))
+            {
+                builder.Append("/resourceGroups/").Append(ResourceGroupName.Trim());
+            }
+
+            if (!string.IsNullOrWhiteSpace(ResourceProviderName))
+            {
+                builder.Append("/providers/").Append(ResourceProviderName.Trim());
+            }
+
+            for (int i = 0; i < ResourceType.Count; i++)
+            {
+                builder.Append('/').Append(ResourceType[i].Trim().Trim('/'));
+                if (i < Name.Count)
+                {
+                    builder.Append('/').Append(Name[i].Trim().Trim('/'));
+                }
+            }
+
+            builder.Append("?api-version=").Append(ApiVersion.Trim());
+            return builder.ToString();
+        }
+
+        /// <summary>
+        /// Appends any <see cref="UriParameters"/> (KEY=VALUE) to the resolved URL as query-string
+        /// parameters, URL-encoding keys and values and choosing '?' or '&amp;' based on whether the URL
+        /// already has a query string.
+        /// </summary>
+        private string AppendUriParameters(string url)
+        {
+            if (UriParameters.Count == 0)
+            {
+                return url;
+            }
+
+            var builder = new StringBuilder(url);
+            bool hasQuery = url.Contains('?', StringComparison.Ordinal);
+
+            foreach (string parameter in UriParameters)
+            {
+                if (string.IsNullOrWhiteSpace(parameter))
+                {
+                    throw new InvalidOperationException($"Invalid uri parameter '{parameter}'. Expected KEY=VALUE format.");
+                }
+
+                int separator = parameter.IndexOf('=');
+                if (separator <= 0)
+                {
+                    throw new InvalidOperationException($"Invalid uri parameter '{parameter}'. Expected KEY=VALUE format.");
+                }
+
+                string key = parameter[..separator].Trim();
+                string value = parameter[(separator + 1)..];
+
+                if (string.IsNullOrWhiteSpace(key))
+                {
+                    throw new InvalidOperationException($"Invalid uri parameter '{parameter}': parameter name cannot be empty.");
+                }
+
+                builder.Append(hasQuery ? '&' : '?');
+                builder.Append(System.Uri.EscapeDataString(key));
+                builder.Append('=');
+                builder.Append(System.Uri.EscapeDataString(value));
+                hasQuery = true;
+            }
+
+            return builder.ToString();
         }
 
         private string ResolveUrl(string uri)
