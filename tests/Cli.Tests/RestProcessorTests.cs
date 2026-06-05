@@ -212,7 +212,24 @@ public class RestProcessorTests
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
 
-        Assert.Contains("Too many Name segments", ex.Message);
+        Assert.Contains("must equal ResourceType", ex.Message);
+        Assert.Equal(0, pipeline.SendCount);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_ByParameters_GapOfTwoTypes_Throws()
+    {
+        var pipeline = CapturingPipeline(_ => { });
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(pipeline, output);
+        processor.ResourceProviderName = "Microsoft.Storage";
+        processor.ResourceType = ["a", "b"];
+        // Name omitted → a gap of two types with no interleaved name (malformed /a/b path).
+        processor.ApiVersion = "2023-01-01";
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+
+        Assert.Contains("must equal ResourceType", ex.Message);
         Assert.Equal(0, pipeline.SendCount);
     }
 

@@ -209,16 +209,16 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest.Processors
                     "No subscription is available to build the ARM URL. Supply SubscriptionId or sign in first.");
             }
 
-            if (Name.Count > ResourceType.Count)
-            {
-                throw new InvalidOperationException(
-                    $"Too many Name segments ({Name.Count}) for the number of ResourceType segments ({ResourceType.Count}). " +
-                    "Name may have at most one entry per ResourceType (one fewer to perform a collection GET on the last type).");
-            }
-
             if (string.IsNullOrWhiteSpace(ApiVersion))
             {
                 throw new InvalidOperationException("ApiVersion is required when building an ARM URL from piece-wise parameters.");
+            }
+
+            if (Name.Count > ResourceType.Count || ResourceType.Count - Name.Count > 1)
+            {
+                throw new InvalidOperationException(
+                    $"Name ({Name.Count}) must equal ResourceType ({ResourceType.Count}) or be exactly one fewer " +
+                    "(one trailing type without a name performs a collection GET on the last type).");
             }
 
             var builder = new StringBuilder();

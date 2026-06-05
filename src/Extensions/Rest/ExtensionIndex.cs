@@ -58,7 +58,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest
                 ["resource-group"] = "ResourceGroupName",
                 ["resource-provider"] = "ResourceProviderName",
                 ["resource-type"] = "ResourceType",
-                ["name"] = "Name",
                 ["api-version"] = "ApiVersion",
                 ["uri-parameters"] = "UriParameters",
             }
