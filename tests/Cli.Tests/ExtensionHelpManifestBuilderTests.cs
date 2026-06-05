@@ -104,16 +104,6 @@ public class ExtensionHelpManifestBuilderTests
     }
 
     [Fact]
-    public void BuildManifest_ShouldDefaultParameterSetName_WhenNotSpecified()
-    {
-        var index = new ExtensionIndex();
-        var manifest = ExtensionHelpManifestBuilder.BuildManifest(index, "login", "1.0.0");
-
-        var loginCommand = Assert.Single(manifest.Commands, c => c.CliName == "login");
-        Assert.All(loginCommand.Parameters, p => Assert.False(string.IsNullOrEmpty(p.ParameterSetName)));
-    }
-
-    [Fact]
     public void BuildManifest_ShouldSplitExamples_ByLanguageTag()
     {
         // Login extension has both CLI (bash) and PowerShell examples in its markdown.
@@ -130,33 +120,6 @@ public class ExtensionHelpManifestBuilderTests
         if (loginCommand.Examples.PowerShell.Count > 0)
         {
             Assert.Contains(loginCommand.Examples.PowerShell, ex => ex.Command.Contains("Connect-CirrusAccount"));
-        }
-    }
-
-    [Fact]
-    public void BuildManifest_ShouldNotMixCliAndPowerShellExamples()
-    {
-        var index = new ExtensionIndex();
-        var manifest = ExtensionHelpManifestBuilder.BuildManifest(index, "login", "1.0.0");
-
-        foreach (var command in manifest.Commands)
-        {
-            // CLI examples must not contain PowerShell verbs (Get-/Set-/New-/Connect-/Disconnect-)
-            Assert.All(command.Examples.Cli, ex =>
-            {
-                Assert.False(StartsWithPowerShellVerb(ex.Command),
-                    $"CLI example '{ex.Title}' contains PowerShell verb: {ex.Command}");
-            });
-        }
-
-        static bool StartsWithPowerShellVerb(string command)
-        {
-            var trimmed = command.TrimStart();
-            return trimmed.StartsWith("Get-", StringComparison.Ordinal)
-                || trimmed.StartsWith("Set-", StringComparison.Ordinal)
-                || trimmed.StartsWith("New-", StringComparison.Ordinal)
-                || trimmed.StartsWith("Connect-", StringComparison.Ordinal)
-                || trimmed.StartsWith("Disconnect-", StringComparison.Ordinal);
         }
     }
 

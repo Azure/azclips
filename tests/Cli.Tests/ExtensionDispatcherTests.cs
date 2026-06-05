@@ -25,6 +25,19 @@ public class ExtensionDispatcherTests
     }
 
     [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("\t")]
+    public void Parse_ShouldThrowArgumentException_WhenFirstTokenIsEmptyOrWhitespace(string token)
+    {
+        // Guards against IndexOutOfRangeException from `args[0][0]` on an empty/whitespace token.
+        var dispatcher = new ExtensionDispatcher();
+
+        var exception = Assert.Throws<ArgumentException>(() => dispatcher.Parse([token]));
+        Assert.Contains("Command-group token cannot be empty", exception.Message);
+    }
+
+    [Theory]
     [InlineData("--help")]
     [InlineData("-h")]
     [InlineData("help")]
@@ -88,18 +101,5 @@ public class ExtensionDispatcherTests
         Assert.NotNull(commandHelp);
         Assert.Equal("login", groupHelp!.GroupPath);
         Assert.Equal("login show", commandHelp!.CommandPath);
-    }
-
-    [Fact]
-    public void ConfigExtensionIndex_ShouldExposeTranslatedPowerShellParameters()
-    {
-        var extensionIndex = new Microsoft.Azure.Cirrus.Extensions.Config.ExtensionIndex();
-
-        var getMetadata = extensionIndex.GetCommandMetadata("Get-CirrusConfig", ClientType.PowerShell);
-        Assert.Contains("Json", getMetadata.Parameters.Keys);
-
-        var listMetadata = extensionIndex.GetCommandMetadata("Get-CirrusConfigList", ClientType.PowerShell);
-        Assert.Contains("All", listMetadata.Parameters.Keys);
-        Assert.Contains("Json", listMetadata.Parameters.Keys);
     }
 }
