@@ -5,7 +5,7 @@ using Core.Telemetry;
 
 namespace Microsoft.Azure.Cirrus.Cmdlets.Resources;
 
-[Cmdlet(VerbsCommon.New, "ResourceGroupDeployment", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
+[Cmdlet(VerbsCommon.New, "ResourceGroupDeployment")]
 public class NewResourceGroupDeploymentCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();

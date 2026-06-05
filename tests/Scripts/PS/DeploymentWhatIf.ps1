@@ -48,7 +48,7 @@ New-ResourceGroupDeploymentWhatIf `
     -Mode Incremental `
     -Debug
 
-# Negative case (server-side error surfaced): a malformed .bicep fails compilation locally
+# Negative case (local Bicep compilation error): a malformed .bicep fails compilation locally
 # (non-zero exit -> InvalidOperationException) before any request is made. No what-if is run.
 New-ResourceGroupDeploymentWhatIf `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `

@@ -53,7 +53,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
 
         [ArgumentInfo(
         Required = false,
-        Description = @"The query string (for example, a SAS token) to be used with the template URI.",
+        Description = @"The query string (such as a SAS token) to use with the template URI. For a parameters file URI, include the SAS token in the -ParametersUri value itself.",
         SerializedName = @"QueryString")]
         public string? QueryString { get; set; }
 

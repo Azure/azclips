@@ -75,7 +75,7 @@ deployment group create \
     --mode Incremental \
     --debug
 
-# Standalone --validation-level Provider case (no inline params).
+# Standalone --validation-level Provider case (no parameters file; inline --parameter only).
 deployment group create \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
     --resource-group cirrus-test-group-1 \

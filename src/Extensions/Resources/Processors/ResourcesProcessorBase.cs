@@ -135,16 +135,21 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                 HttpResponseMessage _response = await _httpPipeline.SendAsync(_request, _publisher);
                 await _publisher.Publish(Events.TracingHttpResponseMessage, _response);
                 // declared final-state-via: location
-                var _finalUri = string.IsNullOrEmpty(GetFinalUri(_response)) ? _originalUri : GetFinalUri(_response);
+                var _declaredFinalUri = GetFinalUri(_response);
+                var _finalUri = string.IsNullOrEmpty(_declaredFinalUri) ? _originalUri : _declaredFinalUri;
                 var _asyncOperationUri = GetAsyncOperationUri(_response);
                 var _locationUri = GetLocationUri(_response);
                 var _operationLocationUri = GetOperationLocationUri(_response);
 
                 //polling
-                while (_request.Method == HttpMethod.Put && _response.StatusCode == HttpStatusCode.OK || _response.StatusCode == HttpStatusCode.Created || _response.StatusCode == HttpStatusCode.Accepted)
+                while ((_request.Method == HttpMethod.Put && _response.StatusCode == HttpStatusCode.OK)
+                    || _response.StatusCode == HttpStatusCode.Created
+                    || _response.StatusCode == HttpStatusCode.Accepted)
                 {
                     // TODO: get default value from config service: engine get default from configservice and pass to processor via ProcessorContext
-                    int delay = (int)(_response.Headers.RetryAfter?.Delta?.TotalSeconds ?? _httpPipeline.PollingInterval);
+                    // Floor the delay at 1 second: a fractional Retry-After (<1s) truncates to 0, which
+                    // would otherwise busy-poll ARM with no wait between calls.
+                    int delay = Math.Max(1, (int)(_response.Headers.RetryAfter?.Delta?.TotalSeconds ?? _httpPipeline.PollingInterval));
                     await _publisher.Publish(Events.DelayPolling, $"Delaying {delay} seconds before polling.");
                     Task delayTask = Task.Delay(delay * 1000, _publisher.Token);
 
