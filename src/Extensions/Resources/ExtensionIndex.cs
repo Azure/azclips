@@ -47,6 +47,27 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+        private static readonly CommandMetadata s_newResourceGroupDeployment_PS = new(
+            Name: "NewResourceGroupDeploymentProcessor",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.NewResourceGroupDeploymentProcessor",
+            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+            ProcessorType: typeof(Processors.NewResourceGroupDeploymentProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["SubscriptionId"]    = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ResourceGroupName"] = new("ResourceGroupName", typeof(string), "The name of the resource group to deploy into.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["Name"]              = new("Name", typeof(string), "The name of the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["TemplateUri"]       = new("TemplateUri", typeof(string), "The URI of the ARM template to deploy.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["TemplateFile"]      = new("TemplateFile", typeof(string), "The path to a local ARM template file to deploy inline.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["TemplateSpecId"]    = new("TemplateSpecId", typeof(string), "The resource id of a Template Spec to deploy.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["QueryString"]       = new("QueryString", typeof(string), "The query string (for example, a SAS token) to be used with the template URI.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ParametersUri"]     = new("ParametersUri", typeof(string), "The URI of a parameters file.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["ParametersFile"]    = new("ParametersFile", typeof(string), "The path to a local parameters file to deploy inline.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["Mode"]              = new("Mode", typeof(string), "The deployment mode. Incremental (default) or Complete.", IsRequired: false, Aliases: [], AllowedValues: ["Incremental", "Complete"]),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
         // ── CLI Command Metadata ──
         private static readonly CommandMetadata s_newResourceGroup_CLI = new(
             Name: "NewResourceGroupProcessor",
@@ -87,18 +108,41 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             },
             ParameterAliases: new Dictionary<string, string>()
         );
+        private static readonly CommandMetadata s_newResourceGroupDeployment_CLI = new(
+            Name: "NewResourceGroupDeploymentProcessor",
+            Aliases: [],
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.NewResourceGroupDeploymentProcessor",
+            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
+            ProcessorType: typeof(Processors.NewResourceGroupDeploymentProcessor),
+            Parameters: new Dictionary<string, ParameterMetadata>
+            {
+                ["subscription-id"]  = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["resource-group"]   = new("ResourceGroupName", typeof(string), "The name of the resource group to deploy into.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["name"]             = new("Name", typeof(string), "The name of the deployment.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["template-uri"]     = new("TemplateUri", typeof(string), "The URI of the ARM template to deploy.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["template-file"]    = new("TemplateFile", typeof(string), "The path to a local ARM template file to deploy inline.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["template-spec-id"] = new("TemplateSpecId", typeof(string), "The resource id of a Template Spec to deploy.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["query-string"]     = new("QueryString", typeof(string), "The query string (for example, a SAS token) to be used with the template URI.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["parameters-uri"]   = new("ParametersUri", typeof(string), "The URI of a parameters file.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["parameters-file"]  = new("ParametersFile", typeof(string), "The path to a local parameters file to deploy inline.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["mode"]             = new("Mode", typeof(string), "The deployment mode. Incremental (default) or Complete.", IsRequired: false, Aliases: [], AllowedValues: ["Incremental", "Complete"]),
+            },
+            ParameterAliases: new Dictionary<string, string>()
+        );
         // ── Dispatch Tables ──
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
         {
             ["New-ResourceGroup"]      = s_newResourceGroup_PS,
             ["Get-ResourceGroup_Get"]  = s_getResourceGroup_PS,
             ["Get-ResourceGroup_List"] = s_listResourceGroup_PS,
+            ["New-ResourceGroupDeployment"] = s_newResourceGroupDeployment_PS,
         };
         private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
         {
             ["create"] = s_newResourceGroup_CLI,
             ["list"]   = s_listResourceGroup_CLI,
             ["show"]   = s_getResourceGroup_CLI,
+            ["group create"] = s_newResourceGroupDeployment_CLI,
         };
         // ── Lookup ──
         public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
