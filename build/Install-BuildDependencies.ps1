@@ -23,8 +23,8 @@ foreach ($dep in $dependencies)
     Write-Host "Installing $($dep.Name) $($dep.RequiredVersion) (CurrentUser scope)..."
     Install-Module -Name $dep.Name `
         -RequiredVersion $dep.RequiredVersion `
+        -Repository PSGallery `
         -Scope CurrentUser `
         -Force `
-        -AllowClobber `
-        -SkipPublisherCheck
+        -AllowClobber
 }
