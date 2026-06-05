@@ -107,6 +107,15 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
         protected virtual Func<HttpResponseMessage, string?> GetLocationUri => _ => null;
 
         /// <summary>
+        /// Whether, after polling reaches a terminal status, the poller issues a final GET on
+        /// <c>_finalUri</c> (the original request URI by default) to fetch the terminal resource
+        /// state. True for resources whose canonical state lives at the original URI (e.g. a PUT
+        /// create). Override to false for operations whose poll already returns the full result and
+        /// whose original URI is not GET-able (e.g. the POST-only what-if endpoint).
+        /// </summary>
+        protected virtual bool FetchFinalState => true;
+
+        /// <summary>
         /// Long-running-operation transport: issues the request, then polls the ARM async-operation /
         /// location / operation-location URIs until the resource reaches a terminal provisioningState
         /// (Succeeded/Canceled) or the operation fails. Mirrors the proven Compute poller. Atomic LRO
@@ -218,7 +227,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                     }
                     // we are done polling, do a request on final target?
                     // create a new request with the final uri
-                    if (!string.IsNullOrEmpty(_finalUri))
+                    if (FetchFinalState && !string.IsNullOrEmpty(_finalUri))
                     {
                         // drop the old response
                         _response?.Dispose();

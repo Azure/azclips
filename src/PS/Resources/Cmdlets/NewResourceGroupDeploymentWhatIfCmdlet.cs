@@ -1,0 +1,143 @@
+using System.Management.Automation;
+using Core.Abstractions;
+using Core.DependencyInjection;
+using Core.Telemetry;
+
+namespace Microsoft.Azure.Cirrus.Cmdlets.Resources;
+
+[Cmdlet(VerbsCommon.New, "ResourceGroupDeploymentWhatIf", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
+public class NewResourceGroupDeploymentWhatIfCmdlet : PSCmdlet
+{
+    private readonly CancellationTokenSource _cts = new();
+    private OutputStreams streams = null!;
+    private IEngine engine = null!;
+
+    [Parameter(Mandatory = false)]
+    public string? SubscriptionId { get; set; }
+
+    [Parameter(Mandatory = true)]
+    public string ResourceGroupName { get; set; } = "";
+
+    [Parameter(Mandatory = true)]
+    public string Name { get; set; } = "";
+
+    [Parameter(Mandatory = false)]
+    public string? TemplateUri { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string? TemplateFile { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string? TemplateSpecId { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string? QueryString { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string? ParametersUri { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string? ParametersFile { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string? Mode { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string[]? Parameter { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string? ValidationLevel { get; set; }
+
+    [Parameter(Mandatory = false)]
+    public string? ResultFormat { get; set; }
+
+    protected override void BeginProcessing()
+    {
+        streams = new OutputStreams(
+            WriteOutput: (value, ct) => { WriteObject(value); return Task.CompletedTask; },
+            WriteVerbose: (value, ct) => { WriteVerbose(value?.ToString() ?? ""); return Task.CompletedTask; },
+            WriteDebug: (value, ct) => { WriteDebug(value?.ToString() ?? ""); return Task.CompletedTask; },
+            WriteWarning: (value, ct) => { WriteWarning(value?.ToString() ?? ""); return Task.CompletedTask; },
+            WriteError: (value, ct) =>
+            {
+                WriteError(new ErrorRecord(
+                    new Exception(value?.ToString() ?? ""),
+                    "ResourceGroupDeploymentWhatIfError",
+                    ErrorCategory.NotSpecified,
+                    null));
+                return Task.CompletedTask;
+            },
+            WriteInformation: (value, ct) =>
+            {
+                WriteInformation(new InformationRecord(value, null));
+                return Task.CompletedTask;
+            });
+        engine = CirrusServiceProvider.GetRequiredService<IEngine>();
+    }
+
+    protected override void ProcessRecord()
+    {
+        using var activity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartPowerShellActivity(MyInvocation.MyCommand.Name, MyInvocation.BoundParameters);
+        var parameters = new Dictionary<string, object>();
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))
+        {
+            parameters.Add("SubscriptionId", SubscriptionId!);
+        }
+        parameters.Add("ResourceGroupName", ResourceGroupName);
+        parameters.Add("Name", Name);
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(TemplateUri)))
+        {
+            parameters.Add("TemplateUri", TemplateUri!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(TemplateFile)))
+        {
+            parameters.Add("TemplateFile", TemplateFile!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(TemplateSpecId)))
+        {
+            parameters.Add("TemplateSpecId", TemplateSpecId!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(QueryString)))
+        {
+            parameters.Add("QueryString", QueryString!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(ParametersUri)))
+        {
+            parameters.Add("ParametersUri", ParametersUri!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(ParametersFile)))
+        {
+            parameters.Add("ParametersFile", ParametersFile!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Mode)))
+        {
+            parameters.Add("Mode", Mode!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(Parameter)))
+        {
+            parameters.Add("Parameter", Parameter!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(ValidationLevel)))
+        {
+            parameters.Add("ValidationLevel", ValidationLevel!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(ResultFormat)))
+        {
+            parameters.Add("ResultFormat", ResultFormat!);
+        }
+
+        var moduleName = MyInvocation.MyCommand.ModuleName;
+        var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
+        var invocation = new CommandInvocation("Resources", "New-ResourceGroupDeploymentWhatIf", parameters, false, moduleName, moduleVersion);
+
+        using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);
+        session.Run();
+    }
+
+    protected override void EndProcessing()
+    {
+        _cts.Dispose();
+    }
+
+    protected override void StopProcessing() => _cts.Cancel();
+}
