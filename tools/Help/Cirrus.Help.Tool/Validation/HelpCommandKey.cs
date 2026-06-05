@@ -48,7 +48,7 @@ namespace Cirrus.Help.Tool.Validation
 
         /// <summary>
         /// Returns the on-disk folder name used for an extension's CLI help directory
-        /// (e.g. <c>src/CLI/help/&lt;folder&gt;/</c>). Folder names are lowercase to match
+        /// (e.g. <c>src/CLI/Help/Docs/&lt;folder&gt;/</c>). Folder names are lowercase to match
         /// the runtime lookup in <see cref="Core.Cli.Help.MarkdownCommandHelpProvider"/>.
         /// </summary>
         public static string ToExtensionFolder(string extensionName)

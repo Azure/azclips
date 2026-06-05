@@ -8,7 +8,7 @@ using Core.Abstractions;
 namespace Cirrus.Help.Tool
 {
     /// <summary>
-    /// Emits <c>src/CLI/Help/&lt;extension&gt;/&lt;command&gt;.md</c> stubs (and a sibling
+    /// Emits <c>src/CLI/Help/Docs/&lt;extension&gt;/&lt;command&gt;.md</c> stubs (and a sibling
     /// <c>index.md</c>) for every entry in <see cref="IExtensionIndex.GetCommandTable"/> for
     /// <see cref="ClientType.CLI"/>. Existing files are left untouched so authors can re-run
     /// the scaffolder safely after adding new commands.
@@ -17,7 +17,7 @@ namespace Cirrus.Help.Tool
     {
         public static int Scaffold(string repoRoot, string extensionName, IExtensionIndex extensionIndex, string? cliGroupToken)
         {
-            var helpDir = Path.Combine(repoRoot, "src", "CLI", "Help", extensionName);
+            var helpDir = Path.Combine(repoRoot, "src", "CLI", "Help", "Docs", extensionName);
             Directory.CreateDirectory(helpDir);
 
             var groupToken = cliGroupToken ?? extensionName;

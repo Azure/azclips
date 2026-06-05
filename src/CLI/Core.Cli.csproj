@@ -27,9 +27,11 @@
     Authored CLI help markdown ships next to the azv2 binary. Runtime resolution
     is filesystem-based (MarkdownCommandHelpProvider) — primary path is
     <output>/help/<ext>/<key>.md, with a repo-root fallback for the dev loop.
+    Source lives under Help/Docs/; <Link> flattens the Docs/ segment so the
+    packaged path remains help/<ext>/<key>.md.
   -->
   <ItemGroup>
-    <Content Include="Help\**\*.md">
+    <Content Include="Help\Docs\**\*.md">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <Link>help\%(RecursiveDir)%(Filename)%(Extension)</Link>

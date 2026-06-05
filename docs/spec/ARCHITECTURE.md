@@ -188,7 +188,7 @@ New-ResourceGroup -Name mygroup -Location eastus
 | **Cloud Agent**              | `src/Core/Core.Agent/CloudAgent.cs`                        | Azure OpenAI integration                      |
 | **Prompt Template**          | `src/Core/Core.Agent/prompt.md`                            | System instructions with {{flavor}}           |
 | **PowerShell Modules**       | `src/PS/`                                                  | PowerShell module source                      |
-| **CLI Help Markdown**        | `src/CLI/Help/<ext>/*.md`                                  | Authored CLI help source (frontmatter + body) |
+| **CLI Help Markdown**        | `src/CLI/Help/Docs/<ext>/*.md`                             | Authored CLI help source (frontmatter + body) |
 | **PowerShell Help Markdown** | `src/PS/<Module>/help/*.md`                                | Authored PowerShell help (PlatyPS → MAML)     |
 | **Help Runtime Provider**    | `src/CLI/Help/MarkdownCommandHelpProvider.cs`              | Runtime markdown parsing for CLI              |
 | **Help Tool**                | `tools/Help/Cirrus.Help.Tool/`                             | Build-time validators + manifest emitter      |
@@ -486,7 +486,7 @@ static async Task<int> TryAgentFallbackAsync(string[] args)
 
 ## Help System
 
-Command help lives in two parallel corpora: CLI help under `src/CLI/Help/<ext>/*.md` (read by the runtime provider on the cold path), and PowerShell help under `src/PS/<Module>/help/*.md` (compiled to MAML XML via PlatyPS at build time). Build-time tooling validates both corpora against live `ExtensionIndex` / cmdlet metadata and emits `HelpManifest.json` plus per-module `*.dll-Help.xml` artifacts.
+Command help lives in two parallel corpora: CLI help under `src/CLI/Help/Docs/<ext>/*.md` (read by the runtime provider on the cold path), and PowerShell help under `src/PS/<Module>/help/*.md` (compiled to MAML XML via PlatyPS at build time). Build-time tooling validates both corpora against live `ExtensionIndex` / cmdlet metadata and emits `HelpManifest.json` plus per-module `*.dll-Help.xml` artifacts.
 
 Four validators gate every PR: markdown structure, completeness against routed commands, CLI example syntax (command path + flag signature + value type), and PowerShell example syntax (PSL1–PSL7: cmdlet name + parameter signature + required-parameter coverage + duplicate-flag check + variable-assignment check + value-type check + per-fence documented-cmdlet enforcement). Stale help fails CI before merge.
 

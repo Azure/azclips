@@ -4,10 +4,10 @@ This guide explains how to author and test help for CLI commands and PowerShell 
 
 CLI help and PowerShell help are authored separately, in different folders, with different formats:
 
-| Surface    | Source                                                       | Format                                                         | Tool                                 |
-| ---------- | ------------------------------------------------------------ | -------------------------------------------------------------- | ------------------------------------ |
-| CLI        | `src/CLI/Help/<extension>/<command>.md`                      | Cirrus markdown (frontmatter + bash fences)                    | `Cirrus.Help.Tool` (validators)      |
-| PowerShell | `src/PS/<Module>/help/<Cmdlet>.md`                           | PlatyPS schema 2024-05-01 (current `Microsoft.PowerShell.PlatyPS` schema) | `Microsoft.PowerShell.PlatyPS` 1.0.1 |
+| Surface    | Source                                       | Format                                                                    | Tool                                 |
+| ---------- | -------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------ |
+| CLI        | `src/CLI/Help/Docs/<extension>/<command>.md` | Cirrus markdown (frontmatter + bash fences)                               | `Cirrus.Help.Tool` (validators)      |
+| PowerShell | `src/PS/<Module>/help/<Cmdlet>.md`           | PlatyPS schema 2024-05-01 (current `Microsoft.PowerShell.PlatyPS` schema) | `Microsoft.PowerShell.PlatyPS` 1.0.1 |
 
 The CLI folder name is the **extension name** (`compute`, `config`, `login`, `resources`, `extension`) — it is the value passed to `MarkdownCommandHelpProvider.Get(extensionName, commandKey)`. The first CLI token shown in invocations (`azv2 vm …`, `azv2 group …`) can differ from the extension name; that mapping is owned by `CommandGroupIndex` / the scaffolder's `cliGroupByExtension` table and is independent of the folder layout.
 
@@ -31,7 +31,7 @@ Both surfaces are validated and built by:
     dotnet run --project tools/Help/Cirrus.Help.Tool -- --scaffold compute
     ```
 
-    This walks `IExtensionIndex.GetCommandTable(ClientType.CLI)` and emits one `.md` stub per command into `src/CLI/Help/<extension>/`. Existing files are left untouched (idempotent).
+    This walks `IExtensionIndex.GetCommandTable(ClientType.CLI)` and emits one `.md` stub per command into `src/CLI/Help/Docs/<extension>/`. Existing files are left untouched (idempotent).
 
 2. **Fill in `summary`, `Description`, and at least one bash example.** Required parameters are pre-inlined into the example as `--<name> <type>` placeholders — replace with realistic values or keep as documented placeholders.
 
@@ -65,7 +65,7 @@ Both surfaces are validated and built by:
 ## File Structure
 
 ```
-src/CLI/Help/                  # CLI markdown — Cirrus format
+src/CLI/Help/Docs/             # CLI markdown — Cirrus format
 ├── compute/
 │   ├── index.md               # azv2 vm --help
 │   ├── create.md              # azv2 vm create --help
@@ -130,7 +130,7 @@ PowerShell help is authored against `Microsoft.PowerShell.PlatyPS` 1.0.1's curre
 ---
 document type: cmdlet
 external help file: Microsoft.Azure.Cirrus.Cmdlets.Compute.dll-Help.xml
-HelpUri: ''
+HelpUri: ""
 Locale: en-US
 Module Name: Compute
 ms.date: 06/04/2026
@@ -172,20 +172,21 @@ The name of the virtual machine.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
+
 …
 ````
 
@@ -195,7 +196,7 @@ Legacy `schema: 2.0.0` markdown is still accepted as input by PlatyPS 1.0.1 (`Im
 
 `Cirrus.Help.Tool` validates all examples at build time against the live extension assemblies and cmdlet binaries.
 
-### CLI fences (`bash` / `sh`) — `src/CLI/Help/`
+### CLI fences (`bash` / `sh`) — `src/CLI/Help/Docs/`
 
 Validation errors when:
 
@@ -230,7 +231,7 @@ Only fences inside `## EXAMPLES` are scanned, and only when the language tag is 
 
 ### CLI Help
 
-`azv2 <group> <command> --help` reads markdown from `<azv2-base>/help/<extension>/<command-key>.md`. The build copies `src/CLI/Help/` → `artifacts/<Config>/Core.Cli/help/` so help works from a local build, and `MarkdownCommandHelpProvider` parses Summary/Description/examples on demand. If the packaged file is missing, the provider walks up to `cirrus.slnx` and reads the markdown straight from `src/CLI/Help/<extension>/` — dev-loop fallback, no rebuild required.
+`azv2 <group> <command> --help` reads markdown from `<azv2-base>/help/<extension>/<command-key>.md`. The build copies `src/CLI/Help/Docs/` → `artifacts/<Config>/Core.Cli/help/` so help works from a local build, and `MarkdownCommandHelpProvider` parses Summary/Description/examples on demand. If the packaged file is missing, the provider walks up to `cirrus.slnx` and reads the markdown straight from `src/CLI/Help/Docs/<extension>/` — dev-loop fallback, no rebuild required.
 
 ### PowerShell Help
 
@@ -318,7 +319,7 @@ dotnet test tools/Help/Cirrus.Help.Tool.Tests/Cirrus.Help.Tool.Tests.csproj
 
 - Check that the code fence has a `bash` or `sh` language tag.
 - Ensure `### Example Title` precedes the code block.
-- Verify the markdown filename matches the canonical command key (`group create` → `create.md` inside `src/CLI/Help/group/`).
+- Verify the markdown filename matches the canonical command key (`group create` → `create.md` inside `src/CLI/Help/Docs/group/`).
 
 **Build fails with `CLI_L1_*` / `CLI_L2_*` / `CLI_L3_*` errors:**
 

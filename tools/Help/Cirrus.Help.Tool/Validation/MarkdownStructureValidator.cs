@@ -8,7 +8,7 @@ using Core.Cli.Help;
 namespace Cirrus.Help.Tool.Validation
 {
     /// <summary>
-    /// Validates that markdown help files under <c>src/CLI/Help/{extension}/</c> meet
+    /// Validates that markdown help files under <c>src/CLI/Help/Docs/{extension}/</c> meet
     /// the required structural contract: file-level frontmatter with required
     /// fields, a Description body, balanced code fences, and at least one example.
     /// </summary>
@@ -22,7 +22,7 @@ namespace Cirrus.Help.Tool.Validation
         public ValidationReport Validate(string repoRoot)
         {
             var report = new ValidationReport();
-            var helpRoot = Path.Combine(repoRoot, "src", "CLI", "Help");
+            var helpRoot = Path.Combine(repoRoot, "src", "CLI", "Help", "Docs");
 
             if (!Directory.Exists(helpRoot))
             {
@@ -37,7 +37,7 @@ namespace Cirrus.Help.Tool.Validation
 
             if (markdownFiles.Count == 0)
             {
-                report.AddError(ProblemIds.MD_NoMarkdownFiles, "No help markdown files found under src/CLI/Help/*.");
+                report.AddError(ProblemIds.MD_NoMarkdownFiles, "No help markdown files found under src/CLI/Help/Docs/*.");
                 return report;
             }
 

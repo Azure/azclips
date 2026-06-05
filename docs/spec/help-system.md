@@ -1,27 +1,27 @@
 # Design Spec: Help System
 
-Two parallel markdown corpora drive three surfaces: CLI help authored under `src/CLI/Help/<ext>/<command>.md` powers `azv2 --help` and a JSON catalog for external tooling; PowerShell help authored under `src/PS/<Module>/help/<Cmdlet>.md` is compiled to MAML XML by PlatyPS and served by `Get-Help`. Authoring guide: [docs/howto/help.md](../howto/help.md).
+Two parallel markdown corpora drive three surfaces: CLI help authored under `src/CLI/Help/Docs/<ext>/<command>.md` powers `azv2 --help` and a JSON catalog for external tooling; PowerShell help authored under `src/PS/<Module>/help/<Cmdlet>.md` is compiled to MAML XML by PlatyPS and served by `Get-Help`. Authoring guide: [docs/howto/help.md](../howto/help.md).
 
 ---
 
 ## 1. Goals
 
-| Goal                       | Rationale                                                                                                              |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| One file per command       | Each command/cmdlet has a single authoring source; runtime, MAML, and CI tooling consume it without duplication.       |
-| Tree-aware CLI help        | `azv2 --help`, `azv2 group --help`, `azv2 group create --help` each produce meaningfully different output.             |
-| Native PowerShell help     | `Get-Help <Cmdlet> -Full` is served by standard MAML XML packaged with the module.                                     |
-| Cold-path safe             | CLI help renders without loading execution code or instantiating processors.                                           |
-| Authorable by humans       | Authors edit `.md` files next to the extension; no recompile to iterate on prose. Codegen may interject in the future. |
-| Mechanically validated     | Every example is parsed and checked against live `ExtensionIndex` metadata at build time; stale help fails CI.         |
-| AI-augmentable             | The same markdown corpus is consumed by the agent's prompt feed.                                                       |
+| Goal                   | Rationale                                                                                                              |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| One file per command   | Each command/cmdlet has a single authoring source; runtime, MAML, and CI tooling consume it without duplication.       |
+| Tree-aware CLI help    | `azv2 --help`, `azv2 group --help`, `azv2 group create --help` each produce meaningfully different output.             |
+| Native PowerShell help | `Get-Help <Cmdlet> -Full` is served by standard MAML XML packaged with the module.                                     |
+| Cold-path safe         | CLI help renders without loading execution code or instantiating processors.                                           |
+| Authorable by humans   | Authors edit `.md` files next to the extension; no recompile to iterate on prose. Codegen may interject in the future. |
+| Mechanically validated | Every example is parsed and checked against live `ExtensionIndex` metadata at build time; stale help fails CI.         |
+| AI-augmentable         | The same markdown corpus is consumed by the agent's prompt feed.                                                       |
 
 ---
 
 ## 2. Architecture at a Glance
 
 ```
-src/CLI/Help/<ext>/*.md         ◄── CLI corpus (azv2 --help)
+src/CLI/Help/Docs/<ext>/*.md    ◄── CLI corpus (azv2 --help)
 src/PS/<Module>/help/*.md       ◄── PowerShell corpus (Get-Help, MAML via PlatyPS)
         │
         ├── runtime ──────────────────────────────────────────────
@@ -53,7 +53,7 @@ Two consumers, one source. The CLI runtime reads markdown from the host's conten
 
 ## 3. Authoring Model
 
-CLI help lives under `src/CLI/Help/<ext>/`; PowerShell help under `src/PS/<Module>/help/`. CLI root commands use `index.md` and subcommands use `<segment>-<segment>.md` (space-delimited canonical CLI key, dasherized). PowerShell files are named `<Verb-Noun>.md` (one per cmdlet), per PlatyPS convention.
+CLI help lives under `src/CLI/Help/Docs/<ext>/`; PowerShell help under `src/PS/<Module>/help/`. CLI root commands use `index.md` and subcommands use `<segment>-<segment>.md` (space-delimited canonical CLI key, dasherized). PowerShell files are named `<Verb-Noun>.md` (one per cmdlet), per PlatyPS convention.
 
 Each file has YAML frontmatter (file-level metadata) followed by a markdown body (description + examples):
 
@@ -94,7 +94,7 @@ The CLI host project copies the markdown corpus to its build output as content:
 </ItemGroup>
 ```
 
-At runtime the provider resolves `<AppContext.BaseDirectory>/help/<ext>/<key>.md` first, with a dev-loop fallback that walks up to `cirrus.slnx` and reads `src/CLI/Help/<ext>/<key>.md` directly. There is no embedded-resource path today.
+At runtime the provider resolves `<AppContext.BaseDirectory>/help/<ext>/<key>.md` first, with a dev-loop fallback that walks up to `cirrus.slnx` and reads `src/CLI/Help/Docs/<ext>/<key>.md` directly. There is no embedded-resource path today.
 
 Markdown is hand-authored today. Codegen may interject at this layer in the future (e.g. emitting templates from `IExtensionIndex`); the on-disk contract downstream stays the same.
 
@@ -114,7 +114,7 @@ Cold-path guarantees:
 
 Tree shape mirrors azure-cli: `azv2 --help` lists groups, `azv2 group --help` lists subcommands, `azv2 group create --help` shows full command help. Global arguments (`--help`, `--debug`, `--output`) are owned by the CLI host and surface on every page.
 
-The runtime supports a source-tree fallback for repo contributors: if the packaged file at `<AppContext.BaseDirectory>/help/<ext>/<key>.md` is **missing**, the provider walks up from `AppContext.BaseDirectory` looking for `cirrus.slnx` and reads the markdown straight from `src/CLI/Help/<ext>/`. The fallback only fires on absence — a stale copy in the build output will be served as-is, so the inner loop is still "edit `.md`, rebuild, see new help."
+The runtime supports a source-tree fallback for repo contributors: if the packaged file at `<AppContext.BaseDirectory>/help/<ext>/<key>.md` is **missing**, the provider walks up from `AppContext.BaseDirectory` looking for `cirrus.slnx` and reads the markdown straight from `src/CLI/Help/Docs/<ext>/`. The fallback only fires on absence — a stale copy in the build output will be served as-is, so the inner loop is still "edit `.md`, rebuild, see new help."
 
 ---
 

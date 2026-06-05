@@ -231,7 +231,7 @@ namespace Cirrus.Help.Tool.Tests
         public void Validate_ShouldReportError_WhenNoHelpMarkdownFilesExist()
         {
             using var tempDir = new TempDirectory();
-            Directory.CreateDirectory(Path.Combine(tempDir.Path, "src", "CLI", "Help"));
+            Directory.CreateDirectory(Path.Combine(tempDir.Path, "src", "CLI", "Help", "Docs"));
 
             var report = new MarkdownStructureValidator().Validate(tempDir.Path);
 
@@ -242,8 +242,8 @@ namespace Cirrus.Help.Tool.Tests
         public void Validate_ShouldWalkAllHelpFiles_WhenMultipleExtensionsExist()
         {
             using var tempDir = new TempDirectory();
-            var loginHelp = Path.Combine(tempDir.Path, "src", "CLI", "Help", "login");
-            var configHelp = Path.Combine(tempDir.Path, "src", "CLI", "Help", "config");
+            var loginHelp = Path.Combine(tempDir.Path, "src", "CLI", "Help", "Docs", "login");
+            var configHelp = Path.Combine(tempDir.Path, "src", "CLI", "Help", "Docs", "config");
             Directory.CreateDirectory(loginHelp);
             Directory.CreateDirectory(configHelp);
 

@@ -19,7 +19,7 @@ public sealed record MarkdownCommandHelp(string Summary, string Description, IRe
 }
 
 /// <summary>
-/// Reads and parses help markdown from <c>src/CLI/Help/&lt;ext&gt;/*.md</c> at runtime.
+/// Reads and parses help markdown from <c>src/CLI/Help/Docs/&lt;ext&gt;/*.md</c> at runtime.
 /// Lenient: malformed/missing input returns <see cref="MarkdownCommandHelp.Empty"/> rather
 /// than throwing — strict checks live in the build-time help tool.
 /// </summary>
@@ -98,13 +98,13 @@ public static class MarkdownCommandHelpProvider
 
         // Repo-aware preference: if we can locate `cirrus.slnx` from BaseDirectory we're
         // running against a developer build, so prefer the source markdown — authors
-        // can edit `src/CLI/Help/...` and see results without rebuilding. If no repo
+        // can edit `src/CLI/Help/Docs/...` and see results without rebuilding. If no repo
         // root is reachable (shipped install), fall back to the packaged copy next to
-        // the CLI binary (see Core.Cli.csproj `<Content Include="Help\**\*.md">`).
+        // the CLI binary (see Core.Cli.csproj `<Content Include="Help\Docs\**\*.md">`).
         var repoRoot = FindRepoRoot();
         if (repoRoot != null)
         {
-            var source = Path.Combine(repoRoot, "src", "CLI", "Help", folder, fileName);
+            var source = Path.Combine(repoRoot, "src", "CLI", "Help", "Docs", folder, fileName);
             if (File.Exists(source))
             {
                 return source;

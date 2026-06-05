@@ -35,7 +35,7 @@ namespace Cirrus.Help.Tool.Validation
             RegexOptions.CultureInvariant | RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         /// <summary>
-        /// Walks every markdown file under <c>src/CLI/help/*/</c> and validates the
+        /// Walks every markdown file under <c>src/CLI/Help/Docs/*/</c> and validates the
         /// CLI examples it contains against the supplied per-CLI-group indexes.
         /// </summary>
         /// <param name="repoRoot">Repository root (folder containing <c>src/</c>).</param>
@@ -46,7 +46,7 @@ namespace Cirrus.Help.Tool.Validation
         public ValidationReport Validate(string repoRoot, IReadOnlyDictionary<string, IExtensionIndex> indexesByCliGroup)
         {
             var report = new ValidationReport();
-            var helpRoot = Path.Combine(repoRoot, "src", "CLI", "Help");
+            var helpRoot = Path.Combine(repoRoot, "src", "CLI", "Help", "Docs");
 
             if (!Directory.Exists(helpRoot))
             {
