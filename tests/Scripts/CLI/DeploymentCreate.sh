@@ -25,6 +25,29 @@ deployment group create `
 #     --parameters-file ./azuredeploy.parameters.json `
 #     --mode Incremental
 
+# Bicep happy path: compile a local .bicep template via the Bicep CLI and deploy it.
+# Requires the Bicep CLI on PATH or the az-bundled bicep (~/.azure/bin/bicep).
+# Uses a timestamped storage account name (3-24 lowercase alphanumerics) to avoid collisions.
+STAMP=$(date +%y%m%d%H%M%S)
+deployment group create `
+    --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 `
+    --resource-group cirrus-test-group-1 `
+    --name "cirrus-test-bicep-$STAMP" `
+    --template-file ../Bicep/sample-storage.bicep `
+    --parameters-file ../Bicep/sample-storage.bicepparam `
+    --mode Incremental `
+    --debug
+
+# Bicep negative case: a malformed .bicep must fail compilation and surface bicep's
+# diagnostics (non-zero exit -> InvalidOperationException). No deployment is created.
+deployment group create `
+    --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 `
+    --resource-group cirrus-test-group-1 `
+    --name cirrus-test-bicep-negative `
+    --template-file ../Bicep/malformed.bicep `
+    --mode Incremental `
+    --debug
+
 # Negative case: invalid --mode value (Foo) must be rejected.
 # Expected result: the command fails fast with a clear validation message
 # listing the allowed values (Incremental, Complete) and does NOT create a deployment.

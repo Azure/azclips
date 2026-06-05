@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Microsoft.Azure.Cirrus.Extensions.Resources;
 using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
@@ -163,8 +164,16 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                 return null;
             }
 
-            // Local file: read and inline.
-            return ReadJsonFile(TemplateFile!);
+            // Local file: read and inline. A .bicep source is compiled to ARM JSON first.
+            string templatePath = TemplateFile!;
+            if (IsBicepFile(templatePath))
+            {
+                EnsureFileExists(templatePath);
+                string armJson = BicepCompiler.BuildTemplate(templatePath);
+                return JsonSerializer.Deserialize<JsonElement>(armJson);
+            }
+
+            return ReadJsonFile(templatePath);
         }
 
         private object? BuildParameters(out ParametersLink? parametersLink)
@@ -179,6 +188,13 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
 
             if (!string.IsNullOrWhiteSpace(ParametersFile))
             {
+                // A .bicepparam source is compiled to an ARM parameters file first.
+                if (IsBicepParamFile(ParametersFile))
+                {
+                    EnsureFileExists(ParametersFile);
+                    return ReadBicepParamFile(ParametersFile);
+                }
+
                 return ReadParametersFile(ParametersFile);
             }
 
@@ -200,11 +216,50 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
         private static object ReadParametersFile(string path)
         {
             JsonElement root = (JsonElement)ReadJsonFile(path);
+            return UnwrapParameters(root);
+        }
+
+        // Compile a .bicepparam file to ARM parameters JSON and unwrap to the inner "parameters" object.
+        // 'bicep build-params --stdout' emits an envelope:
+        //   { "parametersJson": "<stringified ARM params file>", "templateJson": ..., "templateSpecId": ... }
+        // The ARM params file inside "parametersJson" has the standard { $schema, contentVersion, parameters } shape.
+        private static object ReadBicepParamFile(string path)
+        {
+            string envelopeJson = BicepCompiler.BuildParams(path);
+            using JsonDocument envelope = JsonDocument.Parse(envelopeJson);
+            if (!envelope.RootElement.TryGetProperty("parametersJson", out JsonElement parametersJsonElement)
+                || parametersJsonElement.ValueKind != JsonValueKind.String)
+            {
+                throw new InvalidOperationException(
+                    "Unexpected 'bicep build-params --stdout' output: missing 'parametersJson' string.");
+            }
+
+            string parametersJson = parametersJsonElement.GetString()!;
+            JsonElement root = JsonSerializer.Deserialize<JsonElement>(parametersJson);
+            return UnwrapParameters(root);
+        }
+
+        private static object UnwrapParameters(JsonElement root)
+        {
             if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("parameters", out JsonElement inner))
             {
                 return inner;
             }
             return root;
+        }
+
+        private static bool IsBicepFile(string path) =>
+            path.EndsWith(".bicep", StringComparison.OrdinalIgnoreCase);
+
+        private static bool IsBicepParamFile(string path) =>
+            path.EndsWith(".bicepparam", StringComparison.OrdinalIgnoreCase);
+
+        private static void EnsureFileExists(string path)
+        {
+            if (!File.Exists(path))
+            {
+                throw new FileNotFoundException($"File not found: {path}", path);
+            }
         }
     }
 }
