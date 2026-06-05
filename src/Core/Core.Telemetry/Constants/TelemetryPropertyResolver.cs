@@ -10,18 +10,17 @@ namespace Core.Telemetry.Constants;
 
 public static class TelemetryPropertyResolver
 {
-    public const string SchemaVersion = "1.0";
-    public const string TelemetryVersion = "1.0";
-
     public static readonly string ProductName = ResolveProductName();
 
     private static readonly Lazy<string> _id = new(ComputeId);
     private static readonly Lazy<bool> _isMicrosoftInternal = new(ResolveIsMicrosoftInternal);
     private static readonly Lazy<string> _productVersion = new(ResolveProductVersion);
+    private static readonly Lazy<string> _telemetryVersion = new(ResolveTelemetryVersion);
 
     public static string Id => _id.Value;
     public static bool IsMicrosoftInternal => _isMicrosoftInternal.Value;
     public static string ProductVersion => _productVersion.Value;
+    public static string TelemetryVersion => _telemetryVersion.Value;
 
     private static string ComputeId()
     {
@@ -78,5 +77,11 @@ public static class TelemetryPropertyResolver
             .GetCustomAttribute<AssemblyProductAttribute>()?.Product;
 
         return !string.IsNullOrEmpty(product) ? product : "Cirrus";
+    }
+
+    private static string ResolveTelemetryVersion()
+    {
+        var version = typeof(TelemetryPropertyResolver).Assembly.GetName().Version;
+        return version is not null ? version.ToString() : "unknown";
     }
 }

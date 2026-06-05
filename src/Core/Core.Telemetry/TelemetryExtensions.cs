@@ -18,7 +18,7 @@ public static class TelemetryExtensions
         activity.SetTag(TelemetryTags.IsMicrosoftInternal, TelemetryPropertyResolver.IsMicrosoftInternal);
         activity.SetTag(TelemetryTags.ProductName, TelemetryPropertyResolver.ProductName);
         activity.SetTag(TelemetryTags.ProductVersion, TelemetryPropertyResolver.ProductVersion);
-        activity.SetTag(TelemetryTags.SchemaVersion, TelemetryPropertyResolver.SchemaVersion);
+        activity.SetTag(TelemetryTags.SchemaVersion, TelemetryTags.Version);
         activity.SetTag(TelemetryTags.TelemetryVersion, TelemetryPropertyResolver.TelemetryVersion);
         activity.SetTag(TelemetryTags.ClientType,  clientType.ToString());
 

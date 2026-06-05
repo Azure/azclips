@@ -8,6 +8,7 @@ namespace Core.Telemetry.Constants;
 /// </summary>
 public static class TelemetryTags
 {
+    public const int Version = 1;
     // Per-process invariants.
     public const string Id = "Id";
     public const string IsMicrosoftInternal = "IsMicrosoftInternal";
@@ -16,10 +17,14 @@ public static class TelemetryTags
     public const string SchemaVersion = "schemaVersion";
     public const string TelemetryVersion = "telemetryVersion";
     public const string ClientType = "clientType";
+    public const string EventName = "EventName";
 
     // Per-command tags (set on the per-invocation activity).
     public const string Command = "command";
     public const string ModuleName = "module.name";
     public const string ModuleVersion = "module.version";
     public const string Parameter = "parameter";
+
+    // todo: reserved for later product level instrumentation.
+    public const string PropertyTagPrefix = "properties.";
 }

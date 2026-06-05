@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <ExtName>Core</ExtName>
+    <Version>0.0.0.1</Version>
   </PropertyGroup>
 
   <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
