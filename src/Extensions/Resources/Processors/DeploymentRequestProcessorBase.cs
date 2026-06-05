@@ -77,7 +77,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
 
         [ArgumentInfo(
         Required = false,
-        Description = @"Inline deployment parameter(s) in KEY=VALUE form. Repeatable. Each value is parsed as JSON when possible (so count=3 becomes a number and flag=true a bool) and otherwise treated as a string; quote a value to force a string (e.g. zip=\""01234\""). Inline values overlay same-named keys from a parameters file. Cannot be combined with ParametersUri.",
+        Description = @"Inline deployment parameter(s) in KEY=VALUE form. Repeatable. Each value is parsed as JSON when possible (so count=3 becomes a number and flag=true a bool) and otherwise treated as a string; quote a value to force a string (e.g. zip=""01234""). Inline values overlay same-named keys from a parameters file. Cannot be combined with ParametersUri.",
         SerializedName = @"Parameter")]
         public string[]? Parameter { get; set; }
 
