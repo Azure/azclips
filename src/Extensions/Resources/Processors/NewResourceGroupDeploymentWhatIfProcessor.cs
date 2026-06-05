@@ -186,7 +186,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
 
         private static string? NormalizeResultFormatOrNull(string? resultFormat) =>
             string.IsNullOrWhiteSpace(resultFormat)
-                ? "FullResourcePayloads"
+                ? null
                 : resultFormat.Trim().ToLowerInvariant() switch
                 {
                     "resourceidonly" => "ResourceIdOnly",
