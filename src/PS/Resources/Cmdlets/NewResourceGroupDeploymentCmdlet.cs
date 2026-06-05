@@ -54,6 +54,9 @@ public class NewResourceGroupDeploymentCmdlet : PSCmdlet
     [Parameter(Mandatory = false)]
     public string? ValidationLevel { get; set; }
 
+    [Parameter(Mandatory = false)]
+    public SwitchParameter NoWait { get; set; }
+
     protected override void BeginProcessing()
     {
         streams = new OutputStreams(
@@ -131,6 +134,10 @@ public class NewResourceGroupDeploymentCmdlet : PSCmdlet
         if (MyInvocation.BoundParameters.ContainsKey(nameof(ValidationLevel)))
         {
             parameters.Add("ValidationLevel", ValidationLevel!);
+        }
+        if (MyInvocation.BoundParameters.ContainsKey(nameof(NoWait)))
+        {
+            parameters.Add("NoWait", NoWait.IsPresent);
         }
 
         var moduleName = MyInvocation.MyCommand.ModuleName;

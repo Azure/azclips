@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
+using Microsoft.Azure.Cirrus.ExtensionRuntime;
 using Microsoft.Azure.Cirrus.Extensions.Resources;
 using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
 
@@ -97,6 +98,28 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
         Description = @"The validation level of the deployment. Template, Provider, or ProviderNoRbac.",
         SerializedName = @"ValidationLevel")]
         public string? ValidationLevel { get; set; }
+
+        [ArgumentInfo(
+        Required = false,
+        Description = @"Return as soon as the deployment is accepted, without waiting for it to complete.",
+        SerializedName = @"NoWait")]
+        public bool NoWait { get; set; }
+
+        // ARM resource-group deployments are long-running (final-state-via: azure-async-operation).
+        // The deployment resource itself carries provisioningState, so the async-operation/location
+        // headers drive polling and a final GET on the deployment URI (the default _finalUri) yields
+        // the terminal DeploymentExtended. GetFinalUri/GetOperationLocationUri stay null (default).
+        protected override Func<HttpResponseMessage, string?> GetAsyncOperationUri => response => response.GetFirstHeader("Azure-AsyncOperation");
+        protected override Func<HttpResponseMessage, string?> GetLocationUri => response => response.GetFirstHeader("Location");
+
+        // Default behavior waits for the deployment to reach a terminal provisioningState by polling
+        // (matches `az deployment group create`). -NoWait returns on the initial accepted response.
+        // SubscriptionId is resolved here so both branches build the deployment URI correctly.
+        internal override Task<HttpResponseMessage> SendAsync()
+        {
+            ResolveSubscriptionId();
+            return NoWait ? base.SendAsync() : SendAsyncLRO();
+        }
 
         protected override async Task<HttpRequestMessage> CreateRequestMessage()
         {

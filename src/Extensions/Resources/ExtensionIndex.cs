@@ -69,6 +69,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
                 ["RollbackOnError"]   = new("RollbackOnError", typeof(bool), "Roll the resource group back to the last successful deployment on error.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["RollbackToLastDeploymentName"] = new("RollbackToLastDeploymentName", typeof(string), "Roll the resource group back to a specific named deployment on error. Mutually exclusive with RollbackOnError.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ValidationLevel"]   = new("ValidationLevel", typeof(string), "The validation level of the deployment.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
+                ["NoWait"]            = new("NoWait", typeof(bool), "Return as soon as the deployment is accepted, without waiting for it to complete.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -134,6 +135,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
                 ["rollback-on-error"] = new("RollbackOnError", typeof(bool), "Roll the resource group back to the last successful deployment on error.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["rollback-to-last-deployment-name"] = new("RollbackToLastDeploymentName", typeof(string), "Roll the resource group back to a specific named deployment on error. Mutually exclusive with rollback-on-error.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["validation-level"] = new("ValidationLevel", typeof(string), "The validation level of the deployment.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
+                ["no-wait"]          = new("NoWait", typeof(bool), "Return as soon as the deployment is accepted, without waiting for it to complete.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );

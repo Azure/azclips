@@ -109,3 +109,30 @@ New-ResourceGroupDeployment `
     -Parameter storageAccountType=Standard_GRS `
     -Mode Incremental `
     -Debug
+
+# LRO default (wait) case: with no -NoWait the command blocks and polls until the
+# deployment reaches a terminal provisioningState. The final emitted DeploymentExtended
+# has provisioningState = Succeeded (matches `az deployment group create`).
+$stamp = (Get-Date -Format 'yyMMddHHmmss')
+New-ResourceGroupDeployment `
+    -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
+    -ResourceGroupName cirrus-test-group-1 `
+    -Name "cirrus-test-wait-$stamp" `
+    -TemplateFile ../Bicep/sample-storage.bicep `
+    -Parameter "storageAccountName=cirruswait$stamp" `
+    -Mode Incremental `
+    -Debug
+
+# LRO -NoWait case: returns as soon as the deployment is accepted, without polling to
+# completion. The emitted DeploymentExtended typically shows provisioningState
+# Accepted/Running (not necessarily Succeeded) and the command returns quickly.
+$stamp = (Get-Date -Format 'yyMMddHHmmss')
+New-ResourceGroupDeployment `
+    -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
+    -ResourceGroupName cirrus-test-group-1 `
+    -Name "cirrus-test-nowait-$stamp" `
+    -TemplateFile ../Bicep/sample-storage.bicep `
+    -Parameter "storageAccountName=cirrusnowait$stamp" `
+    -Mode Incremental `
+    -NoWait `
+    -Debug
