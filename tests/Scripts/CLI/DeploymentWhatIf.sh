@@ -31,7 +31,7 @@ deployment group what-if \
     --resource-group cirrus-test-group-1 \
     --name "cirrus-test-whatif-idonly-$STAMP" \
     --template-file ../Bicep/sample-storage.bicep \
-    --parameter "storageAccountName=cirruswhatifid$STAMP" \
+    --parameter "storageAccountName=cirruswhid$STAMP" \
     --result-format ResourceIdOnly \
     --mode Incremental \
     --debug

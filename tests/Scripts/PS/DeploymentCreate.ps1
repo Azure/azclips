@@ -92,7 +92,7 @@ New-ResourceGroupDeployment `
     -ResourceGroupName cirrus-test-group-1 `
     -Name "cirrus-test-rollback-$stamp" `
     -TemplateFile ../Bicep/sample-storage.bicep `
-    -Parameter "storageAccountName=cirrusrollback$stamp" `
+    -Parameter "storageAccountName=cirrusroll$stamp" `
     -RollbackOnError `
     -Mode Incremental `
     -Debug

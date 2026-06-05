@@ -92,7 +92,7 @@ deployment group create \
     --resource-group cirrus-test-group-1 \
     --name "cirrus-test-rollback-$STAMP" \
     --template-file ../Bicep/sample-storage.bicep \
-    --parameter "storageAccountName=cirrusrollback$STAMP" \
+    --parameter "storageAccountName=cirrusroll$STAMP" \
     --rollback-on-error \
     --mode Incremental \
     --debug
