@@ -1,8 +1,10 @@
 using System.Collections;
+using System.Diagnostics;
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
 using Core.Telemetry;
+using Core.Telemetry.Constants;
 
 namespace Microsoft.Azure.Cirrus.Cmdlets.Compute;
 
@@ -12,6 +14,7 @@ public class GetVMCmdlet : PSCmdlet
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
     private IEngine engine = null!;
+    private ClientType clientType;
 
     [Parameter(ParameterSetName = "Get", Mandatory = true)]
     [Parameter(ParameterSetName = "List", Mandatory = true)]
@@ -53,11 +56,13 @@ public class GetVMCmdlet : PSCmdlet
                 return Task.CompletedTask;
             });
         engine = CirrusServiceProvider.GetRequiredService<IEngine>();
+        clientType = CirrusServiceProvider.GetRequiredService<ClientType>();
     }
 
     protected override void ProcessRecord()
     {
-        using var activity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartPowerShellActivity(MyInvocation.MyCommand.Name, MyInvocation.BoundParameters);
+        using var activity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartActivity(TelemetryConstants.PSRootActivityName, ActivityKind.Server);
+        activity.TagProcessInvariant(clientType);
         var parameters = new Dictionary<string, object>();
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))
         {
@@ -77,6 +82,7 @@ public class GetVMCmdlet : PSCmdlet
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
         var invocation = new CommandInvocation("Compute", commandName, parameters, false, moduleName, moduleVersion);
+        activity.TagInvocation(invocation);
 
         using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);
         session.Run();

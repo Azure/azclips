@@ -16,7 +16,6 @@ public class RemoveCirrusConfigCmdlet : ConfigCmdletBase
 
     protected override void ProcessRecord()
     {
-        using var activity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartPowerShellActivity(MyInvocation.MyCommand.Name, MyInvocation.BoundParameters);
 
         if (!ShouldProcess($"config key '{Key}'", "delete"))
         {

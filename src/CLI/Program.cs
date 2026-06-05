@@ -7,6 +7,7 @@ using Core.Cli.Telemetry;
 using Core.Engine;
 using Core.Telemetry;
 using Core.DependencyInjection;
+using Core.Telemetry.Constants;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Core.Cli;
@@ -67,18 +68,23 @@ public class Program
 
         try
         {
-            using var activity = telemetryService.StartCLIActivity(args);
+            using var activity = telemetryService.StartActivity(TelemetryConstants.CLIRootActivtyName, ActivityKind.Server);
+            activity.TagProcessInvariant(_clientType);
             var dispatcher = new ExtensionDispatcher();
             args = WireDebugStreams(args);
+            Activity? commandActivity = null;
             try
             {
                 CommandInvocation invocation = dispatcher.Parse(args);
+                activity.TagInvocation(invocation);
 
-                using var commandActivity = telemetryService.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
-                commandActivity?.SetTag("command.type", _clientType.ToString());
+                commandActivity =
+                    telemetryService.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
 
-                var engine = CirrusServiceProvider.GetRequiredService<IEngine>() ?? throw new InvalidOperationException("Engine service not found.");
-                using ISession session = engine.OpenExecutionSession(invocation, streams, _cancellationTokenSource.Token);
+                var engine = CirrusServiceProvider.GetRequiredService<IEngine>() ??
+                             throw new InvalidOperationException("Engine service not found.");
+                using ISession session =
+                    engine.OpenExecutionSession(invocation, streams, _cancellationTokenSource.Token);
                 await session.RunAsync();
 
                 activity?.SetStatus(ActivityStatusCode.Ok);
@@ -106,7 +112,11 @@ public class Program
 
                 return await TryAgentFallbackAsync(args, ex.Message);
             }
-        } // activity disposed here → traces exported to file
+            finally
+            {
+                commandActivity?.Dispose();
+            }
+        }
         finally
         {
             CirrusServiceProvider.Dispose();

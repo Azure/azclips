@@ -3,6 +3,7 @@ using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
 using Core.Telemetry;
+using Core.Telemetry.Constants;
 
 namespace Microsoft.Azure.Cirrus.Cmdlets.Resources;
 
@@ -12,6 +13,7 @@ public class NewResourceGroupCmdlet : PSCmdlet
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
     private IEngine engine = null!;
+    private ClientType clientType;
 
     [Parameter(Mandatory = false)]
     public string? SubscriptionId { get; set; }
@@ -44,11 +46,13 @@ public class NewResourceGroupCmdlet : PSCmdlet
                 return Task.CompletedTask;
             });
         engine = CirrusServiceProvider.GetRequiredService<IEngine>();
+        clientType = CirrusServiceProvider.GetRequiredService<ClientType>();
     }
 
     protected override void ProcessRecord()
     {
-        using var activity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartPowerShellActivity(MyInvocation.MyCommand.Name, MyInvocation.BoundParameters);
+        using var activity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartActivity(TelemetryConstants.PSRootActivityName, ActivityKind.Server);
+        activity.TagProcessInvariant(clientType);
         var parameters = new Dictionary<string, object>();
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))
         {
@@ -65,7 +69,7 @@ public class NewResourceGroupCmdlet : PSCmdlet
         session.Run();
     }
 
-    protected override void EndProcessing() 
+    protected override void EndProcessing()
     {
         _cts.Dispose();
     }

@@ -19,7 +19,6 @@ public class SetCirrusConfigCmdlet : ConfigCmdletBase
 
     protected override void ProcessRecord()
     {
-        using var activity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartPowerShellActivity(MyInvocation.MyCommand.Name, MyInvocation.BoundParameters);
 
         if (!ShouldProcess($"config key '{Key}'", "set"))
         {

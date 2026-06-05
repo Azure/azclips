@@ -1,4 +1,6 @@
-using System;
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+
 using System.Diagnostics;
 using Core.Abstractions;
 
@@ -14,7 +16,8 @@ public class TelemetryService : ITelemetryService
         _telemetryProvider = telemetryProvider;
     }
 
-    public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal) => _telemetryProvider.ActivitySource.StartActivity(name, kind);
+    public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal) =>
+        _telemetryProvider.ActivitySource.StartActivity(name, kind);
 
     public void Dispose()
     {
