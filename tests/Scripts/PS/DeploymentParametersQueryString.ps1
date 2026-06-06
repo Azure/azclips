@@ -39,8 +39,24 @@ $asm = [System.Reflection.Assembly]::LoadFrom($extDll)
 $procType = $asm.GetType('Microsoft.Azure.Cirrus.Extensions.Resources.Processors.NewResourceGroupDeploymentProcessor', $true)
 
 $flags = [System.Reflection.BindingFlags]'Instance,Public,NonPublic'
-$buildParams = $procType.GetMethod('BuildParameters', $flags)
-$buildTemplate = $procType.GetMethod('BuildTemplate', $flags)
+
+function Get-RequiredMethod {
+    param(
+        [Parameter(Mandatory)][Type]$Type,
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][System.Reflection.BindingFlags]$Flags
+    )
+    $t = $Type
+    while ($null -ne $t) {
+        $m = $t.GetMethod($Name, $Flags)
+        if ($null -ne $m) { return $m }
+        $t = $t.BaseType
+    }
+    throw "Reflection lookup failed: could not find method '$Name' on '$($Type.FullName)' or any of its base types (flags: $Flags). The processor's method may have been renamed, removed, or had its visibility changed."
+}
+
+$buildParams   = Get-RequiredMethod -Type $procType -Name 'BuildParameters' -Flags $flags
+$buildTemplate = Get-RequiredMethod -Type $procType -Name 'BuildTemplate'   -Flags $flags
 
 function Get-ParametersLinkUri {
     param([string]$ParametersUri, [string]$QueryString)
