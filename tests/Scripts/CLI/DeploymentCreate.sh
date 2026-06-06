@@ -7,6 +7,10 @@
 # The resource-group-scoped deployment inherits the resource group's region,
 # so no location flag is required here.
 
+# Resolve the sibling Bicep folder relative to THIS script so it works regardless of the caller's CWD.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BICEP_DIR="$SCRIPT_DIR/../Bicep"
+
 # Happy path: deploy a public quickstart template in Incremental mode.
 deployment group create \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
@@ -33,8 +37,8 @@ deployment group create \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
     --resource-group cirrus-test-group-1 \
     --name "cirrus-test-bicep-$STAMP" \
-    --template-file ../Bicep/sample-storage.bicep \
-    --parameters-file ../Bicep/sample-storage.bicepparam \
+    --template-file "$BICEP_DIR/sample-storage.bicep" \
+    --parameters-file "$BICEP_DIR/sample-storage.bicepparam" \
     --mode Incremental \
     --debug
 
@@ -44,7 +48,7 @@ deployment group create \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
     --resource-group cirrus-test-group-1 \
     --name cirrus-test-bicep-negative \
-    --template-file ../Bicep/malformed.bicep \
+    --template-file "$BICEP_DIR/malformed.bicep" \
     --mode Incremental \
     --debug
 
@@ -68,8 +72,8 @@ deployment group create \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
     --resource-group cirrus-test-group-1 \
     --name "cirrus-test-inline-$STAMP" \
-    --template-file ../Bicep/sample-storage.bicep \
-    --parameters-file ../Bicep/sample-storage.bicepparam \
+    --template-file "$BICEP_DIR/sample-storage.bicep" \
+    --parameters-file "$BICEP_DIR/sample-storage.bicepparam" \
     --parameter "storageAccountName=cirrusinline$STAMP" \
     --validation-level Provider \
     --mode Incremental \
@@ -80,7 +84,7 @@ deployment group create \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
     --resource-group cirrus-test-group-1 \
     --name "cirrus-test-vlevel-$STAMP" \
-    --template-file ../Bicep/sample-storage.bicep \
+    --template-file "$BICEP_DIR/sample-storage.bicep" \
     --parameter "storageAccountName=cirrusvlevel$STAMP" \
     --validation-level Provider \
     --mode Incremental \
@@ -91,7 +95,7 @@ deployment group create \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
     --resource-group cirrus-test-group-1 \
     --name "cirrus-test-rollback-$STAMP" \
-    --template-file ../Bicep/sample-storage.bicep \
+    --template-file "$BICEP_DIR/sample-storage.bicep" \
     --parameter "storageAccountName=cirrusroll$STAMP" \
     --rollback-on-error \
     --mode Incremental \
@@ -118,7 +122,7 @@ deployment group create \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
     --resource-group cirrus-test-group-1 \
     --name "cirrus-test-wait-$STAMP" \
-    --template-file ../Bicep/sample-storage.bicep \
+    --template-file "$BICEP_DIR/sample-storage.bicep" \
     --parameter "storageAccountName=cirruswait$STAMP" \
     --mode Incremental \
     --debug
@@ -131,7 +135,7 @@ deployment group create \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
     --resource-group cirrus-test-group-1 \
     --name "cirrus-test-nowait-$STAMP" \
-    --template-file ../Bicep/sample-storage.bicep \
+    --template-file "$BICEP_DIR/sample-storage.bicep" \
     --parameter "storageAccountName=cirrusnowait$STAMP" \
     --mode Incremental \
     --no-wait \

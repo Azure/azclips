@@ -10,6 +10,10 @@
 # The resource-group-scoped what-if inherits the resource group's region,
 # so no location flag is required here.
 
+# Resolve the sibling Bicep folder relative to THIS script so it works regardless of the caller's CWD.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BICEP_DIR="$SCRIPT_DIR/../Bicep"
+
 # Happy path: predict the changes for a local .bicep storage template.
 # Expected: the operation polls the Location LRO to completion and returns a
 # WhatIfOperationResult with status Succeeded and a "Create" change for the storage account.
@@ -19,7 +23,7 @@ deployment group what-if \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
     --resource-group cirrus-test-group-1 \
     --name "cirrus-test-whatif-$STAMP" \
-    --template-file ../Bicep/sample-storage.bicep \
+    --template-file "$BICEP_DIR/sample-storage.bicep" \
     --parameter "storageAccountName=cirruswhatif$STAMP" \
     --mode Incremental \
     --debug
@@ -30,7 +34,7 @@ deployment group what-if \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
     --resource-group cirrus-test-group-1 \
     --name "cirrus-test-whatif-idonly-$STAMP" \
-    --template-file ../Bicep/sample-storage.bicep \
+    --template-file "$BICEP_DIR/sample-storage.bicep" \
     --parameter "storageAccountName=cirruswhid$STAMP" \
     --result-format ResourceIdOnly \
     --mode Incremental \
@@ -43,7 +47,7 @@ deployment group what-if \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
     --resource-group cirrus-test-group-1 \
     --name cirrus-test-whatif-rf-negative \
-    --template-file ../Bicep/sample-storage.bicep \
+    --template-file "$BICEP_DIR/sample-storage.bicep" \
     --result-format Foo \
     --mode Incremental \
     --debug
@@ -54,6 +58,6 @@ deployment group what-if \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
     --resource-group cirrus-test-group-1 \
     --name cirrus-test-whatif-bicep-negative \
-    --template-file ../Bicep/malformed.bicep \
+    --template-file "$BICEP_DIR/malformed.bicep" \
     --mode Incremental \
     --debug

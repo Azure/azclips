@@ -7,6 +7,9 @@
 # The resource-group-scoped deployment inherits the resource group's region,
 # so no location parameter is required here.
 
+# Resolve the sibling Bicep folder relative to THIS script so it works regardless of the caller's CWD.
+$BicepDir = Join-Path $PSScriptRoot '..' 'Bicep'
+
 # Happy path: deploy a public quickstart template in Incremental mode.
 New-ResourceGroupDeployment `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
@@ -33,8 +36,8 @@ New-ResourceGroupDeployment `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
     -ResourceGroupName cirrus-test-group-1 `
     -Name "cirrus-test-bicep-$stamp" `
-    -TemplateFile ../Bicep/sample-storage.bicep `
-    -ParametersFile ../Bicep/sample-storage.bicepparam `
+    -TemplateFile (Join-Path $BicepDir 'sample-storage.bicep') `
+    -ParametersFile (Join-Path $BicepDir 'sample-storage.bicepparam') `
     -Mode Incremental `
     -Debug
 
@@ -44,7 +47,7 @@ New-ResourceGroupDeployment `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
     -ResourceGroupName cirrus-test-group-1 `
     -Name cirrus-test-bicep-negative `
-    -TemplateFile ../Bicep/malformed.bicep `
+    -TemplateFile (Join-Path $BicepDir 'malformed.bicep') `
     -Mode Incremental `
     -Debug
 
@@ -68,8 +71,8 @@ New-ResourceGroupDeployment `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
     -ResourceGroupName cirrus-test-group-1 `
     -Name "cirrus-test-inline-$stamp" `
-    -TemplateFile ../Bicep/sample-storage.bicep `
-    -ParametersFile ../Bicep/sample-storage.bicepparam `
+    -TemplateFile (Join-Path $BicepDir 'sample-storage.bicep') `
+    -ParametersFile (Join-Path $BicepDir 'sample-storage.bicepparam') `
     -Parameter "storageAccountName=cirrusinline$stamp" `
     -ValidationLevel Provider `
     -Mode Incremental `
@@ -80,7 +83,7 @@ New-ResourceGroupDeployment `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
     -ResourceGroupName cirrus-test-group-1 `
     -Name "cirrus-test-vlevel-$stamp" `
-    -TemplateFile ../Bicep/sample-storage.bicep `
+    -TemplateFile (Join-Path $BicepDir 'sample-storage.bicep') `
     -Parameter "storageAccountName=cirrusvlevel$stamp" `
     -ValidationLevel Provider `
     -Mode Incremental `
@@ -91,7 +94,7 @@ New-ResourceGroupDeployment `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
     -ResourceGroupName cirrus-test-group-1 `
     -Name "cirrus-test-rollback-$stamp" `
-    -TemplateFile ../Bicep/sample-storage.bicep `
+    -TemplateFile (Join-Path $BicepDir 'sample-storage.bicep') `
     -Parameter "storageAccountName=cirrusroll$stamp" `
     -RollbackOnError `
     -Mode Incremental `
@@ -118,7 +121,7 @@ New-ResourceGroupDeployment `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
     -ResourceGroupName cirrus-test-group-1 `
     -Name "cirrus-test-wait-$stamp" `
-    -TemplateFile ../Bicep/sample-storage.bicep `
+    -TemplateFile (Join-Path $BicepDir 'sample-storage.bicep') `
     -Parameter "storageAccountName=cirruswait$stamp" `
     -Mode Incremental `
     -Debug
@@ -131,7 +134,7 @@ New-ResourceGroupDeployment `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
     -ResourceGroupName cirrus-test-group-1 `
     -Name "cirrus-test-nowait-$stamp" `
-    -TemplateFile ../Bicep/sample-storage.bicep `
+    -TemplateFile (Join-Path $BicepDir 'sample-storage.bicep') `
     -Parameter "storageAccountName=cirrusnowait$stamp" `
     -Mode Incremental `
     -NoWait `

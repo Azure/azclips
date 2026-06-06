@@ -10,6 +10,9 @@
 # The resource-group-scoped what-if inherits the resource group's region,
 # so no location parameter is required here.
 
+# Resolve the sibling Bicep folder relative to THIS script so it works regardless of the caller's CWD.
+$BicepDir = Join-Path $PSScriptRoot '..' 'Bicep'
+
 # Happy path: predict the changes for a local .bicep storage template.
 # Expected: the operation polls the Location LRO to completion and returns a
 # WhatIfOperationResult with status Succeeded and a "Create" change for the storage account.
@@ -19,7 +22,7 @@ New-ResourceGroupDeploymentWhatIf `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
     -ResourceGroupName cirrus-test-group-1 `
     -Name "cirrus-test-whatif-$stamp" `
-    -TemplateFile ../Bicep/sample-storage.bicep `
+    -TemplateFile (Join-Path $BicepDir 'sample-storage.bicep') `
     -Parameter "storageAccountName=cirruswhatif$stamp" `
     -Mode Incremental `
     -Debug
@@ -30,7 +33,7 @@ New-ResourceGroupDeploymentWhatIf `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
     -ResourceGroupName cirrus-test-group-1 `
     -Name "cirrus-test-whatif-idonly-$stamp" `
-    -TemplateFile ../Bicep/sample-storage.bicep `
+    -TemplateFile (Join-Path $BicepDir 'sample-storage.bicep') `
     -Parameter "storageAccountName=cirruswhid$stamp" `
     -ResultFormat ResourceIdOnly `
     -Mode Incremental `
@@ -43,7 +46,7 @@ New-ResourceGroupDeploymentWhatIf `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
     -ResourceGroupName cirrus-test-group-1 `
     -Name cirrus-test-whatif-rf-negative `
-    -TemplateFile ../Bicep/sample-storage.bicep `
+    -TemplateFile (Join-Path $BicepDir 'sample-storage.bicep') `
     -ResultFormat Foo `
     -Mode Incremental `
     -Debug
@@ -54,6 +57,6 @@ New-ResourceGroupDeploymentWhatIf `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
     -ResourceGroupName cirrus-test-group-1 `
     -Name cirrus-test-whatif-bicep-negative `
-    -TemplateFile ../Bicep/malformed.bicep `
+    -TemplateFile (Join-Path $BicepDir 'malformed.bicep') `
     -Mode Incremental `
     -Debug
