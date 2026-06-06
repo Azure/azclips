@@ -215,9 +215,17 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                                             var errorObj = json.Property("properties")?.Property("error") ?? json.Property("error");
                                             var code = errorObj?.PropertyT<JsonString>("code")?.ToString();
                                             var detailMessage = errorObj?.PropertyT<JsonString>("message")?.ToString();
-                                            if (!string.IsNullOrWhiteSpace(code) || !string.IsNullOrWhiteSpace(detailMessage))
+                                            if (!string.IsNullOrWhiteSpace(code) && !string.IsNullOrWhiteSpace(detailMessage))
                                             {
                                                 failureDetail = $"{code}: {detailMessage}";
+                                            }
+                                            else if (!string.IsNullOrWhiteSpace(code))
+                                            {
+                                                failureDetail = code;
+                                            }
+                                            else if (!string.IsNullOrWhiteSpace(detailMessage))
+                                            {
+                                                failureDetail = detailMessage;
                                             }
                                             else if (!string.IsNullOrWhiteSpace(bodyText))
                                             {
