@@ -61,6 +61,8 @@ namespace Core.Abstractions
         /// </summary>
         public object ResponseMessage = null!;
 
+        public string ActivityName = string.Empty;
+
         /// <summary>
         /// Cancellation method for this event.
         ///

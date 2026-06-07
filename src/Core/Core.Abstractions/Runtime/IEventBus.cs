@@ -24,6 +24,7 @@
         Task Publish(string id, CancellationToken token, HttpRequestMessage request, HttpResponseMessage response);
         Task Publish(string id, CancellationToken token, HttpResponseMessage response);
         Task Publish(string id, CancellationToken token, EventData message);
+        Task Publish(string id, CancellationToken token, string activityName, string messageText);
 
         // Publish overloads without CancellationToken (uses Token property)
         Task Publish(string id, GetEventData createMessage);
@@ -39,6 +40,7 @@
         Task Publish(string id, HttpResponseMessage response);
         Task Publish(string id, EventData message);
         Task Publish(string id, Uri uri);
+        Task Publish(string id, string activityName, string messageText);
 
         CancellationToken Token { get; }
         Action Cancel { get; }

@@ -199,7 +199,7 @@ namespace Core.Engine
             subscriber.Subscribe(Events.ActivityStart, (data) =>
             {
                 var evt = (EventData)data;
-                sequentialStage = telemetryService.StartActivity(evt.Id, ActivityKind.Internal);
+                sequentialStage = telemetryService.StartActivity(evt.ActivityName, ActivityKind.Internal);
             });
             subscriber.Subscribe(Events.ActivityEnd, (data) =>
             {
@@ -210,7 +210,7 @@ namespace Core.Engine
             subscriber.Subscribe(Events.Activity, (data) =>
             {
                 var evt = (EventData)data;
-                var act = telemetryService.StartActivity(evt.Id, ActivityKind.Internal);
+                var act = telemetryService.StartActivity(evt.ActivityName, ActivityKind.Internal);
                 act?.Dispose();
             });
 

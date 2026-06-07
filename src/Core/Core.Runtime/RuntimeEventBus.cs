@@ -105,6 +105,7 @@ internal partial class RuntimeEventBus : IEventBus
     public Task Publish(string id, CancellationToken token, HttpRequestMessage request, HttpResponseMessage response) => Publish(id, token, () => new EventData { Id = id, RequestMessage = request, ResponseMessage = response, Cancel = Cancel });
     public Task Publish(string id, CancellationToken token, HttpResponseMessage response) => Publish(id, token, () => new EventData { Id = id, RequestMessage = response.RequestMessage!, ResponseMessage = response, Cancel = Cancel });
     public Task Publish(string id, CancellationToken token, EventData message) => Publish(id, token, () => { message.Id = id; message.Cancel = Cancel; return message; });
+    public Task Publish(string id, CancellationToken token, string activityName, string messageText) => Publish(id, token, () => new EventData { Id = id, ActivityName = activityName, Message = messageText, Cancel = Cancel });
 
     // Publish overloads without CancellationToken (uses Token property)
     public async Task Publish(string id, Func<object> createMessage)
@@ -123,6 +124,7 @@ internal partial class RuntimeEventBus : IEventBus
     public Task Publish(string id, HttpResponseMessage response) => Publish(id, Token, () => new EventData { Id = id, RequestMessage = response.RequestMessage!, ResponseMessage = response, Cancel = Cancel });
     public Task Publish(string id, EventData message) => Publish(id, Token, () => { message.Id = id; message.Cancel = Cancel; return message; });
     public Task Publish(string id, Uri uri) => Publish(id, Token, () => new EventData { Id = id, Message = uri.ToString(), Cancel = Cancel });
+    public Task Publish(string id, string activityName, string messageText) => Publish(id, Token, () => new EventData { Id = id, ActivityName = activityName, Message = messageText, Cancel = Cancel });
 }
 
 

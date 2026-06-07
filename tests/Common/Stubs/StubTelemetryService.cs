@@ -13,5 +13,10 @@ public class StubTelemetryService : ITelemetryService
     public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal) =>
         ActivitySource.StartActivity(name, kind);
 
+    public Activity? AddTag(string tagName, object value, Activity? activity = null)
+    {
+        return new Activity(tagName);
+    }
+
     public void Dispose() => ActivitySource.Dispose();
 }

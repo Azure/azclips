@@ -17,7 +17,7 @@ public static class TelemetryTags
     public const string SchemaVersion = "schemaVersion";
     public const string TelemetryVersion = "telemetryVersion";
     public const string ClientType = "clientType";
-    public const string EventName = "EventName";
+    public const string EventName = "eventName";
 
     // Per-command tags (set on the per-invocation activity).
     public const string Command = "command";
