@@ -17,9 +17,10 @@ namespace Benchmark;
 /// Handles stub HTTP setup, repo root discovery, and utility methods.
 /// </summary>
 [MemoryDiagnoser]
-[MaxRelativeError(0.01)]
+// [MaxRelativeError(0.01)]
 [Outliers(OutlierMode.RemoveAll)]
-[MinInvokeCount(1000)]
+[IterationCount(1000)]
+// [MinInvokeCount(1000)]
 public abstract class BenchmarkBase
 {
     protected string RepoRoot { get; set; } = null!;
