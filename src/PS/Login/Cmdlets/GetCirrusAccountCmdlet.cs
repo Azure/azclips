@@ -43,7 +43,7 @@ public class GetCirrusAccountCmdlet : PSCmdlet
     {
         using var activity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartActivity(TelemetryConstants.PSRootActivityName, ActivityKind.Server);
         clientType = CirrusServiceProvider.GetRequiredService<ClientType>();
-        activity.TagProcessInvariant(clientType);
+        activity.TagClientContext(clientType);
         var parameters = new Dictionary<string, object>();
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();

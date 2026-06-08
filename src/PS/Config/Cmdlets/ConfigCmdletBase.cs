@@ -44,7 +44,7 @@ public abstract class ConfigCmdletBase : PSCmdlet
     {
         using var activity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartActivity(TelemetryConstants.PSRootActivityName, ActivityKind.Server);
         var commandName = MyInvocation.MyCommand.Name;
-        activity.TagProcessInvariant(clientType);
+        activity.TagClientContext(clientType);
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();

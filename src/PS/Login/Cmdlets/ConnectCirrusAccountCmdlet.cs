@@ -52,7 +52,7 @@ public class ConnectCirrusAccountCmdlet : PSCmdlet
     {
         using var activity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartActivity(TelemetryConstants.PSRootActivityName, ActivityKind.Server);
         clientType = CirrusServiceProvider.GetRequiredService<ClientType>();
-        activity.TagProcessInvariant(clientType);
+        activity.TagClientContext(clientType);
         var parameters = new Dictionary<string, object>();
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))
         {

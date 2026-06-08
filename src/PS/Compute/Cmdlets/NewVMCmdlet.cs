@@ -109,7 +109,7 @@ public class NewVMCmdlet : PSCmdlet
     protected override void ProcessRecord()
     {
         using var activity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartActivity(TelemetryConstants.PSRootActivityName, ActivityKind.Server);
-        activity.TagProcessInvariant(clientType);
+        activity.TagClientContext(clientType);
         var parameters = new Dictionary<string, object>
         {
             { "SubscriptionId", SubscriptionId },

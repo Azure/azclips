@@ -43,7 +43,7 @@ public class DisconnectCirrusAccountCmdlet : PSCmdlet
     {
         using var activity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartActivity(TelemetryConstants.PSRootActivityName, ActivityKind.Server);
         clientType = CirrusServiceProvider.GetRequiredService<ClientType>();
-        activity.TagProcessInvariant(clientType);
+        activity.TagClientContext(clientType);
         if (!ShouldProcess("Cirrus Account", "Disconnect"))
         {
             return;

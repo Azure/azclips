@@ -57,7 +57,7 @@ public class RemoveVMCmdlet : PSCmdlet
         }
 
         using var activity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartActivity(TelemetryConstants.PSRootActivityName, ActivityKind.Server);
-        activity.TagProcessInvariant(clientType);
+        activity.TagClientContext(clientType);
 
         var parameters = new Dictionary<string, object>
         {

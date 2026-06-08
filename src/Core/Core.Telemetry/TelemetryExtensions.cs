@@ -11,7 +11,7 @@ namespace Core.Telemetry;
 
 public static class TelemetryExtensions
 {
-    public static Activity? TagProcessInvariant(this Activity? activity, ClientType clientType)
+    public static Activity? TagClientContext(this Activity? activity, ClientType clientType)
     {
         if (activity is null) return null;
         activity.SetTag(TelemetryTags.Id, TelemetryPropertyResolver.Id);
