@@ -5,6 +5,6 @@ namespace Core.Telemetry.Constants;
 
 public static class TelemetryConstants
 {
-    public const string CLIRootActivtyName = "AzureCLI.main";
+    public const string CLIRootActivityName = "AzureCLI.main";
     public const string PSRootActivityName = "AzurePS.cmdlet";
 }
