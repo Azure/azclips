@@ -19,7 +19,7 @@ namespace Benchmark;
 [MemoryDiagnoser]
 // [MaxRelativeError(0.01)]
 [Outliers(OutlierMode.RemoveAll)]
-[IterationCount(10000)]
+[IterationCount(2000)]
 // [MinInvokeCount(1000)]
 public abstract class BenchmarkBase
 {
