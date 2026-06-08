@@ -57,7 +57,13 @@ try {
         -ErrorAction Stop
     Write-Host 'UNEXPECTED: malformed.bicep negative case did not throw' -ForegroundColor Red
 } catch {
-    Write-Host "EXPECTED FAILURE (malformed bicep): $($_.Exception.Message)"
+    # Expected: BicepCompiler throws "Bicep compilation failed (exit code N): <diagnostics>".
+    # Anything else (auth, missing RG, network) is a real failure, not a pass.
+    if ($_.Exception.Message -match 'Bicep compilation failed') {
+        Write-Host "EXPECTED FAILURE (malformed bicep): $($_.Exception.Message)"
+    } else {
+        Write-Host "UNEXPECTED: $($_.Exception.Message)" -ForegroundColor Red
+    }
 }
 
 # Negative case: invalid -Mode value (Foo) must be rejected.
@@ -73,7 +79,13 @@ try {
         -ErrorAction Stop
     Write-Host 'UNEXPECTED: invalid -Mode Foo did not throw' -ForegroundColor Red
 } catch {
-    Write-Host "EXPECTED FAILURE (invalid -Mode): $($_.Exception.Message)"
+    # Expected: processor throws "Mode must be either 'Incremental' or 'Complete'.".
+    # Anything else is an unrelated failure, not the validation we are asserting.
+    if ($_.Exception.Message -match "Mode must be either") {
+        Write-Host "EXPECTED FAILURE (invalid -Mode): $($_.Exception.Message)"
+    } else {
+        Write-Host "UNEXPECTED: $($_.Exception.Message)" -ForegroundColor Red
+    }
 }
 
 # Inline-parameter precedence + validation-level happy path.
@@ -126,7 +138,14 @@ try {
         -ErrorAction Stop
     Write-Host 'UNEXPECTED: -ParametersUri + inline -Parameter conflict did not throw' -ForegroundColor Red
 } catch {
-    Write-Host "EXPECTED FAILURE (inline + parameters-link conflict): $($_.Exception.Message)"
+    # Expected: processor throws ArgumentException
+    # "Inline parameters cannot be combined with a parameters URI; ...".
+    # Anything else is an unrelated failure, not the conflict we are asserting.
+    if ($_.Exception.Message -match 'Inline parameters cannot be combined with a parameters URI') {
+        Write-Host "EXPECTED FAILURE (inline + parameters-link conflict): $($_.Exception.Message)"
+    } else {
+        Write-Host "UNEXPECTED: $($_.Exception.Message)" -ForegroundColor Red
+    }
 }
 
 # LRO default (wait) case: with no -NoWait the command blocks and polls until the
