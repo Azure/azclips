@@ -1,12 +1,12 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Diagnostics;
+using BenchmarkDotNet.Attributes;
 using Core.Abstractions;
-using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
 using Core.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
+using Perfolizer.Mathematics.OutlierDetection;
 using Tests.Common.Stubs;
 using Tests.Common.Utilities;
 
@@ -16,6 +16,10 @@ namespace Benchmark;
 /// Base class providing common setup for all benchmarks.
 /// Handles stub HTTP setup, repo root discovery, and utility methods.
 /// </summary>
+[MemoryDiagnoser]
+[MaxRelativeError(0.01)]
+[Outliers(OutlierMode.RemoveAll)]
+[MinInvokeCount(100)]
 public abstract class BenchmarkBase
 {
     protected string RepoRoot { get; set; } = null!;

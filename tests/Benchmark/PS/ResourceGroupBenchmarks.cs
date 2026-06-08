@@ -4,19 +4,11 @@
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
 using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Engines;
 using Core.DependencyInjection;
 
 namespace Benchmark.PS;
 
-/// <summary>
-/// PS benchmarks — runs cmdlets with mocked HTTP. Does NOT hit Azure.
-/// Cold-start benchmarks: fresh runspace + module import + DI init + engine process + dispose per call.
-/// </summary>
-[MemoryDiagnoser]
-[WarmupCount(1)]
-[SimpleJob(RunStrategy.Monitoring, iterationCount: 5)]
-public class ResourceGroupBenchmarks : BenchmarkBase
+public class ResourceGroupBenchmarks : PSBenchmarkBase
 {
     [GlobalSetup]
     public void GlobalSetup()

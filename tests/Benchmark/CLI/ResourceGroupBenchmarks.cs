@@ -2,21 +2,10 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Engines;
 
 namespace Benchmark.CLI;
 
-/// <summary>
-/// CLI benchmarks — runs Program.Main() in-process with mocked HTTP. Does NOT hit Azure.
-/// Cold-start benchmarks: full DI init + parse + engine process + dispose per call.
-/// </summary>
-[MemoryDiagnoser]
-[WarmupCount(1)]
-[IterationCount(5)]
-[InProcess]
-[InvocationCount(1)]
-
-public class ResourceGroupBenchmarks : BenchmarkBase
+public class ResourceGroupBenchmarks : CLIBenchmarkBase
 {
     [GlobalSetup]
     public void GlobalSetup()
