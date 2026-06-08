@@ -36,7 +36,7 @@ Starting/tagging activities:
 
 Follows the event source pattern where `Processors` / `Orchestrators` raise events with relevant data.
 ```csharp
-// **Processor.cs / **Orhcestrator.cs
+// **Processor.cs / **Orchestrator.cs
 
 await Publisher.Publish(Events.ActivityStart, "OperationName", "message");
 .... business logic ...
@@ -65,18 +65,20 @@ await Publisher.Publish(Events.Activity, "OperationName", "message");
 
 ### Custom Tags (CLI/PS)
 
-| Tag                   | Source | Description                                  |
-|-----------------------|--------|----------------------------------------------|
+| Tag                   | Source | Description                                   |
+|-----------------------|--------|-----------------------------------------------|
+| `Id`                  | CLI/PS | Stable per-machine identifier (hashed)        |
+| `clientType`          | CLI/PS | Client type (e.g., CLI, PowerShell)           |
 | `module.name`         | CLI/PS | Extension loaded to run command e.g `compute` |
-| `module.version`      | CLI/PS | Version of extension loaded                  |
-| `command`             | CLI/PS | Command path, e.g., `az group list`          |
-| `parameter`           | CLI/PS | Parameters with values masked as `***`       |
-| `IsMicrosoftInternal` | CLI/PS | Whether the command is run by internal user  |
-| `productName`         | CLI/PS | Product running the command (Cirrus)         |
-| `productVersion`      | CLI/PS | Product version number                       |
-| `schemaVersion`       | CLI/PS | Schema version number                        |
-| `telemetryVersion`    | CLI/PS | Telemetry version number                     |
-| `eventName`           | CLI/PS | Event name triggering span                   |
+| `module.version`      | CLI/PS | Version of extension loaded                   |
+| `command`             | CLI/PS | Command path, e.g., `az group list`           |
+| `parameter`           | CLI/PS | Parameters with values masked as `***`        |
+| `IsMicrosoftInternal` | CLI/PS | Whether the command is run by internal user   |
+| `productName`         | CLI/PS | Product running the command (Cirrus)          |
+| `productVersion`      | CLI/PS | Product version number                        |
+| `schemaVersion`       | CLI/PS | Schema version number                         |
+| `telemetryVersion`    | CLI/PS | Telemetry version number                      |
+| `eventName`           | CLI/PS | Event name triggering span                    |
 
 
 ### HTTP Tags (Auto-instrumented)
