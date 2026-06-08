@@ -19,7 +19,7 @@ namespace Benchmark;
 [MemoryDiagnoser]
 [MaxRelativeError(0.01)]
 [Outliers(OutlierMode.RemoveAll)]
-[MinInvokeCount(100)]
+[MinInvokeCount(1000)]
 public abstract class BenchmarkBase
 {
     protected string RepoRoot { get; set; } = null!;
