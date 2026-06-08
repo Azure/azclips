@@ -7,6 +7,14 @@
 # The resource-group-scoped deployment inherits the resource group's region,
 # so no location flag is required here.
 
+# Run unattended: on a command ERROR azv2 normally hands off to the interactive
+# agent-mode TUI (which would block on input). CIRRUS_AGENT_DISABLED=1 keeps the
+# classic error and a non-zero exit instead, so the negative cases below don't hang.
+export CIRRUS_AGENT_DISABLED=1
+
+# No `set -e`: the negative cases are EXPECTED to exit non-zero, and the script must
+# continue past them. Each command's exit code surfaces its own error on stderr.
+
 # Resolve the sibling Bicep folder relative to THIS script so it works regardless of the caller's CWD.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BICEP_DIR="$SCRIPT_DIR/../Bicep"

@@ -10,14 +10,18 @@
 # Resolve the sibling Bicep folder relative to THIS script so it works regardless of the caller's CWD.
 $BicepDir = Join-Path $PSScriptRoot '..' 'Bicep'
 
+# Surface the cmdlet debug stream without prompting. Passing -Debug to each call sets
+# $DebugPreference = Inquire, which raises an interactive confirmation prompt and hangs an
+# unattended run. Setting Continue once here shows the same debug output non-interactively.
+$DebugPreference = 'Continue'
+
 # Happy path: deploy a public quickstart template in Incremental mode.
 New-ResourceGroupDeployment `
     -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
     -ResourceGroupName cirrus-test-group-1 `
     -Name cirrus-test-deployment-1 `
     -TemplateUri https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/quickstarts/microsoft.storage/storage-account-create/azuredeploy.json `
-    -Mode Incremental `
-    -Debug
+    -Mode Incremental
 
 # Inline local template file variant:
 # New-ResourceGroupDeployment `
@@ -38,29 +42,39 @@ New-ResourceGroupDeployment `
     -Name "cirrus-test-bicep-$stamp" `
     -TemplateFile (Join-Path $BicepDir 'sample-storage.bicep') `
     -ParametersFile (Join-Path $BicepDir 'sample-storage.bicepparam') `
-    -Mode Incremental `
-    -Debug
+    -Mode Incremental
 
 # Bicep negative case: a malformed .bicep must fail compilation and surface bicep's
 # diagnostics (non-zero exit -> InvalidOperationException). No deployment is created.
-New-ResourceGroupDeployment `
-    -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
-    -ResourceGroupName cirrus-test-group-1 `
-    -Name cirrus-test-bicep-negative `
-    -TemplateFile (Join-Path $BicepDir 'malformed.bicep') `
-    -Mode Incremental `
-    -Debug
+# Expected to throw; catch so the rest of the script still runs unattended.
+try {
+    New-ResourceGroupDeployment `
+        -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
+        -ResourceGroupName cirrus-test-group-1 `
+        -Name cirrus-test-bicep-negative `
+        -TemplateFile (Join-Path $BicepDir 'malformed.bicep') `
+        -Mode Incremental `
+        -ErrorAction Stop
+    Write-Host 'UNEXPECTED: malformed.bicep negative case did not throw' -ForegroundColor Red
+} catch {
+    Write-Host "EXPECTED FAILURE (malformed bicep): $($_.Exception.Message)"
+}
 
 # Negative case: invalid -Mode value (Foo) must be rejected.
 # Expected result: the command fails fast with a clear validation message
 # listing the allowed values (Incremental, Complete) and does NOT create a deployment.
-New-ResourceGroupDeployment `
-    -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
-    -ResourceGroupName cirrus-test-group-1 `
-    -Name cirrus-test-deployment-negative `
-    -TemplateUri https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/quickstarts/microsoft.storage/storage-account-create/azuredeploy.json `
-    -Mode Foo `
-    -Debug
+try {
+    New-ResourceGroupDeployment `
+        -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
+        -ResourceGroupName cirrus-test-group-1 `
+        -Name cirrus-test-deployment-negative `
+        -TemplateUri https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/quickstarts/microsoft.storage/storage-account-create/azuredeploy.json `
+        -Mode Foo `
+        -ErrorAction Stop
+    Write-Host 'UNEXPECTED: invalid -Mode Foo did not throw' -ForegroundColor Red
+} catch {
+    Write-Host "EXPECTED FAILURE (invalid -Mode): $($_.Exception.Message)"
+}
 
 # Inline-parameter precedence + validation-level happy path.
 # The .bicepparam supplies storageAccountName=cirrusbicep0001 (the base); the repeatable
@@ -75,8 +89,7 @@ New-ResourceGroupDeployment `
     -ParametersFile (Join-Path $BicepDir 'sample-storage.bicepparam') `
     -Parameter "storageAccountName=cirrusinline$stamp" `
     -ValidationLevel Provider `
-    -Mode Incremental `
-    -Debug
+    -Mode Incremental
 
 # Standalone -ValidationLevel Provider case (no parameters file).
 New-ResourceGroupDeployment `
@@ -86,8 +99,7 @@ New-ResourceGroupDeployment `
     -TemplateFile (Join-Path $BicepDir 'sample-storage.bicep') `
     -Parameter "storageAccountName=cirrusvlevel$stamp" `
     -ValidationLevel Provider `
-    -Mode Incremental `
-    -Debug
+    -Mode Incremental
 
 # -RollbackOnError case: roll back to the last successful deployment if this one fails.
 New-ResourceGroupDeployment `
@@ -97,21 +109,25 @@ New-ResourceGroupDeployment `
     -TemplateFile (Join-Path $BicepDir 'sample-storage.bicep') `
     -Parameter "storageAccountName=cirrusroll$stamp" `
     -RollbackOnError `
-    -Mode Incremental `
-    -Debug
+    -Mode Incremental
 
 # Negative case: -ParametersUri combined with inline -Parameter must be rejected.
 # Expected result: ArgumentException stating inline parameters cannot be combined with a
 # parameters link; no deployment is created.
-New-ResourceGroupDeployment `
-    -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
-    -ResourceGroupName cirrus-test-group-1 `
-    -Name cirrus-test-inline-conflict-negative `
-    -TemplateUri https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/quickstarts/microsoft.storage/storage-account-create/azuredeploy.json `
-    -ParametersUri https://example.com/params.json `
-    -Parameter storageAccountType=Standard_GRS `
-    -Mode Incremental `
-    -Debug
+try {
+    New-ResourceGroupDeployment `
+        -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
+        -ResourceGroupName cirrus-test-group-1 `
+        -Name cirrus-test-inline-conflict-negative `
+        -TemplateUri https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/quickstarts/microsoft.storage/storage-account-create/azuredeploy.json `
+        -ParametersUri https://example.com/params.json `
+        -Parameter storageAccountType=Standard_GRS `
+        -Mode Incremental `
+        -ErrorAction Stop
+    Write-Host 'UNEXPECTED: -ParametersUri + inline -Parameter conflict did not throw' -ForegroundColor Red
+} catch {
+    Write-Host "EXPECTED FAILURE (inline + parameters-link conflict): $($_.Exception.Message)"
+}
 
 # LRO default (wait) case: with no -NoWait the command blocks and polls until the
 # deployment reaches a terminal provisioningState. The final emitted DeploymentExtended
@@ -123,8 +139,7 @@ New-ResourceGroupDeployment `
     -Name "cirrus-test-wait-$stamp" `
     -TemplateFile (Join-Path $BicepDir 'sample-storage.bicep') `
     -Parameter "storageAccountName=cirruswait$stamp" `
-    -Mode Incremental `
-    -Debug
+    -Mode Incremental
 
 # LRO -NoWait case: returns as soon as the deployment is accepted, without polling to
 # completion. The emitted DeploymentExtended typically shows provisioningState
@@ -137,5 +152,4 @@ New-ResourceGroupDeployment `
     -TemplateFile (Join-Path $BicepDir 'sample-storage.bicep') `
     -Parameter "storageAccountName=cirrusnowait$stamp" `
     -Mode Incremental `
-    -NoWait `
-    -Debug
+    -NoWait
