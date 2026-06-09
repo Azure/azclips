@@ -1168,8 +1168,8 @@ stages:
               "ToolVersion": "1.0"
             }
           ]
-            # Loose Mach-O binaries cannot be stapled; this artifact records the exact
-            # bundle payloads that successfully passed Apple's notarization service.
+    # Loose Mach-O binaries cannot be stapled; this artifact records the exact
+    # bundle payloads that successfully passed Apple's notarization service.
     - task: PublishPipelineArtifact@1
       displayName: Publish Notarized macOS Bundles
       inputs:
