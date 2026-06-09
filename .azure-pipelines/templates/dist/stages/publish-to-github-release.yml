@@ -22,10 +22,14 @@ parameters:
   type: string
 - name: signed_artifact_name
   type: string
+- name: dependency_stage
+  type: string
+  default: 'Preflight'
 
 stages:
 - stage: PublishToGitHubRelease
   displayName: Publish To GitHub Release
+  dependsOn: ${{ parameters.dependency_stage }}
   jobs:
   - job: PublishArtifacts
     displayName: Publish Release Assets

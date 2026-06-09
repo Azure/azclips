@@ -1,0 +1,150 @@
+name: cirrus-versioning-demo-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+parameters:
+- name: base_version
+  displayName: Current stable base version
+  type: string
+  default: '0.1.0'
+- name: bump_type
+  displayName: Version bump type
+  type: string
+  default: patch
+  values:
+  - patch
+  - minor
+  - major
+- name: release_channel
+  displayName: Release channel to demonstrate
+  type: string
+  default: main-rc
+  values:
+  - pr-rc
+  - main-rc
+  - stable
+- name: release_date
+  displayName: Release date override, yyyyMMdd; empty means today UTC
+  type: string
+  default: ''
+- name: pr_number
+  displayName: PR number for pr-rc channel
+  type: string
+  default: '257'
+- name: sequence
+  displayName: RC sequence number for the selected date/channel
+  type: string
+  default: '1'
+
+stages:
+- stage: VersioningDemo
+  displayName: Versioning Demo
+  jobs:
+  - job: ComputeVersion
+    displayName: Compute Demo Version
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - checkout: none
+    - script: |
+        set -euo pipefail
+
+        base_version='${{ parameters.base_version }}'
+        bump_type='${{ parameters.bump_type }}'
+        release_channel='${{ parameters.release_channel }}'
+        release_date='${{ parameters.release_date }}'
+        pr_number='${{ parameters.pr_number }}'
+        sequence='${{ parameters.sequence }}'
+
+        if [[ ! "$base_version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+          echo "ERROR: base_version must be stable SemVer like 0.1.0. Got: $base_version"
+          exit 1
+        fi
+
+        major="${BASH_REMATCH[1]}"
+        minor="${BASH_REMATCH[2]}"
+        patch="${BASH_REMATCH[3]}"
+
+        if [[ -z "$release_date" ]]; then
+          release_date="$(date -u +%Y%m%d)"
+        fi
+
+        if [[ ! "$release_date" =~ ^[0-9]{8}$ ]]; then
+          echo "ERROR: release_date must be yyyyMMdd. Got: $release_date"
+          exit 1
+        fi
+
+        if [[ ! "$sequence" =~ ^[0-9]+$ ]] || [[ "$sequence" == "0" ]]; then
+          echo "ERROR: sequence must be a positive integer. Got: $sequence"
+          exit 1
+        fi
+
+        case "$bump_type" in
+          patch)
+            patch=$((patch + 1))
+            ;;
+          minor)
+            minor=$((minor + 1))
+            patch=0
+            ;;
+          major)
+            major=$((major + 1))
+            minor=0
+            patch=0
+            ;;
+          *)
+            echo "ERROR: Unsupported bump_type: $bump_type"
+            exit 1
+            ;;
+        esac
+
+        target_stable_version="$major.$minor.$patch"
+
+        case "$release_channel" in
+          pr-rc)
+            if [[ ! "$pr_number" =~ ^[0-9]+$ ]] || [[ "$pr_number" == "0" ]]; then
+              echo "ERROR: pr_number must be a positive integer for pr-rc. Got: $pr_number"
+              exit 1
+            fi
+            computed_version="$target_stable_version-rc.$release_date.pr$pr_number.$sequence"
+            ;;
+          main-rc)
+            computed_version="$target_stable_version-rc.$release_date.$sequence"
+            ;;
+          stable)
+            computed_version="$target_stable_version"
+            ;;
+          *)
+            echo "ERROR: Unsupported release_channel: $release_channel"
+            exit 1
+            ;;
+        esac
+
+        mkdir -p "$(Build.ArtifactStagingDirectory)/versioning-demo"
+        output_file="$(Build.ArtifactStagingDirectory)/versioning-demo/version.txt"
+
+        {
+          echo "base_version=$base_version"
+          echo "bump_type=$bump_type"
+          echo "release_channel=$release_channel"
+          echo "release_date=$release_date"
+          echo "pr_number=$pr_number"
+          echo "sequence=$sequence"
+          echo "target_stable_version=$target_stable_version"
+          echo "computed_version=$computed_version"
+        } | tee "$output_file"
+
+        echo "##vso[task.setvariable variable=ComputedVersion]$computed_version"
+        echo "##vso[task.setvariable variable=TargetStableVersion]$target_stable_version"
+      displayName: Compute version
+
+    - script: |
+        set -euo pipefail
+        echo "Computed version: $(ComputedVersion)"
+        echo "Target stable version: $(TargetStableVersion)"
+      displayName: Show computed version
+
+    - publish: $(Build.ArtifactStagingDirectory)/versioning-demo
+      artifact: versioning-demo
+      displayName: Publish versioning demo output

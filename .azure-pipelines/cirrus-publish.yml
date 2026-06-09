@@ -61,9 +61,45 @@ variables:
   value: true
 
 stages:
+- stage: Preflight
+  displayName: Preflight Checks
+  jobs:
+  - job: EnsureReleaseProject
+    displayName: Ensure Release Project Context
+    pool:
+      vmImage: $(ubuntu_pool)
+    steps:
+    - checkout: none
+    - bash: |
+        set -euo pipefail
+        echo "System.TeamProject=$(System.TeamProject)"
+        if [[ "$(System.TeamProject)" != "release" ]]; then
+          echo "ERROR: cirrus-publish must run in the 'release' project to access signed artifacts."
+          exit 1
+        fi
+      displayName: Validate Team Project Is release
+    - bash: |
+        set -euo pipefail
+        signed_build_id='${{ parameters.signed_build_id }}'
+        if [[ -z "$signed_build_id" ]]; then
+          echo 'ERROR: signed_build_id is required for publish provenance.'
+          exit 1
+        fi
+        if ! [[ "$signed_build_id" =~ ^[0-9]+$ ]]; then
+          echo "ERROR: signed_build_id must be numeric. Got: $signed_build_id"
+          exit 1
+        fi
+        if [[ "$signed_build_id" == "0" ]]; then
+          echo 'ERROR: signed_build_id must be greater than zero.'
+          exit 1
+        fi
+        echo "signed_build_id validated: $signed_build_id"
+      displayName: Validate Signed Build Provenance Input
+
 - template: templates/dist/stages/publish-to-github-release.yml
   parameters:
     ubuntu_pool: $(ubuntu_pool)
+    dependency_stage: Preflight
     SourceProject: $(SourceProject)
     GitHubTargetRepo: $(GitHubTargetRepo)
     GitHubReleasePrefix: $(GitHubReleasePrefix)
