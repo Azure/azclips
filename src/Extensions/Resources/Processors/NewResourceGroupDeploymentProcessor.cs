@@ -367,9 +367,12 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
             {
                 return null;
             }
-            string trimmed = queryString.Length > 0 && (queryString[0] == '?' || queryString[0] == '&')
-                ? queryString[1..]
-                : queryString;
+            // Trim surrounding whitespace first so a pasted SAS token with leading/trailing
+            // spaces doesn't yield an invalid queryString / embedded ParametersLink URI.
+            string trimmed = queryString.Trim();
+            trimmed = trimmed.Length > 0 && (trimmed[0] == '?' || trimmed[0] == '&')
+                ? trimmed[1..]
+                : trimmed;
             return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
         }
 

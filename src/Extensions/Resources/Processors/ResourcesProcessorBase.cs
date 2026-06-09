@@ -203,7 +203,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                                     break;
                                 }
 
-                                switch (state?.ToString()?.ToLower())
+                                switch (state?.ToString()?.ToLowerInvariant())
                                 {
                                     case "failed":
                                         error = true;
