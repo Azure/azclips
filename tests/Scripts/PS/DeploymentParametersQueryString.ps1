@@ -36,7 +36,7 @@ $resolver = [System.ResolveEventHandler]{
 [System.AppDomain]::CurrentDomain.add_AssemblyResolve($resolver)
 
 $asm = [System.Reflection.Assembly]::LoadFrom($extDll)
-$procType = $asm.GetType('Microsoft.Azure.Cirrus.Extensions.Resources.Processors.NewResourceGroupDeploymentProcessor', $true)
+$procType = $asm.GetType('Microsoft.Azure.Cirrus.Extensions.Resources.Processors.NewResourceGroupDeploymentProcessor_Orchestrator', $true)
 
 $flags = [System.Reflection.BindingFlags]'Instance,Public,NonPublic'
 

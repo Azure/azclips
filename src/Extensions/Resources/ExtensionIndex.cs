@@ -48,11 +48,11 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_newResourceGroupDeployment_PS = new(
-            Name: "NewResourceGroupDeploymentProcessor",
+            Name: "NewResourceGroupDeploymentProcessor_Orchestrator",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.NewResourceGroupDeploymentProcessor",
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.NewResourceGroupDeploymentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
-            ProcessorType: typeof(Processors.NewResourceGroupDeploymentProcessor),
+            ProcessorType: typeof(Processors.NewResourceGroupDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["SubscriptionId"]    = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -69,7 +69,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
                 ["RollbackOnError"]   = new("RollbackOnError", typeof(bool), "Roll the resource group back to the last successful deployment on error.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["RollbackToDeploymentName"] = new("RollbackToDeploymentName", typeof(string), "Roll the resource group back to a specific named deployment on error. Mutually exclusive with RollbackOnError.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["ValidationLevel"]   = new("ValidationLevel", typeof(string), "The validation level of the deployment.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
-                ["NoWait"]            = new("NoWait", typeof(bool), "Return as soon as the deployment is accepted, without waiting for it to complete.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
@@ -114,11 +113,11 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_newResourceGroupDeployment_CLI = new(
-            Name: "NewResourceGroupDeploymentProcessor",
+            Name: "NewResourceGroupDeploymentProcessor_Orchestrator",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.NewResourceGroupDeploymentProcessor",
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Resources.Processors.NewResourceGroupDeploymentProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Resources",
-            ProcessorType: typeof(Processors.NewResourceGroupDeploymentProcessor),
+            ProcessorType: typeof(Processors.NewResourceGroupDeploymentProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["subscription-id"]  = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -135,7 +134,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
                 ["rollback-on-error"] = new("RollbackOnError", typeof(bool), "Roll the resource group back to the last successful deployment on error.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["rollback-to-deployment-name"] = new("RollbackToDeploymentName", typeof(string), "Roll the resource group back to a specific named deployment on error. Mutually exclusive with rollback-on-error.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["validation-level"] = new("ValidationLevel", typeof(string), "The validation level of the deployment.", IsRequired: false, Aliases: [], AllowedValues: ["Template", "Provider", "ProviderNoRbac"]),
-                ["no-wait"]          = new("NoWait", typeof(bool), "Return as soon as the deployment is accepted, without waiting for it to complete.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
