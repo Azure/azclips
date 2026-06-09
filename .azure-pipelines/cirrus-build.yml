@@ -5,9 +5,9 @@ pr: none
 
 parameters:
 - name: artifact_version_override
-  displayName: 'Artifact version override (optional)'
+  displayName: 'Artifact version override (auto = infer_from_code)'
   type: string
-  default: ''
+  default: 'infer_from_code'
 - name: bump_type
   displayName: Version bump type
   type: string
@@ -26,7 +26,7 @@ parameters:
   - main-rc
   - stable
 - name: release_date
-  displayName: Release date override, yyyyMMdd or utc
+  displayName: 'Release date override (auto = utc, or yyyyMMdd)'
   type: string
   default: 'utc'
 - name: pr_number

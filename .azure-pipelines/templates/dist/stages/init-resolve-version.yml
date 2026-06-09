@@ -1,7 +1,7 @@
 parameters:
 - name: artifact_version_override
   type: string
-  default: ''
+  default: 'infer_from_code'
 - name: bump_type
   type: string
   default: 'patch'
@@ -55,13 +55,15 @@ stages:
         pr_number="${{ parameters.pr_number }}"
         sequence="${{ parameters.sequence }}"
 
-        if [[ -n "$override_version" ]]; then
+        if [[ -n "$override_version" && "$override_version" != "infer_from_code" ]]; then
           echo "Using artifact version override: $override_version"
           echo "##vso[task.setvariable variable=ArtifactVersion;isOutput=true]$override_version"
           echo "##vso[task.setvariable variable=ComputedVersion;isOutput=true]$override_version"
           echo "##vso[task.setvariable variable=PipelineFlow;isOutput=true]override"
           exit 0
         fi
+
+        echo "Inferring artifact version from $core_project"
 
         if [[ ! -f "$core_project" ]]; then
           echo "ERROR: Core project not found at $core_project"
