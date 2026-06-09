@@ -199,12 +199,14 @@ namespace Core.Engine
             subscriber.Subscribe(Events.ActivityStart, (data) =>
             {
                 var evt = (EventData)data;
-                sequentialStage = telemetryService.StartActivity(evt.ActivityName, ActivityKind.Internal);
+                var activity = telemetryService.StartActivity(evt.ActivityName, ActivityKind.Internal);
+                if (activity != null)
+                    pairedStages.Push(activity);
             });
             subscriber.Subscribe(Events.ActivityEnd, (data) =>
             {
-                sequentialStage?.Dispose();
-                sequentialStage = null;
+                if (pairedStages.TryPop(out var activity))
+                    activity.Dispose();
             });
 
             subscriber.Subscribe(Events.Activity, (data) =>
