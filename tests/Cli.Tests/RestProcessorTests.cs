@@ -23,12 +23,13 @@ public class RestProcessorTests
     private static RestProcessor CreateProcessor(
         FakeHttpPipeline pipeline,
         FakeOutputHandler output,
-        string subscriptionId = TestSubscriptionId)
+        string subscriptionId = TestSubscriptionId,
+        FakeEventPublisher? publisher = null)
     {
         var processor = new RestProcessor();
         var context = new ProcessorContext(
             pipeline,
-            new FakeEventPublisher(),
+            publisher ?? new FakeEventPublisher(),
             new FakeAuthHandler(new AuthContext("test-tenant", subscriptionId)),
             output);
         processor.Init(context);
@@ -279,6 +280,95 @@ public class RestProcessorTests
         Assert.Equal(0, pipeline.SendCount);
     }
 
+    [Fact]
+    public async Task ProcessAsync_ByParameters_NormalInput_ProducesUnchangedUrl_RegressionGuard()
+    {
+        // Regression guard: ordinary id segments contain only unreserved characters, so
+        // Uri.EscapeDataString must leave them byte-for-byte identical to the pre-encoding URL.
+        Uri? sentUri = null;
+        var pipeline = CapturingPipeline(uri => sentUri = uri);
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(pipeline, output);
+        processor.ResourceProviderName = "Microsoft.Storage";
+        processor.ResourceType = ["storageAccounts"];
+        // No Name → collection GET.
+        processor.ApiVersion = "2023-01-01";
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(
+            $"https://management.azure.com/subscriptions/{TestSubscriptionId}/providers/Microsoft.Storage/storageAccounts?api-version=2023-01-01",
+            sentUri!.ToString());
+    }
+
+    [Fact]
+    public async Task ProcessAsync_ByParameters_SegmentWithReservedChars_IsPercentEncoded()
+    {
+        // A resource group name containing reserved/structural characters must be percent-encoded so
+        // it cannot inject extra path ('/') or query ('?') structure. The structural separators the
+        // builder itself emits stay intact.
+        Uri? sentUri = null;
+        var pipeline = CapturingPipeline(uri => sentUri = uri);
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(pipeline, output);
+        processor.ResourceGroupName = "bad/name?x";
+        processor.ResourceProviderName = "Microsoft.Storage";
+        processor.ResourceType = ["storageAccounts"];
+        processor.ApiVersion = "2023-01-01";
+
+        await processor.ProcessAsync();
+
+        string url = sentUri!.GetComponents(UriComponents.HttpRequestUrl, UriFormat.UriEscaped);
+
+        // Reserved characters in the value are encoded — no extra '/' or '?' structure injected.
+        Assert.Contains("/resourceGroups/bad%2Fname%3Fx/", url);
+        Assert.DoesNotContain("/resourceGroups/bad/name", url);
+        // Structural separators and the rest of the path/query are unchanged.
+        Assert.Equal(
+            $"https://management.azure.com/subscriptions/{TestSubscriptionId}/resourceGroups/bad%2Fname%3Fx/providers/Microsoft.Storage/storageAccounts?api-version=2023-01-01",
+            url);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_NonJsonResponse_DoesNotPublishInvalidJson_AndSurfacesRawBody()
+    {
+        var publisher = new FakeEventPublisher();
+        var pipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("plain text", Encoding.UTF8, "text/plain")
+        });
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(pipeline, output, publisher: publisher);
+        processor.Uri = "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01";
+
+        await processor.ProcessAsync();
+
+        Assert.Equal(1, pipeline.SendCount);
+        // A non-JSON passthrough body must NOT produce ResponseInvalidJson noise.
+        Assert.DoesNotContain(Events.ResponseInvalidJson, publisher.PublishedIds);
+
+        var written = Assert.Single(output.WrittenValues);
+        var response = Assert.IsType<RestResponse>(written);
+        Assert.Equal(200, response.StatusCode);
+        Assert.Equal("plain text", response.Content);
+        Assert.Null(response.Json);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_RejectsNonArmHost_ListsAllowedHostsInDeterministicOrder()
+    {
+        var pipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(HttpStatusCode.OK));
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(pipeline, output);
+        processor.Uri = "https://example.com/subscriptions/x/resourcegroups?api-version=2021-04-01";
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+
+        Assert.Contains(
+            "Allowed hosts: management.azure.com, management.chinacloudapi.cn, management.microsoftazure.de, management.usgovcloudapi.net.",
+            ex.Message);
+    }
+
     // ----- UriParameters (Feature C) -----------------------------------------------------------
 
     [Fact]
@@ -429,31 +519,34 @@ public class RestProcessorTests
         public CancellationToken Token => CancellationToken.None;
         public Action Cancel => () => { };
 
-        public Task Publish(string id, CancellationToken token, GetEventData createMessage) => Task.CompletedTask;
-        public Task Publish(string id, CancellationToken token) => Task.CompletedTask;
-        public Task Publish(string id, CancellationToken token, string messageText) => Task.CompletedTask;
-        public Task Publish(string id, CancellationToken token, string messageText, HttpRequestMessage request) => Task.CompletedTask;
-        public Task Publish(string id, CancellationToken token, string messageText, HttpResponseMessage response) => Task.CompletedTask;
-        public Task Publish(string id, CancellationToken token, string messageText, double magnitude) => Task.CompletedTask;
-        public Task Publish(string id, CancellationToken token, string messageText, double magnitude, HttpRequestMessage request) => Task.CompletedTask;
-        public Task Publish(string id, CancellationToken token, string messageText, double magnitude, HttpResponseMessage response) => Task.CompletedTask;
-        public Task Publish(string id, CancellationToken token, HttpRequestMessage request) => Task.CompletedTask;
-        public Task Publish(string id, CancellationToken token, HttpRequestMessage request, HttpResponseMessage response) => Task.CompletedTask;
-        public Task Publish(string id, CancellationToken token, HttpResponseMessage response) => Task.CompletedTask;
-        public Task Publish(string id, CancellationToken token, EventData message) => Task.CompletedTask;
+        /// <summary>Event ids published through this publisher, in order, for assertions.</summary>
+        public List<string> PublishedIds { get; } = new();
 
-        public Task Publish(string id, GetEventData createMessage) => Task.CompletedTask;
-        public Task Publish(string id) => Task.CompletedTask;
-        public Task Publish(string id, string messageText) => Task.CompletedTask;
-        public Task Publish(string id, string messageText, HttpRequestMessage request) => Task.CompletedTask;
-        public Task Publish(string id, string messageText, HttpResponseMessage response) => Task.CompletedTask;
-        public Task Publish(string id, string messageText, double magnitude) => Task.CompletedTask;
-        public Task Publish(string id, string messageText, double magnitude, HttpRequestMessage request) => Task.CompletedTask;
-        public Task Publish(string id, string messageText, double magnitude, HttpResponseMessage response) => Task.CompletedTask;
-        public Task Publish(string id, HttpRequestMessage request) => Task.CompletedTask;
-        public Task Publish(string id, HttpRequestMessage request, HttpResponseMessage response) => Task.CompletedTask;
-        public Task Publish(string id, HttpResponseMessage response) => Task.CompletedTask;
-        public Task Publish(string id, EventData message) => Task.CompletedTask;
-        public Task Publish(string id, Uri uri) => Task.CompletedTask;
+        public Task Publish(string id, CancellationToken token, GetEventData createMessage) { PublishedIds.Add(id); return Task.CompletedTask; }
+        public Task Publish(string id, CancellationToken token) { PublishedIds.Add(id); return Task.CompletedTask; }
+        public Task Publish(string id, CancellationToken token, string messageText) { PublishedIds.Add(id); return Task.CompletedTask; }
+        public Task Publish(string id, CancellationToken token, string messageText, HttpRequestMessage request) { PublishedIds.Add(id); return Task.CompletedTask; }
+        public Task Publish(string id, CancellationToken token, string messageText, HttpResponseMessage response) { PublishedIds.Add(id); return Task.CompletedTask; }
+        public Task Publish(string id, CancellationToken token, string messageText, double magnitude) { PublishedIds.Add(id); return Task.CompletedTask; }
+        public Task Publish(string id, CancellationToken token, string messageText, double magnitude, HttpRequestMessage request) { PublishedIds.Add(id); return Task.CompletedTask; }
+        public Task Publish(string id, CancellationToken token, string messageText, double magnitude, HttpResponseMessage response) { PublishedIds.Add(id); return Task.CompletedTask; }
+        public Task Publish(string id, CancellationToken token, HttpRequestMessage request) { PublishedIds.Add(id); return Task.CompletedTask; }
+        public Task Publish(string id, CancellationToken token, HttpRequestMessage request, HttpResponseMessage response) { PublishedIds.Add(id); return Task.CompletedTask; }
+        public Task Publish(string id, CancellationToken token, HttpResponseMessage response) { PublishedIds.Add(id); return Task.CompletedTask; }
+        public Task Publish(string id, CancellationToken token, EventData message) { PublishedIds.Add(id); return Task.CompletedTask; }
+
+        public Task Publish(string id, GetEventData createMessage) { PublishedIds.Add(id); return Task.CompletedTask; }
+        public Task Publish(string id) { PublishedIds.Add(id); return Task.CompletedTask; }
+        public Task Publish(string id, string messageText) { PublishedIds.Add(id); return Task.CompletedTask; }
+        public Task Publish(string id, string messageText, HttpRequestMessage request) { PublishedIds.Add(id); return Task.CompletedTask; }
+        public Task Publish(string id, string messageText, HttpResponseMessage response) { PublishedIds.Add(id); return Task.CompletedTask; }
+        public Task Publish(string id, string messageText, double magnitude) { PublishedIds.Add(id); return Task.CompletedTask; }
+        public Task Publish(string id, string messageText, double magnitude, HttpRequestMessage request) { PublishedIds.Add(id); return Task.CompletedTask; }
+        public Task Publish(string id, string messageText, double magnitude, HttpResponseMessage response) { PublishedIds.Add(id); return Task.CompletedTask; }
+        public Task Publish(string id, HttpRequestMessage request) { PublishedIds.Add(id); return Task.CompletedTask; }
+        public Task Publish(string id, HttpRequestMessage request, HttpResponseMessage response) { PublishedIds.Add(id); return Task.CompletedTask; }
+        public Task Publish(string id, HttpResponseMessage response) { PublishedIds.Add(id); return Task.CompletedTask; }
+        public Task Publish(string id, EventData message) { PublishedIds.Add(id); return Task.CompletedTask; }
+        public Task Publish(string id, Uri uri) { PublishedIds.Add(id); return Task.CompletedTask; }
     }
 }

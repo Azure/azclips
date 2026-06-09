@@ -221,29 +221,37 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest.Processors
                     "(one trailing type without a name performs a collection GET on the last type).");
             }
 
+            // Percent-encode every caller-supplied id segment as it is appended so that a value
+            // containing reserved/structural characters ('/', '?', '#', ...) cannot malform the path
+            // or inject extra path/query structure. Only the VALUES are escaped: the structural
+            // separators the builder itself adds (/subscriptions/, /resourceGroups/, /providers/, the
+            // interleaving slashes, and the ?api-version= query) are emitted literally. EscapeDataString
+            // leaves unreserved characters (letters, digits, '-', '.', '_', '~') intact, so legitimate
+            // values like a GUID subscription id, 'Microsoft.Storage', 'storageAccounts' or
+            // 'cirrus-test-group-1' are unchanged, while a stray '/' becomes %2F.
             var builder = new StringBuilder();
-            builder.Append("/subscriptions/").Append(subscriptionId);
+            builder.Append("/subscriptions/").Append(System.Uri.EscapeDataString(subscriptionId));
 
             if (!string.IsNullOrWhiteSpace(ResourceGroupName))
             {
-                builder.Append("/resourceGroups/").Append(ResourceGroupName.Trim());
+                builder.Append("/resourceGroups/").Append(System.Uri.EscapeDataString(ResourceGroupName.Trim()));
             }
 
             if (!string.IsNullOrWhiteSpace(ResourceProviderName))
             {
-                builder.Append("/providers/").Append(ResourceProviderName.Trim());
+                builder.Append("/providers/").Append(System.Uri.EscapeDataString(ResourceProviderName.Trim()));
             }
 
             for (int i = 0; i < ResourceType.Count; i++)
             {
-                builder.Append('/').Append(ResourceType[i].Trim().Trim('/'));
+                builder.Append('/').Append(System.Uri.EscapeDataString(ResourceType[i].Trim().Trim('/')));
                 if (i < Name.Count)
                 {
-                    builder.Append('/').Append(Name[i].Trim().Trim('/'));
+                    builder.Append('/').Append(System.Uri.EscapeDataString(Name[i].Trim().Trim('/')));
                 }
             }
 
-            builder.Append("?api-version=").Append(ApiVersion.Trim());
+            builder.Append("?api-version=").Append(System.Uri.EscapeDataString(ApiVersion.Trim()));
             return builder.ToString();
         }
 
@@ -341,7 +349,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest.Processors
 
             if (!AllowedArmHosts.Contains(parsed.Host))
             {
-                throw new InvalidOperationException($"Host '{parsed.Host}' is not an allowed Azure Resource Manager endpoint. The rest command only targets ARM in this release. Allowed hosts: {string.Join(", ", AllowedArmHosts)}.");
+                throw new InvalidOperationException($"Host '{parsed.Host}' is not an allowed Azure Resource Manager endpoint. The rest command only targets ARM in this release. Allowed hosts: {string.Join(", ", AllowedArmHosts.OrderBy(h => h, StringComparer.OrdinalIgnoreCase))}.");
             }
 
             return url;
@@ -411,7 +419,17 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest.Processors
                 string body = await response.Content.ReadAsStringAsync();
                 result.Content = body;
 
-                if (!string.IsNullOrWhiteSpace(body))
+                // Only attempt a JSON parse when the response advertises a JSON media type
+                // (application/json, application/...+json, etc.). A passthrough command legitimately
+                // returns non-JSON bodies (text/plain, octet-stream, ...); parsing those and logging
+                // ResponseInvalidJson produces misleading "not valid JSON" noise, so surface the raw
+                // body as Content without publishing the event. When the body IS json-like but fails
+                // to parse, that is a genuine anomaly and ResponseInvalidJson is still published.
+                string? mediaType = response.Content.Headers.ContentType?.MediaType;
+                bool isJsonMediaType = mediaType is not null
+                    && mediaType.Contains("json", StringComparison.OrdinalIgnoreCase);
+
+                if (isJsonMediaType && !string.IsNullOrWhiteSpace(body))
                 {
                     try
                     {
@@ -420,7 +438,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest.Processors
                     }
                     catch (JsonException)
                     {
-                        // Non-JSON body is valid for a passthrough; surface it as raw Content only.
+                        // Content-Type claims JSON but the body did not parse — a real anomaly.
                         await Publisher.Publish(Events.ResponseInvalidJson, $"response body is not valid JSON for {response.RequestMessage?.RequestUri}");
                     }
                 }
