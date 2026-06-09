@@ -51,16 +51,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest
                 ["api-version"]       = new("ApiVersion", typeof(string), "api-version for a piece-wise ARM URL. Required when building from flags. Mutually exclusive with --uri.", IsRequired: false, Aliases: [], AllowedValues: []),
                 ["uri-parameters"]    = new("UriParameters", typeof(List<string>), "Optional query-string parameters in KEY=VALUE form (space-separated), appended to the final URL. Allowed in both --uri and ByParameters modes.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
-            ParameterAliases: new Dictionary<string, string>
-            {
-                ["body"] = "Payload",
-                ["subscription"] = "SubscriptionId",
-                ["resource-group"] = "ResourceGroupName",
-                ["resource-provider"] = "ResourceProviderName",
-                ["resource-type"] = "ResourceType",
-                ["api-version"] = "ApiVersion",
-                ["uri-parameters"] = "UriParameters",
-            }
+            ParameterAliases: new Dictionary<string, string>()
         );
         // ── Dispatch Tables ──
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
