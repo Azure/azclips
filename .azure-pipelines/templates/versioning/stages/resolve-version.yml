@@ -156,7 +156,7 @@ stages:
             ;;
           main-rc)
             computed_version="$target_stable_version-rc.$release_date.$sequence"
-            pipeline_flow="build-sign-publish"
+            pipeline_flow="build-sign"
             ;;
           stable)
             computed_version="$target_stable_version"
