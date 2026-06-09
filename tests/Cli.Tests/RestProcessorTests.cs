@@ -12,7 +12,7 @@ namespace Cli.Tests;
 
 /// <summary>
 /// Offline, deterministic tests for the security-sensitive URL resolution / validation logic in
-/// <see cref="RestProcessor"/>. Exercises the processor through its public <see cref="RestProcessor.ProcessAsync"/>
+/// <see cref="RestProcessor_Orchestrator"/>. Exercises the processor through its public <see cref="RestProcessor_Orchestrator.ProcessAsync"/>
 /// path using hand-written fakes for the runtime context (pipeline, publisher, auth, output),
 /// matching the stub-based style used elsewhere in Cli.Tests (no mocking framework).
 /// </summary>
@@ -20,13 +20,13 @@ public class RestProcessorTests
 {
     private const string TestSubscriptionId = "282bb33f-067d-4179-a7a4-b833c13af735";
 
-    private static RestProcessor CreateProcessor(
+    private static RestProcessor_Orchestrator CreateProcessor(
         FakeHttpPipeline pipeline,
         FakeOutputHandler output,
         string subscriptionId = TestSubscriptionId,
         FakeEventPublisher? publisher = null)
     {
-        var processor = new RestProcessor();
+        var processor = new RestProcessor_Orchestrator();
         var context = new ProcessorContext(
             pipeline,
             publisher ?? new FakeEventPublisher(),

@@ -9,11 +9,11 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest
     {
         // ── PS Command Metadata ──
         private static readonly CommandMetadata s_rest_PS = new(
-            Name: "RestProcessor",
+            Name: "RestProcessor_Orchestrator",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Rest.Processors.RestProcessor",
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Rest.Processors.RestProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Rest",
-            ProcessorType: typeof(Processors.RestProcessor),
+            ProcessorType: typeof(Processors.RestProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["Method"]  = new("Method", typeof(string), "HTTP method (GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS). Defaults to GET.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -32,11 +32,11 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest
         );
         // ── CLI Command Metadata ──
         private static readonly CommandMetadata s_rest_CLI = new(
-            Name: "RestProcessor",
+            Name: "RestProcessor_Orchestrator",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Rest.Processors.RestProcessor",
+            FullName: "Microsoft.Azure.Cirrus.Extensions.Rest.Processors.RestProcessor_Orchestrator",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Rest",
-            ProcessorType: typeof(Processors.RestProcessor),
+            ProcessorType: typeof(Processors.RestProcessor_Orchestrator),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
                 ["method"]  = new("Method", typeof(string), "HTTP method (GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS). Defaults to GET.", IsRequired: false, Aliases: [], AllowedValues: []),

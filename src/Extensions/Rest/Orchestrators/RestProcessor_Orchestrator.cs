@@ -10,9 +10,11 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest.Processors
     /// Universal authenticated HTTP passthrough, mirroring <c>az rest</c> (Option 2 parity): no LRO
     /// polling, no pagination, ARM audience only. Builds an arbitrary request from the supplied
     /// method/uri/payload/headers, sends it through the already-authenticated pipeline, and surfaces
-    /// the raw status code, headers, and body as an untyped <see cref="Models.RestResponse"/>.
+    /// the raw status code, headers, and body as an untyped <see cref="Models.RestResponse"/>. This is
+    /// a handwritten customization (it overrides <see cref="ProcessAsync"/> with bespoke logic rather
+    /// than being a generated atomic API operation), so it lives under <c>Orchestrators/</c>.
     /// </summary>
-    public class RestProcessor : RestProcessorBase
+    public class RestProcessor_Orchestrator : RestProcessorBase
     {
         private const string ArmEndpoint = "https://management.azure.com";
         private const string SubscriptionToken = "{subscriptionId}";
