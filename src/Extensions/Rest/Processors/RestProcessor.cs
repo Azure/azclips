@@ -244,10 +244,24 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest.Processors
 
             for (int i = 0; i < ResourceType.Count; i++)
             {
-                builder.Append('/').Append(System.Uri.EscapeDataString(ResourceType[i].Trim().Trim('/')));
+                string resourceTypeSegment = ResourceType[i].Trim().Trim('/');
+                if (resourceTypeSegment.Length == 0)
+                {
+                    throw new InvalidOperationException(
+                        $"ResourceType segments must be non-empty; ResourceType element {i} was empty or whitespace.");
+                }
+
+                builder.Append('/').Append(System.Uri.EscapeDataString(resourceTypeSegment));
                 if (i < Name.Count)
                 {
-                    builder.Append('/').Append(System.Uri.EscapeDataString(Name[i].Trim().Trim('/')));
+                    string nameSegment = Name[i].Trim().Trim('/');
+                    if (nameSegment.Length == 0)
+                    {
+                        throw new InvalidOperationException(
+                            $"Name segments must be non-empty; Name element {i} was empty or whitespace.");
+                    }
+
+                    builder.Append('/').Append(System.Uri.EscapeDataString(nameSegment));
                 }
             }
 

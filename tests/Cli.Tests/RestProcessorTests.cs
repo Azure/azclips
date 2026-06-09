@@ -234,6 +234,48 @@ public class RestProcessorTests
         Assert.Equal(0, pipeline.SendCount);
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("/")]
+    public async Task ProcessAsync_ByParameters_EmptyResourceTypeSegment_Throws(string resourceType)
+    {
+        var pipeline = CapturingPipeline(_ => { });
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(pipeline, output);
+        processor.ResourceProviderName = "Microsoft.Storage";
+        processor.ResourceType = [resourceType];
+        processor.Name = ["myaccount"];
+        processor.ApiVersion = "2023-01-01";
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+
+        Assert.Contains("ResourceType segments must be non-empty", ex.Message);
+        Assert.Equal(0, pipeline.SendCount);
+        Assert.Empty(output.WrittenValues);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("/")]
+    public async Task ProcessAsync_ByParameters_EmptyNameSegment_Throws(string name)
+    {
+        var pipeline = CapturingPipeline(_ => { });
+        var output = new FakeOutputHandler();
+        var processor = CreateProcessor(pipeline, output);
+        processor.ResourceProviderName = "Microsoft.Storage";
+        processor.ResourceType = ["storageAccounts"];
+        processor.Name = [name];
+        processor.ApiVersion = "2023-01-01";
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => processor.ProcessAsync());
+
+        Assert.Contains("Name segments must be non-empty", ex.Message);
+        Assert.Equal(0, pipeline.SendCount);
+        Assert.Empty(output.WrittenValues);
+    }
+
     [Fact]
     public async Task ProcessAsync_SuppliesBothUriAndByParameters_Throws()
     {
