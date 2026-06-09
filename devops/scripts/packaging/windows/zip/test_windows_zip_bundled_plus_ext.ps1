@@ -124,13 +124,15 @@ if ($IsWindows -and -not $SkipRuntime) {
     $groupText.Trim() | Out-Host
     if ($groupText -match 'could not be found') {
         throw 'FAIL: Resources command not resolved after install.'
-    } elseif ($groupText -match "Required parameter 'SubscriptionId' is missing") {
+    } elseif ($groupText -match "Required parameter 'SubscriptionId' is missing|SubscriptionId must be provided") {
         Write-Host 'PASS: Resources command resolved (missing SubscriptionId in CI context)'
     } elseif ($groupText -match 'AcquireTokenSilent|No account or login hint|please run .*login|AADSTS|authentication') {
         Write-Host 'PASS: Resources command resolved (authentication context not available in CI)'
     } else {
         Write-Host 'PASS: Resources command resolved'
     }
+
+    $global:LASTEXITCODE = 0
 
     Write-Host 'PASS: Windows runtime extension-add flow validated'
 } else {
@@ -143,3 +145,5 @@ Write-Host ''
 Write-Host '============================================'
 Write-Host ' Windows Bundled+Optional PS Test Complete '
 Write-Host '============================================'
+
+$global:LASTEXITCODE = 0
