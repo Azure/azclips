@@ -38,20 +38,16 @@ public static class TelemetryExtensions
         return activity;
     }
 
-    /// <summary>
-    /// Formats a parameter dictionary as a CLI-style "-Key Value" string.
-    /// Values are emitted verbatim per the user-confirmed telemetry policy;
-    /// see plan-file privacy notes for the PII trade-off.
-    /// </summary>
-    public static string FormatParameters(IDictionary<string, object>? parameters)
+    private static string FormatParameters(IDictionary<string, object>? parameters)
     {
         if (parameters is null || parameters.Count == 0) return string.Empty;
 
+        const string MaskedValue = "***";
         var sb = new StringBuilder();
         foreach (var kvp in parameters)
         {
             if (sb.Length > 0) sb.Append(' ');
-            sb.Append('-').Append(kvp.Key).Append(' ').Append(kvp.Value);
+            sb.Append('-').Append(kvp.Key).Append(' ').Append(MaskedValue);
         }
         return sb.ToString();
     }
