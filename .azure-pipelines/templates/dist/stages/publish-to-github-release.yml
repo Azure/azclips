@@ -13,11 +13,11 @@ parameters:
   default: 'dist'
 - name: GitHubServiceConnection
   type: string
-- name: source_pipeline_name
+- name: signed_pipeline_name
   type: string
-- name: source_build_id
+- name: signed_build_id
   type: string
-- name: distribution_version
+- name: signed_artifact_name
   type: string
 
 stages:
@@ -31,38 +31,77 @@ stages:
     steps:
     - checkout: none
 
+    - script: |
+        set -euo pipefail
+        if [[ -z "${{ parameters.signed_pipeline_name }}" ]]; then
+          echo "ERROR: signed_pipeline_name is required"
+          exit 1
+        fi
+
+        if [[ -z "${{ parameters.signed_build_id }}" ]]; then
+          echo "ERROR: signed_build_id is required"
+          exit 1
+        fi
+
+        if ! [[ "${{ parameters.signed_build_id }}" =~ ^[0-9]+$ ]]; then
+          echo "ERROR: signed_build_id must be numeric. Got: ${{ parameters.signed_build_id }}"
+          exit 1
+        fi
+
+        if [[ "${{ parameters.signed_build_id }}" == "0" ]]; then
+          echo "ERROR: signed_build_id must be greater than zero."
+          exit 1
+        fi
+
+        if [[ -z "${{ parameters.signed_artifact_name }}" ]]; then
+          echo "ERROR: signed_artifact_name is required"
+          exit 1
+        fi
+
+        echo "Signed pipeline: ${{ parameters.signed_pipeline_name }}"
+        echo "Signed build id: ${{ parameters.signed_build_id }}"
+        echo "Signed artifact: ${{ parameters.signed_artifact_name }}"
+      displayName: Validate Signed Source Inputs
+
     - task: DownloadPipelineArtifact@2
-      displayName: Download Distribution Artifacts
+      displayName: Download Final Signed Distribution Artifact
       inputs:
         buildType: specific
         project: ${{ parameters.SourceProject }}
-        definition: ${{ parameters.source_pipeline_name }}
+        definition: ${{ parameters.signed_pipeline_name }}
         buildVersionToDownload: specific
-        pipelineId: ${{ parameters.source_build_id }}
-        targetPath: $(Pipeline.Workspace)/distBuild
+        pipelineId: ${{ parameters.signed_build_id }}
+        artifactName: ${{ parameters.signed_artifact_name }}
+        targetPath: $(Pipeline.Workspace)/signed-dist
 
     - script: |
         set -euo pipefail
         echo "Pipeline workspace: $(Pipeline.Workspace)"
-        find "$(Pipeline.Workspace)/distBuild" -maxdepth 4 -type f | sort | sed -n '1,300p'
-      displayName: Inspect Downloaded Artifacts
+        find "$(Pipeline.Workspace)/signed-dist" -maxdepth 4 -type f | sort | sed -n '1,300p'
+      displayName: Inspect Downloaded Signed Artifact
 
     - script: |
         set -euo pipefail
-        if [[ -z "${{ parameters.source_pipeline_name }}" ]]; then
-          echo "ERROR: source_pipeline_name is required"
+        if [[ -z "${{ parameters.signed_pipeline_name }}" ]]; then
+          echo "ERROR: signed_pipeline_name is required"
           exit 1
         fi
 
-        if [[ -z "${{ parameters.source_build_id }}" ]]; then
-          echo "ERROR: source_build_id is required"
+        if [[ -z "${{ parameters.signed_build_id }}" ]]; then
+          echo "ERROR: signed_build_id is required"
           exit 1
         fi
 
-        source_build_id="${{ parameters.source_build_id }}"
-        source_pipeline_name="${{ parameters.source_pipeline_name }}"
+        if [[ -z "${{ parameters.signed_artifact_name }}" ]]; then
+          echo "ERROR: signed_artifact_name is required"
+          exit 1
+        fi
 
-        assets_root="$(Pipeline.Workspace)/distBuild"
+        signed_build_id="${{ parameters.signed_build_id }}"
+        signed_pipeline_name="${{ parameters.signed_pipeline_name }}"
+        signed_artifact_name="${{ parameters.signed_artifact_name }}"
+
+        assets_root="$(Pipeline.Workspace)/signed-dist"
         mapfile -t assets < <(find "$assets_root" -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.nupkg' \) ! -name '*.snupkg' | sort)
 
         if [[ ${#assets[@]} -eq 0 ]]; then
@@ -70,12 +109,18 @@ stages:
           exit 1
         fi
 
+        echo "Signed source pipeline: $signed_pipeline_name"
+        echo "Signed source build id: $signed_build_id"
+        echo "Signed artifact: $signed_artifact_name"
+
         echo "Assets to upload (${#assets[@]}):"
         printf '  %s\n' "${assets[@]}"
 
-        core_distribution_version="${{ parameters.distribution_version }}"
-        core_distribution_version="${core_distribution_version## }"
-        core_distribution_version="${core_distribution_version%% }"
+        mapfile -t distribution_archives < <(printf '%s\n' "${assets[@]}" | grep -E '(\.tar\.gz|\.zip)$' || true)
+        if [[ ${#distribution_archives[@]} -eq 0 ]]; then
+          echo "ERROR: No signed distribution .tar.gz or .zip assets found under $assets_root"
+          exit 1
+        fi
 
         mapfile -t nupkgs < <(printf '%s\n' "${assets[@]}" | grep -E '\.nupkg$' || true)
 
@@ -95,31 +140,29 @@ stages:
           echo "$package_name,$package_version,$package_file_name" >> "$package_versions_tmp"
         done
 
-        if [[ -z "$core_distribution_version" ]]; then
-          mapfile -t derived_versions < <(
-            printf '%s\n' "${assets[@]}" |
-              sed -E 's#^.*/##' |
-              grep -Eo '[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?' |
-              sort -u
-          )
+        mapfile -t derived_versions < <(
+          printf '%s\n' "${distribution_archives[@]}" |
+            sed -E 's#^.*/##' |
+            grep -Eo '[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?' |
+            sort -u
+        )
 
-          if [[ ${#derived_versions[@]} -eq 1 ]]; then
-            core_distribution_version="${derived_versions[0]}"
-            echo "Auto-detected distribution version from artifacts: $core_distribution_version"
-          elif [[ ${#derived_versions[@]} -gt 1 ]]; then
-            echo "ERROR: Multiple candidate distribution versions found in artifacts: ${derived_versions[*]}"
-            echo "Pass distribution_version explicitly to disambiguate."
-            exit 1
-          else
-            echo "ERROR: Could not determine distribution version from artifacts."
-            echo "Pass distribution_version explicitly."
-            exit 1
-          fi
+        if [[ ${#derived_versions[@]} -eq 1 ]]; then
+          core_distribution_version="${derived_versions[0]}"
+          echo "Auto-detected distribution version from signed artifacts: $core_distribution_version"
+        elif [[ ${#derived_versions[@]} -gt 1 ]]; then
+          echo "ERROR: Multiple candidate distribution versions found in signed distribution archives: ${derived_versions[*]}"
+          echo "Expected one version in $signed_artifact_name from signed build $signed_build_id."
+          exit 1
+        else
+          echo "ERROR: Could not determine distribution version from signed distribution archives."
+          echo "Expected versioned .tar.gz or .zip files in $signed_artifact_name from signed build $signed_build_id."
+          exit 1
         fi
 
         safe_version="${core_distribution_version//[^0-9A-Za-z._-]/-}"
-        tag_name="${{ parameters.GitHubReleasePrefix }}-${safe_version}-build-${source_build_id}"
-        release_name="Distribution ${core_distribution_version} build ${source_build_id}"
+        tag_name="${{ parameters.GitHubReleasePrefix }}-${safe_version}-build-${signed_build_id}"
+        release_name="Distribution ${core_distribution_version} build ${signed_build_id}"
 
         release_dir="$(Build.ArtifactStagingDirectory)/release"
         rm -rf "$release_dir"
@@ -143,8 +186,9 @@ stages:
 
         echo "##vso[task.setvariable variable=ReleaseTag]$tag_name"
         echo "##vso[task.setvariable variable=ReleaseName]$release_name"
-        echo "##vso[task.setvariable variable=SourceBuildId]$source_build_id"
-        echo "##vso[task.setvariable variable=SourcePipelineName]$source_pipeline_name"
+        echo "##vso[task.setvariable variable=SignedBuildId]$signed_build_id"
+        echo "##vso[task.setvariable variable=SignedPipelineName]$signed_pipeline_name"
+        echo "##vso[task.setvariable variable=SignedArtifactName]$signed_artifact_name"
       displayName: Prepare Release Tag And Assets
 
     - task: GitHubRelease@1
@@ -169,6 +213,8 @@ stages:
         releaseNotesSource: 'inline'
         releaseNotesInline: |
           Automated distribution release.
-          Source build id: $(SourceBuildId)
+          Signed pipeline: $(SignedPipelineName)
+          Signed build id: $(SignedBuildId)
+          Signed artifact: $(SignedArtifactName)
         assets: '$(Build.ArtifactStagingDirectory)/release/*'
         addChangeLog: false

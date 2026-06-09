@@ -8,18 +8,18 @@ parameters:
   displayName: 'GitHub Service Connection'
   type: string
   default: 'github.com_naga-nandyala'
-- name: source_pipeline_name
-  displayName: 'Source pipeline name'
+- name: signed_pipeline_name
+  displayName: 'Signed pipeline name'
   type: string
   default: 'cirrus-signing'
-- name: source_build_id
-  displayName: 'Source build id'
+- name: signed_build_id
+  displayName: 'Signed build id'
   type: string
-  default: '320168'
-- name: distribution_version
-  displayName: 'Distribution version (optional, auto-detect when empty)'
+  default: '321333'
+- name: signed_artifact_name
+  displayName: 'Signed artifact name'
   type: string
-  default: ''
+  default: 'Distribution_Signed'
 
 variables:
 - template: templates/variables.yml
@@ -68,6 +68,6 @@ stages:
     GitHubTargetRepo: $(GitHubTargetRepo)
     GitHubReleasePrefix: $(GitHubReleasePrefix)
     GitHubServiceConnection: ${{ parameters.GitHubServiceConnection }}
-    source_pipeline_name: ${{ parameters.source_pipeline_name }}
-    source_build_id: ${{ parameters.source_build_id }}
-    distribution_version: ${{ parameters.distribution_version }}
+    signed_pipeline_name: ${{ parameters.signed_pipeline_name }}
+    signed_build_id: ${{ parameters.signed_build_id }}
+    signed_artifact_name: ${{ parameters.signed_artifact_name }}
