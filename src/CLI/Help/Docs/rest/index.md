@@ -28,5 +28,5 @@ azv2 rest --method PUT --uri "/subscriptions/{subscriptionId}/resourceGroups/myr
 ### List resources with an extra query-string parameter
 
 ```bash
-azv2 rest --method GET --uri "/subscriptions/{subscriptionId}/resources" --uri-parameters api-version=2021-04-01 "$filter=resourceType eq 'Microsoft.Storage/storageAccounts'"
+azv2 rest --method GET --uri "/subscriptions/{subscriptionId}/resources" --uri-parameters api-version=2021-04-01 '$filter=resourceType eq '\''Microsoft.Storage/storageAccounts'\'''
 ```
