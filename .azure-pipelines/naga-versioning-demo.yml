@@ -25,9 +25,9 @@ parameters:
   - main-rc
   - stable
 - name: release_date
-  displayName: Release date override, yyyyMMdd; empty means today UTC
+  displayName: Release date override, yyyyMMdd or utc
   type: string
-  default: ''
+  default: 'utc'
 - name: pr_number
   displayName: PR number for pr-alpha channel
   type: string
@@ -66,7 +66,7 @@ stages:
         minor="${BASH_REMATCH[2]}"
         patch="${BASH_REMATCH[3]}"
 
-        if [[ -z "$release_date" ]]; then
+        if [[ "$release_date" == "utc" || "$release_date" == "auto" ]]; then
           release_date="$(date -u +%Y%m%d)"
         fi
 
