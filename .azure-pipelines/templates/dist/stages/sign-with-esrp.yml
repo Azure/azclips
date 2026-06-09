@@ -685,6 +685,10 @@ stages:
           -WorkingRoot "$(Pipeline.Workspace)/signing-work"
           -ReleaseRoot "$(Build.ArtifactStagingDirectory)/signed-release"
         pwsh: true
+    - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
+      displayName: Generate SBOM For Signed Windows Artifacts
+      inputs:
+        BuildDropPath: $(Build.ArtifactStagingDirectory)/signed-release
     - task: PublishPipelineArtifact@1
       displayName: Publish Signed Windows Artifacts
       inputs:
@@ -752,6 +756,10 @@ stages:
           cp "$asset" "$out_dir/"
         done
       displayName: Collect Linux Release Artifacts
+    - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
+      displayName: Generate SBOM For Collected Linux Artifacts
+      inputs:
+        BuildDropPath: $(Build.ArtifactStagingDirectory)/collected-linux
     - task: PublishPipelineArtifact@1
       displayName: Publish Collected Linux Artifacts
       inputs:
@@ -777,6 +785,7 @@ stages:
           MacOSVmImage: ${{ parameters.macos_intel_pool }}
     pool:
       vmImage: $(MacOSVmImage)
+    timeoutInMinutes: 60
     steps:
     - checkout: self
       clean: true
@@ -1048,6 +1057,7 @@ stages:
           MacOSVmImage: ${{ parameters.macos_intel_pool }}
     pool:
       vmImage: $(MacOSVmImage)
+    timeoutInMinutes: 60
     steps:
     - checkout: none
     - task: DownloadPipelineArtifact@2
@@ -1158,6 +1168,14 @@ stages:
               "ToolVersion": "1.0"
             }
           ]
+            # Loose Mach-O binaries cannot be stapled; this artifact records the exact
+            # bundle payloads that successfully passed Apple's notarization service.
+    - task: PublishPipelineArtifact@1
+      displayName: Publish Notarized macOS Bundles
+      inputs:
+        targetPath: $(Pipeline.Workspace)/toNotarize
+        artifact: macos-notarized-bundles-$(MacOSArchitecture)
+        publishLocation: pipeline
   - job: CreateSignedMacOSTarballs
     displayName: Create Signed macOS Tarballs
     dependsOn:
@@ -1175,6 +1193,7 @@ stages:
           MacOSVmImage: ${{ parameters.macos_intel_pool }}
     pool:
       vmImage: $(MacOSVmImage)
+    timeoutInMinutes: 90
     steps:
     - checkout: none
     - task: DownloadPipelineArtifact@2
@@ -1184,15 +1203,15 @@ stages:
         artifactName: macos-signing-inputs-$(MacOSArchitecture)
         targetPath: $(Pipeline.Workspace)/macos-signing-inputs
     - task: DownloadPipelineArtifact@2
-      displayName: Download macOS Notarization Bundles
+      displayName: Download Notarized macOS Bundles
       inputs:
         buildType: current
-        artifactName: macos-notarization-bundles-$(MacOSArchitecture)
-        targetPath: $(Pipeline.Workspace)/macos-notarization-bundles
+        artifactName: macos-notarized-bundles-$(MacOSArchitecture)
+        targetPath: $(Pipeline.Workspace)/macos-notarized-bundles
     - bash: |
         set -euo pipefail
         input_root="$(Pipeline.Workspace)/macos-signing-inputs"
-        notarization_bundle_root="$(Pipeline.Workspace)/macos-notarization-bundles"
+        notarized_bundle_root="$(Pipeline.Workspace)/macos-notarized-bundles"
         final_contents_root="$(Build.ArtifactStagingDirectory)/final-contents"
         output_root="$(Build.ArtifactStagingDirectory)/signed-macos"
         mkdir -p "$final_contents_root" "$output_root"
@@ -1203,21 +1222,31 @@ stages:
           tarball_name=$(basename "$tarball")
           base_name="${tarball_name%.tar.gz}"
           content_dir="$final_contents_root/$base_name"
-          base_name=$(basename "$content_dir")
           mach_o_count=0
-          notarization_zip="$notarization_bundle_root/$base_name-signed.zip"
+          notarized_zip="$notarized_bundle_root/$base_name-signed.zip"
 
           rm -rf "$content_dir"
           mkdir -p "$content_dir"
 
-          if [[ ! -f "$notarization_zip" ]]; then
-            echo "ERROR: macOS notarization bundle not found: $notarization_zip"
+          if [[ ! -f "$notarized_zip" ]]; then
+            echo "ERROR: Notarized macOS bundle not found: $notarized_zip"
             verification_errors=1
             continue
           fi
 
-          unzip -q "$notarization_zip" -d "$content_dir"
-          echo "Extracted macOS notarization bundle after notarization gate: $(basename "$notarization_zip")"
+          unzip -q "$notarized_zip" -d "$content_dir"
+          echo "Extracted notarized macOS bundle: $(basename "$notarized_zip")"
+
+          if [[ -e "$content_dir/libexec/bin/azv2" ]]; then
+            mkdir -p "$content_dir/bin"
+            if [[ -L "$content_dir/bin/azv2" ]]; then
+              echo "bin/azv2 symlink preserved"
+            else
+              rm -f "$content_dir/bin/azv2"
+              ln -s ../libexec/bin/azv2 "$content_dir/bin/azv2"
+              echo "Recreated symlink: bin/azv2 -> ../libexec/bin/azv2"
+            fi
+          fi
 
           find "$content_dir" -name "*.so" -exec chmod +x {} \;
           find "$content_dir" -name "*.dylib" -exec chmod +x {} \;
@@ -1261,6 +1290,10 @@ stages:
           exit 1
         fi
       displayName: Verify And Package Signed macOS Tarballs
+    - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
+      displayName: Generate SBOM For Signed macOS Artifacts
+      inputs:
+        BuildDropPath: $(Build.ArtifactStagingDirectory)/signed-macos
     - task: PublishPipelineArtifact@1
       displayName: Publish Signed macOS Artifacts
       inputs:
@@ -1610,6 +1643,11 @@ stages:
         echo "Final signed release contents:"
         ls -al "$release_dir"
       displayName: Assemble Final Signed Artifact
+
+    - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
+      displayName: Generate SBOM For Final Signed Artifact
+      inputs:
+        BuildDropPath: $(Build.ArtifactStagingDirectory)/signed-release
 
     - task: PublishPipelineArtifact@1
       displayName: Publish Final Signed Artifact
