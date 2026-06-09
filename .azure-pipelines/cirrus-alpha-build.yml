@@ -1,4 +1,4 @@
-name: cirrus-pr-build-$(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:.r)
+name: cirrus-alpha-build-$(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:.r)
 
 trigger: none
 pr:
@@ -59,7 +59,7 @@ stages:
   parameters:
     artifact_version_override: auto
     bump_type: patch
-    release_channel: auto
+    release_channel: pr-alpha
     release_date: auto
     pr_number: auto
     sequence: auto

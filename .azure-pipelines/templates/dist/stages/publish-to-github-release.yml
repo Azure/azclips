@@ -11,6 +11,12 @@ parameters:
 - name: GitHubReleasePrefix
   type: string
   default: 'dist'
+- name: GitHubReleaseTagMode
+  type: string
+  default: 'buildScoped'
+- name: GitHubReleaseAllowOverwrite
+  type: string
+  default: 'true'
 - name: GitHubReleaseIsPrerelease
   type: string
   default: 'true'
@@ -168,9 +174,26 @@ stages:
           exit 1
         fi
 
-        safe_version="${core_distribution_version//[^0-9A-Za-z._-]/-}"
-        tag_name="${{ parameters.GitHubReleasePrefix }}-${safe_version}-build-${signed_build_id}"
-        release_name="Distribution ${core_distribution_version} build ${signed_build_id}"
+        release_tag_mode="${{ parameters.GitHubReleaseTagMode }}"
+        case "$release_tag_mode" in
+          buildScoped)
+            safe_version="${core_distribution_version//[^0-9A-Za-z._-]/-}"
+            tag_name="${{ parameters.GitHubReleasePrefix }}-${safe_version}-build-${signed_build_id}"
+            release_name="Distribution ${core_distribution_version} build ${signed_build_id}"
+            ;;
+          stableVersion)
+            if [[ ! "$core_distribution_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "ERROR: stableVersion GitHub release tag mode requires a stable SemVer artifact version. Got: $core_distribution_version"
+              exit 1
+            fi
+            tag_name="v$core_distribution_version"
+            release_name="Cirrus $core_distribution_version"
+            ;;
+          *)
+            echo "ERROR: Unsupported GitHubReleaseTagMode: $release_tag_mode"
+            exit 1
+            ;;
+        esac
 
         release_dir="$(Build.ArtifactStagingDirectory)/release"
         rm -rf "$release_dir"
@@ -199,14 +222,15 @@ stages:
         echo "##vso[task.setvariable variable=SignedArtifactName]$signed_artifact_name"
       displayName: Prepare Release Tag And Assets
 
-    - task: GitHubRelease@1
-      displayName: Delete Existing GitHub Release (If Any)
-      continueOnError: true
-      inputs:
-        gitHubConnection: '${{ parameters.GitHubServiceConnection }}'
-        repositoryName: '${{ parameters.GitHubTargetRepo }}'
-        action: 'delete'
-        tag: '$(ReleaseTag)'
+    - ${{ if eq(parameters.GitHubReleaseAllowOverwrite, 'true') }}:
+      - task: GitHubRelease@1
+        displayName: Delete Existing GitHub Release (If Any)
+        continueOnError: true
+        inputs:
+          gitHubConnection: '${{ parameters.GitHubServiceConnection }}'
+          repositoryName: '${{ parameters.GitHubTargetRepo }}'
+          action: 'delete'
+          tag: '$(ReleaseTag)'
 
     - task: GitHubRelease@1
       displayName: Create GitHub Release

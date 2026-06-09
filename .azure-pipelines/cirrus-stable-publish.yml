@@ -1,0 +1,112 @@
+name: cirrus-stable-publish-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+resources:
+  pipelines:
+  - pipeline: stableSign
+    project: release
+    source: cirrus-stable-sign
+    trigger: true
+
+parameters:
+- name: GitHubServiceConnection
+  displayName: 'GitHub Service Connection'
+  type: string
+  default: 'github.com_naga-nandyala'
+- name: signed_artifact_name
+  displayName: 'Signed artifact name'
+  type: string
+  default: 'Distribution_Signed'
+
+variables:
+- template: templates/variables.yml
+- name: SourceProject
+  value: release
+- name: GitHubTargetRepo
+  value: naga-nandyala/cirrus
+- name: GitHubReleasePrefix
+  value: dist
+- name: GitHubReleaseIsPrerelease
+  value: false
+- name: Codeql.Enabled
+  value: false
+- name: Codeql.SkipTaskAutoInjection
+  value: true
+- name: AdvancedSecurity.CodeQL.Enabled
+  value: false
+- name: ComponentGovernance.Enabled
+  value: false
+- name: skipComponentGovernanceDetection
+  value: true
+- name: runCodesignValidationInjection
+  value: false
+- name: CredScan.Enabled
+  value: false
+- name: BinSkim.Enabled
+  value: false
+- name: PoliCheck.Enabled
+  value: false
+- name: RoslynAnalyzers.Enabled
+  value: false
+- name: SdtReport.Enabled
+  value: false
+- name: TSAUpload.Enabled
+  value: false
+- name: NugetSecurityAnalysisWarningLevel
+  value: none
+- name: skipNugetSecurityAnalysis
+  value: true
+
+stages:
+- stage: Preflight
+  displayName: Preflight Checks
+  jobs:
+  - job: EnsureReleaseProject
+    displayName: Ensure Release Project Context
+    pool:
+      vmImage: $(ubuntu_pool)
+    steps:
+    - checkout: none
+    - bash: |
+        set -euo pipefail
+        echo "System.TeamProject=$(System.TeamProject)"
+        if [[ "$(System.TeamProject)" != "release" ]]; then
+          echo "ERROR: cirrus-stable-publish must run in the 'release' project for publish access."
+          exit 1
+        fi
+
+        signed_build_id='$(resources.pipeline.stableSign.runID)'
+        if [[ -z "$signed_build_id" ]]; then
+          echo 'ERROR: stableSign resource run id was not resolved. Select a cirrus-stable-sign resource version when queueing this pipeline.'
+          exit 1
+        fi
+        if ! [[ "$signed_build_id" =~ ^[0-9]+$ ]]; then
+          echo "ERROR: stableSign resource run id must be numeric. Got: $signed_build_id"
+          exit 1
+        fi
+
+        echo "Signed source project: release"
+        echo "Signed source pipeline: cirrus-stable-sign"
+        echo "Signed source build id: $signed_build_id"
+        echo "Signed source run name: $(resources.pipeline.stableSign.runName)"
+        echo "Signed source branch: $(resources.pipeline.stableSign.sourceBranch)"
+        echo "Signed source commit: $(resources.pipeline.stableSign.sourceCommit)"
+        echo "Signed source artifact: ${{ parameters.signed_artifact_name }}"
+      displayName: Validate Signed Build Resource
+
+- template: templates/dist/stages/publish-to-github-release.yml
+  parameters:
+    ubuntu_pool: $(ubuntu_pool)
+    dependency_stage: Preflight
+    SourceProject: $(SourceProject)
+    GitHubTargetRepo: $(GitHubTargetRepo)
+    GitHubReleasePrefix: $(GitHubReleasePrefix)
+    GitHubReleaseTagMode: stableVersion
+    GitHubReleaseAllowOverwrite: 'false'
+    GitHubReleaseIsPrerelease: $(GitHubReleaseIsPrerelease)
+    GitHubServiceConnection: ${{ parameters.GitHubServiceConnection }}
+    signed_pipeline_name: cirrus-stable-sign
+    signed_build_id: $(resources.pipeline.stableSign.runID)
+    signed_artifact_name: ${{ parameters.signed_artifact_name }}

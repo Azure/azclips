@@ -18,27 +18,28 @@ Register or update pipeline definitions in the expected projects:
 
 ```text
 public project:
-  cirrus-pr-build      -> .azure-pipelines/cirrus-pr-build.yml
+  cirrus-alpha-build   -> .azure-pipelines/cirrus-alpha-build.yml
   cirrus-beta-build    -> .azure-pipelines/cirrus-beta-build.yml
 
 release project:
   cirrus-trigger-stable-release -> .azure-pipelines/cirrus-trigger-stable-release.yml
-  cirrus-stable-build   -> .azure-pipelines/cirrus-stable-build.yml
-  cirrus-beta-signing   -> .azure-pipelines/cirrus-beta-signing.yml
-  cirrus-stable-signing-release -> .azure-pipelines/cirrus-stable-signing-release.yml
+  cirrus-stable-build -> .azure-pipelines/cirrus-stable-build.yml
+  cirrus-stable-sign -> .azure-pipelines/cirrus-stable-sign.yml
+  cirrus-stable-publish -> .azure-pipelines/cirrus-stable-publish.yml
 ```
 
 Authorize pipeline resources when Azure DevOps prompts for access to build pipelines across or within projects.
 
-## PR Build Smoke Test
+## Alpha Build Smoke Test
 
-Test `cirrus-pr-build` with a disposable PR targeting `main`:
+Test `cirrus-alpha-build` with a disposable PR targeting `main`:
 
 - Push a branch and open a PR to `main`.
 - Push another commit to the same PR while validation is running.
 - Confirm the obsolete PR validation is canceled or superseded and the latest PR commit is the one validated.
 - Confirm version resolution uses the `pr-alpha` channel and produces a version like `X.Y.Z-alpha.yyyyMMdd.prN.buildId`.
 - Confirm the run publishes `Distribution_Final` with `archives/`, `extensions/`, and `manifest.txt`.
+- Confirm the artifacts are public Azure DevOps pipeline artifacts only; no signing, notarization, or GitHub Release is produced.
 
 ## Beta Build Smoke Test
 
@@ -49,35 +50,18 @@ Test `cirrus-beta-build` with a controlled `main` update:
 - Push or merge another `main` update while the first run is active to confirm `batch: true` collapses pending work into a build of the latest `main` tip.
 - Confirm version resolution uses the `beta` channel and produces a version like `X.Y.Z-beta.yyyyMMdd.buildId`.
 - Confirm the run publishes `Distribution_Final`.
-
-## Beta Signing Handoff Test
-
-Test `cirrus-beta-signing` handoff:
-
-- Let a successful `cirrus-beta-build` complete.
-- Confirm Azure DevOps automatically starts `cirrus-beta-signing` in the `release` project.
-- In the `Preflight` logs, confirm `resources.pipeline.betaBuild.runID` matches the source `cirrus-beta-build` run id.
-- Confirm the preflight logs identify the source pipeline as `cirrus-beta-build` and the source project as `public`.
-- Confirm signing downloads `Distribution_Final` from the public project and publishes `Distribution_Signed_Beta`.
+- Confirm the artifacts are public Azure DevOps pipeline artifacts only; no signing, notarization, or GitHub Release is produced.
 
 ## Stable Trigger Smoke Test
 
-Test `cirrus-trigger-stable-release` in both of its modes: manual PR creation and post-merge tag creation.
-
-Manual dry run:
-
-- Queue `cirrus-trigger-stable-release` manually in the `release` project.
-- Confirm the preflight logs show `System.TeamProject=release`.
-- Set `dry_run=true`.
-- Select `bump_type=patch`, `minor`, or `major`.
-- Confirm the run prints the current CLI version, target stable version, intended release branch, and intended tag.
-- Confirm it does not push a branch, create a PR, or create a tag.
+Test `cirrus-trigger-stable-release` in both of its paths: manual PR creation and post-merge tag creation.
 
 Manual PR creation:
 
 - Queue `cirrus-trigger-stable-release` manually again in the `release` project.
-- Set `dry_run=false`.
-- Set `create_pr=true` if `GitHubToken` and `gh` are available, otherwise set `create_pr=false` and use the printed manual PR URL.
+- Confirm the preflight logs show `System.TeamProject=release`.
+- Select `bump_type=patch`, `minor`, or `major`.
+- Confirm `GitHubToken` is configured so the pipeline can create the release PR automatically.
 - Confirm it creates a branch like `release/trigger-stable-release-X.Y.Z`.
 - Confirm that branch changes only `src/CLI/Core.Cli.csproj` stable version metadata:
   - `Version` or `VersionPrefix` is `X.Y.Z`.
@@ -99,7 +83,7 @@ Post-merge tag creation:
 - Confirm the `CreateStableTag` stage runs.
 - Confirm the logs say the triggering commit only changed stable version metadata in `src/CLI/Core.Cli.csproj`.
 - Confirm the logs show the latest stable tag and allowed next versions.
-- Confirm it creates and pushes the matching `vX.Y.Z` tag on the merged `main` commit.
+- Confirm it creates and pushes the matching `vX.Y.Z` tag on the exact `Build.SourceVersion` commit that triggered the tag run.
 
 Stable build handoff:
 
@@ -117,21 +101,30 @@ Negative guard test:
 
 Use the real production version, such as `v0.1.1`, only when intentionally testing the production release path. The tag must be stable SemVer: `vX.Y.Z`, the tagged commit must be contained in `origin/main`, and the tag version must match the CLI version in the tagged source.
 
-## Stable Signing And Release Test
+## Stable Signing Test
 
-Test `cirrus-stable-signing-release` carefully:
+Test `cirrus-stable-sign` carefully:
 
-- Confirm a successful release-project `cirrus-stable-build` automatically starts `cirrus-stable-signing-release` in the `release` project.
-- For a non-production smoke test, point `GitHubTargetRepo` or the GitHub service connection at a test repository before running the publish stage.
+- Confirm a successful release-project `cirrus-stable-build` automatically starts `cirrus-stable-sign` in the `release` project.
 - Confirm `resources.pipeline.stableBuild.runID` matches the triggering stable build.
-- Confirm the signed artifact is produced before allowing the GitHub release task to publish real assets.
+- Confirm `Distribution_Signed` is produced.
+
+## Stable Publish Test
+
+Test `cirrus-stable-publish` carefully:
+
+- Confirm a successful release-project `cirrus-stable-sign` automatically starts `cirrus-stable-publish` in the `release` project.
+- For a non-production smoke test, point `GitHubTargetRepo` or the GitHub service connection at a test repository before running the publish stage.
+- Confirm `resources.pipeline.stableSign.runID` matches the triggering stable signing run.
+- Confirm the GitHub release is created for the existing stable tag `vX.Y.Z`, not a build-scoped `dist-*` tag.
+- Confirm the GitHub release task publishes assets from `Distribution_Signed` only.
 
 ## Expected Evidence
 
 ```text
-PR update -> cirrus-pr-build -> Distribution_Final
+PR update -> cirrus-alpha-build -> Distribution_Final
 main update -> cirrus-beta-build -> Distribution_Final
-cirrus-beta-build run id -> cirrus-beta-signing -> Distribution_Signed_Beta
 stable tag -> cirrus-stable-build -> Distribution_Final
-stableBuild run id -> cirrus-stable-signing-release -> Distribution_Signed -> GitHub release
+stableBuild run id -> cirrus-stable-sign -> Distribution_Signed
+stableSign run id -> cirrus-stable-publish -> GitHub release
 ```

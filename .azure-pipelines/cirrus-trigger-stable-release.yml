@@ -22,14 +22,6 @@ parameters:
   displayName: Target branch for release PR
   type: string
   default: main
-- name: create_pr
-  displayName: Create stable release pull request
-  type: boolean
-  default: true
-- name: dry_run
-  displayName: Dry run only
-  type: boolean
-  default: false
 
 variables:
 - template: templates/variables.yml
@@ -107,8 +99,6 @@ stages:
 
         bump_type='${{ parameters.bump_type }}'
         target_branch='${{ parameters.target_branch }}'
-        create_pr='${{ parameters.create_pr }}'
-        dry_run='${{ parameters.dry_run }}'
         repo='$(GitHubTargetRepo)'
         core_project='src/CLI/Core.Cli.csproj'
 
@@ -187,11 +177,6 @@ stages:
         echo "Target file version: $target_file_version"
         echo "Release branch: $release_branch"
 
-        if [[ "$dry_run" =~ ^([Tt]rue|TRUE)$ ]]; then
-          echo "Dry run only. No branch or PR will be created."
-          exit 0
-        fi
-
         git checkout -B "$release_branch"
 
         if grep -q '<Version>' "$core_project"; then
@@ -235,38 +220,26 @@ stages:
         pr_title="Trigger stable release $target_version"
         pr_body="Updates src/CLI/Core.Cli.csproj to $target_version. After this PR merges to $target_branch, cirrus-trigger-stable-release will run again from the main version change, tag the merged commit as $tag_name, and start the stable build/sign/publish chain."
 
-        case "$create_pr" in
-          true|True|TRUE)
-            if [[ -z "${GH_TOKEN:-}" || "${GH_TOKEN:-}" == '$('* ]]; then
-              echo "ERROR: create_pr=true requires a secret pipeline variable named GitHubToken exposed as GH_TOKEN."
-              echo "Branch was pushed: $release_branch"
-              echo "Open PR manually: https://github.com/$repo/compare/$target_branch...$release_branch?expand=1"
-              exit 1
-            fi
+        if [[ -z "${GH_TOKEN:-}" || "${GH_TOKEN:-}" == '$('* ]]; then
+          echo "ERROR: GitHubToken must be set as a secret pipeline variable exposed as GH_TOKEN."
+          echo "Branch was pushed: $release_branch"
+          echo "Open PR manually: https://github.com/$repo/compare/$target_branch...$release_branch?expand=1"
+          exit 1
+        fi
 
-            if ! command -v gh >/dev/null 2>&1; then
-              echo "ERROR: GitHub CLI 'gh' is required to create the PR automatically."
-              echo "Branch was pushed: $release_branch"
-              echo "Open PR manually: https://github.com/$repo/compare/$target_branch...$release_branch?expand=1"
-              exit 1
-            fi
+        if ! command -v gh >/dev/null 2>&1; then
+          echo "ERROR: GitHub CLI 'gh' is required to create the PR automatically."
+          echo "Branch was pushed: $release_branch"
+          echo "Open PR manually: https://github.com/$repo/compare/$target_branch...$release_branch?expand=1"
+          exit 1
+        fi
 
-            gh pr create \
-              --repo "$repo" \
-              --base "$target_branch" \
-              --head "$release_branch" \
-              --title "$pr_title" \
-              --body "$pr_body"
-            ;;
-          false|False|FALSE)
-            echo "create_pr=false. Branch was pushed: $release_branch"
-            echo "Open PR manually: https://github.com/$repo/compare/$target_branch...$release_branch?expand=1"
-            ;;
-          *)
-            echo "ERROR: create_pr must be true or false. Got: $create_pr"
-            exit 1
-            ;;
-        esac
+        gh pr create \
+          --repo "$repo" \
+          --base "$target_branch" \
+          --head "$release_branch" \
+          --title "$pr_title" \
+          --body "$pr_body"
 
         echo "##vso[task.setvariable variable=StableVersion;isOutput=true]$target_version"
         echo "##vso[task.setvariable variable=StableTag;isOutput=true]$tag_name"
@@ -296,6 +269,12 @@ stages:
 
         source_branch='main'
         source_ref="refs/remotes/origin/$source_branch"
+        source_commit='$(Build.SourceVersion)'
+
+        if [[ -z "$source_commit" ]]; then
+          echo "ERROR: Build.SourceVersion is empty; cannot determine commit to tag."
+          exit 1
+        fi
 
         read_core_version() {
           local project_path="$1"
@@ -321,8 +300,14 @@ stages:
         git fetch origin "+refs/heads/$source_branch:$source_ref" --prune
         git fetch origin '+refs/tags/*:refs/tags/*' --prune
 
-        source_commit="$(git rev-parse "$source_ref")"
-        echo "Source branch: $source_branch"
+        if ! git merge-base --is-ancestor "$source_commit" "$source_ref"; then
+          echo "ERROR: Build.SourceVersion $source_commit is not contained in $source_ref. Refusing to tag an unexpected commit."
+          exit 1
+        fi
+
+        git checkout --detach "$source_commit"
+
+        echo "Source branch: $(Build.SourceBranch)"
         echo "Source commit: $source_commit"
 
         parent_count="$(git rev-list --parents -n 1 "$source_commit" | awk '{print NF - 1}')"
@@ -358,7 +343,7 @@ stages:
         echo "Confirmed triggering commit only changes stable version metadata in src/CLI/Core.Cli.csproj."
 
         core_project_tmp="$(mktemp)"
-        git show "$source_ref:src/CLI/Core.Cli.csproj" > "$core_project_tmp"
+        git show "$source_commit:src/CLI/Core.Cli.csproj" > "$core_project_tmp"
         core_version="$(read_core_version "$core_project_tmp")"
         rm -f "$core_project_tmp"
 
@@ -371,7 +356,7 @@ stages:
         tag_name="v$target_version"
         tag_ref="refs/tags/$tag_name"
 
-        latest_stable_tag="$(git tag --merged "$source_ref" --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1 || true)"
+        latest_stable_tag="$(git tag --merged "$source_commit" --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1 || true)"
         if [[ -n "$latest_stable_tag" ]]; then
           latest_version="${latest_stable_tag#v}"
 
