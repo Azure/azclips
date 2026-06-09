@@ -37,7 +37,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest.Processors
         /// <summary>Absolute URL, or a relative ARM path (prefixed with the ARM endpoint).</summary>
         public string Uri { get; set; } = "";
 
-        /// <summary>Optional JSON request body for POST/PUT/PATCH.</summary>
+        /// <summary>Optional request body (typically JSON); sent whenever provided, for any method.</summary>
         public string Payload { get; set; } = "";
 
         /// <summary>Optional user headers in KEY=VALUE form.</summary>
@@ -109,8 +109,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest.Processors
             await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
             var request = new HttpRequestMessage(method, url);
 
-            // Attach the body for methods that carry one. Default the content type to
-            // application/json unless the user overrides it via a Content-Type header.
+            // Attach the request body whenever a payload is provided (any HTTP method). Default the
+            // content type to application/json unless the user overrides it via a Content-Type header.
             if (!string.IsNullOrWhiteSpace(Payload))
             {
                 request.Content = new StringContent(Payload, Encoding.UTF8)
