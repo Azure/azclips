@@ -49,6 +49,7 @@ public abstract class ConfigCmdletBase : PSCmdlet
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
         var invocation = new CommandInvocation("Config", commandName, parameters, false, moduleName, moduleVersion);
+        activity.TagInvocation(invocation);
 
         using ISession session = Engine.OpenExecutionSession(invocation, Streams, _cts.Token);
         session.Run();

@@ -64,6 +64,7 @@ public class NewResourceGroupCmdlet : PSCmdlet
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
         var invocation = new CommandInvocation("Resources", "New-ResourceGroup", parameters, false, moduleName, moduleVersion);
+        activity.TagInvocation(invocation);
 
         using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);
         session.Run();
