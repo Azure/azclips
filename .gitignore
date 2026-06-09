@@ -67,6 +67,11 @@ dlldata.c
 # Benchmark Results
 BenchmarkDotNet.Artifacts/
 
+# @TODO DANIEL: Revisit once PowerShell module build/package layout is refined.
+# These are generated MAML help outputs copied for local Get-Help development only.
+src/PS/*/en-US/
+src/PS/*/en-us/
+
 # .NET Core
 project.lock.json
 project.fragment.lock.json

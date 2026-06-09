@@ -1,8 +1,7 @@
 using Core.Abstractions;
 using Core.Cli.Exceptions;
+using Core.Cli.Help;
 using Core.Cli.Parser;
-using Microsoft.Azure.Cirrus.Extensions.Config;
-using Xunit;
 
 namespace Cli.Tests;
 
@@ -26,6 +25,34 @@ public class ExtensionDispatcherTests
     }
 
     [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("\t")]
+    public void Parse_ShouldThrowArgumentException_WhenFirstTokenIsEmptyOrWhitespace(string token)
+    {
+        // Guards against IndexOutOfRangeException from `args[0][0]` on an empty/whitespace token.
+        var dispatcher = new ExtensionDispatcher();
+
+        var exception = Assert.Throws<ArgumentException>(() => dispatcher.Parse([token]));
+        Assert.Contains("Command-group token cannot be empty", exception.Message);
+    }
+
+    [Theory]
+    [InlineData("help", "")]
+    [InlineData("help", "   ")]
+    public void Parse_ShouldNotThrowIndexOutOfRange_WhenHelpSubcommandFollowedByEmptyGroupToken(string firstToken, string secondToken)
+    {
+        // `azv2 help ""` previously crashed inside TryCreateHelpRequest at groupToken[0].
+        // The guard now causes the help-request path to bail out; the dispatcher falls through
+        // to the standard command path, which raises a descriptive error instead.
+        var dispatcher = new ExtensionDispatcher();
+
+        var exception = Record.Exception(() => dispatcher.Parse([firstToken, secondToken]));
+        Assert.NotNull(exception);
+        Assert.IsNotType<IndexOutOfRangeException>(exception);
+    }
+
+    [Theory]
     [InlineData("--help")]
     [InlineData("-h")]
     [InlineData("help")]
@@ -42,15 +69,52 @@ public class ExtensionDispatcherTests
     }
 
     [Fact]
-    public void ConfigExtensionIndex_ShouldExposeTranslatedPowerShellParameters()
+    public void Parse_ShouldThrowRuntimeExtensionHelpException_WhenGroupHelpRequested()
     {
-        var extensionIndex = new ExtensionIndex();
+        var dispatcher = new ExtensionDispatcher();
 
-        var getMetadata = extensionIndex.GetCommandMetadata("Get-CirrusConfig", ClientType.PowerShell);
-        Assert.Contains("Json", getMetadata.Parameters.Keys);
+        var exception = Assert.Throws<RuntimeExtensionHelpException>(() => dispatcher.Parse(["login", "--help"]));
 
-        var listMetadata = extensionIndex.GetCommandMetadata("Get-CirrusConfigList", ClientType.PowerShell);
-        Assert.Contains("All", listMetadata.Parameters.Keys);
-        Assert.Contains("Json", listMetadata.Parameters.Keys);
+        Assert.Equal("Login", exception.ExtensionName);
+        Assert.False(exception.IsCommandHelp);
+        Assert.Equal(["login"], exception.Path);
+    }
+
+    [Fact]
+    public void Parse_ShouldThrowRuntimeExtensionHelpException_WhenHelpSubcommandUsedForCommand()
+    {
+        var dispatcher = new ExtensionDispatcher();
+
+        var exception = Assert.Throws<RuntimeExtensionHelpException>(() => dispatcher.Parse(["help", "login", "show"]));
+
+        Assert.Equal("Login", exception.ExtensionName);
+        Assert.True(exception.IsCommandHelp);
+        Assert.Equal(["login", "show"], exception.Path);
+    }
+
+    [Fact]
+    public void Parse_ShouldShortCircuitToHelp_BeforeCommandExecutionPath()
+    {
+        var dispatcher = new ExtensionDispatcher();
+
+        var exception = Assert.Throws<RuntimeExtensionHelpException>(() => dispatcher.Parse(["login", "--help", "--subscription-id", "missing"]));
+
+        Assert.Equal("Login", exception.ExtensionName);
+        Assert.False(exception.IsCommandHelp);
+        Assert.Equal(["login"], exception.Path);
+    }
+
+    [Fact]
+    public void LoginHelpAdapter_ShouldProvideRuntimeCommandHelp()
+    {
+        var helpProvider = new ExtensionIndexHelpAdapter(new Microsoft.Azure.Cirrus.Extensions.Login.ExtensionIndex(), "Login");
+
+        var groupHelp = helpProvider.GetGroupHelp(["login"]);
+        var commandHelp = helpProvider.GetCommandHelp(["login", "show"]);
+
+        Assert.NotNull(groupHelp);
+        Assert.NotNull(commandHelp);
+        Assert.Equal("login", groupHelp!.GroupPath);
+        Assert.Equal("login show", commandHelp!.CommandPath);
     }
 }

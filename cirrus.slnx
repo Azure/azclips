@@ -35,6 +35,7 @@
     <Project Path="tests/Benchmark/Benchmark.csproj" />
     <Project Path="tests/Common/Tests.Common.csproj" />
     <Project Path="tests/Core.Telemetry.Tests/Core.Telemetry.Tests.csproj" />
+    <Project Path="tools/Help/Cirrus.Help.Tool.Tests/Cirrus.Help.Tool.Tests.csproj" />
   </Folder>
   <Folder Name="/src/PS/">
     <Project Path="src/PS/Resources/Cmdlets.Resources.csproj" />
