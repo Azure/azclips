@@ -292,6 +292,14 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
                         await _publisher.Publish(Events.AfterFinalPollingCall);
                         break;
                     }
+                    // Terminal status reached but we are not fetching final state (FetchFinalState
+                    // is false or no _finalUri): exit deterministically rather than relying on the
+                    // while-condition re-evaluation, so a PUT-based LRO that opts out of the final
+                    // GET can never spin the poll loop.
+                    else
+                    {
+                        break;
+                    }
                 }
                 switch (_response.StatusCode)
                 {
