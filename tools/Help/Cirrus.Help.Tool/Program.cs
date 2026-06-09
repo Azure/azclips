@@ -71,6 +71,7 @@ if (scaffoldExtension is not null)
         ["extension"] = "extension",
         ["config"] = "config",
         ["compute"] = "vm",
+        ["rest"] = "rest",
     }.TryGetValue(scaffoldExtensionName, out var token) ? token : null;
 
     return Scaffolder.Scaffold(repoRoot, scaffoldExtensionName, scaffoldIndex, cliGroup);
@@ -91,6 +92,7 @@ var cliGroupByExtension = new Dictionary<string, string>(StringComparer.OrdinalI
     ["extension"] = "extension",
     ["config"] = "config",
     ["compute"] = "vm",
+    ["rest"] = "rest",
 };
 
 foreach (var dllPath in extensionDlls)
