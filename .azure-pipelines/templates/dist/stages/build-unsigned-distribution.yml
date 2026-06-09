@@ -1,0 +1,197 @@
+parameters:
+- name: artifact_version_override
+  type: string
+  default: 'auto'
+- name: bump_type
+  type: string
+  default: 'patch'
+- name: release_channel
+  type: string
+  default: 'auto'
+- name: release_date
+  type: string
+  default: 'auto'
+- name: pr_number
+  type: string
+  default: 'auto'
+- name: sequence
+  type: string
+  default: 'auto'
+- name: ubuntu_pool
+  type: string
+  default: 'ubuntu-latest'
+- name: windows_pool
+  type: string
+  default: 'windows-latest'
+- name: final_artifact_name
+  type: string
+  default: 'Distribution_Final'
+
+stages:
+- template: init-resolve-version.yml
+  parameters:
+    artifact_version_override: ${{ parameters.artifact_version_override }}
+    bump_type: ${{ parameters.bump_type }}
+    release_channel: ${{ parameters.release_channel }}
+    release_date: ${{ parameters.release_date }}
+    pr_number: ${{ parameters.pr_number }}
+    sequence: ${{ parameters.sequence }}
+    ubuntu_pool: ${{ parameters.ubuntu_pool }}
+
+- stage: BuildCommon
+  displayName: Build Common
+  dependsOn: Init
+  condition: succeeded()
+  variables:
+    ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
+  jobs:
+  - template: ../jobs/build-common.yml
+    parameters:
+      ubuntu_pool: ${{ parameters.ubuntu_pool }}
+      PackagingScriptsRoot: $(PackagingScriptsRoot)
+      PackagingCommonOutRoot: $(PackagingCommonOutRoot)
+
+- stage: BuildLinux
+  displayName: Build Linux
+  dependsOn:
+  - Init
+  - BuildCommon
+  condition: succeeded()
+  variables:
+    ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
+  jobs:
+  - template: ../jobs/build-linux.yml
+    parameters:
+      ubuntu_pool: ${{ parameters.ubuntu_pool }}
+      PackagingScriptsRoot: $(PackagingScriptsRoot)
+      PackagingCommonOutRoot: $(PackagingCommonOutRoot)
+      PackagingLinuxOutRoot: $(PackagingLinuxOutRoot)
+
+- stage: BuildWindows
+  displayName: Build Windows
+  dependsOn:
+  - Init
+  - BuildCommon
+  condition: succeeded()
+  variables:
+    ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
+  jobs:
+  - template: ../jobs/build-windows.yml
+    parameters:
+      windows_pool: ${{ parameters.windows_pool }}
+      PackagingScriptsRoot: $(PackagingScriptsRoot)
+      PackagingCommonOutRoot: $(PackagingCommonOutRoot)
+      PackagingWindowsOutRoot: $(PackagingWindowsOutRoot)
+
+- stage: BuildMacOS
+  displayName: Build macOS
+  dependsOn:
+  - Init
+  - BuildCommon
+  condition: succeeded()
+  variables:
+    ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
+  jobs:
+  - template: ../jobs/build-macos.yml
+    parameters:
+      PackagingScriptsRoot: $(PackagingScriptsRoot)
+      PackagingCommonOutRoot: $(PackagingCommonOutRoot)
+      PackagingMacOSOutRoot: $(PackagingMacOSOutRoot)
+
+- stage: Test
+  displayName: Test
+  dependsOn:
+  - Init
+  - BuildCommon
+  condition: succeeded()
+  jobs:
+  - template: ../jobs/test-suite.yml
+    parameters:
+      ubuntu_pool: ${{ parameters.ubuntu_pool }}
+
+- stage: Benchmark
+  displayName: Benchmark
+  dependsOn:
+  - Init
+  - BuildCommon
+  condition: succeeded()
+  jobs:
+  - template: ../jobs/benchmark-suite.yml
+    parameters:
+      ubuntu_pool: ${{ parameters.ubuntu_pool }}
+
+- stage: ValidateLinux
+  displayName: Validate Linux
+  dependsOn:
+  - Init
+  - BuildLinux
+  condition: succeeded()
+  variables:
+    ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
+  jobs:
+  - template: ../jobs/validate-linux.yml
+    parameters:
+      ubuntu_pool: ${{ parameters.ubuntu_pool }}
+      PackagingScriptsRoot: $(PackagingScriptsRoot)
+      PackagingCommonOutRoot: $(PackagingCommonOutRoot)
+      PackagingLinuxOutRoot: $(PackagingLinuxOutRoot)
+
+- stage: ValidateWindows
+  displayName: Validate Windows
+  dependsOn:
+  - Init
+  - BuildWindows
+  condition: succeeded()
+  variables:
+    ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
+  jobs:
+  - template: ../jobs/validate-windows.yml
+    parameters:
+      windows_pool: ${{ parameters.windows_pool }}
+      PackagingScriptsRoot: $(PackagingScriptsRoot)
+      PackagingCommonOutRoot: $(PackagingCommonOutRoot)
+      PackagingWindowsOutRoot: $(PackagingWindowsOutRoot)
+
+- stage: ValidateMacOS
+  displayName: Validate macOS
+  dependsOn:
+  - Init
+  - BuildMacOS
+  condition: succeeded()
+  variables:
+    ArtifactVersion: $[ stageDependencies.Init.Start.outputs['SetCoreVersion.ArtifactVersion'] ]
+  jobs:
+  - template: ../jobs/validate-macos.yml
+    parameters:
+      PackagingScriptsRoot: $(PackagingScriptsRoot)
+      PackagingCommonOutRoot: $(PackagingCommonOutRoot)
+      PackagingMacOSOutRoot: $(PackagingMacOSOutRoot)
+
+- stage: Finalize
+  displayName: Finalize
+  dependsOn:
+  - BuildCommon
+  - BuildLinux
+  - BuildWindows
+  - BuildMacOS
+  - Test
+  - Benchmark
+  - ValidateLinux
+  - ValidateWindows
+  - ValidateMacOS
+  condition: always()
+  variables:
+    BuildCommonResult: $[ stageDependencies.BuildCommon.BuildCommonOutputs.result ]
+    BuildLinuxResult: $[ stageDependencies.BuildLinux.BuildLinuxOutput.result ]
+    BuildWindowsResult: $[ stageDependencies.BuildWindows.BuildWindowsOutput.result ]
+    BuildMacOSResult: $[ stageDependencies.BuildMacOS.BuildMacOSOutput.result ]
+    TestResult: $[ stageDependencies.Test.UnitTests.result ]
+    BenchmarkResult: $[ stageDependencies.Benchmark.BenchmarkSuite.result ]
+    ValidateLinuxResult: $[ stageDependencies.ValidateLinux.LinuxValidation.result ]
+    ValidateWindowsResult: $[ stageDependencies.ValidateWindows.WindowsValidation.result ]
+    ValidateMacOSResult: $[ stageDependencies.ValidateMacOS.MacOSValidation.result ]
+  jobs:
+  - template: ../jobs/finalize-summary.yml
+    parameters:
+      ubuntu_pool: ${{ parameters.ubuntu_pool }}
+      final_artifact_name: ${{ parameters.final_artifact_name }}

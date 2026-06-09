@@ -1,0 +1,85 @@
+name: cirrus-stable-build-$(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger:
+  tags:
+    include:
+    - v*
+pr: none
+
+variables:
+- template: templates/variables.yml
+- name: PackagingScriptsRoot
+  value: $(Build.SourcesDirectory)/devops/scripts/packaging
+- name: PackagingOutRoot
+  value: $(Build.SourcesDirectory)/devops/out
+- name: PackagingCommonOutRoot
+  value: $(PackagingOutRoot)/common
+- name: PackagingLinuxOutRoot
+  value: $(PackagingOutRoot)/linux
+- name: PackagingWindowsOutRoot
+  value: $(PackagingOutRoot)/windows
+- name: PackagingMacOSOutRoot
+  value: $(PackagingOutRoot)/macos
+- name: DOTNET_CLI_TELEMETRY_OPTOUT
+  value: 1
+- name: DOTNET_NOLOGO
+  value: 1
+- name: Codeql.Enabled
+  value: false
+- name: Codeql.SkipTaskAutoInjection
+  value: true
+- name: AdvancedSecurity.CodeQL.Enabled
+  value: false
+- name: ComponentGovernance.Enabled
+  value: false
+- name: skipComponentGovernanceDetection
+  value: true
+- name: runCodesignValidationInjection
+  value: false
+- name: CredScan.Enabled
+  value: false
+- name: BinSkim.Enabled
+  value: false
+- name: PoliCheck.Enabled
+  value: false
+- name: RoslynAnalyzers.Enabled
+  value: false
+- name: SdtReport.Enabled
+  value: false
+- name: TSAUpload.Enabled
+  value: false
+- name: NugetSecurityAnalysisWarningLevel
+  value: none
+- name: skipNugetSecurityAnalysis
+  value: true
+
+stages:
+- stage: Preflight
+  displayName: Preflight Checks
+  jobs:
+  - job: EnsureReleaseProject
+    displayName: Ensure Release Project Context
+    pool:
+      vmImage: $(ubuntu_pool)
+    steps:
+    - checkout: none
+    - bash: |
+        set -euo pipefail
+        echo "System.TeamProject=$(System.TeamProject)"
+        if [[ "$(System.TeamProject)" != "release" ]]; then
+          echo "ERROR: cirrus-stable-build must run in the 'release' project."
+          exit 1
+        fi
+      displayName: Validate Release Project
+
+- template: templates/dist/stages/build-unsigned-distribution.yml
+  parameters:
+    artifact_version_override: auto
+    bump_type: patch
+    release_channel: stable
+    release_date: auto
+    pr_number: auto
+    sequence: auto
+    ubuntu_pool: $(ubuntu_pool)
+    windows_pool: $(windows_pool)
+    final_artifact_name: Distribution_Final

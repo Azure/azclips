@@ -23,7 +23,7 @@ parameters:
   values:
   - auto
   - pr-alpha
-  - main-rc
+  - beta
   - stable
 - name: release_date
   displayName: 'Release date override (auto = utc, or yyyyMMdd)'

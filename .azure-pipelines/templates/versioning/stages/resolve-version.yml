@@ -89,7 +89,7 @@ stages:
           if [[ "$build_reason" == "PullRequest" ]]; then
             release_channel="pr-alpha"
           elif [[ "$source_branch" == "refs/heads/main" ]]; then
-            release_channel="main-rc"
+            release_channel="beta"
           elif [[ "$source_branch" =~ ^refs/tags/v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             release_channel="stable"
           else
@@ -154,8 +154,8 @@ stages:
             computed_version="$target_stable_version-alpha.$release_date.pr$pr_number.$sequence"
             pipeline_flow="build"
             ;;
-          main-rc)
-            computed_version="$target_stable_version-rc.$release_date.$sequence"
+          beta)
+            computed_version="$target_stable_version-beta.$release_date.$sequence"
             pipeline_flow="build-sign"
             ;;
           stable)

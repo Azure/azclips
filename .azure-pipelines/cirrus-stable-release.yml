@@ -1,0 +1,135 @@
+name: cirrus-stable-release-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+resources:
+  pipelines:
+  - pipeline: stableBuild
+    project: release
+    source: cirrus-stable-build
+    trigger: true
+
+parameters:
+- name: GitHubServiceConnection
+  displayName: 'GitHub Service Connection'
+  type: string
+  default: 'github.com_naga-nandyala'
+- name: signed_artifact_name
+  displayName: 'Signed artifact name'
+  type: string
+  default: 'Distribution_Signed'
+- name: ESRPServiceConnection
+  displayName: 'ESRP Service Connection'
+  type: string
+  default: 'ame_esrp_connection'
+- name: macos_bundle_id
+  displayName: 'macOS bundle id for notarization'
+  type: string
+  default: 'com.microsoft.cirrus.cli'
+
+variables:
+- template: templates/variables.yml
+- ${{ if eq(variables['System.TeamProject'], 'release') }}:
+  - group: 'AME ESRP Variable Group'
+- name: SourceProject
+  value: release
+- name: GitHubTargetRepo
+  value: naga-nandyala/cirrus
+- name: GitHubReleasePrefix
+  value: dist
+- name: GitHubReleaseIsPrerelease
+  value: false
+- name: Codeql.Enabled
+  value: false
+- name: Codeql.SkipTaskAutoInjection
+  value: true
+- name: AdvancedSecurity.CodeQL.Enabled
+  value: false
+- name: ComponentGovernance.Enabled
+  value: false
+- name: skipComponentGovernanceDetection
+  value: true
+- name: runCodesignValidationInjection
+  value: false
+- name: CredScan.Enabled
+  value: false
+- name: BinSkim.Enabled
+  value: false
+- name: PoliCheck.Enabled
+  value: false
+- name: RoslynAnalyzers.Enabled
+  value: false
+- name: SdtReport.Enabled
+  value: false
+- name: TSAUpload.Enabled
+  value: false
+- name: NugetSecurityAnalysisWarningLevel
+  value: none
+- name: skipNugetSecurityAnalysis
+  value: true
+
+stages:
+- stage: Preflight
+  displayName: Preflight Checks
+  jobs:
+  - job: EnsureReleaseProject
+    displayName: Ensure Release Project Context
+    pool:
+      vmImage: $(ubuntu_pool)
+    steps:
+    - checkout: none
+    - bash: |
+        set -euo pipefail
+        echo "System.TeamProject=$(System.TeamProject)"
+        if [[ "$(System.TeamProject)" != "release" ]]; then
+          echo "ERROR: cirrus-stable-release must run in the 'release' project for ESRP and publish access."
+          exit 1
+        fi
+
+        source_build_id='$(resources.pipeline.stableBuild.runID)'
+        if [[ -z "$source_build_id" ]]; then
+          echo 'ERROR: stableBuild resource run id was not resolved. Select a cirrus-stable-build resource version when queueing this pipeline.'
+          exit 1
+        fi
+        if ! [[ "$source_build_id" =~ ^[0-9]+$ ]]; then
+          echo "ERROR: stableBuild resource run id must be numeric. Got: $source_build_id"
+          exit 1
+        fi
+
+        echo "Stable source project: release"
+        echo "Stable source pipeline: cirrus-stable-build"
+        echo "Stable source build id: $source_build_id"
+        echo "Stable source run name: $(resources.pipeline.stableBuild.runName)"
+        echo "Stable source branch: $(resources.pipeline.stableBuild.sourceBranch)"
+        echo "Stable source commit: $(resources.pipeline.stableBuild.sourceCommit)"
+        echo "Stable source artifact: Distribution_Final"
+      displayName: Validate Stable Build Resource
+
+- template: templates/dist/stages/sign-with-esrp.yml
+  parameters:
+    windows_pool: ${{ variables.windows_pool }}
+    ubuntu_pool: ${{ variables.ubuntu_pool }}
+    macos_arm64_pool: ${{ variables.macos_arm64_pool }}
+    macos_intel_pool: ${{ variables.macos_intel_pool }}
+    dependency_stage: Preflight
+    SourceProject: release
+    source_pipeline_name: cirrus-stable-build
+    source_build_id: $(resources.pipeline.stableBuild.runID)
+    source_artifact_name: Distribution_Final
+    signed_artifact_name: ${{ parameters.signed_artifact_name }}
+    esrp_service_connection: ${{ parameters.ESRPServiceConnection }}
+    macos_bundle_id: ${{ parameters.macos_bundle_id }}
+
+- template: templates/dist/stages/publish-to-github-release.yml
+  parameters:
+    ubuntu_pool: $(ubuntu_pool)
+    dependency_stage: AssembleSignedArtifacts
+    SourceProject: $(SourceProject)
+    GitHubTargetRepo: $(GitHubTargetRepo)
+    GitHubReleasePrefix: $(GitHubReleasePrefix)
+    GitHubReleaseIsPrerelease: $(GitHubReleaseIsPrerelease)
+    GitHubServiceConnection: ${{ parameters.GitHubServiceConnection }}
+    signed_pipeline_name: $(Build.DefinitionName)
+    signed_build_id: $(Build.BuildId)
+    signed_artifact_name: ${{ parameters.signed_artifact_name }}

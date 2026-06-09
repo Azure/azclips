@@ -1,0 +1,389 @@
+name: cirrus-trigger-stable-release-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger:
+  branches:
+    include:
+    - main
+  paths:
+    include:
+    - src/CLI/Core.Cli.csproj
+pr: none
+
+parameters:
+- name: bump_type
+  displayName: Stable version bump
+  type: string
+  default: patch
+  values:
+  - patch
+  - minor
+  - major
+- name: target_branch
+  displayName: Target branch for release PR
+  type: string
+  default: main
+- name: create_pr
+  displayName: Create stable release pull request
+  type: boolean
+  default: true
+- name: dry_run
+  displayName: Dry run only
+  type: boolean
+  default: false
+
+variables:
+- template: templates/variables.yml
+- name: GitHubTargetRepo
+  value: naga-nandyala/cirrus
+- name: DOTNET_CLI_TELEMETRY_OPTOUT
+  value: 1
+- name: DOTNET_NOLOGO
+  value: 1
+- name: Codeql.Enabled
+  value: false
+- name: Codeql.SkipTaskAutoInjection
+  value: true
+- name: AdvancedSecurity.CodeQL.Enabled
+  value: false
+- name: ComponentGovernance.Enabled
+  value: false
+- name: skipComponentGovernanceDetection
+  value: true
+- name: runCodesignValidationInjection
+  value: false
+- name: CredScan.Enabled
+  value: false
+- name: BinSkim.Enabled
+  value: false
+- name: PoliCheck.Enabled
+  value: false
+- name: RoslynAnalyzers.Enabled
+  value: false
+- name: SdtReport.Enabled
+  value: false
+- name: TSAUpload.Enabled
+  value: false
+- name: NugetSecurityAnalysisWarningLevel
+  value: none
+- name: skipNugetSecurityAnalysis
+  value: true
+
+stages:
+- stage: TriggerStableRelease
+  displayName: Trigger Stable Release
+  condition: eq(variables['Build.Reason'], 'Manual')
+  jobs:
+  - job: OpenStableReleasePr
+    displayName: Bump CLI Version And Open Stable Release PR
+    pool:
+      vmImage: $(ubuntu_pool)
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 0
+      persistCredentials: true
+
+    - bash: |
+        set -euo pipefail
+
+        bump_type='${{ parameters.bump_type }}'
+        target_branch='${{ parameters.target_branch }}'
+        create_pr='${{ parameters.create_pr }}'
+        dry_run='${{ parameters.dry_run }}'
+        repo='$(GitHubTargetRepo)'
+        core_project='src/CLI/Core.Cli.csproj'
+
+        read_core_version() {
+          local project_path="$1"
+          local version=""
+
+          version="$(grep -oPm1 '(?<=<Version>)[^<]+' "$project_path" || true)"
+          version="$(echo "$version" | xargs)"
+
+          if [[ -z "$version" ]]; then
+            version="$(grep -oPm1 '(?<=<VersionPrefix>)[^<]+' "$project_path" || true)"
+            version="$(echo "$version" | xargs)"
+          fi
+
+          if [[ -z "$version" ]]; then
+            version="$(grep -oPm1 '(?<=<AssemblyVersion>)[^<]+' "$project_path" || true)"
+            version="$(echo "$version" | xargs)"
+          fi
+
+          echo "$version"
+        }
+
+        if [[ ! "$target_branch" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+          echo "ERROR: target_branch contains unsupported characters: $target_branch"
+          exit 1
+        fi
+
+        git fetch origin "+refs/heads/$target_branch:refs/remotes/origin/$target_branch" --prune
+        git fetch origin '+refs/tags/*:refs/tags/*' --prune
+        git checkout -B "$target_branch" "refs/remotes/origin/$target_branch"
+
+        current_version="$(read_core_version "$core_project")"
+        if [[ ! "$current_version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+          echo "ERROR: CLI version on $target_branch must be stable SemVer like 0.1.0. Got: $current_version"
+          exit 1
+        fi
+
+        major="${BASH_REMATCH[1]}"
+        minor="${BASH_REMATCH[2]}"
+        patch="${BASH_REMATCH[3]}"
+
+        case "$bump_type" in
+          patch)
+            target_version="$major.$minor.$((patch + 1))"
+            ;;
+          minor)
+            target_version="$major.$((minor + 1)).0"
+            ;;
+          major)
+            target_version="$((major + 1)).0.0"
+            ;;
+          *)
+            echo "ERROR: Unsupported bump_type: $bump_type"
+            exit 1
+            ;;
+        esac
+
+        tag_name="v$target_version"
+        if git ls-remote --exit-code --tags origin "refs/tags/$tag_name" >/dev/null 2>&1; then
+          echo "ERROR: Stable tag $tag_name already exists on origin."
+          exit 1
+        fi
+
+        release_branch="release/trigger-stable-release-$target_version"
+        if git ls-remote --exit-code --heads origin "$release_branch" >/dev/null 2>&1; then
+          echo "ERROR: Branch $release_branch already exists on origin."
+          exit 1
+        fi
+
+        echo "Target branch: $target_branch"
+        echo "Current CLI version: $current_version"
+        echo "Requested bump: $bump_type"
+        echo "Target stable version: $target_version"
+        echo "Release branch: $release_branch"
+
+        if [[ "$dry_run" =~ ^([Tt]rue|TRUE)$ ]]; then
+          echo "Dry run only. No branch or PR will be created."
+          exit 0
+        fi
+
+        git checkout -B "$release_branch"
+
+        if grep -q '<Version>' "$core_project"; then
+          sed -i -E "0,/<Version>[^<]+<\/Version>/s//<Version>$target_version<\/Version>/" "$core_project"
+        elif grep -q '<VersionPrefix>' "$core_project"; then
+          sed -i -E "0,/<VersionPrefix>[^<]+<\/VersionPrefix>/s//<VersionPrefix>$target_version<\/VersionPrefix>/" "$core_project"
+        else
+          echo "ERROR: Could not find <Version> or <VersionPrefix> in $core_project"
+          exit 1
+        fi
+
+        updated_version="$(read_core_version "$core_project")"
+        if [[ "$updated_version" != "$target_version" ]]; then
+          echo "ERROR: Version update failed. Expected $target_version but got $updated_version"
+          exit 1
+        fi
+
+        git config user.name "Cirrus Release Automation"
+        git config user.email "cirrus-release-automation@microsoft.com"
+        git add "$core_project"
+        git commit -m "Bump CLI version to $target_version"
+        git push origin "HEAD:refs/heads/$release_branch"
+
+        pr_title="Trigger stable release $target_version"
+        pr_body="Updates src/CLI/Core.Cli.csproj to $target_version. After this PR merges to $target_branch, cirrus-trigger-stable-release will run again from the main version change, tag the merged commit as $tag_name, and start the stable build/sign/publish chain."
+
+        case "$create_pr" in
+          true|True|TRUE)
+            if [[ -z "${GH_TOKEN:-}" || "${GH_TOKEN:-}" == '$('* ]]; then
+              echo "ERROR: create_pr=true requires a secret pipeline variable named GitHubToken exposed as GH_TOKEN."
+              echo "Branch was pushed: $release_branch"
+              echo "Open PR manually: https://github.com/$repo/compare/$target_branch...$release_branch?expand=1"
+              exit 1
+            fi
+
+            if ! command -v gh >/dev/null 2>&1; then
+              echo "ERROR: GitHub CLI 'gh' is required to create the PR automatically."
+              echo "Branch was pushed: $release_branch"
+              echo "Open PR manually: https://github.com/$repo/compare/$target_branch...$release_branch?expand=1"
+              exit 1
+            fi
+
+            gh pr create \
+              --repo "$repo" \
+              --base "$target_branch" \
+              --head "$release_branch" \
+              --title "$pr_title" \
+              --body "$pr_body"
+            ;;
+          false|False|FALSE)
+            echo "create_pr=false. Branch was pushed: $release_branch"
+            echo "Open PR manually: https://github.com/$repo/compare/$target_branch...$release_branch?expand=1"
+            ;;
+          *)
+            echo "ERROR: create_pr must be true or false. Got: $create_pr"
+            exit 1
+            ;;
+        esac
+
+        echo "##vso[task.setvariable variable=StableVersion;isOutput=true]$target_version"
+        echo "##vso[task.setvariable variable=StableTag;isOutput=true]$tag_name"
+        echo "##vso[task.setvariable variable=StableVersionBranch;isOutput=true]$release_branch"
+      name: CreateStableReleasePr
+      displayName: Create Stable Release Branch And PR
+      env:
+        GH_TOKEN: $(GitHubToken)
+
+- stage: CreateStableTag
+  displayName: Create Stable Tag
+  condition: and(succeeded(), in(variables['Build.Reason'], 'IndividualCI', 'BatchedCI'), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - job: TagMain
+    displayName: Validate Version And Tag Main
+    pool:
+      vmImage: $(ubuntu_pool)
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 0
+      persistCredentials: true
+
+    - bash: |
+        set -euo pipefail
+
+        source_branch='main'
+        source_ref="refs/remotes/origin/$source_branch"
+
+        read_core_version() {
+          local project_path="$1"
+          local version=""
+
+          version="$(grep -oPm1 '(?<=<Version>)[^<]+' "$project_path" || true)"
+          version="$(echo "$version" | xargs)"
+
+          if [[ -z "$version" ]]; then
+            version="$(grep -oPm1 '(?<=<VersionPrefix>)[^<]+' "$project_path" || true)"
+            version="$(echo "$version" | xargs)"
+          fi
+
+          if [[ -z "$version" ]]; then
+            version="$(grep -oPm1 '(?<=<AssemblyVersion>)[^<]+' "$project_path" || true)"
+            version="$(echo "$version" | xargs)"
+          fi
+
+          echo "$version"
+        }
+
+        echo "Fetching main and tags from origin"
+        git fetch origin "+refs/heads/$source_branch:$source_ref" --prune
+        git fetch origin '+refs/tags/*:refs/tags/*' --prune
+
+        source_commit="$(git rev-parse "$source_ref")"
+        echo "Source branch: $source_branch"
+        echo "Source commit: $source_commit"
+
+        parent_count="$(git rev-list --parents -n 1 "$source_commit" | awk '{print NF - 1}')"
+        if [[ "$parent_count" -eq 0 ]]; then
+          echo "ERROR: Cannot validate version-only change for root commit $source_commit."
+          exit 1
+        fi
+
+        first_parent="$(git rev-parse "$source_commit^1")"
+        changed_files="$(git diff --name-only "$first_parent" "$source_commit")"
+        echo "Files changed in triggering commit:"
+        printf '%s\n' "$changed_files"
+
+        if [[ "$changed_files" != "src/CLI/Core.Cli.csproj" ]]; then
+          echo "Commit changed files other than src/CLI/Core.Cli.csproj. Skipping stable tag creation."
+          exit 0
+        fi
+
+        version_only_diff="$(git diff --unified=0 "$first_parent" "$source_commit" -- src/CLI/Core.Cli.csproj | grep -E '^[+-][[:space:]]*<(Version|VersionPrefix)>[0-9]+\.[0-9]+\.[0-9]+</(Version|VersionPrefix)>[[:space:]]*$' || true)"
+        non_version_diff="$(git diff --unified=0 "$first_parent" "$source_commit" -- src/CLI/Core.Cli.csproj | grep -E '^[+-]' | grep -Ev '^(---|\+\+\+)' | grep -Ev '^[+-][[:space:]]*<(Version|VersionPrefix)>[0-9]+\.[0-9]+\.[0-9]+</(Version|VersionPrefix)>[[:space:]]*$' || true)"
+
+        if [[ -z "$version_only_diff" ]]; then
+          echo "src/CLI/Core.Cli.csproj changed, but no stable <Version> or <VersionPrefix> line changed. Skipping stable tag creation."
+          exit 0
+        fi
+
+        if [[ -n "$non_version_diff" ]]; then
+          echo "src/CLI/Core.Cli.csproj changed outside the stable version line. Skipping stable tag creation."
+          printf '%s\n' "$non_version_diff"
+          exit 0
+        fi
+
+        echo "Confirmed triggering commit only changes the stable version line in src/CLI/Core.Cli.csproj."
+
+        core_project_tmp="$(mktemp)"
+        git show "$source_ref:src/CLI/Core.Cli.csproj" > "$core_project_tmp"
+        core_version="$(read_core_version "$core_project_tmp")"
+        rm -f "$core_project_tmp"
+
+        if [[ ! "$core_version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+          echo "ERROR: CLI version on $source_branch must be stable SemVer like 0.1.0. Got: $core_version"
+          exit 1
+        fi
+
+        target_version="$core_version"
+        tag_name="v$target_version"
+        tag_ref="refs/tags/$tag_name"
+
+        latest_stable_tag="$(git tag --merged "$source_ref" --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1 || true)"
+        if [[ -n "$latest_stable_tag" ]]; then
+          latest_version="${latest_stable_tag#v}"
+
+          if [[ ! "$latest_version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "ERROR: Latest stable tag is not SemVer: $latest_stable_tag"
+            exit 1
+          fi
+
+          latest_major="${BASH_REMATCH[1]}"
+          latest_minor="${BASH_REMATCH[2]}"
+          latest_patch="${BASH_REMATCH[3]}"
+          allowed_patch="$latest_major.$latest_minor.$((latest_patch + 1))"
+          allowed_minor="$latest_major.$((latest_minor + 1)).0"
+          allowed_major="$((latest_major + 1)).0.0"
+
+          if [[ "$target_version" != "$allowed_patch" && "$target_version" != "$allowed_minor" && "$target_version" != "$allowed_major" ]]; then
+            echo "ERROR: CLI version $target_version on $source_branch is not an allowed upgrade from latest stable tag $latest_stable_tag."
+            echo "Allowed next versions: $allowed_patch, $allowed_minor, $allowed_major"
+            exit 1
+          fi
+
+          echo "Latest stable tag: $latest_stable_tag"
+          echo "Allowed next versions: $allowed_patch, $allowed_minor, $allowed_major"
+        else
+          echo "No prior stable tag found on $source_branch. Treating $tag_name as the first stable release tag."
+        fi
+
+        if git show-ref --verify --quiet "$tag_ref"; then
+          existing_commit="$(git rev-list -n 1 "$tag_ref")"
+          echo "ERROR: Tag $tag_name already exists locally at $existing_commit. Refusing to recreate or move release tags."
+          exit 1
+        fi
+
+        remote_tag_line="$(git ls-remote --tags origin "$tag_ref" || true)"
+        if [[ -n "$remote_tag_line" ]]; then
+          echo "ERROR: Tag $tag_name already exists in origin. Refusing to recreate or move release tags."
+          echo "$remote_tag_line"
+          exit 1
+        fi
+
+        echo "CLI version on $source_branch: $core_version"
+        echo "Stable tag to create: $tag_name"
+        echo "Tagged commit: $source_commit"
+
+        git config user.name "Cirrus Release Automation"
+        git config user.email "cirrus-release-automation@microsoft.com"
+        git tag -a "$tag_name" "$source_commit" -m "Release $tag_name"
+        git push origin "$tag_ref"
+        echo "Created and pushed $tag_name. The tag trigger should start cirrus-stable-build."
+
+        echo "##vso[task.setvariable variable=StableTagName]$tag_name"
+        echo "##vso[task.setvariable variable=StableVersion]$target_version"
+        echo "##vso[task.setvariable variable=StableSourceCommit]$source_commit"
+      displayName: Validate And Create Stable Tag

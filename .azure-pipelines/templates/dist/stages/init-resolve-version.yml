@@ -55,6 +55,26 @@ stages:
         pr_number="${{ parameters.pr_number }}"
         sequence="${{ parameters.sequence }}"
 
+        read_core_version() {
+          local project_path="$1"
+          local version=""
+
+          version="$(grep -oPm1 '(?<=<Version>)[^<]+' "$project_path" || true)"
+          version="$(echo "$version" | xargs)"
+
+          if [[ -z "$version" ]]; then
+            version="$(grep -oPm1 '(?<=<VersionPrefix>)[^<]+' "$project_path" || true)"
+            version="$(echo "$version" | xargs)"
+          fi
+
+          if [[ -z "$version" ]]; then
+            version="$(grep -oPm1 '(?<=<AssemblyVersion>)[^<]+' "$project_path" || true)"
+            version="$(echo "$version" | xargs)"
+          fi
+
+          echo "$version"
+        }
+
         if [[ -n "$override_version" && "$override_version" != "auto" && "$override_version" != "infer_from_code" ]]; then
           echo "Using artifact version override: $override_version"
           echo "##vso[task.setvariable variable=ArtifactVersion;isOutput=true]$override_version"
@@ -70,18 +90,7 @@ stages:
           exit 1
         fi
 
-        core_version="$(grep -oPm1 '(?<=<Version>)[^<]+' "$core_project" || true)"
-        core_version="$(echo "$core_version" | xargs)"
-
-        if [[ -z "$core_version" ]]; then
-          core_version="$(grep -oPm1 '(?<=<VersionPrefix>)[^<]+' "$core_project" || true)"
-          core_version="$(echo "$core_version" | xargs)"
-        fi
-
-        if [[ -z "$core_version" ]]; then
-          core_version="$(grep -oPm1 '(?<=<AssemblyVersion>)[^<]+' "$core_project" || true)"
-          core_version="$(echo "$core_version" | xargs)"
-        fi
+        core_version="$(read_core_version "$core_project")"
 
         if [[ -z "$core_version" ]]; then
           echo "ERROR: Unable to resolve core version from $core_project"
@@ -96,16 +105,21 @@ stages:
         major="${BASH_REMATCH[1]}"
         minor="${BASH_REMATCH[2]}"
         patch="${BASH_REMATCH[3]}"
+        source_branch="$(Build.SourceBranch)"
+        tag_version=""
+
+        if [[ "$source_branch" =~ ^refs/tags/v?([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+          tag_version="${BASH_REMATCH[1]}"
+        fi
 
         if [[ "$release_channel" == "auto" ]]; then
           build_reason="$(Build.Reason)"
-          source_branch="$(Build.SourceBranch)"
 
           if [[ "$build_reason" == "PullRequest" ]]; then
             release_channel="pr-alpha"
           elif [[ "$source_branch" == "refs/heads/main" ]]; then
-            release_channel="main-rc"
-          elif [[ "$source_branch" =~ ^refs/tags/v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            release_channel="beta"
+          elif [[ -n "$tag_version" ]]; then
             release_channel="stable"
           else
             release_channel="pr-alpha"
@@ -153,6 +167,30 @@ stages:
 
         target_stable_version="$major.$minor.$patch"
 
+        if [[ "$release_channel" == "stable" ]]; then
+          if [[ -z "$tag_version" ]]; then
+            echo "ERROR: stable release_channel requires a stable SemVer tag like v0.1.1. Got Build.SourceBranch=$source_branch"
+            exit 1
+          fi
+
+          echo "Fetching origin/main to validate stable tag version"
+          git fetch origin +refs/heads/main:refs/remotes/origin/main --prune
+
+          source_commit="$(Build.SourceVersion)"
+          if [[ -n "$source_commit" ]] && ! git merge-base --is-ancestor "$source_commit" origin/main; then
+            echo "ERROR: Stable tag commit $source_commit must be contained in origin/main."
+            exit 1
+          fi
+
+          if [[ "$tag_version" != "$core_version" ]]; then
+            echo "ERROR: Stable tag version $tag_version must match the CLI version in the tagged source: $core_version"
+            exit 1
+          fi
+
+          echo "Stable tag version matches tagged CLI version: $tag_version"
+          target_stable_version="$tag_version"
+        fi
+
         case "$release_channel" in
           pr-alpha)
             if [[ "$pr_number" == "auto" ]]; then
@@ -173,8 +211,8 @@ stages:
             computed_version="$target_stable_version-alpha.$release_date.pr$pr_number.$sequence"
             pipeline_flow="build"
             ;;
-          main-rc)
-            computed_version="$target_stable_version-rc.$release_date.$sequence"
+          beta)
+            computed_version="$target_stable_version-beta.$release_date.$sequence"
             pipeline_flow="build-sign"
             ;;
           stable)
