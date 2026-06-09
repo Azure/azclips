@@ -24,7 +24,7 @@ parameters:
 variables:
 - template: templates/variables.yml
 - name: SourceProject
-  value: public
+  value: release
 - name: GitHubTargetRepo
   value: naga-nandyala/cirrus
 - name: GitHubReleasePrefix
@@ -67,6 +67,7 @@ stages:
     SourceProject: $(SourceProject)
     GitHubTargetRepo: $(GitHubTargetRepo)
     GitHubReleasePrefix: $(GitHubReleasePrefix)
+    GitHubReleaseIsPrerelease: $(GitHubReleaseIsPrerelease)
     GitHubServiceConnection: ${{ parameters.GitHubServiceConnection }}
     signed_pipeline_name: ${{ parameters.signed_pipeline_name }}
     signed_build_id: ${{ parameters.signed_build_id }}

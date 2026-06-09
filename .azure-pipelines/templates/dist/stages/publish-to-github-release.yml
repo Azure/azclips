@@ -11,6 +11,9 @@ parameters:
 - name: GitHubReleasePrefix
   type: string
   default: 'dist'
+- name: GitHubReleaseIsPrerelease
+  type: string
+  default: 'true'
 - name: GitHubServiceConnection
   type: string
 - name: signed_pipeline_name
@@ -211,6 +214,7 @@ stages:
         tagSource: 'userSpecifiedTag'
         tag: '$(ReleaseTag)'
         title: '$(ReleaseName)'
+        isPreRelease: ${{ parameters.GitHubReleaseIsPrerelease }}
         releaseNotesSource: 'inline'
         releaseNotesInline: |
           Automated distribution release.
