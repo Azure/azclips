@@ -1,4 +1,4 @@
-name: cirrus-stable-release-$(Date:yyyyMMdd)$(Rev:.r)
+name: cirrus-stable-signing-release-$(Date:yyyyMMdd)$(Rev:.r)
 
 trigger: none
 pr: none
@@ -83,7 +83,7 @@ stages:
         set -euo pipefail
         echo "System.TeamProject=$(System.TeamProject)"
         if [[ "$(System.TeamProject)" != "release" ]]; then
-          echo "ERROR: cirrus-stable-release must run in the 'release' project for ESRP and publish access."
+          echo "ERROR: cirrus-stable-signing-release must run in the 'release' project for ESRP and publish access."
           exit 1
         fi
 

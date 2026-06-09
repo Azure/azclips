@@ -5,7 +5,7 @@ This document describes the intended production release pipeline shape for Cirru
 The main design principle is separation by trust boundary:
 
 - The public Azure DevOps project builds and validates PR alpha and main beta unsigned artifacts.
-- The release Azure DevOps project owns stable tag builds, signing, notarization, and publishing.
+- The release Azure DevOps project owns stable release orchestration, stable tag builds, signing, notarization, and publishing.
 - Signing and publishing should consume an explicit source build id instead of rebuilding inside the signing/publish stages.
 
 ## Pipeline Roles
@@ -14,12 +14,12 @@ The main design principle is separation by trust boundary:
 | --- | --- | --- | --- | --- | --- |
 | `cirrus-pr-build` | public | Yes | No | No | PR validation and unsigned alpha artifacts. |
 | `cirrus-beta-build` | public | Yes | No | No | Unsigned beta artifacts from trusted branch context. |
-| `cirrus-trigger-stable-release` | public | No | No | No | Creates the stable release PR manually, then tags the merged version on `main`. |
+| `cirrus-trigger-stable-release` | release | No | No | No | Creates the stable release PR manually, then tags the merged version on `main`. |
 | `cirrus-stable-build` | release | Yes | No | No | Unsigned stable candidate artifacts from an approved stable tag. |
 | `cirrus-beta-signing` | release | No | Yes | No | Sign/notarize artifacts produced by a public beta build. |
-| `cirrus-stable-release` | release | No | Yes | Yes | Sign/notarize approved artifacts and publish the stable release. |
+| `cirrus-stable-signing-release` | release | No | Yes | Yes | Sign/notarize approved artifacts and publish the stable release. |
 
-The release project should not rebuild beta source. Beta signing consumes already-built artifacts from the public project using an explicit build run id. Stable releases are stricter: the approved tag starts `cirrus-stable-build` in the release project, and `cirrus-stable-release` signs/publishes that exact release-project build resource.
+The release project should not rebuild beta source. Beta signing consumes already-built artifacts from the public project using an explicit build run id. Stable releases are stricter: the approved tag starts `cirrus-stable-build` in the release project, and `cirrus-stable-signing-release` signs/publishes that exact release-project build resource.
 
 ## Existing Worker Pipelines
 
@@ -57,12 +57,12 @@ cirrus-beta-signing
   resources.pipeline.betaBuild.runID
   -> source_build_id
 
-cirrus-stable-release
+cirrus-stable-signing-release
   resources.pipeline.stableBuild.runID
   -> source_build_id
 ```
 
-`cirrus-beta-signing` is configured to trigger automatically from the public `cirrus-beta-build` pipeline. `cirrus-stable-release` is configured to trigger automatically from the release-project `cirrus-stable-build` pipeline after a stable tag build completes.
+`cirrus-beta-signing` is configured to trigger automatically from the public `cirrus-beta-build` pipeline. `cirrus-stable-signing-release` is configured to trigger automatically from the release-project `cirrus-stable-build` pipeline after a stable tag build completes.
 
 ## Trigger Semantics
 
@@ -72,9 +72,9 @@ cirrus-stable-release
 
 `cirrus-beta-signing` should run after a successful `cirrus-beta-build` through its pipeline resource trigger. This keeps beta signing tied to the exact public build run that produced `Distribution_Final`.
 
-`cirrus-trigger-stable-release` has two modes. When queued manually, it creates a PR that bumps `src/CLI/Core.Cli.csproj` to the intended stable version. After that PR merges to `main`, the same pipeline runs from its CI trigger. The post-merge stage only creates a tag if the triggering commit changes exactly the stable version line in `src/CLI/Core.Cli.csproj`; other project-file edits are skipped.
+`cirrus-trigger-stable-release` must run in the `release` project because it can create release PRs and push stable tags. It has two modes. When queued manually, it creates a PR that bumps `src/CLI/Core.Cli.csproj` to the intended stable version. After that PR merges to `main`, the same release-project pipeline runs from its CI trigger. The post-merge stage only creates a tag if the triggering commit changes exactly the stable version line in `src/CLI/Core.Cli.csproj`; other project-file edits are skipped.
 
-`cirrus-stable-build` should run for approved stable tags, such as `v0.1.1`. `cirrus-stable-release` should run after a successful stable build through its pipeline resource trigger.
+`cirrus-stable-build` should run for approved stable tags, such as `v0.1.1`. `cirrus-stable-signing-release` should run after a successful stable build through its pipeline resource trigger.
 
 ## Stable Release Source Of Truth
 
@@ -91,14 +91,14 @@ main receives PR merges
   -> cirrus-trigger-stable-release runs again from the main version change
   -> same pipeline creates stable tag vX.Y.Z on the main commit whose CLI version is X.Y.Z
   -> cirrus-stable-build produces unsigned stable artifacts with version X.Y.Z
-  -> cirrus-stable-release signs and publishes from that stable build resource
+  -> cirrus-stable-signing-release signs and publishes from that stable build resource
 ```
 
 The stable tag is the immutable release decision. For example, tag `v0.1.1` must produce version `0.1.1`; the stable build should not compute a different stable version during signing or publishing.
 
-The version comes back to `main` through the `cirrus-trigger-stable-release` pipeline. A manual run opens a normal PR that updates `src/CLI/Core.Cli.csproj` from the previous released version to the intended stable version. After the PR is reviewed and merged, a CI run of the same pipeline tags the merge commit. This keeps the repository, tag, artifacts, and release notes aligned.
+The version comes back to `main` through the `cirrus-trigger-stable-release` pipeline. A manual run opens a normal PR that updates `src/CLI/Core.Cli.csproj` from the previous released version to the intended stable version. The PR updates `Version` or `VersionPrefix` to `X.Y.Z`, updates `InformationalVersion` to `X.Y.Z` if present, and updates `FileVersion` to `X.Y.Z.0` while leaving `AssemblyVersion` unchanged. After the PR is reviewed and merged, a CI run of the same pipeline tags the merge commit. This keeps the repository, tag, artifacts, and release notes aligned.
 
-The post-merge tag stage validates that the triggering commit only changed the stable version line in `src/CLI/Core.Cli.csproj`, then validates the CLI version on `main` against the latest stable tag. If the latest stable tag is `v0.1.0`, the only allowed next versions are:
+The post-merge tag stage validates that the triggering commit only changed stable version metadata in `src/CLI/Core.Cli.csproj`, then validates the CLI version on `main` against the latest stable tag. If the latest stable tag is `v0.1.0`, the only allowed next versions are:
 
 ```text
 v0.1.1  patch
@@ -110,7 +110,7 @@ The stable build validates that the tag version matches the CLI version in the t
 
 Use release branches only when maintaining an older release line after `main` has moved on. For example, create `release/0.1` from the last `0.1.x` tag, cherry-pick the hotfix, validate it, and then create a new stable tag such as `v0.1.2` from the hotfix commit. The tag still triggers the stable build.
 
-No extra stable-release pipeline is needed for the normal path. `cirrus-trigger-stable-release` handles both manual PR creation and post-merge tag creation, `cirrus-stable-build` is the tag-triggered release-project build, and `cirrus-stable-release` is the release-project sign + publish pipeline triggered by the stable build resource.
+No extra stable-release pipeline is needed for the normal path. Release-project `cirrus-trigger-stable-release` handles both manual PR creation and post-merge tag creation, `cirrus-stable-build` is the tag-triggered release-project build, and `cirrus-stable-signing-release` is the release-project signing + publish pipeline triggered by the stable build resource.
 
 ## Versioning Policy
 
@@ -235,13 +235,13 @@ sequence=auto
 
 The stable build validates that the tag is a stable SemVer tag, that the tag version matches `src/CLI/Core.Cli.csproj`, and that the tagged commit is contained in `origin/main`. It publishes `Distribution_Final`, which becomes the only unsigned artifact source for stable signing and publishing.
 
-## Stable Release
+## Stable Signing And Release
 
 Purpose: sign/notarize approved artifacts and publish the stable release.
 
-The stable release pipeline should not rebuild source. It should consume the completed release-project stable build resource.
+The stable signing-and-release pipeline should not rebuild source. It should consume the completed release-project stable build resource.
 
-The stable release entry pipeline declares this resource:
+The stable signing-and-release entry pipeline declares this resource:
 
 ```yaml
 resources:
@@ -252,7 +252,7 @@ resources:
     trigger: true
 ```
 
-When the release-project stable build completes, Azure DevOps starts the stable release pipeline and sets:
+When the release-project stable build completes, Azure DevOps starts the stable signing-and-release pipeline and sets:
 
 ```text
 source_build_id=$(resources.pipeline.stableBuild.runID)
@@ -262,7 +262,7 @@ Recommended flow:
 
 ```text
 release stable build run
-  -> release stable signing
+  -> stable signing and release
   -> publish signed artifacts to GitHub release
 ```
 
@@ -321,7 +321,7 @@ Required guardrails:
 3. Keep `cirrus-publish.yml` as the release-project publish worker.
 4. Add thin public entry pipeline for PR builds.
 5. Add thin public entry pipeline for beta builds.
-6. Add thin public entry pipeline for triggering stable release PR creation and post-merge tag creation.
+6. Add thin release entry pipeline for triggering stable release PR creation and post-merge tag creation.
 7. Add thin release entry pipeline for stable tag builds.
 8. Add thin release entry pipeline for beta signing.
 9. Add thin release entry pipeline for stable sign + publish.

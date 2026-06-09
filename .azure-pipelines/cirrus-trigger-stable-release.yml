@@ -69,9 +69,28 @@ variables:
   value: true
 
 stages:
+- stage: Preflight
+  displayName: Preflight Checks
+  jobs:
+  - job: EnsureReleaseProject
+    displayName: Ensure Release Project Context
+    pool:
+      vmImage: $(ubuntu_pool)
+    steps:
+    - checkout: none
+    - bash: |
+        set -euo pipefail
+        echo "System.TeamProject=$(System.TeamProject)"
+        if [[ "$(System.TeamProject)" != "release" ]]; then
+          echo "ERROR: cirrus-trigger-stable-release must run in the 'release' project because it can create release PRs and stable tags."
+          exit 1
+        fi
+      displayName: Validate Release Project
+
 - stage: TriggerStableRelease
   displayName: Trigger Stable Release
-  condition: eq(variables['Build.Reason'], 'Manual')
+  dependsOn: Preflight
+  condition: and(succeeded(), eq(variables['Build.Reason'], 'Manual'))
   jobs:
   - job: OpenStableReleasePr
     displayName: Bump CLI Version And Open Stable Release PR
@@ -149,6 +168,7 @@ stages:
         esac
 
         tag_name="v$target_version"
+        target_file_version="$target_version.0"
         if git ls-remote --exit-code --tags origin "refs/tags/$tag_name" >/dev/null 2>&1; then
           echo "ERROR: Stable tag $tag_name already exists on origin."
           exit 1
@@ -164,6 +184,7 @@ stages:
         echo "Current CLI version: $current_version"
         echo "Requested bump: $bump_type"
         echo "Target stable version: $target_version"
+        echo "Target file version: $target_file_version"
         echo "Release branch: $release_branch"
 
         if [[ "$dry_run" =~ ^([Tt]rue|TRUE)$ ]]; then
@@ -182,9 +203,26 @@ stages:
           exit 1
         fi
 
+        if grep -q '<InformationalVersion>' "$core_project"; then
+          sed -i -E "0,/<InformationalVersion>[^<]+<\/InformationalVersion>/s//<InformationalVersion>$target_version<\/InformationalVersion>/" "$core_project"
+        fi
+
+        if grep -q '<FileVersion>' "$core_project"; then
+          sed -i -E "0,/<FileVersion>[^<]+<\/FileVersion>/s//<FileVersion>$target_file_version<\/FileVersion>/" "$core_project"
+        else
+          sed -i -E "0,/(<(Version|VersionPrefix)>[^<]+<\/(Version|VersionPrefix)>)/s//\1\n    <FileVersion>$target_file_version<\/FileVersion>/" "$core_project"
+        fi
+
         updated_version="$(read_core_version "$core_project")"
         if [[ "$updated_version" != "$target_version" ]]; then
           echo "ERROR: Version update failed. Expected $target_version but got $updated_version"
+          exit 1
+        fi
+
+        updated_file_version="$(grep -oPm1 '(?<=<FileVersion>)[^<]+' "$core_project" || true)"
+        updated_file_version="$(echo "$updated_file_version" | xargs)"
+        if [[ "$updated_file_version" != "$target_file_version" ]]; then
+          echo "ERROR: FileVersion update failed. Expected $target_file_version but got $updated_file_version"
           exit 1
         fi
 
@@ -240,6 +278,7 @@ stages:
 
 - stage: CreateStableTag
   displayName: Create Stable Tag
+  dependsOn: Preflight
   condition: and(succeeded(), in(variables['Build.Reason'], 'IndividualCI', 'BatchedCI'), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
   jobs:
   - job: TagMain
@@ -302,11 +341,11 @@ stages:
           exit 0
         fi
 
-        version_only_diff="$(git diff --unified=0 "$first_parent" "$source_commit" -- src/CLI/Core.Cli.csproj | grep -E '^[+-][[:space:]]*<(Version|VersionPrefix)>[0-9]+\.[0-9]+\.[0-9]+</(Version|VersionPrefix)>[[:space:]]*$' || true)"
-        non_version_diff="$(git diff --unified=0 "$first_parent" "$source_commit" -- src/CLI/Core.Cli.csproj | grep -E '^[+-]' | grep -Ev '^(---|\+\+\+)' | grep -Ev '^[+-][[:space:]]*<(Version|VersionPrefix)>[0-9]+\.[0-9]+\.[0-9]+</(Version|VersionPrefix)>[[:space:]]*$' || true)"
+        version_only_diff="$(git diff --unified=0 "$first_parent" "$source_commit" -- src/CLI/Core.Cli.csproj | grep -E '^[+-][[:space:]]*<(Version|VersionPrefix|InformationalVersion)>[0-9]+\.[0-9]+\.[0-9]+</(Version|VersionPrefix|InformationalVersion)>[[:space:]]*$|^[+-][[:space:]]*<FileVersion>[0-9]+\.[0-9]+\.[0-9]+\.0</FileVersion>[[:space:]]*$' || true)"
+        non_version_diff="$(git diff --unified=0 "$first_parent" "$source_commit" -- src/CLI/Core.Cli.csproj | grep -E '^[+-]' | grep -Ev '^(---|\+\+\+)' | grep -Ev '^[+-][[:space:]]*<(Version|VersionPrefix|InformationalVersion)>[0-9]+\.[0-9]+\.[0-9]+</(Version|VersionPrefix|InformationalVersion)>[[:space:]]*$|^[+-][[:space:]]*<FileVersion>[0-9]+\.[0-9]+\.[0-9]+\.0</FileVersion>[[:space:]]*$' || true)"
 
         if [[ -z "$version_only_diff" ]]; then
-          echo "src/CLI/Core.Cli.csproj changed, but no stable <Version> or <VersionPrefix> line changed. Skipping stable tag creation."
+          echo "src/CLI/Core.Cli.csproj changed, but no stable version metadata line changed. Skipping stable tag creation."
           exit 0
         fi
 
@@ -316,7 +355,7 @@ stages:
           exit 0
         fi
 
-        echo "Confirmed triggering commit only changes the stable version line in src/CLI/Core.Cli.csproj."
+        echo "Confirmed triggering commit only changes stable version metadata in src/CLI/Core.Cli.csproj."
 
         core_project_tmp="$(mktemp)"
         git show "$source_ref:src/CLI/Core.Cli.csproj" > "$core_project_tmp"
