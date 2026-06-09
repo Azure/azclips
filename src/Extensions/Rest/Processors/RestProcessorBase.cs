@@ -13,7 +13,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest.Processors
     /// Unlike the typed Resources base, this base does NOT deserialize the response into a fixed
     /// model. The transport primitive here returns non-2xx responses as-is rather than throwing, so
     /// the full response payload (status, headers, body) can be surfaced to output first, matching
-    /// <c>az rest</c>. The concrete <see cref="RestProcessor.ProcessAsync"/> writes that payload to
+    /// <c>az rest</c>. The concrete <see cref="RestProcessor_Orchestrator.ProcessAsync"/> writes that payload to
     /// output and then, for a status &gt;= 400, publishes a failure event and throws an
     /// <see cref="System.Net.Http.HttpRequestException"/> so the command produces a non-zero,
     /// terminating outcome after the error body has already been made visible.
