@@ -10,7 +10,7 @@
         <RepositoryUrl>https://github.com/Azure/cirrus</RepositoryUrl>
 
         <PackageId>Microsoft.Azure.Cirrus.Extensions.Login</PackageId>
-        <Version>1.0.0-alpha</Version>
+        <Version>0.1.0</Version>
         <Authors>Microsoft Corporation</Authors>
         <Company>Microsoft Corporation</Company>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
