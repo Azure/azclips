@@ -47,39 +47,72 @@ Invoke-CirrusRestMethod `
     -Uri "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01" `
     -UriParameters @{ '$top' = '3' }
 
+# Each negative case below EXPECTS a terminating error. To keep this manual smoke script running
+# end-to-end, every negative invocation is wrapped in its own try/catch: catching the error is the
+# expected outcome (printed as PASS), while reaching the line after the call without throwing is a
+# FAIL. The happy-path cases above are intentionally left un-wrapped so real failures still surface.
+
 # Negative case: an unsupported HTTP method must be rejected (ValidateSet) with a clear message.
-Invoke-CirrusRestMethod `
-    -Method FOO `
-    -Uri "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01"
+try {
+    Invoke-CirrusRestMethod `
+        -Method FOO `
+        -Uri "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01"
+    Write-Host "FAIL: expected an error but call succeeded (unsupported -Method FOO)"
+} catch {
+    Write-Host "PASS (expected failure): $($_.Exception.Message)"
+}
 
 # Negative case: the URI form and the piece-wise ByParameters parameters are mutually exclusive;
 # supplying both must be rejected before any request is sent.
-Invoke-CirrusRestMethod `
-    -Uri "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01" `
-    -ResourceProviderName Microsoft.Resources `
-    -ApiVersion 2021-04-01
+try {
+    Invoke-CirrusRestMethod `
+        -Uri "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01" `
+        -ResourceProviderName Microsoft.Resources `
+        -ApiVersion 2021-04-01
+    Write-Host "FAIL: expected an error but call succeeded (URI + ByParameters mutual exclusion)"
+} catch {
+    Write-Host "PASS (expected failure): $($_.Exception.Message)"
+}
 
 # Negative case: ByParameters mode requires an api-version; omitting it must be rejected.
-Invoke-CirrusRestMethod `
-    -ResourceProviderName Microsoft.Resources `
-    -ResourceType resourceGroups
+try {
+    Invoke-CirrusRestMethod `
+        -ResourceProviderName Microsoft.Resources `
+        -ResourceType resourceGroups
+    Write-Host "FAIL: expected an error but call succeeded (ByParameters missing -ApiVersion)"
+} catch {
+    Write-Host "PASS (expected failure): $($_.Exception.Message)"
+}
 
 # Negative case: an HTTP error (>= 400) must surface the body AND raise a terminating error so
 # scripts can detect it via $? / try-catch. This GET targets a resource group that does not exist
 # and is expected to return 404; the full RestResponse (status/headers/body) is still shown.
-Invoke-CirrusRestMethod `
-    -Method GET `
-    -Uri "/subscriptions/{subscriptionId}/resourcegroups/this-rg-does-not-exist-404?api-version=2021-04-01"
-# After the call, $? should be $false (terminating error) — surface it for the test harness.
-Write-Host "After 404 case, `$? = $?"
+try {
+    Invoke-CirrusRestMethod `
+        -Method GET `
+        -Uri "/subscriptions/{subscriptionId}/resourcegroups/this-rg-does-not-exist-404?api-version=2021-04-01"
+    Write-Host "FAIL: expected an error but call succeeded (404 HTTP error)"
+} catch {
+    Write-Host "PASS (expected failure): $($_.Exception.Message)"
+}
 
 # Negative case: an absolute URL pointing at a non-ARM host must be REJECTED before any request is
 # sent, so the ARM bearer token is never leaked to an arbitrary destination (token exfiltration).
-Invoke-CirrusRestMethod `
-    -Method GET `
-    -Uri "https://example.com/steal-the-token"
+try {
+    Invoke-CirrusRestMethod `
+        -Method GET `
+        -Uri "https://example.com/steal-the-token"
+    Write-Host "FAIL: expected an error but call succeeded (non-ARM host rejection)"
+} catch {
+    Write-Host "PASS (expected failure): $($_.Exception.Message)"
+}
 
 # Negative case: an absolute http:// (non-https) ARM URL must be rejected.
-Invoke-CirrusRestMethod `
-    -Method GET `
-    -Uri "http://management.azure.com/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01"
+try {
+    Invoke-CirrusRestMethod `
+        -Method GET `
+        -Uri "http://management.azure.com/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01"
+    Write-Host "FAIL: expected an error but call succeeded (non-https ARM URL rejection)"
+} catch {
+    Write-Host "PASS (expected failure): $($_.Exception.Message)"
+}
