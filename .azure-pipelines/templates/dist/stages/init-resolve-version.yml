@@ -10,7 +10,7 @@ parameters:
   default: 'auto'
 - name: release_date
   type: string
-  default: 'utc'
+  default: 'auto'
 - name: pr_number
   type: string
   default: 'auto'

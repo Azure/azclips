@@ -28,7 +28,7 @@ parameters:
 - name: release_date
   displayName: 'Release date override (auto = utc, or yyyyMMdd)'
   type: string
-  default: 'utc'
+  default: 'auto'
 - name: pr_number
   displayName: PR number for pr-alpha, or auto
   type: string
