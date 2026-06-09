@@ -23,10 +23,10 @@ parameters:
 
 stages:
 - stage: Init
-  displayName: Init
+  displayName: 'Init(ResolveVersion)'
   jobs:
   - job: Start
-    displayName: Kickoff
+    displayName: Resolve Distribution Version
     pool:
       vmImage: ${{ parameters.ubuntu_pool }}
     steps:
