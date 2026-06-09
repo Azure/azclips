@@ -7,7 +7,7 @@ parameters:
 - name: artifact_version_override
   displayName: 'Artifact version override (auto = infer_from_code)'
   type: string
-  default: 'infer_from_code'
+  default: 'auto'
 - name: bump_type
   displayName: Version bump type
   type: string

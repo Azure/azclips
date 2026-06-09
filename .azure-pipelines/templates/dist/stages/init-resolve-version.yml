@@ -1,7 +1,7 @@
 parameters:
 - name: artifact_version_override
   type: string
-  default: 'infer_from_code'
+  default: 'auto'
 - name: bump_type
   type: string
   default: 'patch'
@@ -55,7 +55,7 @@ stages:
         pr_number="${{ parameters.pr_number }}"
         sequence="${{ parameters.sequence }}"
 
-        if [[ -n "$override_version" && "$override_version" != "infer_from_code" ]]; then
+        if [[ -n "$override_version" && "$override_version" != "auto" && "$override_version" != "infer_from_code" ]]; then
           echo "Using artifact version override: $override_version"
           echo "##vso[task.setvariable variable=ArtifactVersion;isOutput=true]$override_version"
           echo "##vso[task.setvariable variable=ComputedVersion;isOutput=true]$override_version"
