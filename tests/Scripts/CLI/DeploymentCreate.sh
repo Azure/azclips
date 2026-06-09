@@ -20,7 +20,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BICEP_DIR="$SCRIPT_DIR/../Bicep"
 
 # Happy path: deploy a public quickstart template in Incremental mode.
-deployment group create \
+azv2 deployment group create \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
     --resource-group cirrus-test-group-1 \
     --name cirrus-test-deployment-1 \
@@ -29,7 +29,7 @@ deployment group create \
     --debug
 
 # Inline local template file variant:
-# deployment group create \
+# azv2 deployment group create \
 #     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
 #     --resource-group cirrus-test-group-1 \
 #     --name cirrus-test-deployment-2 \
@@ -41,7 +41,7 @@ deployment group create \
 # Requires the Bicep CLI on PATH or the az-bundled bicep (~/.azure/bin/bicep).
 # Uses a timestamped storage account name (3-24 lowercase alphanumerics) to avoid collisions.
 STAMP=$(date +%y%m%d%H%M%S)
-deployment group create \
+azv2 deployment group create \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
     --resource-group cirrus-test-group-1 \
     --name "cirrus-test-bicep-$STAMP" \
@@ -52,7 +52,7 @@ deployment group create \
 
 # Bicep negative case: a malformed .bicep must fail compilation and surface bicep's
 # diagnostics (non-zero exit -> InvalidOperationException). No deployment is created.
-deployment group create \
+azv2 deployment group create \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
     --resource-group cirrus-test-group-1 \
     --name cirrus-test-bicep-negative \
@@ -63,7 +63,7 @@ deployment group create \
 # Negative case: invalid --mode value (Foo) must be rejected.
 # Expected result: the command fails fast with a clear validation message
 # listing the allowed values (Incremental, Complete) and does NOT create a deployment.
-deployment group create \
+azv2 deployment group create \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
     --resource-group cirrus-test-group-1 \
     --name cirrus-test-deployment-negative \
@@ -76,7 +76,7 @@ deployment group create \
 # --parameter overrides it with a unique, timestamped value, proving inline overlays the file.
 # --validation-level Provider runs full provider validation as part of the deploy.
 STAMP=$(date +%y%m%d%H%M%S)
-deployment group create \
+azv2 deployment group create \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
     --resource-group cirrus-test-group-1 \
     --name "cirrus-test-inline-$STAMP" \
@@ -88,7 +88,7 @@ deployment group create \
     --debug
 
 # Standalone --validation-level Provider case (no parameters file; inline --parameter only).
-deployment group create \
+azv2 deployment group create \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
     --resource-group cirrus-test-group-1 \
     --name "cirrus-test-vlevel-$STAMP" \
@@ -99,7 +99,7 @@ deployment group create \
     --debug
 
 # --rollback-on-error case: roll back to the last successful deployment if this one fails.
-deployment group create \
+azv2 deployment group create \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
     --resource-group cirrus-test-group-1 \
     --name "cirrus-test-rollback-$STAMP" \
@@ -112,7 +112,7 @@ deployment group create \
 # Negative case: --parameters-uri combined with inline --parameter must be rejected.
 # Expected result: ArgumentException stating inline parameters cannot be combined with a
 # parameters link; no deployment is created.
-deployment group create \
+azv2 deployment group create \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
     --resource-group cirrus-test-group-1 \
     --name cirrus-test-inline-conflict-negative \
@@ -126,7 +126,7 @@ deployment group create \
 # terminal provisioningState. The final emitted DeploymentExtended has provisioningState =
 # Succeeded (matches `az deployment group create`).
 STAMP=$(date +%y%m%d%H%M%S)
-deployment group create \
+azv2 deployment group create \
     --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
     --resource-group cirrus-test-group-1 \
     --name "cirrus-test-wait-$STAMP" \
