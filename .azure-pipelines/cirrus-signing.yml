@@ -4,6 +4,10 @@ trigger: none
 pr: none
 
 parameters:
+- name: source_project
+  displayName: 'Source project'
+  type: string
+  default: 'public'
 - name: source_pipeline_name
   displayName: 'Source pipeline name'
   type: string
@@ -12,6 +16,10 @@ parameters:
   displayName: 'Source build id'
   type: string
   default: '320494'
+- name: source_artifact_name
+  displayName: 'Source artifact name'
+  type: string
+  default: 'Distribution_Final'
 - name: signed_artifact_name
   displayName: 'Signed artifact name'
   type: string
@@ -56,7 +64,7 @@ variables:
 - ${{ if eq(variables['System.TeamProject'], 'release') }}:
   - group: 'AME ESRP Variable Group'
 - name: SourceProject
-  value: release
+  value: ${{ parameters.source_project }}
 - name: Codeql.Enabled
   value: false
 - name: Codeql.SkipTaskAutoInjection
@@ -106,6 +114,16 @@ stages:
       displayName: Validate Team Project Is release
     - bash: |
         set -euo pipefail
+        source_project='${{ parameters.source_project }}'
+        source_artifact_name='${{ parameters.source_artifact_name }}'
+        if [[ -z "$source_project" ]]; then
+          echo 'ERROR: source_project is required for signing provenance.'
+          exit 1
+        fi
+        if [[ -z "$source_artifact_name" ]]; then
+          echo 'ERROR: source_artifact_name is required for signing provenance.'
+          exit 1
+        fi
         source_build_id='${{ parameters.source_build_id }}'
         if [[ -z "$source_build_id" ]]; then
           echo 'ERROR: source_build_id is required for signing provenance.'
@@ -141,6 +159,7 @@ stages:
     SourceProject: $(SourceProject)
     source_pipeline_name: ${{ parameters.source_pipeline_name }}
     source_build_id: ${{ parameters.source_build_id }}
+    source_artifact_name: ${{ parameters.source_artifact_name }}
     signed_artifact_name: ${{ parameters.signed_artifact_name }}
     esrp_service_connection: ${{ parameters.ESRPServiceConnection }}
     macos_bundle_id: ${{ parameters.macos_bundle_id }}

@@ -258,3 +258,4 @@ stages:
   - template: templates/dist/jobs/finalize-summary.yml
     parameters:
       ubuntu_pool: $(ubuntu_pool)
+      final_artifact_name: Distribution_Final
