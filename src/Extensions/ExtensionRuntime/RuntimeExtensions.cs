@@ -284,7 +284,23 @@ public static class RuntimeExtensions
     {
         // this is only used to determine cutoff for streams (not xml or json).
         // TODO(Yabo): get this from configservice: engine get this property from configservice and set through processor context
-        content = JsonNode.Parse(content)!.ToString();
+        if (string.IsNullOrEmpty(content))
+        {
+            return content ?? string.Empty;
+        }
+
+        // Pretty-print JSON best-effort. Tracing/logging must tolerate ANY body and never throw:
+        // non-JSON bodies (text/plain, xml, html error pages, octet-stream, etc.) fall back to the
+        // raw content unchanged. Matches Azure PowerShell's Invoke-AzRestMethod behavior.
+        try
+        {
+            content = JsonNode.Parse(content)?.ToString() ?? content;
+        }
+        catch (Exception)
+        {
+            // Not valid JSON - keep the raw content.
+        }
+
         const int StreamCutOffSize = 10 * 1024; //10KB
         return content.Length <= StreamCutOffSize ? 
                 content : 
