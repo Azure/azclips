@@ -8,6 +8,35 @@ parameters:
   displayName: 'Artifact version override (optional)'
   type: string
   default: ''
+- name: bump_type
+  displayName: Version bump type
+  type: string
+  default: patch
+  values:
+  - patch
+  - minor
+  - major
+- name: release_channel
+  displayName: Release channel
+  type: string
+  default: auto
+  values:
+  - auto
+  - pr-alpha
+  - main-rc
+  - stable
+- name: release_date
+  displayName: Release date override, yyyyMMdd or utc
+  type: string
+  default: 'utc'
+- name: pr_number
+  displayName: PR number for pr-alpha, or auto
+  type: string
+  default: 'auto'
+- name: sequence
+  displayName: Build sequence, or auto
+  type: string
+  default: 'auto'
 
 variables:
 - template: templates/variables.yml
@@ -66,6 +95,11 @@ stages:
 - template: templates/dist/stages/init-resolve-version.yml
   parameters:
     artifact_version_override: ${{ parameters.artifact_version_override }}
+    bump_type: ${{ parameters.bump_type }}
+    release_channel: ${{ parameters.release_channel }}
+    release_date: ${{ parameters.release_date }}
+    pr_number: ${{ parameters.pr_number }}
+    sequence: ${{ parameters.sequence }}
     ubuntu_pool: $(ubuntu_pool)
 
 - stage: BuildCommon
