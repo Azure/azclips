@@ -24,20 +24,20 @@ Invoke-CirrusRestMethod `
     -Uri "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01" `
     -Headers @{ Accept = 'application/json' }
 
-# Happy path: ByParameters mode. Instead of a full URL, supply the ARM resource-id pieces and an
-# api-version; the cmdlet builds https://management.azure.com/subscriptions/.../providers/... for
-# you. This lists the resource groups in the current subscription (Microsoft.Resources provider).
+# Happy path: ByParameters mode collection GET. Instead of a full URL, supply the ARM resource-id
+# pieces and an api-version; the cmdlet builds the subscription-wide provider collection URL
+# https://management.azure.com/subscriptions/{sub}/providers/Microsoft.Storage/storageAccounts for
+# you. This lists all Storage accounts in the subscription (an empty "value" array is still a 200).
 Invoke-CirrusRestMethod `
-    -ResourceProviderName Microsoft.Resources `
-    -ResourceType resourceGroups `
-    -ApiVersion 2021-04-01
+    -ResourceProviderName Microsoft.Storage `
+    -ResourceType storageAccounts `
+    -ApiVersion 2021-09-01
 
-# Happy path: ByParameters mode targeting a single resource (interleaved ResourceType + Name).
+# Happy path: ByParameters mode single-resource GET. Supplying -ResourceGroupName builds the
+# /subscriptions/{sub}/resourceGroups/{name} segment, which is the correct ARM path for a single
+# resource group; this fetches the cirrus-test-group-1 resource group (Expect 200).
 Invoke-CirrusRestMethod `
     -ResourceGroupName cirrus-test-group-1 `
-    -ResourceProviderName Microsoft.Resources `
-    -ResourceType resourceGroups `
-    -Name cirrus-test-group-1 `
     -ApiVersion 2021-04-01
 
 # Happy path: extra query-string parameters via -UriParameters (hashtable or KEY=VALUE string[]).

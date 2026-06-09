@@ -21,20 +21,20 @@ rest `
     --uri "/subscriptions/{subscriptionId}/resourcegroups?api-version=2021-04-01" `
     --headers Accept=application/json
 
-# Happy path: ByParameters mode. Instead of a full URL, supply the ARM resource-id pieces and an
-# api-version; the command builds https://management.azure.com/subscriptions/.../providers/... for
-# you. This lists the resource groups in the current subscription (Microsoft.Resources provider).
+# Happy path: ByParameters mode collection GET. Instead of a full URL, supply the ARM resource-id
+# pieces and an api-version; the command builds the subscription-wide provider collection URL
+# https://management.azure.com/subscriptions/{sub}/providers/Microsoft.Storage/storageAccounts for
+# you. This lists all Storage accounts in the subscription (an empty "value" array is still a 200).
 rest `
-    --resource-provider Microsoft.Resources `
-    --resource-type resourceGroups `
-    --api-version 2021-04-01
+    --resource-provider Microsoft.Storage `
+    --resource-type storageAccounts `
+    --api-version 2021-09-01
 
-# Happy path: ByParameters mode targeting a single resource (interleaved resource-type + name).
+# Happy path: ByParameters mode single-resource GET. Supplying --resource-group builds the
+# /subscriptions/{sub}/resourceGroups/{name} segment, which is the correct ARM path for a single
+# resource group; this fetches the cirrus-test-group-1 resource group (Expect 200).
 rest `
     --resource-group cirrus-test-group-1 `
-    --resource-provider Microsoft.Resources `
-    --resource-type resourceGroups `
-    --name cirrus-test-group-1 `
     --api-version 2021-04-01
 
 # Happy path: extra query-string parameters via --uri-parameters (space-separated KEY=VALUE). Here
