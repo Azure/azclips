@@ -71,6 +71,32 @@ public sealed class ChatAgent : IAsyncDisposable
             Connection = RuntimeConnection.ForStdio(path: BundledDaemonResolver.Resolve()),
         });
 
+        try
+        {
+            return await CreateCoreAsync(
+                client, flavor, auth, authContext, azv2ExePath, approvalSink,
+                renderer, options, spinner, mode, ct).ConfigureAwait(false);
+        }
+        catch
+        {
+            await client.DisposeAsync().ConfigureAwait(false);
+            throw;
+        }
+    }
+
+    private static async Task<ChatAgent> CreateCoreAsync(
+        CopilotClient client,
+        string flavor,
+        IAuthService auth,
+        IAuthContextService authContext,
+        string azv2ExePath,
+        ConsoleApprovalPrompt approvalSink,
+        IAgentRenderer renderer,
+        AgentOptions options,
+        SpinnerService? spinner,
+        string mode,
+        CancellationToken ct)
+    {
         var systemPrompt = LoadSystemPrompt(flavor, mode);
         var armDetails = new ArmDetailsClient(auth);
         var cacheTools = new CachedResourceTools(armDetails);
@@ -109,7 +135,7 @@ public sealed class ChatAgent : IAsyncDisposable
             azv2ExePath, approvalSink, eventRenderer, ct);
 
         string resolvedModel;
-        switch (options.Provider)
+        switch (options.Provider?.ToLowerInvariant())
         {
             case "builtin":
                 resolvedModel = options.Builtin.ModelId;
@@ -122,12 +148,10 @@ public sealed class ChatAgent : IAsyncDisposable
                 break;
 
             case "custom":
-                await client.DisposeAsync().ConfigureAwait(false);
                 throw new NotImplementedException(
                     "agent.provider='custom' is reserved for GA; use 'builtin' or 'github'.");
 
             default:
-                await client.DisposeAsync().ConfigureAwait(false);
                 throw new ArgumentException(
                     $"Unknown agent.provider value: '{options.Provider}'. Expected: builtin | github | custom.",
                     nameof(options));
