@@ -196,14 +196,14 @@ namespace Core.Engine
                 sequentialStage = null;
             });
 
-            subscriber.Subscribe(Events.ActivityStart, (data) =>
+            subscriber.Subscribe(Events.ActionStart, (data) =>
             {
                 var evt = (EventData)data;
                 var activity = telemetryService.StartActivity($"{evt.Id}.{evt.ClassName}.{evt.FunctionName}", ActivityKind.Internal);
                 if (activity != null)
                     pairedStages.Push(activity);
             });
-            subscriber.Subscribe(Events.ActivityEnd, (data) =>
+            subscriber.Subscribe(Events.ActionEnd, (data) =>
             {
                 if (pairedStages.TryPop(out var activity))
                     activity.Dispose();

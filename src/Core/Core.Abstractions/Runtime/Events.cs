@@ -60,9 +60,8 @@ namespace Core.Abstractions.Runtime
         public const string AuthAfterTokenAcquisition = nameof(AuthAfterTokenAcquisition);
 
         // Telemetry
-        public const string ActivityStart = nameof(ActivityStart);
-        public const string ActivityEnd = nameof(ActivityEnd);
-        public const string Activity = nameof(Activity);
+        public const string ActionStart = nameof(ActionStart);
+        public const string ActionEnd = nameof(ActionEnd);
 
         public const string Verbose = nameof(Verbose);
         public const string Debug = nameof(Debug);
