@@ -1,0 +1,19 @@
+variables:
+- name: PackagingScriptsRoot
+  value: $(Build.SourcesDirectory)/devops/scripts/packaging
+- name: PackagingOutRoot
+  value: $(Build.SourcesDirectory)/devops/out
+- name: PackagingCommonOutRoot
+  value: $(PackagingOutRoot)/common
+- name: PackagingLinuxOutRoot
+  value: $(PackagingOutRoot)/linux
+- name: PackagingWindowsOutRoot
+  value: $(PackagingOutRoot)/windows
+- name: PackagingMacOSOutRoot
+  value: $(PackagingOutRoot)/macos
+- name: PackagingLinuxRid
+  value: linux-x64
+- name: PackagingWindowsRid
+  value: win-x64
+- name: PackagingMacOSRid
+  value: osx-arm64

@@ -1,0 +1,27 @@
+name: cirrus-alpha-build-$(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr:
+  autoCancel: true
+  branches:
+    include:
+    - '*'
+
+variables:
+- template: templates/variables.yml
+- template: templates/dist/variables/packaging.yml
+- template: templates/dist/variables/common.yml
+- template: templates/dist/variables/security-suppressions.yml
+
+stages:
+- template: templates/dist/stages/build-unsigned-distribution.yml
+  parameters:
+    artifact_version_override: auto
+    bump_type: patch
+    release_channel: pr-alpha
+    release_date: auto
+    pr_number: auto
+    sequence: auto
+    ubuntu_pool: $(ubuntu_pool)
+    windows_pool: $(windows_pool)
+    final_artifact_name: Distribution_Final
