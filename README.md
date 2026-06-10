@@ -71,9 +71,11 @@ cirrus/
 ## Quick Start
 
 ### Prerequisites
-- [.NET 9.0 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/9.0) (version pinned in `global.json`)
+
+- [.NET 10.0 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) (version pinned in `global.json`)
 - PowerShell 7.0+ (for PowerShell modules)
 - Azure subscription (for actual API calls)
+- [`Microsoft.PowerShell.PlatyPS`](https://www.powershellgallery.com/packages/Microsoft.PowerShell.PlatyPS/1.0.1) **1.0.1** (only for `-GenerateHelpArtifacts`; auto-installed by `build/Install-BuildDependencies.ps1`)
 
 ### Build
 
@@ -94,11 +96,13 @@ export PATH="$PWD/artifacts/Release/Core.Cli:$PATH"
 The `azv2` CLI supports both structured extension commands and natural language via AI. It uses an extension-based architecture where commands are dynamically loaded from extension modules.
 
 **Structured Commands (Extension-Based):**
+
 ```bash
 azv2 group create --ResourceGroupName mygroup --Location eastus --SubscriptionId <sub-id> --AccessToken <token>
 ```
 
 **Natural Language (AI-Powered):**
+
 ```bash
 azv2 "create a resource group named test in eastus"
 azv2 "how do I list all my resource groups?"
@@ -127,6 +131,7 @@ New-ResourceGroup -Name mygroup -Location eastus
 ```
 
 **Available Modules:**
+
 - **Login** ([`src/PS/Login/Login.psd1`](src/PS/Login/Login.psd1)) - Binary module with `Connect-CirrusAccount` cmdlet for Azure authentication
 - **Resources** ([`src/PS/Resources/Resources.psd1`](src/PS/Resources/Resources.psd1)) - Script module with resource management functions
 

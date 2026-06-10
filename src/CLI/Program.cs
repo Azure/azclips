@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Reflection;
 using Core.Abstractions;
 using Core.Cli.Exceptions;
+using Core.Cli.Help;
 using Core.Cli.Parser;
 using Core.Cli.Telemetry;
 using Core.Telemetry;
@@ -88,9 +89,19 @@ public class Program
             }
             catch (DispatchHelpException)
             {
-                _logger?.Log("Command Line Interface Help");
+                var assemblyLoading = CirrusServiceProvider.GetRequiredService<IAssemblyLoadingService>();
+                var exitCode = new RuntimeHelpDispatcher(assemblyLoading).RenderRoot();
+
                 activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
-                return 0;
+                return exitCode;
+            }
+            catch (RuntimeExtensionHelpException helpException)
+            {
+                var assemblyLoading = CirrusServiceProvider.GetRequiredService<IAssemblyLoadingService>();
+                var exitCode = new RuntimeHelpDispatcher(assemblyLoading).RenderExtensionHelp(helpException);
+
+                activity?.SetStatus(ActivityStatusCode.Ok, "Extension help requested");
+                return exitCode;
             }
             catch (HttpRequestException ex)
             {
@@ -151,14 +162,10 @@ public class Program
     }
 
     /// <summary>
-    /// Hands a failed classic-CLI invocation off to the SDK-backed agent. Spawns
-    /// <c>Core.Tui.exe --agent-mode</c> as a subprocess so the agent runs in the
-    /// TUI process — keeping <see cref="Core.Agent"/> physically isolated from
-    /// the CLI process and free of TUI / Hex1b dependencies.
-    ///
-    /// The subprocess inherits stdio so streaming tokens, the approval prompt,
-    /// and any interactive sub-tool (device-code login) surface live in the
-    /// user's terminal without in-process plumbing.
+    /// Hands a failed classic-CLI invocation off to the SDK-backed agent by spawning
+    /// <c>Core.Tui.exe --agent-mode</c> as a subprocess. Keeps <see cref="Core.Agent"/>
+    /// isolated from CLI / TUI deps; subprocess inherits stdio so streaming + interactive
+    /// prompts surface live in the user's terminal.
     /// </summary>
     private static async Task<int> TryAgentFallbackAsync(string[] args, string? errorText)
     {
@@ -281,19 +288,6 @@ public class Program
         {
             // Best effort. If spawn fails, traces remain on disk
             // and will be uploaded on the next CLI invocation.
-        }
-    }
-
-    static uint? TerminalWidth()
-    {
-        try
-        {
-            var width = (uint)Console.WindowWidth;
-            return width > 0 ? width : null;
-        }
-        catch
-        {
-            return null;
         }
     }
 }
