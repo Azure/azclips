@@ -22,7 +22,7 @@ Starting/tagging activities:
 ```csharp
 var telemetry = serviceProvider.GetService<ITelemetryService>();
 
-using var activity = telemetry.StartActivity("OperationName");
+using var activity = telemetry?.StartActivity("OperationName");
 
 // Add tags to the "root" activity by default
 telemetry.AddTag("custom.tag", "value");
@@ -37,7 +37,7 @@ Starting/tagging activities:
 Follows the event source pattern where `Processors` / `Orchestrators` raise events with relevant data.
 ```csharp
 // **Processor.cs / **Orchestrator.cs
-public void Foo()
+public async Task Foo()
 {
     await Publisher.Publish(Events.ActivityStart, new EventData()
     {
