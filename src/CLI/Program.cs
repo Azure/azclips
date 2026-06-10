@@ -6,7 +6,6 @@ using Core.Cli.Parser;
 using Core.Cli.Telemetry;
 using Core.Telemetry;
 using Core.DependencyInjection;
-using Core.Telemetry.Constants;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Core.Cli;
@@ -68,13 +67,12 @@ public class Program
         try
         {
             using var activity = telemetryService.StartRootActivity();
-            activity.TagClientContext(_clientType);
             var dispatcher = new ExtensionDispatcher();
             args = WireDebugStreams(args);
             try
             {
                 CommandInvocation invocation = dispatcher.Parse(args);
-                activity.TagInvocation(invocation);
+                telemetryService.TagInvocation(invocation);
 
                 using var commandActivity =
                     telemetryService.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);

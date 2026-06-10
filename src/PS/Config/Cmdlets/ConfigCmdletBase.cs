@@ -1,9 +1,6 @@
-using System.Diagnostics;
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
-using Core.Telemetry;
-using Core.Telemetry.Constants;
 
 namespace Microsoft.Azure.Cirrus.Cmdlets.Config;
 
@@ -12,7 +9,6 @@ public abstract class ConfigCmdletBase : PSCmdlet
     private readonly CancellationTokenSource _cts = new();
     protected OutputStreams Streams = null!;
     protected IEngine Engine = null!;
-    private ClientType clientType;
 
     protected override void BeginProcessing()
     {
@@ -37,19 +33,18 @@ public abstract class ConfigCmdletBase : PSCmdlet
             });
 
         Engine = CirrusServiceProvider.GetRequiredService<IEngine>();
-        clientType = CirrusServiceProvider.GetRequiredService<ClientType>();
     }
 
     protected void ExecuteInvocation(Dictionary<string, object> parameters)
     {
-        using var activity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartRootActivity();
+        var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
+        using var activity = telemetryService.StartRootActivity();
         var commandName = MyInvocation.MyCommand.Name;
-        activity.TagClientContext(clientType);
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
         var invocation = new CommandInvocation("Config", commandName, parameters, false, moduleName, moduleVersion);
-        activity.TagInvocation(invocation);
+        telemetryService.TagInvocation(invocation);
 
         using ISession session = Engine.OpenExecutionSession(invocation, Streams, _cts.Token);
         session.Run();

@@ -16,5 +16,8 @@ public interface ITelemetryService : IDisposable
     /// </summary>
     Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal);
     Activity? StartRootActivity();
+
+    Activity? TagInvocation(CommandInvocation commandInvocation);
     Activity? AddTag(string tagName, object value, Activity? activity = null);
+
 }

@@ -16,6 +16,8 @@ public class StubTelemetryService : ITelemetryService
     public Activity? StartRootActivity() =>
         ActivitySource.StartActivity("Stub.Activity.Root", ActivityKind.Server);
 
+    public Activity? TagInvocation(CommandInvocation commandInvocation) => Activity.Current;
+
     public Activity? AddTag(string tagName, object value, Activity? activity = null)
     {
         return new Activity(tagName);

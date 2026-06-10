@@ -6,7 +6,7 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Core.Telemetry.Constants;
+namespace Core.Telemetry;
 
 public static class TelemetryPropertyResolver
 {
@@ -55,7 +55,7 @@ public static class TelemetryPropertyResolver
         return string.Empty;
     }
 
-    // TODO(jayson): determine internal-vs-external from access token claims or config.
+    // TODO(jayson): determine internal-vs-external from access token claims or config. may not be needed if moving to Satori
     private static bool ResolveIsMicrosoftInternal() => false;
 
     private static string ResolveProductVersion()

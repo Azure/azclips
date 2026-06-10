@@ -1,9 +1,6 @@
-using System.Diagnostics;
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
-using Core.Telemetry;
-using Core.Telemetry.Constants;
 
 namespace Microsoft.Azure.Cirrus.Cmdlets.Login;
 
@@ -13,7 +10,6 @@ public class DisconnectCirrusAccountCmdlet : PSCmdlet
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
     private IEngine engine = null!;
-    private ClientType clientType;
 
     protected override void BeginProcessing()
     {
@@ -41,9 +37,8 @@ public class DisconnectCirrusAccountCmdlet : PSCmdlet
 
     protected override void ProcessRecord()
     {
-        using var activity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartRootActivity();
-        clientType = CirrusServiceProvider.GetRequiredService<ClientType>();
-        activity.TagClientContext(clientType);
+        var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
+        using var activity = telemetryService.StartRootActivity();
         if (!ShouldProcess("Cirrus Account", "Disconnect"))
         {
             return;
@@ -53,7 +48,7 @@ public class DisconnectCirrusAccountCmdlet : PSCmdlet
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
         var invocation = new CommandInvocation("Login", "Disconnect-CirrusAccount", parameters, false, moduleName, moduleVersion);
-        activity.TagInvocation(invocation);
+        telemetryService.TagInvocation(invocation);
 
         using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);
         session.Run();

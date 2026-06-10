@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
 using Core.Abstractions;
-using Core.Telemetry.Constants;
 
 namespace Core.Telemetry;
 

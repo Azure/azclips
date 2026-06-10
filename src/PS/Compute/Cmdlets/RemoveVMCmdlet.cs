@@ -1,9 +1,6 @@
-using System.Diagnostics;
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
-using Core.Telemetry;
-using Core.Telemetry.Constants;
 
 namespace Microsoft.Azure.Cirrus.Cmdlets.Compute;
 
@@ -13,7 +10,6 @@ public class RemoveVMCmdlet : PSCmdlet
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
     private IEngine engine = null!;
-    private ClientType clientType;
 
     [Parameter(Mandatory = true)]
     public string SubscriptionId { get; set; } = "";
@@ -46,7 +42,6 @@ public class RemoveVMCmdlet : PSCmdlet
                 return Task.CompletedTask;
             });
         engine = CirrusServiceProvider.GetRequiredService<IEngine>();
-        clientType = CirrusServiceProvider.GetRequiredService<ClientType>();
     }
 
     protected override void ProcessRecord()
@@ -56,8 +51,8 @@ public class RemoveVMCmdlet : PSCmdlet
             return;
         }
 
-        using var activity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartRootActivity();
-        activity.TagClientContext(clientType);
+        var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
+        using var activity = telemetryService.StartRootActivity();
 
         var parameters = new Dictionary<string, object>
         {
@@ -69,7 +64,7 @@ public class RemoveVMCmdlet : PSCmdlet
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
         var invocation = new CommandInvocation("Compute", "Remove-VM", parameters, false, moduleName, moduleVersion);
-        activity.TagInvocation(invocation);
+        telemetryService.TagInvocation(invocation);
 
         using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);
         session.Run();
