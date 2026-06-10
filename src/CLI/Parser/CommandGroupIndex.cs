@@ -33,5 +33,7 @@ namespace Core.Cli.Parser
             }
             return extensionName;
         }
+
+        internal static IReadOnlyDictionary<string, string> GetAllCommandGroups() => _commandGroups;
     }
 }

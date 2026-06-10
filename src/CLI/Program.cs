@@ -1,9 +1,11 @@
 using System.Diagnostics;
 using System.Reflection;
+using System.Text.Json;
 using Core.Abstractions;
 using Core.Cli.Exceptions;
 using Core.Cli.Parser;
 using Core.Engine;
+using Core.Runtime;
 using Core.Telemetry;
 using Core.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
@@ -43,6 +45,12 @@ public class Program
         {
             await FileTelemetrySender.SendPendingStatic();
             return 0;
+        }
+
+        // Generate completion metadata from ExtensionIndex for shell tab-completion.
+        if (args.Length > 0 && args[0] == "--completions")
+        {
+            return GenerateCompletions();
         }
 
         CirrusServiceProvider.PrependRegistration(services =>
@@ -245,6 +253,77 @@ public class Program
         catch
         {
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Outputs a JSON completion tree built from ExtensionIndex metadata.
+    /// Used by shell tab-completion scripts (e.g. azv2.completions.ps1).
+    /// </summary>
+    private static int GenerateCompletions()
+    {
+        CirrusServiceProvider.PrependRegistration(services =>
+        {
+            services.AddSingleton<IExtensionLoader, BuiltinExtensionLoader>();
+            services.AddSingleton<IExtensionLoader, MultiVersionExtensionLoader>();
+        });
+        CirrusServiceProvider.OverrideRegistration(services =>
+        {
+            services.AddSingleton<IAssemblyLoadingProvider, CLIAssemblyLoadingProvider>();
+        });
+        CirrusServiceProvider.Initialize(_clientType);
+
+        try
+        {
+            var assemblyLoader = CirrusServiceProvider.GetRequiredService<IAssemblyLoadingProvider>();
+            var commandGroups = CommandGroupIndex.GetAllCommandGroups();
+
+            // Build: { "group": { "_subcommands": ["create","list"], "create": ["--name","--location"], ... }, ... }
+            var tree = new Dictionary<string, object>();
+
+            foreach (var (groupName, extensionName) in commandGroups)
+            {
+                try
+                {
+                    var assembly = assemblyLoader.LoadExtension(extensionName);
+                    var index = assembly.GetExtensionIndex();
+                    var commandTable = index.GetAllCommands(ClientType.CLI)
+                        .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+
+                    var groupEntry = new Dictionary<string, object>();
+                    var subcommands = new List<string>();
+
+                    foreach (var (cliName, meta) in commandTable)
+                    {
+                        var paramNames = meta.Parameters.Keys.Select(k => $"--{k}").ToList();
+
+                        if (cliName == "")
+                        {
+                            // Default command (e.g., "login" with no subcommand)
+                            groupEntry["_params"] = paramNames;
+                        }
+                        else
+                        {
+                            subcommands.Add(cliName);
+                            groupEntry[cliName] = paramNames;
+                        }
+                    }
+
+                    groupEntry["_subcommands"] = subcommands;
+                    tree[groupName.ToLowerInvariant()] = groupEntry;
+                }
+                catch
+                {
+                    // Skip extensions that fail to load
+                }
+            }
+
+            Console.WriteLine(JsonSerializer.Serialize(tree, new JsonSerializerOptions { WriteIndented = false }));
+            return 0;
+        }
+        finally
+        {
+            CirrusServiceProvider.Dispose();
         }
     }
 }
