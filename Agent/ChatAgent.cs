@@ -220,6 +220,7 @@ public sealed class ChatAgent : IAsyncDisposable
         return new ProviderConfig
         {
             Type = "azure",
+            WireApi = "responses",
             BaseUrl = opts.Endpoint,
             BearerToken = authResult.AccessToken,
             ModelId = opts.ModelId,
