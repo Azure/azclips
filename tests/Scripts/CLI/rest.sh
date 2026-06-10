@@ -1,7 +1,7 @@
 # Universal REST passthrough - CLI
 # Equivalent of: az rest --method GET --uri <url>
 #
-# Prereq: azv2 login (so the {subscriptionId} token and ARM auth resolve).
+# Prereq: az login (so the {subscriptionId} token and ARM auth resolve).
 
 # Happy path: relative ARM path. {subscriptionId} is substituted from the auth context,
 # the ARM endpoint (https://management.azure.com) is prepended, and the request is

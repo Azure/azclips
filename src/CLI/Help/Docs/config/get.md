@@ -10,11 +10,11 @@ Description: Get the current value of a configuration setting by key. Configurat
 ### Get output format setting
 
 ```bash
-azv2 config get --key output.format
+az config get --key output.format
 ```
 
 ### Get output as JSON
 
 ```bash
-azv2 config get --key output.format --json
+az config get --key output.format --json
 ```

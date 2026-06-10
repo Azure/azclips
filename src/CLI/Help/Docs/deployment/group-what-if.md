@@ -10,17 +10,17 @@ Description: Run a resource group scoped what-if operation, mirroring `az deploy
 ### Preview a local Bicep template with inline parameters
 
 ```bash
-azv2 deployment group what-if --resource-group myResourceGroup --name myDeployment --template-file ./main.bicep --parameter location=eastus --parameter instanceCount=3
+az deployment group what-if --resource-group myResourceGroup --name myDeployment --template-file ./main.bicep --parameter location=eastus --parameter instanceCount=3
 ```
 
 ### Preview a remote ARM template with a remote parameters file
 
 ```bash
-azv2 deployment group what-if --resource-group myResourceGroup --name myDeployment --template-uri https://example.com/azuredeploy.json --parameters-uri https://example.com/azuredeploy.parameters.json --mode Incremental --subscription-id 00000000-0000-0000-0000-000000000000
+az deployment group what-if --resource-group myResourceGroup --name myDeployment --template-uri https://example.com/azuredeploy.json --parameters-uri https://example.com/azuredeploy.parameters.json --mode Incremental --subscription-id 00000000-0000-0000-0000-000000000000
 ```
 
 ### Preview a Template Spec in Complete mode returning resource ids only
 
 ```bash
-azv2 deployment group what-if --resource-group myResourceGroup --name myDeployment --template-spec-id /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myResourceGroup/providers/Microsoft.Resources/templateSpecs/myTemplateSpec/versions/1.0 --mode Complete --validation-level Template --result-format ResourceIdOnly
+az deployment group what-if --resource-group myResourceGroup --name myDeployment --template-spec-id /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myResourceGroup/providers/Microsoft.Resources/templateSpecs/myTemplateSpec/versions/1.0 --mode Complete --validation-level Template --result-format ResourceIdOnly
 ```

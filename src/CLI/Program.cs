@@ -280,7 +280,7 @@ public class Program
     private static async Task<int> TryAgentFallbackAsync(string[] args, string? errorText)
     {
         // Global enable switch: config `agent.enabled` (off by default for PP).
-        // The user opts in with `azv2 config set --key agent.enabled --value true`.
+        // The user opts in with `az config set --key agent.enabled --value true`.
         // Fail-safe: if config can't be read, treat as disabled and surface the
         // original error rather than spawning the agent on an unknown state.
         try
@@ -309,7 +309,7 @@ public class Program
             return 1;
         }
 
-        // Recursion guard: a failed azv2 invoked by powershell from inside an
+        // Recursion guard: a failed az invoked by powershell from inside an
         // already-running agent-mode TUI must NOT spawn another agent-mode TUI.
         if (Environment.GetEnvironmentVariable("CIRRUS_IN_AGENT_MODE") == "1")
         {
@@ -319,7 +319,7 @@ public class Program
         var tuiExe = FindTuiExe();
         if (tuiExe is null)
         {
-            _logger?.Error("agent mode unavailable: Core.Tui.exe not found alongside azv2");
+            _logger?.Error("agent mode unavailable: Core.Tui.exe not found alongside az");
             return 1;
         }
 
@@ -414,8 +414,8 @@ public class Program
             if (exePath == null) return;
 
             // In-process benchmark mode: do not attempt to flush telemetry as in benchmark execution process
-            if (!exePath.EndsWith("azv2", StringComparison.OrdinalIgnoreCase) &&
-                !exePath.EndsWith("azv2.exe", StringComparison.OrdinalIgnoreCase))
+            if (!exePath.EndsWith("az", StringComparison.OrdinalIgnoreCase) &&
+                !exePath.EndsWith("az.exe", StringComparison.OrdinalIgnoreCase))
             {
                 return;
             }

@@ -23,25 +23,25 @@ jobs:
         BuildProfile: lean
         DistributionArtifact: Distribution_MacOS_Lean
         VmImage: ${{ parameters.macos_arm64_pool }}
-        CliTarPath: ${{ parameters.PackagingMacOSOutRoot }}/Release/tarball/azv2-lean-osx-arm64-$(ArtifactVersion).tar.gz
+        CliTarPath: ${{ parameters.PackagingMacOSOutRoot }}/Release/tarball/az-lean-osx-arm64-$(ArtifactVersion).tar.gz
       osx_x64_lean:
         Rid: osx-x64
         BuildProfile: lean
         DistributionArtifact: Distribution_MacOS_Intel_Lean
         VmImage: ${{ parameters.macos_intel_pool }}
-        CliTarPath: ${{ parameters.PackagingMacOSOutRoot }}/Release/tarball/azv2-lean-osx-x64-$(ArtifactVersion).tar.gz
+        CliTarPath: ${{ parameters.PackagingMacOSOutRoot }}/Release/tarball/az-lean-osx-x64-$(ArtifactVersion).tar.gz
       osx_arm64_full:
         Rid: osx-arm64
         BuildProfile: full
         DistributionArtifact: Distribution_MacOS_Full
         VmImage: ${{ parameters.macos_arm64_pool }}
-        CliTarPath: ${{ parameters.PackagingMacOSOutRoot }}/Release/tarball/azv2-osx-arm64-$(ArtifactVersion).tar.gz
+        CliTarPath: ${{ parameters.PackagingMacOSOutRoot }}/Release/tarball/az-osx-arm64-$(ArtifactVersion).tar.gz
       osx_x64_full:
         Rid: osx-x64
         BuildProfile: full
         DistributionArtifact: Distribution_MacOS_Intel_Full
         VmImage: ${{ parameters.macos_intel_pool }}
-        CliTarPath: ${{ parameters.PackagingMacOSOutRoot }}/Release/tarball/azv2-osx-x64-$(ArtifactVersion).tar.gz
+        CliTarPath: ${{ parameters.PackagingMacOSOutRoot }}/Release/tarball/az-osx-x64-$(ArtifactVersion).tar.gz
   pool:
     vmImage: $(VmImage)
   steps:

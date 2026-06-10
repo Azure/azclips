@@ -10,11 +10,11 @@ Description: Retrieve the full property bag for the specified virtual machine, i
 ### Show a virtual machine by name
 
 ```bash
-azv2 vm show --name myvm --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000
+az vm show --name myvm --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000
 ```
 
 ### Show using shell variables
 
 ```bash
-azv2 vm show --name $vmName --resource-group $rg --subscription-id $subId
+az vm show --name $vmName --resource-group $rg --subscription-id $subId
 ```

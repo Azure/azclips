@@ -1,5 +1,5 @@
 Group
-    azv2 login : Authenticate to Azure.
+    az login : Authenticate to Azure.
 
 Commands:
     login : Authenticate to Azure.

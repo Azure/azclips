@@ -50,7 +50,7 @@ public static class AgentModeEntry
             PrintBanner(failedCommand, errorText, quiet);
 
             var flavor   = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure cli";
-            var azv2     = FindAzv2Exe() ?? "azv2";
+            var az     = FindAzExe() ?? "az";
             var consoleRenderer = new ConsoleAgentRenderer(quiet);
             // When agent.trace.enabled, wrap the console renderer to record a JSONL
             // trace under agent.trace.path. Prose suppression after submit_response
@@ -91,7 +91,7 @@ public static class AgentModeEntry
                 flavor: flavor,
                 auth: auth,
                 authContext: authContext,
-                azv2ExePath: azv2,
+                azExePath: az,
                 approvalSink: approval,
                 renderer: renderer,
                 options: agentOpts,
@@ -367,10 +367,10 @@ public static class AgentModeEntry
         return args[idx + 1];
     }
 
-    private static string? FindAzv2Exe()
+    private static string? FindAzExe()
     {
         var baseDir = AppContext.BaseDirectory;
-        var name = OperatingSystem.IsWindows() ? "azv2.exe" : "azv2";
+        var name = OperatingSystem.IsWindows() ? "az.exe" : "az";
         foreach (var candidate in new[]
         {
             Path.Combine(baseDir, name),

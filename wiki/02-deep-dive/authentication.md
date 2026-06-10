@@ -164,7 +164,7 @@ sequenceDiagram
     participant CtxSvc as AuthContextService
     participant Disk as context.json
 
-    User->>LoginCmd: azv2 login --SubscriptionId sub1 --TenantId t1
+    User->>LoginCmd: az login --SubscriptionId sub1 --TenantId t1
 
     LoginCmd->>LoginCmd: Resolve IAuthService, IAuthContextService
 

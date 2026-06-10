@@ -19,7 +19,7 @@ Copy-Item -Path assets/* -Destination "./publish/win-x64/Assets/" -Recurse
 Create the appx package using the MakeAppx tool:
 
 ```powershell
-& "C:\Program Files (x86)\Windows Kits\10\bin\<Your SDK Version>\x64\makeappx.exe" pack /d .\publish\win-x64\ /p "./bin/azv2.msix" /nv
+& "C:\Program Files (x86)\Windows Kits\10\bin\<Your SDK Version>\x64\makeappx.exe" pack /d .\publish\win-x64\ /p "./bin/az.msix" /nv
 ```
 
 (Optional) Create a local certificate for signing the package:
@@ -31,7 +31,7 @@ New-SelfSignedCertificate -Type Custom -KeyUsage DigitalSignature -CertStoreLoca
 Sign the package using the SignTool:
 
 ```powershell
-& "C:\Program Files (x86)\Windows Kits\10\bin\<Your SDK Version>\x64\signtool.exe" sign /fd SHA256 /sha1 "<Your Certificate Thumbprint Here>" .\bin\azv2.msix
+& "C:\Program Files (x86)\Windows Kits\10\bin\<Your SDK Version>\x64\signtool.exe" sign /fd SHA256 /sha1 "<Your Certificate Thumbprint Here>" .\bin\az.msix
 ```
 
 To Install, you should trust the certificate used to sign the package first. You can export the certificate from the certificate store and then double click to install it.

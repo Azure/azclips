@@ -1,5 +1,5 @@
 LlmFirstToken ttft=<NORMALIZED>
 Text len=12
-ToolStarted name=powershell args={"command":"azv2 group list"} callId=call1
+ToolStarted name=powershell args={"command":"az group list"} callId=call1
 ToolCompleted name=powershell isError=False result=SUCCESS · exit 0 output: rg1, rg2 callId=call1
 LlmTurnCompleted in=<NORMALIZED> out=<NORMALIZED> cached=<NORMALIZED> elapsed=<NORMALIZED>

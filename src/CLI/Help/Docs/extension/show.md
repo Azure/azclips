@@ -10,11 +10,11 @@ Description: Display metadata for a single installed extension, including its pa
 ### Show by short name
 
 ```bash
-azv2 extension show --name Compute
+az extension show --name Compute
 ```
 
 ### Show by package id
 
 ```bash
-azv2 extension show --name Microsoft.Azure.Cirrus.Extensions.Compute
+az extension show --name Microsoft.Azure.Cirrus.Extensions.Compute
 ```

@@ -106,8 +106,8 @@ Every response must be valid JSON with exactly two fields (`src/Core/Core.Agent/
 
 | Type | When Used | Example | Line |
 |---|---|---|---|
-| `executable_command` | After user confirms, command has real values | `azv2 group create --name mygroup --location eastus` | 22 |
-| `sample_command` | Syntax help with placeholders | `azv2 group create --name <name> --location <location>` | 23 |
+| `executable_command` | After user confirms, command has real values | `az group create --name mygroup --location eastus` | 22 |
+| `sample_command` | Syntax help with placeholders | `az group create --name <name> --location <location>` | 23 |
 | `question` | Gathering required information | `What name would you like for the resource group?` | 24 |
 | `confirmation` | Asking approval before execution | Command + `Proceed with this command? (yes/no)` | 25 |
 | `exit` | User says exit/quit/cancel/nevermind or declines | Goodbye message | 26 |
@@ -136,7 +136,7 @@ stateDiagram-v2
 ### Flavor-Specific Syntax Rules
 
 The prompt instructs the AI to use different syntax based on flavor (`src/Core/Core.Agent/prompt.md:7-8`):
-- **azure cli**: lowercase `azv2` commands (e.g., `azv2 group create`)
+- **azure cli**: lowercase `az` commands (e.g., `az group create`)
 - **azure powershell**: PascalCase cmdlets without prefix (e.g., `New-ResourceGroup`)
 
 ### Critical Rules
@@ -150,8 +150,8 @@ The prompt enforces strict behavioral constraints (`src/Core/Core.Agent/prompt.m
 ### Supported Commands
 
 The prompt explicitly lists the only truly executable commands (`src/Core/Core.Agent/prompt.md:89-94`):
-- `azv2 login --TenantId <tenant-id> --SubscriptionId <subscription-id> --UseDeviceCode`
-- `azv2 group create --SubscriptionId <subscription-id> --Name <name> --Location <location>`
+- `az login --TenantId <tenant-id> --SubscriptionId <subscription-id> --UseDeviceCode`
+- `az group create --SubscriptionId <subscription-id> --Name <name> --Location <location>`
 
 All other commands are treated as `sample_command` with a note that they are not yet supported in Cirrus.
 
@@ -303,7 +303,7 @@ When PowerShell cmdlets invoke the agent:
 1. They set `AZURECLI_FLAVOR=azure powershell` before calling the CLI binary
 2. `OrchestratorEngine` detects this and skips `DefaultCommandEngine` entirely (line 65-70)
 3. `AgentEngine` uses `"azure powershell"` flavor in the prompt template
-4. The AI generates PascalCase cmdlet syntax instead of `azv2` commands
+4. The AI generates PascalCase cmdlet syntax instead of `az` commands
 5. For `executable_command` responses, the `__PSEXEC__` marker is emitted (line 162-165)
 6. Interactive prompts are skipped — PowerShell cannot read from `Console` in a cmdlet context (line 196-200)
 

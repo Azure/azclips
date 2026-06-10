@@ -10,17 +10,17 @@ Description: Replace the installed version of an extension with a newer one from
 ### Update to the latest version
 
 ```bash
-azv2 extension update --name Compute
+az extension update --name Compute
 ```
 
 ### Update to a specific version
 
 ```bash
-azv2 extension update --name Compute --version 2.1.0
+az extension update --name Compute --version 2.1.0
 ```
 
 ### Force update over a pin
 
 ```bash
-azv2 extension update --name Compute --force
+az extension update --name Compute --force
 ```

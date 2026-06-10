@@ -5,7 +5,7 @@ description: Deep dive into OrchestratorEngine, the DefaultCommandEngine → Age
 
 # Core Engine & Orchestration
 
-The engine layer is the beating heart of Cirrus. Every command — whether a structured CLI invocation like `azv2 group create --name test` or a natural-language query like _"create a resource group for me"_ — passes through the same orchestration pipeline. This page traces the complete lifecycle of a command from raw `string[]` args to executed result.
+The engine layer is the beating heart of Cirrus. Every command — whether a structured CLI invocation like `az group create --name test` or a natural-language query like _"create a resource group for me"_ — passes through the same orchestration pipeline. This page traces the complete lifecycle of a command from raw `string[]` args to executed result.
 
 ## Engine Interface Hierarchy
 
@@ -343,7 +343,7 @@ The orchestration pipeline has several safety nets:
 
 - **Agent reuse across retries** — `AgentEngine._agent` is preserved between `OrchestratorEngine` retry iterations, maintaining conversation context so the AI's multi-turn memory is not lost (`src/Core/Core.Engine/AgentEngine.cs:59`).
 
-- **Skip(1) on extracted commands** — When the AI returns `"azv2 group create --name test"`, the orchestrator skips the first token (`azv2`) since the DefaultCommandEngine expects args without the program name (`src/Core/Core.Engine/OrchestratorEngine.cs:112`).
+- **Skip(1) on extracted commands** — When the AI returns `"az group create --name test"`, the orchestrator skips the first token (`az`) since the DefaultCommandEngine expects args without the program name (`src/Core/Core.Engine/OrchestratorEngine.cs:112`).
 
 ## References
 

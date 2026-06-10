@@ -17,7 +17,7 @@ namespace Core.Abstractions
     /// </para>
     /// <list type="bullet">
     ///   <item>the installer (<c>extension add</c>), to detect conflicts before extracting files;</item>
-    ///   <item>the dispatcher, to route <c>azv2 &lt;verb&gt; ...</c> invocations to the right extension;</item>
+    ///   <item>the dispatcher, to route <c>az &lt;verb&gt; ...</c> invocations to the right extension;</item>
     ///   <item>the build-time hint-table generator, to produce <c>extension-hints.json</c> shipped with the host.</item>
     /// </list>
     /// Verb matching is case-insensitive (<see cref="System.StringComparer.OrdinalIgnoreCase"/>).

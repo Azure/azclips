@@ -19,7 +19,7 @@ public class AgentEventStyleSnapshotTests
     {
         var ev = new ToolStarted(
             Name: "powershell",
-            ArgsJson: "{\"command\":\"azv2 group list\"}",
+            ArgsJson: "{\"command\":\"az group list\"}",
             CallId: "call1", ParentCallId: null, At: At);
 
         SnapshotAssert.Matches("style-tool-started", RenderSegments(ev));

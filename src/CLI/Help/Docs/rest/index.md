@@ -10,23 +10,23 @@ Description: Universal authenticated HTTP passthrough for Azure Resource Manager
 ### GET a resource group with a full URI
 
 ```bash
-azv2 rest --method GET --uri "/subscriptions/{subscriptionId}/resourceGroups/myresourcegroup?api-version=2021-04-01"
+az rest --method GET --uri "/subscriptions/{subscriptionId}/resourceGroups/myresourcegroup?api-version=2021-04-01"
 ```
 
 ### GET a resource using the piece-wise ByParameters flags
 
 ```bash
-azv2 rest --method GET --subscription 00000000-0000-0000-0000-000000000000 --resource-group myresourcegroup --resource-provider Microsoft.Storage --resource-type storageAccounts --name mystorageacct --api-version 2023-01-01
+az rest --method GET --subscription 00000000-0000-0000-0000-000000000000 --resource-group myresourcegroup --resource-provider Microsoft.Storage --resource-type storageAccounts --name mystorageacct --api-version 2023-01-01
 ```
 
 ### PUT a resource with a JSON body and a custom header
 
 ```bash
-azv2 rest --method PUT --uri "/subscriptions/{subscriptionId}/resourceGroups/myresourcegroup?api-version=2021-04-01" --body '{"location":"eastus"}' --headers Content-Type=application/json
+az rest --method PUT --uri "/subscriptions/{subscriptionId}/resourceGroups/myresourcegroup?api-version=2021-04-01" --body '{"location":"eastus"}' --headers Content-Type=application/json
 ```
 
 ### List resources with an extra query-string parameter
 
 ```bash
-azv2 rest --method GET --uri "/subscriptions/{subscriptionId}/resources" --uri-parameters api-version=2021-04-01 '$filter=resourceType eq '\''Microsoft.Storage/storageAccounts'\'''
+az rest --method GET --uri "/subscriptions/{subscriptionId}/resources" --uri-parameters api-version=2021-04-01 '$filter=resourceType eq '\''Microsoft.Storage/storageAccounts'\'''
 ```

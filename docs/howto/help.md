@@ -39,7 +39,7 @@ Both surfaces are validated and built by:
 
     ```powershell
     .\build\build.ps1 -GenerateHelpArtifacts
-    dotnet .\artifacts\Debug\Core.Cli\azv2.dll <group> <command> --help
+    dotnet .\artifacts\Debug\Core.Cli\az.dll <group> <command> --help
     ```
 
 ## Quick Start — PowerShell
@@ -67,14 +67,14 @@ Both surfaces are validated and built by:
 
 ```
 src/CLI/Help/Docs/             # CLI markdown — Cirrus format, one folder per verb
-├── vm/                        # azv2 vm …  (Compute extension)
-│   ├── index.md               # azv2 vm --help
-│   ├── create.md              # azv2 vm create --help
+├── vm/                        # az vm …  (Compute extension)
+│   ├── index.md               # az vm --help
+│   ├── create.md              # az vm create --help
 │   ├── list.md
 │   ├── show.md
 │   └── delete.md
-├── disk/                      # azv2 disk … (also Compute — multi-verb extension)
-├── group/                     # azv2 group … (Resources)
+├── disk/                      # az disk … (also Compute — multi-verb extension)
+├── group/                     # az group … (Resources)
 ├── login/, config/, extension/, deployment/
 
 src/PS/                        # PowerShell — PlatyPS format, one folder per module
@@ -109,7 +109,7 @@ interface, and virtual machine using the supplied names and parameters.
 ### Create a VM with its networking stack
 
 ```bash
-azv2 vm create --name myvm --location eastus --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000
+az vm create --name myvm --location eastus --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000
 ```
 ````
 
@@ -121,7 +121,7 @@ azv2 vm create --name myvm --location eastus --resource-group myrg --subscriptio
 | `status:`         | no       | `ga` (default), `preview`, `deprecated`, or `internal`. |
 | `schema:`         | yes      | Always `1.0.0`.                                         |
 | `online version:` | no       | MSLearn URL or empty.                                   |
-| `relatedLinks:`   | no       | Flat list of related `azv2 ...` invocations.            |
+| `relatedLinks:`   | no       | Flat list of related `az ...` invocations.            |
 
 **Example fences must use `bash` or `sh`.** PowerShell fences are not consumed from CLI markdown — author those in `src/PS/<Module>/help/` instead.
 
@@ -210,11 +210,11 @@ These rules apply uniformly to CLI markdown under `src/CLI/Help/Docs/` and Power
 
 Validation errors when:
 
-- An `azv2 ...` line uses an unregistered verb (e.g. `azv2 widget create`).
+- An `az ...` line uses an unregistered verb (e.g. `az widget create`).
 - The remaining tokens don't resolve to a routed command.
 - A `--flag` (or short `-x`) isn't declared on the resolved command and isn't one of the documented globals (`--help`/`-h`, `--debug`, `--output`).
 - A flag value doesn't match the declared `ParameterMetadata.Type` or isn't in `AllowedValues`.
-- A parameter declared `IsRequired: true` on the routed command is missing from the invocation (`CLI_L4_MissingRequiredFlag`). Help-flag invocations (`azv2 vm create --help`) are exempt.
+- A parameter declared `IsRequired: true` on the routed command is missing from the invocation (`CLI_L4_MissingRequiredFlag`). Help-flag invocations (`az vm create --help`) are exempt.
 - An example fence contains an `<angle-bracket>` placeholder of any shape (`CLI_ExamplePlaceholder`). See [Placeholder rules](#placeholder-rules) for the accepted escape hatches.
 
 ### PowerShell fences (`powershell` / `pwsh`) — `src/PS/<Module>/help/`
@@ -227,7 +227,7 @@ Validation rules (full list, see Troubleshooting below for fixes):
 - **PSL4** — the same parameter (after alias resolution) is bound twice on one invocation.
 - **PSL5** — a `$variable` is read but never assigned in the same fence.
 - **PSL6** — a literal value bound to a `Guid`- or enum-typed parameter doesn't parse.
-- **PSL7** — a fence under `## EXAMPLES` does not invoke the cmdlet whose name matches the file (e.g. an `azv2 …` line in `Connect-CirrusAccount.md`).
+- **PSL7** — a fence under `## EXAMPLES` does not invoke the cmdlet whose name matches the file (e.g. an `az …` line in `Connect-CirrusAccount.md`).
 - **PSL8** — the cmdlet help file has no fenced PowerShell example under `## EXAMPLES`.
 - **PSL9** — a cmdlet declared in `<Module>.psd1`'s `CmdletsToExport` has no matching `help/<Verb-Noun>.md` file.
 - **PSL10** — a module manifest declares `CmdletsToExport` but the module folder has no `help/` directory at all (supersedes the per-cmdlet PSL9 cascade).
@@ -265,7 +265,7 @@ Prose outside fences is not scanned — you can still mention `<key>=<value>` in
 
 ### CLI Help
 
-`azv2 <verb> <command> --help` reads markdown from `<azv2-base>/help/<verb>/<command-key>.md`. The build copies `src/CLI/Help/Docs/` → `artifacts/<Config>/Core.Cli/help/` so help works from a local build, and `MarkdownCommandHelpProvider` parses Summary/Description/examples on demand. If the packaged file is missing, the provider walks up to `cirrus.slnx` and reads the markdown straight from `src/CLI/Help/Docs/<verb>/` — dev-loop fallback, no rebuild required.
+`az <verb> <command> --help` reads markdown from `<az-base>/help/<verb>/<command-key>.md`. The build copies `src/CLI/Help/Docs/` → `artifacts/<Config>/Core.Cli/help/` so help works from a local build, and `MarkdownCommandHelpProvider` parses Summary/Description/examples on demand. If the packaged file is missing, the provider walks up to `cirrus.slnx` and reads the markdown straight from `src/CLI/Help/Docs/<verb>/` — dev-loop fallback, no rebuild required.
 
 ### PowerShell Help
 
@@ -320,8 +320,8 @@ Both are idempotent: existing files are skipped. Run them once after adding new 
 ```powershell
 # CLI surface
 .\build\build.ps1 -GenerateHelpArtifacts
-dotnet .\artifacts\Debug\Core.Cli\azv2.dll vm --help
-dotnet .\artifacts\Debug\Core.Cli\azv2.dll vm create --help
+dotnet .\artifacts\Debug\Core.Cli\az.dll vm --help
+dotnet .\artifacts\Debug\Core.Cli\az.dll vm create --help
 
 # PowerShell surface
 Import-Module .\artifacts\Debug\PS\Compute\Compute.psd1 -Force
@@ -361,7 +361,7 @@ dotnet test tools/Help/Cirrus.Help.Tool.Tests/Cirrus.Help.Tool.Tests.csproj
 - `L1`: command path doesn't resolve. Cross-check against `ExtensionIndex.cs`.
 - `L2`: unknown flag. Check the canonical name (kebab-case).
 - `L3`: value doesn't match the declared type. Substitute the all-zero GUID for ids, a real string literal (`eastus`, `myrg`), or a shell variable (`$rg`). Angle-bracket placeholders are no longer accepted — see `CLI_ExamplePlaceholder`.
-- `CLI_L4_MissingRequiredFlag`: an `IsRequired: true` parameter on the routed command isn't bound in the invocation. Add the missing `--flag`. Help-flag invocations (`azv2 vm create --help`) are exempt.
+- `CLI_L4_MissingRequiredFlag`: an `IsRequired: true` parameter on the routed command isn't bound in the invocation. Add the missing `--flag`. Help-flag invocations (`az vm create --help`) are exempt.
 
 **Build fails with `MD_TodoPlaceholder` / `PS_TodoPlaceholder`:**
 
@@ -385,7 +385,7 @@ dotnet test tools/Help/Cirrus.Help.Tool.Tests/Cirrus.Help.Tool.Tests.csproj
 
 **Build fails with `PSL7_ExampleMustInvokeDocumentedCmdlet`:**
 
-- The validator extracts the documented cmdlet from the filename (`Connect-CirrusAccount.md` → `Connect-CirrusAccount`) and requires every fence under `## EXAMPLES` to invoke it at least once. Setup commands in the same fence are fine — what's not fine is a fence that demonstrates a different cmdlet, or worse, a CLI invocation (`azv2 ...`) inside a PowerShell help file.
+- The validator extracts the documented cmdlet from the filename (`Connect-CirrusAccount.md` → `Connect-CirrusAccount`) and requires every fence under `## EXAMPLES` to invoke it at least once. Setup commands in the same fence are fine — what's not fine is a fence that demonstrates a different cmdlet, or worse, a CLI invocation (`az ...`) inside a PowerShell help file.
 - Fix: replace the example so it actually shows the cmdlet the file documents.
 
 **Build fails with `PSL8_NoExamples`:**

@@ -30,7 +30,7 @@ public class ConsoleApprovalPromptTests
         Console.SetOut(TextWriter.Null);
         try
         {
-            var toolTask = prompt.RequestRewriteAsync("powershell", "azv2 group delete --yes", CancellationToken.None);
+            var toolTask = prompt.RequestRewriteAsync("powershell", "az group delete --yes", CancellationToken.None);
             var outcome = await prompt.PumpOneAsync(CancellationToken.None);
             var approved = await toolTask;
             return (outcome, approved);

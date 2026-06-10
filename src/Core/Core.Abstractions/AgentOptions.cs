@@ -3,7 +3,7 @@ namespace Core.Abstractions;
 public sealed class AgentOptions
 {
     // Off by default for Private Preview. The user opts in with
-    // `azv2 config set --key agent.enabled --value true`; until then a failed
+    // `az config set --key agent.enabled --value true`; until then a failed
     // command surfaces its original error and never spawns the agent.
     public bool Enabled { get; set; } = false;
     public string Provider { get; set; } = "builtin";

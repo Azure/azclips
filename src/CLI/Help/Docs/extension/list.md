@@ -10,11 +10,11 @@ Description: Display every extension currently installed in the Cirrus extension
 ### List installed extensions
 
 ```bash
-azv2 extension list
+az extension list
 ```
 
 ### Group by verb
 
 ```bash
-azv2 extension list --by-verb
+az extension list --by-verb
 ```

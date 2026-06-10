@@ -26,7 +26,7 @@ public class ProposePlanValidationTests
         var args = Args(new
         {
             issues = OneIssue,
-            steps = new[] { Step(1, "Create RG", "azv2 group create -n foo -l eastus") },
+            steps = new[] { Step(1, "Create RG", "az group create -n foo -l eastus") },
         });
 
         var error = ChatAgent.ValidateProposePlan(args);
@@ -40,7 +40,7 @@ public class ProposePlanValidationTests
         var args = Args(new
         {
             issues = Array.Empty<string>(),
-            steps = new[] { Step(1, "Create RG", "azv2 group create -n foo") },
+            steps = new[] { Step(1, "Create RG", "az group create -n foo") },
         });
 
         var error = ChatAgent.ValidateProposePlan(args);
@@ -52,7 +52,7 @@ public class ProposePlanValidationTests
     [Fact]
     public void Rejects_missing_issues_field()
     {
-        var args = Args(new { steps = new[] { Step(1, "Create RG", "azv2 group create -n foo") } });
+        var args = Args(new { steps = new[] { Step(1, "Create RG", "az group create -n foo") } });
 
         var error = ChatAgent.ValidateProposePlan(args);
 
@@ -66,7 +66,7 @@ public class ProposePlanValidationTests
         var args = Args(new
         {
             issues = new[] { "   " },
-            steps = new[] { Step(1, "Create RG", "azv2 group create -n foo") },
+            steps = new[] { Step(1, "Create RG", "az group create -n foo") },
         });
 
         var error = ChatAgent.ValidateProposePlan(args);
@@ -103,7 +103,7 @@ public class ProposePlanValidationTests
         var args = Args(new
         {
             issues = OneIssue,
-            steps = new[] { new { id = 1, cmd = "azv2 group list" } },
+            steps = new[] { new { id = 1, cmd = "az group list" } },
         });
 
         var error = ChatAgent.ValidateProposePlan(args);
@@ -135,7 +135,7 @@ public class ProposePlanValidationTests
             issues = OneIssue,
             steps = new object[]
             {
-                Step(1, "Good", "azv2 group list"),
+                Step(1, "Good", "az group list"),
                 new { id = 2, label = "No cmd here" },
             },
         });
