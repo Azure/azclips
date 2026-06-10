@@ -15,5 +15,6 @@ public interface ITelemetryService : IDisposable
     /// Returns <c>null</c> if no listener (TracerProvider) is attached to the underlying source.
     /// </summary>
     Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal);
+    Activity? StartRootActivity();
     Activity? AddTag(string tagName, object value, Activity? activity = null);
 }

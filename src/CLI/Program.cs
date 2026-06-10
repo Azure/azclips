@@ -67,7 +67,7 @@ public class Program
 
         try
         {
-            using var activity = telemetryService.StartActivity(TelemetryConstants.CLIRootActivityName, ActivityKind.Server);
+            using var activity = telemetryService.StartRootActivity();
             activity.TagClientContext(_clientType);
             var dispatcher = new ExtensionDispatcher();
             args = WireDebugStreams(args);

@@ -57,7 +57,7 @@ public class GetResourceGroupCmdlet : PSCmdlet
 
     protected override void ProcessRecord()
     {
-        using var activity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartActivity(TelemetryConstants.PSRootActivityName, ActivityKind.Server);
+        using var activity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartRootActivity();
         activity.TagClientContext(clientType);
         var parameters = new Dictionary<string, object>();
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))

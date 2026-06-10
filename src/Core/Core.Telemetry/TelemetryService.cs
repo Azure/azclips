@@ -10,15 +10,21 @@ namespace Core.Telemetry;
 public class TelemetryService : ITelemetryService
 {
     private readonly ITelemetryProvider _telemetryProvider;
+    private readonly ClientType _clientType;
     private bool _disposed;
 
-    public TelemetryService(ITelemetryProvider telemetryProvider)
+    public TelemetryService(ITelemetryProvider telemetryProvider, ClientType clientType)
     {
         _telemetryProvider = telemetryProvider;
+        _clientType = clientType;
     }
 
     public Activity? StartActivity(string name, ActivityKind kind = ActivityKind.Internal) =>
         _telemetryProvider.ActivitySource.StartActivity(name, kind)?.SetTag(TelemetryTags.EventName, name);
+
+    public Activity? StartRootActivity() =>
+        StartActivity($"{_clientType.ToString()}.Activity.Root", ActivityKind.Server);
+
 
     public Activity? AddTag(string propertyName, object value, Activity? activity = null)
     {

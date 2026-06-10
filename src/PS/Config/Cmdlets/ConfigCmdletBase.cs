@@ -42,7 +42,7 @@ public abstract class ConfigCmdletBase : PSCmdlet
 
     protected void ExecuteInvocation(Dictionary<string, object> parameters)
     {
-        using var activity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartActivity(TelemetryConstants.PSRootActivityName, ActivityKind.Server);
+        using var activity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartRootActivity();
         var commandName = MyInvocation.MyCommand.Name;
         activity.TagClientContext(clientType);
 
