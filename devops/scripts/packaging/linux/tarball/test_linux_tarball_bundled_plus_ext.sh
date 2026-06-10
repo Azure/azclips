@@ -9,8 +9,15 @@ PACKAGING_ROOT="${PACKAGING_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 REPO_ROOT="${REPO_ROOT:-$(cd "$PACKAGING_ROOT/../../.." && pwd)}"
 cd "$REPO_ROOT"
 
-OUT_ROOT="$(realpath "${OUT_ROOT:-$REPO_ROOT/devops/out/linux}")"
-COMMON_OUT_ROOT="$(realpath "${COMMON_OUT_ROOT:-$REPO_ROOT/devops/out/common}")"
+absolute_path() {
+  case "$1" in
+    /*) printf '%s\n' "$1" ;;
+    *) printf '%s/%s\n' "$REPO_ROOT" "$1" ;;
+  esac
+}
+
+OUT_ROOT="$(absolute_path "${OUT_ROOT:-$REPO_ROOT/devops/out/linux}")"
+COMMON_OUT_ROOT="$(absolute_path "${COMMON_OUT_ROOT:-$REPO_ROOT/devops/out/common}")"
 SIM_ROOT="$(realpath "${SIM_ROOT:-$REPO_ROOT/devops/sim/linux-tarball-bundled-plus-ext}" 2>/dev/null || echo "${SIM_ROOT:-$REPO_ROOT/devops/sim/linux-tarball-bundled-plus-ext}")"
 SKIP_RUNTIME="${SKIP_RUNTIME:-false}"
 RID="${RID:-linux-x64}"
