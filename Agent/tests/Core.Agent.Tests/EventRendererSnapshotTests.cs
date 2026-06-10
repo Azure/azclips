@@ -44,7 +44,7 @@ public class EventRendererSnapshotTests
             {
                 ToolName = "run_command",
                 ToolCallId = "call1",
-                Arguments = JsonDocument.Parse("{\"command\":\"azv2 group list\"}").RootElement,
+                Arguments = JsonSerializer.Deserialize<JsonElement>("{\"command\":\"azv2 group list\"}"),
             }
         });
         renderer.Forward(new ToolExecutionCompleteEvent
@@ -113,7 +113,7 @@ public class EventRendererSnapshotTests
             {
                 ToolName = "run_command",
                 ToolCallId = "call1",
-                Arguments = JsonDocument.Parse("{\"command\":\"azv2 group show --name nope\"}").RootElement,
+                Arguments = JsonSerializer.Deserialize<JsonElement>("{\"command\":\"azv2 group show --name nope\"}"),
             }
         });
         renderer.Forward(new ToolExecutionCompleteEvent
