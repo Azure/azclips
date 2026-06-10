@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781074504793,
+  "lastUpdate": 1781102954670,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus PS Benchmarks": [
@@ -546,6 +546,48 @@ window.BENCHMARK_DATA = {
             "value": 21752417.6,
             "unit": "ns",
             "range": "± 2511621.935883026"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yangan@microsoft.com",
+            "name": "YangAn-microsoft",
+            "username": "YangAn-microsoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "38fe71aff5516bfd08e3c71ce862cb184f5ae2be",
+          "message": "feat(resources): add resource group deployment create (ARM + Bicep, LRO wait) (#262)\n\n## Summary\nAdds the `New-ResourceGroupDeployment` PowerShell cmdlet and the\n`deployment group create` CLI command to the Resources extension,\ndeploying ARM templates and Bicep files to a resource group via the ARM\ndeployments API (`2025-04-01`).**This is PR 1 of 2** splitting the\noriginal #261 for easier review:\n- **PR 1 (this PR):** shared deployment foundation + `create`.\n- **PR 2 (follows after this merges):** `deployment group what-if`.\n## What's included\n- PowerShell: `New-ResourceGroupDeployment`; \n- CLI: `deployment group create` (new `Deployment` command group).\n- ARM template + Bicep/`.bicepparam` support (inline + linked\ntemplates/parameters, query-string handling).\n- Always waits for the deployment LRO to reach a terminal\n`provisioningState` (matching `az deployment group create`); a\nno-wait/async option was intentionally deferred to a follow-up per\nreviewer feedback.\n- Shared base classes (`ResourcesProcessorBase` LRO machinery,\n`DeploymentRequestProcessorBase`) and models reused by PR 2.- Manual\ntest scripts (CLI + PS) and Bicep fixtures under `tests/Scripts`.\n\n## Test Evidence (2026-06-08)\n\n**Environment** — subscription `282bb33f-067d-4179-a7a4-b833c13af735`,\nresource group `cirrus-test-group-1`, region `australiaeast`; branch\n`yangan/deployment-group-create-foundation`; head commit `602e97c8`;\ndate 2026-06-08 (UTC). Live runs were executed against the shared test\nsubscription using cached MSAL auth (verified valid via a read-only\n`group list`).\n\n### Build\n`dotnet build cirrus.slnx -c Debug` — **Build succeeded, 0 Warning(s) /\n0 Error(s)** (exit 0).\n\n### Offline reflection test\n(`tests/Scripts/PS/DeploymentParametersQueryString.ps1`)\nLoads the built `Microsoft.Azure.Cirrus.Extensions.Resources.dll` and\nasserts QueryString / ParametersLink / TemplateLink URL-building via\nreflection. **14/14 assertions PASS**, exit code **0**.\n\n```\n=== ParametersLink.Uri embedding ===            8/8 PASS\n=== TemplateLink path UNCHANGED ===             2/2 PASS\n=== TemplateLink.QueryString normalization ===  4/4 PASS\n\nAll assertions passed.\n```\n\n### Live CLI create — `deployment group create`\n(`tests/Scripts/CLI/DeploymentCreate.sh`)\n\n| # | Case | Result |\n|---|------|--------|\n| 1 | quickstart `--template-uri`, `--mode Incremental`\n(`cirrus-test-deployment-1`) | ✅ `provisioningState: Succeeded` |\n| 2 | Bicep `--template-file` + `.bicepparam` (`cirrus-test-bicep-…`) |\n✅ `provisioningState: Succeeded` |\n| 3 | **neg** malformed `.bicep` | ✅ correctly rejected — bicep compile\nerror |\n| 4 | **neg** `--mode Foo` | ✅ correctly rejected — invalid enum |\n| 5 | inline `--parameter` overlay + `--validation-level Provider`\n(`cirrus-test-inline-…`) | ✅ `provisioningState: Succeeded` |\n| 6 | standalone `--validation-level Provider` (`cirrus-test-vlevel-…`)\n| ✅ `provisioningState: Succeeded` |\n| 7 | `--rollback-on-error` (`cirrus-test-rollback-…`) | ✅\n`provisioningState: Succeeded` |\n| 8 | **neg** `--parameters-uri` + inline `--parameter` conflict | ✅\ncorrectly rejected |\n| 9 | LRO wait (always-wait, `cirrus-test-wait-…`) | ✅ polled to\nterminal `provisioningState: Succeeded` |\n\nNegative-case rejection messages:\n\n```\n[ERROR] Bicep compilation failed (exit code 1):\n        ...BCP007: This declaration type is not recognized...\n\n[ERROR] Failed to parse arguments for command 'group create': Invalid arguments:\n        Parameter 'Mode' value 'Foo' is not allowed. Allowed values: Incremental, Complete\n\n[ERROR] Inline parameters cannot be combined with a parameters URI; ARM does not allow\n        inline parameters together with a parameters link. Provide a parameters file\n        instead, or remove the parameters URI.\n```\n\n### Live PS create — `New-ResourceGroupDeployment`\n(`tests/Scripts/PS/DeploymentCreate.ps1`)\n\n| # | Case | Result |\n|---|------|--------|\n| 1 | quickstart `-TemplateUri`, `-Mode Incremental`\n(`cirrus-test-deployment-1`) | ✅ `provisioningState: Succeeded` |\n| 2 | Bicep `-TemplateFile` + `.bicepparam` (`cirrus-test-bicep-…`) | ✅\n`provisioningState: Succeeded` |\n| 3 | **neg** malformed `.bicep` | ✅ correctly rejected — bicep compile\nerror (BCP007) |\n| 4 | **neg** `-Mode Foo` | ✅ correctly rejected — invalid enum |\n| 5 | inline `-Parameter` overlay + `-ValidationLevel Provider`\n(`cirrus-test-inline-…`) | ✅ `provisioningState: Succeeded` |\n| 6 | standalone `-ValidationLevel Provider` (`cirrus-test-vlevel-…`) |\n✅ `provisioningState: Succeeded` |\n| 7 | `-RollbackOnError` (`cirrus-test-rollback-…`) | ✅\n`provisioningState: Succeeded` |\n| 8 | **neg** `-ParametersUri` + inline `-Parameter` conflict | ✅\ncorrectly rejected |\n| 9 | LRO wait (always-wait, `cirrus-test-wait-…`) | ✅ polled to\nterminal `provisioningState: Succeeded` |\n\nNegative-case rejection messages:\n\n```\nBicep compilation failed (exit code 1):\n  ...BCP007: This declaration type is not recognized...\n\nMode must be either 'Incremental' or 'Complete'.\n\nInline parameters cannot be combined with a parameters URI; ARM does not\nallow inline parameters together with a parameters link. Provide a parameters file instead...\n```\n\n### Verdict\n✅ Build clean; offline assertions 14/14; **all happy-path deployments\nreached `Succeeded`** (the command always waits for the deployment LRO\nto reach a terminal `provisioningState`), and **every negative case was\ncorrectly rejected** with a clear message on both the CLI and PowerShell\nsurfaces. No unexpected failures.\n\n\n\n## Known limitation: CLI examples use `group group create` (deferred\nfollow-up)\n\nThe CLI help examples in `src/CLI/Help/Docs/resources/group-create.md`\nare written as `azv2 group group create ...` rather than the nicer\naz-parity form `azv2 deployment group create ...`. This is a temporary\naccommodation for the help-validation tool, not a runtime limitation.\n\n- **At runtime, `azv2 deployment group create ...` already works.**\n`src/CLI/Parser/CommandGroupIndex.cs` maps both the `Group` and\n`Deployment` command groups to the Resources extension, so the command\ndispatches correctly either way.\n- **The help tool only accepts one group token per extension.**\n`tools/Help/Cirrus.Help.Tool/Program.cs` seeds its validation map from a\nhardcoded `cliGroupByExtension` dictionary that is `extension -> single\ngroup string` (Resources is registered only as `\"group\"`).\n`ExampleSyntaxValidator` then reads `tokens[1]` of each example and\nlooks it up in that map; an `azv2 deployment ...` example would miss and\nraise `CLI_L1_UnknownGroup`, turning CI red.\n- **Why we didn't fix it here:** making the help tool accept\n`deployment` as a second group for Resources requires changing\n`cliGroupByExtension` from `string` to `string[]` (or exposing the CLI\ngroups off `IExtensionIndex`). That file lives on `main`, outside this\nPR's branch, so it's tracked as a separate follow-up. Once that lands,\nthe examples in `group-create.md` can be switched to the `azv2\ndeployment group create` form.\n\nThis is the subject of the three open `group-create.md` review threads,\nintentionally left unresolved to keep the deferred decision visible.",
+          "timestamp": "2026-06-10T22:45:11+08:00",
+          "tree_id": "8bad0b7c24f17bf17e96a79f45e02fef0477b8b3",
+          "url": "https://github.com/Azure/cirrus/commit/38fe71aff5516bfd08e3c71ce862cb184f5ae2be"
+        },
+        "date": 1781102954611,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 22326331.4,
+            "unit": "ns",
+            "range": "± 1922006.5771207183"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 22996298,
+            "unit": "ns",
+            "range": "± 1764172.0434879644"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 24577706.2,
+            "unit": "ns",
+            "range": "± 2880401.759565443"
           }
         ]
       }
