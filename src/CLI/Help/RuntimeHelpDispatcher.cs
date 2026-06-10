@@ -1,3 +1,4 @@
+using System.Reflection;
 using Core.Abstractions;
 using Core.Cli.Exceptions;
 using Core.Extensions;
@@ -12,37 +13,64 @@ namespace Core.Cli.Help;
 /// (one adapter per verb), and dispatching to <see cref="IHelpRenderer"/>.
 /// </summary>
 /// <remarks>
+/// <para>
 /// Help is verb-scoped, not package-scoped. <see cref="RenderRoot"/> enumerates every
-/// installed extension's <see cref="IExtensionIndex.GetVerbs"/> to discover all root
-/// groups; <see cref="RenderExtensionHelp"/> uses the verb on
-/// <see cref="RuntimeExtensionHelpException"/> to locate the owning package via
-/// <see cref="IExtensionResolver"/>.
+/// known package (built-ins from <see cref="BuiltInExtensions.Map"/> + every entry in
+/// <see cref="IExtensionRegistryStore"/>), then projects each through
+/// <see cref="IExtensionIndex.GetVerbs"/> to discover root groups; this is what makes
+/// multi-verb extensions like Compute surface as both <c>vm</c> and <c>disk</c> roots.
+/// </para>
+/// <para>
+/// <see cref="RenderExtensionHelp"/> resolves verb→package via <see cref="IExtensionResolver"/>;
+/// on a miss it consults <see cref="ExtensionHintTable.Default"/> so <c>azv2 vm --help</c>
+/// (when Compute is uninstalled) yields a precise "install it with: azv2 extension add --name Compute"
+/// hint instead of a bare <see cref="KeyNotFoundException"/>.
+/// </para>
 /// </remarks>
 public sealed class RuntimeHelpDispatcher
 {
     private readonly IHelpRenderer _renderer;
     private readonly IAssemblyLoadingService _assemblyLoading;
     private readonly IExtensionResolver _extensionResolver;
+    private readonly IExtensionRegistryStore _registryStore;
+    private readonly IReadOnlyDictionary<string, BuiltInExtension> _builtIns;
+    private readonly ExtensionHintTable _hintTable;
     private readonly TextWriter _output;
 
-    public RuntimeHelpDispatcher(IAssemblyLoadingService assemblyLoading, IExtensionResolver extensionResolver)
-        : this(assemblyLoading, extensionResolver, new RuntimeHelpRenderer(), Console.Out)
+    public RuntimeHelpDispatcher(
+        IAssemblyLoadingService assemblyLoading,
+        IExtensionResolver extensionResolver,
+        IExtensionRegistryStore registryStore)
+        : this(
+            assemblyLoading,
+            extensionResolver,
+            registryStore,
+            BuiltInExtensions.Map,
+            ExtensionHintTable.Default,
+            new RuntimeHelpRenderer(),
+            Console.Out)
     {
     }
 
     internal RuntimeHelpDispatcher(
         IAssemblyLoadingService assemblyLoading,
         IExtensionResolver extensionResolver,
+        IExtensionRegistryStore registryStore,
+        IReadOnlyDictionary<string, BuiltInExtension> builtIns,
+        ExtensionHintTable hintTable,
         IHelpRenderer renderer,
         TextWriter output)
     {
         _assemblyLoading = assemblyLoading;
         _extensionResolver = extensionResolver;
+        _registryStore = registryStore;
+        _builtIns = builtIns;
+        _hintTable = hintTable;
         _renderer = renderer;
         _output = output;
     }
 
-    /// <summary>Renders the top-level <c>azv2</c> help (every installed extension's verb roots).</summary>
+    /// <summary>Renders the top-level <c>azv2</c> help: every verb root from every known package.</summary>
     public int RenderRoot()
     {
         var rootGroups = EnumerateAllVerbRoots().ToArray();
@@ -55,7 +83,21 @@ public sealed class RuntimeHelpDispatcher
     {
         if (!_extensionResolver.TryResolve(helpException.Verb, out var resolved) || resolved is null)
         {
-            throw new KeyNotFoundException($"No installed extension owns verb '{helpException.Verb}'.");
+            // Verb is unknown to the resolver. If the embedded hint table knows it,
+            // surface the structured "extension not installed" message — same UX as
+            // the execute path (see ExtensionDispatcher.Parse).
+            if (_hintTable.TryGetPackageId(helpException.Verb, out var hintedPackage))
+            {
+                throw new ExtensionNotInstalledException(helpException.Verb, hintedPackage);
+            }
+
+            // Truly unknown verb (no install hint either). Surface as a structured error so the
+            // top-level CirrusErrorException catch renders it cleanly.
+            throw new CirrusErrorException(
+                code: "VerbNotFound",
+                exitCode: 4,
+                message: $"No installed extension owns verb '{helpException.Verb}'. Run 'azv2 extension list' to see installed extensions.",
+                details: new Dictionary<string, object?> { ["verb"] = helpException.Verb });
         }
 
         var extensionName = StripPackagePrefix(resolved.PackageId);
@@ -97,39 +139,39 @@ public sealed class RuntimeHelpDispatcher
         }
     }
 
+    /// <summary>
+    /// Yields one <see cref="RuntimeHelpGroup"/> per (package, verb) pair we can load. Package
+    /// sources are deduplicated across built-ins and the on-disk registry.
+    /// </summary>
     private IEnumerable<RuntimeHelpGroup> EnumerateAllVerbRoots()
     {
-        IList<Tuple<string, string, Func<System.Reflection.Assembly>>>? loaded;
-        try
-        {
-            loaded = _assemblyLoading.LoadAllExtensions();
-        }
-        catch
-        {
-            // Discovery failures (provider not implemented, registry missing, etc.) must
-            // not crash root help. Render the empty frame instead.
-            yield break;
-        }
+        var seenVerbs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        if (loaded == null)
+        foreach (var packageId in EnumerateKnownPackageIds())
         {
-            yield break;
-        }
+            var extensionName = StripPackagePrefix(packageId);
 
-        foreach (var (_, _, loader) in loaded)
-        {
             IExtensionIndex index;
             try
             {
-                index = loader().GetExtensionIndex();
+                index = _assemblyLoading.LoadExtension(extensionName).GetExtensionIndex();
             }
             catch
             {
+                // A registered package whose assembly is missing from disk is no reason to
+                // crash root help; skip it and continue.
                 continue;
             }
 
             foreach (var verb in index.GetVerbs())
             {
+                if (!seenVerbs.Add(verb))
+                {
+                    // Built-ins win over registry entries for the same verb (defensive — `extension add`
+                    // already refuses colliding verbs, but the assembly may still ship in both lists).
+                    continue;
+                }
+
                 RuntimeHelpGroup? root;
                 try
                 {
@@ -141,6 +183,41 @@ public sealed class RuntimeHelpDispatcher
                 }
 
                 yield return root;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Returns every package id Cirrus might be able to load: built-ins first (so they win on
+    /// verb conflicts), then everything in the on-disk registry.
+    /// </summary>
+    private IEnumerable<string> EnumerateKnownPackageIds()
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var builtIn in _builtIns.Values)
+        {
+            if (seen.Add(builtIn.PackageId))
+            {
+                yield return builtIn.PackageId;
+            }
+        }
+
+        ExtensionRegistry registry;
+        try
+        {
+            registry = _registryStore.Load();
+        }
+        catch
+        {
+            yield break;
+        }
+
+        foreach (var packageId in registry.Extensions.Keys)
+        {
+            if (seen.Add(packageId))
+            {
+                yield return packageId;
             }
         }
     }

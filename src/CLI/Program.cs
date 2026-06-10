@@ -92,8 +92,9 @@ public class Program
             catch (DispatchHelpException)
             {
                 var assemblyLoading = CirrusServiceProvider.GetRequiredService<IAssemblyLoadingService>();
-                var extensionResolver = new ExtensionResolver(new FileExtensionRegistryStore());
-                var exitCode = new RuntimeHelpDispatcher(assemblyLoading, extensionResolver).RenderRoot();
+                var registryStore = new FileExtensionRegistryStore();
+                var extensionResolver = new ExtensionResolver(registryStore);
+                var exitCode = new RuntimeHelpDispatcher(assemblyLoading, extensionResolver, registryStore).RenderRoot();
 
                 activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
                 return exitCode;
@@ -101,11 +102,24 @@ public class Program
             catch (RuntimeExtensionHelpException helpException)
             {
                 var assemblyLoading = CirrusServiceProvider.GetRequiredService<IAssemblyLoadingService>();
-                var extensionResolver = new ExtensionResolver(new FileExtensionRegistryStore());
-                var exitCode = new RuntimeHelpDispatcher(assemblyLoading, extensionResolver).RenderExtensionHelp(helpException);
+                var registryStore = new FileExtensionRegistryStore();
+                var extensionResolver = new ExtensionResolver(registryStore);
+                try
+                {
+                    var exitCode = new RuntimeHelpDispatcher(assemblyLoading, extensionResolver, registryStore).RenderExtensionHelp(helpException);
 
-                activity?.SetStatus(ActivityStatusCode.Ok, "Extension help requested");
-                return exitCode;
+                    activity?.SetStatus(ActivityStatusCode.Ok, "Extension help requested");
+                    return exitCode;
+                }
+                catch (CirrusErrorException structured)
+                {
+                    // RenderExtensionHelp surfaces ExtensionNotInstalledException when the user asks
+                    // for help on a verb owned by an uninstalled package (smart-suggestion path).
+                    // Funnel through the same renderer the execute path uses so the UX matches.
+                    EmitStructuredError(structured, outputJson);
+                    activity?.SetStatus(ActivityStatusCode.Error, structured.Message);
+                    return structured.ExitCode;
+                }
             }
             catch (HttpRequestException ex)
             {

@@ -115,21 +115,24 @@ foreach (var dllPath in extensionDlls)
 
     if (validatedExtensions.Add(extensionName))
     {
-        var completenessReport = completenessValidator.Validate(repoRoot, extensionName, extensionIndex);
-        aggregateReport.Merge(completenessReport);
-
-        // Index by every verb the extension contributes (an extension can declare
-        // multiple [ExtensionVerb] attributes, e.g. Compute → vm + disk).
+        // Validation is verb-scoped: a multi-verb extension produces one report per
+        // verb (e.g. Compute -> vm + disk), each pointing at its own Docs/<verb>/
+        // folder. Aggregate them and skip manifest emission if any verb has errors.
+        var completenessHasErrors = false;
         foreach (var verb in extensionIndex.GetVerbs())
         {
+            var verbReport = completenessValidator.Validate(repoRoot, verb, extensionIndex);
+            aggregateReport.Merge(verbReport);
+            completenessHasErrors |= verbReport.HasErrors;
+
             indexesByCliGroup[verb] = extensionIndex;
         }
 
-        // Skip manifest emission for this extension if it has completeness errors:
+        // Skip manifest emission for this extension if any verb has completeness errors:
         // a manifest built from an incomplete corpus would be misleading. Other
         // extensions and other validator stages still run so the author sees
         // every problem in one pass.
-        if (completenessReport.HasErrors)
+        if (completenessHasErrors)
         {
             continue;
         }
