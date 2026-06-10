@@ -198,16 +198,23 @@ public sealed class ChatAgent : IAsyncDisposable
         IAuthService auth,
         CancellationToken ct)
     {
-        var authResult = await auth.AcquireTokenSilentlyAsync(
-            scopes: [opts.Scope],
-            tenantId: null,
-            promptOnError: false,
-            cancellationToken: ct).ConfigureAwait(false);
+        Core.Abstractions.AuthResult? authResult;
+        try
+        {
+            authResult = await auth.AcquireTokenSilentlyAsync(
+                scopes: [opts.Scope],
+                tenantId: null,
+                promptOnError: false,
+                cancellationToken: ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(BuildBuiltinAuthErrorMessage(), ex);
+        }
 
         if (authResult is null || string.IsNullOrEmpty(authResult.AccessToken))
         {
-            throw new InvalidOperationException(
-                $"Failed to acquire token for scope '{opts.Scope}'. Run 'azv2 login' first.");
+            throw new InvalidOperationException(BuildBuiltinAuthErrorMessage());
         }
 
         return new ProviderConfig
@@ -220,6 +227,19 @@ public sealed class ChatAgent : IAsyncDisposable
             Azure = new AzureOptions { ApiVersion = opts.ApiVersion },
         };
     }
+
+    private static string BuildBuiltinAuthErrorMessage() =>
+        """
+        Agent's 'builtin' provider requires an Azure login to call the managed GPT model.
+        No active Azure account was found.
+
+        To fix this, run:
+            azv2 login --subscription-id <your-subscription-id>
+
+        Alternative: switch to the 'github' provider (uses your own GitHub Copilot subscription,
+        billed to your GitHub account):
+            azv2 config set --key agent.provider --value github
+        """;
 
     public async Task SendAsync(string prompt, CancellationToken ct)
     {
