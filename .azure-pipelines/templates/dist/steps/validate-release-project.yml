@@ -1,0 +1,16 @@
+parameters:
+- name: error_message
+  type: string
+- name: display_name
+  type: string
+  default: Validate Release Project
+
+steps:
+- bash: |
+    set -euo pipefail
+    echo "System.TeamProject=$(System.TeamProject)"
+    if [[ "$(System.TeamProject)" != "release" ]]; then
+      echo "ERROR: ${{ parameters.error_message }}"
+      exit 1
+    fi
+  displayName: ${{ parameters.display_name }}

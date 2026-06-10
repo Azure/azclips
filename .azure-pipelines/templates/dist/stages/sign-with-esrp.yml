@@ -13,7 +13,7 @@ parameters:
   default: 'public'
 - name: source_pipeline_name
   type: string
-  default: 'cirrus-build'
+  default: 'cirrus-adhoc-build'
 - name: source_build_id
   type: string
   default: ''

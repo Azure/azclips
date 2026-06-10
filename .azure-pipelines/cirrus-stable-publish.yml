@@ -22,6 +22,8 @@ parameters:
 
 variables:
 - template: templates/variables.yml
+- template: templates/dist/variables/common.yml
+- template: templates/dist/variables/security-suppressions.yml
 - name: SourceProject
   value: release
 - name: GitHubTargetRepo
@@ -30,34 +32,6 @@ variables:
   value: dist
 - name: GitHubReleaseIsPrerelease
   value: false
-- name: Codeql.Enabled
-  value: false
-- name: Codeql.SkipTaskAutoInjection
-  value: true
-- name: AdvancedSecurity.CodeQL.Enabled
-  value: false
-- name: ComponentGovernance.Enabled
-  value: false
-- name: skipComponentGovernanceDetection
-  value: true
-- name: runCodesignValidationInjection
-  value: false
-- name: CredScan.Enabled
-  value: false
-- name: BinSkim.Enabled
-  value: false
-- name: PoliCheck.Enabled
-  value: false
-- name: RoslynAnalyzers.Enabled
-  value: false
-- name: SdtReport.Enabled
-  value: false
-- name: TSAUpload.Enabled
-  value: false
-- name: NugetSecurityAnalysisWarningLevel
-  value: none
-- name: skipNugetSecurityAnalysis
-  value: true
 
 stages:
 - stage: Preflight
@@ -69,14 +43,11 @@ stages:
       vmImage: $(ubuntu_pool)
     steps:
     - checkout: none
+    - template: templates/dist/steps/validate-release-project.yml
+      parameters:
+        error_message: cirrus-stable-publish must run in the 'release' project for publish access.
     - bash: |
         set -euo pipefail
-        echo "System.TeamProject=$(System.TeamProject)"
-        if [[ "$(System.TeamProject)" != "release" ]]; then
-          echo "ERROR: cirrus-stable-publish must run in the 'release' project for publish access."
-          exit 1
-        fi
-
         signed_build_id='$(resources.pipeline.stableSign.runID)'
         if [[ -z "$signed_build_id" ]]; then
           echo 'ERROR: stableSign resource run id was not resolved. Select a cirrus-stable-sign resource version when queueing this pipeline.'

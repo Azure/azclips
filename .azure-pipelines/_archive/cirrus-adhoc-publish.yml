@@ -1,4 +1,4 @@
-name: cirrus-publish-$(Date:yyyyMMdd)$(Rev:.r)
+name: cirrus-adhoc-publish-$(Date:yyyyMMdd)$(Rev:.r)
 
 trigger: none
 pr: none
@@ -11,7 +11,7 @@ parameters:
 - name: signed_pipeline_name
   displayName: 'Signed pipeline name'
   type: string
-  default: 'cirrus-signing'
+  default: 'cirrus-adhoc-sign'
 - name: signed_build_id
   displayName: 'Signed build id'
   type: string
@@ -23,6 +23,8 @@ parameters:
 
 variables:
 - template: templates/variables.yml
+- template: templates/dist/variables/common.yml
+- template: templates/dist/variables/security-suppressions.yml
 - name: SourceProject
   value: release
 - name: GitHubTargetRepo
@@ -30,34 +32,6 @@ variables:
 - name: GitHubReleasePrefix
   value: dist
 - name: GitHubReleaseIsPrerelease
-  value: true
-- name: Codeql.Enabled
-  value: false
-- name: Codeql.SkipTaskAutoInjection
-  value: true
-- name: AdvancedSecurity.CodeQL.Enabled
-  value: false
-- name: ComponentGovernance.Enabled
-  value: false
-- name: skipComponentGovernanceDetection
-  value: true
-- name: runCodesignValidationInjection
-  value: false
-- name: CredScan.Enabled
-  value: false
-- name: BinSkim.Enabled
-  value: false
-- name: PoliCheck.Enabled
-  value: false
-- name: RoslynAnalyzers.Enabled
-  value: false
-- name: SdtReport.Enabled
-  value: false
-- name: TSAUpload.Enabled
-  value: false
-- name: NugetSecurityAnalysisWarningLevel
-  value: none
-- name: skipNugetSecurityAnalysis
   value: true
 
 stages:
@@ -70,14 +44,10 @@ stages:
       vmImage: $(ubuntu_pool)
     steps:
     - checkout: none
-    - bash: |
-        set -euo pipefail
-        echo "System.TeamProject=$(System.TeamProject)"
-        if [[ "$(System.TeamProject)" != "release" ]]; then
-          echo "ERROR: cirrus-publish must run in the 'release' project to access signed artifacts."
-          exit 1
-        fi
-      displayName: Validate Team Project Is release
+    - template: templates/dist/steps/validate-release-project.yml
+      parameters:
+        error_message: cirrus-adhoc-publish must run in the 'release' project to access signed artifacts.
+        display_name: Validate Team Project Is release
     - bash: |
         set -euo pipefail
         signed_build_id='${{ parameters.signed_build_id }}'

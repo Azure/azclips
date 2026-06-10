@@ -1,4 +1,4 @@
-name: cirrus-signing-$(Date:yyyyMMdd)$(Rev:.r)
+name: cirrus-adhoc-sign-$(Date:yyyyMMdd)$(Rev:.r)
 
 trigger: none
 pr: none
@@ -11,7 +11,7 @@ parameters:
 - name: source_pipeline_name
   displayName: 'Source pipeline name'
   type: string
-  default: 'cirrus-build'
+  default: 'cirrus-adhoc-build'
 - name: source_build_id
   displayName: 'Source build id'
   type: string
@@ -61,38 +61,12 @@ parameters:
   - arm64
 variables:
 - template: templates/variables.yml
+- template: templates/dist/variables/common.yml
+- template: templates/dist/variables/security-suppressions.yml
 - ${{ if eq(variables['System.TeamProject'], 'release') }}:
   - group: 'AME ESRP Variable Group'
 - name: SourceProject
   value: ${{ parameters.source_project }}
-- name: Codeql.Enabled
-  value: false
-- name: Codeql.SkipTaskAutoInjection
-  value: true
-- name: AdvancedSecurity.CodeQL.Enabled
-  value: false
-- name: ComponentGovernance.Enabled
-  value: false
-- name: skipComponentGovernanceDetection
-  value: true
-- name: runCodesignValidationInjection
-  value: false
-- name: CredScan.Enabled
-  value: false
-- name: BinSkim.Enabled
-  value: false
-- name: PoliCheck.Enabled
-  value: false
-- name: RoslynAnalyzers.Enabled
-  value: false
-- name: SdtReport.Enabled
-  value: false
-- name: TSAUpload.Enabled
-  value: false
-- name: NugetSecurityAnalysisWarningLevel
-  value: none
-- name: skipNugetSecurityAnalysis
-  value: true
 
 stages:
 - stage: Preflight
@@ -104,14 +78,10 @@ stages:
       vmImage: $(ubuntu_pool)
     steps:
     - checkout: none
-    - bash: |
-        set -euo pipefail
-        echo "System.TeamProject=$(System.TeamProject)"
-        if [[ "$(System.TeamProject)" != "release" ]]; then
-          echo "ERROR: cirrus-signing must run in the 'release' project for ESRP access."
-          exit 1
-        fi
-      displayName: Validate Team Project Is release
+    - template: templates/dist/steps/validate-release-project.yml
+      parameters:
+        error_message: cirrus-adhoc-sign must run in the 'release' project for ESRP access.
+        display_name: Validate Team Project Is release
     - bash: |
         set -euo pipefail
         source_project='${{ parameters.source_project }}'

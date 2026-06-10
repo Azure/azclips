@@ -21,17 +21,17 @@ The main design principle is separation by trust boundary:
 
 Alpha and beta artifacts are public Azure DevOps pipeline artifacts only. They are not signed, notarized, or published to GitHub Releases. Stable releases are stricter: the approved tag starts `cirrus-stable-build` in the release project, `cirrus-stable-sign` signs that exact build resource, and `cirrus-stable-publish` publishes the signed artifacts.
 
-## Existing Worker Pipelines
+## Archived Manual Utility Pipelines
 
-The current worker pipelines are:
+The archived manual utility pipelines are kept for reference and emergency experiments, but they are not part of the production registration path:
 
 ```text
-.azure-pipelines/cirrus-build.yml
-.azure-pipelines/cirrus-signing.yml
-.azure-pipelines/cirrus-publish.yml
+.azure-pipelines/_archive/cirrus-adhoc-build.yml
+.azure-pipelines/_archive/cirrus-adhoc-sign.yml
+.azure-pipelines/_archive/cirrus-adhoc-publish.yml
 ```
 
-`cirrus-build.yml` resolves the distribution version, builds packages, and validates unsigned artifacts.
+`cirrus-adhoc-build.yml` resolves the distribution version, builds packages, and validates unsigned artifacts for manual experiments or recovery scenarios.
 
 After successful platform builds, the `Finalize` stage also publishes a consolidated `Distribution_Final` artifact. This artifact gathers the final unsigned distribution archives and extension packages into one layout for downstream release consumption:
 
@@ -42,11 +42,11 @@ Distribution_Final/
   manifest.txt
 ```
 
-`cirrus-signing.yml` runs in the `release` project, consumes build artifacts by pipeline name/build id, and produces signed artifacts.
+`cirrus-adhoc-sign.yml` runs in the `release` project, consumes build artifacts by pipeline name/build id, and produces signed artifacts.
 
-`cirrus-publish.yml` runs in the `release` project, consumes signed artifacts by pipeline name/build id, and publishes release assets.
+`cirrus-adhoc-publish.yml` runs in the `release` project, consumes signed artifacts by pipeline name/build id, and publishes release assets.
 
-Future entry pipelines should stay thin. They should hardcode release intent and reuse these worker behaviors instead of duplicating build/sign/publish logic.
+Future entry pipelines should stay thin. They should hardcode release intent and reuse shared templates instead of duplicating build/sign/publish logic.
 
 The build entry pipelines reuse `.azure-pipelines/templates/dist/stages/build-unsigned-distribution.yml` so PR alpha, main beta, and stable builds all produce the same `Distribution_Final` contract.
 
@@ -113,7 +113,7 @@ Release-project `cirrus-trigger-stable-release` handles both manual PR creation 
 
 ## Versioning Policy
 
-`cirrus-build.yml` resolves version values in the `Init(ResolveVersion)` stage.
+`cirrus-adhoc-build.yml` resolves version values in the `Init(ResolveVersion)` stage.
 
 Normal defaults are:
 
@@ -308,9 +308,9 @@ Required guardrails:
 
 ## Implementation Plan
 
-1. Keep `cirrus-build.yml` as the reusable build worker and continue centralizing version resolution there.
-2. Keep `cirrus-signing.yml` as the release-project signing worker and consume `Distribution_Final` from the approved source build.
-3. Keep `cirrus-publish.yml` as the release-project publish worker.
+1. Keep archived adhoc build/sign/publish YAMLs only as manual utility references.
+2. Keep production entrypoints focused on `cirrus-alpha-build`, `cirrus-beta-build`, `cirrus-trigger-stable-release`, `cirrus-stable-build`, `cirrus-stable-sign`, and `cirrus-stable-publish`.
+3. Keep build, signing, and publish behavior centralized in shared templates.
 4. Add thin public entry pipeline for alpha PR builds.
 5. Add thin public entry pipeline for beta builds.
 6. Add thin release entry pipeline for triggering stable release PR creation and post-merge tag creation.

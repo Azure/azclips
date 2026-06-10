@@ -25,40 +25,10 @@ parameters:
 
 variables:
 - template: templates/variables.yml
+- template: templates/dist/variables/common.yml
+- template: templates/dist/variables/security-suppressions.yml
 - name: GitHubTargetRepo
   value: naga-nandyala/cirrus
-- name: DOTNET_CLI_TELEMETRY_OPTOUT
-  value: 1
-- name: DOTNET_NOLOGO
-  value: 1
-- name: Codeql.Enabled
-  value: false
-- name: Codeql.SkipTaskAutoInjection
-  value: true
-- name: AdvancedSecurity.CodeQL.Enabled
-  value: false
-- name: ComponentGovernance.Enabled
-  value: false
-- name: skipComponentGovernanceDetection
-  value: true
-- name: runCodesignValidationInjection
-  value: false
-- name: CredScan.Enabled
-  value: false
-- name: BinSkim.Enabled
-  value: false
-- name: PoliCheck.Enabled
-  value: false
-- name: RoslynAnalyzers.Enabled
-  value: false
-- name: SdtReport.Enabled
-  value: false
-- name: TSAUpload.Enabled
-  value: false
-- name: NugetSecurityAnalysisWarningLevel
-  value: none
-- name: skipNugetSecurityAnalysis
-  value: true
 
 stages:
 - stage: Preflight
@@ -70,14 +40,9 @@ stages:
       vmImage: $(ubuntu_pool)
     steps:
     - checkout: none
-    - bash: |
-        set -euo pipefail
-        echo "System.TeamProject=$(System.TeamProject)"
-        if [[ "$(System.TeamProject)" != "release" ]]; then
-          echo "ERROR: cirrus-trigger-stable-release must run in the 'release' project because it can create release PRs and stable tags."
-          exit 1
-        fi
-      displayName: Validate Release Project
+    - template: templates/dist/steps/validate-release-project.yml
+      parameters:
+        error_message: cirrus-trigger-stable-release must run in the 'release' project because it can create release PRs and stable tags.
 
 - stage: TriggerStableRelease
   displayName: Trigger Stable Release

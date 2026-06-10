@@ -13,14 +13,14 @@ Scope covered:
 ## 1. Source-of-Truth Files
 
 Primary implementation files:
-- `.azure-pipelines/cirrus-signing.yml`
+- `.azure-pipelines/_archive/cirrus-adhoc-sign.yml`
 - `.azure-pipelines/templates/dist/stages/sign-with-esrp.yml`
 - `devops/scripts/packaging/signing/prepare_signing_inputs.ps1`
 - `devops/scripts/packaging/signing/verify_signed_outputs.ps1`
 - `devops/scripts/packaging/signing/repack_signed_outputs.ps1`
 
 Related downstream consumer:
-- `.azure-pipelines/cirrus-publish.yml` (defaults to consuming `cirrus-signing` output)
+- `.azure-pipelines/_archive/cirrus-adhoc-publish.yml` (defaults to consuming `cirrus-adhoc-sign` output)
 
 ## 2. High-Level Architecture
 
@@ -49,12 +49,12 @@ Key intent:
 - Linux/macOS are collected as release artifacts (no ESRP signing in this pipeline).
 - Final stage assembles all validated artifacts into one publishable output.
 
-## 3. Entry Pipeline: `.azure-pipelines/cirrus-signing.yml`
+## 3. Archived Entry Pipeline: `.azure-pipelines/_archive/cirrus-adhoc-sign.yml`
 
 ### 3.1 Trigger/Parameters
 - Manual run (`trigger: none`, `pr: none`).
 - Inputs:
-  - `source_pipeline_name` (default `cirrus-build`)
+  - `source_pipeline_name` (default `cirrus-adhoc-build`)
   - `source_build_id` (specific source run to sign)
   - `signed_artifact_name` (default `Distribution_Signed`)
   - `ESRPServiceConnection` (default `ame_esrp_connection`)
@@ -312,8 +312,8 @@ Mitigation now:
 
 ## 9. Downstream Publishing Relationship
 
-`cirrus-publish` defaults:
-- `source_pipeline_name: cirrus-signing`
+`cirrus-adhoc-publish` defaults:
+- `signed_pipeline_name: cirrus-adhoc-sign`
 - consumes a specific signing build id
 
 This means publish behavior is coupled to successful signing + assembly artifact output, but publish logic itself is separate from signing implementation.

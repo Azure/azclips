@@ -1,4 +1,4 @@
-name: cirrus-build-$(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:.r)
+name: cirrus-adhoc-build-$(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:.r)
 
 trigger: none
 pr: none
@@ -40,56 +40,9 @@ parameters:
 
 variables:
 - template: templates/variables.yml
-- name: PackagingScriptsRoot
-  value: $(Build.SourcesDirectory)/devops/scripts/packaging
-- name: PackagingOutRoot
-  value: $(Build.SourcesDirectory)/devops/out
-- name: PackagingCommonOutRoot
-  value: $(PackagingOutRoot)/common
-- name: PackagingLinuxOutRoot
-  value: $(PackagingOutRoot)/linux
-- name: PackagingWindowsOutRoot
-  value: $(PackagingOutRoot)/windows
-- name: PackagingMacOSOutRoot
-  value: $(PackagingOutRoot)/macos
-- name: PackagingLinuxRid
-  value: linux-x64
-- name: PackagingWindowsRid
-  value: win-x64
-- name: PackagingMacOSRid
-  value: osx-arm64
-- name: DOTNET_CLI_TELEMETRY_OPTOUT
-  value: 1
-- name: DOTNET_NOLOGO
-  value: 1
-- name: Codeql.Enabled
-  value: false
-- name: Codeql.SkipTaskAutoInjection
-  value: true
-- name: AdvancedSecurity.CodeQL.Enabled
-  value: false
-- name: ComponentGovernance.Enabled
-  value: false
-- name: skipComponentGovernanceDetection
-  value: true
-- name: runCodesignValidationInjection
-  value: false
-- name: CredScan.Enabled
-  value: false
-- name: BinSkim.Enabled
-  value: false
-- name: PoliCheck.Enabled
-  value: false
-- name: RoslynAnalyzers.Enabled
-  value: false
-- name: SdtReport.Enabled
-  value: false
-- name: TSAUpload.Enabled
-  value: false
-- name: NugetSecurityAnalysisWarningLevel
-  value: none
-- name: skipNugetSecurityAnalysis
-  value: true
+- template: templates/dist/variables/packaging.yml
+- template: templates/dist/variables/common.yml
+- template: templates/dist/variables/security-suppressions.yml
 
 stages:
 - template: templates/dist/stages/init-resolve-version.yml
