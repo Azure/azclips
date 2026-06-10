@@ -95,7 +95,7 @@ main receives PR merges
 
 The stable tag is the immutable release decision. For example, tag `v0.1.1` must produce version `0.1.1`; the stable build should not compute a different stable version during signing or publishing.
 
-The version comes back to `main` through the `cirrus-trigger-stable-release` pipeline. A manual run opens a normal PR that updates `src/CLI/Core.Cli.csproj` from the previous released version to the intended stable version. The PR updates `Version` or `VersionPrefix` to `X.Y.Z`, updates `InformationalVersion` to `X.Y.Z` if present, and updates `FileVersion` to `X.Y.Z.0` while leaving `AssemblyVersion` unchanged. After the PR is reviewed and merged, a CI run of the same pipeline tags the merge commit. This keeps the repository, tag, artifacts, and release notes aligned.
+The version comes back to `main` through the `cirrus-trigger-stable-release` pipeline. A manual run opens a normal PR that updates `src/CLI/Core.Cli.csproj` from the previous released version to the intended stable version. The PR updates `Version` or `VersionPrefix` to `X.Y.Z`, updates `InformationalVersion` to `X.Y.Z`, and updates both `AssemblyVersion` and `FileVersion` to `X.Y.Z.0`. After the PR is reviewed and merged, a CI run of the same pipeline tags the merge commit. This keeps the repository, tag, artifacts, and release notes aligned.
 
 The post-merge tag stage validates that the triggering commit only changed stable version metadata in `src/CLI/Core.Cli.csproj`, then validates the CLI version on `main` against the latest stable tag. If the latest stable tag is `v0.1.0`, the only allowed next versions are:
 

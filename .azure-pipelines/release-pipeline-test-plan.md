@@ -65,9 +65,9 @@ Manual PR creation:
 - Confirm it creates a branch like `release/trigger-stable-release-X.Y.Z`.
 - Confirm that branch changes only `src/CLI/Core.Cli.csproj` stable version metadata:
   - `Version` or `VersionPrefix` is `X.Y.Z`.
-  - `InformationalVersion`, if present, is `X.Y.Z`.
+  - `InformationalVersion` is `X.Y.Z`.
+  - `AssemblyVersion` is `X.Y.Z.0`.
   - `FileVersion` is `X.Y.Z.0`.
-  - `AssemblyVersion` is not changed.
 - Confirm the PR title is `Trigger stable release X.Y.Z`.
 
 Manual PR review:
