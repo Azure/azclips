@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781064851980,
+  "lastUpdate": 1781074451424,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus CLI Benchmarks": [
@@ -504,6 +504,48 @@ window.BENCHMARK_DATA = {
             "value": 12073433.75,
             "unit": "ns",
             "range": "± 123656.5308461978"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "naga.s.p.nandyala@gmail.com",
+            "name": "Naga Nandyala",
+            "username": "naga-nandyala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3d9d7a38fb3062b2cc266a60f7e446c903992630",
+          "message": "{Packaging} Setting the initial version to 0.1.0 (#265)\n\n## Summary\n- Set CLI assembly/package metadata to version 0.1.0\n- Set extension package versions to 0.1.0\n- Align PowerShell module and dependency versions to 0.1.0\n\n## Validation\n- Built changed CLI and extension projects\n- Ran `dotnet test tests\\Cli.Tests\\Cli.Tests.csproj --no-build --logger\n\"console;verbosity=minimal\" -p:UseTerminalLogger=false`\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-06-10T14:52:20+08:00",
+          "tree_id": "4658cf54c399ed9f3d5c4a054036adf0b133e834",
+          "url": "https://github.com/Azure/cirrus/commit/3d9d7a38fb3062b2cc266a60f7e446c903992630"
+        },
+        "date": 1781074450431,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 12028843,
+            "unit": "ns",
+            "range": "± 254569.27672966875"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 11951116.75,
+            "unit": "ns",
+            "range": "± 190146.7106129282"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 11652367,
+            "unit": "ns",
+            "range": "± 266538.726125617"
           }
         ]
       }
