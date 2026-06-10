@@ -17,6 +17,7 @@ namespace Core.Cli.Parser
         static CommandGroupIndex()
         {
             _commandGroups["Group"] = "Resources";
+            _commandGroups["Deployment"] = "Resources";
             _commandGroups["Login"] = "Login";
             _commandGroups["Extension"] = "Extension";
             _commandGroups["Config"] = "Config";
