@@ -83,6 +83,7 @@ public class TelemetryService : ITelemetryService
         var sb = new StringBuilder();
         foreach (var kvp in parameters)
         {
+            if (string.IsNullOrEmpty(kvp.Key)) continue;
             if (sb.Length > 0) sb.Append(' ');
             sb.Append('-').Append(kvp.Key).Append(' ').Append(MaskedValue);
         }

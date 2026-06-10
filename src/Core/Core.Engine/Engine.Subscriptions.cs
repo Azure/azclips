@@ -196,6 +196,7 @@ namespace Core.Engine
                 sequentialStage = null;
             });
 
+            // Paired: ActionStart - ActionEnd
             subscriber.Subscribe(Events.ActionStart, (data) =>
             {
                 var evt = (EventData)data;

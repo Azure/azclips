@@ -39,13 +39,13 @@ Follows the event source pattern where `Processors` / `Orchestrators` raise even
 // **Processor.cs / **Orchestrator.cs
 public async Task Foo()
 {
-    await Publisher.Publish(Events.ActivityStart, new EventData()
+    await Publisher.Publish(Events.ActionStart, new EventData()
     {
         ClassName = nameof(FooProcessor|FooOrchestrator),
         FunctionName = nameof(Foo),
     });
         .... business logic ...
-    await Publisher.Publish(Events.ActivityEnd);
+    await Publisher.Publish(Events.ActionEnd);
 }
 ```
 
