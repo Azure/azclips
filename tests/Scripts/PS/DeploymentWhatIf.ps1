@@ -103,3 +103,29 @@ try {
         Write-Host "UNEXPECTED: $($_.Exception.Message)" -ForegroundColor Red
     }
 }
+
+# Expected-failure case (LIVE what-if API error): a template that compiles/parses fine but
+# is rejected by the what-if API. whatif-invalid-template.json references the undefined
+# parameter 'undefinedNameParam', so ARM completes the what-if long-running operation with a
+# terminal 'Failed' state and an InvalidTemplate error in result.error. This exercises the
+# orchestrator's error handling on the wire (NOT a local pre-flight check): the failure MUST
+# surface as a thrown error and MUST NOT be silently reported as a successful no-change result.
+$TemplateDir = Join-Path $PSScriptRoot '..' 'Bicep'
+try {
+    New-ResourceGroupDeploymentWhatIf `
+        -SubscriptionId 282bb33f-067d-4179-a7a4-b833c13af735 `
+        -ResourceGroupName cirrus-test-group-1 `
+        -Name cirrus-test-whatif-apierror `
+        -TemplateFile (Join-Path $TemplateDir 'whatif-invalid-template.json') `
+        -Mode Incremental `
+        -ErrorAction Stop
+    Write-Host 'UNEXPECTED: invalid-template what-if did not throw (reported no error)' -ForegroundColor Red
+} catch {
+    # Expected: the LRO terminates Failed / result.error carries the InvalidTemplate diagnostic,
+    # and the orchestrator throws a flattened error mentioning the missing parameter.
+    if ($_.Exception.Message -match 'InvalidTemplate|undefinedNameParam|Long running operation failed|What-if operation failed') {
+        Write-Host "EXPECTED FAILURE (what-if API error): $($_.Exception.Message)"
+    } else {
+        Write-Host "UNEXPECTED: $($_.Exception.Message)" -ForegroundColor Red
+    }
+}

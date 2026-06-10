@@ -87,3 +87,17 @@ azv2 deployment group what-if \
     --result-format Foo \
     --mode Incremental \
     --debug
+
+# Expected-failure case (LIVE what-if API error): whatif-invalid-template.json parses fine but
+# references the undefined parameter 'undefinedNameParam', so ARM completes the what-if
+# long-running operation with a terminal 'Failed' state and an InvalidTemplate error in
+# result.error. This exercises the orchestrator's on-the-wire error handling (NOT a local
+# pre-flight check): the command MUST exit non-zero with a flattened error and MUST NOT report
+# a successful no-change result.
+azv2 deployment group what-if \
+    --subscription-id 282bb33f-067d-4179-a7a4-b833c13af735 \
+    --resource-group cirrus-test-group-1 \
+    --name cirrus-test-whatif-apierror \
+    --template-file "$BICEP_DIR/whatif-invalid-template.json" \
+    --mode Incremental \
+    --debug
