@@ -24,4 +24,6 @@ stages:
     sequence: auto
     ubuntu_pool: $(ubuntu_pool)
     windows_pool: $(windows_pool)
+    macos_arm64_pool: $(macos_arm64_pool)
+    macos_intel_pool: $(macos_intel_pool)
     final_artifact_name: Distribution_Final

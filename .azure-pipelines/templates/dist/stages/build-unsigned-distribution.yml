@@ -23,6 +23,12 @@ parameters:
 - name: windows_pool
   type: string
   default: 'windows-latest'
+- name: macos_arm64_pool
+  type: string
+  default: 'macOS-15-arm64'
+- name: macos_intel_pool
+  type: string
+  default: 'macOS-15'
 - name: final_artifact_name
   type: string
   default: 'Distribution_Final'
@@ -94,6 +100,8 @@ stages:
   jobs:
   - template: ../jobs/build-macos.yml
     parameters:
+      macos_arm64_pool: ${{ parameters.macos_arm64_pool }}
+      macos_intel_pool: ${{ parameters.macos_intel_pool }}
       PackagingScriptsRoot: $(PackagingScriptsRoot)
       PackagingCommonOutRoot: $(PackagingCommonOutRoot)
       PackagingMacOSOutRoot: $(PackagingMacOSOutRoot)
@@ -163,6 +171,8 @@ stages:
   jobs:
   - template: ../jobs/validate-macos.yml
     parameters:
+      macos_arm64_pool: ${{ parameters.macos_arm64_pool }}
+      macos_intel_pool: ${{ parameters.macos_intel_pool }}
       PackagingScriptsRoot: $(PackagingScriptsRoot)
       PackagingCommonOutRoot: $(PackagingCommonOutRoot)
       PackagingMacOSOutRoot: $(PackagingMacOSOutRoot)
