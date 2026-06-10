@@ -102,24 +102,39 @@ if ($IsWindows -and -not $SkipRuntime) {
     $env:USERPROFILE = Join-Path $SimRoot 'home'
 
     & $azv2Exe --help | Select-Object -First 20 | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+        throw "FAIL: azv2.exe --help exited with code $LASTEXITCODE."
+    }
 
     Write-Host 'Verifying bundled Config command behavior'
     & $azv2Exe config set --key core.logging.level --value debug --force | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+        throw "FAIL: config set exited with code $LASTEXITCODE."
+    }
     $cfgGetOut = & $azv2Exe config get --key core.logging.level 2>&1
+    $cfgGetExitCode = $LASTEXITCODE
     $cfgGetText = $cfgGetOut | Out-String
     $cfgGetText.Trim() | Out-Host
+    if ($cfgGetExitCode -ne 0) {
+        throw "FAIL: config get exited with code $cfgGetExitCode."
+    }
     if ($cfgGetText -notmatch 'core\.logging\.level\s*=\s*debug') {
         throw 'FAIL: Config command output did not confirm debug value.'
     }
 
     $addResOut = & $azv2Exe extension add --path $resNupkg.FullName 2>&1
+    $addResExitCode = $LASTEXITCODE
     $addResText = $addResOut | Out-String
     $addResText.Trim() | Out-Host
+    if ($addResExitCode -ne 0) {
+        throw "FAIL: extension add exited with code $addResExitCode."
+    }
     if ($addResText -notmatch 'installedExtensionPath') {
         throw 'FAIL: Resources extension installation did not report installedExtensionPath.'
     }
 
     $groupOut = & $azv2Exe group list 2>&1
+    $groupExitCode = $LASTEXITCODE
     $groupText = $groupOut | Out-String
     $groupText.Trim() | Out-Host
     if ($groupText -match 'could not be found') {
@@ -129,6 +144,9 @@ if ($IsWindows -and -not $SkipRuntime) {
     } elseif ($groupText -match 'AcquireTokenSilent|No account or login hint|please run .*login|AADSTS|authentication') {
         Write-Host 'PASS: Resources command resolved (authentication context not available in CI)'
     } else {
+        if ($groupExitCode -ne 0) {
+            throw "FAIL: group list exited with code $groupExitCode."
+        }
         Write-Host 'PASS: Resources command resolved'
     }
 

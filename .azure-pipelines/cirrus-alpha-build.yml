@@ -11,7 +11,6 @@ variables:
 - template: templates/variables.yml
 - template: templates/dist/variables/packaging.yml
 - template: templates/dist/variables/common.yml
-- template: templates/dist/variables/security-suppressions.yml
 
 stages:
 - template: templates/dist/stages/build-unsigned-distribution.yml

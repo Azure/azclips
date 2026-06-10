@@ -51,7 +51,8 @@ done
 echo "[common 5/5] Publish extension assemblies for platform inject step"
 for ext in "${DISCOVERED_EXTENSIONS[@]}"; do
   ext_name=$(basename "$(dirname "$ext")")
-  ext_assembly_name=$(grep -oP '(?<=<AssemblyName>).*(?=</AssemblyName>)' "$ext" 2>/dev/null || echo "$ext_name")
+  ext_assembly_name=$(sed -n 's:.*<AssemblyName>\(.*\)</AssemblyName>.*:\1:p' "$ext" | head -n 1)
+  ext_assembly_name="${ext_assembly_name:-$ext_name}"
   out_dir="$BUILTIN_PUBLISH_ROOT/$ext_assembly_name"
 
   dotnet publish "$ext" -c Release --self-contained false -o "$out_dir" --no-restore -v quiet
