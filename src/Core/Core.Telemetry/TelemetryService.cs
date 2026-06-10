@@ -74,6 +74,7 @@ public class TelemetryService : ITelemetryService
         return root;
     }
 
+    //todo: inject as dependency as paramformatter
     private static string FormatParameters(IDictionary<string, object>? parameters)
     {
         if (parameters is null || parameters.Count == 0) return string.Empty;
