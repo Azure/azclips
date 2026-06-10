@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using GitHub.Copilot.SDK;
+using GitHub.Copilot;
 
 namespace Core.Agent;
 
