@@ -61,7 +61,7 @@ jobs:
   - script: |
       set -euo pipefail
       chmod +x "${{ parameters.PackagingScriptsRoot }}/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
-      ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="${{ parameters.PackagingLinuxOutRoot }}" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" SKIP_RUNTIME="$(SkipRuntime)" "${{ parameters.PackagingScriptsRoot }}/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
+      ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="${{ parameters.PackagingLinuxOutRoot }}" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" SKIP_RUNTIME="$(SkipRuntime)" CLI_TAR_PATH="$(CliTarPath)" "${{ parameters.PackagingScriptsRoot }}/linux/tarball/test_linux_tarball_bundled_plus_ext.sh"
     displayName: Validate Linux Tarball
 
   - task: PublishPipelineArtifact@1

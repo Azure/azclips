@@ -7,14 +7,14 @@ set -euo pipefail
 # Required inputs:
 #   --publish-dir <path>          target publish output dir (e.g., out/publish/cli/linux-x64)
 # Optional inputs:
-#   --builtin-root <path>         root containing built-in publish folders (default: out/builtin-publish)
+#   --builtin-root <path>         root containing built-in publish folders (default: out/common/builtin-publish)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PACKAGING_ROOT="${PACKAGING_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 REPO_ROOT="${REPO_ROOT:-$(cd "$PACKAGING_ROOT/../../.." && pwd)}"
 cd "$REPO_ROOT"
 
-OUT_ROOT="${OUT_ROOT:-$REPO_ROOT/devops/out}"
+OUT_ROOT="${OUT_ROOT:-$REPO_ROOT/devops/out/common}"
 BUILTIN_PUBLISH_ROOT="$OUT_ROOT/builtin-publish"
 PUBLISH_DIR=""
 PACKAGE_PROFILE="${PACKAGE_PROFILE:-lean}"

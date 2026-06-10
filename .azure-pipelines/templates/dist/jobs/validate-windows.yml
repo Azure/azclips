@@ -69,10 +69,10 @@ jobs:
         $env:PACKAGE_PROFILE = "$(BuildProfile)"
         $skipRuntime = "$(SkipRuntime)"
         if ($skipRuntime -eq 'true') {
-          & "${{ parameters.PackagingScriptsRoot }}/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "${{ parameters.PackagingWindowsOutRoot }}" -CommonOutRoot "${{ parameters.PackagingCommonOutRoot }}" -Rid "$(Rid)" -SkipRuntime
+          & "${{ parameters.PackagingScriptsRoot }}/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "${{ parameters.PackagingWindowsOutRoot }}" -CommonOutRoot "${{ parameters.PackagingCommonOutRoot }}" -Rid "$(Rid)" -CliZipPath "$(CliZipPath)" -SkipRuntime
         }
         else {
-          & "${{ parameters.PackagingScriptsRoot }}/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "${{ parameters.PackagingWindowsOutRoot }}" -CommonOutRoot "${{ parameters.PackagingCommonOutRoot }}" -Rid "$(Rid)"
+          & "${{ parameters.PackagingScriptsRoot }}/windows/zip/test_windows_zip_bundled_plus_ext.ps1" -OutRoot "${{ parameters.PackagingWindowsOutRoot }}" -CommonOutRoot "${{ parameters.PackagingCommonOutRoot }}" -Rid "$(Rid)" -CliZipPath "$(CliZipPath)"
         }
 
   - task: PublishPipelineArtifact@1

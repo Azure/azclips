@@ -64,7 +64,7 @@ jobs:
   - script: |
       set -euo pipefail
       chmod +x "${{ parameters.PackagingScriptsRoot }}/macos/tarball/build_macos_tarball.sh"
-      ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="${{ parameters.PackagingMacOSOutRoot }}" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" "${{ parameters.PackagingScriptsRoot }}/macos/tarball/build_macos_tarball.sh"
+      ARTIFACT_VERSION="$(ArtifactVersion)" OUT_ROOT="${{ parameters.PackagingMacOSOutRoot }}" COMMON_OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" PACKAGE_PROFILE="$(BuildProfile)" RID="$(Rid)" CLI_TAR_PATH="$(CliTarPath)" "${{ parameters.PackagingScriptsRoot }}/macos/tarball/build_macos_tarball.sh"
     displayName: Build macOS Tarball
 
   - task: PublishPipelineArtifact@1
