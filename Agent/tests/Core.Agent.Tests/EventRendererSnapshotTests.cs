@@ -1,5 +1,6 @@
+using System.Text.Json;
 using Core.Agent.Tests.SnapshotTesting;
-using GitHub.Copilot.SDK;
+using GitHub.Copilot;
 using Xunit;
 
 namespace Core.Agent.Tests;
@@ -43,7 +44,7 @@ public class EventRendererSnapshotTests
             {
                 ToolName = "run_command",
                 ToolCallId = "call1",
-                Arguments = "{\"command\":\"azv2 group list\"}",
+                Arguments = JsonSerializer.Deserialize<JsonElement>("{\"command\":\"azv2 group list\"}"),
             }
         });
         renderer.Forward(new ToolExecutionCompleteEvent
@@ -112,7 +113,7 @@ public class EventRendererSnapshotTests
             {
                 ToolName = "run_command",
                 ToolCallId = "call1",
-                Arguments = "{\"command\":\"azv2 group show --name nope\"}",
+                Arguments = JsonSerializer.Deserialize<JsonElement>("{\"command\":\"azv2 group show --name nope\"}"),
             }
         });
         renderer.Forward(new ToolExecutionCompleteEvent
