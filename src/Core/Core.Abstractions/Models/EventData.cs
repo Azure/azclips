@@ -18,6 +18,8 @@ namespace Core.Abstractions
         public string ModuleName = string.Empty;
 
         public string ModuleVersion = string.Empty;
+        public string ClassName = string.Empty;
+        public string FunctionName = string.Empty;
 
         /// <summary>
         /// When the event is about a parameter, this is the parameter name.
@@ -60,8 +62,6 @@ namespace Core.Abstractions
         /// </code>
         /// </summary>
         public object ResponseMessage = null!;
-
-        public string ActivityName = string.Empty;
 
         /// <summary>
         /// Cancellation method for this event.

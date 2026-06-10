@@ -37,13 +37,16 @@ Starting/tagging activities:
 Follows the event source pattern where `Processors` / `Orchestrators` raise events with relevant data.
 ```csharp
 // **Processor.cs / **Orchestrator.cs
-
-await Publisher.Publish(Events.ActivityStart, "OperationName", "message");
-.... business logic ...
-await Publisher.Publish(Events.ActivityEnd);
-
-// Emit an autoclosing point in time activity to denote an operation has occurred.
-await Publisher.Publish(Events.Activity, "OperationName", "message");
+public void Foo()
+{
+    await Publisher.Publish(Events.ActivityStart, new EventData()
+    {
+        ClassName = nameof(FooProcessor|FooOrchestrator),
+        FunctionName = nameof(Foo),
+    });
+        .... business logic ...
+    await Publisher.Publish(Events.ActivityEnd);
+}
 ```
 
 ## Telemetry Data Schema

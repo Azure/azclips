@@ -199,7 +199,7 @@ namespace Core.Engine
             subscriber.Subscribe(Events.ActivityStart, (data) =>
             {
                 var evt = (EventData)data;
-                var activity = telemetryService.StartActivity(evt.ActivityName, ActivityKind.Internal);
+                var activity = telemetryService.StartActivity($"{evt.Id}.{evt.ClassName}.{evt.FunctionName}", ActivityKind.Internal);
                 if (activity != null)
                     pairedStages.Push(activity);
             });
@@ -207,13 +207,6 @@ namespace Core.Engine
             {
                 if (pairedStages.TryPop(out var activity))
                     activity.Dispose();
-            });
-
-            subscriber.Subscribe(Events.Activity, (data) =>
-            {
-                var evt = (EventData)data;
-                var act = telemetryService.StartActivity(evt.ActivityName, ActivityKind.Internal);
-                act?.Dispose();
             });
 
             return subscriber;
