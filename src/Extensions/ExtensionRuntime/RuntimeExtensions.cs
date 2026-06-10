@@ -296,9 +296,9 @@ public static class RuntimeExtensions
         {
             content = JsonNode.Parse(content)?.ToString() ?? content;
         }
-        catch (Exception)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            // Not valid JSON - keep the raw content.
+            // Not valid JSON - keep the raw content. Fatal conditions (OOM) are allowed to propagate.
         }
 
         const int StreamCutOffSize = 10 * 1024; //10KB
