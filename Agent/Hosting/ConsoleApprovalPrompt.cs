@@ -1,5 +1,5 @@
 using System.Threading.Channels;
-using GitHub.Copilot.SDK;
+using GitHub.Copilot;
 
 namespace Core.Agent.Hosting;
 
