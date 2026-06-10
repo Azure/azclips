@@ -18,7 +18,16 @@ namespace Core.Abstractions
         public string ModuleName = string.Empty;
 
         public string ModuleVersion = string.Empty;
+        /// <summary>
+        /// The name of the class that raised the event.
+        /// Useful for diagnostics, logging, and tracing the origin of the event.
+        /// </summary>
         public string ClassName = string.Empty;
+
+        /// <summary>
+        /// The name of the function or method that raised the event.
+        /// Useful for diagnostics, logging, and tracing the origin of the event.
+        /// </summary>
         public string FunctionName = string.Empty;
 
         /// <summary>
