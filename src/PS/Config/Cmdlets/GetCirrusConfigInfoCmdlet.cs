@@ -1,6 +1,4 @@
 using System.Management.Automation;
-using Core.Abstractions;
-using Core.DependencyInjection;
 
 namespace Microsoft.Azure.Cirrus.Cmdlets.Config;
 
