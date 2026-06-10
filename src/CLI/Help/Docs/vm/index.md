@@ -1,11 +1,11 @@
 ---
-summary: Manage virtual machines in your Azure subscription.
+summary: TODO — one-sentence description of the vm command group.
 status: ga
 schema: 1.0.0
 online version:
 ---
 
-Description: Create, view, list, and delete Azure virtual machines. Use `vm create` to provision a new VM, `vm list` to enumerate VMs in a resource group, `vm show` to inspect a single VM, and `vm delete` to remove one.
+Description: TODO — describe what the `azv2 vm` command group does.
 
 ### Discover vm commands
 

@@ -1,5 +1,5 @@
 ---
-summary: List Azure virtual machines in a resource group.
+summary: TODO — short summary of `azv2 vm list`.
 status: ga
 schema: 1.0.0
 online version:

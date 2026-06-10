@@ -1,5 +1,5 @@
 ---
-summary: Create an Azure virtual machine.
+summary: TODO — short summary of `azv2 vm create`.
 status: ga
 schema: 1.0.0
 online version:

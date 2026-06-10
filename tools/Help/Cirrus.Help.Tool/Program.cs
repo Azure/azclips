@@ -51,29 +51,40 @@ if (extensionDlls.Count == 0)
 
 if (scaffoldExtension is not null)
 {
-    var targetAssemblyName = $"Microsoft.Azure.Cirrus.Extensions.{scaffoldExtension}";
-    var targetDll = extensionDlls.FirstOrDefault(p =>
-        string.Equals(Path.GetFileNameWithoutExtension(p), targetAssemblyName, StringComparison.OrdinalIgnoreCase));
+    // --scaffold takes a verb (the user-facing CLI noun, e.g. "disk", "vm", "group").
+    // Find the extension assembly whose IExtensionIndex.GetVerbs() contains that verb,
+    // then scaffold just that verb's slice of the routed command table.
+    var scaffoldVerb = scaffoldExtension.ToLowerInvariant();
 
-    if (targetDll is null)
+    IExtensionIndex? scaffoldIndex = null;
+    foreach (var dllPath in extensionDlls)
     {
-        Console.Error.WriteLine($"--scaffold: extension '{scaffoldExtension}' not found under {artifactsRoot}");
+        var candidateAssembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(dllPath));
+        IExtensionIndex candidateIndex;
+        try
+        {
+            candidateIndex = candidateAssembly.GetExtensionIndex();
+        }
+        catch
+        {
+            // Assembly may not expose an extension index (e.g. ExtensionRuntime). Skip.
+            continue;
+        }
+
+        if (candidateIndex.GetVerbs().Contains(scaffoldVerb, StringComparer.OrdinalIgnoreCase))
+        {
+            scaffoldIndex = candidateIndex;
+            break;
+        }
+    }
+
+    if (scaffoldIndex is null)
+    {
+        Console.Error.WriteLine($"--scaffold: no installed extension contributes verb '{scaffoldVerb}'.");
         return 1;
     }
 
-    var scaffoldAssembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(targetDll));
-    var scaffoldExtensionName = scaffoldAssembly.GetName().Name!["Microsoft.Azure.Cirrus.Extensions.".Length..].ToLowerInvariant();
-    var scaffoldIndex = scaffoldAssembly.GetExtensionIndex();
-    var cliGroup = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-    {
-        ["resources"] = "group",
-        ["login"] = "login",
-        ["extension"] = "extension",
-        ["config"] = "config",
-        ["compute"] = "vm",
-    }.TryGetValue(scaffoldExtensionName, out var token) ? token : null;
-
-    return Scaffolder.Scaffold(repoRoot, scaffoldExtensionName, scaffoldIndex, cliGroup);
+    return Scaffolder.Scaffold(repoRoot, scaffoldVerb, scaffoldIndex);
 }
 
 var manifests = new List<HelpManifest>();

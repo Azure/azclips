@@ -1,13 +1,13 @@
 ---
-summary: List Azure managed disks in a resource group.
+summary: TODO — short summary of `azv2 disk list`.
 status: ga
 schema: 1.0.0
 online version:
 ---
 
-Description: Lists the managed disks under a resource group in the given subscription.
+Description: TODO — describe what `azv2 disk list` does and when to use it.
 
-### List disks in a resource group
+### list a resource
 
 ```bash
 azv2 disk list --resource-group <string> --subscription-id <string>

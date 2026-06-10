@@ -1,5 +1,5 @@
 ---
-summary: Show details of an Azure virtual machine.
+summary: TODO — short summary of `azv2 vm show`.
 status: ga
 schema: 1.0.0
 online version:
