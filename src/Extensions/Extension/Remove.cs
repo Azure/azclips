@@ -36,7 +36,7 @@ public class RemoveExtensionProcessor : IProcessor
 
         var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
         var loggingService = CirrusServiceProvider.GetRequiredService<ILoggingService>();
-        using var activity = telemetryService.ActivitySource?.StartActivity($"{nameof(RemoveExtensionProcessor)}.{nameof(Process)}");
+        using var activity = telemetryService.StartActivity($"{nameof(RemoveExtensionProcessor)}.{nameof(Process)}");
 
         // Built-in verbs aren't in the registry; give a clear error rather than "not found".
         if (BuiltInExtensions.IsBuiltInVerb(Name))

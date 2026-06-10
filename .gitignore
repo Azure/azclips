@@ -67,6 +67,11 @@ dlldata.c
 # Benchmark Results
 BenchmarkDotNet.Artifacts/
 
+# @TODO DANIEL: Revisit once PowerShell module build/package layout is refined.
+# These are generated MAML help outputs copied for local Get-Help development only.
+src/PS/*/en-US/
+src/PS/*/en-us/
+
 # .NET Core
 project.lock.json
 project.fragment.lock.json
@@ -621,6 +626,13 @@ llama_models/
 
 # Local markdown notes
 changes.md
+
+# LinkSwitcher build cache
+*.lscache
+
+# Claude Code workspace files (per-developer, not shared)
+.claude/
+CLAUDE.md
 
 # macOS
 .DS_Store

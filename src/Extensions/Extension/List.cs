@@ -30,7 +30,7 @@ public class ListExtensionsProcessor : IProcessor
     public object Process()
     {
         var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
-        using var _ = telemetryService.ActivitySource?.StartActivity($"{nameof(ListExtensionsProcessor)}.{nameof(Process)}");
+        using var _ = telemetryService.StartActivity($"{nameof(ListExtensionsProcessor)}.{nameof(Process)}");
 
         var store = new FileExtensionRegistryStore();
         var registry = store.Load();

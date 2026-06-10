@@ -29,6 +29,9 @@ public sealed class ExtensionIndex : IExtensionIndex
             ? md
             : throw new KeyNotFoundException(name);
 
+    public IReadOnlyDictionary<string, CommandMetadata> GetCommandTable(ClientType clientType) =>
+        clientType == ClientType.CLI ? s_cliTable : new Dictionary<string, CommandMetadata>();
+
     public IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType) =>
         clientType == ClientType.CLI ? s_cliTable.Values : Array.Empty<CommandMetadata>();
 

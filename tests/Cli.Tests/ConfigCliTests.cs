@@ -358,6 +358,19 @@ public class ConfigCliTests
         Assert.Contains("Get-CirrusConfigInfo", manifestContent);
     }
 
+    [Fact]
+    public void ExtensionIndex_ShouldExposeTranslatedPowerShellParameters()
+    {
+        var extensionIndex = new Microsoft.Azure.Cirrus.Extensions.Config.ExtensionIndex();
+
+        var getMetadata = extensionIndex.GetCommandMetadata("Get-CirrusConfig", ClientType.PowerShell);
+        Assert.Contains("Json", getMetadata.Parameters.Keys);
+
+        var listMetadata = extensionIndex.GetCommandMetadata("Get-CirrusConfigList", ClientType.PowerShell);
+        Assert.Contains("All", listMetadata.Parameters.Keys);
+        Assert.Contains("Json", listMetadata.Parameters.Keys);
+    }
+
     private sealed class TestConfigurationProvider(string configFilePath) : IConfigurationProvider
     {
         public string GetConfigFilePath() => configFilePath;

@@ -4,8 +4,8 @@
     <ProjectReference Include="../../src/CLI/Core.Cli.csproj" />
     <ProjectReference Include="../../src/Core/Core.Engine/Core.Engine.csproj" />
     <ProjectReference Include="../../src/Core/Core.Runtime/Core.Runtime.csproj" />
-    <ProjectReference Include="../../src/Core/Core.Agent/Core.Agent.csproj" />
     <ProjectReference Include="../../src/Core/Core.Configuration/Core.Configuration.csproj" />
+    <ProjectReference Include="../../src/Extensions/Login/Extensions.Login.csproj" />
     <ProjectReference Include="../../src/Extensions/Config/Extensions.Config.csproj" />
     <ProjectReference Include="../../src/Extensions/Extension/Extensions.Extension.csproj" />
     <ProjectReference Include="../Common/Tests.Common.csproj" />

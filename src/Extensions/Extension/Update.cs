@@ -54,7 +54,7 @@ public class UpdateExtensionProcessor : IProcessor
 
         var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
         var loggingService = CirrusServiceProvider.GetRequiredService<ILoggingService>();
-        using var activity = telemetryService.ActivitySource?.StartActivity($"{nameof(UpdateExtensionProcessor)}.{nameof(Process)}");
+        using var activity = telemetryService.StartActivity($"{nameof(UpdateExtensionProcessor)}.{nameof(Process)}");
 
         var store = new FileExtensionRegistryStore();
         var registry = store.Load();

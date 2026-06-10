@@ -67,12 +67,11 @@ public class AddExtensionProcessor : IProcessor
 
         var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
         var loggingService = CirrusServiceProvider.GetRequiredService<ILoggingService>();
-        using var activity = telemetryService.ActivitySource?.StartActivity($"{nameof(AddExtensionProcessor)}.{nameof(Process)}");
+        using var activity = telemetryService.StartActivity($"{nameof(AddExtensionProcessor)}.{nameof(Process)}");
 
         // Tag the activity with extension dimensions early so failed installs (mid-iteration
         // throws) still carry whatever was determined before the throw. `extension.source`
         // distinguishes feed installs from local-path sideloads ("path" sentinel).
-        activity?.SetTag("extension.source", FeedUrl ?? "path");
         activity?.SetTag("extension.source", FeedUrl ?? "path");
 
         var installer = new ExtensionInstaller(loggingService, feedUrl: FeedUrl);

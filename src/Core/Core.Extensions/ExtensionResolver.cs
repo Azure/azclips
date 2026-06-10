@@ -19,7 +19,7 @@ namespace Core.Extensions
     /// Resolves a top-level CLI verb (e.g. <c>"vm"</c>) to the extension that should handle it.
     /// </summary>
     /// <remarks>
-    /// Replacement for <c>CommandGroupIndex</c>. Source order, per the spec:
+    /// Source order, per the spec:
     /// <list type="number">
     ///   <item>Built-in seed (<see cref="BuiltInExtensions.Map"/>) — wins on conflict.</item>
     ///   <item>On-disk registry (<c>~/.cirrus/extensions/registry.json</c>).</item>

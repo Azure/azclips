@@ -1,0 +1,2 @@
+Groups:
+    login : Authenticate to Azure.

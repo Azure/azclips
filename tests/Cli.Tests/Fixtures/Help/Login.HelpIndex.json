@@ -1,0 +1,28 @@
+{
+  "groups": [
+    {
+      "verb": "login",
+      "summary": "Authenticate to Azure."
+    }
+  ],
+  "commands": [
+    {
+      "cliName": "login",
+      "psName": "Connect-CirrusAccount",
+      "verb": "login",
+      "summary": "Authenticate to Azure."
+    },
+    {
+      "cliName": "login logout",
+      "psName": "Disconnect-CirrusAccount",
+      "verb": "login",
+      "summary": "Sign out from the current Azure account context."
+    },
+    {
+      "cliName": "login show",
+      "psName": "Get-CirrusAccount",
+      "verb": "login",
+      "summary": "Show the current Azure account context."
+    }
+  ]
+}

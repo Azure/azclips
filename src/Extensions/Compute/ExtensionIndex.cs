@@ -446,6 +446,15 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
                 ? metadata
                 : throw new KeyNotFoundException($"Command '{name}' not found for client type '{clientType}'.");
         }
+        public IReadOnlyDictionary<string, CommandMetadata> GetCommandTable(ClientType clientType)
+        {
+            return clientType switch
+            {
+                ClientType.PowerShell => s_psTable,
+                ClientType.CLI => s_cliTable,
+                _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
+            };
+        }
         public IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType)
         {
             return clientType switch
@@ -464,5 +473,10 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
                 _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
             };
         }
+
+        // Mirrors the [ExtensionVerb] attributes on this class. Multi-verb: "vm" and "disk"
+        // are independent CLI namespaces that ship in the same package.
+        private static readonly IReadOnlyList<string> s_verbs = ["vm", "disk"];
+        public IReadOnlyList<string> GetVerbs() => s_verbs;
     }
 }

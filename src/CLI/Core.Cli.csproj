@@ -16,16 +16,33 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Cli.Tests" />
   </ItemGroup>
-  
+
   <Import Project="$(MSBuildThisFileDirectory)..\..\Shared.props" />
   <Import Project="$(MSBuildThisFileDirectory)Targets\ExtensionHints.targets" />
 
   <ItemGroup>
-    <ProjectReference Include="..\Core\Core.Agent\Core.Agent.csproj" />
     <ProjectReference Include="..\Core\Core.DependencyInjection\Core.DependencyInjection.csproj" />
     <ProjectReference Include="..\Core\Core.Extensions\Core.Extensions.csproj" />
   </ItemGroup>
 
+  <!--
+    Authored CLI help markdown ships next to the azv2 binary. Runtime resolution
+    is filesystem-based (MarkdownCommandHelpProvider) — primary path is
+    <output>/help/<ext>/<key>.md, with a repo-root fallback for the dev loop.
+    Source lives under Help/Docs/; <Link> flattens the Docs/ segment so the
+    packaged path remains help/<ext>/<key>.md.
+  -->
+  <ItemGroup>
+    <Content Include="Help\Docs\**\*.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <Link>help\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Content>
+  </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="OpenTelemetry" Version="1.15.3" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
+  </ItemGroup>
 
 </Project>

@@ -131,12 +131,12 @@ public class ExtensionIndex : IExtensionIndex
             ? metadata
             : throw new KeyNotFoundException($"Command '{name}' not found for client type '{clientType}'.");
     }
-    public IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType)
+    public IReadOnlyDictionary<string, CommandMetadata> GetCommandTable(ClientType clientType)
     {
         return clientType switch
         {
-            ClientType.PowerShell => s_psTable.Values,
-            ClientType.CLI => s_cliTable.Values,
+            ClientType.PowerShell => s_psTable,
+            ClientType.CLI => s_cliTable,
             _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
         };
     }
@@ -149,4 +149,12 @@ public class ExtensionIndex : IExtensionIndex
             _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
         };
     }
+
+    public IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType)
+    {
+        return GetCommandTable(clientType).Values;
+    }
+
+    private static readonly IReadOnlyList<string> s_verbs = ["extension"];
+    public IReadOnlyList<string> GetVerbs() => s_verbs;
 }
