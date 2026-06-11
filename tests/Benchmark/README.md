@@ -1,13 +1,8 @@
 # Cirrus Benchmark Suite
 
-Performance benchmarking for Cirrus CLI/PowerShell engine, comparing execution time across API, CLI, and PowerShell products.
+Performance benchmarking for Cirrus CLI/PowerShell engine, comparing execution time across CLI and PowerShell products.
 
 ## Quick Start
-
-### Prerequisites
-
-1. **Authentication**: Run `azv2 login` to authenticate
-2. **Build**: Run `dotnet build cirrus.slnx` from repo root
 
 ### Run Benchmarks
 
@@ -21,7 +16,6 @@ dotnet run --project tests/Benchmark/Benchmark.csproj -- --local
 # Run specific product only
 dotnet run --project tests/Benchmark/Benchmark.csproj -- --product CLI
 dotnet run --project tests/Benchmark/Benchmark.csproj -- --product PS
-dotnet run --project tests/Benchmark/Benchmark.csproj -- --product API
 
 # Combine options
 dotnet run --project tests/Benchmark/Benchmark.csproj -- --local --product CLI
@@ -45,19 +39,23 @@ Results are saved to `artifacts/Benchmark/<timestamp>/`:
 
 ### Test Configuration
 
-| Setting | Value |
-|---------|-------|
-| Warmup iterations | 1 |
-| Measurement iterations | 5 |
-| Strategy | Monitoring |
-| Cleanup | Auto-delete test resource groups |
+Configured via BenchmarkDotNet attributes on `CLIBenchmarkBase` / `PSBenchmarkBase`:
+
+| Setting | Value | Attribute |
+|---------|-------|-----------|
+| Invocations per iteration | 1 (unroll factor 1) | `[InvocationCount(1, 1)]` |
+| Max relative error | 1% | `[MaxRelativeError(0.01)]` |
+| Max iteration count | 1000 | `[MaxIterationCount(1000)]` |
+| Outlier handling | Remove all | `[Outliers(OutlierMode.RemoveAll)]` |
+| Memory diagnostics | Enabled (allocations tracked) | `[MemoryDiagnoser]` |
+
+Warmup and measurement iteration counts are determined dynamically by BenchmarkDotNet: it keeps iterating until the measured mean is within the 1% relative error target or until `MaxIterationCount` is hit. Each iteration runs the benchmark method exactly once (cold-start semantics) — `[IterationSetup]` re-registers stub HTTP/auth/telemetry services and (for CLI) extension loaders before every run, and `[IterationCleanup]` disposes the DI container.
 
 ### Product Implementations
 
-| Product | Implementation | Measures |
-|---------|----------------|----------|
-| API | HttpClient + Bearer Token | Pure network latency (baseline) |
-| CLI | Process.Start(azv2.exe) | Full process startup + execution |
+| Product | Implementation            | Measures                           |
+|---------|---------------------------|------------------------------------|
+| CLI | Run via Program.cs        | Execution                          |
 | PS | In-process Runspace (SDK) | Cmdlet execution in shared session |
 
 ---
@@ -70,8 +68,6 @@ tests/Benchmark/
 ├── BenchmarkBase.cs        # Shared setup (auth, cleanup, utilities)
 ├── ChartGenerator.cs       # HTML/JSON chart generation
 ├── AppInsightsExporter.cs  # Metrics upload to App Insights
-├── API/
-│   └── ResourceGroupBenchmarks.cs   # API baseline benchmarks
 ├── CLI/
 │   └── ResourceGroupBenchmarks.cs   # CLI process benchmarks
 └── PS/
@@ -116,5 +112,4 @@ Analyze telemetry to discover bottlenecks → Add new benchmark cases → Valida
 
 ## See Also
 
-- [Benchmark Design Doc](../../docs/benchmark-design-sharing.md) - Full design details
 - [Grafana Dashboard](https://ms.portal.azure.com#view/Microsoft_Azure_PinToGrafana/AzureGrafana.ReactView/GalleryType/azure%20monitor/ConfigurationId/%2Fsubscriptions%2F9e223dbe-3399-4e19-88eb-0975f02ac87f%2FresourceGroups%2Fnori-app-insights%2Fproviders%2FMicrosoft.Dashboard%2Fdashboards%2Fnori-grafana-0203) - Live performance dashboard
