@@ -5,8 +5,6 @@ using Core.Cli.Exceptions;
 using Core.Cli.Help;
 using Core.Cli.Parser;
 using Core.Cli.Telemetry;
-using Core.Engine;
-using Core.Runtime;
 using Core.Telemetry;
 using Core.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
@@ -69,18 +67,21 @@ public class Program
 
         try
         {
-            using var activity = telemetryService.StartCLIActivity(args);
+            using var activity = telemetryService.StartRootActivity();
             var dispatcher = new ExtensionDispatcher();
             args = WireDebugStreams(args);
             try
             {
                 CommandInvocation invocation = dispatcher.Parse(args);
+                telemetryService.TagInvocation(invocation);
 
-                using var commandActivity = telemetryService.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
-                commandActivity?.SetTag("command.type", _clientType.ToString());
+                using var commandActivity =
+                    telemetryService.StartActivity("AzureCLI.ProcessCommand", ActivityKind.Internal);
 
-                var engine = CirrusServiceProvider.GetRequiredService<IEngine>() ?? throw new InvalidOperationException("Engine service not found.");
-                using ISession session = engine.OpenExecutionSession(invocation, streams, _cancellationTokenSource.Token);
+                var engine = CirrusServiceProvider.GetRequiredService<IEngine>() ??
+                             throw new InvalidOperationException("Engine service not found.");
+                using ISession session =
+                    engine.OpenExecutionSession(invocation, streams, _cancellationTokenSource.Token);
                 await session.RunAsync();
 
                 activity?.SetStatus(ActivityStatusCode.Ok);
@@ -118,7 +119,7 @@ public class Program
 
                 return await TryAgentFallbackAsync(args, ex.Message);
             }
-        } // activity disposed here → traces exported to file
+        }
         finally
         {
             CirrusServiceProvider.Dispose();

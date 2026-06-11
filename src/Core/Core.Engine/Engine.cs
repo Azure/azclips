@@ -39,7 +39,13 @@ namespace Core.Engine
             // Create a per-invocation channel for worker-to-caller communication
             var session = new ExecutionSession(clientType, invocation, outputStreams, cancellationToken);
             SubscribeAll(session.EventBus);
-            session.EventBus.Publish(Events.SessionCreated, new EventData { Message = $"{session.Id} created", ModuleName = invocation.ModuleName!, ModuleVersion = invocation.ModuleVersion! }).GetAwaiter().GetResult();
+
+            session.EventBus.Publish(Events.SessionCreated,
+                new EventData
+                {
+                    Message = $"{session.Id} created",
+                }).GetAwaiter().GetResult();
+
             // TODO(Yabo): get extension version from config service in the future
             session.GetExtensionVersion = () => string.Empty;
             session.LoadAssembly = assemblyLoadingService.LoadExtension;
@@ -55,7 +61,7 @@ namespace Core.Engine
             ObjectDisposedException.ThrowIf(_disposed, this);
             var session = new DiscoverySession(clientType, extensionNames, commandName, outputStreams, isTransient, cancellationToken);
             SubscribeAll(session.EventBus);
-            session.EventBus.Publish(Events.SessionCreated, new EventData { Message = $"{session.Id} created", ModuleName = commandName ?? string.Empty }).GetAwaiter().GetResult();
+            session.EventBus.Publish(Events.SessionCreated, new EventData { Message = $"{session.Id} created" }).GetAwaiter().GetResult();
             // TODO(Yabo): get extension version from config service in the future
             session.GetExtensionVersion = (name) => string.Empty;
             session.LoadAssembly = assemblyLoadingService.LoadExtension;

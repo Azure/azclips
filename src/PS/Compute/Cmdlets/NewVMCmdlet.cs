@@ -1,7 +1,6 @@
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
-using Core.Telemetry;
 
 namespace Microsoft.Azure.Cirrus.Cmdlets.Compute;
 
@@ -104,7 +103,8 @@ public class NewVMCmdlet : PSCmdlet
 
     protected override void ProcessRecord()
     {
-        using var activity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartPowerShellActivity(MyInvocation.MyCommand.Name, MyInvocation.BoundParameters);
+        var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
+        using var activity = telemetryService.StartRootActivity();
         var parameters = new Dictionary<string, object>
         {
             { "SubscriptionId", SubscriptionId },
@@ -134,6 +134,7 @@ public class NewVMCmdlet : PSCmdlet
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
         var invocation = new CommandInvocation("Compute", "New-VM", parameters, false, moduleName, moduleVersion);
+        telemetryService.TagInvocation(invocation);
 
         using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);
         session.Run();

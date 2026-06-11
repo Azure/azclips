@@ -18,6 +18,17 @@ namespace Core.Abstractions
         public string ModuleName = string.Empty;
 
         public string ModuleVersion = string.Empty;
+        /// <summary>
+        /// The name of the class that raised the event.
+        /// Useful for diagnostics, logging, and tracing the origin of the event.
+        /// </summary>
+        public string ClassName = string.Empty;
+
+        /// <summary>
+        /// The name of the function or method that raised the event.
+        /// Useful for diagnostics, logging, and tracing the origin of the event.
+        /// </summary>
+        public string FunctionName = string.Empty;
 
         /// <summary>
         /// When the event is about a parameter, this is the parameter name.
@@ -26,7 +37,7 @@ namespace Core.Abstractions
         public string Parameter = string.Empty;
 
         /// <summary>
-        /// This represents a numeric value associated with the event. 
+        /// This represents a numeric value associated with the event.
         /// Use for progress-style events
         /// </summary>
         public double Value;
@@ -38,10 +49,10 @@ namespace Core.Abstractions
 
         /// <summary>
         /// If the event triggers after the request message has been created, this will contain the Request Message (which in HTTP calls would be HttpRequestMessage)
-        /// 
+        ///
         /// Typically you'd cast this to the expected type to use it:
         /// <code>
-        /// if(eventData.RequestMessgae is HttpRequestMessage httpRequest) 
+        /// if(eventData.RequestMessgae is HttpRequestMessage httpRequest)
         /// {
         ///   httpRequest.Headers.Add("x-request-flavor", "vanilla");
         /// }
@@ -51,7 +62,7 @@ namespace Core.Abstractions
 
         /// <summary>
         /// If the event triggers after the response is back, this will contain the Response Message (which in HTTP calls would be HttpResponseMessage)
-        /// 
+        ///
         /// Typically you'd cast this to the expected type to use it:
         /// <code>
         /// if(eventData.ResponseMessage is HttpResponseMessage httpResponse){
@@ -62,8 +73,8 @@ namespace Core.Abstractions
         public object ResponseMessage = null!;
 
         /// <summary>
-        /// Cancellation method for this event. 
-        /// 
+        /// Cancellation method for this event.
+        ///
         /// If the event consumer wishes to cancel the request that initiated this event, call <c>Cancel()</c>
         /// </summary>
         /// <remarks>
@@ -89,7 +100,7 @@ namespace Core.Abstractions
 
         /// <summary>
         /// Returns result of the delegate as the expected type, or default(T)
-        /// 
+        ///
         /// This isolates any exceptions from the consumer.
         /// </summary>
         /// <param name="srcValue">A delegate that returns a value</param>
