@@ -152,7 +152,12 @@
         sb.AppendLine("  }");
         sb.AppendLine("}");
 
-        Directory.CreateDirectory(Path.GetDirectoryName(OutputFile));
+        // Path.GetDirectoryName returns null for a bare filename; Directory.CreateDirectory(null) throws.
+        var outputDir = Path.GetDirectoryName(OutputFile);
+        if (!string.IsNullOrEmpty(outputDir))
+        {
+          Directory.CreateDirectory(outputDir);
+        }
         File.WriteAllText(OutputFile, sb.ToString());
         Log.LogMessage(MessageImportance.Normal, $"Wrote {leafToPackage.Count} extension hint(s) to {OutputFile}");
       ]]></Code>
