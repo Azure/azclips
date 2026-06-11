@@ -6,7 +6,7 @@ using Microsoft.Azure.Cirrus.ExtensionRuntime;
 
 internal partial class RuntimeEventBus : IEventBus
 {
-    public CancellationToken Token { get; private set; }    
+    public CancellationToken Token { get; private set; }
     public Action Cancel { get; private set; }
     private Dictionary<string, Event> subscribers;
     private Event? globalSubscriber;
