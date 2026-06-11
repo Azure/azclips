@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781102899019,
+  "lastUpdate": 1781164474655,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus CLI Benchmarks": [
@@ -588,6 +588,48 @@ window.BENCHMARK_DATA = {
             "value": 13850062.5,
             "unit": "ns",
             "range": "± 491958.0732318558"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1a1a079820fa407bfa240c496ac605bf9fc5c75b",
+          "message": "[Bugfix] Update New-ResourceGroup cmdlet use new telemetry (#275)\n\nFix failed New-ResourceGroup cmdlet build referencing old telemetry\nimplementation",
+          "timestamp": "2026-06-11T17:52:23+10:00",
+          "tree_id": "9e95ae10e346ff93c8a23a0e6fa96fc94d9f65c6",
+          "url": "https://github.com/Azure/cirrus/commit/1a1a079820fa407bfa240c496ac605bf9fc5c75b"
+        },
+        "date": 1781164473478,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 13566880,
+            "unit": "ns",
+            "range": "± 363032.13006380945"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 13809071.4,
+            "unit": "ns",
+            "range": "± 293552.2135298932"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 13257253.3,
+            "unit": "ns",
+            "range": "± 349921.0912673027"
           }
         ]
       }
