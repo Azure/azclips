@@ -1,0 +1,5 @@
+variables:
+  ubuntu_pool: 'ubuntu-latest'
+  windows_pool: 'windows-latest'
+  macos_arm64_pool: 'macOS-15-arm64'
+  macos_intel_pool: 'macOS-15'
