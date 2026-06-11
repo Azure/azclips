@@ -153,7 +153,7 @@ public sealed class ChatAgent : IAsyncDisposable
 
             default:
                 throw new ArgumentException(
-                    $"Unknown agent.provider value: '{options.Provider}'. Expected: builtin | github | custom.",
+                    $"Unknown agent.provider value: {FormatProviderForError(options.Provider)}. Expected: builtin | github | custom.",
                     nameof(options));
         }
 
@@ -233,7 +233,10 @@ public sealed class ChatAgent : IAsyncDisposable
         }
         catch (Exception ex)
         {
-            throw new InvalidOperationException(BuildBuiltinAuthErrorMessage(), ex);
+            throw new InvalidOperationException(
+                BuildBuiltinAuthErrorMessage() +
+                $"{Environment.NewLine}{Environment.NewLine}Underlying cause: {ex.GetType().Name}: {ex.Message}",
+                ex);
         }
 
         if (authResult is null || string.IsNullOrEmpty(authResult.AccessToken))
@@ -265,6 +268,14 @@ public sealed class ChatAgent : IAsyncDisposable
         billed to your GitHub account):
             azv2 config set --key agent.provider --value github
         """;
+
+    private static string FormatProviderForError(string? provider)
+    {
+        if (provider is null) return "(null)";
+        if (provider.Length == 0) return "(empty)";
+        if (string.IsNullOrWhiteSpace(provider)) return $"(whitespace, length={provider.Length})";
+        return $"'{provider}'";
+    }
 
     public async Task SendAsync(string prompt, CancellationToken ct)
     {
