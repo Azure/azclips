@@ -109,6 +109,9 @@ public class FileTelemetrySender : ITelemetrySender
             using var provider = Sdk.CreateTracerProviderBuilder()
                 .AddSource(serviceName)
                 .ConfigureResource(r => r.AddService(serviceName: serviceName))
+                //apply filter here also, so any pre-existing buffered activities
+                //that are not in the allowlist are dropped during replay
+                .AddTelemetryAllowListFilter() 
                 .AddAzureMonitorTraceExporter(options =>
                 {
                     options.ConnectionString = WellKnownEndpoints.AzureMonitorConnectionString;

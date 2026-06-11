@@ -32,6 +32,8 @@ public class PSTelemetryProvider : DefaultTelemetryProvider
             };
         });
 
+        builder.AddTelemetryAllowListFilter();
+
         sender.ConfigureExporter(builder, string.Empty);
         TracerProvider = builder.Build();
     }

@@ -31,6 +31,8 @@ public class CLITelemetryProvider : DefaultTelemetryProvider
                 activity.SetTag("http.request.header.user-agent", request.Headers.UserAgent?.ToString());
             };
         });
+                
+        builder.AddTelemetryAllowListFilter();
 
         sender.ConfigureExporter(builder, FileTelemetrySender.GetTraceDirectory());
         TracerProvider = builder.Build();

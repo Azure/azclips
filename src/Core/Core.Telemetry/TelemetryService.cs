@@ -45,6 +45,8 @@ public class TelemetryService : ITelemetryService
             rootActivity?.SetTag(TelemetryTags.ModuleName, commandInvocation.ModuleName);
         if (!string.IsNullOrEmpty(commandInvocation.ModuleVersion))
             rootActivity?.SetTag(TelemetryTags.ModuleVersion, commandInvocation.ModuleVersion);
+
+        //TODO: Disable parameter tagging, we need to redact sensitive info before sending
         rootActivity?.SetTag(TelemetryTags.Parameter, FormatParameters(commandInvocation.Parameters));
 
         return rootActivity;
