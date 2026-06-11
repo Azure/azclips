@@ -283,9 +283,88 @@ public class ExtensionDispatcherTests
         Assert.Equal("Resources", positional[0][0]);
     }
 
+    // -------- Intermediate-group help path --------
+    //
+    // Regression: `azv2 deployment group --help` is parsed with IsCommandHelp=true (the parser
+    // flags any path with extra tokens past the verb), but the leaf is `deployment group create` —
+    // so `deployment group` is an intermediate group, not a command. The help dispatcher must
+    // fall back to GetGroupHelp on a GetCommandHelp miss instead of throwing
+    // KeyNotFoundException, which used to bubble out as an unhandled exception.
+
+    [Fact]
+    public void Parse_ShouldFlagIsCommandHelp_ForIntermediateGroupPath()
+    {
+        // Locks down the parser side of the contract: tokens past the verb cause IsCommandHelp=true.
+        var dispatcher = CreateLeafDispatcher(
+            ("deployment", "group create", "Microsoft.Azure.Cirrus.Extensions.Resources", false));
+
+        var exception = Assert.Throws<RuntimeExtensionHelpException>(() => dispatcher.Parse(["deployment", "group", "--help"]));
+
+        Assert.Equal("deployment", exception.Verb);
+        Assert.True(exception.IsCommandHelp);
+        Assert.Equal(["deployment", "group"], exception.Path);
+    }
+
+    [Fact]
+    public void ExtensionIndexHelpAdapter_ShouldReturnNullCommand_AndNonNullGroup_ForIntermediatePath()
+    {
+        // Companion contract: when the parser flags the path as command help but it actually
+        // points at an intermediate group, GetCommandHelp returns null and GetGroupHelp returns
+        // the group with the leaf as a sub-command. RuntimeHelpDispatcher relies on this to
+        // recover from the parser's optimistic IsCommandHelp=true flag.
+        var index = new StubExtensionIndex(
+            verb: "deployment",
+            cliLeaf: "deployment group create");
+        var adapter = new ExtensionIndexHelpAdapter(index, "deployment");
+
+        var commandAtIntermediatePath = adapter.GetCommandHelp(["deployment", "group"]);
+        var groupAtIntermediatePath = adapter.GetGroupHelp(["deployment", "group"]);
+
+        Assert.Null(commandAtIntermediatePath);
+        Assert.NotNull(groupAtIntermediatePath);
+        Assert.Equal("deployment group", groupAtIntermediatePath!.GroupPath);
+        var createCommand = Assert.Single(groupAtIntermediatePath.Commands);
+        Assert.Equal("create", createCommand.Name);
+    }
+
     private sealed class InMemoryRegistryStore(ExtensionRegistry registry) : IExtensionRegistryStore
     {
         public ExtensionRegistry Load() => registry;
         public void Save(ExtensionRegistry registry) { /* no-op for tests */ }
+    }
+
+    /// <summary>
+    /// Minimal in-memory <see cref="IExtensionIndex"/> for adapter-level tests. Supports a single
+    /// CLI leaf so we can model intermediate-group shapes (e.g. <c>deployment group create</c>)
+    /// without pulling in a real extension assembly.
+    /// </summary>
+    private sealed class StubExtensionIndex(string verb, string cliLeaf) : IExtensionIndex
+    {
+        private static readonly CommandMetadata s_metadata = new(
+            Name: "Stub",
+            Aliases: Array.Empty<string>(),
+            FullName: "Stub.Processors.StubProcessor",
+            AssemblyName: "Stub",
+            ProcessorType: typeof(StubExtensionIndex),
+            Parameters: new Dictionary<string, ParameterMetadata>(),
+            ParameterAliases: new Dictionary<string, string>());
+
+        private readonly Dictionary<string, CommandMetadata> _table = new(StringComparer.OrdinalIgnoreCase)
+        {
+            [cliLeaf] = s_metadata,
+        };
+
+        private readonly IReadOnlyList<string> _verbs = new[] { verb };
+
+        public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
+            => _table.TryGetValue(name, out var m) ? m : throw new KeyNotFoundException(name);
+
+        public IReadOnlyDictionary<string, CommandMetadata> GetCommandTable(ClientType clientType) => _table;
+
+        public IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType) => _table.Values;
+
+        public IEnumerable<string> GetCommandKeys(ClientType clientType) => _table.Keys;
+
+        public IReadOnlyList<string> GetVerbs() => _verbs;
     }
 }

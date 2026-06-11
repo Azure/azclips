@@ -107,9 +107,21 @@ public sealed class RuntimeHelpDispatcher
         IEnumerable<string> lines;
         if (helpException.IsCommandHelp)
         {
-            var command = helpProvider.GetCommandHelp(helpException.Path)
-                ?? throw new KeyNotFoundException($"Command help not found for path '{string.Join(" ", helpException.Path)}'.");
-            lines = _renderer.RenderCommand(command, TerminalWidth());
+            // The parser flags any path with extra tokens as a command-help request, but the
+            // user may have asked about an intermediate group (e.g. `azv2 deployment group --help`
+            // when the only leaf is `deployment group create`). Try the command first; fall back
+            // to group help so partial paths don't crash the renderer.
+            var command = helpProvider.GetCommandHelp(helpException.Path);
+            if (command != null)
+            {
+                lines = _renderer.RenderCommand(command, TerminalWidth());
+            }
+            else
+            {
+                var group = helpProvider.GetGroupHelp(helpException.Path)
+                    ?? throw new KeyNotFoundException($"No help found for path '{string.Join(" ", helpException.Path)}'.");
+                lines = _renderer.RenderGroup(group, TerminalWidth());
+            }
         }
         else
         {
