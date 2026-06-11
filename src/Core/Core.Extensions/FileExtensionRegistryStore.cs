@@ -160,18 +160,37 @@ namespace Core.Extensions
         }
 
         /// <summary>
-        /// Verifies the leaf-uniqueness invariant: no two entries may declare the same
-        /// <c>(verb, path)</c> contribution. Throws <see cref="CirrusErrorException.RegistryInvalid"/>
-        /// on violation so callers can recover (e.g. by editing the file).
+        /// Verifies the leaf-uniqueness invariant: no two contributions in the registry may
+        /// declare the same <c>(verb, path)</c> tuple, whether they belong to different entries
+        /// or to the same entry. Throws <see cref="CirrusErrorException.RegistryInvalid"/> on
+        /// violation so callers can recover (e.g. by editing the file).
         /// </summary>
+        /// <remarks>
+        /// Pre-PR-#253 the check only flagged cross-entry duplicates; an entry that declared
+        /// the same contribution twice was silently accepted. The dispatcher would then route
+        /// arbitrarily, masking a registry-construction bug.
+        /// </remarks>
         private static void ValidateNoDuplicateContributions(ExtensionRegistry registry)
         {
             var seen = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (var (packageId, entry) in registry.Extensions)
             {
+                var perEntrySeen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var c in entry.Contributions)
                 {
                     var key = string.IsNullOrEmpty(c.Path) ? c.Verb : $"{c.Verb} {c.Path}";
+                    if (!perEntrySeen.Add(key))
+                    {
+                        throw CirrusErrorException.RegistryInvalid(
+                            $"Registry entry '{packageId}' contains duplicate contribution '{key}'. " +
+                            $"Edit registry.json to remove the duplicate, or run 'azv2 extension remove' " +
+                            $"and reinstall.",
+                            new Dictionary<string, object?>
+                            {
+                                ["leafKey"] = key,
+                                ["packageId"] = packageId,
+                            });
+                    }
                     if (seen.TryGetValue(key, out var owner) &&
                         !string.Equals(owner, packageId, StringComparison.OrdinalIgnoreCase))
                     {
@@ -194,9 +213,30 @@ namespace Core.Extensions
         /// Brings an entry to v2 shape: synthesizes a single <c>(Verb, "")</c> contribution
         /// from the legacy <c>Verb</c> field if no contributions are present, then re-derives the
         /// <c>Namespaces</c> field from the distinct verbs in <c>Contributions</c>. Idempotent.
+        /// Whitespace in <c>Verb</c> and <c>Path</c> is trimmed; entries with whitespace-only
+        /// path are coerced to <see cref="string.Empty"/> so the dispatcher's empty-path branch
+        /// is taken (avoids spurious "verb  " keys with embedded double-space). (PR #253.)
         /// </summary>
         private static void NormalizeEntry(ExtensionRegistryEntry entry)
         {
+            // Defensive trimming on hand-edited registry files. JSON deserialization preserves
+            // whatever the user typed; we want canonical forms before any equality check.
+            if (entry.Verb is not null)
+            {
+                var trimmed = entry.Verb.Trim();
+                entry.Verb = string.IsNullOrEmpty(trimmed) ? null : trimmed;
+            }
+            for (int i = 0; i < entry.Contributions.Count; i++)
+            {
+                var c = entry.Contributions[i];
+                var verbTrimmed = c.Verb?.Trim() ?? string.Empty;
+                var pathTrimmed = c.Path?.Trim() ?? string.Empty;
+                if (verbTrimmed != c.Verb || pathTrimmed != c.Path)
+                {
+                    entry.Contributions[i] = new Contribution { Verb = verbTrimmed, Path = pathTrimmed };
+                }
+            }
+
             if (entry.Contributions.Count == 0 && !string.IsNullOrEmpty(entry.Verb))
             {
                 entry.Contributions.Add(new Contribution { Verb = entry.Verb, Path = string.Empty });
@@ -208,6 +248,10 @@ namespace Core.Extensions
             var namespaces = new List<string>();
             foreach (var contribution in entry.Contributions)
             {
+                if (string.IsNullOrEmpty(contribution.Verb))
+                {
+                    continue;
+                }
                 if (seen.Add(contribution.Verb))
                 {
                     namespaces.Add(contribution.Verb);

@@ -7,8 +7,16 @@ namespace Core.Extensions;
 /// <remarks>
 /// Per <c>docs/spec/extension-management.md \u00a74.4</c>:
 /// <list type="bullet">
-///   <item>0 success, 1 generic error, 2 usage error, 3 verb conflict, 4 extension not found,
-///   5 feed/network error, 6 pin violation.</item>
+///   <item>0 success</item>
+///   <item>1 generic error</item>
+///   <item>2 usage error (<see cref="UsageError"/>)</item>
+///   <item>3 verb / leaf conflict (<see cref="VerbConflict"/>, <see cref="LeafConflict"/>)</item>
+///   <item>4 extension not found (<see cref="ExtensionNotFound"/>)</item>
+///   <item>5 feed / network unavailable (<see cref="FeedUnavailable"/>)</item>
+///   <item>6 pin violation (<see cref="PinViolation"/>)</item>
+///   <item>7 compatibility violation (<see cref="CompatibilityViolation"/>)</item>
+///   <item>8 registry concurrency conflict (<see cref="RegistryConcurrency"/>)</item>
+///   <item>9 registry invariant violation (<see cref="RegistryInvalid"/>)</item>
 ///   <item>JSON shape: <c>{ "error": { "code": "...", "message": "...", "details": { ... } } }</c>.</item>
 /// </list>
 /// </remarks>

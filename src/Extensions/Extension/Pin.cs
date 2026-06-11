@@ -81,7 +81,7 @@ public class UnpinExtensionProcessor : IProcessor
     }
 }
 
-internal static class PinHelper
+public static class PinHelper
 {
     public static object SetPinned(string name, bool pinned)
     {
@@ -93,39 +93,58 @@ internal static class PinHelper
         var store = new FileExtensionRegistryStore();
         var registry = store.Load();
 
-        var match = registry.Extensions
-            .FirstOrDefault(kvp =>
-                string.Equals(kvp.Key, name, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(kvp.Value.Verb, name, StringComparison.OrdinalIgnoreCase) ||
-                kvp.Key.EndsWith("." + name, StringComparison.OrdinalIgnoreCase));
+        var (packageId, entry, mutated) = ApplyPinChange(registry, name, pinned);
+        if (mutated)
+        {
+            store.Save(registry);
+        }
+        return Project(packageId, entry);
+    }
 
-        if (match.Key is null)
+    /// <summary>
+    /// Pure helper: locates the entry matching <paramref name="name"/>, applies the pin change
+    /// in place on <paramref name="registry"/>, and returns whether the registry was mutated.
+    /// Extracted for unit testing — IO lives in <see cref="SetPinned"/>.
+    /// </summary>
+    /// <remarks>
+    /// Crucially, the rewritten entry copies <see cref="ExtensionRegistryEntry.Contributions"/>
+    /// and <see cref="ExtensionRegistryEntry.Namespaces"/> from the existing entry. Without this,
+    /// <c>FileExtensionRegistryStore.Save()</c>'s NormalizeEntry would synthesize a single
+    /// <c>(verb, "")</c> contribution from the legacy <c>Verb</c> field, silently erasing every
+    /// non-root leaf and breaking dispatch after pin/unpin. (PR #253 review feedback.)
+    /// </remarks>
+    public static (string PackageId, ExtensionRegistryEntry Entry, bool Mutated) ApplyPinChange(
+        ExtensionRegistry registry,
+        string name,
+        bool pinned)
+    {
+        ArgumentNullException.ThrowIfNull(registry);
+
+        if (!RegistryLookup.TryFind(registry, name, out var match))
         {
             throw CirrusErrorException.ExtensionNotFound(
-                $"No installed extension matches '{name}' (by package id, short name, or verb).",
+                $"No installed extension matches '{name}' (by package id, short name, verb, or namespace).",
                 new Dictionary<string, object?> { ["name"] = name });
         }
 
-        var packageId = match.Key;
         var existing = match.Value;
-
         if (existing.Pinned == pinned)
         {
             // No-op: still return the entry so callers see the current state.
-            return Project(packageId, existing);
+            return (match.Key, existing, false);
         }
 
-        registry.Extensions[packageId] = new ExtensionRegistryEntry
+        registry.Extensions[match.Key] = new ExtensionRegistryEntry
         {
             Verb = existing.Verb,
             Version = existing.Version,
             Pinned = pinned,
             Source = existing.Source,
             InstalledAt = existing.InstalledAt,
+            Contributions = new List<Contribution>(existing.Contributions),
+            Namespaces = new List<string>(existing.Namespaces),
         };
-        store.Save(registry);
-
-        return Project(packageId, registry.Extensions[packageId]);
+        return (match.Key, registry.Extensions[match.Key], true);
     }
 
     private static object Project(string packageId, ExtensionRegistryEntry entry) => new

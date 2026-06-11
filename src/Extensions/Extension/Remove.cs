@@ -49,16 +49,10 @@ public class RemoveExtensionProcessor : IProcessor
         var store = new FileExtensionRegistryStore();
         var registry = store.Load();
 
-        var match = registry.Extensions
-            .FirstOrDefault(kvp =>
-                string.Equals(kvp.Key, Name, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(kvp.Value.Verb, Name, StringComparison.OrdinalIgnoreCase) ||
-                kvp.Key.EndsWith("." + Name, StringComparison.OrdinalIgnoreCase));
-
-        if (match.Key is null)
+        if (!RegistryLookup.TryFind(registry, Name, out var match))
         {
             throw CirrusErrorException.ExtensionNotFound(
-                $"No installed extension matches '{Name}' (by package id, short name, or verb).",
+                $"No installed extension matches '{Name}' (by package id, short name, verb, or namespace).",
                 new Dictionary<string, object?> { ["name"] = Name });
         }
 

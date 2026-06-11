@@ -418,5 +418,84 @@ namespace Core.Extensions.Tests
             Assert.Single(live.Extensions);
             Assert.True(live.Extensions.ContainsKey("Pkg.A"));
         }
+
+        // --- PR #253 hardening: NormalizeEntry trims whitespace and detects intra-entry dupes. ---
+
+        [Fact]
+        public void Save_ShouldTrimWhitespaceFromVerbAndPath()
+        {
+            Directory.CreateDirectory(_tempDir);
+            var registry = new ExtensionRegistry();
+            registry.Extensions["Pkg.Trim"] = new ExtensionRegistryEntry
+            {
+                Verb = "  resources  ",
+                Version = "1.0.0",
+                Contributions =
+                {
+                    new Contribution { Verb = "  resources  ", Path = "  group   create  " },
+                    new Contribution { Verb = "deployment", Path = "   " }, // whitespace-only path -> empty
+                },
+                InstalledAt = DateTimeOffset.UtcNow,
+            };
+
+            new FileExtensionRegistryStore(_registryPath).Save(registry);
+            var reloaded = new FileExtensionRegistryStore(_registryPath).Load();
+
+            var entry = reloaded.Extensions["Pkg.Trim"];
+            Assert.Equal("resources", entry.Verb);
+            Assert.Collection(entry.Contributions,
+                c => { Assert.Equal("resources", c.Verb); Assert.Equal("group   create", c.Path); },
+                c => { Assert.Equal("deployment", c.Verb); Assert.Equal(string.Empty, c.Path); });
+        }
+
+        [Fact]
+        public void Save_ShouldThrowRegistryInvalid_WhenSingleEntryHasDuplicateContribution()
+        {
+            Directory.CreateDirectory(_tempDir);
+            var registry = new ExtensionRegistry();
+            registry.Extensions["Pkg.Dup"] = new ExtensionRegistryEntry
+            {
+                Verb = "vm",
+                Version = "1.0.0",
+                Contributions =
+                {
+                    new Contribution { Verb = "vm", Path = "create" },
+                    new Contribution { Verb = "vm", Path = "create" }, // intra-entry duplicate
+                },
+                InstalledAt = DateTimeOffset.UtcNow,
+            };
+
+            var store = new FileExtensionRegistryStore(_registryPath);
+            var ex = Assert.Throws<CirrusErrorException>(() => store.Save(registry));
+
+            Assert.Equal("RegistryInvalid", ex.Code);
+            Assert.Contains("Pkg.Dup", ex.Message);
+            Assert.Contains("duplicate contribution", ex.Message);
+        }
+
+        [Fact]
+        public void NormalizeEntry_ShouldExcludeEmptyVerbsFromNamespaces()
+        {
+            Directory.CreateDirectory(_tempDir);
+            var registry = new ExtensionRegistry();
+            registry.Extensions["Pkg.EmptyVerb"] = new ExtensionRegistryEntry
+            {
+                Verb = "real",
+                Version = "1.0.0",
+                Contributions =
+                {
+                    new Contribution { Verb = "real", Path = string.Empty },
+                    // Whitespace-only verb gets trimmed to empty by NormalizeEntry; namespaces
+                    // builder must skip it rather than emit a phantom "" entry.
+                    new Contribution { Verb = "   ", Path = "x" },
+                },
+                InstalledAt = DateTimeOffset.UtcNow,
+            };
+
+            new FileExtensionRegistryStore(_registryPath).Save(registry);
+            var reloaded = new FileExtensionRegistryStore(_registryPath).Load();
+
+            Assert.Equal(new[] { "real" }, reloaded.Extensions["Pkg.EmptyVerb"].Namespaces);
+        }
     }
 }

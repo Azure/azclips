@@ -211,7 +211,11 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
 
         if (_options.BypassExtensionCache)
         {
-            var freshCtx = new ExtensionLoadContext(extensionPath, _loggingService);
+            // ExtensionLoadContext expects a directory (used to resolve sibling assemblies via
+            // Path.Combine in Load); passing the DLL path itself broke dependency resolution
+            // for any cache-bypassed extension. Cache hits below already do the right thing
+            // because they construct the context with `key.Directory`. (PR #253 review feedback.)
+            var freshCtx = new ExtensionLoadContext(extensionDir, _loggingService);
             return freshCtx.LoadFromAssemblyPath(extensionPath);
         }
 

@@ -140,16 +140,21 @@ namespace Core.Extensions
                 return new ExtensionHintTable();
             }
 
-            foreach (var dll in Directory.EnumerateFiles(baseDir, "*.dll", SearchOption.TopDirectoryOnly).OrderBy(p => p, StringComparer.Ordinal))
+            // Disk fallback: only probe the well-known host assembly that owns the embedded
+            // resource. The previous implementation enumerated every *.dll in BaseDirectory,
+            // which (a) wasted IO on irrelevant deps and (b) could surface a stale embedded
+            // hint table from any plugin DLL that happened to ship one. (PR #253 review feedback.)
+            var candidate = Path.Combine(baseDir, "azv2.dll");
+            if (File.Exists(candidate))
             {
                 Assembly probed;
                 try
                 {
-                    probed = Assembly.LoadFrom(dll);
+                    probed = Assembly.LoadFrom(candidate);
                 }
                 catch
                 {
-                    continue;
+                    return new ExtensionHintTable();
                 }
 
                 if (TryLoadFromAssembly(probed, out var fromDisk))

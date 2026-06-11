@@ -40,30 +40,44 @@ public class ShowExtensionProcessor : IProcessor
         var store = new FileExtensionRegistryStore();
         var registry = store.Load();
 
-        // Accept either the full package id (exact match, case-insensitive) or the verb
-        // — whichever the user has handy. Verb is what they see at the command line; package id
-        // is what `extension list` and `extension add` reference.
-        var match = registry.Extensions
-            .FirstOrDefault(kvp =>
-                string.Equals(kvp.Key, Name, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(kvp.Value.Verb, Name, StringComparison.OrdinalIgnoreCase) ||
-                kvp.Key.EndsWith("." + Name, StringComparison.OrdinalIgnoreCase));
-
-        if (match.Key is null)
+        // Accept either the full package id (exact match, case-insensitive), a short suffix,
+        // the legacy verb, or any v2 namespace — whichever the user has handy.
+        if (!RegistryLookup.TryFind(registry, Name, out var match))
         {
             throw CirrusErrorException.ExtensionNotFound(
-                $"No installed extension matches '{Name}' (by package id, short name, or verb).",
+                $"No installed extension matches '{Name}' (by package id, short name, verb, or namespace).",
                 new Dictionary<string, object?> { ["name"] = Name });
         }
 
+        var entry = match.Value;
+        return ShowExtensionProcessor.BuildResult(match.Key, entry);
+    }
+
+    /// <summary>
+    /// Pure projection helper: shapes the public output for <c>extension show</c>. Surfaces v2
+    /// <see cref="ExtensionRegistryEntry.Namespaces"/> alongside the legacy single
+    /// <see cref="ExtensionRegistryEntry.Verb"/> so multi-namespace extensions are
+    /// introspectable. <c>Namespaces</c> is empty for legacy v1 entries; in that case we fall
+    /// back to the singleton verb so the field is always populated for the user. Extracted for
+    /// unit testing — IO lives in <see cref="Process()"/>. (PR #253 review feedback.)
+    /// </summary>
+    public static object BuildResult(string packageId, ExtensionRegistryEntry entry)
+    {
+        ArgumentNullException.ThrowIfNull(packageId);
+        ArgumentNullException.ThrowIfNull(entry);
+
+        var namespaces = entry.Namespaces.Count > 0
+            ? (IReadOnlyList<string>)entry.Namespaces
+            : (entry.Verb is null ? Array.Empty<string>() : new[] { entry.Verb });
         return new
         {
-            PackageId = match.Key,
-            Verb = match.Value.Verb,
-            Version = match.Value.Version,
-            Pinned = match.Value.Pinned,
-            Source = match.Value.Source,
-            InstalledAt = match.Value.InstalledAt,
+            PackageId = packageId,
+            Verb = entry.Verb,
+            Namespaces = namespaces,
+            Version = entry.Version,
+            Pinned = entry.Pinned,
+            Source = entry.Source,
+            InstalledAt = entry.InstalledAt,
         };
     }
 

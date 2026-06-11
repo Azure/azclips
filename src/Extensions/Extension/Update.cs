@@ -59,16 +59,10 @@ public class UpdateExtensionProcessor : IProcessor
         var store = new FileExtensionRegistryStore();
         var registry = store.Load();
 
-        var match = registry.Extensions
-            .FirstOrDefault(kvp =>
-                string.Equals(kvp.Key, Name, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(kvp.Value.Verb, Name, StringComparison.OrdinalIgnoreCase) ||
-                kvp.Key.EndsWith("." + Name, StringComparison.OrdinalIgnoreCase));
-
-        if (match.Key is null)
+        if (!RegistryLookup.TryFind(registry, Name, out var match))
         {
             throw CirrusErrorException.ExtensionNotFound(
-                $"No installed extension matches '{Name}' (by package id, short name, or verb). Use 'extension add' first.",
+                $"No installed extension matches '{Name}' (by package id, short name, verb, or namespace). Use 'extension add' first.",
                 new Dictionary<string, object?> { ["name"] = Name });
         }
 
@@ -165,10 +159,13 @@ public class UpdateExtensionProcessor : IProcessor
                 contributions.Add(new Contribution { Verb = leafVerb, Path = leafPath });
             }
 
-            // Q6 strict single-version: only the just-installed version stays on disk.
-            PurgeSiblingVersions(installer.InstallPath, packageId, keepVersion: resolvedVersion);
-
-            registry.Extensions[packageId] = new ExtensionRegistryEntry
+            // Q6 strict single-version: only the just-installed version stays on disk. Order
+            // matters: persist the registry first, then purge old payload directories. If
+            // PurgeSiblingVersions ran before Save() and the Save then failed (e.g. concurrency
+            // conflict), we'd have deleted the previous-version files but the registry would
+            // still point at the old version — leaving the user with neither a working old
+            // install nor a recorded new install. (PR #253 review feedback.)
+            var newEntry = new ExtensionRegistryEntry
             {
                 Verb = primaryVerb,
                 Version = resolvedVersion,
@@ -178,7 +175,12 @@ public class UpdateExtensionProcessor : IProcessor
                 InstalledAt = DateTimeOffset.UtcNow,
                 Contributions = contributions,
             };
-            store.Save(registry);
+            PersistAndPurge(
+                store,
+                registry,
+                packageId,
+                newEntry,
+                () => PurgeSiblingVersions(installer.InstallPath, packageId, keepVersion: resolvedVersion));
 
             return new
             {
@@ -209,6 +211,31 @@ public class UpdateExtensionProcessor : IProcessor
         {
             return result.ToString() ?? "";
         }
+    }
+
+    /// <summary>
+    /// Atomically replace the registry entry, persist via <paramref name="store"/>, then run
+    /// <paramref name="purgeAction"/>. Order matters: the purge runs only if <c>Save</c>
+    /// succeeds. If <c>Save</c> throws (e.g. <see cref="CirrusErrorException"/> with code
+    /// <c>RegistryConcurrency</c>), the purge is skipped so the previous-version payload remains
+    /// on disk and the registry is unchanged. Extracted for unit testing — IO lives in
+    /// <see cref="Process()"/>'s catch block. (PR #253 review feedback.)
+    /// </summary>
+    public static void PersistAndPurge(
+        IExtensionRegistryStore store,
+        ExtensionRegistry registry,
+        string packageId,
+        ExtensionRegistryEntry newEntry,
+        Action purgeAction)
+    {
+        ArgumentNullException.ThrowIfNull(store);
+        ArgumentNullException.ThrowIfNull(registry);
+        ArgumentNullException.ThrowIfNull(newEntry);
+        ArgumentNullException.ThrowIfNull(purgeAction);
+
+        registry.Extensions[packageId] = newEntry;
+        store.Save(registry);
+        purgeAction();
     }
 
     private static void PurgeSiblingVersions(string installRoot, string packageId, string keepVersion)

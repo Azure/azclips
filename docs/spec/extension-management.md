@@ -215,6 +215,7 @@ A single JSON file at `~/.cirrus/extensions/registry.json`:
 
 - `contributions` is the authoritative per-leaf list. The dispatcher builds an in-memory `{(verb, path) → packageId}` index from this at startup.
 - `namespaces` is derived (distinct `verb` values across contributions). Persisted as a convenience for fast `extension list --by-verb` rendering. Kept in sync on write.
+    - **Ordering contract.** `namespaces` preserves the order of _first appearance_ in `contributions` (case-insensitive distinct, first-seen casing wins). Hand-editing `contributions` may temporarily desynchronize the order until the next `Save()`, which re-derives the field. Tools that compare two registries should treat `namespaces` as a derived field and compare on `contributions` instead.
 - `version` / `pinned` / `source` / `installedAt` are per-extension, not per-leaf.
 - The reader is tolerant of v1 entries: a v1 entry with `verb: "<verb>"` and no `contributions` array reads as a single namespace-wide contribution `[{verb, path: ""}]`. No on-disk rewrite is forced; the next `add`/`update`/`remove` write triggers a transparent schema-2 upgrade for the touched entry.
 - Built-in extensions (`extension`, `login`, `config`) are not in this file — they live in the in-memory seed (§4.6).
@@ -478,35 +479,37 @@ Tracked, not v1.
 
 Fresh-eyes review pass against `origin/main`. Findings ordered by severity. Each entry is a discussion point for the PR thread, not a commitment to fix in this branch.
 
+> **Status update (PR #253):** items marked **[fixed]** landed in this PR; items marked **[deferred]** are tracked for a follow-up. The full A1-A8 / B1-B11 matrix is summarised in the PR conversation.
+
 ### Critical
 
-1. **Optimistic concurrency uses filesystem mtime.** `FileExtensionRegistryStore` captures `File.GetLastWriteTimeUtc()` at `Load()` and re-checks at `Save()`. Millisecond resolution + clock skew + same-tick writes leave a race window where two interleaved saves both think they were unopposed. Fix: replace mtime with a content hash or an integer `revision` field bumped on every write, or wrap load+save in an OS file lock with timeout. Spec §4.7 promises the guard; the implementation is best-effort.
+1. **Optimistic concurrency uses filesystem mtime.** `FileExtensionRegistryStore` captures `File.GetLastWriteTimeUtc()` at `Load()` and re-checks at `Save()`. Millisecond resolution + clock skew + same-tick writes leave a race window where two interleaved saves both think they were unopposed. Fix: replace mtime with a content hash or an integer `revision` field bumped on every write, or wrap load+save in an OS file lock with timeout. Spec §4.7 promises the guard; the implementation is best-effort. **[deferred — follow-up: add `revision` field to schema + CAS-on-revision; mtime stays as belt-and-suspenders.]**
 
 ### High
 
-2. **`ExtensionHintTable.LoadFromEmbeddedResource` disk fallback is too broad.** The CI fix walks every `*.dll` in `AppContext.BaseDirectory` and `Assembly.LoadFrom`s each one until the embedded resource is found. That's an unbounded code-execution surface and slow on populated bin dirs. Tighten to `Path.Combine(BaseDirectory, "azv2.dll")` (the assembly the build target actually embeds into), with the existing in-memory scan as the fast path. Today's broad probe was a thirty-second fix for the CI flake; replace with the targeted version before merge.
+2. **`ExtensionHintTable.LoadFromEmbeddedResource` disk fallback is too broad.** The CI fix walks every `*.dll` in `AppContext.BaseDirectory` and `Assembly.LoadFrom`s each one until the embedded resource is found. That's an unbounded code-execution surface and slow on populated bin dirs. Tighten to `Path.Combine(BaseDirectory, "azv2.dll")` (the assembly the build target actually embeds into), with the existing in-memory scan as the fast path. Today's broad probe was a thirty-second fix for the CI flake; replace with the targeted version before merge. **[fixed]**
 
-3. **Reflection paths swallow malformed input.** `LeafReader` parses an enum without a guard against unknown values; `CompatibilityGuard` treats unparseable `MinCoreVersion` / `MaxCoreVersion` as "no bound" with only an inline advisory. A typo in a manifest (`"main"`, `"1.0.0.0"`, `"latest"`) currently looks indistinguishable from "compatible." Surface unparseable bounds as a warning at minimum, ideally fail closed unless an explicit "I really mean unbounded" sentinel is used.
+3. **Reflection paths swallow malformed input.** `LeafReader` parses an enum without a guard against unknown values; `CompatibilityGuard` treats unparseable `MinCoreVersion` / `MaxCoreVersion` as "no bound" with only an inline advisory. A typo in a manifest (`"main"`, `"1.0.0.0"`, `"latest"`) currently looks indistinguishable from "compatible." Surface unparseable bounds as a warning at minimum, ideally fail closed unless an explicit "I really mean unbounded" sentinel is used. **[deferred]**
 
 ### Medium
 
-4. **TOCTOU between compatibility check and registry persistence in `Add.cs`.** `CompatibilityGuard.CheckAssembly(installPath, ...)` runs ~40 lines before the registry write. Between those points, another process can mutate `installPath`. Fix: move the compat check next to the write, or hold the registry concurrency guard across both.
+4. **TOCTOU between compatibility check and registry persistence in `Add.cs`.** `CompatibilityGuard.CheckAssembly(installPath, ...)` runs ~40 lines before the registry write. Between those points, another process can mutate `installPath`. Fix: move the compat check next to the write, or hold the registry concurrency guard across both. **[deferred]**
 
-5. **`NormalizeEntry` skips contributions validation when a v1 entry already has a `Contributions` array.** Hand-edited or partially upgraded registry files can carry duplicates / null verbs / malformed paths past `Load()`. Run `ValidateNoDuplicateContributions` per-entry during normalization, not only at the cross-entry level.
+5. **`NormalizeEntry` skips contributions validation when a v1 entry already has a `Contributions` array.** Hand-edited or partially upgraded registry files can carry duplicates / null verbs / malformed paths past `Load()`. Run `ValidateNoDuplicateContributions` per-entry during normalization, not only at the cross-entry level. **[fixed — `ValidateNoDuplicateContributions` now flags intra-entry duplicates as well as cross-entry.]**
 
-6. **Whitespace-only paths bypass key collapse.** `string.IsNullOrEmpty(c.Path) ? c.Verb : $"{c.Verb} {c.Path}"` treats `" "` as a non-empty path, producing `"vm "` keys that collide with neither `"vm"` nor `"vm create"`. Trim on load; reject or coerce to `string.Empty`.
+6. **Whitespace-only paths bypass key collapse.** `string.IsNullOrEmpty(c.Path) ? c.Verb : $"{c.Verb} {c.Path}"` treats `" "` as a non-empty path, producing `"vm "` keys that collide with neither `"vm"` nor `"vm create"`. Trim on load; reject or coerce to `string.Empty`. **[fixed — `NormalizeEntry` now trims `Verb`/`Path` and coerces whitespace-only verbs to `null` and whitespace-only paths to empty.]**
 
-7. **`ExtensionHints.targets` regex is fragile.** `s_cliTable\s*=\s*new[^{}]*\{(?<body>[^{}]*)\}` breaks on nested braces (collection initializers with object initializers, lambdas, string interpolation, `//` comments containing `{`). Today's first-party tables happen to be flat, but a contributor adding a single nested `new()` silently produces an incomplete hint catalog with no error. Either codify the constraint as a build-time assertion ("no nested braces inside `s_cliTable`") or replace the regex with a Roslyn syntax walk.
+7. **`ExtensionHints.targets` regex is fragile.** `s_cliTable\s*=\s*new[^{}]*\{(?<body>[^{}]*)\}` breaks on nested braces (collection initializers with object initializers, lambdas, string interpolation, `//` comments containing `{`). Today's first-party tables happen to be flat, but a contributor adding a single nested `new()` silently produces an incomplete hint catalog with no error. Either codify the constraint as a build-time assertion ("no nested braces inside `s_cliTable`") or replace the regex with a Roslyn syntax walk. **[deferred]**
 
-8. **No concurrency / corruption tests.** Test suite covers single-process happy paths and cross-entry duplicate detection. Missing: simultaneous writes from two processes, mtime going backward (clock skew, NTP, restored backup), temp-file cleanup when the rename step fails, and recovery from a half-written `registry.json`. These are the scenarios the §4.7 hardening was specifically designed for.
+8. **No concurrency / corruption tests.** Test suite covers single-process happy paths and cross-entry duplicate detection. Missing: simultaneous writes from two processes, mtime going backward (clock skew, NTP, restored backup), temp-file cleanup when the rename step fails, and recovery from a half-written `registry.json`. These are the scenarios the §4.7 hardening was specifically designed for. **[deferred]**
 
 ### Low
 
 9. **`ExtensionResolver.TryResolve` is O(n) per call** with no caching. Negligible at today's installed-extension counts; flag for revisit if anyone actually ships dozens of extensions in a single user profile.
 
-10. **`SplitLeafKey` accepts garbage.** `""`, `"   "`, leading/trailing whitespace produce `("", "")` or surprising splits. Add input guards or trim+revalidate.
+10. **`SplitLeafKey` accepts garbage.** `""`, `"   "`, leading/trailing whitespace produce `("", "")` or surprising splits. Add input guards or trim+revalidate. **[fixed — already throws via `ArgumentException.ThrowIfNullOrWhiteSpace` and trims; verified no further hardening required.]**
 
-11. **Namespace ordering contract is implicit.** §4.1 says "kept in sync on write" but doesn't pin order semantics. Implementation preserves first-seen casing from `Contributions`. Either document the contract in the spec ("Namespaces order = first appearance in Contributions; reordering Contributions may diverge until next save") or sort canonically (case-insensitive ordinal) for determinism across writers.
+11. **Namespace ordering contract is implicit.** §4.1 says "kept in sync on write" but doesn't pin order semantics. Implementation preserves first-seen casing from `Contributions`. Either document the contract in the spec ("Namespaces order = first appearance in Contributions; reordering Contributions may diverge until next save") or sort canonically (case-insensitive ordinal) for determinism across writers. **[fixed — see §4.1 contract note.]**
 
 ### Nits
 
