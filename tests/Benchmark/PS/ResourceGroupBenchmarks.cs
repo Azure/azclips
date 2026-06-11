@@ -13,47 +13,12 @@ namespace Benchmark.PS;
 /// PS benchmarks — runs cmdlets with mocked HTTP. Does NOT hit Azure.
 /// Cold-start benchmarks: fresh runspace + module import + DI init + engine process + dispose per call.
 /// </summary>
-[MemoryDiagnoser]
-[WarmupCount(1)]
-[SimpleJob(RunStrategy.Monitoring, iterationCount: 5)]
-public class ResourceGroupBenchmarks : BenchmarkBase
+public class ResourceGroupBenchmarks : PSBenchmarkBase
 {
-    [GlobalSetup]
-    public void GlobalSetup()
-    {
-        InitializeCommon();
-        Console.WriteLine("[Setup] PS benchmarks ready (stub HTTP)");
-    }
-
-    [IterationSetup]
-    public void IterationSetup()
-    {
-        RegisterBenchmarkStubs();
-    }
-
-    [GlobalCleanup]
-    public void GlobalCleanup()
-    {
-        CleanupCommon();
-    }
-
     private object? RunPowerShellCommand(string command, params (string Name, object Value)[] parameters)
     {
-        // Import from the staged artifact manifest, not src/PS/. The CI workflow
-        // (and local devs) run build/Set-ModuleConfiguration.ps1 to write a
-        // configuration-specific copy to artifacts/<Config>/PS/Resources/Resources.psd1.
-        //
-        // RepoRoot is resolved by RepoLocator (scans upward for cirrus.slnx), so it
-        // works even from BenchmarkDotNet's nested harness directory
-        // (artifacts/<Config>/Benchmark/<guid>/bin/<Config>/net10.0). AppContext.BaseDirectory
-        // cannot be used here because of that nesting.
-#if DEBUG
-        const string configuration = "Debug";
-#else
-        const string configuration = "Release";
-#endif
         var psModulePath = Path.Combine(
-            RepoRoot, "artifacts", configuration, "PS", "Resources", "Resources.psd1");
+            RepoRoot, "artifacts", "Release", "PS", "Resources", "Resources.psd1");
 
         // Create and open a fresh runspace per invocation (cold start)
         var runspace = RunspaceFactory.CreateRunspace();
