@@ -29,10 +29,5 @@ public sealed class ExtensionNotInstalledException : CirrusErrorException
 
     private static string BuildMessage(string verb, string packageId) =>
         $"Verb '{verb}' is provided by extension '{packageId}', which is not installed.\n" +
-        $"Install it with: azv2 extension add --name {Strip(packageId)}";
-
-    private static string Strip(string packageId) =>
-        packageId.StartsWith(Constants.cirrusPrefix, StringComparison.Ordinal)
-            ? packageId[Constants.cirrusPrefix.Length..]
-            : packageId;
+        $"Install it with: azv2 extension add --name {Constants.StripCirrusPrefix(packageId)}";
 }

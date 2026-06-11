@@ -126,10 +126,9 @@ public class ExtensionDispatcher //: IParser
             }
         }
 
-        // Strip Constants.cirrusPrefix; the loader re-prepends it.
-        var extensionName = resolved.PackageId.StartsWith(Constants.cirrusPrefix, StringComparison.Ordinal)
-            ? resolved.PackageId[Constants.cirrusPrefix.Length..]
-            : resolved.PackageId;
+        // Strip Constants.cirrusPrefix; the loader re-prepends it. Case-insensitive because
+        // registry keys are stored OrdinalIgnoreCase and NuGet ids are case-insensitive.
+        var extensionName = Constants.StripCirrusPrefix(resolved.PackageId);
 
         var extensionArgs = args.Skip(1 + matchedPathTokens).ToArray();
         var extensionParser = new ExtensionParser();
