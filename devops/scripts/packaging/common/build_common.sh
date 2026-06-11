@@ -55,7 +55,7 @@ for ext in "${DISCOVERED_EXTENSIONS[@]}"; do
   ext_assembly_name="${ext_assembly_name:-$ext_name}"
   out_dir="$BUILTIN_PUBLISH_ROOT/$ext_assembly_name"
 
-  dotnet publish "$ext" -c Release --self-contained false -o "$out_dir" --no-restore -v quiet
+  dotnet publish "$ext" -c Release --self-contained false -o "$out_dir" --no-build --no-restore -v quiet
   echo "  PUBLISH $ext_name -> $out_dir"
 done
 
