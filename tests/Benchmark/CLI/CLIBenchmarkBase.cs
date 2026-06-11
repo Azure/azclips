@@ -32,8 +32,8 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
         RegisterExtensionLoaders();
     }
 
-    [GlobalCleanup]
-    public void GlobalCleanup()
+    [IterationCleanup]
+    public void IterationCleanup()
     {
         CleanupCommon();
     }
