@@ -1,0 +1,107 @@
+name: cirrus-beta-signing-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+parameters:
+- name: source_project
+  displayName: 'Source project'
+  type: string
+  default: 'public'
+- name: source_pipeline_name
+  displayName: 'Source pipeline name'
+  type: string
+  default: 'cirrus-beta-build'
+- name: source_build_id
+  displayName: 'Source build id'
+  type: string
+  default: ''
+- name: source_artifact_name
+  displayName: 'Source artifact name'
+  type: string
+  default: 'Distribution_Final'
+- name: signed_artifact_name
+  displayName: 'Signed artifact name'
+  type: string
+  default: 'Distribution_Signed'
+- name: ESRPServiceConnection
+  displayName: 'ESRP Service Connection'
+  type: string
+  default: 'ame_esrp_connection'
+- name: macos_bundle_id
+  displayName: 'macOS bundle id for notarization'
+  type: string
+  default: 'com.microsoft.cirrus.cli'
+
+variables:
+- template: templates/variables.yml
+- template: templates/dist/variables/common.yml
+- template: templates/dist/variables/security-suppressions.yml
+- ${{ if eq(variables['System.TeamProject'], 'release') }}:
+  - group: 'AME ESRP Variable Group'
+
+stages:
+- stage: Preflight
+  displayName: Preflight Checks
+  jobs:
+  - job: EnsureReleaseProject
+    displayName: Ensure Release Project Context
+    pool:
+      vmImage: $(ubuntu_pool)
+    steps:
+    - checkout: none
+    - template: templates/dist/steps/validate-release-project.yml
+      parameters:
+        error_message: cirrus-beta-signing must run in the 'release' project for ESRP access.
+    - bash: |
+        set -euo pipefail
+        source_project='${{ parameters.source_project }}'
+        source_pipeline_name='${{ parameters.source_pipeline_name }}'
+        source_artifact_name='${{ parameters.source_artifact_name }}'
+        source_build_id='${{ parameters.source_build_id }}'
+
+        if [[ "$source_project" != 'public' ]]; then
+          echo "ERROR: cirrus-beta-signing must consume beta artifacts from the public project. Got: $source_project"
+          exit 1
+        fi
+        if [[ "$source_pipeline_name" != 'cirrus-beta-build' ]]; then
+          echo "ERROR: cirrus-beta-signing must consume cirrus-beta-build artifacts. Got: $source_pipeline_name"
+          exit 1
+        fi
+        if [[ "$source_artifact_name" != 'Distribution_Final' ]]; then
+          echo "ERROR: cirrus-beta-signing expects Distribution_Final. Got: $source_artifact_name"
+          exit 1
+        fi
+        if [[ -z "$source_build_id" ]]; then
+          echo 'ERROR: source_build_id is required. Queue this pipeline from a manual cirrus-beta-build run with sign_beta=true, or select a source run manually.'
+          exit 1
+        fi
+        if ! [[ "$source_build_id" =~ ^[0-9]+$ ]]; then
+          echo "ERROR: source_build_id must be numeric. Got: $source_build_id"
+          exit 1
+        fi
+        if [[ "$source_build_id" == '0' ]]; then
+          echo 'ERROR: source_build_id must be greater than zero.'
+          exit 1
+        fi
+
+        echo "Beta source project: $source_project"
+        echo "Beta source pipeline: $source_pipeline_name"
+        echo "Beta source build id: $source_build_id"
+        echo "Beta source artifact: $source_artifact_name"
+      displayName: Validate Beta Build Source
+
+- template: templates/dist/stages/sign-with-esrp.yml
+  parameters:
+    windows_pool: ${{ variables.windows_pool }}
+    ubuntu_pool: ${{ variables.ubuntu_pool }}
+    macos_arm64_pool: ${{ variables.macos_arm64_pool }}
+    macos_intel_pool: ${{ variables.macos_intel_pool }}
+    dependency_stage: Preflight
+    SourceProject: ${{ parameters.source_project }}
+    source_pipeline_name: ${{ parameters.source_pipeline_name }}
+    source_build_id: ${{ parameters.source_build_id }}
+    source_artifact_name: ${{ parameters.source_artifact_name }}
+    signed_artifact_name: ${{ parameters.signed_artifact_name }}
+    esrp_service_connection: ${{ parameters.ESRPServiceConnection }}
+    macos_bundle_id: ${{ parameters.macos_bundle_id }}

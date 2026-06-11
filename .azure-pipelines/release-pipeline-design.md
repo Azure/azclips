@@ -13,13 +13,14 @@ The main design principle is separation by trust boundary:
 | Pipeline | Project | Build | Sign | Publish | Purpose |
 | --- | --- | --- | --- | --- | --- |
 | `cirrus-alpha-build` | public | Yes | No | No | PR validation and unsigned alpha artifacts downloadable from Azure DevOps. |
-| `cirrus-beta-build` | public | Yes | No | No | Unsigned beta artifacts from trusted branch context. |
+| `cirrus-beta-build` | public | Yes | Optional handoff | No | Unsigned beta artifacts from trusted branch context; manual runs can request release-project signing. |
+| `cirrus-beta-signing` | release | No | Yes | No | Sign/notarize a manually selected beta build from the public project. |
 | `cirrus-trigger-stable-release` | release | No | No | No | Creates the stable release PR manually, then tags the merged version on `main`. |
 | `cirrus-stable-build` | release | Yes | No | No | Unsigned stable candidate artifacts from an approved stable tag. |
 | `cirrus-stable-sign` | release | No | Yes | No | Sign/notarize approved stable artifacts. |
 | `cirrus-stable-publish` | release | No | No | Yes | Publish signed stable artifacts to GitHub Releases. |
 
-Alpha and beta artifacts are public Azure DevOps pipeline artifacts only. They are not signed, notarized, or published to GitHub Releases. Stable releases are stricter: the approved tag starts `cirrus-stable-build` in the release project, `cirrus-stable-sign` signs that exact build resource, and `cirrus-stable-publish` publishes the signed artifacts.
+Alpha artifacts and default beta artifacts are public Azure DevOps pipeline artifacts only. A manually queued beta build may opt into release-project signing by queueing `cirrus-beta-signing` after `Distribution_Final` is produced; beta is still not published to GitHub Releases. Stable releases are stricter: the approved tag starts `cirrus-stable-build` in the release project, `cirrus-stable-sign` signs that exact build resource, and `cirrus-stable-publish` publishes the signed artifacts.
 
 ## Archived Manual Utility Pipelines
 
@@ -64,11 +65,13 @@ cirrus-stable-publish
 
 `cirrus-stable-sign` is configured to trigger automatically from the release-project `cirrus-stable-build` pipeline after a stable tag build completes. `cirrus-stable-publish` is configured to trigger automatically from `cirrus-stable-sign` after signing completes.
 
+`cirrus-beta-signing` is not configured with an automatic pipeline resource trigger. `cirrus-beta-build` remains a normal public CI build for every trusted `main` update, and only a manual `cirrus-beta-build` run from `refs/heads/main` with `sign_beta=true` queues `cirrus-beta-signing` in the `release` project. The handoff passes the public beta build run id as `source_build_id`, so signing consumes the exact `Distribution_Final` artifact from that build without rebuilding source.
+
 ## Trigger Semantics
 
 `cirrus-alpha-build` should run for every update to an active PR that targets `main`. In Azure Repos, configure this as a branch policy build validation on `main`; in repository providers that honor YAML PR triggers, the `pr` block provides the same intent. PR validation should use latest-update behavior: YAML PR triggers use `autoCancel: true`, while Azure Repos branch policies should be configured to avoid piling up obsolete validation runs for superseded PR commits.
 
-`cirrus-beta-build` should run for every new commit that lands on `main`. In a protected branch flow, that normally means every completed PR merge into `main`. If someone pushes directly to `main`, that commit should also trigger a beta build because it changed the trusted branch tip. Its CI trigger uses `batch: true` so multiple pending `main` updates collapse into one build of the latest branch tip when the pipeline is already running.
+`cirrus-beta-build` should run for every new commit that lands on `main`. In a protected branch flow, that normally means every completed PR merge into `main`. If someone pushes directly to `main`, that commit should also trigger a beta build because it changed the trusted branch tip. Its CI trigger uses `batch: true` so multiple pending `main` updates collapse into one build of the latest branch tip when the pipeline is already running. By default, these CI runs are unsigned. A manual `cirrus-beta-build` run can set `sign_beta=true` to queue `cirrus-beta-signing` in the `release` project after the unsigned build succeeds.
 
 `cirrus-trigger-stable-release` must run in the `release` project because it can create release PRs and push stable tags. It has two paths. When queued manually, it always creates a PR that bumps `src/CLI/Core.Cli.csproj` to the intended stable version. After that PR merges to `main`, the same release-project pipeline runs from its CI trigger. The post-merge stage only creates a tag if the triggering commit changes exactly the stable version line in `src/CLI/Core.Cli.csproj`; other project-file edits are skipped.
 

@@ -23,6 +23,7 @@ public project:
 
 release project:
   cirrus-trigger-stable-release -> .azure-pipelines/cirrus-trigger-stable-release.yml
+  cirrus-beta-signing -> .azure-pipelines/cirrus-beta-signing.yml
   cirrus-stable-build -> .azure-pipelines/cirrus-stable-build.yml
   cirrus-stable-sign -> .azure-pipelines/cirrus-stable-sign.yml
   cirrus-stable-publish -> .azure-pipelines/cirrus-stable-publish.yml
@@ -51,6 +52,19 @@ Test `cirrus-beta-build` with a controlled `main` update:
 - Confirm version resolution uses the `beta` channel and produces a version like `X.Y.Z-beta.yyyyMMdd.buildId`.
 - Confirm the run publishes `Distribution_Final`.
 - Confirm the artifacts are public Azure DevOps pipeline artifacts only; no signing, notarization, or GitHub Release is produced.
+
+## Manual Beta Signing Handoff Test
+
+Test optional beta signing only from a trusted manual beta build:
+
+- Queue `cirrus-beta-build` manually in the `public` project with `sign_beta=false`.
+- Confirm it publishes `Distribution_Final` and does not queue `cirrus-beta-signing`.
+- Queue `cirrus-beta-build` manually in the `public` project with `sign_beta=true`.
+- Confirm the manual run is from `refs/heads/main`; the signing handoff should reject non-main branch builds.
+- Confirm the `QueueBetaSigning` stage runs only after `Distribution_Final` is published.
+- Confirm the handoff queues `cirrus-beta-signing` in the `release` project with `source_project=public`, `source_pipeline_name=cirrus-beta-build`, `source_build_id=$(Build.BuildId)`, and `source_artifact_name=Distribution_Final`.
+- Confirm `cirrus-beta-signing` logs `System.TeamProject=release`, downloads the exact beta build run's `Distribution_Final`, and publishes `Distribution_Signed`.
+- Confirm normal CI runs of `cirrus-beta-build` from `main` keep `sign_beta=false` and do not start beta signing.
 
 ## Stable Trigger Smoke Test
 

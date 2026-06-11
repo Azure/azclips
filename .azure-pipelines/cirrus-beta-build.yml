@@ -1,5 +1,19 @@
 name: cirrus-beta-build-$(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:.r)
 
+parameters:
+- name: sign_beta
+  displayName: 'Queue beta signing after successful manual build'
+  type: boolean
+  default: false
+- name: beta_signing_project
+  displayName: 'Beta signing project'
+  type: string
+  default: 'release'
+- name: beta_signing_pipeline_name
+  displayName: 'Beta signing pipeline name'
+  type: string
+  default: 'cirrus-beta-signing'
+
 trigger:
   batch: true
   branches:
@@ -25,3 +39,104 @@ stages:
     ubuntu_pool: $(ubuntu_pool)
     windows_pool: $(windows_pool)
     final_artifact_name: Distribution_Final
+
+- ${{ if eq(parameters.sign_beta, true) }}:
+  - stage: QueueBetaSigning
+    displayName: Queue Beta Signing
+    dependsOn: Finalize
+    condition: and(succeeded(), eq(variables['Build.Reason'], 'Manual'))
+    jobs:
+    - job: QueueSigning
+      displayName: Queue cirrus-beta-signing
+      pool:
+        vmImage: $(ubuntu_pool)
+      steps:
+      - checkout: none
+      - bash: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+          import urllib.parse
+          import urllib.request
+
+          token = os.environ.get('SYSTEM_ACCESSTOKEN', '')
+          if not token:
+              print('ERROR: System.AccessToken is not available. Enable OAuth token access for this pipeline.')
+              sys.exit(1)
+
+          organization_url = os.environ['SYSTEM_COLLECTIONURI'].rstrip('/')
+          signing_project = os.environ['BETA_SIGNING_PROJECT']
+          signing_pipeline_name = os.environ['BETA_SIGNING_PIPELINE_NAME']
+          source_project = os.environ['SYSTEM_TEAMPROJECT']
+          source_pipeline_name = os.environ['BUILD_DEFINITIONNAME']
+          source_build_id = os.environ['BUILD_BUILDID']
+          source_branch = os.environ['BUILD_SOURCEBRANCH']
+
+          if source_project != 'public':
+              print(f"ERROR: cirrus-beta-build signing handoff must run from the public project. Got: {source_project}")
+              sys.exit(1)
+          if source_branch != 'refs/heads/main':
+              print(f"ERROR: beta signing handoff only supports refs/heads/main builds. Got: {source_branch}")
+              sys.exit(1)
+          if not source_build_id.isdigit():
+              print(f"ERROR: Build.BuildId must be numeric. Got: {source_build_id}")
+              sys.exit(1)
+
+          project_path = urllib.parse.quote(signing_project, safe='')
+          headers = {
+              'Authorization': f'Bearer {token}',
+              'Content-Type': 'application/json',
+          }
+
+          list_url = f'{organization_url}/{project_path}/_apis/pipelines?api-version=7.1-preview.1'
+          request = urllib.request.Request(list_url, headers=headers)
+          with urllib.request.urlopen(request) as response:
+              pipelines = json.load(response).get('value', [])
+
+          matches = [pipeline for pipeline in pipelines if pipeline.get('name') == signing_pipeline_name]
+          if not matches:
+              print(f"ERROR: Pipeline '{signing_pipeline_name}' was not found in project '{signing_project}'.")
+              sys.exit(1)
+          if len(matches) > 1:
+              print(f"ERROR: Multiple pipelines named '{signing_pipeline_name}' were found in project '{signing_project}'.")
+              sys.exit(1)
+
+          signing_pipeline_id = matches[0]['id']
+          run_url = f'{organization_url}/{project_path}/_apis/pipelines/{signing_pipeline_id}/runs?api-version=7.1-preview.1'
+          body = {
+              'resources': {
+                  'repositories': {
+                      'self': {
+                          'refName': source_branch,
+                      }
+                  }
+              },
+              'templateParameters': {
+                  'source_project': source_project,
+                  'source_pipeline_name': source_pipeline_name,
+                  'source_build_id': source_build_id,
+                  'source_artifact_name': 'Distribution_Final',
+              },
+          }
+
+          request = urllib.request.Request(run_url, data=json.dumps(body).encode('utf-8'), headers=headers, method='POST')
+          with urllib.request.urlopen(request) as response:
+              queued_run = json.load(response)
+
+          print(f"Queued {signing_pipeline_name} in project {signing_project}")
+          print(f"Source beta build: {source_pipeline_name} run {source_build_id}")
+          print(f"Signing run id: {queued_run.get('id')}")
+          print(f"Signing run url: {queued_run.get('_links', {}).get('web', {}).get('href', '')}")
+          PY
+        displayName: Queue release-project beta signing pipeline
+        env:
+          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+          SYSTEM_COLLECTIONURI: $(System.CollectionUri)
+          SYSTEM_TEAMPROJECT: $(System.TeamProject)
+          BUILD_DEFINITIONNAME: $(Build.DefinitionName)
+          BUILD_BUILDID: $(Build.BuildId)
+          BUILD_SOURCEBRANCH: $(Build.SourceBranch)
+          BETA_SIGNING_PROJECT: ${{ parameters.beta_signing_project }}
+          BETA_SIGNING_PIPELINE_NAME: ${{ parameters.beta_signing_pipeline_name }}
