@@ -1,0 +1,175 @@
+parameters:
+- name: ubuntu_pool
+  type: string
+  default: 'ubuntu-latest'
+- name: final_artifact_name
+  type: string
+  default: 'Distribution_Final'
+
+jobs:
+- job: Summary
+  displayName: Summary
+  pool:
+    vmImage: ${{ parameters.ubuntu_pool }}
+  steps:
+  - script: |
+      echo "BuildCommon: $(BuildCommonResult)"
+      echo "BuildLinux: $(BuildLinuxResult)"
+      echo "BuildWindows: $(BuildWindowsResult)"
+      echo "BuildMacOS: $(BuildMacOSResult)"
+      echo "Test: $(TestResult)"
+      echo "Benchmark: $(BenchmarkResult)"
+      echo "ValidateLinux: $(ValidateLinuxResult)"
+      echo "ValidateWindows: $(ValidateWindowsResult)"
+      echo "ValidateMacOS: $(ValidateMacOSResult)"
+    displayName: Stage Summary
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Download Common Distribution Artifacts
+    condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+    inputs:
+      artifact: Distribution_Common
+      path: $(Pipeline.Workspace)/distribution-artifacts/Distribution_Common
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Download Linux Distribution Artifacts
+    condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+    inputs:
+      artifact: Distribution_Linux_Lean
+      path: $(Pipeline.Workspace)/distribution-artifacts/Distribution_Linux_Lean
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Download Linux Arm64 Distribution Artifacts
+    condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+    inputs:
+      artifact: Distribution_Linux_Arm64_Lean
+      path: $(Pipeline.Workspace)/distribution-artifacts/Distribution_Linux_Arm64_Lean
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Download Linux Full Distribution Artifacts
+    condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+    inputs:
+      artifact: Distribution_Linux_Full
+      path: $(Pipeline.Workspace)/distribution-artifacts/Distribution_Linux_Full
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Download Linux Arm64 Full Distribution Artifacts
+    condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+    inputs:
+      artifact: Distribution_Linux_Arm64_Full
+      path: $(Pipeline.Workspace)/distribution-artifacts/Distribution_Linux_Arm64_Full
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Download Windows Distribution Artifacts
+    condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+    inputs:
+      artifact: Distribution_Windows_Lean
+      path: $(Pipeline.Workspace)/distribution-artifacts/Distribution_Windows_Lean
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Download Windows Arm64 Distribution Artifacts
+    condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+    inputs:
+      artifact: Distribution_Windows_Arm64_Lean
+      path: $(Pipeline.Workspace)/distribution-artifacts/Distribution_Windows_Arm64_Lean
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Download Windows Full Distribution Artifacts
+    condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+    inputs:
+      artifact: Distribution_Windows_Full
+      path: $(Pipeline.Workspace)/distribution-artifacts/Distribution_Windows_Full
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Download Windows Arm64 Full Distribution Artifacts
+    condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+    inputs:
+      artifact: Distribution_Windows_Arm64_Full
+      path: $(Pipeline.Workspace)/distribution-artifacts/Distribution_Windows_Arm64_Full
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Download macOS Distribution Artifacts
+    condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+    inputs:
+      artifact: Distribution_MacOS_Lean
+      path: $(Pipeline.Workspace)/distribution-artifacts/Distribution_MacOS_Lean
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Download macOS Intel Distribution Artifacts
+    condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+    inputs:
+      artifact: Distribution_MacOS_Intel_Lean
+      path: $(Pipeline.Workspace)/distribution-artifacts/Distribution_MacOS_Intel_Lean
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Download macOS Full Distribution Artifacts
+    condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+    inputs:
+      artifact: Distribution_MacOS_Full
+      path: $(Pipeline.Workspace)/distribution-artifacts/Distribution_MacOS_Full
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Download macOS Intel Full Distribution Artifacts
+    condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+    inputs:
+      artifact: Distribution_MacOS_Intel_Full
+      path: $(Pipeline.Workspace)/distribution-artifacts/Distribution_MacOS_Intel_Full
+
+  - bash: |
+      set -euo pipefail
+
+      source_root="$(Pipeline.Workspace)/distribution-artifacts"
+      final_root="$(Pipeline.Workspace)/${{ parameters.final_artifact_name }}"
+      archives_root="$final_root/archives"
+      extensions_root="$final_root/extensions"
+
+      rm -rf "$final_root"
+      mkdir -p "$archives_root" "$extensions_root"
+
+      if [[ ! -d "$source_root" ]]; then
+        echo "ERROR: Distribution artifact download root not found: $source_root"
+        exit 1
+      fi
+
+      mapfile -t archives < <(find "$source_root" -type f \( -name '*.tar.gz' -o -name '*.zip' \) | sort)
+      if [[ ${#archives[@]} -eq 0 ]]; then
+        echo "ERROR: No distribution archives found under $source_root"
+        exit 1
+      fi
+
+      for archive in "${archives[@]}"; do
+        cp "$archive" "$archives_root/"
+      done
+
+      mapfile -t extension_packages < <(find "$source_root" -path '*/extensions-pack/*.nupkg' -type f | sort)
+      for package in "${extension_packages[@]}"; do
+        cp "$package" "$extensions_root/"
+      done
+
+      manifest="$final_root/manifest.txt"
+      {
+        echo "artifact_name=${{ parameters.final_artifact_name }}"
+        echo "build_id=$(Build.BuildId)"
+        echo "build_number=$(Build.BuildNumber)"
+        echo "source_branch=$(Build.SourceBranch)"
+        echo "source_version=$(Build.SourceVersion)"
+        echo ""
+        echo "archives:"
+        find "$archives_root" -type f -printf '%P\n' | sort | sed 's/^/  /'
+        echo ""
+        echo "extensions:"
+        find "$extensions_root" -type f -printf '%P\n' | sort | sed 's/^/  /'
+      } > "$manifest"
+
+      echo "Final distribution outputs:"
+      find "$final_root" -type f | sort
+    displayName: Collect Final Distribution Outputs
+    condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+
+  - task: PublishPipelineArtifact@1
+    displayName: Publish Final Distribution Outputs
+    condition: and(succeeded(), eq(variables['BuildCommonResult'], 'Succeeded'), eq(variables['BuildLinuxResult'], 'Succeeded'), eq(variables['BuildWindowsResult'], 'Succeeded'), eq(variables['BuildMacOSResult'], 'Succeeded'), eq(variables['TestResult'], 'Succeeded'), eq(variables['BenchmarkResult'], 'Succeeded'), eq(variables['ValidateLinuxResult'], 'Succeeded'), eq(variables['ValidateWindowsResult'], 'Succeeded'), eq(variables['ValidateMacOSResult'], 'Succeeded'))
+    inputs:
+      targetPath: $(Pipeline.Workspace)/${{ parameters.final_artifact_name }}
+      artifact: ${{ parameters.final_artifact_name }}
+      publishLocation: pipeline

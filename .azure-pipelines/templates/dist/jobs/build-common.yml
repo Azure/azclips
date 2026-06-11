@@ -1,0 +1,38 @@
+parameters:
+- name: ubuntu_pool
+  type: string
+  default: 'ubuntu-latest'
+- name: PackagingScriptsRoot
+  type: string
+- name: PackagingCommonOutRoot
+  type: string
+
+jobs:
+- job: BuildCommonOutputs
+  displayName: Common Output
+  timeoutInMinutes: 90
+  pool:
+    vmImage: ${{ parameters.ubuntu_pool }}
+  steps:
+  - checkout: self
+    clean: true
+    fetchDepth: 0
+
+  - task: UseDotNet@2
+    displayName: .NET SDK
+    inputs:
+      packageType: sdk
+      useGlobalJson: true
+
+  - script: |
+      set -euo pipefail
+      chmod +x "${{ parameters.PackagingScriptsRoot }}/common/build_common.sh"
+      OUT_ROOT="${{ parameters.PackagingCommonOutRoot }}" "${{ parameters.PackagingScriptsRoot }}/common/build_common.sh"
+    displayName: Build Common
+
+  - task: PublishPipelineArtifact@1
+    displayName: Publish Common
+    inputs:
+      targetPath: ${{ parameters.PackagingCommonOutRoot }}
+      artifact: Distribution_Common
+      publishLocation: pipeline
