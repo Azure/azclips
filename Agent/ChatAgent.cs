@@ -6,7 +6,9 @@ using Core.Agent.Probes;
 using Core.Agent.Tools.Cache;
 using Core.Agent.Tools.Help;
 using Core.Agent.Tools.Sku;
-using GitHub.Copilot.SDK;
+using GitHub.Copilot;
+using GitHub.Copilot.Rpc;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -63,7 +65,7 @@ public sealed class ChatAgent : IAsyncDisposable
         var client = new CopilotClient(new CopilotClientOptions
         {
             Logger = sdkLogger,
-            CliPath = BundledDaemonResolver.Resolve(),
+            Connection = RuntimeConnection.ForStdio(path: BundledDaemonResolver.Resolve()),
         });
 
         var models = await client.ListModelsAsync(ct).ConfigureAwait(false);
@@ -111,13 +113,13 @@ public sealed class ChatAgent : IAsyncDisposable
         var session = await client.CreateSessionAsync(new SessionConfig
         {
             SessionId = Guid.NewGuid().ToString(),
-            ConfigDir = Path.Combine(
+            ConfigDirectory = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
                 ".cirrus"),
             Model = ModelId,
             Streaming = true,
             SystemMessage = new SystemMessageConfig { Content = systemPrompt },
-            Tools = cacheTools.All.Concat(helpTools.All).Concat(skuTools.All).ToList(),
+            Tools = cacheTools.All.Concat(helpTools.All).Concat(skuTools.All).Cast<AIFunctionDeclaration>().ToList(),
             // All built-in tools available (bash, view, edit, grep, glob,
             // web_fetch, web_search, todo, ...) plus our custom cache + help tools.
             AvailableTools = null,
@@ -141,14 +143,10 @@ public sealed class ChatAgent : IAsyncDisposable
                 // Cache tools are read-only — silently approve. Bash + every
                 // other built-in mutator goes through the user prompt.
                 if (toolName is not null && IsReadOnlyCacheTool(toolName))
-                    return new PermissionRequestResult { Kind = PermissionRequestResultKind.Approved };
+                    return PermissionDecision.ApproveOnce();
 
                 var ok = await approvalSink.RequestAsync(req, ct).ConfigureAwait(false);
-                return new PermissionRequestResult
-                {
-                    Kind = ok ? PermissionRequestResultKind.Approved
-                              : PermissionRequestResultKind.Rejected
-                };
+                return ok ? PermissionDecision.ApproveOnce() : PermissionDecision.Reject(feedback: null);
             },
             OnEvent = eventRenderer.Forward,
         }, ct).ConfigureAwait(false);

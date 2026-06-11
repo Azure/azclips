@@ -52,7 +52,7 @@ DotNetFrameworkVersion = '4.7.2'
 
 # Modules that must be imported into the global environment prior to importing this module
 RequiredModules = @(
-    @{ ModuleName = '../Login/Login.psd1'; ModuleVersion = '0.0.1' }
+    @{ ModuleName = '../Login/Login.psd1'; ModuleVersion = '0.1.0' }
 )
 
 # Assemblies that must be loaded prior to importing this module
@@ -86,7 +86,7 @@ NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Cirrus.Cmdlets.Resou
 FunctionsToExport = @()
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
-CmdletsToExport = 'New-ResourceGroup', 'Get-ResourceGroup'
+CmdletsToExport = 'New-ResourceGroup', 'Get-ResourceGroup', 'New-ResourceGroupDeployment'
 
 # # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 # CmdletsToExport = 'Export-AzResourceGroup', 'Export-AzTemplateSpec',
