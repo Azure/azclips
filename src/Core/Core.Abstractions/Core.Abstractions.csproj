@@ -2,6 +2,9 @@
   <PropertyGroup>
     <ExtName>Core</ExtName>
   </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="OpenTelemetry.Api" Version="1.15.3" />
+  </ItemGroup>
 
   <Import Project="$(MSBuildThisFileDirectory)..\..\..\Shared.props" />
 </Project>

@@ -20,9 +20,12 @@
 
   <ItemGroup>
     <PackageReference Include="Hex1b" Version="0.154.0" />
+    <PackageReference Include="OpenTelemetry" Version="1.15.3" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\src\Core\Core.DependencyInjection\Core.DependencyInjection.csproj" />
+    <ProjectReference Include="..\Agent\Core.Agent.csproj" />
   </ItemGroup>
 </Project>

@@ -2,11 +2,11 @@
 
 namespace Core.Abstractions
 {
-    ///<summary>Represents the data in signaled event.</summary>
+    ///<summary>Represents the data in Published event.</summary>
     public class EventData: EventArgs
     {
         /// <summary>
-        /// The type of the event being signaled
+        /// The type of the event being Published
         /// </summary>
         public string Id = string.Empty;
 
@@ -14,6 +14,10 @@ namespace Core.Abstractions
         /// The user-ready message from the event.
         /// </summary>
         public string Message = string.Empty;
+
+        public string ModuleName = string.Empty;
+
+        public string ModuleVersion = string.Empty;
 
         /// <summary>
         /// When the event is about a parameter, this is the parameter name.

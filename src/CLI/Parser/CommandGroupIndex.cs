@@ -4,9 +4,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 namespace Core.Cli.Parser
 {
     //This index will eventually comes from:
@@ -16,15 +13,18 @@ namespace Core.Cli.Parser
     static class CommandGroupIndex
     {
         private static readonly Dictionary<string, string> _commandGroups = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
         static CommandGroupIndex()
         {
             _commandGroups["Group"] = "Resources";
+            _commandGroups["Deployment"] = "Resources";
             _commandGroups["Login"] = "Login";
             _commandGroups["Extension"] = "Extension";
             _commandGroups["Config"] = "Config";
             _commandGroups["Vm"] = "Compute";
             // Add more command groups as needed
         }
+
         internal static string getExtensionNameByCommandGroupName(string commandGroupName)
         {
             if (!_commandGroups.TryGetValue(commandGroupName, out var extensionName))
@@ -33,6 +33,22 @@ namespace Core.Cli.Parser
             }
             return extensionName;
         }
+
+        internal static string GetCommandGroupNameByExtensionName(string extensionName)
+        {
+            foreach (var kvp in _commandGroups)
+            {
+                if (kvp.Value.Equals(extensionName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return kvp.Key;
+                }
+            }
+
+            throw new KeyNotFoundException($"Extension '{extensionName}' does not have a registered command group.");
+        }
+
+        internal static IReadOnlyList<string> GetRegisteredExtensionNames()
+            => [.. _commandGroups.Values.Distinct(StringComparer.OrdinalIgnoreCase)];
 
         internal static IReadOnlyDictionary<string, string> GetAllCommandGroups() => _commandGroups;
     }

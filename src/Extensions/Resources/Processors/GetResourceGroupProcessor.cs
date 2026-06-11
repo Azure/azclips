@@ -1,38 +1,29 @@
-using System.Net.Http.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
 {
-    public class GetResourceGroupProcessor : ResourcesProcessorBase
+    public class GetResourceGroupProcessor : ResourcesProcessorBase<ResourceGroup>
     {
         [ArgumentInfo(
-        Required = false,
-        Description = @"Azure Subscription Id.",
-        SerializedName = @"SubscriptionId")]
-        public string? SubscriptionId { get; set; }
-
-        [ArgumentInfo(
-        Required = false,
+        Required = true,
         Description = @"The name of the resource group.",
         SerializedName = @"Name")]
-        public string? Name { get; set; }
+        public string Name { get; set; } = "";
 
-        public override async Task ProcessAsync()
+        protected override async Task<HttpRequestMessage> CreateRequestMessage()
         {
-            await EventListener.Signal(Events.ProcessorProcessAsyncStart);
-            // Use provided subscription ID or fall back to auth context
-            var subscriptionId = SubscriptionId ?? AuthContext.SubscriptionId;
-            // construct URL
-            var url = $"https://management.azure.com/subscriptions/{subscriptionId}/resourcegroups/{Name}?api-version=2025-04-01";
-            //TODO(Yabo): setJsonOptions from Processor context
-            using var request = new HttpRequestMessage(HttpMethod.Get, url);
-            using HttpResponseMessage response = await HttpPipeline.SendAsync(request, EventListener);
-            await EventListener.Signal(Events.TracingHttpResponseMessage, response);
-            ResourceGroup rg = (await response.Content.ReadFromJsonAsync<ResourceGroup>(JsonOptions))!;
-            await WriteOutput(rg);
-            await EventListener.Signal(Events.ProcessorProcessAsyncEnd);
+            if (string.IsNullOrWhiteSpace(Name))
+            {
+                throw new InvalidOperationException("Name is required to get a resource group.");
+            }
+
+            await Publisher.Publish(Events.ProcessorBeforeHttpRequestCreate);
+            string uri = $"https://management.azure.com/subscriptions/{SubscriptionId}/resourcegroups/{Name}?api-version=2025-04-01";
+            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, uri);
+            await Publisher.Publish(Events.ProcessorAfterHttpRequestCreate);
+            return request;
         }
     }
 }

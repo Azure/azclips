@@ -8,7 +8,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Processors
     public class LoginProcessorBase : IProcessor
     {
         protected IRuntimeHttpPipeline HttpPipeline = null!;
-        protected IEventListener EventListener = null!;
+        protected IEventPublisher Publisher = null!;
         protected readonly JsonSerializerOptions JsonOptions = null!;
         protected OutputStreamDelegate WriteOutput = null!;
 
@@ -24,7 +24,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Processors
             BeforeInit();
 
             HttpPipeline = context.HttpPipeline;
-            EventListener = context.EventListener;
+            Publisher = context.Publisher;
             WriteOutput = context.OutputHandler.WriteOutput;
 
             AfterInit();
@@ -32,6 +32,6 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login.Processors
         }
 
         public virtual Task ProcessAsync() => Task.CompletedTask;
-        public virtual HttpRequestMessage CreateRequestMessage() => throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(CreateRequestMessage)}");
+        protected virtual HttpRequestMessage CreateRequestMessage() => throw new NotImplementedException($"Processor {GetType().Name} does not implement {nameof(CreateRequestMessage)}");
     }
 }

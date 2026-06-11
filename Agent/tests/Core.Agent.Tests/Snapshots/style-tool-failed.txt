@@ -1,0 +1,3 @@
+[Error]"  ✗ run_command "
+[Muted]"78ms · "
+[Error]"AuthenticationFailed: token expired"

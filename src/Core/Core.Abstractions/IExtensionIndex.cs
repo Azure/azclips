@@ -9,9 +9,15 @@ namespace Core.Abstractions
         CommandMetadata GetCommandMetadata(string name, ClientType clientType);
 
         /// <summary>
-        /// Returns all registered commands for the given client type,
-        /// keyed by their dispatch name (e.g. CLI subcommand or PS cmdlet name).
+        /// Returns the keyed command table for the given client type.
+        /// Keys are the canonical command identifiers used by that client surface.
         /// </summary>
-        IEnumerable<KeyValuePair<string, CommandMetadata>> GetAllCommands(ClientType clientType);
+        IReadOnlyDictionary<string, CommandMetadata> GetCommandTable(ClientType clientType);
+
+        /// <summary>
+        /// Returns all registered commands for the given client type.
+        /// Used by the help system to enumerate available commands.
+        /// </summary>
+        IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType);
     }
 }

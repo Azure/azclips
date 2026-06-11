@@ -22,14 +22,14 @@ namespace Core.Runtime.Handler
         public bool ApplyOverride { get; set; } = false;
 
         /// <inheritdoc />
-        public SendAsyncStep SendAsync => async (HttpRequestMessage request, IEventListener callback, ISendAsync next) =>
+        public SendAsyncStep SendAsync => async (HttpRequestMessage request, IEventPublisher callback, ISendAsync next) =>
         {
-            await callback.Signal(Events.AuthBeforeTokenAcquisition);
+            await callback.Publish(Events.AuthBeforeTokenAcquisition);
             AcquireTokenAsyncDelegate tokenAcquirer = this.ApplyOverride && this.AcquireTokenAsyncOverride != null
                     ? this.AcquireTokenAsyncOverride
                     : this.AcquireTokenAsyncDefault;
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", (await tokenAcquirer(null, this.AuthContext.TenantId, false)).AccessToken);
-            await callback.Signal(Events.AuthAfterTokenAcquisition);
+            await callback.Publish(Events.AuthAfterTokenAcquisition);
             return await next.SendAsync(request, callback);
         };
     }

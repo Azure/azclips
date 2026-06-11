@@ -1,0 +1,3 @@
+[Error]"  ⊲ sub-agent diagnose "
+[Muted]"1000ms · "
+[Error]"subagent crashed: NullReferenceException"

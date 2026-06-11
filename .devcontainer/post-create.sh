@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-echo "⚡ Installing platyPS..."
-pwsh -c "Install-Module -Name platyPS -Force -Scope CurrentUser"
+echo "⚡ Installing Microsoft.PowerShell.PlatyPS..."
+pwsh -c "Install-Module -Name Microsoft.PowerShell.PlatyPS -RequiredVersion 1.0.1 -Force -Scope CurrentUser"
 
 echo "🔐 Installing Az.Accounts for authentication..."
 pwsh -c "Install-Module -Name Az.Accounts -Force -Scope CurrentUser"

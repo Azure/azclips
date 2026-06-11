@@ -55,8 +55,7 @@ internal static class CompletionGenerator
                 {
                     var assembly = assemblyLoader.LoadExtension(extensionName);
                     var index = assembly.GetExtensionIndex();
-                    var commandTable = index.GetAllCommands(ClientType.CLI)
-                        .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+                    var commandTable = index.GetCommandTable(ClientType.CLI);
 
                     var groupEntry = new Dictionary<string, object>();
                     var subcommands = new List<string>();

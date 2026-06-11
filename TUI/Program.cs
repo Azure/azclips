@@ -1,8 +1,10 @@
 using Core.Abstractions;
 using Core.DependencyInjection;
+using Core.Tui.AgentMode;
 using Core.Tui.Azure;
 using Core.Tui.Rendering;
 using Core.Tui.Services;
+using Core.Tui.Telemetry;
 using Hex1b;
 using Hex1b.Input;
 using Hex1b.Layout;
@@ -14,11 +16,12 @@ namespace Core.Tui;
 
 public static class Program
 {
-    private static ITelemetryService? _telemetryService;
     private static ILoggingService? _logger;
 
-    public static async Task Main()
+    public static async Task<int> Main(string[] args)
     {
+        if (args.Length > 0 && args[0] == "--agent-mode") { return await AgentModeEntry.RunAsync(args); }
+
         CirrusServiceProvider.PrependRegistration(services =>
         {
             services.AddSingleton<ArmClient>();
@@ -34,11 +37,11 @@ public static class Program
             // ConsoleLoggingService and writes [VERBOSE]/[DEBUG] directly to the
             // console) with a silent implementation that won't corrupt the TUI.
             services.AddSingleton<ILoggingService, TuiLoggingService>();
+            services.AddSingleton<ITelemetryProvider, TUITelemetryProvider>();
         });
         var bootSw = System.Diagnostics.Stopwatch.StartNew();
         CirrusServiceProvider.Initialize(ClientType.TUI);
         Console.Error.WriteLine($"[startup] DI init: {bootSw.ElapsedMilliseconds}ms");
-        _telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
         _logger = CirrusServiceProvider.GetRequiredService<ILoggingService>();
 
         try
@@ -66,10 +69,10 @@ public static class Program
                 .Build();
 
             await terminal.RunAsync();
+            return 0;
         }
         finally
         {
-            _telemetryService?.Dispose();
             CirrusServiceProvider.Dispose();
         }
     }
@@ -220,9 +223,11 @@ public static class Program
             bindings.Key(Hex1bKey.Escape).Global()
                 .Action(_ =>
                 {
-                    if (state.ShowHelp) { state.ShowHelp = false; app.Invalidate(); }
+                    if (state.IsSuggestionSelected()) { state.ResetSelectedSuggestion(); }
+                    else if (state.ShowHelp) { state.ShowHelp = false; app.Invalidate(); }
                     else if (state.IsRunning) { state.CancelRunning(); }
-                }, "Close/Cancel");
+                    else { app.RequestStop(); }
+                }, "Reset Suggestion Status/Close Help Panel/Cancel Running/Exit Application");
 
             bindings.Ctrl().Key(Hex1bKey.C).Global()
                 .Action(_ =>
@@ -249,9 +254,17 @@ public static class Program
             bindings.Key(Hex1bKey.Enter).Global()
                 .Action(_ =>
                 {
-                    state.ExecuteCommand();
-                    app.Invalidate();
-                }, "Submit command");
+                    if (state.IsSuggestionSelected())
+                    {
+                        state.AcceptSuggestion();
+                        app.Invalidate();
+                    }
+                    else
+                    {
+                        state.ExecuteCommand();
+                        app.Invalidate();
+                    }
+                }, "Select suggestion or submit command");
 
             bindings.Ctrl().Key(Hex1bKey.Enter).Global()
                 .Action(_ =>
@@ -266,9 +279,13 @@ public static class Program
                 .Action(_ =>
                 {
                     if (state.Suggestions.Count > 0)
-                        state.SelectedSuggestion = (state.SelectedSuggestion - 1 + state.Suggestions.Count) % state.Suggestions.Count;
+                    {
+                        state.NavigateSuggestion(-1);
+                    }
                     else
+                    {
                         state.NavigateHistory(-1);
+                    }
                     app.Invalidate();
                 }, "Previous suggestion/history");
 
@@ -277,7 +294,9 @@ public static class Program
                 .Action(_ =>
                 {
                     if (state.Suggestions.Count > 0)
-                        state.SelectedSuggestion = (state.SelectedSuggestion + 1) % state.Suggestions.Count;
+                    {
+                        state.NavigateSuggestion(1);
+                    }
                     else
                         state.NavigateHistory(1);
                     app.Invalidate();

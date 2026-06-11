@@ -255,8 +255,8 @@ public class ConfigCliTests
                 WriteError: (_, _) => Task.CompletedTask,
                 WriteInformation: (_, _) => Task.CompletedTask);
 
-            using IInvocationSession session = engine.InvokeSession(invocation, streams);
-            session.Process();
+            using ISession session = engine.OpenExecutionSession(invocation, streams, CancellationToken.None);
+            session.Run();
 
             return _outputs.ToArray();
         }
@@ -355,6 +355,19 @@ public class ConfigCliTests
         Assert.Contains("Remove-CirrusConfig", manifestContent);
         Assert.Contains("Get-CirrusConfigList", manifestContent);
         Assert.Contains("Get-CirrusConfigInfo", manifestContent);
+    }
+
+    [Fact]
+    public void ExtensionIndex_ShouldExposeTranslatedPowerShellParameters()
+    {
+        var extensionIndex = new Microsoft.Azure.Cirrus.Extensions.Config.ExtensionIndex();
+
+        var getMetadata = extensionIndex.GetCommandMetadata("Get-CirrusConfig", ClientType.PowerShell);
+        Assert.Contains("Json", getMetadata.Parameters.Keys);
+
+        var listMetadata = extensionIndex.GetCommandMetadata("Get-CirrusConfigList", ClientType.PowerShell);
+        Assert.Contains("All", listMetadata.Parameters.Keys);
+        Assert.Contains("Json", listMetadata.Parameters.Keys);
     }
 
     private sealed class TestConfigurationProvider(string configFilePath) : IConfigurationProvider

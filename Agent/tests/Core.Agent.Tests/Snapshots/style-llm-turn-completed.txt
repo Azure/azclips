@@ -1,0 +1,1 @@
+[Muted]"  ✓ LLM turn 3.4s · in 1500 · out 42 · cached 1200"

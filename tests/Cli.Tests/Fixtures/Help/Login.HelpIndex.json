@@ -1,0 +1,29 @@
+{
+  "groups": [
+    {
+      "extension": "login",
+      "prefix": "login",
+      "summary": "Authenticate to Azure."
+    }
+  ],
+  "commands": [
+    {
+      "cliName": "login",
+      "psName": "Connect-CirrusAccount",
+      "extension": "login",
+      "summary": "Authenticate to Azure."
+    },
+    {
+      "cliName": "login logout",
+      "psName": "Disconnect-CirrusAccount",
+      "extension": "login",
+      "summary": "Sign out from the current Azure account context."
+    },
+    {
+      "cliName": "login show",
+      "psName": "Get-CirrusAccount",
+      "extension": "login",
+      "summary": "Show the current Azure account context."
+    }
+  ]
+}

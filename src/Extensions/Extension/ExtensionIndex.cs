@@ -39,7 +39,7 @@ public class ExtensionIndex : IExtensionIndex
             ? metadata
             : throw new KeyNotFoundException($"Command '{name}' not found for client type '{clientType}'.");
     }
-    public IEnumerable<KeyValuePair<string, CommandMetadata>> GetAllCommands(ClientType clientType)
+    public IReadOnlyDictionary<string, CommandMetadata> GetCommandTable(ClientType clientType)
     {
         return clientType switch
         {
@@ -47,5 +47,9 @@ public class ExtensionIndex : IExtensionIndex
             ClientType.CLI => s_cliTable,
             _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
         };
+    }
+    public IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType)
+    {
+        return GetCommandTable(clientType).Values;
     }
 }

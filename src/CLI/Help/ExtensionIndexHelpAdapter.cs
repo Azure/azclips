@@ -1,0 +1,273 @@
+using Core.Abstractions;
+using Core.Cli.Parser;
+using System.Reflection;
+
+namespace Core.Cli.Help;
+
+/// <summary>
+/// Bridges <see cref="IExtensionIndex"/> + the markdown help corpus into the runtime
+/// help tree. Resolution is markdown-first with attribute fallback
+/// (<c>[ProcessorInfo]</c> / <c>[ArgumentInfo]</c>); examples are filtered to CLI-only
+/// (PowerShell examples flow through <see cref="ExtensionHelpManifestBuilder"/> instead).
+/// </summary>
+public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
+{
+    private readonly IExtensionIndex _extensionIndex;
+    private readonly IReadOnlyDictionary<string, CommandMetadata> _cliTable;
+    private readonly string _rootGroupName;
+    private readonly string _rootGroupPath;
+
+    public ExtensionIndexHelpAdapter(IExtensionIndex extensionIndex, string extensionName)
+    {
+        _extensionIndex = extensionIndex ?? throw new ArgumentNullException(nameof(extensionIndex));
+        ExtensionName = string.IsNullOrWhiteSpace(extensionName)
+            ? throw new ArgumentException("Extension name cannot be null or empty.", nameof(extensionName))
+            : extensionName;
+
+        _cliTable = _extensionIndex.GetCommandTable(ClientType.CLI);
+        _rootGroupName = CommandGroupIndex.GetCommandGroupNameByExtensionName(extensionName);
+        _rootGroupPath = _rootGroupName.ToLowerInvariant();
+    }
+
+    public string ExtensionName { get; }
+
+    /// <summary>Top-level groups for this extension. Summary comes from <c>index.md</c>.</summary>
+    public IReadOnlyList<RuntimeHelpGroup> GetRootGroups()
+        => [BuildGroup([_rootGroupPath], MarkdownCommandHelpProvider.Get(ExtensionName, string.Empty).Summary)!];
+
+    /// <summary>Group-level help for <paramref name="groupPath"/>. Returns <c>null</c> when the path is outside this extension or empty.</summary>
+    public RuntimeHelpGroup? GetGroupHelp(IReadOnlyList<string> groupPath)
+    {
+        if (!IsUnderRootGroup(groupPath))
+        {
+            return null;
+        }
+
+        var summary = groupPath.Count == 1
+            ? MarkdownCommandHelpProvider.Get(ExtensionName, string.Empty).Summary
+            : string.Empty;
+
+        return BuildGroup(groupPath, summary, returnNullWhenEmpty: groupPath.Count > 1);
+    }
+
+    /// <summary>Command-level help for <paramref name="commandPath"/>. Returns <c>null</c> when the path doesn't resolve. Examples are CLI-only.</summary>
+    public RuntimeHelpCommand? GetCommandHelp(IReadOnlyList<string> commandPath)
+    {
+        if (!IsUnderRootGroup(commandPath))
+        {
+            return null;
+        }
+
+        var relativeKey = GetRelativeKey(commandPath);
+        if (!_cliTable.TryGetValue(relativeKey, out var metadata))
+        {
+            return null;
+        }
+
+        var parameters = metadata.Parameters
+            .Select(static kvp => new RuntimeHelpParameter(
+                Name: kvp.Key,
+                Aliases: kvp.Value.Aliases,
+                Required: kvp.Value.IsRequired,
+                Description: kvp.Value.Description,
+                Summary: kvp.Value.Description,
+                AllowedValues: kvp.Value.AllowedValues,
+                ParameterSetName: "(All)",
+                SupportsPipeline: false,
+                SupportsWildcards: false))
+            .ToList();
+
+        var markdown = MarkdownCommandHelpProvider.Get(ExtensionName, relativeKey);
+        var summary = GetSummary(metadata, markdown);
+        var description = GetDescription(metadata, markdown);
+        var examples = GetExamples(metadata, markdown);
+
+        return new RuntimeHelpCommand(
+            CommandPath: string.Join(" ", commandPath.Select(static segment => segment.ToLowerInvariant())),
+            Summary: summary,
+            Description: description,
+            Parameters: parameters,
+            Examples: examples,
+            Tags: []);
+    }
+
+    private RuntimeHelpGroup? BuildGroup(IReadOnlyList<string> groupPath, string summary, bool returnNullWhenEmpty = false)
+    {
+        var relativePrefix = GetRelativeKey(groupPath);
+        var subgroupSummaries = new Dictionary<string, RuntimeHelpGroupSummary>(StringComparer.OrdinalIgnoreCase);
+        var commandSummaries = new List<RuntimeHelpCommandSummary>();
+
+        if (string.IsNullOrEmpty(relativePrefix) && _cliTable.TryGetValue(string.Empty, out var rootCommandMetadata))
+        {
+            commandSummaries.Add(new RuntimeHelpCommandSummary(
+                Name: _rootGroupPath,
+                Summary: GetSummary(rootCommandMetadata, MarkdownCommandHelpProvider.Get(ExtensionName, string.Empty)),
+                Tags: []));
+        }
+
+        foreach (var kvp in _cliTable.OrderBy(static pair => pair.Key, StringComparer.Ordinal))
+        {
+            if (string.IsNullOrEmpty(kvp.Key))
+            {
+                continue;
+            }
+
+            var remainder = GetRemainingPath(kvp.Key, relativePrefix);
+            if (remainder == null)
+            {
+                continue;
+            }
+
+            var segments = remainder.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Length == 0)
+            {
+                continue;
+            }
+
+            if (segments.Length == 1)
+            {
+                commandSummaries.Add(new RuntimeHelpCommandSummary(
+                    Name: segments[0],
+                    Summary: GetSummary(kvp.Value, MarkdownCommandHelpProvider.Get(ExtensionName, kvp.Key)),
+                    Tags: []));
+                continue;
+            }
+
+            var subgroupName = segments[0];
+            if (!subgroupSummaries.ContainsKey(subgroupName))
+            {
+                subgroupSummaries[subgroupName] = new RuntimeHelpGroupSummary(subgroupName, string.Empty);
+            }
+        }
+
+        if (returnNullWhenEmpty && subgroupSummaries.Count == 0 && commandSummaries.Count == 0)
+        {
+            return null;
+        }
+
+        return new RuntimeHelpGroup(
+            GroupPath: string.Join(" ", groupPath.Select(static segment => segment.ToLowerInvariant())),
+            Summary: summary,
+            Subgroups: subgroupSummaries.Values.OrderBy(static group => group.Name, StringComparer.Ordinal).ToList(),
+            Commands: commandSummaries);
+    }
+
+    private bool IsUnderRootGroup(IReadOnlyList<string> path)
+    {
+        return path.Count > 0 && path[0].Equals(_rootGroupPath, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string GetRelativeKey(IReadOnlyList<string> path)
+    {
+        return path.Count <= 1
+            ? string.Empty
+            : string.Join(" ", path.Skip(1).Select(static segment => segment.ToLowerInvariant()));
+    }
+
+    private static string? GetRemainingPath(string key, string relativePrefix)
+    {
+        if (string.IsNullOrEmpty(relativePrefix))
+        {
+            return key;
+        }
+
+        if (key.Equals(relativePrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return string.Empty;
+        }
+
+        var prefix = relativePrefix + " ";
+        return key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            ? key[prefix.Length..]
+            : null;
+    }
+
+    private static ProcessorInfoAttribute? GetProcessorInfo(CommandMetadata metadata)
+        => metadata.ProcessorType.GetCustomAttribute<ProcessorInfoAttribute>();
+
+    private static string GetSummary(CommandMetadata metadata, MarkdownCommandHelp markdown)
+    {
+        if (!string.IsNullOrWhiteSpace(markdown.Summary))
+        {
+            return markdown.Summary;
+        }
+
+        var processorInfo = GetProcessorInfo(metadata);
+        if (!string.IsNullOrWhiteSpace(processorInfo?.Summary))
+        {
+            return processorInfo.Summary.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(processorInfo?.Description))
+        {
+            return processorInfo.Description.Trim();
+        }
+
+        return HumanizeCommandName(metadata.Name);
+    }
+
+    private static string GetDescription(CommandMetadata metadata, MarkdownCommandHelp markdown)
+    {
+        if (!string.IsNullOrWhiteSpace(markdown.Description))
+        {
+            return markdown.Description;
+        }
+
+        var processorInfo = GetProcessorInfo(metadata);
+        if (!string.IsNullOrWhiteSpace(processorInfo?.Description))
+        {
+            return processorInfo.Description.Trim();
+        }
+
+        return HumanizeCommandName(metadata.Name);
+    }
+
+    private static List<RuntimeHelpExample> GetExamples(CommandMetadata metadata, MarkdownCommandHelp markdown)
+    {
+        if (markdown.Examples.Count > 0)
+        {
+            return markdown.Examples
+                .Where(static example => !example.IsPowerShell)
+                .Select(static example => new RuntimeHelpExample(example.Title, example.Command))
+                .ToList();
+        }
+
+        var processorInfo = GetProcessorInfo(metadata);
+        if (processorInfo?.Examples == null || processorInfo.Examples.Length == 0)
+        {
+            return [];
+        }
+
+        var result = new List<RuntimeHelpExample>();
+        for (var i = 0; i < processorInfo.Examples.Length; i++)
+        {
+            var raw = processorInfo.Examples[i]?.Trim();
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                continue;
+            }
+
+            var delimiter = raw.IndexOf('|');
+            if (delimiter <= 0 || delimiter >= raw.Length - 1)
+            {
+                result.Add(new RuntimeHelpExample($"Example {i + 1}", raw));
+                continue;
+            }
+
+            var title = raw[..delimiter].Trim();
+            var command = raw[(delimiter + 1)..].Trim();
+            result.Add(new RuntimeHelpExample(
+                string.IsNullOrWhiteSpace(title) ? $"Example {i + 1}" : title,
+                command));
+        }
+
+        return result;
+    }
+
+    private static string HumanizeCommandName(string name)
+    {
+        return name.EndsWith("Command", StringComparison.Ordinal)
+            ? name[..^"Command".Length]
+            : name;
+    }
+}

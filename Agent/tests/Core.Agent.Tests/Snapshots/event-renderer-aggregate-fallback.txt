@@ -1,0 +1,2 @@
+Text len=24
+LlmTurnCompleted in=<NORMALIZED> out=<NORMALIZED> cached=<NORMALIZED> elapsed=<NORMALIZED>

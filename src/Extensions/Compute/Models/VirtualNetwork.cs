@@ -1,4 +1,4 @@
-using Microsoft.Azure.Cirrus.Extensions.Runtime.Json;
+using Microsoft.Azure.Cirrus.ExtensionRuntime.Json;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Compute.Models;
 
