@@ -7,6 +7,9 @@ Performance benchmarking for Cirrus CLI/PowerShell engine, comparing execution t
 ### Run Benchmarks
 
 ```bash
+dotnet build cirrus.slnx
+./build/Set-ModuleConfiguration.ps1 -c Release # required for PS benchmarks
+
 # Run all benchmarks (API, CLI, PS) - uploads to App Insights
 dotnet run --project tests/Benchmark/Benchmark.csproj
 
