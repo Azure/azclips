@@ -60,10 +60,19 @@ Test optional beta signing only from a trusted manual beta build:
 - Queue `cirrus-beta-build` manually in the `public` project with `sign_beta=false`.
 - Confirm it publishes `Distribution_Final`, does not add the `sign-beta` build tag, and does not start `cirrus-beta-sign`.
 - Queue `cirrus-beta-build` manually in the `public` project with `sign_beta=true`.
-- Confirm the manual run is from `refs/heads/main`; for pre-merge branch validation, set `allowed_signing_source_branch` to the full test branch ref, such as `refs/heads/naga/test-pr`.
+- For pre-merge branch validation from `naga/test-pr`, use these inputs:
+
+```text
+Branch: naga/test-pr
+sign_beta: true
+allowed_signing_source_branch: refs/heads/naga/test-pr
+```
+
+- For production validation from `main`, leave `allowed_signing_source_branch` at its default value, `refs/heads/main`.
 - Confirm the `MarkBetaForSigning` stage runs only after `Distribution_Final` is published.
-- Confirm the beta build receives the `sign-beta` build tag.
-- Confirm the `sign-beta` tag starts `cirrus-beta-sign` in the `release` project through the `betaBuild` pipeline resource trigger.
+- Confirm the beta build receives the Azure DevOps build tag `sign-beta`; this is not a Git tag.
+- Confirm logs include output like `Build '<run id>' has following tags now: sign-beta`.
+- Confirm the `sign-beta` build tag starts `cirrus-beta-sign` in the `release` project through the `betaBuild` pipeline resource trigger.
 - Confirm `cirrus-beta-sign` logs `System.TeamProject=release`, uses `resources.pipeline.betaBuild.runID`, downloads the exact beta build run's `Distribution_Final`, and publishes `Distribution_Signed`.
 - Confirm normal CI runs of `cirrus-beta-build` from `main` keep `sign_beta=false`, do not add the `sign-beta` build tag, and do not start beta signing.
 

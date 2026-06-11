@@ -71,6 +71,58 @@ cirrus-beta-sign
 
 `cirrus-beta-sign` is configured with a pipeline resource trigger on public-project `cirrus-beta-build`, filtered to builds tagged `sign-beta`. `cirrus-beta-build` remains a normal public CI build for every trusted `main` update, and only a manual `cirrus-beta-build` run from `refs/heads/main` with `sign_beta=true` adds the `sign-beta` build tag after `Distribution_Final` is published. The signing pipeline uses `resources.pipeline.betaBuild.runID`, so signing consumes the exact `Distribution_Final` artifact from that build without rebuilding source. For branch validation before merging these YAML changes, `allowed_signing_source_branch` can be set to the test branch, such as `refs/heads/naga/test-pr`.
 
+## Optional Beta Signing Flow
+
+Default beta builds are unsigned. The `cirrus-beta-build` pipeline runs automatically for trusted `main` updates and publishes `Distribution_Final` as a public Azure DevOps pipeline artifact. Those CI runs use the default `sign_beta=false`, so they do not add the signing tag and do not start `cirrus-beta-sign`.
+
+To sign a beta build, queue `cirrus-beta-build` manually with `sign_beta=true`. The unsigned build still runs first. After the shared build template publishes `Distribution_Final`, the `MarkBetaForSigning` stage validates that the run is in the `public` project and that the source branch is allowed for signing. In production, the allowed branch is `refs/heads/main`. For pre-merge validation from this branch, set `allowed_signing_source_branch=refs/heads/naga/test-pr`.
+
+The beta build marks itself for signing with an Azure DevOps build tag, not a Git tag:
+
+```bash
+echo '##vso[build.addbuildtag]sign-beta'
+```
+
+Azure DevOps records that tag on the completed beta build run. Logs should show output like:
+
+```text
+Adding sign-beta tag so cirrus-beta-sign can consume this completed build.
+Build '<run id>' has following tags now: sign-beta
+```
+
+The release-project `cirrus-beta-sign` pipeline declares this pipeline resource:
+
+```yaml
+resources:
+  pipelines:
+  - pipeline: betaBuild
+    project: public
+    source: cirrus-beta-build
+    trigger:
+      tags:
+      - sign-beta
+```
+
+When Azure DevOps observes a completed `cirrus-beta-build` run with the `sign-beta` build tag, it starts `cirrus-beta-sign`. The signing pipeline resolves the triggering beta build through resource variables:
+
+```text
+source_build_id=$(resources.pipeline.betaBuild.runID)
+source_branch=$(resources.pipeline.betaBuild.sourceBranch)
+source_commit=$(resources.pipeline.betaBuild.sourceCommit)
+```
+
+The `cirrus-beta-sign` preflight stage validates that the signing run is in the `release` project, that the beta resource run id is numeric, and that the beta source branch is either `refs/heads/main` or the same branch running the signing pipeline. Then it downloads `Distribution_Final` from that exact public beta build run and publishes `Distribution_Signed`. Beta signing still does not publish anything to GitHub Releases.
+
+For a pre-merge validation run on this branch, use these manual beta build inputs:
+
+```text
+Branch: naga/test-pr
+sign_beta: true
+allowed_signing_source_branch: refs/heads/naga/test-pr
+```
+
+For production beta signing from `main`, use `sign_beta=true` and leave `allowed_signing_source_branch` at its default value, `refs/heads/main`.
+
 ## Trigger Semantics
 
 `cirrus-alpha-build` should run for every update to an active PR that targets `main`. In Azure Repos, configure this as a branch policy build validation on `main`; in repository providers that honor YAML PR triggers, the `pr` block provides the same intent. PR validation should use latest-update behavior: YAML PR triggers use `autoCancel: true`, while Azure Repos branch policies should be configured to avoid piling up obsolete validation runs for superseded PR commits.
