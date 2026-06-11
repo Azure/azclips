@@ -55,6 +55,6 @@ stages:
             exit 1
           fi
 
-          echo 'Adding sign-beta tag so cirrus-beta-signing can consume this completed build.'
+          echo 'Adding sign-beta tag so cirrus-beta-sign can consume this completed build.'
           echo '##vso[build.addbuildtag]sign-beta'
         displayName: Add sign-beta tag for release-project signing trigger

@@ -23,13 +23,13 @@ public project:
 
 release project:
   cirrus-trigger-stable-release -> .azure-pipelines/cirrus-trigger-stable-release.yml
-  cirrus-beta-signing -> .azure-pipelines/cirrus-beta-signing.yml
+  cirrus-beta-sign -> .azure-pipelines/cirrus-beta-sign.yml
   cirrus-stable-build -> .azure-pipelines/cirrus-stable-build.yml
   cirrus-stable-sign -> .azure-pipelines/cirrus-stable-sign.yml
   cirrus-stable-publish -> .azure-pipelines/cirrus-stable-publish.yml
 ```
 
-Authorize pipeline resources when Azure DevOps prompts for access to build pipelines across or within projects. For beta signing, authorize release-project `cirrus-beta-signing` to consume public-project `cirrus-beta-build`.
+Authorize pipeline resources when Azure DevOps prompts for access to build pipelines across or within projects. For beta signing, authorize release-project `cirrus-beta-sign` to consume public-project `cirrus-beta-build`.
 
 ## Alpha Build Smoke Test
 
@@ -58,13 +58,13 @@ Test `cirrus-beta-build` with a controlled `main` update:
 Test optional beta signing only from a trusted manual beta build:
 
 - Queue `cirrus-beta-build` manually in the `public` project with `sign_beta=false`.
-- Confirm it publishes `Distribution_Final`, does not add the `sign-beta` build tag, and does not start `cirrus-beta-signing`.
+- Confirm it publishes `Distribution_Final`, does not add the `sign-beta` build tag, and does not start `cirrus-beta-sign`.
 - Queue `cirrus-beta-build` manually in the `public` project with `sign_beta=true`.
 - Confirm the manual run is from `refs/heads/main`; the signing tag stage should reject non-main branch builds.
 - Confirm the `MarkBetaForSigning` stage runs only after `Distribution_Final` is published.
 - Confirm the beta build receives the `sign-beta` build tag.
-- Confirm the `sign-beta` tag starts `cirrus-beta-signing` in the `release` project through the `betaBuild` pipeline resource trigger.
-- Confirm `cirrus-beta-signing` logs `System.TeamProject=release`, uses `resources.pipeline.betaBuild.runID`, downloads the exact beta build run's `Distribution_Final`, and publishes `Distribution_Signed`.
+- Confirm the `sign-beta` tag starts `cirrus-beta-sign` in the `release` project through the `betaBuild` pipeline resource trigger.
+- Confirm `cirrus-beta-sign` logs `System.TeamProject=release`, uses `resources.pipeline.betaBuild.runID`, downloads the exact beta build run's `Distribution_Final`, and publishes `Distribution_Signed`.
 - Confirm normal CI runs of `cirrus-beta-build` from `main` keep `sign_beta=false`, do not add the `sign-beta` build tag, and do not start beta signing.
 
 ## Stable Trigger Smoke Test
@@ -139,7 +139,7 @@ Test `cirrus-stable-publish` carefully:
 ```text
 PR update -> cirrus-alpha-build -> Distribution_Final
 main update -> cirrus-beta-build -> Distribution_Final
-manual main beta build with sign_beta=true -> sign-beta tag -> cirrus-beta-signing -> Distribution_Signed
+manual main beta build with sign_beta=true -> sign-beta tag -> cirrus-beta-sign -> Distribution_Signed
 stable tag -> cirrus-stable-build -> Distribution_Final
 stableBuild run id -> cirrus-stable-sign -> Distribution_Signed
 stableSign run id -> cirrus-stable-publish -> GitHub release
