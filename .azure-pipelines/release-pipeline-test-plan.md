@@ -60,7 +60,7 @@ Test optional beta signing only from a trusted manual beta build:
 - Queue `cirrus-beta-build` manually in the `public` project with `sign_beta=false`.
 - Confirm it publishes `Distribution_Final`, does not add the `sign-beta` build tag, and does not start `cirrus-beta-sign`.
 - Queue `cirrus-beta-build` manually in the `public` project with `sign_beta=true`.
-- Confirm the manual run is from `refs/heads/main`; the signing tag stage should reject non-main branch builds.
+- Confirm the manual run is from `refs/heads/main`; for pre-merge branch validation, set `allowed_signing_source_branch` to the full test branch ref, such as `refs/heads/naga/test-pr`.
 - Confirm the `MarkBetaForSigning` stage runs only after `Distribution_Final` is published.
 - Confirm the beta build receives the `sign-beta` build tag.
 - Confirm the `sign-beta` tag starts `cirrus-beta-sign` in the `release` project through the `betaBuild` pipeline resource trigger.

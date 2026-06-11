@@ -5,6 +5,10 @@ parameters:
   displayName: 'Sign this manual beta build after successful completion'
   type: boolean
   default: false
+- name: allowed_signing_source_branch
+  displayName: 'Allowed source branch when sign_beta is true'
+  type: string
+  default: 'refs/heads/main'
 
 trigger:
   batch: true
@@ -46,12 +50,14 @@ stages:
       - checkout: none
       - bash: |
           set -euo pipefail
+          allowed_source_branch='${{ parameters.allowed_signing_source_branch }}'
+
           if [[ '$(System.TeamProject)' != 'public' ]]; then
             echo "ERROR: sign_beta must run from the public project. Got: $(System.TeamProject)"
             exit 1
           fi
-          if [[ '$(Build.SourceBranch)' != 'refs/heads/main' ]]; then
-            echo "ERROR: sign_beta only supports refs/heads/main builds. Got: $(Build.SourceBranch)"
+          if [[ '$(Build.SourceBranch)' != 'refs/heads/main' && '$(Build.SourceBranch)' != "$allowed_source_branch" ]]; then
+            echo "ERROR: sign_beta only supports refs/heads/main or the configured allowed_signing_source_branch. Got: $(Build.SourceBranch); allowed: $allowed_source_branch"
             exit 1
           fi
 

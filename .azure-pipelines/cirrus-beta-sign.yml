@@ -9,9 +9,6 @@ resources:
     project: public
     source: cirrus-beta-build
     trigger:
-      branches:
-        include:
-        - main
       tags:
       - sign-beta
 
@@ -55,6 +52,7 @@ stages:
         set -euo pipefail
         source_build_id='$(resources.pipeline.betaBuild.runID)'
         source_branch='$(resources.pipeline.betaBuild.sourceBranch)'
+        pipeline_branch='$(Build.SourceBranch)'
 
         if [[ -z "$source_build_id" ]]; then
           echo 'ERROR: betaBuild resource run id was not resolved. Select a sign-beta-tagged cirrus-beta-build resource version when queueing this pipeline.'
@@ -64,8 +62,8 @@ stages:
           echo "ERROR: betaBuild resource run id must be numeric. Got: $source_build_id"
           exit 1
         fi
-        if [[ "$source_branch" != 'refs/heads/main' ]]; then
-          echo "ERROR: beta signing only supports refs/heads/main builds. Got: $source_branch"
+        if [[ "$source_branch" != 'refs/heads/main' && "$source_branch" != "$pipeline_branch" ]]; then
+          echo "ERROR: beta signing only supports refs/heads/main or the branch running this signing pipeline. Got: $source_branch; signing pipeline branch: $pipeline_branch"
           exit 1
         fi
 
@@ -74,6 +72,7 @@ stages:
         echo "Beta source build id: $source_build_id"
         echo "Beta source run name: $(resources.pipeline.betaBuild.runName)"
         echo "Beta source branch: $source_branch"
+        echo "Signing pipeline branch: $pipeline_branch"
         echo "Beta source commit: $(resources.pipeline.betaBuild.sourceCommit)"
         echo "Beta source artifact: Distribution_Final"
       displayName: Validate Beta Build Source
