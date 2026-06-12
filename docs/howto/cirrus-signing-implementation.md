@@ -15,6 +15,10 @@ Scope covered:
 Primary implementation files:
 - `.azure-pipelines/_archive/cirrus-adhoc-sign.yml`
 - `.azure-pipelines/templates/dist/stages/sign-with-esrp.yml`
+- `.azure-pipelines/templates/dist/jobs/sign-nuget.yml`
+- `.azure-pipelines/templates/dist/jobs/sign-windows.yml`
+- `.azure-pipelines/templates/dist/jobs/sign-linux.yml`
+- `.azure-pipelines/templates/dist/jobs/sign-macos.yml`
 - `devops/scripts/packaging/signing/prepare_signing_inputs.ps1`
 - `devops/scripts/packaging/signing/verify_signed_outputs.ps1`
 - `devops/scripts/packaging/signing/repack_signed_outputs.ps1`
@@ -77,6 +81,8 @@ Key intent:
 - Sets `dependency_stage: Preflight` so signing/collection stages fan out only after preflight succeeds.
 
 ## 4. Stage Template: `.azure-pipelines/templates/dist/stages/sign-with-esrp.yml`
+
+The stage template owns orchestration and delegates platform signing work to job templates under `.azure-pipelines/templates/dist/jobs/`, matching the build and validation template layout.
 
 ## 4.1 Parameters
 - Agent pools: `windows_pool`, `ubuntu_pool`
