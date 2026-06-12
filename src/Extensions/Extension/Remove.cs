@@ -51,8 +51,14 @@ public class RemoveExtensionProcessor : IProcessor
 
         if (!RegistryLookup.TryFind(registry, Name, out var match))
         {
+            var message = $"No installed extension matches '{Name}' (by package id or short name).";
+            if (RegistryLookup.SuggestPackageForToken(registry, Name, out var suggested))
+            {
+                message += $" '{Name}' is a verb contributed by package '{suggested}'; " +
+                           $"to remove that package use '--name {RegistryLookup.ToShortName(suggested)}'.";
+            }
             throw CirrusErrorException.ExtensionNotFound(
-                $"No installed extension matches '{Name}' (by package id, short name, verb, or namespace).",
+                message,
                 new Dictionary<string, object?> { ["name"] = Name });
         }
 

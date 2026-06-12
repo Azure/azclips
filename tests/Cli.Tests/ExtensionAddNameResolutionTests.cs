@@ -5,9 +5,12 @@ using Xunit;
 namespace Cli.Tests;
 
 /// <summary>
-/// <c>extension add --name</c> must accept three input shapes — a verb (resolved via the
-/// embedded hint catalog), a first-party short name (prefix-stripped), and a fully qualified
-/// package id (passthrough). These tests pin the resolver's three branches.
+/// <c>extension add --name</c> accepts only package identifiers — a fully-qualified package id
+/// (passthrough) or a first-party short name (prefix-stripped). A bare token that matches a
+/// verb in the hint catalog is rejected with a usage error pointing at the owning package id.
+/// Verbs are sub-units of a package; accepting them as install identifiers would silently pull
+/// in unrelated sibling verbs (Compute ships <c>vm</c> and <c>disk</c>). Symmetric with the
+/// remove/show/update/pin/unpin commands. (PR #253 review feedback.)
 /// </summary>
 public class ExtensionAddNameResolutionTests
 {
@@ -22,23 +25,27 @@ public class ExtensionAddNameResolutionTests
     }
 
     [Fact]
-    public void ResolvePackageId_ShouldReturnHintedPackage_WhenNameMatchesVerb()
+    public void ResolvePackageId_ShouldThrowUsageError_WhenNameIsAVerb()
     {
         var hints = HintsWith(("vm", "Microsoft.Azure.Cirrus.Extensions.Compute"));
 
-        var result = AddExtensionProcessor.ResolvePackageId("vm", hints);
+        var ex = Assert.Throws<CirrusErrorException>(
+            () => AddExtensionProcessor.ResolvePackageId("vm", hints));
 
-        Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Compute", result);
+        Assert.Equal("UsageError", ex.Code);
+        Assert.Contains("--name Compute", ex.Message);
+        Assert.Contains("Microsoft.Azure.Cirrus.Extensions.Compute", ex.Message);
     }
 
     [Fact]
-    public void ResolvePackageId_ShouldBeCaseInsensitive_OnHintLookup()
+    public void ResolvePackageId_ShouldThrowUsageError_WhenNameIsAVerb_CaseInsensitive()
     {
         var hints = HintsWith(("vm", "Microsoft.Azure.Cirrus.Extensions.Compute"));
 
-        var result = AddExtensionProcessor.ResolvePackageId("VM", hints);
+        var ex = Assert.Throws<CirrusErrorException>(
+            () => AddExtensionProcessor.ResolvePackageId("VM", hints));
 
-        Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Compute", result);
+        Assert.Equal("UsageError", ex.Code);
     }
 
     [Fact]
@@ -55,8 +62,8 @@ public class ExtensionAddNameResolutionTests
     [Fact]
     public void ResolvePackageId_ShouldPassthrough_WhenNameContainsDot()
     {
-        // A dotted token is treated as a fully qualified package id, even if a verb-shaped key
-        // happens to be present in the hint table. Don't second-guess the user.
+        // A dotted token is a fully qualified package id and is trusted as-is, even if a
+        // collision-shaped key is in the hint catalog. Don't second-guess the user.
         var hints = HintsWith(("Contoso.Foo", "Microsoft.Azure.Cirrus.Extensions.Compute"));
 
         var result = AddExtensionProcessor.ResolvePackageId("Contoso.Foo", hints);
@@ -74,19 +81,6 @@ public class ExtensionAddNameResolutionTests
             hints);
 
         Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Compute", result);
-    }
-
-    [Fact]
-    public void ResolvePackageId_ShouldPreferHint_OverPrefixStrip_WhenBothCouldApply()
-    {
-        // Edge case: a future hint entry whose key collides with a first-party short name. Hint
-        // wins because it represents a deliberate ownership claim from a build-time validated
-        // catalog; prefix-strip is a fallback heuristic.
-        var hints = HintsWith(("Compute", "Contoso.Compute.Override"));
-
-        var result = AddExtensionProcessor.ResolvePackageId("Compute", hints);
-
-        Assert.Equal("Contoso.Compute.Override", result);
     }
 
     [Fact]

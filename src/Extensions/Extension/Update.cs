@@ -61,8 +61,14 @@ public class UpdateExtensionProcessor : IProcessor
 
         if (!RegistryLookup.TryFind(registry, Name, out var match))
         {
+            var message = $"No installed extension matches '{Name}' (by package id or short name). Use 'extension add' first.";
+            if (RegistryLookup.SuggestPackageForToken(registry, Name, out var suggested))
+            {
+                message = $"No installed extension matches '{Name}' (by package id or short name). " +
+                          $"'{Name}' is a verb contributed by package '{suggested}'; to update that package use '--name {RegistryLookup.ToShortName(suggested)}'.";
+            }
             throw CirrusErrorException.ExtensionNotFound(
-                $"No installed extension matches '{Name}' (by package id, short name, verb, or namespace). Use 'extension add' first.",
+                message,
                 new Dictionary<string, object?> { ["name"] = Name });
         }
 

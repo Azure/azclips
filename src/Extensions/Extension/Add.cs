@@ -271,14 +271,19 @@ public class AddExtensionProcessor : IProcessor
     }
 
     /// <summary>
-    /// Resolve the user-supplied <c>--name</c> token to a NuGet package id, in this order:
+    /// Resolve the user-supplied <c>--name</c> token to a NuGet package id. Verbs are explicitly
+    /// **not** valid identifiers for install — a single package can contribute many verbs (Compute
+    /// owns both <c>vm</c> and <c>disk</c>), so accepting a verb here would silently install the
+    /// whole package while making the user think they were adding a discrete unit. Symmetric with
+    /// the remove/show/update/pin/unpin commands, which also reject verb tokens. (PR #253 review
+    /// feedback.)
     /// <list type="number">
     ///   <item>If the token contains a dot, treat it as a fully-qualified package id and pass it
     ///         through unchanged (e.g. <c>Contoso.Foo</c>, <c>Microsoft.Azure.Cirrus.Extensions.Compute</c>).</item>
-    ///   <item>If the token matches a verb in the embedded <see cref="ExtensionHintTable"/>, use
-    ///         the package id that owns that verb. This is the symmetry path: the dispatcher's
-    ///         unknown-verb message says "install with `azv2 extension add --name &lt;verb&gt;`",
-    ///         so the install command must accept the verb directly.</item>
+    ///   <item>If the token matches a verb in the embedded <see cref="ExtensionHintTable"/>, throw
+    ///         a <see cref="CirrusErrorException.UsageError(string, IReadOnlyDictionary{string, object?}?)"/>
+    ///         pointing the user at the owning package id. The hint table is the same one that
+    ///         powers the dispatcher's "did you mean" suggestion, so the error message is precise.</item>
     ///   <item>Otherwise fall back to the legacy <c>Microsoft.Azure.Cirrus.Extensions.{name}</c>
     ///         prefix-strip convention for first-party short names (e.g. <c>Resources</c>,
     ///         <c>Compute</c>).</item>
@@ -296,10 +301,21 @@ public class AddExtensionProcessor : IProcessor
             return name;
         }
 
-        // (2) Hint catalog lookup as a bare verb. Case-insensitive (the table comparer is OIC).
-        if (hints.TryGetPackageId(name, out var hinted))
+        // (2) Bare token matches a verb in the hint catalog: reject with a precise suggestion.
+        // Verbs are sub-units of a package, not packages — installing by verb would silently
+        // pull in unrelated sibling verbs (e.g. `add --name disk` would install Compute, which
+        // also ships `vm`). The user should name the package directly.
+        if (hints.TryGetPackageId(name, out var owningPackage))
         {
-            return hinted;
+            var suggestion = RegistryLookup.ToShortName(owningPackage);
+            throw CirrusErrorException.UsageError(
+                $"'{name}' is a verb contributed by package '{owningPackage}', not a package identifier. " +
+                $"To install that package use:\n  azv2 extension add --name {suggestion}",
+                new Dictionary<string, object?>
+                {
+                    ["requestedName"] = name,
+                    ["owningPackageId"] = owningPackage,
+                });
         }
 
         // (3) First-party prefix-strip fallback.

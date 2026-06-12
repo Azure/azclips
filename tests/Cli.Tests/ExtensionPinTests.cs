@@ -41,7 +41,7 @@ public class ExtensionPinTests
     {
         var registry = RegistryWithMultiLeafExtension(pinned: false);
 
-        var (packageId, updated, mutated) = PinHelper.ApplyPinChange(registry, name: "deployment", pinned: true);
+        var (packageId, updated, mutated) = PinHelper.ApplyPinChange(registry, name: "Resources", pinned: true);
 
         Assert.True(mutated);
         Assert.Equal(PackageId, packageId);
@@ -58,7 +58,7 @@ public class ExtensionPinTests
     {
         var registry = RegistryWithMultiLeafExtension(pinned: true);
 
-        var (_, updated, mutated) = PinHelper.ApplyPinChange(registry, name: "deployment", pinned: false);
+        var (_, updated, mutated) = PinHelper.ApplyPinChange(registry, name: "Resources", pinned: false);
 
         Assert.True(mutated);
         Assert.False(updated.Pinned);
@@ -90,17 +90,18 @@ public class ExtensionPinTests
     }
 
     [Fact]
-    public void ApplyPinChange_ShouldMatchSecondaryNamespace()
+    public void ApplyPinChange_ShouldRejectVerbTokens_AndIncludeSuggestion()
     {
-        // Pre-fix: only the legacy single `Verb` field was inspected, so an extension
-        // contributing to multiple namespaces could only be pinned by its first verb.
+        // Verbs/namespaces are sub-units of a package; accepting them as pin selectors would
+        // let `extension pin --name deployment` silently pin the whole Resources package.
+        // Instead, the lookup misses and the error message suggests the package short name.
         var registry = RegistryWithMultiLeafExtension(pinned: false);
 
-        var (packageId, entry, mutated) = PinHelper.ApplyPinChange(registry, name: "group", pinned: true);
+        var ex = Assert.Throws<CirrusErrorException>(
+            () => PinHelper.ApplyPinChange(registry, name: "deployment", pinned: true));
 
-        Assert.True(mutated);
-        Assert.Equal(PackageId, packageId);
-        Assert.True(entry.Pinned);
+        Assert.Equal("ExtensionNotFound", ex.Code);
+        Assert.Contains("--name Resources", ex.Message);
     }
 
     [Fact]
@@ -111,7 +112,7 @@ public class ExtensionPinTests
         var registry = RegistryWithMultiLeafExtension(pinned: false);
         var originalContributions = registry.Extensions[PackageId].Contributions;
 
-        PinHelper.ApplyPinChange(registry, name: "deployment", pinned: true);
+        PinHelper.ApplyPinChange(registry, name: "Resources", pinned: true);
 
         Assert.NotSame(originalContributions, registry.Extensions[PackageId].Contributions);
     }
@@ -126,7 +127,7 @@ public class ExtensionPinTests
         try
         {
             var registry = RegistryWithMultiLeafExtension(pinned: false);
-            PinHelper.ApplyPinChange(registry, name: "deployment", pinned: true);
+            PinHelper.ApplyPinChange(registry, name: "Resources", pinned: true);
 
             new FileExtensionRegistryStore(tempPath).Save(registry);
             var reloaded = new FileExtensionRegistryStore(tempPath).Load();

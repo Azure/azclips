@@ -40,12 +40,18 @@ public class ShowExtensionProcessor : IProcessor
         var store = new FileExtensionRegistryStore();
         var registry = store.Load();
 
-        // Accept either the full package id (exact match, case-insensitive), a short suffix,
-        // the legacy verb, or any v2 namespace — whichever the user has handy.
+        // Match on package identifier only (full package id or short suffix). Verb/namespace
+        // tokens are intentionally rejected — see RegistryLookup remarks.
         if (!RegistryLookup.TryFind(registry, Name, out var match))
         {
+            var message = $"No installed extension matches '{Name}' (by package id or short name).";
+            if (RegistryLookup.SuggestPackageForToken(registry, Name, out var suggested))
+            {
+                message += $" '{Name}' is a verb contributed by package '{suggested}'; " +
+                           $"to act on that package use '--name {RegistryLookup.ToShortName(suggested)}'.";
+            }
             throw CirrusErrorException.ExtensionNotFound(
-                $"No installed extension matches '{Name}' (by package id, short name, verb, or namespace).",
+                message,
                 new Dictionary<string, object?> { ["name"] = Name });
         }
 

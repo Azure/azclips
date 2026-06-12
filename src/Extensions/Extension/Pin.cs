@@ -122,8 +122,15 @@ public static class PinHelper
 
         if (!RegistryLookup.TryFind(registry, name, out var match))
         {
+            var message = $"No installed extension matches '{name}' (by package id or short name).";
+            if (RegistryLookup.SuggestPackageForToken(registry, name, out var suggested))
+            {
+                var verb = pinned ? "pin" : "unpin";
+                message += $" '{name}' is a verb contributed by package '{suggested}'; " +
+                           $"to {verb} that package use '--name {RegistryLookup.ToShortName(suggested)}'.";
+            }
             throw CirrusErrorException.ExtensionNotFound(
-                $"No installed extension matches '{name}' (by package id, short name, verb, or namespace).",
+                message,
                 new Dictionary<string, object?> { ["name"] = name });
         }
 
