@@ -15,21 +15,11 @@ parameters:
   displayName: 'Signed artifact name'
   type: string
   default: 'Distribution_Signed'
-- name: ESRPServiceConnection
-  displayName: 'ESRP Service Connection'
-  type: string
-  default: 'ame_esrp_connection'
-- name: macos_bundle_id
-  displayName: 'macOS bundle id for notarization'
-  type: string
-  default: 'com.microsoft.cirrus.cli'
 
 variables:
 - template: templates/variables.yml
 - template: templates/dist/variables/common.yml
 - template: templates/dist/variables/security-suppressions.yml
-- ${{ if eq(variables['System.TeamProject'], 'release') }}:
-  - group: 'AME ESRP Variable Group'
 - name: SourceProject
   value: release
 
@@ -45,7 +35,7 @@ stages:
     - checkout: none
     - template: templates/dist/steps/validate-release-project.yml
       parameters:
-        error_message: cirrus-stable-sign must run in the 'release' project for ESRP access.
+        error_message: cirrus-stable-sign must run in the 'release' project for stable signing placeholder access.
     - bash: |
         set -euo pipefail
         source_build_id='$(resources.pipeline.stableBuild.runID)'
@@ -79,5 +69,3 @@ stages:
     source_build_id: $(resources.pipeline.stableBuild.runID)
     source_artifact_name: Distribution_Final
     signed_artifact_name: ${{ parameters.signed_artifact_name }}
-    esrp_service_connection: ${{ parameters.ESRPServiceConnection }}
-    macos_bundle_id: ${{ parameters.macos_bundle_id }}
