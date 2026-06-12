@@ -19,7 +19,6 @@ parameters:
 variables:
 - template: templates/variables.yml
 - template: templates/dist/variables/common.yml
-- template: templates/dist/variables/security-suppressions.yml
 - name: SourceProject
   value: release
 
