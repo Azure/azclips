@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781164533105,
+  "lastUpdate": 1781242982037,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus PS Benchmarks": [
@@ -630,6 +630,48 @@ window.BENCHMARK_DATA = {
             "value": 21982531.2,
             "unit": "ns",
             "range": "± 2482822.0035266723"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f9c7b6cda2c849e33e60b19f2ea44b4a3bfa25dd",
+          "message": "{Extensions} Add extension management functionality (#253)\n\n## Add Extension Management\nImplements registry-backed dispatch where the host CLI ships a\nbuild-time verbΓåÆpackageId hint table and routes installed-extension\nverbs through a self-describing `registry.json`. Replaces the prior\n\"extension verb == DLL file name\" coupling and lets one extension\ncontribute multiple top-level namespaces.\n\nArchitecture\n\n```mermaid\nflowchart TD\n    User[\"azv2 vm list\"] --> Orch[OrchestratorEngine]\n    Orch --> Default[DefaultCommandEngine]\n    Default --> Disp[ExtensionDispatcher]\n\n    Disp --> S1{\"1. Built-in seed<br/>extension, login, config\"}\n    Disp --> S2{\"2. Reconciled registry<br/>live entries only\"}\n    Disp --> S3{\"3. Hint table<br/>pre-install catalog\"}\n\n    S1 -->|hit| Run[Load and invoke]\n    S2 -->|hit| MV[\"MultiVersionExtensionLoader<br/>per-pkg ALC cache\"]\n    MV --> Run\n    S3 -->|hit| ENF[\"ExtensionNotFound<br/>plus install hint\"]\n    S3 -->|miss| Agent[AgentEngine fallback]\n\n    subgraph Build[\"Build time\"]\n      Targets[\"ExtensionHints.targets<br/>RoslynCodeTaskFactory\"]\n      Scan[\"Scan src/Extensions<br/>ExtensionVerb plus s_cliTable\"]\n      Hints[\"extension-hints.json<br/>embedded in azv2.dll\"]\n      Targets --> Scan --> Hints\n    end\n    Hints -.embedded.-> S3\n\n    subgraph Disk[\"~/.cirrus/extensions/\"]\n      Reg[\"registry.json<br/>schema v2\"]\n      Pkgs[\"packageId/version/*.dll\"]\n    end\n    Reg -.reconciled.-> S2\n    Pkgs -.exists check.-> Reg\n```\n\nInstall / dispatch flow\n\n```mermaid\nsequenceDiagram\n    participant U as User\n    participant Add as extension add\n    participant CG as CompatibilityGuard\n    participant VR as ExtensionVerbReader\n    participant LR as LeafReader\n    participant Plan as ExtensionAddPlanner\n    participant Reg as FileRegistryStore\n\n    U->>Add: extension add Compute\n    Add->>Add: ResolvePackageId (feed | LocalArtifactProbe on miss)\n    Add->>CG: CheckAssembly (MetadataLoadContext, no exec)\n    CG-->>Add: compatible / reason\n    Add->>VR: ReadVerbs\n    Add->>LR: Read s_cliTable leaf keys\n    Add->>Plan: PlanContributions(verbs, leaves, registry)\n    Plan-->>Add: contributions[] OR batched LeafConflict\n    Add->>Reg: persist (mtime CAS)\n``` \n \nBuild time\n`ExtensionHints.targets` for `ExtensionVerb` declarations and every key\nof each project's s_cliTable, emitting a single `extension-hints.json`\nembedded resource in azv2.dll.\nBuild fails if any s_cliTable key's first token is not declared via\n[ExtensionVerb] in the same project ΓÇö guarantees the hint table is\ncomplete and accurate at compile time.\n[ExtensionVerb] is AllowMultiple = true; a project may declare more than\none namespace.\nRuntime\nOrchestratorEngine ΓåÆ DefaultCommandEngine ΓåÆ ExtensionDispatcher\nroutes verbs through:\nBuilt-in seed (extension, login, config)\nReconciled view of ~/.cirrus/extensions/registry.json (on-disk DLL must\nstill exist)\nEmbedded hint table ΓåÆ ExtensionNotFound with install hint (and a\n--path suggestion when [LocalArtifactProbe] finds a matching dev-built\n.nupkg under [Debug]\nAI agent fallback (AgentEngine) for free-form input\nRegistryReconciler filters entries whose installed DLL no longer exists\n(Live vs Stale).\nFileExtensionRegistryStore has optimistic-concurrency on writes (mtime\nCAS) and load-time duplicate-contribution validation.\nMultiVersionExtensionLoader caches per-[(dir, dll)] AssemblyLoadContext;\nbypassable via assemblyLoading.bypassExtensionCache config or\nCIRRUS_NO_EXTENSION_CACHE=true (also set by the CLI's --no-cache flag).\n[CompatibilityGuard] reads [CirrusCompatibility(MinCoreVersion,\nMaxCoreVersion)] via MetadataLoadContext (no execution); enforced at\ninstall (hard fail), advisory at load.\n[ExtensionAddPlanner] (extracted for testability) batches all (verb,\npath) registry collisions into a single [LeafConflict]so operators get a\ncomplete diagnosis in one round-trip; self-upsert is allowed.\n\n---\n\n## Review-cycle changes\n\n**`--name` selector contract.** `extension\nadd/remove/show/update/pin/unpin --name <token>` accepts package\nidentifiers only — full id (`Microsoft.Azure.Cirrus.Extensions.Compute`)\nor short suffix (`Compute`). Verb and namespace tokens are rejected:\n`add` returns a `UsageError` with a `--name <Package>` suggestion; the\nothers return `ExtensionNotFound` with a `Did you mean '--name\n<Package>'?` hint when the token unambiguously identifies an installed\npackage. The unit of install/remove is a package, not a verb — Compute\nships both `vm` and `disk`, so accepting `--name disk` would silently\nuninstall the whole package. Implemented in `RegistryLookup.TryFind`\n(package-id / short-suffix only) plus\n`RegistryLookup.SuggestPackageForToken` for the diagnostic hint.\n\n**LocalArtifactProbe input guard.** Probe input is restricted to NuGet\npackage id grammar (`[A-Za-z0-9._-]`) before any IO — defense-in-depth\nagainst path-traversal in user-influenced `packageId` (dotted tokens\npass through `Add.ResolvePackageId` unchanged).",
+          "timestamp": "2026-06-12T15:40:05+10:00",
+          "tree_id": "862ea0daa3ab57fe7c482d73154351413a6c75ae",
+          "url": "https://github.com/Azure/cirrus/commit/f9c7b6cda2c849e33e60b19f2ea44b4a3bfa25dd"
+        },
+        "date": 1781242981989,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 20026794.8,
+            "unit": "ns",
+            "range": "± 2486289.109943713"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 19512750,
+            "unit": "ns",
+            "range": "± 4164437.086983246"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 18086945.2,
+            "unit": "ns",
+            "range": "± 1786647.4731198933"
           }
         ]
       }
