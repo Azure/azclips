@@ -175,6 +175,7 @@ stages:
         fi
 
         release_tag_mode="${{ parameters.GitHubReleaseTagMode }}"
+        repo="${{ parameters.GitHubTargetRepo }}"
         case "$release_tag_mode" in
           buildScoped)
             safe_version="${core_distribution_version//[^0-9A-Za-z._-]/-}"
@@ -189,7 +190,14 @@ stages:
             fi
             tag_name="v$core_distribution_version"
             release_name="Cirrus $core_distribution_version"
-            release_target="$tag_name"
+            release_target="$(git ls-remote --tags "https://github.com/$repo.git" "refs/tags/$tag_name^{}" | awk '{print $1}' | head -n 1)"
+            if [[ -z "$release_target" ]]; then
+              release_target="$(git ls-remote --tags "https://github.com/$repo.git" "refs/tags/$tag_name" | awk '{print $1}' | head -n 1)"
+            fi
+            if [[ -z "$release_target" ]]; then
+              echo "ERROR: Stable tag $tag_name was not found in $repo. Refusing to create a release without an existing stable tag target."
+              exit 1
+            fi
             ;;
           *)
             echo "ERROR: Unsupported GitHubReleaseTagMode: $release_tag_mode"
