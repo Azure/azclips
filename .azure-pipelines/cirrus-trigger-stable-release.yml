@@ -67,6 +67,11 @@ stages:
         repo='$(GitHubTargetRepo)'
         core_project='src/CLI/Core.Cli.csproj'
 
+        if [[ -z "${GH_TOKEN:-}" || "${GH_TOKEN:-}" == '$('* ]]; then
+          echo "ERROR: GitHubToken must be set as a secret pipeline variable exposed as GH_TOKEN. It is required to push the release PR branch and create the PR."
+          exit 1
+        fi
+
         read_core_version() {
           local project_path="$1"
           local version=""
@@ -204,17 +209,10 @@ stages:
         git config user.email "cirrus-release-automation@microsoft.com"
         git add "$core_project"
         git commit -m "Bump CLI version to $target_version"
-        git push origin "HEAD:refs/heads/$release_branch"
+        git -c http.extraheader="AUTHORIZATION: bearer $GH_TOKEN" push origin "HEAD:refs/heads/$release_branch"
 
         pr_title="Trigger stable release $target_version"
         pr_body="Updates src/CLI/Core.Cli.csproj to $target_version. After this PR merges to $target_branch, cirrus-trigger-stable-release will run again from the main version change, tag the merged commit as $tag_name, and start the stable build/sign/publish chain."
-
-        if [[ -z "${GH_TOKEN:-}" || "${GH_TOKEN:-}" == '$('* ]]; then
-          echo "ERROR: GitHubToken must be set as a secret pipeline variable exposed as GH_TOKEN."
-          echo "Branch was pushed: $release_branch"
-          echo "Open PR manually: https://github.com/$repo/compare/$target_branch...$release_branch?expand=1"
-          exit 1
-        fi
 
         if ! command -v gh >/dev/null 2>&1; then
           echo "ERROR: GitHub CLI 'gh' is required to create the PR automatically."
@@ -259,6 +257,11 @@ stages:
         source_branch='main'
         source_ref="refs/remotes/origin/$source_branch"
         source_commit='$(Build.SourceVersion)'
+
+        if [[ -z "${GH_TOKEN:-}" || "${GH_TOKEN:-}" == '$('* ]]; then
+          echo "ERROR: GitHubToken must be set as a secret pipeline variable exposed as GH_TOKEN. It is required to push the stable tag."
+          exit 1
+        fi
 
         if [[ -z "$source_commit" ]]; then
           echo "ERROR: Build.SourceVersion is empty; cannot determine commit to tag."
@@ -394,10 +397,12 @@ stages:
         git config user.name "Cirrus Release Automation"
         git config user.email "cirrus-release-automation@microsoft.com"
         git tag -a "$tag_name" "$source_commit" -m "Release $tag_name"
-        git push origin "$tag_ref"
+        git -c http.extraheader="AUTHORIZATION: bearer $GH_TOKEN" push origin "$tag_ref"
         echo "Created and pushed $tag_name. The tag trigger should start cirrus-stable-build."
 
         echo "##vso[task.setvariable variable=StableTagName]$tag_name"
         echo "##vso[task.setvariable variable=StableVersion]$target_version"
         echo "##vso[task.setvariable variable=StableSourceCommit]$source_commit"
       displayName: Validate And Create Stable Tag
+      env:
+        GH_TOKEN: $(GitHubToken)
