@@ -22,7 +22,7 @@ parameters:
 
 jobs:
   - job: SignLinux
-    displayName: Collect Linux Release Artifacts (No Signing Yet)
+    displayName: Linux Placeholder Pass-Through
     pool:
       vmImage: ${{ parameters.ubuntu_pool }}
     steps:
@@ -77,13 +77,13 @@ jobs:
         for asset in "${linux_assets[@]}"; do
           cp "$asset" "$out_dir/"
         done
-      displayName: Collect Linux Release Artifacts For Signing Placeholder
+      displayName: Collect Linux Placeholder Artifacts
     - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
-      displayName: Generate SBOM For Linux Signing Placeholder Artifacts
+      displayName: Generate SBOM For Linux Placeholder Artifacts
       inputs:
         BuildDropPath: $(Build.ArtifactStagingDirectory)/signed-linux
     - task: PublishPipelineArtifact@1
-      displayName: Publish Signed Linux Artifacts
+      displayName: Publish Linux Placeholder Artifacts
       inputs:
         targetPath: $(Build.ArtifactStagingDirectory)/signed-linux
         artifact: signed-linux

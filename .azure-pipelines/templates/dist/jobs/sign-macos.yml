@@ -23,7 +23,7 @@ parameters:
 
 jobs:
 - job: SignMacOS
-  displayName: Collect macOS Release Artifacts (No Signing Yet)
+  displayName: macOS Placeholder Pass-Through
   strategy:
     matrix:
       arm64:
@@ -81,13 +81,13 @@ jobs:
       for asset in "${mac_assets[@]}"; do
         cp "$asset" "$out_dir/"
       done
-    displayName: Collect macOS Artifacts For Signing Placeholder
+    displayName: Collect macOS Placeholder Artifacts
   - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
-    displayName: Generate SBOM For macOS Signing Placeholder Artifacts
+    displayName: Generate SBOM For macOS Placeholder Artifacts
     inputs:
       BuildDropPath: $(Build.ArtifactStagingDirectory)/signed-macos
   - task: PublishPipelineArtifact@1
-    displayName: Publish Signed macOS Artifacts
+    displayName: Publish macOS Placeholder Artifacts
     inputs:
       targetPath: $(Build.ArtifactStagingDirectory)/signed-macos
       artifact: signed-macos-$(MacOSArchitecture)

@@ -57,7 +57,7 @@ stages:
         echo "Stable source artifact: Distribution_Final"
       displayName: Validate Stable Build Resource
 
-- template: templates/dist/stages/sign-with-esrp.yml
+- template: templates/dist/stages/sign-placeholder.yml
   parameters:
     windows_pool: ${{ variables.windows_pool }}
     ubuntu_pool: ${{ variables.ubuntu_pool }}

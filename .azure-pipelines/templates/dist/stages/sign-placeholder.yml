@@ -1,0 +1,175 @@
+parameters:
+- name: windows_pool
+  type: string
+  default: 'windows-latest'
+- name: ubuntu_pool
+  type: string
+  default: 'ubuntu-latest'
+- name: dependency_stage
+  type: string
+  default: 'Preflight'
+- name: SourceProject
+  type: string
+  default: 'public'
+- name: source_pipeline_name
+  type: string
+  default: 'cirrus-adhoc-build'
+- name: source_build_id
+  type: string
+  default: ''
+- name: source_artifact_name
+  type: string
+  default: 'Distribution_Final'
+- name: signed_artifact_name
+  type: string
+  default: 'signed-dist'
+- name: macos_arm64_pool
+  type: string
+  default: 'macOS-15-arm64'
+- name: macos_intel_pool
+  type: string
+  default: 'macOS-15'
+- name: windows_sign_architectures
+  type: object
+  default:
+  - x64
+- name: linux_collect_architectures
+  type: object
+  default:
+  - x64
+  - arm64
+
+stages:
+- stage: PlaceholderNugetSigning
+  displayName: NuGet Signing Placeholder
+  dependsOn: ${{ parameters.dependency_stage }}
+  jobs:
+  - template: ../jobs/sign-nuget.yml
+    parameters:
+      windows_pool: ${{ parameters.windows_pool }}
+      SourceProject: ${{ parameters.SourceProject }}
+      source_pipeline_name: ${{ parameters.source_pipeline_name }}
+      source_build_id: ${{ parameters.source_build_id }}
+      source_artifact_name: ${{ parameters.source_artifact_name }}
+
+- stage: PlaceholderWindowsSigning
+  displayName: Windows Signing Placeholder
+  dependsOn: ${{ parameters.dependency_stage }}
+  jobs:
+  - template: ../jobs/sign-windows.yml
+    parameters:
+      windows_pool: ${{ parameters.windows_pool }}
+      SourceProject: ${{ parameters.SourceProject }}
+      source_pipeline_name: ${{ parameters.source_pipeline_name }}
+      source_build_id: ${{ parameters.source_build_id }}
+      source_artifact_name: ${{ parameters.source_artifact_name }}
+      windows_sign_architectures: ${{ parameters.windows_sign_architectures }}
+
+- stage: PlaceholderLinuxSigning
+  displayName: Linux Signing Placeholder
+  dependsOn: ${{ parameters.dependency_stage }}
+  jobs:
+  - template: ../jobs/sign-linux.yml
+    parameters:
+      ubuntu_pool: ${{ parameters.ubuntu_pool }}
+      SourceProject: ${{ parameters.SourceProject }}
+      source_pipeline_name: ${{ parameters.source_pipeline_name }}
+      source_build_id: ${{ parameters.source_build_id }}
+      source_artifact_name: ${{ parameters.source_artifact_name }}
+      linux_collect_architectures: ${{ parameters.linux_collect_architectures }}
+
+- stage: PlaceholderMacOSSigning
+  displayName: macOS Signing Placeholder
+  dependsOn: ${{ parameters.dependency_stage }}
+  jobs:
+  - template: ../jobs/sign-macos.yml
+    parameters:
+      windows_pool: ${{ parameters.windows_pool }}
+      SourceProject: ${{ parameters.SourceProject }}
+      source_pipeline_name: ${{ parameters.source_pipeline_name }}
+      source_build_id: ${{ parameters.source_build_id }}
+      source_artifact_name: ${{ parameters.source_artifact_name }}
+      macos_arm64_pool: ${{ parameters.macos_arm64_pool }}
+      macos_intel_pool: ${{ parameters.macos_intel_pool }}
+
+- stage: AssemblePlaceholderSignedArtifacts
+  displayName: Assemble Placeholder Signed Artifacts
+  dependsOn:
+  - PlaceholderNugetSigning
+  - PlaceholderWindowsSigning
+  - PlaceholderLinuxSigning
+  - PlaceholderMacOSSigning
+  jobs:
+  - job: Assemble
+    displayName: Assemble Final Distribution Artifact
+    pool:
+      vmImage: ${{ parameters.ubuntu_pool }}
+    steps:
+    - checkout: none
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download NuGet Placeholder Artifacts
+      inputs:
+        buildType: current
+        artifactName: signed-nuget
+        targetPath: $(Pipeline.Workspace)/signed-nuget
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Windows Placeholder Artifacts
+      inputs:
+        buildType: current
+        artifactName: signed-windows
+        targetPath: $(Pipeline.Workspace)/signed-windows
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Linux Placeholder Artifacts
+      inputs:
+        buildType: current
+        artifactName: signed-linux
+        targetPath: $(Pipeline.Workspace)/signed-linux
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download macOS Placeholder Artifacts [arm64]
+      inputs:
+        buildType: current
+        artifactName: signed-macos-arm64
+        targetPath: $(Pipeline.Workspace)/signed-macos/arm64
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download macOS Placeholder Artifacts [x64]
+      inputs:
+        buildType: current
+        artifactName: signed-macos-x64
+        targetPath: $(Pipeline.Workspace)/signed-macos/x64
+
+    - bash: |
+        set -euo pipefail
+        release_dir="$(Build.ArtifactStagingDirectory)/placeholder-signed-release"
+        mkdir -p "$release_dir"
+
+        find "$(Pipeline.Workspace)/signed-nuget" -type f -exec cp -v {} "$release_dir/" \;
+        find "$(Pipeline.Workspace)/signed-windows" -type f -exec cp -v {} "$release_dir/" \;
+        find "$(Pipeline.Workspace)/signed-linux" -type f -exec cp -v {} "$release_dir/" \;
+        find "$(Pipeline.Workspace)/signed-macos" -type f -exec cp -v {} "$release_dir/" \;
+
+        count=$(find "$release_dir" -type f | wc -l | tr -d ' ')
+        if [[ "$count" == "0" ]]; then
+          echo 'ERROR: No artifacts were collected for the placeholder signed distribution.'
+          exit 1
+        fi
+
+        echo "Placeholder signed artifact count: $count"
+        find "$release_dir" -maxdepth 1 -type f -printf '%f\n' | sort
+      displayName: Assemble Placeholder Signed Distribution
+
+    - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
+      displayName: Generate SBOM For Placeholder Signed Distribution
+      inputs:
+        BuildDropPath: $(Build.ArtifactStagingDirectory)/placeholder-signed-release
+
+    - task: PublishPipelineArtifact@1
+      displayName: Publish Placeholder Signed Distribution
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)/placeholder-signed-release
+        artifact: ${{ parameters.signed_artifact_name }}
+        publishLocation: pipeline

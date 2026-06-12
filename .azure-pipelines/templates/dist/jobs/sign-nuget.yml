@@ -17,7 +17,7 @@ parameters:
 
 jobs:
 - job: SignNuget
-  displayName: Collect NuGet Release Artifacts (No Signing Yet)
+  displayName: NuGet Placeholder Pass-Through
   pool:
     vmImage: ${{ parameters.windows_pool }}
   steps:
@@ -50,10 +50,10 @@ jobs:
       foreach ($asset in $selected) {
         Copy-Item $asset.FullName -Destination (Join-Path $targetRoot $asset.Name) -Force
       }
-      Write-Host "Collected $($selected.Count) NuGet artifact(s) for dummy signing."
-    displayName: Collect NuGet Artifacts For Signing Placeholder
+      Write-Host "Collected $($selected.Count) NuGet artifact(s) for placeholder pass-through."
+    displayName: Collect NuGet Placeholder Artifacts
   - task: PublishPipelineArtifact@1
-    displayName: Publish Signed NuGet Artifacts
+    displayName: Publish NuGet Placeholder Artifacts
     inputs:
       targetPath: $(Build.ArtifactStagingDirectory)/signed-nuget
       artifact: signed-nuget

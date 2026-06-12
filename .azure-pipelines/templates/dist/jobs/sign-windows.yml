@@ -21,7 +21,7 @@ parameters:
 
 jobs:
 - job: SignWindows
-  displayName: Collect Windows Release Artifacts (No Signing Yet)
+  displayName: Windows Placeholder Pass-Through
   pool:
     vmImage: ${{ parameters.windows_pool }}
   steps:
@@ -73,14 +73,14 @@ jobs:
       foreach ($asset in $selected) {
         Copy-Item $asset.FullName -Destination (Join-Path $targetRoot $asset.Name) -Force
       }
-      Write-Host "Collected $($selected.Count) Windows artifact(s) for dummy signing."
-    displayName: Collect Windows Artifacts For Signing Placeholder
+      Write-Host "Collected $($selected.Count) Windows artifact(s) for placeholder pass-through."
+    displayName: Collect Windows Placeholder Artifacts
   - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
-    displayName: Generate SBOM For Windows Signing Placeholder Artifacts
+    displayName: Generate SBOM For Windows Placeholder Artifacts
     inputs:
       BuildDropPath: $(Build.ArtifactStagingDirectory)/signed-windows
   - task: PublishPipelineArtifact@1
-    displayName: Publish Signed Windows Artifacts
+    displayName: Publish Windows Placeholder Artifacts
     inputs:
       targetPath: $(Build.ArtifactStagingDirectory)/signed-windows
       artifact: signed-windows
