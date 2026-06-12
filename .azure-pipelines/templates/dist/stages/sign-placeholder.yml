@@ -110,47 +110,50 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: Download NuGet Placeholder Artifacts
       inputs:
-        buildType: current
-        artifactName: signed-nuget
-        targetPath: $(Pipeline.Workspace)/signed-nuget
+        artifact: signed-nuget
+        path: $(Pipeline.Workspace)/signed-nuget
 
     - task: DownloadPipelineArtifact@2
       displayName: Download Windows Placeholder Artifacts
       inputs:
-        buildType: current
-        artifactName: signed-windows
-        targetPath: $(Pipeline.Workspace)/signed-windows
+        artifact: signed-windows
+        path: $(Pipeline.Workspace)/signed-windows
 
     - task: DownloadPipelineArtifact@2
       displayName: Download Linux Placeholder Artifacts
       inputs:
-        buildType: current
-        artifactName: signed-linux
-        targetPath: $(Pipeline.Workspace)/signed-linux
+        artifact: signed-linux
+        path: $(Pipeline.Workspace)/signed-linux
 
     - task: DownloadPipelineArtifact@2
       displayName: Download macOS Placeholder Artifacts [arm64]
       inputs:
-        buildType: current
-        artifactName: signed-macos-arm64
-        targetPath: $(Pipeline.Workspace)/signed-macos/arm64
+        artifact: signed-macos-arm64
+        path: $(Pipeline.Workspace)/signed-macos/arm64
 
     - task: DownloadPipelineArtifact@2
       displayName: Download macOS Placeholder Artifacts [x64]
       inputs:
-        buildType: current
-        artifactName: signed-macos-x64
-        targetPath: $(Pipeline.Workspace)/signed-macos/x64
+        artifact: signed-macos-x64
+        path: $(Pipeline.Workspace)/signed-macos/x64
 
     - bash: |
         set -euo pipefail
         release_dir="$(Build.ArtifactStagingDirectory)/placeholder-signed-release"
         mkdir -p "$release_dir"
 
-        find "$(Pipeline.Workspace)/signed-nuget" -type f -exec cp -v {} "$release_dir/" \;
-        find "$(Pipeline.Workspace)/signed-windows" -type f -exec cp -v {} "$release_dir/" \;
-        find "$(Pipeline.Workspace)/signed-linux" -type f -exec cp -v {} "$release_dir/" \;
-        find "$(Pipeline.Workspace)/signed-macos" -type f -exec cp -v {} "$release_dir/" \;
+        copy_release_assets() {
+          local source_dir="$1"
+          find "$source_dir" -type f \
+            \( -name '*.nupkg' -o -name '*.zip' -o -name '*.tar.gz' \) \
+            ! -name '*.snupkg' \
+            -exec cp -v {} "$release_dir/" \;
+        }
+
+        copy_release_assets "$(Pipeline.Workspace)/signed-nuget"
+        copy_release_assets "$(Pipeline.Workspace)/signed-windows"
+        copy_release_assets "$(Pipeline.Workspace)/signed-linux"
+        copy_release_assets "$(Pipeline.Workspace)/signed-macos"
 
         count=$(find "$release_dir" -type f | wc -l | tr -d ' ')
         if [[ "$count" == "0" ]]; then

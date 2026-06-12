@@ -30,13 +30,13 @@ jobs:
     - task: DownloadPipelineArtifact@2
       displayName: Download Unsigned Distribution Artifacts
       inputs:
-        buildType: specific
+        source: specific
         project: ${{ parameters.SourceProject }}
-        definition: ${{ parameters.source_pipeline_name }}
-        buildVersionToDownload: specific
-        pipelineId: ${{ parameters.source_build_id }}
-        artifactName: ${{ parameters.source_artifact_name }}
-        targetPath: $(Pipeline.Workspace)/unsigned-all
+        pipeline: ${{ parameters.source_pipeline_name }}
+        runVersion: specific
+        runId: ${{ parameters.source_build_id }}
+        artifact: ${{ parameters.source_artifact_name }}
+        path: $(Pipeline.Workspace)/unsigned-all
     - bash: |
         set -euo pipefail
         source_root="$(Pipeline.Workspace)/unsigned-all"

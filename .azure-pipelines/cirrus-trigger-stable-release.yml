@@ -66,7 +66,7 @@ stages:
         repo='$(GitHubTargetRepo)'
         core_project='src/CLI/Core.Cli.csproj'
 
-        if [[ -z "${GH_TOKEN:-}" || "${GH_TOKEN:-}" == '$('* ]]; then
+        if [[ -z "${GH_TOKEN:-}" || "${GH_TOKEN:-}" == \$\(* ]]; then
           echo "ERROR: GitHubToken must be set as a secret pipeline variable exposed as GH_TOKEN. It is required to push the release PR branch and create the PR."
           exit 1
         fi
@@ -257,7 +257,7 @@ stages:
         source_ref="refs/remotes/origin/$source_branch"
         source_commit='$(Build.SourceVersion)'
 
-        if [[ -z "${GH_TOKEN:-}" || "${GH_TOKEN:-}" == '$('* ]]; then
+        if [[ -z "${GH_TOKEN:-}" || "${GH_TOKEN:-}" == \$\(* ]]; then
           echo "ERROR: GitHubToken must be set as a secret pipeline variable exposed as GH_TOKEN. It is required to push the stable tag."
           exit 1
         fi
