@@ -15,7 +15,7 @@ public static class LocalArtifactProbe
     /// </summary>
     public static string? Find(string packageId, string? startDirectory = null)
     {
-        if (string.IsNullOrWhiteSpace(packageId))
+        if (string.IsNullOrWhiteSpace(packageId) || !IsValidPackageId(packageId))
         {
             return null;
         }
@@ -69,5 +69,23 @@ public static class LocalArtifactProbe
             dir = dir.Parent;
         }
         return null;
+    }
+
+    /// <summary>
+    /// Validates that <paramref name="packageId"/> conforms to NuGet package id grammar
+    /// (letters, digits, '.', '-', '_'). Defense-in-depth: <c>packageId</c> is user-influenced
+    /// (dotted tokens pass through <c>Add.ResolvePackageId</c>), so a path-traversal token like
+    /// <c>"..\..\Windows\System32"</c> must not be combined with <c>repoRoot</c> and probed.
+    /// </summary>
+    private static bool IsValidPackageId(string packageId)
+    {
+        foreach (var c in packageId)
+        {
+            if (!(char.IsLetterOrDigit(c) || c == '.' || c == '-' || c == '_'))
+            {
+                return false;
+            }
+        }
+        return true;
     }
 }

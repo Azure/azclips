@@ -116,4 +116,25 @@ public class LocalArtifactProbeTests : IDisposable
 
         Assert.Null(result);
     }
+
+    [Theory]
+    [InlineData("../../../Windows/System32")]
+    [InlineData("..\\..\\..\\Windows\\System32")]
+    [InlineData("/etc/passwd")]
+    [InlineData("C:\\Windows")]
+    [InlineData("foo/bar")]
+    [InlineData("foo\\bar")]
+    [InlineData("foo bar")]
+    [InlineData("foo:bar")]
+    public void Find_ShouldReturnNull_OnPackageIdsWithInvalidChars(string packageId)
+    {
+        // Defense-in-depth: packageId is user-influenced (dotted tokens pass through
+        // Add.ResolvePackageId). A path-traversal or rooted token must not be combined
+        // with repoRoot and probed via Directory.Exists.
+        var repo = MakeFakeRepo(withSlnx: true);
+
+        var result = LocalArtifactProbe.Find(packageId, repo);
+
+        Assert.Null(result);
+    }
 }
