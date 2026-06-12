@@ -241,7 +241,8 @@ stages:
         git config user.email "cirrus-release-automation@microsoft.com"
         git add "$core_project"
         git commit -m "Bump CLI version to $target_version"
-        git -c http.extraheader="AUTHORIZATION: bearer $GH_TOKEN" push origin "HEAD:refs/heads/$release_branch"
+        basic_auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')"
+        git -c "http.https://github.com/$repo.git.extraheader=AUTHORIZATION: Basic $basic_auth" push "https://github.com/$repo.git" "HEAD:refs/heads/$release_branch"
 
         pr_title="Trigger stable release $target_version"
         pr_body="Updates src/CLI/Core.Cli.csproj to $target_version. After this PR merges to $target_branch, cirrus-trigger-stable-release will run again from the main version change, tag the merged commit as $tag_name, and start the stable build/sign/publish chain."
@@ -289,6 +290,7 @@ stages:
         source_branch='main'
         source_ref="refs/remotes/origin/$source_branch"
         source_commit='$(Build.SourceVersion)'
+        repo='$(GitHubTargetRepo)'
 
         if [[ -z "${GH_TOKEN:-}" || "${GH_TOKEN:-}" == \$\(* ]]; then
           echo "ERROR: GitHubToken must be set as a secret pipeline variable exposed as GH_TOKEN. It is required to push the stable tag."
@@ -435,7 +437,8 @@ stages:
         git config user.name "Cirrus Release Automation"
         git config user.email "cirrus-release-automation@microsoft.com"
         git tag -a "$tag_name" "$source_commit" -m "Release $tag_name"
-        git -c http.extraheader="AUTHORIZATION: bearer $GH_TOKEN" push origin "$tag_ref"
+        basic_auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')"
+        git -c "http.https://github.com/$repo.git.extraheader=AUTHORIZATION: Basic $basic_auth" push "https://github.com/$repo.git" "$tag_ref"
         echo "Created and pushed $tag_name. The tag trigger should start cirrus-stable-build."
 
         echo "##vso[task.setvariable variable=StableTagName]$tag_name"
