@@ -11,9 +11,37 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+function Assert-SafeResetPath {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Path,
+
+    [Parameter(Mandatory = $true)]
+    [string]$Name
+  )
+
+  if ([string]::IsNullOrWhiteSpace($Path)) {
+    throw "$Name must not be empty."
+  }
+
+  $fullPath = [System.IO.Path]::GetFullPath($Path)
+  $rootPath = [System.IO.Path]::GetPathRoot($fullPath)
+  $trimmedFullPath = $fullPath.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+  $trimmedRootPath = $rootPath.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+
+  if ($trimmedFullPath -eq $trimmedRootPath) {
+    throw "$Name resolves to a filesystem root and will not be reset: $fullPath"
+  }
+
+  return $fullPath
+}
+
 if (-not (Test-Path $UnsignedRoot)) {
   throw "Unsigned artifact root was not found: $UnsignedRoot"
 }
+
+$WorkingRoot = Assert-SafeResetPath -Path $WorkingRoot -Name 'WorkingRoot'
+$ReleaseRoot = Assert-SafeResetPath -Path $ReleaseRoot -Name 'ReleaseRoot'
 
 Remove-Item $WorkingRoot -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item $ReleaseRoot -Recurse -Force -ErrorAction SilentlyContinue
