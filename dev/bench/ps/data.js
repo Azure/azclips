@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781243499956,
+  "lastUpdate": 1781246655511,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus PS Benchmarks": [
@@ -714,6 +714,48 @@ window.BENCHMARK_DATA = {
             "value": 21671206,
             "unit": "ns",
             "range": "± 2857225.1591638695"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "naga.s.p.nandyala@gmail.com",
+            "name": "Naga Nandyala",
+            "username": "naga-nandyala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cd061c2fdcc4043b86df13f373ec474ab8008c3a",
+          "message": "Trigger stable release 0.1.2 (#280)\n\nUpdates src/CLI/Core.Cli.csproj to 0.1.2. After this PR merges to main,\ncirrus-trigger-stable-release will run again from the main version\nchange, tag the merged commit as v0.1.2, and start the stable\nbuild/sign/publish chain.\n\nCo-authored-by: Cirrus Release Automation <cirrus-release-automation@microsoft.com>",
+          "timestamp": "2026-06-12T16:41:02+10:00",
+          "tree_id": "364b38c3fcdc7c0d6dd7c2b300fb983efc386019",
+          "url": "https://github.com/Azure/cirrus/commit/cd061c2fdcc4043b86df13f373ec474ab8008c3a"
+        },
+        "date": 1781246655443,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 21153343.6,
+            "unit": "ns",
+            "range": "± 3134162.885886405"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 20360482.2,
+            "unit": "ns",
+            "range": "± 2209807.177463047"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 26549560.4,
+            "unit": "ns",
+            "range": "± 7840531.994990155"
           }
         ]
       }
