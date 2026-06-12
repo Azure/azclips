@@ -331,9 +331,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Compute
             },
             ParameterAliases: new Dictionary<string, string>()
         );
-        // Phase 9 (§11) multi-namespace stub: this leaf lives under the `disk` verb declared by the
-        // class-level [ExtensionVerb("disk")] attribute, proving that one extension can contribute
-        // to more than one top-level namespace.
+        // Lives under the `disk` verb declared by the class-level [ExtensionVerb("disk")]
+        // attribute — proves one extension can contribute to multiple top-level namespaces.
         private static readonly CommandMetadata s_listDisk_CLI = new(
             Name: "ListDiskProcessor",
             Aliases: [],

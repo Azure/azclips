@@ -25,7 +25,6 @@ namespace Core.Extensions
     /// <para>
     /// Verbs and namespaces are still useful as *suggestion* signals — see
     /// <see cref="SuggestPackageForToken"/> — but never as selectors for destructive ops.
-    /// (PR #253 review feedback.)
     /// </para>
     /// <para>Pure function — no IO. Tests live in <c>tests/Cli.Tests/RegistryLookupTests.cs</c>.</para>
     /// </remarks>

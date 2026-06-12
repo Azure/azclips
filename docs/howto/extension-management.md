@@ -38,14 +38,14 @@ azv2 extension add --name <token> [--version <v>] [--feed-url <url>] [--pin] [--
 azv2 extension add --path <path-to.nupkg> [--pin] [--force]
 ```
 
-| Flag | Purpose |
-|---|---|
-| `--name` | Package identifier. Accepts the full id (`Microsoft.Azure.Cirrus.Extensions.Compute`) or its short suffix (`Compute`). Verbs and namespaces (e.g. `vm`, `disk`) are **not** accepted — typing one returns a usage error pointing at the owning package id. The unit of install is a package, not a verb (the Compute package ships both `vm` and `disk`). |
-| `--version` | Specific version. Defaults to feed's latest. |
-| `--feed-url` | Override the configured NuGet feed. |
-| `--path` | Install from a local `.nupkg` (skips feed lookup entirely). |
-| `--pin` | Lock this version against future `extension update`. |
-| `--force` | Overwrite an existing pinned installation. The pin carries forward to the new version. |
+| Flag         | Purpose                                                                                                                                                                                                                                                                                                                                                   |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--name`     | Package identifier. Accepts the full id (`Microsoft.Azure.Cirrus.Extensions.Compute`) or its short suffix (`Compute`). Verbs and namespaces (e.g. `vm`, `disk`) are **not** accepted — typing one returns a usage error pointing at the owning package id. The unit of install is a package, not a verb (the Compute package ships both `vm` and `disk`). |
+| `--version`  | Specific version. Defaults to feed's latest.                                                                                                                                                                                                                                                                                                              |
+| `--feed-url` | Override the configured NuGet feed.                                                                                                                                                                                                                                                                                                                       |
+| `--path`     | Install from a local `.nupkg` (skips feed lookup entirely).                                                                                                                                                                                                                                                                                               |
+| `--pin`      | Lock this version against future `extension update`.                                                                                                                                                                                                                                                                                                      |
+| `--force`    | Overwrite an existing pinned installation. The pin carries forward to the new version.                                                                                                                                                                                                                                                                    |
 
 ### Resolving `--name`
 
@@ -220,25 +220,25 @@ $env:CIRRUS_NO_EXTENSION_CACHE = "true"
 
 ## Where things live
 
-| Path | Contents |
-|---|---|
-| `~/.cirrus/extensions/registry.json` | Installed-extension manifest (schema v2). Authoritative. |
-| `~/.cirrus/extensions/<packageId>/<version>/` | Extracted DLLs for one installed version. |
+| Path                                                  | Contents                                                                                         |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `~/.cirrus/extensions/registry.json`                  | Installed-extension manifest (schema v2). Authoritative.                                         |
+| `~/.cirrus/extensions/<packageId>/<version>/`         | Extracted DLLs for one installed version.                                                        |
 | `azv2.dll` (embedded resource `extension-hints.json`) | Build-time catalog of first-party verb → package mappings. Used for the unknown-verb suggestion. |
 
 ## Exit code reference
 
-| Code | Meaning |
-|---|---|
-| 0 | Success |
-| 1 | Generic error |
-| 2 | Usage error (bad args, unknown flag) |
-| 3 | `LeafConflict` |
-| 4 | `ExtensionNotFound` |
-| 5 | `FeedUnavailable` |
-| 6 | `PinViolation` |
-| 7 | `CompatibilityViolation` |
-| 8 | `RegistryConcurrency` |
-| 9 | `RegistryInvalid` |
+| Code | Meaning                              |
+| ---- | ------------------------------------ |
+| 0    | Success                              |
+| 1    | Generic error                        |
+| 2    | Usage error (bad args, unknown flag) |
+| 3    | `LeafConflict`                       |
+| 4    | `ExtensionNotFound`                  |
+| 5    | `FeedUnavailable`                    |
+| 6    | `PinViolation`                       |
+| 7    | `CompatibilityViolation`             |
+| 8    | `RegistryConcurrency`                |
+| 9    | `RegistryInvalid`                    |
 
 Programmatic callers should assert on the JSON `error.code` field, not the human-readable message.

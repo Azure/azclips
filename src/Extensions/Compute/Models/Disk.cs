@@ -6,9 +6,8 @@ using Microsoft.Azure.Cirrus.ExtensionRuntime.Json;
 namespace Microsoft.Azure.Cirrus.Extensions.Compute.Models;
 
 /// <summary>
-/// Minimal managed-disk resource representation. Phase 9 multi-namespace stub: the Compute
-/// extension contributes leaves under both <c>vm</c> and <c>disk</c> verbs to prove the
-/// multi-namespace dispatch model end-to-end.
+/// Minimal managed-disk resource representation. The Compute extension contributes leaves
+/// under both <c>vm</c> and <c>disk</c> verbs to exercise the multi-namespace dispatch model.
 /// </summary>
 public class Disk
 {

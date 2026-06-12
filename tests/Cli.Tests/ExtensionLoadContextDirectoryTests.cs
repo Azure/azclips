@@ -7,13 +7,9 @@ namespace Cli.Tests;
 /// <summary>
 /// Regression: <c>MultiVersionExtensionLoader.ExtensionLoadContext</c> must be constructed with
 /// the extension's *directory* (not its primary DLL path). Its <c>Load(AssemblyName)</c> override
-/// composes <c>Path.Combine(ExtensionDirectory, "...dll")</c> — passing the DLL path itself
-/// instead of the directory produced a non-existent path like <c>foo.dll/Other.dll</c>, breaking
-/// dependency resolution for any cache-bypassed extension.
-///
-/// The fix is mechanical (s/extensionPath/extensionDir/) but the regression is hard to catch
-/// behaviourally without a full extension fixture — this test pins the contract instead.
-/// (PR #253 review feedback.)
+/// composes <c>Path.Combine(ExtensionDirectory, "...dll")</c>; passing the DLL path itself
+/// produced non-existent paths like <c>foo.dll/Other.dll</c>, breaking dependency resolution
+/// for any cache-bypassed extension. Pins the contract.
 /// </summary>
 public class ExtensionLoadContextDirectoryTests
 {

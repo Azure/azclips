@@ -5,13 +5,10 @@ namespace Cli.Tests;
 
 /// <summary>
 /// Regression: <see cref="Constants.StripCirrusPrefix"/> must use a case-insensitive comparison.
-/// Registry keys are stored <see cref="System.StringComparer.OrdinalIgnoreCase"/> and NuGet
-/// package ids are case-insensitive, so a registry holding e.g.
+/// Registry keys and NuGet package ids are case-insensitive, so a registry holding e.g.
 /// <c>microsoft.azure.cirrus.extensions.compute</c> must still strip cleanly to <c>compute</c>.
-/// Pre-fix the strip used <see cref="System.StringComparison.Ordinal"/>; a lower-cased id passed
-/// straight through and the loader re-prepended the prefix, looking for
-/// <c>Microsoft.Azure.Cirrus.Extensions.microsoft.azure.cirrus.extensions.compute</c>.
-/// (PR #253 Copilot review feedback.)
+/// Pre-fix the strip used <see cref="System.StringComparison.Ordinal"/>, so a lower-cased id
+/// passed straight through and the loader re-prepended the prefix.
 /// </summary>
 public class StripCirrusPrefixTests
 {

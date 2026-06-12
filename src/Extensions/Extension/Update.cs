@@ -165,12 +165,9 @@ public class UpdateExtensionProcessor : IProcessor
                 contributions.Add(new Contribution { Verb = leafVerb, Path = leafPath });
             }
 
-            // Q6 strict single-version: only the just-installed version stays on disk. Order
-            // matters: persist the registry first, then purge old payload directories. If
-            // PurgeSiblingVersions ran before Save() and the Save then failed (e.g. concurrency
-            // conflict), we'd have deleted the previous-version files but the registry would
-            // still point at the old version — leaving the user with neither a working old
-            // install nor a recorded new install. (PR #253 review feedback.)
+            // Strict single-version: only the just-installed version stays on disk. Persist
+            // before purge — if Save fails (e.g. concurrency conflict), the previous payload
+            // survives and the registry still points at it.
             var newEntry = new ExtensionRegistryEntry
             {
                 Verb = primaryVerb,
@@ -220,12 +217,9 @@ public class UpdateExtensionProcessor : IProcessor
     }
 
     /// <summary>
-    /// Atomically replace the registry entry, persist via <paramref name="store"/>, then run
-    /// <paramref name="purgeAction"/>. Order matters: the purge runs only if <c>Save</c>
-    /// succeeds. If <c>Save</c> throws (e.g. <see cref="CirrusErrorException"/> with code
-    /// <c>RegistryConcurrency</c>), the purge is skipped so the previous-version payload remains
-    /// on disk and the registry is unchanged. Extracted for unit testing — IO lives in
-    /// <see cref="Process()"/>'s catch block. (PR #253 review feedback.)
+    /// Atomically replaces the registry entry and persists via <paramref name="store"/>, then
+    /// runs <paramref name="purgeAction"/> only if <c>Save</c> succeeded — a failed save leaves
+    /// the prior payload intact. Extracted for unit testing.
     /// </summary>
     public static void PersistAndPurge(
         IExtensionRegistryStore store,

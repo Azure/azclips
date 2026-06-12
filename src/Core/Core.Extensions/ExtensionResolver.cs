@@ -75,9 +75,9 @@ namespace Core.Extensions
                 return true;
             }
 
-            // Fall through to installed extensions. Phase 9: an entry may claim multiple
-            // namespaces (e.g. Compute contributes both `vm` and `disk`); consult Namespaces
-            // first, fall back to the legacy v1 `Verb` field or the first contribution.
+            // Fall through to installed extensions. An entry may claim multiple namespaces
+            // (e.g. Compute contributes both `vm` and `disk`); consult Namespaces first, fall
+            // back to the legacy v1 `Verb` field or the first contribution.
             var registry = _registryStore.Load();
             foreach (var (packageId, entry) in registry.Extensions)
             {

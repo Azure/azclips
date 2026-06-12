@@ -8,8 +8,8 @@ namespace Cli.Tests;
 /// Regression: pin/unpin must not lose the entry's <see cref="ExtensionRegistryEntry.Contributions"/>
 /// or <see cref="ExtensionRegistryEntry.Namespaces"/>. Before the fix, <c>PinHelper.SetPinned</c>
 /// rewrote the entry without copying those lists; on the next <c>Save()</c>, NormalizeEntry would
-/// synthesize a single <c>(verb, "")</c> contribution from the legacy <c>Verb</c> field, silently
-/// erasing every non-root leaf. (PR #253 review feedback.)
+/// synthesize a single <c>(verb, "")</c> contribution from the legacy <c>Verb</c> field, erasing
+/// every non-root leaf.
 /// </summary>
 public class ExtensionPinTests
 {

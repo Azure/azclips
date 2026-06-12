@@ -211,11 +211,11 @@ namespace Core.Extensions
 
         /// <summary>
         /// Brings an entry to v2 shape: synthesizes a single <c>(Verb, "")</c> contribution
-        /// from the legacy <c>Verb</c> field if no contributions are present, then re-derives the
-        /// <c>Namespaces</c> field from the distinct verbs in <c>Contributions</c>. Idempotent.
-        /// Whitespace in <c>Verb</c> and <c>Path</c> is trimmed; entries with whitespace-only
-        /// path are coerced to <see cref="string.Empty"/> so the dispatcher's empty-path branch
-        /// is taken (avoids spurious "verb  " keys with embedded double-space). (PR #253.)
+        /// from the legacy <c>Verb</c> field if no contributions are present, then re-derives
+        /// the <c>Namespaces</c> field from the distinct verbs in <c>Contributions</c>.
+        /// Idempotent. Whitespace in <c>Verb</c> and <c>Path</c> is trimmed; whitespace-only
+        /// paths are coerced to <see cref="string.Empty"/> so the dispatcher's empty-path
+        /// branch is taken (avoids spurious "verb  " keys with embedded double-space).
         /// </summary>
         private static void NormalizeEntry(ExtensionRegistryEntry entry)
         {

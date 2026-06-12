@@ -6,9 +6,9 @@ using Core.Extensions;
 namespace Core.Extensions.Tests
 {
     /// <summary>
-    /// Phase 9: a single registry entry may declare contributions to more than one top-level
-    /// namespace. These tests prove the model holds end-to-end at the index / resolver layer
-    /// using an in-memory Compute-shaped entry (<c>vm</c> + <c>disk</c>).
+    /// A single registry entry may declare contributions to more than one top-level namespace.
+    /// These tests exercise the model end-to-end at the index / resolver layer using an
+    /// in-memory Compute-shaped entry (<c>vm</c> + <c>disk</c>).
     /// </summary>
     public class MultiNamespaceTests
     {

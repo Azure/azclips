@@ -9,7 +9,6 @@ namespace Cli.Tests;
 /// Verifies <see cref="ShowExtensionProcessor.BuildResult"/> exposes the v2
 /// <see cref="ExtensionRegistryEntry.Namespaces"/> field. Without this, callers of
 /// <c>extension show</c> on a multi-namespace extension only saw the legacy single <c>Verb</c>.
-/// (PR #253 review feedback.)
 /// </summary>
 public class ExtensionShowTests
 {

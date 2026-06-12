@@ -7,11 +7,9 @@ namespace Cli.Tests;
 /// <summary>
 /// Drift guard: <see cref="BuiltInExtensions.Map"/> hand-maintains a <c>Leaves</c> array per
 /// built-in that must mirror that module's <c>s_cliTable</c> keys (minus the verb prefix).
-/// Without this test, adding/removing/renaming an entry in any built-in's <c>s_cliTable</c>
-/// without updating <c>BuiltInExtensions.Map</c> silently breaks dispatch's longest-prefix
-/// match — e.g. <c>azv2 extension search foo</c> falls into the verb-only fallback and joins
-/// <c>"search foo"</c> as the command name. Asserting the two sources agree turns that silent
-/// runtime regression into a CI failure. (PR #253 review feedback.)
+/// Otherwise dispatch's longest-prefix match silently breaks — e.g. <c>azv2 extension search
+/// foo</c> falls into the verb-only fallback and joins <c>"search foo"</c> as one command.
+/// Asserting the two sources agree turns that runtime regression into a CI failure.
 /// </summary>
 public class BuiltInExtensionsLeavesDriftTests
 {

@@ -6,11 +6,11 @@ namespace Cli.Tests;
 
 /// <summary>
 /// <c>extension add --name</c> accepts only package identifiers — a fully-qualified package id
-/// (passthrough) or a first-party short name (prefix-stripped). A bare token that matches a
-/// verb in the hint catalog is rejected with a usage error pointing at the owning package id.
+/// (passthrough) or a first-party short name (prefix-stripped). A bare token matching a verb
+/// in the hint catalog is rejected with a usage error pointing at the owning package id.
 /// Verbs are sub-units of a package; accepting them as install identifiers would silently pull
-/// in unrelated sibling verbs (Compute ships <c>vm</c> and <c>disk</c>). Symmetric with the
-/// remove/show/update/pin/unpin commands. (PR #253 review feedback.)
+/// in unrelated sibling verbs (Compute ships <c>vm</c> and <c>disk</c>). Symmetric with
+/// remove/show/update/pin/unpin.
 /// </summary>
 public class ExtensionAddNameResolutionTests
 {

@@ -419,7 +419,7 @@ namespace Core.Extensions.Tests
             Assert.True(live.Extensions.ContainsKey("Pkg.A"));
         }
 
-        // --- PR #253 hardening: NormalizeEntry trims whitespace and detects intra-entry dupes. ---
+        // --- NormalizeEntry trims whitespace and detects intra-entry dupes. ---
 
         [Fact]
         public void Save_ShouldTrimWhitespaceFromVerbAndPath()

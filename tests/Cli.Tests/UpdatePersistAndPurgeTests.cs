@@ -8,7 +8,7 @@ namespace Cli.Tests;
 /// Regression: <c>extension update</c> must persist the registry before purging old payload
 /// directories. Pre-fix order was <c>PurgeSiblingVersions(...)</c> then <c>store.Save(registry)</c>;
 /// if Save threw (concurrency conflict) the user lost the old payload AND had no recorded new
-/// install. (PR #253 review feedback.)
+/// install.
 /// </summary>
 public class UpdatePersistAndPurgeTests
 {

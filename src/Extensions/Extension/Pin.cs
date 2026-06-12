@@ -107,11 +107,10 @@ public static class PinHelper
     /// Extracted for unit testing — IO lives in <see cref="SetPinned"/>.
     /// </summary>
     /// <remarks>
-    /// Crucially, the rewritten entry copies <see cref="ExtensionRegistryEntry.Contributions"/>
-    /// and <see cref="ExtensionRegistryEntry.Namespaces"/> from the existing entry. Without this,
-    /// <c>FileExtensionRegistryStore.Save()</c>'s NormalizeEntry would synthesize a single
-    /// <c>(verb, "")</c> contribution from the legacy <c>Verb</c> field, silently erasing every
-    /// non-root leaf and breaking dispatch after pin/unpin. (PR #253 review feedback.)
+    /// The rewritten entry copies <see cref="ExtensionRegistryEntry.Contributions"/> and
+    /// <see cref="ExtensionRegistryEntry.Namespaces"/> from the existing entry. Otherwise
+    /// <c>NormalizeEntry</c> would synthesize a single <c>(verb, "")</c> contribution from
+    /// the legacy <c>Verb</c> field, erasing every non-root leaf.
     /// </remarks>
     public static (string PackageId, ExtensionRegistryEntry Entry, bool Mutated) ApplyPinChange(
         ExtensionRegistry registry,

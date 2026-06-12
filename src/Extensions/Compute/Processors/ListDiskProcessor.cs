@@ -7,10 +7,9 @@ using Microsoft.Azure.Cirrus.Extensions.Compute.Models;
 namespace Microsoft.Azure.Cirrus.Extensions.Compute.Processors;
 
 /// <summary>
-/// Lists managed disks in a resource group. Phase 9 multi-namespace stub: this is the
-/// minimum-viable second-namespace leaf so the Compute extension can prove the
-/// <c>[ExtensionVerb("vm")] [ExtensionVerb("disk")]</c> contract end-to-end. Wired through
-/// <see cref="ExtensionIndex"/>'s <c>s_cliTable</c> as <c>disk list</c>.
+/// Lists managed disks in a resource group. Minimum-viable second-namespace leaf — proves the
+/// Compute extension's <c>[ExtensionVerb("vm")] [ExtensionVerb("disk")]</c> contract holds
+/// end-to-end. Wired through <see cref="ExtensionIndex"/>'s <c>s_cliTable</c> as <c>disk list</c>.
 /// </summary>
 public class ListDiskProcessor : ComputeProcessorBase<Disk>
 {

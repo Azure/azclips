@@ -271,22 +271,17 @@ public class AddExtensionProcessor : IProcessor
     }
 
     /// <summary>
-    /// Resolve the user-supplied <c>--name</c> token to a NuGet package id. Verbs are explicitly
-    /// **not** valid identifiers for install — a single package can contribute many verbs (Compute
-    /// owns both <c>vm</c> and <c>disk</c>), so accepting a verb here would silently install the
-    /// whole package while making the user think they were adding a discrete unit. Symmetric with
-    /// the remove/show/update/pin/unpin commands, which also reject verb tokens. (PR #253 review
-    /// feedback.)
+    /// Resolve the user-supplied <c>--name</c> token to a NuGet package id. Verbs are not valid
+    /// install identifiers — a single package can contribute many verbs (Compute owns both
+    /// <c>vm</c> and <c>disk</c>), so accepting a verb would silently install the whole package.
+    /// Symmetric with the remove/show/update/pin/unpin commands.
     /// <list type="number">
-    ///   <item>If the token contains a dot, treat it as a fully-qualified package id and pass it
-    ///         through unchanged (e.g. <c>Contoso.Foo</c>, <c>Microsoft.Azure.Cirrus.Extensions.Compute</c>).</item>
-    ///   <item>If the token matches a verb in the embedded <see cref="ExtensionHintTable"/>, throw
-    ///         a <see cref="CirrusErrorException.UsageError(string, IReadOnlyDictionary{string, object?}?)"/>
-    ///         pointing the user at the owning package id. The hint table is the same one that
-    ///         powers the dispatcher's "did you mean" suggestion, so the error message is precise.</item>
-    ///   <item>Otherwise fall back to the legacy <c>Microsoft.Azure.Cirrus.Extensions.{name}</c>
-    ///         prefix-strip convention for first-party short names (e.g. <c>Resources</c>,
-    ///         <c>Compute</c>).</item>
+    ///   <item>Dotted token → passthrough (e.g. <c>Contoso.Foo</c>, <c>Microsoft.Azure.Cirrus.Extensions.Compute</c>).</item>
+    ///   <item>Bare token matching a verb in <see cref="ExtensionHintTable"/> → throw
+    ///         <see cref="CirrusErrorException.UsageError(string, IReadOnlyDictionary{string, object?}?)"/>
+    ///         pointing at the owning package id.</item>
+    ///   <item>Otherwise → legacy <c>Microsoft.Azure.Cirrus.Extensions.{name}</c> prefix-strip
+    ///         (first-party short names like <c>Resources</c>, <c>Compute</c>).</item>
     /// </list>
     /// </summary>
     public static string ResolvePackageId(string name, ExtensionHintTable hints)

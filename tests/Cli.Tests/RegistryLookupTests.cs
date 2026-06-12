@@ -8,7 +8,7 @@ namespace Cli.Tests;
 /// or short suffix). Verbs and namespaces are intentionally rejected so destructive ops like
 /// <c>extension remove --name disk</c> can't silently uninstall the entire Compute package.
 /// <see cref="RegistryLookup.SuggestPackageForToken"/> still exposes the verb/namespace
-/// association for diagnostic "did you mean" hints. (PR #253 review feedback.)
+/// association for diagnostic "did you mean" hints.
 /// </summary>
 public class RegistryLookupTests
 {

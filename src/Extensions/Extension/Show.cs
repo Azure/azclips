@@ -60,12 +60,10 @@ public class ShowExtensionProcessor : IProcessor
     }
 
     /// <summary>
-    /// Pure projection helper: shapes the public output for <c>extension show</c>. Surfaces v2
+    /// Pure projection helper for <c>extension show</c>. Surfaces v2
     /// <see cref="ExtensionRegistryEntry.Namespaces"/> alongside the legacy single
-    /// <see cref="ExtensionRegistryEntry.Verb"/> so multi-namespace extensions are
-    /// introspectable. <c>Namespaces</c> is empty for legacy v1 entries; in that case we fall
-    /// back to the singleton verb so the field is always populated for the user. Extracted for
-    /// unit testing — IO lives in <see cref="Process()"/>. (PR #253 review feedback.)
+    /// <see cref="ExtensionRegistryEntry.Verb"/>; falls back to the singleton verb when
+    /// <c>Namespaces</c> is empty (legacy v1 entries) so the field is always populated.
     /// </summary>
     public static object BuildResult(string packageId, ExtensionRegistryEntry entry)
     {
