@@ -2,7 +2,6 @@ using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
 using Core.Extensions;
-using Core.Runtime;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Extension.Processors;
 
@@ -124,7 +123,7 @@ public class AddExtensionProcessor : IProcessor
 
         try
         {
-            // Compatibility check (spec §6) before any expensive validation. Reads
+            // Compatibility check before any expensive validation. Reads
             // [CirrusCompatibility] via MetadataLoadContext (no exec); failure rolls back below.
             // TODO: replace literal "1.0.0" with a single host-version source-of-truth.
             var compatResult = CompatibilityGuard.CheckAssembly(installPath, currentCoreVersion: "1.0.0");
@@ -140,8 +139,8 @@ public class AddExtensionProcessor : IProcessor
                     });
             }
 
-            // Read declared verb(s) from installed DLLs without executing extension code
-            // (spec §5.2). [ExtensionVerb] is repeatable; an extension may claim multiple namespaces.
+            // Read declared verb(s) from installed DLLs without executing extension code.
+            // [ExtensionVerb] is repeatable; an extension may claim multiple namespaces.
             var verbs = ExtensionVerbReader.ReadVerbs(installPath);
             if (verbs.Count == 0)
             {

@@ -5,7 +5,7 @@ namespace Core.Extensions;
 /// programmatic callers and a numeric <see cref="ExitCode"/> for shell scripts.
 /// </summary>
 /// <remarks>
-/// Per <c>docs/spec/extension-management.md \u00a74.4</c>:
+/// Exit codes:
 /// <list type="bullet">
 ///   <item>0 success</item>
 ///   <item>1 generic error</item>
@@ -38,9 +38,9 @@ public class CirrusErrorException : Exception
         => new("VerbConflict", 3, message, details);
 
     /// <summary>
-    /// Leaf-level conflict (spec §3.2 / §5.2): two extensions claim the same <c>(verb, path)</c>
-    /// tuple, or an extension claims a leaf already provided by a built-in. Shares the same
-    /// exit-code lane as <see cref="VerbConflict"/> since both express "namespace collision".
+    /// Leaf-level conflict: two extensions claim the same <c>(verb, path)</c> tuple, or an
+    /// extension claims a leaf already provided by a built-in. Shares the same exit-code lane
+    /// as <see cref="VerbConflict"/> since both express "namespace collision".
     /// </summary>
     public static CirrusErrorException LeafConflict(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new("LeafConflict", 3, message, details);
@@ -58,10 +58,10 @@ public class CirrusErrorException : Exception
         => new("UsageError", 2, message, details);
 
     /// <summary>
-    /// Compatibility violation (spec §6): the extension's <c>[CirrusCompatibility]</c>
-    /// declared range excludes the current core version, or the host requires a newer version of
-    /// this specific extension via <c>HostExtensionRequirements</c>. Surfaced at install time as
-    /// a hard error with no disk write; surfaced at load time as a warn-and-skip log line.
+    /// Compatibility violation: the extension's <c>[CirrusCompatibility]</c> declared range
+    /// excludes the current core version, or the host requires a newer version of this
+    /// specific extension via <c>HostExtensionRequirements</c>. Surfaced at install time as a
+    /// hard error with no disk write; surfaced at load time as a warn-and-skip log line.
     /// </summary>
     public static CirrusErrorException CompatibilityViolation(string message, IReadOnlyDictionary<string, object?>? details = null)
         => new("CompatibilityViolation", 7, message, details);

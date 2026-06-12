@@ -30,8 +30,8 @@ namespace Core.Extensions
     /// routes to a package that's no longer there.
     /// </summary>
     /// <remarks>
-    /// Per <c>docs/spec/extension-management.md §4.7</c>: non-destructive — the caller decides
-    /// whether to write the live view back to disk or just inform the user.
+    /// Non-destructive — the caller decides whether to write the live view back to disk or
+    /// just inform the user.
     /// </remarks>
     public static class RegistryReconciler
     {

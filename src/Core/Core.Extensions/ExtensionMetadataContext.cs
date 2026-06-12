@@ -4,7 +4,7 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
 
-namespace Core.Runtime
+namespace Core.Extensions
 {
     /// <summary>
     /// Builds a <see cref="MetadataLoadContext"/> that can resolve TypeRefs for an extension's

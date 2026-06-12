@@ -24,8 +24,8 @@ namespace Core.Extensions
     }
 
     /// <summary>
-    /// Static seed of built-in extensions. Per <c>docs/spec/extension-management.md §3</c> ("True core"),
-    /// the only true built-ins are <c>extension</c>, <c>login</c>, and <c>config</c>.
+    /// Static seed of built-in extensions. The "true core" set is <c>extension</c>,
+    /// <c>login</c>, and <c>config</c>.
     /// </summary>
     /// <remarks>
     /// Verb conflicts: a built-in always wins over a registry entry. <c>extension add</c> must refuse

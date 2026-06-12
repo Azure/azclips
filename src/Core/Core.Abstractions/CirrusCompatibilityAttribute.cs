@@ -8,8 +8,8 @@ namespace Core.Abstractions
     /// Applied at the assembly level on extension DLLs.
     /// </summary>
     /// <remarks>
-    /// Per <c>docs/spec/extension-management.md §6</c>: the host enforces this range
-    /// at install time (hard fail, exit 7) and at load time (warn-and-skip). Both fields are
+    /// The host enforces this range at install time (hard fail, exit 7) and at load time
+    /// (warn-and-skip). Both fields are
     /// optional — a missing or unparseable bound is treated as "no bound on that side"
     /// (tolerant default, mirroring az-cli's <c>ext_compat_with_cli</c>). A missing attribute
     /// entirely is treated as compatible: extensions built before this attribute existed

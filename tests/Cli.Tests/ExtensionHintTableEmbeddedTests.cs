@@ -27,8 +27,8 @@ public class ExtensionHintTableEmbeddedTests
     [Fact]
     public void Default_ShouldEmitObjectShapedLeafEntries()
     {
-        // Per spec §8.1: leaves are objects (not bare strings) so optional compat fields can be
-        // added later without re-bumping schemaVersion. Spot-check the well-known "vm" leaf.
+        // Leaves are objects (not bare strings) so optional compat fields can be added later
+        // without re-bumping schemaVersion. Spot-check the well-known "vm" leaf.
         var table = ExtensionHintTable.Default;
         Assert.True(table.Leaves.TryGetValue("vm", out var vm),
             "Expected 'vm' leaf in embedded hints (Compute extension).");

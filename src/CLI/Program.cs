@@ -191,8 +191,8 @@ public class Program
     }
 
     // Strips `--output json` / `--output plain` (and `--output=json`) from args and reports
-    // whether JSON shape was requested. Per docs/spec/extension-management.md §4.4: when
-    // `--output json` is active, errors render as { "error": { code, message, details } }.
+    // whether JSON shape was requested. When `--output json` is active, errors render as
+    // { "error": { code, message, details } }.
     private static string[] ParseOutputFlag(string[] args, out bool outputJson)
     {
         outputJson = false;

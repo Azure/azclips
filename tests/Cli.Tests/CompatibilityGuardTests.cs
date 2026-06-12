@@ -3,7 +3,7 @@
 
 using System.Reflection;
 using Core.Abstractions;
-using Core.Runtime;
+using Core.Extensions;
 using Xunit;
 
 namespace Cli.Tests;

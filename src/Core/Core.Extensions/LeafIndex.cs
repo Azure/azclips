@@ -5,7 +5,7 @@ namespace Core.Extensions
 {
     /// <summary>
     /// A single leaf in the dispatch table: the namespace verb, the path within it, and the
-    /// package that owns it. See <c>docs/spec/extension-management.md §4.4</c> ("Dispatch flow").
+    /// package that owns it.
     /// </summary>
     /// <param name="Verb">Top-level namespace (e.g. <c>"vm"</c>).</param>
     /// <param name="Path">Path within the namespace (e.g. <c>"create"</c>, or <c>""</c> for the root).</param>
@@ -21,7 +21,6 @@ namespace Core.Extensions
     /// <summary>
     /// Read-only <c>(verb, path) -&gt; <see cref="LeafEntry"/></c> index built from the merged
     /// built-in seed and on-disk registry. Drives the dispatcher's longest-prefix match.
-    /// See spec §4.1 / §4.4.
     /// </summary>
     public sealed class LeafIndex
     {
@@ -57,8 +56,8 @@ namespace Core.Extensions
 
         /// <summary>
         /// Builds an index from the supplied built-in seed and registry. Duplicate <c>(verb, path)</c>
-        /// pairs across sources fail fast \u2014 mirroring the spec's "hard error on duplicate leaf"
-        /// rule (\u00a711.4). Built-ins are emitted as <c>(verb, "")</c> root leaves.
+        /// pairs across sources fail fast \u2014 duplicate leaves are a hard error. Built-ins
+        /// are emitted as <c>(verb, "")</c> root leaves.
         /// </summary>
         /// <param name="builtIns">Map from verb to built-in descriptor (e.g. <see cref="BuiltInExtensions.Map"/>).</param>
         /// <param name="registry">Loaded registry (post v1\u2192v2 normalization).</param>

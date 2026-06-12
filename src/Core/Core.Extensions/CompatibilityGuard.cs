@@ -4,7 +4,7 @@
 using System.Reflection;
 using NuGet.Versioning;
 
-namespace Core.Runtime
+namespace Core.Extensions
 {
     /// <summary>
     /// Enforces <c>[CirrusCompatibility(MinCoreVersion, MaxCoreVersion)]</c> ranges against a
@@ -12,7 +12,7 @@ namespace Core.Runtime
     /// (hard fail) and load (warn-and-skip) sites.
     /// </summary>
     /// <remarks>
-    /// Per <c>docs/spec/extension-management.md §6</c>:
+    /// Behavior:
     /// <list type="bullet">
     ///   <item>Missing attribute &#x2192; assumed compatible. Tolerates pre-attribute extensions.</item>
     ///   <item>Either bound missing &#x2192; that side is unbounded.</item>

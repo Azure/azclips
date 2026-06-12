@@ -15,6 +15,10 @@
       <Using Namespace="System.Text.RegularExpressions" />
       <Using Namespace="System.Collections.Generic" />
       <Code Type="Fragment" Language="cs"><![CDATA[
+        // TODO(multi-host): the scanner is hardcoded to s_cliTable initializers and emits a
+        // CLI-shaped hint table. When another host (e.g. TUI) needs install-suggestion hints,
+        // either parameterize the table-field name (s_cliTable / s_tuiTable / ...) and emit
+        // per-host hint tables, or unify on a single client-keyed table at the source.
         var verbAttrPattern = new Regex(@"\[\s*ExtensionVerb\s*\(\s*""([^""]+)""\s*\)\s*\]", RegexOptions.Multiline);
         var cliTableBlock = new Regex(
           @"s_cliTable\s*=\s*new[^{}]*\{(?<body>[^{}]*)\}",
@@ -66,10 +70,9 @@
             }
             if (string.IsNullOrEmpty(packageId)) { continue; }
 
-            // Phase 9 (Q10): per-project, collect declared [ExtensionVerb] verbs and the first
-            // token of every s_cliTable key. Every leaf's first token must appear in the
-            // declared set, otherwise the project's verb / leaf surface is inconsistent and we
-            // fail the build at PR time.
+            // Per-project, collect declared [ExtensionVerb] verbs and the first token of every
+            // s_cliTable key. Every leaf's first token must appear in the declared set,
+            // otherwise the project's verb / leaf surface is inconsistent and we fail the build.
             var projectVerbs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var projectLeaves = new List<string>();
 
@@ -144,9 +147,9 @@
         foreach (var kv in leafToPackage)
         {
           var comma = (++i == leafToPackage.Count) ? "" : ",";
-          // Per spec §8.1: per-leaf entries are objects so optional fields (minCoreVersion /
-          // maxCoreVersion, reserved for the vNext feed half) can be added without a schema
-          // bump. v1 first-party output only populates packageId.
+          // Per-leaf entries are objects so optional fields (minCoreVersion / maxCoreVersion,
+          // reserved for the vNext feed half) can be added without a schema bump. v1
+          // first-party output only populates packageId.
           sb.Append("    \"").Append(kv.Key).Append("\": { \"packageId\": \"").Append(kv.Value).Append("\" }").AppendLine(comma);
         }
         sb.AppendLine("  }");

@@ -15,16 +15,16 @@ namespace Core.Extensions
     /// <remarks>
     /// Consulted by the dispatcher when both the live <c>LeafIndex</c> and verb resolver miss, so
     /// we can produce a precise <c>extension add</c> suggestion instead of a generic
-    /// "command not found." Per <c>docs/spec/extension-management.md §7.3</c>: covers the
-    /// "unknown verb" case (no installed package at all) and the "verb partially served, leaf
-    /// missing" case (e.g. another extension claims <c>vm</c> but not <c>vm scale</c>).
+    /// "command not found." Covers the "unknown verb" case (no installed package at all) and
+    /// the "verb partially served, leaf missing" case (e.g. another extension claims
+    /// <c>vm</c> but not <c>vm scale</c>).
     /// </remarks>
     /// <summary>
     /// Per-leaf entry in <see cref="ExtensionHintTable"/>. The object shape (instead of a bare
-    /// package-id string) is the feed-ready commitment from <c>docs/spec/extension-management.md
-    /// §8.1</c>: optional fields can be added without re-bumping <c>schemaVersion</c>. Compat
-    /// fields (<see cref="MinCoreVersion"/> / <see cref="MaxCoreVersion"/>) are reserved for the
-    /// vNext feed half (Q26) and stay unset for v1 first-party output.
+    /// package-id string) is a feed-ready commitment: optional fields can be added without
+    /// re-bumping <c>schemaVersion</c>. Compat fields (<see cref="MinCoreVersion"/> /
+    /// <see cref="MaxCoreVersion"/>) are reserved for the vNext feed half and stay unset for
+    /// v1 first-party output.
     /// </summary>
     /// <remarks>
     /// Unknown JSON properties on this object are tolerated — the reader uses default

@@ -7,8 +7,8 @@ namespace Core.Abstractions
     /// Declares a top-level verb (command group name) that an extension claims.
     /// </summary>
     /// <remarks>
-    /// See <c>docs/spec/extension-management.md §4.2</c>: an extension may declare <em>one or
-    /// more</em> top-level verbs by applying this attribute repeatedly to its
+    /// An extension may declare <em>one or more</em> top-level verbs by applying this
+    /// attribute repeatedly to its
     /// <c>IExtensionIndex</c> implementer. Each declared verb becomes a namespace the extension
     /// contributes leaves to; every <c>s_cliTable</c> key's first token must match one of the
     /// declared verbs.

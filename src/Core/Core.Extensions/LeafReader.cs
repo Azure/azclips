@@ -7,10 +7,10 @@ using System.Runtime.Loader;
 namespace Core.Extensions
 {
     /// <summary>
-    /// Reads the leaves contributed by an extension (its <c>s_cliTable</c> keys, in full-path form
-    /// per <c>docs/spec/extension-management.md §4.2</c>) by loading the extension into a
-    /// throwaway collectible <see cref="AssemblyLoadContext"/>, instantiating its
-    /// <c>IExtensionIndex</c> via reflection, and calling <c>GetCommandKeys(ClientType.CLI)</c>.
+    /// Reads the leaves contributed by an extension (its <c>s_cliTable</c> keys, in full-path
+    /// form) by loading the extension into a throwaway collectible
+    /// <see cref="AssemblyLoadContext"/>, instantiating its <c>IExtensionIndex</c> via
+    /// reflection, and calling <c>GetCommandKeys(ClientType.CLI)</c>.
     /// </summary>
     /// <remarks>
     /// Used by <c>extension add</c> to enumerate the candidate's contributions before committing
@@ -20,6 +20,10 @@ namespace Core.Extensions
     /// materialize the dictionary, but the ALC is unloaded after the read so any side effects are
     /// scoped to a single GC cycle.
     /// </remarks>
+    // TODO(multi-host): this reader is hardcoded to ClientType.CLI and named after CLI leaves
+    // (ReadCliLeafKeys, s_cliTable). When a second host (e.g. TUI) needs leaf enumeration,
+    // parameterize the ClientType passed to GetCommandKeys and rename to ReadLeafKeys.
+    // The on-the-wire enum already exists in Core.Abstractions; the change is contained.
     public static class LeafReader
     {
         // The attribute name string we use to find the IExtensionIndex implementer without a
