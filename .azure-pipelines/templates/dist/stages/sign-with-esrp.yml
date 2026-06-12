@@ -701,12 +701,12 @@ stages:
         artifact: signed-windows
         publishLocation: pipeline
 
-- stage: CollectLinuxArtifacts
-  displayName: Collect Linux Artifacts
+- stage: SignLinuxArtifacts
+  displayName: Sign Linux Artifacts (Placeholder)
   dependsOn: ${{ parameters.dependency_stage }}
   jobs:
-  - job: CollectLinux
-    displayName: Collect Linux Release Artifacts
+  - job: SignLinux
+    displayName: Collect Linux Release Artifacts (No Signing Yet)
     pool:
       vmImage: ${{ parameters.ubuntu_pool }}
     steps:
@@ -724,7 +724,7 @@ stages:
     - bash: |
         set -euo pipefail
         source_root="$(Pipeline.Workspace)/unsigned-all"
-        out_dir="$(Build.ArtifactStagingDirectory)/collected-linux"
+        out_dir="$(Build.ArtifactStagingDirectory)/signed-linux"
         arch_csv='${{ join(',', parameters.linux_collect_architectures) }}'
         mkdir -p "$out_dir"
 
@@ -761,16 +761,16 @@ stages:
         for asset in "${linux_assets[@]}"; do
           cp "$asset" "$out_dir/"
         done
-      displayName: Collect Linux Release Artifacts
+      displayName: Collect Linux Release Artifacts For Signing Placeholder
     - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
-      displayName: Generate SBOM For Collected Linux Artifacts
+      displayName: Generate SBOM For Linux Signing Placeholder Artifacts
       inputs:
-        BuildDropPath: $(Build.ArtifactStagingDirectory)/collected-linux
+        BuildDropPath: $(Build.ArtifactStagingDirectory)/signed-linux
     - task: PublishPipelineArtifact@1
-      displayName: Publish Collected Linux Artifacts
+      displayName: Publish Signed Linux Artifacts
       inputs:
-        targetPath: $(Build.ArtifactStagingDirectory)/collected-linux
-        artifact: collected-linux
+        targetPath: $(Build.ArtifactStagingDirectory)/signed-linux
+        artifact: signed-linux
         publishLocation: pipeline
 
 - stage: SignMacOSArtifacts
@@ -1405,7 +1405,7 @@ stages:
 
 - stage: ValidateLinuxArtifacts
   displayName: Validate Linux Artifacts
-  dependsOn: CollectLinuxArtifacts
+  dependsOn: SignLinuxArtifacts
   jobs:
   - job: ValidateLinux
     displayName: Validate Linux Artifact Set
@@ -1414,16 +1414,16 @@ stages:
     steps:
     - checkout: none
     - task: DownloadPipelineArtifact@2
-      displayName: Download Collected Linux Artifacts
+      displayName: Download Signed Linux Artifacts
       inputs:
         buildType: current
-        artifactName: collected-linux
-        targetPath: $(Pipeline.Workspace)/collected-linux
+        artifactName: signed-linux
+        targetPath: $(Pipeline.Workspace)/signed-linux
     - bash: |
         set -euo pipefail
-        count=$(find "$(Pipeline.Workspace)/collected-linux" -type f \( -name '*linux*.tar.gz' -o -name '*linux*.zip' \) | wc -l | tr -d ' ')
+        count=$(find "$(Pipeline.Workspace)/signed-linux" -type f \( -name '*linux*.tar.gz' -o -name '*linux*.zip' \) | wc -l | tr -d ' ')
         if [[ "$count" == "0" ]]; then
-          echo 'ERROR: No Linux artifacts found after collection.'
+          echo 'ERROR: No Linux artifacts found after signing placeholder stage.'
           exit 1
         fi
         echo "Linux artifact count: $count"
@@ -1538,11 +1538,11 @@ stages:
         targetPath: $(Pipeline.Workspace)/signed-nuget
 
     - task: DownloadPipelineArtifact@2
-      displayName: Download Collected Linux Artifacts
+      displayName: Download Signed Linux Artifacts
       inputs:
         buildType: current
-        artifactName: collected-linux
-        targetPath: $(Pipeline.Workspace)/collected-linux
+        artifactName: signed-linux
+        targetPath: $(Pipeline.Workspace)/signed-linux
 
     - task: DownloadPipelineArtifact@2
       displayName: Download Signed macOS Artifacts [arm64]
@@ -1565,7 +1565,7 @@ stages:
 
         cp -v "$(Pipeline.Workspace)/signed-windows"/* "$release_dir/" 2>/dev/null || true
         cp -v "$(Pipeline.Workspace)/signed-nuget"/* "$release_dir/" 2>/dev/null || true
-        cp -v "$(Pipeline.Workspace)/collected-linux"/* "$release_dir/" 2>/dev/null || true
+        cp -v "$(Pipeline.Workspace)/signed-linux"/* "$release_dir/" 2>/dev/null || true
         find "$(Pipeline.Workspace)/signed-macos" -maxdepth 2 -type f -exec cp -v {} "$release_dir/" \;
 
         python3 - <<'PY'

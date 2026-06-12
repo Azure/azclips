@@ -4,8 +4,8 @@ This document describes the full signing implementation currently used in `cirru
 
 Scope covered:
 - Entry signing pipeline and stage template orchestration
-- ESRP-based NuGet and Windows signing
-- Linux/macOS artifact collection behavior
+- ESRP-based NuGet, Windows, and macOS signing/notarization
+- Linux signing placeholder behavior
 - Validation and final assembly flow
 - Supporting PowerShell scripts used by signing jobs
 - Known failure modes and the exact mitigations in the current implementation
@@ -30,8 +30,8 @@ The signing flow is stage-fanout + validation + fanin assembly:
 flowchart TD
   P[Preflight] --> N[SignNugetArtifacts]
   P --> W[SignWindowsArtifacts]
-  P --> L[CollectLinuxArtifacts]
-  P --> M[CollectMacOSArtifacts]
+  P --> L[SignLinuxArtifacts]
+  P --> M[SignMacOSArtifacts]
 
   N --> VN[ValidateNugetArtifacts]
   W --> VW[ValidateWindowsArtifacts]
@@ -46,7 +46,8 @@ flowchart TD
 
 Key intent:
 - Windows and NuGet are signed in ESRP.
-- Linux/macOS are collected as release artifacts (no ESRP signing in this pipeline).
+- Linux is currently a signing placeholder that passes through selected release artifacts as `signed-linux`.
+- macOS binaries are signed through ESRP, bundled for notarization, notarized through ESRP, and repacked as `signed-macos-*` artifacts.
 - Final stage assembles all validated artifacts into one publishable output.
 
 ## 3. Archived Entry Pipeline: `.azure-pipelines/_archive/cirrus-adhoc-sign.yml`
@@ -141,19 +142,33 @@ Current Windows ESRP settings (important):
 - Optional ESRP-side `SigntoolVerify` pass is available per binary class.
 - `batchSignPolicyFile: ''` and `ciPolicyFile: ''` are explicitly set empty to avoid malformed path injection.
 
-### C) `CollectLinuxArtifacts`
-Purpose: collect Linux release payloads and publish `collected-linux`.
+### C) `SignLinuxArtifacts`
+Purpose: act as the Linux signing placeholder, collect Linux release payloads, and publish `signed-linux`.
+
+Current behavior:
+- No Linux code-signing operation is performed yet.
+- The stage intentionally mirrors the platform signing stage shape so future Linux signing can be added without changing downstream validation and assembly structure.
 
 Selection patterns:
 - `*linux*.tar.gz`
 - `*linux*.zip`
 
-### D) `CollectMacOSArtifacts`
-Purpose: collect macOS release payloads and publish `collected-macos`.
+### D) `SignMacOSArtifacts`
+Purpose: Developer ID sign macOS Mach-O binaries, notarize macOS bundles, and publish `signed-macos-<architecture>` artifacts.
 
 Selection patterns include:
-- `*mac*.tar.gz`, `*macos*.tar.gz`, `*osx*.tar.gz`, `*darwin*.tar.gz`
-- `*mac*.zip`, `*macos*.zip`
+- `*mac*.tar.gz`
+- `*macos*.tar.gz`
+- `*osx*.tar.gz`
+- `*darwin*.tar.gz`
+
+Flow:
+1. Analyze macOS artifacts on matching macOS pools and locate Mach-O binaries.
+2. Package individual Mach-O binaries into ZIPs for ESRP `MacAppDeveloperSign`.
+3. Extract signed binaries and verify ESRP changed the ZIP payloads.
+4. Rebuild notarization bundles with signed binaries.
+5. Notarize bundles through ESRP `MacAppNotarize`.
+6. Recreate signed macOS tarballs and verify Developer ID signatures.
 
 ### E) Validation stages
 Each stage validates output from one producer stage:
@@ -165,7 +180,8 @@ Each stage validates output from one producer stage:
 Validation specifics:
 - NuGet validate: downloads `signed-nuget`, runs `dotnet nuget verify --all` on all `.nupkg`.
 - Windows validate: downloads `signed-windows`, expands zips, checks Authenticode status for expected binaries, and optionally enforces managed DLL strong-name token presence.
-- Linux/mac validate: verifies at least one expected artifact exists.
+- Linux validate: verifies at least one expected Linux artifact exists in `signed-linux`.
+- macOS validate: verifies signed tarballs contain Mach-O binaries with valid Developer ID signatures.
 
 Verification matrix policy:
 - NuGet signing stage requires at least one `.nupkg` and verifies all selected NuGets.
@@ -176,7 +192,7 @@ Verification matrix policy:
 Depends on all 4 validation stages.
 
 Flow:
-1. Download `signed-windows`, `signed-nuget`, `collected-linux`, `collected-macos`.
+1. Download `signed-windows`, `signed-nuget`, `signed-linux`, and `signed-macos-*`.
 2. Copy files into one `signed-release` folder.
 3. Generate `signing-manifest.json` (file, sha256, size).
 4. Generate `signing-provenance.json` (source build identity, signing run metadata, policy toggles, verification matrix).
@@ -221,8 +237,9 @@ Responsibilities:
 Producer artifacts:
 - `signed-nuget`
 - `signed-windows`
-- `collected-linux`
-- `collected-macos`
+- `signed-linux`
+- `signed-macos-arm64`
+- `signed-macos-x64`
 
 Final assembled artifact:
 - Name = `${{ parameters.signed_artifact_name }}`
