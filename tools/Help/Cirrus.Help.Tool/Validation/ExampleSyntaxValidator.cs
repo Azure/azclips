@@ -155,16 +155,20 @@ namespace Cirrus.Help.Tool.Validation
                 commandTokens.Add(tokens[i]);
             }
 
-            // Try longest match first, shrinking until we find a table key (or fall back to root "").
+            // Command-table keys are full verb-prefixed paths (e.g. "config get", "extension add",
+            // "login" for an extension's root). Re-attach the verb when probing so the longest
+            // prefix of remaining tokens resolves against the same key shape the runtime uses.
+            // Try longest match first, shrinking until we find a table key (or fall back to verb-root).
             CommandMetadata? command = null;
-            string? matchedKey = null;
+            string? matchedSubKey = null;
             for (var take = commandTokens.Count; take >= 0; take--)
             {
-                var key = string.Join(' ', commandTokens.Take(take));
-                if (cliTable.TryGetValue(key, out var match))
+                var subKey = string.Join(' ', commandTokens.Take(take));
+                var fullKey = take == 0 ? groupName : $"{groupName} {subKey}";
+                if (cliTable.TryGetValue(fullKey, out var match))
                 {
                     command = match;
-                    matchedKey = key;
+                    matchedSubKey = subKey;
                     consumed = 2 + take;
                     break;
                 }
@@ -183,9 +187,9 @@ namespace Cirrus.Help.Tool.Validation
             // The routed user-facing command path — e.g. "azv2 login" or "azv2 group create".
             // CommandMetadata.Name is the processor class name (e.g. "LoginProcessor"), which is
             // an implementation detail.
-            var routedPath = string.IsNullOrEmpty(matchedKey)
+            var routedPath = string.IsNullOrEmpty(matchedSubKey)
                 ? $"azv2 {groupName}"
-                : $"azv2 {groupName} {matchedKey}";
+                : $"azv2 {groupName} {matchedSubKey}";
 
             ValidateFlags(tokens, consumed, command, routedPath, locator, report);
         }

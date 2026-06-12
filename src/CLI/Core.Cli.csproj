@@ -20,9 +20,11 @@
   </ItemGroup>
 
   <Import Project="$(MSBuildThisFileDirectory)..\..\Shared.props" />
+  <Import Project="$(MSBuildThisFileDirectory)Targets\ExtensionHints.targets" />
 
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.DependencyInjection\Core.DependencyInjection.csproj" />
+    <ProjectReference Include="..\Core\Core.Extensions\Core.Extensions.csproj" />
   </ItemGroup>
 
   <!--

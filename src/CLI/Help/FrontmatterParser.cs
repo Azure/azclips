@@ -4,8 +4,7 @@
 namespace Core.Cli.Help;
 
 /// <summary>
-/// File-level frontmatter for a help markdown document (v1.0.0 schema, see
-/// <c>docs/spec/help-system.md</c> §4).
+/// File-level frontmatter for a help markdown document (v1.0.0 schema).
 /// </summary>
 public sealed record FrontmatterDoc(
     string Summary,
