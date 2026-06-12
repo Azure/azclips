@@ -72,9 +72,14 @@ namespace Cirrus.Help.Tool.Validation
             foreach (var file in missing)
             {
                 var relativePath = $"src{Path.DirectorySeparatorChar}CLI{Path.DirectorySeparatorChar}Help{Path.DirectorySeparatorChar}Docs{Path.DirectorySeparatorChar}{verbFolder}{Path.DirectorySeparatorChar}{file}";
+                // index.md backs the verb root itself, so render as the verb name rather than
+                // an empty-quoted command path (which reads as "routed command ''").
+                var commandPath = file.Equals("index.md", StringComparison.OrdinalIgnoreCase)
+                    ? verb
+                    : HelpCommandKey.FromHelpFileName(file);
                 report.AddError(
                     ProblemIds.Completeness_MissingHelpFile,
-                    $"Missing help file for routed command '{HelpCommandKey.FromHelpFileName(file)}' in verb '{verb}'.",
+                    $"Missing help file for routed command '{commandPath}' in verb '{verb}'.",
                     relativePath);
             }
 

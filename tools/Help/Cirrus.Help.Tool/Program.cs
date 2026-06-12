@@ -59,7 +59,18 @@ if (scaffoldExtension is not null)
     IExtensionIndex? scaffoldIndex = null;
     foreach (var dllPath in extensionDlls)
     {
-        var candidateAssembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(dllPath));
+        Assembly candidateAssembly;
+        try
+        {
+            candidateAssembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(dllPath));
+        }
+        catch (Exception ex) when (ex is BadImageFormatException or FileLoadException or FileNotFoundException)
+        {
+            // Non-extension DLL or mismatched build under artifactsRoot. Skip rather than
+            // aborting the entire --scaffold run for an unrelated assembly.
+            continue;
+        }
+
         IExtensionIndex candidateIndex;
         try
         {
