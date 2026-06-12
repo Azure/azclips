@@ -3,7 +3,10 @@ name: cirrus-stable-build-$(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:.r)
 trigger:
   tags:
     include:
-    - v*
+    - v*.*.*
+    exclude:
+    - v*.*.*.*
+    - v*-*
 pr: none
 
 variables:
