@@ -45,7 +45,7 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(Processors.ShowExtensionProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["name"] = new("Name", typeof(string), "Package id or verb of the extension to show.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["name"] = new("Name", typeof(string), "Package id (full or short suffix) of the extension to show. Verb and namespace tokens are not accepted.", IsRequired: true, Aliases: [], AllowedValues: []),
         },
         // Empty-key alias lets dispatcher-bound positional residual (e.g. `extension show Compute`) bind to Name.
         ParameterAliases: new Dictionary<string, string> { [""] = "name" }
@@ -59,7 +59,7 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(Processors.RemoveExtensionProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["name"] = new("Name", typeof(string), "Package id or verb of the extension to remove.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["name"] = new("Name", typeof(string), "Package id (full or short suffix) of the extension to remove. Verb and namespace tokens are not accepted.", IsRequired: true, Aliases: [], AllowedValues: []),
         },
         ParameterAliases: new Dictionary<string, string> { [""] = "name" }
     );
@@ -72,7 +72,7 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(Processors.UpdateExtensionProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["name"]     = new("Name", typeof(string), "Package id or verb of the extension to update.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["name"]     = new("Name", typeof(string), "Package id (full or short suffix) of the extension to update. Verb and namespace tokens are not accepted.", IsRequired: true, Aliases: [], AllowedValues: []),
             ["version"]  = new("Version", typeof(string), "Target version. Defaults to the latest available from the configured feed.", IsRequired: false, Aliases: [], AllowedValues: []),
             ["feed-url"] = new("FeedUrl", typeof(string), "Feed URL to install the new version from.", IsRequired: false, Aliases: [], AllowedValues: []),
             ["force"]    = new("Force", typeof(bool), "Update even if the extension is pinned.", IsRequired: false, Aliases: [], AllowedValues: []),
@@ -88,7 +88,7 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(Processors.PinExtensionProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["name"] = new("Name", typeof(string), "Package id or verb of the extension to pin.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["name"] = new("Name", typeof(string), "Package id (full or short suffix) of the extension to pin. Verb and namespace tokens are not accepted.", IsRequired: true, Aliases: [], AllowedValues: []),
         },
         ParameterAliases: new Dictionary<string, string> { [""] = "name" }
     );
@@ -101,7 +101,7 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(Processors.UnpinExtensionProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["name"] = new("Name", typeof(string), "Package id or verb of the extension to unpin.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["name"] = new("Name", typeof(string), "Package id (full or short suffix) of the extension to unpin. Verb and namespace tokens are not accepted.", IsRequired: true, Aliases: [], AllowedValues: []),
         },
         ParameterAliases: new Dictionary<string, string> { [""] = "name" }
     );

@@ -11,7 +11,7 @@ public class ShowExtensionProcessor : IProcessor
 
     [ArgumentInfo(
     Required = true,
-    Description = @"Package id or verb of the extension to show.",
+    Description = @"Package id (full or short suffix) of the extension to show. Verb and namespace tokens are not accepted.",
     SerializedName = @"Name")]
     public string Name { get; set; } = string.Empty;
 

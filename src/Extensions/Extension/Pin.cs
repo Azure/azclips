@@ -11,7 +11,7 @@ public class PinExtensionProcessor : IProcessor
 
     [ArgumentInfo(
     Required = true,
-    Description = @"Package id or verb of the extension to pin.",
+    Description = @"Package id (full or short suffix) of the extension to pin. Verb and namespace tokens are not accepted.",
     SerializedName = @"Name")]
     public string Name { get; set; } = string.Empty;
 
@@ -49,7 +49,7 @@ public class UnpinExtensionProcessor : IProcessor
 
     [ArgumentInfo(
     Required = true,
-    Description = @"Package id or verb of the extension to unpin.",
+    Description = @"Package id (full or short suffix) of the extension to unpin. Verb and namespace tokens are not accepted.",
     SerializedName = @"Name")]
     public string Name { get; set; } = string.Empty;
 
