@@ -126,6 +126,8 @@ public class LocalArtifactProbeTests : IDisposable
     [InlineData("foo\\bar")]
     [InlineData("foo bar")]
     [InlineData("foo:bar")]
+    [InlineData("Microsoft.Extensions.Cómpute")] // accented letter (Latin-1)
+    [InlineData("Package.Ⅳ")]                    // Roman numeral 4 (Unicode digit)
     public void Find_ShouldReturnNull_OnPackageIdsWithInvalidChars(string packageId)
     {
         // Defense-in-depth: packageId is user-influenced (dotted tokens pass through
