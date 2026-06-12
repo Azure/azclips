@@ -256,9 +256,9 @@ stages:
         fi
 
         changelog_tmp="$(mktemp)"
-        release_date="$(date -u +%Y-%m-%d)"
+        release_timestamp="$(date -u '+%Y-%m-%d %H:%M UTC')"
         {
-          echo "## $tag_name - $release_date"
+          echo "## $tag_name - $release_timestamp"
           echo
           if (( ${#changelog_pr_numbers[@]} == 0 )); then
             echo "- No merged pull requests found since previous stable tag."
