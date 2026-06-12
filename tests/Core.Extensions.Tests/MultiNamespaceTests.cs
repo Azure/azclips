@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using Core.Extensions;
+using Tests.Common.Utilities;
 
 namespace Core.Extensions.Tests
 {
@@ -14,13 +15,6 @@ namespace Core.Extensions.Tests
     {
         private static readonly IReadOnlyDictionary<string, BuiltInExtension> EmptyBuiltIns =
             new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase);
-
-        private sealed class InMemoryStore(ExtensionRegistry registry) : IExtensionRegistryStore
-        {
-            public ExtensionRegistry Saved { get; private set; } = registry;
-            public ExtensionRegistry Load() => Saved;
-            public void Save(ExtensionRegistry registry) => Saved = registry;
-        }
 
         private static ExtensionRegistryEntry MultiNamespaceEntry() => new()
         {
@@ -58,7 +52,7 @@ namespace Core.Extensions.Tests
         {
             var registry = new ExtensionRegistry();
             registry.Extensions["Microsoft.Azure.Cirrus.Extensions.Compute"] = MultiNamespaceEntry();
-            var resolver = new ExtensionResolver(new InMemoryStore(registry), EmptyBuiltIns);
+            var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry), EmptyBuiltIns);
 
             Assert.True(resolver.TryResolve("vm", out var vm));
             Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Compute", vm!.PackageId);
@@ -78,7 +72,7 @@ namespace Core.Extensions.Tests
                 Version = "1.0.0",
                 InstalledAt = DateTimeOffset.UtcNow,
             };
-            var resolver = new ExtensionResolver(new InMemoryStore(registry), EmptyBuiltIns);
+            var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry), EmptyBuiltIns);
 
             Assert.True(resolver.TryResolve("legacy", out var legacy));
             Assert.Equal("Legacy.Package", legacy!.PackageId);
@@ -122,7 +116,7 @@ namespace Core.Extensions.Tests
             // namespaces stop resolving in the same step.
             var registry = new ExtensionRegistry();
             registry.Extensions["Microsoft.Azure.Cirrus.Extensions.Compute"] = MultiNamespaceEntry();
-            var store = new InMemoryStore(registry);
+            var store = new InMemoryRegistryStore(registry);
             var resolver = new ExtensionResolver(store, EmptyBuiltIns);
 
             Assert.True(resolver.TryResolve("vm", out _));

@@ -4,6 +4,7 @@ using Core.Cli.Help;
 using Core.Cli.Parser;
 using Core.Extensions;
 using Microsoft.Azure.Cirrus.Extensions.Config;
+using Tests.Common.Utilities;
 using Xunit;
 
 namespace Cli.Tests;
@@ -250,6 +251,10 @@ public class ExtensionDispatcherTests
     [Fact]
     public void Parse_ShouldThrow_WhenVerbIsUnknown()
     {
+        // Pins current behavior, not desired contract: today the dispatcher leaks the
+        // resolver's underlying KeyNotFoundException for an unknown verb. A future change
+        // could convert this to a typed CirrusErrorException.CommandNotFound; if so, update
+        // this assertion at that time.
         var dispatcher = CreateLeafDispatcher(
             ("vm", "create", "Pkg.A", false));
 
@@ -325,12 +330,6 @@ public class ExtensionDispatcherTests
         Assert.Equal("deployment group", groupAtIntermediatePath!.GroupPath);
         var createCommand = Assert.Single(groupAtIntermediatePath.Commands);
         Assert.Equal("create", createCommand.Name);
-    }
-
-    private sealed class InMemoryRegistryStore(ExtensionRegistry registry) : IExtensionRegistryStore
-    {
-        public ExtensionRegistry Load() => registry;
-        public void Save(ExtensionRegistry registry) { /* no-op for tests */ }
     }
 
     /// <summary>

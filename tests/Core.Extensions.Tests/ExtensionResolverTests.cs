@@ -2,6 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using Core.Extensions;
+using Tests.Common.Utilities;
 
 namespace Core.Extensions.Tests
 {
@@ -14,16 +15,9 @@ namespace Core.Extensions.Tests
                 ["config"] = new("config", "Microsoft.Azure.Cirrus.Extensions.Config"),
             };
 
-        private sealed class InMemoryStore(ExtensionRegistry registry) : IExtensionRegistryStore
-        {
-            public ExtensionRegistry Saved { get; private set; } = registry;
-            public ExtensionRegistry Load() => Saved;
-            public void Save(ExtensionRegistry registry) => Saved = registry;
-        }
+        private static InMemoryRegistryStore EmptyStore() => new(new ExtensionRegistry());
 
-        private static InMemoryStore EmptyStore() => new(new ExtensionRegistry());
-
-        private static InMemoryStore StoreWith(string packageId, string verb, string version = "1.0.0")
+        private static InMemoryRegistryStore StoreWith(string packageId, string verb, string version = "1.0.0")
         {
             var registry = new ExtensionRegistry();
             registry.Extensions[packageId] = new ExtensionRegistryEntry
@@ -32,7 +26,7 @@ namespace Core.Extensions.Tests
                 Version = version,
                 InstalledAt = DateTimeOffset.UtcNow,
             };
-            return new InMemoryStore(registry);
+            return new InMemoryRegistryStore(registry);
         }
 
         [Fact]
