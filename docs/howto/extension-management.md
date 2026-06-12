@@ -40,7 +40,7 @@ azv2 extension add --path <path-to.nupkg> [--pin] [--force]
 
 | Flag | Purpose |
 |---|---|
-| `--name` | Package id or verb. Resolution order: dotted token (passthrough) → hint-table verb match → `Microsoft.Azure.Cirrus.Extensions.{name}` prefix-strip. |
+| `--name` | Package identifier. Accepts the full id (`Microsoft.Azure.Cirrus.Extensions.Compute`) or its short suffix (`Compute`). Verbs and namespaces (e.g. `vm`, `disk`) are **not** accepted — typing one returns a usage error pointing at the owning package id. The unit of install is a package, not a verb (the Compute package ships both `vm` and `disk`). |
 | `--version` | Specific version. Defaults to feed's latest. |
 | `--feed-url` | Override the configured NuGet feed. |
 | `--path` | Install from a local `.nupkg` (skips feed lookup entirely). |
@@ -49,15 +49,24 @@ azv2 extension add --path <path-to.nupkg> [--pin] [--force]
 
 ### Resolving `--name`
 
-These all install the same package:
+Both of these install the same package:
 
 ```bash
-azv2 extension add --name Compute                                      # prefix-strip
-azv2 extension add --name vm                                           # hint-table verb match
-azv2 extension add --name Microsoft.Azure.Cirrus.Extensions.Compute    # passthrough
+azv2 extension add --name Compute                                      # short suffix
+azv2 extension add --name Microsoft.Azure.Cirrus.Extensions.Compute    # full id
 ```
 
 Third-party packages must use the dotted form: `azv2 extension add --name Contoso.Foo`.
+
+A verb token is rejected with a usage error:
+
+```
+> azv2 extension add --name vm
+Error: [UsageError] '--name vm' is a verb, not a package identifier.
+  Use '--name Compute' to install the package that provides 'vm'.
+```
+
+The same rule applies to `remove`, `show`, `update`, `pin`, and `unpin` — only package identifiers are valid `--name` selectors. Misses are enriched with a `Did you mean '--name <Package>'?` hint when the token unambiguously identifies an installed package.
 
 ### Local development install
 
