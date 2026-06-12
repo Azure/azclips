@@ -209,6 +209,35 @@ stages:
         rm -rf "$release_dir"
         mkdir -p "$release_dir"
 
+        release_notes_file="$(Build.ArtifactStagingDirectory)/release-notes.md"
+        changelog_file="$(Build.ArtifactStagingDirectory)/CHANGELOG.md"
+        if [[ "$release_tag_mode" == "stableVersion" ]] && \
+           curl -fsSL "https://raw.githubusercontent.com/$repo/$tag_name/CHANGELOG.md" -o "$changelog_file"; then
+          awk -v tag="$tag_name" '
+            /^## / {
+              if (in_section) {
+                exit
+              }
+              if ($0 == "## " tag || index($0, "## " tag " ") == 1) {
+                in_section = 1
+              }
+            }
+            in_section { print }
+          ' "$changelog_file" > "$release_notes_file"
+        fi
+
+        if [[ ! -s "$release_notes_file" ]]; then
+          {
+            echo "Automated distribution release."
+            echo "Signed pipeline: $signed_pipeline_name"
+            echo "Signed build id: $signed_build_id"
+            echo "Signed artifact: $signed_artifact_name"
+          } > "$release_notes_file"
+        fi
+
+        echo "GitHub release notes preview:"
+        sed -n '1,120p' "$release_notes_file"
+
         package_versions_file="$release_dir/package-versions.csv"
         {
           echo "package_name,package_version,file_name"
@@ -231,6 +260,7 @@ stages:
         echo "##vso[task.setvariable variable=SignedBuildId]$signed_build_id"
         echo "##vso[task.setvariable variable=SignedPipelineName]$signed_pipeline_name"
         echo "##vso[task.setvariable variable=SignedArtifactName]$signed_artifact_name"
+        echo "##vso[task.setvariable variable=ReleaseNotesFile]$release_notes_file"
       displayName: Prepare Release Tag And Assets
 
     - ${{ if eq(parameters.GitHubReleaseAllowOverwrite, 'true') }}:
@@ -254,11 +284,7 @@ stages:
         tag: '$(ReleaseTag)'
         title: '$(ReleaseName)'
         isPreRelease: ${{ parameters.GitHubReleaseIsPrerelease }}
-        releaseNotesSource: 'inline'
-        releaseNotesInline: |
-          Automated distribution release.
-          Signed pipeline: $(SignedPipelineName)
-          Signed build id: $(SignedBuildId)
-          Signed artifact: $(SignedArtifactName)
+        releaseNotesSource: 'filePath'
+        releaseNotesFilePath: '$(ReleaseNotesFile)'
         assets: '$(Build.ArtifactStagingDirectory)/release/*'
         addChangeLog: false
