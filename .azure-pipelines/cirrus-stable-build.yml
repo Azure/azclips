@@ -5,7 +5,9 @@ trigger:
     include:
     - v*.*.*
     exclude:
-    - v*.*.*.*
+    # Azure Pipelines tag filters treat v*.*.*.* broadly enough to suppress vX.Y.Z tags.
+    # v*.*.*.*? excludes four-component CI tags while preserving stable SemVer tags.
+    - v*.*.*.*?
     - v*-*
 pr: none
 
