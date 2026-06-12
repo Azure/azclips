@@ -1,0 +1,484 @@
+parameters:
+- name: windows_pool
+  type: string
+  default: 'windows-latest'
+- name: ubuntu_pool
+  type: string
+  default: 'ubuntu-latest'
+- name: dependency_stage
+  type: string
+  default: 'Preflight'
+- name: SourceProject
+  type: string
+  default: 'public'
+- name: source_pipeline_name
+  type: string
+  default: 'cirrus-adhoc-build'
+- name: source_build_id
+  type: string
+  default: ''
+- name: source_artifact_name
+  type: string
+  default: 'Distribution_Final'
+- name: signed_artifact_name
+  type: string
+  default: 'signed-dist'
+- name: esrp_service_connection
+  type: string
+  default: ''
+- name: esrp_nuget_keycode
+  type: string
+  default: 'CP-401405'
+- name: esrp_authenticode_keycode
+  type: string
+  default: 'CP-230012'
+- name: esrp_apple_keycode
+  type: string
+  default: 'CP-401337-Apple'
+- name: macos_bundle_id
+  type: string
+  default: 'com.microsoft.cirrus.cli'
+- name: macos_arm64_pool
+  type: string
+  default: 'macOS-15-arm64'
+- name: macos_intel_pool
+  type: string
+  default: 'macOS-15'
+- name: esrp_enable_nuget_verify
+  type: boolean
+  default: true
+- name: esrp_enable_windows_verify
+  type: boolean
+  default: true
+- name: esrp_enable_windows_timestamp
+  type: boolean
+  default: true
+- name: esrp_require_windows_strong_name
+  type: boolean
+  default: false
+- name: windows_sign_architectures
+  type: object
+  default:
+  - x64
+- name: linux_collect_architectures
+  type: object
+  default:
+  - x64
+  - arm64
+
+stages:
+- stage: SignNugetArtifacts
+  displayName: Sign NuGet Artifacts
+  dependsOn: ${{ parameters.dependency_stage }}
+  jobs:
+  - template: ../jobs/sign-nuget.yml
+    parameters:
+      windows_pool: ${{ parameters.windows_pool }}
+      SourceProject: ${{ parameters.SourceProject }}
+      source_pipeline_name: ${{ parameters.source_pipeline_name }}
+      source_build_id: ${{ parameters.source_build_id }}
+      source_artifact_name: ${{ parameters.source_artifact_name }}
+      esrp_service_connection: ${{ parameters.esrp_service_connection }}
+      esrp_nuget_keycode: ${{ parameters.esrp_nuget_keycode }}
+      esrp_enable_nuget_verify: ${{ parameters.esrp_enable_nuget_verify }}
+- stage: SignWindowsArtifacts
+  displayName: Sign Windows Artifacts
+  dependsOn: ${{ parameters.dependency_stage }}
+  jobs:
+  - template: ../jobs/sign-windows.yml
+    parameters:
+      windows_pool: ${{ parameters.windows_pool }}
+      SourceProject: ${{ parameters.SourceProject }}
+      source_pipeline_name: ${{ parameters.source_pipeline_name }}
+      source_build_id: ${{ parameters.source_build_id }}
+      source_artifact_name: ${{ parameters.source_artifact_name }}
+      esrp_service_connection: ${{ parameters.esrp_service_connection }}
+      esrp_authenticode_keycode: ${{ parameters.esrp_authenticode_keycode }}
+      esrp_enable_windows_verify: ${{ parameters.esrp_enable_windows_verify }}
+      esrp_enable_windows_timestamp: ${{ parameters.esrp_enable_windows_timestamp }}
+      esrp_require_windows_strong_name: ${{ parameters.esrp_require_windows_strong_name }}
+      windows_sign_architectures: ${{ parameters.windows_sign_architectures }}
+- stage: SignLinuxArtifacts
+  displayName: Sign Linux Artifacts (Placeholder)
+  dependsOn: ${{ parameters.dependency_stage }}
+  jobs:
+  - template: ../jobs/sign-linux.yml
+    parameters:
+      ubuntu_pool: ${{ parameters.ubuntu_pool }}
+      SourceProject: ${{ parameters.SourceProject }}
+      source_pipeline_name: ${{ parameters.source_pipeline_name }}
+      source_build_id: ${{ parameters.source_build_id }}
+      source_artifact_name: ${{ parameters.source_artifact_name }}
+      linux_collect_architectures: ${{ parameters.linux_collect_architectures }}
+- stage: SignMacOSArtifacts
+  displayName: Sign And Notarize macOS Artifacts
+  dependsOn: ${{ parameters.dependency_stage }}
+  jobs:
+  - template: ../jobs/sign-macos.yml
+    parameters:
+      windows_pool: ${{ parameters.windows_pool }}
+      SourceProject: ${{ parameters.SourceProject }}
+      source_pipeline_name: ${{ parameters.source_pipeline_name }}
+      source_build_id: ${{ parameters.source_build_id }}
+      source_artifact_name: ${{ parameters.source_artifact_name }}
+      esrp_service_connection: ${{ parameters.esrp_service_connection }}
+      esrp_apple_keycode: ${{ parameters.esrp_apple_keycode }}
+      macos_bundle_id: ${{ parameters.macos_bundle_id }}
+      macos_arm64_pool: ${{ parameters.macos_arm64_pool }}
+      macos_intel_pool: ${{ parameters.macos_intel_pool }}
+- stage: ValidateNugetArtifacts
+  displayName: Validate NuGet Artifacts
+  dependsOn: SignNugetArtifacts
+  jobs:
+  - job: ValidateNuget
+    displayName: Validate Signed NuGet Packages
+    pool:
+      vmImage: ${{ parameters.windows_pool }}
+    steps:
+    - checkout: none
+    - task: UseDotNet@2
+      displayName: Setup .NET SDK
+      inputs:
+        packageType: sdk
+        version: '8.0.x'
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Signed NuGet Artifacts
+      inputs:
+        buildType: current
+        artifactName: signed-nuget
+        targetPath: $(Pipeline.Workspace)/signed-nuget
+    - pwsh: |
+        $ErrorActionPreference = 'Stop'
+        $nupkgs = Get-ChildItem -Path "$(Pipeline.Workspace)/signed-nuget" -Recurse -File -Filter '*.nupkg'
+        if (-not $nupkgs) {
+          throw 'No signed .nupkg files found in signed-nuget artifact.'
+        }
+        foreach ($pkg in $nupkgs) {
+          dotnet nuget verify --all $pkg.FullName | Out-Host
+          if ($LASTEXITCODE -ne 0) {
+            throw "NuGet verification failed for $($pkg.Name)"
+          }
+        }
+      displayName: Verify NuGet Signatures
+
+- stage: ValidateWindowsArtifacts
+  displayName: Validate Windows Artifacts
+  dependsOn: SignWindowsArtifacts
+  jobs:
+  - job: ValidateWindows
+    displayName: Validate Signed Windows Payloads
+    pool:
+      vmImage: ${{ parameters.windows_pool }}
+    steps:
+    - checkout: none
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Signed Windows Artifacts
+      inputs:
+        buildType: current
+        artifactName: signed-windows
+        targetPath: $(Pipeline.Workspace)/signed-windows
+    - pwsh: |
+        $ErrorActionPreference = 'Stop'
+        $zips = Get-ChildItem -Path "$(Pipeline.Workspace)/signed-windows" -Recurse -File | Where-Object { $_.Name -like '*win-*.zip' }
+        if (-not $zips) {
+          throw 'No signed Windows zip files found in signed-windows artifact.'
+        }
+        foreach ($zip in $zips) {
+          $extract = Join-Path "$(Pipeline.Workspace)/verify-win" $zip.BaseName
+          New-Item -ItemType Directory -Path $extract -Force | Out-Null
+          Expand-Archive -Path $zip.FullName -DestinationPath $extract -Force
+        }
+        $toVerify = Get-ChildItem -Path "$(Pipeline.Workspace)/verify-win" -Recurse -File | Where-Object {
+          $_.Name -ieq 'azv2.exe' -or
+          $_.Name -like 'Microsoft.Azure.Cirrus*.dll' -or
+          $_.Name -like 'Microsoft.Azure.Cirrus*.exe'
+        }
+        foreach ($file in $toVerify) {
+          $signature = Get-AuthenticodeSignature -FilePath $file.FullName
+          if ($signature.Status -ne 'Valid') {
+            throw "Authenticode verification failed for $($file.FullName). Status: $($signature.Status)"
+          }
+        }
+        if ('${{ parameters.esrp_require_windows_strong_name }}' -eq 'true') {
+          $dlls = $toVerify | Where-Object { $_.Name -like 'Microsoft.Azure.Cirrus*.dll' }
+          if (-not $dlls) {
+            throw 'Strong-name policy requires at least one Cirrus DLL in signed Windows payload.'
+          }
+
+          foreach ($dll in $dlls) {
+            try {
+              $assemblyName = [System.Reflection.AssemblyName]::GetAssemblyName($dll.FullName)
+            }
+            catch {
+              throw "Strong-name verification failed for $($dll.FullName). Unable to read managed assembly metadata."
+            }
+
+            $token = $assemblyName.GetPublicKeyToken()
+            if (-not $token -or $token.Length -eq 0) {
+              throw "Strong-name verification failed for $($dll.FullName). Public key token is missing."
+            }
+          }
+        }
+      displayName: Verify Windows Signatures
+
+- stage: ValidateLinuxArtifacts
+  displayName: Validate Linux Artifacts
+  dependsOn: SignLinuxArtifacts
+  jobs:
+  - job: ValidateLinux
+    displayName: Validate Linux Artifact Set
+    pool:
+      vmImage: ${{ parameters.ubuntu_pool }}
+    steps:
+    - checkout: none
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Signed Linux Artifacts
+      inputs:
+        buildType: current
+        artifactName: signed-linux
+        targetPath: $(Pipeline.Workspace)/signed-linux
+    - bash: |
+        set -euo pipefail
+        count=$(find "$(Pipeline.Workspace)/signed-linux" -type f \( -name '*linux*.tar.gz' -o -name '*linux*.zip' \) | wc -l | tr -d ' ')
+        if [[ "$count" == "0" ]]; then
+          echo 'ERROR: No Linux artifacts found after signing placeholder stage.'
+          exit 1
+        fi
+        echo "Linux artifact count: $count"
+      displayName: Validate Linux Artifact Presence
+
+- stage: ValidateMacOSArtifacts
+  displayName: Validate macOS Artifacts
+  dependsOn: SignMacOSArtifacts
+  jobs:
+  - job: ValidateMacOS
+    displayName: Validate Signed macOS Artifacts
+    strategy:
+      matrix:
+        arm64:
+          MacOSArchitecture: arm64
+          MacOSVmImage: ${{ parameters.macos_arm64_pool }}
+        x64:
+          MacOSArchitecture: x64
+          MacOSVmImage: ${{ parameters.macos_intel_pool }}
+    pool:
+      vmImage: $(MacOSVmImage)
+    steps:
+    - checkout: none
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Signed macOS Artifacts
+      inputs:
+        buildType: current
+        artifactName: signed-macos-$(MacOSArchitecture)
+        targetPath: $(Pipeline.Workspace)/signed-macos
+    - bash: |
+        set -euo pipefail
+        root="$(Pipeline.Workspace)/signed-macos"
+        tarballs=()
+        while IFS= read -r tarball; do
+          tarballs+=("$tarball")
+        done < <(find "$root" -type f \( -name '*mac*.tar.gz' -o -name '*macos*.tar.gz' -o -name '*osx*.tar.gz' -o -name '*darwin*.tar.gz' \) | sort)
+        if [[ ${#tarballs[@]} -eq 0 ]]; then
+          echo 'ERROR: No signed macOS tarballs found.'
+          exit 1
+        fi
+
+        errors=0
+        total_macho=0
+        for tarball in "${tarballs[@]}"; do
+          verify_dir="$(Pipeline.Workspace)/verify-macos/$(basename "${tarball%.tar.gz}")"
+          mkdir -p "$verify_dir"
+          tar -xzf "$tarball" -C "$verify_dir"
+
+          tarball_macho=0
+          while IFS= read -r -d '' candidate; do
+            if ! file "$candidate" | grep -q 'Mach-O'; then
+              continue
+            fi
+
+            tarball_macho=$((tarball_macho + 1))
+            total_macho=$((total_macho + 1))
+            if ! codesign -v "$candidate" 2>/dev/null; then
+              echo "ERROR: Basic codesign verification failed: $candidate"
+              errors=1
+            fi
+            if ! codesign --verify --deep --strict "$candidate" 2>/dev/null; then
+              echo "ERROR: Strict codesign verification failed: $candidate"
+              errors=1
+            fi
+            signature_details=$(codesign -dvvv "$candidate" 2>&1 || true)
+            if ! printf '%s\n' "$signature_details" | grep -Eq 'Authority=.*Developer ID|TeamIdentifier=UBF8T346G9'; then
+              echo "ERROR: Developer ID certificate missing: $candidate"
+              printf '%s\n' "$signature_details" | grep -E '^(Authority|TeamIdentifier|Identifier|CDHash)=' || true
+              errors=1
+            fi
+          done < <(find "$verify_dir" -type f -print0)
+
+          if [[ "$tarball_macho" -eq 0 ]]; then
+            echo "ERROR: No Mach-O binaries found in $tarball"
+            errors=1
+          fi
+        done
+
+        echo "Validated $total_macho signed macOS Mach-O binaries."
+        if [[ "$errors" -ne 0 ]]; then
+          exit 1
+        fi
+      displayName: Verify macOS Developer ID Signatures
+
+- stage: AssembleSignedArtifacts
+  displayName: Assemble Signed Artifacts
+  dependsOn:
+  - ValidateNugetArtifacts
+  - ValidateWindowsArtifacts
+  - ValidateLinuxArtifacts
+  - ValidateMacOSArtifacts
+  jobs:
+  - job: ValidateAndAssemble
+    displayName: Validate And Assemble Final Signed Artifact
+    pool:
+      vmImage: ${{ parameters.ubuntu_pool }}
+    steps:
+    - checkout: none
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Signed Windows Artifacts
+      inputs:
+        buildType: current
+        artifactName: signed-windows
+        targetPath: $(Pipeline.Workspace)/signed-windows
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Signed NuGet Artifacts
+      inputs:
+        buildType: current
+        artifactName: signed-nuget
+        targetPath: $(Pipeline.Workspace)/signed-nuget
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Signed Linux Artifacts
+      inputs:
+        buildType: current
+        artifactName: signed-linux
+        targetPath: $(Pipeline.Workspace)/signed-linux
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Signed macOS Artifacts [arm64]
+      inputs:
+        buildType: current
+        artifactName: signed-macos-arm64
+        targetPath: $(Pipeline.Workspace)/signed-macos/arm64
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Signed macOS Artifacts [x64]
+      inputs:
+        buildType: current
+        artifactName: signed-macos-x64
+        targetPath: $(Pipeline.Workspace)/signed-macos/x64
+
+    - bash: |
+        set -euo pipefail
+        release_dir="$(Build.ArtifactStagingDirectory)/signed-release"
+        mkdir -p "$release_dir"
+
+        cp -v "$(Pipeline.Workspace)/signed-windows"/* "$release_dir/" 2>/dev/null || true
+        cp -v "$(Pipeline.Workspace)/signed-nuget"/* "$release_dir/" 2>/dev/null || true
+        cp -v "$(Pipeline.Workspace)/signed-linux"/* "$release_dir/" 2>/dev/null || true
+        find "$(Pipeline.Workspace)/signed-macos" -maxdepth 2 -type f -exec cp -v {} "$release_dir/" \;
+
+        python3 - <<'PY'
+        import hashlib
+        import json
+        import os
+
+        release_dir = os.path.join(os.environ['BUILD_ARTIFACTSTAGINGDIRECTORY'], 'signed-release')
+        source_project = '${{ parameters.SourceProject }}'
+        source_pipeline_name = '${{ parameters.source_pipeline_name }}'
+        source_build_id = '${{ parameters.source_build_id }}'
+        source_artifact_name = '${{ parameters.source_artifact_name }}'
+
+        files = [
+          name
+          for name in sorted(os.listdir(release_dir))
+          if os.path.isfile(os.path.join(release_dir, name))
+        ]
+
+        checks = {
+          'nupkg': any(name.endswith('.nupkg') for name in files),
+          'windows_zip': any('win-' in name and name.endswith('.zip') for name in files),
+          'linux_archive': any('linux' in name and (name.endswith('.tar.gz') or name.endswith('.zip')) for name in files),
+          'macos_archive': any(
+            any(token in name for token in ('mac', 'macos', 'osx', 'darwin')) and (name.endswith('.tar.gz') or name.endswith('.zip'))
+            for name in files
+          ),
+        }
+
+        missing = [kind for kind, present in checks.items() if not present]
+        if missing:
+          raise SystemExit(f'Assemble validation failed. Missing expected artifact categories: {", ".join(missing)}')
+
+        entries = []
+        for name in files:
+          path = os.path.join(release_dir, name)
+          h = hashlib.sha256()
+          with open(path, 'rb') as f:
+            while True:
+              chunk = f.read(1024 * 1024)
+              if not chunk:
+                break
+              h.update(chunk)
+          entries.append({
+            'file': name,
+            'sha256': h.hexdigest(),
+            'size': os.path.getsize(path),
+          })
+
+        with open(os.path.join(release_dir, 'signing-manifest.json'), 'w', encoding='utf-8') as f:
+          json.dump(entries, f, indent=2)
+
+        provenance = {
+          'source': {
+            'project': source_project,
+            'pipeline': source_pipeline_name,
+            'buildId': source_build_id,
+            'artifact': source_artifact_name,
+          },
+          'signingRun': {
+            'project': os.getenv('SYSTEM_TEAMPROJECT', ''),
+            'pipeline': os.getenv('BUILD_DEFINITIONNAME', ''),
+            'buildId': os.getenv('BUILD_BUILDID', ''),
+            'buildNumber': os.getenv('BUILD_BUILDNUMBER', ''),
+            'sourceBranch': os.getenv('BUILD_SOURCEBRANCH', ''),
+            'sourceVersion': os.getenv('BUILD_SOURCEVERSION', ''),
+          },
+          'policy': {
+            'esrpNugetVerifyEnabled': '${{ parameters.esrp_enable_nuget_verify }}',
+            'esrpWindowsVerifyEnabled': '${{ parameters.esrp_enable_windows_verify }}',
+            'windowsTimestampEnabled': '${{ parameters.esrp_enable_windows_timestamp }}',
+            'windowsTimestampSetting': '/tr "http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer" /td sha256',
+            'windowsStrongNameRequired': '${{ parameters.esrp_require_windows_strong_name }}',
+            'macosBundleId': '${{ parameters.macos_bundle_id }}',
+            'macosAppleKeyCode': '${{ parameters.esrp_apple_keycode }}',
+          },
+          'verificationMatrix': checks,
+        }
+
+        with open(os.path.join(release_dir, 'signing-provenance.json'), 'w', encoding='utf-8') as f:
+          json.dump(provenance, f, indent=2)
+        PY
+
+        echo "Final signed release contents:"
+        ls -al "$release_dir"
+      displayName: Assemble Final Signed Artifact
+
+    - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
+      displayName: Generate SBOM For Final Signed Artifact
+      inputs:
+        BuildDropPath: $(Build.ArtifactStagingDirectory)/signed-release
+
+    - task: PublishPipelineArtifact@1
+      displayName: Publish Final Signed Artifact
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)/signed-release
+        artifact: ${{ parameters.signed_artifact_name }}
+        publishLocation: pipeline

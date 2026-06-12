@@ -1,0 +1,253 @@
+parameters:
+- name: ubuntu_pool
+  type: string
+  default: 'ubuntu-latest'
+- name: SourceProject
+  type: string
+  default: 'public'
+- name: GitHubTargetRepo
+  type: string
+  default: 'Azure/cirrus'
+- name: GitHubReleasePrefix
+  type: string
+  default: 'dist'
+- name: GitHubReleaseTagMode
+  type: string
+  default: 'buildScoped'
+- name: GitHubReleaseAllowOverwrite
+  type: string
+  default: 'true'
+- name: GitHubReleaseIsPrerelease
+  type: string
+  default: 'true'
+- name: GitHubServiceConnection
+  type: string
+- name: signed_pipeline_name
+  type: string
+- name: signed_build_id
+  type: string
+- name: signed_artifact_name
+  type: string
+- name: dependency_stage
+  type: string
+  default: 'Preflight'
+
+stages:
+- stage: PublishToGitHubRelease
+  displayName: Publish To GitHub Release
+  dependsOn: ${{ parameters.dependency_stage }}
+  jobs:
+  - job: PublishArtifacts
+    displayName: Publish Release Assets
+    pool:
+      vmImage: ${{ parameters.ubuntu_pool }}
+    steps:
+    - checkout: none
+
+    - script: |
+        set -euo pipefail
+        if [[ -z "${{ parameters.signed_pipeline_name }}" ]]; then
+          echo "ERROR: signed_pipeline_name is required"
+          exit 1
+        fi
+
+        if [[ -z "${{ parameters.signed_build_id }}" ]]; then
+          echo "ERROR: signed_build_id is required"
+          exit 1
+        fi
+
+        if ! [[ "${{ parameters.signed_build_id }}" =~ ^[0-9]+$ ]]; then
+          echo "ERROR: signed_build_id must be numeric. Got: ${{ parameters.signed_build_id }}"
+          exit 1
+        fi
+
+        if [[ "${{ parameters.signed_build_id }}" == "0" ]]; then
+          echo "ERROR: signed_build_id must be greater than zero."
+          exit 1
+        fi
+
+        if [[ -z "${{ parameters.signed_artifact_name }}" ]]; then
+          echo "ERROR: signed_artifact_name is required"
+          exit 1
+        fi
+
+        echo "Signed pipeline: ${{ parameters.signed_pipeline_name }}"
+        echo "Signed build id: ${{ parameters.signed_build_id }}"
+        echo "Signed artifact: ${{ parameters.signed_artifact_name }}"
+      displayName: Validate Signed Source Inputs
+
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Final Signed Distribution Artifact
+      inputs:
+        buildType: specific
+        project: ${{ parameters.SourceProject }}
+        definition: ${{ parameters.signed_pipeline_name }}
+        buildVersionToDownload: specific
+        pipelineId: ${{ parameters.signed_build_id }}
+        artifactName: ${{ parameters.signed_artifact_name }}
+        targetPath: $(Pipeline.Workspace)/signed-dist
+
+    - script: |
+        set -euo pipefail
+        echo "Pipeline workspace: $(Pipeline.Workspace)"
+        find "$(Pipeline.Workspace)/signed-dist" -maxdepth 4 -type f | sort | sed -n '1,300p'
+      displayName: Inspect Downloaded Signed Artifact
+
+    - script: |
+        set -euo pipefail
+        if [[ -z "${{ parameters.signed_pipeline_name }}" ]]; then
+          echo "ERROR: signed_pipeline_name is required"
+          exit 1
+        fi
+
+        if [[ -z "${{ parameters.signed_build_id }}" ]]; then
+          echo "ERROR: signed_build_id is required"
+          exit 1
+        fi
+
+        if [[ -z "${{ parameters.signed_artifact_name }}" ]]; then
+          echo "ERROR: signed_artifact_name is required"
+          exit 1
+        fi
+
+        signed_build_id="${{ parameters.signed_build_id }}"
+        signed_pipeline_name="${{ parameters.signed_pipeline_name }}"
+        signed_artifact_name="${{ parameters.signed_artifact_name }}"
+
+        assets_root="$(Pipeline.Workspace)/signed-dist"
+        mapfile -t assets < <(find "$assets_root" -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.nupkg' \) ! -name '*.snupkg' | sort)
+
+        if [[ ${#assets[@]} -eq 0 ]]; then
+          echo "ERROR: No .tar.gz, .zip, or .nupkg assets found under $assets_root"
+          exit 1
+        fi
+
+        echo "Signed source pipeline: $signed_pipeline_name"
+        echo "Signed source build id: $signed_build_id"
+        echo "Signed artifact: $signed_artifact_name"
+
+        echo "Assets to upload (${#assets[@]}):"
+        printf '  %s\n' "${assets[@]}"
+
+        mapfile -t distribution_archives < <(printf '%s\n' "${assets[@]}" | grep -E '(\.tar\.gz|\.zip)$' || true)
+        if [[ ${#distribution_archives[@]} -eq 0 ]]; then
+          echo "ERROR: No signed distribution .tar.gz or .zip assets found under $assets_root"
+          exit 1
+        fi
+
+        mapfile -t nupkgs < <(printf '%s\n' "${assets[@]}" | grep -E '\.nupkg$' || true)
+
+        package_versions_tmp="$(mktemp)"
+
+        for pkg in "${nupkgs[@]}"; do
+          base_name="$(basename "$pkg" .nupkg)"
+          package_name="$base_name"
+          package_version="unknown"
+
+          if [[ "$base_name" =~ ^(.+)\.([0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?)$ ]]; then
+            package_name="${BASH_REMATCH[1]}"
+            package_version="${BASH_REMATCH[2]}"
+          fi
+
+          package_file_name="$(basename "$pkg")"
+          echo "$package_name,$package_version,$package_file_name" >> "$package_versions_tmp"
+        done
+
+        mapfile -t derived_versions < <(
+          printf '%s\n' "${distribution_archives[@]}" |
+            sed -E 's#^.*/##' |
+            sed -E 's#\.(tar\.gz|zip)$##' |
+            grep -Eo '[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?' |
+            sort -u
+        )
+
+        if [[ ${#derived_versions[@]} -eq 1 ]]; then
+          core_distribution_version="${derived_versions[0]}"
+          echo "Auto-detected distribution version from signed artifacts: $core_distribution_version"
+        elif [[ ${#derived_versions[@]} -gt 1 ]]; then
+          echo "ERROR: Multiple candidate distribution versions found in signed distribution archives: ${derived_versions[*]}"
+          echo "Expected one version in $signed_artifact_name from signed build $signed_build_id."
+          exit 1
+        else
+          echo "ERROR: Could not determine distribution version from signed distribution archives."
+          echo "Expected versioned .tar.gz or .zip files in $signed_artifact_name from signed build $signed_build_id."
+          exit 1
+        fi
+
+        release_tag_mode="${{ parameters.GitHubReleaseTagMode }}"
+        case "$release_tag_mode" in
+          buildScoped)
+            safe_version="${core_distribution_version//[^0-9A-Za-z._-]/-}"
+            tag_name="${{ parameters.GitHubReleasePrefix }}-${safe_version}-build-${signed_build_id}"
+            release_name="Distribution ${core_distribution_version} build ${signed_build_id}"
+            ;;
+          stableVersion)
+            if [[ ! "$core_distribution_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "ERROR: stableVersion GitHub release tag mode requires a stable SemVer artifact version. Got: $core_distribution_version"
+              exit 1
+            fi
+            tag_name="v$core_distribution_version"
+            release_name="Cirrus $core_distribution_version"
+            ;;
+          *)
+            echo "ERROR: Unsupported GitHubReleaseTagMode: $release_tag_mode"
+            exit 1
+            ;;
+        esac
+
+        release_dir="$(Build.ArtifactStagingDirectory)/release"
+        rm -rf "$release_dir"
+        mkdir -p "$release_dir"
+
+        package_versions_file="$release_dir/package-versions.csv"
+        {
+          echo "package_name,package_version,file_name"
+          if [[ -s "$package_versions_tmp" ]]; then
+            cat "$package_versions_tmp"
+          fi
+        } > "$package_versions_file"
+        rm -f "$package_versions_tmp"
+
+        for asset in "${assets[@]}"; do
+          cp "$asset" "$release_dir/"
+        done
+
+        echo "Release asset staging directory contents:"
+        ls -lh "$release_dir"
+
+        echo "##vso[task.setvariable variable=ReleaseTag]$tag_name"
+        echo "##vso[task.setvariable variable=ReleaseName]$release_name"
+        echo "##vso[task.setvariable variable=SignedBuildId]$signed_build_id"
+        echo "##vso[task.setvariable variable=SignedPipelineName]$signed_pipeline_name"
+        echo "##vso[task.setvariable variable=SignedArtifactName]$signed_artifact_name"
+      displayName: Prepare Release Tag And Assets
+
+    - ${{ if eq(parameters.GitHubReleaseAllowOverwrite, 'true') }}:
+      - task: GitHubRelease@1
+        displayName: Delete Existing GitHub Release (If Any)
+        continueOnError: true
+        inputs:
+          gitHubConnection: '${{ parameters.GitHubServiceConnection }}'
+          repositoryName: '${{ parameters.GitHubTargetRepo }}'
+          action: 'delete'
+          tag: '$(ReleaseTag)'
+
+    - task: GitHubRelease@1
+      displayName: Create GitHub Release
+      inputs:
+        gitHubConnection: '${{ parameters.GitHubServiceConnection }}'
+        repositoryName: '${{ parameters.GitHubTargetRepo }}'
+        action: 'create'
+        target: 'main'
+        tagSource: 'userSpecifiedTag'
+        tag: '$(ReleaseTag)'
+        title: '$(ReleaseName)'
+        isPreRelease: ${{ parameters.GitHubReleaseIsPrerelease }}
+        releaseNotesSource: 'inline'
+        releaseNotesInline: |
+          Automated distribution release.
+          Signed pipeline: $(SignedPipelineName)
+          Signed build id: $(SignedBuildId)
+          Signed artifact: $(SignedArtifactName)
+        assets: '$(Build.ArtifactStagingDirectory)/release/*'
+        addChangeLog: false
