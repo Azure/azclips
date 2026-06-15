@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781246595647,
+  "lastUpdate": 1781498084928,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus CLI Benchmarks": [
@@ -756,6 +756,48 @@ window.BENCHMARK_DATA = {
             "value": 237165.5,
             "unit": "ns",
             "range": "± 8080.579744053022"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "zelinwang@microsoft.com",
+            "name": "ZelinWang",
+            "username": "wangzelin007"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "35883fb273acb4af74b0b989a694bccdaf87abd4",
+          "message": "agent: bring up builtin BYOM provider (Responses API via APIM) (#268)\n\nWires the agent's `builtin` provider end-to-end against managed\nGPT-5.4 for private-preview kickoff. MSAL ARM-scope token → APIM →\nAOAI cli-copilot. `github` provider path unchanged.\n\nSpike, not for merge.\n\n## Commits\n\n1. `agent: implement BYOM provider (builtin/github/custom)` —\n   AgentOptions adds `Provider` + nested `BuiltinProviderOptions`;\n   ChatAgent.CreateAsync switches on provider; custom throws\n   NotImplementedException.\n2. `agent: friendlier builtin-provider auth error message` —\n   actionable `azv2 login` hint + alternative `agent.provider github`\n   switch.\n3. `agent: switch builtin provider to AOAI Responses API` — WireApi\n   \"responses\", api-version 2025-04-01-preview, endpoint includes\n   /openai/.\n\nCompanion: APIM-side ADO PR #1867 (azure-client-tools-copilot).\n\n## Test plan\n\n- [x] `dotnet build cirrus.slnx` clean\n- [x] `azv2 login` + `azv2 vm makenew` → agent fallback streams\n      real GPT-5.4 response through APIM\n- [ ] `agent.provider github` switches back unchanged\n- [ ] `agent.provider custom` throws NotImplementedException",
+          "timestamp": "2026-06-15T14:32:20+10:00",
+          "tree_id": "5cab116006d63ef35c6b0c1e4241300a145f73e2",
+          "url": "https://github.com/Azure/cirrus/commit/35883fb273acb4af74b0b989a694bccdaf87abd4"
+        },
+        "date": 1781498083735,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 234422.75,
+            "unit": "ns",
+            "range": "± 54672.357984481816"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 317016.5,
+            "unit": "ns",
+            "range": "± 43902.844452267556"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 167986.9,
+            "unit": "ns",
+            "range": "± 9460.887738473595"
           }
         ]
       }
