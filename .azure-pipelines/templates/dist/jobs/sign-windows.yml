@@ -1,0 +1,87 @@
+parameters:
+- name: windows_pool
+  type: string
+  default: 'windows-latest'
+- name: SourceProject
+  type: string
+  default: 'public'
+- name: source_pipeline_name
+  type: string
+  default: 'cirrus-adhoc-build'
+- name: source_build_id
+  type: string
+  default: ''
+- name: source_artifact_name
+  type: string
+  default: 'Distribution_Final'
+- name: windows_sign_architectures
+  type: object
+  default:
+  - x64
+
+jobs:
+- job: SignWindows
+  displayName: Windows Placeholder Pass-Through
+  pool:
+    vmImage: ${{ parameters.windows_pool }}
+  steps:
+  - checkout: none
+  - task: DownloadPipelineArtifact@2
+    displayName: Download Unsigned Distribution Artifacts
+    inputs:
+      source: specific
+      project: ${{ parameters.SourceProject }}
+      pipeline: ${{ parameters.source_pipeline_name }}
+      runVersion: specific
+      runId: ${{ parameters.source_build_id }}
+      artifact: ${{ parameters.source_artifact_name }}
+      path: $(Pipeline.Workspace)/unsigned-all
+  - pwsh: |
+      $ErrorActionPreference = 'Stop'
+      $sourceRoot = "$(Pipeline.Workspace)/unsigned-all"
+      $targetRoot = "$(Build.ArtifactStagingDirectory)/signed-windows"
+      $architectureCsv = '${{ join(',', parameters.windows_sign_architectures) }}'
+      $architectures = $architectureCsv.Split(',') |
+        ForEach-Object { "$($_)".Trim().ToLowerInvariant() } |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+
+      if (-not $architectures) {
+        throw 'windows_sign_architectures resolved to an empty list.'
+      }
+
+      Remove-Item $targetRoot -Recurse -Force -ErrorAction SilentlyContinue
+      New-Item -ItemType Directory -Path $targetRoot -Force | Out-Null
+
+      $allWindowsAssets = Get-ChildItem -Path $sourceRoot -Recurse -File | Where-Object {
+        $_.Name -like '*win-*.zip'
+      }
+
+      $selected = foreach ($asset in $allWindowsAssets) {
+        $name = $asset.Name.ToLowerInvariant()
+        foreach ($arch in $architectures) {
+          if ($name.Contains($arch)) {
+            $asset
+            break
+          }
+        }
+      }
+
+      if (-not $selected) {
+        throw "No Windows release artifacts matched architectures [$($architectures -join ', ')] under $sourceRoot"
+      }
+
+      foreach ($asset in $selected) {
+        Copy-Item $asset.FullName -Destination (Join-Path $targetRoot $asset.Name) -Force
+      }
+      Write-Host "Collected $($selected.Count) Windows artifact(s) for placeholder pass-through."
+    displayName: Collect Windows Placeholder Artifacts
+  - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
+    displayName: Generate SBOM For Windows Placeholder Artifacts
+    inputs:
+      BuildDropPath: $(Build.ArtifactStagingDirectory)/signed-windows
+  - task: PublishPipelineArtifact@1
+    displayName: Publish Windows Placeholder Artifacts
+    inputs:
+      targetPath: $(Build.ArtifactStagingDirectory)/signed-windows
+      artifact: signed-windows
+      publishLocation: pipeline

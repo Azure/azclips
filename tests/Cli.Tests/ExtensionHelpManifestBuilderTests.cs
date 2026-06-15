@@ -14,10 +14,10 @@ public class ExtensionHelpManifestBuilderTests
 
         var manifest = ExtensionHelpManifestBuilder.BuildManifest(
             extensionIndex: index,
-            extensionName: "login",
-            extensionVersion: "1.0.0-alpha");
+            extensionVersion: "1.0.0-alpha",
+            verb: "login");
 
-        Assert.Equal("login", manifest.Extension);
+        Assert.Equal("login", manifest.Verb);
         Assert.Equal("1.0.0-alpha", manifest.Version);
         Assert.Equal(3, manifest.Commands.Count);
 
@@ -36,12 +36,11 @@ public class ExtensionHelpManifestBuilderTests
     {
         var index = new ExtensionIndex();
 
-        var manifest = ExtensionHelpManifestBuilder.BuildManifest(index, "login", "1.0.0-alpha");
+        var manifest = ExtensionHelpManifestBuilder.BuildManifest(index, "1.0.0-alpha", "login");
         var helpIndex = ExtensionHelpManifestBuilder.BuildIndex([manifest]);
 
         var group = Assert.Single(helpIndex.Groups);
-        Assert.Equal("login", group.Extension);
-        Assert.Equal("login", group.Prefix);
+        Assert.Equal("login", group.Verb);
 
         Assert.Equal(3, helpIndex.Commands.Count);
         Assert.Contains(helpIndex.Commands, c => c.CliName == "login" && c.PsName == "Connect-CirrusAccount");
@@ -52,10 +51,10 @@ public class ExtensionHelpManifestBuilderTests
     [Fact]
     public void BuildManifest_ShouldFallback_WhenNoMarkdownExists()
     {
-        // Use an extension name that does NOT have a help/ folder, forcing fallback to attributes/defaults.
+        // Use a verb that does NOT have a help/ folder, forcing fallback to attributes/defaults.
         var index = new StubExtensionIndex();
 
-        var manifest = ExtensionHelpManifestBuilder.BuildManifest(index, "nonexistent-extension", "1.0.0");
+        var manifest = ExtensionHelpManifestBuilder.BuildManifest(index, "1.0.0", "stub");
 
         Assert.NotNull(manifest);
         Assert.Single(manifest.Commands);
@@ -74,7 +73,7 @@ public class ExtensionHelpManifestBuilderTests
     {
         var index = new StubExtensionIndex();
 
-        var manifest = ExtensionHelpManifestBuilder.BuildManifest(index, "nonexistent-extension", "1.0.0");
+        var manifest = ExtensionHelpManifestBuilder.BuildManifest(index, "1.0.0", "stub");
         var command = manifest.Commands[0];
 
         // Parameters with empty descriptions should not throw; description should pass through as empty.
@@ -86,7 +85,7 @@ public class ExtensionHelpManifestBuilderTests
     public void BuildManifest_ShouldPreserveParameterAliases()
     {
         var index = new ExtensionIndex();
-        var manifest = ExtensionHelpManifestBuilder.BuildManifest(index, "login", "1.0.0");
+        var manifest = ExtensionHelpManifestBuilder.BuildManifest(index, "1.0.0", "login");
 
         var loginCommand = Assert.Single(manifest.Commands, c => c.CliName == "login");
         Assert.All(loginCommand.Parameters, p => Assert.NotNull(p.Aliases));
@@ -96,7 +95,7 @@ public class ExtensionHelpManifestBuilderTests
     public void BuildManifest_ShouldHandleCommandsWithNoParameters()
     {
         var index = new ExtensionIndex();
-        var manifest = ExtensionHelpManifestBuilder.BuildManifest(index, "login", "1.0.0");
+        var manifest = ExtensionHelpManifestBuilder.BuildManifest(index, "1.0.0", "login");
 
         // login show / login logout have no parameters
         var showCommand = Assert.Single(manifest.Commands, c => c.CliName == "login show");
@@ -108,7 +107,7 @@ public class ExtensionHelpManifestBuilderTests
     {
         // Login extension has both CLI (bash) and PowerShell examples in its markdown.
         var index = new ExtensionIndex();
-        var manifest = ExtensionHelpManifestBuilder.BuildManifest(index, "login", "1.0.0");
+        var manifest = ExtensionHelpManifestBuilder.BuildManifest(index, "1.0.0", "login");
 
         var loginCommand = Assert.Single(manifest.Commands, c => c.CliName == "login");
 

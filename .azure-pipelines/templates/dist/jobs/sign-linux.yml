@@ -1,0 +1,90 @@
+parameters:
+- name: ubuntu_pool
+  type: string
+  default: 'ubuntu-latest'
+- name: SourceProject
+  type: string
+  default: 'public'
+- name: source_pipeline_name
+  type: string
+  default: 'cirrus-adhoc-build'
+- name: source_build_id
+  type: string
+  default: ''
+- name: source_artifact_name
+  type: string
+  default: 'Distribution_Final'
+- name: linux_collect_architectures
+  type: object
+  default:
+  - x64
+  - arm64
+
+jobs:
+  - job: SignLinux
+    displayName: Linux Placeholder Pass-Through
+    pool:
+      vmImage: ${{ parameters.ubuntu_pool }}
+    steps:
+    - checkout: none
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Unsigned Distribution Artifacts
+      inputs:
+        source: specific
+        project: ${{ parameters.SourceProject }}
+        pipeline: ${{ parameters.source_pipeline_name }}
+        runVersion: specific
+        runId: ${{ parameters.source_build_id }}
+        artifact: ${{ parameters.source_artifact_name }}
+        path: $(Pipeline.Workspace)/unsigned-all
+    - bash: |
+        set -euo pipefail
+        source_root="$(Pipeline.Workspace)/unsigned-all"
+        out_dir="$(Build.ArtifactStagingDirectory)/signed-linux"
+        arch_csv='${{ join(',', parameters.linux_collect_architectures) }}'
+        mkdir -p "$out_dir"
+
+        mapfile -t raw_linux_assets < <(
+          find "$source_root" -type f \( -name '*linux*.tar.gz' -o -name '*linux*.zip' \) | sort
+        )
+
+        IFS=',' read -r -a allowed_arches <<< "$arch_csv"
+
+        if [[ ${#allowed_arches[@]} -eq 0 ]]; then
+          echo 'ERROR: linux_collect_architectures resolved to an empty list.'
+          exit 1
+        fi
+
+        linux_assets=()
+        for asset in "${raw_linux_assets[@]}"; do
+          name=$(basename "$asset" | tr '[:upper:]' '[:lower:]')
+          for arch in "${allowed_arches[@]}"; do
+            if [[ "$name" == *"$arch"* ]]; then
+              linux_assets+=("$asset")
+              break
+            fi
+          done
+        done
+
+        if [[ ${#linux_assets[@]} -eq 0 ]]; then
+          echo "ERROR: No Linux release artifacts matched architectures [${allowed_arches[*]}] under $source_root"
+          exit 1
+        fi
+
+        echo "Linux architectures selected: ${allowed_arches[*]}"
+        printf 'Linux release artifacts (%s):\n' "${#linux_assets[@]}"
+        printf '  %s\n' "${linux_assets[@]}"
+        for asset in "${linux_assets[@]}"; do
+          cp "$asset" "$out_dir/"
+        done
+      displayName: Collect Linux Placeholder Artifacts
+    - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
+      displayName: Generate SBOM For Linux Placeholder Artifacts
+      inputs:
+        BuildDropPath: $(Build.ArtifactStagingDirectory)/signed-linux
+    - task: PublishPipelineArtifact@1
+      displayName: Publish Linux Placeholder Artifacts
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)/signed-linux
+        artifact: signed-linux
+        publishLocation: pipeline

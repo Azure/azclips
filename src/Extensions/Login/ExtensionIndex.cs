@@ -5,6 +5,7 @@ using Core.Abstractions;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Login
 {
+    [ExtensionVerb("login")]
     public class ExtensionIndex : IExtensionIndex
     {
         // ── PS Command Metadata ──
@@ -80,12 +81,13 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
             ["Disconnect-CirrusAccount"] = s_logout_PS,
             ["Get-CirrusAccount"]        = s_getContext_PS,
         };
+        // Full-path keys. The root verb (`azv2 login`) keys as just "login";
+        // sub-leaves are `login {path}`.
         private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
         {
-            // login is a special command that the command group and command name are the same
-            [""]       = s_login_CLI,
-            ["logout"] = s_logout_CLI,
-            ["show"]   = s_getContext_CLI,
+            ["login"]        = s_login_CLI,
+            ["login logout"] = s_logout_CLI,
+            ["login show"]   = s_getContext_CLI,
         };
 
         // ── Lookup ──
@@ -111,10 +113,22 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
                 _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
             };
         }
+        public IEnumerable<string> GetCommandKeys(ClientType clientType)
+        {
+            return clientType switch
+            {
+                ClientType.PowerShell => s_psTable.Keys,
+                ClientType.CLI => s_cliTable.Keys,
+                _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
+            };
+        }
 
         public IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType)
         {
             return GetCommandTable(clientType).Values;
         }
+
+        private static readonly IReadOnlyList<string> s_verbs = ["login"];
+        public IReadOnlyList<string> GetVerbs() => s_verbs;
     }
 }
