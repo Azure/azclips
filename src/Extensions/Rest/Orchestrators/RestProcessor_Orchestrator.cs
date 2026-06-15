@@ -176,8 +176,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest.Processors
             }
 
             throw new InvalidOperationException(
-                "An endpoint is required: supply either a full URL (Uri) or the piece-wise parameters " +
-                "(ResourceProviderName/ResourceType/Name with ApiVersion) to build an ARM URL.");
+                "An endpoint is required: supply either a full URL (Uri) or the piece-wise ByParameters inputs " +
+                "(SubscriptionId/ResourceGroupName/ResourceProviderName/ResourceType/Name/ApiVersion) to build an ARM URL.");
         }
 
         /// <summary>

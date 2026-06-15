@@ -139,6 +139,7 @@ public class InvokeCirrusRestMethodCmdlet : PSCmdlet
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
         var invocation = new CommandInvocation("Rest", "Invoke-CirrusRestMethod", parameters, false, moduleName, moduleVersion);
+        telemetryService.TagInvocation(invocation);
 
         using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);
         session.Run();
