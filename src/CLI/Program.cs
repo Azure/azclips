@@ -5,6 +5,9 @@ using Core.Cli.Exceptions;
 using Core.Cli.Help;
 using Core.Cli.Parser;
 using Core.Cli.Telemetry;
+using Core.Engine;
+using Core.Extensions;
+using Core.Runtime;
 using Core.Telemetry;
 using Core.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
@@ -70,6 +73,8 @@ public class Program
             using var activity = telemetryService.StartRootActivity();
             var dispatcher = new ExtensionDispatcher();
             args = WireDebugStreams(args);
+            args = ParseOutputFlag(args, out var outputJson);
+            args = ParseNoCacheFlag(args);
             try
             {
                 CommandInvocation invocation = dispatcher.Parse(args);
@@ -90,7 +95,9 @@ public class Program
             catch (DispatchHelpException)
             {
                 var assemblyLoading = CirrusServiceProvider.GetRequiredService<IAssemblyLoadingService>();
-                var exitCode = new RuntimeHelpDispatcher(assemblyLoading).RenderRoot();
+                var registryStore = new FileExtensionRegistryStore();
+                var extensionResolver = new ExtensionResolver(registryStore);
+                var exitCode = new RuntimeHelpDispatcher(assemblyLoading, extensionResolver, registryStore).RenderRoot();
 
                 activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
                 return exitCode;
@@ -98,10 +105,24 @@ public class Program
             catch (RuntimeExtensionHelpException helpException)
             {
                 var assemblyLoading = CirrusServiceProvider.GetRequiredService<IAssemblyLoadingService>();
-                var exitCode = new RuntimeHelpDispatcher(assemblyLoading).RenderExtensionHelp(helpException);
+                var registryStore = new FileExtensionRegistryStore();
+                var extensionResolver = new ExtensionResolver(registryStore);
+                try
+                {
+                    var exitCode = new RuntimeHelpDispatcher(assemblyLoading, extensionResolver, registryStore).RenderExtensionHelp(helpException);
 
-                activity?.SetStatus(ActivityStatusCode.Ok, "Extension help requested");
-                return exitCode;
+                    activity?.SetStatus(ActivityStatusCode.Ok, "Extension help requested");
+                    return exitCode;
+                }
+                catch (CirrusErrorException structured)
+                {
+                    // RenderExtensionHelp surfaces ExtensionNotInstalledException when the user asks
+                    // for help on a verb owned by an uninstalled package (smart-suggestion path).
+                    // Funnel through the same renderer the execute path uses so the UX matches.
+                    EmitStructuredError(structured, outputJson);
+                    activity?.SetStatus(ActivityStatusCode.Error, structured.Message);
+                    return structured.ExitCode;
+                }
             }
             catch (HttpRequestException ex)
             {
@@ -109,6 +130,14 @@ public class Program
                 activity?.AddException(ex);
 
                 return await TryAgentFallbackAsync(args, ex.Message);
+            }
+            catch (CirrusErrorException ex)
+            {
+                // Structured Cirrus error: render per --output mode and return the symbolic exit code.
+                // No AI fallback — the failure is well-known and the user's intent is unambiguous.
+                EmitStructuredError(ex, outputJson);
+                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                return ex.ExitCode;
             }
             catch (Exception ex)
             {
@@ -161,12 +190,70 @@ public class Program
         return args.Where(a => a != "--debug").ToArray();
     }
 
-    /// <summary>
-    /// Hands a failed classic-CLI invocation off to the SDK-backed agent by spawning
-    /// <c>Core.Tui.exe --agent-mode</c> as a subprocess. Keeps <see cref="Core.Agent"/>
-    /// isolated from CLI / TUI deps; subprocess inherits stdio so streaming + interactive
-    /// prompts surface live in the user's terminal.
-    /// </summary>
+    // Strips `--output json` / `--output plain` (and `--output=json`) from args and reports
+    // whether JSON shape was requested. When `--output json` is active, errors render as
+    // { "error": { code, message, details } }.
+    private static string[] ParseOutputFlag(string[] args, out bool outputJson)
+    {
+        outputJson = false;
+        var result = new List<string>(args.Length);
+        for (int i = 0; i < args.Length; i++)
+        {
+            var a = args[i];
+            if (a.Equals("--output", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
+            {
+                outputJson = args[i + 1].Equals("json", StringComparison.OrdinalIgnoreCase);
+                i++;
+                continue;
+            }
+            if (a.StartsWith("--output=", StringComparison.OrdinalIgnoreCase))
+            {
+                outputJson = a.Substring("--output=".Length).Equals("json", StringComparison.OrdinalIgnoreCase);
+                continue;
+            }
+            result.Add(a);
+        }
+        return result.ToArray();
+    }
+
+    // Strips `--no-cache` and propagates the bypass via the CIRRUS_NO_EXTENSION_CACHE env var,
+    // which AssemblyLoadingOptions.BypassExtensionCache reads through ConfigurationService.
+    // Test hook for benchmarking.
+    private static string[] ParseNoCacheFlag(string[] args)
+    {
+        if (!args.Contains("--no-cache", StringComparer.OrdinalIgnoreCase))
+        {
+            return args;
+        }
+        Environment.SetEnvironmentVariable("CIRRUS_NO_EXTENSION_CACHE", "true");
+        return args.Where(a => !a.Equals("--no-cache", StringComparison.OrdinalIgnoreCase)).ToArray();
+    }
+
+    private static void EmitStructuredError(CirrusErrorException ex, bool outputJson)
+    {
+        if (outputJson)
+        {
+            var payload = new
+            {
+                error = new
+                {
+                    code = ex.Code,
+                    message = ex.Message,
+                    details = ex.Details,
+                },
+            };
+            Console.Error.WriteLine(System.Text.Json.JsonSerializer.Serialize(payload, new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented = true,
+                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+            }));
+        }
+        else
+        {
+            Console.Error.WriteLine($"error: [{ex.Code}] {ex.Message}");
+        }
+    }
+
     private static async Task<int> TryAgentFallbackAsync(string[] args, string? errorText)
     {
         // Global disable switch. Set CIRRUS_AGENT_DISABLED=1 to keep the

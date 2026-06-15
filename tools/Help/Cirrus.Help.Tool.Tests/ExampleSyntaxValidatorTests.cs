@@ -13,30 +13,30 @@ namespace Cirrus.Help.Tool.Tests
             // login: root + logout + show
             var login = new StubExtensionIndex(new Dictionary<string, (string flag, bool required, string[] aliases)[]>
             {
-                [""] = new (string, bool, string[])[]
+                ["login"] = new (string, bool, string[])[]
                 {
                     ("subscription-id", true, Array.Empty<string>()),
                     ("use-device-code", false, Array.Empty<string>()),
                 },
-                ["logout"] = Array.Empty<(string, bool, string[])>(),
-                ["show"] = Array.Empty<(string, bool, string[])>(),
+                ["login logout"] = Array.Empty<(string, bool, string[])>(),
+                ["login show"] = Array.Empty<(string, bool, string[])>(),
             });
 
             // resources: create / list / show with subscription-id, name, etc.
             var resources = new StubExtensionIndex(new Dictionary<string, (string flag, bool required, string[] aliases)[]>
             {
-                ["create"] = new (string, bool, string[])[]
+                ["group create"] = new (string, bool, string[])[]
                 {
                     ("name", true, new[] { "n" }),
                     ("location", true, Array.Empty<string>()),
                     ("subscription-id", true, Array.Empty<string>()),
                     ("resource-id", false, Array.Empty<string>()),
                 },
-                ["list"] = new (string, bool, string[])[]
+                ["group list"] = new (string, bool, string[])[]
                 {
                     ("subscription-id", false, Array.Empty<string>()),
                 },
-                ["show"] = new (string, bool, string[])[]
+                ["group show"] = new (string, bool, string[])[]
                 {
                     ("name", true, Array.Empty<string>()),
                     ("subscription-id", false, Array.Empty<string>()),
@@ -209,7 +209,7 @@ namespace Cirrus.Help.Tool.Tests
             // Single command 'vm create' with mixed typed parameters to exercise L3.
             var vm = new StubExtensionIndex(new Dictionary<string, ParameterMetadata[]>
             {
-                ["create"] = new[]
+                ["vm create"] = new[]
                 {
                     new ParameterMetadata("subscription-id", typeof(Guid), "", true, Array.Empty<string>(), Array.Empty<string>()),
                     new ParameterMetadata("name", typeof(string), "", true, Array.Empty<string>(), Array.Empty<string>()),

@@ -13,7 +13,7 @@ public class HelpArtifactWriterTests
         var index = new ExtensionIndex();
         var repoRoot = RepoLocator.GetRepoRoot();
 
-        var manifest = ExtensionHelpManifestBuilder.BuildManifest(index, "login", "1.0.0-alpha");
+        var manifest = ExtensionHelpManifestBuilder.BuildManifest(index, "1.0.0-alpha", "login");
         var helpIndex = ExtensionHelpManifestBuilder.BuildIndex([manifest]);
 
         using var output = new TempOutputFixture();

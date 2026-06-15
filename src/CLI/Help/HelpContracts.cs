@@ -5,8 +5,12 @@ using Core.Abstractions;
 
 namespace Core.Cli.Help
 {
+    /// <summary>
+    /// Per-verb help manifest. One manifest is emitted per CLI verb (e.g. <c>"vm"</c>,
+    /// <c>"disk"</c>); multi-verb extensions produce multiple manifests.
+    /// </summary>
     public record HelpManifest(
-        string Extension,
+        string Verb,
         string Version,
         string RootSummary,
         IList<HelpCommand> Commands);
@@ -44,14 +48,15 @@ namespace Core.Cli.Help
         IList<HelpGroupIndexEntry> Groups,
         IList<HelpCommandIndexEntry> Commands);
 
+    /// <summary>Index entry for a verb-level root group.</summary>
     public record HelpGroupIndexEntry(
-        string Extension,
-        string Prefix,
+        string Verb,
         string Summary);
 
+    /// <summary>Index entry for a single command. <see cref="Verb"/> is the verb namespace it belongs to.</summary>
     public record HelpCommandIndexEntry(
         string CliName,
         string PsName,
-        string Extension,
+        string Verb,
         string Summary);
 }

@@ -19,6 +19,7 @@ public static class EnvironmentVariableMappings
         ("AZURE_PS_HTTP_MAX_RETRIES", "core.http.maxRetries"),
         ("PS_HTTP_MAX_RETRIES_FOR_429", "core.http.maxRetriesFor429"),
         ("AZURE_PS_HTTP_MAX_RETRIES_FOR_429", "core.http.maxRetriesFor429"),
+        ("CIRRUS_NO_EXTENSION_CACHE", "assemblyLoading.bypassExtensionCache"),
     ];
 
     /// <summary>

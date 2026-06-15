@@ -13,6 +13,7 @@
     <Project Path="src/Core/Core.AssemblyLoading/Core.AssemblyLoading.csproj" />
     <Project Path="src/Core/Core.ArgumentParsing/Core.ArgumentParsing.csproj" />
     <Project Path="src/Core/Core.Configuration/Core.Configuration.csproj" />
+    <Project Path="src/Core/Core.Extensions/Core.Extensions.csproj" />
   </Folder>
   <Folder Name="/src/Extensions/">
     <Project Path="src/Extensions/ExtensionRuntime/ExtensionRuntime.csproj" />
@@ -33,8 +34,13 @@
     <Project Path="tests/Cli.Tests/Cli.Tests.csproj" />
     <Project Path="tests/Benchmark/Benchmark.csproj" />
     <Project Path="tests/Common/Tests.Common.csproj" />
+    <Project Path="tests/Core.Extensions.Tests/Core.Extensions.Tests.csproj" />
     <Project Path="tests/Core.Telemetry.Tests/Core.Telemetry.Tests.csproj" />
     <Project Path="tools/Help/Cirrus.Help.Tool.Tests/Cirrus.Help.Tool.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Fixtures/">
+    <Project Path="tests/Fixtures/SharedAlpha/Cirrus.Tests.Fixtures.SharedAlpha.csproj" />
+    <Project Path="tests/Fixtures/SharedBeta/Cirrus.Tests.Fixtures.SharedBeta.csproj" />
   </Folder>
   <Folder Name="/src/PS/">
     <Project Path="src/PS/Resources/Cmdlets.Resources.csproj" />

@@ -2,6 +2,7 @@ using Core.Abstractions;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Extension;
 
+[ExtensionVerb("extension")]
 public class ExtensionIndex : IExtensionIndex
 {
     // ── CLI Command Metadata ──
@@ -17,14 +18,105 @@ public class ExtensionIndex : IExtensionIndex
             ["version"]  = new("Version", typeof(string), "The version of the extension to add.", IsRequired: false, Aliases: [], AllowedValues: []),
             ["feed-url"] = new("FeedUrl", typeof(string), "Feed URL to install the extension from.", IsRequired: false, Aliases: [], AllowedValues: []),
             ["path"]     = new("Path", typeof(string), "Path to the extension .nupkg file to add.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["pin"]      = new("Pin", typeof(bool), "Pin the installed version so future 'update' commands skip it without --force.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["force"]    = new("Force", typeof(bool), "Allow add to overwrite an existing pinned installation of the same package.", IsRequired: false, Aliases: [], AllowedValues: []),
         },
         ParameterAliases: new Dictionary<string, string>()
     );
+
+    private static readonly CommandMetadata s_listExtensions_CLI = new(
+        Name: "ListExtensionsProcessor",
+        Aliases: [],
+        FullName: "Microsoft.Azure.Cirrus.Extensions.Extension.Processors.ListExtensionsProcessor",
+        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Extension",
+        ProcessorType: typeof(Processors.ListExtensionsProcessor),
+        Parameters: new Dictionary<string, ParameterMetadata>
+        {
+            ["by-verb"] = new("ByVerb", typeof(bool), "Regroup output verb-headed: one section per verb, listing every package that contributes to it.", IsRequired: false, Aliases: [], AllowedValues: []),
+        },
+        ParameterAliases: new Dictionary<string, string>()
+    );
+
+    private static readonly CommandMetadata s_showExtension_CLI = new(
+        Name: "ShowExtensionProcessor",
+        Aliases: [],
+        FullName: "Microsoft.Azure.Cirrus.Extensions.Extension.Processors.ShowExtensionProcessor",
+        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Extension",
+        ProcessorType: typeof(Processors.ShowExtensionProcessor),
+        Parameters: new Dictionary<string, ParameterMetadata>
+        {
+            ["name"] = new("Name", typeof(string), "Package id (full or short suffix) of the extension to show. Verb and namespace tokens are not accepted.", IsRequired: true, Aliases: [], AllowedValues: []),
+        },
+        // Empty-key alias lets dispatcher-bound positional residual (e.g. `extension show Compute`) bind to Name.
+        ParameterAliases: new Dictionary<string, string> { [""] = "name" }
+    );
+
+    private static readonly CommandMetadata s_removeExtension_CLI = new(
+        Name: "RemoveExtensionProcessor",
+        Aliases: [],
+        FullName: "Microsoft.Azure.Cirrus.Extensions.Extension.Processors.RemoveExtensionProcessor",
+        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Extension",
+        ProcessorType: typeof(Processors.RemoveExtensionProcessor),
+        Parameters: new Dictionary<string, ParameterMetadata>
+        {
+            ["name"] = new("Name", typeof(string), "Package id (full or short suffix) of the extension to remove. Verb and namespace tokens are not accepted.", IsRequired: true, Aliases: [], AllowedValues: []),
+        },
+        ParameterAliases: new Dictionary<string, string> { [""] = "name" }
+    );
+
+    private static readonly CommandMetadata s_updateExtension_CLI = new(
+        Name: "UpdateExtensionProcessor",
+        Aliases: [],
+        FullName: "Microsoft.Azure.Cirrus.Extensions.Extension.Processors.UpdateExtensionProcessor",
+        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Extension",
+        ProcessorType: typeof(Processors.UpdateExtensionProcessor),
+        Parameters: new Dictionary<string, ParameterMetadata>
+        {
+            ["name"]     = new("Name", typeof(string), "Package id (full or short suffix) of the extension to update. Verb and namespace tokens are not accepted.", IsRequired: true, Aliases: [], AllowedValues: []),
+            ["version"]  = new("Version", typeof(string), "Target version. Defaults to the latest available from the configured feed.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["feed-url"] = new("FeedUrl", typeof(string), "Feed URL to install the new version from.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["force"]    = new("Force", typeof(bool), "Update even if the extension is pinned.", IsRequired: false, Aliases: [], AllowedValues: []),
+        },
+        ParameterAliases: new Dictionary<string, string> { [""] = "name" }
+    );
+
+    private static readonly CommandMetadata s_pinExtension_CLI = new(
+        Name: "PinExtensionProcessor",
+        Aliases: [],
+        FullName: "Microsoft.Azure.Cirrus.Extensions.Extension.Processors.PinExtensionProcessor",
+        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Extension",
+        ProcessorType: typeof(Processors.PinExtensionProcessor),
+        Parameters: new Dictionary<string, ParameterMetadata>
+        {
+            ["name"] = new("Name", typeof(string), "Package id (full or short suffix) of the extension to pin. Verb and namespace tokens are not accepted.", IsRequired: true, Aliases: [], AllowedValues: []),
+        },
+        ParameterAliases: new Dictionary<string, string> { [""] = "name" }
+    );
+
+    private static readonly CommandMetadata s_unpinExtension_CLI = new(
+        Name: "UnpinExtensionProcessor",
+        Aliases: [],
+        FullName: "Microsoft.Azure.Cirrus.Extensions.Extension.Processors.UnpinExtensionProcessor",
+        AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Extension",
+        ProcessorType: typeof(Processors.UnpinExtensionProcessor),
+        Parameters: new Dictionary<string, ParameterMetadata>
+        {
+            ["name"] = new("Name", typeof(string), "Package id (full or short suffix) of the extension to unpin. Verb and namespace tokens are not accepted.", IsRequired: true, Aliases: [], AllowedValues: []),
+        },
+        ParameterAliases: new Dictionary<string, string> { [""] = "name" }
+    );
     // ── Dispatch Tables ──
     private static readonly Dictionary<string, CommandMetadata> s_psTable = new();
+    // Full-path keys (verb + sub-command).
     private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
     {
-        ["add"] = s_addExtension_CLI,
+        ["extension add"]    = s_addExtension_CLI,
+        ["extension list"]   = s_listExtensions_CLI,
+        ["extension show"]   = s_showExtension_CLI,
+        ["extension remove"] = s_removeExtension_CLI,
+        ["extension update"] = s_updateExtension_CLI,
+        ["extension pin"]    = s_pinExtension_CLI,
+        ["extension unpin"]  = s_unpinExtension_CLI,
     };
     // ── Lookup ──
     public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
@@ -48,8 +140,21 @@ public class ExtensionIndex : IExtensionIndex
             _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
         };
     }
+    public IEnumerable<string> GetCommandKeys(ClientType clientType)
+    {
+        return clientType switch
+        {
+            ClientType.PowerShell => s_psTable.Keys,
+            ClientType.CLI => s_cliTable.Keys,
+            _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
+        };
+    }
+
     public IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType)
     {
         return GetCommandTable(clientType).Values;
     }
+
+    private static readonly IReadOnlyList<string> s_verbs = ["extension"];
+    public IReadOnlyList<string> GetVerbs() => s_verbs;
 }

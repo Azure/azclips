@@ -16,10 +16,10 @@ namespace Cirrus.Help.Tool.Tests
             File.WriteAllText(Path.Combine(helpDir, "index.md"), "x");
             File.WriteAllText(Path.Combine(helpDir, "logout.md"), "x");
 
-            var index = new StubExtensionIndex(new[] { "", "logout" });
+            var index = new StubExtensionIndex(new[] { "login", "login logout" });
 
             var report = new HelpCompletenessValidator()
-                .Validate("login", "Login", helpDir, index);
+                .Validate("login", "login", helpDir, index);
 
             Assert.False(report.HasErrors);
         }
@@ -32,10 +32,10 @@ namespace Cirrus.Help.Tool.Tests
             File.WriteAllText(Path.Combine(helpDir, "index.md"), "x");
             // No logout.md, but command is routed.
 
-            var index = new StubExtensionIndex(new[] { "", "logout" });
+            var index = new StubExtensionIndex(new[] { "login", "login logout" });
 
             var report = new HelpCompletenessValidator()
-                .Validate("login", "Login", helpDir, index);
+                .Validate("login", "login", helpDir, index);
 
             Assert.True(report.HasErrors);
             Assert.Contains(report.Errors, e =>
@@ -49,12 +49,12 @@ namespace Cirrus.Help.Tool.Tests
             using var temp = new TempDirectory();
             var helpDir = temp.Path;
             File.WriteAllText(Path.Combine(helpDir, "index.md"), "x");
-            File.WriteAllText(Path.Combine(helpDir, "config-get.md"), "x");
+            File.WriteAllText(Path.Combine(helpDir, "get.md"), "x");
 
-            var index = new StubExtensionIndex(new[] { "", "config get" });
+            var index = new StubExtensionIndex(new[] { "config", "config get" });
 
             var report = new HelpCompletenessValidator()
-                .Validate("config", "Config", helpDir, index);
+                .Validate("config", "config", helpDir, index);
 
             Assert.False(report.HasErrors);
         }
@@ -66,14 +66,14 @@ namespace Cirrus.Help.Tool.Tests
             var helpDir = temp.Path;
             File.WriteAllText(Path.Combine(helpDir, "index.md"), "x");
 
-            var index = new StubExtensionIndex(new[] { "", "config get" });
+            var index = new StubExtensionIndex(new[] { "config", "config get" });
 
             var report = new HelpCompletenessValidator()
-                .Validate("config", "Config", helpDir, index);
+                .Validate("config", "config", helpDir, index);
 
             Assert.Contains(report.Errors, e =>
-                e.FilePath!.EndsWith("config-get.md", StringComparison.Ordinal) &&
-                e.Message.Contains("'config get'", StringComparison.Ordinal));
+                e.FilePath!.EndsWith("get.md", StringComparison.Ordinal) &&
+                e.Message.Contains("'get'", StringComparison.Ordinal));
         }
 
         [Fact]
@@ -84,10 +84,10 @@ namespace Cirrus.Help.Tool.Tests
             File.WriteAllText(Path.Combine(helpDir, "index.md"), "x");
             File.WriteAllText(Path.Combine(helpDir, "ghost.md"), "x"); // orphan
 
-            var index = new StubExtensionIndex(new[] { "" });
+            var index = new StubExtensionIndex(new[] { "login" });
 
             var report = new HelpCompletenessValidator()
-                .Validate("login", "Login", helpDir, index);
+                .Validate("login", "login", helpDir, index);
 
             Assert.False(report.HasErrors);
             Assert.Contains(report.Warnings, w =>
@@ -101,10 +101,10 @@ namespace Cirrus.Help.Tool.Tests
             var helpDir = temp.Path;
             File.WriteAllText(Path.Combine(helpDir, "index.md"), "x");
 
-            var index = new StubExtensionIndex(new[] { "" });
+            var index = new StubExtensionIndex(new[] { "login" });
 
             var report = new HelpCompletenessValidator()
-                .Validate("login", "Login", helpDir, index);
+                .Validate("login", "login", helpDir, index);
 
             Assert.False(report.HasErrors);
             Assert.Empty(report.Warnings);
@@ -122,10 +122,10 @@ namespace Cirrus.Help.Tool.Tests
             File.WriteAllText(Path.Combine(helpDir, "Index.md"), "x");
             File.WriteAllText(Path.Combine(helpDir, "Logout.md"), "x");
 
-            var index = new StubExtensionIndex(new[] { "", "logout" });
+            var index = new StubExtensionIndex(new[] { "login", "login logout" });
 
             var report = new HelpCompletenessValidator()
-                .Validate("login", "Login", helpDir, index);
+                .Validate("login", "login", helpDir, index);
 
             Assert.False(report.HasErrors);
         }
@@ -136,10 +136,10 @@ namespace Cirrus.Help.Tool.Tests
             using var temp = new TempDirectory();
             var helpDir = Path.Combine(temp.Path, "does-not-exist");
 
-            var index = new StubExtensionIndex(new[] { "" });
+            var index = new StubExtensionIndex(new[] { "login" });
 
             var report = new HelpCompletenessValidator()
-                .Validate("login", "Login", helpDir, index);
+                .Validate("login", "login", helpDir, index);
 
             // index.md is expected → error, but no exception.
             Assert.Contains(report.Errors, e => e.FilePath!.EndsWith("index.md", StringComparison.Ordinal));

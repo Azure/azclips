@@ -1,5 +1,5 @@
 ---
-summary: TODO — one-sentence description of the compute command group.
+summary: TODO — one-sentence description of the vm command group.
 status: ga
 schema: 1.0.0
 online version:
