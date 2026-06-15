@@ -1,6 +1,7 @@
 using Core.Abstractions;
 using Core.Agent;
 using Core.Agent.Hosting;
+using Core.Configuration.Options;
 using Core.DependencyInjection;
 using Core.Runtime;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,6 +32,8 @@ public static class AgentModeEntry
 
             var auth        = CirrusServiceProvider.GetRequiredService<IAuthService>();
             var authContext = CirrusServiceProvider.GetRequiredService<IAuthContextService>();
+            var config      = CirrusServiceProvider.GetRequiredService<IConfigurationService>();
+            var agentOpts   = config.GetConfiguration<AgentOptions>();
             var flavor   = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure cli";
             var azv2     = FindAzv2Exe() ?? "azv2";
             var renderer = new ConsoleAgentRenderer();
@@ -58,6 +61,7 @@ public static class AgentModeEntry
                 azv2ExePath: azv2,
                 approvalSink: approval,
                 renderer: renderer,
+                options: agentOpts,
                 spinner: spinner,
                 mode: "azure",
                 ct: cts.Token);
