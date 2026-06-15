@@ -89,7 +89,8 @@ public class InvokeCirrusRestMethodCmdlet : PSCmdlet
 
     protected override void ProcessRecord()
     {
-        using var activity = CirrusServiceProvider.GetRequiredService<ITelemetryService>().StartPowerShellActivity(MyInvocation.MyCommand.Name, MyInvocation.BoundParameters);
+        var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
+        using var activity = telemetryService.StartRootActivity();
         var parameters = new Dictionary<string, object>
         {
             { "Method", Method },
