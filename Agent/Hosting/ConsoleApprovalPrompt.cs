@@ -50,8 +50,13 @@ public sealed class ConsoleApprovalPrompt
         string ToolName,
         string ArgsPreview,
         string? PlanMarkdown,
+        IReadOnlyList<PlanStep>? PlanSteps,
         TaskCompletionSource<bool> Result,
         CancellationTokenRegistration Reg);
+
+    // Minimal step view the host renders under the plan markdown. Decoupled from
+    // the tool's StepMeta so the hook owns the JSON parsing.
+    public sealed record PlanStep(int Id, string Label, string Cmd);
 
     // Outcome of one approval prompt. When Approved=false and FeedbackPrompt is
     // set, the user typed free-form text at the y/n prompt — the host treats it
@@ -75,7 +80,7 @@ public sealed class ConsoleApprovalPrompt
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var reg = ct.Register(() => tcs.TrySetCanceled(ct));
 
-        _queue.Writer.TryWrite(new PendingApproval(toolName, args, null, tcs, reg));
+        _queue.Writer.TryWrite(new PendingApproval(toolName, args, null, null, tcs, reg));
         return tcs.Task;
     }
 
@@ -89,21 +94,21 @@ public sealed class ConsoleApprovalPrompt
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var reg = ct.Register(() => tcs.TrySetCanceled(ct));
 
-        _queue.Writer.TryWrite(new PendingApproval(toolName, rewrittenCommand ?? string.Empty, null, tcs, reg));
+        _queue.Writer.TryWrite(new PendingApproval(toolName, rewrittenCommand ?? string.Empty, null, null, tcs, reg));
         return tcs.Task;
     }
 
     /// <summary>
     /// Stage-1 plan approval. The hook intercepts propose_plan and routes here to
-    /// render the markdown plan and read y/n — same channel + pump + three-outcome
-    /// machinery as the other approval paths, only the rendered body differs.
+    /// render the markdown plan plus the structured step list and read y/n — same
+    /// channel + pump + three-outcome machinery, only the rendered body differs.
     /// </summary>
-    public Task<bool> RequestPlanAsync(string planMarkdown, CancellationToken ct)
+    public Task<bool> RequestPlanAsync(string planMarkdown, IReadOnlyList<PlanStep>? steps, CancellationToken ct)
     {
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var reg = ct.Register(() => tcs.TrySetCanceled(ct));
 
-        _queue.Writer.TryWrite(new PendingApproval("propose_plan", string.Empty, planMarkdown ?? string.Empty, tcs, reg));
+        _queue.Writer.TryWrite(new PendingApproval("propose_plan", string.Empty, planMarkdown ?? string.Empty, steps, tcs, reg));
         return tcs.Task;
     }
 
@@ -163,7 +168,7 @@ public sealed class ConsoleApprovalPrompt
                 Console.WriteLine();
                 if (pending.PlanMarkdown is not null)
                 {
-                    RenderPlan(pending.PlanMarkdown);
+                    RenderPlan(pending.PlanMarkdown, pending.PlanSteps);
                     WriteColorInline(ConsoleColor.DarkGray, "   approve plan? [y]es / [n]o, tell me what to do differently: ");
                 }
                 else
@@ -204,17 +209,29 @@ public sealed class ConsoleApprovalPrompt
         return ApprovalOutcome.Redirect(trimmed);
     }
 
-    // Stage-1 plan rendering. Commit #4 prints the markdown verbatim under a
-    // header; the Options/steps layout (decision 8) refines this in a later
-    // change. REVIEW: raw markdown in a non-UTF-8 PowerShell host may show
-    // mojibake for any non-ASCII the model emits — verify in e2e, the prompts
-    // already steer the model toward ASCII output.
-    private static void RenderPlan(string planMarkdown)
+    // Stage-1 plan rendering: the markdown narrative, then the structured steps
+    // as a labeled command list (decision 8 — "Options to fix" style). The
+    // numbered [N] select / [esc] cancel affordance is v2; PP approval is the
+    // binary y/n prompted by the caller after this renders.
+    // REVIEW: raw markdown in a non-UTF-8 PowerShell host may show mojibake for
+    // any non-ASCII the model emits — verify in e2e; prompts steer toward ASCII.
+    private static void RenderPlan(string planMarkdown, IReadOnlyList<PlanStep>? steps)
     {
         WriteColor(ConsoleColor.Cyan, "🤖 Proposed plan:");
         Console.WriteLine();
         foreach (var lineText in planMarkdown.Replace("\r\n", "\n").Split('\n'))
             Console.WriteLine($"   {lineText}");
+
+        if (steps is { Count: > 0 })
+        {
+            Console.WriteLine();
+            foreach (var step in steps)
+            {
+                WriteColor(ConsoleColor.White, $"  [{step.Id}] {step.Label}");
+                if (!string.IsNullOrWhiteSpace(step.Cmd))
+                    WriteColor(ConsoleColor.DarkGray, $"        $ {step.Cmd}");
+            }
+        }
         Console.WriteLine();
     }
 

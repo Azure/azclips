@@ -363,7 +363,8 @@ public sealed class ChatAgent : IAsyncDisposable
                 };
 
             var planMd = TryGetStringArg(input.ToolArgs, "planMd") ?? string.Empty;
-            var planApproved = await approvalSink.RequestPlanAsync(planMd, ct).ConfigureAwait(false);
+            var planSteps = ExtractPlanSteps(input.ToolArgs);
+            var planApproved = await approvalSink.RequestPlanAsync(planMd, planSteps, ct).ConfigureAwait(false);
             if (planApproved)
             {
                 // Session-level gate: once any plan is approved, execution is
@@ -522,6 +523,28 @@ public sealed class ChatAgent : IAsyncDisposable
         obj.TryGetProperty(name, out var v) &&
         v.ValueKind == JsonValueKind.String &&
         !string.IsNullOrWhiteSpace(v.GetString());
+
+    // Parses the (already-validated) steps array into the host's PlanStep view
+    // for rendering. Missing/odd fields degrade gracefully — validation has
+    // already guaranteed label+cmd are present for a plan that reaches approval.
+    // internal for unit testing.
+    internal static IReadOnlyList<ConsoleApprovalPrompt.PlanStep>? ExtractPlanSteps(object? args)
+    {
+        if (!TryGetArrayArg(args, "steps", out var steps)) return null;
+
+        var list = new List<ConsoleApprovalPrompt.PlanStep>();
+        int fallbackId = 1;
+        foreach (var step in steps.EnumerateArray())
+        {
+            if (step.ValueKind != JsonValueKind.Object) { fallbackId++; continue; }
+            var id = step.TryGetProperty("id", out var idEl) && idEl.TryGetInt32(out var parsed) ? parsed : fallbackId;
+            var label = step.TryGetProperty("label", out var l) ? l.GetString() ?? string.Empty : string.Empty;
+            var cmd = step.TryGetProperty("cmd", out var c) ? c.GetString() ?? string.Empty : string.Empty;
+            list.Add(new ConsoleApprovalPrompt.PlanStep(id, label, cmd));
+            fallbackId++;
+        }
+        return list.Count > 0 ? list : null;
+    }
 
     private static bool TryGetArrayArg(object? args, string field, out JsonElement array)
     {
