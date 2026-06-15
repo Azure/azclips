@@ -3,6 +3,7 @@ using Core.Abstractions;
 using Core.Agent.Hooks;
 using Core.Agent.Hosting;
 using Core.Agent.Probes;
+using Core.Agent.Tools;
 using Core.Agent.Tools.Cache;
 using Core.Agent.Tools.Help;
 using Core.Agent.Tools.Sku;
@@ -103,6 +104,7 @@ public sealed class ChatAgent : IAsyncDisposable
         var cacheTools = new CachedResourceTools(armDetails);
         var helpTools = new HelpTools();
         var skuTools = new AvailableLocationsTool(auth, authContext);
+        var submitTool = new SubmitResponseTool();
         var prober = new EnvironmentProber(authContext, flavor);
 
         ChatAgent? self = null;
@@ -132,7 +134,7 @@ public sealed class ChatAgent : IAsyncDisposable
         };
 
         var sessionConfig = BuildBaseSessionConfig(
-            systemPrompt, cacheTools, helpTools, skuTools, prober,
+            systemPrompt, cacheTools, helpTools, skuTools, submitTool, prober,
             azv2ExePath, approvalSink, eventRenderer, ct);
 
         string resolvedModel;
@@ -171,6 +173,7 @@ public sealed class ChatAgent : IAsyncDisposable
         CachedResourceTools cacheTools,
         HelpTools helpTools,
         AvailableLocationsTool skuTools,
+        SubmitResponseTool submitTool,
         EnvironmentProber prober,
         string azv2ExePath,
         ConsoleApprovalPrompt approvalSink,
@@ -185,7 +188,7 @@ public sealed class ChatAgent : IAsyncDisposable
                 ".cirrus"),
             Streaming = true,
             SystemMessage = new SystemMessageConfig { Content = systemPrompt },
-            Tools = cacheTools.All.Concat(helpTools.All).Concat(skuTools.All).Cast<AIFunctionDeclaration>().ToList(),
+            Tools = cacheTools.All.Concat(helpTools.All).Concat(skuTools.All).Concat(submitTool.All).Cast<AIFunctionDeclaration>().ToList(),
             // All built-in tools available (bash, view, edit, grep, glob,
             // web_fetch, web_search, todo, ...) plus our custom cache + help tools.
             AvailableTools = null,
@@ -310,6 +313,12 @@ public sealed class ChatAgent : IAsyncDisposable
         ConsoleApprovalPrompt approvalSink,
         CancellationToken ct)
     {
+        // submit_response is the agent's own session-termination signal — no user
+        // approval needed (the LLM already decided to end). Allow it straight
+        // through; host-side final rendering hooks in here in a later change.
+        if (string.Equals(input.ToolName, "submit_response", StringComparison.OrdinalIgnoreCase))
+            return new PreToolUseHookOutput { PermissionDecision = "allow" };
+
         // Both built-in shell tools take a "command" arg and may contain a bare
         // "azv2" that PowerShell would resolve via PATH. Rewrite to the absolute
         // azv2.exe path so the agent always invokes the cirrus binary that
