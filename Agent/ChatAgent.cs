@@ -30,10 +30,15 @@ public sealed class ChatAgent : IAsyncDisposable
     private readonly string _model;
 
     private CancellationTokenSource? _activeTurnCts;
+    private int _llmTurnCount;
 
     public string Model => _model;
 
     public SessionErrored? LastError { get; private set; }
+
+    // Raised after each completed LLM turn with the running turn count for this
+    // session. The host uses it to drive the interactive escape valve.
+    public event Action<int>? LlmTurnCompletedCount;
 
     private ChatAgent(CopilotClient client, CopilotSession session, string model)
     {
@@ -120,6 +125,11 @@ public sealed class ChatAgent : IAsyncDisposable
                     if (self is not null) self.LastError = err;
                     else                  earlyError = err;
                     try { self?._activeTurnCts?.Cancel(); } catch { }
+                }
+                if (ev is LlmTurnCompleted && self is not null)
+                {
+                    var n = ++self._llmTurnCount;
+                    self.LlmTurnCompletedCount?.Invoke(n);
                 }
                 if (spinner is not null)
                 {

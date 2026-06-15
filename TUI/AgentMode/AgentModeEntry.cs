@@ -14,6 +14,11 @@ namespace Core.Tui.AgentMode;
 /// </summary>
 public static class AgentModeEntry
 {
+    // Interactive escape valve thresholds (MVP constants, not configurable yet):
+    // a soft reminder at SoftTurns, a hard abort at HardTurns.
+    private const int EscapeValveSoftTurns = 12;
+    private const int EscapeValveHardTurns = 20;
+
     public static async Task<int> RunAsync(string[] args)
     {
         Console.OutputEncoding = System.Text.Encoding.UTF8;
@@ -73,7 +78,23 @@ public static class AgentModeEntry
                 ? $"I tried `{failedCommand}` but it failed. Help me fix it."
                 : $"I tried `{failedCommand}` but it failed:\n{errorText}\nHelp me fix it.";
 
-            await RunChatLoopAsync(agent, approval, watcher, spinner, firstPrompt, cts.Token);
+            var interactive = string.Equals(agentOpts.SessionStyle, "interactive", StringComparison.OrdinalIgnoreCase);
+
+            // Escape valve (interactive only): a soft reminder partway through and
+            // a hard stop if the agent keeps looping. Numbers are MVP constants.
+            if (interactive)
+                agent.LlmTurnCompletedCount += turns =>
+                {
+                    if (turns == EscapeValveSoftTurns)
+                        WriteColor(ConsoleColor.DarkGray, $"  agent has taken {turns} turns. Press Ctrl+C to interrupt.");
+                    else if (turns >= EscapeValveHardTurns)
+                    {
+                        WriteColor(ConsoleColor.Yellow, $"  agent gave up after {turns} turns. Hit Ctrl+C anytime to interrupt sooner.");
+                        _ = agent.AbortAsync(cts.Token);
+                    }
+                };
+
+            await RunChatLoopAsync(agent, approval, watcher, spinner, firstPrompt, interactive, cts.Token);
             return 0;
         }
         catch (OperationCanceledException)
@@ -97,9 +118,24 @@ public static class AgentModeEntry
         AbortKeyWatcher watcher,
         SpinnerService spinner,
         string firstPrompt,
+        bool interactive,
         CancellationToken ct)
     {
         var nextPrompt = await SendAndPumpAsync(agent, approval, watcher, spinner, firstPrompt, ct);
+
+        // oneShot: the agent proposes a fix and exits. We still drain any redirect
+        // the user typed at a y/n prompt (an explicit "do it differently"), but we
+        // do NOT open a fresh "> " prompt. A hint points at interactive mode.
+        if (!interactive)
+        {
+            while (nextPrompt is not null && !ct.IsCancellationRequested)
+                nextPrompt = await SendAndPumpAsync(agent, approval, watcher, spinner, nextPrompt, ct);
+
+            Console.WriteLine();
+            WriteColor(ConsoleColor.DarkGray,
+                "  ↳ Run 'azv2 config set --key agent.sessionStyle --value interactive' for an interactive session.");
+            return;
+        }
 
         while (!ct.IsCancellationRequested)
         {

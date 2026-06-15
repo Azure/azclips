@@ -18,6 +18,7 @@ public sealed class ConfigurationSchema : IConfigurationSchema
         new() { Key = "telemetry.zipkinEndpoint", Description = "Zipkin endpoint URI.", ValueType = typeof(string), IsUri = true },
         new() { Key = "telemetry.appInsightsInstrumentationKey", Description = "Application Insights instrumentation key.", ValueType = typeof(string) },
         new() { Key = "agent.enabled", Description = "Enable or disable agent features.", DefaultValue = "true", ValueType = typeof(bool) },
+        new() { Key = "agent.sessionStyle", Description = "Agent interaction style: oneShot (propose a fix and exit) | interactive (stay in a chat loop until you exit).", DefaultValue = "oneShot", ValueType = typeof(string), AllowedValues = ["oneShot", "interactive"] },
         new() { Key = "agent.provider", Description = "Agent model provider: builtin (default, our AOAI deployment via APIM) | github (use Copilot SDK default auth) | custom (reserved for GA).", DefaultValue = "builtin", ValueType = typeof(string), AllowedValues = ["builtin", "github", "custom"] },
         new() { Key = "agent.builtin.endpoint", Description = "Endpoint URL for the builtin provider (APIM in front of AOAI).", DefaultValue = "https://azclis-copilot-apim-beta-eus.azure-api.net/cirrus/openai/", ValueType = typeof(string), IsUri = true },
         new() { Key = "agent.builtin.scope", Description = "AAD scope requested when acquiring a token for the builtin provider.", DefaultValue = "https://management.core.windows.net//.default", ValueType = typeof(string) },

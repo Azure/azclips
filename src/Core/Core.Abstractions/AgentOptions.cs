@@ -5,6 +5,10 @@ public sealed class AgentOptions
     public bool Enabled { get; set; } = true;
     public string Provider { get; set; } = "builtin";
     public BuiltinProviderOptions Builtin { get; set; } = new();
+
+    // oneShot: agent proposes a fix and exits (az-CLI-like). interactive: agent
+    // stays in a chat loop until the user exits or the escape valve trips.
+    public string SessionStyle { get; set; } = "oneShot";
 }
 
 public sealed class BuiltinProviderOptions
