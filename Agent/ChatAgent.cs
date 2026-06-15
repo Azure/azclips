@@ -314,10 +314,22 @@ public sealed class ChatAgent : IAsyncDisposable
         CancellationToken ct)
     {
         // submit_response is the agent's own session-termination signal — no user
-        // approval needed (the LLM already decided to end). Allow it straight
-        // through; host-side final rendering hooks in here in a later change.
+        // approval needed (the LLM already decided to end). Validate its args here
+        // and, on failure, deny + feed the reason back as additionalContext so the
+        // LLM self-corrects on the next turn (verified to round-trip with the
+        // current SDK). Host-side final rendering hooks in here in a later change.
         if (string.Equals(input.ToolName, "submit_response", StringComparison.OrdinalIgnoreCase))
+        {
+            if (ValidateSubmitResponse(input.ToolArgs, out var submitError))
+                return new PreToolUseHookOutput
+                {
+                    PermissionDecision = "deny",
+                    PermissionDecisionReason = $"Invalid submit_response arguments: {submitError}",
+                    AdditionalContext = $"Your submit_response call was rejected: {submitError}. Call it again with corrected arguments.",
+                };
+
             return new PreToolUseHookOutput { PermissionDecision = "allow" };
+        }
 
         // Both built-in shell tools take a "command" arg and may contain a bare
         // "azv2" that PowerShell would resolve via PATH. Rewrite to the absolute
@@ -395,6 +407,71 @@ public sealed class ChatAgent : IAsyncDisposable
         }
         merged["command"] = rewrittenCommand;
         return merged;
+    }
+
+    private static readonly string[] ValidSubmitStatuses = ["completed", "rejected", "failed"];
+
+    // Returns true when submit_response args are INVALID and sets `error`. Keeps
+    // validation in the hook (not the tool body) so a bad call becomes a deny +
+    // additionalContext correction prompt instead of a framework exception.
+    // internal for direct unit testing (see SubmitResponseValidationTests).
+    internal static bool ValidateSubmitResponse(object? args, out string error)
+    {
+        var status = TryGetStringArg(args, "status");
+        var message = TryGetStringArg(args, "message");
+
+        if (string.IsNullOrWhiteSpace(status))
+        {
+            error = "missing required field 'status' (expected completed | rejected | failed)";
+            return true;
+        }
+        if (!ValidSubmitStatuses.Contains(status, StringComparer.OrdinalIgnoreCase))
+        {
+            error = $"unknown status '{status}'; valid: completed | rejected | failed";
+            return true;
+        }
+
+        var isReject = string.Equals(status, "rejected", StringComparison.OrdinalIgnoreCase);
+        var isFail   = string.Equals(status, "failed",   StringComparison.OrdinalIgnoreCase);
+        if ((isReject || isFail) && string.IsNullOrWhiteSpace(message))
+        {
+            error = $"'message' is required when status='{status}'";
+            return true;
+        }
+        if (isReject && !message!.StartsWith("OUT_OF_SCOPE_", StringComparison.Ordinal))
+        {
+            error = "rejected 'message' must start with OUT_OF_SCOPE_";
+            return true;
+        }
+
+        error = string.Empty;
+        return false;
+    }
+
+    // Reads one string field from the SDK's ToolArgs, which arrive either as a
+    // JSON object or a JSON-encoded string of an object (same dual shape as
+    // ExtractBashCommand handles). Returns null when absent or not a string.
+    private static string? TryGetStringArg(object? args, string field)
+    {
+        if (args is not JsonElement je) return null;
+
+        JsonDocument? parsedDoc = null;
+        try
+        {
+            if (je.ValueKind == JsonValueKind.String)
+            {
+                try { parsedDoc = JsonDocument.Parse(je.GetString()!); je = parsedDoc.RootElement; }
+                catch { return null; }
+            }
+            if (je.ValueKind == JsonValueKind.Object &&
+                je.TryGetProperty(field, out var v) && v.ValueKind == JsonValueKind.String)
+                return v.GetString();
+            return null;
+        }
+        finally
+        {
+            parsedDoc?.Dispose();
+        }
     }
 
     private static string? ExtractBashCommand(object? args)
