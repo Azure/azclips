@@ -5,6 +5,7 @@ using Core.Abstractions;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Rest
 {
+    [ExtensionVerb("rest")]
     public class ExtensionIndex : IExtensionIndex
     {
         // ── PS Command Metadata ──
@@ -61,7 +62,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest
         private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
         {
             // rest is a special command: the command group word itself is the verb (azv2 rest ...).
-            [""] = s_rest_CLI,
+            ["rest"] = s_rest_CLI,
         };
         // ── Lookup ──
         public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
@@ -89,5 +90,16 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest
         {
             return GetCommandTable(clientType).Values;
         }
+        public IEnumerable<string> GetCommandKeys(ClientType clientType)
+        {
+            return clientType switch
+            {
+                ClientType.PowerShell => s_psTable.Keys,
+                ClientType.CLI => s_cliTable.Keys,
+                _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
+            };
+        }
+        private static readonly IReadOnlyList<string> s_verbs = ["rest"];
+        public IReadOnlyList<string> GetVerbs() => s_verbs;
     }
 }

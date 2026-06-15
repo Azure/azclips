@@ -13,6 +13,7 @@ public sealed class ConfigurationSchema : IConfigurationSchema
         new() { Key = "assemblyLoading.builtinInstallationDir", Description = "Built-in extensions installation directory.", ValueType = typeof(string) },
         new() { Key = "assemblyLoading.versionedInstallationDir", Description = "Versioned extensions installation directory.", ValueType = typeof(string) },
         new() { Key = "assemblyLoading.extensionFolderPrefix", Description = "Assembly discovery prefix for extensions.", ValueType = typeof(string) },
+        new() { Key = "assemblyLoading.bypassExtensionCache", Description = "Skip the per-process ALC cache and reload extensions on every dispatch (benchmark/test hook).", DefaultValue = "false", ValueType = typeof(bool) },
         new() { Key = "telemetry.enabled", Description = "Enable or disable telemetry.", DefaultValue = "true", ValueType = typeof(bool) },
         new() { Key = "telemetry.zipkinEndpoint", Description = "Zipkin endpoint URI.", ValueType = typeof(string), IsUri = true },
         new() { Key = "telemetry.appInsightsInstrumentationKey", Description = "Application Insights instrumentation key.", ValueType = typeof(string) },

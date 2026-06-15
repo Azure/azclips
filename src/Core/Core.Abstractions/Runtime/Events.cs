@@ -59,6 +59,10 @@ namespace Core.Abstractions.Runtime
         public const string AuthBeforeTokenAcquisition = nameof(AuthBeforeTokenAcquisition);
         public const string AuthAfterTokenAcquisition = nameof(AuthAfterTokenAcquisition);
 
+        // Generic Events
+        public const string ActionStart = nameof(ActionStart);
+        public const string ActionEnd = nameof(ActionEnd);
+
         public const string Verbose = nameof(Verbose);
         public const string Debug = nameof(Debug);
         public const string Information = nameof(Information);

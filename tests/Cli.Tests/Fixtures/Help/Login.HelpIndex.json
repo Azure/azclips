@@ -1,8 +1,7 @@
 {
   "groups": [
     {
-      "extension": "login",
-      "prefix": "login",
+      "verb": "login",
       "summary": "Authenticate to Azure."
     }
   ],
@@ -10,19 +9,19 @@
     {
       "cliName": "login",
       "psName": "Connect-CirrusAccount",
-      "extension": "login",
+      "verb": "login",
       "summary": "Authenticate to Azure."
     },
     {
       "cliName": "login logout",
       "psName": "Disconnect-CirrusAccount",
-      "extension": "login",
+      "verb": "login",
       "summary": "Sign out from the current Azure account context."
     },
     {
       "cliName": "login show",
       "psName": "Get-CirrusAccount",
-      "extension": "login",
+      "verb": "login",
       "summary": "Show the current Azure account context."
     }
   ]

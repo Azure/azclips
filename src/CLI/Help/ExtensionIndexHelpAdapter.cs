@@ -1,65 +1,75 @@
 using Core.Abstractions;
-using Core.Cli.Parser;
 using System.Reflection;
 
 namespace Core.Cli.Help;
 
 /// <summary>
-/// Bridges <see cref="IExtensionIndex"/> + the markdown help corpus into the runtime
-/// help tree. Resolution is markdown-first with attribute fallback
-/// (<c>[ProcessorInfo]</c> / <c>[ArgumentInfo]</c>); examples are filtered to CLI-only
-/// (PowerShell examples flow through <see cref="ExtensionHelpManifestBuilder"/> instead).
+/// Verb-scoped projection of <see cref="IExtensionIndex"/> + the markdown help corpus
+/// into the runtime help tree. One instance covers exactly one CLI verb
+/// (e.g. <c>"vm"</c>); multi-verb extensions create one adapter per verb.
 /// </summary>
+/// <remarks>
+/// <para>
+/// Resolution is markdown-first with attribute fallback
+/// (<c>[ProcessorInfo]</c> / <c>[ArgumentInfo]</c>). Examples are filtered to CLI-only —
+/// PowerShell examples flow through <see cref="ExtensionHelpManifestBuilder"/>.
+/// </para>
+/// <para>
+/// Markdown lookup uses <c>(verb, relativeCommandPath)</c>, e.g.
+/// <c>("vm", "create")</c> → <c>src/CLI/Help/Docs/vm/create.md</c>;
+/// <c>("login", "")</c>     → <c>src/CLI/Help/Docs/login/index.md</c>.
+/// </para>
+/// </remarks>
 public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
 {
-    private readonly IExtensionIndex _extensionIndex;
-    private readonly IReadOnlyDictionary<string, CommandMetadata> _cliTable;
-    private readonly string _rootGroupName;
-    private readonly string _rootGroupPath;
+    /// <summary>Command-table entries for <see cref="Verb"/>, keyed by path relative to the verb.</summary>
+    /// <remarks>
+    /// Extensions key <c>s_cliTable</c> on the dispatch surface (full <c>"verb path"</c>) so the
+    /// runtime engine can look up <c>Invocation.CommandName</c> verbatim. This adapter strips
+    /// the verb prefix once at construction so all downstream help logic works in the
+    /// per-verb namespace, e.g. <c>""</c> for the verb itself and <c>"create"</c> for
+    /// <c>vm create</c>. Entries belonging to other verbs are dropped.
+    /// </remarks>
+    private readonly IReadOnlyDictionary<string, CommandMetadata> _verbCommands;
 
-    public ExtensionIndexHelpAdapter(IExtensionIndex extensionIndex, string extensionName)
+    public ExtensionIndexHelpAdapter(IExtensionIndex extensionIndex, string verb)
     {
-        _extensionIndex = extensionIndex ?? throw new ArgumentNullException(nameof(extensionIndex));
-        ExtensionName = string.IsNullOrWhiteSpace(extensionName)
-            ? throw new ArgumentException("Extension name cannot be null or empty.", nameof(extensionName))
-            : extensionName;
+        ArgumentNullException.ThrowIfNull(extensionIndex);
+        Verb = string.IsNullOrWhiteSpace(verb)
+            ? throw new ArgumentException("Verb cannot be null or empty.", nameof(verb))
+            : verb.ToLowerInvariant();
 
-        _cliTable = _extensionIndex.GetCommandTable(ClientType.CLI);
-        _rootGroupName = CommandGroupIndex.GetCommandGroupNameByExtensionName(extensionName);
-        _rootGroupPath = _rootGroupName.ToLowerInvariant();
+        _verbCommands = BuildVerbScopedTable(extensionIndex.GetCommandTable(ClientType.CLI), Verb);
     }
 
-    public string ExtensionName { get; }
+    public string Verb { get; }
 
-    /// <summary>Top-level groups for this extension. Summary comes from <c>index.md</c>.</summary>
-    public IReadOnlyList<RuntimeHelpGroup> GetRootGroups()
-        => [BuildGroup([_rootGroupPath], MarkdownCommandHelpProvider.Get(ExtensionName, string.Empty).Summary)!];
+    public RuntimeHelpGroup GetRootGroup()
+        => BuildGroup([Verb], MarkdownCommandHelpProvider.Get(Verb, string.Empty).Summary)!;
 
-    /// <summary>Group-level help for <paramref name="groupPath"/>. Returns <c>null</c> when the path is outside this extension or empty.</summary>
     public RuntimeHelpGroup? GetGroupHelp(IReadOnlyList<string> groupPath)
     {
-        if (!IsUnderRootGroup(groupPath))
+        if (!IsUnderVerb(groupPath))
         {
             return null;
         }
 
         var summary = groupPath.Count == 1
-            ? MarkdownCommandHelpProvider.Get(ExtensionName, string.Empty).Summary
+            ? MarkdownCommandHelpProvider.Get(Verb, string.Empty).Summary
             : string.Empty;
 
         return BuildGroup(groupPath, summary, returnNullWhenEmpty: groupPath.Count > 1);
     }
 
-    /// <summary>Command-level help for <paramref name="commandPath"/>. Returns <c>null</c> when the path doesn't resolve. Examples are CLI-only.</summary>
     public RuntimeHelpCommand? GetCommandHelp(IReadOnlyList<string> commandPath)
     {
-        if (!IsUnderRootGroup(commandPath))
+        if (!IsUnderVerb(commandPath))
         {
             return null;
         }
 
         var relativeKey = GetRelativeKey(commandPath);
-        if (!_cliTable.TryGetValue(relativeKey, out var metadata))
+        if (!_verbCommands.TryGetValue(relativeKey, out var metadata))
         {
             return null;
         }
@@ -77,7 +87,7 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
                 SupportsWildcards: false))
             .ToList();
 
-        var markdown = MarkdownCommandHelpProvider.Get(ExtensionName, relativeKey);
+        var markdown = MarkdownCommandHelpProvider.Get(Verb, relativeKey);
         var summary = GetSummary(metadata, markdown);
         var description = GetDescription(metadata, markdown);
         var examples = GetExamples(metadata, markdown);
@@ -97,15 +107,17 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
         var subgroupSummaries = new Dictionary<string, RuntimeHelpGroupSummary>(StringComparer.OrdinalIgnoreCase);
         var commandSummaries = new List<RuntimeHelpCommandSummary>();
 
-        if (string.IsNullOrEmpty(relativePrefix) && _cliTable.TryGetValue(string.Empty, out var rootCommandMetadata))
+        // A verb that also has a runnable root command (e.g. "azv2 login" itself) shows up
+        // as the empty-key entry in the per-verb table.
+        if (string.IsNullOrEmpty(relativePrefix) && _verbCommands.TryGetValue(string.Empty, out var rootCommandMetadata))
         {
             commandSummaries.Add(new RuntimeHelpCommandSummary(
-                Name: _rootGroupPath,
-                Summary: GetSummary(rootCommandMetadata, MarkdownCommandHelpProvider.Get(ExtensionName, string.Empty)),
+                Name: Verb,
+                Summary: GetSummary(rootCommandMetadata, MarkdownCommandHelpProvider.Get(Verb, string.Empty)),
                 Tags: []));
         }
 
-        foreach (var kvp in _cliTable.OrderBy(static pair => pair.Key, StringComparer.Ordinal))
+        foreach (var kvp in _verbCommands.OrderBy(static pair => pair.Key, StringComparer.Ordinal))
         {
             if (string.IsNullOrEmpty(kvp.Key))
             {
@@ -128,7 +140,7 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
             {
                 commandSummaries.Add(new RuntimeHelpCommandSummary(
                     Name: segments[0],
-                    Summary: GetSummary(kvp.Value, MarkdownCommandHelpProvider.Get(ExtensionName, kvp.Key)),
+                    Summary: GetSummary(kvp.Value, MarkdownCommandHelpProvider.Get(Verb, kvp.Key)),
                     Tags: []));
                 continue;
             }
@@ -152,13 +164,12 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
             Commands: commandSummaries);
     }
 
-    private bool IsUnderRootGroup(IReadOnlyList<string> path)
-    {
-        return path.Count > 0 && path[0].Equals(_rootGroupPath, StringComparison.OrdinalIgnoreCase);
-    }
+    private bool IsUnderVerb(IReadOnlyList<string> path)
+        => path.Count > 0 && path[0].Equals(Verb, StringComparison.OrdinalIgnoreCase);
 
     private static string GetRelativeKey(IReadOnlyList<string> path)
     {
+        // path[0] is the verb; everything after is the per-verb command key.
         return path.Count <= 1
             ? string.Empty
             : string.Join(" ", path.Skip(1).Select(static segment => segment.ToLowerInvariant()));
@@ -180,6 +191,34 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
         return key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
             ? key[prefix.Length..]
             : null;
+    }
+
+    /// <summary>
+    /// Scopes the full-path CLI table down to one verb and strips the verb prefix from
+    /// each key. Entries from other verbs (e.g. <c>"disk list"</c> when scoping to
+    /// <c>"vm"</c>) are dropped.
+    /// </summary>
+    private static IReadOnlyDictionary<string, CommandMetadata> BuildVerbScopedTable(
+        IReadOnlyDictionary<string, CommandMetadata> fullTable,
+        string verb)
+    {
+        var result = new Dictionary<string, CommandMetadata>(StringComparer.OrdinalIgnoreCase);
+        var prefix = verb + " ";
+
+        foreach (var kvp in fullTable)
+        {
+            var key = kvp.Key ?? string.Empty;
+            if (key.Equals(verb, StringComparison.OrdinalIgnoreCase))
+            {
+                result[string.Empty] = kvp.Value;
+            }
+            else if (key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                result[key[prefix.Length..]] = kvp.Value;
+            }
+        }
+
+        return result;
     }
 
     private static ProcessorInfoAttribute? GetProcessorInfo(CommandMetadata metadata)

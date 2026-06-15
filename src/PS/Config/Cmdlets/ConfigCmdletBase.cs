@@ -37,11 +37,14 @@ public abstract class ConfigCmdletBase : PSCmdlet
 
     protected void ExecuteInvocation(Dictionary<string, object> parameters)
     {
+        var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
+        using var activity = telemetryService.StartRootActivity();
         var commandName = MyInvocation.MyCommand.Name;
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
         var invocation = new CommandInvocation("Config", commandName, parameters, false, moduleName, moduleVersion);
+        telemetryService.TagInvocation(invocation);
 
         using ISession session = Engine.OpenExecutionSession(invocation, Streams, _cts.Token);
         session.Run();

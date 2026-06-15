@@ -8,7 +8,7 @@ namespace Core.Engine
 {
     public partial class Engine
     {
-        // session subscribes messages first, then each service 
+        // session subscribes messages first, then each service
         private IEventSubscriber SubscribeAll(IEventSubscriber subscriber)
         {
             SubscribeMessages(subscriber);
@@ -22,8 +22,8 @@ namespace Core.Engine
         // session made this wired loggingService to channel during process, all messages subscribe loggingService
         private IEventSubscriber SubscribeMessages(IEventSubscriber subscriber)
         {
-            // Print every event id for debugging purpose, 
-            // SubscribeAll() subscribers are guaranteed executed before everyone else 
+            // Print every event id for debugging purpose,
+            // SubscribeAll() subscribers are guaranteed executed before everyone else
             // No need to print event id for subsequent events
             subscriber.SubscribeAll(msg =>
             {
@@ -141,7 +141,7 @@ namespace Core.Engine
                 var evt = (EventData)data;
                 loggingService.Error(evt.Message);
             });
- 
+
             return subscriber;
         }
 
@@ -153,28 +153,6 @@ namespace Core.Engine
         {
             Stack<Activity> pairedStages = new Stack<Activity>();
             Activity? sequentialStage = null;
-
-            // Set activity root
-            subscriber.Subscribe(Events.SessionCreated, (data) =>
-            {
-                var evt = (EventData)data;
-                Activity? activity = Activity.Current;
-                if (activity != null)
-                {
-                    // Walk up to the root activity so module tags appear on the top-level span
-                    while (activity.Parent is not null)
-                        activity = activity.Parent;
-                    loggingService.Debug($"Root activity={activity.DisplayName}, setting tags...");
-                    activity.SetTag("ClientType", clientType);
-                    // NOTE: On the CLI side "module.name" currently maps to the extension name.
-                    // The tag key may be renamed to "extension.name" in the future — TBD.
-                    if (!string.IsNullOrEmpty(evt.ModuleName))
-                        activity.SetTag("module.name", evt.ModuleName);
-                    if (!string.IsNullOrEmpty(evt.ModuleVersion))
-                        activity.SetTag("module.version", evt.ModuleVersion);
-                    loggingService.Debug($"Tags set. Verifying: module.name={activity.GetTagItem("module.name")}, module.version={activity.GetTagItem("module.version")}");
-                }
-            });
 
             // Paired: SessionCreated - SessionDisposed
             // Session dispose will ensure all activities are disposed
@@ -218,7 +196,20 @@ namespace Core.Engine
                 sequentialStage = null;
             });
 
-            //TODO(Yabo): Observability Squad to subscribe more events for telemetry
+            // Paired: ActionStart - ActionEnd
+            subscriber.Subscribe(Events.ActionStart, (data) =>
+            {
+                var evt = (EventData)data;
+                var activity = telemetryService.StartActivity($"{evt.Id}.{evt.ClassName}.{evt.FunctionName}", ActivityKind.Internal);
+                if (activity != null)
+                    pairedStages.Push(activity);
+            });
+            subscriber.Subscribe(Events.ActionEnd, (data) =>
+            {
+                if (pairedStages.TryPop(out var activity))
+                    activity.Dispose();
+            });
+
             return subscriber;
         }
 

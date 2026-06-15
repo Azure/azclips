@@ -5,6 +5,8 @@ using Core.Abstractions;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Resources
 {
+    [ExtensionVerb("group")]
+    [ExtensionVerb("deployment")]
     public class ExtensionIndex : IExtensionIndex
     {
         // ── PS Command Metadata ──
@@ -145,12 +147,17 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             ["Get-ResourceGroup_List"] = s_listResourceGroup_PS,
             ["New-ResourceGroupDeployment"] = s_newResourceGroupDeployment_PS,
         };
+        // Full-path keys. Each key is `{verb} {path}` where `verb` matches
+        // an [ExtensionVerb] declaration on this class; the dispatcher does longest-prefix match on the
+        // (verb, path) tuple via Core.Extensions.LeafIndex. Resources contributes both the
+        // "group" verb (resource group CRUD) and the "deployment" verb (resource-group-scoped
+        // ARM/Bicep deployments).
         private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
         {
-            ["create"] = s_newResourceGroup_CLI,
-            ["list"]   = s_listResourceGroup_CLI,
-            ["show"]   = s_getResourceGroup_CLI,
-            ["group create"] = s_newResourceGroupDeployment_CLI,
+            ["group create"]              = s_newResourceGroup_CLI,
+            ["group list"]                = s_listResourceGroup_CLI,
+            ["group show"]                = s_getResourceGroup_CLI,
+            ["deployment group create"]   = s_newResourceGroupDeployment_CLI,
         };
         // ── Lookup ──
         public CommandMetadata GetCommandMetadata(string name, ClientType clientType)
@@ -174,9 +181,22 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
                 _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
             };
         }
+        public IEnumerable<string> GetCommandKeys(ClientType clientType)
+        {
+            return clientType switch
+            {
+                ClientType.PowerShell => s_psTable.Keys,
+                ClientType.CLI => s_cliTable.Keys,
+                _ => throw new ArgumentException($"Client type '{clientType}' is not supported.")
+            };
+        }
+
         public IEnumerable<CommandMetadata> GetAllCommands(ClientType clientType)
         {
             return GetCommandTable(clientType).Values;
         }
+
+        private static readonly IReadOnlyList<string> s_verbs = ["group", "deployment"];
+        public IReadOnlyList<string> GetVerbs() => s_verbs;
     }
 }
