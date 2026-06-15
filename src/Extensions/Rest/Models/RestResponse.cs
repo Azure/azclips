@@ -17,7 +17,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Rest.Models
         public int StatusCode { get; set; }
 
         [JsonPropertyName("headers")]
-        public Dictionary<string, string> Headers { get; set; } = new();
+        public Dictionary<string, string> Headers { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// The raw response body as returned by the service. May be empty.
