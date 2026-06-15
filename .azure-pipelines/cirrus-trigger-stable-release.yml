@@ -185,7 +185,23 @@ stages:
           echo "No prior stable tag found. Collecting changelog PRs from $target_branch history."
         fi
 
-        mapfile -t changelog_pr_numbers < <(git log --first-parent --format='%s' "$changelog_range" | grep -oE '\(#[0-9]+\)|pull request #[0-9]+' | grep -oE '[0-9]+' | awk '!seen[$0]++' || true)
+        declare -A changelog_seen_pr_numbers=()
+        declare -A changelog_pr_subjects=()
+        changelog_pr_numbers=()
+        while IFS= read -r changelog_subject; do
+          pr_number=""
+          if [[ "$changelog_subject" =~ \(\#([0-9]+)\) ]]; then
+            pr_number="${BASH_REMATCH[1]}"
+          elif [[ "$changelog_subject" =~ pull\ request\ \#([0-9]+) ]]; then
+            pr_number="${BASH_REMATCH[1]}"
+          fi
+
+          if [[ -n "$pr_number" && -z "${changelog_seen_pr_numbers[$pr_number]:-}" ]]; then
+            changelog_seen_pr_numbers[$pr_number]=1
+            changelog_pr_subjects[$pr_number]="$changelog_subject"
+            changelog_pr_numbers+=("$pr_number")
+          fi
+        done < <(git log --first-parent --format='%s' "$changelog_range")
 
         echo "Target branch: $target_branch"
         echo "Current CLI version: $current_version"
@@ -264,12 +280,14 @@ stages:
             echo "- No merged pull requests found since previous stable tag."
           else
             for pr_number in "${changelog_pr_numbers[@]}"; do
-              pr_title="$(gh pr view "$pr_number" --repo "$repo" --json title --jq '.title' 2>/dev/null || true)"
-              pr_url="$(gh pr view "$pr_number" --repo "$repo" --json url --jq '.url' 2>/dev/null || true)"
-              pr_author="$(gh pr view "$pr_number" --repo "$repo" --json author --jq '.author.login' 2>/dev/null || true)"
+              pr_metadata=()
+              mapfile -t pr_metadata < <(gh pr view "$pr_number" --repo "$repo" --json title,url,author --jq '.title, .url, (.author.login // "")' 2>/dev/null || true)
+              pr_title="${pr_metadata[0]:-}"
+              pr_url="${pr_metadata[1]:-}"
+              pr_author="${pr_metadata[2]:-}"
 
               if [[ -z "$pr_title" ]]; then
-                pr_title="Merged pull request #$pr_number"
+                pr_title="${changelog_pr_subjects[$pr_number]:-Merged pull request #$pr_number}"
               fi
 
               if [[ -n "$pr_url" && -n "$pr_author" ]]; then

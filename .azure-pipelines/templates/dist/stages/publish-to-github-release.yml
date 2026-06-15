@@ -284,6 +284,7 @@ stages:
         tag: '$(ReleaseTag)'
         title: '$(ReleaseName)'
         isPreRelease: ${{ parameters.GitHubReleaseIsPrerelease }}
+        # GitHubRelease@1 expects filePath/releaseNotesFilePath for release notes files.
         releaseNotesSource: 'filePath'
         releaseNotesFilePath: '$(ReleaseNotesFile)'
         assets: '$(Build.ArtifactStagingDirectory)/release/*'
