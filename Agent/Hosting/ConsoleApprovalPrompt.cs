@@ -49,6 +49,7 @@ public sealed class ConsoleApprovalPrompt
     private record PendingApproval(
         string ToolName,
         string ArgsPreview,
+        string? PlanMarkdown,
         TaskCompletionSource<bool> Result,
         CancellationTokenRegistration Reg);
 
@@ -74,7 +75,7 @@ public sealed class ConsoleApprovalPrompt
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var reg = ct.Register(() => tcs.TrySetCanceled(ct));
 
-        _queue.Writer.TryWrite(new PendingApproval(toolName, args, tcs, reg));
+        _queue.Writer.TryWrite(new PendingApproval(toolName, args, null, tcs, reg));
         return tcs.Task;
     }
 
@@ -88,7 +89,21 @@ public sealed class ConsoleApprovalPrompt
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var reg = ct.Register(() => tcs.TrySetCanceled(ct));
 
-        _queue.Writer.TryWrite(new PendingApproval(toolName, rewrittenCommand ?? string.Empty, tcs, reg));
+        _queue.Writer.TryWrite(new PendingApproval(toolName, rewrittenCommand ?? string.Empty, null, tcs, reg));
+        return tcs.Task;
+    }
+
+    /// <summary>
+    /// Stage-1 plan approval. The hook intercepts propose_plan and routes here to
+    /// render the markdown plan and read y/n — same channel + pump + three-outcome
+    /// machinery as the other approval paths, only the rendered body differs.
+    /// </summary>
+    public Task<bool> RequestPlanAsync(string planMarkdown, CancellationToken ct)
+    {
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var reg = ct.Register(() => tcs.TrySetCanceled(ct));
+
+        _queue.Writer.TryWrite(new PendingApproval("propose_plan", string.Empty, planMarkdown ?? string.Empty, tcs, reg));
         return tcs.Task;
     }
 
@@ -146,9 +161,17 @@ public sealed class ConsoleApprovalPrompt
             Action body = () =>
             {
                 Console.WriteLine();
-                WriteColor(ConsoleColor.Yellow, $"⚠ Approve '{pending.ToolName}'?");
-                WriteArgs(pending.ArgsPreview);
-                WriteColorInline(ConsoleColor.DarkGray, "   [y]es / [n]o, tell me what to do differently: ");
+                if (pending.PlanMarkdown is not null)
+                {
+                    RenderPlan(pending.PlanMarkdown);
+                    WriteColorInline(ConsoleColor.DarkGray, "   approve plan? [y]es / [n]o, tell me what to do differently: ");
+                }
+                else
+                {
+                    WriteColor(ConsoleColor.Yellow, $"⚠ Approve '{pending.ToolName}'?");
+                    WriteArgs(pending.ArgsPreview);
+                    WriteColorInline(ConsoleColor.DarkGray, "   [y]es / [n]o, tell me what to do differently: ");
+                }
                 line = Console.ReadLine();
             };
             if (_renderer is not null) _renderer.RunExclusive(body);
@@ -179,6 +202,20 @@ public sealed class ConsoleApprovalPrompt
             return ApprovalOutcome.No;
 
         return ApprovalOutcome.Redirect(trimmed);
+    }
+
+    // Stage-1 plan rendering. Commit #4 prints the markdown verbatim under a
+    // header; the Options/steps layout (decision 8) refines this in a later
+    // change. REVIEW: raw markdown in a non-UTF-8 PowerShell host may show
+    // mojibake for any non-ASCII the model emits — verify in e2e, the prompts
+    // already steer the model toward ASCII output.
+    private static void RenderPlan(string planMarkdown)
+    {
+        WriteColor(ConsoleColor.Cyan, "🤖 Proposed plan:");
+        Console.WriteLine();
+        foreach (var lineText in planMarkdown.Replace("\r\n", "\n").Split('\n'))
+            Console.WriteLine($"   {lineText}");
+        Console.WriteLine();
     }
 
     // Soft-wrap long args across terminal width. Never truncates — the user

@@ -105,6 +105,7 @@ public sealed class ChatAgent : IAsyncDisposable
         var helpTools = new HelpTools();
         var skuTools = new AvailableLocationsTool(auth, authContext);
         var submitTool = new SubmitResponseTool();
+        var planTool = new ProposePlanTool();
         var prober = new EnvironmentProber(authContext, flavor);
 
         ChatAgent? self = null;
@@ -134,7 +135,7 @@ public sealed class ChatAgent : IAsyncDisposable
         };
 
         var sessionConfig = BuildBaseSessionConfig(
-            systemPrompt, cacheTools, helpTools, skuTools, submitTool, prober,
+            systemPrompt, cacheTools, helpTools, skuTools, submitTool, planTool, prober,
             azv2ExePath, approvalSink, eventRenderer, ct);
 
         string resolvedModel;
@@ -174,6 +175,7 @@ public sealed class ChatAgent : IAsyncDisposable
         HelpTools helpTools,
         AvailableLocationsTool skuTools,
         SubmitResponseTool submitTool,
+        ProposePlanTool planTool,
         EnvironmentProber prober,
         string azv2ExePath,
         ConsoleApprovalPrompt approvalSink,
@@ -188,7 +190,8 @@ public sealed class ChatAgent : IAsyncDisposable
                 ".cirrus"),
             Streaming = true,
             SystemMessage = new SystemMessageConfig { Content = systemPrompt },
-            Tools = cacheTools.All.Concat(helpTools.All).Concat(skuTools.All).Concat(submitTool.All).Cast<AIFunctionDeclaration>().ToList(),
+            Tools = cacheTools.All.Concat(helpTools.All).Concat(skuTools.All)
+                .Concat(submitTool.All).Concat(planTool.All).Cast<AIFunctionDeclaration>().ToList(),
             // All built-in tools available (bash, view, edit, grep, glob,
             // web_fetch, web_search, todo, ...) plus our custom cache + help tools.
             AvailableTools = null,
@@ -331,6 +334,31 @@ public sealed class ChatAgent : IAsyncDisposable
             return new PreToolUseHookOutput { PermissionDecision = "allow" };
         }
 
+        // propose_plan is the stage-1 direction approval. Validate args (deny +
+        // correction on failure), then render the markdown plan and ask the user
+        // to approve via RequestPlanAsync. "ask" alone would surface the raw JSON
+        // args, so the hook owns the rendering and reports the y/n as allow/deny.
+        if (string.Equals(input.ToolName, "propose_plan", StringComparison.OrdinalIgnoreCase))
+        {
+            if (ValidateProposePlan(input.ToolArgs, out var planError))
+                return new PreToolUseHookOutput
+                {
+                    PermissionDecision = "deny",
+                    PermissionDecisionReason = $"Invalid propose_plan arguments: {planError}",
+                    AdditionalContext = $"Your propose_plan call was rejected: {planError}. Call it again with corrected arguments.",
+                };
+
+            var planMd = TryGetStringArg(input.ToolArgs, "planMd") ?? string.Empty;
+            var planApproved = await approvalSink.RequestPlanAsync(planMd, ct).ConfigureAwait(false);
+            return planApproved
+                ? new PreToolUseHookOutput { PermissionDecision = "allow" }
+                : new PreToolUseHookOutput
+                {
+                    PermissionDecision = "deny",
+                    PermissionDecisionReason = "User did not approve the plan.",
+                };
+        }
+
         // Both built-in shell tools take a "command" arg and may contain a bare
         // "azv2" that PowerShell would resolve via PATH. Rewrite to the absolute
         // azv2.exe path so the agent always invokes the cirrus binary that
@@ -410,6 +438,81 @@ public sealed class ChatAgent : IAsyncDisposable
     }
 
     private static readonly string[] ValidSubmitStatuses = ["completed", "rejected", "failed"];
+
+    // Returns true when propose_plan args are INVALID and sets `error`. Same
+    // hook-not-body validation rationale as submit_response. internal for tests.
+    internal static bool ValidateProposePlan(object? args, out string error)
+    {
+        var planMd = TryGetStringArg(args, "planMd");
+        if (string.IsNullOrWhiteSpace(planMd))
+        {
+            error = "planMd is empty";
+            return true;
+        }
+
+        if (!TryGetArrayArg(args, "steps", out var steps) || steps.GetArrayLength() == 0)
+        {
+            error = "steps must have at least one entry";
+            return true;
+        }
+
+        int i = 0;
+        foreach (var step in steps.EnumerateArray())
+        {
+            if (step.ValueKind != JsonValueKind.Object)
+            {
+                error = $"step {i} is not an object";
+                return true;
+            }
+            if (!HasStringProp(step, "label"))
+            {
+                error = $"step {i} missing required field 'label'";
+                return true;
+            }
+            if (!HasStringProp(step, "cmd"))
+            {
+                error = $"step {i} missing required field 'cmd'";
+                return true;
+            }
+            i++;
+        }
+
+        error = string.Empty;
+        return false;
+    }
+
+    private static bool HasStringProp(JsonElement obj, string name) =>
+        obj.TryGetProperty(name, out var v) &&
+        v.ValueKind == JsonValueKind.String &&
+        !string.IsNullOrWhiteSpace(v.GetString());
+
+    private static bool TryGetArrayArg(object? args, string field, out JsonElement array)
+    {
+        array = default;
+        if (args is not JsonElement je) return false;
+
+        JsonDocument? parsedDoc = null;
+        try
+        {
+            if (je.ValueKind == JsonValueKind.String)
+            {
+                try { parsedDoc = JsonDocument.Parse(je.GetString()!); je = parsedDoc.RootElement; }
+                catch { return false; }
+            }
+            if (je.ValueKind == JsonValueKind.Object &&
+                je.TryGetProperty(field, out var v) && v.ValueKind == JsonValueKind.Array)
+            {
+                // Clone so the value outlives the parsed document we dispose below.
+                array = v.Clone();
+                return true;
+            }
+            return false;
+        }
+        finally
+        {
+            parsedDoc?.Dispose();
+        }
+    }
 
     // Returns true when submit_response args are INVALID and sets `error`. Keeps
     // validation in the hook (not the tool body) so a bad call becomes a deny +
