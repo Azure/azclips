@@ -4,6 +4,7 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Core.Abstractions;
+using Core.Cli.Help;
 
 namespace Cirrus.Help.Tool.Validation
 {
@@ -46,7 +47,7 @@ namespace Cirrus.Help.Tool.Validation
         public ValidationReport Validate(string repoRoot, IReadOnlyDictionary<string, IExtensionIndex> indexesByCliGroup)
         {
             var report = new ValidationReport();
-            var helpRoot = Path.Combine(repoRoot, "src", "CLI", "Help", "Docs");
+            var helpRoot = HelpPaths.CliHelpDocsRoot(repoRoot);
 
             if (!Directory.Exists(helpRoot))
             {
@@ -202,6 +203,12 @@ namespace Cirrus.Help.Tool.Validation
             string locator,
             ValidationReport report)
         {
+            // A6 (CLI_L4_MissingRequiredFlag): track every flag we successfully resolve to
+            // a canonical parameter name, then diff against the required set after the loop.
+            // Mirrors PSL3 on the PowerShell side. Aliases collapse to the canonical name so
+            // `--rg` and `--resource-group` are not double-counted.
+            var seenCanonical = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
             for (var i = startIndex; i < tokens.Count; i++)
             {
                 var token = tokens[i];
@@ -241,6 +248,10 @@ namespace Cirrus.Help.Tool.Validation
                     continue;
                 }
 
+                // Record the canonical parameter name so A6 (missing-required diff) sees
+                // alias usage as satisfying the requirement.
+                seenCanonical.Add(parameter!.Name);
+
                 // Type-check the value (if any) against the parameter's declared type / AllowedValues.
                 var value = equalsValue;
                 if (value is null && i + 1 < tokens.Count && !IsFlag(tokens[i + 1]))
@@ -261,6 +272,28 @@ namespace Cirrus.Help.Tool.Validation
                     report.AddError(
                         ProblemIds.CLI_L3_InvalidValue,
                         $"Value '{value}' for flag '{flag}' on command '{routedPath}' is invalid: {typeError}",
+                        locator);
+                }
+            }
+
+            // A6: a CLI example must include every parameter the routed command marks
+            // IsRequired=true. Missing-required is reported once per parameter per example
+            // so a partially-filled example surfaces every gap in one CI pass. Mirrors PSL3.
+            //
+            // The Parameters dictionary keys are kebab-case CLI flag names (e.g. "subscription-id");
+            // the `Name` field on the metadata is the PascalCase .NET property name
+            // (e.g. "SubscriptionId"). seenCanonical accumulates the latter from the loop above,
+            // so we compare against `kv.Value.Name` here \u2014 not the dict key \u2014 and we surface
+            // the kebab-case key in the user-facing error message.
+            foreach (var (kebabKey, meta) in command.Parameters
+                         .Where(static kv => kv.Value.IsRequired)
+                         .OrderBy(static kv => kv.Key, StringComparer.OrdinalIgnoreCase))
+            {
+                if (!seenCanonical.Contains(meta.Name))
+                {
+                    report.AddError(
+                        ProblemIds.CLI_L4_MissingRequiredFlag,
+                        $"Required flag '--{kebabKey}' is missing from example '{routedPath}'. Required parameters must appear in every illustrative example.",
                         locator);
                 }
             }

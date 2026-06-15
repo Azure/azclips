@@ -22,6 +22,13 @@ namespace Cirrus.Help.Tool.Validation
         public const string MD_MissingDescription = "MD_MissingDescription";
         public const string MD_NoExamples = "MD_NoExamples";
 
+        // Stub-content rules (A1, A2). Fired by MarkdownStructureValidator so they
+        // run on every CLI markdown file regardless of which surface validator is
+        // active. The PS variants live alongside the PS validator so PS files are
+        // policed even though they don't go through MarkdownStructureValidator.
+        public const string MD_TodoPlaceholder = "MD_TodoPlaceholder";
+        public const string CLI_ExamplePlaceholder = "CLI_ExamplePlaceholder";
+
         // HelpCompletenessValidator
         public const string Completeness_MissingHelpFile = "Completeness_MissingHelpFile";
         public const string Completeness_OrphanedHelpFile = "Completeness_OrphanedHelpFile";
@@ -31,6 +38,9 @@ namespace Cirrus.Help.Tool.Validation
         public const string CLI_L1_UnknownCommand = "CLI_L1_UnknownCommand";
         public const string CLI_L2_UnknownFlag = "CLI_L2_UnknownFlag";
         public const string CLI_L3_InvalidValue = "CLI_L3_InvalidValue";
+        // A6: every CLI example must include all required parameters declared on the
+        // routed command (mirrors PSL3 on the PowerShell side).
+        public const string CLI_L4_MissingRequiredFlag = "CLI_L4_MissingRequiredFlag";
 
         // PowerShellExampleSyntaxValidator
         public const string PS_ParseError = "PS_ParseError";
@@ -42,6 +52,17 @@ namespace Cirrus.Help.Tool.Validation
         public const string PSL6_InvalidParameterValue = "PSL6_InvalidParameterValue";
         public const string PSL7_ExampleMustInvokeDocumentedCmdlet = "PSL7_ExampleMustInvokeDocumentedCmdlet";
         public const string PSL8_NoExamples = "PSL8_NoExamples";
+        // A1/A2 PS variants. Distinct IDs so authors can grep CI logs and the
+        // troubleshooting matrix in docs/howto/help.md scopes cleanly.
+        public const string PS_TodoPlaceholder = "PS_TodoPlaceholder";
+        public const string PS_ExamplePlaceholder = "PS_ExamplePlaceholder";
+
+        // PsCompletenessValidator: every cmdlet exported by a module's <Module>.psd1
+        // must have a matching `src/PS/<Module>/help/<Verb-Noun>.md` source file.
+        // Mirrors Completeness_MissingHelpFile / OrphanedHelpFile on the CLI side.
+        public const string PSL9_MissingHelpFile = "PSL9_MissingHelpFile";
+        public const string PSL10_MissingHelpFolder = "PSL10_MissingHelpFolder";
+        public const string PSL11_OrphanedHelpFile = "PSL11_OrphanedHelpFile";
 
         // Tool-level (Program.cs)
         public const string Tool_CmdletAssemblyLoadFailed = "Tool_CmdletAssemblyLoadFailed";

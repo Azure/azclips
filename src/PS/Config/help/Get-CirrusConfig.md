@@ -1,7 +1,7 @@
 ---
 document type: cmdlet
 external help file: Microsoft.Azure.Cirrus.Cmdlets.Config.dll-Help.xml
-HelpUri: ''
+HelpUri: ""
 Locale: en-US
 Module Name: Config
 ms.date: 06/03/2026
@@ -17,7 +17,7 @@ Retrieve a configuration value.
 
 ## SYNTAX
 
-### __AllParameterSets
+### \_\_AllParameterSets
 
 ```
 Get-CirrusConfig -Key <string> [-AsJson] [<CommonParameters>]
@@ -26,7 +26,7 @@ Get-CirrusConfig -Key <string> [-AsJson] [<CommonParameters>]
 ## ALIASES
 
 This cmdlet has the following aliases,
-  {{Insert list of aliases}}
+{{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -38,18 +38,18 @@ If the key is not found, an error is displayed.
 
 ### Get a configuration value
 
-TODO - describe the example.
+Return the current value of the `output.format` configuration setting.
 
 ```powershell
-Get-CirrusConfig -Key <key>
+Get-CirrusConfig -Key output.format
 ```
 
 ### Get output as JSON
 
-TODO - describe the example.
+Return the value formatted as JSON instead of plain text. Useful for piping into `ConvertFrom-Json` in scripts.
 
 ```powershell
-Get-CirrusConfig -Key <key>
+Get-CirrusConfig -Key output.format -AsJson
 ```
 
 ## PARAMETERS
@@ -60,19 +60,19 @@ Get-CirrusConfig -Key <key>
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -Key
@@ -81,19 +81,19 @@ Configuration key in dot notation.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### CommonParameters
@@ -111,9 +111,6 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 Generated help for config.
 
-
 ## RELATED LINKS
-
-
 
 - [Online Version]()

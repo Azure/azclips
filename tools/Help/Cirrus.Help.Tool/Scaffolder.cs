@@ -25,7 +25,7 @@ namespace Cirrus.Help.Tool
         public static int Scaffold(string repoRoot, string verb, IExtensionIndex extensionIndex)
         {
             var verbFolder = HelpCommandKey.ToExtensionFolder(verb);
-            var helpDir = Path.Combine(repoRoot, "src", "CLI", "Help", "Docs", verbFolder);
+            var helpDir = Core.Cli.Help.HelpPaths.CliVerbHelpDir(repoRoot, verbFolder);
             Directory.CreateDirectory(helpDir);
 
             // Scope the routed table down to commands belonging to this verb and strip

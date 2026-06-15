@@ -26,7 +26,7 @@ namespace Cirrus.Help.Tool.Validation
         public ValidationReport Validate(string repoRoot, string verb, IExtensionIndex extensionIndex)
         {
             var verbFolder = HelpCommandKey.ToExtensionFolder(verb);
-            var helpDirectory = Path.Combine(repoRoot, "src", "CLI", "Help", "Docs", verbFolder);
+            var helpDirectory = Core.Cli.Help.HelpPaths.CliVerbHelpDir(repoRoot, verbFolder);
 
             return Validate(verb, verbFolder, helpDirectory, extensionIndex);
         }

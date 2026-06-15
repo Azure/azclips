@@ -1,14 +1,20 @@
 ---
-summary: TODO — short summary of `azv2 vm list`.
+summary: List virtual machines in a resource group.
 status: ga
 schema: 1.0.0
 online version:
 ---
 
-Description: TODO — describe what `azv2 vm list` does and when to use it.
+Description: Return a list of virtual machines that live in the specified resource group, including each machine's name, size, location, and provisioning state. Use this command for inventory, audits, or before bulk operations such as start, stop, or delete.
 
-### list a resource
+### List VMs in a resource group
 
 ```bash
-azv2 vm list --resource-group <string> --subscription-id <string>
+azv2 vm list --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000
+```
+
+### List using shell variables
+
+```bash
+azv2 vm list --resource-group $rg --subscription-id $subId
 ```
