@@ -38,7 +38,7 @@ PowerShellVersion = '7.5'
 
 # Modules that must be imported into the global environment prior to importing this module
 RequiredModules = @(
-    @{ ModuleName = '../Login/Login.psd1'; ModuleVersion = '0.0.1' }
+    @{ ModuleName = '../Login/Login.psd1'; ModuleVersion = '0.1.0' }
 )
 
 # Assemblies that must be loaded prior to importing this module
