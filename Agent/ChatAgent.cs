@@ -182,6 +182,9 @@ public sealed class ChatAgent : IAsyncDisposable
         EventRenderer eventRenderer,
         CancellationToken ct)
     {
+        // One per session. Captured by the OnPreToolUse closure so the plan-gate
+        // (no bash/powershell before an approved plan) shares state across calls.
+        var state = new SessionState();
         return new SessionConfig
         {
             SessionId = Guid.NewGuid().ToString(),
@@ -197,7 +200,7 @@ public sealed class ChatAgent : IAsyncDisposable
             AvailableTools = null,
             Hooks = new SessionHooks
             {
-                OnPreToolUse = (input, _) => HandlePreToolUseAsync(input, azv2ExePath, approvalSink, ct),
+                OnPreToolUse = (input, _) => HandlePreToolUseAsync(input, azv2ExePath, approvalSink, state, ct),
                 OnSessionStart = async (_, _) =>
                 {
                     var snap = await prober.ProbeAsync(ct).ConfigureAwait(false);
@@ -314,6 +317,7 @@ public sealed class ChatAgent : IAsyncDisposable
         PreToolUseHookInput input,
         string azv2ExePath,
         ConsoleApprovalPrompt approvalSink,
+        SessionState state,
         CancellationToken ct)
     {
         // submit_response is the agent's own session-termination signal — no user
@@ -350,13 +354,36 @@ public sealed class ChatAgent : IAsyncDisposable
 
             var planMd = TryGetStringArg(input.ToolArgs, "planMd") ?? string.Empty;
             var planApproved = await approvalSink.RequestPlanAsync(planMd, ct).ConfigureAwait(false);
-            return planApproved
-                ? new PreToolUseHookOutput { PermissionDecision = "allow" }
-                : new PreToolUseHookOutput
-                {
-                    PermissionDecision = "deny",
-                    PermissionDecisionReason = "User did not approve the plan.",
-                };
+            if (planApproved)
+            {
+                // Session-level gate: once any plan is approved, execution is
+                // unblocked for the rest of the session. Re-planning does not
+                // re-arm the gate (stage-2 per-command approval still applies).
+                // REVIEW: v2 may scope approval per-plan via an ApprovedPlanId
+                // instead of this single bool (see schema doc decision 7 TODO).
+                state.PlanApproved = true;
+                return new PreToolUseHookOutput { PermissionDecision = "allow" };
+            }
+            return new PreToolUseHookOutput
+            {
+                PermissionDecision = "deny",
+                PermissionDecisionReason = "User did not approve the plan.",
+            };
+        }
+
+        // Plan-before-execute gate: the agent must get a plan approved before it
+        // runs any shell command. Without it, deny and tell the LLM to call
+        // propose_plan first (round-trips via additionalContext).
+        if ((string.Equals(input.ToolName, "bash",       StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(input.ToolName, "powershell", StringComparison.OrdinalIgnoreCase)) &&
+            !state.PlanApproved)
+        {
+            return new PreToolUseHookOutput
+            {
+                PermissionDecision = "deny",
+                PermissionDecisionReason = "Execution requires an approved plan first.",
+                AdditionalContext = "You must call propose_plan and get the user's approval before running any command.",
+            };
         }
 
         // Both built-in shell tools take a "command" arg and may contain a bare
@@ -658,4 +685,15 @@ public sealed class ChatAgent : IAsyncDisposable
         }
         catch { }
     }
+}
+
+/// <summary>
+/// Per-session mutable state shared with the OnPreToolUse hook. PP-stage this is
+/// just the plan gate; it is session-scoped (one instance per ChatAgent session)
+/// and not thread-safe by design — the SDK invokes the hook serially per session.
+/// </summary>
+internal sealed class SessionState
+{
+    // True once the user has approved any plan this session. Gates bash/powershell.
+    public bool PlanApproved { get; set; }
 }
