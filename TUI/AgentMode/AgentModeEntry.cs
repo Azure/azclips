@@ -22,6 +22,8 @@ public static class AgentModeEntry
 
         var failedCommand = ArgValue(args, "--failed-command") ?? string.Empty;
         var errorText     = ArgValue(args, "--error")          ?? string.Empty;
+        var entrypoint    = ArgValue(args, "--entrypoint")
+            ?? throw new ArgumentException("--entrypoint is required (expected 'classic' or 'tui').");
 
         CirrusServiceProvider.Initialize(ClientType.TUI);
 
@@ -61,6 +63,7 @@ public static class AgentModeEntry
                 approvalSink: approval,
                 renderer: renderer,
                 options: agentOpts,
+                entrypoint: entrypoint,
                 spinner: spinner,
                 mode: "azure",
                 ct: cts.Token);

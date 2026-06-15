@@ -57,6 +57,7 @@ public sealed class ChatAgent : IAsyncDisposable
         ConsoleApprovalPrompt approvalSink,
         IAgentRenderer renderer,
         AgentOptions options,
+        string entrypoint,
         SpinnerService? spinner = null,
         ILogger? logger = null,
         string mode = "azure",
@@ -74,7 +75,7 @@ public sealed class ChatAgent : IAsyncDisposable
         {
             return await CreateCoreAsync(
                 client, flavor, auth, authContext, azv2ExePath, approvalSink,
-                renderer, options, spinner, mode, ct).ConfigureAwait(false);
+                renderer, options, entrypoint, spinner, mode, ct).ConfigureAwait(false);
         }
         catch
         {
@@ -92,11 +93,12 @@ public sealed class ChatAgent : IAsyncDisposable
         ConsoleApprovalPrompt approvalSink,
         IAgentRenderer renderer,
         AgentOptions options,
+        string entrypoint,
         SpinnerService? spinner,
         string mode,
         CancellationToken ct)
     {
-        var systemPrompt = LoadSystemPrompt(flavor, mode);
+        var systemPrompt = LoadSystemPrompt(flavor, mode, entrypoint);
         var armDetails = new ArmDetailsClient(auth);
         var cacheTools = new CachedResourceTools(armDetails);
         var helpTools = new HelpTools();
@@ -435,9 +437,14 @@ public sealed class ChatAgent : IAsyncDisposable
         toolName.StartsWith("get_",  StringComparison.OrdinalIgnoreCase) ||
         toolName.StartsWith("list_", StringComparison.OrdinalIgnoreCase);
 
-    private static string LoadSystemPrompt(string flavor, string mode)
+    private static string LoadSystemPrompt(string flavor, string mode, string entrypoint)
     {
-        var path = Path.Combine(AppContext.BaseDirectory, "agent.md");
+        if (string.IsNullOrWhiteSpace(entrypoint))
+            throw new ArgumentException(
+                "entrypoint must be 'classic' or 'tui' — refusing to guess which system prompt to load.",
+                nameof(entrypoint));
+
+        var path = Path.Combine(AppContext.BaseDirectory, $"agent-{entrypoint}.md");
         var content = File.ReadAllText(path);
         return content
             .Replace("{{flavor}}", flavor, StringComparison.OrdinalIgnoreCase)

@@ -306,6 +306,8 @@ public class Program
             };
             psi.Environment["CIRRUS_IN_AGENT_MODE"] = "1";
             psi.ArgumentList.Add("--agent-mode");
+            psi.ArgumentList.Add("--entrypoint");
+            psi.ArgumentList.Add("classic");
             psi.ArgumentList.Add("--failed-command");
             psi.ArgumentList.Add(JoinShellQuoted(args));
             if (!string.IsNullOrWhiteSpace(errorText))
