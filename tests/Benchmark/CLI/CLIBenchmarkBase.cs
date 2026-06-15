@@ -14,7 +14,7 @@ namespace Benchmark.CLI;
 [MemoryDiagnoser]
 [InvocationCount(invocationCount: 1, unrollFactor: 1)]
 [MaxRelativeError(0.01)]
-[MaxIterationCount(1000)]
+[MaxIterationCount(10000)]
 [Outliers(OutlierMode.RemoveAll)]
 public abstract class CLIBenchmarkBase : BenchmarkBase
 {
