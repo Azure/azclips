@@ -54,11 +54,11 @@ public sealed class DefaultTelemetryActivityNameFilter : ITelemetryActivityNameF
         "ActionStart.",
     };
 
-    /// <summary>Read-only view of the verbatim allowed names.</summary>
-    public static IReadOnlyCollection<string> AllowlistExact => AllowedExactNames;
+    /// <summary>Immutable snapshot of the verbatim allowed names.</summary>
+    public static IReadOnlyCollection<string> AllowlistExact => Array.AsReadOnly(AllowedExactNames.ToArray());
 
-    /// <summary>Read-only view of the allowed name prefixes.</summary>
-    public static IReadOnlyCollection<string> AllowlistPrefixes => AllowedNamePrefixes;
+    /// <summary>Immutable snapshot of the allowed name prefixes.</summary>
+    public static IReadOnlyCollection<string> AllowlistPrefixes => Array.AsReadOnly(AllowedNamePrefixes.ToArray());
 
     public bool IsAllowed(string? activityName)
     {

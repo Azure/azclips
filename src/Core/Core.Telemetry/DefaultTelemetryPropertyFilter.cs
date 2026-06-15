@@ -41,11 +41,11 @@ public sealed class DefaultTelemetryPropertyFilter : ITelemetryPropertyFilter
     };
 
     /// <summary>
-    /// Read-only view of the verbatim allowed keys. The
+    /// Immutable snapshot of the verbatim allowed keys. The
     /// <see cref="TelemetryTags.PropertyTagPrefix"/> prefix is additionally
     /// honored by <see cref="IsAllowed"/> but is not enumerated here.
     /// </summary>
-    public static IReadOnlyCollection<string> Allowlist => AllowedKeys;
+    public static IReadOnlyCollection<string> Allowlist => Array.AsReadOnly(AllowedKeys.ToArray());
 
     public bool IsAllowed(string? key)
     {
@@ -56,4 +56,3 @@ public sealed class DefaultTelemetryPropertyFilter : ITelemetryPropertyFilter
         return key.StartsWith(TelemetryTags.PropertyTagPrefix, StringComparison.OrdinalIgnoreCase);
     }
 }
-
