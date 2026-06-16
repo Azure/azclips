@@ -203,7 +203,7 @@ Legacy `schema: 2.0.0` markdown is still accepted as input by PlatyPS 1.0.1 (`Im
 
 These rules apply uniformly to CLI markdown under `src/CLI/Help/Docs/` and PowerShell markdown under `src/PS/<Module>/help/`:
 
-- **`MD_TodoPlaceholder`** — the scaffolder seeds `TODO -` markers in `summary`, `Description`, and example bodies (CLI) and in `SYNOPSIS` and example bodies (PS). Any remaining `TODO` token in author-owned content is an error. Replace each marker with real prose.
+- **`MD_TodoPlaceholder`** (CLI) / **`PS_TodoPlaceholder`** (PS) — the scaffolder seeds `TODO -` markers in `summary`, `Description`, and example bodies (CLI) and across `SYNOPSIS`, `DESCRIPTION`, parameter blocks, and example bodies (PS). Any remaining `TODO` token in author-owned content is an error. Replace each marker with real prose. Distinct ProblemIds make CLI vs PS failures greppable in build logs.
 - **`CLI_ExamplePlaceholder`** / **`PS_ExamplePlaceholder`** — see [Placeholder rules](#placeholder-rules) below.
 
 ### CLI fences (`bash` / `sh`) — `src/CLI/Help/Docs/`
