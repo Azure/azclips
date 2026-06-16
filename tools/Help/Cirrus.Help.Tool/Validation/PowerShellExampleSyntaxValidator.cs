@@ -123,7 +123,7 @@ namespace Cirrus.Help.Tool.Validation
             {
                 report.AddError(
                     ProblemIds.PS_TodoPlaceholder,
-                    "PowerShell help file still contains a TODO marker. Replace every scaffolded 'TODO - ...' placeholder (in SYNOPSIS, DESCRIPTION, and EXAMPLES) with real content before merging.",
+                    "PowerShell help file still contains a TODO marker. Replace every scaffolded 'TODO - ...' placeholder with real content before merging.",
                     filePath);
             }
 

@@ -43,16 +43,21 @@ public class HelpPathsCasingTests
         AssertExactSegmentCasing(repoRoot, HelpPaths.PsModulesSegments);
 
         // Each module's authored help must use lowercase `help` (CLI side uses capital `Help`).
+        // Enumerate the module entry case-insensitively then compare the actual on-disk name
+        // case-sensitively \u2014 Path.GetFileName(Path.Combine(...)) just echoes the input.
         foreach (var moduleDir in Directory.EnumerateDirectories(psRoot))
         {
-            var helpDir = Path.Combine(moduleDir, HelpPaths.PsHelpFolder);
-            if (!Directory.Exists(helpDir))
+            var actualHelpName = Directory
+                .EnumerateDirectories(moduleDir)
+                .Select(Path.GetFileName)
+                .FirstOrDefault(name => string.Equals(name, HelpPaths.PsHelpFolder, StringComparison.OrdinalIgnoreCase));
+
+            if (actualHelpName is null)
             {
                 continue;
             }
 
-            var actualName = Path.GetFileName(helpDir);
-            Assert.Equal(HelpPaths.PsHelpFolder, actualName);
+            Assert.Equal(HelpPaths.PsHelpFolder, actualHelpName);
         }
     }
 
