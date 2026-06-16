@@ -8,29 +8,21 @@ using Core.Abstractions;
 namespace Cirrus.Help.Tool
 {
     /// <summary>
-    /// Emits <c>src/CLI/Help/Docs/&lt;verb&gt;/&lt;sub&gt;.md</c> stubs (and a sibling
-    /// <c>index.md</c>) for every routed command under a given CLI verb. Folder and file
-    /// naming mirrors <see cref="HelpCompletenessValidator"/> and the runtime markdown
-    /// lookup, so a scaffolded folder validates immediately. Existing files are left
-    /// untouched so authors can re-run the scaffolder safely after adding new commands.
+    /// Emits <c>src/CLI/Help/Docs/&lt;verb&gt;/&lt;sub&gt;.md</c> stubs (and an <c>index.md</c>)
+    /// for every routed command under a CLI verb. Naming mirrors <see cref="HelpCompletenessValidator"/>;
+    /// existing files are left untouched so authors can re-run safely.
     /// </summary>
     public static class Scaffolder
     {
-        /// <summary>
-        /// Scaffolds a single verb's help folder.
-        /// </summary>
-        /// <param name="repoRoot">Repository root (folder containing <c>src/</c>).</param>
-        /// <param name="verb">Lowercase CLI verb (e.g. <c>vm</c>, <c>disk</c>, <c>group</c>).</param>
-        /// <param name="extensionIndex">Index that contributes <paramref name="verb"/>. Multi-verb extensions are scoped via <see cref="ScopeKeysToVerb"/>.</param>
+        /// <summary>Scaffolds a single verb's help folder.</summary>
         public static int Scaffold(string repoRoot, string verb, IExtensionIndex extensionIndex)
         {
             var verbFolder = HelpCommandKey.ToExtensionFolder(verb);
             var helpDir = Core.Cli.Help.HelpPaths.CliVerbHelpDir(repoRoot, verbFolder);
             Directory.CreateDirectory(helpDir);
 
-            // Scope the routed table down to commands belonging to this verb and strip
-            // the verb prefix. Keys arrive as "verb" / "verb sub"; we emit "" / "sub"
-            // so the file names match the runtime lookup (index.md, sub.md).
+            // Scope the routed table to this verb and strip the verb prefix; keys arrive as
+            // "verb" / "verb sub" and emit as "" / "sub" → index.md / sub.md.
             var scopedKeys = ScopeKeysToVerb(extensionIndex.GetCommandTable(ClientType.CLI), verb);
 
             var created = 0;
@@ -54,9 +46,7 @@ namespace Cirrus.Help.Tool
                     continue;
                 }
 
-                // Multi-word sub-keys (rare; e.g. "config get" stripped to "get" is single-word,
-                // but a hypothetical "vm scale set" stripped to "scale set" becomes scale-set.md)
-                // are normalized by ToHelpFileName.
+                // Multi-word sub-keys (e.g. "vm scale set" → "scale set") are normalized by ToHelpFileName.
                 var path = Path.Combine(helpDir, HelpCommandKey.ToHelpFileName(subKey));
                 if (TryWrite(path, BuildCommandTemplate(verb, subKey, metadata)))
                 {
@@ -73,9 +63,8 @@ namespace Cirrus.Help.Tool
         }
 
         /// <summary>
-        /// Filters the full routed command table down to entries owned by <paramref name="verb"/>
-        /// and yields them with the verb prefix stripped (empty string for the verb root).
-        /// Mirrors the scoping done by <see cref="HelpCompletenessValidator"/>.
+        /// Filters the routed command table to entries owned by <paramref name="verb"/>,
+        /// stripping the verb prefix (empty string for the verb root).
         /// </summary>
         private static IEnumerable<KeyValuePair<string, CommandMetadata>> ScopeKeysToVerb(
             IReadOnlyDictionary<string, CommandMetadata> rawTable,

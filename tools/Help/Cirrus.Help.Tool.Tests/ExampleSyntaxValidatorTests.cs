@@ -418,12 +418,12 @@ namespace Cirrus.Help.Tool.Tests
             Assert.Contains("Unknown flag '--unknwn'", errors[0].Message, StringComparison.Ordinal);
         }
 
-        // ---- A6: CLI_L4_MissingRequiredFlag ---------------------------------------------------
+        // ---- CLI_L4_MissingRequiredFlag ----------------------------------------------------
 
         [Fact]
         public void Validate_ShouldErrorL4_WhenRequiredFlagIsMissing()
         {
-            // 'group create' requires name + location + subscription-id; we only provide name.
+            // 'group create' requires name + location + subscription-id; only --name supplied.
             var content = Fence("azv2 group create --name myrg");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
@@ -432,7 +432,7 @@ namespace Cirrus.Help.Tool.Tests
                 .Where(e => e.ProblemId == ProblemIds.CLI_L4_MissingRequiredFlag)
                 .ToList();
 
-            // Both 'location' and 'subscription-id' should be reported as missing in one pass.
+            // Both --location and --subscription-id should be reported in one pass.
             Assert.Equal(2, l4Errors.Count);
             Assert.Contains(l4Errors, e => e.Message.Contains("--location", StringComparison.Ordinal));
             Assert.Contains(l4Errors, e => e.Message.Contains("--subscription-id", StringComparison.Ordinal));
@@ -441,7 +441,7 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldNotFireL4_WhenAliasFlagSatisfiesRequirement()
         {
-            // -n is the alias for --name on group create. Using the alias should be enough.
+            // -n is the alias for --name; using the alias should satisfy the requirement.
             var content = Fence("azv2 group create -n myrg --location eastus --subscription-id 00000000-0000-0000-0000-000000000000");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
@@ -463,7 +463,7 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldNotFireL4_WhenCommandHasNoRequiredFlags()
         {
-            // 'group list' has only an optional subscription-id. Bare invocation must pass.
+            // 'group list' has only an optional subscription-id; bare invocation must pass.
             var content = Fence("azv2 group list");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
@@ -474,12 +474,9 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldNotFireL4_WhenParameterNameIsPascalCaseAndExampleUsesKebabFlag()
         {
-            // Regression test for the kebab-vs-PascalCase invariant in real CommandMetadata:
-            //   - dictionary KEYS are kebab-case CLI flag names ("subscription-id")
-            //   - ParameterMetadata.Name is the PascalCase .NET property ("SubscriptionId")
-            // The validator must match the user-typed flag against the dictionary key (kebab),
-            // NOT against ParameterMetadata.Name (PascalCase). Building the table this way models
-            // production exactly.
+            // Regression: dictionary KEYS are kebab-case CLI flags ("subscription-id");
+            // ParameterMetadata.Name is the PascalCase property ("SubscriptionId").
+            // The validator must match against the dictionary key, not the .Name field.
             var widgetCreate = new CommandMetadata(
                 Name: "widget create",
                 Aliases: Array.Empty<string>(),

@@ -133,9 +133,8 @@ namespace Cirrus.Help.Tool.Validation
                 return;
             }
 
-            // Help-flag invocations (`azv2 <group> [...subgroup] --help`) are intercepted by
-            // the runtime help renderer regardless of whether the path resolves to a routed
-            // command. Don't require the rest of the path to bind to a CommandMetadata.
+            // Help-flag invocations are intercepted by the runtime help renderer
+            // regardless of whether the path resolves to a routed command.
             if (tokens.Skip(2).Any(IsHelpFlag))
             {
                 return;
@@ -143,7 +142,7 @@ namespace Cirrus.Help.Tool.Validation
 
             var cliTable = index.GetCommandTable(ClientType.CLI);
 
-            // Greedy resolve: try the longest prefix of remaining tokens that does not look like a flag/value.
+            // Greedy resolve: longest prefix of remaining tokens that does not look like a flag/value.
             var commandTokens = new List<string>();
             var consumed = 2;
             for (var i = 2; i < tokens.Count; i++)
@@ -156,10 +155,8 @@ namespace Cirrus.Help.Tool.Validation
                 commandTokens.Add(tokens[i]);
             }
 
-            // Command-table keys are full verb-prefixed paths (e.g. "config get", "extension add",
-            // "login" for an extension's root). Re-attach the verb when probing so the longest
-            // prefix of remaining tokens resolves against the same key shape the runtime uses.
-            // Try longest match first, shrinking until we find a table key (or fall back to verb-root).
+            // Command-table keys are full verb-prefixed paths (e.g. "config get").
+            // Try longest match first, shrinking until we find a table key.
             CommandMetadata? command = null;
             string? matchedSubKey = null;
             for (var take = commandTokens.Count; take >= 0; take--)
@@ -185,9 +182,7 @@ namespace Cirrus.Help.Tool.Validation
                 return;
             }
 
-            // The routed user-facing command path — e.g. "azv2 login" or "azv2 group create".
-            // CommandMetadata.Name is the processor class name (e.g. "LoginProcessor"), which is
-            // an implementation detail.
+            // Routed user-facing command path (e.g. "azv2 login" or "azv2 group create").
             var routedPath = string.IsNullOrEmpty(matchedSubKey)
                 ? $"azv2 {groupName}"
                 : $"azv2 {groupName} {matchedSubKey}";
@@ -203,10 +198,7 @@ namespace Cirrus.Help.Tool.Validation
             string locator,
             ValidationReport report)
         {
-            // A6 (CLI_L4_MissingRequiredFlag): track every flag we successfully resolve to
-            // a canonical parameter name, then diff against the required set after the loop.
-            // Mirrors PSL3 on the PowerShell side. Aliases collapse to the canonical name so
-            // `--rg` and `--resource-group` are not double-counted.
+            // Track resolved canonical parameter names; diff against required set after the loop.
             var seenCanonical = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             for (var i = startIndex; i < tokens.Count; i++)
@@ -248,8 +240,7 @@ namespace Cirrus.Help.Tool.Validation
                     continue;
                 }
 
-                // Record the canonical parameter name so A6 (missing-required diff) sees
-                // alias usage as satisfying the requirement.
+                // Record canonical parameter name so alias usage satisfies the requirement.
                 seenCanonical.Add(parameter!.Name);
 
                 // Type-check the value (if any) against the parameter's declared type / AllowedValues.
@@ -276,15 +267,10 @@ namespace Cirrus.Help.Tool.Validation
                 }
             }
 
-            // A6: a CLI example must include every parameter the routed command marks
-            // IsRequired=true. Missing-required is reported once per parameter per example
-            // so a partially-filled example surfaces every gap in one CI pass. Mirrors PSL3.
-            //
-            // The Parameters dictionary keys are kebab-case CLI flag names (e.g. "subscription-id");
-            // the `Name` field on the metadata is the PascalCase .NET property name
-            // (e.g. "SubscriptionId"). seenCanonical accumulates the latter from the loop above,
-            // so we compare against `kv.Value.Name` here \u2014 not the dict key \u2014 and we surface
-            // the kebab-case key in the user-facing error message.
+            // Every required parameter must appear in every example.
+            // Parameters dict keys are kebab-case CLI flags; ParameterMetadata.Name is the
+            // PascalCase .NET property. seenCanonical holds the latter, so compare against
+            // meta.Name and surface the kebab key in the error message.
             foreach (var (kebabKey, meta) in command.Parameters
                          .Where(static kv => kv.Value.IsRequired)
                          .OrderBy(static kv => kv.Key, StringComparer.OrdinalIgnoreCase))

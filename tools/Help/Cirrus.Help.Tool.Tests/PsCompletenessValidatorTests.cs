@@ -227,11 +227,7 @@ namespace Cirrus.Help.Tool.Tests
         }
 
         // ---- Manifest parser unit tests ---------------------------------------------------
-        // ParseCmdletsToExport is internal; its behaviour is covered indirectly by the
-        // Validate_* tests above:
-        //   - comma-separated literal form: every test that uses CreateModule(...)
-        //   - wildcard '*':                  Validate_ShouldSkipModule_WhenCmdletsToExportIsWildcard
-        //   - empty list:                    Validate_ShouldSkipModule_WhenCmdletsToExportIsEmpty
-        //   - syntactically broken file:     Validate_ShouldSkipModule_WhenManifestIsSyntacticallyInvalid
+        // ParseCmdletsToExport is internal; covered indirectly by the Validate_* tests above
+        // (comma-separated literals, wildcard '*', empty list, broken-syntax skip).
     }
 }

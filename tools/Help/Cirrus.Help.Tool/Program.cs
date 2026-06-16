@@ -124,10 +124,8 @@ foreach (var dllPath in extensionDlls)
     }
     catch (Exception ex)
     {
-        // A broken IExtensionIndex used to silently drop the extension from the help
-        // corpus (was a warning). That hid genuine breakage in CI — the build would
-        // "succeed" with an extension missing from HelpIndex.json. Promoted to error
-        // so a busted DLL fails the help build instead of merging unnoticed.
+        // Promoted from warning to error: a broken IExtensionIndex used to silently drop
+        // the extension from the help corpus, hiding genuine CI breakage.
         aggregateReport.AddError(
             ProblemIds.ExtensionIndexLoadFailed,
             $"Failed to load IExtensionIndex from '{assemblyPath}': {ex.GetType().Name}: {ex.Message}",
@@ -137,9 +135,7 @@ foreach (var dllPath in extensionDlls)
 
     if (validatedExtensions.Add(extensionName))
     {
-        // Validation is verb-scoped: a multi-verb extension produces one report per
-        // verb (e.g. Compute -> vm + disk), each pointing at its own Docs/<verb>/
-        // folder. Aggregate them and skip manifest emission if any verb has errors.
+        // Verb-scoped: a multi-verb extension yields one report per verb (Compute → vm + disk).
         var completenessHasErrors = false;
         foreach (var verb in extensionIndex.GetVerbs())
         {
@@ -150,10 +146,9 @@ foreach (var dllPath in extensionDlls)
             indexesByCliGroup[verb] = extensionIndex;
         }
 
-        // Skip manifest emission for this extension if any verb has completeness errors:
-        // a manifest built from an incomplete corpus would be misleading. Other
-        // extensions and other validator stages still run so the author sees
-        // every problem in one pass.
+        // Skip manifest emission when any verb has completeness errors; a manifest from an
+        // incomplete corpus would be misleading. Other stages still run so authors see all
+        // problems in one pass.
         if (completenessHasErrors)
         {
             continue;

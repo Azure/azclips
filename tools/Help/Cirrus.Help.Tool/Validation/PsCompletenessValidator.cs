@@ -7,29 +7,18 @@ namespace Cirrus.Help.Tool.Validation
 {
     /// <summary>
     /// Validates that every cmdlet exported by a PowerShell module's <c>.psd1</c> manifest
-    /// has a corresponding <c>src/PS/&lt;Module&gt;/help/&lt;Verb-Noun&gt;.md</c> file, and
-    /// warns on help files that don't correspond to any exported cmdlet. Mirrors the CLI
-    /// surface's <see cref="HelpCompletenessValidator"/>.
+    /// has a corresponding <c>src/PS/&lt;Module&gt;/help/&lt;Verb-Noun&gt;.md</c> file, and warns
+    /// on orphaned help files. Mirrors the CLI surface's <see cref="HelpCompletenessValidator"/>.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Per-file rules (<c>PSL1</c>..<c>PSL8</c>, plus <c>PS_TodoPlaceholder</c> /
-    /// <c>PS_ExamplePlaceholder</c>) only fire on files that actually exist. Without this
-    /// validator, deleting a module's <c>help/</c> folder produces a silent pass — the very
-    /// gap that motivated <c>PSL9</c>/<c>PSL10</c>.
-    /// </para>
-    /// <para>
-    /// Validation reads the source manifest at <c>src/PS/&lt;Module&gt;/&lt;Module&gt;.psd1</c>
-    /// (not the staged copy under <c>artifacts/Debug/PS/</c>) so the rule fails early — before
-    /// the build script's <c>Publish-CirrusHelpArtifacts</c> step silently skips modules
-    /// without a <c>help/</c> folder.
-    /// </para>
+    /// Reads the source manifest at <c>src/PS/&lt;Module&gt;/&lt;Module&gt;.psd1</c> (not the
+    /// staged copy under <c>artifacts/Debug/PS/</c>) so the rule fails before the build
+    /// script's <c>Publish-CirrusHelpArtifacts</c> step silently skips modules without help.
     /// </remarks>
     public sealed class PsCompletenessValidator
     {
         /// <summary>
-        /// Walks every <c>src/PS/&lt;Module&gt;/</c> directory and validates help-file coverage
-        /// against the cmdlets declared in the module's <c>&lt;Module&gt;.psd1</c>.
+        /// Walks every <c>src/PS/&lt;Module&gt;/</c> directory and validates help-file coverage.
         /// </summary>
         public ValidationReport Validate(string repoRoot)
         {
@@ -49,16 +38,14 @@ namespace Cirrus.Help.Tool.Validation
                 var manifestPath = Path.Combine(moduleDir, $"{moduleName}.psd1");
                 if (!File.Exists(manifestPath))
                 {
-                    // Not a PowerShell module folder (e.g. shared helpers). Skip silently;
-                    // this validator only targets folders that ship as a module.
+                    // Not a PS module folder (e.g. shared helpers). Skip silently.
                     continue;
                 }
 
                 var exportedCmdlets = ParseCmdletsToExport(manifestPath);
                 if (exportedCmdlets.Count == 0)
                 {
-                    // Module exports nothing (or uses `*` wildcard, which we treat as
-                    // "deferred to runtime"). Either way there's nothing to validate.
+                    // No exports, or `*` wildcard (deferred to runtime). Nothing to validate.
                     continue;
                 }
 
@@ -67,8 +54,7 @@ namespace Cirrus.Help.Tool.Validation
 
                 if (!Directory.Exists(helpDir))
                 {
-                    // Single error per module so multi-cmdlet modules don't drown the log.
-                    // Per-cmdlet PSL9 errors are suppressed when PSL10 fires.
+                    // PSL10 supersedes per-cmdlet PSL9 errors so multi-cmdlet modules don't drown the log.
                     report.AddError(
                         ProblemIds.PSL10_MissingHelpFolder,
                         $"PowerShell module '{moduleName}' exports {exportedCmdlets.Count} cmdlet(s) but has no '{Core.Cli.Help.HelpPaths.PsHelpFolder}/' folder. Run 'build/New-PSHelpMarkdown.ps1 -Module {moduleName}' to scaffold help stubs, then fill in the content.",
@@ -125,9 +111,8 @@ namespace Cirrus.Help.Tool.Validation
         }
 
         /// <summary>
-        /// Parses <paramref name="manifestPath"/> using the PowerShell AST and extracts
-        /// string literals from the <c>CmdletsToExport</c> hashtable entry. Wildcard exports
-        /// (<c>'*'</c>) are filtered out — they bypass static validation by design.
+        /// Parses <paramref name="manifestPath"/> with the PS AST and extracts string
+        /// literals from <c>CmdletsToExport</c>. Wildcards (<c>'*'</c>) are filtered out.
         /// </summary>
         internal static IReadOnlyList<string> ParseCmdletsToExport(string manifestPath)
         {
@@ -137,8 +122,7 @@ namespace Cirrus.Help.Tool.Validation
                 ast = Parser.ParseFile(manifestPath, out _, out var errors);
                 if (errors.Length > 0)
                 {
-                    // Manifest is syntactically broken. Don't double-report — let other
-                    // tooling (PlatyPS, Test-ModuleManifest) surface the parse error.
+                    // Don't double-report; PlatyPS / Test-ModuleManifest will surface the parse error.
                     return Array.Empty<string>();
                 }
             }
@@ -147,7 +131,7 @@ namespace Cirrus.Help.Tool.Validation
                 return Array.Empty<string>();
             }
 
-            // The .psd1 root is a script block whose body is a single hashtable expression.
+            // .psd1 root is a script block whose body is a single hashtable.
             var hashtable = ast.Find(static node => node is HashtableAst, searchNestedScriptBlocks: true) as HashtableAst;
             if (hashtable is null)
             {
@@ -180,7 +164,7 @@ namespace Cirrus.Help.Tool.Validation
                 var literal = ((StringConstantExpressionAst)node).Value;
                 if (string.IsNullOrWhiteSpace(literal) || literal == "*")
                 {
-                    // Wildcard export ⇒ caller treats whole module as opt-out.
+                    // Wildcard export => caller treats whole module as opt-out.
                     continue;
                 }
                 result.Add(literal);

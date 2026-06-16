@@ -53,9 +53,7 @@ public static class MarkdownCommandHelpProvider
         // happens in the help tool.
         var (frontmatter, body) = FrontmatterParser.Parse(content);
         var summary = frontmatter.Summary;
-        // Use the shared parser so the runtime view of "Description" / "examples" is
-        // identical to what MarkdownStructureValidator sees at build time. See
-        // MarkdownHelpParser.cs for the canonical implementation.
+        // Shared parser: keeps runtime view aligned with MarkdownStructureValidator.
         var description = MarkdownHelpParser.GetField(body, "Description");
 
         var examples = new List<MarkdownExample>();

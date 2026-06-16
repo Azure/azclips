@@ -78,8 +78,7 @@ namespace Cirrus.Help.Tool.Validation
                 return report;
             }
 
-            // PS authoring lives in `src/PS/<Module>/help/*.md` — the `help` segment
-            // is lowercase and must stay that way (see HelpPaths.PsHelpFolder).
+            // PS authoring lives in `src/PS/<Module>/help/*.md`. The `help` segment is lowercase.
             var psHelpSegment = $"{Path.DirectorySeparatorChar}{Core.Cli.Help.HelpPaths.PsHelpFolder}{Path.DirectorySeparatorChar}";
             var markdownFiles = Directory
                 .EnumerateFiles(helpRoot, "*.md", SearchOption.AllDirectories)
@@ -119,11 +118,7 @@ namespace Cirrus.Help.Tool.Validation
             var documentedCmdlet = Path.GetFileNameWithoutExtension(filePath);
             var hasDocumentedCmdletName = s_verbNounPattern.IsMatch(documentedCmdlet);
 
-            // A1: any TODO marker anywhere in the file fails. PlatyPS-scaffolded stubs
-            // seed `## SYNOPSIS`, `## DESCRIPTION`, and per-example bodies with
-            // `TODO - ...` markers (see Convert-PlatyPSPlaceholders in
-            // build/New-PSHelpMarkdown.ps1). We scan the whole file rather than per-section
-            // because the only producer of TODO in our PS corpus is our own scaffolder.
+            // Whole-file TODO scan. The only producer of TODO in the PS corpus is our scaffolder.
             if (PlaceholderDetector.ContainsTodo(content))
             {
                 report.AddError(
@@ -132,11 +127,8 @@ namespace Cirrus.Help.Tool.Validation
                     filePath);
             }
 
-            // PSL12: PlatyPS scaffolds parameter descriptions, NOTES, and RELATED LINKS
-            // with `{{ Fill ... }}` markers. They render literally in `Get-Help -Full`,
-            // so we report each occurrence with a line number to make cleanup mechanical.
-            // The `{{Insert list of aliases}}` boilerplate is intentionally NOT caught here
-            // (see PlaceholderDetector.s_fillPlaceholderRegex).
+            // PSL12: PlatyPS `{{ Fill ... }}` markers render literally in Get-Help -Full.
+            // `{{Insert list of aliases}}` is excluded (see PlaceholderDetector.s_fillPlaceholderRegex).
             foreach (var (token, lineNumber) in PlaceholderDetector.EnumerateFillPlaceholders(content))
             {
                 report.AddError(
@@ -150,11 +142,8 @@ namespace Cirrus.Help.Tool.Validation
             {
                 fenceCount++;
 
-                // A2: ban `<...>` placeholders inside PowerShell example fences. PlatyPS
-                // scaffolds invocations like `Connect-CirrusAccount -SubscriptionId <subscriptionid>`;
-                // those need to be replaced with realistic literals, splatted hashtables, or
-                // `$variable` references before merging. The check fires per placeholder so
-                // authors see every instance in one CI pass.
+                // Ban `<...>` placeholders in PS example fences. Allowed escapes: literals,
+                // `$variable`, splatted hashtables.
                 foreach (var placeholder in PlaceholderDetector.EnumerateAngleBracketPlaceholders(body))
                 {
                     report.AddError(

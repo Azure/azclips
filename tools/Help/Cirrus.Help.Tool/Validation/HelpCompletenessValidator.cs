@@ -6,23 +6,12 @@ using Core.Abstractions;
 namespace Cirrus.Help.Tool.Validation
 {
     /// <summary>
-    /// Validates that every routed CLI command in a verb's namespace has a corresponding
-    /// help markdown file under <c>src/CLI/Help/Docs/&lt;verb&gt;/</c>, and warns on help
-    /// files that aren't referenced by any routed command.
+    /// Validates every routed CLI command has a help markdown under <c>src/CLI/Help/Docs/&lt;verb&gt;/</c>,
+    /// and warns on orphan help files. Verb-scoped to match runtime help-lookup.
     /// </summary>
-    /// <remarks>
-    /// Validation is verb-scoped (matching <see cref="Core.Cli.Help.MarkdownCommandHelpProvider"/>'s
-    /// runtime lookup). A multi-verb extension like Compute is validated once per verb
-    /// (<c>vm</c>, <c>disk</c>) — each pass sees only the commands belonging to that verb.
-    /// </remarks>
     public sealed class HelpCompletenessValidator
     {
-        /// <summary>
-        /// Validates help coverage for a single verb against its repository folder.
-        /// </summary>
-        /// <param name="repoRoot">Repository root (folder containing <c>src/</c>).</param>
-        /// <param name="verb">Lowercase CLI verb (e.g. <c>vm</c>, <c>disk</c>, <c>login</c>).</param>
-        /// <param name="extensionIndex">Index providing the routed CLI command table (full table; the validator scopes to the verb).</param>
+        /// <summary>Validates help coverage for a single verb.</summary>
         public ValidationReport Validate(string repoRoot, string verb, IExtensionIndex extensionIndex)
         {
             var verbFolder = HelpCommandKey.ToExtensionFolder(verb);
@@ -31,10 +20,7 @@ namespace Cirrus.Help.Tool.Validation
             return Validate(verb, verbFolder, helpDirectory, extensionIndex);
         }
 
-        /// <summary>
-        /// Lower-level overload used by tests: callers pass the help directory directly
-        /// so the validator can be exercised against a temp folder.
-        /// </summary>
+        /// <summary>Test overload accepting a help directory directly (for temp-folder testing).</summary>
         public ValidationReport Validate(
             string verb,
             string verbFolder,

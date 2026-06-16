@@ -257,7 +257,7 @@ namespace Cirrus.Help.Tool.Tests
             Assert.All(report.Errors, e => Assert.Contains("config", e.FilePath ?? string.Empty, StringComparison.OrdinalIgnoreCase));
         }
 
-        // ---- A1: TODO placeholder rule ---------------------------------------------------
+        // ---- TODO placeholder rule -------------------------------------------------------
 
         [Fact]
         public void ValidateContent_ShouldErrorTodo_WhenSummaryContainsTodoMarker()
@@ -342,7 +342,7 @@ namespace Cirrus.Help.Tool.Tests
             Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.MD_TodoPlaceholder);
         }
 
-        // ---- A2: angle-bracket placeholder rule ------------------------------------------
+        // ---- angle-bracket placeholder rule ----------------------------------------------
 
         [Fact]
         public void ValidateContent_ShouldErrorPlaceholder_WhenExampleFenceContainsTypeNamePlaceholder()

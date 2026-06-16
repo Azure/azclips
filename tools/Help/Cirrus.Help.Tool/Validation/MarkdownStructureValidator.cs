@@ -86,8 +86,6 @@ namespace Cirrus.Help.Tool.Validation
             }
             else if (PlaceholderDetector.ContainsTodo(frontmatter.Summary))
             {
-                // A1: scaffolder seeds `summary: TODO \u2014 ...`. Failing CI on TODO forces
-                // an author to replace it with real content before the file can merge.
                 report.AddError(
                     ProblemIds.MD_TodoPlaceholder,
                     "Frontmatter 'summary:' still contains a TODO marker. Replace the scaffolded placeholder with a real description.",
@@ -121,17 +119,13 @@ namespace Cirrus.Help.Tool.Validation
             }
             else if (PlaceholderDetector.ContainsTodo(description))
             {
-                // A1 (cont.): scaffolder seeds `Description: TODO \u2014 ...`. Same rationale
-                // as the summary check \u2014 we want unfilled stubs to fail loudly.
                 report.AddError(
                     ProblemIds.MD_TodoPlaceholder,
                     "Body field 'Description:' still contains a TODO marker. Replace the scaffolded placeholder with real content.",
                     relativePath);
             }
 
-            // Use the shared parser so the validator's "no examples" decision matches what
-            // the runtime renderer actually displays. Drift between the two used to silently
-            // pass authoring through CI while rendering empty `--help` output.
+            // Shared parser keeps the validator's "no examples" decision aligned with the runtime renderer.
             var examples = MarkdownHelpParser.EnumerateExamples(body).ToList();
 
             if (examples.Count == 0)
@@ -142,11 +136,8 @@ namespace Cirrus.Help.Tool.Validation
                     relativePath);
             }
 
-            // A1 + A2: scan example bodies and example titles for stub markers. Prose
-            // fields like Description / summary are scanned above; here we focus on
-            // what an end user sees rendered under `--help`. The angle-bracket rule
-            // applies only inside fences (CLI / PS bash) \u2014 prose can legitimately
-            // mention `<name>` as an identifier, but an example invocation cannot.
+            // Scan example bodies + titles for TODO and angle-bracket placeholders.
+            // Angle-bracket rule fires only inside CLI fences — prose can legitimately mention `<name>`.
             foreach (var example in examples)
             {
                 if (PlaceholderDetector.ContainsTodo(example.Title))
@@ -165,9 +156,7 @@ namespace Cirrus.Help.Tool.Validation
                         relativePath);
                 }
 
-                // A2: ban `<...>` inside CLI (bash/sh) example fences. PS fences live in
-                // PowerShell help files (src/PS/<Mod>/help/*.md) which do not flow through
-                // this validator \u2014 the PS rule is enforced in PowerShellExampleSyntaxValidator.
+                // PS fences are validated by PowerShellExampleSyntaxValidator; skip here.
                 var isCliFence = example.Language.Equals("bash", StringComparison.OrdinalIgnoreCase)
                     || example.Language.Equals("sh", StringComparison.OrdinalIgnoreCase);
                 if (!isCliFence)

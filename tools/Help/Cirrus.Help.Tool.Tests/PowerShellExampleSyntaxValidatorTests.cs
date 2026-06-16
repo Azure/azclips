@@ -584,7 +584,7 @@ namespace Cirrus.Help.Tool.Tests
             Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.PSL8_NoExamples);
         }
 
-        // ---- A1: TODO placeholder rule (PS) ---------------------------------------------
+        // ---- TODO placeholder rule (PS) -------------------------------------------------
 
         [Fact]
         public void Validate_ShouldErrorTodo_WhenSynopsisContainsTodoMarker()
@@ -623,7 +623,7 @@ namespace Cirrus.Help.Tool.Tests
             Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.PS_TodoPlaceholder);
         }
 
-        // ---- A2: angle-bracket placeholder rule (PS) ------------------------------------
+        // ---- angle-bracket placeholder rule (PS) ----------------------------------------
 
         [Fact]
         public void Validate_ShouldErrorPlaceholder_WhenExampleFenceContainsAngleBrackets()
@@ -676,8 +676,7 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldErrorFillPlaceholder_WhenParameterDescriptionIsScaffoldStub()
         {
-            // PlatyPS seeds parameter descriptions like `{{ Fill Key Description }}` until
-            // the author replaces them. PSL12 catches each occurrence with a line number.
+            // PlatyPS seeds parameter descriptions with `{{ Fill ... }}` until authored.
             var content =
                 "## SYNOPSIS\n\nSet a widget value.\n\n" +
                 "## EXAMPLES\n\n```powershell\nSet-FakeWidget -Key k -Value v\n```\n\n" +
@@ -710,8 +709,7 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldNotErrorFillPlaceholder_WhenAliasInsertBoilerplateIsPresent()
         {
-            // `{{Insert list of aliases}}` is evergreen PlatyPS boilerplate that ships
-            // unchanged in every help file in our corpus. PSL12 deliberately skips it.
+            // `{{Insert list of aliases}}` is evergreen PlatyPS boilerplate; deliberately skipped.
             var content =
                 "## ALIASES\n\nThis cmdlet has the following aliases,\n  {{Insert list of aliases}}\n\n" +
                 "## EXAMPLES\n\n```powershell\nSet-FakeWidget -Key k -Value v\n```\n";
@@ -724,8 +722,7 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldReportLineNumber_WhenFillPlaceholderFires()
         {
-            // The location string must include a line number so authors can jump straight
-            // to the gap; mirrors PS_ExamplePlaceholder's format (`<file>:<line>`).
+            // Location string must include a line number; mirrors `<file>:<line>`.
             var content =
                 "line 1\n" +
                 "line 2\n" +

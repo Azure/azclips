@@ -4,37 +4,30 @@
 namespace Core.Cli.Help;
 
 /// <summary>
-/// Centralised, repo-relative paths for the help system. These constants are the
-/// single source of truth for casing — Windows is case-insensitive, but Linux CI
-/// silently finds zero files when the casing drifts (we have a path-casing test
-/// that pins this in tests/Cli.Tests). Do not hand-construct the paths.
+/// Centralised, repo-relative paths for the help system. Single source of truth for casing
+/// (Windows is case-insensitive but Linux CI silently finds zero files when casing drifts;
+/// pinned by tests/Cli.Tests/HelpPathsCasingTests).
 /// </summary>
 public static class HelpPaths
 {
-    /// <summary>
-    /// Authored CLI markdown root, relative to <c>repoRoot</c>.
-    /// Capital <c>Help</c>; capital-D <c>Docs</c> — both are case-sensitive on Linux.
-    /// </summary>
+    /// <summary>Authored CLI markdown root, relative to <c>repoRoot</c>. <c>Help</c>/<c>Docs</c> are case-sensitive on Linux.</summary>
     public static readonly string[] CliHelpDocsSegments = ["src", "CLI", "Help", "Docs"];
 
-    /// <summary>
-    /// PowerShell help authoring root, relative to <c>repoRoot</c>. Per-module
-    /// markdown lives at <c>src/PS/&lt;Module&gt;/help/*.md</c> (lowercase <c>help</c>).
-    /// </summary>
+    /// <summary>PowerShell modules root. Per-module markdown at <c>src/PS/&lt;Module&gt;/help/*.md</c> (lowercase).</summary>
     public static readonly string[] PsModulesSegments = ["src", "PS"];
 
-    /// <summary>The folder name (lowercase) under each PS module that holds authored markdown.</summary>
+    /// <summary>Lowercase folder name under each PS module that holds authored markdown.</summary>
     public const string PsHelpFolder = "help";
 
-    /// <summary>Joins <paramref name="repoRoot"/> with <see cref="CliHelpDocsSegments"/>.</summary>
+    /// <summary>Repo-rooted CLI help docs path.</summary>
     public static string CliHelpDocsRoot(string repoRoot)
         => Path.Combine([repoRoot, .. CliHelpDocsSegments]);
 
-    /// <summary>Joins <paramref name="repoRoot"/> with <see cref="CliHelpDocsSegments"/> + verb folder.</summary>
+    /// <summary>Repo-rooted CLI help path for a verb folder.</summary>
     public static string CliVerbHelpDir(string repoRoot, string verbFolder)
         => Path.Combine([repoRoot, .. CliHelpDocsSegments, verbFolder]);
 
-    /// <summary>Joins <paramref name="repoRoot"/> with <see cref="PsModulesSegments"/>.</summary>
+    /// <summary>Repo-rooted PS modules path.</summary>
     public static string PsModulesRoot(string repoRoot)
         => Path.Combine([repoRoot, .. PsModulesSegments]);
 }

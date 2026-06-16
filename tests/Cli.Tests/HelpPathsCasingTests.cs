@@ -6,16 +6,10 @@ using Core.Cli.Help;
 namespace Cli.Tests;
 
 /// <summary>
-/// Pin the on-disk casing of help-system folders. Windows is case-insensitive,
-/// so a drift like <c>src/CLI/help/</c> (lowercase) compiles and runs locally
-/// while Linux CI silently sees zero help files. These tests fail loudly the
-/// moment that drift appears so the bug doesn't ship.
+/// Pin on-disk casing of help-system folders. Windows is case-insensitive, so drift
+/// like <c>src/CLI/help/</c> compiles locally while Linux CI silently finds zero files.
 /// </summary>
-/// <remarks>
-/// Runs against the live repo by walking up to <c>cirrus.slnx</c>, mirroring how
-/// <see cref="MarkdownCommandHelpProvider"/> resolves the source tree at dev time.
-/// Skipped if the test process can't find the repo root (e.g. a packaged build).
-/// </remarks>
+/// <remarks>Walks up to <c>cirrus.slnx</c>; skipped if the test process can't find the repo root.</remarks>
 public class HelpPathsCasingTests
 {
     [Fact]
@@ -24,15 +18,13 @@ public class HelpPathsCasingTests
         var repoRoot = TryFindRepoRoot();
         if (repoRoot is null)
         {
-            return; // not running from a dev tree; nothing to assert
+            return; // not a dev tree
         }
 
         var helpDocs = HelpPaths.CliHelpDocsRoot(repoRoot);
         Assert.True(Directory.Exists(helpDocs), $"Expected help docs root at: {helpDocs}");
 
-        // Walk down each segment and assert the directory entry matches our constant
-        // case-sensitively. Path.Combine + Directory.Exists alone is case-insensitive
-        // on Windows; we have to enumerate the parent and compare names.
+        // Path.Combine + Directory.Exists is case-insensitive on Windows; enumerate the parent and compare names.
         AssertExactSegmentCasing(repoRoot, HelpPaths.CliHelpDocsSegments);
     }
 
@@ -50,14 +42,13 @@ public class HelpPathsCasingTests
 
         AssertExactSegmentCasing(repoRoot, HelpPaths.PsModulesSegments);
 
-        // Each module that ships authored help must use the lowercase `help` folder.
-        // The CLI side is `Help` (capital H) by design — different surface, different convention.
+        // Each module's authored help must use lowercase `help` (CLI side uses capital `Help`).
         foreach (var moduleDir in Directory.EnumerateDirectories(psRoot))
         {
             var helpDir = Path.Combine(moduleDir, HelpPaths.PsHelpFolder);
             if (!Directory.Exists(helpDir))
             {
-                continue; // module has no authored help; not all modules do
+                continue;
             }
 
             var actualName = Path.GetFileName(helpDir);
@@ -68,8 +59,7 @@ public class HelpPathsCasingTests
     [Fact]
     public void CliHelpDocs_ShouldNotHaveSiblingLowercaseHelp_OnDisk()
     {
-        // Guard against a `src/CLI/help/` (lowercase) sneaking in beside `src/CLI/Help/`.
-        // Filesystems on Linux happily hold both; we must not.
+        // Linux can hold both `src/CLI/help/` and `src/CLI/Help/`; we must not.
         var repoRoot = TryFindRepoRoot();
         if (repoRoot is null)
         {

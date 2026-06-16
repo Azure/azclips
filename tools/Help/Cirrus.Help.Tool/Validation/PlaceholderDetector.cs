@@ -7,49 +7,33 @@ namespace Cirrus.Help.Tool.Validation
 {
     /// <summary>
     /// Shared helpers that flag stub content left over from scaffolding (TODO markers,
-    /// <c>&lt;type&gt;</c> placeholders) inside help markdown. Both the CLI structure
-    /// validator and the PowerShell example validator call into these so the rule shape
-    /// is identical across surfaces \u2014 see A1/A2 in the help-validators PR.
+    /// <c>&lt;type&gt;</c> placeholders, PlatyPS <c>{{ Fill }}</c> markers) inside help markdown.
+    /// Used by both the CLI structure validator and the PowerShell example validator.
     /// </summary>
     internal static class PlaceholderDetector
     {
-        // Matches whole-word TODO. Case-insensitive so "Todo:", "todo \u2014", and "TODO"
-        // all fire. Common authoring conventions outside the help system use it as
-        // a comment marker; inside our help corpus it is exclusively a stub signal.
+        // Whole-word TODO, case-insensitive.
         private static readonly Regex s_todoRegex = new(
             @"\bTODO\b",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
-        // Matches an angle-bracketed token of one or more non-whitespace, non-bracket chars.
-        // Examples that match: <string>, <my-rg>, <subscriptionid>, <name>.
-        // Examples that do NOT match: <not closed, "<x y>" (whitespace inside), `<<` etc.
+        // Angle-bracket token: one or more non-whitespace, non-bracket chars.
+        // Matches: <string>, <my-rg>. Skips: unclosed, whitespace inside, `<<`.
         private static readonly Regex s_angleBracketPlaceholderRegex = new(
             @"<[^<>\s]+>",
             RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
-        // Matches PlatyPS `{{ Fill ... }}` scaffold markers. The scaffolder seeds parameter
-        // descriptions (`{{ Fill <Param> Description }}`), the NOTES section
-        // (`{{ Fill in the Notes }}`), and RELATED LINKS
-        // (`{{ Fill in the related links here }}`). All render literally in `Get-Help -Full`
-        // and indicate unfinished authoring. We deliberately do NOT match
-        // `{{Insert list of aliases}}` because PlatyPS emits that as evergreen ALIASES
-        // boilerplate that ships unchanged in every help file in our corpus.
+        // PlatyPS `{{ Fill ... }}` scaffold markers (parameter descriptions, NOTES, RELATED LINKS).
+        // `{{Insert list of aliases}}` is intentionally NOT matched — PlatyPS ships it as evergreen boilerplate.
         private static readonly Regex s_fillPlaceholderRegex = new(
             @"\{\{\s*Fill[^}]*\}\}",
             RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
-        /// <summary>
-        /// Returns <see langword="true"/> when <paramref name="text"/> contains a standalone
-        /// TODO marker. Used to flag scaffolder stub markers in <c>summary:</c>,
-        /// <c>Description:</c>, headings, and example fence bodies.
-        /// </summary>
+        /// <summary>Returns <see langword="true"/> when <paramref name="text"/> contains a standalone TODO marker.</summary>
         public static bool ContainsTodo(string? text)
             => !string.IsNullOrEmpty(text) && s_todoRegex.IsMatch(text);
 
-        /// <summary>
-        /// Enumerates every <c>&lt;...&gt;</c> placeholder in <paramref name="text"/> in
-        /// document order. The match value includes the angle brackets.
-        /// </summary>
+        /// <summary>Enumerates every <c>&lt;...&gt;</c> placeholder in document order; match value includes the angle brackets.</summary>
         public static IEnumerable<string> EnumerateAngleBracketPlaceholders(string? text)
         {
             if (string.IsNullOrEmpty(text))
@@ -63,12 +47,7 @@ namespace Cirrus.Help.Tool.Validation
             }
         }
 
-        /// <summary>
-        /// Enumerates every PlatyPS <c>{{ Fill ... }}</c> scaffold marker in
-        /// <paramref name="text"/> in document order, returning the matched token and
-        /// the 1-based line number it appears on. Used by PSL12 to flag unfinished
-        /// parameter descriptions, NOTES, and RELATED LINKS sections.
-        /// </summary>
+        /// <summary>Enumerates every PlatyPS <c>{{ Fill ... }}</c> scaffold marker with its 1-based line number.</summary>
         public static IEnumerable<(string Token, int LineNumber)> EnumerateFillPlaceholders(string? text)
         {
             if (string.IsNullOrEmpty(text))
@@ -78,9 +57,7 @@ namespace Cirrus.Help.Tool.Validation
 
             foreach (Match match in s_fillPlaceholderRegex.Matches(text))
             {
-                // Compute 1-based line number of the match start by counting newlines
-                // up to (but not including) the match index. Avoids splitting the whole
-                // file into lines just to report a position.
+                // Count newlines up to match.Index to compute 1-based line number.
                 var lineNumber = 1;
                 for (var i = 0; i < match.Index; i++)
                 {

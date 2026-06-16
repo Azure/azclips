@@ -5,10 +5,8 @@
 param(
     [string]$Configuration = 'Debug',
 
-    # Modules are discovered from src/PS/<Name>/<Name>.psd1 at runtime — see
-    # the discovery block below. The ArgumentCompleter restores tab-completion
-    # that we lost by dropping the static [ValidateSet]; explicit validation
-    # against the discovered set happens after $psSrcRoot is resolved.
+    # Modules are discovered from src/PS/<Name>/<Name>.psd1 at runtime (see block below).
+    # ArgumentCompleter restores tab-completion in lieu of a static [ValidateSet].
     [ArgumentCompleter({
         param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
         $psRoot = Join-Path $PSScriptRoot '../src/PS'
@@ -37,12 +35,8 @@ function Convert-PlatyPSPlaceholders
     $synopsisDefault = "TODO - one-line summary of $CmdletName."
     $descriptionDefault = "TODO - describe what $CmdletName does and when to use it."
 
-    # Force Locale to en-US regardless of the host's CurrentCulture. PlatyPS 1.0.1 seeds
-    # Locale from [CultureInfo]::CurrentCulture, so a contributor on en-AU/en-GB/etc.
-    # would scaffold drift that mismatches our hardcoded en-US MAML output dir
-    # (build.ps1 emits artifacts/.../en-US/<dll>-Help.xml regardless). The frontmatter
-    # is purely informational, but inconsistent values produce review-noise and
-    # metadata drift across the corpus.
+    # Force Locale to en-US: PlatyPS 1.0.1 seeds Locale from CurrentCulture, so a contributor on
+    # en-AU/en-GB would scaffold drift against our hardcoded en-US MAML output dir.
     $Content = $Content -replace '(?m)^Locale:\s*\S+\s*$', 'Locale: en-US'
 
     $Content = $Content -replace '\{\{\s*Fill in the Synopsis\s*\}\}', $synopsisDefault
@@ -55,10 +49,8 @@ function Convert-PlatyPSPlaceholders
     $Content = $Content -replace 'PS C:\\>\s*\{\{\s*Add example code here\s*\}\}', "PS C:\> $exampleLine"
 
     # New schema (2024-05-01): PlatyPS emits empty `### <Title>` blocks under `## EXAMPLES`
-    # when the cmdlet has no [Example] metadata. Backfill with a TODO + fenced code stub.
-    #
-    # Note: `````` inside a here-string is 3 literal backticks (each backtick is the PS escape char),
-    # so the emitted markdown is a normal ```powershell fence (PR #226 review false-positive).
+    # for cmdlets without [Example] metadata. Backfill with a TODO + fenced code stub.
+    # (`````` inside a here-string = 3 literal backticks → normal ```powershell fence in markdown.)
     $exampleStub = @"
 TODO - describe the example.
 
