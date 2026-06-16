@@ -65,7 +65,7 @@ Get-CirrusConfigList -AsJson
 
 ### -AsJson
 
-{{ Fill AsJson Description }}
+Return the configuration list as a JSON document instead of the default plain text. Useful when piping into `ConvertFrom-Json` or capturing structured output for downstream scripts.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
@@ -86,7 +86,7 @@ HelpMessage: ""
 
 ### -IncludeDefaults
 
-{{ Fill IncludeDefaults Description }}
+Include keys that have not been explicitly set, showing their built-in default values. Without this switch only keys with user-assigned values are listed.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter

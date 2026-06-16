@@ -64,6 +64,12 @@ namespace Cirrus.Help.Tool.Validation
         public const string PSL10_MissingHelpFolder = "PSL10_MissingHelpFolder";
         public const string PSL11_OrphanedHelpFile = "PSL11_OrphanedHelpFile";
 
+        // A1 sibling: PlatyPS scaffolds parameter descriptions, NOTES, and RELATED LINKS
+        // sections with `{{ Fill ... }}` markers. They render literally in `Get-Help -Full`,
+        // so the rule is symmetric with PS_TodoPlaceholder but uses a separate ID so
+        // authors can grep CI logs and the troubleshooting matrix scopes cleanly.
+        public const string PSL12_FillPlaceholder = "PSL12_FillPlaceholder";
+
         // Tool-level (Program.cs)
         public const string Tool_CmdletAssemblyLoadFailed = "Tool_CmdletAssemblyLoadFailed";
         public const string ExtensionIndexLoadFailed = "Tool_ExtensionIndexLoadFailed";

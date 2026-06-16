@@ -1,7 +1,7 @@
 ---
 document type: cmdlet
 external help file: Microsoft.Azure.Cirrus.Cmdlets.Login.dll-Help.xml
-HelpUri: ""
+HelpUri: ''
 Locale: en-AU
 Module Name: Login
 ms.date: 06/16/2026
@@ -17,7 +17,7 @@ Show the current Azure account context.
 
 ## SYNTAX
 
-### \_\_AllParameterSets
+### __AllParameterSets
 
 ```
 Get-CirrusAccount [<CommonParameters>]
@@ -26,7 +26,7 @@ Get-CirrusAccount [<CommonParameters>]
 ## ALIASES
 
 This cmdlet has the following aliases,
-{{Insert list of aliases}}
+  {{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -59,6 +59,8 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 Generated help for login.
 
+
 ## RELATED LINKS
+
 
 - [Online Version]()

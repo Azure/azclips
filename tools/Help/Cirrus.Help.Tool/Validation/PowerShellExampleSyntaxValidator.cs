@@ -132,6 +132,19 @@ namespace Cirrus.Help.Tool.Validation
                     filePath);
             }
 
+            // PSL12: PlatyPS scaffolds parameter descriptions, NOTES, and RELATED LINKS
+            // with `{{ Fill ... }}` markers. They render literally in `Get-Help -Full`,
+            // so we report each occurrence with a line number to make cleanup mechanical.
+            // The `{{Insert list of aliases}}` boilerplate is intentionally NOT caught here
+            // (see PlaceholderDetector.s_fillPlaceholderRegex).
+            foreach (var (token, lineNumber) in PlaceholderDetector.EnumerateFillPlaceholders(content))
+            {
+                report.AddError(
+                    ProblemIds.PSL12_FillPlaceholder,
+                    $"Help file contains scaffolded placeholder '{token}'. Replace with real content (parameter description, notes, or related links) before merging.",
+                    $"{filePath}:{lineNumber}");
+            }
+
             var fenceCount = 0;
             foreach (var (body, fenceBodyAbsoluteLine) in EnumerateExampleFences(content))
             {

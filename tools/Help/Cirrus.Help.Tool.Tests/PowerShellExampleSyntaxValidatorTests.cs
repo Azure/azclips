@@ -670,5 +670,81 @@ namespace Cirrus.Help.Tool.Tests
 
             Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.PS_ExamplePlaceholder);
         }
+
+        // ---- PSL12: PlatyPS '{{ Fill ... }}' placeholder rule ---------------------------
+
+        [Fact]
+        public void Validate_ShouldErrorFillPlaceholder_WhenParameterDescriptionIsScaffoldStub()
+        {
+            // PlatyPS seeds parameter descriptions like `{{ Fill Key Description }}` until
+            // the author replaces them. PSL12 catches each occurrence with a line number.
+            var content =
+                "## SYNOPSIS\n\nSet a widget value.\n\n" +
+                "## EXAMPLES\n\n```powershell\nSet-FakeWidget -Key k -Value v\n```\n\n" +
+                "## PARAMETERS\n\n### -Key\n\n{{ Fill Key Description }}\n\n" +
+                "### -Value\n\n{{ Fill Value Description }}\n";
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "Set-FakeWidget.md", BuildIndex());
+
+            var fills = report.Errors
+                .Where(e => e.ProblemId == ProblemIds.PSL12_FillPlaceholder)
+                .ToList();
+            Assert.Equal(2, fills.Count);
+        }
+
+        [Fact]
+        public void Validate_ShouldErrorFillPlaceholder_WhenNotesAreScaffoldStub()
+        {
+            // PlatyPS seeds NOTES and RELATED LINKS sections with `{{ Fill in the ... }}`.
+            var content =
+                "## SYNOPSIS\n\nSet a widget value.\n\n" +
+                "## EXAMPLES\n\n```powershell\nSet-FakeWidget -Key k -Value v\n```\n\n" +
+                "## NOTES\n\n{{ Fill in the Notes }}\n\n" +
+                "## RELATED LINKS\n\n{{ Fill in the related links here }}\n";
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "Set-FakeWidget.md", BuildIndex());
+
+            Assert.Equal(2, report.Errors.Count(e => e.ProblemId == ProblemIds.PSL12_FillPlaceholder));
+        }
+
+        [Fact]
+        public void Validate_ShouldNotErrorFillPlaceholder_WhenAliasInsertBoilerplateIsPresent()
+        {
+            // `{{Insert list of aliases}}` is evergreen PlatyPS boilerplate that ships
+            // unchanged in every help file in our corpus. PSL12 deliberately skips it.
+            var content =
+                "## ALIASES\n\nThis cmdlet has the following aliases,\n  {{Insert list of aliases}}\n\n" +
+                "## EXAMPLES\n\n```powershell\nSet-FakeWidget -Key k -Value v\n```\n";
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "Set-FakeWidget.md", BuildIndex());
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.PSL12_FillPlaceholder);
+        }
+
+        [Fact]
+        public void Validate_ShouldReportLineNumber_WhenFillPlaceholderFires()
+        {
+            // The location string must include a line number so authors can jump straight
+            // to the gap; mirrors PS_ExamplePlaceholder's format (`<file>:<line>`).
+            var content =
+                "line 1\n" +
+                "line 2\n" +
+                "{{ Fill Key Description }}\n";
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "Set-FakeWidget.md", BuildIndex());
+
+            var fill = report.Errors.Single(e => e.ProblemId == ProblemIds.PSL12_FillPlaceholder);
+            Assert.EndsWith(":3", fill.FilePath);
+        }
+
+        [Fact]
+        public void Validate_ShouldNotErrorFillPlaceholder_WhenContentIsAuthored()
+        {
+            var content = Fence("Set-FakeWidget -Key k -Value v");
+
+            var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "Set-FakeWidget.md", BuildIndex());
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.PSL12_FillPlaceholder);
+        }
     }
 }

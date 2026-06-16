@@ -27,6 +27,17 @@ namespace Cirrus.Help.Tool.Validation
             @"<[^<>\s]+>",
             RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
+        // Matches PlatyPS `{{ Fill ... }}` scaffold markers. The scaffolder seeds parameter
+        // descriptions (`{{ Fill <Param> Description }}`), the NOTES section
+        // (`{{ Fill in the Notes }}`), and RELATED LINKS
+        // (`{{ Fill in the related links here }}`). All render literally in `Get-Help -Full`
+        // and indicate unfinished authoring. We deliberately do NOT match
+        // `{{Insert list of aliases}}` because PlatyPS emits that as evergreen ALIASES
+        // boilerplate that ships unchanged in every help file in our corpus.
+        private static readonly Regex s_fillPlaceholderRegex = new(
+            @"\{\{\s*Fill[^}]*\}\}",
+            RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
         /// <summary>
         /// Returns <see langword="true"/> when <paramref name="text"/> contains a standalone
         /// TODO marker. Used to flag scaffolder stub markers in <c>summary:</c>,
@@ -49,6 +60,37 @@ namespace Cirrus.Help.Tool.Validation
             foreach (Match match in s_angleBracketPlaceholderRegex.Matches(text))
             {
                 yield return match.Value;
+            }
+        }
+
+        /// <summary>
+        /// Enumerates every PlatyPS <c>{{ Fill ... }}</c> scaffold marker in
+        /// <paramref name="text"/> in document order, returning the matched token and
+        /// the 1-based line number it appears on. Used by PSL12 to flag unfinished
+        /// parameter descriptions, NOTES, and RELATED LINKS sections.
+        /// </summary>
+        public static IEnumerable<(string Token, int LineNumber)> EnumerateFillPlaceholders(string? text)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                yield break;
+            }
+
+            foreach (Match match in s_fillPlaceholderRegex.Matches(text))
+            {
+                // Compute 1-based line number of the match start by counting newlines
+                // up to (but not including) the match index. Avoids splitting the whole
+                // file into lines just to report a position.
+                var lineNumber = 1;
+                for (var i = 0; i < match.Index; i++)
+                {
+                    if (text[i] == '\n')
+                    {
+                        lineNumber++;
+                    }
+                }
+
+                yield return (match.Value, lineNumber);
             }
         }
     }
