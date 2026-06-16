@@ -2,7 +2,7 @@
 document type: cmdlet
 external help file: Microsoft.Azure.Cirrus.Cmdlets.Compute.dll-Help.xml
 HelpUri: ""
-Locale: en-AU
+Locale: en-US
 Module Name: Compute
 ms.date: 06/16/2026
 PlatyPS schema version: 2024-05-01
@@ -147,7 +147,6 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## NOTES
 
 Generated help for compute.
-Daniel
 
 ## RELATED LINKS
 

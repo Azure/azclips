@@ -2,7 +2,7 @@
 document type: cmdlet
 external help file: Microsoft.Azure.Cirrus.Cmdlets.Resources.dll-Help.xml
 HelpUri: ""
-Locale: en-AU
+Locale: en-US
 Module Name: Resources
 ms.date: 06/16/2026
 PlatyPS schema version: 2024-05-01

@@ -37,6 +37,14 @@ function Convert-PlatyPSPlaceholders
     $synopsisDefault = "TODO - one-line summary of $CmdletName."
     $descriptionDefault = "TODO - describe what $CmdletName does and when to use it."
 
+    # Force Locale to en-US regardless of the host's CurrentCulture. PlatyPS 1.0.1 seeds
+    # Locale from [CultureInfo]::CurrentCulture, so a contributor on en-AU/en-GB/etc.
+    # would scaffold drift that mismatches our hardcoded en-US MAML output dir
+    # (build.ps1 emits artifacts/.../en-US/<dll>-Help.xml regardless). The frontmatter
+    # is purely informational, but inconsistent values produce review-noise and
+    # metadata drift across the corpus.
+    $Content = $Content -replace '(?m)^Locale:\s*\S+\s*$', 'Locale: en-US'
+
     $Content = $Content -replace '\{\{\s*Fill in the Synopsis\s*\}\}', $synopsisDefault
     $Content = $Content -replace '\{\{\s*Fill in the Description\s*\}\}', $descriptionDefault
     $Content = $Content -replace '\{\{\s*Add example description here\s*\}\}', "TODO - describe the example."
