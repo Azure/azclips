@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781498084928,
+  "lastUpdate": 1781589859940,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus CLI Benchmarks": [
@@ -798,6 +798,48 @@ window.BENCHMARK_DATA = {
             "value": 167986.9,
             "unit": "ns",
             "range": "± 9460.887738473595"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "naga.s.p.nandyala@gmail.com",
+            "name": "Naga Nandyala",
+            "username": "naga-nandyala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "58298ebbc20086293eac8d2390b747da91b5265a",
+          "message": "Trigger stable release 0.1.3 (#286)\n\nUpdates src/CLI/Core.Cli.csproj to 0.1.3 and prepends CHANGELOG.md with\nmerged PRs since the previous stable tag. After this PR merges to main,\ncirrus-trigger-stable-release will run again from the main version\nchange, tag the merged commit as v0.1.3, and start the stable\nbuild/sign/publish chain.\n\nCo-authored-by: Cirrus Release Automation <cirrus-release-automation@microsoft.com>",
+          "timestamp": "2026-06-16T16:02:19+10:00",
+          "tree_id": "16423eea4d4d7bf46cee809d689851494592c7aa",
+          "url": "https://github.com/Azure/cirrus/commit/58298ebbc20086293eac8d2390b747da91b5265a"
+        },
+        "date": 1781589858732,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 265929.8,
+            "unit": "ns",
+            "range": "± 27938.41752318839"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 174916.3,
+            "unit": "ns",
+            "range": "± 16197.825616421484"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 154704.75,
+            "unit": "ns",
+            "range": "± 9422.169508664127"
           }
         ]
       }
