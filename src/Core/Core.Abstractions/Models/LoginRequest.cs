@@ -9,5 +9,22 @@ public class LoginRequest
     public string? SubscriptionId { get; init; }
 
     public string[]? Scopes { get; init; }
-    public bool UseDeviceCodeFlow { get; init; } = false;
+
+    /// <summary>Authentication method; defaults to interactive browser sign-in.</summary>
+    public AuthMethod Mode { get; init; } = AuthMethod.Browser;
+
+    /// <summary>Compatibility flag for device code login.</summary>
+    public bool UseDeviceCodeFlow => Mode == AuthMethod.DeviceCode;
+
+    // Managed identity
+
+    /// <summary>User-assigned managed identity client ID.</summary>
+    public string? ManagedIdentityClientId { get; init; }
+
+    /// <summary>User-assigned managed identity object ID.</summary>
+    public string? ManagedIdentityObjectId { get; init; }
+
+    /// <summary>User-assigned managed identity resource ID.</summary>
+    public string? ManagedIdentityResourceId { get; init; }
+
 }
