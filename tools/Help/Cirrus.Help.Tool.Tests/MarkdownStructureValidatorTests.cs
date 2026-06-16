@@ -178,6 +178,85 @@ namespace Cirrus.Help.Tool.Tests
         }
 
         [Fact]
+        public void ValidateContent_ShouldReportNoCliExamples_WhenOnlyNonBashFencesArePresent()
+        {
+            // A file with only a ```powershell fence passes MD_NoExamples but slips past
+            // ExampleSyntaxValidator (which scans only ```bash/```sh). MD_NoCliExamples
+            // closes that gap.
+            var content = string.Join("\n",
+                "---",
+                "summary: x",
+                "schema: 1.0.0",
+                "---",
+                "",
+                "Description: y",
+                "",
+                "### Example",
+                "```powershell",
+                "Get-Foo",
+                "```",
+                "");
+
+            var report = new MarkdownStructureValidator().ValidateContent(content, "test.md");
+
+            Assert.Contains(report.Errors, e => e.ProblemId == ProblemIds.MD_NoCliExamples);
+            // The generic "no examples" rule must NOT also fire \u2014 there *is* an example, just the wrong language.
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.MD_NoExamples);
+        }
+
+        [Fact]
+        public void ValidateContent_ShouldNotReportNoCliExamples_WhenAtLeastOneBashFenceIsPresent()
+        {
+            // A mixed file (bash + powershell) is fine \u2014 the bash fence will be scanned by
+            // ExampleSyntaxValidator; non-CLI fences are ignored by design.
+            var content = string.Join("\n",
+                "---",
+                "summary: x",
+                "schema: 1.0.0",
+                "---",
+                "",
+                "Description: y",
+                "",
+                "### CLI example",
+                "```bash",
+                "azv2 x",
+                "```",
+                "",
+                "### PS example",
+                "```powershell",
+                "Get-Foo",
+                "```",
+                "");
+
+            var report = new MarkdownStructureValidator().ValidateContent(content, "test.md");
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.MD_NoCliExamples);
+        }
+
+        [Fact]
+        public void ValidateContent_ShouldReportNoCliExamples_WhenFenceHasNoLanguageTag()
+        {
+            // A bare ``` fence (PlatyPS-style) also fails: no language means no scanner.
+            var content = string.Join("\n",
+                "---",
+                "summary: x",
+                "schema: 1.0.0",
+                "---",
+                "",
+                "Description: y",
+                "",
+                "### Example",
+                "```",
+                "azv2 x",
+                "```",
+                "");
+
+            var report = new MarkdownStructureValidator().ValidateContent(content, "test.md");
+
+            Assert.Contains(report.Errors, e => e.ProblemId == ProblemIds.MD_NoCliExamples);
+        }
+
+        [Fact]
         public void ValidateContent_ShouldReportError_WhenCodeFencesAreUnbalanced()
         {
             var content = string.Join("\n",

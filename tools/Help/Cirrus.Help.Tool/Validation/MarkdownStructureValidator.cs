@@ -135,6 +135,16 @@ namespace Cirrus.Help.Tool.Validation
                     "Missing examples. Add at least one '### Title' + fenced code block example.",
                     relativePath);
             }
+            else if (!examples.Any(e =>
+                e.Language.Equals("bash", StringComparison.OrdinalIgnoreCase)
+                || e.Language.Equals("sh", StringComparison.OrdinalIgnoreCase)))
+            {
+                // Without a bash/sh fence ExampleSyntaxValidator has nothing to scan, so the file ships unverified.
+                report.AddError(
+                    ProblemIds.MD_NoCliExamples,
+                    "CLI help file has no ```bash or ```sh example fence. Example-syntax validation only runs on bash/sh fences \u2014 add at least one so the example is verified.",
+                    relativePath);
+            }
 
             // Scan example bodies + titles for TODO and angle-bracket placeholders.
             // Angle-bracket rule fires only inside CLI fences — prose can legitimately mention `<name>`.

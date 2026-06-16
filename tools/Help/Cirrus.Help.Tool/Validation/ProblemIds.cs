@@ -21,6 +21,8 @@ namespace Cirrus.Help.Tool.Validation
         public const string MD_InvalidStatus = "MD_InvalidStatus";
         public const string MD_MissingDescription = "MD_MissingDescription";
         public const string MD_NoExamples = "MD_NoExamples";
+        // CLI docs must include at least one ```bash/```sh fence so ExampleSyntaxValidator can scan it.
+        public const string MD_NoCliExamples = "MD_NoCliExamples";
 
         // Stub-content rules. Fire from MarkdownStructureValidator on every CLI markdown file.
         public const string MD_TodoPlaceholder = "MD_TodoPlaceholder";
