@@ -10,6 +10,8 @@ public class AuthContextService(ILoggingService Logger, ITelemetryService Teleme
 {
     private static readonly string ContextDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".cirrus");
     private static readonly string ContextFilePath = Path.Combine(ContextDirectory, "context.json");
+
+    internal static string BaseDirectory => ContextDirectory;
     private AuthContext? _currentContext;
 
     public async Task SaveContextAsync(AuthContext authContext, CancellationToken cancellationToken = default)
@@ -18,7 +20,12 @@ public class AuthContextService(ILoggingService Logger, ITelemetryService Teleme
         try
         {
             Directory.CreateDirectory(ContextDirectory);
-            var json = JsonSerializer.Serialize(authContext, new JsonSerializerOptions { WriteIndented = true });
+            var options = new JsonSerializerOptions 
+            { 
+                WriteIndented = true,
+                Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+            };
+            var json = JsonSerializer.Serialize(authContext, options);
             Logger.Verbose($"[{nameof(AuthContextService)}] Saving authentication context to: {ContextFilePath}");
             await File.WriteAllTextAsync(ContextFilePath, json, cancellationToken);
             _currentContext = authContext;
@@ -35,6 +42,7 @@ public class AuthContextService(ILoggingService Logger, ITelemetryService Teleme
         _currentContext = await LoadContextAsync(cancellationToken);  // todo: proper cache management (synchronization, multi-account, etc.) instead of hard-reloading
         TelemetryService.AddTag(TelemetryTags.SubscriptionId, _currentContext?.SubscriptionId);
         TelemetryService.AddTag(TelemetryTags.TenantId, _currentContext?.TenantId);
+        TelemetryService.AddTag(TelemetryTags.Mode, _currentContext?.Mode.ToString());
         return _currentContext;
     }
 
@@ -46,7 +54,12 @@ public class AuthContextService(ILoggingService Logger, ITelemetryService Teleme
             {
                 Logger.Verbose($"[{nameof(AuthContextService)}] Loading persisted authentication context from: {ContextFilePath}");
                 var json = await File.ReadAllTextAsync(ContextFilePath, cancellationToken);
-                return JsonSerializer.Deserialize<AuthContext>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                var options = new JsonSerializerOptions 
+                { 
+                    PropertyNameCaseInsensitive = true,
+                    Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+                };
+                return JsonSerializer.Deserialize<AuthContext>(json, options);
             }
             else
             {

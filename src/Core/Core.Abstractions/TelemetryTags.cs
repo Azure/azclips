@@ -29,6 +29,7 @@ public static class TelemetryTags
     public const string Parameter = "parameter";
     public const string SubscriptionId = "subscriptionId";
     public const string TenantId = "tenantId";
+    public const string Mode = "mode";
 
     // todo: reserved for later product level instrumentation.
     public const string PropertyTagPrefix = "properties.";

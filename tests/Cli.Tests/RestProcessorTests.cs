@@ -8,8 +8,8 @@ using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
 using Microsoft.Azure.Azclips.Extensions.Resources.Models;
 using Microsoft.Azure.Azclips.Extensions.Resources.Processors;
+using Tests.Common.Stubs;
 using Xunit;
-using GetEventData = System.Func<object>;
 
 namespace Cli.Tests;
 
@@ -27,12 +27,12 @@ public class RestProcessorTests
         FakeHttpPipeline pipeline,
         FakeOutputHandler output,
         string subscriptionId = TestSubscriptionId,
-        FakeEventPublisher? publisher = null)
+        StubEventPublisher? publisher = null)
     {
         var processor = new RestProcessor_Orchestrator();
         var context = new ProcessorContext(
             pipeline,
-            publisher ?? new FakeEventPublisher(),
+            publisher ?? new StubEventPublisher(),
             new FakeAuthHandler(new AuthContext("test-tenant", subscriptionId)),
             output);
         processor.Init(context);
@@ -377,7 +377,7 @@ public class RestProcessorTests
     [Fact]
     public async Task ProcessAsync_NonJsonResponse_DoesNotPublishInvalidJson_AndSurfacesRawBody()
     {
-        var publisher = new FakeEventPublisher();
+        var publisher = new StubEventPublisher();
         var pipeline = new FakeHttpPipeline((_, _) => new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent("plain text", Encoding.UTF8, "text/plain")
@@ -557,41 +557,5 @@ public class RestProcessorTests
         public IRuntimeHttpPipeline Append(IEnumerable<ISendAsyncFactory> items) => throw new NotSupportedException();
         public IRuntimeHttpPipeline Append(SendAsyncStepExpand item) => throw new NotSupportedException();
         public IRuntimeHttpPipeline Prepend(SendAsyncStepExpand item) => throw new NotSupportedException();
-    }
-
-    private sealed class FakeEventPublisher : IEventPublisher
-    {
-        public CancellationToken Token => CancellationToken.None;
-        public Action Cancel => () => { };
-
-        /// <summary>Event ids published through this publisher, in order, for assertions.</summary>
-        public List<string> PublishedIds { get; } = new();
-
-        public Task Publish(string id, CancellationToken token, GetEventData createMessage) { PublishedIds.Add(id); return Task.CompletedTask; }
-        public Task Publish(string id, CancellationToken token) { PublishedIds.Add(id); return Task.CompletedTask; }
-        public Task Publish(string id, CancellationToken token, string messageText) { PublishedIds.Add(id); return Task.CompletedTask; }
-        public Task Publish(string id, CancellationToken token, string messageText, HttpRequestMessage request) { PublishedIds.Add(id); return Task.CompletedTask; }
-        public Task Publish(string id, CancellationToken token, string messageText, HttpResponseMessage response) { PublishedIds.Add(id); return Task.CompletedTask; }
-        public Task Publish(string id, CancellationToken token, string messageText, double magnitude) { PublishedIds.Add(id); return Task.CompletedTask; }
-        public Task Publish(string id, CancellationToken token, string messageText, double magnitude, HttpRequestMessage request) { PublishedIds.Add(id); return Task.CompletedTask; }
-        public Task Publish(string id, CancellationToken token, string messageText, double magnitude, HttpResponseMessage response) { PublishedIds.Add(id); return Task.CompletedTask; }
-        public Task Publish(string id, CancellationToken token, HttpRequestMessage request) { PublishedIds.Add(id); return Task.CompletedTask; }
-        public Task Publish(string id, CancellationToken token, HttpRequestMessage request, HttpResponseMessage response) { PublishedIds.Add(id); return Task.CompletedTask; }
-        public Task Publish(string id, CancellationToken token, HttpResponseMessage response) { PublishedIds.Add(id); return Task.CompletedTask; }
-        public Task Publish(string id, CancellationToken token, EventData message) { PublishedIds.Add(id); return Task.CompletedTask; }
-
-        public Task Publish(string id, GetEventData createMessage) { PublishedIds.Add(id); return Task.CompletedTask; }
-        public Task Publish(string id) { PublishedIds.Add(id); return Task.CompletedTask; }
-        public Task Publish(string id, string messageText) { PublishedIds.Add(id); return Task.CompletedTask; }
-        public Task Publish(string id, string messageText, HttpRequestMessage request) { PublishedIds.Add(id); return Task.CompletedTask; }
-        public Task Publish(string id, string messageText, HttpResponseMessage response) { PublishedIds.Add(id); return Task.CompletedTask; }
-        public Task Publish(string id, string messageText, double magnitude) { PublishedIds.Add(id); return Task.CompletedTask; }
-        public Task Publish(string id, string messageText, double magnitude, HttpRequestMessage request) { PublishedIds.Add(id); return Task.CompletedTask; }
-        public Task Publish(string id, string messageText, double magnitude, HttpResponseMessage response) { PublishedIds.Add(id); return Task.CompletedTask; }
-        public Task Publish(string id, HttpRequestMessage request) { PublishedIds.Add(id); return Task.CompletedTask; }
-        public Task Publish(string id, HttpRequestMessage request, HttpResponseMessage response) { PublishedIds.Add(id); return Task.CompletedTask; }
-        public Task Publish(string id, HttpResponseMessage response) { PublishedIds.Add(id); return Task.CompletedTask; }
-        public Task Publish(string id, EventData message) { PublishedIds.Add(id); return Task.CompletedTask; }
-        public Task Publish(string id, Uri uri) { PublishedIds.Add(id); return Task.CompletedTask; }
     }
 }

@@ -3,26 +3,28 @@
 
 using Core.Abstractions;
 using Microsoft.Identity.Client;
-using Microsoft.Identity.Client.Extensions.Msal;
 
 namespace Core.Authentication;
 
-public class MsalAuthService(ILoggingService Logger, ITelemetryService TelemetryService) : IAuthService // todo: testability, consider injecting MSAL API wrappers
+public class MsalAuthService(
+    ILoggingService Logger,
+    ITelemetryService TelemetryService,
+    IAuthContextService AuthContextService,
+    MsalTokenCacheProvider TokenCacheProvider,
+    ManagedIdentityAuthenticator ManagedIdentityAuthenticator) : IAuthService
 {
-    private const string ArmDefaultScope = "https://management.core.windows.net//.default";
+    private const string ArmDefaultScope = AuthConstants.ArmDefaultScope;
     private const string ClientId = "1950a258-227b-4e31-a9cf-717495945fc2"; // todo: 1P or 3P?
 
     public async Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
         using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(LoginAsync)}");
-        if (request.UseDeviceCodeFlow)
+        return request.Mode switch
         {
-            return await AcquireTokenWithDeviceCodeAsync(request.Scopes, request.TenantId, cancellationToken);
-        }
-        else
-        {
-            return await AcquireTokenInteractiveAsync(request.Scopes, request.TenantId, cancellationToken);
-        }
+            LoginMode.ManagedIdentity => await ManagedIdentityAuthenticator.AuthenticateAsync(request, cancellationToken),
+            LoginMode.DeviceCode => await AcquireTokenWithDeviceCodeAsync(request.Scopes, request.TenantId, cancellationToken),
+            _ => await AcquireTokenInteractiveAsync(request.Scopes, request.TenantId, cancellationToken),
+        };
     }
 
     public async Task LogoutAsync(CancellationToken cancellationToken = default)
@@ -34,7 +36,7 @@ public class MsalAuthService(ILoggingService Logger, ITelemetryService Telemetry
         var app = PublicClientApplicationBuilder.Create(ClientId)
             .Build();
 
-        await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
+        await TokenCacheProvider.RegisterCacheAsync(app);
 
         var accounts = (await app.GetAccountsAsync()).ToList();
         Logger.Debug($"[{nameof(MsalAuthService)}] Found {accounts.Count} accounts in the token cache.");
@@ -53,9 +55,11 @@ public class MsalAuthService(ILoggingService Logger, ITelemetryService Telemetry
     {
         using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenInteractiveAsync)}");
         IPublicClientApplication app = BuildApp(tenantId);
-        await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
+        await TokenCacheProvider.RegisterCacheAsync(app);
 
-        var result = await app.AcquireTokenInteractive(scopes ?? [ArmDefaultScope]).WithUseEmbeddedWebView(false).ExecuteAsync(cancellationToken);
+        var result = await TokenRetryHelper.ExecuteWithRetryAsync(
+            () => app.AcquireTokenInteractive(scopes ?? [ArmDefaultScope]).WithUseEmbeddedWebView(false).ExecuteAsync(cancellationToken),
+            Logger);
         LogTokenMetadataDebug(result);
         return result.ToAuthResult();
     }
@@ -64,13 +68,15 @@ public class MsalAuthService(ILoggingService Logger, ITelemetryService Telemetry
     {
         using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenWithDeviceCodeAsync)}");
         IPublicClientApplication app = BuildApp(tenantId);
-        await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
+        await TokenCacheProvider.RegisterCacheAsync(app);
 
-        var result = await app.AcquireTokenWithDeviceCode(scopes ?? [ArmDefaultScope], deviceCodeResult =>
-        {
-            Logger.Log(deviceCodeResult.Message);
-            return Task.CompletedTask;
-        }).ExecuteAsync(cancellationToken);
+        var result = await TokenRetryHelper.ExecuteWithRetryAsync(
+            () => app.AcquireTokenWithDeviceCode(scopes ?? [ArmDefaultScope], deviceCodeResult =>
+            {
+                Logger.Log(deviceCodeResult.Message);
+                return Task.CompletedTask;
+            }).ExecuteAsync(cancellationToken),
+            Logger);
 
         LogTokenMetadataDebug(result);
         return result.ToAuthResult();
@@ -83,49 +89,24 @@ public class MsalAuthService(ILoggingService Logger, ITelemetryService Telemetry
                 .WithTenantId(tenantId ?? "72f988bf-86f1-41af-91ab-2d7cd011db47") // todo: fallback to tenant id in the context
                 .Build();
 
-    private async Task RegisterTokenCacheAsync(IPublicClientApplication app, bool plaintextUnsafe = false)
-    {
-        var cacheDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ".cirrus");
-        var filename = "MSAL.cache";
-        if (plaintextUnsafe)
-        {
-            filename += ".plaintext";
-        }
-        Logger.Debug($"[{nameof(MsalAuthService)}] Using MSAL token cache file: {Path.Combine(cacheDirectory, filename)}");
-
-        var builder = new StorageCreationPropertiesBuilder(filename, cacheDirectory);
-        builder = plaintextUnsafe ?
-            builder.WithUnprotectedFile() :
-            builder.WithLinuxKeyring(
-                "Microsoft.Project.Cirrus",
-                "default", // todo: post MVP: configurable?
-                "Tokens and credentials for Microsoft Project Cirrus",
-                new System.Collections.Generic.KeyValuePair<string, string>("application", "Microsoft.Project.Cirrus"),
-                new System.Collections.Generic.KeyValuePair<string, string>("service", "default"))
-            .WithMacKeyChain(
-                "Microsoft Project Cirrus",
-                "default"); // todo: post MVP: does it make sense to split the cache by account?
-
-        var storageProperties = builder.Build();
-
-        // This hooks up the cross-platform cache into MSAL
-        var cacheHelper = await MsalCacheHelper.CreateAsync(storageProperties);
-        cacheHelper.RegisterCache(app.UserTokenCache);
-    }
-
     /// <summary>
     /// Acquires a token silently if available, otherwise optionally prompts the user interactively.
+    /// Routes to the appropriate authenticator based on the persisted login mode.
     /// </summary>
-    /// <param name="promptOnError">Whether to prompt the user interactively if silent acquisition fails.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The acquired access token.</returns>
-    /// <exception cref="MsalUiRequiredException">Thrown if silent acquisition fails and prompting is disabled.</exception>
     public async Task<AuthResult> AcquireTokenSilentlyAsync(string[]? scopes, string? tenantId, bool promptOnError = false, CancellationToken cancellationToken = default)
     {
         using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenSilentlyAsync)}");
 
-        var app = BuildApp(tenantId);
-        await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
+        // Check persisted auth context to determine login mode
+        var context = await AuthContextService.GetCurrentContextAsync(cancellationToken);
+        if (context?.Mode == LoginMode.ManagedIdentity)
+        {
+            return await ManagedIdentityAuthenticator.AcquireTokenAsync(context, scopes, cancellationToken);
+        }
+
+        // Default: MSAL interactive/silent flow
+        var app = BuildApp(tenantId ?? context?.TenantId);
+        await TokenCacheProvider.RegisterCacheAsync(app);
 
         var accounts = await app.GetAccountsAsync();
         var account = accounts.FirstOrDefault();
@@ -133,21 +114,27 @@ public class MsalAuthService(ILoggingService Logger, ITelemetryService Telemetry
         AuthenticationResult result;
         try
         {
-            // If no account found, try with AcquireTokenSilent without account (uses login hint from cache)
-            if (account == null)
-            {
-                result = await app.AcquireTokenSilent(scopes ?? [ArmDefaultScope], (IAccount?)null)
-                    .WithForceRefresh(false)
-                    .ExecuteAsync(cancellationToken);
-            }
-            else
-            {
-                result = await app.AcquireTokenSilent(scopes ?? [ArmDefaultScope], account).ExecuteAsync(cancellationToken);
-            }
+            result = await TokenRetryHelper.ExecuteWithRetryAsync(
+                (Func<Task<AuthenticationResult>>)(async () =>
+                {
+                    if (account == null)
+                    {
+                        return await app.AcquireTokenSilent(scopes ?? [ArmDefaultScope], (IAccount?)null)
+                            .WithForceRefresh(false)
+                            .ExecuteAsync(cancellationToken);
+                    }
+                    else
+                    {
+                        return await app.AcquireTokenSilent(scopes ?? [ArmDefaultScope], account).ExecuteAsync(cancellationToken);
+                    }
+                }),
+                Logger);
         }
         catch (MsalUiRequiredException) when (promptOnError)
         {
-            result = await app.AcquireTokenInteractive(scopes ?? [ArmDefaultScope]).WithUseEmbeddedWebView(false).ExecuteAsync(cancellationToken);
+            result = await TokenRetryHelper.ExecuteWithRetryAsync(
+                () => app.AcquireTokenInteractive(scopes ?? [ArmDefaultScope]).WithUseEmbeddedWebView(false).ExecuteAsync(cancellationToken),
+                Logger);
         }
 
         LogTokenMetadataDebug(result);

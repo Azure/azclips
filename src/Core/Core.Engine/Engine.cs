@@ -94,7 +94,8 @@ namespace Core.Engine
         /// </summary>
         private async Task<ProcessorContext> CreateProcessorContext(ExecutionSession session)
         {
-            AuthContext authContext = await authContextService.GetCurrentContextAsync() ?? new AuthContext(TenantId: "", SubscriptionId: "");
+            AuthContext authContext = await authContextService.GetCurrentContextAsync()
+                ?? new AuthContext(TenantId: "", SubscriptionId: "");
             IAuthHandler authHandler = new AuthHandler
             {
                 AuthContext = authContext with { },

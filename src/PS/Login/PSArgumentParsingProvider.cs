@@ -26,15 +26,20 @@ public class PSArgumentParsingProvider() : IArgumentParsingProvider
                 continue;
             }
 
+            // Bind to the processor property name (ParameterMetadata.Name), not the incoming
+            // parameter key, mirroring the CLI provider. The two can differ (e.g. the
+            // "SubscriptionId" key maps to the "Subscription" processor property).
+            var name = metadata.Name;
+
             // 1. Arg is array/sequence AND parameter expects a collection -> convert.
             if (IsArrayLike(rawValue) && TryGetCollectionElementType(metadata.ParameterType, out var elementType))
             {
-                parsedArguments[key] = ConvertToCollection(rawValue, metadata.ParameterType, elementType!);
+                parsedArguments[name] = ConvertToCollection(rawValue, metadata.ParameterType, elementType!);
                 continue;
             }
 
             // 2. Otherwise passthrough.
-            parsedArguments[key] = rawValue;
+            parsedArguments[name] = rawValue;
         }
 
         // 3. Return parsed arguments.
