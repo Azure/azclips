@@ -6,6 +6,7 @@ using Core.Agent.Probes;
 using Core.Agent.Tools.Cache;
 using Core.Agent.Tools.Help;
 using Core.Agent.Tools.Sku;
+using Core.Configuration.Options;
 using GitHub.Copilot;
 using GitHub.Copilot.Rpc;
 using Microsoft.Extensions.AI;
@@ -22,23 +23,23 @@ namespace Core.Agent;
 /// </summary>
 public sealed class ChatAgent : IAsyncDisposable
 {
-    public const string ModelId = "claude-opus-4.7-1m-internal";
-
     private static readonly TimeSpan TurnTimeout = TimeSpan.FromMinutes(10);
 
     private readonly CopilotClient _client;
     private readonly CopilotSession _session;
+    private readonly string _model;
 
     private CancellationTokenSource? _activeTurnCts;
 
-    public string Model => ModelId;
+    public string Model => _model;
 
     public SessionErrored? LastError { get; private set; }
 
-    private ChatAgent(CopilotClient client, CopilotSession session)
+    private ChatAgent(CopilotClient client, CopilotSession session, string model)
     {
         _client = client;
         _session = session;
+        _model = model;
     }
 
     /// <param name="ct">
@@ -56,11 +57,13 @@ public sealed class ChatAgent : IAsyncDisposable
         string azv2ExePath,
         ConsoleApprovalPrompt approvalSink,
         IAgentRenderer renderer,
+        AgentOptions options,
         SpinnerService? spinner = null,
         ILogger? logger = null,
         string mode = "azure",
         CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(options);
         var sdkLogger = logger ?? NullLogger.Instance;
         var client = new CopilotClient(new CopilotClientOptions
         {
@@ -68,15 +71,32 @@ public sealed class ChatAgent : IAsyncDisposable
             Connection = RuntimeConnection.ForStdio(path: BundledDaemonResolver.Resolve()),
         });
 
-        var models = await client.ListModelsAsync(ct).ConfigureAwait(false);
-        if (!models.Any(m => string.Equals(m.Id, ModelId, StringComparison.OrdinalIgnoreCase)))
+        try
         {
-            var available = string.Join(", ", models.Select(m => m.Id));
-            await client.DisposeAsync().ConfigureAwait(false);
-            throw new InvalidOperationException(
-                $"Copilot daemon does not advertise model '{ModelId}'. Available: {available}");
+            return await CreateCoreAsync(
+                client, flavor, auth, authContext, azv2ExePath, approvalSink,
+                renderer, options, spinner, mode, ct).ConfigureAwait(false);
         }
+        catch
+        {
+            await client.DisposeAsync().ConfigureAwait(false);
+            throw;
+        }
+    }
 
+    private static async Task<ChatAgent> CreateCoreAsync(
+        CopilotClient client,
+        string flavor,
+        IAuthService auth,
+        IAuthContextService authContext,
+        string azv2ExePath,
+        ConsoleApprovalPrompt approvalSink,
+        IAgentRenderer renderer,
+        AgentOptions options,
+        SpinnerService? spinner,
+        string mode,
+        CancellationToken ct)
+    {
         var systemPrompt = LoadSystemPrompt(flavor, mode);
         var armDetails = new ArmDetailsClient(auth);
         var cacheTools = new CachedResourceTools(armDetails);
@@ -110,13 +130,58 @@ public sealed class ChatAgent : IAsyncDisposable
             OnText  = renderer.OnText,
         };
 
-        var session = await client.CreateSessionAsync(new SessionConfig
+        var sessionConfig = BuildBaseSessionConfig(
+            systemPrompt, cacheTools, helpTools, skuTools, prober,
+            azv2ExePath, approvalSink, eventRenderer, ct);
+
+        string resolvedModel;
+        switch (options.Provider?.ToLowerInvariant())
+        {
+            case "builtin":
+                resolvedModel = options.Builtin.ModelId;
+                sessionConfig.Model = resolvedModel;
+                sessionConfig.Provider = await BuildBuiltinProviderConfigAsync(options.Builtin, auth, ct).ConfigureAwait(false);
+                break;
+
+            case "github":
+                resolvedModel = string.Empty;
+                break;
+
+            case "custom":
+                throw new NotImplementedException(
+                    "agent.provider='custom' is reserved for GA; use 'builtin' or 'github'.");
+
+            default:
+                throw new ArgumentException(
+                    $"Unknown agent.provider value: {FormatProviderForError(options.Provider)}. Expected: builtin | github | custom.",
+                    nameof(options));
+        }
+
+        var session = await client.CreateSessionAsync(sessionConfig, ct).ConfigureAwait(false);
+
+        var agent = new ChatAgent(client, session, resolvedModel);
+        self = agent;
+        if (earlyError is not null) agent.LastError = earlyError;
+        return agent;
+    }
+
+    private static SessionConfig BuildBaseSessionConfig(
+        string systemPrompt,
+        CachedResourceTools cacheTools,
+        HelpTools helpTools,
+        AvailableLocationsTool skuTools,
+        EnvironmentProber prober,
+        string azv2ExePath,
+        ConsoleApprovalPrompt approvalSink,
+        EventRenderer eventRenderer,
+        CancellationToken ct)
+    {
+        return new SessionConfig
         {
             SessionId = Guid.NewGuid().ToString(),
             ConfigDirectory = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
                 ".cirrus"),
-            Model = ModelId,
             Streaming = true,
             SystemMessage = new SystemMessageConfig { Content = systemPrompt },
             Tools = cacheTools.All.Concat(helpTools.All).Concat(skuTools.All).Cast<AIFunctionDeclaration>().ToList(),
@@ -149,12 +214,67 @@ public sealed class ChatAgent : IAsyncDisposable
                 return ok ? PermissionDecision.ApproveOnce() : PermissionDecision.Reject(feedback: null);
             },
             OnEvent = eventRenderer.Forward,
-        }, ct).ConfigureAwait(false);
+        };
+    }
 
-        var agent = new ChatAgent(client, session);
-        self = agent;
-        if (earlyError is not null) agent.LastError = earlyError;
-        return agent;
+    private static async Task<ProviderConfig> BuildBuiltinProviderConfigAsync(
+        BuiltinProviderOptions opts,
+        IAuthService auth,
+        CancellationToken ct)
+    {
+        Core.Abstractions.AuthResult? authResult;
+        try
+        {
+            authResult = await auth.AcquireTokenSilentlyAsync(
+                scopes: [opts.Scope],
+                tenantId: null,
+                promptOnError: false,
+                cancellationToken: ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                BuildBuiltinAuthErrorMessage() +
+                $"{Environment.NewLine}{Environment.NewLine}Underlying cause: {ex.GetType().Name}: {ex.Message}",
+                ex);
+        }
+
+        if (authResult is null || string.IsNullOrEmpty(authResult.AccessToken))
+        {
+            throw new InvalidOperationException(BuildBuiltinAuthErrorMessage());
+        }
+
+        return new ProviderConfig
+        {
+            Type = "azure",
+            WireApi = "responses",
+            BaseUrl = opts.Endpoint,
+            BearerToken = authResult.AccessToken,
+            ModelId = opts.ModelId,
+            WireModel = opts.ModelId,
+            Azure = new AzureOptions { ApiVersion = opts.ApiVersion },
+        };
+    }
+
+    private static string BuildBuiltinAuthErrorMessage() =>
+        """
+        Agent's 'builtin' provider requires an Azure login to call the managed GPT model.
+        No active Azure account was found.
+
+        To fix this, run:
+            azv2 login --subscription-id <your-subscription-id>
+
+        Alternative: switch to the 'github' provider (uses your own GitHub Copilot subscription,
+        billed to your GitHub account):
+            azv2 config set --key agent.provider --value github
+        """;
+
+    private static string FormatProviderForError(string? provider)
+    {
+        if (provider is null) return "(null)";
+        if (provider.Length == 0) return "(empty)";
+        if (string.IsNullOrWhiteSpace(provider)) return $"(whitespace, length={provider.Length})";
+        return $"'{provider}'";
     }
 
     public async Task SendAsync(string prompt, CancellationToken ct)
