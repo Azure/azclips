@@ -34,6 +34,7 @@ stages:
       clean: true
       fetchDepth: 0
       persistCredentials: true
+      retryCountOnTaskFailure: 3
     - task: UseDotNet@2
       displayName: .NET SDK
       inputs:
