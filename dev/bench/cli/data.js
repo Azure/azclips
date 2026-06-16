@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781589859940,
+  "lastUpdate": 1781589944017,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus CLI Benchmarks": [
@@ -840,6 +840,48 @@ window.BENCHMARK_DATA = {
             "value": 154704.75,
             "unit": "ns",
             "range": "± 9422.169508664127"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9090a98b392f94d0d00a1b086dd7c0e007785e4a",
+          "message": "[Telemetry] Activity name and tag property whitelists (#284)\n\nThe goal is to filter out activities / properties that could potentially\nemit PII for the sake of private preview.\nFor more details see: https://github.com/Azure/CLIPS/issues/369\n\n- Implement `TelemetryActivityNameFilter` base processor for\n`TracerProvider` to filter out non-allowed Activities\n- Implement `TelemetryPropertyFilter` base processor for\n`TracerProvider` to filter out non-allowed property tags",
+          "timestamp": "2026-06-16T16:03:33+10:00",
+          "tree_id": "2dc3da28e081b948f5c52df058fffb24392f9298",
+          "url": "https://github.com/Azure/cirrus/commit/9090a98b392f94d0d00a1b086dd7c0e007785e4a"
+        },
+        "date": 1781589942888,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 223114,
+            "unit": "ns",
+            "range": "± 28005.366330996876"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 259876.25,
+            "unit": "ns",
+            "range": "± 15540.632706446242"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 257281.5,
+            "unit": "ns",
+            "range": "± 28103.374655012518"
           }
         ]
       }
