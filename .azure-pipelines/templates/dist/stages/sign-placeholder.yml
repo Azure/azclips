@@ -6,7 +6,7 @@ parameters:
   type: string
   default: 'ubuntu-latest'
 - name: dependency_stage
-  type: string
+  type: object
   default: 'Preflight'
 - name: SourceProject
   type: string
@@ -20,6 +20,9 @@ parameters:
 - name: source_artifact_name
   type: string
   default: 'Distribution_Final'
+- name: source_artifact_source
+  type: string
+  default: 'specific'
 - name: signed_artifact_name
   type: string
   default: 'signed-dist'
@@ -51,6 +54,7 @@ stages:
       source_pipeline_name: ${{ parameters.source_pipeline_name }}
       source_build_id: ${{ parameters.source_build_id }}
       source_artifact_name: ${{ parameters.source_artifact_name }}
+      source_artifact_source: ${{ parameters.source_artifact_source }}
 
 - stage: PlaceholderWindowsSigning
   displayName: Windows Signing Placeholder
@@ -63,6 +67,7 @@ stages:
       source_pipeline_name: ${{ parameters.source_pipeline_name }}
       source_build_id: ${{ parameters.source_build_id }}
       source_artifact_name: ${{ parameters.source_artifact_name }}
+      source_artifact_source: ${{ parameters.source_artifact_source }}
       windows_sign_architectures: ${{ parameters.windows_sign_architectures }}
 
 - stage: PlaceholderLinuxSigning
@@ -76,6 +81,7 @@ stages:
       source_pipeline_name: ${{ parameters.source_pipeline_name }}
       source_build_id: ${{ parameters.source_build_id }}
       source_artifact_name: ${{ parameters.source_artifact_name }}
+      source_artifact_source: ${{ parameters.source_artifact_source }}
       linux_collect_architectures: ${{ parameters.linux_collect_architectures }}
 
 - stage: PlaceholderMacOSSigning
@@ -89,6 +95,7 @@ stages:
       source_pipeline_name: ${{ parameters.source_pipeline_name }}
       source_build_id: ${{ parameters.source_build_id }}
       source_artifact_name: ${{ parameters.source_artifact_name }}
+      source_artifact_source: ${{ parameters.source_artifact_source }}
       macos_arm64_pool: ${{ parameters.macos_arm64_pool }}
       macos_intel_pool: ${{ parameters.macos_intel_pool }}
 

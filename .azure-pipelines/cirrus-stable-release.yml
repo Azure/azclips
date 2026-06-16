@@ -1,0 +1,118 @@
+name: cirrus-stable-release-$(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger:
+  tags:
+    include:
+    - v*.*.*
+    exclude:
+    # Azure Pipelines tag filters treat v*.*.*.* broadly enough to suppress vX.Y.Z tags.
+    # v*.*.*.*? excludes four-component CI tags while preserving stable SemVer tags.
+    - v*.*.*.*?
+    - v*-*
+pr: none
+
+variables:
+- template: templates/variables.yml
+- template: templates/dist/variables/packaging.yml
+- template: templates/dist/variables/common.yml
+- name: ReleasePipelineName
+  value: cirrus-stable-release
+- name: SourceProject
+  value: release
+- name: GitHubTargetRepo
+  value: Azure/cirrus
+- name: GitHubServiceConnection
+  value: Azure
+- name: GitHubReleasePrefix
+  value: dist
+- name: GitHubReleaseIsPrerelease
+  value: false
+- name: SignedArtifactName
+  value: Distribution_Signed
+
+stages:
+- stage: Preflight
+  displayName: Preflight Checks
+  jobs:
+  - job: EnsureReleaseProject
+    displayName: Ensure Release Project Context
+    pool:
+      vmImage: $(ubuntu_pool)
+    steps:
+    - checkout: none
+    - template: templates/dist/steps/validate-release-project.yml
+      parameters:
+        error_message: cirrus-stable-release must run in the 'release' project.
+    - bash: |
+        set -euo pipefail
+
+        source_branch="$(Build.SourceBranch)"
+        source_version="$(Build.SourceVersion)"
+        echo "Build.SourceBranch=$source_branch"
+        echo "Build.SourceVersion=$source_version"
+
+        if [[ ! "$source_branch" =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "ERROR: cirrus-stable-release must run from a stable SemVer tag like v1.2.3."
+          echo "When manually rerunning, select the release tag as the pipeline version instead of a branch."
+          exit 1
+        fi
+
+        if [[ -z "$source_version" ]]; then
+          echo 'ERROR: Build.SourceVersion was not resolved for the selected tag.'
+          exit 1
+        fi
+      displayName: Validate Stable Tag Input
+
+- template: templates/dist/stages/build-unsigned-distribution.yml
+  parameters:
+    artifact_version_override: auto
+    bump_type: patch
+    release_channel: stable
+    release_date: auto
+    pr_number: auto
+    sequence: auto
+    ubuntu_pool: ${{ variables.ubuntu_pool }}
+    windows_pool: ${{ variables.windows_pool }}
+    macos_arm64_pool: ${{ variables.macos_arm64_pool }}
+    macos_intel_pool: ${{ variables.macos_intel_pool }}
+    final_artifact_name: Distribution_Final
+
+- template: templates/dist/stages/sign-placeholder.yml
+  parameters:
+    windows_pool: ${{ variables.windows_pool }}
+    ubuntu_pool: ${{ variables.ubuntu_pool }}
+    macos_arm64_pool: ${{ variables.macos_arm64_pool }}
+    macos_intel_pool: ${{ variables.macos_intel_pool }}
+    dependency_stage:
+    - BuildCommon
+    - BuildLinux
+    - BuildWindows
+    - BuildMacOS
+    - Test
+    - Benchmark
+    - ValidateLinux
+    - ValidateWindows
+    - ValidateMacOS
+    - Finalize
+    SourceProject: ${{ variables.SourceProject }}
+    source_pipeline_name: ${{ variables.ReleasePipelineName }}
+    source_build_id: $(Build.BuildId)
+    source_artifact_name: Distribution_Final
+    source_artifact_source: current
+    signed_artifact_name: ${{ variables.SignedArtifactName }}
+
+- template: templates/dist/stages/publish-to-github-release.yml
+  parameters:
+    ubuntu_pool: ${{ variables.ubuntu_pool }}
+    dependency_stage: AssemblePlaceholderSignedArtifacts
+    SourceProject: ${{ variables.SourceProject }}
+    GitHubTargetRepo: ${{ variables.GitHubTargetRepo }}
+    GitHubReleasePrefix: ${{ variables.GitHubReleasePrefix }}
+    GitHubReleaseTagMode: stableVersion
+    GitHubReleaseAllowOverwrite: 'false'
+    GitHubReleaseIsPrerelease: ${{ variables.GitHubReleaseIsPrerelease }}
+    GitHubServiceConnection: ${{ variables.GitHubServiceConnection }}
+    signed_pipeline_name: ${{ variables.ReleasePipelineName }}
+    signed_build_id: $(Build.BuildId)
+    signed_artifact_source: current
+    signed_artifact_name: ${{ variables.SignedArtifactName }}
