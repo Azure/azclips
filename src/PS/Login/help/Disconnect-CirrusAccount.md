@@ -1,7 +1,7 @@
 ---
 document type: cmdlet
 external help file: Microsoft.Azure.Cirrus.Cmdlets.Login.dll-Help.xml
-HelpUri: ''
+HelpUri: ""
 Locale: en-AU
 Module Name: Login
 ms.date: 06/16/2026
@@ -17,7 +17,7 @@ Sign out from the current Azure account context.
 
 ## SYNTAX
 
-### __AllParameterSets
+### \_\_AllParameterSets
 
 ```
 Disconnect-CirrusAccount [-WhatIf] [-Confirm] [<CommonParameters>]
@@ -26,7 +26,7 @@ Disconnect-CirrusAccount [-WhatIf] [-Confirm] [<CommonParameters>]
 ## ALIASES
 
 This cmdlet has the following aliases,
-  {{Insert list of aliases}}
+{{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -36,7 +36,7 @@ Sign out from the current Azure account context.
 
 ### Sign out of the current account
 
-Clear the persisted Azure account context. Subsequent cmdlets that require authentication will prompt for a new sign-in.
+Clears the persisted Azure account context. Subsequent Cirrus cmdlets will require a fresh `Connect-CirrusAccount` before they can authenticate.
 
 ```powershell
 Disconnect-CirrusAccount
@@ -50,20 +50,20 @@ Prompts you for confirmation before running the cmdlet.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases:
-- cf
+    - cf
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -WhatIf
@@ -73,20 +73,20 @@ The cmdlet is not run.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases:
-- wi
+    - wi
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### CommonParameters
@@ -104,8 +104,6 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 Generated help for login.
 
-
 ## RELATED LINKS
-
 
 - [Online Version]()

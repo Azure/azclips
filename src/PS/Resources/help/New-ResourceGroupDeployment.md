@@ -408,5 +408,5 @@ The target resource group must already exist. Use `New-ResourceGroup` to create 
 
 ## RELATED LINKS
 
-- [New-ResourceGroup](New-ResourceGroup.md)
-- [Get-ResourceGroup](Get-ResourceGroup.md)
+- [New-ResourceGroup]()
+- [Get-ResourceGroup]()

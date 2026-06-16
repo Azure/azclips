@@ -5,7 +5,18 @@
 param(
     [string]$Configuration = 'Debug',
 
-    [ValidateSet('Compute', 'Config', 'Login', 'Resources')]
+    # Modules are discovered from src/PS/<Name>/<Name>.psd1 at runtime — see
+    # the discovery block below. The ArgumentCompleter restores tab-completion
+    # that we lost by dropping the static [ValidateSet]; explicit validation
+    # against the discovered set happens after $psSrcRoot is resolved.
+    [ArgumentCompleter({
+        param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
+        $psRoot = Join-Path $PSScriptRoot '../src/PS'
+        if (-not (Test-Path $psRoot)) { return }
+        Get-ChildItem -Path $psRoot -Directory -ErrorAction SilentlyContinue |
+            Where-Object { (Test-Path (Join-Path $_.FullName "$($_.Name).psd1")) -and $_.Name -like "$wordToComplete*" } |
+            ForEach-Object { $_.Name }
+    })]
     [string[]]$Module
 )
 
@@ -118,7 +129,6 @@ $exampleLine
 
     # Collapse duplicate `[Online Version]()` entries under `## RELATED LINKS`. PlatyPS 1.0.1's
     # New-MarkdownCommandHelp -ModuleInfo seeds Links with one entry per cmdlet (all empty when
-    # no [Cmdlet(HelpUri=...)] is set), producing N near-identical bullets (PR #226 review).
     $merged = $output -join "`n"
     $merged = [regex]::Replace(
         $merged,
@@ -139,7 +149,33 @@ $exampleLine
 $repoRoot = Resolve-Path "$PSScriptRoot/.."
 $psSrcRoot = Join-Path $repoRoot "src/PS"
 
-$modules = if ($Module) { $Module } else { 'Compute','Config','Login','Resources' }
+# Discover modules from src/PS/<Name>/<Name>.psd1 — single source of truth.
+# Avoids drift as new modules (Storage, Network, ...) land without touching this script.
+$discovered = @(
+    Get-ChildItem -Path $psSrcRoot -Directory -ErrorAction SilentlyContinue |
+        Where-Object { Test-Path (Join-Path $_.FullName "$($_.Name).psd1") } |
+        Select-Object -ExpandProperty Name |
+        Sort-Object
+)
+
+if (-not $discovered)
+{
+    throw "No PowerShell modules found under '$psSrcRoot'. Expected layout: src/PS/<Name>/<Name>.psd1."
+}
+
+if ($Module)
+{
+    $unknown = @($Module | Where-Object { $_ -notin $discovered })
+    if ($unknown)
+    {
+        throw "Unknown module(s): $($unknown -join ', '). Available: $($discovered -join ', ')."
+    }
+    $modules = $Module
+}
+else
+{
+    $modules = $discovered
+}
 
 foreach ($name in $modules)
 {
