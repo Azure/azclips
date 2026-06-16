@@ -12,7 +12,7 @@ namespace Core.Tui.Telemetry;
 
 public class TUITelemetryProvider : DefaultTelemetryProvider
 {
-    public TUITelemetryProvider(IConfigurationService configurationService)
+    public TUITelemetryProvider(IConfigurationService configurationService, IEnumerable<BaseProcessor<Activity>> filterProcessors)
     {
         var isTelemetryEnabled = configurationService.GetConfiguration<TelemetryOptions>().Enabled;
         if (!isTelemetryEnabled) return;
@@ -31,6 +31,11 @@ public class TUITelemetryProvider : DefaultTelemetryProvider
                 activity.SetTag("http.request.header.user-agent", request.Headers.UserAgent?.ToString());
             };
         });
+
+        foreach (var processor in filterProcessors)
+        {
+            builder.AddProcessor(processor);
+        }
 
         sender.ConfigureExporter(builder, FileTelemetrySender.GetTraceDirectory());
         TracerProvider = builder.Build()!;
