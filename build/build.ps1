@@ -34,6 +34,25 @@ function Invoke-HelpValidationTool
     return $LASTEXITCODE
 }
 
+function Write-Utf8NoBomFile
+{
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Content,
+        [switch]$NormalizeLf
+    )
+
+    if ($NormalizeLf)
+    {
+        # zsh completion scripts must be LF-only to avoid `^M` command parsing errors.
+        $Content = $Content -replace "`r`n?", "`n"
+    }
+
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($Path, $Content, $utf8NoBom)
+}
+
 # Repairs PlatyPS 1.0.1 quirk: Export-MamlCommandHelp leaves fenced example bodies
 # inside <maml:para> instead of populating <dev:code>, so `Get-Help -Examples`
 # prints raw fence markers. We move each fenced paragraph's body into <dev:code>.
@@ -194,23 +213,27 @@ function Publish-CirrusHelpArtifacts
 
 Invoke-CirrusBuild -Configuration $Configuration
 
-# Generate tab-completion metadata (shared JSON for PowerShell and Bash)
+# Ensure bin/ output directory exists before writing any artifacts
+New-Item -ItemType Directory -Force -Path "$PSScriptRoot/../bin" | Out-Null
+
+# Generate tab-completion metadata (shared JSON for PowerShell, Bash, and zsh)
 $_completionsJson = $null
 $_cliProject = "$PSScriptRoot/../src/CLI/Core.Cli.csproj"
 if (Test-Path $_cliProject) {
     $_completionsJson = dotnet run --no-build --project $_cliProject -- --completions 2>$null | Where-Object { $_ -match '^\s*\{' }
 }
 if ($_completionsJson) {
-    $_completionsJson -join '' | Set-Content -Path "$PSScriptRoot/../bin/azv2.completions.json" -Encoding utf8NoBOM
+    Write-Utf8NoBomFile -Path "$PSScriptRoot/../bin/azv2.completions.json" -Content ($_completionsJson -join '')
     Write-Host "Generated bin/azv2.completions.json" -ForegroundColor Green
 }
 
 # Copy shell completion scripts from source to bin/
 $_completionsDir = "$PSScriptRoot/../src/CLI/Completions"
-foreach ($_script in @('azv2.completions.ps1', 'azv2.completions.bash')) {
+foreach ($_script in @('azv2.completions.ps1', 'azv2.completions.bash', 'azv2.completions.zsh')) {
     $_src = Join-Path $_completionsDir $_script
     if (Test-Path $_src) {
-        Copy-Item $_src -Destination "$PSScriptRoot/../bin/$_script" -Force
+        # Ensure shell scripts are emitted without BOM and with LF line endings.
+        Write-Utf8NoBomFile -Path "$PSScriptRoot/../bin/$_script" -Content (Get-Content -Path $_src -Raw) -NormalizeLf
     }
 }
 Write-Host "Copied completion scripts to bin/" -ForegroundColor Green
