@@ -2,9 +2,9 @@
 document type: cmdlet
 external help file: Microsoft.Azure.Cirrus.Cmdlets.Compute.dll-Help.xml
 HelpUri: ""
-Locale: en-US
+Locale: en-AU
 Module Name: Compute
-ms.date: 06/04/2026
+ms.date: 06/16/2026
 PlatyPS schema version: 2024-05-01
 title: New-NetworkSecurityGroup
 ---
@@ -42,10 +42,11 @@ Optional parallel arrays (RuleNames, RuleDirections, RuleProtocols, ...) let you
 
 ### Create an empty network security group
 
-Create an NSG named `myvm-nsg` in resource group `myrg`. Use additional rule parameters to add inbound or outbound rules at creation time.
+Provision the network security group `mynsg` in `myrg` (East US) with no inline rules.
+Rules can be added later by passing the parallel `-Rule*` arrays.
 
 ```powershell
-New-NetworkSecurityGroup -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myvm-nsg -Location eastus -ResourceGroupName myrg
+New-NetworkSecurityGroup -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name mynsg -Location eastus -ResourceGroupName myrg
 ```
 
 ## PARAMETERS
@@ -74,7 +75,7 @@ HelpMessage: ""
 
 ### -Location
 
-{{ Fill Location Description }}
+The Azure region in which to create the network security group (for example, `eastus`).
 
 ```yaml
 Type: System.String
@@ -95,7 +96,7 @@ HelpMessage: ""
 
 ### -Name
 
-{{ Fill Name Description }}
+The name of the network security group to create.
 
 ```yaml
 Type: System.String
@@ -116,7 +117,7 @@ HelpMessage: ""
 
 ### -ResourceGroupName
 
-{{ Fill ResourceGroupName Description }}
+The name of the resource group that will hold the network security group.
 
 ```yaml
 Type: System.String
@@ -137,7 +138,7 @@ HelpMessage: ""
 
 ### -RuleAccesses
 
-{{ Fill RuleAccesses Description }}
+Access types (`Allow` or `Deny`) for the security rules. Aligned positionally with the other `-Rule*` arrays.
 
 ```yaml
 Type: System.String[]
@@ -158,7 +159,7 @@ HelpMessage: ""
 
 ### -RuleDestinationAddressPrefixes
 
-{{ Fill RuleDestinationAddressPrefixes Description }}
+Destination address prefixes for the security rules.
 
 ```yaml
 Type: System.String[]
@@ -179,7 +180,7 @@ HelpMessage: ""
 
 ### -RuleDestinationPortRanges
 
-{{ Fill RuleDestinationPortRanges Description }}
+Destination port ranges for the security rules (for example, `80`, `443`, `8000-8080`).
 
 ```yaml
 Type: System.String[]
@@ -200,7 +201,7 @@ HelpMessage: ""
 
 ### -RuleDirections
 
-{{ Fill RuleDirections Description }}
+Directions (`Inbound` or `Outbound`) for the security rules.
 
 ```yaml
 Type: System.String[]
@@ -221,7 +222,7 @@ HelpMessage: ""
 
 ### -RuleNames
 
-{{ Fill RuleNames Description }}
+Names of the security rules to create on the NSG.
 
 ```yaml
 Type: System.String[]
@@ -242,7 +243,7 @@ HelpMessage: ""
 
 ### -RulePriorities
 
-{{ Fill RulePriorities Description }}
+Priorities for the security rules. Lower numbers are evaluated first.
 
 ```yaml
 Type: System.Int32[]
@@ -263,7 +264,7 @@ HelpMessage: ""
 
 ### -RuleProtocols
 
-{{ Fill RuleProtocols Description }}
+Protocols (`Tcp`, `Udp`, `Icmp`, `*`) for the security rules.
 
 ```yaml
 Type: System.String[]
@@ -284,7 +285,7 @@ HelpMessage: ""
 
 ### -RuleSourceAddressPrefixes
 
-{{ Fill RuleSourceAddressPrefixes Description }}
+Source address prefixes for the security rules (for example, `Internet`, `VirtualNetwork`, or a CIDR block).
 
 ```yaml
 Type: System.String[]
@@ -305,7 +306,7 @@ HelpMessage: ""
 
 ### -RuleSourcePortRanges
 
-{{ Fill RuleSourcePortRanges Description }}
+Source port ranges for the security rules.
 
 ```yaml
 Type: System.String[]
@@ -326,7 +327,7 @@ HelpMessage: ""
 
 ### -SubscriptionId
 
-{{ Fill SubscriptionId Description }}
+The Azure subscription ID that owns the resource group.
 
 ```yaml
 Type: System.String

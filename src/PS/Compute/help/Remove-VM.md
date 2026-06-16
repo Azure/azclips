@@ -2,9 +2,9 @@
 document type: cmdlet
 external help file: Microsoft.Azure.Cirrus.Cmdlets.Compute.dll-Help.xml
 HelpUri: ""
-Locale: en-US
+Locale: en-AU
 Module Name: Compute
-ms.date: 06/04/2026
+ms.date: 06/16/2026
 PlatyPS schema version: 2024-05-01
 title: Remove-VM
 ---
@@ -38,7 +38,7 @@ This operation removes only the VM resource itself; associated disks, network in
 
 ### Remove a VM
 
-Delete the virtual machine `myvm` in resource group `myrg`. Disks and NICs attached to the VM are preserved.
+Delete the virtual machine `myvm` from resource group `myrg`. The associated disks and NICs are not removed.
 
 ```powershell
 Remove-VM -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myvm -ResourceGroupName myrg

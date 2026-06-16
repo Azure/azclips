@@ -2,9 +2,9 @@
 document type: cmdlet
 external help file: Microsoft.Azure.Cirrus.Cmdlets.Compute.dll-Help.xml
 HelpUri: ""
-Locale: en-US
+Locale: en-AU
 Module Name: Compute
-ms.date: 06/04/2026
+ms.date: 06/16/2026
 PlatyPS schema version: 2024-05-01
 title: New-VirtualNetwork
 ---
@@ -37,9 +37,10 @@ Optional parameters let you specify address prefixes and subnet definitions.
 
 ## EXAMPLES
 
-### Create a virtual network with default subnet
+### Create a virtual network with default address space
 
-Create the virtual network `myvnet` in resource group `myrg`. The cmdlet returns the provisioned VNet object.
+Provision the virtual network `myvnet` in `myrg` (East US).
+Use `-AddressPrefixes`, `-SubnetNames`, and `-SubnetAddressPrefixes` to override defaults.
 
 ```powershell
 New-VirtualNetwork -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myvnet -Location eastus -ResourceGroupName myrg
@@ -49,7 +50,7 @@ New-VirtualNetwork -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name my
 
 ### -AddressPrefixes
 
-{{ Fill AddressPrefixes Description }}
+Address prefixes for the virtual network in CIDR notation (for example, `10.0.0.0/16`).
 
 ```yaml
 Type: System.String[]
@@ -92,7 +93,7 @@ HelpMessage: ""
 
 ### -Location
 
-{{ Fill Location Description }}
+The Azure region in which to create the virtual network (for example, `eastus`).
 
 ```yaml
 Type: System.String
@@ -113,7 +114,7 @@ HelpMessage: ""
 
 ### -Name
 
-{{ Fill Name Description }}
+The name of the virtual network to create.
 
 ```yaml
 Type: System.String
@@ -134,7 +135,7 @@ HelpMessage: ""
 
 ### -ResourceGroupName
 
-{{ Fill ResourceGroupName Description }}
+The name of the resource group that will hold the virtual network.
 
 ```yaml
 Type: System.String
@@ -155,7 +156,7 @@ HelpMessage: ""
 
 ### -SubnetAddressPrefixes
 
-{{ Fill SubnetAddressPrefixes Description }}
+Address prefixes for each subnet, supplied as a jagged array aligned with `-SubnetNames`.
 
 ```yaml
 Type: System.String[][]
@@ -176,7 +177,7 @@ HelpMessage: ""
 
 ### -SubnetNames
 
-{{ Fill SubnetNames Description }}
+Names of the subnets to create within the virtual network.
 
 ```yaml
 Type: System.String[]
@@ -197,7 +198,7 @@ HelpMessage: ""
 
 ### -SubscriptionId
 
-{{ Fill SubscriptionId Description }}
+The Azure subscription ID that owns the resource group.
 
 ```yaml
 Type: System.String

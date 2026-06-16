@@ -2,9 +2,9 @@
 document type: cmdlet
 external help file: Microsoft.Azure.Cirrus.Cmdlets.Compute.dll-Help.xml
 HelpUri: ""
-Locale: en-US
+Locale: en-AU
 Module Name: Compute
-ms.date: 06/04/2026
+ms.date: 06/16/2026
 PlatyPS schema version: 2024-05-01
 title: New-VM
 ---
@@ -45,10 +45,12 @@ Use this command when you want a one-shot VM deployment without composing the un
 
 ### Create a VM with its networking stack
 
-Provision a Standard_D2s_v5 VM together with its supporting virtual network, network security group, and network interface in a single call.
+Provision a `Standard_D2s_v3` virtual machine named `myvm` in `myrg` (East US) along with a fresh virtual network (`myvnet`), network security group (`mynsg`), and network interface (`mynic`).
+Assign `$adminPassword` from a secure source in your own pipeline before invoking the cmdlet (the value below is a literal placeholder, not a real password).
 
 ```powershell
-New-VM -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v5 -AdminUsername azureuser -AdminPassword 'P@ssw0rd123!' -NetworkInterfaceName myvm-nic -VirtualNetworkName myvm-vnet -NetworkSecurityGroupName myvm-nsg
+$adminPassword = 'P@ssw0rd-replace-me!'
+New-VM -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -NetworkSecurityGroupName mynsg
 ```
 
 ## PARAMETERS

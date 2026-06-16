@@ -2,9 +2,9 @@
 document type: cmdlet
 external help file: Microsoft.Azure.Cirrus.Cmdlets.Compute.dll-Help.xml
 HelpUri: ""
-Locale: en-US
+Locale: en-AU
 Module Name: Compute
-ms.date: 06/04/2026
+ms.date: 06/16/2026
 PlatyPS schema version: 2024-05-01
 title: Get-VM
 ---
@@ -40,12 +40,20 @@ Retrieves the properties of a single virtual machine identified by name within t
 
 ## EXAMPLES
 
-### Get-VM
+### Get details of a specific VM
 
-Fetch the properties of the virtual machine `myvm` in resource group `myrg`.
+Retrieve metadata for the virtual machine `myvm` in resource group `myrg`.
 
 ```powershell
 Get-VM -SubscriptionId 00000000-0000-0000-0000-000000000000 -ResourceGroupName myrg -Name myvm
+```
+
+### List all VMs in a resource group
+
+Return every virtual machine that lives in `myrg`.
+
+```powershell
+Get-VM -SubscriptionId 00000000-0000-0000-0000-000000000000 -ResourceGroupName myrg
 ```
 
 ## PARAMETERS
