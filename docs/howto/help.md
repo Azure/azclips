@@ -47,10 +47,11 @@ Both surfaces are validated and built by:
 1. **Scaffold per-cmdlet markdown** with PlatyPS:
 
     ```powershell
-    .\build\New-PSHelpMarkdown.ps1 -Module Compute
+    .\build\New-PSHelpMarkdown.ps1                  # all modules under src/PS/
+    .\build\New-PSHelpMarkdown.ps1 -Module Compute  # one module
     ```
 
-    This imports `Microsoft.Azure.Cirrus.Cmdlets.Compute.dll` in a child pwsh process and runs `New-MarkdownCommandHelp` against the imported module, writing to `src/PS/Compute/help/`. Existing files are not overwritten.
+    The script discovers modules from `src/PS/<Name>/<Name>.psd1` at runtime — add a new module folder with a manifest and the next run picks it up automatically (no script edits). Tab-completion on `-Module` enumerates the same set; an unknown name fails fast with the available list. The script imports the module's compiled cmdlet DLL in a child pwsh process and runs `New-MarkdownCommandHelp` against it, writing to `src/PS/<Module>/help/`. Existing files are not overwritten.
 
 2. **Hand-fill** SYNOPSIS, DESCRIPTION, and EXAMPLES. Our post-processor (`Convert-PlatyPSPlaceholders` in [build/New-PSHelpMarkdown.ps1](../../build/New-PSHelpMarkdown.ps1)) replaces PlatyPS's `{{ Fill in the Synopsis }}` placeholders with `TODO -` markers and seeds at least one fenced example using the cmdlet's mandatory parameters shaped as `-Param <typename>`. Both shapes fail CI on purpose — search for `TODO` and replace each marker plus every `<typename>` placeholder in the example fence with real content. See [Placeholder rules](#placeholder-rules) below for the documented escape hatches.
 
@@ -228,9 +229,13 @@ Validation rules (full list, see Troubleshooting below for fixes):
 - **PSL6** — a literal value bound to a `Guid`- or enum-typed parameter doesn't parse.
 - **PSL7** — a fence under `## EXAMPLES` does not invoke the cmdlet whose name matches the file (e.g. an `azv2 …` line in `Connect-CirrusAccount.md`).
 - **PSL8** — the cmdlet help file has no fenced PowerShell example under `## EXAMPLES`.
+- **PSL9** — a cmdlet declared in `<Module>.psd1`'s `CmdletsToExport` has no matching `help/<Verb-Noun>.md` file.
+- **PSL10** — a module manifest declares `CmdletsToExport` but the module folder has no `help/` directory at all (supersedes the per-cmdlet PSL9 cascade).
+- **PSL11** — a `help/<File>.md` exists but no cmdlet of that name is exported from the manifest (warning, not error — may be in-progress work).
+- **PSL12** — a PlatyPS `{{ Fill ... }}` placeholder remains in the markdown (e.g. `{{ Fill in the Description }}`, `{{ Fill -Param Description }}`). The PlatyPS-evergreen `{{Insert list of aliases}}` boilerplate is exempt.
 - **`PS_ExamplePlaceholder`** — an `<angle-bracket>` placeholder appears inside an example fence. PlatyPS-required `<string>`, `<CommonParameters>`, etc. inside `## SYNTAX` are not scanned. See [Placeholder rules](#placeholder-rules) below.
 
-Only fences inside `## EXAMPLES` are scanned, and only when the language tag is `powershell`, `pwsh`, `ps`, or empty. Fences in `## SYNTAX` / `## PARAMETERS` (PlatyPS pseudocode) are deliberately ignored.
+Only fences inside `## EXAMPLES` are scanned, and only when the language tag is `powershell`, `pwsh`, `ps`, or empty. Fences in `## SYNTAX` / `## PARAMETERS` (PlatyPS pseudocode) are deliberately ignored. PSL9–PSL11 walk the manifest ↔ filesystem contract directly and don't depend on fence content.
 
 ### Placeholder rules
 
@@ -289,9 +294,10 @@ This:
 2. Runs `build/Install-BuildDependencies.ps1` (pins `Microsoft.PowerShell.PlatyPS` to `1.0.1` if missing).
 3. Runs `Cirrus.Help.Tool`:
     - `MarkdownStructureValidator` — frontmatter shape.
-    - `HelpCompletenessValidator` — every command in `IExtensionIndex` has a markdown file.
+    - `HelpCompletenessValidator` — every CLI command in `IExtensionIndex` has a markdown file.
     - `ExampleSyntaxValidator` — CLI fences resolve.
-    - `PowerShellExampleSyntaxValidator` — PS fences resolve against cmdlet binaries.
+    - `PowerShellExampleSyntaxValidator` — PS fences resolve against cmdlet binaries (PSL1–PSL8, PSL12, `PS_TodoPlaceholder`, `PS_ExamplePlaceholder`).
+    - `PsCompletenessValidator` — every cmdlet in `<Module>.psd1`'s `CmdletsToExport` has a `help/<Verb-Noun>.md` file (PSL9–PSL11).
     - Emits `artifacts/help/<extension>/HelpManifest.json` and `artifacts/help/HelpIndex.json`.
 4. Runs `Import-MarkdownCommandHelp | Export-MamlCommandHelp` per module → `src/PS/<Module>/en-US/<dll>-Help.xml` (renamed from PlatyPS's default `<Module>-Help.xml` to match the `external help file:` frontmatter), then copies into the staged `artifacts/Debug/PS/<Module>/en-US/`.
 
@@ -386,6 +392,16 @@ dotnet test tools/Help/Cirrus.Help.Tool.Tests/Cirrus.Help.Tool.Tests.csproj
 
 - The cmdlet help file has zero fenced code blocks under `## EXAMPLES`. Empty `### <Title>` headings are not enough — they render as a blank section in `Get-Help -Examples`. PlatyPS-scaffolded stubs land here when an author hasn't filled them in.
 - Fix: add at least one `### <Title>` + fenced `powershell` block that demonstrates the cmdlet.
+
+**Build fails with `PSL9_MissingHelpFile` / `PSL10_MissingHelpFolder` / `PSL11_OrphanedHelpFile`:**
+
+- `PSL9` (missing help file): a cmdlet declared in `<Module>.psd1`'s `CmdletsToExport` has no matching `help/<Verb-Noun>.md`. Run `.\build\New-PSHelpMarkdown.ps1 -Module <Module>` to scaffold the missing file (existing files are skipped), then author it.
+- `PSL10` (missing help folder): the manifest declares cmdlets but the module folder has no `help/` directory at all. Same fix — the scaffolder creates the folder. PSL10 supersedes the per-cmdlet PSL9 cascade so the build log isn't drowned.
+- `PSL11` (orphaned help file): a `.md` file exists for a cmdlet that's no longer in `CmdletsToExport`. This is a warning, not an error — it covers in-progress drafts. To resolve: either add the cmdlet to the manifest or delete the file. Common cause: the cmdlet was renamed/removed and the help file was forgotten.
+
+**Build fails with `PSL12_FillPlaceholder`:**
+
+- A PlatyPS `{{ Fill ... }}` placeholder remains in the markdown (e.g. `{{ Fill in the Description }}`, `{{ Fill -SubscriptionId Description }}`, `{{ Fill in the NOTES }}`). PlatyPS seeds these when the cmdlet binary lacks the corresponding metadata; replace each with real prose. The PlatyPS-evergreen `{{Insert list of aliases}}` line is exempt and may stay.
 
 **Note on fence scanning:** the PowerShell validator only walks fences inside `## EXAMPLES` and only when the language tag is `powershell`, `pwsh`, `ps`, or empty (PlatyPS's default). Fences in `## SYNTAX`, `## PARAMETERS`, or any other section are deliberately ignored — those are PlatyPS pseudocode (`<String>` placeholders, YAML metadata) and are not real PowerShell.
 

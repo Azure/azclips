@@ -37,9 +37,10 @@ src/PS/<Module>/help/*.md       ◄── PowerShell corpus (Get-Help, MAML via 
         └── build time ───────────────────────────────────────────
               Cirrus.Help.Tool (dotnet run)
                 ├── MarkdownStructureValidator
-                ├── HelpCompletenessValidator     (per extension)
-                ├── ExampleSyntaxValidator        (CLI examples)
-                ├── PowerShellExampleSyntaxValidator (PowerShell examples)
+                ├── HelpCompletenessValidator           (CLI: per extension)
+                ├── ExampleSyntaxValidator              (CLI examples)
+                ├── PowerShellExampleSyntaxValidator    (PS examples)
+                ├── PsCompletenessValidator             (PS: per module manifest)
                 └── ExtensionHelpManifestBuilder
                       ├── artifacts/help/<ext>/HelpManifest.json
                       ├── artifacts/help/HelpIndex.json
@@ -132,18 +133,19 @@ Result: `Get-Help <Cmdlet> -Full` works natively with no custom resolver. Exampl
 
 ## 6. Build-Time Validation Pipeline
 
-`Cirrus.Help.Tool` runs four validators in order, each emitting structured `ValidationIssue`s with a stable `ProblemId`. CI surfaces the tool via the `help-validate` job in [build-and-test.yml](../../.github/workflows/build-and-test.yml).
+`Cirrus.Help.Tool` runs five validators in order, each emitting structured `ValidationIssue`s with a stable `ProblemId`. CI surfaces the tool via the `help-validate` job in [build-and-test.yml](../../.github/workflows/build-and-test.yml).
 
 | Validator                          | Checks                                                                                                                                                                                                                                                                                         | Failure mode                              |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
 | `MarkdownStructureValidator`       | Frontmatter present + valid; `summary` and `schema` required; `status` (if set) is a valid enum value; body has description and at least one example; code fences balanced.                                                                                                                    | Hard error.                               |
-| `HelpCompletenessValidator`        | Every routed command in `ExtensionIndex` has a corresponding markdown file; warns on orphan markdown files.                                                                                                                                                                                    | Hard error on missing; warning on orphan. |
+| `HelpCompletenessValidator`        | Every routed CLI command in `ExtensionIndex` has a corresponding markdown file under `src/CLI/Help/Docs/<verb>/`; warns on orphan markdown files.                                                                                                                                              | Hard error on missing; warning on orphan. |
 | `ExampleSyntaxValidator`           | Every `azv2 …` line tokenizes; first token resolves to a known group; remaining non-flag tokens resolve via `IExtensionIndex.GetCommandTable(CLI)`; every `--flag`/`-x` exists on the resolved command (or is global); values type-check against `ParameterMetadata.Type` and `AllowedValues`. | Hard error.                               |
-| `PowerShellExampleSyntaxValidator` | Every `Verb-Noun` resolves via the reflected cmdlet index; every `-Parameter` resolves to a declared parameter or alias; common parameters are whitelisted; splatted commands skip parameter checks.                                                                                           | Hard error.                               |
+| `PowerShellExampleSyntaxValidator` | Every `Verb-Noun` resolves via the reflected cmdlet index; every `-Parameter` resolves to a declared parameter or alias; common parameters are whitelisted; splatted commands skip parameter checks (PSL1–PSL8). Detects `TODO -` (`PS_TodoPlaceholder`), `<angle-bracket>` shapes (`PS_ExamplePlaceholder`), and PlatyPS `{{ Fill … }}` markers (PSL12).                                                                                                                                          | Hard error.                               |
+| `PsCompletenessValidator`          | Walks `src/PS/<Module>/<Module>.psd1`, parses `CmdletsToExport` via PowerShell AST, and verifies every exported cmdlet has a matching `help/<Verb-Noun>.md` (PSL9). Flags missing `help/` folders (PSL10, supersedes the per-cmdlet PSL9 cascade) and warns on orphaned help files (PSL11).      | Hard error on missing; warning on orphan. |
 
 **Placeholders** (`<rg>`, `$var`, `${var}`, the all-zero Guid) pass through example value-checking unchecked.
 
-All four validators run over every extension before the tool exits; errors are aggregated, grouped by `ProblemId`, and the tool returns non-zero if any error was collected (warnings alone still exit 0). Manifest emission for a given extension is skipped if that extension has completeness errors.
+All five validators run over every extension before the tool exits; errors are aggregated, grouped by `ProblemId`, and the tool returns non-zero if any error was collected (warnings alone still exit 0). Manifest emission for a given extension is skipped if that extension has completeness errors.
 
 Tests live in [tools/Help/Cirrus.Help.Tool.Tests/](../../tools/Help/Cirrus.Help.Tool.Tests/).
 
