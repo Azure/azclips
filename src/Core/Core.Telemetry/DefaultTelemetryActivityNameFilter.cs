@@ -32,7 +32,7 @@ public sealed class DefaultTelemetryActivityNameFilter : ITelemetryActivityNameF
         // Service classes that use $"{nameof(Service)}.{nameof(Method)}" naming.
         // The activity *name* never carries secrets — tokens / account IDs land
         // in tags, which the property filter scrubs independently.
-        // "MsalAuthService.",
+        "MsalAuthService.",
         "AuthContextService.",
 
         // Extension processors (Add/Remove/Update/Show/List).
