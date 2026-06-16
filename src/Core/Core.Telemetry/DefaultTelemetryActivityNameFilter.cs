@@ -36,6 +36,7 @@ public sealed class DefaultTelemetryActivityNameFilter : ITelemetryActivityNameF
         // The activity *name* never carries secrets — tokens / account IDs land
         // in tags, which the property filter scrubs independently.
         "MsalAuthService.",
+        "ManagedIdentityAuthenticator.",
         "AuthContextService.",
 
         // Extension processors (Add/Remove/Update/Show/List).

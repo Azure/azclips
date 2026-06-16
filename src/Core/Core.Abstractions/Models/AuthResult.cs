@@ -52,8 +52,9 @@ public record AuthResult
 
     /// <summary>
     /// The correlation ID used for the authentication request.
+    /// Null for credential types that do not provide a correlation ID (e.g., MI/SP).
     /// </summary>
-    public required Guid CorrelationId;
+    public Guid? CorrelationId;
 
     /// <summary>
     /// The token type (e.g., "Bearer").

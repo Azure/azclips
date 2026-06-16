@@ -7,22 +7,24 @@ using Microsoft.Identity.Client.Extensions.Msal;
 
 namespace Core.Authentication;
 
-public class MsalAuthService(ILoggingService Logger, ITelemetryService TelemetryService) : IAuthService // todo: testability, consider injecting MSAL API wrappers
+public class MsalAuthService(
+    ILoggingService Logger,
+    ITelemetryService TelemetryService,
+    IProfileService ProfileService,
+    ManagedIdentityAuthenticator ManagedIdentityAuthenticator) : IAuthService
 {
-    private const string ArmDefaultScope = "https://management.core.windows.net//.default";
+    private const string ArmDefaultScope = AuthConstants.ArmDefaultScope;
     private const string ClientId = "1950a258-227b-4e31-a9cf-717495945fc2"; // todo: 1P or 3P?
 
     public async Task<AuthResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
         using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(LoginAsync)}");
-        if (request.UseDeviceCodeFlow)
+        return request.Mode switch
         {
-            return await AcquireTokenWithDeviceCodeAsync(request.Scopes, request.TenantId, cancellationToken);
-        }
-        else
-        {
-            return await AcquireTokenInteractiveAsync(request.Scopes, request.TenantId, cancellationToken);
-        }
+            AuthMethod.ManagedIdentity => await ManagedIdentityAuthenticator.AuthenticateAsync(request, cancellationToken),
+            AuthMethod.DeviceCode => await AcquireTokenWithDeviceCodeAsync(request.Scopes, request.TenantId, cancellationToken),
+            _ => await AcquireTokenInteractiveAsync(request.Scopes, request.TenantId, cancellationToken),
+        };
     }
 
     public async Task LogoutAsync(string? userPrincipalName, CancellationToken cancellationToken = default)
@@ -131,6 +133,14 @@ public class MsalAuthService(ILoggingService Logger, ITelemetryService Telemetry
     {
         using var _ = TelemetryService.StartActivity($"{nameof(MsalAuthService)}.{nameof(AcquireTokenSilentlyAsync)}");
 
+        // managed identity tokens are refreshed from the active profile
+        var profile = await ProfileService.GetActiveProfileAsync(cancellationToken);
+        if (profile?.AuthMethod == AuthMethod.ManagedIdentity)
+        {
+            return await ManagedIdentityAuthenticator.AcquireTokenAsync(profile, scopes, cancellationToken);
+        }
+
+        // otherwise use the usual MSAL flow
         var app = BuildApp(tenantId);
         await RegisterTokenCacheAsync(app, plaintextUnsafe: true);
 
