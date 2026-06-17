@@ -3,8 +3,8 @@ using System.Text;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Abstractions.Runtime.Handler;
-using Microsoft.Azure.Cirrus.Extensions.Rest.Models;
-using Microsoft.Azure.Cirrus.Extensions.Rest.Processors;
+using Microsoft.Azure.Cirrus.Extensions.Resources.Models;
+using Microsoft.Azure.Cirrus.Extensions.Resources.Processors;
 using Xunit;
 using GetEventData = System.Func<object>;
 

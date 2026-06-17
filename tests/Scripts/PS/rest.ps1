@@ -1,10 +1,10 @@
 # Universal REST passthrough - PowerShell
 # Equivalent of: Invoke-AzRestMethod -Method GET -Uri <url>
 #
-# Prereq: import Login + Rest modules, then Connect-CirrusAccount.
+# Prereq: import Login + Resources modules, then Connect-CirrusAccount.
 
 Import-Module ../../../src/PS/Login/Login.psd1
-Import-Module ../../../src/PS/Rest/Rest.psd1
+Import-Module ../../../src/PS/Resources/Resources.psd1
 
 # Happy path: relative ARM path. {subscriptionId} is substituted from the auth context,
 # the ARM endpoint is prepended, and the request is authenticated automatically.

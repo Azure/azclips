@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Rest.Models
+namespace Microsoft.Azure.Cirrus.Extensions.Resources.Models
 {
     /// <summary>
     /// Untyped response for the universal <c>rest</c> passthrough command. Mirrors the surface of

@@ -1,10 +1,10 @@
-using System.Collections;
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
 using Core.Telemetry;
+using Microsoft.Azure.Cirrus.Extensions.Resources.Processors;
 
-namespace Microsoft.Azure.Cirrus.Cmdlets.Rest;
+namespace Microsoft.Azure.Cirrus.Cmdlets.Resources;
 
 [Cmdlet(VerbsLifecycle.Invoke, "CirrusRestMethod")]
 public class InvokeCirrusRestMethodCmdlet : PSCmdlet
@@ -105,7 +105,7 @@ public class InvokeCirrusRestMethodCmdlet : PSCmdlet
         }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(Headers)) && Headers is not null)
         {
-            parameters.Add("Headers", NormalizeKeyValue(Headers));
+            parameters.Add("Headers", RestProcessor_Orchestrator.NormalizeKeyValue(Headers));
         }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))
         {
@@ -133,50 +133,16 @@ public class InvokeCirrusRestMethodCmdlet : PSCmdlet
         }
         if (MyInvocation.BoundParameters.ContainsKey(nameof(UriParameters)) && UriParameters is not null)
         {
-            parameters.Add("UriParameters", NormalizeKeyValue(UriParameters));
+            parameters.Add("UriParameters", RestProcessor_Orchestrator.NormalizeKeyValue(UriParameters));
         }
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
-        var invocation = new CommandInvocation("Rest", "Invoke-CirrusRestMethod", parameters, false, moduleName, moduleVersion);
+        var invocation = new CommandInvocation("Resources", "Invoke-CirrusRestMethod", parameters, false, moduleName, moduleVersion);
         telemetryService.TagInvocation(invocation);
 
         using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);
         session.Run();
-    }
-
-    /// <summary>
-    /// Normalizes a KEY=VALUE argument (headers or uri-parameters) to a <c>string[]</c> of
-    /// <c>KEY=VALUE</c> entries, accepting either a hashtable/dictionary or an existing string collection.
-    /// </summary>
-    private static string[] NormalizeKeyValue(object value)
-    {
-        if (value is IDictionary dictionary)
-        {
-            var entries = new List<string>();
-            foreach (DictionaryEntry entry in dictionary)
-            {
-                entries.Add($"{entry.Key}={entry.Value}");
-            }
-            return entries.ToArray();
-        }
-
-        if (value is string single)
-        {
-            return [single];
-        }
-
-        if (value is IEnumerable enumerable)
-        {
-            var entries = new List<string>();
-            foreach (var item in enumerable)
-            {
-                entries.Add(item?.ToString() ?? string.Empty);
-            }
-            return entries.ToArray();
-        }
-
-        return [value.ToString() ?? string.Empty];
     }
 
     protected override void EndProcessing()

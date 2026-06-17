@@ -22,7 +22,6 @@
     <Project Path="src/Extensions/Login/Extensions.Login.csproj" />
     <Project Path="src/Extensions/Config/Extensions.Config.csproj" />
     <Project Path="src/Extensions/Compute/Extensions.Compute.csproj" />
-    <Project Path="src/Extensions/Rest/Extensions.Rest.csproj" />
   </Folder>
   <Folder Name="/TUI/">
     <Project Path="TUI/Core.Tui.csproj" />
@@ -48,6 +47,5 @@
     <Project Path="src/PS/Compute/Cmdlets.Compute.csproj" />
     <Project Path="src/PS/Login/Cmdlets.Login.csproj" />
     <Project Path="src/PS/Config/Cmdlets.Config.csproj" />
-    <Project Path="src/PS/Rest/Cmdlets.Rest.csproj" />
   </Folder>
 </Solution>

@@ -7,7 +7,7 @@
     <ProjectReference Include="../../src/Core/Core.Configuration/Core.Configuration.csproj" />
     <ProjectReference Include="../../src/Extensions/Login/Extensions.Login.csproj" />
     <ProjectReference Include="../../src/Extensions/Config/Extensions.Config.csproj" />
-    <ProjectReference Include="../../src/Extensions/Rest/Extensions.Rest.csproj" />
+    <ProjectReference Include="../../src/Extensions/Resources/Extensions.Resources.csproj" />
     <ProjectReference Include="../../src/Extensions/Extension/Extensions.Extension.csproj" />
     <ProjectReference Include="../../src/Extensions/ExtensionRuntime/ExtensionRuntime.csproj" />
     <ProjectReference Include="../Common/Tests.Common.csproj" />

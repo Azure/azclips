@@ -86,7 +86,7 @@ NestedModules = @('../../../artifacts/Debug/Microsoft.Azure.Cirrus.Cmdlets.Resou
 FunctionsToExport = @()
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
-CmdletsToExport = 'New-ResourceGroup', 'Get-ResourceGroup', 'New-ResourceGroupDeployment'
+CmdletsToExport = 'New-ResourceGroup', 'Get-ResourceGroup', 'New-ResourceGroupDeployment', 'Invoke-CirrusRestMethod'
 
 # # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 # CmdletsToExport = 'Export-AzResourceGroup', 'Export-AzTemplateSpec',
