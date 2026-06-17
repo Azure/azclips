@@ -28,23 +28,46 @@ public sealed class ChatAgent : IAsyncDisposable
     private readonly CopilotClient _client;
     private readonly CopilotSession _session;
     private readonly string _model;
+    private readonly SessionState? _state;
 
     private CancellationTokenSource? _activeTurnCts;
     private int _llmTurnCount;
+
+    // Tracks, for the in-flight SendAsync, whether the agent called a turn-closing
+    // tool — propose_plan (asks for plan approval) or submit_response (ends the
+    // session). Diagnostic/help tools like get_command DON'T count: a turn that
+    // only queried then replied in prose is still a protocol violation. The host
+    // reads this after SendAsync to force a correction on a bare-prose turn.
+    private int _sendCalledClosingTool;
+    private int _sendCalledSubmit;
 
     public string Model => _model;
 
     public SessionErrored? LastError { get; private set; }
 
+    // True when the most recent SendAsync called a turn-closing tool (propose_plan
+    // or submit_response). A turn that ends without one — even if it called
+    // get_command/bash — replied in prose and broke the act-through-tools contract.
+    public bool LastSendCalledClosingTool => Volatile.Read(ref _sendCalledClosingTool) != 0;
+
+    // True when the most recent SendAsync called submit_response (session-ending).
+    public bool LastSendCalledSubmit => Volatile.Read(ref _sendCalledSubmit) != 0;
+
+    // True once a oneShot plan has been rendered. In oneShot the plan IS the
+    // terminal output, so the host loop exits immediately after the turn that
+    // sets this — the agent does not get to continue or emit a submit_response.
+    public bool OneShotPlanShown => _state?.OneShotPlanShown ?? false;
+
     // Raised after each completed LLM turn with the running turn count for this
     // session. The host uses it to drive the interactive escape valve.
     public event Action<int>? LlmTurnCompletedCount;
 
-    private ChatAgent(CopilotClient client, CopilotSession session, string model)
+    private ChatAgent(CopilotClient client, CopilotSession session, string model, SessionState? state)
     {
         _client = client;
         _session = session;
         _model = model;
+        _state = state;
     }
 
     /// <param name="ct">
@@ -66,7 +89,6 @@ public sealed class ChatAgent : IAsyncDisposable
         string entrypoint,
         SpinnerService? spinner = null,
         ILogger? logger = null,
-        string mode = "azure",
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -81,7 +103,7 @@ public sealed class ChatAgent : IAsyncDisposable
         {
             return await CreateCoreAsync(
                 client, flavor, auth, authContext, azv2ExePath, approvalSink,
-                renderer, options, entrypoint, spinner, mode, ct).ConfigureAwait(false);
+                renderer, options, entrypoint, spinner, ct).ConfigureAwait(false);
         }
         catch
         {
@@ -101,10 +123,9 @@ public sealed class ChatAgent : IAsyncDisposable
         AgentOptions options,
         string entrypoint,
         SpinnerService? spinner,
-        string mode,
         CancellationToken ct)
     {
-        var systemPrompt = LoadSystemPrompt(flavor, mode, entrypoint);
+        var systemPrompt = LoadSystemPrompt(flavor, entrypoint);
         var armDetails = new ArmDetailsClient(auth);
         var cacheTools = new CachedResourceTools(armDetails);
         var helpTools = new HelpTools();
@@ -131,6 +152,15 @@ public sealed class ChatAgent : IAsyncDisposable
                     var n = ++self._llmTurnCount;
                     self.LlmTurnCompletedCount?.Invoke(n);
                 }
+                if (ev is ToolStarted ts && self is not null)
+                {
+                    var isSubmit = string.Equals(ts.Name, "submit_response", StringComparison.OrdinalIgnoreCase);
+                    var isPlan   = string.Equals(ts.Name, "propose_plan",    StringComparison.OrdinalIgnoreCase);
+                    if (isSubmit || isPlan)
+                        Volatile.Write(ref self._sendCalledClosingTool, 1);
+                    if (isSubmit)
+                        Volatile.Write(ref self._sendCalledSubmit, 1);
+                }
                 if (spinner is not null)
                 {
                     switch (ev)
@@ -144,9 +174,13 @@ public sealed class ChatAgent : IAsyncDisposable
             OnText  = renderer.OnText,
         };
 
+        var state = new SessionState
+        {
+            IsOneShot = !string.Equals(options.SessionStyle, "interactive", StringComparison.OrdinalIgnoreCase),
+        };
         var sessionConfig = BuildBaseSessionConfig(
             systemPrompt, cacheTools, helpTools, skuTools, submitTool, planTool, prober,
-            azv2ExePath, approvalSink, eventRenderer, ct);
+            azv2ExePath, approvalSink, eventRenderer, state, ct);
 
         string resolvedModel;
         switch (options.Provider?.ToLowerInvariant())
@@ -173,8 +207,12 @@ public sealed class ChatAgent : IAsyncDisposable
 
         var session = await client.CreateSessionAsync(sessionConfig, ct).ConfigureAwait(false);
 
-        var agent = new ChatAgent(client, session, resolvedModel);
+        var agent = new ChatAgent(client, session, resolvedModel, state);
         self = agent;
+        // oneShot plan is terminal — let the hook cancel the in-flight turn the
+        // moment it renders the plan, so the agent can't continue to submit_response
+        // or a prose summary.
+        state.AbortTurn = () => { try { agent._activeTurnCts?.Cancel(); } catch { } };
         if (earlyError is not null) agent.LastError = earlyError;
         return agent;
     }
@@ -190,11 +228,9 @@ public sealed class ChatAgent : IAsyncDisposable
         string azv2ExePath,
         ConsoleApprovalPrompt approvalSink,
         EventRenderer eventRenderer,
+        SessionState state,
         CancellationToken ct)
     {
-        // One per session. Captured by the OnPreToolUse closure so the plan-gate
-        // (no bash/powershell before an approved plan) shares state across calls.
-        var state = new SessionState();
         return new SessionConfig
         {
             SessionId = Guid.NewGuid().ToString(),
@@ -300,6 +336,8 @@ public sealed class ChatAgent : IAsyncDisposable
     public async Task SendAsync(string prompt, CancellationToken ct)
     {
         LastError = null;
+        Volatile.Write(ref _sendCalledClosingTool, 0);
+        Volatile.Write(ref _sendCalledSubmit, 0);
         var oldCts = Interlocked.Exchange(ref _activeTurnCts,
             CancellationTokenSource.CreateLinkedTokenSource(ct));
         oldCts?.Dispose();
@@ -348,10 +386,11 @@ public sealed class ChatAgent : IAsyncDisposable
             return new PreToolUseHookOutput { PermissionDecision = "allow" };
         }
 
-        // propose_plan is the stage-1 direction approval. Validate args (deny +
-        // correction on failure), then render the markdown plan and ask the user
-        // to approve via RequestPlanAsync. "ask" alone would surface the raw JSON
-        // args, so the hook owns the rendering and reports the y/n as allow/deny.
+        // propose_plan is the stage-1 plan. Validate args first (deny + correction
+        // on failure). Then render the plan. In oneShot the plan is show-and-exit:
+        // render it, mark the session done, and deny so the agent stops (no
+        // execution, no submit_response — the plan IS the final output). In
+        // interactive, ask for y/n approval; on yes, unblock execution.
         if (string.Equals(input.ToolName, "propose_plan", StringComparison.OrdinalIgnoreCase))
         {
             if (ValidateProposePlan(input.ToolArgs, out var planError))
@@ -364,6 +403,22 @@ public sealed class ChatAgent : IAsyncDisposable
 
             var planMd = TryGetStringArg(input.ToolArgs, "planMd") ?? string.Empty;
             var planSteps = ExtractPlanSteps(input.ToolArgs);
+
+            if (state.IsOneShot)
+            {
+                approvalSink.ShowPlan(planMd, planSteps);
+                state.OneShotPlanShown = true;
+                // The plan is the terminal output in oneShot — cancel the turn now
+                // so the agent doesn't continue to submit_response or a prose
+                // summary. The deny is a backstop in case cancellation races.
+                state.AbortTurn?.Invoke();
+                return new PreToolUseHookOutput
+                {
+                    PermissionDecision = "deny",
+                    PermissionDecisionReason = "Plan shown to the user (one-shot mode).",
+                };
+            }
+
             var planApproved = await approvalSink.RequestPlanAsync(planMd, planSteps, ct).ConfigureAwait(false);
             if (planApproved)
             {
@@ -686,18 +741,18 @@ public sealed class ChatAgent : IAsyncDisposable
         toolName.StartsWith("get_",  StringComparison.OrdinalIgnoreCase) ||
         toolName.StartsWith("list_", StringComparison.OrdinalIgnoreCase);
 
-    private static string LoadSystemPrompt(string flavor, string mode, string entrypoint)
+    private static readonly string[] ValidEntrypoints = ["oneshot", "inline", "tui"];
+
+    private static string LoadSystemPrompt(string flavor, string entrypoint)
     {
-        if (string.IsNullOrWhiteSpace(entrypoint))
+        if (!ValidEntrypoints.Contains(entrypoint, StringComparer.OrdinalIgnoreCase))
             throw new ArgumentException(
-                "entrypoint must be 'classic' or 'tui' — refusing to guess which system prompt to load.",
+                $"entrypoint must be one of {string.Join(" | ", ValidEntrypoints)} — refusing to guess which system prompt to load. Got: '{entrypoint}'.",
                 nameof(entrypoint));
 
-        var path = Path.Combine(AppContext.BaseDirectory, $"agent-{entrypoint}.md");
+        var path = Path.Combine(AppContext.BaseDirectory, "prompts", $"{entrypoint.ToLowerInvariant()}.md");
         var content = File.ReadAllText(path);
-        return content
-            .Replace("{{flavor}}", flavor, StringComparison.OrdinalIgnoreCase)
-            .Replace("{{mode}}", mode, StringComparison.OrdinalIgnoreCase);
+        return content.Replace("{{flavor}}", flavor, StringComparison.OrdinalIgnoreCase);
     }
 
     private static readonly TimeSpan DisposeTimeout = TimeSpan.FromSeconds(5);
@@ -729,4 +784,18 @@ internal sealed class SessionState
 {
     // True once the user has approved any plan this session. Gates bash/powershell.
     public bool PlanApproved { get; set; }
+
+    // oneShot: plan is show-and-exit (no per-plan approval, no execution). The
+    // hook renders the plan then denies + tells the agent to stop. interactive:
+    // plan is approved via y/n and execution proceeds.
+    public bool IsOneShot { get; set; }
+
+    // Set by the hook when a oneShot plan was rendered — the host reads this
+    // (via ChatAgent.OneShotPlanShown) to exit right after the turn.
+    public bool OneShotPlanShown { get; set; }
+
+    // Cancels the in-flight turn. The oneShot plan is the terminal output, so the
+    // hook calls this right after rendering it — otherwise the agent would keep
+    // going (call submit_response, emit a prose summary) before SendAsync returns.
+    public Action? AbortTurn { get; set; }
 }

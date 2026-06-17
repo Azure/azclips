@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Threading.Channels;
 using GitHub.Copilot;
 
@@ -96,6 +97,31 @@ public sealed class ConsoleApprovalPrompt
 
         _queue.Writer.TryWrite(new PendingApproval(toolName, rewrittenCommand ?? string.Empty, null, null, tcs, reg));
         return tcs.Task;
+    }
+
+    /// <summary>
+    /// Renders a plan without prompting for approval — used by one-shot mode,
+    /// where the plan is the terminal output. Pauses the spinner and renders
+    /// under the renderer lock (same protection PumpOneAsync uses) so the output
+    /// doesn't race the spinner.
+    /// </summary>
+    public void ShowPlan(string planMarkdown, IReadOnlyList<PlanStep>? steps)
+    {
+        _spinner?.Pause();
+        try
+        {
+            Action body = () =>
+            {
+                Console.WriteLine();
+                RenderPlan(planMarkdown, steps);
+            };
+            if (_renderer is not null) _renderer.RunExclusive(body);
+            else                       body();
+        }
+        finally
+        {
+            _spinner?.Resume();
+        }
     }
 
     /// <summary>
@@ -215,16 +241,21 @@ public sealed class ConsoleApprovalPrompt
     // binary y/n prompted by the caller after this renders.
     // REVIEW: raw markdown in a non-UTF-8 PowerShell host may show mojibake for
     // any non-ASCII the model emits — verify in e2e; prompts steer toward ASCII.
+    // Stage-1 plan rendering for the inline console. The model writes planMd as
+    // markdown, but the inline console can't render it — so we strip markdown to
+    // readable plain text (headings become spaced lines, **bold**/`code` lose
+    // their markers). A TUI front-end would render the markdown directly instead.
     private static void RenderPlan(string planMarkdown, IReadOnlyList<PlanStep>? steps)
     {
-        WriteColor(ConsoleColor.Cyan, "🤖 Proposed plan:");
-        Console.WriteLine();
-        foreach (var lineText in planMarkdown.Replace("\r\n", "\n").Split('\n'))
-            Console.WriteLine($"   {lineText}");
+        WriteColor(ConsoleColor.Cyan, "Proposed plan");
+        WriteColor(ConsoleColor.DarkGray, "─────────────");
+        foreach (var lineText in MarkdownToText(planMarkdown))
+            Console.WriteLine(string.IsNullOrEmpty(lineText) ? "" : $"  {lineText}");
 
         if (steps is { Count: > 0 })
         {
             Console.WriteLine();
+            WriteColor(ConsoleColor.DarkGray, "  Commands");
             foreach (var step in steps)
             {
                 WriteColor(ConsoleColor.White, $"  [{step.Id}] {step.Label}");
@@ -233,6 +264,32 @@ public sealed class ConsoleApprovalPrompt
             }
         }
         Console.WriteLine();
+    }
+
+    private static readonly Regex HeadingLine = new(@"^\s*#{1,6}\s+(.*)$", RegexOptions.Compiled);
+
+    // Minimal markdown → plain text for the inline console: drop heading hashes,
+    // bold markers, and inline-code backticks; turn a heading into a blank line +
+    // the text so sections stay visually separated. Backticks are dropped so a
+    // placeholder reads as `<your-admin-password>` → <your-admin-password>: the
+    // angle brackets already flag it as a value to replace, and keeping backticks
+    // would just give the user extra characters to delete. Not a full parser.
+    private static IReadOnlyList<string> MarkdownToText(string md)
+    {
+        var outLines = new List<string>();
+        foreach (var raw in md.Replace("\r\n", "\n").Split('\n'))
+        {
+            var line = raw.TrimEnd();
+            var heading = HeadingLine.Match(line);
+            if (heading.Success)
+            {
+                if (outLines.Count > 0 && outLines[^1].Length > 0) outLines.Add("");
+                line = heading.Groups[1].Value + ":";
+            }
+            line = line.Replace("**", "").Replace("`", "");
+            outLines.Add(line);
+        }
+        return outLines;
     }
 
     // Soft-wrap long args across terminal width. Never truncates — the user

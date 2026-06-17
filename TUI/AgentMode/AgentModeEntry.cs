@@ -27,8 +27,6 @@ public static class AgentModeEntry
 
         var failedCommand = ArgValue(args, "--failed-command") ?? string.Empty;
         var errorText     = ArgValue(args, "--error")          ?? string.Empty;
-        var entrypoint    = ArgValue(args, "--entrypoint")
-            ?? throw new ArgumentException("--entrypoint is required (expected 'classic' or 'tui').");
 
         CirrusServiceProvider.Initialize(ClientType.TUI);
 
@@ -40,6 +38,11 @@ public static class AgentModeEntry
             var authContext = CirrusServiceProvider.GetRequiredService<IAuthContextService>();
             var config      = CirrusServiceProvider.GetRequiredService<IConfigurationService>();
             var agentOpts   = config.GetConfiguration<AgentOptions>();
+            // Prompt is chosen by interaction mode: oneShot → oneshot.md,
+            // interactive → inline.md. (tui.md exists for a future full-screen
+            // entry point that nothing spawns yet.)
+            var entrypoint  = string.Equals(agentOpts.SessionStyle, "interactive", StringComparison.OrdinalIgnoreCase)
+                ? "inline" : "oneshot";
             var flavor   = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure cli";
             var azv2     = FindAzv2Exe() ?? "azv2";
             var renderer = new ConsoleAgentRenderer();
@@ -70,7 +73,6 @@ public static class AgentModeEntry
                 options: agentOpts,
                 entrypoint: entrypoint,
                 spinner: spinner,
-                mode: "azure",
                 ct: cts.Token);
             agentRef = agent;
 
@@ -121,15 +123,16 @@ public static class AgentModeEntry
         bool interactive,
         CancellationToken ct)
     {
-        var nextPrompt = await SendAndPumpAsync(agent, approval, watcher, spinner, firstPrompt, ct);
+        var nextPrompt = await SendWithToolEnforcementAsync(agent, approval, watcher, spinner, firstPrompt, ct);
 
-        // oneShot: the agent proposes a fix and exits. We still drain any redirect
-        // the user typed at a y/n prompt (an explicit "do it differently"), but we
-        // do NOT open a fresh "> " prompt. A hint points at interactive mode.
+        // oneShot: the agent proposes a fix and exits. Once a plan has been shown
+        // it IS the terminal output — stop immediately. Otherwise (no plan, e.g.
+        // an out-of-scope rejection or a clarifying question) drain any redirect
+        // but never open a fresh "> " prompt. A hint points at interactive mode.
         if (!interactive)
         {
-            while (nextPrompt is not null && !ct.IsCancellationRequested)
-                nextPrompt = await SendAndPumpAsync(agent, approval, watcher, spinner, nextPrompt, ct);
+            while (!agent.OneShotPlanShown && nextPrompt is not null && !ct.IsCancellationRequested)
+                nextPrompt = await SendWithToolEnforcementAsync(agent, approval, watcher, spinner, nextPrompt, ct);
 
             Console.WriteLine();
             WriteColor(ConsoleColor.DarkGray,
@@ -158,8 +161,52 @@ public static class AgentModeEntry
                 if (line is "exit" or "quit" or "/exit" or "/quit" or ":q") break;
             }
 
-            nextPrompt = await SendAndPumpAsync(agent, approval, watcher, spinner, line, ct);
+            nextPrompt = await SendWithToolEnforcementAsync(agent, approval, watcher, spinner, line, ct);
         }
+    }
+
+    // Max times we re-prompt a bare-prose turn before giving up and letting it
+    // through (avoid an infinite correction loop if the model keeps disobeying).
+    private const int MaxToolEnforcementRetries = 2;
+
+    // Wraps SendAndPumpAsync with the plan-protocol guard: if a turn produced
+    // only prose (no tool call, no submit_response), the model broke the "always
+    // act through tools" contract — re-prompt it to call propose_plan/submit_response.
+    // The SDK gives no way to forbid bare text up front, so this is the host-side
+    // backstop. Returns the same redirect signal SendAndPumpAsync does.
+    private static async Task<string?> SendWithToolEnforcementAsync(
+        ChatAgent agent,
+        ConsoleApprovalPrompt approval,
+        AbortKeyWatcher watcher,
+        SpinnerService spinner,
+        string prompt,
+        CancellationToken ct)
+    {
+        var redirect = await SendAndPumpAsync(agent, approval, watcher, spinner, prompt, ct);
+
+        for (int attempt = 0; attempt < MaxToolEnforcementRetries; attempt++)
+        {
+            // A redirect means the user steered the turn — respect it, don't enforce.
+            if (redirect is not null) break;
+            // oneShot plan was shown: the hook rendered it and cancelled the turn,
+            // so no closing tool executed (a denied propose_plan emits no
+            // ToolStarted). That IS a complete turn — don't mistake it for prose.
+            if (agent.OneShotPlanShown) break;
+            // Compliant turn: it closed with propose_plan or submit_response.
+            // (get_command/bash alone do NOT count — a query-then-prose turn is a violation.)
+            if (agent.LastSendCalledClosingTool) break;
+            // Errored turn: don't pile a correction on top of a failure.
+            if (agent.LastError is not null) break;
+
+            WriteColor(ConsoleColor.DarkGray, "  ↯ agent replied without acting — asking it to use a tool");
+            const string correction =
+                "You replied with prose instead of calling a tool. That is not allowed. " +
+                "Call propose_plan to suggest a fix (the user must approve before any command runs), " +
+                "or submit_response to end the session. Do it now.";
+            redirect = await SendAndPumpAsync(agent, approval, watcher, spinner, correction, ct);
+        }
+
+        return redirect;
     }
 
     // Returns a feedback prompt when the user typed free text at a y/n
@@ -231,6 +278,11 @@ public static class AgentModeEntry
         catch (OperationCanceledException) when (redirect is not null)
         {
             // Abort caused by user redirect — already announced; swallow.
+        }
+        catch (OperationCanceledException) when (agent.OneShotPlanShown)
+        {
+            // oneShot plan was shown — the hook cancelled the turn on purpose so
+            // the agent couldn't continue. Normal exit; swallow.
         }
 
         return redirect;
