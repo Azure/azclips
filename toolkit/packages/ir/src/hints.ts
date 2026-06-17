@@ -1,0 +1,185 @@
+/**
+ * Rendering hints — metadata, not mutation.
+ *
+ * Hints describe how the generator should *surface* an IR element, never
+ * what the element *is*. The IR always carries wire truth; flattening,
+ * naming, visibility, etc. are decisions the generator consults at the
+ * last possible moment.
+ *
+ * Policy:
+ *   - Hint namespaces are typed per node kind (model property hints differ
+ *     by the property's type kind, so we have one variant per kind).
+ *   - Within a namespace, fields use last-writer-wins shallow merge.
+ *   - The `docs.remarks` field is an exception — additive across writers.
+ *
+ * Transforms MUST mutate hints through helper functions (see hints/helpers,
+ * future module), not by directly assigning `node.rendering = ...`. The
+ * helpers enforce per-field merge/override/additive semantics.
+ */
+
+import { z } from "zod";
+import { IRIdSchema, type IRId } from "./id.js";
+
+// ─── Shared sub-namespaces ──────────────────────────────────────────────
+
+export type SerializationHint = {
+  /** When to omit the field from the serialized payload. Default: 'never'. */
+  omitWhen?: "never" | "null" | "default" | undefined;
+  /** Override the wire name. Almost always set by the emitter; rare for transforms to touch. */
+  wireNameOverride?: string | undefined;
+};
+
+export const SerializationHintSchema: z.ZodType<SerializationHint> = z
+  .object({
+    omitWhen: z.enum(["never", "null", "default"]).optional(),
+    wireNameOverride: z.string().min(1).optional(),
+  })
+  .strict();
+
+export type ClientApiHint = {
+  /** Override the logical (C#-visible) name. */
+  name?: string | undefined;
+  /** Visibility of the generated member. Default 'public'. */
+  visibility?: "public" | "internal" | undefined;
+};
+
+export const ClientApiHintSchema: z.ZodType<ClientApiHint> = z
+  .object({
+    name: z.string().min(1).optional(),
+    visibility: z.enum(["public", "internal"]).optional(),
+  })
+  .strict();
+
+export type DocsHint = {
+  /** Additional remarks appended to the element's docstring. Additive. */
+  remarks?: string[] | undefined;
+};
+
+export const DocsHintSchema: z.ZodType<DocsHint> = z
+  .object({
+    remarks: z.array(z.string()).optional(),
+  })
+  .strict();
+
+// ─── Flatten hint (property-level) ──────────────────────────────────────
+
+export type FlattenHint = {
+  /**
+   * Whether to hoist this property's nested members onto the containing
+   * class. `self` = flatten; `never` = render as nested. The IR's wire
+   * truth is preserved either way; only the C# rendering changes.
+   */
+  into: "self" | "never";
+  /**
+   * Used when flattening would collide with an existing property name
+   * on the containing class. The flattened property gets this prefix
+   * or replacement name instead of failing.
+   */
+  nameOverride?: string | undefined;
+};
+
+export const FlattenHintSchema: z.ZodType<FlattenHint> = z
+  .object({
+    into: z.enum(["self", "never"]),
+    nameOverride: z.string().min(1).optional(),
+  })
+  .strict();
+
+// ─── Common hints (the baseline every node-kind carries) ────────────────
+
+/**
+ * The two hint namespaces present on every kind of IR node: the
+ * C#-facing client-API surface (name/visibility) and additive docs.
+ * Per-kind hint aggregates extend this with kind-specific additions.
+ */
+export type CommonHints = {
+  clientApi?: ClientApiHint | undefined;
+  docs?: DocsHint | undefined;
+};
+
+export const CommonHintsSchema: z.ZodType<CommonHints> = z
+  .object({
+    clientApi: ClientApiHintSchema.optional(),
+    docs: DocsHintSchema.optional(),
+  })
+  .strict();
+
+// ─── Property hints, parameterized by type kind ─────────────────────────
+
+export type ObjectPropertyHints = CommonHints & {
+  flatten?: FlattenHint | undefined;
+  serialization?: SerializationHint | undefined;
+};
+
+export const ObjectPropertyHintsSchema: z.ZodType<ObjectPropertyHints> = z
+  .object({
+    clientApi: ClientApiHintSchema.optional(),
+    docs: DocsHintSchema.optional(),
+    flatten: FlattenHintSchema.optional(),
+    serialization: SerializationHintSchema.optional(),
+  })
+  .strict();
+
+/**
+ * Hints for value-shaped properties: primitives, enums, and structural
+ * unions. (The name historically said "primitive" but enums and unions
+ * also render as values and share the same hint surface.)
+ */
+export type ValuePropertyHints = CommonHints & {
+  /** Render this value as a strong-typed wrapper (e.g., a value object). */
+  wrapperType?: { id: IRId } | undefined;
+  serialization?: SerializationHint | undefined;
+};
+
+export const ValuePropertyHintsSchema: z.ZodType<ValuePropertyHints> = z
+  .object({
+    clientApi: ClientApiHintSchema.optional(),
+    docs: DocsHintSchema.optional(),
+    wrapperType: z.object({ id: IRIdSchema }).strict().optional(),
+    serialization: SerializationHintSchema.optional(),
+  })
+  .strict();
+
+export type CollectionPropertyHints = CommonHints & {
+  serialization?: SerializationHint | undefined;
+};
+
+export const CollectionPropertyHintsSchema: z.ZodType<CollectionPropertyHints> = z
+  .object({
+    clientApi: ClientApiHintSchema.optional(),
+    docs: DocsHintSchema.optional(),
+    serialization: SerializationHintSchema.optional(),
+  })
+  .strict();
+
+// ─── Other node-kind hints (currently identical to CommonHints) ─────────
+// These are deliberate aliases (not just re-exports) so that future
+// kind-specific additions land in the right place without breaking
+// downstream import sites.
+
+export type ModelHints = CommonHints;
+export const ModelHintsSchema: z.ZodType<ModelHints> = CommonHintsSchema;
+
+export type EnumHints = CommonHints;
+export const EnumHintsSchema: z.ZodType<EnumHints> = CommonHintsSchema;
+
+export type ParameterHints = CommonHints;
+export const ParameterHintsSchema: z.ZodType<ParameterHints> = CommonHintsSchema;
+
+export type OperationHints = CommonHints;
+export const OperationHintsSchema: z.ZodType<OperationHints> = CommonHintsSchema;
+
+/**
+ * Hints attached to an operation's request body. Reuses the property-level
+ * `FlattenHint` so the body's "flatten into method signature" decision is
+ * expressed with the same vocabulary as model-property flattening.
+ */
+export type RequestBodyHints = {
+  flatten?: FlattenHint | undefined;
+};
+
+export const RequestBodyHintsSchema: z.ZodType<RequestBodyHints> = z
+  .object({
+    flatten: FlattenHintSchema.optional(),
+  })
+  .strict();

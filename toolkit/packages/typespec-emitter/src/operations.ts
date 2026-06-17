@@ -1,0 +1,163 @@
+/**
+ * SdkServiceMethod → IROperation.
+ *
+ * Walks the client tree (`sdkPackage.clients` + each client's `methods`,
+ * recursive into `children`/sub-clients) and produces one IROperation per
+ * leaf method. Drops override methods (`isOverride`) and internal-access
+ * methods, each diagnosed once.
+ *
+ * Per-op we delegate the bulk of the work to `http.ts` (HTTP framing) and
+ * `semantics.ts` (paging/LRO). The api-version and server stamps for the
+ * IRSource are denormalized onto each op.
+ */
+
+import { NoTarget } from "@typespec/compiler";
+import type {
+  SdkClientType,
+  SdkHttpOperation,
+  SdkServiceMethod,
+} from "@azure-tools/typespec-client-generator-core";
+import type {
+  IRApiVersionStamp,
+  IRId,
+  IROperation,
+  IRServer,
+  HttpMethod,
+} from "@cirrus/ir";
+
+import type { BuildContext } from "./context.js";
+import { reportDiagnostic } from "./lib.js";
+import { bodyFrom, parametersByLocation, responsesFrom } from "./http.js";
+import { semanticsFor } from "./semantics.js";
+
+const VALID_HTTP_METHODS: ReadonlySet<string> = new Set([
+  "GET",
+  "PUT",
+  "POST",
+  "DELETE",
+  "PATCH",
+  "HEAD",
+  "OPTIONS",
+]);
+
+function clampHttpMethod(verb: string): HttpMethod | undefined {
+  const up = verb.toUpperCase();
+  return VALID_HTTP_METHODS.has(up) ? (up as HttpMethod) : undefined;
+}
+
+/**
+ * Build the op's IRId. Namespace = the spec's namespace segments, with
+ * the client/interface name appended so two ops with the same wire name
+ * on different clients don't collide.
+ */
+function opIdFor(
+  ctx: BuildContext,
+  client: SdkClientType<SdkHttpOperation>,
+  method: SdkServiceMethod<SdkHttpOperation>,
+): IRId {
+  const fqn = client.namespace ?? "";
+  const baseSegments = fqn.length === 0 ? [] : fqn.split(".");
+  const namespace = client.name ? [...baseSegments, client.name] : baseSegments;
+  return {
+    module: ctx.options.sourceId,
+    namespace,
+    name: method.name,
+  };
+}
+
+function methodToOperation(
+  ctx: BuildContext,
+  client: SdkClientType<SdkHttpOperation>,
+  method: SdkServiceMethod<SdkHttpOperation>,
+  apiVersion: IRApiVersionStamp,
+  server: IRServer,
+): IROperation | undefined {
+  if (method.isOverride) {
+    if (!ctx.flags.overrideMethodWarned) {
+      reportDiagnostic(ctx.program, { code: "override-method-skipped", target: NoTarget });
+      ctx.flags.overrideMethodWarned = true;
+    }
+    return undefined;
+  }
+  if (method.access === "internal") {
+    if (!ctx.flags.internalAccessWarned) {
+      reportDiagnostic(ctx.program, { code: "internal-access-skipped", target: NoTarget });
+      ctx.flags.internalAccessWarned = true;
+    }
+    return undefined;
+  }
+
+  const http = method.operation;
+  const methodVerb = clampHttpMethod(http.verb);
+  if (!methodVerb) {
+    // Cannot represent the HTTP verb in IR — skip and continue.
+    return undefined;
+  }
+
+  const id = opIdFor(ctx, client, method);
+  const body = bodyFrom(ctx, http, method.name);
+  if (!body.ok) return undefined; // streaming-body-dropped already reported
+
+  const { pathParameters, queryParameters, headerParameters } = parametersByLocation(
+    ctx,
+    http,
+    id.namespace,
+    method.name,
+  );
+  const responses = responsesFrom(ctx, http, method.name);
+  if (responses.length === 0) {
+    // IR requires min(1). Synthesize a default empty 200.
+    responses.push({
+      statusCode: { kind: "exact", code: 200 },
+      isError: false,
+    });
+  }
+
+  const semantics = semanticsFor(ctx, method);
+
+  const op: IROperation = {
+    id,
+    name: method.name,
+    source: ctx.options.sourceId,
+    method: methodVerb,
+    pathTemplate: http.path,
+    pathParameters,
+    queryParameters,
+    headerParameters,
+    ...(body.body !== undefined ? { requestBody: body.body } : {}),
+    responses,
+    apiVersion,
+    server,
+    ...(semantics !== undefined ? { semantics } : {}),
+    ...(method.doc !== undefined ? { docs: method.doc } : {}),
+  };
+  return op;
+}
+
+function walkClient(
+  ctx: BuildContext,
+  client: SdkClientType<SdkHttpOperation>,
+  apiVersion: IRApiVersionStamp,
+  server: IRServer,
+  out: IROperation[],
+): void {
+  for (const m of client.methods) {
+    const op = methodToOperation(ctx, client, m as SdkServiceMethod<SdkHttpOperation>, apiVersion, server);
+    if (op) out.push(op);
+  }
+  if (client.children) {
+    for (const c of client.children) walkClient(ctx, c, apiVersion, server, out);
+  }
+}
+
+export function operationsFrom(
+  ctx: BuildContext,
+  apiVersion: IRApiVersionStamp,
+  server: IRServer,
+): IROperation[] {
+  const out: IROperation[] = [];
+  for (const client of ctx.sdkContext.sdkPackage.clients) {
+    walkClient(ctx, client, apiVersion, server, out);
+  }
+  return out;
+}
