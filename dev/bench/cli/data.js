@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781589944017,
+  "lastUpdate": 1781662673623,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus CLI Benchmarks": [
@@ -882,6 +882,48 @@ window.BENCHMARK_DATA = {
             "value": 257281.5,
             "unit": "ns",
             "range": "± 28103.374655012518"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "70198be3e1c160d177b3cbf0a2af4bfad945e6a8",
+          "message": "{Help} Improve help system validation rules and workflow.  (#283)\n\n## Summary\n\nTightens the help validation pipeline and improves the authoring\nworkflow on both the CLI and PowerShell surfaces. Adds 4 new PowerShell\nvalidators (PSL9–PSL12), refactors shared parsing into\n`MarkdownHelpParser` / `HelpPaths`, hardens the example placeholder\nrules, and removes hard-coded module lists from the PS scaffold script.\n\n## What's in this PR\n\n### New validation rules\n\n| Id | Validator | What it catches |\n|----|-----------|-----------------|\n| `PSL9_MissingHelpFile` | `PsCompletenessValidator` | A cmdlet declared\nin `<Module>.psd1`'s `CmdletsToExport` has no matching\n`help/<Verb-Noun>.md`. |\n| `PSL10_MissingHelpFolder` | `PsCompletenessValidator` | Manifest\ndeclares cmdlets but the module folder has no `help/` directory at all\n(supersedes the per-cmdlet PSL9 cascade). |\n| `PSL11_OrphanedHelpFile` | `PsCompletenessValidator` | A `.md` exists\nfor a cmdlet that's no longer in `CmdletsToExport` (warning, not error).\n|\n| `PSL12_FillPlaceholder` | `PowerShellExampleSyntaxValidator` | A\nPlatyPS `{{ Fill ... }}` marker remains in the markdown. The evergreen\n`{{Insert list of aliases}}` boilerplate is exempt. |\n\nThese mirror what `HelpCompletenessValidator` does for the CLI surface —\nwalk the contract (manifest exports), not just the filesystem. Catches\ndrift like stale `CmdletsToExport` entries (e.g. `New-VMOrchestrator`)\non day one instead of months later.\n\n### Shared parsing infrastructure\n\n- `MarkdownHelpParser` — single front-matter / section / fence\nextraction path, shared by `MarkdownStructureValidator` and\n`PowerShellExampleSyntaxValidator`. Replaces ad-hoc regexes that had\ndrifted between validators.\n- `HelpPaths` — canonical path constants + casing tests\n(`HelpPathsCasingTests`) so Windows file-name casing must match the\nexpected form.\n- `PlaceholderDetector` — centralized angle-bracket / TODO / `{{ Fill\n... }}` regex helpers consumed by both surfaces.\n\n### Authoring workflow improvements\n\n- **`build/New-PSHelpMarkdown.ps1`**: removed hard-coded\n`[ValidateSet('Compute','Config','Login','Resources')]`. Modules are now\ndiscovered from `src/PS/<Name>/<Name>.psd1` at runtime; an\n`ArgumentCompleter` restores tab-completion. Adding a new module folder\nrequires zero script edits, with fail-fast on unknown `-Module` input\nlisting what's available.\n- **`--scaffold <verb>`** behaviour clarified for split-verb extensions:\neach verb requires its own scaffold call (`Compute` owns `vm` + `disk` —\ntwo calls). Idempotent.\n\n### Help corpus authored\n\n- **Compute** (6 cmdlets): `Get-VM`, `Remove-VM`, `New-VM`,\n`New-NetworkInterface`, `New-NetworkSecurityGroup`,\n`New-VirtualNetwork`.\n- **Login** (3): `Connect-CirrusAccount` (browser + device-code),\n`Disconnect-CirrusAccount`, `Get-CirrusAccount`.\n- **Config** (5): `Get-CirrusConfig`, `Get-CirrusConfigInfo`,\n`Get-CirrusConfigList`, `Remove-CirrusConfig`, `Set-CirrusConfig`.\n- **Resources** (3): `Get-ResourceGroup`, `New-ResourceGroup`,\n`New-ResourceGroupDeployment`.\n- **CLI** `vm/` and `disk/` corpora authored against the new rules.\n- Pruned 2 stale `CmdletsToExport` entries from `Compute.psd1`\n(`New-NetworkInterfaceOrchestrator`, `New-VMOrchestrator`) that PSL9\nsurfaced.\n\n### Docs\n\n- [docs/howto/help.md](docs/howto/help.md): added PSL9–PSL12 to the\nrules list and Troubleshooting; documented the new dynamic `-Module`\ndiscovery; updated the build pipeline step list.\n- [docs/spec/help-system.md](docs/spec/help-system.md): updated the\narchitecture diagram and validator table from 4 to 5 validators;\nexpanded the PS row to mention `PS_TodoPlaceholder` /\n`PS_ExamplePlaceholder` / PSL12.\n\n## Validation\n\n- `dotnet test tools/Help/Cirrus.Help.Tool.Tests` — **157/157** pass\n(added 12 `PsCompletenessValidator` tests + 5 PSL12 tests + reorganized\nmarkdown/example tests).\n- `dotnet test tests/Cli.Tests` — all green (incl. new\n`HelpPathsCasingTests`).\n- `./build/build.ps1 -GenerateHelpArtifacts` — 0 errors, 0 warnings,\nMAML emitted for all 4 PS modules, 7 manifests + `HelpIndex.json`.\n\n## Out of scope (tracked as a follow-up issue)\n\nMulti-extension-same-verb collisions (`Ext-A` and `Ext-B` both declaring\n`[ExtensionVerb(\"vm\")]`). Today the scaffolder silently first-wins via\n`break;` and the validator's `indexesByCliGroup` dictionary silently\nlast-wins. Worth handling once the Codegen design spec lands.",
+          "timestamp": "2026-06-17T12:15:50+10:00",
+          "tree_id": "9ec70f5dfc66f0d9da0ddde16e83fb9d69168fd9",
+          "url": "https://github.com/Azure/cirrus/commit/70198be3e1c160d177b3cbf0a2af4bfad945e6a8"
+        },
+        "date": 1781662672149,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 165485.5,
+            "unit": "ns",
+            "range": "± 2189.548279135828"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 190563.5,
+            "unit": "ns",
+            "range": "± 33986.72866723127"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 250042.7,
+            "unit": "ns",
+            "range": "± 66885.16082585136"
           }
         ]
       }
