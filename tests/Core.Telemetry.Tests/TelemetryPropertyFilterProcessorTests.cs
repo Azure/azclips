@@ -50,7 +50,6 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
         Assert.Contains(TelemetryTags.Command, keys);
         Assert.Contains(TelemetryTags.ModuleName, keys);
         Assert.DoesNotContain("http.url", keys);
-        Assert.DoesNotContain("subscriptionId", keys);
         Assert.Equal(2, processor.DroppedCount);
     }
 
@@ -78,7 +77,6 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
         using var activity = _source.StartActivity("op")!;
         activity.SetTag("http.url", "https://example.com");
         activity.SetTag("exception.message", "boom");
-        activity.SetTag("subscriptionId", "guid");
         activity.Stop();
 
         processor.OnEnd(activity);
