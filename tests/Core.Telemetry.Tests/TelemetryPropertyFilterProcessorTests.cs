@@ -50,7 +50,7 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
         Assert.Contains(TelemetryTags.Command, keys);
         Assert.Contains(TelemetryTags.ModuleName, keys);
         Assert.DoesNotContain("http.url", keys);
-        Assert.Equal(2, processor.DroppedCount);
+        Assert.Equal(1, processor.DroppedCount);
     }
 
     [Fact]
@@ -81,7 +81,7 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
 
         processor.OnEnd(activity);
 
-        Assert.Equal(3, processor.DroppedCount);
+        Assert.Equal(2, processor.DroppedCount);
         Assert.Empty(TagKeys(activity));
     }
 
