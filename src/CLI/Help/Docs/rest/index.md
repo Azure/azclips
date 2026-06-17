@@ -1,6 +1,6 @@
 ---
 summary: Send an authenticated HTTP request to Azure Resource Manager.
-status: ga
+status: preview
 schema: 1.0.0
 online version:
 ---

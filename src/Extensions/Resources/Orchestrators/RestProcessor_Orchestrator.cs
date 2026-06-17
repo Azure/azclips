@@ -17,9 +17,9 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
     /// than being a generated atomic API operation), so it lives under <c>Orchestrators/</c>.
     /// <para>
     /// Unlike the typed Resources base, this processor is a standalone <see cref="IProcessor"/> that
-    /// does NOT deserialize the response into a fixed model and does NOT throw on non-2xx. The
-    /// transport primitive <see cref="SendRequestAsync"/> returns non-2xx responses as-is so the full
-    /// response payload (status, headers, body) can be surfaced to output first, matching
+    /// does NOT deserialize the response into a fixed model. Its transport primitive
+    /// <see cref="SendRequestAsync"/> does not throw on non-2xx (it returns the response as-is) so the
+    /// full response payload (status, headers, body) can be surfaced to output first, matching
     /// <c>az rest</c>. <see cref="ProcessAsync"/> writes that payload to output and then, for a status
     /// &gt;= 400, publishes a failure event and throws an
     /// <see cref="System.Net.Http.HttpRequestException"/> so the command produces a non-zero,
