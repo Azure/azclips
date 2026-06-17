@@ -1,7 +1,6 @@
 using Core.Abstractions;
 using Core.Agent;
 using Core.Agent.Hosting;
-using Core.Configuration.Options;
 using Core.DependencyInjection;
 using Core.Runtime;
 using Microsoft.Extensions.DependencyInjection;

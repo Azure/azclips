@@ -6,7 +6,6 @@ using Core.Agent.Probes;
 using Core.Agent.Tools.Cache;
 using Core.Agent.Tools.Help;
 using Core.Agent.Tools.Sku;
-using Core.Configuration.Options;
 using GitHub.Copilot;
 using GitHub.Copilot.Rpc;
 using Microsoft.Extensions.AI;
