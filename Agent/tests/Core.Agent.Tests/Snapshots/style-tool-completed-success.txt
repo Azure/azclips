@@ -1,2 +1,2 @@
-[Muted]"  ✓ run_command 123ms · "
+[Muted]"  ✓ powershell 123ms · "
 [Default]"SUCCESS · exit 0\noutput: rg1, rg2"
