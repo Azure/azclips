@@ -124,11 +124,9 @@ foreach (var dllPath in extensionDlls)
     }
     catch (Exception ex)
     {
-        // Surface — don't swallow. A broken index would otherwise be invisible
-        // in CI and produce an incomplete manifest. Warning (not error) keeps
-        // a single corrupt DLL from failing the whole help build, but every
-        // failure is reported with its DLL path and the exception message.
-        aggregateReport.AddWarning(
+        // Promoted from warning to error: a broken IExtensionIndex used to silently drop
+        // the extension from the help corpus, hiding genuine CI breakage.
+        aggregateReport.AddError(
             ProblemIds.ExtensionIndexLoadFailed,
             $"Failed to load IExtensionIndex from '{assemblyPath}': {ex.GetType().Name}: {ex.Message}",
             assemblyPath);
@@ -137,9 +135,7 @@ foreach (var dllPath in extensionDlls)
 
     if (validatedExtensions.Add(extensionName))
     {
-        // Validation is verb-scoped: a multi-verb extension produces one report per
-        // verb (e.g. Compute -> vm + disk), each pointing at its own Docs/<verb>/
-        // folder. Aggregate them and skip manifest emission if any verb has errors.
+        // Verb-scoped: a multi-verb extension yields one report per verb (Compute → vm + disk).
         var completenessHasErrors = false;
         foreach (var verb in extensionIndex.GetVerbs())
         {
@@ -150,10 +146,9 @@ foreach (var dllPath in extensionDlls)
             indexesByCliGroup[verb] = extensionIndex;
         }
 
-        // Skip manifest emission for this extension if any verb has completeness errors:
-        // a manifest built from an incomplete corpus would be misleading. Other
-        // extensions and other validator stages still run so the author sees
-        // every problem in one pass.
+        // Skip manifest emission when any verb has completeness errors; a manifest from an
+        // incomplete corpus would be misleading. Other stages still run so authors see all
+        // problems in one pass.
         if (completenessHasErrors)
         {
             continue;
@@ -202,8 +197,10 @@ foreach (var dllPath in cmdletDlls)
     }
     catch (Exception ex)
     {
-        // Surface a warning but don't abort the run — PS validation is additive.
-        aggregateReport.AddWarning(
+        // Promoted from warning to error: PS validation needs every cmdlet assembly
+        // to load — otherwise PSL1 "Unknown cmdlet" fires falsely on real cmdlets the
+        // index never saw. Hard fail rather than mask the gap.
+        aggregateReport.AddError(
             ProblemIds.Tool_CmdletAssemblyLoadFailed,
             $"Could not load cmdlet assembly '{Path.GetFileName(dllPath)}' for PowerShell example validation: {ex.Message}");
     }
@@ -211,6 +208,13 @@ foreach (var dllPath in cmdletDlls)
 
 var psExampleReport = new PowerShellExampleSyntaxValidator().Validate(repoRoot, cmdletIndex);
 aggregateReport.Merge(psExampleReport);
+
+// PS-side completeness: every cmdlet declared in <Module>.psd1's CmdletsToExport must
+// have a corresponding src/PS/<Module>/help/<Verb-Noun>.md. Mirrors the CLI surface's
+// HelpCompletenessValidator. Runs after the per-file PSL1..PSL8 rules so authors see
+// content errors first when both fire on the same file.
+var psCompletenessReport = new PsCompletenessValidator().Validate(repoRoot);
+aggregateReport.Merge(psCompletenessReport);
 
 var index = ExtensionHelpManifestBuilder.BuildIndex(manifests);
 WriteJson(Path.Combine(outputRoot, "HelpIndex.json"), index);

@@ -178,6 +178,85 @@ namespace Cirrus.Help.Tool.Tests
         }
 
         [Fact]
+        public void ValidateContent_ShouldReportNoCliExamples_WhenOnlyNonBashFencesArePresent()
+        {
+            // A file with only a ```powershell fence passes MD_NoExamples but slips past
+            // ExampleSyntaxValidator (which scans only ```bash/```sh). MD_NoCliExamples
+            // closes that gap.
+            var content = string.Join("\n",
+                "---",
+                "summary: x",
+                "schema: 1.0.0",
+                "---",
+                "",
+                "Description: y",
+                "",
+                "### Example",
+                "```powershell",
+                "Get-Foo",
+                "```",
+                "");
+
+            var report = new MarkdownStructureValidator().ValidateContent(content, "test.md");
+
+            Assert.Contains(report.Errors, e => e.ProblemId == ProblemIds.MD_NoCliExamples);
+            // The generic "no examples" rule must NOT also fire \u2014 there *is* an example, just the wrong language.
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.MD_NoExamples);
+        }
+
+        [Fact]
+        public void ValidateContent_ShouldNotReportNoCliExamples_WhenAtLeastOneBashFenceIsPresent()
+        {
+            // A mixed file (bash + powershell) is fine \u2014 the bash fence will be scanned by
+            // ExampleSyntaxValidator; non-CLI fences are ignored by design.
+            var content = string.Join("\n",
+                "---",
+                "summary: x",
+                "schema: 1.0.0",
+                "---",
+                "",
+                "Description: y",
+                "",
+                "### CLI example",
+                "```bash",
+                "azv2 x",
+                "```",
+                "",
+                "### PS example",
+                "```powershell",
+                "Get-Foo",
+                "```",
+                "");
+
+            var report = new MarkdownStructureValidator().ValidateContent(content, "test.md");
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.MD_NoCliExamples);
+        }
+
+        [Fact]
+        public void ValidateContent_ShouldReportNoCliExamples_WhenFenceHasNoLanguageTag()
+        {
+            // A bare ``` fence (PlatyPS-style) also fails: no language means no scanner.
+            var content = string.Join("\n",
+                "---",
+                "summary: x",
+                "schema: 1.0.0",
+                "---",
+                "",
+                "Description: y",
+                "",
+                "### Example",
+                "```",
+                "azv2 x",
+                "```",
+                "");
+
+            var report = new MarkdownStructureValidator().ValidateContent(content, "test.md");
+
+            Assert.Contains(report.Errors, e => e.ProblemId == ProblemIds.MD_NoCliExamples);
+        }
+
+        [Fact]
         public void ValidateContent_ShouldReportError_WhenCodeFencesAreUnbalanced()
         {
             var content = string.Join("\n",
@@ -255,6 +334,228 @@ namespace Cirrus.Help.Tool.Tests
             // The login file is well-formed, but config/index.md has issues.
             Assert.True(report.HasErrors);
             Assert.All(report.Errors, e => Assert.Contains("config", e.FilePath ?? string.Empty, StringComparison.OrdinalIgnoreCase));
+        }
+
+        // ---- TODO placeholder rule -------------------------------------------------------
+
+        [Fact]
+        public void ValidateContent_ShouldErrorTodo_WhenSummaryContainsTodoMarker()
+        {
+            // Scaffolder seeds `summary: TODO \u2014 short summary of \`azv2 vm list\`.`
+            var content = string.Join("\n",
+                "---",
+                "summary: TODO \u2014 short summary.",
+                "schema: 1.0.0",
+                "---",
+                "",
+                "Description: Real description.",
+                "",
+                "### List",
+                "```bash",
+                "azv2 vm list --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000",
+                "```",
+                "");
+
+            var report = new MarkdownStructureValidator().ValidateContent(content, "vm/list.md");
+
+            Assert.Contains(report.Errors, e =>
+                e.ProblemId == ProblemIds.MD_TodoPlaceholder
+                && e.Message.Contains("'summary:'", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void ValidateContent_ShouldErrorTodo_WhenDescriptionContainsTodoMarker()
+        {
+            var content = string.Join("\n",
+                "---",
+                "summary: Real one-liner.",
+                "schema: 1.0.0",
+                "---",
+                "",
+                "Description: TODO \u2014 describe what this does.",
+                "",
+                "### List",
+                "```bash",
+                "azv2 vm list --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000",
+                "```",
+                "");
+
+            var report = new MarkdownStructureValidator().ValidateContent(content, "vm/list.md");
+
+            Assert.Contains(report.Errors, e =>
+                e.ProblemId == ProblemIds.MD_TodoPlaceholder
+                && e.Message.Contains("'Description:'", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void ValidateContent_ShouldErrorTodo_WhenExampleFenceContainsTodoMarker()
+        {
+            // Authors sometimes leave a TODO comment inside an example body.
+            var content = string.Join("\n",
+                "---",
+                "summary: Real summary.",
+                "schema: 1.0.0",
+                "---",
+                "",
+                "Description: Real description.",
+                "",
+                "### List",
+                "```bash",
+                "# TODO replace with real value",
+                "azv2 vm list --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000",
+                "```",
+                "");
+
+            var report = new MarkdownStructureValidator().ValidateContent(content, "vm/list.md");
+
+            Assert.Contains(report.Errors, e =>
+                e.ProblemId == ProblemIds.MD_TodoPlaceholder
+                && e.Message.Contains("Example fence", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void ValidateContent_ShouldNotErrorTodo_WhenNoTodoMarkers()
+        {
+            var report = new MarkdownStructureValidator().ValidateContent(s_validMarkdown, "test.md");
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.MD_TodoPlaceholder);
+        }
+
+        // ---- angle-bracket placeholder rule ----------------------------------------------
+
+        [Fact]
+        public void ValidateContent_ShouldErrorPlaceholder_WhenExampleFenceContainsTypeNamePlaceholder()
+        {
+            // The exact shape the scaffolder emits: --param <typename>.
+            var content = string.Join("\n",
+                "---",
+                "summary: Real summary.",
+                "schema: 1.0.0",
+                "---",
+                "",
+                "Description: Real description.",
+                "",
+                "### List",
+                "```bash",
+                "azv2 vm list --resource-group <string> --subscription-id <string>",
+                "```",
+                "");
+
+            var report = new MarkdownStructureValidator().ValidateContent(content, "vm/list.md");
+
+            var placeholders = report.Errors
+                .Where(e => e.ProblemId == ProblemIds.CLI_ExamplePlaceholder)
+                .ToList();
+
+            // Each occurrence is reported individually so every gap surfaces in one CI pass.
+            Assert.Equal(2, placeholders.Count);
+            Assert.All(placeholders, e => Assert.Contains("<string>", e.Message, StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void ValidateContent_ShouldErrorPlaceholder_WhenDomainShapedAngleBracketUsed()
+        {
+            // Per-spec: any <...> in a CLI fence is rejected, including <my-rg> / <name>.
+            var content = string.Join("\n",
+                "---",
+                "summary: Real summary.",
+                "schema: 1.0.0",
+                "---",
+                "",
+                "Description: Real description.",
+                "",
+                "### Show",
+                "```bash",
+                "azv2 group show --name <my-rg> --subscription-id <subscription-id>",
+                "```",
+                "");
+
+            var report = new MarkdownStructureValidator().ValidateContent(content, "group/show.md");
+
+            var placeholders = report.Errors
+                .Where(e => e.ProblemId == ProblemIds.CLI_ExamplePlaceholder)
+                .ToList();
+
+            Assert.Equal(2, placeholders.Count);
+        }
+
+        [Fact]
+        public void ValidateContent_ShouldNotErrorPlaceholder_WhenExampleUsesShellVariableOrZeroGuid()
+        {
+            // Allowed escape hatches: $var, ${var}, $env:NAME, all-zero GUID.
+            var content = string.Join("\n",
+                "---",
+                "summary: Real summary.",
+                "schema: 1.0.0",
+                "---",
+                "",
+                "Description: Real description.",
+                "",
+                "### Create",
+                "```bash",
+                "rg=myrg",
+                "azv2 group create --name $rg --location eastus --subscription-id 00000000-0000-0000-0000-000000000000",
+                "azv2 group create --name ${RG_VAR} --location $env:LOCATION --subscription-id 00000000-0000-0000-0000-000000000000",
+                "```",
+                "");
+
+            var report = new MarkdownStructureValidator().ValidateContent(content, "group/create.md");
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.CLI_ExamplePlaceholder);
+        }
+
+        [Fact]
+        public void ValidateContent_ShouldNotErrorPlaceholder_WhenAngleBracketIsInProseNotFence()
+        {
+            // The Description body can mention `<name>` as a parameter identifier in prose.
+            // Only example fences are policed.
+            var content = string.Join("\n",
+                "---",
+                "summary: Real summary.",
+                "schema: 1.0.0",
+                "---",
+                "",
+                "Description: Pass a kebab-cased value via --name <name>.",
+                "",
+                "### List",
+                "```bash",
+                "azv2 vm list --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000",
+                "```",
+                "");
+
+            var report = new MarkdownStructureValidator().ValidateContent(content, "vm/list.md");
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.CLI_ExamplePlaceholder);
+        }
+
+        [Fact]
+        public void ValidateContent_ShouldNotErrorPlaceholder_WhenFenceIsPowerShell()
+        {
+            // PS fences in CLI markdown shouldn't fire CLI_ExamplePlaceholder; the PS validator
+            // owns those (in src/PS/<Mod>/help/*.md). CLI markdown should not contain PS fences
+            // in practice, but if it does we don't double-fire.
+            var content = string.Join("\n",
+                "---",
+                "summary: Real summary.",
+                "schema: 1.0.0",
+                "---",
+                "",
+                "Description: Real description.",
+                "",
+                "### From PowerShell",
+                "```powershell",
+                "Get-VM -Name <vmname>",
+                "```",
+                "",
+                "### From bash",
+                "```bash",
+                "azv2 vm list --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000",
+                "```",
+                "");
+
+            var report = new MarkdownStructureValidator().ValidateContent(content, "vm/list.md");
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.CLI_ExamplePlaceholder);
         }
     }
 }

@@ -28,8 +28,11 @@ parameters:
   type: string
 - name: signed_artifact_name
   type: string
-- name: dependency_stage
+- name: signed_artifact_source
   type: string
+  default: 'specific'
+- name: dependency_stage
+  type: object
   default: 'Preflight'
 
 stages:
@@ -42,7 +45,8 @@ stages:
     pool:
       vmImage: ${{ parameters.ubuntu_pool }}
     steps:
-    - checkout: none
+    - checkout: self
+      persistCredentials: true
 
     - script: |
         set -euo pipefail
@@ -51,19 +55,21 @@ stages:
           exit 1
         fi
 
-        if [[ -z "${{ parameters.signed_build_id }}" ]]; then
-          echo "ERROR: signed_build_id is required"
-          exit 1
-        fi
+        if [[ "${{ parameters.signed_artifact_source }}" != "current" ]]; then
+          if [[ -z "${{ parameters.signed_build_id }}" ]]; then
+            echo "ERROR: signed_build_id is required"
+            exit 1
+          fi
 
-        if ! [[ "${{ parameters.signed_build_id }}" =~ ^[0-9]+$ ]]; then
-          echo "ERROR: signed_build_id must be numeric. Got: ${{ parameters.signed_build_id }}"
-          exit 1
-        fi
+          if ! [[ "${{ parameters.signed_build_id }}" =~ ^[0-9]+$ ]]; then
+            echo "ERROR: signed_build_id must be numeric. Got: ${{ parameters.signed_build_id }}"
+            exit 1
+          fi
 
-        if [[ "${{ parameters.signed_build_id }}" == "0" ]]; then
-          echo "ERROR: signed_build_id must be greater than zero."
-          exit 1
+          if [[ "${{ parameters.signed_build_id }}" == "0" ]]; then
+            echo "ERROR: signed_build_id must be greater than zero."
+            exit 1
+          fi
         fi
 
         if [[ -z "${{ parameters.signed_artifact_name }}" ]]; then
@@ -76,16 +82,23 @@ stages:
         echo "Signed artifact: ${{ parameters.signed_artifact_name }}"
       displayName: Validate Signed Source Inputs
 
-    - task: DownloadPipelineArtifact@2
-      displayName: Download Final Signed Distribution Artifact
-      inputs:
-        source: specific
-        project: ${{ parameters.SourceProject }}
-        pipeline: ${{ parameters.signed_pipeline_name }}
-        runVersion: specific
-        runId: ${{ parameters.signed_build_id }}
-        artifact: ${{ parameters.signed_artifact_name }}
-        path: $(Pipeline.Workspace)/signed-dist
+    - ${{ if eq(parameters.signed_artifact_source, 'current') }}:
+      - task: DownloadPipelineArtifact@2
+        displayName: Download Final Signed Distribution Artifact
+        inputs:
+          artifact: ${{ parameters.signed_artifact_name }}
+          path: $(Pipeline.Workspace)/signed-dist
+    - ${{ if ne(parameters.signed_artifact_source, 'current') }}:
+      - task: DownloadPipelineArtifact@2
+        displayName: Download Final Signed Distribution Artifact
+        inputs:
+          source: specific
+          project: ${{ parameters.SourceProject }}
+          pipeline: ${{ parameters.signed_pipeline_name }}
+          runVersion: specific
+          runId: ${{ parameters.signed_build_id }}
+          artifact: ${{ parameters.signed_artifact_name }}
+          path: $(Pipeline.Workspace)/signed-dist
 
     - script: |
         set -euo pipefail
@@ -190,9 +203,9 @@ stages:
             fi
             tag_name="v$core_distribution_version"
             release_name="Cirrus $core_distribution_version"
-            release_target="$(git ls-remote --tags "https://github.com/$repo.git" "refs/tags/$tag_name^{}" | awk '{print $1}' | head -n 1)"
+            release_target="$(git ls-remote --tags origin "refs/tags/$tag_name^{}" | awk '{print $1}' | head -n 1)"
             if [[ -z "$release_target" ]]; then
-              release_target="$(git ls-remote --tags "https://github.com/$repo.git" "refs/tags/$tag_name" | awk '{print $1}' | head -n 1)"
+              release_target="$(git ls-remote --tags origin "refs/tags/$tag_name" | awk '{print $1}' | head -n 1)"
             fi
             if [[ -z "$release_target" ]]; then
               echo "ERROR: Stable tag $tag_name was not found in $repo. Refusing to create a release without an existing stable tag target."
@@ -208,6 +221,35 @@ stages:
         release_dir="$(Build.ArtifactStagingDirectory)/release"
         rm -rf "$release_dir"
         mkdir -p "$release_dir"
+
+        release_notes_file="$(Build.ArtifactStagingDirectory)/release-notes.md"
+        changelog_file="$(Build.ArtifactStagingDirectory)/CHANGELOG.md"
+        if [[ "$release_tag_mode" == "stableVersion" ]] && \
+           curl -fsSL "https://raw.githubusercontent.com/$repo/$tag_name/CHANGELOG.md" -o "$changelog_file"; then
+          awk -v tag="$tag_name" '
+            /^## / {
+              if (in_section) {
+                exit
+              }
+              if ($0 == "## " tag || index($0, "## " tag " ") == 1) {
+                in_section = 1
+              }
+            }
+            in_section { print }
+          ' "$changelog_file" > "$release_notes_file"
+        fi
+
+        if [[ ! -s "$release_notes_file" ]]; then
+          {
+            echo "Automated distribution release."
+            echo "Signed pipeline: $signed_pipeline_name"
+            echo "Signed build id: $signed_build_id"
+            echo "Signed artifact: $signed_artifact_name"
+          } > "$release_notes_file"
+        fi
+
+        echo "GitHub release notes preview:"
+        sed -n '1,120p' "$release_notes_file"
 
         package_versions_file="$release_dir/package-versions.csv"
         {
@@ -231,6 +273,7 @@ stages:
         echo "##vso[task.setvariable variable=SignedBuildId]$signed_build_id"
         echo "##vso[task.setvariable variable=SignedPipelineName]$signed_pipeline_name"
         echo "##vso[task.setvariable variable=SignedArtifactName]$signed_artifact_name"
+        echo "##vso[task.setvariable variable=ReleaseNotesFile]$release_notes_file"
       displayName: Prepare Release Tag And Assets
 
     - ${{ if eq(parameters.GitHubReleaseAllowOverwrite, 'true') }}:
@@ -254,11 +297,8 @@ stages:
         tag: '$(ReleaseTag)'
         title: '$(ReleaseName)'
         isPreRelease: ${{ parameters.GitHubReleaseIsPrerelease }}
-        releaseNotesSource: 'inline'
-        releaseNotesInline: |
-          Automated distribution release.
-          Signed pipeline: $(SignedPipelineName)
-          Signed build id: $(SignedBuildId)
-          Signed artifact: $(SignedArtifactName)
+        # GitHubRelease@1 expects filePath/releaseNotesFilePath for release notes files.
+        releaseNotesSource: 'filePath'
+        releaseNotesFilePath: '$(ReleaseNotesFile)'
         assets: '$(Build.ArtifactStagingDirectory)/release/*'
         addChangeLog: false

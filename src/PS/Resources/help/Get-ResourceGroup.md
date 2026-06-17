@@ -43,18 +43,18 @@ Specify the resource group name and optionally the subscription ID (defaults to 
 
 ### Show a resource group
 
-TODO - describe the example.
+Return the properties of the resource group `myrg` in the specified subscription.
 
 ```powershell
-Get-ResourceGroup -SubscriptionId <subscriptionid> -Name <name>
+Get-ResourceGroup -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myrg
 ```
 
 ### List all resource groups in a subscription
 
-TODO - describe the example.
+List every resource group in the specified subscription. Omit `-Name` to list rather than fetch.
 
 ```powershell
-Get-ResourceGroup -SubscriptionId <subscriptionid>
+Get-ResourceGroup -SubscriptionId 00000000-0000-0000-0000-000000000000
 ```
 
 ## PARAMETERS

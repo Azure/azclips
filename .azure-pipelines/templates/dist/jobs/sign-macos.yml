@@ -14,6 +14,9 @@ parameters:
 - name: source_artifact_name
   type: string
   default: 'Distribution_Final'
+- name: source_artifact_source
+  type: string
+  default: 'specific'
 - name: macos_arm64_pool
   type: string
   default: 'macOS-15-arm64'
@@ -39,16 +42,23 @@ jobs:
   timeoutInMinutes: 60
   steps:
   - checkout: none
-  - task: DownloadPipelineArtifact@2
-    displayName: Download Unsigned Distribution Artifacts
-    inputs:
-      source: specific
-      project: ${{ parameters.SourceProject }}
-      pipeline: ${{ parameters.source_pipeline_name }}
-      runVersion: specific
-      runId: ${{ parameters.source_build_id }}
-      artifact: ${{ parameters.source_artifact_name }}
-      path: $(Pipeline.Workspace)/unsigned-all
+  - ${{ if eq(parameters.source_artifact_source, 'current') }}:
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Unsigned Distribution Artifacts
+      inputs:
+        artifact: ${{ parameters.source_artifact_name }}
+        path: $(Pipeline.Workspace)/unsigned-all
+  - ${{ if ne(parameters.source_artifact_source, 'current') }}:
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Unsigned Distribution Artifacts
+      inputs:
+        source: specific
+        project: ${{ parameters.SourceProject }}
+        pipeline: ${{ parameters.source_pipeline_name }}
+        runVersion: specific
+        runId: ${{ parameters.source_build_id }}
+        artifact: ${{ parameters.source_artifact_name }}
+        path: $(Pipeline.Workspace)/unsigned-all
   - bash: |
       set -euo pipefail
       source_root="$(Pipeline.Workspace)/unsigned-all"

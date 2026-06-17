@@ -418,6 +418,126 @@ namespace Cirrus.Help.Tool.Tests
             Assert.Contains("Unknown flag '--unknwn'", errors[0].Message, StringComparison.Ordinal);
         }
 
+        // ---- CLI_L4_MissingRequiredFlag ----------------------------------------------------
+
+        [Fact]
+        public void Validate_ShouldErrorL4_WhenRequiredFlagIsMissing()
+        {
+            // 'group create' requires name + location + subscription-id; only --name supplied.
+            var content = Fence("azv2 group create --name myrg");
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
+
+            var l4Errors = report.Errors
+                .Where(e => e.ProblemId == ProblemIds.CLI_L4_MissingRequiredFlag)
+                .ToList();
+
+            // Both --location and --subscription-id should be reported in one pass.
+            Assert.Equal(2, l4Errors.Count);
+            Assert.Contains(l4Errors, e => e.Message.Contains("--location", StringComparison.Ordinal));
+            Assert.Contains(l4Errors, e => e.Message.Contains("--subscription-id", StringComparison.Ordinal));
+        }
+
+        [Fact]
+        public void Validate_ShouldNotFireL4_WhenAliasFlagSatisfiesRequirement()
+        {
+            // -n is the alias for --name; using the alias should satisfy the requirement.
+            var content = Fence("azv2 group create -n myrg --location eastus --subscription-id 00000000-0000-0000-0000-000000000000");
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.CLI_L4_MissingRequiredFlag);
+        }
+
+        [Fact]
+        public void Validate_ShouldNotFireL4_OnHelpInvocations()
+        {
+            // `azv2 group create --help` is a help invocation; required-flag policing must not apply.
+            var content = Fence("azv2 group create --help");
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.CLI_L4_MissingRequiredFlag);
+        }
+
+        [Fact]
+        public void Validate_ShouldNotFireL4_WhenCommandHasNoRequiredFlags()
+        {
+            // 'group list' has only an optional subscription-id; bare invocation must pass.
+            var content = Fence("azv2 group list");
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
+
+            Assert.False(report.HasErrors);
+        }
+
+        [Fact]
+        public void Validate_ShouldNotFireL4_WhenParameterNameIsPascalCaseAndExampleUsesKebabFlag()
+        {
+            // Regression: dictionary KEYS are kebab-case CLI flags ("subscription-id");
+            // ParameterMetadata.Name is the PascalCase property ("SubscriptionId").
+            // The validator must match against the dictionary key, not the .Name field.
+            var widgetCreate = new CommandMetadata(
+                Name: "widget create",
+                Aliases: Array.Empty<string>(),
+                FullName: "widget create",
+                AssemblyName: "Stub",
+                ProcessorType: typeof(StubExtensionIndex),
+                Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["name"]            = new ParameterMetadata("Name",           typeof(string), "", IsRequired: true, Aliases: new[] { "n" }, AllowedValues: Array.Empty<string>()),
+                    ["location"]        = new ParameterMetadata("Location",       typeof(string), "", IsRequired: true, Aliases: Array.Empty<string>(), AllowedValues: Array.Empty<string>()),
+                    ["subscription-id"] = new ParameterMetadata("SubscriptionId", typeof(string), "", IsRequired: true, Aliases: Array.Empty<string>(), AllowedValues: Array.Empty<string>()),
+                },
+                ParameterAliases: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["n"] = "name" });
+
+            var widget = new StubExtensionIndex(new Dictionary<string, CommandMetadata>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["widget create"] = widgetCreate,
+            });
+            var indexes = new Dictionary<string, IExtensionIndex>(StringComparer.OrdinalIgnoreCase) { ["widget"] = widget };
+
+            var content = Fence("azv2 widget create --name myrg --location eastus --subscription-id 00000000-0000-0000-0000-000000000000");
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", indexes);
+
+            Assert.DoesNotContain(report.Errors, e => e.ProblemId == ProblemIds.CLI_L4_MissingRequiredFlag);
+        }
+
+        [Fact]
+        public void Validate_ShouldFireL4_WhenParameterNameIsPascalCaseAndExampleOmitsRequiredKebabFlag()
+        {
+            // Mirror of the test above: same production-shape invariant, but the example omits
+            // --subscription-id. The validator must still flag the missing kebab flag exactly
+            // once (not zero, not duplicated for "subscription-id" + "SubscriptionId").
+            var widgetCreate = new CommandMetadata(
+                Name: "widget create",
+                Aliases: Array.Empty<string>(),
+                FullName: "widget create",
+                AssemblyName: "Stub",
+                ProcessorType: typeof(StubExtensionIndex),
+                Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["name"]            = new ParameterMetadata("Name",           typeof(string), "", IsRequired: true, Aliases: Array.Empty<string>(), AllowedValues: Array.Empty<string>()),
+                    ["subscription-id"] = new ParameterMetadata("SubscriptionId", typeof(string), "", IsRequired: true, Aliases: Array.Empty<string>(), AllowedValues: Array.Empty<string>()),
+                },
+                ParameterAliases: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
+
+            var widget = new StubExtensionIndex(new Dictionary<string, CommandMetadata>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["widget create"] = widgetCreate,
+            });
+            var indexes = new Dictionary<string, IExtensionIndex>(StringComparer.OrdinalIgnoreCase) { ["widget"] = widget };
+
+            var content = Fence("azv2 widget create --name myrg");
+
+            var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", indexes);
+
+            var l4Errors = report.Errors.Where(e => e.ProblemId == ProblemIds.CLI_L4_MissingRequiredFlag).ToList();
+            Assert.Single(l4Errors);
+            Assert.Contains("--subscription-id", l4Errors[0].Message, StringComparison.Ordinal);
+        }
+
         private sealed class StubExtensionIndex : IExtensionIndex
         {
             private readonly Dictionary<string, CommandMetadata> _cliTable;
@@ -476,6 +596,11 @@ namespace Cirrus.Help.Tool.Tests
                             ParameterAliases: aliases);
                     },
                     StringComparer.OrdinalIgnoreCase);
+            }
+
+            public StubExtensionIndex(IReadOnlyDictionary<string, CommandMetadata> table)
+            {
+                _cliTable = new Dictionary<string, CommandMetadata>(table, StringComparer.OrdinalIgnoreCase);
             }
 
             public CommandMetadata GetCommandMetadata(string name, ClientType clientType) => _cliTable[name];
