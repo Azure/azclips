@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Text;
-using System.Text.RegularExpressions;
 using Core.Cli.Help;
 
 namespace Cirrus.Help.Tool.Validation
@@ -22,7 +20,7 @@ namespace Cirrus.Help.Tool.Validation
         public ValidationReport Validate(string repoRoot)
         {
             var report = new ValidationReport();
-            var helpRoot = Path.Combine(repoRoot, "src", "CLI", "Help", "Docs");
+            var helpRoot = HelpPaths.CliHelpDocsRoot(repoRoot);
 
             if (!Directory.Exists(helpRoot))
             {
@@ -63,7 +61,7 @@ namespace Cirrus.Help.Tool.Validation
 
         private static void ValidateContent(string content, string relativePath, ValidationReport report)
         {
-            if (!HasBalancedCodeFences(content))
+            if (!MarkdownHelpParser.HasBalancedCodeFences(content))
             {
                 report.AddError(ProblemIds.MD_UnbalancedFences, "Unbalanced markdown code fences (``` markers must be paired).", relativePath);
             }
@@ -86,6 +84,13 @@ namespace Cirrus.Help.Tool.Validation
             {
                 report.AddError(ProblemIds.MD_MissingSummary, "Frontmatter is missing required field 'summary:'.", relativePath);
             }
+            else if (PlaceholderDetector.ContainsTodo(frontmatter.Summary))
+            {
+                report.AddError(
+                    ProblemIds.MD_TodoPlaceholder,
+                    "Frontmatter 'summary:' still contains a TODO marker. Replace the scaffolded placeholder with a real description.",
+                    relativePath);
+            }
 
             if (string.IsNullOrWhiteSpace(frontmatter.Schema))
             {
@@ -107,26 +112,75 @@ namespace Cirrus.Help.Tool.Validation
 
         private static void ValidateBody(string body, string relativePath, ValidationReport report)
         {
-            var description = GetMarkdownField(body, "Description");
+            var description = MarkdownHelpParser.GetField(body, "Description");
             if (string.IsNullOrWhiteSpace(description))
             {
                 report.AddError(ProblemIds.MD_MissingDescription, "Missing required field 'Description:'.", relativePath);
             }
+            else if (PlaceholderDetector.ContainsTodo(description))
+            {
+                report.AddError(
+                    ProblemIds.MD_TodoPlaceholder,
+                    "Body field 'Description:' still contains a TODO marker. Replace the scaffolded placeholder with real content.",
+                    relativePath);
+            }
 
-            // Allow blank line(s) between the H3 heading and the opening ``` fence —
-            // common markdown style. Must stay in lockstep with the runtime parser in
-            // MarkdownCommandHelpProvider.ExampleRegex (PR #226 review).
-            var exampleCount = Regex.Matches(
-                body,
-                @"###\s*(?<title>[^\r\n]+?)[ \t]*\r?\n(?:[ \t]*\r?\n)*```(?<lang>[a-zA-Z0-9_-]*)[ \t]*\r?\n(?<command>[\s\S]*?)\r?\n```",
-                RegexOptions.CultureInvariant | RegexOptions.IgnoreCase).Count;
+            // Shared parser keeps the validator's "no examples" decision aligned with the runtime renderer.
+            var examples = MarkdownHelpParser.EnumerateExamples(body).ToList();
 
-            if (exampleCount == 0)
+            if (examples.Count == 0)
             {
                 report.AddError(
                     ProblemIds.MD_NoExamples,
                     "Missing examples. Add at least one '### Title' + fenced code block example.",
                     relativePath);
+            }
+            else if (!examples.Any(e =>
+                e.Language.Equals("bash", StringComparison.OrdinalIgnoreCase)
+                || e.Language.Equals("sh", StringComparison.OrdinalIgnoreCase)))
+            {
+                // Without a bash/sh fence ExampleSyntaxValidator has nothing to scan, so the file ships unverified.
+                report.AddError(
+                    ProblemIds.MD_NoCliExamples,
+                    "CLI help file has no ```bash or ```sh example fence. Example-syntax validation only runs on bash/sh fences \u2014 add at least one so the example is verified.",
+                    relativePath);
+            }
+
+            // Scan example bodies + titles for TODO and angle-bracket placeholders.
+            // Angle-bracket rule fires only inside CLI fences — prose can legitimately mention `<name>`.
+            foreach (var example in examples)
+            {
+                if (PlaceholderDetector.ContainsTodo(example.Title))
+                {
+                    report.AddError(
+                        ProblemIds.MD_TodoPlaceholder,
+                        $"Example heading '### {example.Title}' still contains a TODO marker.",
+                        relativePath);
+                }
+
+                if (PlaceholderDetector.ContainsTodo(example.Command))
+                {
+                    report.AddError(
+                        ProblemIds.MD_TodoPlaceholder,
+                        $"Example fence under '### {example.Title}' still contains a TODO marker. Replace the scaffolded placeholder with a real invocation.",
+                        relativePath);
+                }
+
+                // PS fences are validated by PowerShellExampleSyntaxValidator; skip here.
+                var isCliFence = example.Language.Equals("bash", StringComparison.OrdinalIgnoreCase)
+                    || example.Language.Equals("sh", StringComparison.OrdinalIgnoreCase);
+                if (!isCliFence)
+                {
+                    continue;
+                }
+
+                foreach (var placeholder in PlaceholderDetector.EnumerateAngleBracketPlaceholders(example.Command))
+                {
+                    report.AddError(
+                        ProblemIds.CLI_ExamplePlaceholder,
+                        $"Example contains placeholder '{placeholder}'. Replace with a realistic literal value (e.g. `myrg`, `eastus`, `00000000-0000-0000-0000-000000000000`) or a `$variable`.",
+                        relativePath);
+                }
             }
         }
 
@@ -145,54 +199,6 @@ namespace Cirrus.Help.Tool.Validation
             }
 
             return false;
-        }
-
-        // Mirror of MarkdownCommandHelpProvider.GetField so build-time validation
-        // sees fields the same way the runtime does: the value is the first line
-        // after the `Name:` prefix plus any non-blank, non-heading, non-fence
-        // continuation lines. An empty value stays empty (does not greedily
-        // absorb later examples / sections).
-        private static string GetMarkdownField(string content, string fieldName)
-        {
-            var lines = content.Split('\n');
-            var prefix = fieldName + ":";
-            for (var i = 0; i < lines.Length; i++)
-            {
-                var line = lines[i].TrimEnd('\r').TrimStart();
-                if (!line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                var builder = new StringBuilder(line[prefix.Length..].Trim());
-                for (var j = i + 1; j < lines.Length; j++)
-                {
-                    var next = lines[j].TrimEnd('\r');
-                    if (string.IsNullOrWhiteSpace(next)
-                        || next.TrimStart().StartsWith('#')
-                        || next.TrimStart().StartsWith("```", StringComparison.Ordinal))
-                    {
-                        break;
-                    }
-
-                    if (builder.Length > 0)
-                    {
-                        builder.Append(' ');
-                    }
-
-                    builder.Append(next.Trim());
-                }
-
-                return builder.ToString().Trim();
-            }
-
-            return string.Empty;
-        }
-
-        private static bool HasBalancedCodeFences(string content)
-        {
-            var fenceCount = Regex.Matches(content, @"(?m)^\s*```[a-zA-Z0-9_-]*\s*$", RegexOptions.CultureInvariant).Count;
-            return fenceCount % 2 == 0;
         }
     }
 }

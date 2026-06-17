@@ -1,5 +1,3 @@
-using System.Text.RegularExpressions;
-
 namespace Core.Cli.Help;
 
 /// <summary>
@@ -25,14 +23,6 @@ public sealed record MarkdownCommandHelp(string Summary, string Description, IRe
 /// </summary>
 public static class MarkdownCommandHelpProvider
 {
-    // Title line, optional blank line(s), then the opening ``` fence. Markdown
-    // authors commonly leave a blank line between the H3 heading and the fence;
-    // the previous tighter `\s*\r?\n```` form silently dropped every example in
-    // those files.
-    private static readonly Regex ExampleRegex = new(
-        @"###\s*(?<title>[^\r\n]+?)[ \t]*\r?\n(?:[ \t]*\r?\n)*```(?<lang>[a-zA-Z0-9_-]*)[ \t]*\r?\n(?<command>[\s\S]*?)\r?\n```",
-        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
-
     /// <summary>
     /// Loads help markdown for an extension + command key, or <see cref="MarkdownCommandHelp.Empty"/> if no file exists.
     /// </summary>
@@ -63,27 +53,18 @@ public static class MarkdownCommandHelpProvider
         // happens in the help tool.
         var (frontmatter, body) = FrontmatterParser.Parse(content);
         var summary = frontmatter.Summary;
-        var description = GetField(body, "Description");
+        // Shared parser: keeps runtime view aligned with MarkdownStructureValidator.
+        var description = MarkdownHelpParser.GetField(body, "Description");
 
         var examples = new List<MarkdownExample>();
-        foreach (Match match in ExampleRegex.Matches(body))
+        foreach (var parsed in MarkdownHelpParser.EnumerateExamples(body))
         {
-            var title = match.Groups["title"].Value.Trim();
-            var language = match.Groups["lang"].Value.Trim();
-            var command = match.Groups["command"].Value.Trim();
-            if (string.IsNullOrWhiteSpace(command))
-            {
-                continue;
-            }
+            var isPowerShell =
+                parsed.Language.Equals("powershell", StringComparison.OrdinalIgnoreCase)
+                || parsed.Language.Equals("pwsh", StringComparison.OrdinalIgnoreCase)
+                || parsed.Language.Equals("ps", StringComparison.OrdinalIgnoreCase);
 
-            var isPowerShell = language.Equals("powershell", StringComparison.OrdinalIgnoreCase)
-                || language.Equals("pwsh", StringComparison.OrdinalIgnoreCase)
-                || language.Equals("ps", StringComparison.OrdinalIgnoreCase);
-
-            examples.Add(new MarkdownExample(
-                string.IsNullOrWhiteSpace(title) ? "Example" : title,
-                command,
-                isPowerShell));
+            examples.Add(new MarkdownExample(parsed.Title, parsed.Command, isPowerShell));
         }
 
         return new MarkdownCommandHelp(summary, description, examples);
@@ -104,7 +85,7 @@ public static class MarkdownCommandHelpProvider
         var repoRoot = FindRepoRoot();
         if (repoRoot != null)
         {
-            var source = Path.Combine(repoRoot, "src", "CLI", "Help", "Docs", folder, fileName);
+            var source = Path.Combine(HelpPaths.CliHelpDocsRoot(repoRoot), folder, fileName);
             if (File.Exists(source))
             {
                 return source;
@@ -135,48 +116,5 @@ public static class MarkdownCommandHelpProvider
         }
 
         return null;
-    }
-
-    /// <summary>
-    /// Reads a <c>Name: value</c> body field, including any continuation lines that follow.
-    /// A continuation line is any non-blank, non-heading, non-fence line that comes after
-    /// the field's first line — matches the PR-#226 authoring convention demonstrated in
-    /// the structure-validator tests (`Description:` followed by indented continuation).
-    /// </summary>
-    private static string GetField(string content, string name)
-    {
-        var lines = content.Split('\n');
-        var prefix = name + ":";
-        for (var i = 0; i < lines.Length; i++)
-        {
-            var line = lines[i].TrimEnd('\r').TrimStart();
-            if (!line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            var builder = new System.Text.StringBuilder(line[(prefix.Length)..].Trim());
-            for (var j = i + 1; j < lines.Length; j++)
-            {
-                var next = lines[j].TrimEnd('\r');
-                if (string.IsNullOrWhiteSpace(next)
-                    || next.TrimStart().StartsWith("#", StringComparison.Ordinal)
-                    || next.TrimStart().StartsWith("```", StringComparison.Ordinal))
-                {
-                    break;
-                }
-
-                if (builder.Length > 0)
-                {
-                    builder.Append(' ');
-                }
-
-                builder.Append(next.Trim());
-            }
-
-            return builder.ToString();
-        }
-
-        return string.Empty;
     }
 }

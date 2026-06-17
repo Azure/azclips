@@ -4,12 +4,12 @@ This guide explains how to author and test help for CLI commands and PowerShell 
 
 CLI help and PowerShell help are authored separately, in different folders, with different formats:
 
-| Surface    | Source                                       | Format                                                                    | Tool                                 |
-| ---------- | -------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------ |
-| CLI        | `src/CLI/Help/Docs/<extension>/<command>.md` | Cirrus markdown (frontmatter + bash fences)                               | `Cirrus.Help.Tool` (validators)      |
-| PowerShell | `src/PS/<Module>/help/<Cmdlet>.md`           | PlatyPS schema 2024-05-01 (current `Microsoft.PowerShell.PlatyPS` schema) | `Microsoft.PowerShell.PlatyPS` 1.0.1 |
+| Surface    | Source                                  | Format                                                                    | Tool                                 |
+| ---------- | --------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------ |
+| CLI        | `src/CLI/Help/Docs/<verb>/<command>.md` | Cirrus markdown (frontmatter + bash fences)                               | `Cirrus.Help.Tool` (validators)      |
+| PowerShell | `src/PS/<Module>/help/<Cmdlet>.md`      | PlatyPS schema 2024-05-01 (current `Microsoft.PowerShell.PlatyPS` schema) | `Microsoft.PowerShell.PlatyPS` 1.0.1 |
 
-The CLI folder name is the **extension name** (`compute`, `config`, `login`, `resources`, `extension`) — it is the value passed to `MarkdownCommandHelpProvider.Get(extensionName, commandKey)`. The first CLI token shown in invocations (`azv2 vm …`, `azv2 group …`) can differ from the extension name; that mapping is owned by `CommandGroupIndex` / the scaffolder's `cliGroupByExtension` table and is independent of the folder layout.
+The CLI folder name is the **verb** — the first user-facing CLI token (`vm`, `disk`, `group`, `login`, `config`, `extension`, `deployment`). Verbs are declared by `[ExtensionVerb("...")]` attributes on the extension's `IExtensionIndex` class; one extension may contribute several verbs (e.g. `Compute` owns both `vm` and `disk`). The scaffolder and validators walk `IExtensionIndex.GetVerbs()` so the layout stays in sync with code automatically.
 
 Both surfaces are validated and built by:
 
@@ -19,21 +19,21 @@ Both surfaces are validated and built by:
 
 ## Quick Start — CLI
 
-1. **Scaffold templates** for an extension's CLI commands. Replace `<extension>` with the extension name you're authoring help for (e.g. `compute`, `config`, `login`, `resources`, `extension`):
+1. **Scaffold templates** for a verb's CLI commands. Replace `<verb>` with the user-facing CLI noun you're authoring help for (e.g. `vm`, `disk`, `group`, `login`, `config`, `extension`):
 
     ```powershell
-    dotnet run --project tools/Help/Cirrus.Help.Tool -- --scaffold <extension>
+    dotnet run --project tools/Help/Cirrus.Help.Tool -- --scaffold <verb>
     ```
 
     Example:
 
     ```powershell
-    dotnet run --project tools/Help/Cirrus.Help.Tool -- --scaffold compute
+    dotnet run --project tools/Help/Cirrus.Help.Tool -- --scaffold vm
     ```
 
-    This walks `IExtensionIndex.GetCommandTable(ClientType.CLI)` and emits one `.md` stub per command into `src/CLI/Help/Docs/<extension>/`. Existing files are left untouched (idempotent).
+    This walks `IExtensionIndex.GetCommandTable(ClientType.CLI)` for the extension that contributes the verb, strips the verb prefix from each routed key, and emits one `.md` stub per command into `src/CLI/Help/Docs/<verb>/`. Existing files are left untouched (idempotent).
 
-2. **Fill in `summary`, `Description`, and at least one bash example.** Required parameters are pre-inlined into the example as `--<name> <type>` placeholders — replace with realistic values or keep as documented placeholders.
+2. **Fill in `summary`, `Description`, and at least one bash example.** The scaffolder emits `TODO` markers in `summary` and `Description`, and an example pre-inlined with `--<name> <type>` shape placeholders. Both shapes fail CI on purpose — replace them with prose and a real, runnable invocation before merging. See [Placeholder rules](#placeholder-rules) below for what the validators accept inside example fences.
 
 3. **Validate:**
 
@@ -47,12 +47,13 @@ Both surfaces are validated and built by:
 1. **Scaffold per-cmdlet markdown** with PlatyPS:
 
     ```powershell
-    .\build\New-PSHelpMarkdown.ps1 -Module Compute
+    .\build\New-PSHelpMarkdown.ps1                  # all modules under src/PS/
+    .\build\New-PSHelpMarkdown.ps1 -Module Compute  # one module
     ```
 
-    This imports `Microsoft.Azure.Cirrus.Cmdlets.Compute.dll` in a child pwsh process and runs `New-MarkdownCommandHelp` against the imported module, writing to `src/PS/Compute/help/`. Existing files are not overwritten.
+    The script discovers modules from `src/PS/<Name>/<Name>.psd1` at runtime — add a new module folder with a manifest and the next run picks it up automatically (no script edits). Tab-completion on `-Module` enumerates the same set; an unknown name fails fast with the available list. The script imports the module's compiled cmdlet DLL in a child pwsh process and runs `New-MarkdownCommandHelp` against it, writing to `src/PS/<Module>/help/`. Existing files are not overwritten.
 
-2. **Hand-fill** SYNOPSIS, DESCRIPTION, and EXAMPLES. Our post-processor (`Convert-PlatyPSPlaceholders` in [build/New-PSHelpMarkdown.ps1](../../build/New-PSHelpMarkdown.ps1)) replaces PlatyPS's `{{ Fill in the Synopsis }}` placeholders with `TODO -` markers and seeds at least one fenced example using the cmdlet's mandatory parameters — search for `TODO` in the new markdown and fill those in.
+2. **Hand-fill** SYNOPSIS, DESCRIPTION, and EXAMPLES. Our post-processor (`Convert-PlatyPSPlaceholders` in [build/New-PSHelpMarkdown.ps1](../../build/New-PSHelpMarkdown.ps1)) replaces PlatyPS's `{{ Fill in the Synopsis }}` placeholders with `TODO -` markers and seeds at least one fenced example using the cmdlet's mandatory parameters shaped as `-Param <typename>`. Both shapes fail CI on purpose — search for `TODO` and replace each marker plus every `<typename>` placeholder in the example fence with real content. See [Placeholder rules](#placeholder-rules) below for the documented escape hatches.
 
 3. **Validate + generate MAML:**
 
@@ -65,27 +66,29 @@ Both surfaces are validated and built by:
 ## File Structure
 
 ```
-src/CLI/Help/Docs/             # CLI markdown — Cirrus format
-├── compute/
+src/CLI/Help/Docs/             # CLI markdown — Cirrus format, one folder per verb
+├── vm/                        # azv2 vm …  (Compute extension)
 │   ├── index.md               # azv2 vm --help
 │   ├── create.md              # azv2 vm create --help
 │   ├── list.md
 │   ├── show.md
 │   └── delete.md
-├── config/, login/, resources/, extension/
+├── disk/                      # azv2 disk … (also Compute — multi-verb extension)
+├── group/                     # azv2 group … (Resources)
+├── login/, config/, extension/, deployment/
 
-src/PS/                        # PowerShell — PlatyPS format
+src/PS/                        # PowerShell — PlatyPS format, one folder per module
 ├── Compute/
 │   ├── help/                  # Author here
 │   │   ├── New-VM.md
 │   │   ├── Get-VM.md
-│   │   └── ...
+│   │   └── …
 │   └── en-US/                 # Generated by build.ps1 — do not hand-edit
 │       └── Microsoft.Azure.Cirrus.Cmdlets.Compute.dll-Help.xml
 ├── Config/, Login/, Resources/
 ```
 
-The CLI folder name (`compute`, `config`, `login`, `resources`, `extension`) is the **extension name**, matching the value passed to `MarkdownCommandHelpProvider.Get(extensionName, commandKey)`. The first CLI token a user types (`azv2 vm …`, `azv2 group …`) can differ; that mapping is owned by [`CommandGroupIndex.cs`](../../src/CLI/Parser/CommandGroupIndex.cs) and the scaffolder's `cliGroupByExtension` table.
+The CLI folder name is the **verb** (the first user-facing CLI token: `vm`, `disk`, `group`, `login`, `config`, `extension`, `deployment`). Verbs are declared by `[ExtensionVerb("...")]` attributes on the extension's `IExtensionIndex` class and surface through `IExtensionIndex.GetVerbs()`. One extension may contribute several verbs — for example, `Compute` owns both `vm` and `disk`. `MarkdownCommandHelpProvider.Get(verb, commandKey)` and the scaffolder both use these verb names directly, so the on-disk layout stays in lockstep with code with no separate mapping table.
 
 ## CLI Markdown Format
 
@@ -196,14 +199,23 @@ Legacy `schema: 2.0.0` markdown is still accepted as input by PlatyPS 1.0.1 (`Im
 
 `Cirrus.Help.Tool` validates all examples at build time against the live extension assemblies and cmdlet binaries.
 
+### Markdown structure (both surfaces)
+
+These rules apply uniformly to CLI markdown under `src/CLI/Help/Docs/` and PowerShell markdown under `src/PS/<Module>/help/`:
+
+- **`MD_TodoPlaceholder`** (CLI) / **`PS_TodoPlaceholder`** (PS) — the scaffolder seeds `TODO -` markers in `summary`, `Description`, and example bodies (CLI) and across `SYNOPSIS`, `DESCRIPTION`, parameter blocks, and example bodies (PS). Any remaining `TODO` token in author-owned content is an error. Replace each marker with real prose. Distinct ProblemIds make CLI vs PS failures greppable in build logs.
+- **`CLI_ExamplePlaceholder`** / **`PS_ExamplePlaceholder`** — see [Placeholder rules](#placeholder-rules) below.
+
 ### CLI fences (`bash` / `sh`) — `src/CLI/Help/Docs/`
 
 Validation errors when:
 
-- An `azv2 ...` line uses an unregistered group (e.g. `azv2 widget create`).
+- An `azv2 ...` line uses an unregistered verb (e.g. `azv2 widget create`).
 - The remaining tokens don't resolve to a routed command.
 - A `--flag` (or short `-x`) isn't declared on the resolved command and isn't one of the documented globals (`--help`/`-h`, `--debug`, `--output`).
 - A flag value doesn't match the declared `ParameterMetadata.Type` or isn't in `AllowedValues`.
+- A parameter declared `IsRequired: true` on the routed command is missing from the invocation (`CLI_L4_MissingRequiredFlag`). Help-flag invocations (`azv2 vm create --help`) are exempt.
+- An example fence contains an `<angle-bracket>` placeholder of any shape (`CLI_ExamplePlaceholder`). See [Placeholder rules](#placeholder-rules) for the accepted escape hatches.
 
 ### PowerShell fences (`powershell` / `pwsh`) — `src/PS/<Module>/help/`
 
@@ -217,21 +229,43 @@ Validation rules (full list, see Troubleshooting below for fixes):
 - **PSL6** — a literal value bound to a `Guid`- or enum-typed parameter doesn't parse.
 - **PSL7** — a fence under `## EXAMPLES` does not invoke the cmdlet whose name matches the file (e.g. an `azv2 …` line in `Connect-CirrusAccount.md`).
 - **PSL8** — the cmdlet help file has no fenced PowerShell example under `## EXAMPLES`.
+- **PSL9** — a cmdlet declared in `<Module>.psd1`'s `CmdletsToExport` has no matching `help/<Verb-Noun>.md` file.
+- **PSL10** — a module manifest declares `CmdletsToExport` but the module folder has no `help/` directory at all (supersedes the per-cmdlet PSL9 cascade).
+- **PSL11** — a `help/<File>.md` exists but no cmdlet of that name is exported from the manifest (warning, not error — may be in-progress work).
+- **PSL12** — a PlatyPS `{{ Fill ... }}` placeholder remains in the markdown (e.g. `{{ Fill in the Description }}`, `{{ Fill -Param Description }}`). The PlatyPS-evergreen `{{Insert list of aliases}}` boilerplate is exempt.
+- **`PS_ExamplePlaceholder`** — an `<angle-bracket>` placeholder appears inside an example fence. PlatyPS-required `<string>`, `<CommonParameters>`, etc. inside `## SYNTAX` are not scanned. See [Placeholder rules](#placeholder-rules) below.
 
-Only fences inside `## EXAMPLES` are scanned, and only when the language tag is `powershell`, `pwsh`, `ps`, or empty. Fences in `## SYNTAX` / `## PARAMETERS` (PlatyPS pseudocode) are deliberately ignored.
+Only fences inside `## EXAMPLES` are scanned, and only when the language tag is `powershell`, `pwsh`, `ps`, or empty. Fences in `## SYNTAX` / `## PARAMETERS` (PlatyPS pseudocode) are deliberately ignored. PSL9–PSL11 walk the manifest ↔ filesystem contract directly and don't depend on fence content.
+
+### Placeholder rules
+
+`<angle-bracket>` placeholders inside example fences (`bash` / `sh` for CLI, `powershell` / `pwsh` for PS) are rejected. Type-name shapes (`<string>`, `<int>`, `<guid>`) communicate nothing useful to the reader, and domain-shaped placeholders (`<my-rg>`, `<subscription-id>`) are no better — both push validation burden onto users. Author runnable examples instead.
+
+Accepted in fences:
+
+- Realistic literal values: `myrg`, `eastus`, `Standard_D2s_v5`, `azureuser`.
+- All-zero sentinel GUID for any subscription/tenant/resource id: `00000000-0000-0000-0000-000000000000`.
+- Shell variables: `$rg`, `${RG_VAR}`, `$env:LOCATION`, `$script:foo` (PS).
+- Splatted hashtables in PowerShell: `Get-Cirrus @params` skips parameter validation entirely.
+
+Rejected in fences:
+
+- Type-name placeholders: `<string>`, `<int>`, `<guid>`, `<bool>`.
+- Domain placeholders: `<my-rg>`, `<subscription-id>`, `<name>`, `<location>`.
+
+Prose outside fences is not scanned — you can still mention `<key>=<value>` in a `Description:` paragraph if it aids readability.
 
 ### Conventions
 
 - Use canonical kebab-case for CLI flags (`--subscription-id`, not `--subscriptionId`).
 - Both `--flag value` and `--flag=value` are accepted.
-- Placeholders pass through unchanged: `<name>`, `<my-rg>`, `$var`, `${var}`, all-zero GUID `00000000-0000-0000-0000-000000000000`.
 - Splatted PowerShell commands (`Get-Cirrus @params`) skip parameter validation.
 
 ## Runtime Behavior
 
 ### CLI Help
 
-`azv2 <group> <command> --help` reads markdown from `<azv2-base>/help/<extension>/<command-key>.md`. The build copies `src/CLI/Help/Docs/` → `artifacts/<Config>/Core.Cli/help/` so help works from a local build, and `MarkdownCommandHelpProvider` parses Summary/Description/examples on demand. If the packaged file is missing, the provider walks up to `cirrus.slnx` and reads the markdown straight from `src/CLI/Help/Docs/<extension>/` — dev-loop fallback, no rebuild required.
+`azv2 <verb> <command> --help` reads markdown from `<azv2-base>/help/<verb>/<command-key>.md`. The build copies `src/CLI/Help/Docs/` → `artifacts/<Config>/Core.Cli/help/` so help works from a local build, and `MarkdownCommandHelpProvider` parses Summary/Description/examples on demand. If the packaged file is missing, the provider walks up to `cirrus.slnx` and reads the markdown straight from `src/CLI/Help/Docs/<verb>/` — dev-loop fallback, no rebuild required.
 
 ### PowerShell Help
 
@@ -260,9 +294,10 @@ This:
 2. Runs `build/Install-BuildDependencies.ps1` (pins `Microsoft.PowerShell.PlatyPS` to `1.0.1` if missing).
 3. Runs `Cirrus.Help.Tool`:
     - `MarkdownStructureValidator` — frontmatter shape.
-    - `HelpCompletenessValidator` — every command in `IExtensionIndex` has a markdown file.
+    - `HelpCompletenessValidator` — every CLI command in `IExtensionIndex` has a markdown file.
     - `ExampleSyntaxValidator` — CLI fences resolve.
-    - `PowerShellExampleSyntaxValidator` — PS fences resolve against cmdlet binaries.
+    - `PowerShellExampleSyntaxValidator` — PS fences resolve against cmdlet binaries (PSL1–PSL8, PSL12, `PS_TodoPlaceholder`, `PS_ExamplePlaceholder`).
+    - `PsCompletenessValidator` — every cmdlet in `<Module>.psd1`'s `CmdletsToExport` has a `help/<Verb-Noun>.md` file (PSL9–PSL11).
     - Emits `artifacts/help/<extension>/HelpManifest.json` and `artifacts/help/HelpIndex.json`.
 4. Runs `Import-MarkdownCommandHelp | Export-MamlCommandHelp` per module → `src/PS/<Module>/en-US/<dll>-Help.xml` (renamed from PlatyPS's default `<Module>-Help.xml` to match the `external help file:` frontmatter), then copies into the staged `artifacts/Debug/PS/<Module>/en-US/`.
 
@@ -271,14 +306,14 @@ The build fails non-zero if any validator emits errors.
 ## Scaffolding New Extensions
 
 ```powershell
-# CLI markdown stubs from IExtensionIndex
-dotnet run --project tools/Help/Cirrus.Help.Tool -- --scaffold <extension>
+# CLI markdown stubs for one verb at a time (the verb's owning extension is auto-resolved)
+dotnet run --project tools/Help/Cirrus.Help.Tool -- --scaffold <verb>
 
 # PS markdown stubs from cmdlet binary
 .\build\New-PSHelpMarkdown.ps1 -Module <Module>
 ```
 
-Both are idempotent: existing files are skipped. Run them once after adding new commands or cmdlets, then hand-fill the templates.
+Both are idempotent: existing files are skipped. Run them once after adding new commands or cmdlets, then hand-fill the templates. Note: the CLI scaffolder operates on a verb (`vm`, `disk`, `group`), not an extension. Multi-verb extensions (e.g. `Compute`, which owns both `vm` and `disk`) require one `--scaffold` call per verb.
 
 ## Testing Help
 
@@ -301,7 +336,7 @@ dotnet test tools/Help/Cirrus.Help.Tool.Tests/Cirrus.Help.Tool.Tests.csproj
 ## Best Practices
 
 1. **Keep examples concise** — show the command and key arguments, not every flag.
-2. **Use realistic placeholders** — all-zero GUID for any subscription/tenant/resource id, `<my-rg>` for free-form names.
+2. **Use realistic, runnable values** — `myrg` for resource group names, `eastus` for locations, all-zero GUID (`00000000-0000-0000-0000-000000000000`) for any subscription/tenant/resource id. Angle-bracket placeholders (`<my-rg>`, `<string>`) are rejected by `CLI_ExamplePlaceholder` / `PS_ExamplePlaceholder` — see [Placeholder rules](#placeholder-rules).
 3. **One example per task** — "Login with subscription ID", not "All ways to login".
 4. **Edit markdown, never code** — no `[Summary]` attributes, no inline help strings in processors.
 5. **Run the validators locally** — `.\build\build.ps1 -GenerateHelpArtifacts` runs the same pipeline CI runs.
@@ -321,11 +356,20 @@ dotnet test tools/Help/Cirrus.Help.Tool.Tests/Cirrus.Help.Tool.Tests.csproj
 - Ensure `### Example Title` precedes the code block.
 - Verify the markdown filename matches the canonical command key (`group create` → `create.md` inside `src/CLI/Help/Docs/group/`).
 
-**Build fails with `CLI_L1_*` / `CLI_L2_*` / `CLI_L3_*` errors:**
+**Build fails with `CLI_L1_*` / `CLI_L2_*` / `CLI_L3_*` / `CLI_L4_*` errors:**
 
 - `L1`: command path doesn't resolve. Cross-check against `ExtensionIndex.cs`.
 - `L2`: unknown flag. Check the canonical name (kebab-case).
-- `L3`: value doesn't match the declared type. Use a placeholder (`<name>`, `$var`, all-zero GUID).
+- `L3`: value doesn't match the declared type. Substitute the all-zero GUID for ids, a real string literal (`eastus`, `myrg`), or a shell variable (`$rg`). Angle-bracket placeholders are no longer accepted — see `CLI_ExamplePlaceholder`.
+- `CLI_L4_MissingRequiredFlag`: an `IsRequired: true` parameter on the routed command isn't bound in the invocation. Add the missing `--flag`. Help-flag invocations (`azv2 vm create --help`) are exempt.
+
+**Build fails with `MD_TodoPlaceholder` / `PS_TodoPlaceholder`:**
+
+- The scaffolder seeded `TODO -` markers in `summary`, `Description`, example titles, or example bodies. Search the file for `TODO` and replace each marker with real prose. PowerShell scaffolds also seed the `OUTPUTS` section with a `TODO - describe what <cmdlet> does` line — fill that in too.
+
+**Build fails with `CLI_ExamplePlaceholder` / `PS_ExamplePlaceholder`:**
+
+- An example fence contains an `<angle-bracket>` placeholder (`<string>`, `<my-rg>`, `<subscription-id>`, etc.). Replace each with a realistic literal (`eastus`, `myrg`, `Standard_D2s_v5`), the all-zero sentinel GUID for ids, or a shell variable (`$rg`, `${RG_VAR}`). Splatted PowerShell hashtables (`Get-Cirrus @params`) are also accepted. See [Placeholder rules](#placeholder-rules) for the full list.
 
 **Build fails with `PSL1_*` / `PSL2_*` errors:**
 
@@ -337,7 +381,7 @@ dotnet test tools/Help/Cirrus.Help.Tool.Tests/Cirrus.Help.Tool.Tests.csproj
 - `PSL3` (missing required parameter): the cmdlet declares the parameter as `Mandatory = true` in `AllParameterSets`. Add the missing flag, or — if the example splatts (`@params`) — that automatically suppresses the check.
 - `PSL4` (duplicate parameter): the same parameter (or one of its aliases) is bound twice on the same invocation. Remove the duplicate.
 - `PSL5` (unassigned variable): a `$variable` is read inside the fence but never assigned. Either assign it earlier in the same fence (`$rg = "my-rg"`), use a drive-qualified form (`$env:NAME`, `$script:foo`), or splat (`@params`) — the validator skips splatted reads.
-- `PSL6` (invalid parameter value): a literal value bound to a `Guid`- or enum-typed parameter does not parse. Substitute the all-zero GUID, an enum member name, or a placeholder like `<your-id>` / `{guid}` / a `$variable`. Variable, sub-expression, and interpolated-string values are not checked.
+- `PSL6` (invalid parameter value): a literal value bound to a `Guid`- or enum-typed parameter does not parse. Substitute the all-zero GUID (`00000000-0000-0000-0000-000000000000`), an enum member name, or a `$variable`. Variable, sub-expression, and interpolated-string values are not checked. Angle-bracket placeholders (`<guid>`, `<your-id>`) are rejected by `PS_ExamplePlaceholder`.
 
 **Build fails with `PSL7_ExampleMustInvokeDocumentedCmdlet`:**
 
@@ -348,6 +392,16 @@ dotnet test tools/Help/Cirrus.Help.Tool.Tests/Cirrus.Help.Tool.Tests.csproj
 
 - The cmdlet help file has zero fenced code blocks under `## EXAMPLES`. Empty `### <Title>` headings are not enough — they render as a blank section in `Get-Help -Examples`. PlatyPS-scaffolded stubs land here when an author hasn't filled them in.
 - Fix: add at least one `### <Title>` + fenced `powershell` block that demonstrates the cmdlet.
+
+**Build fails with `PSL9_MissingHelpFile` / `PSL10_MissingHelpFolder` / `PSL11_OrphanedHelpFile`:**
+
+- `PSL9` (missing help file): a cmdlet declared in `<Module>.psd1`'s `CmdletsToExport` has no matching `help/<Verb-Noun>.md`. Run `.\build\New-PSHelpMarkdown.ps1 -Module <Module>` to scaffold the missing file (existing files are skipped), then author it.
+- `PSL10` (missing help folder): the manifest declares cmdlets but the module folder has no `help/` directory at all. Same fix — the scaffolder creates the folder. PSL10 supersedes the per-cmdlet PSL9 cascade so the build log isn't drowned.
+- `PSL11` (orphaned help file): a `.md` file exists for a cmdlet that's no longer in `CmdletsToExport`. This is a warning, not an error — it covers in-progress drafts. To resolve: either add the cmdlet to the manifest or delete the file. Common cause: the cmdlet was renamed/removed and the help file was forgotten.
+
+**Build fails with `PSL12_FillPlaceholder`:**
+
+- A PlatyPS `{{ Fill ... }}` placeholder remains in the markdown (e.g. `{{ Fill in the Description }}`, `{{ Fill -SubscriptionId Description }}`, `{{ Fill in the NOTES }}`). PlatyPS seeds these when the cmdlet binary lacks the corresponding metadata; replace each with real prose. The PlatyPS-evergreen `{{Insert list of aliases}}` line is exempt and may stay.
 
 **Note on fence scanning:** the PowerShell validator only walks fences inside `## EXAMPLES` and only when the language tag is `powershell`, `pwsh`, `ps`, or empty (PlatyPS's default). Fences in `## SYNTAX`, `## PARAMETERS`, or any other section are deliberately ignored — those are PlatyPS pseudocode (`<String>` placeholders, YAML metadata) and are not real PowerShell.
 

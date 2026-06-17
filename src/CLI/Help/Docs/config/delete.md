@@ -10,11 +10,11 @@ Description: Remove a configuration setting by key. Once deleted, the setting re
 ### Delete a configuration setting
 
 ```bash
-azv2 config delete custom.mykey
+azv2 config delete --key custom.mykey
 ```
 
 ### Force delete without validation
 
 ```bash
-azv2 config delete custom.mykey --force
+azv2 config delete --key custom.mykey --force
 ```

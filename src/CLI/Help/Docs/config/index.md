@@ -10,7 +10,7 @@ Description: View, set, update, or delete configuration values used by Cirrus. C
 ### Get a configuration value
 
 ```bash
-azv2 config get output.format
+azv2 config get --key output.format
 ```
 
 ### List all configuration settings
@@ -22,5 +22,5 @@ azv2 config list
 ### Set a configuration value
 
 ```bash
-azv2 config set output.format json
+azv2 config set --key output.format --value json
 ```
