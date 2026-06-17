@@ -5,6 +5,7 @@ using Core.Cli.Exceptions;
 using Core.Cli.Help;
 using Core.Cli.Parser;
 using Core.Cli.Telemetry;
+using Core.Configuration.Options;
 using Core.Engine;
 using Core.Extensions;
 using Core.Runtime;
@@ -271,10 +272,21 @@ public class Program
 
     private static async Task<int> TryAgentFallbackAsync(string[] args, string? errorText)
     {
-        // Global disable switch. Set CIRRUS_AGENT_DISABLED=1 to keep the
-        // original classic error and skip the agent fallback entirely.
-        if (Environment.GetEnvironmentVariable("CIRRUS_AGENT_DISABLED") == "1")
+        // Global enable switch: config `agent.enabled` (off by default for PP).
+        // The user opts in with `azv2 config set --key agent.enabled --value true`.
+        // Fail-safe: if config can't be read, treat as disabled and surface the
+        // original error rather than spawning the agent on an unknown state.
+        try
         {
+            var config = CirrusServiceProvider.GetRequiredService<IConfigurationService>();
+            if (!config.GetConfiguration<AgentOptions>().Enabled)
+            {
+                return 1;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.Debug($"agent fallback skipped: agent.enabled unavailable ({ex.Message})");
             return 1;
         }
 
@@ -306,8 +318,6 @@ public class Program
             };
             psi.Environment["CIRRUS_IN_AGENT_MODE"] = "1";
             psi.ArgumentList.Add("--agent-mode");
-            psi.ArgumentList.Add("--entrypoint");
-            psi.ArgumentList.Add("classic");
             psi.ArgumentList.Add("--failed-command");
             psi.ArgumentList.Add(JoinShellQuoted(args));
             if (!string.IsNullOrWhiteSpace(errorText))
