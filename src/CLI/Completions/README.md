@@ -30,14 +30,9 @@ The completion tree structure:
 . .\bin\azv2.completions.ps1
 ```
 
-### Bash
-
-```bash
-# Build solution + generate completion data
-pwsh ./build/build.ps1
-
-# Load completions into current session
-source ./bin/azv2.completions.bash
+Now press Tab after `azv2 ` to see suggestions:
+```powershell
+azv2 group <Tab>
 ```
 
 ### zsh
@@ -53,8 +48,7 @@ source ./bin/azv2.completions.zsh
 ```
 
 Now press Tab after `azv2 ` to see suggestions:
-
-```text
+```zsh
 azv2 group <Tab>
 ```
 
