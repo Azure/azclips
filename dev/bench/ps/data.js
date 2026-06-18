@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781745795818,
+  "lastUpdate": 1781759616043,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus PS Benchmarks": [
@@ -966,6 +966,48 @@ window.BENCHMARK_DATA = {
             "value": 16105420.2,
             "unit": "ns",
             "range": "± 1902680.6276405666"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yangan@microsoft.com",
+            "name": "YangAn-microsoft",
+            "username": "YangAn-microsoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b4f4d6152d3d63130e71ae7ed6f95e33fbcf16ec",
+          "message": "feat(resources): add resource group deployment what-if (ARM + Bicep, LRO) (#271)\n\nAdds `deployment group what-if` (`New-ResourceGroupDeploymentWhatIf` /\n`azv2 deployment group what-if`), the second half of the original #261\nsplit. Foundation PR #262 has merged; this is the follow-up.\n\n## What it does\n- ARM `POST .../deployments/{name}/whatIf?api-version=2025-04-01`, an\nLRO returning a preview change list.\n- Mirrors the create command's Processor/Orchestrator split.\n- Shared template/parameter builders were extracted into\n`DeploymentOrchestratorBase` (the create orchestrator was reparented\nonto it, behavior-preserving).\n\n## Surface\n- **PS cmdlet** `New-ResourceGroupDeploymentWhatIf` — no `ShouldProcess`\n(read-only preview).\n- **CLI** `deployment group what-if`.\n- **Params** mirror create (`template-uri`/`file`/`spec-id`,\n`query-string`, `parameters-uri`/`file`, `mode`, `parameter`) PLUS\nwhat-if-specific `-ResultFormat`/`--result-format`\n(`FullResourcePayloads` default / `ResourceIdOnly`) and\n`-ValidationLevel`/`--validation-level`.\n- **NO rollback** (not applicable to what-if).\n\n## Behavior\n- Always polls the what-if LRO to terminal state (Location-only —\nAzure-AsyncOperation returns only `{status}` without the change list).\n- A what-if that fails (terminal Failed LRO, or 200 with `result.error`)\nis surfaced as a thrown failure, never as \"no changes\".\n\n## Command surface\nExposed as `azv2 deployment group what-if` now that the upstream CLI\nconvention change registers `deployment` as a real command group. The\nhelp-tool multi-group limitation noted for foundation PR #262 has since\nbeen resolved upstream, so no `azv2 group group what-if` workaround is\nneeded. The CLI help doc lives at\n`src/CLI/Help/Docs/deployment/group-what-if.md` and its examples use the\nreal `azv2 deployment group what-if` form.\n\n## Updated after rebase onto main\nRebased onto latest `Azure/cirrus:main` (HEAD `cd061c2f`):\n- **Command surface** is now `azv2 deployment group what-if` now that\n`deployment` is a registered command group (the prior `azv2 group group\nwhat-if` workaround is gone; PowerShell\n`New-ResourceGroupDeploymentWhatIf` unchanged).\n- **Telemetry** migrated to `ITelemetryService.StartRootActivity()` +\n`TagInvocation(...)` (replacing the removed `StartPowerShellActivity`\nAPI), mirroring the create cmdlet.\n- **Re-validated on latest main**: build 0 errors (3 pre-existing\nunrelated `GHCP001` warnings in `Agent/ChatAgent.cs`, not our delta);\nCli.Tests 213 passed / 0 failed / 4 skipped; offline reflection passed;\nhelp-validate exit 0 \"no issues\" (`deployment group create` +\n`deployment group what-if` present).\n\n## Validation\n- Build: 0 warnings / 0 errors.\n- Cli.Tests: 106 passed / 0 failed / 4 skipped.\n- help-validate: exit 0 \"no issues\" (`group create` + `group what-if`\ndocs present, no `CLI_L1_UnknownGroup`).\n- Offline reflection: 14/14.\n- Live Azure smoke (RG `cirrus-test-group-1`, run pre-rebase — logic\nunchanged by the clean rebase) CLI+PS: happy paths returned change\nlists; malformed-template / invalid-result-format / API-error cases\nfailed as expected; the API-error case threw a flattened error (never\n\"no changes\"); 0 unexpected. What-if is read-only — no resources\ncreated.\n\n## Deferred / follow-up\n- The 200+Succeeded+`result.error` branch is covered by the live\nAPI-error script but not yet by a unit test (Cli.Tests has no\norchestrator-level harness; the response injection point is `internal`\nand there's no fake `IEventPublisher`/`ProcessorContext` fixture —\nbuilding one is out of scope here).",
+          "timestamp": "2026-06-18T13:09:33+08:00",
+          "tree_id": "ebddd04a1fd33a40b3edf91e56a374a9982cb66b",
+          "url": "https://github.com/Azure/cirrus/commit/b4f4d6152d3d63130e71ae7ed6f95e33fbcf16ec"
+        },
+        "date": 1781759615957,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 22143079.2,
+            "unit": "ns",
+            "range": "± 1624816.7855326643"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 22461911.6,
+            "unit": "ns",
+            "range": "± 1720378.0659706166"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 21793184.2,
+            "unit": "ns",
+            "range": "± 2298254.1516389563"
           }
         ]
       }
