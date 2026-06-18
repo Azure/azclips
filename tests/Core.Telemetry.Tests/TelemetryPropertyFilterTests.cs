@@ -23,6 +23,7 @@ public class TelemetryPropertyFilterTests
         TelemetryTags.ModuleVersion,
         TelemetryTags.Parameter,
         TelemetryTags.SubscriptionId,
+        TelemetryTags.TenantId,
     };
 
     [Theory]
