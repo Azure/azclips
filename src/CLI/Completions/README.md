@@ -1,9 +1,9 @@
-# azv2 Tab Completion
+# az Tab Completion
 
 ## How It Works
 
-1. **Build time**: `build/build.ps1` runs `azv2 --completions`, which introspects all loaded extensions and outputs a JSON command tree to `bin/azv2.completions.json`.
-2. **Runtime**: Shell completion scripts (`.ps1`, `.bash`, `.zsh`) load the same JSON tree and register tab completion for `azv2`.
+1. **Build time**: `build/build.ps1` runs `az --completions`, which introspects all loaded extensions and outputs a JSON command tree to `bin/az.completions.json`.
+2. **Runtime**: Shell completion scripts (`.ps1`, `.bash`, `.zsh`) load the same JSON tree and register tab completion for `az`.
 
 The completion tree structure:
 
@@ -27,12 +27,12 @@ The completion tree structure:
 .\build\build.ps1
 
 # Load completions into current session
-. .\bin\azv2.completions.ps1
+. .\bin\az.completions.ps1
 ```
 
-Now press Tab after `azv2 ` to see suggestions:
+Now press Tab after `az ` to see suggestions:
 ```powershell
-azv2 group <Tab>
+az group <Tab>
 ```
 
 ### zsh
@@ -44,19 +44,19 @@ pwsh ./build/build.ps1
 # Load completions into current session
 autoload -U compinit
 compinit
-source ./bin/azv2.completions.zsh
+source ./bin/az.completions.zsh
 ```
 
-Now press Tab after `azv2 ` to see suggestions:
+Now press Tab after `az ` to see suggestions:
 ```zsh
-azv2 group <Tab>
+az group <Tab>
 ```
 
 ## Testing Completions Manually
 
 ```powershell
 # After loading the script, call the internal function directly:
-_Azv2GetCompletions "azv2 group " 11
+_AzGetCompletions "az group " 11
 ```
 
 ## Files
@@ -64,6 +64,6 @@ _Azv2GetCompletions "azv2 group " 11
 | File | Purpose |
 |---|---|
 | `CompletionGenerator.cs` | `--completions` handler; builds JSON tree from extension metadata |
-| `azv2.completions.ps1` | PowerShell completer; loads JSON + registers `TabExpansion2` override |
-| `azv2.completions.bash` | Bash completer (same JSON data source) |
-| `azv2.completions.zsh` | Native zsh completer using `compdef` (same JSON data source) |
+| `az.completions.ps1` | PowerShell completer; loads JSON + registers `TabExpansion2` override |
+| `az.completions.bash` | Bash completer (same JSON data source) |
+| `az.completions.zsh` | Native zsh completer using `compdef` (same JSON data source) |

@@ -9,7 +9,7 @@ namespace Core.Cli.Completions;
 
 /// <summary>
 /// Outputs a JSON completion tree built from ExtensionIndex metadata.
-/// Used by shell tab-completion scripts (e.g. azv2.completions.ps1).
+/// Used by shell tab-completion scripts (e.g. az.completions.ps1).
 /// </summary>
 internal static class CompletionGenerator
 {

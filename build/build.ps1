@@ -223,13 +223,13 @@ if (Test-Path $_cliProject) {
     $_completionsJson = dotnet run --no-build --project $_cliProject -- --completions 2>$null | Where-Object { $_ -match '^\s*\{' }
 }
 if ($_completionsJson) {
-    Write-Utf8NoBomFile -Path "$PSScriptRoot/../bin/azv2.completions.json" -Content ($_completionsJson -join '')
-    Write-Host "Generated bin/azv2.completions.json" -ForegroundColor Green
+    Write-Utf8NoBomFile -Path "$PSScriptRoot/../bin/az.completions.json" -Content ($_completionsJson -join '')
+    Write-Host "Generated bin/az.completions.json" -ForegroundColor Green
 }
 
 # Copy shell completion scripts from source to bin/
 $_completionsDir = "$PSScriptRoot/../src/CLI/Completions"
-foreach ($_script in @('azv2.completions.ps1', 'azv2.completions.bash', 'azv2.completions.zsh')) {
+foreach ($_script in @('az.completions.ps1', 'az.completions.bash', 'az.completions.zsh')) {
     $_src = Join-Path $_completionsDir $_script
     if (Test-Path $_src) {
         # Ensure shell scripts are emitted without BOM and with LF line endings.
