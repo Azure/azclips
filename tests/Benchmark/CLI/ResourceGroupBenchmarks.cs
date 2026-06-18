@@ -7,6 +7,8 @@ namespace Benchmark.CLI;
 
 public class ResourceGroupBenchmarks : CLIBenchmarkBase
 {
+    protected override IReadOnlyList<string> RequiredExtensions => new[] { "Resources" };
+
     [Benchmark(Description = "CLI: List RG")]
     public int ListResourceGroups()
     {
@@ -32,4 +34,3 @@ public class ResourceGroupBenchmarks : CLIBenchmarkBase
         return exitCode;
     }
 }
-
