@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781662737449,
+  "lastUpdate": 1781745795818,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus PS Benchmarks": [
@@ -924,6 +924,48 @@ window.BENCHMARK_DATA = {
             "value": 24138526.4,
             "unit": "ns",
             "range": "± 2790326.4813349885"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3d4e22ec556bd9ff7024708a16c12f67aff71af4",
+          "message": "{Core} Remove direct reference from Core.Agent.csproj to Core.Config.csproj (#292)\n\nAddresses architectural concerns from\nhttps://github.com/Azure/cirrus/pull/268\n\nhttps://github.com/Azure/cirrus/pull/268/changes#r3393152782",
+          "timestamp": "2026-06-18T11:19:41+10:00",
+          "tree_id": "b1d13a8ee93d5b43844cc6bbfb3d7be1cdbfc899",
+          "url": "https://github.com/Azure/cirrus/commit/3d4e22ec556bd9ff7024708a16c12f67aff71af4"
+        },
+        "date": 1781745795764,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 16469785.8,
+            "unit": "ns",
+            "range": "± 1902372.8204775478"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 16495842.6,
+            "unit": "ns",
+            "range": "± 2339842.7466912814"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 16105420.2,
+            "unit": "ns",
+            "range": "± 1902680.6276405666"
           }
         ]
       }
