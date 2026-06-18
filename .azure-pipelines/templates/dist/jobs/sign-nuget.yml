@@ -1,0 +1,70 @@
+parameters:
+- name: windows_pool
+  type: string
+  default: 'windows-latest'
+- name: SourceProject
+  type: string
+  default: 'public'
+- name: source_pipeline_name
+  type: string
+  default: 'cirrus-adhoc-build'
+- name: source_build_id
+  type: string
+  default: ''
+- name: source_artifact_name
+  type: string
+  default: 'Distribution_Final'
+- name: source_artifact_source
+  type: string
+  default: 'specific'
+
+jobs:
+- job: SignNuget
+  displayName: NuGet Placeholder Pass-Through
+  pool:
+    vmImage: ${{ parameters.windows_pool }}
+  steps:
+  - checkout: none
+  - ${{ if eq(parameters.source_artifact_source, 'current') }}:
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Unsigned Distribution Artifacts
+      inputs:
+        artifact: ${{ parameters.source_artifact_name }}
+        path: $(Pipeline.Workspace)/unsigned-all
+  - ${{ if ne(parameters.source_artifact_source, 'current') }}:
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Unsigned Distribution Artifacts
+      inputs:
+        source: specific
+        project: ${{ parameters.SourceProject }}
+        pipeline: ${{ parameters.source_pipeline_name }}
+        runVersion: specific
+        runId: ${{ parameters.source_build_id }}
+        artifact: ${{ parameters.source_artifact_name }}
+        path: $(Pipeline.Workspace)/unsigned-all
+  - pwsh: |
+      $ErrorActionPreference = 'Stop'
+      $sourceRoot = "$(Pipeline.Workspace)/unsigned-all"
+      $targetRoot = "$(Build.ArtifactStagingDirectory)/signed-nuget"
+      Remove-Item $targetRoot -Recurse -Force -ErrorAction SilentlyContinue
+      New-Item -ItemType Directory -Path $targetRoot -Force | Out-Null
+
+      $selected = Get-ChildItem -Path $sourceRoot -Recurse -File | Where-Object {
+        $_.Name -like 'Microsoft.Azure.Cirrus*.nupkg' -and $_.Name -notlike '*.snupkg'
+      } | Sort-Object Name
+
+      if (-not $selected) {
+        throw "No Cirrus NuGet release artifacts found under $sourceRoot (expected Microsoft.Azure.Cirrus*.nupkg)"
+      }
+
+      foreach ($asset in $selected) {
+        Copy-Item $asset.FullName -Destination (Join-Path $targetRoot $asset.Name) -Force
+      }
+      Write-Host "Collected $($selected.Count) NuGet artifact(s) for placeholder pass-through."
+    displayName: Collect NuGet Placeholder Artifacts
+  - task: PublishPipelineArtifact@1
+    displayName: Publish NuGet Placeholder Artifacts
+    inputs:
+      targetPath: $(Build.ArtifactStagingDirectory)/signed-nuget
+      artifact: signed-nuget
+      publishLocation: pipeline

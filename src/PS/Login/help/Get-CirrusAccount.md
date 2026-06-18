@@ -1,10 +1,10 @@
 ---
 document type: cmdlet
 external help file: Microsoft.Azure.Cirrus.Cmdlets.Login.dll-Help.xml
-HelpUri: ''
+HelpUri: ""
 Locale: en-US
 Module Name: Login
-ms.date: 06/03/2026
+ms.date: 06/16/2026
 PlatyPS schema version: 2024-05-01
 title: Get-CirrusAccount
 ---
@@ -17,7 +17,7 @@ Show the current Azure account context.
 
 ## SYNTAX
 
-### __AllParameterSets
+### \_\_AllParameterSets
 
 ```
 Get-CirrusAccount [<CommonParameters>]
@@ -26,7 +26,7 @@ Get-CirrusAccount [<CommonParameters>]
 ## ALIASES
 
 This cmdlet has the following aliases,
-  {{Insert list of aliases}}
+{{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -34,9 +34,9 @@ Show the current Azure account context.
 
 ## EXAMPLES
 
-### Show current account context
+### Show the current account context
 
-TODO - describe the example.
+Returns the persisted account information — subscription, tenant, and signed-in user — from the most recent `Connect-CirrusAccount` call. Returns `$null` when no account is connected.
 
 ```powershell
 Get-CirrusAccount
@@ -59,9 +59,6 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 Generated help for login.
 
-
 ## RELATED LINKS
-
-
 
 - [Online Version]()

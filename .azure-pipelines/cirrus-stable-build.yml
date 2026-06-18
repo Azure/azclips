@@ -1,0 +1,45 @@
+name: cirrus-stable-build-$(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger:
+  tags:
+    include:
+    - v*.*.*
+    exclude:
+    # Azure Pipelines tag filters treat v*.*.*.* broadly enough to suppress vX.Y.Z tags.
+    # v*.*.*.*? excludes four-component CI tags while preserving stable SemVer tags.
+    - v*.*.*.*?
+    - v*-*
+pr: none
+
+variables:
+- template: templates/variables.yml
+- template: templates/dist/variables/packaging.yml
+- template: templates/dist/variables/common.yml
+
+stages:
+- stage: Preflight
+  displayName: Preflight Checks
+  jobs:
+  - job: EnsureReleaseProject
+    displayName: Ensure Release Project Context
+    pool:
+      vmImage: $(ubuntu_pool)
+    steps:
+    - checkout: none
+    - template: templates/dist/steps/validate-release-project.yml
+      parameters:
+        error_message: cirrus-stable-build must run in the 'release' project.
+
+- template: templates/dist/stages/build-unsigned-distribution.yml
+  parameters:
+    artifact_version_override: auto
+    bump_type: patch
+    release_channel: stable
+    release_date: auto
+    pr_number: auto
+    sequence: auto
+    ubuntu_pool: ${{ variables.ubuntu_pool }}
+    windows_pool: ${{ variables.windows_pool }}
+    macos_arm64_pool: ${{ variables.macos_arm64_pool }}
+    macos_intel_pool: ${{ variables.macos_intel_pool }}
+    final_artifact_name: Distribution_Final

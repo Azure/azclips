@@ -4,6 +4,7 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Core.Abstractions;
+using Core.Cli.Help;
 
 namespace Cirrus.Help.Tool.Validation
 {
@@ -46,7 +47,7 @@ namespace Cirrus.Help.Tool.Validation
         public ValidationReport Validate(string repoRoot, IReadOnlyDictionary<string, IExtensionIndex> indexesByCliGroup)
         {
             var report = new ValidationReport();
-            var helpRoot = Path.Combine(repoRoot, "src", "CLI", "Help", "Docs");
+            var helpRoot = HelpPaths.CliHelpDocsRoot(repoRoot);
 
             if (!Directory.Exists(helpRoot))
             {
@@ -132,9 +133,8 @@ namespace Cirrus.Help.Tool.Validation
                 return;
             }
 
-            // Help-flag invocations (`azv2 <group> [...subgroup] --help`) are intercepted by
-            // the runtime help renderer regardless of whether the path resolves to a routed
-            // command. Don't require the rest of the path to bind to a CommandMetadata.
+            // Help-flag invocations are intercepted by the runtime help renderer
+            // regardless of whether the path resolves to a routed command.
             if (tokens.Skip(2).Any(IsHelpFlag))
             {
                 return;
@@ -142,7 +142,7 @@ namespace Cirrus.Help.Tool.Validation
 
             var cliTable = index.GetCommandTable(ClientType.CLI);
 
-            // Greedy resolve: try the longest prefix of remaining tokens that does not look like a flag/value.
+            // Greedy resolve: longest prefix of remaining tokens that does not look like a flag/value.
             var commandTokens = new List<string>();
             var consumed = 2;
             for (var i = 2; i < tokens.Count; i++)
@@ -155,16 +155,18 @@ namespace Cirrus.Help.Tool.Validation
                 commandTokens.Add(tokens[i]);
             }
 
-            // Try longest match first, shrinking until we find a table key (or fall back to root "").
+            // Command-table keys are full verb-prefixed paths (e.g. "config get").
+            // Try longest match first, shrinking until we find a table key.
             CommandMetadata? command = null;
-            string? matchedKey = null;
+            string? matchedSubKey = null;
             for (var take = commandTokens.Count; take >= 0; take--)
             {
-                var key = string.Join(' ', commandTokens.Take(take));
-                if (cliTable.TryGetValue(key, out var match))
+                var subKey = string.Join(' ', commandTokens.Take(take));
+                var fullKey = take == 0 ? groupName : $"{groupName} {subKey}";
+                if (cliTable.TryGetValue(fullKey, out var match))
                 {
                     command = match;
-                    matchedKey = key;
+                    matchedSubKey = subKey;
                     consumed = 2 + take;
                     break;
                 }
@@ -180,12 +182,10 @@ namespace Cirrus.Help.Tool.Validation
                 return;
             }
 
-            // The routed user-facing command path — e.g. "azv2 login" or "azv2 group create".
-            // CommandMetadata.Name is the processor class name (e.g. "LoginProcessor"), which is
-            // an implementation detail.
-            var routedPath = string.IsNullOrEmpty(matchedKey)
+            // Routed user-facing command path (e.g. "azv2 login" or "azv2 group create").
+            var routedPath = string.IsNullOrEmpty(matchedSubKey)
                 ? $"azv2 {groupName}"
-                : $"azv2 {groupName} {matchedKey}";
+                : $"azv2 {groupName} {matchedSubKey}";
 
             ValidateFlags(tokens, consumed, command, routedPath, locator, report);
         }
@@ -198,6 +198,9 @@ namespace Cirrus.Help.Tool.Validation
             string locator,
             ValidationReport report)
         {
+            // Track resolved canonical parameter names; diff against required set after the loop.
+            var seenCanonical = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
             for (var i = startIndex; i < tokens.Count; i++)
             {
                 var token = tokens[i];
@@ -237,6 +240,9 @@ namespace Cirrus.Help.Tool.Validation
                     continue;
                 }
 
+                // Record canonical parameter name so alias usage satisfies the requirement.
+                seenCanonical.Add(parameter!.Name);
+
                 // Type-check the value (if any) against the parameter's declared type / AllowedValues.
                 var value = equalsValue;
                 if (value is null && i + 1 < tokens.Count && !IsFlag(tokens[i + 1]))
@@ -257,6 +263,23 @@ namespace Cirrus.Help.Tool.Validation
                     report.AddError(
                         ProblemIds.CLI_L3_InvalidValue,
                         $"Value '{value}' for flag '{flag}' on command '{routedPath}' is invalid: {typeError}",
+                        locator);
+                }
+            }
+
+            // Every required parameter must appear in every example.
+            // Parameters dict keys are kebab-case CLI flags; ParameterMetadata.Name is the
+            // PascalCase .NET property. seenCanonical holds the latter, so compare against
+            // meta.Name and surface the kebab key in the error message.
+            foreach (var (kebabKey, meta) in command.Parameters
+                         .Where(static kv => kv.Value.IsRequired)
+                         .OrderBy(static kv => kv.Key, StringComparer.OrdinalIgnoreCase))
+            {
+                if (!seenCanonical.Contains(meta.Name))
+                {
+                    report.AddError(
+                        ProblemIds.CLI_L4_MissingRequiredFlag,
+                        $"Required flag '--{kebabKey}' is missing from example '{routedPath}'. Required parameters must appear in every illustrative example.",
                         locator);
                 }
             }

@@ -5,56 +5,84 @@ namespace Core.Cli.Help
 {
     /// <summary>
     /// Build-time projection of an extension's <see cref="IExtensionIndex"/> + its markdown
-    /// help corpus into the publishable <see cref="HelpManifest"/> and
-    /// <see cref="HelpIndex"/> shapes consumed by <c>HelpManifest.json</c>,
-    /// <c>HelpIndex.json</c>, and the PowerShell MAML XML emitter.
+    /// help corpus into the publishable <see cref="HelpManifest"/> and <see cref="HelpIndex"/>
+    /// shapes consumed by <c>HelpManifest.json</c>, <c>HelpIndex.json</c>, and the agent's
+    /// help lookup tools.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Unlike <see cref="ExtensionIndexHelpAdapter"/> (CLI-only surface), this builder
-    /// emits both surfaces in parallel: each <see cref="HelpCommand"/> carries a
-    /// <c>CliName</c>, a <c>PsName</c>, and a <see cref="HelpExampleSet"/> split into
-    /// <see cref="HelpExampleSet.Cli"/> and <see cref="HelpExampleSet.PowerShell"/> arrays.
-    /// The split is driven by the example's fence language tag
-    /// (<see cref="MarkdownExample.IsPowerShell"/>).
+    /// The unit of help is the <b>verb</b>, not the extension package. An extension that
+    /// declares multiple <c>[ExtensionVerb]</c> attributes (e.g. Compute → <c>vm</c>,
+    /// <c>disk</c>) produces one manifest per verb. Each manifest covers exactly the
+    /// commands that live under its verb's namespace.
     /// </para>
     /// <para>
-    /// Reflects over the extension index's <c>s_cliTable</c> / <c>s_psTable</c> static
-    /// fields to enumerate commands. Processor types are discovered once and joined across
-    /// both tables so a single command emits one <see cref="HelpCommand"/> with both
-    /// surface names populated.
+    /// Unlike <see cref="ExtensionIndexHelpAdapter"/> (CLI-only surface), this builder
+    /// emits both surfaces: each <see cref="HelpCommand"/> carries a <c>CliName</c>, a
+    /// <c>PsName</c>, and a <see cref="HelpExampleSet"/> split into
+    /// <see cref="HelpExampleSet.Cli"/> and <see cref="HelpExampleSet.PowerShell"/>.
+    /// The split is driven by the example's fence language tag
+    /// (<see cref="MarkdownExample.IsPowerShell"/>).
     /// </para>
     /// </remarks>
     public static class ExtensionHelpManifestBuilder
     {
         /// <summary>
-        /// Builds a <see cref="HelpManifest"/> for a single extension. Commands are sorted
-        /// by <c>CliName</c> then <c>PsName</c>; parameters within each command are sorted
-        /// by name. The <see cref="HelpManifest.RootSummary"/> is sourced from the
-        /// extension's <c>index.md</c> frontmatter (<c>summary:</c>) so <see cref="BuildIndex"/>
-        /// can surface it as the group-level summary in the cross-extension index.
+        /// Builds one <see cref="HelpManifest"/> per verb declared by the extension. Verbs
+        /// come from <see cref="IExtensionIndex.GetVerbs"/>; commands are partitioned across
+        /// manifests by their <c>s_cliTable</c> key prefix.
         /// </summary>
-        /// <param name="extensionIndex">The extension's index (CLI + PS tables).</param>
-        /// <param name="extensionName">Extension name used for help-folder lookup and CLI name normalization.</param>
-        /// <param name="extensionVersion">Extension version string embedded in the manifest.</param>
-        /// <param name="cliGroupName">
-        /// Optional routed CLI group prefix (e.g. <c>"vm"</c> for the <c>compute</c> extension,
-        /// <c>"group"</c> for the <c>resources</c> extension). When supplied, emitted
-        /// <c>CliName</c>s use this prefix instead of <paramref name="extensionName"/>, so the
-        /// manifest reflects the actual command users type. Defaults to <paramref name="extensionName"/>
-        /// when omitted (preserves prior behavior for callers that do not yet know the routed prefix).
-        /// </param>
+        public static IReadOnlyList<HelpManifest> BuildManifests(
+            IExtensionIndex extensionIndex,
+            string extensionVersion)
+        {
+            ArgumentNullException.ThrowIfNull(extensionIndex);
+
+            var verbs = extensionIndex.GetVerbs();
+            if (verbs.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    $"Extension '{extensionIndex.GetType().FullName}' declares no verbs. Override IExtensionIndex.GetVerbs() to mirror the [ExtensionVerb] attributes.");
+            }
+
+            return verbs
+                .Select(verb => BuildManifest(extensionIndex, extensionVersion, verb))
+                .ToList();
+        }
+
+        /// <summary>
+        /// Builds a single <see cref="HelpManifest"/> for one verb. Commands whose
+        /// CLI-table key starts with <c>"{verb}"</c> or equals <c>"{verb}"</c> are
+        /// included; everything else is scoped out.
+        /// </summary>
         public static HelpManifest BuildManifest(
             IExtensionIndex extensionIndex,
-            string extensionName,
             string extensionVersion,
-            string? cliGroupName = null)
+            string verb)
         {
-            var cliTable = GetCommandTable(extensionIndex, "s_cliTable");
-            var psTable = GetCommandTable(extensionIndex, "s_psTable");
+            ArgumentNullException.ThrowIfNull(extensionIndex);
+            if (string.IsNullOrWhiteSpace(verb))
+            {
+                throw new ArgumentException("Verb cannot be null or empty.", nameof(verb));
+            }
 
-            var processorTypes = cliTable.Values
-                .Concat(psTable.Values)
+            var verbLower = verb.ToLowerInvariant();
+            var cliTable = extensionIndex.GetCommandTable(ClientType.CLI);
+            var psTable = extensionIndex.GetCommandTable(ClientType.PowerShell);
+
+            // Scope the CLI table to this verb only; keys become relative paths
+            // (e.g. "vm create" → "create", "vm" → "").
+            var verbCliTable = ScopeToVerb(cliTable, verbLower);
+
+            // The PS table is keyed by cmdlet name (no verb prefix), so we join on
+            // ProcessorType to discover which PS entries belong to this verb.
+            var verbProcessorTypes = new HashSet<Type>(verbCliTable.Values.Select(m => m.ProcessorType));
+            var verbPsTable = psTable
+                .Where(kvp => verbProcessorTypes.Contains(kvp.Value.ProcessorType))
+                .ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase);
+
+            var processorTypes = verbCliTable.Values
+                .Concat(verbPsTable.Values)
                 .Select(metadata => metadata.ProcessorType)
                 .Distinct()
                 .OrderBy(type => type.FullName, StringComparer.Ordinal)
@@ -63,8 +91,8 @@ namespace Core.Cli.Help
             var commands = new List<HelpCommand>();
             foreach (var processorType in processorTypes)
             {
-                var cliEntry = cliTable.FirstOrDefault(kvp => kvp.Value.ProcessorType == processorType);
-                var psEntry = psTable.FirstOrDefault(kvp => kvp.Value.ProcessorType == processorType);
+                var cliEntry = verbCliTable.FirstOrDefault(kvp => kvp.Value.ProcessorType == processorType);
+                var psEntry = verbPsTable.FirstOrDefault(kvp => kvp.Value.ProcessorType == processorType);
 
                 var cliMetadata = cliEntry.Value;
                 var psMetadata = psEntry.Value;
@@ -76,9 +104,9 @@ namespace Core.Cli.Help
                 var metadataForDescription = cliMetadata ?? psMetadata!;
                 var processorInfo = processorType.GetCustomAttribute<ProcessorInfoAttribute>();
 
-                var cliName = NormalizeCliName(cliGroupName ?? extensionName, cliEntry.Key);
+                var cliName = BuildCliName(verbLower, cliEntry.Key);
                 var psName = NormalizePsName(psEntry.Key);
-                var markdown = MarkdownCommandHelpProvider.Get(extensionName, cliEntry.Key);
+                var markdown = MarkdownCommandHelpProvider.Get(verbLower, cliEntry.Key ?? string.Empty);
                 var summary = GetSummary(markdown, processorInfo, metadataForDescription);
                 var description = GetDescription(markdown, processorInfo, metadataForDescription);
 
@@ -103,14 +131,17 @@ namespace Core.Cli.Help
                 .ThenBy(command => command.PsName, StringComparer.Ordinal)
                 .ToList();
 
-            return new HelpManifest(extensionName, extensionVersion, MarkdownCommandHelpProvider.Get(extensionName, string.Empty).Summary, sortedCommands);
+            return new HelpManifest(
+                Verb: verbLower,
+                Version: extensionVersion,
+                RootSummary: MarkdownCommandHelpProvider.Get(verbLower, string.Empty).Summary,
+                Commands: sortedCommands);
         }
 
         /// <summary>
-        /// Folds a sequence of per-extension <see cref="HelpManifest"/>s into a flat,
-        /// cross-extension <see cref="HelpIndex"/>: every group and every command appears
-        /// in a single sorted list keyed by extension + CLI/PS name. Drives CLI command
-        /// discovery and search (<c>HelpIndex.json</c>).
+        /// Folds a sequence of per-verb <see cref="HelpManifest"/>s into a flat
+        /// cross-verb <see cref="HelpIndex"/>: every verb-root and every command appears
+        /// in a single sorted list. Drives CLI command discovery and search.
         /// </summary>
         public static HelpIndex BuildIndex(IEnumerable<HelpManifest> manifests)
         {
@@ -119,11 +150,8 @@ namespace Core.Cli.Help
 
             foreach (var manifest in manifests)
             {
-                var prefix = manifest.Extension.ToLowerInvariant();
-
                 groups.Add(new HelpGroupIndexEntry(
-                    Extension: manifest.Extension,
-                    Prefix: prefix,
+                    Verb: manifest.Verb,
                     Summary: manifest.RootSummary));
 
                 foreach (var command in manifest.Commands)
@@ -131,23 +159,59 @@ namespace Core.Cli.Help
                     commands.Add(new HelpCommandIndexEntry(
                         CliName: command.CliName,
                         PsName: command.PsName,
-                        Extension: manifest.Extension,
+                        Verb: manifest.Verb,
                         Summary: command.Summary));
                 }
             }
 
             var sortedGroups = groups
-                .OrderBy(group => group.Prefix, StringComparer.Ordinal)
-                .ThenBy(group => group.Extension, StringComparer.Ordinal)
+                .OrderBy(group => group.Verb, StringComparer.Ordinal)
                 .ToList();
 
             var sortedCommands = commands
-                .OrderBy(command => command.Extension, StringComparer.Ordinal)
+                .OrderBy(command => command.Verb, StringComparer.Ordinal)
                 .ThenBy(command => command.CliName, StringComparer.Ordinal)
                 .ThenBy(command => command.PsName, StringComparer.Ordinal)
                 .ToList();
 
             return new HelpIndex(sortedGroups, sortedCommands);
+        }
+
+        /// <summary>
+        /// Filters <paramref name="fullTable"/> to entries belonging to <paramref name="verb"/>
+        /// and strips the verb prefix from each key. Entries from other verbs are dropped.
+        /// </summary>
+        private static Dictionary<string, CommandMetadata> ScopeToVerb(
+            IReadOnlyDictionary<string, CommandMetadata> fullTable,
+            string verb)
+        {
+            var result = new Dictionary<string, CommandMetadata>(StringComparer.OrdinalIgnoreCase);
+            var prefix = verb + " ";
+
+            foreach (var kvp in fullTable)
+            {
+                var key = kvp.Key ?? string.Empty;
+                if (key.Equals(verb, StringComparison.OrdinalIgnoreCase))
+                {
+                    result[string.Empty] = kvp.Value;
+                }
+                else if (key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    result[key[prefix.Length..]] = kvp.Value;
+                }
+            }
+
+            return result;
+        }
+
+        private static string BuildCliName(string verb, string? relativeKey)
+        {
+            if (string.IsNullOrWhiteSpace(relativeKey))
+            {
+                return verb;
+            }
+
+            return $"{verb} {relativeKey}";
         }
 
         private static List<HelpParameter> BuildParameters(CommandMetadata? cliMetadata, CommandMetadata? psMetadata, Type processorType)
@@ -278,25 +342,11 @@ namespace Core.Cli.Help
                 : name;
         }
 
-        private static string NormalizeCliName(string extensionName, string rawKey)
-        {
-            if (string.IsNullOrWhiteSpace(rawKey))
-            {
-                return extensionName.ToLowerInvariant();
-            }
-
-            return $"{extensionName.ToLowerInvariant()} {rawKey}";
-        }
-
         /// <summary>
-        /// Collapses an internal dispatch key like <c>"Get-VM_Get"</c> or <c>"Get-VM_List"</c>
-        /// down to the user-facing cmdlet name <c>"Get-VM"</c>. Some extensions use a
+        /// Collapses an internal dispatch key like <c>"Get-VM_Get"</c> down to the
+        /// user-facing cmdlet name <c>"Get-VM"</c>. Some extensions use a
         /// <c>Verb-Noun_ParameterSet</c> convention in <c>s_psTable</c> to dispatch by
-        /// parameter set; the manifest/index surface should expose only the cmdlet name
-        /// that PowerShell users actually type. Multiple parameter sets of the same cmdlet
-        /// produce multiple <see cref="HelpCommand"/> entries with identical <c>PsName</c>
-        /// but different <c>CliName</c>s — callers that want a single record per cmdlet
-        /// must group on <c>PsName</c>.
+        /// parameter set; the manifest/index surface exposes only the cmdlet name.
         /// </summary>
         private static string NormalizePsName(string? rawKey)
         {
@@ -319,18 +369,6 @@ namespace Core.Cli.Help
             if (type == typeof(float)) return "float";
 
             return type.Name;
-        }
-
-        private static Dictionary<string, CommandMetadata> GetCommandTable(IExtensionIndex extensionIndex, string fieldName)
-        {
-            var field = extensionIndex.GetType().GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Static);
-            if (field?.GetValue(null) is Dictionary<string, CommandMetadata> table)
-            {
-                return table;
-            }
-
-            throw new InvalidOperationException(
-                $"Extension index type '{extensionIndex.GetType().FullName}' does not expose expected static field '{fieldName}'.");
         }
     }
 }

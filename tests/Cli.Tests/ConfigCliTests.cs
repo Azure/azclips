@@ -24,7 +24,8 @@ public class ConfigCliTests
         var invocation = dispatcher.Parse(["config", "list"]);
 
         Assert.Equal("Config", invocation.ExtensionName);
-        Assert.Equal("list", invocation.CommandName);
+        // commandName is full-path form for built-in commands as well.
+        Assert.Equal("config list", invocation.CommandName);
     }
 
     [Fact]

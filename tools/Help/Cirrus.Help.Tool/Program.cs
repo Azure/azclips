@@ -51,47 +51,57 @@ if (extensionDlls.Count == 0)
 
 if (scaffoldExtension is not null)
 {
-    var targetAssemblyName = $"Microsoft.Azure.Cirrus.Extensions.{scaffoldExtension}";
-    var targetDll = extensionDlls.FirstOrDefault(p =>
-        string.Equals(Path.GetFileNameWithoutExtension(p), targetAssemblyName, StringComparison.OrdinalIgnoreCase));
+    // --scaffold takes a verb (the user-facing CLI noun, e.g. "disk", "vm", "group").
+    // Find the extension assembly whose IExtensionIndex.GetVerbs() contains that verb,
+    // then scaffold just that verb's slice of the routed command table.
+    var scaffoldVerb = scaffoldExtension.ToLowerInvariant();
 
-    if (targetDll is null)
+    IExtensionIndex? scaffoldIndex = null;
+    foreach (var dllPath in extensionDlls)
     {
-        Console.Error.WriteLine($"--scaffold: extension '{scaffoldExtension}' not found under {artifactsRoot}");
+        Assembly candidateAssembly;
+        try
+        {
+            candidateAssembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(dllPath));
+        }
+        catch (Exception ex) when (ex is BadImageFormatException or FileLoadException or FileNotFoundException)
+        {
+            // Non-extension DLL or mismatched build under artifactsRoot. Skip rather than
+            // aborting the entire --scaffold run for an unrelated assembly.
+            continue;
+        }
+
+        IExtensionIndex candidateIndex;
+        try
+        {
+            candidateIndex = candidateAssembly.GetExtensionIndex();
+        }
+        catch
+        {
+            // Assembly may not expose an extension index (e.g. ExtensionRuntime). Skip.
+            continue;
+        }
+
+        if (candidateIndex.GetVerbs().Contains(scaffoldVerb, StringComparer.OrdinalIgnoreCase))
+        {
+            scaffoldIndex = candidateIndex;
+            break;
+        }
+    }
+
+    if (scaffoldIndex is null)
+    {
+        Console.Error.WriteLine($"--scaffold: no installed extension contributes verb '{scaffoldVerb}'.");
         return 1;
     }
 
-    var scaffoldAssembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(targetDll));
-    var scaffoldExtensionName = scaffoldAssembly.GetName().Name!["Microsoft.Azure.Cirrus.Extensions.".Length..].ToLowerInvariant();
-    var scaffoldIndex = scaffoldAssembly.GetExtensionIndex();
-    var cliGroup = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-    {
-        ["resources"] = "group",
-        ["login"] = "login",
-        ["extension"] = "extension",
-        ["config"] = "config",
-        ["compute"] = "vm",
-    }.TryGetValue(scaffoldExtensionName, out var token) ? token : null;
-
-    return Scaffolder.Scaffold(repoRoot, scaffoldExtensionName, scaffoldIndex, cliGroup);
+    return Scaffolder.Scaffold(repoRoot, scaffoldVerb, scaffoldIndex);
 }
 
 var manifests = new List<HelpManifest>();
 var validatedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 var completenessValidator = new HelpCompletenessValidator();
 var indexesByCliGroup = new Dictionary<string, IExtensionIndex>(StringComparer.OrdinalIgnoreCase);
-
-// Maps the first CLI token (e.g. "group") to the extension name that owns it.
-// Mirrors src/CLI/Parser/CommandGroupIndex.cs — keep in sync until that mapping
-// is exposed on IExtensionIndex.
-var cliGroupByExtension = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-{
-    ["resources"] = "group",
-    ["login"] = "login",
-    ["extension"] = "extension",
-    ["config"] = "config",
-    ["compute"] = "vm",
-};
 
 foreach (var dllPath in extensionDlls)
 {
@@ -114,11 +124,9 @@ foreach (var dllPath in extensionDlls)
     }
     catch (Exception ex)
     {
-        // Surface — don't swallow. A broken index would otherwise be invisible
-        // in CI and produce an incomplete manifest. Warning (not error) keeps
-        // a single corrupt DLL from failing the whole help build, but every
-        // failure is reported with its DLL path and the exception message.
-        aggregateReport.AddWarning(
+        // Promoted from warning to error: a broken IExtensionIndex used to silently drop
+        // the extension from the help corpus, hiding genuine CI breakage.
+        aggregateReport.AddError(
             ProblemIds.ExtensionIndexLoadFailed,
             $"Failed to load IExtensionIndex from '{assemblyPath}': {ex.GetType().Name}: {ex.Message}",
             assemblyPath);
@@ -127,19 +135,21 @@ foreach (var dllPath in extensionDlls)
 
     if (validatedExtensions.Add(extensionName))
     {
-        var completenessReport = completenessValidator.Validate(repoRoot, extensionName, extensionIndex);
-        aggregateReport.Merge(completenessReport);
-
-        if (cliGroupByExtension.TryGetValue(extensionName, out var cliGroup))
+        // Verb-scoped: a multi-verb extension yields one report per verb (Compute → vm + disk).
+        var completenessHasErrors = false;
+        foreach (var verb in extensionIndex.GetVerbs())
         {
-            indexesByCliGroup[cliGroup] = extensionIndex;
+            var verbReport = completenessValidator.Validate(repoRoot, verb, extensionIndex);
+            aggregateReport.Merge(verbReport);
+            completenessHasErrors |= verbReport.HasErrors;
+
+            indexesByCliGroup[verb] = extensionIndex;
         }
 
-        // Skip manifest emission for this extension if it has completeness errors:
-        // a manifest built from an incomplete corpus would be misleading. Other
-        // extensions and other validator stages still run so the author sees
-        // every problem in one pass.
-        if (completenessReport.HasErrors)
+        // Skip manifest emission when any verb has completeness errors; a manifest from an
+        // incomplete corpus would be misleading. Other stages still run so authors see all
+        // problems in one pass.
+        if (completenessHasErrors)
         {
             continue;
         }
@@ -152,16 +162,17 @@ foreach (var dllPath in extensionDlls)
         continue;
     }
 
-    var manifest = ExtensionHelpManifestBuilder.BuildManifest(
-        extensionIndex,
-        extensionName,
-        version,
-        cliGroupByExtension.TryGetValue(extensionName, out var cliGroupForManifest) ? cliGroupForManifest : null);
-    manifests.Add(manifest);
+    var verbManifests = ExtensionHelpManifestBuilder.BuildManifests(extensionIndex, version);
+    manifests.AddRange(verbManifests);
 
     var extensionOutputDir = Path.Combine(outputRoot, extensionName);
     Directory.CreateDirectory(extensionOutputDir);
-    WriteJson(Path.Combine(extensionOutputDir, "HelpManifest.json"), manifest);
+    foreach (var manifest in verbManifests)
+    {
+        // One file per verb so multi-verb extensions don't collide on HelpManifest.json.
+        var fileName = verbManifests.Count == 1 ? "HelpManifest.json" : $"HelpManifest.{manifest.Verb}.json";
+        WriteJson(Path.Combine(extensionOutputDir, fileName), manifest);
+    }
 }
 
 var exampleSyntaxReport = new ExampleSyntaxValidator().Validate(repoRoot, indexesByCliGroup);
@@ -186,8 +197,10 @@ foreach (var dllPath in cmdletDlls)
     }
     catch (Exception ex)
     {
-        // Surface a warning but don't abort the run — PS validation is additive.
-        aggregateReport.AddWarning(
+        // Promoted from warning to error: PS validation needs every cmdlet assembly
+        // to load — otherwise PSL1 "Unknown cmdlet" fires falsely on real cmdlets the
+        // index never saw. Hard fail rather than mask the gap.
+        aggregateReport.AddError(
             ProblemIds.Tool_CmdletAssemblyLoadFailed,
             $"Could not load cmdlet assembly '{Path.GetFileName(dllPath)}' for PowerShell example validation: {ex.Message}");
     }
@@ -195,6 +208,13 @@ foreach (var dllPath in cmdletDlls)
 
 var psExampleReport = new PowerShellExampleSyntaxValidator().Validate(repoRoot, cmdletIndex);
 aggregateReport.Merge(psExampleReport);
+
+// PS-side completeness: every cmdlet declared in <Module>.psd1's CmdletsToExport must
+// have a corresponding src/PS/<Module>/help/<Verb-Noun>.md. Mirrors the CLI surface's
+// HelpCompletenessValidator. Runs after the per-file PSL1..PSL8 rules so authors see
+// content errors first when both fire on the same file.
+var psCompletenessReport = new PsCompletenessValidator().Validate(repoRoot);
+aggregateReport.Merge(psCompletenessReport);
 
 var index = ExtensionHelpManifestBuilder.BuildIndex(manifests);
 WriteJson(Path.Combine(outputRoot, "HelpIndex.json"), index);

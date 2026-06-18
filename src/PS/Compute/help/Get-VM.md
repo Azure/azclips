@@ -1,10 +1,10 @@
 ---
 document type: cmdlet
 external help file: Microsoft.Azure.Cirrus.Cmdlets.Compute.dll-Help.xml
-HelpUri: ''
+HelpUri: ""
 Locale: en-US
 Module Name: Compute
-ms.date: 06/04/2026
+ms.date: 06/16/2026
 PlatyPS schema version: 2024-05-01
 title: Get-VM
 ---
@@ -32,7 +32,7 @@ Get-VM -SubscriptionId <string> -ResourceGroupName <string> -Name <string> [<Com
 ## ALIASES
 
 This cmdlet has the following aliases,
-  {{Insert list of aliases}}
+{{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -40,12 +40,20 @@ Retrieves the properties of a single virtual machine identified by name within t
 
 ## EXAMPLES
 
-### Get-VM
+### Get details of a specific VM
 
-TODO - describe the example.
+Retrieve metadata for the virtual machine `myvm` in resource group `myrg`.
 
 ```powershell
-Get-VM -SubscriptionId <subscriptionid> -ResourceGroupName <resourcegroupname> -Name <name>
+Get-VM -SubscriptionId 00000000-0000-0000-0000-000000000000 -ResourceGroupName myrg -Name myvm
+```
+
+### List all VMs in a resource group
+
+Return every virtual machine that lives in `myrg`.
+
+```powershell
+Get-VM -SubscriptionId 00000000-0000-0000-0000-000000000000 -ResourceGroupName myrg
 ```
 
 ## PARAMETERS
@@ -56,19 +64,19 @@ The name of the virtual machine.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: Get
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: Get
+      Position: Named
+      IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -ResourceGroupName
@@ -77,25 +85,25 @@ The resource group name.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: Get
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-- Name: List
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: Get
+      Position: Named
+      IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
+    - Name: List
+      Position: Named
+      IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -SubscriptionId
@@ -104,25 +112,25 @@ Azure Subscription Id.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: Get
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
-- Name: List
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: Get
+      Position: Named
+      IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
+    - Name: List
+      Position: Named
+      IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### CommonParameters
@@ -139,10 +147,7 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 ## NOTES
 
 Generated help for compute.
-Daniel
-
 
 ## RELATED LINKS
-
 
 - [Online Version]()

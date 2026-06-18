@@ -6,44 +6,35 @@ using Core.Abstractions;
 namespace Cirrus.Help.Tool.Validation
 {
     /// <summary>
-    /// Validates that every routed CLI command in an extension has a corresponding
-    /// help markdown file, and warns on help files that aren't referenced by any
-    /// routed command.
+    /// Validates every routed CLI command has a help markdown under <c>src/CLI/Help/Docs/&lt;verb&gt;/</c>,
+    /// and warns on orphan help files. Verb-scoped to match runtime help-lookup.
     /// </summary>
     public sealed class HelpCompletenessValidator
     {
-        /// <summary>
-        /// Validates help coverage for a single extension against its repository folder.
-        /// </summary>
-        /// <param name="repoRoot">Repository root (folder containing <c>src/</c>).</param>
-        /// <param name="extensionName">Lowercase extension name (e.g. <c>login</c>).</param>
-        /// <param name="extensionIndex">Index providing the routed CLI command table.</param>
-        public ValidationReport Validate(string repoRoot, string extensionName, IExtensionIndex extensionIndex)
+        /// <summary>Validates help coverage for a single verb.</summary>
+        public ValidationReport Validate(string repoRoot, string verb, IExtensionIndex extensionIndex)
         {
-            var extensionFolder = HelpCommandKey.ToExtensionFolder(extensionName);
-            var helpDirectory = Path.Combine(repoRoot, "src", "CLI", "Help", "Docs", extensionFolder);
+            var verbFolder = HelpCommandKey.ToExtensionFolder(verb);
+            var helpDirectory = Core.Cli.Help.HelpPaths.CliVerbHelpDir(repoRoot, verbFolder);
 
-            return Validate(extensionName, extensionFolder, helpDirectory, extensionIndex);
+            return Validate(verb, verbFolder, helpDirectory, extensionIndex);
         }
 
-        /// <summary>
-        /// Lower-level overload used by tests: callers pass the help directory directly
-        /// so the validator can be exercised against a temp folder.
-        /// </summary>
+        /// <summary>Test overload accepting a help directory directly (for temp-folder testing).</summary>
         public ValidationReport Validate(
-            string extensionName,
-            string extensionFolder,
+            string verb,
+            string verbFolder,
             string helpDirectory,
             IExtensionIndex extensionIndex)
         {
             var report = new ValidationReport();
 
-            var routedCommandKeys = extensionIndex
-                .GetCommandTable(ClientType.CLI)
-                .Keys
-                .Select(static key => HelpCommandKey.Normalize(key))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            // Scope the routed command table to the verb. Keys arrive as "verb",
+            // "verb path"; emit the relative form ("", "path") that matches the
+            // help file lookup convention (index.md, path.md).
+            var routedCommandKeys = ScopeKeysToVerb(
+                extensionIndex.GetCommandTable(ClientType.CLI).Keys,
+                verb);
 
             var expectedFiles = routedCommandKeys
                 .Select(static key => HelpCommandKey.ToHelpFileName(key))
@@ -66,10 +57,15 @@ namespace Cirrus.Help.Tool.Validation
 
             foreach (var file in missing)
             {
-                var relativePath = $"src{Path.DirectorySeparatorChar}CLI{Path.DirectorySeparatorChar}Help{Path.DirectorySeparatorChar}Docs{Path.DirectorySeparatorChar}{extensionFolder}{Path.DirectorySeparatorChar}{file}";
+                var relativePath = $"src{Path.DirectorySeparatorChar}CLI{Path.DirectorySeparatorChar}Help{Path.DirectorySeparatorChar}Docs{Path.DirectorySeparatorChar}{verbFolder}{Path.DirectorySeparatorChar}{file}";
+                // index.md backs the verb root itself, so render as the verb name rather than
+                // an empty-quoted command path (which reads as "routed command ''").
+                var commandPath = file.Equals("index.md", StringComparison.OrdinalIgnoreCase)
+                    ? verb
+                    : HelpCommandKey.FromHelpFileName(file);
                 report.AddError(
                     ProblemIds.Completeness_MissingHelpFile,
-                    $"Missing help file for routed command '{HelpCommandKey.FromHelpFileName(file)}' in extension '{extensionName}'.",
+                    $"Missing help file for routed command '{commandPath}' in verb '{verb}'.",
                     relativePath);
             }
 
@@ -80,14 +76,45 @@ namespace Cirrus.Help.Tool.Validation
 
             foreach (var orphan in orphaned)
             {
-                var orphanPath = $"src{Path.DirectorySeparatorChar}CLI{Path.DirectorySeparatorChar}Help{Path.DirectorySeparatorChar}Docs{Path.DirectorySeparatorChar}{extensionFolder}{Path.DirectorySeparatorChar}{orphan}";
+                var orphanPath = $"src{Path.DirectorySeparatorChar}CLI{Path.DirectorySeparatorChar}Help{Path.DirectorySeparatorChar}Docs{Path.DirectorySeparatorChar}{verbFolder}{Path.DirectorySeparatorChar}{orphan}";
                 report.AddWarning(
                     ProblemIds.Completeness_OrphanedHelpFile,
-                    $"Help file is not referenced by any routed CLI command in extension '{extensionName}'.",
+                    $"Help file is not referenced by any routed CLI command in verb '{verb}'.",
                     orphanPath);
             }
 
             return report;
+        }
+
+        /// <summary>
+        /// Filters <paramref name="rawKeys"/> down to those owned by <paramref name="verb"/>
+        /// and strips the verb prefix. Mirrors <c>ExtensionIndexHelpAdapter.BuildVerbScopedTable</c>
+        /// so validation matches what the runtime help renderer actually sees.
+        /// </summary>
+        private static IEnumerable<string> ScopeKeysToVerb(IEnumerable<string> rawKeys, string verb)
+        {
+            var prefix = verb + " ";
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var raw in rawKeys)
+            {
+                var key = HelpCommandKey.Normalize(raw);
+                string? scoped = null;
+
+                if (key.Equals(verb, StringComparison.OrdinalIgnoreCase))
+                {
+                    scoped = string.Empty;
+                }
+                else if (key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    scoped = key[prefix.Length..];
+                }
+
+                if (scoped is not null && seen.Add(scoped))
+                {
+                    yield return scoped;
+                }
+            }
         }
     }
 }

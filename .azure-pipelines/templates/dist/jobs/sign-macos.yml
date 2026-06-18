@@ -1,0 +1,104 @@
+parameters:
+- name: windows_pool
+  type: string
+  default: 'windows-latest'
+- name: SourceProject
+  type: string
+  default: 'public'
+- name: source_pipeline_name
+  type: string
+  default: 'cirrus-adhoc-build'
+- name: source_build_id
+  type: string
+  default: ''
+- name: source_artifact_name
+  type: string
+  default: 'Distribution_Final'
+- name: source_artifact_source
+  type: string
+  default: 'specific'
+- name: macos_arm64_pool
+  type: string
+  default: 'macOS-15-arm64'
+- name: macos_intel_pool
+  type: string
+  default: 'macOS-15'
+
+jobs:
+- job: SignMacOS
+  displayName: macOS Placeholder Pass-Through
+  strategy:
+    matrix:
+      arm64:
+        MacOSArchitecture: arm64
+        MacOSRid: osx-arm64
+        MacOSVmImage: ${{ parameters.macos_arm64_pool }}
+      x64:
+        MacOSArchitecture: x64
+        MacOSRid: osx-x64
+        MacOSVmImage: ${{ parameters.macos_intel_pool }}
+  pool:
+    vmImage: $(MacOSVmImage)
+  timeoutInMinutes: 60
+  steps:
+  - checkout: none
+  - ${{ if eq(parameters.source_artifact_source, 'current') }}:
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Unsigned Distribution Artifacts
+      inputs:
+        artifact: ${{ parameters.source_artifact_name }}
+        path: $(Pipeline.Workspace)/unsigned-all
+  - ${{ if ne(parameters.source_artifact_source, 'current') }}:
+    - task: DownloadPipelineArtifact@2
+      displayName: Download Unsigned Distribution Artifacts
+      inputs:
+        source: specific
+        project: ${{ parameters.SourceProject }}
+        pipeline: ${{ parameters.source_pipeline_name }}
+        runVersion: specific
+        runId: ${{ parameters.source_build_id }}
+        artifact: ${{ parameters.source_artifact_name }}
+        path: $(Pipeline.Workspace)/unsigned-all
+  - bash: |
+      set -euo pipefail
+      source_root="$(Pipeline.Workspace)/unsigned-all"
+      out_dir="$(Build.ArtifactStagingDirectory)/signed-macos"
+      current_arch="$(MacOSArchitecture)"
+      current_rid="$(MacOSRid)"
+      mkdir -p "$out_dir"
+
+      raw_mac_assets=()
+      while IFS= read -r asset; do
+        raw_mac_assets+=("$asset")
+      done < <(find "$source_root" -type f \( -name '*mac*.tar.gz' -o -name '*macos*.tar.gz' -o -name '*osx*.tar.gz' -o -name '*darwin*.tar.gz' \) | sort)
+
+      mac_assets=()
+      for asset in "${raw_mac_assets[@]}"; do
+        name=$(basename "$asset" | tr '[:upper:]' '[:lower:]')
+        if [[ "$name" == *"$current_rid"* || "$name" == *"macos-$current_arch"* || "$name" == *"darwin-$current_arch"* ]]; then
+          mac_assets+=("$asset")
+        fi
+      done
+
+      if [[ ${#mac_assets[@]} -eq 0 ]]; then
+        echo "ERROR: No macOS release artifacts matched architecture $current_arch ($current_rid) under $source_root"
+        exit 1
+      fi
+
+      echo "macOS architecture selected: $current_arch ($current_rid)"
+      printf 'macOS release artifacts (%s):\n' "${#mac_assets[@]}"
+      printf '  %s\n' "${mac_assets[@]}"
+      for asset in "${mac_assets[@]}"; do
+        cp "$asset" "$out_dir/"
+      done
+    displayName: Collect macOS Placeholder Artifacts
+  - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
+    displayName: Generate SBOM For macOS Placeholder Artifacts
+    inputs:
+      BuildDropPath: $(Build.ArtifactStagingDirectory)/signed-macos
+  - task: PublishPipelineArtifact@1
+    displayName: Publish macOS Placeholder Artifacts
+    inputs:
+      targetPath: $(Build.ArtifactStagingDirectory)/signed-macos
+      artifact: signed-macos-$(MacOSArchitecture)
+      publishLocation: pipeline

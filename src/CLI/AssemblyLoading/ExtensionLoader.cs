@@ -107,6 +107,9 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
 
 public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfigurationService configurationService) : IExtensionLoader
 {
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(string Directory, string AssemblyPath), Lazy<(ExtensionLoadContext Ctx, Assembly Assembly)>> s_cache =
+        new();
+
     internal class ExtensionLoadContext(string extensionDirectory, ILoggingService? loggingService = null) : AssemblyLoadContext
     {
         public string ExtensionDirectory { get; } = extensionDirectory;
@@ -205,7 +208,23 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
             _loggingService?.Debug($"Extension '{extensionNameFull}' version '{version}' not found in multi-version extensions directory. Checked path: '{extensionPath}'");
             return null;
         }
-        var loadContext = new ExtensionLoadContext(extensionPath, _loggingService);
-        return loadContext.LoadFromAssemblyPath(extensionPath);
+
+        if (_options.BypassExtensionCache)
+        {
+            // ExtensionLoadContext expects a directory (Path.Combine in Load resolves siblings).
+            // Cache hits below already pass key.Directory directly.
+            var freshCtx = new ExtensionLoadContext(extensionDir, _loggingService);
+            return freshCtx.LoadFromAssemblyPath(extensionPath);
+        }
+
+        var entry = s_cache.GetOrAdd(
+            (extensionDir, extensionPath),
+            key => new Lazy<(ExtensionLoadContext, Assembly)>(() =>
+            {
+                var ctx = new ExtensionLoadContext(key.Directory, _loggingService);
+                var asm = ctx.LoadFromAssemblyPath(key.AssemblyPath);
+                return (ctx, asm);
+            }));
+        return entry.Value.Assembly;
     }
 }

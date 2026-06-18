@@ -21,5 +21,9 @@
             <Private>false</Private>
             <ExcludeAssets>runtime</ExcludeAssets>
         </ProjectReference>
+        <ProjectReference Include="..\..\Extensions\Resources\Extensions.Resources.csproj">
+            <Private>false</Private>
+            <ExcludeAssets>runtime</ExcludeAssets>
+        </ProjectReference>
     </ItemGroup>
 </Project>
