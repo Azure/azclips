@@ -31,6 +31,10 @@ Configuration follows strict precedence: **command args > environment variables 
 
 ## CLI Usage
 
+`core.logging.level` controls runtime host logging verbosity in CLI sessions.
+Use `--debug` to force debug-level output for a single invocation; this
+override does not persist to config.
+
 Use explicit parameter names for CLI config commands:
 
 - `--key` for configuration key

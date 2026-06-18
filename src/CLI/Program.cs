@@ -21,26 +21,7 @@ public class Program
     private static ILoggingService? _logger;
     private static readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
 
-    // CLI by default only enable output and error streams. Optional streams enabled by global parameters
-    private static OutputStreams streams = new OutputStreams(
-        WriteOutput: (value, ct) =>
-        {
-            Console.WriteLine(CliOutputFormatter.FormatValue(value));
-            return Task.CompletedTask;
-        },
-        WriteError: (value, ct) =>
-        {
-            var originalColor = Console.ForegroundColor;
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.Error.WriteLine($"[ERROR] {value}");
-            Console.ForegroundColor = originalColor;
-            return Task.CompletedTask;
-        },
-        WriteVerbose: (value, ct) => Task.CompletedTask,
-        WriteDebug: (value, ct) => Task.CompletedTask,
-        WriteWarning: (value, ct) => Task.CompletedTask,
-        WriteInformation: (value, ct) => Task.CompletedTask
-    );
+    private static OutputStreams streams = BuildStreams(CliLogLevel.Info);
 
     public static async Task<int> Main(string[] args)
     {
@@ -65,6 +46,7 @@ public class Program
         });
         CirrusServiceProvider.Initialize(_clientType);
         _logger = CirrusServiceProvider.GetRequiredService<ILoggingService>();
+        var configurationService = CirrusServiceProvider.GetRequiredService<IConfigurationService>();
 
         var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
 
@@ -72,7 +54,9 @@ public class Program
         {
             using var activity = telemetryService.StartRootActivity();
             var dispatcher = new ExtensionDispatcher();
-            args = WireDebugStreams(args);
+            args = ParseDebugFlag(args, out var debugOverride);
+            var effectiveLogLevel = CliLoggingPolicy.ResolveEffectiveLevel(configurationService, debugOverride);
+            streams = BuildStreams(effectiveLogLevel);
             args = ParseOutputFlag(args, out var outputJson);
             args = ParseNoCacheFlag(args);
             try
@@ -156,15 +140,20 @@ public class Program
         }
     }
 
-    // TODO(Yabo): Q&P squad to refactor global parameter handling
-    // this method is temporary and is for ease of debugging
-    private static string[] WireDebugStreams(string[] args)
+    private static string[] ParseDebugFlag(string[] args, out bool debugOverride)
     {
-        if (!args.Contains("--debug"))
+        debugOverride = args.Contains("--debug", StringComparer.OrdinalIgnoreCase);
+        if (!debugOverride)
         {
             return args;
         }
-        streams = new OutputStreams(
+
+        return args.Where(a => !a.Equals("--debug", StringComparison.OrdinalIgnoreCase)).ToArray();
+    }
+
+    private static OutputStreams BuildStreams(CliLogLevel level)
+    {
+        return new OutputStreams(
             WriteOutput: (value, ct) =>
             {
                 Console.WriteLine(CliOutputFormatter.FormatValue(value));
@@ -178,16 +167,39 @@ public class Program
                 Console.ForegroundColor = originalColor;
                 return Task.CompletedTask;
             },
-            WriteVerbose: (value, ct) => { Console.WriteLine($"VERBOSE: {value}"); return Task.CompletedTask; },
-            WriteDebug: (value, ct) => { Console.WriteLine($"DEBUG: {value}"); return Task.CompletedTask; },
-            WriteWarning: (value, ct) => { Console.WriteLine($"WARNING: {value}"); return Task.CompletedTask; },
+            WriteVerbose: (value, ct) =>
+            {
+                if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Verbose))
+                {
+                    Console.WriteLine($"VERBOSE: {value}");
+                }
+                return Task.CompletedTask;
+            },
+            WriteDebug: (value, ct) =>
+            {
+                if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Debug))
+                {
+                    Console.WriteLine($"DEBUG: {value}");
+                }
+                return Task.CompletedTask;
+            },
+            WriteWarning: (value, ct) =>
+            {
+                if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Warn))
+                {
+                    Console.WriteLine($"WARNING: {value}");
+                }
+                return Task.CompletedTask;
+            },
             WriteInformation: (value, ct) =>
             {
-                Console.WriteLine($"INFO: {value}");
+                if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Info))
+                {
+                    Console.WriteLine($"INFO: {value}");
+                }
                 return Task.CompletedTask;
             }
         );
-        return args.Where(a => a != "--debug").ToArray();
     }
 
     // Strips `--output json` / `--output plain` (and `--output=json`) from args and reports
