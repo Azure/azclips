@@ -6,7 +6,7 @@ Before public MIT release, the engineering owner must run the Microsoft-approved
 
 Known source of third-party dependency metadata:
 
-- .NET project PackageReference entries under src/ and tests/
+- .NET project PackageReference entries across all *.csproj files (e.g., src/, tests/, Agent/, TUI/, tools/)
 - npm dependencies under wiki/
 - Any generated, vendored, or copied assets added before release
 
