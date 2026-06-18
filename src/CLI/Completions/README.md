@@ -60,54 +60,9 @@ azv2 group <Tab>
 
 ## Testing Completions Manually
 
-### PowerShell
-
 ```powershell
 # After loading the script, call the internal function directly:
 _Azv2GetCompletions "azv2 group " 11
-```
-
-### zsh — unit test (no live binary needed)
-
-The test script mocks `compadd` and the `$words`/`$CURRENT` completion variables
-so it runs fully offline against a fixture JSON file:
-
-```zsh
-zsh tests/Scripts/CLI/zsh-completions.zsh
-```
-
-Expected output (all green):
-
-```text
-=== Level 0: completing command groups ===
-  PASS groups: suggests 'group' — found 'group'
-  PASS groups: suggests 'login' — found 'login'
-...
---- Results: 13 total, 13 passed, 0 failed ---
-```
-
-### zsh — interactive smoke test
-
-Load the script into a live shell and trigger Tab:
-
-```zsh
-autoload -U compinit && compinit
-source ./bin/azv2.completions.zsh
-
-azv2 <Tab>            # → group  login  …
-azv2 group <Tab>      # → create  list  --verbose
-azv2 group create <Tab>   # → --name  --location  --subscription-id
-```
-
-To inspect what candidates `_azv2` would pass to `compadd` without actually
-replacing the line, use the zsh `_compadd` debug wrapper:
-
-```zsh
-# Temporarily mock compadd and call _azv2 directly
-compadd() { print "compadd args: $*"; }
-words=(azv2 group create) CURRENT=4
-_azv2
-unfunction compadd   # restore
 ```
 
 ## Files
