@@ -103,6 +103,7 @@ _azv2() {
             prefix_words=()
             local i
             for (( i = 2; i < CURRENT; i++ )); do
+                [[ "${words[i]}" == --* ]] && break
                 prefix_words+=("${words[i]:l}")
             done
             command_path="${(j: :)prefix_words}"
