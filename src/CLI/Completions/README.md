@@ -3,7 +3,7 @@
 ## How It Works
 
 1. **Build time**: `build/build.ps1` runs `azv2 --completions`, which introspects all loaded extensions and outputs a JSON command tree to `bin/azv2.completions.json`.
-2. **Runtime**: `azv2.completions.ps1` loads the JSON tree and registers a PowerShell tab completer for `azv2`.
+2. **Runtime**: Shell completion scripts (`.ps1`, `.bash`, `.zsh`) load the same JSON tree and register tab completion for `azv2`.
 
 The completion tree structure:
 
@@ -20,14 +20,35 @@ The completion tree structure:
 
 ## Quick Start
 
+### PowerShell
+
 ```powershell
 # Build solution + generate completion data
 .\build\build.ps1
 
 # Load completions into current session
 . .\bin\azv2.completions.ps1
+```
 
-# Now press Tab after "azv2 " to see suggestions
+Now press Tab after `azv2 ` to see suggestions:
+```powershell
+azv2 group <Tab>
+```
+
+### zsh
+
+```zsh
+# Build solution + generate completion data
+pwsh ./build/build.ps1
+
+# Load completions into current session
+autoload -U compinit
+compinit
+source ./bin/azv2.completions.zsh
+```
+
+Now press Tab after `azv2 ` to see suggestions:
+```zsh
 azv2 group <Tab>
 ```
 
@@ -45,3 +66,4 @@ _Azv2GetCompletions "azv2 group " 11
 | `CompletionGenerator.cs` | `--completions` handler; builds JSON tree from extension metadata |
 | `azv2.completions.ps1` | PowerShell completer; loads JSON + registers `TabExpansion2` override |
 | `azv2.completions.bash` | Bash completer (same JSON data source) |
+| `azv2.completions.zsh` | Native zsh completer using `compdef` (same JSON data source) |
