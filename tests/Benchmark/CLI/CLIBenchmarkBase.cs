@@ -15,10 +15,9 @@ namespace Benchmark.CLI;
 
 [MemoryDiagnoser]
 [InvocationCount(invocationCount: 1, unrollFactor: 1)]
-// [MaxRelativeError(0.01)]
-// [MaxIterationCount(1)]
+[MaxRelativeError(0.01)]
+[MaxIterationCount(10000)]
 [Outliers(OutlierMode.RemoveAll)]
-[InProcess]
 public abstract class CLIBenchmarkBase : BenchmarkBase
 {
     private const string PackageIdPrefix = "Microsoft.Azure.Cirrus.Extensions.";
