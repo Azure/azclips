@@ -1,6 +1,7 @@
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
+using Microsoft.Azure.Cirrus.Cmdlets.Common;
 
 namespace Microsoft.Azure.Cirrus.Cmdlets.Resources;
 
@@ -22,25 +23,7 @@ public class NewResourceGroupCmdlet : PSCmdlet
 
     protected override void BeginProcessing()
     {
-        streams = new OutputStreams(
-            WriteOutput: (value, ct) => { WriteObject(value); return Task.CompletedTask; },
-            WriteVerbose: (value, ct) => { WriteVerbose(value?.ToString() ?? ""); return Task.CompletedTask; },
-            WriteDebug: (value, ct) => { WriteDebug(value?.ToString() ?? ""); return Task.CompletedTask; },
-            WriteWarning: (value, ct) => { WriteWarning(value?.ToString() ?? ""); return Task.CompletedTask; },
-            WriteError: (value, ct) =>
-            {
-                WriteError(new ErrorRecord(
-                    new Exception(value?.ToString() ?? ""),
-                    "ResourceGroupError",
-                    ErrorCategory.NotSpecified,
-                    null));
-                return Task.CompletedTask;
-            },
-            WriteInformation: (value, ct) =>
-            {
-                WriteInformation(new InformationRecord(value, null));
-                return Task.CompletedTask;
-            });
+        streams = PsOutputStreamsFactory.Create(this, "ResourceGroupError", ErrorCategory.NotSpecified);
         engine = CirrusServiceProvider.GetRequiredService<IEngine>();
     }
 

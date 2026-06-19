@@ -1,6 +1,7 @@
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
+using Microsoft.Azure.Cirrus.Cmdlets.Common;
 
 namespace Microsoft.Azure.Cirrus.Cmdlets.Config;
 
@@ -12,25 +13,7 @@ public abstract class ConfigCmdletBase : PSCmdlet
 
     protected override void BeginProcessing()
     {
-        Streams = new OutputStreams(
-            WriteOutput: (value, ct) => { WriteObject(value); return Task.CompletedTask; },
-            WriteVerbose: (value, ct) => { WriteVerbose(value?.ToString() ?? string.Empty); return Task.CompletedTask; },
-            WriteDebug: (value, ct) => { WriteDebug(value?.ToString() ?? string.Empty); return Task.CompletedTask; },
-            WriteWarning: (value, ct) => { WriteWarning(value?.ToString() ?? string.Empty); return Task.CompletedTask; },
-            WriteError: (value, ct) =>
-            {
-                WriteError(new ErrorRecord(
-                    new Exception(value?.ToString() ?? string.Empty),
-                    "ConfigError",
-                    ErrorCategory.NotSpecified,
-                    null));
-                return Task.CompletedTask;
-            },
-            WriteInformation: (value, ct) =>
-            {
-                WriteInformation(new InformationRecord(value, null));
-                return Task.CompletedTask;
-            });
+        Streams = PsOutputStreamsFactory.Create(this, "ConfigError", ErrorCategory.NotSpecified);
 
         Engine = CirrusServiceProvider.GetRequiredService<IEngine>();
     }
