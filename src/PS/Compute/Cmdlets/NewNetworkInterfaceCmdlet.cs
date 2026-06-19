@@ -68,7 +68,7 @@ public class NewNetworkInterfaceCmdlet : PSCmdlet
 
     protected override void BeginProcessing()
     {
-        streams = PsOutputStreamsFactory.Create(this, "NetworkInterfaceError", ErrorCategory.NotSpecified);
+        streams = CmdletOutputStreamsFactory.Create(this, "NetworkInterfaceError", ErrorCategory.NotSpecified);
         engine = CirrusServiceProvider.GetRequiredService<IEngine>();
     }
 

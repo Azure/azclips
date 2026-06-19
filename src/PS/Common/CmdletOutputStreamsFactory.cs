@@ -5,7 +5,7 @@ using Core.DependencyInjection;
 
 namespace Microsoft.Azure.Cirrus.Cmdlets.Common;
 
-internal enum PsLogLevel
+internal enum LogLevel
 {
     Error = 0,
     Warn = 1,
@@ -13,7 +13,7 @@ internal enum PsLogLevel
     Debug = 3,
 }
 
-internal enum PsLogSeverity
+internal enum LogSeverity
 {
     Error = 0,
     Warn = 1,
@@ -22,7 +22,7 @@ internal enum PsLogSeverity
     Verbose = 4,
 }
 
-internal static class PsOutputStreamsFactory
+internal static class CmdletOutputStreamsFactory
 {
     public static OutputStreams Create(
         PSCmdlet cmdlet,
@@ -48,7 +48,7 @@ internal static class PsOutputStreamsFactory
             },
             WriteVerbose: (value, ct) =>
             {
-                if (ShouldEmit(level, PsLogSeverity.Verbose))
+                if (ShouldEmit(level, LogSeverity.Verbose))
                 {
                     cmdlet.WriteVerbose(value?.ToString() ?? string.Empty);
                 }
@@ -57,7 +57,7 @@ internal static class PsOutputStreamsFactory
             },
             WriteDebug: (value, ct) =>
             {
-                if (ShouldEmit(level, PsLogSeverity.Debug))
+                if (ShouldEmit(level, LogSeverity.Debug))
                 {
                     cmdlet.WriteDebug(value?.ToString() ?? string.Empty);
                 }
@@ -66,7 +66,7 @@ internal static class PsOutputStreamsFactory
             },
             WriteWarning: (value, ct) =>
             {
-                if (ShouldEmit(level, PsLogSeverity.Warn))
+                if (ShouldEmit(level, LogSeverity.Warn))
                 {
                     cmdlet.WriteWarning(value?.ToString() ?? string.Empty);
                 }
@@ -84,7 +84,7 @@ internal static class PsOutputStreamsFactory
             },
             WriteInformation: (value, ct) =>
             {
-                if (ShouldEmit(level, PsLogSeverity.Info))
+                if (ShouldEmit(level, LogSeverity.Info))
                 {
                     cmdlet.WriteInformation(new InformationRecord(value, null));
                 }
@@ -93,39 +93,39 @@ internal static class PsOutputStreamsFactory
             });
     }
 
-    private static PsLogLevel ResolveEffectiveLevel()
+    private static LogLevel ResolveEffectiveLevel()
     {
         var configurationService = CirrusServiceProvider.GetRequiredService<IConfigurationService>();
         var configured = configurationService.GetConfiguration<CoreOptions>().Logging.Level;
         return Parse(configured);
     }
 
-    private static PsLogLevel Parse(string? value)
+    private static LogLevel Parse(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            return PsLogLevel.Info;
+            return LogLevel.Info;
         }
 
         return value.Trim().ToLowerInvariant() switch
         {
-            "error" => PsLogLevel.Error,
-            "warn" => PsLogLevel.Warn,
-            "info" => PsLogLevel.Info,
-            "debug" => PsLogLevel.Debug,
-            _ => PsLogLevel.Info,
+            "error" => LogLevel.Error,
+            "warn" => LogLevel.Warn,
+            "info" => LogLevel.Info,
+            "debug" => LogLevel.Debug,
+            _ => LogLevel.Info,
         };
     }
 
-    private static bool ShouldEmit(PsLogLevel configuredLevel, PsLogSeverity messageSeverity)
+    private static bool ShouldEmit(LogLevel configuredLevel, LogSeverity messageSeverity)
     {
         return messageSeverity switch
         {
-            PsLogSeverity.Error => true,
-            PsLogSeverity.Warn => configuredLevel >= PsLogLevel.Warn,
-            PsLogSeverity.Info => configuredLevel >= PsLogLevel.Info,
-            PsLogSeverity.Debug => configuredLevel >= PsLogLevel.Debug,
-            PsLogSeverity.Verbose => configuredLevel >= PsLogLevel.Debug,
+            LogSeverity.Error => true,
+            LogSeverity.Warn => configuredLevel >= LogLevel.Warn,
+            LogSeverity.Info => configuredLevel >= LogLevel.Info,
+            LogSeverity.Debug => configuredLevel >= LogLevel.Debug,
+            LogSeverity.Verbose => configuredLevel >= LogLevel.Debug,
             _ => false,
         };
     }

@@ -53,7 +53,7 @@ public class NewNetworkSecurityGroupCmdlet : PSCmdlet
 
     protected override void BeginProcessing()
     {
-        streams = PsOutputStreamsFactory.Create(this, "NetworkSecurityGroupError", ErrorCategory.NotSpecified);
+        streams = CmdletOutputStreamsFactory.Create(this, "NetworkSecurityGroupError", ErrorCategory.NotSpecified);
         engine = CirrusServiceProvider.GetRequiredService<IEngine>();
     }
 

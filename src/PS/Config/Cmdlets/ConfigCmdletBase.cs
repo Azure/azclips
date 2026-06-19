@@ -13,7 +13,7 @@ public abstract class ConfigCmdletBase : PSCmdlet
 
     protected override void BeginProcessing()
     {
-        Streams = PsOutputStreamsFactory.Create(this, "ConfigError", ErrorCategory.NotSpecified);
+        Streams = CmdletOutputStreamsFactory.Create(this, "ConfigError", ErrorCategory.NotSpecified);
 
         Engine = CirrusServiceProvider.GetRequiredService<IEngine>();
     }

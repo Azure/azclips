@@ -14,7 +14,7 @@ public class DisconnectCirrusAccountCmdlet : PSCmdlet
 
     protected override void BeginProcessing()
     {
-        streams = PsOutputStreamsFactory.Create(this, "LoginError", ErrorCategory.AuthenticationError);
+        streams = CmdletOutputStreamsFactory.Create(this, "LoginError", ErrorCategory.AuthenticationError);
         engine = CirrusServiceProvider.GetRequiredService<IEngine>();
     }
 

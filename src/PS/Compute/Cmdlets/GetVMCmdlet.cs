@@ -26,7 +26,7 @@ public class GetVMCmdlet : PSCmdlet
 
     protected override void BeginProcessing()
     {
-        streams = PsOutputStreamsFactory.Create(this, "VMError", ErrorCategory.NotSpecified, enumerateOutput: true);
+        streams = CmdletOutputStreamsFactory.Create(this, "VMError", ErrorCategory.NotSpecified, enumerateOutput: true);
         engine = CirrusServiceProvider.GetRequiredService<IEngine>();
     }
 

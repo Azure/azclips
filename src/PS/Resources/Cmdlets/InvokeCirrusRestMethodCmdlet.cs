@@ -66,7 +66,7 @@ public class InvokeCirrusRestMethodCmdlet : PSCmdlet
 
     protected override void BeginProcessing()
     {
-        streams = PsOutputStreamsFactory.Create(this, "ResourcesError", ErrorCategory.NotSpecified);
+        streams = CmdletOutputStreamsFactory.Create(this, "ResourcesError", ErrorCategory.NotSpecified);
         engine = CirrusServiceProvider.GetRequiredService<IEngine>();
     }
 

@@ -35,7 +35,7 @@ public class NewVirtualNetworkCmdlet : PSCmdlet
 
     protected override void BeginProcessing()
     {
-        streams = PsOutputStreamsFactory.Create(this, "VirtualNetworkError", ErrorCategory.NotSpecified);
+        streams = CmdletOutputStreamsFactory.Create(this, "VirtualNetworkError", ErrorCategory.NotSpecified);
         engine = CirrusServiceProvider.GetRequiredService<IEngine>();
     }
 

@@ -23,7 +23,7 @@ public class NewResourceGroupCmdlet : PSCmdlet
 
     protected override void BeginProcessing()
     {
-        streams = PsOutputStreamsFactory.Create(this, "ResourceGroupError", ErrorCategory.NotSpecified);
+        streams = CmdletOutputStreamsFactory.Create(this, "ResourceGroupError", ErrorCategory.NotSpecified);
         engine = CirrusServiceProvider.GetRequiredService<IEngine>();
     }
 
