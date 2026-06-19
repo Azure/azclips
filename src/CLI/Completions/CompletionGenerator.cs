@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Core.Abstractions;
-using Core.Cli.Parser;
 using Core.DependencyInjection;
+using Core.Extensions;
 using Core.Runtime;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -44,40 +44,75 @@ internal static class CompletionGenerator
         try
         {
             var assemblyLoader = CirrusServiceProvider.GetRequiredService<IAssemblyLoadingProvider>();
-            var commandGroups = CommandGroupIndex.GetAllCommandGroups();
+            var registryStore = new FileExtensionRegistryStore();
+            var leafIndex = LeafIndex.Build(BuiltInExtensions.Map, registryStore.LoadReconciled());
+            var packageIds = leafIndex.Entries.Values
+                .Select(v => v.PackageId)
+                .Distinct(StringComparer.OrdinalIgnoreCase);
 
             // Build: { "group": { "_subcommands": ["create","list"], "create": ["--name","--location"], ... }, ... }
             var tree = new Dictionary<string, object>();
 
-            foreach (var (groupName, extensionName) in commandGroups)
+            foreach (var packageId in packageIds)
             {
                 try
                 {
+                    var extensionName = Constants.StripCirrusPrefix(packageId);
                     var assembly = assemblyLoader.LoadExtension(extensionName);
                     var index = assembly.GetExtensionIndex();
                     var commandTable = index.GetCommandTable(ClientType.CLI);
 
-                    var groupEntry = new Dictionary<string, object>();
-                    var subcommands = new List<string>();
-
                     foreach (var (cliName, meta) in commandTable)
                     {
-                        var paramNames = meta.Parameters.Keys.Select(k => $"--{k}").ToList();
-
-                        if (cliName == "")
+                        var tokens = cliName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        if (tokens.Length == 0)
                         {
-                            // Default command (e.g., "login" with no subcommand)
+                            continue;
+                        }
+
+                        var verb = tokens[0].ToLowerInvariant();
+                        var path = string.Join(' ', tokens.Skip(1));
+
+                        if (!tree.TryGetValue(verb, out var existing) || existing is not Dictionary<string, object> groupEntry)
+                        {
+                            groupEntry = new Dictionary<string, object>();
+                            tree[verb] = groupEntry;
+                        }
+
+                        if (!groupEntry.TryGetValue("_subcommands", out var subsObj) || subsObj is not List<string> subcommands)
+                        {
+                            subcommands = new List<string>();
+                            groupEntry["_subcommands"] = subcommands;
+                        }
+
+                        var paramNames = meta.Parameters.Keys.Select(k => $"--{k}").ToList();
+                        var requiredParams = meta.Parameters
+                            .Where(p => p.Value.IsRequired)
+                            .Select(p => $"--{p.Key}")
+                            .ToList();
+
+                        if (string.IsNullOrEmpty(path))
+                        {
+                            // Bare-verb command (e.g., "login")
                             groupEntry["_params"] = paramNames;
+                            if (requiredParams.Count > 0)
+                            {
+                                groupEntry["_required"] = requiredParams;
+                            }
                         }
                         else
                         {
-                            subcommands.Add(cliName);
-                            groupEntry[cliName] = paramNames;
+                            if (!subcommands.Contains(path, StringComparer.OrdinalIgnoreCase))
+                            {
+                                subcommands.Add(path);
+                            }
+                            groupEntry[path] = paramNames;
+                            if (requiredParams.Count > 0)
+                            {
+                                groupEntry[$"{path}._req"] = requiredParams;
+                            }
                         }
                     }
-
-                    groupEntry["_subcommands"] = subcommands;
-                    tree[groupName.ToLowerInvariant()] = groupEntry;
                 }
                 catch
                 {
