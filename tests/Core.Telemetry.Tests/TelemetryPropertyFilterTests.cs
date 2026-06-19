@@ -22,6 +22,8 @@ public class TelemetryPropertyFilterTests
         TelemetryTags.ModuleName,
         TelemetryTags.ModuleVersion,
         TelemetryTags.Parameter,
+        TelemetryTags.SubscriptionId,
+        TelemetryTags.TenantId,
     };
 
     [Theory]
@@ -53,7 +55,6 @@ public class TelemetryPropertyFilterTests
     [InlineData("http.target")]              // path / query
     [InlineData("exception.message")]        // can echo PII from caller-supplied input
     [InlineData("otel.status_description")]  // operator-supplied text
-    [InlineData("subscriptionId")]
     [InlineData("resourceGroupName")]
     [InlineData("UnknownNewTag")]
     [InlineData("anything.else")]
