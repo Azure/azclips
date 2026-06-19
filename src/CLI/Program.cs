@@ -140,6 +140,8 @@ public class Program
         }
     }
 
+    // TODO(Yabo): Q&P squad to refactor global parameter handling
+    // this method is temporary and is for ease of debugging
     private static string[] ParseDebugFlag(string[] args, out bool debugOverride)
     {
         debugOverride = args.Contains("--debug", StringComparer.OrdinalIgnoreCase);
