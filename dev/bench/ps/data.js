@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781831147863,
+  "lastUpdate": 1781842922494,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus PS Benchmarks": [
@@ -1092,6 +1092,48 @@ window.BENCHMARK_DATA = {
             "value": 21203067,
             "unit": "ns",
             "range": "± 2619760.991664793"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2a3fa51f3774f4f301b041b7fcebe93f5901742a",
+          "message": "{Core} Logging respects config values (CLI) (#300)\n\n## Summary\nMake CLI host logging respect configured log levels from\nconfig/environment, with `--debug` as a one-shot invocation override.\n\n## Problem\nCLI runtime logging streams were effectively gated by `--debug` only and\ndid not honor values set via:\n- `core.logging.level`\n- `CIRRUS_LOG_LEVEL`\n\n## What Changed\n- Added `CliLoggingPolicy` in `src/CLI/CliLoggingPolicy.cs`:\n  - Parses configured level (`debug|info|warn|error`).\n- Resolves effective level precedence: `--debug` override > env > global\nconfig > default.\n  - Applies severity emission matrix.\n- Updated `src/CLI/Program.cs`:\n  - Parse/strip `--debug` once at startup.\n  - Resolve effective log level via `IConfigurationService`.\n- Build `OutputStreams` from effective level policy (instead of fixed\nno-op streams).\n- Added unit tests in `tests/Cli.Tests/CliLoggingPolicyTests.cs`:\n  - Parse coverage and defaults.\n  - Emission matrix coverage.\n  - Precedence checks (env over config, debug override over both).\n- Documentation updates:\n  - `docs/howto/config.md`\n  - `docs/spec/config-implementation.md`\n\n## Effective Behavior\n- `error`: error only\n- `warn`: warn + error\n- `info`: info + warn + error\n- `debug`: verbose + debug + info + warn + error\n\nPrecedence:\n1. `--debug` (one-shot for invocation)\n2. `CIRRUS_LOG_LEVEL`\n3. `core.logging.level` (global config)\n4. default `info`\n\n## Validation\nAutomated:\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter\n\"FullyQualifiedName~CliLoggingPolicyTests\"`\n- `dotnet test tests/Cli.Tests/Cli.Tests.csproj --filter\n\"FullyQualifiedName~ConfigurationServiceTests|FullyQualifiedName~ConfigCliTests|FullyQualifiedName~ProgramFallbackTests\"`\n\nManual:\n- Verified runtime logs at `debug` and suppression at `error`.\n- Verified env override (`CIRRUS_LOG_LEVEL=error`) over global config.\n- Verified `--debug` override over env/config for a single invocation.\n\n## Scope\n- CLI host behavior only (PowerShell parity is intentionally\nout-of-scope for this PR).",
+          "timestamp": "2026-06-19T14:18:56+10:00",
+          "tree_id": "81668a4b48a88d2a58070caaab86c13794d9f0e6",
+          "url": "https://github.com/Azure/cirrus/commit/2a3fa51f3774f4f301b041b7fcebe93f5901742a"
+        },
+        "date": 1781842922419,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 21267961.2,
+            "unit": "ns",
+            "range": "± 2810985.7028172878"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 20704031.4,
+            "unit": "ns",
+            "range": "± 2054392.8719843973"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 21219983.4,
+            "unit": "ns",
+            "range": "± 2199897.312141137"
           }
         ]
       }
