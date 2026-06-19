@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781842863244,
+  "lastUpdate": 1781856212682,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus CLI Benchmarks": [
@@ -1134,6 +1134,48 @@ window.BENCHMARK_DATA = {
             "value": 824990.7,
             "unit": "ns",
             "range": "± 16039.149859016843"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "140ddf8fa61b1d5016358eeedb68998f42b7f4eb",
+          "message": "{Core} Logging respects config values (Pwsh) (#302)\n\n{Core} Logging respects config values (PowerShell)\n\nImplements PowerShell-side log-level enforcement to match CLI behavior\nfrom #300.\n\n## Changes\n- Added shared \\CmdletOutputStreamsFactory\\ in \\src/PS/Common/\\ to gate\nstream output by configured log level.\n- Migrated all PowerShell cmdlets (Config, Login, Compute, Resources)\nfrom manual \\OutputStreams\\ instantiation to centralized factory.\n- Enforces effective log level resolution from config → environment →\ndefaults, with error logs always emitted.\n\n## Log Level Gating\n- **error**: error only\n- **warn**: warning + error\n- **info**: info + warning + error (default)\n- **debug**: debug + verbose + info + warning + error\n\n## Validation\n- ✅ Manual runbook: config-level changes suppress/enable\ndebug/verbose/info correctly\n- ✅ Env override: \\CIRRUS_LOG_LEVEL=debug\\ overrides stored config value\n- ✅ Cross-module: consistent behavior across Config, Login, Compute,\nResources cmdlets\n- ✅ Builds clean: all PS cmdlet projects compile without error\n\n## Related\nCloses #395. Companion to PR #300 (CLI-side logging policy).\n\n---------\n\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-06-19T18:01:41+10:00",
+          "tree_id": "309bd212440db8289f0043253c1a906ee457d99e",
+          "url": "https://github.com/Azure/cirrus/commit/140ddf8fa61b1d5016358eeedb68998f42b7f4eb"
+        },
+        "date": 1781856210972,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 1139798.5,
+            "unit": "ns",
+            "range": "± 189452.4903733563"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 986946.2,
+            "unit": "ns",
+            "range": "± 112653.96211274595"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 952887.2,
+            "unit": "ns",
+            "range": "± 86166.9148786238"
           }
         ]
       }
