@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
@@ -22,7 +21,7 @@ public class GetResourceGroupCmdlet : PSCmdlet
 
     protected override void BeginProcessing()
     {
-            streams = CmdletOutputStreamsFactory.Create(this, "ResourceGroupError", ErrorCategory.NotSpecified);
+        streams = CmdletOutputStreamsFactory.Create(this, "ResourceGroupError", ErrorCategory.NotSpecified, enumerateOutput: true);
         engine = CirrusServiceProvider.GetRequiredService<IEngine>();
     }
 
