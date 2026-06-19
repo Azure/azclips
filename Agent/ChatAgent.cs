@@ -148,11 +148,9 @@ public sealed class ChatAgent : IAsyncDisposable
                 }
                 if (ev is ToolStarted ts && self is not null)
                 {
-                    var isSubmit = string.Equals(ts.Name, "submit_response", StringComparison.OrdinalIgnoreCase);
-                    var isPlan   = string.Equals(ts.Name, "propose_plan",    StringComparison.OrdinalIgnoreCase);
-                    if (isSubmit || isPlan)
+                    if (IsClosingTool(ts.Name))
                         Volatile.Write(ref self._sendCalledClosingTool, 1);
-                    if (isSubmit)
+                    if (IsSessionTerminator(ts.Name))
                         Volatile.Write(ref self._sendCalledSubmit, 1);
                 }
                 if (spinner is not null)
@@ -359,7 +357,11 @@ public sealed class ChatAgent : IAsyncDisposable
         try { await _session.AbortAsync(ct).ConfigureAwait(false); } catch { }
     }
 
-    private static async Task<PreToolUseHookOutput?> HandlePreToolUseAsync(
+    // The OnPreToolUse gate: validates/renders submit_response (the terminator)
+    // and propose_plan (a mid-turn artifact), enforces the plan-before-execute gate
+    // on bash/powershell, and rewrites bare azv2 to the absolute exe path.
+    // internal (not private) so PlanGateTests can drive it with a real SessionState.
+    internal static async Task<PreToolUseHookOutput?> HandlePreToolUseAsync(
         PreToolUseHookInput input,
         string azv2ExePath,
         ConsoleApprovalPrompt approvalSink,
@@ -538,6 +540,20 @@ public sealed class ChatAgent : IAsyncDisposable
     }
 
     private static readonly string[] ValidSubmitStatuses = ["completed", "rejected", "failed"];
+
+    // A turn-closing tool satisfies the act-through-tools contract: propose_plan
+    // (renders a plan) or submit_response (ends the session). A turn that only
+    // queried (get_command/bash/find_*) then replied in prose is still a violation.
+    // internal for unit testing (see ClosingToolPredicateTests).
+    internal static bool IsClosingTool(string? toolName) =>
+        IsSessionTerminator(toolName) ||
+        string.Equals(toolName, "propose_plan", StringComparison.OrdinalIgnoreCase);
+
+    // The session terminator under the unified-mind model: only submit_response
+    // ends a session. propose_plan is a mid-turn artifact and is NOT a terminator.
+    // internal for unit testing (see ClosingToolPredicateTests).
+    internal static bool IsSessionTerminator(string? toolName) =>
+        string.Equals(toolName, "submit_response", StringComparison.OrdinalIgnoreCase);
 
     // Returns null when propose_plan args are valid, else an error message. Same
     // hook-not-body validation rationale as submit_response. internal for tests.
