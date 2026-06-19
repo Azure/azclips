@@ -573,7 +573,8 @@ public sealed class ChatAgent : IAsyncDisposable
     // Parses the (already-validated) steps array into the host's PlanStep view
     // for rendering. Missing/odd fields degrade gracefully — validation has
     // already guaranteed label+cmd are present for a plan that reaches approval.
-    // internal for unit testing.
+    // A step is destructive when the model said so OR its command contains a
+    // danger verb (host-side double-safety). internal for unit testing.
     internal static IReadOnlyList<ConsoleApprovalPrompt.PlanStep>? ExtractPlanSteps(object? args)
     {
         if (!TryGetArrayArg(args, "steps", out var steps)) return null;
@@ -588,10 +589,34 @@ public sealed class ChatAgent : IAsyncDisposable
                 && idEl.TryGetInt32(out var parsed) ? parsed : fallbackId;
             var label = step.TryGetProperty("label", out var l) ? l.GetString() ?? string.Empty : string.Empty;
             var cmd = step.TryGetProperty("cmd", out var c) ? c.GetString() ?? string.Empty : string.Empty;
-            list.Add(new ConsoleApprovalPrompt.PlanStep(id, label, cmd));
+            var modelDestructive = step.TryGetProperty("destructive", out var d)
+                && (d.ValueKind == JsonValueKind.True
+                    || (d.ValueKind == JsonValueKind.String && bool.TryParse(d.GetString(), out var db) && db));
+            var rationale = step.TryGetProperty("rationale", out var r) && r.ValueKind == JsonValueKind.String
+                ? r.GetString() : null;
+            var destructive = modelDestructive || HasDangerVerb(cmd);
+            list.Add(new ConsoleApprovalPrompt.PlanStep(id, label, cmd, destructive, rationale));
             fallbackId++;
         }
         return list.Count > 0 ? list : null;
+    }
+
+    // Danger verbs that mark a command destructive even when the model didn't.
+    // Matched as whole words so "undelete" or a resource named "removexyz" in a
+    // path don't trip it; case-insensitive.
+    private static readonly string[] DangerVerbs =
+        ["delete", "remove", "purge", "destroy", "rm", "drop", "wipe", "erase", "format", "uninstall"];
+
+    private static bool HasDangerVerb(string cmd)
+    {
+        if (string.IsNullOrWhiteSpace(cmd)) return false;
+        foreach (var token in cmd.Split([' ', '\t', '\n', '\r', '-', '/'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            foreach (var verb in DangerVerbs)
+                if (string.Equals(token, verb, StringComparison.OrdinalIgnoreCase))
+                    return true;
+        }
+        return false;
     }
 
     private static bool TryGetArrayArg(object? args, string field, out JsonElement array)

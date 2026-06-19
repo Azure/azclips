@@ -7,7 +7,8 @@ namespace Core.Agent.Tests;
 /// <summary>
 /// Unit tests for <see cref="ChatAgent.ExtractPlanSteps"/> — parsing the
 /// validated steps array into the host's PlanStep render view. Covers the real
-/// branches: normal parse, id fallback when absent, and empty/no steps → null.
+/// branches: normal parse, id fallback when absent, destructive flagging
+/// (model flag + host danger-verb backstop), rationale, and empty/no steps → null.
 /// </summary>
 public class ExtractPlanStepsTests
 {
@@ -77,6 +78,81 @@ public class ExtractPlanStepsTests
         Assert.Equal(2, steps!.Count);
         Assert.Equal(1, steps[0].Id);
         Assert.Equal(2, steps[1].Id);
+    }
+
+    [Fact]
+    public void Marks_step_destructive_when_model_sets_the_flag()
+    {
+        var args = Args(new
+        {
+            planMd = "plan",
+            steps = new[]
+            {
+                new { id = 1, label = "Tag it", cmd = "azv2 group update -n foo", destructive = true },
+            },
+        });
+
+        var steps = ChatAgent.ExtractPlanSteps(args);
+
+        Assert.NotNull(steps);
+        Assert.True(steps![0].Destructive);
+    }
+
+    [Fact]
+    public void Marks_step_destructive_via_danger_verb_when_model_omits_it()
+    {
+        // The model didn't flag it, but the command deletes — the host backstop
+        // must still mark it destructive so the user sees the red warning.
+        var args = Args(new
+        {
+            planMd = "plan",
+            steps = new[]
+            {
+                new { id = 1, label = "Remove RG", cmd = "azv2 group delete -n foo --yes" },
+            },
+        });
+
+        var steps = ChatAgent.ExtractPlanSteps(args);
+
+        Assert.NotNull(steps);
+        Assert.True(steps![0].Destructive);
+    }
+
+    [Fact]
+    public void Leaves_safe_step_not_destructive()
+    {
+        var args = Args(new
+        {
+            planMd = "plan",
+            steps = new[]
+            {
+                new { id = 1, label = "List groups", cmd = "azv2 group list" },
+            },
+        });
+
+        var steps = ChatAgent.ExtractPlanSteps(args);
+
+        Assert.NotNull(steps);
+        Assert.False(steps![0].Destructive);
+        Assert.Null(steps[0].Rationale);
+    }
+
+    [Fact]
+    public void Parses_rationale_when_present()
+    {
+        var args = Args(new
+        {
+            planMd = "plan",
+            steps = new[]
+            {
+                new { id = 1, label = "Create RG", cmd = "azv2 group create -n foo", rationale = "the VM needs a resource group first" },
+            },
+        });
+
+        var steps = ChatAgent.ExtractPlanSteps(args);
+
+        Assert.NotNull(steps);
+        Assert.Equal("the VM needs a resource group first", steps![0].Rationale);
     }
 
     [Fact]

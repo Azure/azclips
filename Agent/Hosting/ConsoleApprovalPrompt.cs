@@ -56,8 +56,9 @@ public sealed class ConsoleApprovalPrompt
         CancellationTokenRegistration Reg);
 
     // Minimal step view the host renders under the plan markdown. Decoupled from
-    // the tool's StepMeta so the hook owns the JSON parsing.
-    public sealed record PlanStep(int Id, string Label, string Cmd);
+    // the tool's StepMeta so the hook owns the JSON parsing. Destructive drives the
+    // red marker; Rationale prints a grey "why" line under the command.
+    public sealed record PlanStep(int Id, string Label, string Cmd, bool Destructive = false, string? Rationale = null);
 
     // Outcome of one approval prompt. When Approved=false and FeedbackPrompt is
     // set, the user typed free-form text at the y/n prompt — the host treats it
@@ -330,9 +331,14 @@ public sealed class ConsoleApprovalPrompt
             WriteColor(ConsoleColor.DarkGray, "  Commands");
             foreach (var step in steps)
             {
-                WriteColor(ConsoleColor.White, $"  [{step.Id}] {step.Label}");
+                if (step.Destructive)
+                    WriteColor(ConsoleColor.Red, $"  ⚠ [{step.Id}] {step.Label}");
+                else
+                    WriteColor(ConsoleColor.White, $"  [{step.Id}] {step.Label}");
                 if (!string.IsNullOrWhiteSpace(step.Cmd))
                     WriteColor(ConsoleColor.DarkGray, $"        $ {step.Cmd}");
+                if (!string.IsNullOrWhiteSpace(step.Rationale))
+                    WriteColor(ConsoleColor.DarkGray, $"        {step.Rationale}");
             }
         }
         Console.WriteLine();

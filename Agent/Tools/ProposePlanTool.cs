@@ -46,8 +46,9 @@ public sealed class ProposePlanTool
     private static string ProposePlanImpl(
         [Description("The plan as markdown — what you'll do and why. This is what the user reads. Required.")]
         string planMd,
-        [Description("Structured steps. Each: id (1-based), label (short title), cmd (exact command), destructive (omit unless you are certain it is safe — defaults to treated-as-destructive), rationale (optional). At least one step.")]
+        [Description("Structured steps. Each: id (1-based), label (short title), cmd (exact command), destructive (set true for irreversible ops — delete/remove/purge; the host also auto-flags known danger verbs), rationale (optional one-line why, shown under the command). At least one step.")]
         IReadOnlyList<StepMeta> steps,
+        // TODO v2: wire to telemetry (correlate which error codes trigger plans).
         [Description("Reserved for future use. Pass null.")]
         string? triggerErrorCode = null)
     {
@@ -59,8 +60,8 @@ public sealed class ProposePlanTool
 
 /// <summary>
 /// One step of a proposed plan. <see cref="Destructive"/> is nullable so the LLM
-/// can omit it; the host treats null as destructive (the conservative default —
-/// the model must explicitly set false to downgrade the stage-2 warning).
+/// can omit it; the host marks a step destructive when this is true OR the command
+/// contains a danger verb, so an omission still gets flagged by the host backstop.
 /// </summary>
 public sealed record StepMeta(
     int Id,
