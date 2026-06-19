@@ -48,20 +48,30 @@ internal static class CmdletOutputStreamsFactory
             },
             WriteVerbose: (value, ct) =>
             {
+                var message = value?.ToString() ?? string.Empty;
                 var verboseOverride = IsOverrideEnabled(cmdlet.MyInvocation.BoundParameters, "Verbose");
-                if (verboseOverride || ShouldEmit(level, LogSeverity.Verbose))
+                if (verboseOverride)
                 {
-                    cmdlet.WriteVerbose(value?.ToString() ?? string.Empty);
+                    cmdlet.WriteVerbose(message);
+                }
+                else if (ShouldEmit(level, LogSeverity.Verbose))
+                {
+                    cmdlet.Host.UI.WriteVerboseLine(message);
                 }
 
                 return Task.CompletedTask;
             },
             WriteDebug: (value, ct) =>
             {
+                var message = value?.ToString() ?? string.Empty;
                 var debugOverride = IsOverrideEnabled(cmdlet.MyInvocation.BoundParameters, "Debug");
-                if (debugOverride || ShouldEmit(level, LogSeverity.Debug))
+                if (debugOverride)
                 {
-                    cmdlet.WriteDebug(value?.ToString() ?? string.Empty);
+                    cmdlet.WriteDebug(message);
+                }
+                else if (ShouldEmit(level, LogSeverity.Debug))
+                {
+                    cmdlet.Host.UI.WriteDebugLine(message);
                 }
 
                 return Task.CompletedTask;
