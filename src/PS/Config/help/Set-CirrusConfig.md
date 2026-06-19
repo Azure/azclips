@@ -1,7 +1,7 @@
 ---
 document type: cmdlet
 external help file: Microsoft.Azure.Cirrus.Cmdlets.Config.dll-Help.xml
-HelpUri: ''
+HelpUri: ""
 Locale: en-US
 Module Name: Config
 ms.date: 06/03/2026
@@ -17,7 +17,7 @@ Set or update a configuration value.
 
 ## SYNTAX
 
-### __AllParameterSets
+### \_\_AllParameterSets
 
 ```
 Set-CirrusConfig -Key <string> -Value <string> [-Force] [-WhatIf] [-Confirm] [<CommonParameters>]
@@ -26,7 +26,7 @@ Set-CirrusConfig -Key <string> -Value <string> [-Force] [-WhatIf] [-Confirm] [<C
 ## ALIASES
 
 This cmdlet has the following aliases,
-  {{Insert list of aliases}}
+{{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -38,18 +38,18 @@ Unknown keys are rejected unless --force is specified.
 
 ### Set output format
 
-TODO - describe the example.
+Update the `output.format` setting to `json` so that subsequent commands emit JSON output by default.
 
 ```powershell
-Set-CirrusConfig -Key <key> -Value <value>
+Set-CirrusConfig -Key output.format -Value json
 ```
 
 ### Set custom key with force
 
-TODO - describe the example.
+Use `-Force` to set a key that is not in the documented configuration schema.
 
 ```powershell
-Set-CirrusConfig -Key <key> -Value <value>
+Set-CirrusConfig -Key custom.experimental.flag -Value enabled -Force
 ```
 
 ## PARAMETERS
@@ -60,20 +60,20 @@ Prompts you for confirmation before running the cmdlet.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases:
-- cf
+    - cf
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -Force
@@ -82,19 +82,19 @@ Allow unknown keys.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -Key
@@ -103,19 +103,19 @@ Configuration key in dot notation.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -Value
@@ -124,19 +124,19 @@ Configuration value.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -WhatIf
@@ -146,20 +146,20 @@ The cmdlet is not run.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases:
-- wi
+    - wi
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### CommonParameters
@@ -177,9 +177,6 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 Generated help for config.
 
-
 ## RELATED LINKS
-
-
 
 - [Online Version]()

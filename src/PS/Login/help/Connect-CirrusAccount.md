@@ -4,7 +4,7 @@ external help file: Microsoft.Azure.Cirrus.Cmdlets.Login.dll-Help.xml
 HelpUri: ""
 Locale: en-US
 Module Name: Login
-ms.date: 06/03/2026
+ms.date: 06/16/2026
 PlatyPS schema version: 2024-05-01
 title: Connect-CirrusAccount
 ---
@@ -35,20 +35,20 @@ Authenticate to Azure and persist account context for subsequent commands.
 
 ## EXAMPLES
 
-### Login with subscription id
+### Sign in with the default browser flow
 
-TODO - describe the example.
+Launches the interactive browser sign-in experience and persists the resulting account context for the specified subscription. Use this on a workstation with a default browser available.
 
 ```powershell
-Connect-CirrusAccount -SubscriptionId <subscriptionid>
+Connect-CirrusAccount -SubscriptionId '00000000-0000-0000-0000-000000000000' -TenantId '11111111-1111-1111-1111-111111111111'
 ```
 
-### Login with device code
+### Sign in with device code on a host without a browser
 
-TODO - describe the example.
+Uses the device-code authentication flow — prints a code and verification URL to the console so you can complete the sign-in from another device. Useful for SSH sessions, containers, and headless build agents.
 
 ```powershell
-Connect-CirrusAccount -SubscriptionId <subscriptionid> -UseDeviceCode
+Connect-CirrusAccount -SubscriptionId '00000000-0000-0000-0000-000000000000' -TenantId '11111111-1111-1111-1111-111111111111' -UseDeviceCode
 ```
 
 ## PARAMETERS

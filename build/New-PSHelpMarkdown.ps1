@@ -5,7 +5,16 @@
 param(
     [string]$Configuration = 'Debug',
 
-    [ValidateSet('Compute', 'Config', 'Login', 'Resources')]
+    # Modules are discovered from src/PS/<Name>/<Name>.psd1 at runtime (see block below).
+    # ArgumentCompleter restores tab-completion in lieu of a static [ValidateSet].
+    [ArgumentCompleter({
+        param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
+        $psRoot = Join-Path $PSScriptRoot '../src/PS'
+        if (-not (Test-Path $psRoot)) { return }
+        Get-ChildItem -Path $psRoot -Directory -ErrorAction SilentlyContinue |
+            Where-Object { (Test-Path (Join-Path $_.FullName "$($_.Name).psd1")) -and $_.Name -like "$wordToComplete*" } |
+            ForEach-Object { $_.Name }
+    })]
     [string[]]$Module
 )
 
@@ -26,6 +35,10 @@ function Convert-PlatyPSPlaceholders
     $synopsisDefault = "TODO - one-line summary of $CmdletName."
     $descriptionDefault = "TODO - describe what $CmdletName does and when to use it."
 
+    # Force Locale to en-US: PlatyPS 1.0.1 seeds Locale from CurrentCulture, so a contributor on
+    # en-AU/en-GB would scaffold drift against our hardcoded en-US MAML output dir.
+    $Content = $Content -replace '(?m)^Locale:\s*\S+\s*$', 'Locale: en-US'
+
     $Content = $Content -replace '\{\{\s*Fill in the Synopsis\s*\}\}', $synopsisDefault
     $Content = $Content -replace '\{\{\s*Fill in the Description\s*\}\}', $descriptionDefault
     $Content = $Content -replace '\{\{\s*Add example description here\s*\}\}', "TODO - describe the example."
@@ -36,10 +49,8 @@ function Convert-PlatyPSPlaceholders
     $Content = $Content -replace 'PS C:\\>\s*\{\{\s*Add example code here\s*\}\}', "PS C:\> $exampleLine"
 
     # New schema (2024-05-01): PlatyPS emits empty `### <Title>` blocks under `## EXAMPLES`
-    # when the cmdlet has no [Example] metadata. Backfill with a TODO + fenced code stub.
-    #
-    # Note: `````` inside a here-string is 3 literal backticks (each backtick is the PS escape char),
-    # so the emitted markdown is a normal ```powershell fence (PR #226 review false-positive).
+    # for cmdlets without [Example] metadata. Backfill with a TODO + fenced code stub.
+    # (`````` inside a here-string = 3 literal backticks → normal ```powershell fence in markdown.)
     $exampleStub = @"
 TODO - describe the example.
 
@@ -118,7 +129,6 @@ $exampleLine
 
     # Collapse duplicate `[Online Version]()` entries under `## RELATED LINKS`. PlatyPS 1.0.1's
     # New-MarkdownCommandHelp -ModuleInfo seeds Links with one entry per cmdlet (all empty when
-    # no [Cmdlet(HelpUri=...)] is set), producing N near-identical bullets (PR #226 review).
     $merged = $output -join "`n"
     $merged = [regex]::Replace(
         $merged,
@@ -139,7 +149,33 @@ $exampleLine
 $repoRoot = Resolve-Path "$PSScriptRoot/.."
 $psSrcRoot = Join-Path $repoRoot "src/PS"
 
-$modules = if ($Module) { $Module } else { 'Compute','Config','Login','Resources' }
+# Discover modules from src/PS/<Name>/<Name>.psd1 — single source of truth.
+# Avoids drift as new modules (Storage, Network, ...) land without touching this script.
+$discovered = @(
+    Get-ChildItem -Path $psSrcRoot -Directory -ErrorAction SilentlyContinue |
+        Where-Object { Test-Path (Join-Path $_.FullName "$($_.Name).psd1") } |
+        Select-Object -ExpandProperty Name |
+        Sort-Object
+)
+
+if (-not $discovered)
+{
+    throw "No PowerShell modules found under '$psSrcRoot'. Expected layout: src/PS/<Name>/<Name>.psd1."
+}
+
+if ($Module)
+{
+    $unknown = @($Module | Where-Object { $_ -notin $discovered })
+    if ($unknown)
+    {
+        throw "Unknown module(s): $($unknown -join ', '). Available: $($discovered -join ', ')."
+    }
+    $modules = $Module
+}
+else
+{
+    $modules = $discovered
+}
 
 foreach ($name in $modules)
 {

@@ -1,7 +1,7 @@
 ---
 document type: cmdlet
 external help file: Microsoft.Azure.Cirrus.Cmdlets.Config.dll-Help.xml
-HelpUri: ''
+HelpUri: ""
 Locale: en-US
 Module Name: Config
 ms.date: 06/03/2026
@@ -17,7 +17,7 @@ Display information about valid configuration keys.
 
 ## SYNTAX
 
-### __AllParameterSets
+### \_\_AllParameterSets
 
 ```
 Get-CirrusConfigInfo [-KeysOnly] [<CommonParameters>]
@@ -26,7 +26,7 @@ Get-CirrusConfigInfo [-KeysOnly] [<CommonParameters>]
 ## ALIASES
 
 This cmdlet has the following aliases,
-  {{Insert list of aliases}}
+{{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -37,7 +37,7 @@ Use --keys-only to show only valid key names.
 
 ### Display configuration schema
 
-TODO - describe the example.
+Show every valid configuration key together with its description, default value, and accepted values.
 
 ```powershell
 Get-CirrusConfigInfo
@@ -45,10 +45,10 @@ Get-CirrusConfigInfo
 
 ### Display only key names
 
-TODO - describe the example.
+List just the valid key identifiers — useful for tab-completion or scripting.
 
 ```powershell
-Get-CirrusConfigInfo
+Get-CirrusConfigInfo -KeysOnly
 ```
 
 ## PARAMETERS
@@ -59,19 +59,19 @@ Return only valid keys.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### CommonParameters
@@ -89,9 +89,6 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 Generated help for config.
 
-
 ## RELATED LINKS
-
-
 
 - [Online Version]()

@@ -1,11 +1,11 @@
 ---
-summary: TODO — one-sentence description of the vm command group.
+summary: Manage Azure virtual machines.
 status: ga
 schema: 1.0.0
 online version:
 ---
 
-Description: TODO — describe what the `azv2 vm` command group does.
+Description: Create, inspect, list, and delete Azure virtual machines. The `vm create` command provisions a virtual machine plus its supporting network interface, virtual network, and network security group in a single call.
 
 ### Discover vm commands
 

@@ -71,16 +71,18 @@ namespace Cirrus.Help.Tool.Validation
         public ValidationReport Validate(string repoRoot, CmdletIndex cmdlets)
         {
             var report = new ValidationReport();
-            var helpRoot = Path.Combine(repoRoot, "src", "PS");
+            var helpRoot = Core.Cli.Help.HelpPaths.PsModulesRoot(repoRoot);
 
             if (!Directory.Exists(helpRoot))
             {
                 return report;
             }
 
+            // PS authoring lives in `src/PS/<Module>/help/*.md`. The `help` segment is lowercase.
+            var psHelpSegment = $"{Path.DirectorySeparatorChar}{Core.Cli.Help.HelpPaths.PsHelpFolder}{Path.DirectorySeparatorChar}";
             var markdownFiles = Directory
                 .EnumerateFiles(helpRoot, "*.md", SearchOption.AllDirectories)
-                .Where(static path => path.Contains($"{Path.DirectorySeparatorChar}help{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
+                .Where(path => path.Contains(psHelpSegment, StringComparison.OrdinalIgnoreCase))
                 .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase);
 
             foreach (var file in markdownFiles)
@@ -116,10 +118,40 @@ namespace Cirrus.Help.Tool.Validation
             var documentedCmdlet = Path.GetFileNameWithoutExtension(filePath);
             var hasDocumentedCmdletName = s_verbNounPattern.IsMatch(documentedCmdlet);
 
+            // Whole-file TODO scan. The only producer of TODO in the PS corpus is our scaffolder.
+            if (PlaceholderDetector.ContainsTodo(content))
+            {
+                report.AddError(
+                    ProblemIds.PS_TodoPlaceholder,
+                    "PowerShell help file still contains a TODO marker. Replace every scaffolded 'TODO - ...' placeholder with real content before merging.",
+                    filePath);
+            }
+
+            // PSL12: PlatyPS `{{ Fill ... }}` markers render literally in Get-Help -Full.
+            // `{{Insert list of aliases}}` is excluded (see PlaceholderDetector.s_fillPlaceholderRegex).
+            foreach (var (token, lineNumber) in PlaceholderDetector.EnumerateFillPlaceholders(content))
+            {
+                report.AddError(
+                    ProblemIds.PSL12_FillPlaceholder,
+                    $"Help file contains scaffolded placeholder '{token}'. Replace with real content (parameter description, notes, or related links) before merging.",
+                    $"{filePath}:{lineNumber}");
+            }
+
             var fenceCount = 0;
             foreach (var (body, fenceBodyAbsoluteLine) in EnumerateExampleFences(content))
             {
                 fenceCount++;
+
+                // Ban `<...>` placeholders in PS example fences. Allowed escapes: literals,
+                // `$variable`, splatted hashtables.
+                foreach (var placeholder in PlaceholderDetector.EnumerateAngleBracketPlaceholders(body))
+                {
+                    report.AddError(
+                        ProblemIds.PS_ExamplePlaceholder,
+                        $"Example contains placeholder '{placeholder}'. Replace with a realistic literal value, a `$variable`, or a splatted hashtable.",
+                        $"{filePath}:{fenceBodyAbsoluteLine}");
+                }
+
                 // Strip PS prompt prefixes ("PS>" / "PS C:\>") line-by-line so the parser sees clean script.
                 var cleanedBody = StripPrompts(body);
 
