@@ -14,8 +14,10 @@ namespace Core.Tui.AgentMode;
 /// </summary>
 public static class AgentModeEntry
 {
-    // Interactive escape valve thresholds (MVP constants, not configurable yet):
-    // a soft reminder at SoftTurns, a hard abort at HardTurns.
+    // Session-level interaction brake (MVP constants, not configurable yet):
+    // counts user<->agent messages (each new user message +1, internal
+    // self-correction re-sends excluded), does NOT reset, soft reminder at
+    // SoftTurns, one hard stop at HardTurns.
     private const int EscapeValveSoftTurns = 12;
     private const int EscapeValveHardTurns = 20;
 
@@ -81,20 +83,6 @@ public static class AgentModeEntry
 
             var interactive = agentOpts.IsInteractive;
 
-            // Escape valve (interactive only): a soft reminder partway through and
-            // a hard stop if the agent keeps looping. Numbers are MVP constants.
-            if (interactive)
-                agent.LlmTurnCompletedCount += turns =>
-                {
-                    if (turns == EscapeValveSoftTurns)
-                        WriteColor(ConsoleColor.DarkGray, $"  agent has taken {turns} turns. Press Ctrl+C to interrupt.");
-                    else if (turns >= EscapeValveHardTurns)
-                    {
-                        WriteColor(ConsoleColor.Yellow, $"  agent gave up after {turns} turns. Hit Ctrl+C anytime to interrupt sooner.");
-                        _ = agent.AbortAsync(cts.Token);
-                    }
-                };
-
             await RunChatLoopAsync(agent, approval, watcher, spinner, firstPrompt, interactive, cts.Token);
             return 0;
         }
@@ -122,21 +110,25 @@ public static class AgentModeEntry
         bool interactive,
         CancellationToken ct)
     {
+        // Session-level interaction brake: counts user<->agent messages and never
+        // resets. The first prompt is message 1; each new "> " line adds one.
+        // Internal self-correction re-sends inside SendWithToolEnforcementAsync are
+        // not counted (they aren't new user input).
+        int userMessages = 1;
         var nextPrompt = await SendWithToolEnforcementAsync(agent, approval, watcher, spinner, firstPrompt, ct);
 
-        // oneShot: the agent proposes a fix and exits. Once a plan has been shown
-        // it IS the terminal output — stop immediately. Otherwise (no plan, e.g.
-        // an out-of-scope rejection or a clarifying question) drain any redirect
-        // but never open a fresh "> " prompt.
+        // submit_response is the sole terminator. oneShot proposes a fix then closes
+        // with submit_response; drain any redirect until it does (or the agent stops
+        // without one, e.g. an out-of-scope rejection), but never open a "> " prompt.
         if (!interactive)
         {
-            while (!agent.OneShotPlanShown && nextPrompt is not null && !ct.IsCancellationRequested)
+            while (!agent.SessionClosed && nextPrompt is not null && !ct.IsCancellationRequested)
                 nextPrompt = await SendWithToolEnforcementAsync(agent, approval, watcher, spinner, nextPrompt, ct);
 
-            // Only nudge toward interactive mode when a plan was actually shown.
-            // After an out-of-scope rejection, switching to interactive wouldn't
-            // help (the request is still out of scope), so don't suggest it.
-            if (agent.OneShotPlanShown)
+            // Nudge toward interactive mode only when a plan was shown (and the
+            // session wasn't closed by an out-of-scope rejection, where switching
+            // wouldn't help). A completed plan close satisfies both.
+            if (agent.PlanShown)
             {
                 Console.WriteLine();
                 WriteColor(ConsoleColor.DarkGray,
@@ -147,13 +139,17 @@ public static class AgentModeEntry
 
         while (!ct.IsCancellationRequested)
         {
+            // The session ends when the agent submits its final response.
+            if (agent.SessionClosed) break;
+
             string line;
             if (nextPrompt is not null)
             {
-                // User typed free text at the y/n prompt — replay it as the
-                // next chat turn without re-reading stdin.
+                // User typed free text at the y/n prompt — replay it as the next
+                // chat turn. This is user input, so it counts toward the brake.
                 line = nextPrompt;
                 nextPrompt = null;
+                userMessages++;
             }
             else
             {
@@ -164,6 +160,18 @@ public static class AgentModeEntry
                 line = read.Trim();
                 if (line.Length == 0) continue;
                 if (line is "exit" or "quit" or "/exit" or "/quit" or ":q") break;
+                userMessages++;
+            }
+
+            if (userMessages == EscapeValveSoftTurns)
+                WriteColor(ConsoleColor.DarkGray,
+                    $"  this session has run {userMessages} exchanges. Type 'exit' or Ctrl+C to stop.");
+            else if (userMessages >= EscapeValveHardTurns)
+            {
+                WriteColor(ConsoleColor.Yellow,
+                    $"  ending the session after {userMessages} exchanges — start a fresh one if you still need help.");
+                await agent.AbortAsync(ct).ConfigureAwait(false);
+                break;
             }
 
             nextPrompt = await SendWithToolEnforcementAsync(agent, approval, watcher, spinner, line, ct);
@@ -172,7 +180,7 @@ public static class AgentModeEntry
 
     // Max times we re-prompt a bare-prose turn before giving up and letting it
     // through (avoid an infinite correction loop if the model keeps disobeying).
-    private const int MaxToolEnforcementRetries = 2;
+    private const int MaxToolEnforcementRetries = 3;
 
     // Wraps SendAndPumpAsync with the plan-protocol guard: if a turn produced
     // only prose (no tool call, no submit_response), the model broke the "always
@@ -196,10 +204,6 @@ public static class AgentModeEntry
         {
             // A redirect means the user steered the turn — respect it, don't enforce.
             if (redirect is not null) break;
-            // oneShot plan was shown: the hook rendered it and cancelled the turn,
-            // so no closing tool executed (a denied propose_plan emits no
-            // ToolStarted). That IS a complete turn — don't mistake it for prose.
-            if (agent.OneShotPlanShown) break;
             // Compliant turn: it closed with propose_plan or submit_response.
             // (get_command/bash alone do NOT count — a query-then-prose turn is a violation.)
             if (agent.LastSendCalledClosingTool) break;
@@ -286,11 +290,6 @@ public static class AgentModeEntry
         catch (OperationCanceledException) when (redirect is not null)
         {
             // Abort caused by user redirect — already announced; swallow.
-        }
-        catch (OperationCanceledException) when (agent.OneShotPlanShown)
-        {
-            // oneShot plan was shown — the hook cancelled the turn on purpose so
-            // the agent couldn't continue. Normal exit; swallow.
         }
 
         return redirect;

@@ -10,8 +10,8 @@ namespace Core.Agent.Tests;
 /// submit_response call with a correction prompt instead of throwing.
 ///
 /// These assert the real validation rules (status enum, message-required,
-/// OUT_OF_SCOPE_ prefix) against SDK-shaped JsonElement args. The downstream
-/// deny + additionalContext round-trip itself is an e2e concern, not covered here.
+/// OUT_OF_SCOPE_ prefix) against SDK-shaped JsonElement args; returns null when
+/// valid, else a message. The deny + additionalContext round-trip is an e2e concern.
 /// </summary>
 public class SubmitResponseValidationTests
 {
@@ -32,27 +32,26 @@ public class SubmitResponseValidationTests
             _          => new { status },
         };
 
-        var invalid = ChatAgent.ValidateSubmitResponse(Args(payload), out var error);
+        var error = ChatAgent.ValidateSubmitResponse(Args(payload));
 
-        Assert.False(invalid);
-        Assert.Empty(error);
+        Assert.Null(error);
     }
 
     [Fact]
     public void Rejects_missing_status()
     {
-        var invalid = ChatAgent.ValidateSubmitResponse(Args(new { message = "hi" }), out var error);
+        var error = ChatAgent.ValidateSubmitResponse(Args(new { message = "hi" }));
 
-        Assert.True(invalid);
+        Assert.NotNull(error);
         Assert.Contains("status", error);
     }
 
     [Fact]
     public void Rejects_unknown_status()
     {
-        var invalid = ChatAgent.ValidateSubmitResponse(Args(new { status = "done" }), out var error);
+        var error = ChatAgent.ValidateSubmitResponse(Args(new { status = "done" }));
 
-        Assert.True(invalid);
+        Assert.NotNull(error);
         Assert.Contains("done", error);
     }
 
@@ -61,27 +60,27 @@ public class SubmitResponseValidationTests
     [InlineData("failed")]
     public void Rejects_missing_message_when_required(string status)
     {
-        var invalid = ChatAgent.ValidateSubmitResponse(Args(new { status }), out var error);
+        var error = ChatAgent.ValidateSubmitResponse(Args(new { status }));
 
-        Assert.True(invalid);
+        Assert.NotNull(error);
         Assert.Contains("message", error);
     }
 
     [Fact]
     public void Rejects_rejected_message_without_scope_prefix()
     {
-        var invalid = ChatAgent.ValidateSubmitResponse(
-            Args(new { status = "rejected", message = "not relevant" }), out var error);
+        var error = ChatAgent.ValidateSubmitResponse(
+            Args(new { status = "rejected", message = "not relevant" }));
 
-        Assert.True(invalid);
+        Assert.NotNull(error);
         Assert.Contains("OUT_OF_SCOPE_", error);
     }
 
     [Fact]
     public void Completed_does_not_require_message()
     {
-        var invalid = ChatAgent.ValidateSubmitResponse(Args(new { status = "completed" }), out _);
+        var error = ChatAgent.ValidateSubmitResponse(Args(new { status = "completed" }));
 
-        Assert.False(invalid);
+        Assert.Null(error);
     }
 }

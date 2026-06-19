@@ -127,6 +127,76 @@ public sealed class ConsoleApprovalPrompt
     }
 
     /// <summary>
+    /// Renders the session's final outcome for submit_response — the single
+    /// terminator under the unified-mind model. completed shows a success summary
+    /// (in one-shot the approved plan IS the summary), rejected explains the
+    /// out-of-scope reason, failed states the failure. Pauses the spinner and
+    /// renders under the renderer lock, same protection ShowPlan uses.
+    /// </summary>
+    public void ShowFinalOutcome(string status, string? message, string? planSummary)
+    {
+        _spinner?.Pause();
+        _abortWatcher?.Pause();
+        try
+        {
+            Action body = () =>
+            {
+                Console.WriteLine();
+                RenderFinalOutcome(status, message, planSummary);
+            };
+            if (_renderer is not null) _renderer.RunExclusive(body);
+            else                       body();
+        }
+        finally
+        {
+            _abortWatcher?.Resume();
+            _spinner?.Resume();
+        }
+    }
+
+    private static void RenderFinalOutcome(string status, string? message, string? planSummary)
+    {
+        if (string.Equals(status, "completed", StringComparison.OrdinalIgnoreCase))
+        {
+            WriteColor(ConsoleColor.Green, "✓ Done");
+            var summary = !string.IsNullOrWhiteSpace(message) ? message : planSummary;
+            if (!string.IsNullOrWhiteSpace(summary))
+                foreach (var lineText in MarkdownToText(summary))
+                    Console.WriteLine(string.IsNullOrEmpty(lineText) ? "" : $"  {lineText}");
+        }
+        else if (string.Equals(status, "rejected", StringComparison.OrdinalIgnoreCase))
+        {
+            WriteColor(ConsoleColor.Yellow, "✗ Out of scope");
+            WriteColor(ConsoleColor.DarkGray, $"  {ExplainOutOfScope(message)}");
+        }
+        else
+        {
+            WriteColor(ConsoleColor.Red, "✗ Couldn't finish");
+            if (!string.IsNullOrWhiteSpace(message))
+                WriteColor(ConsoleColor.DarkGray, $"  {message}");
+        }
+        Console.WriteLine();
+    }
+
+    // Turns an OUT_OF_SCOPE_<code> marker into a human sentence. Unknown codes
+    // keep the raw code so the user still sees why the request was declined.
+    internal static string ExplainOutOfScope(string? message)
+    {
+        var code = message;
+        if (!string.IsNullOrEmpty(code) &&
+            code.StartsWith("OUT_OF_SCOPE_", StringComparison.OrdinalIgnoreCase))
+            code = code["OUT_OF_SCOPE_".Length..];
+
+        return code?.ToLowerInvariant() switch
+        {
+            "harm"     => "This request looks harmful or unsafe, so I won't act on it.",
+            "other"    => "This isn't an Azure or terminal task I can help with.",
+            null or "" => "This request is outside what I can help with.",
+            _          => $"This request is outside what I can help with ({code}).",
+        };
+    }
+
+    /// <summary>
     /// Stage-1 plan approval. The hook intercepts propose_plan and routes here to
     /// render the markdown plan plus the structured step list and read y/n — same
     /// channel + pump + three-outcome machinery, only the rendered body differs.

@@ -8,7 +8,8 @@ namespace Core.Agent.Tests;
 /// Unit tests for <see cref="ChatAgent.ValidateProposePlan"/> — the PP-stage
 /// validation run in OnPreToolUse before a plan is rendered for approval. Asserts
 /// the real rules (planMd non-empty, at least one step, each step has label+cmd)
-/// against SDK-shaped JsonElement args. The render + approval round-trip is e2e.
+/// against SDK-shaped JsonElement args; returns null when valid, else a message.
+/// The render + approval round-trip is e2e.
 /// </summary>
 public class ProposePlanValidationTests
 {
@@ -26,10 +27,9 @@ public class ProposePlanValidationTests
             steps = new[] { Step(1, "Create RG", "azv2 group create -n foo -l eastus") },
         });
 
-        var invalid = ChatAgent.ValidateProposePlan(args, out var error);
+        var error = ChatAgent.ValidateProposePlan(args);
 
-        Assert.False(invalid);
-        Assert.Empty(error);
+        Assert.Null(error);
     }
 
     [Fact]
@@ -41,9 +41,9 @@ public class ProposePlanValidationTests
             steps = new[] { Step(1, "Create RG", "azv2 group create -n foo") },
         });
 
-        var invalid = ChatAgent.ValidateProposePlan(args, out var error);
+        var error = ChatAgent.ValidateProposePlan(args);
 
-        Assert.True(invalid);
+        Assert.NotNull(error);
         Assert.Contains("planMd", error);
     }
 
@@ -52,9 +52,9 @@ public class ProposePlanValidationTests
     {
         var args = Args(new { planMd = "do a thing", steps = Array.Empty<object>() });
 
-        var invalid = ChatAgent.ValidateProposePlan(args, out var error);
+        var error = ChatAgent.ValidateProposePlan(args);
 
-        Assert.True(invalid);
+        Assert.NotNull(error);
         Assert.Contains("steps", error);
     }
 
@@ -63,9 +63,9 @@ public class ProposePlanValidationTests
     {
         var args = Args(new { planMd = "do a thing" });
 
-        var invalid = ChatAgent.ValidateProposePlan(args, out var error);
+        var error = ChatAgent.ValidateProposePlan(args);
 
-        Assert.True(invalid);
+        Assert.NotNull(error);
         Assert.Contains("steps", error);
     }
 
@@ -78,9 +78,9 @@ public class ProposePlanValidationTests
             steps = new[] { new { id = 1, cmd = "azv2 group list" } },
         });
 
-        var invalid = ChatAgent.ValidateProposePlan(args, out var error);
+        var error = ChatAgent.ValidateProposePlan(args);
 
-        Assert.True(invalid);
+        Assert.NotNull(error);
         Assert.Contains("label", error);
     }
 
@@ -93,9 +93,9 @@ public class ProposePlanValidationTests
             steps = new[] { new { id = 1, label = "List groups" } },
         });
 
-        var invalid = ChatAgent.ValidateProposePlan(args, out var error);
+        var error = ChatAgent.ValidateProposePlan(args);
 
-        Assert.True(invalid);
+        Assert.NotNull(error);
         Assert.Contains("cmd", error);
     }
 
@@ -112,9 +112,9 @@ public class ProposePlanValidationTests
             },
         });
 
-        var invalid = ChatAgent.ValidateProposePlan(args, out var error);
+        var error = ChatAgent.ValidateProposePlan(args);
 
-        Assert.True(invalid);
+        Assert.NotNull(error);
         Assert.Contains("step 1", error);
         Assert.Contains("cmd", error);
     }
