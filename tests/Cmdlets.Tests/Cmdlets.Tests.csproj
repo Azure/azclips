@@ -4,4 +4,8 @@
     <ProjectReference Include="../../src/PS/Config/Cmdlets.Config.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="System.Management.Automation" Version="7.6.1" />
+  </ItemGroup>
+
 </Project>

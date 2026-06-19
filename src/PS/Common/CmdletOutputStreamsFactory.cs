@@ -48,8 +48,7 @@ internal static class CmdletOutputStreamsFactory
             },
             WriteVerbose: (value, ct) =>
             {
-                var verboseOverride = cmdlet.MyInvocation.BoundParameters.ContainsKey("Verbose") 
-                    && (bool)cmdlet.MyInvocation.BoundParameters["Verbose"];
+                var verboseOverride = IsOverrideEnabled(cmdlet.MyInvocation.BoundParameters, "Verbose");
                 if (verboseOverride || ShouldEmit(level, LogSeverity.Verbose))
                 {
                     cmdlet.WriteVerbose(value?.ToString() ?? string.Empty);
@@ -59,8 +58,7 @@ internal static class CmdletOutputStreamsFactory
             },
             WriteDebug: (value, ct) =>
             {
-                var debugOverride = cmdlet.MyInvocation.BoundParameters.ContainsKey("Debug")
-                    && (bool)cmdlet.MyInvocation.BoundParameters["Debug"];
+                var debugOverride = IsOverrideEnabled(cmdlet.MyInvocation.BoundParameters, "Debug");
                 if (debugOverride || ShouldEmit(level, LogSeverity.Debug))
                 {
                     cmdlet.WriteDebug(value?.ToString() ?? string.Empty);
@@ -132,5 +130,15 @@ internal static class CmdletOutputStreamsFactory
             LogSeverity.Verbose => configuredLevel >= LogLevel.Debug,
             _ => false,
         };
+    }
+
+    internal static bool IsOverrideEnabled(IDictionary<string, object> boundParameters, string parameterName)
+    {
+        if (!boundParameters.TryGetValue(parameterName, out var value) || value is null)
+        {
+            return false;
+        }
+
+        return LanguagePrimitives.IsTrue(value);
     }
 }
