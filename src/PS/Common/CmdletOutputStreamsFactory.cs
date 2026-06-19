@@ -5,7 +5,7 @@ using Core.DependencyInjection;
 
 namespace Microsoft.Azure.Cirrus.Cmdlets.Common;
 
-internal enum LogLevel
+public enum LogLevel
 {
     Error = 0,
     Warn = 1,
@@ -13,7 +13,7 @@ internal enum LogLevel
     Debug = 3,
 }
 
-internal enum LogSeverity
+public enum LogSeverity
 {
     Error = 0,
     Warn = 1,
