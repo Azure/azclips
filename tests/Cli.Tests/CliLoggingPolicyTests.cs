@@ -7,6 +7,7 @@ using Core.Configuration.Schema;
 
 namespace Cli.Tests;
 
+[Collection("Cirrus Service Provider Tests")]
 public class CliLoggingPolicyTests
 {
     [Theory]
