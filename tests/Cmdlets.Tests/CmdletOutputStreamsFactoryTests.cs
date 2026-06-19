@@ -41,7 +41,7 @@ public class CmdletOutputStreamsFactoryTests
     [InlineData(LogLevel.Debug, LogSeverity.Info, true)]
     [InlineData(LogLevel.Debug, LogSeverity.Debug, true)]
     [InlineData(LogLevel.Debug, LogSeverity.Verbose, true)]
-    internal void ShouldEmit_ShouldApplyExpectedMatrix(LogLevel level, LogSeverity severity, bool expected)
+    public void ShouldEmit_ShouldApplyExpectedMatrix(LogLevel level, LogSeverity severity, bool expected)
     {
         Assert.Equal(expected, CmdletOutputStreamsFactory.ShouldEmit(level, severity));
     }
