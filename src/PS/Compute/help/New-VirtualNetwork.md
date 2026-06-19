@@ -1,10 +1,10 @@
 ---
 document type: cmdlet
 external help file: Microsoft.Azure.Cirrus.Cmdlets.Compute.dll-Help.xml
-HelpUri: ''
+HelpUri: ""
 Locale: en-US
 Module Name: Compute
-ms.date: 06/04/2026
+ms.date: 06/16/2026
 PlatyPS schema version: 2024-05-01
 title: New-VirtualNetwork
 ---
@@ -17,7 +17,7 @@ Create a virtual network with optional subnets and address prefixes.
 
 ## SYNTAX
 
-### __AllParameterSets
+### \_\_AllParameterSets
 
 ```
 New-VirtualNetwork -SubscriptionId <string> -Name <string> -Location <string>
@@ -28,7 +28,7 @@ New-VirtualNetwork -SubscriptionId <string> -Name <string> -Location <string>
 ## ALIASES
 
 This cmdlet has the following aliases,
-  {{Insert list of aliases}}
+{{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -37,35 +37,36 @@ Optional parameters let you specify address prefixes and subnet definitions.
 
 ## EXAMPLES
 
-### Create a virtual network with default subnet
+### Create a virtual network with default address space
 
-TODO - describe the example.
+Provision the virtual network `myvnet` in `myrg` (East US).
+Use `-AddressPrefixes`, `-SubnetNames`, and `-SubnetAddressPrefixes` to override defaults.
 
 ```powershell
-New-VirtualNetwork -SubscriptionId <subscriptionid> -Name <name> -Location <location> -ResourceGroupName <resourcegroupname>
+New-VirtualNetwork -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myvnet -Location eastus -ResourceGroupName myrg
 ```
 
 ## PARAMETERS
 
 ### -AddressPrefixes
 
-{{ Fill AddressPrefixes Description }}
+Address prefixes for the virtual network in CIDR notation (for example, `10.0.0.0/16`).
 
 ```yaml
 Type: System.String[]
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -Confirm
@@ -74,146 +75,146 @@ Prompts you for confirmation before running the cmdlet.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases:
-- cf
+    - cf
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -Location
 
-{{ Fill Location Description }}
+The Azure region in which to create the virtual network (for example, `eastus`).
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -Name
 
-{{ Fill Name Description }}
+The name of the virtual network to create.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -ResourceGroupName
 
-{{ Fill ResourceGroupName Description }}
+The name of the resource group that will hold the virtual network.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -SubnetAddressPrefixes
 
-{{ Fill SubnetAddressPrefixes Description }}
+Address prefixes for each subnet, supplied as a jagged array aligned with `-SubnetNames`.
 
 ```yaml
 Type: System.String[][]
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -SubnetNames
 
-{{ Fill SubnetNames Description }}
+Names of the subnets to create within the virtual network.
 
 ```yaml
 Type: System.String[]
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -SubscriptionId
 
-{{ Fill SubscriptionId Description }}
+The Azure subscription ID that owns the resource group.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -WhatIf
@@ -223,20 +224,20 @@ The cmdlet is not run.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases:
-- wi
+    - wi
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### CommonParameters
@@ -252,14 +253,10 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### System.Object
 
-TODO - describe what New-VirtualNetwork does and when to use it.
+Returns the provisioned virtual network object describing its name, address space, and subnets.
 
 ## NOTES
 
-
-
-
 ## RELATED LINKS
-
 
 - [Online Version]()

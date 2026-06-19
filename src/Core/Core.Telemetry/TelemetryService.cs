@@ -59,7 +59,7 @@ public class TelemetryService : ITelemetryService
     }
 
 
-    public Activity? AddTag(string propertyName, object value, Activity? activity = null)
+    public Activity? AddTag(string propertyName, object? value, Activity? activity = null)
     {
         if (activity is not null)
         {

@@ -1,7 +1,7 @@
 ---
 document type: cmdlet
 external help file: Microsoft.Azure.Cirrus.Cmdlets.Resources.dll-Help.xml
-HelpUri: ''
+HelpUri: ""
 Locale: en-US
 Module Name: Resources
 ms.date: 06/03/2026
@@ -17,7 +17,7 @@ Create a new resource group.
 
 ## SYNTAX
 
-### __AllParameterSets
+### \_\_AllParameterSets
 
 ```
 New-ResourceGroup -Name <string> -Location <string> [-SubscriptionId <string>] [-WhatIf] [-Confirm]
@@ -27,7 +27,7 @@ New-ResourceGroup -Name <string> -Location <string> [-SubscriptionId <string>] [
 ## ALIASES
 
 This cmdlet has the following aliases,
-  {{Insert list of aliases}}
+{{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -40,10 +40,10 @@ The resource group will be created immediately and can be used to organize your 
 
 ### Create a resource group
 
-TODO - describe the example.
+Provision a new resource group named `myrg` in the East US region.
 
 ```powershell
-New-ResourceGroup -Name <name> -Location <location>
+New-ResourceGroup -Name myrg -Location eastus
 ```
 
 ## PARAMETERS
@@ -54,20 +54,20 @@ Prompts you for confirmation before running the cmdlet.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases:
-- cf
+    - cf
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -Location
@@ -76,19 +76,19 @@ Location for resource group.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -Name
@@ -97,19 +97,19 @@ The name of the resource group.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -SubscriptionId
@@ -118,19 +118,19 @@ Azure Subscription Id.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -WhatIf
@@ -140,20 +140,20 @@ The cmdlet is not run.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases:
-- wi
+    - wi
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### CommonParameters
@@ -171,9 +171,6 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 Generated help for resources.
 
-
 ## RELATED LINKS
-
-
 
 - [Online Version]()

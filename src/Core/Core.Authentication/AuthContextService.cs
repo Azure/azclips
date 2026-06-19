@@ -30,6 +30,8 @@ public class AuthContextService(ILoggingService Logger, ITelemetryService Teleme
     {
         using var _ = TelemetryService.StartActivity($"{nameof(AuthContextService)}.{nameof(GetCurrentContextAsync)}");
         _currentContext = await LoadContextAsync(cancellationToken);  // todo: proper cache management (synchronization, multi-account, etc.) instead of hard-reloading
+        TelemetryService.AddTag(TelemetryTags.SubscriptionId, _currentContext?.SubscriptionId);
+        TelemetryService.AddTag(TelemetryTags.TenantId, _currentContext?.TenantId);
         return _currentContext;
     }
 

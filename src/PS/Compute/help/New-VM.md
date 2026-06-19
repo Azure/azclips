@@ -1,10 +1,10 @@
 ---
 document type: cmdlet
 external help file: Microsoft.Azure.Cirrus.Cmdlets.Compute.dll-Help.xml
-HelpUri: ''
+HelpUri: ""
 Locale: en-US
 Module Name: Compute
-ms.date: 06/04/2026
+ms.date: 06/16/2026
 PlatyPS schema version: 2024-05-01
 title: New-VM
 ---
@@ -17,7 +17,7 @@ Create a virtual machine together with its network interface, virtual network, a
 
 ## SYNTAX
 
-### __AllParameterSets
+### \_\_AllParameterSets
 
 ```
 New-VM -SubscriptionId <string> -Name <string> -Location <string> -ResourceGroupName <string>
@@ -33,7 +33,7 @@ New-VM -SubscriptionId <string> -Name <string> -Location <string> -ResourceGroup
 ## ALIASES
 
 This cmdlet has the following aliases,
-  {{Insert list of aliases}}
+{{Insert list of aliases}}
 
 ## DESCRIPTION
 
@@ -45,10 +45,12 @@ Use this command when you want a one-shot VM deployment without composing the un
 
 ### Create a VM with its networking stack
 
-TODO - describe the example.
+Provision a `Standard_D2s_v3` virtual machine named `myvm` in `myrg` (East US) along with a fresh virtual network (`myvnet`), network security group (`mynsg`), and network interface (`mynic`).
+Assign `$adminPassword` from a secure source in your own pipeline before invoking the cmdlet (the value below is a literal placeholder, not a real password).
 
 ```powershell
-New-VM -SubscriptionId <subscriptionid> -Name <name> -Location <location> -ResourceGroupName <resourcegroupname> -VmSize <vmsize> -AdminUsername <adminusername> -AdminPassword <adminpassword> -NetworkInterfaceName <networkinterfacename> -VirtualNetworkName <virtualnetworkname> -NetworkSecurityGroupName <networksecuritygroupname>
+$adminPassword = 'P@ssw0rd-replace-me!'
+New-VM -SubscriptionId 00000000-0000-0000-0000-000000000000 -Name myvm -Location eastus -ResourceGroupName myrg -VmSize Standard_D2s_v3 -AdminUsername azureuser -AdminPassword $adminPassword -NetworkInterfaceName mynic -VirtualNetworkName myvnet -NetworkSecurityGroupName mynsg
 ```
 
 ## PARAMETERS
@@ -59,19 +61,19 @@ Address prefixes for the virtual network.
 
 ```yaml
 Type: System.String[]
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -AdminPassword
@@ -80,19 +82,19 @@ The administrator password.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -AdminUsername
@@ -101,19 +103,19 @@ The administrator username.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -Confirm
@@ -122,20 +124,20 @@ Prompts you for confirmation before running the cmdlet.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases:
-- cf
+    - cf
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -Location
@@ -144,19 +146,19 @@ Location for all resources.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -Name
@@ -165,19 +167,19 @@ The name of the virtual machine.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -NetworkInterfaceName
@@ -186,19 +188,19 @@ The network interface name to create.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -NetworkSecurityGroupName
@@ -207,19 +209,19 @@ The network security group name to create.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -ResourceGroupName
@@ -228,19 +230,19 @@ The resource group name.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -RuleAccesses
@@ -249,19 +251,19 @@ Access types (Allow/Deny) of the security rules.
 
 ```yaml
 Type: System.String[]
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -RuleDestinationAddressPrefixes
@@ -270,19 +272,19 @@ Destination address prefixes of the security rules.
 
 ```yaml
 Type: System.String[]
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -RuleDestinationPortRanges
@@ -291,19 +293,19 @@ Destination port ranges of the security rules.
 
 ```yaml
 Type: System.String[]
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -RuleDirections
@@ -312,19 +314,19 @@ Directions of the security rules.
 
 ```yaml
 Type: System.String[]
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -RuleNames
@@ -333,19 +335,19 @@ Names of the security rules.
 
 ```yaml
 Type: System.String[]
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -RulePriorities
@@ -354,19 +356,19 @@ Priorities of the security rules.
 
 ```yaml
 Type: System.Int32[]
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -RuleProtocols
@@ -375,19 +377,19 @@ Protocols of the security rules.
 
 ```yaml
 Type: System.String[]
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -RuleSourceAddressPrefixes
@@ -396,19 +398,19 @@ Source address prefixes of the security rules.
 
 ```yaml
 Type: System.String[]
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -RuleSourcePortRanges
@@ -417,19 +419,19 @@ Source port ranges of the security rules.
 
 ```yaml
 Type: System.String[]
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -SubnetAddressPrefixes
@@ -438,19 +440,19 @@ Address prefixes for each subnet.
 
 ```yaml
 Type: System.String[][]
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -SubnetNames
@@ -459,19 +461,19 @@ Names of the subnets.
 
 ```yaml
 Type: System.String[]
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -SubscriptionId
@@ -480,19 +482,19 @@ Azure Subscription Id.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -VirtualNetworkName
@@ -501,19 +503,19 @@ The virtual network name to create.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -VmSize
@@ -522,19 +524,19 @@ The size of the virtual machine.
 
 ```yaml
 Type: System.String
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases: []
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: true
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: true
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### -WhatIf
@@ -544,20 +546,20 @@ The cmdlet is not run.
 
 ```yaml
 Type: System.Management.Automation.SwitchParameter
-DefaultValue: ''
+DefaultValue: ""
 SupportsWildcards: false
 Aliases:
-- wi
+    - wi
 ParameterSets:
-- Name: (All)
-  Position: Named
-  IsRequired: false
-  ValueFromPipeline: false
-  ValueFromPipelineByPropertyName: false
-  ValueFromRemainingArguments: false
+    - Name: (All)
+      Position: Named
+      IsRequired: false
+      ValueFromPipeline: false
+      ValueFromPipelineByPropertyName: false
+      ValueFromRemainingArguments: false
 DontShow: false
 AcceptedValues: []
-HelpMessage: ''
+HelpMessage: ""
 ```
 
 ### CommonParameters
@@ -575,8 +577,6 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 Generated help for compute.
 
-
 ## RELATED LINKS
-
 
 - [Online Version]()
