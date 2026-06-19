@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/PS/Config/Cmdlets.Config.csproj" />
+  </ItemGroup>
+
+</Project>

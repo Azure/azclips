@@ -48,7 +48,8 @@ internal static class CmdletOutputStreamsFactory
             },
             WriteVerbose: (value, ct) =>
             {
-                if (ShouldEmit(level, LogSeverity.Verbose))
+                var verboseOverride = cmdlet.MyInvocation.BoundParameters.ContainsKey("Verbose");
+                if (verboseOverride || ShouldEmit(level, LogSeverity.Verbose))
                 {
                     cmdlet.WriteVerbose(value?.ToString() ?? string.Empty);
                 }
@@ -57,7 +58,8 @@ internal static class CmdletOutputStreamsFactory
             },
             WriteDebug: (value, ct) =>
             {
-                if (ShouldEmit(level, LogSeverity.Debug))
+                var debugOverride = cmdlet.MyInvocation.BoundParameters.ContainsKey("Debug");
+                if (debugOverride || ShouldEmit(level, LogSeverity.Debug))
                 {
                     cmdlet.WriteDebug(value?.ToString() ?? string.Empty);
                 }
@@ -100,7 +102,7 @@ internal static class CmdletOutputStreamsFactory
         return Parse(configured);
     }
 
-    private static LogLevel Parse(string? value)
+    internal static LogLevel Parse(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
@@ -117,7 +119,7 @@ internal static class CmdletOutputStreamsFactory
         };
     }
 
-    private static bool ShouldEmit(LogLevel configuredLevel, LogSeverity messageSeverity)
+    internal static bool ShouldEmit(LogLevel configuredLevel, LogSeverity messageSeverity)
     {
         return messageSeverity switch
         {
