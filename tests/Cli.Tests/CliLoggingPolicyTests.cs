@@ -59,6 +59,7 @@ public class CliLoggingPolicyTests
         using var fixture = new TempConfigurationFixture();
         var service = fixture.CreateService();
         await service.SetConfigurationAsync("core.logging.level", "warn");
+        var originalLogLevel = Environment.GetEnvironmentVariable("CIRRUS_LOG_LEVEL");
         Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", "error");
 
         try
@@ -69,7 +70,7 @@ public class CliLoggingPolicyTests
         }
         finally
         {
-            Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", null);
+            Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", originalLogLevel);
         }
     }
 
