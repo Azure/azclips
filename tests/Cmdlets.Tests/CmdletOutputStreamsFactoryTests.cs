@@ -22,29 +22,29 @@ public class CmdletOutputStreamsFactoryTests
     }
 
     [Theory]
-    [InlineData(LogLevel.Error, LogSeverity.Error, true)]
-    [InlineData(LogLevel.Error, LogSeverity.Warn, false)]
-    [InlineData(LogLevel.Error, LogSeverity.Info, false)]
-    [InlineData(LogLevel.Error, LogSeverity.Debug, false)]
-    [InlineData(LogLevel.Error, LogSeverity.Verbose, false)]
-    [InlineData(LogLevel.Warn, LogSeverity.Error, true)]
-    [InlineData(LogLevel.Warn, LogSeverity.Warn, true)]
-    [InlineData(LogLevel.Warn, LogSeverity.Info, false)]
-    [InlineData(LogLevel.Warn, LogSeverity.Debug, false)]
-    [InlineData(LogLevel.Warn, LogSeverity.Verbose, false)]
-    [InlineData(LogLevel.Info, LogSeverity.Error, true)]
-    [InlineData(LogLevel.Info, LogSeverity.Warn, true)]
-    [InlineData(LogLevel.Info, LogSeverity.Info, true)]
-    [InlineData(LogLevel.Info, LogSeverity.Debug, false)]
-    [InlineData(LogLevel.Info, LogSeverity.Verbose, false)]
-    [InlineData(LogLevel.Debug, LogSeverity.Error, true)]
-    [InlineData(LogLevel.Debug, LogSeverity.Warn, true)]
-    [InlineData(LogLevel.Debug, LogSeverity.Info, true)]
-    [InlineData(LogLevel.Debug, LogSeverity.Debug, true)]
-    [InlineData(LogLevel.Debug, LogSeverity.Verbose, true)]
-    public void ShouldEmit_ShouldApplyExpectedMatrix(LogLevel level, LogSeverity severity, bool expected)
+    [InlineData(0, 0, true)]
+    [InlineData(0, 1, false)]
+    [InlineData(0, 2, false)]
+    [InlineData(0, 3, false)]
+    [InlineData(0, 4, false)]
+    [InlineData(1, 0, true)]
+    [InlineData(1, 1, true)]
+    [InlineData(1, 2, false)]
+    [InlineData(1, 3, false)]
+    [InlineData(1, 4, false)]
+    [InlineData(2, 0, true)]
+    [InlineData(2, 1, true)]
+    [InlineData(2, 2, true)]
+    [InlineData(2, 3, false)]
+    [InlineData(2, 4, false)]
+    [InlineData(3, 0, true)]
+    [InlineData(3, 1, true)]
+    [InlineData(3, 2, true)]
+    [InlineData(3, 3, true)]
+    [InlineData(3, 4, true)]
+    public void ShouldEmit_ShouldApplyExpectedMatrix(int level, int severity, bool expected)
     {
-        Assert.Equal(expected, CmdletOutputStreamsFactory.ShouldEmit(level, severity));
+        Assert.Equal(expected, CmdletOutputStreamsFactory.ShouldEmit((LogLevel)level, (LogSeverity)severity));
     }
 
     [Theory]
