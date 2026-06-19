@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781766757132,
+  "lastUpdate": 1781831147863,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus PS Benchmarks": [
@@ -1050,6 +1050,48 @@ window.BENCHMARK_DATA = {
             "value": 20916454,
             "unit": "ns",
             "range": "± 2151664.466039373"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "55924c69d6da2b87f06035b05a27c90f403224f2",
+          "message": "[Telemetry] Add subscriptionId prop to root activity (#290)\n\n- Add `subscriptionId` and `tenantId` to activity root \n- Rename TelemetryService method param names for clarity\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-06-19T11:02:51+10:00",
+          "tree_id": "3a73c5fad609d09ea4f8d241be25dccfb776c3ee",
+          "url": "https://github.com/Azure/cirrus/commit/55924c69d6da2b87f06035b05a27c90f403224f2"
+        },
+        "date": 1781831147792,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 29559195.8,
+            "unit": "ns",
+            "range": "± 8831377.868505158"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 22446886.6,
+            "unit": "ns",
+            "range": "± 1709500.5478860778"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 21203067,
+            "unit": "ns",
+            "range": "± 2619760.991664793"
           }
         ]
       }
