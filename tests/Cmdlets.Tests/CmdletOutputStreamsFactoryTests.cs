@@ -20,31 +20,29 @@ public class CmdletOutputStreamsFactoryTests
         Assert.Equal((LogLevel)expected, level);
     }
 
-    [Fact]
-    public void ShouldEmit_ShouldApplyExpectedMatrix()
+    [Theory]
+    [InlineData(LogLevel.Error, LogSeverity.Error, true)]
+    [InlineData(LogLevel.Error, LogSeverity.Warn, false)]
+    [InlineData(LogLevel.Error, LogSeverity.Info, false)]
+    [InlineData(LogLevel.Error, LogSeverity.Debug, false)]
+    [InlineData(LogLevel.Error, LogSeverity.Verbose, false)]
+    [InlineData(LogLevel.Warn, LogSeverity.Error, true)]
+    [InlineData(LogLevel.Warn, LogSeverity.Warn, true)]
+    [InlineData(LogLevel.Warn, LogSeverity.Info, false)]
+    [InlineData(LogLevel.Warn, LogSeverity.Debug, false)]
+    [InlineData(LogLevel.Warn, LogSeverity.Verbose, false)]
+    [InlineData(LogLevel.Info, LogSeverity.Error, true)]
+    [InlineData(LogLevel.Info, LogSeverity.Warn, true)]
+    [InlineData(LogLevel.Info, LogSeverity.Info, true)]
+    [InlineData(LogLevel.Info, LogSeverity.Debug, false)]
+    [InlineData(LogLevel.Info, LogSeverity.Verbose, false)]
+    [InlineData(LogLevel.Debug, LogSeverity.Error, true)]
+    [InlineData(LogLevel.Debug, LogSeverity.Warn, true)]
+    [InlineData(LogLevel.Debug, LogSeverity.Info, true)]
+    [InlineData(LogLevel.Debug, LogSeverity.Debug, true)]
+    [InlineData(LogLevel.Debug, LogSeverity.Verbose, true)]
+    internal void ShouldEmit_ShouldApplyExpectedMatrix(LogLevel level, LogSeverity severity, bool expected)
     {
-        Assert.True(CmdletOutputStreamsFactory.ShouldEmit(LogLevel.Error, LogSeverity.Error));
-        Assert.False(CmdletOutputStreamsFactory.ShouldEmit(LogLevel.Error, LogSeverity.Warn));
-        Assert.False(CmdletOutputStreamsFactory.ShouldEmit(LogLevel.Error, LogSeverity.Info));
-        Assert.False(CmdletOutputStreamsFactory.ShouldEmit(LogLevel.Error, LogSeverity.Debug));
-        Assert.False(CmdletOutputStreamsFactory.ShouldEmit(LogLevel.Error, LogSeverity.Verbose));
-
-        Assert.True(CmdletOutputStreamsFactory.ShouldEmit(LogLevel.Warn, LogSeverity.Error));
-        Assert.True(CmdletOutputStreamsFactory.ShouldEmit(LogLevel.Warn, LogSeverity.Warn));
-        Assert.False(CmdletOutputStreamsFactory.ShouldEmit(LogLevel.Warn, LogSeverity.Info));
-        Assert.False(CmdletOutputStreamsFactory.ShouldEmit(LogLevel.Warn, LogSeverity.Debug));
-        Assert.False(CmdletOutputStreamsFactory.ShouldEmit(LogLevel.Warn, LogSeverity.Verbose));
-
-        Assert.True(CmdletOutputStreamsFactory.ShouldEmit(LogLevel.Info, LogSeverity.Error));
-        Assert.True(CmdletOutputStreamsFactory.ShouldEmit(LogLevel.Info, LogSeverity.Warn));
-        Assert.True(CmdletOutputStreamsFactory.ShouldEmit(LogLevel.Info, LogSeverity.Info));
-        Assert.False(CmdletOutputStreamsFactory.ShouldEmit(LogLevel.Info, LogSeverity.Debug));
-        Assert.False(CmdletOutputStreamsFactory.ShouldEmit(LogLevel.Info, LogSeverity.Verbose));
-
-        Assert.True(CmdletOutputStreamsFactory.ShouldEmit(LogLevel.Debug, LogSeverity.Error));
-        Assert.True(CmdletOutputStreamsFactory.ShouldEmit(LogLevel.Debug, LogSeverity.Warn));
-        Assert.True(CmdletOutputStreamsFactory.ShouldEmit(LogLevel.Debug, LogSeverity.Info));
-        Assert.True(CmdletOutputStreamsFactory.ShouldEmit(LogLevel.Debug, LogSeverity.Debug));
-        Assert.True(CmdletOutputStreamsFactory.ShouldEmit(LogLevel.Debug, LogSeverity.Verbose));
+        Assert.Equal(expected, CmdletOutputStreamsFactory.ShouldEmit(level, severity));
     }
 }
