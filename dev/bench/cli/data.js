@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781766692587,
+  "lastUpdate": 1781831085038,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus CLI Benchmarks": [
@@ -1050,6 +1050,48 @@ window.BENCHMARK_DATA = {
             "value": 242391.5,
             "unit": "ns",
             "range": "± 15563.259844903956"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "55924c69d6da2b87f06035b05a27c90f403224f2",
+          "message": "[Telemetry] Add subscriptionId prop to root activity (#290)\n\n- Add `subscriptionId` and `tenantId` to activity root \n- Rename TelemetryService method param names for clarity\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-06-19T11:02:51+10:00",
+          "tree_id": "3a73c5fad609d09ea4f8d241be25dccfb776c3ee",
+          "url": "https://github.com/Azure/cirrus/commit/55924c69d6da2b87f06035b05a27c90f403224f2"
+        },
+        "date": 1781831083095,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 243403.25,
+            "unit": "ns",
+            "range": "± 11318.880579957247"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 175687,
+            "unit": "ns",
+            "range": "± 3655.7540945747432"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 162039,
+            "unit": "ns",
+            "range": "± 9829.287054512142"
           }
         ]
       }
