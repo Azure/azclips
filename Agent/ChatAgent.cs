@@ -391,6 +391,9 @@ public sealed class ChatAgent : IAsyncDisposable
             var planSummary = state.IsOneShot ? state.LastPlanMarkdown : null;
             approvalSink.ShowFinalOutcome(status, message, planSummary);
             state.SubmitRendered = true;
+            // The final outcome is rendered — end the turn now so the model can't
+            // append a trailing prose summary after the terminator.
+            state.AbortTurn();
             return new PreToolUseHookOutput { PermissionDecision = "allow" };
         }
 
