@@ -12,6 +12,11 @@ public sealed class AgentOptions
     // oneShot: agent proposes a fix and exits (az-CLI-like). interactive: agent
     // stays in a chat loop until the user exits or the escape valve trips.
     public string SessionStyle { get; set; } = "oneShot";
+
+    // Single source of truth for the SessionStyle string comparison, so the
+    // "interactive" literal doesn't drift across call sites.
+    public bool IsInteractive =>
+        string.Equals(SessionStyle, "interactive", System.StringComparison.OrdinalIgnoreCase);
 }
 
 public sealed class BuiltinProviderOptions

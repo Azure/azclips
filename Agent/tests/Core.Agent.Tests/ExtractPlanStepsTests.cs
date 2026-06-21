@@ -57,6 +57,29 @@ public class ExtractPlanStepsTests
     }
 
     [Fact]
+    public void Falls_back_to_positional_id_when_id_is_a_string()
+    {
+        // Models often emit "id":"1" (string) instead of a number. The parse
+        // must not throw on a non-number id — it falls back to positional id.
+        var args = Args(new
+        {
+            planMd = "plan",
+            steps = new[]
+            {
+                new { id = "1", label = "First", cmd = "azv2 a" },
+                new { id = "two", label = "Second", cmd = "azv2 b" },
+            },
+        });
+
+        var steps = ChatAgent.ExtractPlanSteps(args);
+
+        Assert.NotNull(steps);
+        Assert.Equal(2, steps!.Count);
+        Assert.Equal(1, steps[0].Id);
+        Assert.Equal(2, steps[1].Id);
+    }
+
+    [Fact]
     public void Returns_null_when_steps_absent()
     {
         var steps = ChatAgent.ExtractPlanSteps(Args(new { planMd = "plan" }));

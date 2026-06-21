@@ -290,7 +290,7 @@ public class Program
             return 1;
         }
 
-        // Recursion guard: a failed azv2 invoked by run_command from inside an
+        // Recursion guard: a failed azv2 invoked by powershell from inside an
         // already-running agent-mode TUI must NOT spawn another agent-mode TUI.
         if (Environment.GetEnvironmentVariable("CIRRUS_IN_AGENT_MODE") == "1")
         {
@@ -326,10 +326,24 @@ public class Program
                 psi.ArgumentList.Add(errorText);
             }
 
-            using var proc = Process.Start(psi)
-                ?? throw new InvalidOperationException("Process.Start returned null");
-            await proc.WaitForExitAsync();
-            return proc.ExitCode;
+            // The child TUI takes over Ctrl+C (it cancels the session). The parent
+            // must also intercept it — otherwise Ctrl+C kills the parent first, the
+            // shell redraws its prompt, and the child's remaining output prints onto
+            // that prompt ("terminal hijack"). Intercept-only here; the child owns the
+            // actual cancellation and we just wait for it to exit cleanly.
+            ConsoleCancelEventHandler cancelHandler = (_, e) => e.Cancel = true;
+            Console.CancelKeyPress += cancelHandler;
+            try
+            {
+                using var proc = Process.Start(psi)
+                    ?? throw new InvalidOperationException("Process.Start returned null");
+                await proc.WaitForExitAsync();
+                return proc.ExitCode;
+            }
+            finally
+            {
+                Console.CancelKeyPress -= cancelHandler;
+            }
         }
         catch (Exception ex)
         {

@@ -39,6 +39,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- These files are already picked up as None items by the SDK's default glob
+         (EnableDefaultNoneItems=true); Update just sets CopyToOutputDirectory on them.
+         If default-item collection is ever disabled, switch these to Include (and add
+         EnableDefaultNoneItems=false) so prompts/help still reach the output dir. -->
     <None Update="prompts\*.md">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

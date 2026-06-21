@@ -41,8 +41,7 @@ public static class AgentModeEntry
             // Prompt is chosen by interaction mode: oneShot → oneshot.md,
             // interactive → inline.md. (tui.md exists for a future full-screen
             // entry point that nothing spawns yet.)
-            var entrypoint  = string.Equals(agentOpts.SessionStyle, "interactive", StringComparison.OrdinalIgnoreCase)
-                ? "inline" : "oneshot";
+            var entrypoint  = agentOpts.IsInteractive ? "inline" : "oneshot";
             var flavor   = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure cli";
             var azv2     = FindAzv2Exe() ?? "azv2";
             var renderer = new ConsoleAgentRenderer();
@@ -80,7 +79,7 @@ public static class AgentModeEntry
                 ? $"I tried `{failedCommand}` but it failed. Help me fix it."
                 : $"I tried `{failedCommand}` but it failed:\n{errorText}\nHelp me fix it.";
 
-            var interactive = string.Equals(agentOpts.SessionStyle, "interactive", StringComparison.OrdinalIgnoreCase);
+            var interactive = agentOpts.IsInteractive;
 
             // Escape valve (interactive only): a soft reminder partway through and
             // a hard stop if the agent keeps looping. Numbers are MVP constants.
@@ -128,15 +127,21 @@ public static class AgentModeEntry
         // oneShot: the agent proposes a fix and exits. Once a plan has been shown
         // it IS the terminal output — stop immediately. Otherwise (no plan, e.g.
         // an out-of-scope rejection or a clarifying question) drain any redirect
-        // but never open a fresh "> " prompt. A hint points at interactive mode.
+        // but never open a fresh "> " prompt.
         if (!interactive)
         {
             while (!agent.OneShotPlanShown && nextPrompt is not null && !ct.IsCancellationRequested)
                 nextPrompt = await SendWithToolEnforcementAsync(agent, approval, watcher, spinner, nextPrompt, ct);
 
-            Console.WriteLine();
-            WriteColor(ConsoleColor.DarkGray,
-                "  ↳ Run 'azv2 config set --key agent.sessionStyle --value interactive' for an interactive session.");
+            // Only nudge toward interactive mode when a plan was actually shown.
+            // After an out-of-scope rejection, switching to interactive wouldn't
+            // help (the request is still out of scope), so don't suggest it.
+            if (agent.OneShotPlanShown)
+            {
+                Console.WriteLine();
+                WriteColor(ConsoleColor.DarkGray,
+                    "  ↳ Run 'azv2 config set --key agent.sessionStyle --value interactive' for an interactive session.");
+            }
             return;
         }
 
@@ -174,6 +179,9 @@ public static class AgentModeEntry
     // act through tools" contract — re-prompt it to call propose_plan/submit_response.
     // The SDK gives no way to forbid bare text up front, so this is the host-side
     // backstop. Returns the same redirect signal SendAndPumpAsync does.
+    // INTERIM: the durable fix is forcing tool use up front (tool_choice="required"
+    // or grammar-constrained generation); that UI/constraint direction is being
+    // tried in a separate worktree. This after-the-fact correction is the stopgap.
     private static async Task<string?> SendWithToolEnforcementAsync(
         ChatAgent agent,
         ConsoleApprovalPrompt approval,

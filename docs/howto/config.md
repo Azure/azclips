@@ -18,7 +18,8 @@ Configuration follows strict precedence: **command args > environment variables 
 | `telemetry.enabled`                           | bool   | `true`      | Enable telemetry                                                                                |
 | `telemetry.appInsightsInstrumentationKey`     | string | (empty)     | Application Insights key                                                                        |
 | `telemetry.zipkinEndpoint`                    | string | (empty)     | Zipkin tracing endpoint                                                                         |
-| `agent.enabled`                               | bool   | `true`      | Enable AI agent fallback                                                                        |
+| `agent.enabled`                               | bool   | `false`     | Enable AI agent fallback (opt-in: `azv2 config set --key agent.enabled --value true`)            |
+| `agent.sessionStyle`                          | string | `oneShot`   | Agent interaction mode: `oneShot` (single plan, then stop) or `interactive` (multi-turn)        |
 | `extensions.resources.arm.apiVersionOverride` | string | (empty)     | Override ARM API version                                                                        |
 | `clients.cli.output.format`                   | string | `table`     | CLI output format: `json`, `table`, `tsv`, `yaml`                                               |
 | `clients.powershell.output.format`            | string | `object`    | PowerShell output format: `object`, `json`, `table`                                             |

@@ -81,7 +81,7 @@ public sealed class ConsoleApprovalPrompt
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var reg = ct.Register(() => tcs.TrySetCanceled(ct));
 
-        _queue.Writer.TryWrite(new PendingApproval(toolName, args, null, null, tcs, reg));
+        _queue.Writer.TryWrite(new PendingApproval(toolName, args, PlanMarkdown: null, PlanSteps: null, tcs, reg));
         return tcs.Task;
     }
 
@@ -95,7 +95,7 @@ public sealed class ConsoleApprovalPrompt
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var reg = ct.Register(() => tcs.TrySetCanceled(ct));
 
-        _queue.Writer.TryWrite(new PendingApproval(toolName, rewrittenCommand ?? string.Empty, null, null, tcs, reg));
+        _queue.Writer.TryWrite(new PendingApproval(toolName, rewrittenCommand ?? string.Empty, PlanMarkdown: null, PlanSteps: null, tcs, reg));
         return tcs.Task;
     }
 
@@ -108,6 +108,7 @@ public sealed class ConsoleApprovalPrompt
     public void ShowPlan(string planMarkdown, IReadOnlyList<PlanStep>? steps)
     {
         _spinner?.Pause();
+        _abortWatcher?.Pause();
         try
         {
             Action body = () =>
@@ -120,6 +121,7 @@ public sealed class ConsoleApprovalPrompt
         }
         finally
         {
+            _abortWatcher?.Resume();
             _spinner?.Resume();
         }
     }
@@ -274,7 +276,7 @@ public sealed class ConsoleApprovalPrompt
     // placeholder reads as `<your-admin-password>` → <your-admin-password>: the
     // angle brackets already flag it as a value to replace, and keeping backticks
     // would just give the user extra characters to delete. Not a full parser.
-    private static IReadOnlyList<string> MarkdownToText(string md)
+    internal static IReadOnlyList<string> MarkdownToText(string md)
     {
         var outLines = new List<string>();
         foreach (var raw in md.Replace("\r\n", "\n").Split('\n'))
@@ -289,6 +291,9 @@ public sealed class ConsoleApprovalPrompt
             line = line.Replace("**", "").Replace("`", "");
             outLines.Add(line);
         }
+        // Drop trailing blank lines (planMd often ends with a newline, which would
+        // otherwise render an extra empty line under the plan).
+        while (outLines.Count > 0 && outLines[^1].Length == 0) outLines.RemoveAt(outLines.Count - 1);
         return outLines;
     }
 

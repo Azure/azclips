@@ -176,7 +176,7 @@ public sealed class ChatAgent : IAsyncDisposable
 
         var state = new SessionState
         {
-            IsOneShot = !string.Equals(options.SessionStyle, "interactive", StringComparison.OrdinalIgnoreCase),
+            IsOneShot = !options.IsInteractive,
         };
         var sessionConfig = BuildBaseSessionConfig(
             systemPrompt, cacheTools, helpTools, skuTools, submitTool, planTool, prober,
@@ -286,6 +286,12 @@ public sealed class ChatAgent : IAsyncDisposable
                 tenantId: null,
                 promptOnError: false,
                 cancellationToken: ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // Ctrl+C during startup: let cancellation bubble up so the top-level
+            // handler exits quietly (130), instead of masquerading as an auth failure.
+            throw;
         }
         catch (Exception ex)
         {
@@ -592,7 +598,9 @@ public sealed class ChatAgent : IAsyncDisposable
         foreach (var step in steps.EnumerateArray())
         {
             if (step.ValueKind != JsonValueKind.Object) { fallbackId++; continue; }
-            var id = step.TryGetProperty("id", out var idEl) && idEl.TryGetInt32(out var parsed) ? parsed : fallbackId;
+            var id = step.TryGetProperty("id", out var idEl)
+                && idEl.ValueKind == JsonValueKind.Number
+                && idEl.TryGetInt32(out var parsed) ? parsed : fallbackId;
             var label = step.TryGetProperty("label", out var l) ? l.GetString() ?? string.Empty : string.Empty;
             var cmd = step.TryGetProperty("cmd", out var c) ? c.GetString() ?? string.Empty : string.Empty;
             list.Add(new ConsoleApprovalPrompt.PlanStep(id, label, cmd));
@@ -656,7 +664,7 @@ public sealed class ChatAgent : IAsyncDisposable
             error = $"'message' is required when status='{status}'";
             return true;
         }
-        if (isReject && !message!.StartsWith("OUT_OF_SCOPE_", StringComparison.Ordinal))
+        if (isReject && !message!.StartsWith("OUT_OF_SCOPE_", StringComparison.OrdinalIgnoreCase))
         {
             error = "rejected 'message' must start with OUT_OF_SCOPE_";
             return true;
