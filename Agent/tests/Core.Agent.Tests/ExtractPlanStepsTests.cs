@@ -8,7 +8,7 @@ namespace Core.Agent.Tests;
 /// Unit tests for <see cref="ChatAgent.ExtractPlanSteps"/> — parsing the
 /// validated steps array into the host's PlanStep render view. Covers the real
 /// branches: normal parse, id fallback when absent, destructive flagging
-/// (model flag + host danger-verb backstop), rationale, and empty/no steps → null.
+/// (model flag + host danger-verb backstop), and empty/no steps → null.
 /// </summary>
 public class ExtractPlanStepsTests
 {
@@ -134,25 +134,28 @@ public class ExtractPlanStepsTests
 
         Assert.NotNull(steps);
         Assert.False(steps![0].Destructive);
-        Assert.Null(steps[0].Rationale);
     }
 
     [Fact]
-    public void Parses_rationale_when_present()
+    public void Destructive_only_trusts_the_schema_boolean_not_string_or_number()
     {
-        var args = Args(new
+        // destructive is a schema boolean — we no longer accept the string "true"
+        // or a number 1 (that host-side fallback was removed; the schema is the
+        // contract). A safe command with a non-boolean destructive value stays
+        // not-destructive; the danger-verb backstop is the only other path.
+        var stringArgs = Args(new
         {
             planMd = "plan",
-            steps = new[]
-            {
-                new { id = 1, label = "Create RG", cmd = "azv2 group create -n foo", rationale = "the VM needs a resource group first" },
-            },
+            steps = new[] { new { id = 1, label = "Tag it", cmd = "azv2 group update -n foo", destructive = "true" } },
+        });
+        var numberArgs = Args(new
+        {
+            planMd = "plan",
+            steps = new[] { new { id = 1, label = "Tag it", cmd = "azv2 group update -n foo", destructive = 1 } },
         });
 
-        var steps = ChatAgent.ExtractPlanSteps(args);
-
-        Assert.NotNull(steps);
-        Assert.Equal("the VM needs a resource group first", steps![0].Rationale);
+        Assert.False(ChatAgent.ExtractPlanSteps(stringArgs)![0].Destructive);
+        Assert.False(ChatAgent.ExtractPlanSteps(numberArgs)![0].Destructive);
     }
 
     [Fact]

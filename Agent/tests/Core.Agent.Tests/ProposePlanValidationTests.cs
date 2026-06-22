@@ -7,7 +7,7 @@ namespace Core.Agent.Tests;
 /// <summary>
 /// Unit tests for <see cref="ChatAgent.ValidateProposePlan"/> — the PP-stage
 /// validation run in OnPreToolUse before a plan is rendered for approval. Asserts
-/// the real rules (planMd non-empty, at least one step, each step has label+cmd)
+/// the real rules (at least one issue, at least one step, each step has label+cmd)
 /// against SDK-shaped JsonElement args; returns null when valid, else a message.
 /// The render + approval round-trip is e2e.
 /// </summary>
@@ -18,12 +18,14 @@ public class ProposePlanValidationTests
     private static object Step(int id, string label, string cmd) =>
         new { id, label, cmd };
 
+    private static readonly string[] OneIssue = ["The -g short flag isn't supported."];
+
     [Fact]
     public void Accepts_valid_plan()
     {
         var args = Args(new
         {
-            planMd = "I'll create the resource group, then retry.",
+            issues = OneIssue,
             steps = new[] { Step(1, "Create RG", "azv2 group create -n foo -l eastus") },
         });
 
@@ -33,24 +35,50 @@ public class ProposePlanValidationTests
     }
 
     [Fact]
-    public void Rejects_empty_planMd()
+    public void Rejects_empty_issues()
     {
         var args = Args(new
         {
-            planMd = "",
+            issues = Array.Empty<string>(),
             steps = new[] { Step(1, "Create RG", "azv2 group create -n foo") },
         });
 
         var error = ChatAgent.ValidateProposePlan(args);
 
         Assert.NotNull(error);
-        Assert.Contains("planMd", error);
+        Assert.Contains("issues", error);
+    }
+
+    [Fact]
+    public void Rejects_missing_issues_field()
+    {
+        var args = Args(new { steps = new[] { Step(1, "Create RG", "azv2 group create -n foo") } });
+
+        var error = ChatAgent.ValidateProposePlan(args);
+
+        Assert.NotNull(error);
+        Assert.Contains("issues", error);
+    }
+
+    [Fact]
+    public void Rejects_blank_issue_entry()
+    {
+        var args = Args(new
+        {
+            issues = new[] { "   " },
+            steps = new[] { Step(1, "Create RG", "azv2 group create -n foo") },
+        });
+
+        var error = ChatAgent.ValidateProposePlan(args);
+
+        Assert.NotNull(error);
+        Assert.Contains("issue", error);
     }
 
     [Fact]
     public void Rejects_empty_steps()
     {
-        var args = Args(new { planMd = "do a thing", steps = Array.Empty<object>() });
+        var args = Args(new { issues = OneIssue, steps = Array.Empty<object>() });
 
         var error = ChatAgent.ValidateProposePlan(args);
 
@@ -61,7 +89,7 @@ public class ProposePlanValidationTests
     [Fact]
     public void Rejects_missing_steps_field()
     {
-        var args = Args(new { planMd = "do a thing" });
+        var args = Args(new { issues = OneIssue });
 
         var error = ChatAgent.ValidateProposePlan(args);
 
@@ -74,7 +102,7 @@ public class ProposePlanValidationTests
     {
         var args = Args(new
         {
-            planMd = "plan",
+            issues = OneIssue,
             steps = new[] { new { id = 1, cmd = "azv2 group list" } },
         });
 
@@ -89,7 +117,7 @@ public class ProposePlanValidationTests
     {
         var args = Args(new
         {
-            planMd = "plan",
+            issues = OneIssue,
             steps = new[] { new { id = 1, label = "List groups" } },
         });
 
@@ -104,7 +132,7 @@ public class ProposePlanValidationTests
     {
         var args = Args(new
         {
-            planMd = "plan",
+            issues = OneIssue,
             steps = new object[]
             {
                 Step(1, "Good", "azv2 group list"),

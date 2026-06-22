@@ -29,7 +29,7 @@ public class PlanGateTests
 
     private static object ValidPlan() => new
     {
-        planMd = "Create the resource group, then retry.",
+        issues = new[] { "The resource group doesn't exist yet." },
         steps = new[] { new { id = 1, label = "Create RG", cmd = "azv2 group create -n foo -l eastus" } },
     };
 

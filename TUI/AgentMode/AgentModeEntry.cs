@@ -32,10 +32,9 @@ public static class AgentModeEntry
 
         CirrusServiceProvider.Initialize(ClientType.TUI);
 
+        TraceAgentRenderer? trace = null;
         try
         {
-            PrintBanner(failedCommand, errorText);
-
             var auth        = CirrusServiceProvider.GetRequiredService<IAuthService>();
             var authContext = CirrusServiceProvider.GetRequiredService<IAuthContextService>();
             var config      = CirrusServiceProvider.GetRequiredService<IConfigurationService>();
@@ -44,9 +43,29 @@ public static class AgentModeEntry
             // interactive → inline.md. (tui.md exists for a future full-screen
             // entry point that nothing spawns yet.)
             var entrypoint  = agentOpts.IsInteractive ? "inline" : "oneshot";
+            // Quiet mode in one-shot: hide the AI-mode banner and agent-internal
+            // event spam; the user sees only the spinner + the final AI help.
+            var quiet = !agentOpts.IsInteractive;
+
+            PrintBanner(failedCommand, errorText, quiet);
+
             var flavor   = Environment.GetEnvironmentVariable("AZURECLI_FLAVOR") ?? "azure cli";
             var azv2     = FindAzv2Exe() ?? "azv2";
-            var renderer = new ConsoleAgentRenderer();
+            var consoleRenderer = new ConsoleAgentRenderer(quiet);
+            // When agent.trace.enabled, wrap the console renderer to record a JSONL
+            // trace under agent.trace.path. Prose suppression after submit_response
+            // lives on ConsoleAgentRenderer itself (always-on), independent of trace.
+            IAgentRenderer renderer = consoleRenderer;
+            if (agentOpts.Trace.Enabled && !string.IsNullOrWhiteSpace(agentOpts.Trace.Path))
+            {
+                var fileName = $"trace-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.jsonl";
+                var fullPath = Path.Combine(agentOpts.Trace.Path, fileName);
+                trace = new TraceAgentRenderer(consoleRenderer, fullPath);
+                renderer = trace;
+                // Always announce the trace file (even in quiet) — if it's on, the
+                // user explicitly wants it and needs to know where to look.
+                Console.WriteLine($"   trace: {fullPath}");
+            }
             var spinner  = new SpinnerService(renderer);
 
             // Watcher is shared across all turns and paused (not destroyed) while
@@ -74,8 +93,14 @@ public static class AgentModeEntry
                 options: agentOpts,
                 entrypoint: entrypoint,
                 spinner: spinner,
+                failedCommand: failedCommand,
                 ct: cts.Token);
             agentRef = agent;
+            // Always-on prose suppression: after submit_response renders its
+            // outcome, ConsoleAgentRenderer drops any trailing prose the model
+            // streams past the terminator — independent of whether tracing is on.
+            agent.SetOnFinalRendered(consoleRenderer.MarkFinalRendered);
+            trace?.Note("session_start", new { entrypoint, flavor, sessionStyle = agentOpts.SessionStyle });
 
             var firstPrompt = string.IsNullOrWhiteSpace(errorText)
                 ? $"I tried `{failedCommand}` but it failed. Help me fix it."
@@ -97,6 +122,7 @@ public static class AgentModeEntry
         }
         finally
         {
+            trace?.Dispose();
             CirrusServiceProvider.Dispose();
         }
     }
@@ -115,7 +141,10 @@ public static class AgentModeEntry
         // Internal self-correction re-sends inside SendWithToolEnforcementAsync are
         // not counted (they aren't new user input).
         int userMessages = 1;
-        var nextPrompt = await SendWithToolEnforcementAsync(agent, approval, watcher, spinner, firstPrompt, ct);
+        // The very first turn is the error-recovery opener — show a spinner verb
+        // that says so. Later turns (and any redirect) fall back to "thinking".
+        var nextPrompt = await SendWithToolEnforcementAsync(agent, approval, watcher, spinner, firstPrompt, ct,
+            initialVerb: "Analyzing error root cause using AI");
 
         // submit_response is the sole terminator. oneShot proposes a fix then closes
         // with submit_response; drain any redirect until it does (or the agent stops
@@ -124,6 +153,13 @@ public static class AgentModeEntry
         {
             while (!agent.SessionClosed && nextPrompt is not null && !ct.IsCancellationRequested)
                 nextPrompt = await SendWithToolEnforcementAsync(agent, approval, watcher, spinner, nextPrompt, ct);
+
+            // Fallback render: if the agent proposed a plan but never submitted it
+            // (stopped after propose_plan), submit_response never rendered it and it
+            // would be lost. Show it here so one-shot never exits on a blank screen.
+            if (!agent.SubmitRendered && agent.HasPendingPlan)
+                approval.ShowPlan(new ConsoleApprovalPrompt.PlanContent(
+                    agent.PendingIssues, agent.PendingPlanSteps, agent.PendingNeeds, agent.PendingDefaults));
 
             // Nudge toward interactive mode only when a plan was shown (and the
             // session wasn't closed by an out-of-scope rejection, where switching
@@ -196,9 +232,10 @@ public static class AgentModeEntry
         AbortKeyWatcher watcher,
         SpinnerService spinner,
         string prompt,
-        CancellationToken ct)
+        CancellationToken ct,
+        string initialVerb = "thinking")
     {
-        var redirect = await SendAndPumpAsync(agent, approval, watcher, spinner, prompt, ct);
+        var redirect = await SendAndPumpAsync(agent, approval, watcher, spinner, prompt, ct, initialVerb);
 
         for (int attempt = 0; attempt < MaxToolEnforcementRetries; attempt++)
         {
@@ -229,9 +266,10 @@ public static class AgentModeEntry
         AbortKeyWatcher watcher,
         SpinnerService spinner,
         string prompt,
-        CancellationToken ct)
+        CancellationToken ct,
+        string initialVerb = "thinking")
     {
-        spinner.Start("thinking");
+        spinner.Start(initialVerb);
         var sendTask = agent.SendAsync(prompt, ct);
 
         var watcherCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -295,8 +333,13 @@ public static class AgentModeEntry
         return redirect;
     }
 
-    private static void PrintBanner(string failedCommand, string error)
+    private static void PrintBanner(string failedCommand, string error, bool quiet)
     {
+        // Quiet mode (one-shot): no "agent mode" banner / AI scaffolding — the
+        // spinner ("Analyzing error root cause using AI …") is the only hint, and
+        // the AI help is the output. Keep it clean.
+        if (quiet) return;
+
         var prev = Console.ForegroundColor;
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine();

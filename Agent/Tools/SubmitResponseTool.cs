@@ -25,9 +25,8 @@ public sealed class SubmitResponseTool
         {
             Name = "submit_response",
             Description =
-                "Terminate the agent session and return the final outcome to the host. " +
-                "MUST be the last tool you call in every session. " +
-                "Use 'completed' when the user's task is done (message optional, becomes the summary). " +
+                "End the session by returning the final outcome. Always call this once, as the last tool of the session. " +
+                "Use 'completed' when the task is done (the plan is the summary; add a message only for critical info not already in the plan). " +
                 "Use 'rejected' when the request is out of scope (message = OUT_OF_SCOPE_<code>; see the scope rules in your system prompt). " +
                 "Use 'failed' when you tried but couldn't complete (message = a short human-readable reason).",
         });
@@ -42,7 +41,7 @@ public sealed class SubmitResponseTool
     private static string SubmitResponseImpl(
         [Description("Session outcome: 'completed' | 'rejected' | 'failed'.")]
         string status,
-        [Description("For 'completed': optional summary. For 'rejected'/'failed': required reason. Rejected messages must start with OUT_OF_SCOPE_.")]
+        [Description("For 'completed': only add a message if it carries critical information NOT already in the plan or needsUserInput — otherwise leave it empty (don't repeat the plan). For 'rejected': required, must start with OUT_OF_SCOPE_. For 'failed': required, a short human-readable reason.")]
         string? message = null)
     {
         using var scope = ToolInvocationLog.Start("submit_response", $"status={status}");

@@ -57,9 +57,30 @@ public sealed class ChatAgent : IAsyncDisposable
     // sole terminator, so the host no longer exits on this.
     public bool PlanShown => _state?.PlanShown ?? false;
 
-    // True once submit_response rendered its final outcome — the clean session
-    // terminus. The host loop ends the session when it sees this.
-    public bool SessionClosed => (_state?.SubmitRendered ?? false) || LastSendCalledSubmit;
+    // The plan the agent proposed but that submit_response never rendered (because
+    // the agent stopped after propose_plan without submitting). The one-shot host
+    // reads these on exit to render it as a fallback, so the plan is never lost.
+    public bool SubmitRendered => _state?.SubmitRendered ?? false;
+    public bool HasPendingPlan => _state?.LastIssues is { Count: > 0 } || _state?.LastPlanSteps is { Count: > 0 };
+    public IReadOnlyList<string>? PendingIssues => _state?.LastIssues;
+    public IReadOnlyList<ConsoleApprovalPrompt.PlanStep>? PendingPlanSteps => _state?.LastPlanSteps;
+    public IReadOnlyList<ConsoleApprovalPrompt.UserInputNeed>? PendingNeeds => _state?.LastNeedsUserInput;
+    public IReadOnlyList<ConsoleApprovalPrompt.ChosenDefault>? PendingDefaults => _state?.LastDefaults;
+
+    // True once submit_response rendered its final outcome AND the mode wants the
+    // session to end on it. one-shot ends on submit_response (single response,
+    // then exit); inline does NOT — it keeps the conversation open so the user can
+    // reply to the plan/questions, and ends only when the user types exit/quit.
+    public bool SessionClosed =>
+        (_state?.IsOneShot ?? true) && ((_state?.SubmitRendered ?? false) || LastSendCalledSubmit);
+
+    // Hook for the host renderer to learn when submit_response has rendered its
+    // final outcome, so it can suppress any trailing model prose. Forwards to
+    // SessionState — null is fine (no-op when no suppressor is wired).
+    public void SetOnFinalRendered(Action? callback)
+    {
+        if (_state is not null) _state.OnFinalRendered = callback;
+    }
 
     private ChatAgent(CopilotClient client, CopilotSession session, string model, SessionState? state)
     {
@@ -88,6 +109,7 @@ public sealed class ChatAgent : IAsyncDisposable
         string entrypoint,
         SpinnerService? spinner = null,
         ILogger? logger = null,
+        string? failedCommand = null,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -102,7 +124,7 @@ public sealed class ChatAgent : IAsyncDisposable
         {
             return await CreateCoreAsync(
                 client, flavor, auth, authContext, azv2ExePath, approvalSink,
-                renderer, options, entrypoint, spinner, ct).ConfigureAwait(false);
+                renderer, options, entrypoint, spinner, failedCommand, ct).ConfigureAwait(false);
         }
         catch
         {
@@ -122,6 +144,7 @@ public sealed class ChatAgent : IAsyncDisposable
         AgentOptions options,
         string entrypoint,
         SpinnerService? spinner,
+        string? failedCommand,
         CancellationToken ct)
     {
         var systemPrompt = LoadSystemPrompt(flavor, entrypoint);
@@ -148,7 +171,7 @@ public sealed class ChatAgent : IAsyncDisposable
                 }
                 if (ev is ToolStarted ts && self is not null)
                 {
-                    if (IsClosingTool(ts.Name))
+                    if (IsClosingTool(ts.Name, self._state?.IsOneShot ?? false))
                         Volatile.Write(ref self._sendCalledClosingTool, 1);
                     if (IsSessionTerminator(ts.Name))
                         Volatile.Write(ref self._sendCalledSubmit, 1);
@@ -170,9 +193,14 @@ public sealed class ChatAgent : IAsyncDisposable
         {
             IsOneShot = !options.IsInteractive,
         };
+        // Pre-fetch the failed command's help so the agent doesn't burn a turn
+        // looking up the command it was triggered by. Same lookup the LLM's
+        // get_command uses — on a hit it's the parameter table; on a miss it's the
+        // not_found JSON with suggestions, which is still useful context.
+        var failedHelp = BuildFailedCommandContext(helpTools, failedCommand);
         var sessionConfig = BuildBaseSessionConfig(
             systemPrompt, cacheTools, helpTools, skuTools, submitTool, planTool, prober,
-            azv2ExePath, approvalSink, eventRenderer, state, ct);
+            azv2ExePath, approvalSink, eventRenderer, state, failedHelp, ct);
 
         string resolvedModel;
         switch (options.Provider?.ToLowerInvariant())
@@ -217,6 +245,7 @@ public sealed class ChatAgent : IAsyncDisposable
         ConsoleApprovalPrompt approvalSink,
         EventRenderer eventRenderer,
         SessionState state,
+        string? failedHelp,
         CancellationToken ct)
     {
         return new SessionConfig
@@ -238,7 +267,12 @@ public sealed class ChatAgent : IAsyncDisposable
                 OnSessionStart = async (_, _) =>
                 {
                     var snap = await prober.ProbeAsync(ct).ConfigureAwait(false);
-                    return new SessionStartHookOutput { AdditionalContext = snap.FormatForSystemPrompt() };
+                    var ctx = snap.FormatForSystemPrompt();
+                    // Append the pre-fetched help for the failed command (if any) so
+                    // the agent starts with it instead of spending a turn on get_command.
+                    if (!string.IsNullOrEmpty(failedHelp))
+                        ctx = string.IsNullOrEmpty(ctx) ? failedHelp : $"{ctx}\n\n{failedHelp}";
+                    return new SessionStartHookOutput { AdditionalContext = ctx };
                 },
                 OnUserPromptSubmitted = async (_, _) =>
                 {
@@ -386,11 +420,31 @@ public sealed class ChatAgent : IAsyncDisposable
 
             var status = TryGetStringArg(input.ToolArgs, "status") ?? string.Empty;
             var message = TryGetStringArg(input.ToolArgs, "message");
-            // In one-shot a completed response has no separate summary — the plan
-            // the agent just showed IS the deliverable, so echo it as the summary.
-            var planSummary = state.IsOneShot ? state.LastPlanMarkdown : null;
-            approvalSink.ShowFinalOutcome(status, message, planSummary);
+            // submit_response is the unified renderer: it shows the plan the agent
+            // proposed earlier this turn (if any) as content blocks, then the status.
+            // interactive will keep looping; one-shot exits.
+            approvalSink.ShowFinalOutcome(
+                status,
+                message,
+                state.LastIssues,
+                state.LastPlanSteps,
+                state.LastNeedsUserInput,
+                state.LastDefaults,
+                state.IsOneShot);
             state.SubmitRendered = true;
+            // Tell the renderer the final outcome is on screen — it will swallow
+            // any trailing prose the model emits after this. AbortTurn cancels the
+            // turn, but the model may already have streamed tokens in flight that
+            // arrive after cancellation completes; the renderer-side gate stops
+            // those bytes from reaching the user.
+            state.OnFinalRendered?.Invoke();
+            // Consume the plan + needs so the next turn (interactive only) starts
+            // fresh — if the agent proposes again, state will be repopulated; if it
+            // does not, the next submit_response won't redundantly re-render them.
+            state.LastIssues = null;
+            state.LastPlanSteps = null;
+            state.LastNeedsUserInput = null;
+            state.LastDefaults = null;
             // The final outcome is rendered — end the turn now so the model can't
             // append a trailing prose summary after the terminator.
             state.AbortTurn();
@@ -413,9 +467,14 @@ public sealed class ChatAgent : IAsyncDisposable
                     AdditionalContext = $"Your propose_plan call was rejected: {planError}. Call it again with corrected arguments.",
                 };
 
-            var planMd = TryGetStringArg(input.ToolArgs, "planMd") ?? string.Empty;
+            var issues = ExtractIssues(input.ToolArgs);
             var planSteps = ExtractPlanSteps(input.ToolArgs);
-            state.LastPlanMarkdown = planMd;
+            var placeholders = ExtractUserInputNeeds(input.ToolArgs, "placeholders");
+            var defaults = ExtractChosenDefaults(input.ToolArgs);
+            state.LastIssues = issues;
+            state.LastPlanSteps = planSteps;
+            state.LastNeedsUserInput = placeholders;
+            state.LastDefaults = defaults;
             state.PlanShown = true;
 
             // TODO (deferred from batch B): host-side required-parameter validation.
@@ -426,15 +485,14 @@ public sealed class ChatAgent : IAsyncDisposable
             // Cirrus.Help.Tool reference that does not exist today; wiring both here
             // is out of scope for this batch. Draft lives in the v3 review doc.
 
+            // Unified mind: propose_plan does NOT render. submit_response is the
+            // sole renderer — it shows the plan's content blocks together, then
+            // closes. In interactive mode the host loop keeps going so the user
+            // can answer the needs in their next message.
             if (state.IsOneShot)
-            {
-                // Render the plan and allow — the agent closes with submit_response,
-                // whose completed summary echoes this plan back to the user.
-                approvalSink.ShowPlan(planMd, planSteps);
                 return new PreToolUseHookOutput { PermissionDecision = "allow" };
-            }
 
-            var planApproved = await approvalSink.RequestPlanAsync(planMd, planSteps, ct).ConfigureAwait(false);
+            var planApproved = await approvalSink.RequestPlanAsync(issues, planSteps, placeholders, defaults, ct).ConfigureAwait(false);
             if (planApproved)
             {
                 // Session-level gate: once any plan is approved, execution is
@@ -555,10 +613,16 @@ public sealed class ChatAgent : IAsyncDisposable
     // A turn-closing tool satisfies the act-through-tools contract: propose_plan
     // (renders a plan) or submit_response (ends the session). A turn that only
     // queried (get_command/bash/find_*) then replied in prose is still a violation.
+    //
+    // In one-shot mode propose_plan does NOT count as closing: the agent must go on
+    // to call submit_response to render the plan, so a propose-only turn should be
+    // nudged forward, not let through (otherwise the plan is never shown — it lives
+    // in LastPlanMarkdown with nobody to render it). In interactive mode propose_plan
+    // DOES count (it stops for y/n approval, which is the expected pause).
     // internal for unit testing (see ClosingToolPredicateTests).
-    internal static bool IsClosingTool(string? toolName) =>
+    internal static bool IsClosingTool(string? toolName, bool isOneShot = false) =>
         IsSessionTerminator(toolName) ||
-        string.Equals(toolName, "propose_plan", StringComparison.OrdinalIgnoreCase);
+        (!isOneShot && string.Equals(toolName, "propose_plan", StringComparison.OrdinalIgnoreCase));
 
     // The session terminator under the unified-mind model: only submit_response
     // ends a session. propose_plan is a mid-turn artifact and is NOT a terminator.
@@ -570,9 +634,13 @@ public sealed class ChatAgent : IAsyncDisposable
     // hook-not-body validation rationale as submit_response. internal for tests.
     internal static string? ValidateProposePlan(object? args)
     {
-        var planMd = TryGetStringArg(args, "planMd");
-        if (string.IsNullOrWhiteSpace(planMd))
-            return "planMd is empty";
+        if (!TryGetArrayArg(args, "issues", out var issues) || issues.GetArrayLength() == 0)
+            return "issues must have at least one point";
+        foreach (var issue in issues.EnumerateArray())
+        {
+            if (issue.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(issue.GetString()))
+                return "each issue must be a non-empty string";
+        }
 
         if (!TryGetArrayArg(args, "steps", out var steps) || steps.GetArrayLength() == 0)
             return "steps must have at least one entry";
@@ -616,14 +684,133 @@ public sealed class ChatAgent : IAsyncDisposable
                 && idEl.TryGetInt32(out var parsed) ? parsed : fallbackId;
             var label = step.TryGetProperty("label", out var l) ? l.GetString() ?? string.Empty : string.Empty;
             var cmd = step.TryGetProperty("cmd", out var c) ? c.GetString() ?? string.Empty : string.Empty;
+            // destructive is a schema boolean — trust it. A danger verb in the
+            // command is an independent safety backstop, not a format fallback.
             var modelDestructive = step.TryGetProperty("destructive", out var d)
-                && (d.ValueKind == JsonValueKind.True
-                    || (d.ValueKind == JsonValueKind.String && bool.TryParse(d.GetString(), out var db) && db));
-            var rationale = step.TryGetProperty("rationale", out var r) && r.ValueKind == JsonValueKind.String
-                ? r.GetString() : null;
+                && d.ValueKind == JsonValueKind.True;
             var destructive = modelDestructive || HasDangerVerb(cmd);
-            list.Add(new ConsoleApprovalPrompt.PlanStep(id, label, cmd, destructive, rationale));
+            list.Add(new ConsoleApprovalPrompt.PlanStep(id, label, cmd, destructive));
             fallbackId++;
+        }
+        return list.Count > 0 ? list : null;
+    }
+
+    // Builds the "here's the help for the command you failed on" context block the
+    // host injects at session start, so the agent doesn't spend a turn looking up
+    // the command it was triggered by.
+    //
+    // Conservative by design — only fires when the failed input actually looks like
+    // an azv2 command invocation. Natural-language triggers ("create me a VM") or
+    // odd input fall through to null (no injection), and the agent just uses its
+    // tools as before — never worse than today.
+    //
+    // Goes through HelpTools.LookupCommand, the same path the get_command tool uses,
+    // so when the help source switches to the extension index this block changes
+    // with it automatically (no separate code path to keep in sync).
+    internal static string? BuildFailedCommandContext(HelpTools helpTools, string? failedCommand)
+    {
+        var name = ExtractCommandName(failedCommand);
+        if (name is null) return null;
+
+        try
+        {
+            // Same JSON the LLM's get_command returns. On a hit it's the parameter
+            // table — inject it. On a miss it's not_found: the verb we extracted
+            // wasn't a real command (e.g. a multi-word command whose trailing
+            // positional arg got swept in), so injecting "not_found" would just
+            // mislead. Skip injection and let the agent look it up with its tools.
+            var help = helpTools.LookupCommand(name);
+            if (help.Contains("\"not_found\"", StringComparison.OrdinalIgnoreCase))
+                return null;
+            return $"Help for the command you were triggered by (`{name}`), pre-fetched so you don't need to call get_command for it:\n{help}";
+        }
+        catch
+        {
+            // Pre-fetch is best-effort: if the lookup throws (today it can't, but a
+            // future index-backed resolver might), fall back to no injection rather
+            // than killing agent startup. Never worse than not pre-fetching.
+            return null;
+        }
+    }
+
+    // Pulls the command verb out of a failed azv2 invocation: the leading run of
+    // command-name tokens (lowercase letters/digits/hyphens) up to the first flag.
+    // Returns null when the input doesn't look like a command (natural language,
+    // empty, starts with a flag) — the caller then skips pre-fetch entirely.
+    internal static string? ExtractCommandName(string? failedCommand)
+    {
+        if (string.IsNullOrWhiteSpace(failedCommand)) return null;
+
+        var verb = new List<string>();
+        foreach (var token in failedCommand.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (token.StartsWith('-')) break;                 // first flag ends the verb
+            if (!IsCommandToken(token)) return null;          // non-command token (e.g. CJK / punctuation) → not a command
+            verb.Add(token);
+            if (verb.Count >= 4) break;                       // cirrus verbs are short; cap to avoid eating args
+        }
+        return verb.Count > 0 ? string.Join(' ', verb) : null;
+    }
+
+    // A command-name token is lowercase ascii letters/digits/hyphens (e.g. "vm",
+    // "create", "create-combined"). Anything else (uppercase value, path, CJK,
+    // quotes) means the input isn't a clean command invocation.
+    private static bool IsCommandToken(string token) =>
+        token.Length > 0 && token.All(c => (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-');
+
+    // Parses an array of {name, description} (placeholders) into the host's
+    // UserInputNeed view. Returns null when absent or empty. internal for tests.
+    internal static IReadOnlyList<ConsoleApprovalPrompt.UserInputNeed>? ExtractUserInputNeeds(object? args, string field)
+    {
+        if (!TryGetArrayArg(args, field, out var needs)) return null;
+
+        var list = new List<ConsoleApprovalPrompt.UserInputNeed>();
+        foreach (var need in needs.EnumerateArray())
+        {
+            if (need.ValueKind != JsonValueKind.Object) continue;
+            var name = need.TryGetProperty("name", out var n) && n.ValueKind == JsonValueKind.String
+                ? n.GetString() : null;
+            var description = need.TryGetProperty("description", out var d) && d.ValueKind == JsonValueKind.String
+                ? d.GetString() ?? string.Empty : string.Empty;
+            if (string.IsNullOrWhiteSpace(name)) continue;
+            list.Add(new ConsoleApprovalPrompt.UserInputNeed(name!, description));
+        }
+        return list.Count > 0 ? list : null;
+    }
+
+    // Parses the propose_plan issues array (what-went-wrong points) into a string
+    // list. Skips non-string / blank entries. Returns null when absent or empty.
+    // internal for unit testing.
+    internal static IReadOnlyList<string>? ExtractIssues(object? args)
+    {
+        if (!TryGetArrayArg(args, "issues", out var issues)) return null;
+
+        var list = new List<string>();
+        foreach (var issue in issues.EnumerateArray())
+        {
+            if (issue.ValueKind == JsonValueKind.String && issue.GetString() is { Length: > 0 } s
+                && !string.IsNullOrWhiteSpace(s))
+                list.Add(s);
+        }
+        return list.Count > 0 ? list : null;
+    }
+
+    // Parses the propose_plan defaults array ({name, value, note}) into the host's
+    // ChosenDefault view — values the agent chose/derived for the user. Returns
+    // null when absent or empty. internal for unit testing.
+    internal static IReadOnlyList<ConsoleApprovalPrompt.ChosenDefault>? ExtractChosenDefaults(object? args)
+    {
+        if (!TryGetArrayArg(args, "defaults", out var defaults)) return null;
+
+        var list = new List<ConsoleApprovalPrompt.ChosenDefault>();
+        foreach (var d in defaults.EnumerateArray())
+        {
+            if (d.ValueKind != JsonValueKind.Object) continue;
+            var name = d.TryGetProperty("name", out var n) && n.ValueKind == JsonValueKind.String ? n.GetString() : null;
+            var value = d.TryGetProperty("value", out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? string.Empty : string.Empty;
+            var note = d.TryGetProperty("note", out var nt) && nt.ValueKind == JsonValueKind.String ? nt.GetString() ?? string.Empty : string.Empty;
+            if (string.IsNullOrWhiteSpace(name)) continue;
+            list.Add(new ConsoleApprovalPrompt.ChosenDefault(name!, value, note));
         }
         return list.Count > 0 ? list : null;
     }
@@ -826,9 +1013,19 @@ internal sealed class SessionState
     // submit_response is the sole terminator, so this no longer ends the turn.
     public bool PlanShown { get; set; }
 
-    // The markdown of the most recently shown plan. submit_response(completed) in
-    // oneShot reuses it as the success summary so the plan is echoed as the outcome.
-    public string? LastPlanMarkdown { get; set; }
+    // The plan content from the most recent propose_plan, attached to the next
+    // submit_response render so the plan's content blocks show together.
+    // (one-shot also re-shows these on exit as a fallback if submit never ran.)
+    public IReadOnlyList<string>? LastIssues { get; set; }
+    public IReadOnlyList<ConsoleApprovalPrompt.PlanStep>? LastPlanSteps { get; set; }
+    public IReadOnlyList<ConsoleApprovalPrompt.UserInputNeed>? LastNeedsUserInput { get; set; }
+    public IReadOnlyList<ConsoleApprovalPrompt.ChosenDefault>? LastDefaults { get; set; }
+
+    // Invoked by the submit_response hook right after the final outcome is
+    // rendered. Lets the renderer (TraceAgentRenderer) flip into "suppress
+    // trailing prose" mode so the model can't slip a stray paragraph past the
+    // terminator. Null = no suppression wired (non-trace renderers).
+    public Action? OnFinalRendered { get; set; }
 
     // Set once the host has rendered a submit_response outcome. The host reads it
     // to recognize the session terminated cleanly via submit_response.

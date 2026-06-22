@@ -21,6 +21,18 @@ public class ClosingToolPredicateTests
         Assert.True(ChatAgent.IsClosingTool(tool));
     }
 
+    [Fact]
+    public void Propose_plan_is_not_closing_in_one_shot()
+    {
+        // In one-shot the agent must go on to submit_response to render the plan,
+        // so a propose-only turn should be nudged forward — propose_plan does NOT
+        // satisfy the contract there. (In interactive it does: it pauses for y/n.)
+        Assert.False(ChatAgent.IsClosingTool("propose_plan", isOneShot: true));
+        Assert.True(ChatAgent.IsClosingTool("propose_plan", isOneShot: false));
+        // submit_response is still closing in either mode.
+        Assert.True(ChatAgent.IsClosingTool("submit_response", isOneShot: true));
+    }
+
     [Theory]
     [InlineData("get_command")]
     [InlineData("list_commands")]

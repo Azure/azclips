@@ -50,15 +50,28 @@ public sealed class ConsoleApprovalPrompt
     private record PendingApproval(
         string ToolName,
         string ArgsPreview,
-        string? PlanMarkdown,
-        IReadOnlyList<PlanStep>? PlanSteps,
+        PlanContent? Plan,
         TaskCompletionSource<bool> Result,
         CancellationTokenRegistration Reg);
 
-    // Minimal step view the host renders under the plan markdown. Decoupled from
-    // the tool's StepMeta so the hook owns the JSON parsing. Destructive drives the
-    // red marker; Rationale prints a grey "why" line under the command.
-    public sealed record PlanStep(int Id, string Label, string Cmd, bool Destructive = false, string? Rationale = null);
+    // The structured content of a proposed plan, rendered as styled content blocks
+    // (see the unified display system). Replaces the old free-form planMd string.
+    public sealed record PlanContent(
+        IReadOnlyList<string>? Issues,
+        IReadOnlyList<PlanStep>? Steps,
+        IReadOnlyList<UserInputNeed>? Placeholders,
+        IReadOnlyList<ChosenDefault>? Defaults);
+
+    // Minimal step view the host renders under the plan. Decoupled from the tool's
+    // StepMeta so the hook owns the JSON parsing. Destructive drives the red marker.
+    public sealed record PlanStep(int Id, string Label, string Cmd, bool Destructive = false);
+
+    // A secret only the user can supply — rendered with <Name> as a placeholder.
+    public sealed record UserInputNeed(string Name, string Description);
+
+    // A value the agent chose/derived for the user — rendered as the real value
+    // (italic when the terminal supports it) so the user can run as-is or change it.
+    public sealed record ChosenDefault(string Name, string Value, string Note);
 
     // Outcome of one approval prompt. When Approved=false and FeedbackPrompt is
     // set, the user typed free-form text at the y/n prompt — the host treats it
@@ -82,7 +95,7 @@ public sealed class ConsoleApprovalPrompt
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var reg = ct.Register(() => tcs.TrySetCanceled(ct));
 
-        _queue.Writer.TryWrite(new PendingApproval(toolName, args, PlanMarkdown: null, PlanSteps: null, tcs, reg));
+        _queue.Writer.TryWrite(new PendingApproval(toolName, args, Plan: null, tcs, reg));
         return tcs.Task;
     }
 
@@ -96,7 +109,7 @@ public sealed class ConsoleApprovalPrompt
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var reg = ct.Register(() => tcs.TrySetCanceled(ct));
 
-        _queue.Writer.TryWrite(new PendingApproval(toolName, rewrittenCommand ?? string.Empty, PlanMarkdown: null, PlanSteps: null, tcs, reg));
+        _queue.Writer.TryWrite(new PendingApproval(toolName, rewrittenCommand ?? string.Empty, Plan: null, tcs, reg));
         return tcs.Task;
     }
 
@@ -106,7 +119,7 @@ public sealed class ConsoleApprovalPrompt
     /// under the renderer lock (same protection PumpOneAsync uses) so the output
     /// doesn't race the spinner.
     /// </summary>
-    public void ShowPlan(string planMarkdown, IReadOnlyList<PlanStep>? steps)
+    public void ShowPlan(PlanContent plan)
     {
         _spinner?.Pause();
         _abortWatcher?.Pause();
@@ -115,7 +128,7 @@ public sealed class ConsoleApprovalPrompt
             Action body = () =>
             {
                 Console.WriteLine();
-                RenderPlan(planMarkdown, steps);
+                RenderPlan(plan);
             };
             if (_renderer is not null) _renderer.RunExclusive(body);
             else                       body();
@@ -129,12 +142,18 @@ public sealed class ConsoleApprovalPrompt
 
     /// <summary>
     /// Renders the session's final outcome for submit_response — the single
-    /// terminator under the unified-mind model. completed shows a success summary
-    /// (in one-shot the approved plan IS the summary), rejected explains the
-    /// out-of-scope reason, failed states the failure. Pauses the spinner and
-    /// renders under the renderer lock, same protection ShowPlan uses.
+    /// terminator under the unified-mind model. completed shows the plan content
+    /// blocks + a disclaimer, rejected explains the out-of-scope reason, failed
+    /// states the failure. Pauses the spinner and renders under the renderer lock.
     /// </summary>
-    public void ShowFinalOutcome(string status, string? message, string? planSummary)
+    public void ShowFinalOutcome(
+        string status,
+        string? message,
+        IReadOnlyList<string>? issues,
+        IReadOnlyList<PlanStep>? planSteps,
+        IReadOnlyList<UserInputNeed>? placeholders,
+        IReadOnlyList<ChosenDefault>? defaults,
+        bool isOneShot)
     {
         _spinner?.Pause();
         _abortWatcher?.Pause();
@@ -143,7 +162,8 @@ public sealed class ConsoleApprovalPrompt
             Action body = () =>
             {
                 Console.WriteLine();
-                RenderFinalOutcome(status, message, planSummary);
+                RenderFinalOutcome(status, message,
+                    new PlanContent(issues, planSteps, placeholders, defaults));
             };
             if (_renderer is not null) _renderer.RunExclusive(body);
             else                       body();
@@ -155,15 +175,23 @@ public sealed class ConsoleApprovalPrompt
         }
     }
 
-    private static void RenderFinalOutcome(string status, string? message, string? planSummary)
+    private static void RenderFinalOutcome(string status, string? message, PlanContent plan)
     {
         if (string.Equals(status, "completed", StringComparison.OrdinalIgnoreCase))
         {
+            RenderPlan(plan);
+
             WriteColor(ConsoleColor.Green, "✓ Done");
-            var summary = !string.IsNullOrWhiteSpace(message) ? message : planSummary;
-            if (!string.IsNullOrWhiteSpace(summary))
-                foreach (var lineText in MarkdownToText(summary))
-                    Console.WriteLine(string.IsNullOrEmpty(lineText) ? "" : $"  {lineText}");
+            // A completed message carries info NOT already in the plan (e.g. "the
+            // storage account was renamed to foo3a7 because the name was taken").
+            // Show it under the status line; the tool description tells the model to
+            // leave it empty when it would just repeat the plan.
+            if (!string.IsNullOrWhiteSpace(message))
+                WriteColor(ConsoleColor.DarkGray, $"  {message}");
+
+            // Disclaimer is always the last line (U4) — host-enforced, not the LLM.
+            Console.WriteLine();
+            WriteColor(ConsoleColor.Gray, Disclaimer);
         }
         else if (string.Equals(status, "rejected", StringComparison.OrdinalIgnoreCase))
         {
@@ -178,6 +206,48 @@ public sealed class ConsoleApprovalPrompt
         }
         Console.WriteLine();
     }
+
+    internal const string Disclaimer = "AI-generated content may be incorrect";
+
+    // The "⚠ Values to review before running" block (plan.review): the values the
+    // user should look at before running — both the ones the agent chose/derived
+    // (shown as the real value, italic) and the secrets the user must fill in
+    // (shown as <name> placeholders). Empty block is skipped.
+    private static void RenderReviewValues(
+        IReadOnlyList<ChosenDefault>? defaults,
+        IReadOnlyList<UserInputNeed>? placeholders)
+    {
+        var hasDefaults = defaults is { Count: > 0 };
+        var hasPlaceholders = placeholders is { Count: > 0 };
+        if (!hasDefaults && !hasPlaceholders) return;
+
+        Console.WriteLine();
+        WriteColor(ConsoleColor.Yellow, "⚠ Values to review before running:");
+        if (hasDefaults)
+            foreach (var d in defaults!)
+            {
+                // Agent-chosen value: real value in italic (terminal permitting),
+                // plus the note on why it was picked.
+                var note = string.IsNullOrWhiteSpace(d.Note) ? "" : $"  — {OneLine(d.Note)}";
+                Console.WriteLine($"  • {Italic($"{OneLine(d.Name)} {OneLine(d.Value)}")}{note}");
+            }
+        if (hasPlaceholders)
+            foreach (var p in placeholders!)
+                Console.WriteLine($"  • <{OneLine(p.Name)}>  — {OneLine(p.Description)}");
+    }
+
+    // Collapse newlines/tabs/runs of whitespace to single spaces so a stray
+    // multi-line name or description can't break the single-line layout.
+    private static string OneLine(string? s) =>
+        string.IsNullOrEmpty(s) ? string.Empty : WhitespaceRun.Replace(s, " ").Trim();
+
+    private static readonly Regex WhitespaceRun = new(@"\s+", RegexOptions.Compiled);
+
+    private const string AnsiItalic = "\x1b[3m";
+    private const string AnsiItalicReset = "\x1b[23m";
+    // Italic via ANSI; terminals that don't support it ignore the codes (the text
+    // still shows). Used to mark agent-chosen values visually without altering them.
+    private static string Italic(string s) => $"{AnsiItalic}{s}{AnsiItalicReset}";
 
     // Turns an OUT_OF_SCOPE_<code> marker into a human sentence. Unknown codes
     // keep the raw code so the user still sees why the request was declined.
@@ -199,15 +269,21 @@ public sealed class ConsoleApprovalPrompt
 
     /// <summary>
     /// Stage-1 plan approval. The hook intercepts propose_plan and routes here to
-    /// render the markdown plan plus the structured step list and read y/n — same
-    /// channel + pump + three-outcome machinery, only the rendered body differs.
+    /// render the plan content blocks and read y/n — same channel + pump +
+    /// three-outcome machinery, only the rendered body differs.
     /// </summary>
-    public Task<bool> RequestPlanAsync(string planMarkdown, IReadOnlyList<PlanStep>? steps, CancellationToken ct)
+    public Task<bool> RequestPlanAsync(
+        IReadOnlyList<string>? issues,
+        IReadOnlyList<PlanStep>? steps,
+        IReadOnlyList<UserInputNeed>? placeholders,
+        IReadOnlyList<ChosenDefault>? defaults,
+        CancellationToken ct)
     {
         var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var reg = ct.Register(() => tcs.TrySetCanceled(ct));
 
-        _queue.Writer.TryWrite(new PendingApproval("propose_plan", string.Empty, planMarkdown ?? string.Empty, steps, tcs, reg));
+        _queue.Writer.TryWrite(new PendingApproval("propose_plan", string.Empty,
+            new PlanContent(issues, steps, placeholders, defaults), tcs, reg));
         return tcs.Task;
     }
 
@@ -265,9 +341,9 @@ public sealed class ConsoleApprovalPrompt
             Action body = () =>
             {
                 Console.WriteLine();
-                if (pending.PlanMarkdown is not null)
+                if (pending.Plan is not null)
                 {
-                    RenderPlan(pending.PlanMarkdown, pending.PlanSteps);
+                    RenderPlan(pending.Plan);
                     WriteColorInline(ConsoleColor.DarkGray, "   approve plan? [y]es / [n]o, tell me what to do differently: ");
                 }
                 else
@@ -318,59 +394,40 @@ public sealed class ConsoleApprovalPrompt
     // markdown, but the inline console can't render it — so we strip markdown to
     // readable plain text (headings become spaced lines, **bold**/`code` lose
     // their markers). A TUI front-end would render the markdown directly instead.
-    private static void RenderPlan(string planMarkdown, IReadOnlyList<PlanStep>? steps)
+    // Renders the plan as styled content blocks (the unified display system):
+    //   plan.issue  — "What went wrong:" + bullets
+    //   plan.step   — "Plan:" + [N] label / $ cmd (command white, destructive red)
+    //   plan.review — "⚠ Values to review before running:" (defaults italic + placeholders)
+    private static void RenderPlan(PlanContent plan)
     {
-        WriteColor(ConsoleColor.Cyan, "Proposed plan");
-        WriteColor(ConsoleColor.DarkGray, "─────────────");
-        foreach (var lineText in MarkdownToText(planMarkdown))
-            Console.WriteLine(string.IsNullOrEmpty(lineText) ? "" : $"  {lineText}");
+        WriteColor(ConsoleColor.Cyan, "AI help");
+        WriteColor(ConsoleColor.DarkGray, "───────");
 
-        if (steps is { Count: > 0 })
+        if (plan.Issues is { Count: > 0 })
         {
             Console.WriteLine();
-            WriteColor(ConsoleColor.DarkGray, "  Commands");
-            foreach (var step in steps)
+            WriteColor(ConsoleColor.White, "What went wrong:");
+            foreach (var issue in plan.Issues)
+                Console.WriteLine($"  • {OneLine(issue)}");
+        }
+
+        if (plan.Steps is { Count: > 0 })
+        {
+            Console.WriteLine();
+            WriteColor(ConsoleColor.White, "Plan:");
+            foreach (var step in plan.Steps)
             {
                 if (step.Destructive)
-                    WriteColor(ConsoleColor.Red, $"  ⚠ [{step.Id}] {step.Label}");
+                    WriteColor(ConsoleColor.Red, $"  ⚠ [{step.Id}] {OneLine(step.Label)}");
                 else
-                    WriteColor(ConsoleColor.White, $"  [{step.Id}] {step.Label}");
+                    WriteColor(ConsoleColor.White, $"  [{step.Id}] {OneLine(step.Label)}");
                 if (!string.IsNullOrWhiteSpace(step.Cmd))
-                    WriteColor(ConsoleColor.DarkGray, $"        $ {step.Cmd}");
-                if (!string.IsNullOrWhiteSpace(step.Rationale))
-                    WriteColor(ConsoleColor.DarkGray, $"        {step.Rationale}");
+                    WriteColor(ConsoleColor.White, $"      $ {step.Cmd}");
             }
         }
+
+        RenderReviewValues(plan.Defaults, plan.Placeholders);
         Console.WriteLine();
-    }
-
-    private static readonly Regex HeadingLine = new(@"^\s*#{1,6}\s+(.*)$", RegexOptions.Compiled);
-
-    // Minimal markdown → plain text for the inline console: drop heading hashes,
-    // bold markers, and inline-code backticks; turn a heading into a blank line +
-    // the text so sections stay visually separated. Backticks are dropped so a
-    // placeholder reads as `<your-admin-password>` → <your-admin-password>: the
-    // angle brackets already flag it as a value to replace, and keeping backticks
-    // would just give the user extra characters to delete. Not a full parser.
-    internal static IReadOnlyList<string> MarkdownToText(string md)
-    {
-        var outLines = new List<string>();
-        foreach (var raw in md.Replace("\r\n", "\n").Split('\n'))
-        {
-            var line = raw.TrimEnd();
-            var heading = HeadingLine.Match(line);
-            if (heading.Success)
-            {
-                if (outLines.Count > 0 && outLines[^1].Length > 0) outLines.Add("");
-                line = heading.Groups[1].Value + ":";
-            }
-            line = line.Replace("**", "").Replace("`", "");
-            outLines.Add(line);
-        }
-        // Drop trailing blank lines (planMd often ends with a newline, which would
-        // otherwise render an extra empty line under the plan).
-        while (outLines.Count > 0 && outLines[^1].Length == 0) outLines.RemoveAt(outLines.Count - 1);
-        return outLines;
     }
 
     // Soft-wrap long args across terminal width. Never truncates — the user
