@@ -149,3 +149,21 @@ dotnet test tests/Cli.Tests/Cli.Tests.csproj
 # Run tests with coverage
 dotnet test --collect:"XPlat Code Coverage"
 ```
+
+## Telemetry
+
+Cirrus collects anonymous usage telemetry (command names, parameter *names* only, success/failure, and basic environment data) to help diagnose problems and improve the experience. Parameter values, URLs, and other personal content are never collected.
+
+Telemetry is **on by default**. To opt out, set `telemetry.enabled` to `false`:
+
+```bash
+# CLI
+azv2 config set --key telemetry.enabled --value false
+```
+
+```powershell
+# PowerShell
+Set-CirrusConfig -Key telemetry.enabled -Value false
+```
+
+For details on telemetry and other settings, see [Configuration Management](docs/howto/config.md#valid-configuration-keys).
