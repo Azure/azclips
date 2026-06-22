@@ -53,7 +53,6 @@ internal static class CompletionGenerator
 
         try
         {
-            var assemblyLoader = CirrusServiceProvider.GetRequiredService<IAssemblyLoadingProvider>();
             var engine = CirrusServiceProvider.GetRequiredService<IEngine>();
 
             // Parse command context: first token is command group name (verb)
@@ -63,11 +62,11 @@ internal static class CompletionGenerator
             // If a command group is present, do context-aware discovery
             if (!string.IsNullOrEmpty(commandGroupName))
             {
-                return GenerateForCommandGroup(clientType, engine, assemblyLoader, commandGroupName, subcommand);
+                return GenerateForCommandGroup(clientType, engine, commandGroupName, subcommand);
             }
 
             // Otherwise, generate full completion tree (existing behavior)
-            return GenerateFullTree(clientType, engine, assemblyLoader);
+            return GenerateFullTree(clientType, engine);
         }
         finally
         {
@@ -77,87 +76,31 @@ internal static class CompletionGenerator
 
     /// <summary>
     /// Generate completion data for a specific command group.
-    /// This extracts the group's data from the full tree using discovery + assembly loading.
+    /// This extracts the group's data from discovery output keyed by invocation name.
     /// Allows dynamic, context-aware completion for faster shell feedback.
     /// </summary>
-    private static int GenerateForCommandGroup(ClientType clientType, IEngine engine, IAssemblyLoadingProvider assemblyLoader, string commandGroupName, string? subcommand)
+    private static int GenerateForCommandGroup(ClientType clientType, IEngine engine, string commandGroupName, string? subcommand)
     {
         var registryStore = new FileExtensionRegistryStore();
         var leafIndex = LeafIndex.Build(BuiltInExtensions.Map, registryStore.LoadReconciled());
-        var packageIds = leafIndex.Entries.Values
-            .Select(v => v.PackageId)
+        var discoveryExtensionNames = leafIndex.Entries.Values
+            .Where(v => v.Verb.Equals(commandGroupName, StringComparison.OrdinalIgnoreCase))
+            .Select(v => Constants.StripCirrusPrefix(v.PackageId))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        // Build tree by querying only extensions that contain the requested command group
-        var tree = new Dictionary<string, object>();
+        var discoveredCommands = DiscoverCommands(clientType, engine, discoveryExtensionNames);
+        var filteredCommands = discoveredCommands
+            .Where(kvp => kvp.Key.Equals(commandGroupName, StringComparison.OrdinalIgnoreCase)
+                || kvp.Key.StartsWith($"{commandGroupName} ", StringComparison.OrdinalIgnoreCase));
 
-        foreach (var packageId in packageIds)
+        if (!string.IsNullOrWhiteSpace(subcommand))
         {
-            try
-            {
-                var extensionName = Constants.StripCirrusPrefix(packageId);
-                var assembly = assemblyLoader.LoadExtension(extensionName);
-                var index = assembly.GetExtensionIndex();
-                var commandTable = index.GetCommandTable(ClientType.CLI);
-
-                // Look for commands in this group across the command table
-                foreach (var (cliName, meta) in commandTable)
-                {
-                    var tokens = cliName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                    if (tokens.Length == 0)
-                        continue;
-
-                    var verb = tokens[0].ToLowerInvariant();
-                    
-                    // Only include commands from the requested group
-                    if (!verb.Equals(commandGroupName, StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    var path = string.Join(' ', tokens.Skip(1));
-
-                    var paramNames = meta.Parameters.Keys.Select(k => $"--{k}").ToList();
-                    var requiredParams = meta.Parameters
-                        .Where(p => p.Value.IsRequired)
-                        .Select(p => $"--{p.Key}")
-                        .ToList();
-
-                    if (string.IsNullOrEmpty(path))
-                    {
-                        // Bare-verb command (e.g., "login")
-                        tree["_params"] = paramNames;
-                        if (requiredParams.Count > 0)
-                        {
-                            tree["_required"] = requiredParams;
-                        }
-                    }
-                    else
-                    {
-                        // Subcommand
-                        if (!tree.TryGetValue("_subcommands", out var subsObj) || subsObj is not List<string> subcommands)
-                        {
-                            subcommands = new List<string>();
-                            tree["_subcommands"] = subcommands;
-                        }
-
-                        if (!subcommands.Contains(path, StringComparer.OrdinalIgnoreCase))
-                        {
-                            subcommands.Add(path);
-                        }
-
-                        tree[path] = paramNames;
-                        if (requiredParams.Count > 0)
-                        {
-                            tree[$"{path}._req"] = requiredParams;
-                        }
-                    }
-                }
-            }
-            catch
-            {
-                // Skip extensions that fail to load
-            }
+            var requestedKey = $"{commandGroupName} {subcommand}";
+            filteredCommands = filteredCommands.Where(kvp => kvp.Key.Equals(requestedKey, StringComparison.OrdinalIgnoreCase));
         }
+
+        var tree = BuildCompletionTree(filteredCommands, scopedToVerb: true);
 
         Console.WriteLine(JsonSerializer.Serialize(tree, new JsonSerializerOptions { WriteIndented = false }));
         return 0;
@@ -167,27 +110,34 @@ internal static class CompletionGenerator
     /// Generate full completion tree for all available commands.
     /// This is called when no specific command group is provided.
     /// </summary>
-    private static int GenerateFullTree(ClientType clientType, IEngine engine, IAssemblyLoadingProvider assemblyLoader)
+    private static int GenerateFullTree(ClientType clientType, IEngine engine)
     {
-        var discoveredPackageIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var registryStore = new FileExtensionRegistryStore();
         var leafIndex = LeafIndex.Build(BuiltInExtensions.Map, registryStore.LoadReconciled());
-        var fallbackPackageIds = leafIndex.Entries.Values
-            .Select(v => v.PackageId)
+        var discoveryExtensionNames = leafIndex.Entries.Values
+            .Select(v => Constants.StripCirrusPrefix(v.PackageId))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+        var discoveredCommands = DiscoverCommands(clientType, engine, discoveryExtensionNames);
+        var tree = BuildCompletionTree(discoveredCommands, scopedToVerb: false);
 
-        var discoveryExtensionNames = fallbackPackageIds
-            .Select(Constants.StripCirrusPrefix)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        Console.WriteLine(JsonSerializer.Serialize(tree, new JsonSerializerOptions { WriteIndented = false }));
+        return 0;
+    }
+
+    private static Dictionary<string, CommandMetadata> DiscoverCommands(ClientType clientType, IEngine engine, IList<string> extensionNames)
+    {
+        var discoveredCommands = new Dictionary<string, CommandMetadata>(StringComparer.OrdinalIgnoreCase);
 
         var discoveryStreams = new OutputStreams(
             WriteOutput: (value, ct) =>
             {
-                if (value is CommandMetadata metadata && !string.IsNullOrWhiteSpace(metadata.AssemblyName))
+                if (value is IDictionary<string, CommandMetadata> discovered)
                 {
-                    discoveredPackageIds.Add(metadata.AssemblyName);
+                    foreach (var (invocationName, metadata) in discovered)
+                    {
+                        discoveredCommands[invocationName] = metadata;
+                    }
                 }
                 return Task.CompletedTask;
             },
@@ -198,89 +148,75 @@ internal static class CompletionGenerator
             WriteInformation: (value, ct) => Task.CompletedTask
         );
 
-        using (var discoverySession = engine.OpenDiscoverySession(discoveryExtensionNames, commandName: null, discoveryStreams, isTransient: true))
-        {
-            discoverySession.RunAsync().GetAwaiter().GetResult();
-        }
+        using var discoverySession = engine.OpenDiscoverySession(extensionNames, commandName: null, discoveryStreams, isTransient: true);
+        discoverySession.RunAsync().GetAwaiter().GetResult();
 
-        // Discovery emits command metadata; if none are discovered, fall back to registry+seed.
-        IEnumerable<string> packageIds = discoveredPackageIds;
-        if (!packageIds.Any())
-        {
-            packageIds = fallbackPackageIds;
-        }
+        return discoveredCommands;
+    }
 
-        // Build: { "group": { "_subcommands": ["create","list"], "create": ["--name","--location"], ... }, ... }
-        var tree = new Dictionary<string, object>();
+    private static Dictionary<string, object> BuildCompletionTree(IEnumerable<KeyValuePair<string, CommandMetadata>> commands, bool scopedToVerb)
+    {
+        var tree = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var packageId in packageIds)
+        foreach (var (invocationName, meta) in commands)
         {
-            try
+            var tokens = invocationName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (tokens.Length == 0)
             {
-                var extensionName = Constants.StripCirrusPrefix(packageId);
-                var assembly = assemblyLoader.LoadExtension(extensionName);
-                var index = assembly.GetExtensionIndex();
-                var commandTable = index.GetCommandTable(ClientType.CLI);
+                continue;
+            }
 
-                foreach (var (cliName, meta) in commandTable)
+            var verb = tokens[0].ToLowerInvariant();
+            var path = string.Join(' ', tokens.Skip(1));
+            var groupEntry = scopedToVerb
+                ? tree
+                : GetOrCreateGroupEntry(tree, verb);
+
+            var paramNames = meta.Parameters.Keys.Select(k => $"--{k}").ToList();
+            var requiredParams = meta.Parameters
+                .Where(p => p.Value.IsRequired)
+                .Select(p => $"--{p.Key}")
+                .ToList();
+
+            if (string.IsNullOrEmpty(path))
+            {
+                groupEntry["_params"] = paramNames;
+                if (requiredParams.Count > 0)
                 {
-                    var tokens = cliName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                    if (tokens.Length == 0)
-                    {
-                        continue;
-                    }
-
-                    var verb = tokens[0].ToLowerInvariant();
-                    var path = string.Join(' ', tokens.Skip(1));
-
-                    if (!tree.TryGetValue(verb, out var existing) || existing is not Dictionary<string, object> groupEntry)
-                    {
-                        groupEntry = new Dictionary<string, object>();
-                        tree[verb] = groupEntry;
-                    }
-
-                    if (!groupEntry.TryGetValue("_subcommands", out var subsObj) || subsObj is not List<string> subcommands)
-                    {
-                        subcommands = new List<string>();
-                        groupEntry["_subcommands"] = subcommands;
-                    }
-
-                    var paramNames = meta.Parameters.Keys.Select(k => $"--{k}").ToList();
-                    var requiredParams = meta.Parameters
-                        .Where(p => p.Value.IsRequired)
-                        .Select(p => $"--{p.Key}")
-                        .ToList();
-
-                    if (string.IsNullOrEmpty(path))
-                    {
-                        // Bare-verb command (e.g., "login")
-                        groupEntry["_params"] = paramNames;
-                        if (requiredParams.Count > 0)
-                        {
-                            groupEntry["_required"] = requiredParams;
-                        }
-                    }
-                    else
-                    {
-                        if (!subcommands.Contains(path, StringComparer.OrdinalIgnoreCase))
-                        {
-                            subcommands.Add(path);
-                        }
-                        groupEntry[path] = paramNames;
-                        if (requiredParams.Count > 0)
-                        {
-                            groupEntry[$"{path}._req"] = requiredParams;
-                        }
-                    }
+                    groupEntry["_required"] = requiredParams;
                 }
+                continue;
             }
-            catch
+
+            if (!groupEntry.TryGetValue("_subcommands", out var subsObj) || subsObj is not List<string> subcommands)
             {
-                // Skip extensions that fail to load
+                subcommands = new List<string>();
+                groupEntry["_subcommands"] = subcommands;
+            }
+
+            if (!subcommands.Contains(path, StringComparer.OrdinalIgnoreCase))
+            {
+                subcommands.Add(path);
+            }
+
+            groupEntry[path] = paramNames;
+            if (requiredParams.Count > 0)
+            {
+                groupEntry[$"{path}._req"] = requiredParams;
             }
         }
 
-        Console.WriteLine(JsonSerializer.Serialize(tree, new JsonSerializerOptions { WriteIndented = false }));
-        return 0;
+        return tree;
+    }
+
+    private static Dictionary<string, object> GetOrCreateGroupEntry(Dictionary<string, object> tree, string verb)
+    {
+        if (!tree.TryGetValue(verb, out var existing) || existing is not Dictionary<string, object> groupEntry)
+        {
+            groupEntry = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+            tree[verb] = groupEntry;
+        }
+
+        return groupEntry;
     }
 }
