@@ -37,6 +37,7 @@ public class Program
             services.AddSingleton<IExtensionLoader, BuiltinExtensionLoader>();
             services.AddSingleton<IExtensionLoader, MultiVersionExtensionLoader>();
             services.AddSingleton<PropertyParser>();
+            services.AddCliExtensionDispatch();
         });
         CirrusServiceProvider.OverrideRegistration(services =>
         {
