@@ -16,6 +16,7 @@ public sealed class ExtensionIndex : IExtensionIndex
     {
         ["sharedverb beta"] = new CommandMetadata(
             Name: "BetaProcessor",
+            InvocationName: "sharedverb beta",
             Aliases: [],
             FullName: "Cirrus.Tests.Fixtures.SharedBeta.BetaProcessor",
             AssemblyName: "Cirrus.Tests.Fixtures.SharedBeta",

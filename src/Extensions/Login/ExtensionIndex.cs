@@ -11,20 +11,22 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
         // ── PS Command Metadata ──
         private static readonly CommandMetadata s_login_PS = new(
             Name: "LoginProcessor",
+            InvocationName: "Connect-CirrusAccount",
             Aliases: [],
             FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Processors.LoginProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
             ProcessorType: typeof(Processors.LoginProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["SubscriptionId"] = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["TenantId"]       = new("TenantId", typeof(string), "Tenant ID to login to.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["UseDeviceCode"]  = new("UseDeviceCode", typeof(bool), "Use device code flow for authentication.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["SubscriptionId"] = new("SubscriptionId", "SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["TenantId"]       = new("TenantId", "TenantId", typeof(string), "Tenant ID to login to.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["UseDeviceCode"]  = new("UseDeviceCode", "UseDeviceCode", typeof(bool), "Use device code flow for authentication.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_logout_PS = new(
             Name: "LogoutProcessor",
+            InvocationName: "Disconnect-CirrusAccount",
             Aliases: [],
             FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Processors.LogoutProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
@@ -34,6 +36,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
         );
         private static readonly CommandMetadata s_getContext_PS = new(
             Name: "GetContextProcessor",
+            InvocationName: "Get-CirrusAccount",
             Aliases: [],
             FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Processors.GetContextProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
@@ -44,20 +47,22 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
         // ── CLI Command Metadata ──
         private static readonly CommandMetadata s_login_CLI = new(
             Name: "LoginProcessor",
+            InvocationName: "login",
             Aliases: [],
             FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Processors.LoginProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
             ProcessorType: typeof(Processors.LoginProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["subscription-id"] = new("SubscriptionId", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
-                ["tenant-id"]       = new("TenantId", typeof(string), "Tenant ID to login to.", IsRequired: false, Aliases: [], AllowedValues: []),
-                ["use-device-code"] = new("UseDeviceCode", typeof(bool), "Use device code flow for authentication.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["subscription-id"] = new("SubscriptionId", "subscription-id", typeof(string), "Azure Subscription Id.", IsRequired: true, Aliases: [], AllowedValues: []),
+                ["tenant-id"]       = new("TenantId", "tenant-id", typeof(string), "Tenant ID to login to.", IsRequired: false, Aliases: [], AllowedValues: []),
+                ["use-device-code"] = new("UseDeviceCode", "use-device-code", typeof(bool), "Use device code flow for authentication.", IsRequired: false, Aliases: [], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_logout_CLI = new(
             Name: "LogoutProcessor",
+            InvocationName: "login logout",
             Aliases: [],
             FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Processors.LogoutProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
@@ -67,6 +72,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
         );
         private static readonly CommandMetadata s_getContext_CLI = new(
             Name: "GetContextProcessor",
+            InvocationName: "login show",
             Aliases: [],
             FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Processors.GetContextProcessor",
             AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",

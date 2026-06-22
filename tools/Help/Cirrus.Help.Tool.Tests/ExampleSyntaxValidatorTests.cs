@@ -211,13 +211,13 @@ namespace Cirrus.Help.Tool.Tests
             {
                 ["vm create"] = new[]
                 {
-                    new ParameterMetadata("subscription-id", typeof(Guid), "", true, Array.Empty<string>(), Array.Empty<string>()),
-                    new ParameterMetadata("name", typeof(string), "", true, Array.Empty<string>(), Array.Empty<string>()),
-                    new ParameterMetadata("retries", typeof(int), "", false, Array.Empty<string>(), Array.Empty<string>()),
-                    new ParameterMetadata("use-device-code", typeof(bool), "", false, Array.Empty<string>(), Array.Empty<string>()),
-                    new ParameterMetadata("format", typeof(StubOutputFormat), "", false, Array.Empty<string>(), Array.Empty<string>()),
-                    new ParameterMetadata("verbosity", typeof(string), "", false, Array.Empty<string>(), new[] { "quiet", "normal", "diagnostic" }),
-                    new ParameterMetadata("tags", typeof(List<string>), "", false, Array.Empty<string>(), Array.Empty<string>()),
+                    new ParameterMetadata("subscription-id", "subscription-id", typeof(Guid), "", true, Array.Empty<string>(), Array.Empty<string>()),
+                    new ParameterMetadata("name", "name", typeof(string), "", true, Array.Empty<string>(), Array.Empty<string>()),
+                    new ParameterMetadata("retries", "retries", typeof(int), "", false, Array.Empty<string>(), Array.Empty<string>()),
+                    new ParameterMetadata("use-device-code", "use-device-code", typeof(bool), "", false, Array.Empty<string>(), Array.Empty<string>()),
+                    new ParameterMetadata("format", "format", typeof(StubOutputFormat), "", false, Array.Empty<string>(), Array.Empty<string>()),
+                    new ParameterMetadata("verbosity", "verbosity", typeof(string), "", false, Array.Empty<string>(), new[] { "quiet", "normal", "diagnostic" }),
+                    new ParameterMetadata("tags", "tags", typeof(List<string>), "", false, Array.Empty<string>(), Array.Empty<string>()),
                 },
             });
 
@@ -479,15 +479,16 @@ namespace Cirrus.Help.Tool.Tests
             // The validator must match against the dictionary key, not the .Name field.
             var widgetCreate = new CommandMetadata(
                 Name: "widget create",
+                InvocationName: "widget create",
                 Aliases: Array.Empty<string>(),
                 FullName: "widget create",
                 AssemblyName: "Stub",
                 ProcessorType: typeof(StubExtensionIndex),
                 Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["name"]            = new ParameterMetadata("Name",           typeof(string), "", IsRequired: true, Aliases: new[] { "n" }, AllowedValues: Array.Empty<string>()),
-                    ["location"]        = new ParameterMetadata("Location",       typeof(string), "", IsRequired: true, Aliases: Array.Empty<string>(), AllowedValues: Array.Empty<string>()),
-                    ["subscription-id"] = new ParameterMetadata("SubscriptionId", typeof(string), "", IsRequired: true, Aliases: Array.Empty<string>(), AllowedValues: Array.Empty<string>()),
+                    ["name"]            = new ParameterMetadata("Name",           "name", typeof(string), "", IsRequired: true, Aliases: new[] { "n" }, AllowedValues: Array.Empty<string>()),
+                    ["location"]        = new ParameterMetadata("Location",       "location", typeof(string), "", IsRequired: true, Aliases: Array.Empty<string>(), AllowedValues: Array.Empty<string>()),
+                    ["subscription-id"] = new ParameterMetadata("SubscriptionId", "subscription-id", typeof(string), "", IsRequired: true, Aliases: Array.Empty<string>(), AllowedValues: Array.Empty<string>()),
                 },
                 ParameterAliases: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["n"] = "name" });
 
@@ -512,14 +513,15 @@ namespace Cirrus.Help.Tool.Tests
             // once (not zero, not duplicated for "subscription-id" + "SubscriptionId").
             var widgetCreate = new CommandMetadata(
                 Name: "widget create",
+                InvocationName: "widget create",
                 Aliases: Array.Empty<string>(),
                 FullName: "widget create",
                 AssemblyName: "Stub",
                 ProcessorType: typeof(StubExtensionIndex),
                 Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["name"]            = new ParameterMetadata("Name",           typeof(string), "", IsRequired: true, Aliases: Array.Empty<string>(), AllowedValues: Array.Empty<string>()),
-                    ["subscription-id"] = new ParameterMetadata("SubscriptionId", typeof(string), "", IsRequired: true, Aliases: Array.Empty<string>(), AllowedValues: Array.Empty<string>()),
+                    ["name"]            = new ParameterMetadata("Name",           "name", typeof(string), "", IsRequired: true, Aliases: Array.Empty<string>(), AllowedValues: Array.Empty<string>()),
+                    ["subscription-id"] = new ParameterMetadata("SubscriptionId", "subscription-id", typeof(string), "", IsRequired: true, Aliases: Array.Empty<string>(), AllowedValues: Array.Empty<string>()),
                 },
                 ParameterAliases: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
 
@@ -552,7 +554,7 @@ namespace Cirrus.Help.Tool.Tests
                         var aliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                         foreach (var (flag, required, alias) in pair.Value)
                         {
-                            parameters[flag] = new ParameterMetadata(flag, typeof(string), "", required, alias, Array.Empty<string>());
+                            parameters[flag] = new ParameterMetadata(flag, flag, typeof(string), "", required, alias, Array.Empty<string>());
                             foreach (var a in alias)
                             {
                                 aliases[a] = flag;
@@ -560,6 +562,7 @@ namespace Cirrus.Help.Tool.Tests
                         }
                         return new CommandMetadata(
                             Name: pair.Key,
+                            InvocationName: pair.Key,
                             Aliases: Array.Empty<string>(),
                             FullName: pair.Key,
                             AssemblyName: "Stub",
@@ -588,6 +591,7 @@ namespace Cirrus.Help.Tool.Tests
                         }
                         return new CommandMetadata(
                             Name: pair.Key,
+                            InvocationName: pair.Key,
                             Aliases: Array.Empty<string>(),
                             FullName: pair.Key,
                             AssemblyName: "Stub",

@@ -41,7 +41,7 @@ public class ConfigCliTests
             new Dictionary<string, object> { ["all"] = new List<List<string>> { new() } },
             new Dictionary<string, ParameterMetadata>
             {
-                ["all"] = new("All", typeof(bool), "Include defaults.", false, [], [])
+                ["all"] = new("All", "all", typeof(bool), "Include defaults.", false, [], [])
             },
             parameterAliases: null);
 
