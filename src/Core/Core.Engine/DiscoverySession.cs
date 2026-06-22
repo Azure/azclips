@@ -73,11 +73,9 @@ internal class DiscoverySession : ISession
                     Console.Error.WriteLine($"Failed to load extension in discovery session {Id}: {ex.Message}");
                 }
             }
-            return;
         }
-
         // Load multiple extensions
-        if (extensionNames.Count > 0 && string.IsNullOrEmpty(commandName))
+        else if (extensionNames.Count > 0 && string.IsNullOrEmpty(commandName))
         {
             foreach (string name in extensionNames)
             {
@@ -99,11 +97,9 @@ internal class DiscoverySession : ISession
                     Console.Error.WriteLine($"Failed to load extension '{name}' in discovery session {Id}: {ex.Message}");
                 }
             }
-            return;
         }
-
         // Load a specific command from a single extension
-        if (extensionNames.Count == 1 && !string.IsNullOrEmpty(commandName))
+        else if (extensionNames.Count == 1 && !string.IsNullOrEmpty(commandName))
         {
             try
             {
@@ -120,7 +116,6 @@ internal class DiscoverySession : ISession
                 // Log the error
                 Console.Error.WriteLine($"Failed to load extension '{extensionNames[0]}' in discovery session {Id}: {ex.Message}");
             }
-            return;
         }
         // Emit the discovered commands as a Dictionary<InvocationName, CommandMetadata> to the output stream.
         await sessionOutputWriter(outputDict, EventBus.Token);
