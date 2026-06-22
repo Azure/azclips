@@ -341,6 +341,7 @@ public class ExtensionDispatcherTests
     {
         private static readonly CommandMetadata s_metadata = new(
             Name: "Stub",
+            InvocationName: "Stub",
             Aliases: Array.Empty<string>(),
             FullName: "Stub.Processors.StubProcessor",
             AssemblyName: "Stub",

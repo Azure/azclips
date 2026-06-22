@@ -5,6 +5,7 @@ namespace Core.Abstractions
 {
     public record ParameterMetadata(
         string Name,
+        string InvocationName,
         Type ParameterType,
         string Description,
         bool IsRequired,
