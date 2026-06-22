@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781856212682,
+  "lastUpdate": 1782103347303,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus CLI Benchmarks": [
@@ -1176,6 +1176,48 @@ window.BENCHMARK_DATA = {
             "value": 952887.2,
             "unit": "ns",
             "range": "± 86166.9148786238"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "44830eaf314fa6d56bf68da182fcf1f242e8ce88",
+          "message": "{Config} Add ability to retrieve sections (#306)\n\n## Summary\n- Allow config get --key <section> to return section/subsection values,\nnot only leaf keys.\n- Keep existing leaf-key behavior unchanged.\n- Support both CLI and PowerShell through shared command path.\n\n## Behavior\n- config get --key core returns flattened section entries in text mode.\n- config get --key core --json returns nested JSON for the section.\n- config get --key core.logging.level still returns a single key/value\nwith source.\n- Unknown keys continue to return not found.\n\n## Validation\n- dotnet build cirrus.slnx passes.\n- Manually verified CLI and PowerShell scenarios for section,\nsubsection, leaf, json, and not-found cases.",
+          "timestamp": "2026-06-22T14:40:31+10:00",
+          "tree_id": "1f98724cff0a40b7c3730cfd73faead220b30f32",
+          "url": "https://github.com/Azure/cirrus/commit/44830eaf314fa6d56bf68da182fcf1f242e8ce88"
+        },
+        "date": 1782103346329,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 879186,
+            "unit": "ns",
+            "range": "± 46121.663015695056"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 873150.4,
+            "unit": "ns",
+            "range": "± 119631.96403679077"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 832099.6,
+            "unit": "ns",
+            "range": "± 70887.17420168476"
           }
         ]
       }
