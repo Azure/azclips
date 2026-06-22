@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782108273301,
+  "lastUpdate": 1782131566066,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus PS Benchmarks": [
@@ -1260,6 +1260,48 @@ window.BENCHMARK_DATA = {
             "value": 15747425.433210652,
             "unit": "ns",
             "range": "± 466218.3337324247"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "yabhu@microsoft.com",
+            "name": "Yabo Hu",
+            "username": "VeryEarly"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a208e07db7c22b77888e5e77ff7a01cb9acf7a92",
+          "message": "Improve CommandMetadata, ParameterMetadata, DiscoverySession  (#307)\n\n- Introduced `InvocationName` in CommandMetadata, ParameterMetadata in\ncase we need to serialize `ExtensionIndex` in the future\n- Improved `DiscoverySession` to write `IDict<InvocationName,\nCommandMetadata>` instead of `List<CommandMetadata>`",
+          "timestamp": "2026-06-22T22:12:07+10:00",
+          "tree_id": "3892576741c0bb721da1f9ad4e253d231823d95c",
+          "url": "https://github.com/Azure/cirrus/commit/a208e07db7c22b77888e5e77ff7a01cb9acf7a92"
+        },
+        "date": 1782131565982,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 13568625.628182996,
+            "unit": "ns",
+            "range": "± 542548.4408569074"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 13783355.170476813,
+            "unit": "ns",
+            "range": "± 484077.5019584347"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 14044663.168449782,
+            "unit": "ns",
+            "range": "± 391865.6000330863"
           }
         ]
       }
