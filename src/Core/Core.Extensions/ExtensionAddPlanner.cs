@@ -1,12 +1,10 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using Core.Extensions;
-
-namespace Microsoft.Azure.Cirrus.Extensions.Extension;
+namespace Core.Extensions;
 
 /// <summary>
-/// Pure leaf-conflict planner extracted from <see cref="Processors.AddExtensionProcessor"/> for
+/// Pure leaf-conflict planner extracted from the extension-add processor for
 /// testability. Validates (verb, path) tuples against the registry; same verb across packages
 /// is fine, same (verb, path) is not. Self-upsert is allowed.
 /// </summary>

@@ -18,6 +18,5 @@ public interface ITelemetryService : IDisposable
     Activity? StartRootActivity();
 
     Activity? TagInvocation(CommandInvocation commandInvocation);
-    Activity? AddTag(string tagName, object value, Activity? activity = null);
-
+    Activity? AddTag(string propertyName, object? value, Activity? activity = null);
 }

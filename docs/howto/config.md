@@ -31,18 +31,42 @@ Configuration follows strict precedence: **command args > environment variables 
 
 ## CLI Usage
 
+`core.logging.level` controls runtime host logging verbosity in CLI sessions.
+Use `--debug` to force debug-level output for a single invocation; this
+override does not persist to config.
+
 Use explicit parameter names for CLI config commands:
 
 - `--key` for configuration key
 - `--value` for configuration value
 
-### Get a configuration value
+### Get configuration values or sections
 
 ```bash
 # Retrieve a single key
 azv2 config get --key core.logging.level
 
 # Output: core.logging.level = info [default]
+
+# Retrieve a section (text output)
+azv2 config get --key core
+
+# Example output:
+#   logging.level = info
+#   engine.extensionIndexCacheSize = 512
+#   http.maxRetries = 3
+#   http.maxRetriesFor429 = 5
+
+# Retrieve a subsection as JSON
+azv2 config get --key core.logging --json
+
+# Example output:
+# {
+#   "level": "info"
+# }
+
+# Retrieve a section as nested JSON
+azv2 config get --key core --json
 ```
 
 ### Set a configuration value
@@ -100,7 +124,7 @@ azv2 config info --keys-only
 Import-Module ./src/PS/Config/Config.psd1
 ```
 
-### Get a configuration value
+### Get configuration values or sections
 
 ```powershell
 Get-CirrusConfig -Key core.logging.level
@@ -108,6 +132,16 @@ Get-CirrusConfig -Key core.logging.level
 
 Get-CirrusConfig -Key core.logging.level -AsJson
 # Output: {"Key":"core.logging.level","Value":"info","Source":"default"}
+
+# Retrieve a section (text output)
+Get-CirrusConfig -Key core
+
+# Retrieve a subsection as JSON
+Get-CirrusConfig -Key core.logging -AsJson
+# Output: {"level":"info"}
+
+# Retrieve a section as nested JSON
+Get-CirrusConfig -Key core -AsJson
 ```
 
 ### Set a configuration value

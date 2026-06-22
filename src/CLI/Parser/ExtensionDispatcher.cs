@@ -42,18 +42,9 @@ public class ExtensionDispatcher //: IParser
 
     private ExtensionDispatcher(FileExtensionRegistryStore store)
         : this(
-            new ExtensionResolver(new ReconcilingStore(store)),
+            new ExtensionResolver(new ReconcilingRegistryStore(store)),
             () => LeafIndex.Build(BuiltInExtensions.Map, store.LoadReconciled()))
     {
-    }
-
-    /// <summary>Reconciled view of <see cref="FileExtensionRegistryStore"/> exposed through the <see cref="IExtensionRegistryStore"/> contract.</summary>
-    private sealed class ReconcilingStore : IExtensionRegistryStore
-    {
-        private readonly FileExtensionRegistryStore _inner;
-        public ReconcilingStore(FileExtensionRegistryStore inner) => _inner = inner;
-        public ExtensionRegistry Load() => _inner.LoadReconciled();
-        public void Save(ExtensionRegistry registry) => _inner.Save(registry);
     }
 
     public ExtensionDispatcher(IExtensionResolver resolver)

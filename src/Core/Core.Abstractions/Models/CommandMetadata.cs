@@ -5,6 +5,7 @@ namespace Core.Abstractions
 {
     public record CommandMetadata(
         string Name,
+        string InvocationName,
         IList<string> Aliases,
         string FullName,
         string AssemblyName,
