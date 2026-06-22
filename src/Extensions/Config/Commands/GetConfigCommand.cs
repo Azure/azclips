@@ -32,6 +32,7 @@ public sealed class GetConfigCommand : ConfigCommandBase
         // Check for section/subsection matches (prefix match)
         var matchingEntries = entries
             .Where(e => e.Key.StartsWith(normalizedKey + ".", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(e => e.Key, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         if (matchingEntries.Count == 0)
@@ -41,10 +42,10 @@ public sealed class GetConfigCommand : ConfigCommandBase
 
         // Reconstruct nested object from matching entries
         var nested = ReconstructNestedObject(normalizedKey, matchingEntries);
-        var output2 = Json
+        var sectionOutput = Json
             ? Serialize(nested)
             : FormatNestedAsTable(nested);
 
-        await WriteOutput(output2, CancellationToken).ConfigureAwait(false);
+        await WriteOutput(sectionOutput, CancellationToken).ConfigureAwait(false);
     }
 }

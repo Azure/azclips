@@ -152,23 +152,34 @@ public abstract class ConfigCommandBase : IProcessor
             for (int i = 0; i < segments.Length - 1; i++)
             {
                 var segment = segments[i];
-                if (!current.ContainsKey(segment))
+                if (current[segment] is not JsonObject next)
                 {
-                    current[segment] = new JsonObject();
+                    next = new JsonObject();
+                    current[segment] = next;
                 }
 
-                current = (JsonObject)current[segment]!;
+                current = next;
             }
 
             // Set leaf value
             if (segments.Length > 0)
             {
                 var leaf = segments[segments.Length - 1];
-                current[leaf] = JsonValue.Create(value);
+                current[leaf] = ToJsonNode(value);
             }
         }
 
         return obj;
+    }
+
+    private static JsonNode? ToJsonNode(object? value)
+    {
+        return value switch
+        {
+            null => null,
+            JsonNode jsonNode => jsonNode.DeepClone(),
+            _ => JsonValue.Create(value)
+        };
     }
 
     /// <summary>

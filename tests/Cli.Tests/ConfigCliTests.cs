@@ -236,6 +236,39 @@ public class ConfigCliTests
     }
 
     [Fact]
+    public void CliInvocation_ShouldHandleScalarThenNestedKeys_WhenGettingSection()
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        fixture.ExecuteCli(["config", "set", "--key", "core.logging", "--value", "plain", "--force"]);
+
+        var output = fixture.ExecuteCli(["config", "get", "--key", "core"]);
+
+        Assert.Contains("logging.level = info", output.Single());
+    }
+
+    [Fact]
+    public void CliInvocation_ShouldPreserveJsonNodeValues_WhenEnvironmentOverrideIsJson()
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", "{\"kind\":\"structured\",\"enabled\":true}");
+
+        try
+        {
+            var output = fixture.ExecuteCli(["config", "get", "--key", "core", "--json"]);
+            var json = JsonNode.Parse(output.Single())!.AsObject();
+
+            Assert.Equal("structured", json["logging"]?["level"]?["kind"]?.GetValue<string>());
+            Assert.True(json["logging"]?["level"]?["enabled"]?.GetValue<bool>());
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", null);
+        }
+    }
+
+    [Fact]
     public void CliInvocation_ShouldResolveDefaultsNamespace()
     {
         using var fixture = new ConfigCommandFixture();
