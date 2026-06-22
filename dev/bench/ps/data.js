@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782103407745,
+  "lastUpdate": 1782108273301,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus PS Benchmarks": [
@@ -1218,6 +1218,48 @@ window.BENCHMARK_DATA = {
             "value": 22047117,
             "unit": "ns",
             "range": "± 1787550.0965195354"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5e3fd479b0357fd2775f1089ea61c453570eae27",
+          "message": "[Benchmark] Stabilize benchmark results and override extension dispatcher. (#274)",
+          "timestamp": "2026-06-22T15:46:48+10:00",
+          "tree_id": "8da0b55ca4e2f90a8841b17fc5d18028b4bbbbac",
+          "url": "https://github.com/Azure/cirrus/commit/5e3fd479b0357fd2775f1089ea61c453570eae27"
+        },
+        "date": 1782108273211,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 15908794.142205324,
+            "unit": "ns",
+            "range": "± 528196.4422210145"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 15727056.81911447,
+            "unit": "ns",
+            "range": "± 475442.3917361827"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 15747425.433210652,
+            "unit": "ns",
+            "range": "± 466218.3337324247"
           }
         ]
       }
