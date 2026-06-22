@@ -171,7 +171,6 @@ public class Program
     {
         var allTypes = new[]
         {
-            typeof(API.ResourceGroupBenchmarks),
             typeof(CLI.ResourceGroupBenchmarks),
             typeof(PS.ResourceGroupBenchmarks)
         };
@@ -183,7 +182,6 @@ public class Program
 
         return product switch
         {
-            "API" => new[] { typeof(API.ResourceGroupBenchmarks) },
             "CLI" => new[] { typeof(CLI.ResourceGroupBenchmarks) },
             "PS" => new[] { typeof(PS.ResourceGroupBenchmarks) },
             _ => throw new ArgumentException($"Unknown product: {product}. Use: API, CLI, PS, or ALL")

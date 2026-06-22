@@ -37,6 +37,7 @@ public class Program
             services.AddSingleton<IExtensionLoader, BuiltinExtensionLoader>();
             services.AddSingleton<IExtensionLoader, MultiVersionExtensionLoader>();
             services.AddSingleton<PropertyParser>();
+            services.AddCliExtensionDispatch();
         });
         CirrusServiceProvider.OverrideRegistration(services =>
         {
@@ -53,7 +54,7 @@ public class Program
         try
         {
             using var activity = telemetryService.StartRootActivity();
-            var dispatcher = new ExtensionDispatcher();
+            var dispatcher = CirrusServiceProvider.GetRequiredService<ExtensionDispatcher>();
             args = ParseDebugFlag(args, out var debugOverride);
             var effectiveLogLevel = CliLoggingPolicy.ResolveEffectiveLevel(configurationService, debugOverride);
             streams = BuildStreams(effectiveLogLevel);
