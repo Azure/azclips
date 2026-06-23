@@ -145,12 +145,14 @@ public static class CliExtensionServiceRegistration
         {
             // Discovery failure: fall back to file registry. This preserves existing behavior
             // while allowing graceful degradation if discovery fails.
-            var errMsg = $"[{DateTime.UtcNow:O}] Discovery failed: {ex.GetType().Name}: {ex.Message}";
+            var errMsg = $"[{DateTime.UtcNow:O}] DISCOVERY FAILED: {ex.GetType().Name}: {ex.Message}";
             File.AppendAllText(logPath, errMsg + Environment.NewLine);
+            File.AppendAllText(logPath, $"[{DateTime.UtcNow:O}] Stack trace: {ex.StackTrace}" + Environment.NewLine);
             if (ex.InnerException != null)
             {
-                var innerMsg = $"[{DateTime.UtcNow:O}] Inner: {ex.InnerException.Message}";
+                var innerMsg = $"[{DateTime.UtcNow:O}] Inner exception: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}";
                 File.AppendAllText(logPath, innerMsg + Environment.NewLine);
+                File.AppendAllText(logPath, $"[{DateTime.UtcNow:O}] Inner stack: {ex.InnerException.StackTrace}" + Environment.NewLine);
             }
             return currentRegistry;
         }
