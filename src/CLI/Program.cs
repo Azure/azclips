@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Reflection;
 using Core.Abstractions;
+using Core.Cli.Completions;
 using Core.Cli.Exceptions;
 using Core.Cli.Help;
 using Core.Cli.Parser;
@@ -46,6 +47,12 @@ public class Program
             services.AddSingleton<ITelemetryProvider, CLITelemetryProvider>();
         });
         CirrusServiceProvider.Initialize(_clientType);
+
+        // Shell tab-completion metadata (after DI so generator can resolve IEngine directly)
+        int? completionExit = await CompletionGenerator.TryHandleAsync(args, _clientType);
+        if (completionExit.HasValue)
+            return completionExit.Value;
+
         _logger = CirrusServiceProvider.GetRequiredService<ILoggingService>();
         var configurationService = CirrusServiceProvider.GetRequiredService<IConfigurationService>();
 
