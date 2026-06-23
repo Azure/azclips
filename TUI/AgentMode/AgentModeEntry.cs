@@ -58,8 +58,12 @@ public static class AgentModeEntry
             IAgentRenderer renderer = consoleRenderer;
             if (agentOpts.Trace.Enabled && !string.IsNullOrWhiteSpace(agentOpts.Trace.Path))
             {
+                // Expand a leading ~ (the documented default is ~/.cirrus/trace) — .NET
+                // does NOT expand it, so without this the trace lands in a literal "~"
+                // directory. Resolve to an absolute path so the announced location works.
+                var traceDir = ExpandHome(agentOpts.Trace.Path);
                 var fileName = $"trace-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.jsonl";
-                var fullPath = Path.Combine(agentOpts.Trace.Path, fileName);
+                var fullPath = Path.GetFullPath(Path.Combine(traceDir, fileName));
                 trace = new TraceAgentRenderer(consoleRenderer, fullPath);
                 renderer = trace;
                 // Always announce the trace file (even in quiet) — if it's on, the
@@ -342,6 +346,18 @@ public static class AgentModeEntry
         Console.WriteLine("   type 'exit' or Ctrl+C to leave");
         Console.WriteLine();
         Console.ForegroundColor = prev;
+    }
+
+    // .NET does not expand a leading "~"; do it ourselves so the documented default
+    // (~/.cirrus/trace) resolves under the user profile instead of a literal "~" dir.
+    private static string ExpandHome(string path)
+    {
+        if (path == "~")
+            return Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (path.StartsWith("~/", StringComparison.Ordinal) || path.StartsWith("~\\", StringComparison.Ordinal))
+            return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), path[2..]);
+        return path;
     }
 
     private static string? ArgValue(string[] args, string flag)

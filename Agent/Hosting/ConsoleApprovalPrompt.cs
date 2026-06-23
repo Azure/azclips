@@ -186,22 +186,22 @@ public sealed class ConsoleApprovalPrompt
             // The tool description tells the model to leave it empty when it would
             // just repeat the plan.
             if (!string.IsNullOrWhiteSpace(message))
-                WriteColor(ConsoleColor.DarkGray, message);
+                Console.WriteLine(message);
 
-            // Disclaimer is always the last line (U4), in muted DarkGray —
-            // host-enforced, not the LLM. RenderPlan already left a trailing blank.
-            WriteColor(ConsoleColor.DarkGray, Disclaimer);
+            // Disclaimer is always the last line (U4). RenderPlan already left a
+            // trailing blank. Default foreground — readable on any theme.
+            Console.WriteLine(Disclaimer);
         }
         else if (string.Equals(status, "rejected", StringComparison.OrdinalIgnoreCase))
         {
-            WriteColor(ConsoleColor.Yellow, "✗ Out of scope");
-            WriteColor(ConsoleColor.DarkGray, $"  {ExplainOutOfScope(message)}");
+            WriteColor(ConsoleColor.DarkYellow, "✗ Out of scope");
+            Console.WriteLine($"  {ExplainOutOfScope(message)}");
         }
         else
         {
             WriteColor(ConsoleColor.Red, "✗ Couldn't finish");
             if (!string.IsNullOrWhiteSpace(message))
-                WriteColor(ConsoleColor.DarkGray, $"  {message}");
+                Console.WriteLine($"  {message}");
         }
         Console.WriteLine();
     }
@@ -221,18 +221,17 @@ public sealed class ConsoleApprovalPrompt
         if (!hasDefaults && !hasPlaceholders) return;
 
         Console.WriteLine();
-        WriteColor(ConsoleColor.Yellow, "⚠ Values to review before running:");
+        WriteColor(ConsoleColor.DarkYellow, "⚠ Values to review before running:");
         if (hasDefaults)
             foreach (var d in defaults!)
             {
-                // Agent-chosen value: the real value (no italic), then the note
-                // after a colon explaining why it was picked.
+                // Agent-chosen value: the real value, then the note after a colon.
                 var note = string.IsNullOrWhiteSpace(d.Note) ? "" : $": {OneLine(d.Note)}";
-                WriteColor(ConsoleColor.Gray, $"• {OneLine(d.Name)} {OneLine(d.Value)}{note}");
+                Console.WriteLine($"• {OneLine(d.Name)} {OneLine(d.Value)}{note}");
             }
         if (hasPlaceholders)
             foreach (var p in placeholders!)
-                WriteColor(ConsoleColor.Gray, $"• <{OneLine(p.Name)}>: {OneLine(p.Description)}");
+                Console.WriteLine($"• <{OneLine(p.Name)}>: {OneLine(p.Description)}");
     }
 
     // Collapse newlines/tabs/runs of whitespace to single spaces so a stray
@@ -337,13 +336,13 @@ public sealed class ConsoleApprovalPrompt
                 if (pending.Plan is not null)
                 {
                     RenderPlan(pending.Plan);
-                    WriteColorInline(ConsoleColor.DarkGray, "   approve plan? [y]es / [n]o, tell me what to do differently: ");
+                    Console.Write("   approve plan? [y]es / [n]o, tell me what to do differently: ");
                 }
                 else
                 {
-                    WriteColor(ConsoleColor.Yellow, $"⚠ Approve '{pending.ToolName}'?");
+                    WriteColor(ConsoleColor.DarkYellow, $"⚠ Approve '{pending.ToolName}'?");
                     WriteArgs(pending.ArgsPreview);
-                    WriteColorInline(ConsoleColor.DarkGray, "   [y]es / [n]o, tell me what to do differently: ");
+                    Console.Write("   [y]es / [n]o, tell me what to do differently: ");
                 }
                 line = Console.ReadLine();
             };
@@ -387,28 +386,29 @@ public sealed class ConsoleApprovalPrompt
     // markdown, but the inline console can't render it — so we strip markdown to
     // readable plain text (headings become spaced lines, **bold**/`code` lose
     // their markers). A TUI front-end would render the markdown directly instead.
-    // Renders the plan as styled content blocks (the unified display system):
-    //   plan.issue  — "What went wrong:" + bullets (no blank line after the header)
-    //   plan.step   — "Next action(s):" + N. label / └─ cmd (gray; destructive red)
-    //   plan.review — "⚠ Values to review before running:" (defaults + placeholders, no italic)
+    // Renders the plan as styled content blocks (the unified display system).
+    // Color is minimal & theme-safe: only Red (danger) and DarkYellow (warning)
+    // are explicit; everything else uses the terminal's default foreground so it
+    // stays readable on light AND dark themes (white-family colors would vanish on
+    // a light background). Headings are distinguished by structure, not color.
     private static void RenderPlan(PlanContent plan)
     {
-        WriteColor(ConsoleColor.White, "AI help");
-        WriteColor(ConsoleColor.DarkGray, "───────");
+        Console.WriteLine("AI help");
+        Console.WriteLine("───────");
 
         if (plan.Issues is { Count: > 0 })
         {
             // No blank line between the "AI help" header and "What went wrong:" (wzl).
-            WriteColor(ConsoleColor.White, "What went wrong:");
+            Console.WriteLine("What went wrong:");
             foreach (var issue in plan.Issues)
-                WriteColor(ConsoleColor.Gray, $"• {OneLine(issue)}");
+                Console.WriteLine($"• {OneLine(issue)}");
         }
 
         if (plan.Steps is { Count: > 0 })
         {
             Console.WriteLine();
             // Singular when there's one step, plural for two or more (wzl).
-            WriteColor(ConsoleColor.White, plan.Steps.Count == 1 ? "Next action:" : "Next actions:");
+            Console.WriteLine(plan.Steps.Count == 1 ? "Next action:" : "Next actions:");
             var first = true;
             foreach (var step in plan.Steps)
             {
@@ -417,9 +417,9 @@ public sealed class ConsoleApprovalPrompt
                 if (step.Destructive)
                     WriteColor(ConsoleColor.Red, $"⚠ {step.Id}. {OneLine(step.Label)}");
                 else
-                    WriteColor(ConsoleColor.Gray, $"{step.Id}. {OneLine(step.Label)}");
+                    Console.WriteLine($"{step.Id}. {OneLine(step.Label)}");
                 if (!string.IsNullOrWhiteSpace(step.Cmd))
-                    WriteColor(ConsoleColor.Gray, $"└─ {OneLine(step.Cmd)}");
+                    Console.WriteLine($"└─ {OneLine(step.Cmd)}");
             }
         }
 
@@ -465,8 +465,13 @@ public sealed class ConsoleApprovalPrompt
         }
     }
 
+    // Color is for interactive terminals only. When stdout is redirected (CI, a
+    // pipe, a file) we emit plain text so escape codes don't pollute logs.
+    private static readonly bool s_useColor = !Console.IsOutputRedirected;
+
     private static void WriteColor(ConsoleColor color, string text)
     {
+        if (!s_useColor) { Console.WriteLine(text); return; }
         var prev = Console.ForegroundColor;
         try
         {
@@ -481,6 +486,7 @@ public sealed class ConsoleApprovalPrompt
 
     private static void WriteColorInline(ConsoleColor color, string text)
     {
+        if (!s_useColor) { Console.Write(text); return; }
         var prev = Console.ForegroundColor;
         try
         {
