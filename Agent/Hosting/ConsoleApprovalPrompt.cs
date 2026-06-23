@@ -181,17 +181,16 @@ public sealed class ConsoleApprovalPrompt
         {
             RenderPlan(plan);
 
-            WriteColor(ConsoleColor.Green, "✓ Done");
             // A completed message carries info NOT already in the plan (e.g. "the
             // storage account was renamed to foo3a7 because the name was taken").
-            // Show it under the status line; the tool description tells the model to
-            // leave it empty when it would just repeat the plan.
+            // The tool description tells the model to leave it empty when it would
+            // just repeat the plan.
             if (!string.IsNullOrWhiteSpace(message))
-                WriteColor(ConsoleColor.DarkGray, $"  {message}");
+                WriteColor(ConsoleColor.DarkGray, message);
 
-            // Disclaimer is always the last line (U4) — host-enforced, not the LLM.
-            Console.WriteLine();
-            WriteColor(ConsoleColor.Gray, Disclaimer);
+            // Disclaimer is always the last line (U4), in muted DarkGray —
+            // host-enforced, not the LLM. RenderPlan already left a trailing blank.
+            WriteColor(ConsoleColor.DarkGray, Disclaimer);
         }
         else if (string.Equals(status, "rejected", StringComparison.OrdinalIgnoreCase))
         {

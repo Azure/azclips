@@ -161,15 +161,6 @@ public static class AgentModeEntry
                 approval.ShowPlan(new ConsoleApprovalPrompt.PlanContent(
                     agent.PendingIssues, agent.PendingPlanSteps, agent.PendingNeeds, agent.PendingDefaults));
 
-            // Nudge toward interactive mode only when a plan was shown (and the
-            // session wasn't closed by an out-of-scope rejection, where switching
-            // wouldn't help). A completed plan close satisfies both.
-            if (agent.PlanShown)
-            {
-                Console.WriteLine();
-                WriteColor(ConsoleColor.DarkGray,
-                    "  ↳ Run 'azv2 config set --key agent.sessionStyle --value interactive' for an interactive session.");
-            }
             return;
         }
 
