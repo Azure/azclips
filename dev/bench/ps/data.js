@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782131566066,
+  "lastUpdate": 1782201220684,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus PS Benchmarks": [
@@ -1302,6 +1302,48 @@ window.BENCHMARK_DATA = {
             "value": 14044663.168449782,
             "unit": "ns",
             "range": "± 391865.6000330863"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "110961157+NoriZC@users.noreply.github.com",
+            "name": "NoriZC",
+            "username": "NoriZC"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ce4bc638e10f40d29515193aa26c1ddb76c7566c",
+          "message": "Add shell tab-completion support (#272)\n\nCo-authored-by: Julie Zhu <105691024+yanzhudd@users.noreply.github.com>\nCo-authored-by: Julie <julie@Yemings-MacBook-Pro.local>",
+          "timestamp": "2026-06-23T15:38:10+08:00",
+          "tree_id": "2fe3ce80d92036f2f332ae10070b4b61417ddd05",
+          "url": "https://github.com/Azure/cirrus/commit/ce4bc638e10f40d29515193aa26c1ddb76c7566c"
+        },
+        "date": 1782201220599,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 13869986.035679374,
+            "unit": "ns",
+            "range": "± 453333.79037106776"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 13912978.450689692,
+            "unit": "ns",
+            "range": "± 490928.9854841383"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 14116528.00454447,
+            "unit": "ns",
+            "range": "± 573237.0428544746"
           }
         ]
       }
