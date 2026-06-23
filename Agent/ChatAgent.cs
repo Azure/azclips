@@ -215,13 +215,9 @@ public sealed class ChatAgent : IAsyncDisposable
                 resolvedModel = string.Empty;
                 break;
 
-            case "custom":
-                throw new NotImplementedException(
-                    "agent.provider='custom' is reserved for GA; use 'builtin' or 'github'.");
-
             default:
                 throw new ArgumentException(
-                    $"Unknown agent.provider value: {FormatProviderForError(options.Provider)}. Expected: builtin | github | custom.",
+                    $"Unknown agent.provider value: {FormatProviderForError(options.Provider)}. Expected: builtin | github.",
                     nameof(options));
         }
 
@@ -366,9 +362,9 @@ public sealed class ChatAgent : IAsyncDisposable
         LastError = null;
         Volatile.Write(ref _sendCalledClosingTool, 0);
         Volatile.Write(ref _sendCalledSubmit, 0);
+        if (_state is not null) _state.SubmittedThisTurn = false;
         var turnCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var oldCts = Interlocked.Exchange(ref _activeTurnCts, turnCts);
-        if (_state is not null) _state.ActiveTurnCts = turnCts;
         oldCts?.Dispose();
         try
         {
@@ -380,7 +376,6 @@ public sealed class ChatAgent : IAsyncDisposable
         finally
         {
             var done = Interlocked.Exchange(ref _activeTurnCts, null);
-            if (_state is not null && ReferenceEquals(_state.ActiveTurnCts, done)) _state.ActiveTurnCts = null;
             done?.Dispose();
         }
     }
@@ -402,6 +397,17 @@ public sealed class ChatAgent : IAsyncDisposable
         SessionState state,
         CancellationToken ct)
     {
+        // Post-terminator gate: once submit_response has rendered this turn, the
+        // turn is logically over — deny any further tool call instead of cancelling
+        // the turn (cancellation would surface as OperationCanceledException, which
+        // the host misreads as Ctrl+C). Trailing prose is suppressed renderer-side.
+        if (state.SubmittedThisTurn)
+            return new PreToolUseHookOutput
+            {
+                PermissionDecision = "deny",
+                PermissionDecisionReason = "This turn already ended with submit_response.",
+            };
+
         // submit_response is the one and only session terminator (unified mind).
         // No user approval — the LLM already decided to end. Validate args; on
         // failure deny + feed the reason back as additionalContext so the LLM
@@ -432,11 +438,12 @@ public sealed class ChatAgent : IAsyncDisposable
                 state.LastDefaults,
                 state.IsOneShot);
             state.SubmitRendered = true;
-            // Tell the renderer the final outcome is on screen — it will swallow
-            // any trailing prose the model emits after this. AbortTurn cancels the
-            // turn, but the model may already have streamed tokens in flight that
-            // arrive after cancellation completes; the renderer-side gate stops
-            // those bytes from reaching the user.
+            // Mark the turn as ended so the post-terminator gate (top of this hook)
+            // denies any further tool call. Tell the renderer the final outcome is on
+            // screen so it swallows trailing prose the model may still stream. We do
+            // NOT cancel the turn — cancellation surfaces as OperationCanceledException
+            // and is misread as Ctrl+C; the gate + renderer suppression are enough.
+            state.SubmittedThisTurn = true;
             state.OnFinalRendered?.Invoke();
             // Consume the plan + needs so the next turn (interactive only) starts
             // fresh — if the agent proposes again, state will be repopulated; if it
@@ -445,9 +452,6 @@ public sealed class ChatAgent : IAsyncDisposable
             state.LastPlanSteps = null;
             state.LastNeedsUserInput = null;
             state.LastDefaults = null;
-            // The final outcome is rendered — end the turn now so the model can't
-            // append a trailing prose summary after the terminator.
-            state.AbortTurn();
             return new PreToolUseHookOutput { PermissionDecision = "allow" };
         }
 
@@ -720,7 +724,7 @@ public sealed class ChatAgent : IAsyncDisposable
             // positional arg got swept in), so injecting "not_found" would just
             // mislead. Skip injection and let the agent look it up with its tools.
             var help = helpTools.LookupCommand(name);
-            if (help.Contains("\"not_found\"", StringComparison.OrdinalIgnoreCase))
+            if (IsNotFound(help))
                 return null;
             return $"Help for the command you were triggered by (`{name}`), pre-fetched so you don't need to call get_command for it:\n{help}";
         }
@@ -730,6 +734,28 @@ public sealed class ChatAgent : IAsyncDisposable
             // future index-backed resolver might), fall back to no injection rather
             // than killing agent startup. Never worse than not pre-fetching.
             return null;
+        }
+    }
+
+    // True when the get_command JSON is a not_found result. Parses the JSON and
+    // checks the "error" field, instead of a raw substring match — so a reformatted
+    // payload or the literal "not_found" appearing inside help text can't fool it.
+    private static bool IsNotFound(string helpJson)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(helpJson);
+            return doc.RootElement.ValueKind == JsonValueKind.Object
+                && doc.RootElement.TryGetProperty("error", out var err)
+                && err.ValueKind == JsonValueKind.String
+                && string.Equals(err.GetString(), "not_found", StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            // Not parseable as the expected JSON — treat as "not a not_found result"
+            // (a real help payload is always valid JSON; if it's malformed, don't
+            // suppress it on a guess).
+            return false;
         }
     }
 
@@ -1031,15 +1057,9 @@ internal sealed class SessionState
     // to recognize the session terminated cleanly via submit_response.
     public bool SubmitRendered { get; set; }
 
-    // The current turn's linked CTS, assigned by SendAsync. AbortTurn cancels it
-    // without capturing the agent, so its wiring no longer depends on the order in
-    // which the agent is constructed relative to the session.
-    public CancellationTokenSource? ActiveTurnCts { get; set; }
-
-    // Cancels the in-flight turn (Ctrl+C / abort). After unification the plan no
-    // longer self-terminates, so this fires only on a real abort, not on plan render.
-    public void AbortTurn()
-    {
-        try { ActiveTurnCts?.Cancel(); } catch { }
-    }
+    // True once submit_response has rendered THIS turn. Reset at the start of every
+    // SendAsync. The pre-tool-use hook denies any further tool call once it's set,
+    // so the model can't keep acting after the terminator — without cancelling the
+    // turn (cancellation surfaces as OperationCanceledException, misread as Ctrl+C).
+    public bool SubmittedThisTurn { get; set; }
 }

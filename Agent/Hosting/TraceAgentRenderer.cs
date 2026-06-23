@@ -5,10 +5,12 @@ namespace Core.Agent.Hosting;
 
 /// <summary>
 /// Decorating <see cref="IAgentRenderer"/> that forwards everything to the inner
-/// renderer and writes a structured JSONL trace of the session. Pure diagnostics:
-/// trace writes never block or break the inner renderer (forward first, then
-/// best-effort Emit). Prose suppression after submit_response lives on
-/// <see cref="ConsoleAgentRenderer"/> (always-on), not here.
+/// renderer and writes a structured JSONL trace of the session. Best-effort /
+/// diagnostics-only: trace writes are synchronous file I/O (so a slow disk can
+/// block) but are wrapped so they never break the inner renderer — the inner
+/// renderer is always called first, then Emit runs under try/catch. Prose
+/// suppression after submit_response lives on <see cref="ConsoleAgentRenderer"/>
+/// (always-on), not here.
 /// </summary>
 public sealed class TraceAgentRenderer : IAgentRenderer, IDisposable
 {
@@ -29,7 +31,11 @@ public sealed class TraceAgentRenderer : IAgentRenderer, IDisposable
         _inner = inner;
         if (!string.IsNullOrWhiteSpace(tracePath))
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(tracePath)!);
+            // A bare filename (no directory segment) has a null/empty parent —
+            // skip the create in that case (file lands in the current directory).
+            var dir = Path.GetDirectoryName(tracePath);
+            if (!string.IsNullOrEmpty(dir))
+                Directory.CreateDirectory(dir);
             _writer = new StreamWriter(new FileStream(tracePath, FileMode.Create, FileAccess.Write, FileShare.Read))
             {
                 AutoFlush = true,

@@ -20,6 +20,8 @@ Configuration follows strict precedence: **command args > environment variables 
 | `telemetry.zipkinEndpoint`                    | string | (empty)     | Zipkin tracing endpoint                                                                         |
 | `agent.enabled`                               | bool   | `false`     | Enable AI agent fallback (opt-in: `azv2 config set --key agent.enabled --value true`)            |
 | `agent.sessionStyle`                          | string | `oneShot`   | Agent interaction mode: `oneShot` (single plan, then stop) or `interactive` (multi-turn)        |
+| `agent.trace.enabled`                         | bool   | `false`     | Write a JSONL trace of each agent session (events, tool I/O) for local debugging/evaluation     |
+| `agent.trace.path`                            | string | `~/.cirrus/trace` | Directory for agent trace files (used when `agent.trace.enabled` is true; created on first write) |
 | `extensions.resources.arm.apiVersionOverride` | string | (empty)     | Override ARM API version                                                                        |
 | `clients.cli.output.format`                   | string | `table`     | CLI output format: `json`, `table`, `tsv`, `yaml`                                               |
 | `clients.powershell.output.format`            | string | `object`    | PowerShell output format: `object`, `json`, `table`                                             |

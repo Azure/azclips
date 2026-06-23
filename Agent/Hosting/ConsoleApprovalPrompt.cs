@@ -211,7 +211,7 @@ public sealed class ConsoleApprovalPrompt
 
     // The "⚠ Values to review before running" block (plan.review): the values the
     // user should look at before running — both the ones the agent chose/derived
-    // (shown as the real value, italic) and the secrets the user must fill in
+    // (shown as the real value, plain) and the secrets the user must fill in
     // (shown as <name> placeholders). Empty block is skipped.
     private static void RenderReviewValues(
         IReadOnlyList<ChosenDefault>? defaults,
@@ -226,14 +226,14 @@ public sealed class ConsoleApprovalPrompt
         if (hasDefaults)
             foreach (var d in defaults!)
             {
-                // Agent-chosen value: real value in italic (terminal permitting),
-                // plus the note on why it was picked.
-                var note = string.IsNullOrWhiteSpace(d.Note) ? "" : $"  — {OneLine(d.Note)}";
-                Console.WriteLine($"  • {Italic($"{OneLine(d.Name)} {OneLine(d.Value)}")}{note}");
+                // Agent-chosen value: the real value (no italic), then the note
+                // after a colon explaining why it was picked.
+                var note = string.IsNullOrWhiteSpace(d.Note) ? "" : $": {OneLine(d.Note)}";
+                WriteColor(ConsoleColor.Gray, $"• {OneLine(d.Name)} {OneLine(d.Value)}{note}");
             }
         if (hasPlaceholders)
             foreach (var p in placeholders!)
-                Console.WriteLine($"  • <{OneLine(p.Name)}>  — {OneLine(p.Description)}");
+                WriteColor(ConsoleColor.Gray, $"• <{OneLine(p.Name)}>: {OneLine(p.Description)}");
     }
 
     // Collapse newlines/tabs/runs of whitespace to single spaces so a stray
@@ -242,12 +242,6 @@ public sealed class ConsoleApprovalPrompt
         string.IsNullOrEmpty(s) ? string.Empty : WhitespaceRun.Replace(s, " ").Trim();
 
     private static readonly Regex WhitespaceRun = new(@"\s+", RegexOptions.Compiled);
-
-    private const string AnsiItalic = "\x1b[3m";
-    private const string AnsiItalicReset = "\x1b[23m";
-    // Italic via ANSI; terminals that don't support it ignore the codes (the text
-    // still shows). Used to mark agent-chosen values visually without altering them.
-    private static string Italic(string s) => $"{AnsiItalic}{s}{AnsiItalicReset}";
 
     // Turns an OUT_OF_SCOPE_<code> marker into a human sentence. Unknown codes
     // keep the raw code so the user still sees why the request was declined.
@@ -395,34 +389,38 @@ public sealed class ConsoleApprovalPrompt
     // readable plain text (headings become spaced lines, **bold**/`code` lose
     // their markers). A TUI front-end would render the markdown directly instead.
     // Renders the plan as styled content blocks (the unified display system):
-    //   plan.issue  — "What went wrong:" + bullets
-    //   plan.step   — "Plan:" + [N] label / $ cmd (command white, destructive red)
-    //   plan.review — "⚠ Values to review before running:" (defaults italic + placeholders)
+    //   plan.issue  — "What went wrong:" + bullets (no blank line after the header)
+    //   plan.step   — "Next action(s):" + N. label / └─ cmd (gray; destructive red)
+    //   plan.review — "⚠ Values to review before running:" (defaults + placeholders, no italic)
     private static void RenderPlan(PlanContent plan)
     {
-        WriteColor(ConsoleColor.Cyan, "AI help");
+        WriteColor(ConsoleColor.White, "AI help");
         WriteColor(ConsoleColor.DarkGray, "───────");
 
         if (plan.Issues is { Count: > 0 })
         {
-            Console.WriteLine();
+            // No blank line between the "AI help" header and "What went wrong:" (wzl).
             WriteColor(ConsoleColor.White, "What went wrong:");
             foreach (var issue in plan.Issues)
-                Console.WriteLine($"  • {OneLine(issue)}");
+                WriteColor(ConsoleColor.Gray, $"• {OneLine(issue)}");
         }
 
         if (plan.Steps is { Count: > 0 })
         {
             Console.WriteLine();
-            WriteColor(ConsoleColor.White, "Plan:");
+            // Singular when there's one step, plural for two or more (wzl).
+            WriteColor(ConsoleColor.White, plan.Steps.Count == 1 ? "Next action:" : "Next actions:");
+            var first = true;
             foreach (var step in plan.Steps)
             {
+                if (!first) Console.WriteLine();   // blank line between actions
+                first = false;
                 if (step.Destructive)
-                    WriteColor(ConsoleColor.Red, $"  ⚠ [{step.Id}] {OneLine(step.Label)}");
+                    WriteColor(ConsoleColor.Red, $"⚠ {step.Id}. {OneLine(step.Label)}");
                 else
-                    WriteColor(ConsoleColor.White, $"  [{step.Id}] {OneLine(step.Label)}");
+                    WriteColor(ConsoleColor.Gray, $"{step.Id}. {OneLine(step.Label)}");
                 if (!string.IsNullOrWhiteSpace(step.Cmd))
-                    WriteColor(ConsoleColor.White, $"      $ {step.Cmd}");
+                    WriteColor(ConsoleColor.Gray, $"└─ {OneLine(step.Cmd)}");
             }
         }
 

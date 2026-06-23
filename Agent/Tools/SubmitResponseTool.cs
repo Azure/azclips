@@ -25,7 +25,7 @@ public sealed class SubmitResponseTool
         {
             Name = "submit_response",
             Description =
-                "End the session by returning the final outcome. Always call this once, as the last tool of the session. " +
+                "End this turn by returning its outcome and showing it to the user. Always call this once, as the last tool of the turn. " +
                 "Use 'completed' when the task is done (the plan is the summary; add a message only for critical info not already in the plan). " +
                 "Use 'rejected' when the request is out of scope (message = OUT_OF_SCOPE_<code>; see the scope rules in your system prompt). " +
                 "Use 'failed' when you tried but couldn't complete (message = a short human-readable reason).",

@@ -172,4 +172,37 @@ public class PlanGateTests
         Assert.False(state.PlanApproved);
         Assert.Contains("rejected", result.AdditionalContext, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public async Task Submit_response_sets_turn_flag()
+    {
+        var state = new SessionState { IsOneShot = true };
+        var approval = new ConsoleApprovalPrompt();
+
+        await RunHookAsync(
+            Input("submit_response", new { status = "completed", message = "all set" }), state, approval);
+
+        Assert.True(state.SubmittedThisTurn);
+    }
+
+    [Theory]
+    [InlineData("bash")]
+    [InlineData("powershell")]
+    [InlineData("propose_plan")]
+    [InlineData("submit_response")]
+    public async Task Any_tool_after_submit_is_denied_this_turn(string tool)
+    {
+        // The post-terminator gate: once submit_response rendered this turn, every
+        // further tool call is denied (no exceptions — even another submit), so the
+        // model can't keep acting past the terminator. PlanApproved=true proves the
+        // denial comes from the gate, not the plan check.
+        var state = new SessionState { IsOneShot = false, PlanApproved = true, SubmittedThisTurn = true };
+        var approval = new ConsoleApprovalPrompt();
+
+        var result = await RunHookAsync(Input(tool, new { command = "echo hi" }), state, approval);
+
+        Assert.NotNull(result);
+        Assert.Equal("deny", result!.PermissionDecision);
+        Assert.Contains("submit_response", result.PermissionDecisionReason, StringComparison.OrdinalIgnoreCase);
+    }
 }
