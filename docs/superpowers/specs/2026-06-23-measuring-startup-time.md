@@ -53,6 +53,8 @@ flowchart TD
 
 *We time from process launch up to the seam (the command processor is fully resolved and bound); `ProcessAsync` and the Azure API call are excluded. The assembly-load step is the only stage whose cost differs cold vs warm (disk vs OS page cache).*
 
+**Scope — startup only.** This answers *"how long until a bundled command is ready to run?"* The performance of each command's actual work — everything **past the seam** (`ProcessAsync`, the Azure API call, and the extension's own logic) — is **not** measured here. That is measured separately by **individual per-command benchmarks** (e.g. the existing ResourceGroup API/CLI/PS suite in `tests/Benchmark`), so each extension's execution speed is tracked on its own elsewhere.
+
 #### Which extensions will we measure and why?
 The true-core built-ins shipped with **every** install, seeded in `BuiltInExtensions` and marked "present in every install, never removed": `extension`, `login`, `config`. (All three are verified shipped on Windows/macOS/Linux by the cross-platform packaging tests.)
 
@@ -79,6 +81,7 @@ What framework / techniques will we use
 - **(Future)** justify and validate optimizations such as ReadyToRun/AOT publishing.
 
 ### Out of scope:
+- **Per-command / per-extension *execution* performance** — the work each command does past the seam is covered by **individual command benchmarks** run elsewhere (e.g. the existing ResourceGroup API/CLI/PS suite). This doc is startup only.
 - **PR gating** — no hard merge-block **and** no per-PR regression comments; startup numbers (especially cold) are noisy, so we track them on dashboards + telemetry, not on the PR.
 - In-process (BenchmarkDotNet-host) micro-timing.
 - Core-only baseline / per-extension marginal breakdown (deferred — useful later for *diagnosing* where a regression sits).

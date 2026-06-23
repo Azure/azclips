@@ -240,6 +240,9 @@ genuinely cold launches.
 
 ## 10. Out of scope (this iteration)
 
+- **Per-command / per-extension execution performance** — the work each command does past the seam
+  (`ProcessAsync` + the extension's own logic) is covered by individual command benchmarks elsewhere
+  (e.g. the existing ResourceGroup API/CLI/PS suite). This spec is startup only.
 - **PR gating** — no hard merge-block and no per-PR regression comments; startup numbers (especially
   cold) are too noisy, so they are tracked on dashboards + telemetry only.
 - In-process (BenchmarkDotNet-host) startup measurement.
