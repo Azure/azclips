@@ -239,42 +239,33 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
     /// <inheritdoc/>
     public IEnumerable<(string Name, string Version)> GetInstalledExtensions()
     {
-        Console.Error.WriteLine($"[TRACE-MVEL] GetInstalledExtensions() CALLED");
-        var logPath = Path.Combine(Path.GetTempPath(), "cirrus-discovery.log");
-        File.AppendAllText(logPath, $"[{DateTime.UtcNow:O}] [MVEL] GetInstalledExtensions() CALLED\n");
-        File.AppendAllText(logPath, $"[{DateTime.UtcNow:O}] [MVEL] VersionedInstallationDir = {_options.VersionedInstallationDir}\n");
-        Console.Error.WriteLine($"[TRACE-MVEL] VersionedInstallationDir = {_options.VersionedInstallationDir}");
-        
         if (!Directory.Exists(_options.VersionedInstallationDir))
         {
-            var msg = $"Directory does not exist";
-            Console.Error.WriteLine($"[TRACE-MVEL] {msg}");
-            File.AppendAllText(logPath, $"[{DateTime.UtcNow:O}] [MVEL] {msg}\n");
             yield break;
         }
 
         var packageDirs = Directory.GetDirectories(_options.VersionedInstallationDir);
-        File.AppendAllText(logPath, $"[{DateTime.UtcNow:O}] [MVEL] Found {packageDirs.Length} package directories\n");
-        Console.Error.WriteLine($"[TRACE-MVEL] Found {packageDirs.Length} package dirs: {string.Join(", ", packageDirs.Select(Path.GetFileName))}");
         
         foreach (var packageDir in packageDirs)
         {
-            var packageName = Path.GetFileName(packageDir);
+            var fullPackageName = Path.GetFileName(packageDir);
+            // Strip the prefix to get the short name for the extension system.
+            // Folder name: "Microsoft.Azure.Cirrus.Extensions.Resources"
+            // Short name: "Resources"
+            var shortName = fullPackageName.StartsWith(Constants.cirrusPrefix, StringComparison.OrdinalIgnoreCase)
+                ? fullPackageName.Substring(Constants.cirrusPrefix.Length)
+                : fullPackageName;
+            
             var versionDirs = Directory.GetDirectories(packageDir);
-            File.AppendAllText(logPath, $"[{DateTime.UtcNow:O}] [MVEL]   Package '{packageName}' has {versionDirs.Length} version dirs\n");
-            Console.Error.WriteLine($"[TRACE-MVEL]   Package '{packageName}' has {versionDirs.Length} version dirs");
             
             foreach (var versionDir in versionDirs)
             {
                 var versionName = Path.GetFileName(versionDir);
                 var isParsed = NuGetVersion.TryParse(versionName, out _);
-                File.AppendAllText(logPath, $"[{DateTime.UtcNow:O}] [MVEL]     Version '{versionName}' parsed={isParsed}\n");
                 
                 if (isParsed)
                 {
-                    File.AppendAllText(logPath, $"[{DateTime.UtcNow:O}] [MVEL]       Yielding ({packageName}, {versionName})\n");
-                    Console.Error.WriteLine($"[TRACE-MVEL]       Yielding ({packageName}, {versionName})");
-                    yield return (packageName, versionName);
+                    yield return (shortName, versionName);
                 }
             }
         }
