@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using System.Threading.Channels;
+using Core.Abstractions;
 using GitHub.Copilot;
 
 namespace Core.Agent.Hosting;
@@ -465,9 +466,9 @@ public sealed class ConsoleApprovalPrompt
         }
     }
 
-    // Color is for interactive terminals only. When stdout is redirected (CI, a
-    // pipe, a file) we emit plain text so escape codes don't pollute logs.
-    private static readonly bool s_useColor = !Console.IsOutputRedirected;
+    // Color is for interactive terminals only. In CI / a pipe / redirected I/O we
+    // emit plain text so escape codes don't pollute logs.
+    private static readonly bool s_useColor = ConsoleEnvironment.IsInteractive;
 
     private static void WriteColor(ConsoleColor color, string text)
     {

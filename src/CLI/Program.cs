@@ -291,11 +291,11 @@ public class Program
         }
 
         // Non-interactive guard: the agent reads y/n approvals and prompts from
-        // stdin. When stdin isn't a TTY (CI, a pipe, an unattended script) it can't
-        // interact and would hang or spew, so surface the original error instead of
-        // spawning it. Replaces the removed CIRRUS_AGENT_DISABLED env guard for
-        // unattended runs — they no longer need to opt out manually.
-        if (Console.IsInputRedirected)
+        // the terminal. When this isn't an interactive TTY (CI, a pipe, an
+        // unattended script) it can't interact and would hang or spew, so surface
+        // the original error instead of spawning it. Replaces the removed
+        // CIRRUS_AGENT_DISABLED env guard for unattended runs.
+        if (!ConsoleEnvironment.IsInteractive)
         {
             return 1;
         }
