@@ -23,6 +23,19 @@ Both surfaces funnel through `Core.Engine.ExecutionSession`. We stop at the **se
 - **Surface-accurate** — one hook covers both CLI and PowerShell.
 - **Network/auth-free** — the seam is reachable logged-out with zero Azure dependency, so it's deterministic and reproducible in CI.
 
+```
+public async Task RunAsync()
+{
+    ObjectDisposedException.ThrowIf(_disposed, this);
+    EventBus.Token.ThrowIfCancellationRequested();
+    ProcessorOutputWriter = sessionOutputWriter;
+    var processor = await GetProcessor();
+
+    //Stop measurement time measurement here
+    await processor.ProcessAsync()
+}
+```
+
 We measure two everyday cases (each is a fresh launch, just like a real user):
 
 - **Warm start** — the command was run recently, so its files are already in memory. The fast, common case.
@@ -52,8 +65,6 @@ flowchart TD
 ```
 
 *We time from process launch up to the seam (the command processor is fully resolved and bound); `ProcessAsync` and the Azure API call are excluded. The assembly-load step is the only stage whose cost differs cold vs warm (disk vs OS page cache).*
-
-**Scope — startup only.** This answers *"how long until a bundled command is ready to run?"* The performance of each command's actual work — everything **past the seam** (`ProcessAsync`, the Azure API call, and the extension's own logic) — is **not** measured here. That is measured separately by **individual per-command benchmarks** (e.g. the existing ResourceGroup API/CLI/PS suite in `tests/Benchmark`), so each extension's execution speed is tracked on its own elsewhere.
 
 #### Which extensions will we measure and why?
 The true-core built-ins shipped with **every** install, seeded in `BuiltInExtensions` and marked "present in every install, never removed": `extension`, `login`, `config`. (All three are verified shipped on Windows/macOS/Linux by the cross-platform packaging tests.)
