@@ -63,6 +63,8 @@ We measure all three because they ship in every install (representative of the d
 - **CLI:** `extension`, `login`, `config` (all three).
 - **PS:** `login` and `config` only — `extension` has no PowerShell cmdlet module (the PS surface ships Login and Config), so there is nothing to invoke there.
 
+We measure these extensions only for the cost of **loading** them at startup — not for what their commands *do*. Each extension's own command/execution performance is tracked separately by **individual per-command benchmarks** elsewhere (e.g. the existing ResourceGroup API/CLI/PS suite).
+
 ### How will we measure it?
 What framework / techniques will we use
 
