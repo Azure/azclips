@@ -28,6 +28,31 @@ We measure two notions, both **process-level** (a fresh OS process per launch �
 - **Warm start** — assemblies already in the OS page cache (the common "subsequent invocation" case).
 - **Cold start** — OS page cache evicted before each launch, so DLLs are re-read from disk (the "first run after install/reboot" case).
 
+```mermaid
+flowchart TD
+    A["User invokes a bundled command<br/>CLI: azv2 config list / login show / extension list<br/>PS: Import-Module + cmdlet"]
+
+    subgraph MEAS["Measured: start up time (per fresh process)"]
+        direction TB
+        B["OS process create"]
+        C["CLR / runtime init<br/>CoreCLR, hostfxr"]
+        D["DI container build<br/>+ dispatch parse"]
+        E["GetExtensionIndex<br/>load built-in assembly into ALC<br/>disk = cold · RAM page cache = warm"]
+        F["Resolve CommandMetadata<br/>instantiate, Init, bind args"]
+        B --> C --> D --> E --> F
+    end
+
+    A --> B
+    F --> SEAM{{"SEAM: processor resolved<br/>CIRRUS_BENCH_RESOLVE_ONLY=1 stops here"}}
+    SEAM -. stop timing .-> X["ProcessAsync<br/>Azure API call<br/>NOT measured"]
+
+    style MEAS fill:#e6f4ea,stroke:#137333
+    style SEAM fill:#fff4e5,stroke:#e8710a
+    style X fill:#f1f3f4,stroke:#9aa0a6,color:#5f6368
+```
+
+*We time from process launch up to the seam (the command processor is fully resolved and bound); `ProcessAsync` and the Azure API call are excluded. The assembly-load step is the only stage whose cost differs cold vs warm (disk vs OS page cache).*
+
 #### Which extensions will we measure and why?
 The true-core built-ins shipped with **every** install, seeded in `BuiltInExtensions` and marked "present in every install, never removed": `extension`, `login`, `config`. (All three are verified shipped on Windows/macOS/Linux by the cross-platform packaging tests.)
 
