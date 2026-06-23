@@ -157,6 +157,9 @@ internal static class CompletionGenerator
                 .Where(p => p.Value.IsRequired)
                 .Select(p => $"--{p.Key}")
                 .ToList();
+            var allowedValues = meta.Parameters
+                .Where(p => p.Value.AllowedValues.Length > 0)
+                .ToDictionary(p => $"--{p.Key}", p => (object)p.Value.AllowedValues);
 
             if (string.IsNullOrEmpty(path))
             {
@@ -164,6 +167,10 @@ internal static class CompletionGenerator
                 if (requiredParams.Count > 0)
                 {
                     groupEntry["_required"] = requiredParams;
+                }
+                if (allowedValues.Count > 0)
+                {
+                    groupEntry["_values"] = allowedValues;
                 }
                 continue;
             }
@@ -183,6 +190,10 @@ internal static class CompletionGenerator
             if (requiredParams.Count > 0)
             {
                 groupEntry[$"{path}._req"] = requiredParams;
+            }
+            if (allowedValues.Count > 0)
+            {
+                groupEntry[$"{path}._values"] = allowedValues;
             }
         }
 
