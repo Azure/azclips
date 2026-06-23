@@ -193,12 +193,14 @@ genuinely cold launches.
 
 | Result | Gate | Dashboard | AppInsights |
 |---|---|---|---|
-| **Warm** (CLI, PS) | `alert-threshold: 115%` + PR comment, consistent with the existing RG benchmarks (`fail-on-alert: false` today) | `dev/bench/startup-cli`, `dev/bench/startup-ps` | yes |
-| **Cold** (CLI, PS) | **informational only** — no alert, no comment, no merge gate | same dashboards (separate series) | yes |
+| **Warm** (CLI, PS) | **tracked, not gated** — the 115% threshold flags drift on the dashboard/telemetry only; **no PR comment, no merge block** | `dev/bench/startup-cli`, `dev/bench/startup-ps` | yes |
+| **Cold** (CLI, PS) | **informational only** — higher variance; dashboard/telemetry only | same dashboards (separate series) | yes |
 
 - AppInsights export reuses `AppInsightsExporter`, tagging dimensions `Product=STARTUP-CLI` /
   `STARTUP-PS`, `Mode=cold|warm`, `Extension=login|config` so Grafana can slice. `ChartGenerator`
   renders the new rows automatically.
+- Startup `github-action-benchmark` steps set `fail-on-alert: false` **and** `comment-on-alert: false`;
+  the 115% threshold drives dashboard/telemetry signals only — never a PR comment or merge block (see §10).
 - Cold steps run best-effort; an unavailable evictor logs-and-skips and does not fail the job.
 
 ---
@@ -224,11 +226,13 @@ genuinely cold launches.
   surfaces in `ExecutionSession`.
 - **1 unit test** for the seam.
 - **Workflow edits** to `benchmark.yml` for STARTUP runs + dashboards.
-- Reuses the entire BenchmarkDotNet runner, 115% gating, gh-pages dashboards, AppInsights export,
-  and chart generation.
+- Reuses the entire BenchmarkDotNet runner, 115% threshold (dashboard/telemetry signal only),
+  gh-pages dashboards, AppInsights export, and chart generation.
 
 ## 10. Out of scope (this iteration)
 
+- **PR gating** — no hard merge-block and no per-PR regression comments; startup numbers (especially
+  cold) are too noisy, so they are tracked on dashboards + telemetry only.
 - In-process (BenchmarkDotNet-host) startup measurement.
 - Core-only baseline / marginal-per-extension breakdown (deferred; see §4).
 - Phase-instrumented internal stopwatch timings (Approach C).
