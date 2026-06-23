@@ -29,12 +29,10 @@ public sealed class AssemblyLoadingOptions
 
     private static string GetDefaultVersionedInstallationDir()
     {
-#if DEBUG
-        return GetDefaultBuiltinInstallationDir();
-#else
+        // Always use ~/.cirrus/extensions regardless of build configuration.
+        // Installed extensions live there, even during local development.
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         return Path.Combine(home, ".cirrus", "extensions");
-#endif
     }
 
     private static string GetDefaultExtensionFolderPrefix()

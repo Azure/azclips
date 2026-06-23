@@ -16,7 +16,9 @@ namespace Core.AssemblyLoading
 
         public IList<(InstalledExtensionRef Info, Func<Assembly> Load)>? LoadAllExtensions()
         {
+            Console.Error.WriteLine($"[TRACE] AssemblyLoadingService.LoadAllExtensions() called, provider type: {provider.GetType().Name}");
             var refs = provider.GetAllInstalledExtensions();
+            Console.Error.WriteLine($"[TRACE] provider.GetAllInstalledExtensions() returned {refs?.Count ?? 0} refs");
             if (refs == null || refs.Count == 0)
             {
                 return null;

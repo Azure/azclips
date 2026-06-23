@@ -48,6 +48,7 @@ public static class CliExtensionServiceRegistration
         File.AppendAllText(logPath, $"[{DateTime.UtcNow:O}] File registry has {fileRegistry.Extensions.Count} extensions\n");
 
         // §5.3: Discover all installed extensions from disk. This is authoritative.
+        File.AppendAllText(logPath, $"[{DateTime.UtcNow:O}] About to call DiscoverInstalledExtensions\n");
         var discoveredRegistry = DiscoverInstalledExtensions(fileRegistry);
         File.AppendAllText(logPath, $"[{DateTime.UtcNow:O}] Discovered registry has {discoveredRegistry.Extensions.Count} extensions\n");
 
@@ -63,12 +64,20 @@ public static class CliExtensionServiceRegistration
     /// </summary>
     private static ExtensionRegistry DiscoverInstalledExtensions(ExtensionRegistry currentRegistry)
     {
+        Console.Error.WriteLine("[DISCOVERY] DiscoverInstalledExtensions START");
         var logPath = Path.Combine(Path.GetTempPath(), "cirrus-discovery.log");
+        File.AppendAllText(logPath, $"[{DateTime.UtcNow:O}] DiscoverInstalledExtensions START\n");
         try
         {
+            Console.Error.WriteLine("[DISCOVERY] Getting engine service...");
+            File.AppendAllText(logPath, $"[{DateTime.UtcNow:O}] Getting engine service...\n");
             var engine = CirrusServiceProvider.GetRequiredService<IEngine>();
+            Console.Error.WriteLine("[DISCOVERY] Engine obtained");
+            File.AppendAllText(logPath, $"[{DateTime.UtcNow:O}] Engine obtained\n");
+            
             var discovered = new ExtensionRegistry { SchemaVersion = ExtensionRegistry.CurrentSchemaVersion };
 
+            Console.Error.WriteLine("[DISCOVERY] About to create OutputStreams");
             // Open a transient discovery session to enumerate all installed extensions.
             // Output is discarded; we only care about the emitted DiscoveredExtensionInfo.
             var outputStreams = new OutputStreams(
@@ -124,6 +133,49 @@ public static class CliExtensionServiceRegistration
 
             var sessionMsg = $"[{DateTime.UtcNow:O}] Opening discovery session...";
             File.AppendAllText(logPath, sessionMsg + Environment.NewLine);
+            Console.Error.WriteLine("[DISCOVERY] About to get IAssemblyLoadingService");
+            
+            IAssemblyLoadingService? assemblyService = null;
+            try
+            {
+                assemblyService = CirrusServiceProvider.GetRequiredService<IAssemblyLoadingService>();
+                Console.Error.WriteLine($"[DISCOVERY] Got service type: {assemblyService.GetType().Name}");
+                File.AppendAllText(logPath, $"[{DateTime.UtcNow:O}] Got service type: {assemblyService.GetType().Name}\n");
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[DISCOVERY] ERROR getting service: {ex.GetType().Name}: {ex.Message}");
+                File.AppendAllText(logPath, $"[{DateTime.UtcNow:O}] ERROR getting service: {ex.GetType().Name}: {ex.Message}\n");
+                File.AppendAllText(logPath, $"[{DateTime.UtcNow:O}] Stack: {ex.StackTrace}\n");
+                throw;
+            }
+            
+            var allInstalledMsg = $"[{DateTime.UtcNow:O}] Calling IAssemblyLoadingService.LoadAllExtensions()...";
+            File.AppendAllText(logPath, allInstalledMsg + Environment.NewLine);
+            Console.Error.WriteLine("[DISCOVERY] About to call LoadAllExtensions");
+            
+            try
+            {
+                var allInstalled = assemblyService.LoadAllExtensions();
+                var countMsg = $"[{DateTime.UtcNow:O}] LoadAllExtensions returned: {(allInstalled?.Count ?? 0)} extensions";
+                File.AppendAllText(logPath, countMsg + Environment.NewLine);
+                Console.Error.WriteLine($"[DISCOVERY] {countMsg}");
+                if (allInstalled != null)
+                {
+                    foreach (var (ref_, func) in allInstalled)
+                    {
+                        File.AppendAllText(logPath, $"[{DateTime.UtcNow:O}]   - {ref_.Name} v{ref_.Version}" + Environment.NewLine);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                var errMsg = $"[{DateTime.UtcNow:O}] ERROR in LoadAllExtensions: {ex.GetType().Name}: {ex.Message}";
+                Console.Error.WriteLine($"[DISCOVERY] {errMsg}");
+                File.AppendAllText(logPath, errMsg + Environment.NewLine);
+                File.AppendAllText(logPath, $"[{DateTime.UtcNow:O}] Stack: {ex.StackTrace}\n");
+                throw;
+            }
             
             using var session = engine.OpenDiscoverySession(
                 extensionNames: new List<string>(),  // Empty = all extensions
@@ -146,11 +198,13 @@ public static class CliExtensionServiceRegistration
             // Discovery failure: fall back to file registry. This preserves existing behavior
             // while allowing graceful degradation if discovery fails.
             var errMsg = $"[{DateTime.UtcNow:O}] DISCOVERY FAILED: {ex.GetType().Name}: {ex.Message}";
+            Console.Error.WriteLine("[DISCOVERY] " + errMsg);
             File.AppendAllText(logPath, errMsg + Environment.NewLine);
             File.AppendAllText(logPath, $"[{DateTime.UtcNow:O}] Stack trace: {ex.StackTrace}" + Environment.NewLine);
             if (ex.InnerException != null)
             {
                 var innerMsg = $"[{DateTime.UtcNow:O}] Inner exception: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}";
+                Console.Error.WriteLine("[DISCOVERY] " + innerMsg);
                 File.AppendAllText(logPath, innerMsg + Environment.NewLine);
                 File.AppendAllText(logPath, $"[{DateTime.UtcNow:O}] Inner stack: {ex.InnerException.StackTrace}" + Environment.NewLine);
             }
