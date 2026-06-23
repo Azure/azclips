@@ -109,13 +109,18 @@ The `extension` command group (list, show, add, remove, update, pin, unpin) must
     - ✅ Deprecated RegistryReconciler.Reconcile() to no-op (returns all entries as "live")
     - ✅ Marked LoadReconciled() and ReconcilingRegistryStore obsolete for §5.3 removal
 
-### 5.3 Extension API migration
+### 5.3 Extension API migration ✅ DONE
 
 1. Rewrite `extension list` to run a discovery pass and overlay registry preferences (pin, active version) onto the results.
+    - ✅ `ListExtensionsProcessor` now uses a discovery-backed projection and overlays registry preferences.
 2. Rewrite `extension show` to reflect what discovery finds on disk rather than what the registry says.
+    - ✅ `ShowExtensionProcessor` now resolves from discovery-backed data.
 3. `extension pin/unpin`: keep registry write; switch the lookup side to discovery.
+    - ✅ `PinHelper.SetPinned` now resolves targets via discovery first, then persists preference state.
 4. `extension remove`: keep registry preference removal and disk deletion; switch the lookup side to discovery.
+    - ✅ `RemoveExtensionProcessor` now resolves targets via discovery-backed data and still removes prefs + package dir.
 5. `extension add/update`: no read-side change needed; continue writing preference fields to registry after install.
+    - ✅ No read-side changes required; behavior remains preference-write only.
 
 ### 5.4 Help migration
 
@@ -148,3 +153,5 @@ The `extension` command group (list, show, add, remove, update, pin, unpin) must
 1. **Root cause of stale hint table mismatch (§3.4):** Investigate how `rest -> Resources` got into the hint table and was not caught. Understand whether the build-time validation (`ExtensionHints.targets`) is sufficient or needs strengthening, and whether the hint table generation process needs to be tied more tightly to the actual installed registry.
 2. **Registry as non-authoritative install state (§4.5.4):** The team direction is that `registry.json` should not be the authoritative source of installed state — runtime discovery should determine what is installed. Discuss the implications for the install/remove lifecycle, startup time, and how to handle edge cases where discovery and any persisted state diverge.
 3. **Bundled install delivery and out-of-box CNF errors:** The project has an install/delivery philosophy where extensions may be shipped as part of install bundles rather than added explicitly via `extension add`. Under the current registry-first model, extensions dropped into the install directory without a registry entry are invisible to the dispatcher, producing CNF errors out of the box. Once this plan is implemented and DiscoverySession walks the disk to determine installed state, this issue goes away — any extension present in the install directory is automatically discoverable regardless of how it arrived. This is a strong additional motivation for the runtime discovery direction.
+
+4. **Check Naga install locations** Manually added by Daniel. Verify install locations of a real build and if DiscoverySession via extension API picks them up. 

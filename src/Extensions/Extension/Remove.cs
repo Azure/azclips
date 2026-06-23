@@ -47,7 +47,8 @@ public class RemoveExtensionProcessor : IProcessor
         }
 
         var store = new FileExtensionRegistryStore();
-        var registry = store.Load();
+        var fileRegistry = store.Load();
+        var registry = DiscoveryBackedExtensionRegistry.BuildDiscoveredWithPreferences(fileRegistry);
 
         if (!RegistryLookup.TryFind(registry, Name, out var match))
         {
@@ -78,8 +79,8 @@ public class RemoveExtensionProcessor : IProcessor
         var packageDir = Path.Combine(installer.InstallPath, packageId);
 
         // Registry-first ordering: a partial file-delete leaves us with no orphan registry entry.
-        registry.Extensions.Remove(packageId);
-        store.Save(registry);
+        fileRegistry.Extensions.Remove(packageId);
+        store.Save(fileRegistry);
 
         try
         {

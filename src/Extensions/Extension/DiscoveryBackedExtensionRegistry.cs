@@ -1,0 +1,133 @@
+using Core.Abstractions;
+using Core.Abstractions.Runtime;
+using Core.DependencyInjection;
+using Core.Extensions;
+
+namespace Microsoft.Azure.Cirrus.Extensions.Extension.Processors;
+
+internal static class DiscoveryBackedExtensionRegistry
+{
+    public static ExtensionRegistry BuildDiscoveredWithPreferences(ExtensionRegistry fileRegistry)
+    {
+        ArgumentNullException.ThrowIfNull(fileRegistry);
+
+        var discovered = new ExtensionRegistry { SchemaVersion = ExtensionRegistry.CurrentSchemaVersion };
+        var infos = RunDiscoverySession();
+
+        foreach (var info in infos)
+        {
+            var entry = new ExtensionRegistryEntry
+            {
+                Verb = info.Verbs.FirstOrDefault(),
+                Version = info.ResolvedVersion ?? string.Empty,
+                Pinned = false,
+                Source = null,
+                InstalledAt = DateTimeOffset.UtcNow,
+            };
+
+            foreach (var ns in info.Verbs.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                entry.Namespaces.Add(ns);
+            }
+
+            foreach (var command in info.Commands.Keys)
+            {
+                var (verb, path) = ToContribution(command);
+                if (string.IsNullOrEmpty(verb))
+                {
+                    continue;
+                }
+
+                if (!entry.Contributions.Any(c =>
+                    string.Equals(c.Verb, verb, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(c.Path, path, StringComparison.OrdinalIgnoreCase)))
+                {
+                    entry.Contributions.Add(new Contribution { Verb = verb, Path = path });
+                }
+            }
+
+            discovered.Extensions[info.PackageId] = entry;
+        }
+
+        foreach (var (packageId, fileEntry) in fileRegistry.Extensions)
+        {
+            if (!discovered.Extensions.TryGetValue(packageId, out var discoveredEntry))
+            {
+                continue;
+            }
+
+            discoveredEntry.Pinned = fileEntry.Pinned;
+            discoveredEntry.Source = fileEntry.Source;
+            discoveredEntry.InstalledAt = fileEntry.InstalledAt;
+        }
+
+        return discovered;
+    }
+
+    public static IReadOnlyList<string> GetPreferenceOnlyPackageIds(ExtensionRegistry fileRegistry, ExtensionRegistry discoveredRegistry)
+    {
+        ArgumentNullException.ThrowIfNull(fileRegistry);
+        ArgumentNullException.ThrowIfNull(discoveredRegistry);
+
+        var ids = new List<string>();
+        foreach (var packageId in fileRegistry.Extensions.Keys)
+        {
+            if (!discoveredRegistry.Extensions.ContainsKey(packageId))
+            {
+                ids.Add(packageId);
+            }
+        }
+
+        ids.Sort(StringComparer.OrdinalIgnoreCase);
+        return ids;
+    }
+
+    private static List<DiscoveredExtensionInfo> RunDiscoverySession()
+    {
+        var engine = CirrusServiceProvider.GetRequiredService<IEngine>();
+        var discoveredInfos = new List<DiscoveredExtensionInfo>();
+
+        var outputStreams = new OutputStreams(
+            WriteOutput: async (result, _) =>
+            {
+                if (result is List<DiscoveredExtensionInfo> infos)
+                {
+                    discoveredInfos.AddRange(infos);
+                }
+
+                await Task.CompletedTask;
+            },
+            WriteVerbose: async (_, _) => { await Task.CompletedTask; },
+            WriteDebug: async (_, _) => { await Task.CompletedTask; },
+            WriteWarning: async (_, _) => { await Task.CompletedTask; },
+            WriteError: async (_, _) => { await Task.CompletedTask; },
+            WriteInformation: async (_, _) => { await Task.CompletedTask; });
+
+        using var session = engine.OpenDiscoverySession(
+            extensionNames: [],
+            commandName: null,
+            outputStreams: outputStreams,
+            isTransient: true);
+
+        session.RunAsync().GetAwaiter().GetResult();
+        return discoveredInfos;
+    }
+
+    private static (string Verb, string Path) ToContribution(string invocation)
+    {
+        if (string.IsNullOrWhiteSpace(invocation))
+        {
+            return (string.Empty, string.Empty);
+        }
+
+        var parts = invocation.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 0)
+        {
+            return (string.Empty, string.Empty);
+        }
+
+        var verb = parts[0];
+        var path = parts.Length > 1 ? string.Join(' ', parts.Skip(1)) : string.Empty;
+        return (verb, path);
+    }
+}

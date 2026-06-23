@@ -1,5 +1,3 @@
-#pragma warning disable CS0618 // Obsolete warnings: will be replaced with DiscoverySession in §5.3
-
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
@@ -35,14 +33,11 @@ public class ListExtensionsProcessor : IProcessor
         using var _ = telemetryService.StartActivity($"{nameof(ListExtensionsProcessor)}.{nameof(Process)}");
 
         var store = new FileExtensionRegistryStore();
-        var registry = store.Load();
+        var fileRegistry = store.Load();
+        var discoveredRegistry = DiscoveryBackedExtensionRegistry.BuildDiscoveredWithPreferences(fileRegistry);
+        var preferenceOnly = DiscoveryBackedExtensionRegistry.GetPreferenceOnlyPackageIds(fileRegistry, discoveredRegistry);
 
-        // Split the listing into live + stale so the user sees missing-payload entries
-        // separately (e.g. when they manually deleted `~/.cirrus/extensions/<pkg>/<ver>/`). Live
-        // entries are routable; stale entries are advisory until the user removes them.
-        var reconciled = RegistryReconciler.Reconcile(registry, store.InstallRoot);
-
-        var live = reconciled.Live.Extensions
+        var live = discoveredRegistry.Extensions
             .OrderBy(kvp => kvp.Value.Verb, StringComparer.OrdinalIgnoreCase)
             .Select(kvp => new
             {
@@ -60,14 +55,13 @@ public class ListExtensionsProcessor : IProcessor
             })
             .ToList();
 
-        var stale = reconciled.Stale
-            .OrderBy(s => s.PackageId, StringComparer.OrdinalIgnoreCase)
-            .Select(s => new
+        var stale = preferenceOnly
+            .Select(packageId => new
             {
-                PackageId = s.PackageId,
-                Version = s.Version,
-                ExpectedPath = s.ExpectedPath,
-                Reason = s.Reason,
+                PackageId = packageId,
+                Version = fileRegistry.Extensions.TryGetValue(packageId, out var entry) ? entry.Version : null,
+                ExpectedPath = Path.Combine(store.InstallRoot, packageId),
+                Reason = "Package is present in registry preferences but not discovered on disk.",
                 Status = "stale",
             })
             .ToList();

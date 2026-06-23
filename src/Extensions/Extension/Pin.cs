@@ -92,8 +92,39 @@ public static class PinHelper
 
         var store = new FileExtensionRegistryStore();
         var registry = store.Load();
+        var discoveredRegistry = DiscoveryBackedExtensionRegistry.BuildDiscoveredWithPreferences(registry);
 
-        var (packageId, entry, mutated) = ApplyPinChange(registry, name, pinned);
+        // Resolve against discovered state first. This allows pin/unpin to work even when the
+        // package exists on disk but has no preference entry in registry.json.
+        if (!RegistryLookup.TryFind(discoveredRegistry, name, out var discoveredMatch))
+        {
+            var message = $"No installed extension matches '{name}' (by package id or short name).";
+            if (RegistryLookup.SuggestPackageForToken(discoveredRegistry, name, out var suggested))
+            {
+                var verb = pinned ? "pin" : "unpin";
+                message += $" '{name}' is a verb contributed by package '{suggested}'; " +
+                           $"to {verb} that package use '--name {RegistryLookup.ToShortName(suggested)}'.";
+            }
+            throw CirrusErrorException.ExtensionNotFound(
+                message,
+                new Dictionary<string, object?> { ["name"] = name });
+        }
+
+        if (!registry.Extensions.ContainsKey(discoveredMatch.Key))
+        {
+            registry.Extensions[discoveredMatch.Key] = new ExtensionRegistryEntry
+            {
+                Verb = discoveredMatch.Value.Verb,
+                Version = discoveredMatch.Value.Version,
+                Pinned = false,
+                Source = discoveredMatch.Value.Source,
+                InstalledAt = discoveredMatch.Value.InstalledAt,
+                Contributions = new List<Contribution>(discoveredMatch.Value.Contributions),
+                Namespaces = new List<string>(discoveredMatch.Value.Namespaces),
+            };
+        }
+
+        var (packageId, entry, mutated) = ApplyPinChange(registry, discoveredMatch.Key, pinned);
         if (mutated)
         {
             store.Save(registry);

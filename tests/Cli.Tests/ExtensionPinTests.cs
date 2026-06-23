@@ -118,11 +118,11 @@ public class ExtensionPinTests
     }
 
     [Fact]
-    public void ApplyPinChange_RoundTripThroughStore_ShouldNotSynthesizeRootContribution()
+    public void ApplyPinChange_RoundTripThroughStore_ShouldPersistPreferencesOnly()
     {
-        // Integration check: persist via FileExtensionRegistryStore.Save / Load and verify
-        // the multi-leaf contributions survive. NormalizeEntry would synthesize a (verb, "")
-        // root if Contributions were empty — which is exactly what the bug used to cause.
+        // Registry writes are preferences-only in §5.2+, so contributions/namespaces are
+        // intentionally dropped during Save(). This check verifies pin state survives while
+        // installed-state metadata is not persisted.
         var tempPath = Path.Combine(Path.GetTempPath(), $"cirrus-pin-test-{Guid.NewGuid():N}.json");
         try
         {
@@ -134,8 +134,8 @@ public class ExtensionPinTests
 
             var entry = reloaded.Extensions[PackageId];
             Assert.True(entry.Pinned);
-            Assert.Equal(3, entry.Contributions.Count);
-            Assert.DoesNotContain(entry.Contributions, c => c.Path == string.Empty);
+            Assert.Empty(entry.Contributions);
+            Assert.Empty(entry.Namespaces);
         }
         finally
         {
