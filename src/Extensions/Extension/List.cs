@@ -1,3 +1,5 @@
+#pragma warning disable CS0618 // Obsolete warnings: will be replaced with DiscoverySession in §5.3
+
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
