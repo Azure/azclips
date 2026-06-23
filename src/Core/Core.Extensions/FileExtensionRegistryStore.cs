@@ -117,6 +117,17 @@ namespace Core.Extensions
             // contribution. Mirror Load()'s invariant check.
             ValidateNoDuplicateContributions(registry);
 
+            // §5.2: Explicitly clear installed-state fields before serialization.
+            // These are derived from discovery at runtime; new writes never include them.
+            // Note: [JsonIgnore(WhenWriting)] alone doesn't prevent serialization of populated collections,
+            // so we explicitly clear them to ensure clean registry.json containing only preferences.
+            foreach (var entry in registry.Extensions.Values)
+            {
+                entry.Verb = null;
+                entry.Contributions.Clear();
+                entry.Namespaces.Clear();
+            }
+
             var directory = System.IO.Path.GetDirectoryName(_path);
             if (!string.IsNullOrEmpty(directory))
             {
