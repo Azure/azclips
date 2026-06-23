@@ -15,9 +15,13 @@ command on both the CLI and PowerShell surfaces, and track it over time as a per
 CI-integrated benchmark alongside the existing `tests/Benchmark` suite.
 
 "Bundled extensions" here means the **true-core built-ins** seeded in
-`Core.Extensions.BuiltInExtensions.Map`: `extension`, `login`, and `config`. This first
-iteration benchmarks **`login`** and **`config`** because they are present in every install and
-exercise the full assembly-load + index-resolution path without requiring network or auth.
+`Core.Extensions.BuiltInExtensions.Map`: `extension`, `login`, and `config` — all marked
+"present in every install, never removed" in the seed and verified shipped on Windows/macOS/Linux
+by the cross-platform packaging tests (`devops/scripts/packaging/**`). This iteration benchmarks
+**all three** on the CLI surface and **`login`** + **`config`** on PowerShell — the only two
+built-ins with a PowerShell cmdlet module (there is no `extension` PS module; the PS surface ships
+Login and Config). All three are present in every install and exercise the full assembly-load +
+index-resolution path without requiring network or auth.
 
 ### The finish line (the "seam")
 
@@ -95,16 +99,21 @@ Rejected alternatives:
 
 ## 4. Measurement matrix
 
-Initial tracked numbers: **{CLI, PS} × {login, config} × {cold, warm} = 8**.
+Initial tracked numbers: **CLI × {extension, login, config} + PS × {login, config}, each ×
+{cold, warm} = (3 + 2) × 2 = 10**.
+
+`extension` is CLI-only because it has no PowerShell cmdlet module (the PS surface ships Login and
+Config only), so there is no PS × extension cell.
 
 | Surface | Launch | Probe command | Built-in exercised |
 |---|---|---|---|
 | CLI | `Process.Start(artifacts/<Config>/Core.Cli/azv2[.exe] config list)` | `config list` | Config |
 | CLI | `... login show` | `login show` | Login |
+| CLI | `... extension list` | `extension list` | Extension |
 | PS  | `pwsh -NoProfile -Command "Import-Module <staged Config .psd1>; Get-CirrusConfigList"` | `Get-CirrusConfigList` | Config |
 | PS  | `pwsh -NoProfile -Command "Import-Module <staged Login .psd1>; <login cmdlet>"` | login cmdlet | Login |
 
-All four launches run with `CIRRUS_BENCH_RESOLVE_ONLY=1` in the child process environment, so each
+All five launch configurations run with `CIRRUS_BENCH_RESOLVE_ONLY=1` in the child process environment, so each
 stops at the seam regardless of the specific subcommand. PowerShell numbers legitimately include
 `pwsh` startup + module import (which triggers `ModuleInitializer.OnImport` →
 `CirrusServiceProvider.Initialize(PowerShell)`) + DI + extension load — the real PS startup cost.
@@ -153,7 +162,7 @@ tests/Benchmark/
   Startup/
     StartupBenchmarkBase.cs    # resolve azv2 path + staged .psd1 paths; build ProcessStartInfo
                                # with CIRRUS_BENCH_RESOLVE_ONLY=1; OS page-cache evictor (+capability probe)
-    CliStartupBenchmarks.cs    # [Benchmark] Cli_Config_Startup / Cli_Login_Startup
+    CliStartupBenchmarks.cs    # [Benchmark] Cli_Config_Startup / Cli_Login_Startup / Cli_Extension_Startup
     PsStartupBenchmarks.cs     # [Benchmark] Ps_Config_Startup  / Ps_Login_Startup
   Program.cs                   # add "STARTUP" to --product filter + GetBenchmarkTypes(...)
 ```
@@ -211,7 +220,7 @@ genuinely cold launches.
   `GetProcessor()` and **never** invoke `ProcessAsync()`. Use a stub processor exposing a
   "was-executed" flag; verify it stays false. Covers both the `RunAsync` and `Run`/`ExecuteProcessorAsync` paths.
 - **Smoke:** `dotnet run --project tests/Benchmark -c Release -- --local --product STARTUP` runs all
-  8 measurements locally and writes artifacts under `artifacts/Benchmark/<timestamp>/`.
+  10 measurements locally and writes artifacts under `artifacts/Benchmark/<timestamp>/`.
 - **Manual sanity:** `CIRRUS_BENCH_RESOLVE_ONLY=1 ./artifacts/Release/Core.Cli/azv2 config list`
   exits `0`, emits no output, and makes no network call (confirm via stub/trace).
 - **Regression guard:** existing RG benchmarks and `dotnet test` remain green;
@@ -238,4 +247,5 @@ genuinely cold launches.
 - Phase-instrumented internal stopwatch timings (Approach C).
 - ReadyToRun/AOT publishing of the CLI (a potential *fix* the process-level cold benchmark could
   later validate, not part of measuring).
-- The `extension` built-in (only `login` and `config` in this iteration).
+- A PowerShell surface for `extension` — it has no cmdlet module, so `extension` is measured on the
+  CLI only (building a PS extension module is product work, not part of this benchmark).
