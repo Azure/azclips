@@ -294,8 +294,10 @@ public class Program
         // the terminal. When this isn't an interactive TTY (CI, a pipe, an
         // unattended script) it can't interact and would hang or spew, so surface
         // the original error instead of spawning it. Replaces the removed
-        // CIRRUS_AGENT_DISABLED env guard for unattended runs.
-        if (!ConsoleEnvironment.IsInteractive)
+        // CIRRUS_AGENT_DISABLED env guard for unattended runs. Inlined (not the
+        // agent's ConsoleEnvironment helper) so Core.Cli stays decoupled from
+        // Core.Agent — same semantics: a TTY on both stdin and stdout.
+        if (Console.IsInputRedirected || Console.IsOutputRedirected)
         {
             return 1;
         }

@@ -1,6 +1,5 @@
 using System.Text.RegularExpressions;
 using System.Threading.Channels;
-using Core.Abstractions;
 using GitHub.Copilot;
 
 namespace Core.Agent.Hosting;
