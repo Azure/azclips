@@ -8,7 +8,7 @@ namespace Tests.Common.Stubs;
 
 public class StubExtensionLoader(Assembly extensionAssembly, string extensionName) : IAssemblyLoadingProvider
 {
-    public IList<Tuple<string, string?>>? GetAllInstalledExtensions() => throw new NotImplementedException();
+    public IList<InstalledExtensionRef>? GetAllInstalledExtensions() => null;
 
     public Assembly LoadExtension(string requestedExtensionName, string? version = null)
     {

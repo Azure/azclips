@@ -8,7 +8,15 @@ namespace Core.Cli;
 
 public interface IExtensionLoader
 {
-    public Assembly? LoadExtension(string extensionName, string? version = null);
+    Assembly? LoadExtension(string extensionName, string? version = null);
+
+    /// <summary>
+    /// Enumerates all extensions this loader knows about on disk. Returns (folderName, version)
+    /// pairs where <c>folderName</c> can be passed verbatim back to
+    /// <see cref="LoadExtension"/>. Default returns empty — loaders that cannot enumerate
+    /// (e.g. built-in loaders without a static manifest) simply do not contribute.
+    /// </summary>
+    IEnumerable<(string Name, string Version)> GetInstalledExtensions() => [];
 }
 
 public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurationService configurationService) : IExtensionLoader
@@ -226,5 +234,27 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
                 return (ctx, asm);
             }));
         return entry.Value.Assembly;
+    }
+
+    /// <inheritdoc/>
+    public IEnumerable<(string Name, string Version)> GetInstalledExtensions()
+    {
+        if (!Directory.Exists(_options.VersionedInstallationDir))
+        {
+            yield break;
+        }
+
+        foreach (var packageDir in Directory.GetDirectories(_options.VersionedInstallationDir))
+        {
+            var packageName = Path.GetFileName(packageDir);
+            foreach (var versionDir in Directory.GetDirectories(packageDir))
+            {
+                var versionName = Path.GetFileName(versionDir);
+                if (NuGetVersion.TryParse(versionName, out _))
+                {
+                    yield return (packageName, versionName);
+                }
+            }
+        }
     }
 }

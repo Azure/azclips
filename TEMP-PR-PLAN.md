@@ -86,12 +86,16 @@ The `extension` command group (list, show, add, remove, update, pin, unpin) must
 
 ## 5. Implementation Steps
 
-### 5.1 DiscoverySession contract changes
+### 5.1 DiscoverySession contract changes ✅ DONE
 
 1. Extend `DiscoverySession` output to carry extension identity context (packageId, resolvedVersion, built-in vs installed) alongside each emitted `CommandMetadata`.
+   - ✅ Created `DiscoveredExtensionInfo` record with PackageId, ResolvedVersion, Verbs, Commands
 2. Add support for emitting contributed verbs per extension (currently `GetVerbs()` exists on `IExtensionIndex` but is not surfaced through the session output).
+   - ✅ Verbs included in DiscoveredExtensionInfo output
 3. Implement `GetAllInstalledExtensions()` in `CLIAssemblyLoadingProvider` so the all-extensions discovery path works in the CLI host.
+   - ✅ Implemented in CLIAssemblyLoadingProvider, chains BuiltinExtensionLoader + MultiVersionExtensionLoader
 4. Validate that discovery remains metadata-only and does not execute any processor code.
+   - ✅ DiscoverySession continues to call IExtensionIndex methods only (metadata-only, no processors)
 
 ### 5.2 Registry narrowing
 
@@ -137,3 +141,4 @@ The `extension` command group (list, show, add, remove, update, pin, unpin) must
 
 1. **Root cause of stale hint table mismatch (§3.4):** Investigate how `rest -> Resources` got into the hint table and was not caught. Understand whether the build-time validation (`ExtensionHints.targets`) is sufficient or needs strengthening, and whether the hint table generation process needs to be tied more tightly to the actual installed registry.
 2. **Registry as non-authoritative install state (§4.5.4):** The team direction is that `registry.json` should not be the authoritative source of installed state — runtime discovery should determine what is installed. Discuss the implications for the install/remove lifecycle, startup time, and how to handle edge cases where discovery and any persisted state diverge.
+3. **Bundled install delivery and out-of-box CNF errors:** The project has an install/delivery philosophy where extensions may be shipped as part of install bundles rather than added explicitly via `extension add`. Under the current registry-first model, extensions dropped into the install directory without a registry entry are invisible to the dispatcher, producing CNF errors out of the box. Once this plan is implemented and DiscoverySession walks the disk to determine installed state, this issue goes away — any extension present in the install directory is automatically discoverable regardless of how it arrived. This is a strong additional motivation for the runtime discovery direction.

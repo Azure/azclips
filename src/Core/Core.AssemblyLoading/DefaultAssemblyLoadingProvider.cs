@@ -25,9 +25,9 @@ public class DefaultAssemblyLoadingProvider(): IAssemblyLoadingProvider
         }
     }
 
-    public IList<Tuple<string, string?>>? GetAllInstalledExtensions()
+    public IList<InstalledExtensionRef>? GetAllInstalledExtensions()
     {
-        //Yabo: Default implementation does not support extension discovery, return null to indicate no extensions found.
+        // Default implementation does not support extension discovery; return null to indicate no extensions found.
         return null;
     }
 }
