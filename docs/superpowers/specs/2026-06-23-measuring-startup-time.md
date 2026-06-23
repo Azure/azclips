@@ -83,21 +83,16 @@ What framework / techniques will we use
 - **Technique:** each benchmark `Process.Start`s the **real published binary** and `WaitForExit()`s, with `CIRRUS_BENCH_RESOLVE_ONLY=1` set so the child process stops at the seam.
   - **CLI:** launch `azv2 config list` / `login show` / `extension list`.
   - **PS:** `pwsh -NoProfile` → import the staged module → invoke the cmdlet (legitimately includes `pwsh` startup + module import — the real PS cost).
-- **Warm vs cold:** warm = BDN steady state (caches hot); cold = a separate job that evicts the OS page cache before each measured launch (Linux `drop_caches`; Windows `EmptyStandbyList`). If eviction isn't permitted on an agent, the cold run **logs-and-skips** rather than reporting warm numbers as cold.
-- **Matrix:** CLI × {extension, login, config} + PS × {login, config}, each × {cold, warm} = **(3 + 2) × 2 = 10 tracked numbers.**
-- **Product footprint:** ~6 lines — a single `CIRRUS_BENCH_RESOLVE_ONLY` short-circuit in `ExecutionSession`, mirroring existing benchmark hooks (`CIRRUS_NO_EXTENSION_CACHE`, `CIRRUS_AGENT_DISABLED`).
+- **Warm vs cold runs** — the same launch, measured under two cache states:
+  - **Warm:** BenchmarkDotNet repeats the launch many times; after the first run the files are already in memory. This is its normal measurement.
+  - **Cold:** a separate job clears the OS file cache before each launch, so the DLLs are re-read from disk — `drop_caches` on Linux, `EmptyStandbyList` on Windows.
 
 ### What will we do with the results?
 - **Track over time** on the existing gh-pages benchmark dashboards (new `startup-cli` / `startup-ps` series) and in AppInsights/Grafana, sliced by surface, extension, and mode.
-- **Watch for regressions:** warm series use the suite's **115%** threshold to flag drift on the dashboard / via telemetry — **no PR comments or merge blocks** (see Out of scope). Cold is informational only (higher variance).
-- **Set & validate targets:** feed measured cold/warm back into #47 to agree realistic **X/Y**, then track drift against them.
-- **(Future)** justify and validate optimizations such as ReadyToRun/AOT publishing.
 
 ### Out of scope:
 - **Per-command / per-extension *execution* performance** — the work each command does past the seam is covered by **individual command benchmarks** run elsewhere (e.g. the existing ResourceGroup API/CLI/PS suite). This doc is startup only.
 - **PR gating** — no hard merge-block **and** no per-PR regression comments; startup numbers (especially cold) are noisy, so we track them on dashboards + telemetry, not on the PR.
 - In-process (BenchmarkDotNet-host) micro-timing.
-- Core-only baseline / per-extension marginal breakdown (deferred — useful later for *diagnosing* where a regression sits).
-- Phase-instrumented internal stopwatch timings.
 - ReadyToRun/AOT publishing (a potential *fix* to validate later, not part of measuring).
 - A PowerShell surface for `extension` — it has no cmdlet module, so `extension` is measured on the CLI only (building a PS extension module is product work, not benchmarking).
