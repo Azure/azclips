@@ -23,10 +23,10 @@ Both surfaces funnel through `Core.Engine.ExecutionSession`. We stop at the **se
 - **Surface-accurate** — one hook covers both CLI and PowerShell.
 - **Network/auth-free** — the seam is reachable logged-out with zero Azure dependency, so it's deterministic and reproducible in CI.
 
-We measure two notions, both **process-level** (a fresh OS process per launch — exactly what a user experiences):
+We measure two everyday cases (each is a fresh launch, just like a real user):
 
-- **Warm start** — assemblies already in the OS page cache (the common "subsequent invocation" case).
-- **Cold start** — OS page cache evicted before each launch, so DLLs are re-read from disk (the "first run after install/reboot" case).
+- **Warm start** — the command was run recently, so its files are already in memory. The fast, common case.
+- **Cold start** — the first run after installing or rebooting, so everything is read from disk. The slow case.
 
 ```mermaid
 flowchart TD
