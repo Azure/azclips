@@ -1,5 +1,3 @@
-#pragma warning disable CS0618 // Obsolete warnings: will be replaced with DiscoverySession in §5.3
-
 using System.Reflection;
 using System.Runtime.Loader;
 using Core.Abstractions;
@@ -43,9 +41,11 @@ public class ExtensionDispatcher //: IParser
     }
 
     private ExtensionDispatcher(FileExtensionRegistryStore store)
+#pragma warning disable CS0618
         : this(
             new ExtensionResolver(new ReconcilingRegistryStore(store)),
             () => LeafIndex.Build(BuiltInExtensions.Map, store.Load()))
+#pragma warning restore CS0618
     {
     }
 
