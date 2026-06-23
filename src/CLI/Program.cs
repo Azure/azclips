@@ -33,10 +33,6 @@ public class Program
             return 0;
         }
 
-        // Shell tab-completion metadata
-        if (CompletionGenerator.TryHandle(args, _clientType, out int completionExit))
-            return completionExit;
-
         CirrusServiceProvider.PrependRegistration(services =>
         {
             services.AddSingleton<IExtensionLoader, BuiltinExtensionLoader>();
@@ -51,6 +47,12 @@ public class Program
             services.AddSingleton<ITelemetryProvider, CLITelemetryProvider>();
         });
         CirrusServiceProvider.Initialize(_clientType);
+
+        // Shell tab-completion metadata (after DI so generator can resolve IEngine directly)
+        int? completionExit = await CompletionGenerator.TryHandleAsync(args, _clientType);
+        if (completionExit.HasValue)
+            return completionExit.Value;
+
         _logger = CirrusServiceProvider.GetRequiredService<ILoggingService>();
         var configurationService = CirrusServiceProvider.GetRequiredService<IConfigurationService>();
 

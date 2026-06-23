@@ -3,7 +3,6 @@ using Core.Abstractions;
 using Core.DependencyInjection;
 using Core.Extensions;
 using Core.Runtime;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Core.Cli.Completions;
 
@@ -15,63 +14,44 @@ namespace Core.Cli.Completions;
 internal static class CompletionGenerator
 {
     /// <summary>
-    /// Returns true and sets <paramref name="exitCode"/> when <c>--completions</c> is
-    /// the first argument, so the caller can short-circuit.
+    /// Handles <c>--completions</c> when it is the first argument and returns the exit code.
+    /// Returns <see langword="null"/> when completion generation should not run.
     /// Usage: azv2 --completions [command-group] [subcommand...]
     /// Examples:
     ///   azv2 --completions              (full tree)
     ///   azv2 --completions vm           (commands in vm group)
     ///   azv2 --completions vm create    (specific command metadata)
     /// </summary>
-    public static bool TryHandle(string[] args, ClientType clientType, out int exitCode)
+    public static async Task<int?> TryHandleAsync(string[] args, ClientType clientType)
     {
-        if (args.Length > 0 && args[0] == "--completions")
+        if (args.Length == 0 || args[0] != "--completions")
         {
-            // Extract any command context passed after --completions
-            var commandContext = args.Length > 1 ? args.Skip(1).ToList() : new List<string>();
-            exitCode = Generate(clientType, commandContext);
-            return true;
+            return null;
         }
-        exitCode = 0;
-        return false;
+
+        // Extract any command context passed after --completions
+        var commandContext = args.Length > 1 ? args.Skip(1).ToList() : new List<string>();
+        return await GenerateAsync(clientType, commandContext);
     }
 
-    private static int Generate(ClientType clientType, List<string>? commandContext = null)
+    private static async Task<int> GenerateAsync(ClientType clientType, List<string>? commandContext = null)
     {
         commandContext ??= new List<string>();
 
-        CirrusServiceProvider.PrependRegistration(services =>
+        var engine = CirrusServiceProvider.GetRequiredService<IEngine>();
+
+        // Parse command context: first token is command group name (verb)
+        string? commandGroupName = commandContext.Count > 0 ? commandContext[0].ToLowerInvariant() : null;
+        string? subcommand = commandContext.Count > 1 ? commandContext[1].ToLowerInvariant() : null;
+
+        // If a command group is present, do context-aware discovery
+        if (!string.IsNullOrEmpty(commandGroupName))
         {
-            services.AddSingleton<IExtensionLoader, BuiltinExtensionLoader>();
-            services.AddSingleton<IExtensionLoader, MultiVersionExtensionLoader>();
-        });
-        CirrusServiceProvider.OverrideRegistration(services =>
-        {
-            services.AddSingleton<IAssemblyLoadingProvider, CLIAssemblyLoadingProvider>();
-        });
-        CirrusServiceProvider.Initialize(clientType);
-
-        try
-        {
-            var engine = CirrusServiceProvider.GetRequiredService<IEngine>();
-
-            // Parse command context: first token is command group name (verb)
-            string? commandGroupName = commandContext.Count > 0 ? commandContext[0].ToLowerInvariant() : null;
-            string? subcommand = commandContext.Count > 1 ? commandContext[1].ToLowerInvariant() : null;
-
-            // If a command group is present, do context-aware discovery
-            if (!string.IsNullOrEmpty(commandGroupName))
-            {
-                return GenerateForCommandGroup(clientType, engine, commandGroupName, subcommand);
-            }
-
-            // Otherwise, generate full completion tree (existing behavior)
-            return GenerateFullTree(clientType, engine);
+            return await GenerateForCommandGroupAsync(clientType, engine, commandGroupName, subcommand);
         }
-        finally
-        {
-            CirrusServiceProvider.Dispose();
-        }
+
+        // Otherwise, generate full completion tree (existing behavior)
+        return await GenerateFullTreeAsync(clientType, engine);
     }
 
     /// <summary>
@@ -79,7 +59,7 @@ internal static class CompletionGenerator
     /// This extracts the group's data from discovery output keyed by invocation name.
     /// Allows dynamic, context-aware completion for faster shell feedback.
     /// </summary>
-    private static int GenerateForCommandGroup(ClientType clientType, IEngine engine, string commandGroupName, string? subcommand)
+    private static async Task<int> GenerateForCommandGroupAsync(ClientType clientType, IEngine engine, string commandGroupName, string? subcommand)
     {
         var registryStore = new FileExtensionRegistryStore();
         var leafIndex = LeafIndex.Build(BuiltInExtensions.Map, registryStore.LoadReconciled());
@@ -89,7 +69,7 @@ internal static class CompletionGenerator
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        var discoveredCommands = DiscoverCommands(clientType, engine, discoveryExtensionNames);
+        var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, discoveryExtensionNames);
         var filteredCommands = discoveredCommands
             .Where(kvp => kvp.Key.Equals(commandGroupName, StringComparison.OrdinalIgnoreCase)
                 || kvp.Key.StartsWith($"{commandGroupName} ", StringComparison.OrdinalIgnoreCase));
@@ -110,7 +90,7 @@ internal static class CompletionGenerator
     /// Generate full completion tree for all available commands.
     /// This is called when no specific command group is provided.
     /// </summary>
-    private static int GenerateFullTree(ClientType clientType, IEngine engine)
+    private static async Task<int> GenerateFullTreeAsync(ClientType clientType, IEngine engine)
     {
         var registryStore = new FileExtensionRegistryStore();
         var leafIndex = LeafIndex.Build(BuiltInExtensions.Map, registryStore.LoadReconciled());
@@ -118,14 +98,14 @@ internal static class CompletionGenerator
             .Select(v => Constants.StripCirrusPrefix(v.PackageId))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
-        var discoveredCommands = DiscoverCommands(clientType, engine, discoveryExtensionNames);
+        var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, discoveryExtensionNames);
         var tree = BuildCompletionTree(discoveredCommands, scopedToVerb: false);
 
         Console.WriteLine(JsonSerializer.Serialize(tree, new JsonSerializerOptions { WriteIndented = false }));
         return 0;
     }
 
-    private static Dictionary<string, CommandMetadata> DiscoverCommands(ClientType clientType, IEngine engine, IList<string> extensionNames)
+    private static async Task<Dictionary<string, CommandMetadata>> DiscoverCommandsAsync(ClientType clientType, IEngine engine, IList<string> extensionNames)
     {
         var discoveredCommands = new Dictionary<string, CommandMetadata>(StringComparer.OrdinalIgnoreCase);
 
@@ -149,7 +129,7 @@ internal static class CompletionGenerator
         );
 
         using var discoverySession = engine.OpenDiscoverySession(extensionNames, commandName: null, discoveryStreams, isTransient: true);
-        discoverySession.RunAsync().GetAwaiter().GetResult();
+        await discoverySession.RunAsync();
 
         return discoveredCommands;
     }
