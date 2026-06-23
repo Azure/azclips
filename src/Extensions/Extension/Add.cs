@@ -188,12 +188,10 @@ public class AddExtensionProcessor : IProcessor
 
             registry.Extensions[packageId] = new ExtensionRegistryEntry
             {
-                Verb = primaryVerb,
                 Version = version,
                 Pinned = Pin || carryPinForward,
                 Source = FeedUrl,
                 InstalledAt = DateTimeOffset.UtcNow,
-                Contributions = contributions,
             };
             store.Save(registry);
 

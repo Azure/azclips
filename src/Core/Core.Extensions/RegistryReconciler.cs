@@ -25,52 +25,25 @@ namespace Core.Extensions
         string Reason);
 
     /// <summary>
-    /// Filesystem-level reconciliation between <see cref="ExtensionRegistry"/> and the on-disk
-    /// install root. Drops entries whose install directory is gone so the dispatcher never
-    /// routes to a package that's no longer there.
+    /// DEPRECATED in §5.2: No longer needed. DiscoverySession now owns determining installed state
+    /// by walking the disk directly; registry reconciliation is implicit and automatic.
+    /// Kept as a no-op for back-compat; callers should migrate to reading discovery output instead.
     /// </summary>
-    /// <remarks>
-    /// Non-destructive — the caller decides whether to write the live view back to disk or
-    /// just inform the user.
-    /// </remarks>
     public static class RegistryReconciler
     {
         /// <summary>
-        /// Build a <see cref="ReconcileResult"/> by checking <c>{installRoot}/{packageId}/{version}/</c>
-        /// for every entry in <paramref name="registry"/>. Entries with missing payload are moved
-        /// to the <see cref="ReconcileResult.Stale"/> list; the rest land in
-        /// <see cref="ReconcileResult.Live"/>.
+        /// DEPRECATED: Returns the input registry unchanged. No disk reconciliation is performed.
+        /// DiscoverySession now handles this role automatically.
         /// </summary>
+        [Obsolete("Use DiscoverySession to enumerate installed state. Reconciliation is no longer performed. Will be removed in §5.3.", error: false)]
         public static ReconcileResult Reconcile(ExtensionRegistry registry, string installRoot)
         {
             ArgumentNullException.ThrowIfNull(registry);
-            ArgumentException.ThrowIfNullOrWhiteSpace(installRoot);
-
-            var live = new ExtensionRegistry
-            {
-                SchemaVersion = registry.SchemaVersion,
-                Extensions = new Dictionary<string, ExtensionRegistryEntry>(StringComparer.OrdinalIgnoreCase),
-            };
-            var stale = new List<StaleEntry>();
-
-            foreach (var (packageId, entry) in registry.Extensions)
-            {
-                var expected = Path.Combine(installRoot, packageId, entry.Version);
-                if (Directory.Exists(expected))
-                {
-                    live.Extensions[packageId] = entry;
-                }
-                else
-                {
-                    stale.Add(new StaleEntry(
-                        PackageId: packageId,
-                        Version: entry.Version,
-                        ExpectedPath: expected,
-                        Reason: "install directory does not exist"));
-                }
-            }
-
-            return new ReconcileResult(live, stale);
+            // installRoot is no longer used; kept for signature compat.
+            
+            // Return all entries as "live"; no disk checking is performed.
+            // The actual installed state is now determined by DiscoverySession at runtime.
+            return new ReconcileResult(registry, new List<StaleEntry>());
         }
     }
 }

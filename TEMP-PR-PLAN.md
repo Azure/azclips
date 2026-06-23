@@ -97,11 +97,16 @@ The `extension` command group (list, show, add, remove, update, pin, unpin) must
 4. Validate that discovery remains metadata-only and does not execute any processor code.
    - ✅ DiscoverySession continues to call IExtensionIndex methods only (metadata-only, no processors)
 
-### 5.2 Registry narrowing
+### 5.2 Registry narrowing ✅ DONE
 
 1. Remove installed-state fields from `registry.json` writes (contributions, namespaces, verb) — these will be derived from discovery at runtime.
+   - ✅ Marked `Contributions`, `Namespaces`, `Verb` as `[JsonIgnore(WhenWriting)]` in ExtensionRegistry
+   - ✅ Removed from Add.cs and Update.cs registry entry writes
 2. Keep: pinned state, active version override, install source, install timestamp.
+   - ✅ Only these fields are written by Add.cs/Update.cs now
 3. Retire `RegistryReconciler` — its live/stale split becomes unnecessary once discovery walks the disk directly.
+   - ✅ Deprecated RegistryReconciler.Reconcile() to no-op (returns all entries as "live")
+   - ✅ Marked LoadReconciled() and ReconcilingRegistryStore obsolete for §5.3 removal
 
 ### 5.3 Extension API migration
 

@@ -46,11 +46,11 @@ namespace Core.Extensions
         public string InstallRoot => System.IO.Path.GetDirectoryName(_path) ?? string.Empty;
 
         /// <summary>
-        /// Loads the registry then drops entries whose install payload is missing on disk
-        /// (registry reconciler). The on-disk file is not modified; this is purely a view filter so
-        /// the dispatcher never routes to a stale entry. Use <see cref="Load"/> when you need
-        /// the verbatim file contents (e.g. for an <c>extension list --include-stale</c>).
+        /// DEPRECATED in \u00a75.2: No longer needed. DiscoverySession now owns installed state;
+        /// use <see cref="Load"/> directly. Kept for back-compat; returns result unchanged since
+        /// <see cref="RegistryReconciler.Reconcile"/> is now a no-op.
         /// </summary>
+        [Obsolete("Registry reconciliation is no longer performed. Use Load() instead. Reconciliation is a no-op. Will be removed in \u00a75.3.", error: false)]
         public ExtensionRegistry LoadReconciled()
         {
             var raw = Load();

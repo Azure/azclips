@@ -170,13 +170,11 @@ public class UpdateExtensionProcessor : IProcessor
             // survives and the registry still points at it.
             var newEntry = new ExtensionRegistryEntry
             {
-                Verb = primaryVerb,
                 Version = resolvedVersion,
                 // Forced update breaks the pin (the version it pinned no longer exists on disk).
                 Pinned = existing.Pinned && !Force,
                 Source = FeedUrl ?? existing.Source,
                 InstalledAt = DateTimeOffset.UtcNow,
-                Contributions = contributions,
             };
             PersistAndPurge(
                 store,

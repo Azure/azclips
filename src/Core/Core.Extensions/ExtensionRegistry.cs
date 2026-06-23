@@ -68,9 +68,12 @@ namespace Core.Extensions
         /// v2 entries synthesize a single <c>(Verb, "")</c> <see cref="Contributions"/> when this is set
         /// and no contributions are present. New v2-only entries leave this null and rely on
         /// <see cref="Contributions"/>.
+        /// 
+        /// DEPRECATED in §5.2: No longer written to registry.json; only read for legacy v1 entries.
+        /// Verbs are derived from discovery at runtime. This field is kept for read-side compat only.
         /// </summary>
         [JsonPropertyName("verb")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWriting)]
         public string? Verb { get; set; }
 
         /// <summary>
@@ -100,16 +103,24 @@ namespace Core.Extensions
         /// <summary>
         /// v2: the set of <c>(verb, path)</c> leaves this extension contributes. v1 entries are
         /// normalized into a single-element list with <c>Path = ""</c> on load.
+        /// 
+        /// DEPRECATED in §5.2: No longer written to registry.json; derived from discovery at runtime.
+        /// Kept for read-side compat with existing registry files (v2 entries). New writes never set this.
         /// </summary>
         [JsonPropertyName("contributions")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWriting)]
         public List<Contribution> Contributions { get; set; } = new();
 
         /// <summary>
         /// v2: derived list of distinct top-level namespaces this extension contributes to. Always
         /// re-derived from <see cref="Contributions"/> before write; persisted for read-side ergonomics
         /// (e.g. <c>extension list --by-verb</c>) without forcing readers to scan contributions.
+        /// 
+        /// DEPRECATED in §5.2: No longer written to registry.json; derived from discovery at runtime.
+        /// Kept for read-side compat with existing registry files. New writes never set this.
         /// </summary>
         [JsonPropertyName("namespaces")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWriting)]
         public List<string> Namespaces { get; set; } = new();
     }
 }

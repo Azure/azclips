@@ -43,7 +43,7 @@ public class ExtensionDispatcher //: IParser
     private ExtensionDispatcher(FileExtensionRegistryStore store)
         : this(
             new ExtensionResolver(new ReconcilingRegistryStore(store)),
-            () => LeafIndex.Build(BuiltInExtensions.Map, store.LoadReconciled()))
+            () => LeafIndex.Build(BuiltInExtensions.Map, store.Load()))
     {
     }
 
