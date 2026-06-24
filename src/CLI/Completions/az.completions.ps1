@@ -146,7 +146,7 @@ function global:TabExpansion2 {
         $line = if ($PSCmdlet.ParameterSetName -eq 'ScriptInputSet') { $inputScript } else { $ast.Extent.Text }
         $cursor = if ($PSCmdlet.ParameterSetName -eq 'ScriptInputSet') { $cursorColumn } else { $positionOfCursor.Offset }
 
-        if ($line -match '^\s*az(\s|$)') {
+        if ($line -match '^\s*az\s') {
             $results = @(_azGetCompletions $line $cursor)
             if ($results.Count -gt 0) {
                 $textUpToCursor = $line.Substring(0, [Math]::Min($cursor, $line.Length))
