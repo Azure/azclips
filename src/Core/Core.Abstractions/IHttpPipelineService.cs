@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 namespace Core.Abstractions;
 using Core.Abstractions.Runtime;
 public interface IHttpPipelineService

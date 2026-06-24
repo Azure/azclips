@@ -1,3 +1,6 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
 # Resource group scope deployment - PowerShell (New-ResourceGroupDeployment)
 # Equivalent of: New-AzResourceGroupDeployment
 #

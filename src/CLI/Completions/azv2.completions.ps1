@@ -1,3 +1,6 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
 # azv2 Tab Completion for PowerShell
 # Usage: . <path-to>/azv2.completions.ps1
 # Or add to your $PROFILE to auto-load on every session.
