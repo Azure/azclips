@@ -15,6 +15,7 @@ namespace Core.Agent.Tests;
 /// Console output is suppressed; the interactive y/n is fed via a redirected stdin
 /// raced against the hook, the same way the host pumps approvals.
 /// </summary>
+[Collection("Console")]
 public class PlanGateTests
 {
     private const string Azv2 = "/fake/azv2";

@@ -3,10 +3,21 @@ using Xunit;
 
 namespace Core.Agent.Tests;
 
+// ConsoleApprovalPromptTests and PlanGateTests both swap the process-global
+// Console.In/Out (Console.SetIn/SetOut) to drive the approval prompt's
+// Console.ReadLine(). xUnit runs separate test classes in parallel, so without a
+// shared collection one class can swap Console.In out from under the other's
+// ReadLine — yielding EOF (null feedback) intermittently in CI. This collection
+// serializes them; DisableParallelization keeps anything else off Console while
+// they run.
+[CollectionDefinition("Console", DisableParallelization = true)]
+public class ConsoleCollection { }
+
 /// <summary>
 /// Contract: y/yes → approve; n/no/empty → reject; anything else → reject with
 /// the typed text returned as FeedbackPrompt for the next chat turn.
 /// </summary>
+[Collection("Console")]
 public class ConsoleApprovalPromptTests
 {
     private static async Task<(ConsoleApprovalPrompt.ApprovalOutcome outcome, bool toolApproved)>
