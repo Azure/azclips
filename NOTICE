@@ -1,0 +1,17 @@
+Cirrus Third-Party Notices
+
+This NOTICE file is a pre-release placeholder for third-party attribution review.
+
+TODO (before public MIT release): The engineering owner must run the
+Microsoft-approved open source dependency scan (Component Governance or
+equivalent) and the approved NOTICE generation process, then replace this
+placeholder with the generated third-party notices if required.
+
+Until that process is complete, no final third-party attribution determination
+has been made in this file.
+
+Known sources of third-party dependency metadata to feed the scan:
+
+- .NET project PackageReference entries under src/ and tests/
+- npm dependencies under wiki/
+- Any generated, vendored, or copied assets added before release
