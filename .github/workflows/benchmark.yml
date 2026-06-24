@@ -101,6 +101,79 @@ jobs:
           comment-always: ${{ github.event.pull_request.head.repo.fork != true }}
           skip-fetch-gh-pages: true
 
+      # ─────────────── STARTUP ───────────────
+      - name: Run STARTUP benchmarks (with retry)
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 20
+          max_attempts: 2
+          retry_wait_seconds: 30
+          command: dotnet run --project tests/Benchmark -c Release --no-build -- --ci --product STARTUP
+
+      - name: Publish CLI startup dashboard (warm, tracked)
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: 'Cirrus CLI Startup (warm)'
+          tool: 'benchmarkdotnet'
+          output-file-path: artifacts/Benchmark/ci/STARTUP/results/Benchmark.Startup.CliWarmStartupBenchmarks-report-full-compressed.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: ${{ github.event_name == 'push' }}
+          alert-threshold: '115%'
+          fail-on-alert: false
+          comment-on-alert: false
+          summary-always: true
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: dev/bench/startup-cli
+          skip-fetch-gh-pages: true
+
+      - name: Publish PS startup dashboard (warm, tracked)
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: 'Cirrus PS Startup (warm)'
+          tool: 'benchmarkdotnet'
+          output-file-path: artifacts/Benchmark/ci/STARTUP/results/Benchmark.Startup.PsWarmStartupBenchmarks-report-full-compressed.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: ${{ github.event_name == 'push' }}
+          alert-threshold: '115%'
+          fail-on-alert: false
+          comment-on-alert: false
+          summary-always: true
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: dev/bench/startup-ps
+          skip-fetch-gh-pages: true
+
+      - name: Publish CLI startup dashboard (cold, informational)
+        if: ${{ hashFiles('artifacts/Benchmark/ci/STARTUP/results/Benchmark.Startup.CliColdStartupBenchmarks-report-full-compressed.json') != '' }}
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: 'Cirrus CLI Startup (cold)'
+          tool: 'benchmarkdotnet'
+          output-file-path: artifacts/Benchmark/ci/STARTUP/results/Benchmark.Startup.CliColdStartupBenchmarks-report-full-compressed.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: ${{ github.event_name == 'push' }}
+          fail-on-alert: false
+          comment-on-alert: false
+          summary-always: true
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: dev/bench/startup-cli
+          skip-fetch-gh-pages: true
+
+      - name: Publish PS startup dashboard (cold, informational)
+        if: ${{ hashFiles('artifacts/Benchmark/ci/STARTUP/results/Benchmark.Startup.PsColdStartupBenchmarks-report-full-compressed.json') != '' }}
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: 'Cirrus PS Startup (cold)'
+          tool: 'benchmarkdotnet'
+          output-file-path: artifacts/Benchmark/ci/STARTUP/results/Benchmark.Startup.PsColdStartupBenchmarks-report-full-compressed.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: ${{ github.event_name == 'push' }}
+          fail-on-alert: false
+          comment-on-alert: false
+          summary-always: true
+          gh-pages-branch: gh-pages
+          benchmark-data-dir-path: dev/bench/startup-ps
+          skip-fetch-gh-pages: true
+
       # Upload CLI + PS benchmark results for the fork-PR comment workflow
       - name: Upload benchmark results for fork PR
         if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == true
