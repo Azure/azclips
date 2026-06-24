@@ -18,6 +18,10 @@ namespace Core.Cli;
 /// </summary>
 public static class CliExtensionServiceRegistration
 {
+    private static readonly HashSet<string> s_builtInPackageIds = BuiltInExtensions.Map.Values
+        .Select(static value => value.PackageId)
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
     public static IServiceCollection AddCliExtensionDispatch(this IServiceCollection services)
     {
         services.AddSingleton<IExtensionRegistryStore>(
@@ -74,6 +78,11 @@ public static class CliExtensionServiceRegistration
                     {
                         foreach (var info in infos)
                         {
+                            if (s_builtInPackageIds.Contains(info.PackageId))
+                            {
+                                continue;
+                            }
+
                             // Each discovered extension gets one entry with Contributions built from Verbs.
                             var entry = new ExtensionRegistryEntry
                             {

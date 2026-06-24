@@ -7,6 +7,10 @@ namespace Microsoft.Azure.Cirrus.Extensions.Extension.Processors;
 
 internal static class DiscoveryBackedExtensionRegistry
 {
+    private static readonly HashSet<string> s_builtInPackageIds = BuiltInExtensions.Map.Values
+        .Select(static value => value.PackageId)
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
     public static ExtensionRegistry BuildDiscoveredWithPreferences(ExtensionRegistry fileRegistry)
     {
         ArgumentNullException.ThrowIfNull(fileRegistry);
@@ -16,6 +20,11 @@ internal static class DiscoveryBackedExtensionRegistry
 
         foreach (var info in infos)
         {
+            if (s_builtInPackageIds.Contains(info.PackageId))
+            {
+                continue;
+            }
+
             var entry = new ExtensionRegistryEntry
             {
                 Verb = info.Verbs.FirstOrDefault(),
