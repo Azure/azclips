@@ -165,16 +165,21 @@ Implementation notes:
 
 1. Added "Discovery-First Help Model" section explaining authoring-time vs runtime help resolution.
 2. Updated "Runtime Behavior" with new "Help Routing (Discovery-Backed)" subsection:
-   - Root help uses discovery to enumerate installed extensions
-   - Verb/command help resolved from discovered metadata
-   - Hint table fallback only for unknown verbs
+    - Root help uses discovery to enumerate installed extensions
+    - Verb/command help resolved from discovered metadata
+    - Hint table fallback only for unknown verbs
 3. Clarified verb discovery at runtime (not static mappings).
 4. Updated CLI Help section to explain discovery-backed routing flow.
 
-#### 5.6.3 `docs/spec/extension-framework.md` – PENDING
+#### 5.6.3 `docs/spec/extension-framework.md` ✅ DONE
 
-1. Document `DiscoveredExtensionInfo` output shape and semantics.
-2. Clarify multi-version discovery model (all versions enumerated, active version selected via registry preference).
+1. Added new section 3 "Extension Discovery" (shifted existing sections 3–7 to 4–8):
+   - 3.1: Discovery as authoritative source (registry as preferences overlay)
+   - 3.2: `DiscoveredExtensionInfo` record shape and fields (PackageId, ResolvedVersion, Verbs, Commands, IsBuiltin)
+   - 3.3: Discovery flow (metadata-only, no processor execution)
+   - 3.4: Multi-version selection (registry preference → fallback to latest → pin respect)
+   - 3.5: Discovery in help and dispatch (verb ownership resolution, hint table fallback)
+2. Renumbered downstream sections (old 3–7 now 4–8) for clarity.
 
 #### 5.6.4 `docs/spec/help-system.md` – PENDING
 
