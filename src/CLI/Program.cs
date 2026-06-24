@@ -80,9 +80,8 @@ public class Program
             catch (DispatchHelpException)
             {
                 var assemblyLoading = CirrusServiceProvider.GetRequiredService<IAssemblyLoadingService>();
-                var registryStore = new FileExtensionRegistryStore();
-                var extensionResolver = new ExtensionResolver(registryStore);
-                var exitCode = new RuntimeHelpDispatcher(assemblyLoading, extensionResolver, registryStore).RenderRoot();
+                var engine = CirrusServiceProvider.GetRequiredService<IEngine>();
+                var exitCode = new RuntimeHelpDispatcher(assemblyLoading, engine).RenderRoot();
 
                 activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
                 return exitCode;
@@ -90,11 +89,10 @@ public class Program
             catch (RuntimeExtensionHelpException helpException)
             {
                 var assemblyLoading = CirrusServiceProvider.GetRequiredService<IAssemblyLoadingService>();
-                var registryStore = new FileExtensionRegistryStore();
-                var extensionResolver = new ExtensionResolver(registryStore);
+                var engine = CirrusServiceProvider.GetRequiredService<IEngine>();
                 try
                 {
-                    var exitCode = new RuntimeHelpDispatcher(assemblyLoading, extensionResolver, registryStore).RenderExtensionHelp(helpException);
+                    var exitCode = new RuntimeHelpDispatcher(assemblyLoading, engine).RenderExtensionHelp(helpException);
 
                     activity?.SetStatus(ActivityStatusCode.Ok, "Extension help requested");
                     return exitCode;

@@ -122,12 +122,21 @@ The `extension` command group (list, show, add, remove, update, pin, unpin) must
 5. `extension add/update`: no read-side change needed; continue writing preference fields to registry after install.
     - ✅ No read-side changes required; behavior remains preference-write only.
 
-### 5.4 Help migration
+### 5.4 Help migration ✅ DONE
 
 1. Rewrite `RuntimeHelpDispatcher.RenderRoot()` to enumerate discovered extensions instead of iterating known package ids from the registry.
+    - ✅ `RenderRoot()` now drives from discovery output (`OpenDiscoverySession`) rather than registry entries.
 2. Rewrite `RuntimeHelpDispatcher.RenderExtensionHelp()` to resolve verb ownership from discovery output instead of `IExtensionResolver` + registry.
+    - ✅ `RenderExtensionHelp()` now resolves owner package by discovered verbs/commands.
 3. Keep the embedded hint table for CNF (command not found) fallback only — do not use it as the primary ownership source.
+    - ✅ Hint table usage is now fallback-only when discovery finds no installed owner.
 4. Update `ExtensionIndexHelpAdapter` if needed to consume the new discovery-backed index shape.
+    - ✅ No adapter contract change required; existing per-verb adapter remains compatible.
+
+Implementation notes:
+
+1. `Program` help paths now construct `RuntimeHelpDispatcher` with `IEngine` + `IAssemblyLoadingService` so runtime help can run discovery sessions.
+2. Root and extension help behavior validated with focused CLI tests and runtime smoke (`--help`, installed verb help, and uninstalled-verb install hint).
 
 ### 5.5 Tests
 
@@ -154,4 +163,4 @@ The `extension` command group (list, show, add, remove, update, pin, unpin) must
 2. **Registry as non-authoritative install state (§4.5.4):** The team direction is that `registry.json` should not be the authoritative source of installed state — runtime discovery should determine what is installed. Discuss the implications for the install/remove lifecycle, startup time, and how to handle edge cases where discovery and any persisted state diverge.
 3. **Bundled install delivery and out-of-box CNF errors:** The project has an install/delivery philosophy where extensions may be shipped as part of install bundles rather than added explicitly via `extension add`. Under the current registry-first model, extensions dropped into the install directory without a registry entry are invisible to the dispatcher, producing CNF errors out of the box. Once this plan is implemented and DiscoverySession walks the disk to determine installed state, this issue goes away — any extension present in the install directory is automatically discoverable regardless of how it arrived. This is a strong additional motivation for the runtime discovery direction.
 
-4. **Check Naga install locations** Manually added by Daniel. Verify install locations of a real build and if DiscoverySession via extension API picks them up. 
+4. **Check Naga install locations** Manually added by Daniel. Verify install locations of a real build and if DiscoverySession via extension API picks them up.
