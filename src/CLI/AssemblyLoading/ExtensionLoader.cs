@@ -26,6 +26,15 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
         private readonly AssemblyDependencyResolver _resolver = new(extensionPath);
         private readonly ILoggingService? _loggingService = loggingService;
 
+        internal Assembly LoadManagedAssembly(string assemblyPath)
+        {
+            using var stream = File.OpenRead(assemblyPath);
+            using var ms = new MemoryStream();
+            stream.CopyTo(ms);
+            ms.Position = 0;
+            return LoadFromStream(ms);
+        }
+
         protected override Assembly? Load(AssemblyName assemblyName)
         {
             if (assemblyName.Name != null && (assemblyName.Name.StartsWith("Core.") || assemblyName.Name.StartsWith("Microsoft.Extensions.DependencyInjection")))
@@ -37,7 +46,7 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
             if (assemblyPath != null)
             {
                 _loggingService?.Debug($"Loading assembly from path: {assemblyPath}");
-                return LoadFromAssemblyPath(assemblyPath);
+                return LoadManagedAssembly(assemblyPath);
             }
             return null;
         }
@@ -104,7 +113,7 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
                 }
 
                 var loadContext = new ExtensionLoadContext(extensionPath, _loggingService);
-                return loadContext.LoadFromAssemblyPath(extensionPath);
+                return loadContext.LoadManagedAssembly(extensionPath);
             }
         }
 
@@ -123,6 +132,15 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
         public string ExtensionDirectory { get; } = extensionDirectory;
         private readonly ILoggingService? _loggingService = loggingService;
 
+        internal Assembly LoadManagedAssembly(string assemblyPath)
+        {
+            using var stream = File.OpenRead(assemblyPath);
+            using var ms = new MemoryStream();
+            stream.CopyTo(ms);
+            ms.Position = 0;
+            return LoadFromStream(ms);
+        }
+
         protected override Assembly? Load(AssemblyName assemblyName)
         {
             if (assemblyName.Name != null && (assemblyName.Name.StartsWith("Core.") || assemblyName.Name.StartsWith("Microsoft.Extensions.DependencyInjection")))
@@ -133,7 +151,7 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
             string assemblyPath = Path.Combine(ExtensionDirectory, $"{assemblyName.Name}.dll");
             if (File.Exists(assemblyPath))
             {
-                return LoadFromAssemblyPath(assemblyPath);
+                return LoadManagedAssembly(assemblyPath);
             }
             return null;
         }
@@ -222,7 +240,7 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
             // ExtensionLoadContext expects a directory (Path.Combine in Load resolves siblings).
             // Cache hits below already pass key.Directory directly.
             var freshCtx = new ExtensionLoadContext(extensionDir, _loggingService);
-            return freshCtx.LoadFromAssemblyPath(extensionPath);
+            return freshCtx.LoadManagedAssembly(extensionPath);
         }
 
         var entry = s_cache.GetOrAdd(
@@ -230,7 +248,7 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
             key => new Lazy<(ExtensionLoadContext, Assembly)>(() =>
             {
                 var ctx = new ExtensionLoadContext(key.Directory, _loggingService);
-                var asm = ctx.LoadFromAssemblyPath(key.AssemblyPath);
+                var asm = ctx.LoadManagedAssembly(key.AssemblyPath);
                 return (ctx, asm);
             }));
         return entry.Value.Assembly;
