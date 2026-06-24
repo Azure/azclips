@@ -32,7 +32,7 @@ Scope notes:
 - npm packages under wiki/ (medium-zoom, mermaid, vitepress,
   vitepress-plugin-mermaid) are devDependencies used only to build the
   documentation site and are not distributed, so they are excluded.
-- System.Management.Automation is referenced with PrivateAssets="all" and is
+- In the distributable PowerShell cmdlet projects under src/PS/, System.Management.Automation is referenced with PrivateAssets="all" and is
   provided by the PowerShell host at runtime rather than redistributed.
 - AI capabilities are provided by calling the Azure OpenAI service through
   Microsoft SDKs; no third-party AI model is bundled or distributed with Cirrus.
