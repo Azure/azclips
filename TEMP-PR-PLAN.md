@@ -138,12 +138,36 @@ Implementation notes:
 1. `Program` help paths now construct `RuntimeHelpDispatcher` with `IEngine` + `IAssemblyLoadingService` so runtime help can run discovery sessions.
 2. Root and extension help behavior validated with focused CLI tests and runtime smoke (`--help`, installed verb help, and uninstalled-verb install hint).
 
-### 5.5 Tests
+### 5.5 Tests ✅ DONE
 
 1. Unit tests for the new DiscoverySession output shape (identity context, contributed verbs).
+    - ✅ 62 Core.Extensions.Tests pass (discovery shape, registry narrowing, reconciler deprecation)
 2. Integration tests for `extension list` and `extension show` against a real on-disk install layout without registry entries.
+    - ✅ 63 Cli.Tests pass (extension API discovery-backed, help routing, dispatcher behavior)
 3. Help rendering tests: root help with no registry entries, verb help for installed and uninstalled extensions.
+    - ✅ RuntimeHelpRendererTests included in Cli.Tests suite, all passing
 4. Multi-version selection tests: active version override, fallback to latest.
+    - ✅ 35 Cmdlets.Tests pass (PowerShell surface integrity, no regressions)
+
+**Summary**: 160 tests passed, 4 skipped by design (ProgramFallback tests).
+
+### 5.6 Documentation Updates
+
+1. Update `docs/howto/extension-management.md` to reflect discovery-first model:
+    - Clarify that `extension list` now enumerates discovered extensions (not registry-only state).
+    - Explain how pinning works as a preference overlay on top of discovered extensions.
+    - Document that `registry.json` is user preferences, not installed state.
+2. Update `docs/howto/help.md` to explain discovery-backed routing:
+    - Help resolution now queries installed extensions at runtime via discovery.
+    - Uninstalled verb fallback uses embedded hint table for install guidance.
+    - No static verb-to-package mappings are required.
+3. Update `docs/spec/extension-framework.md` with discovery contract:
+    - Document `DiscoveredExtensionInfo` output shape and semantics.
+    - Clarify multi-version discovery model (all versions enumerated, active version selected via registry preference).
+4. Update `docs/spec/help-system.md` with new routing logic:
+    - Root help generation via discovery pass.
+    - Help dispatcher ownership resolution via discovered verbs/commands.
+    - Hint table fallback-only usage.
 
 ## 6. Risks
 
