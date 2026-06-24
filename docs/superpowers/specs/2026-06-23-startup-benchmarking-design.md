@@ -183,9 +183,14 @@ Each `[Benchmark]` body: construct `ProcessStartInfo` from the base, `Process.St
   (passwordless sudo is available on GitHub-hosted runners).
 - **Windows (local dev)**: a Sysinternals-style `EmptyStandbyList.exe standbylist` helper, pinned
   in repo tooling.
-- **Capability probe**: if eviction is not permitted on the current agent, the cold path **skips
-  with a clear log** (`[Startup] cold eviction unavailable — skipping`) and returns success. We
-  never silently report warm numbers as cold.
+- **Capability probe**: if eviction is fundamentally unavailable on the current agent, the cold
+  path **skips with a clear log** (`[Startup] cold eviction unavailable — skipping`) and returns
+  success — so an agent that cannot evict never registers or publishes cold numbers at all. A
+  *transient* per-iteration eviction failure (the probe passed, but a later `Evict()` call failed)
+  is logged (`launch was NOT cold`) but, because cold is best-effort/informational and must not
+  fail the job, that single launch is still recorded. This is the one rare case where a warm launch
+  can land on the cold dashboard; it is an accepted trade-off of the no-fail design, not a silent
+  default.
 
 `RunStrategy.ColdStart` runs each workload as a first-call (no per-iteration warmup), which is the
 honest BDN mode for cold-start measurement; combined with per-iteration eviction it yields
