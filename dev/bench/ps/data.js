@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782269188990,
+  "lastUpdate": 1782271225046,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus PS Benchmarks": [
@@ -1386,6 +1386,48 @@ window.BENCHMARK_DATA = {
             "value": 5723605.203841317,
             "unit": "ns",
             "range": "± 101964.54767407787"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "naga.s.p.nandyala@gmail.com",
+            "name": "Naga Nandyala",
+            "username": "naga-nandyala"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a855098670796cafc9dd258e51c58bea16138d1e",
+          "message": "{misc} renaming CLI invocation from azv2 --> az (#269)\n\n## Summary\n- Rename the CLI executable and app execution alias from `azv2` to `az`\n- Update agent/TUI invocation handling, help validation, scaffolding,\ntests, and snapshots to use `az`\n- Refresh docs, wiki content, workflows, VS Code launch config, and help\nexamples for the new invocation\n\n## Validation\n- `dotnet build cirrus.slnx`\n- `dotnet test cirrus.slnx --no-build`\n- `.\\artifacts\\Debug\\Core.Cli\\az.exe --help`\n- `dotnet run --project\ntools\\Help\\Cirrus.Help.Tool\\Cirrus.Help.Tool.csproj -- --artifacts-root\nartifacts\\Debug --output-root artifacts\\help`\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-06-24T13:12:39+10:00",
+          "tree_id": "afe7ebbe661796d66b54d64a7b2960bba5b3b72f",
+          "url": "https://github.com/Azure/cirrus/commit/a855098670796cafc9dd258e51c58bea16138d1e"
+        },
+        "date": 1782271225004,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 5753425.401549681,
+            "unit": "ns",
+            "range": "± 99931.96674123337"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 5722368.890692888,
+            "unit": "ns",
+            "range": "± 103134.69010620813"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 5708456.557705441,
+            "unit": "ns",
+            "range": "± 103030.65801512182"
           }
         ]
       }
