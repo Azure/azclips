@@ -174,18 +174,30 @@ Implementation notes:
 #### 5.6.3 `docs/spec/extension-framework.md` ✅ DONE
 
 1. Added new section 3 "Extension Discovery" (shifted existing sections 3–7 to 4–8):
-   - 3.1: Discovery as authoritative source (registry as preferences overlay)
-   - 3.2: `DiscoveredExtensionInfo` record shape and fields (PackageId, ResolvedVersion, Verbs, Commands, IsBuiltin)
-   - 3.3: Discovery flow (metadata-only, no processor execution)
-   - 3.4: Multi-version selection (registry preference → fallback to latest → pin respect)
-   - 3.5: Discovery in help and dispatch (verb ownership resolution, hint table fallback)
+    - 3.1: Discovery as authoritative source (registry as preferences overlay)
+    - 3.2: `DiscoveredExtensionInfo` record shape and fields (PackageId, ResolvedVersion, Verbs, Commands, IsBuiltin)
+    - 3.3: Discovery flow (metadata-only, no processor execution)
+    - 3.4: Multi-version selection (registry preference → fallback to latest → pin respect)
+    - 3.5: Discovery in help and dispatch (verb ownership resolution, hint table fallback)
 2. Renumbered downstream sections (old 3–7 now 4–8) for clarity.
 
-#### 5.6.4 `docs/spec/help-system.md` – PENDING
+#### 5.6.4 `docs/spec/help-system.md` ✅ DONE
 
-1. Document root help generation via discovery pass.
-2. Document help dispatcher ownership resolution via discovered verbs/commands.
-3. Explain hint table fallback-only usage for unknown verbs.
+1. Added new section 3 "Help Routing via Discovery (Runtime Model)":
+    - 3.1: Root help (`az --help`) via discovery pass — enumerate discovered extensions, collect verbs
+    - 3.2: Verb/command help (`az vm --help`, `az vm create --help`) — resolve ownership from discovered metadata
+    - 3.3: Unknown verbs & hint table fallback — hint table used only when discovery finds no owner
+    - 3.4: Consistency across surfaces (CLI discovery-backed, PS/API also use same model at build time)
+2. Renumbered downstream sections (old 3–7 now 4–8) for clarity.
+
+### 5.6 Documentation Summary
+
+All four documentation sections updated to reflect discovery-first model:
+
+- ✅ 5.6.1 `docs/howto/extension-management.md` — discovery-first model, registry as preferences
+- ✅ 5.6.2 `docs/howto/help.md` — runtime help routing via discovery
+- ✅ 5.6.3 `docs/spec/extension-framework.md` — DiscoveredExtensionInfo contract, multi-version model
+- ✅ 5.6.4 `docs/spec/help-system.md` — help routing via discovery (runtime), hint table fallback
 
 ## 6. Risks
 

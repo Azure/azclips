@@ -9,7 +9,7 @@ Two parallel markdown corpora drive three surfaces: CLI help authored under `src
 | Goal                   | Rationale                                                                                                              |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | One file per command   | Each command/cmdlet has a single authoring source; runtime, MAML, and CI tooling consume it without duplication.       |
-| Tree-aware CLI help    | `az --help`, `az group --help`, `az group create --help` each produce meaningfully different output.             |
+| Tree-aware CLI help    | `az --help`, `az group --help`, `az group create --help` each produce meaningfully different output.                   |
 | Native PowerShell help | `Get-Help <Cmdlet> -Full` is served by standard MAML XML packaged with the module.                                     |
 | Cold-path safe         | CLI help renders without loading execution code or instantiating processors.                                           |
 | Authorable by humans   | Authors edit `.md` files next to the extension; no recompile to iterate on prose. Codegen may interject in the future. |
@@ -52,7 +52,59 @@ Two consumers, one source. The CLI runtime reads markdown from the host's conten
 
 ---
 
-## 3. Authoring Model
+## 3. Help Routing via Discovery (Runtime Model)
+
+Help resolution in Cirrus is **discovery-backed**. The runtime uses the same `DiscoverySession` that powers extension dispatch and listing to route help requests. This ensures help is always in sync with what's actually installed.
+
+### 3.1 Root Help (`az --help`)
+
+When a user runs `az --help`:
+
+1. **Run discovery pass** — `DiscoverySession.GetAllInstalledExtensions()` enumerates all discovered extensions and versions (per multi-version rules).
+2. **Collect verbs** — For each discovered extension, call `GetVerbs()` to retrieve contributed namespaces (e.g., `vm`, `disk`, `group`).
+3. **Render roots** — Build a root help page listing all discovered verbs and their one-line summaries.
+4. **Return to user** — `az --help` displays the collected namespace tree.
+
+**Example**: If three extensions are discovered (`Resources` with `group`, `Compute` with `vm`/`disk`, `Login` with `login`), root help shows all four verbs grouped by extension.
+
+### 3.2 Verb & Command Help (`az vm --help`, `az vm create --help`)
+
+When a user runs help for a verb or command:
+
+1. **Parse the path** — Extract the canonical command key (e.g., `vm` for root group, `vm create` for a command).
+2. **Run discovery pass** — Enumerate all discovered extensions.
+3. **Resolve ownership** — Walk the discovered verbs/commands to find which extension owns the requested path:
+    - Check each discovered extension's `Verbs` list for the first segment.
+    - If found, load the extension and query `GetCommandTable()` for the full command metadata.
+    - If not found in any discovered extension, fall back to the hint table.
+4. **Load help markdown** — Call `MarkdownCommandHelpProvider.Get(extensionName, commandKey)` to read and render the markdown.
+5. **Return to user** — Display help for the resolved verb or command.
+
+**Example**: User runs `az vm create --help`:
+
+- Discover that `Compute` extension owns verb `vm`.
+- Load Compute's `GetCommandTable()` to find the `create` command.
+- Read `src/CLI/Help/Docs/vm/create.md` and render it.
+
+### 3.3 Unknown Verbs & Hint Table Fallback
+
+If a user requests help for a verb that **no discovered extension owns**:
+
+1. **Check hint table** — Query the embedded verb→package hint table (built at compile time from first-party extension declarations).
+2. **If found** — Surface a structured message: `"Verb 'foo' is provided by extension 'Package.Foo', which is not installed. Install it with: az extension add --name Foo"`.
+3. **If not found** — Return a generic "unknown verb" error.
+
+**Key point:** The hint table is **fallback-only**. It's used only when discovery finds no installed owner. This prevents stale verb-to-package mappings from masking newly installed extensions or leading users to the wrong package.
+
+### 3.4 Consistency Across Surfaces
+
+- **CLI** (`az --help`) — Uses discovery-backed routing (above).
+- **PowerShell** (`Get-Help`) — Help is pre-compiled to MAML XML and packaged with the module, so no runtime discovery happens. However, at **authoring time**, the same markdown corpus is validated against discovery to ensure consistency.
+- **Extension API** (`az extension list`) — Uses the same discovery output, overlaid with registry preferences (pins, install metadata).
+
+---
+
+## 4. Authoring Model
 
 CLI help lives under `src/CLI/Help/Docs/<ext>/`; PowerShell help under `src/PS/<Module>/help/`. CLI root commands use `index.md` and subcommands use `<segment>-<segment>.md` (space-delimited canonical CLI key, dasherized). PowerShell files are named `<Verb-Noun>.md` (one per cmdlet), per PlatyPS convention.
 
@@ -103,7 +155,7 @@ Full author workflow lives in [docs/howto/help.md](../howto/help.md).
 
 ---
 
-## 4. CLI Surface
+## 5. CLI Surface
 
 `-h` / `--help` / `help` is intercepted **before** command execution. The adapter resolves the canonical command key (full path, space-delimited, lowercased) and calls `MarkdownCommandHelpProvider.Get(extensionName, commandKey)`, which reads the corresponding markdown file from disk, filters examples to `!IsPowerShell`, and renders.
 
@@ -119,7 +171,7 @@ The runtime supports a source-tree fallback for repo contributors: if the packag
 
 ---
 
-## 5. PowerShell Surface
+## 6. PowerShell Surface
 
 PowerShell help is delivered the standard way: a `.dll-Help.xml` MAML file colocated with the cmdlet assembly. Built from the same markdown corpus:
 
@@ -131,7 +183,7 @@ Result: `Get-Help <Cmdlet> -Full` works natively with no custom resolver. Exampl
 
 ---
 
-## 6. Build-Time Validation Pipeline
+## 7. Build-Time Validation Pipeline
 
 `Cirrus.Help.Tool` runs five validators in order, each emitting structured `ValidationIssue`s with a stable `ProblemId`. CI surfaces the tool via the `help-validate` job in [build-and-test.yml](../../.github/workflows/build-and-test.yml).
 
@@ -139,7 +191,7 @@ Result: `Get-Help <Cmdlet> -Full` works natively with no custom resolver. Exampl
 | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
 | `MarkdownStructureValidator`       | Frontmatter present + valid; `summary` and `schema` required; `status` (if set) is a valid enum value; body has description and at least one example; code fences balanced.                                                                                                                                                                               | Hard error.                               |
 | `HelpCompletenessValidator`        | Every routed CLI command in `ExtensionIndex` has a corresponding markdown file under `src/CLI/Help/Docs/<verb>/`; warns on orphan markdown files.                                                                                                                                                                                                         | Hard error on missing; warning on orphan. |
-| `ExampleSyntaxValidator`           | Every `az …` line tokenizes; first token resolves to a known group; remaining non-flag tokens resolve via `IExtensionIndex.GetCommandTable(CLI)`; every `--flag`/`-x` exists on the resolved command (or is global); values type-check against `ParameterMetadata.Type` and `AllowedValues`.                                                            | Hard error.                               |
+| `ExampleSyntaxValidator`           | Every `az …` line tokenizes; first token resolves to a known group; remaining non-flag tokens resolve via `IExtensionIndex.GetCommandTable(CLI)`; every `--flag`/`-x` exists on the resolved command (or is global); values type-check against `ParameterMetadata.Type` and `AllowedValues`.                                                              | Hard error.                               |
 | `PowerShellExampleSyntaxValidator` | Every `Verb-Noun` resolves via the reflected cmdlet index; every `-Parameter` resolves to a declared parameter or alias; common parameters are whitelisted; splatted commands skip parameter checks (PSL1–PSL8). Detects `TODO -` (`PS_TodoPlaceholder`), `<angle-bracket>` shapes (`PS_ExamplePlaceholder`), and PlatyPS `{{ Fill … }}` markers (PSL12). | Hard error.                               |
 | `PsCompletenessValidator`          | Walks `src/PS/<Module>/<Module>.psd1`, parses `CmdletsToExport` via PowerShell AST, and verifies every exported cmdlet has a matching `help/<Verb-Noun>.md` (PSL9). Flags missing `help/` folders (PSL10, supersedes the per-cmdlet PSL9 cascade) and warns on orphaned help files (PSL11).                                                               | Hard error on missing; warning on orphan. |
 
@@ -151,7 +203,7 @@ Tests live in [tools/Help/Cirrus.Help.Tool.Tests/](../../tools/Help/Cirrus.Help.
 
 ---
 
-## 7. Design Philosophy
+## 8. Design Philosophy
 
 **Markdown is the contract.** Authoring is one file per command; the CLI runtime reads it from the host's content output (with a repo fallback), PowerShell consumes the MAML built from the same source, and tooling validates and republishes it. There is no second source of truth — every surface derives from the same `.md` file at build time.
 
