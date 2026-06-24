@@ -1,9 +1,9 @@
 Command
-    azv2 login show : Show the current Azure account context.
+    az login show : Show the current Azure account context.
 
 Arguments
     (none)
 
 Examples
     Show current account context
-        azv2 login show
+        az login show

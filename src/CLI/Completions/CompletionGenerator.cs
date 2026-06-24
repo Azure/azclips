@@ -8,7 +8,7 @@ namespace Core.Cli.Completions;
 
 /// <summary>
 /// Outputs a JSON completion tree built from ExtensionIndex metadata.
-/// Used by shell tab-completion scripts (e.g. azv2.completions.ps1).
+/// Used by shell tab-completion scripts (e.g. az.completions.ps1).
 /// Supports both full tree generation and context-aware discovery for specific command groups.
 /// </summary>
 internal static class CompletionGenerator
@@ -16,11 +16,11 @@ internal static class CompletionGenerator
     /// <summary>
     /// Handles <c>--completions</c> when it is the first argument and returns the exit code.
     /// Returns <see langword="null"/> when completion generation should not run.
-    /// Usage: azv2 --completions [command-group] [subcommand...]
+    /// Usage: az --completions [command-group] [subcommand...]
     /// Examples:
-    ///   azv2 --completions              (full tree)
-    ///   azv2 --completions vm           (commands in vm group)
-    ///   azv2 --completions vm create    (specific command metadata)
+    ///   az --completions              (full tree)
+    ///   az --completions vm           (commands in vm group)
+    ///   az --completions vm create    (specific command metadata)
     /// </summary>
     public static async Task<int?> TryHandleAsync(string[] args, ClientType clientType)
     {

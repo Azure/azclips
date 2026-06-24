@@ -19,9 +19,9 @@ PACKAGE_PROFILE="$(echo "$PACKAGE_PROFILE" | tr '[:upper:]' '[:lower:]')"
 ARTIFACT_VERSION="${ARTIFACT_VERSION:-}"
 
 if [[ "$PACKAGE_PROFILE" == "full" ]]; then
-  ARTIFACT_PREFIX="azv2"
+  ARTIFACT_PREFIX="az"
 elif [[ "$PACKAGE_PROFILE" == "lean" ]]; then
-  ARTIFACT_PREFIX="azv2-lean"
+  ARTIFACT_PREFIX="az-lean"
 else
   echo "ERROR: Unsupported PACKAGE_PROFILE '$PACKAGE_PROFILE'. Expected 'lean' or 'full'."
   exit 1

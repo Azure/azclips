@@ -10,5 +10,5 @@ Description: Create, inspect, list, and delete Azure virtual machines. The `vm c
 ### Discover vm commands
 
 ```bash
-azv2 vm --help
+az vm --help
 ```

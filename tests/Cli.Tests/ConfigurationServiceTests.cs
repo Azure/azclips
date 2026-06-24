@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using Core.Abstractions;
 using Core.Configuration.Abstractions;
 using Core.Configuration.Implementation;
+using Core.Configuration.Options;
 using Core.Configuration.Schema;
 
 namespace Cli.Tests;
@@ -122,6 +123,34 @@ public class ConfigurationServiceTests
         var value = await service.ResolveDefaultParameterAsync("group");
 
         Assert.Equal("my-rg", value);
+    }
+
+
+    [Fact]
+    public void GetConfiguration_ShouldDefaultAgentDisabled_OnEmptyConfig()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        var options = service.GetConfiguration<AgentOptions>();
+
+        // PP ships agent off; the user opts in via `agent.enabled=true`. If this
+        // flips, a fresh install would auto-spawn the agent on any failed command.
+        Assert.False(options.Enabled);
+        Assert.Equal("oneShot", options.SessionStyle);
+    }
+
+    [Fact]
+    public async Task ListConfigurationAsync_ShouldReportAgentEnabledDefaultFalse()
+    {
+        using var fixture = new TempConfigurationFixture();
+        var service = fixture.CreateService();
+
+        var values = await service.ListConfigurationAsync(includeDefaults: true);
+
+        // Schema default must match the POCO default (AgentOptions.Enabled=false);
+        // a drift between the two is the "two source-of-truth defaults" anti-pattern.
+        Assert.Equal(false, values["agent.enabled"]);
     }
 
 

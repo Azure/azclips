@@ -14,11 +14,19 @@ public static class AgentEventStyle
 
     public static IReadOnlyList<Segment> Format(AgentEvent ev) => ev switch
     {
-        ToolStarted t => new[]
+        // Show args only for shell tools (the command is what matters). Other
+        // tools' args are internal — propose_plan's args are the entire plan JSON,
+        // which would dump the whole plan twice. Just name the tool.
+        ToolStarted t when ShowsResult(t.Name) => new[]
         {
             new Segment(AgentColorRole.Muted, "  ▶ "),
             new Segment(AgentColorRole.Default, t.Name, Bold: true),
             new Segment(AgentColorRole.Default, $"({t.ArgsJson})"),
+        },
+        ToolStarted t => new[]
+        {
+            new Segment(AgentColorRole.Muted, "  ▶ "),
+            new Segment(AgentColorRole.Default, t.Name, Bold: true),
         },
 
         ToolCompleted t when t.IsError => new[]
@@ -27,10 +35,19 @@ public static class AgentEventStyle
             new Segment(AgentColorRole.Muted, $"{t.Elapsed.TotalMilliseconds:F0}ms · "),
             new Segment(AgentColorRole.Default, SanitizeToolResult(t.FullResult)),
         },
-        ToolCompleted t => new[]
+        // Successful tool: only shell tools (bash/powershell) show their output —
+        // that's the command result the user wants. Query/plan tools (get_command,
+        // list_commands, find_*, propose_plan, …) are agent-internal scaffolding;
+        // in the inline console their raw result just floods the screen, so we
+        // show only the "✓ name · Nms" line. (A TUI would collapse these instead.)
+        ToolCompleted t when ShowsResult(t.Name) => new[]
         {
             new Segment(AgentColorRole.Muted, $"  ✓ {t.Name} {t.Elapsed.TotalMilliseconds:F0}ms · "),
             new Segment(AgentColorRole.Default, SanitizeToolResult(t.FullResult)),
+        },
+        ToolCompleted t => new[]
+        {
+            new Segment(AgentColorRole.Muted, $"  ✓ {t.Name} {t.Elapsed.TotalMilliseconds:F0}ms"),
         },
 
         ToolFailed t => new[]
@@ -117,7 +134,14 @@ public static class AgentEventStyle
     // this, piped stdout captures every frame and the renderer prints them all
     // in sequence: "\ Running .. | Running .. / Running .. (repeat N times)".
     //
-    // Strategy:
+    // Whether a successful tool's result should be printed inline. Only the shell
+    // tools produce output the user wants to read; everything else is internal
+    // scaffolding (get_command, find_*, propose_plan, …) whose result would just
+    // flood the console. internal for direct unit testing (ShowsResultTests).
+    internal static bool ShowsResult(string toolName) =>
+        string.Equals(toolName, "bash",       StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(toolName, "powershell", StringComparison.OrdinalIgnoreCase);
+
     //   1. Drop ANSI escape sequences.
     //   2. Drop \r-runs and \b-runs (they were meant to overwrite, not stack).
     //   3. Collapse consecutive identical lines (spinner frames repeat).

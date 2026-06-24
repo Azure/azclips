@@ -116,12 +116,12 @@ namespace Cirrus.Help.Tool
             sb.AppendLine("online version:");
             sb.AppendLine("---");
             sb.AppendLine();
-            sb.AppendLine($"Description: TODO \u2014 describe what the `azv2 {verb}` command group does.");
+            sb.AppendLine($"Description: TODO \u2014 describe what the `az {verb}` command group does.");
             sb.AppendLine();
             sb.AppendLine($"### Discover {verb} commands");
             sb.AppendLine();
             sb.AppendLine("```bash");
-            sb.AppendLine($"azv2 {verb} --help");
+            sb.AppendLine($"az {verb} --help");
             sb.AppendLine("```");
             return sb.ToString();
         }
@@ -130,18 +130,18 @@ namespace Cirrus.Help.Tool
         {
             var sb = new StringBuilder();
             sb.AppendLine("---");
-            sb.AppendLine($"summary: TODO — short summary of `azv2 {verb} {subKey}`.");
+            sb.AppendLine($"summary: TODO — short summary of `az {verb} {subKey}`.");
             sb.AppendLine("status: ga");
             sb.AppendLine("schema: 1.0.0");
             sb.AppendLine("online version:");
             sb.AppendLine("---");
             sb.AppendLine();
-            sb.AppendLine($"Description: TODO — describe what `azv2 {verb} {subKey}` does and when to use it.");
+            sb.AppendLine($"Description: TODO — describe what `az {verb} {subKey}` does and when to use it.");
             sb.AppendLine();
             sb.AppendLine($"### {subKey} a resource");
             sb.AppendLine();
             sb.AppendLine("```bash");
-            sb.Append($"azv2 {verb} {subKey}");
+            sb.Append($"az {verb} {subKey}");
 
             foreach (var (paramName, paramMeta) in metadata.Parameters
                 .Where(static kv => kv.Value.IsRequired)

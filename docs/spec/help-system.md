@@ -1,6 +1,6 @@
 # Design Spec: Help System
 
-Two parallel markdown corpora drive three surfaces: CLI help authored under `src/CLI/Help/Docs/<ext>/<command>.md` powers `azv2 --help` and a JSON catalog for external tooling; PowerShell help authored under `src/PS/<Module>/help/<Cmdlet>.md` is compiled to MAML XML by PlatyPS and served by `Get-Help`. Authoring guide: [docs/howto/help.md](../howto/help.md).
+Two parallel markdown corpora drive three surfaces: CLI help authored under `src/CLI/Help/Docs/<ext>/<command>.md` powers `az --help` and a JSON catalog for external tooling; PowerShell help authored under `src/PS/<Module>/help/<Cmdlet>.md` is compiled to MAML XML by PlatyPS and served by `Get-Help`. Authoring guide: [docs/howto/help.md](../howto/help.md).
 
 ---
 
@@ -9,7 +9,7 @@ Two parallel markdown corpora drive three surfaces: CLI help authored under `src
 | Goal                   | Rationale                                                                                                              |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | One file per command   | Each command/cmdlet has a single authoring source; runtime, MAML, and CI tooling consume it without duplication.       |
-| Tree-aware CLI help    | `azv2 --help`, `azv2 group --help`, `azv2 group create --help` each produce meaningfully different output.             |
+| Tree-aware CLI help    | `az --help`, `az group --help`, `az group create --help` each produce meaningfully different output.             |
 | Native PowerShell help | `Get-Help <Cmdlet> -Full` is served by standard MAML XML packaged with the module.                                     |
 | Cold-path safe         | CLI help renders without loading execution code or instantiating processors.                                           |
 | Authorable by humans   | Authors edit `.md` files next to the extension; no recompile to iterate on prose. Codegen may interject in the future. |
@@ -21,7 +21,7 @@ Two parallel markdown corpora drive three surfaces: CLI help authored under `src
 ## 2. Architecture at a Glance
 
 ```
-src/CLI/Help/Docs/<ext>/*.md    ◄── CLI corpus (azv2 --help)
+src/CLI/Help/Docs/<ext>/*.md    ◄── CLI corpus (az --help)
 src/PS/<Module>/help/*.md       ◄── PowerShell corpus (Get-Help, MAML via PlatyPS)
         │
         ├── runtime ──────────────────────────────────────────────
@@ -65,7 +65,7 @@ status: ga # ga | preview | deprecated | internal (default ga)
 schema: 1.0.0 # frontmatter schema version
 online version: # MSLearn URL (optional)
 relatedLinks:
-    - azv2 logout
+    - az logout
 ---
 
 Description: Multi-paragraph explanation in the body.
@@ -73,7 +73,7 @@ Description: Multi-paragraph explanation in the body.
 ### Login with subscription id (CLI)
 
 ```bash
-azv2 login --subscription-id 00000000-0000-0000-0000-000000000000
+az login --subscription-id 00000000-0000-0000-0000-000000000000
 ```
 
 ### Connect with subscription id (PowerShell)
@@ -113,7 +113,7 @@ Cold-path guarantees:
 - No processor instantiation.
 - One synchronous file read per invocation; no caching today.
 
-Tree shape mirrors azure-cli: `azv2 --help` lists groups, `azv2 group --help` lists subcommands, `azv2 group create --help` shows full command help. Global arguments (`--help`, `--debug`, `--output`) are owned by the CLI host and surface on every page.
+Tree shape mirrors azure-cli: `az --help` lists groups, `az group --help` lists subcommands, `az group create --help` shows full command help. Global arguments (`--help`, `--debug`, `--output`) are owned by the CLI host and surface on every page.
 
 The runtime supports a source-tree fallback for repo contributors: if the packaged file at `<AppContext.BaseDirectory>/help/<ext>/<key>.md` is **missing**, the provider walks up from `AppContext.BaseDirectory` looking for `cirrus.slnx` and reads the markdown straight from `src/CLI/Help/Docs/<ext>/`. The fallback only fires on absence — a stale copy in the build output will be served as-is, so the inner loop is still "edit `.md`, rebuild, see new help."
 
@@ -139,7 +139,7 @@ Result: `Get-Help <Cmdlet> -Full` works natively with no custom resolver. Exampl
 | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
 | `MarkdownStructureValidator`       | Frontmatter present + valid; `summary` and `schema` required; `status` (if set) is a valid enum value; body has description and at least one example; code fences balanced.                                                                                                                                                                               | Hard error.                               |
 | `HelpCompletenessValidator`        | Every routed CLI command in `ExtensionIndex` has a corresponding markdown file under `src/CLI/Help/Docs/<verb>/`; warns on orphan markdown files.                                                                                                                                                                                                         | Hard error on missing; warning on orphan. |
-| `ExampleSyntaxValidator`           | Every `azv2 …` line tokenizes; first token resolves to a known group; remaining non-flag tokens resolve via `IExtensionIndex.GetCommandTable(CLI)`; every `--flag`/`-x` exists on the resolved command (or is global); values type-check against `ParameterMetadata.Type` and `AllowedValues`.                                                            | Hard error.                               |
+| `ExampleSyntaxValidator`           | Every `az …` line tokenizes; first token resolves to a known group; remaining non-flag tokens resolve via `IExtensionIndex.GetCommandTable(CLI)`; every `--flag`/`-x` exists on the resolved command (or is global); values type-check against `ParameterMetadata.Type` and `AllowedValues`.                                                            | Hard error.                               |
 | `PowerShellExampleSyntaxValidator` | Every `Verb-Noun` resolves via the reflected cmdlet index; every `-Parameter` resolves to a declared parameter or alias; common parameters are whitelisted; splatted commands skip parameter checks (PSL1–PSL8). Detects `TODO -` (`PS_TodoPlaceholder`), `<angle-bracket>` shapes (`PS_ExamplePlaceholder`), and PlatyPS `{{ Fill … }}` markers (PSL12). | Hard error.                               |
 | `PsCompletenessValidator`          | Walks `src/PS/<Module>/<Module>.psd1`, parses `CmdletsToExport` via PowerShell AST, and verifies every exported cmdlet has a matching `help/<Verb-Noun>.md` (PSL9). Flags missing `help/` folders (PSL10, supersedes the per-cmdlet PSL9 cascade) and warns on orphaned help files (PSL11).                                                               | Hard error on missing; warning on orphan. |
 

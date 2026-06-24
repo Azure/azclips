@@ -161,7 +161,7 @@ In Cirrus, step 1 happens in `CirrusServiceProvider.Initialize()`, step 2 at the
 
 ```mermaid
 graph LR
-  subgraph Host["Host Process (azv2)"]
+  subgraph Host["Host Process (az)"]
     style Host fill:#161b22,stroke:#30363d,color:#e6edf3
     A["Core.Engine"] --> B["ExtensionLoader"]
     B --> C["AssemblyLoadContext"]
@@ -205,7 +205,7 @@ pipeline.Prepend(commandAuthHandler.SendAsync)  // Add auth header
 
 #### The Problem
 
-Users want to say `azv2 "create a resource group named test in eastus"` instead of memorizing `azv2 group create --Name test --Location eastus --SubscriptionId <guid>`. The AI agent bridges natural language to structured commands.
+Users want to say `az "create a resource group named test in eastus"` instead of memorizing `az group create --Name test --Location eastus --SubscriptionId <guid>`. The AI agent bridges natural language to structured commands.
 
 #### How It Works in Cirrus
 
@@ -426,7 +426,7 @@ sequenceDiagram
     participant Cmd as ICommand
     participant Azure as Azure ARM
 
-    User->>Program: azv2 group create --Name test
+    User->>Program: az group create --Name test
     Program->>ED: Parse(args)
     ED->>ED: args[0]="group" maps to "Resources"
     ED-->>Program: CLICommandInvocation
@@ -513,7 +513,7 @@ The AI agent (`src/Core/Core.Agent/CloudAgent.cs`) is configured via:
 
 | Tool | Version | Purpose |
 |------|---------|---------|
-| .NET SDK | 9.0.308 | Build & runtime |
+| .NET SDK | 10.0.203 | Build & runtime |
 | PowerShell | 7.0+ | PS module testing |
 | Docker | Latest | Dev container |
 | VS Code | Latest | IDE |
@@ -533,7 +533,7 @@ code .
 dotnet build -c Release cirrus.slnx
 
 # 4. Run the CLI
-./artifacts/Release/Core.Cli/azv2 --help
+./artifacts/Release/Core.Cli/az --help
 
 # 5. Run tests
 dotnet test tests/Cli.Tests/Cli.Tests.csproj
@@ -543,7 +543,7 @@ dotnet test tests/Cli.Tests/Cli.Tests.csproj
 
 ```bash
 # 1. Verify .NET SDK version matches global.json
-dotnet --info  # Should show 9.0.308
+dotnet --info  # Should show 10.0.203
 
 # 2. Build
 dotnet build cirrus.slnx
@@ -552,14 +552,14 @@ dotnet build cirrus.slnx
 export PATH="$PWD/artifacts/Debug/Core.Cli:$PATH"
 
 # 4. Test
-azv2 --help
+az --help
 ```
 
 #### Common Mistakes
 
 | Problem | Cause | Fix |
 |---------|-------|-----|
-| SDK not found | Wrong .NET version | Install SDK 9.0.308 |
+| SDK not found | Wrong .NET version | Install SDK 10.0.203 |
 | Extension not found | Build config mismatch | Rebuild with matching config |
 | MSAL error | Container browser issue | Set `BROWSER` env var |
 | AI not responding | Missing `.env` file | Create `src/Core/Core.Agent/.env` |
@@ -713,7 +713,7 @@ _index.Add("Storage", "Storage");
 ```bash
 dotnet sln cirrus.slnx add src/Extensions/Storage/Extensions.Storage.csproj
 dotnet build cirrus.slnx
-azv2 storage list --SubscriptionId <your-sub>
+az storage list --SubscriptionId <your-sub>
 ```
 
 ---
@@ -724,7 +724,7 @@ azv2 storage list --SubscriptionId <your-sub>
 
 | Term | Definition |
 |------|-----------|
-| **azv2** | The CLI binary produced by the Cirrus project |
+| **az** | The CLI binary produced by the Cirrus project |
 | **Extension** | A dynamically loaded DLL providing commands for a specific Azure service |
 | **Module** | An `IModule` implementation that returns a collection of commands |
 | **Command** | An `ICommand` implementation that performs a single operation |

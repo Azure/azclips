@@ -10,17 +10,17 @@ Description: Display all current configuration values. By default, only explicit
 ### List current configuration values
 
 ```bash
-azv2 config list
+az config list
 ```
 
 ### List all configuration including defaults
 
 ```bash
-azv2 config list --all
+az config list --all
 ```
 
 ### List configuration as JSON
 
 ```bash
-azv2 config list --json
+az config list --json
 ```

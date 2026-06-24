@@ -215,7 +215,7 @@ Migrate existing readers:
 
 ### 4) CLI Surface
 
-Add azv2 config group:
+Add az config group:
 
 - get <key>
 - set <key> <value> [--force]

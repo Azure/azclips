@@ -25,7 +25,7 @@
     <rescap:Capability Name="runFullTrust"/>
   </Capabilities>
   <Applications>
-    <Application Id="azv2" Executable="azv2.exe" EntryPoint="Windows.FullTrustApplication">
+    <Application Id="az" Executable="az.exe" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements DisplayName="Microsoft Azure CLI v2 (Cirrus)" Description="Azure CLI version 2 command-line interface for managing Azure resources"
                           BackgroundColor="transparent"
                           AppListEntry="none"
@@ -36,7 +36,7 @@
       <Extensions>
         <uap5:Extension Category="windows.appExecutionAlias">
           <uap5:AppExecutionAlias>
-            <uap5:ExecutionAlias Alias="azv2.exe"/>
+            <uap5:ExecutionAlias Alias="az.exe"/>
           </uap5:AppExecutionAlias>
         </uap5:Extension>
       </Extensions>

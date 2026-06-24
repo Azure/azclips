@@ -10,11 +10,11 @@ Description: Retrieve a list of all resource groups in the specified Azure subsc
 ### List all resource groups
 
 ```bash
-azv2 group list --subscription-id 00000000-0000-0000-0000-000000000000
+az group list --subscription-id 00000000-0000-0000-0000-000000000000
 ```
 
 ### List using default subscription
 
 ```bash
-azv2 group list
+az group list
 ```

@@ -301,14 +301,14 @@ class AppState
                 RunLoginAsync(command);
                 return;
             }
-            AddHistory(new HistoryEntry(HistoryItemType.User, $"{Prompt}azv2 {cliArgs}"));
+            AddHistory(new HistoryEntry(HistoryItemType.User, $"{Prompt}az {cliArgs}"));
             _ = _processService.RunCliAsync(cliArgs, OnProcessLine, OnProcessDone);
         }
     }
 
     private void RunLoginAsync(string command)
     {
-        AddHistory(new HistoryEntry(HistoryItemType.User, $"{Prompt}azv2 {command}"));
+        AddHistory(new HistoryEntry(HistoryItemType.User, $"{Prompt}az {command}"));
         _ = _processService.RunCliAsync(command, OnProcessLine, OnLoginDone);
     }
 

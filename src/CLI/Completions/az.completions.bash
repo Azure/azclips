@@ -1,9 +1,9 @@
-# azv2 Tab Completion for Bash
-# Usage: source <path-to>/azv2.completions.bash
+# az Tab Completion for Bash
+# Usage: source <path-to>/az.completions.bash
 # Or add to your ~/.bashrc to auto-load on every session.
 # Requires: jq
 
-_azv2_completions() {
+_az_completions() {
     local cur prev words cword
     _init_completion 2>/dev/null || {
         COMPREPLY=()
@@ -13,7 +13,7 @@ _azv2_completions() {
         cword=$COMP_CWORD
     }
 
-    local json_file="${BASH_SOURCE%/*}/azv2.completions.json"
+    local json_file="${BASH_SOURCE%/*}/az.completions.json"
     if [[ ! -f "$json_file" ]]; then
         return
     fi
@@ -72,6 +72,6 @@ _azv2_completions() {
     esac
 }
 
-complete -F _azv2_completions azv2
+complete -F _az_completions az
 
-echo "azv2 tab completion registered (bash)."
+echo "az tab completion registered (bash)."

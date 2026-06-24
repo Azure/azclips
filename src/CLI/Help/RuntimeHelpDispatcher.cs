@@ -22,8 +22,8 @@ namespace Core.Cli.Help;
 /// </para>
 /// <para>
 /// <see cref="RenderExtensionHelp"/> resolves verb ownership from discovered extension metadata;
-/// on a miss it consults <see cref="ExtensionHintTable.Default"/> so <c>azv2 vm --help</c>
-/// (when Compute is uninstalled) yields a precise "install it with: azv2 extension add --name Compute"
+/// on a miss it consults <see cref="ExtensionHintTable.Default"/> so <c>az vm --help</c>
+/// (when Compute is uninstalled) yields a precise "install it with: az extension add --name Compute"
 /// hint instead of a bare <see cref="KeyNotFoundException"/>.
 /// </para>
 /// </remarks>
@@ -69,7 +69,7 @@ public sealed class RuntimeHelpDispatcher
         _output = output;
     }
 
-    /// <summary>Renders the top-level <c>azv2</c> help: every verb root from every known package.</summary>
+    /// <summary>Renders the top-level <c>az</c> help (every registered extension's root groups).</summary>
     public int RenderRoot()
     {
         var rootGroups = EnumerateAllVerbRoots().ToArray();
@@ -96,7 +96,7 @@ public sealed class RuntimeHelpDispatcher
             throw new CirrusErrorException(
                 code: "VerbNotFound",
                 exitCode: 4,
-                message: $"No installed extension owns verb '{helpException.Verb}'. Run 'azv2 extension list' to see installed extensions.",
+                message: $"No installed extension owns verb '{helpException.Verb}'. Run 'az extension list' to see installed extensions.",
                 details: new Dictionary<string, object?> { ["verb"] = helpException.Verb });
         }
 
@@ -108,7 +108,7 @@ public sealed class RuntimeHelpDispatcher
         if (helpException.IsCommandHelp)
         {
             // The parser flags any path with extra tokens as a command-help request, but the
-            // user may have asked about an intermediate group (e.g. `azv2 deployment group --help`
+            // user may have asked about an intermediate group (e.g. `az deployment group --help`
             // when the only leaf is `deployment group create`). Try the command first; fall back
             // to group help so partial paths don't crash the renderer.
             var command = helpProvider.GetCommandHelp(helpException.Path);
@@ -125,7 +125,7 @@ public sealed class RuntimeHelpDispatcher
         }
         else
         {
-            // A verb root can also be a runnable command (e.g. "azv2 login" is both).
+            // A verb root can also be a runnable command (e.g. "az login" is both).
             var rootCommand = helpProvider.GetCommandHelp(helpException.Path);
             if (rootCommand != null)
             {

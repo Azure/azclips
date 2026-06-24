@@ -10,17 +10,17 @@ Description: Create, view, update, and delete resource groups. Resource groups a
 ### Create a resource group
 
 ```bash
-azv2 group create --name myresourcegroup --location eastus --subscription-id 00000000-0000-0000-0000-000000000000
+az group create --name myresourcegroup --location eastus --subscription-id 00000000-0000-0000-0000-000000000000
 ```
 
 ### List all resource groups
 
 ```bash
-azv2 group list --subscription-id 00000000-0000-0000-0000-000000000000
+az group list --subscription-id 00000000-0000-0000-0000-000000000000
 ```
 
 ### Show a specific resource group
 
 ```bash
-azv2 group show --name myresourcegroup --subscription-id 00000000-0000-0000-0000-000000000000
+az group show --name myresourcegroup --subscription-id 00000000-0000-0000-0000-000000000000
 ```

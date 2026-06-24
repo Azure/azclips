@@ -10,5 +10,5 @@ Description: Show the current Azure account context.
 ### Show current account context
 
 ```bash
-azv2 login show
+az login show
 ```

@@ -10,11 +10,11 @@ Description: Uninstall an extension from the Cirrus extension registry. The exte
 ### Remove by short name
 
 ```bash
-azv2 extension remove --name Compute
+az extension remove --name Compute
 ```
 
 ### Remove by package id
 
 ```bash
-azv2 extension remove --name Microsoft.Azure.Cirrus.Extensions.Compute
+az extension remove --name Microsoft.Azure.Cirrus.Extensions.Compute
 ```
