@@ -25,6 +25,7 @@ Help resolution in Cirrus is **discovery-first**:
 - **Runtime** (user): Cirrus discovers what's actually installed on the user's machine, resolves verb ownership from discovered extensions (not static hints), and routes help requests accordingly.
 
 This means:
+
 - Help is always in sync with what's installed — no stale verb→package mappings.
 - If a new extension is added to `~/.cirrus/extensions/`, its verbs appear in help immediately.
 - Unknown verbs suggest an install command via the embedded hint table (fallback only).
@@ -133,7 +134,7 @@ az vm create --name myvm --location eastus --resource-group myrg --subscription-
 | `status:`         | no       | `ga` (default), `preview`, `deprecated`, or `internal`. |
 | `schema:`         | yes      | Always `1.0.0`.                                         |
 | `online version:` | no       | MSLearn URL or empty.                                   |
-| `relatedLinks:`   | no       | Flat list of related `az ...` invocations.            |
+| `relatedLinks:`   | no       | Flat list of related `az ...` invocations.              |
 
 **Example fences must use `bash` or `sh`.** PowerShell fences are not consumed from CLI markdown — author those in `src/PS/<Module>/help/` instead.
 

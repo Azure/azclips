@@ -19,12 +19,12 @@ Cirrus produces three categories of build artifact:
 
 Two host surfaces consume the same extensions:
 
-| | CLI | PowerShell |
-|---|-----|------------|
-| **Entry point** | `az.exe` → `Program.cs` | `Import-Module` → `.psm1` → exported functions |
-| **Engine** | `CLIEngine` | `PSEngine` |
-| **Extension loading** | File-based, into isolated ALCs | Pre-loaded via manifest, into shared ALC |
-| **Output** | `Console.WriteLine` | `$PSCmdlet.WriteObject` via channel |
+|                       | CLI                            | PowerShell                                     |
+| --------------------- | ------------------------------ | ---------------------------------------------- |
+| **Entry point**       | `az.exe` → `Program.cs`        | `Import-Module` → `.psm1` → exported functions |
+| **Engine**            | `CLIEngine`                    | `PSEngine`                                     |
+| **Extension loading** | File-based, into isolated ALCs | Pre-loaded via manifest, into shared ALC       |
+| **Output**            | `Console.WriteLine`            | `$PSCmdlet.WriteObject` via channel            |
 
 ---
 
@@ -132,6 +132,7 @@ With this setup, discovery resolves to version `1.0.0` (pinned preference) even 
 ### 3.5 Discovery in Help & Dispatch
 
 **Help routing** uses discovery to resolve verb ownership. When a user runs `az vm --help`, the runtime:
+
 1. Runs a discovery pass to enumerate installed extensions
 2. Finds which extension's `Verbs` list includes `"vm"`
 3. Routes to that extension's help provider
