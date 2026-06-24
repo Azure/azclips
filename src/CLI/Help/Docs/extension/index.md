@@ -10,11 +10,11 @@ Description: Install, list, update, and remove extensions that extend Cirrus fun
 ### Install an extension from a feed
 
 ```bash
-azv2 extension add --name MyExtension --version 1.0.0 --feed-url https://packages.example.com/nuget
+az extension add --name MyExtension --version 1.0.0 --feed-url https://packages.example.com/nuget
 ```
 
 ### Install an extension from a local file
 
 ```bash
-azv2 extension add --path ./MyExtension.1.0.0.nupkg
+az extension add --path ./MyExtension.1.0.0.nupkg
 ```

@@ -266,7 +266,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Resources
             ["group show"]                = s_getResourceGroup_CLI,
             ["deployment group create"]   = s_newResourceGroupDeployment_CLI,
             ["deployment group what-if"]  = s_newResourceGroupDeploymentWhatIf_CLI,
-            // rest is a special command: the command group word itself is the verb (azv2 rest ...).
+            // rest is a special command: the command group word itself is the verb (az rest ...).
             ["rest"] = s_rest_CLI,
         };
         // ── Lookup ──

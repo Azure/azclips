@@ -98,7 +98,7 @@ public sealed class ChatAgent : IAsyncDisposable
         string flavor,
         IAuthService auth,
         IAuthContextService authContext,
-        string azv2ExePath,
+        string azExePath,
         ConsoleApprovalPrompt approvalSink,
         IAgentRenderer renderer,
         AgentOptions options,
@@ -119,7 +119,7 @@ public sealed class ChatAgent : IAsyncDisposable
         try
         {
             return await CreateCoreAsync(
-                client, flavor, auth, authContext, azv2ExePath, approvalSink,
+                client, flavor, auth, authContext, azExePath, approvalSink,
                 renderer, options, entrypoint, spinner, failedCommand, ct).ConfigureAwait(false);
         }
         catch
@@ -134,7 +134,7 @@ public sealed class ChatAgent : IAsyncDisposable
         string flavor,
         IAuthService auth,
         IAuthContextService authContext,
-        string azv2ExePath,
+        string azExePath,
         ConsoleApprovalPrompt approvalSink,
         IAgentRenderer renderer,
         AgentOptions options,
@@ -194,7 +194,7 @@ public sealed class ChatAgent : IAsyncDisposable
         var failedHelp = BuildFailedCommandContext(helpTools, failedCommand);
         var sessionConfig = BuildBaseSessionConfig(
             systemPrompt, cacheTools, helpTools, skuTools, submitTool, planTool, prober,
-            azv2ExePath, approvalSink, eventRenderer, state, failedHelp, ct);
+            azExePath, approvalSink, eventRenderer, state, failedHelp, ct);
 
         string resolvedModel;
         switch (options.Provider?.ToLowerInvariant())
@@ -231,7 +231,7 @@ public sealed class ChatAgent : IAsyncDisposable
         SubmitResponseTool submitTool,
         ProposePlanTool planTool,
         EnvironmentProber prober,
-        string azv2ExePath,
+        string azExePath,
         ConsoleApprovalPrompt approvalSink,
         EventRenderer eventRenderer,
         SessionState state,
@@ -253,7 +253,7 @@ public sealed class ChatAgent : IAsyncDisposable
             AvailableTools = null,
             Hooks = new SessionHooks
             {
-                OnPreToolUse = (input, _) => HandlePreToolUseAsync(input, azv2ExePath, approvalSink, state, ct),
+                OnPreToolUse = (input, _) => HandlePreToolUseAsync(input, azExePath, approvalSink, state, ct),
                 OnSessionStart = async (_, _) =>
                 {
                     var snap = await prober.ProbeAsync(ct).ConfigureAwait(false);
@@ -336,11 +336,11 @@ public sealed class ChatAgent : IAsyncDisposable
         No active Azure account was found.
 
         To fix this, run:
-            azv2 login --subscription-id <your-subscription-id>
+            az login --subscription-id <your-subscription-id>
 
         Alternative: switch to the 'github' provider (uses your own GitHub Copilot subscription,
         billed to your GitHub account):
-            azv2 config set --key agent.provider --value github
+            az config set --key agent.provider --value github
         """;
 
     private static string FormatProviderForError(string? provider)
@@ -381,11 +381,11 @@ public sealed class ChatAgent : IAsyncDisposable
 
     // The OnPreToolUse gate: validates/renders submit_response (the terminator)
     // and propose_plan (a mid-turn artifact), enforces the plan-before-execute gate
-    // on bash/powershell, and rewrites bare azv2 to the absolute exe path.
+    // on bash/powershell, and rewrites bare az to the absolute exe path.
     // internal (not private) so PlanGateTests can drive it with a real SessionState.
     internal static async Task<PreToolUseHookOutput?> HandlePreToolUseAsync(
         PreToolUseHookInput input,
-        string azv2ExePath,
+        string azExePath,
         ConsoleApprovalPrompt approvalSink,
         SessionState state,
         CancellationToken ct)
@@ -528,8 +528,8 @@ public sealed class ChatAgent : IAsyncDisposable
         }
 
         // Both built-in shell tools take a "command" arg and may contain a bare
-        // "azv2" that PowerShell would resolve via PATH. Rewrite to the absolute
-        // azv2.exe path so the agent always invokes the cirrus binary that
+        // "az" that PowerShell would resolve via PATH. Rewrite to the absolute
+        // az.exe path so the agent always invokes the cirrus binary that
         // launched it, regardless of what else is on PATH.
         if (!string.Equals(input.ToolName, "bash",       StringComparison.OrdinalIgnoreCase) &&
             !string.Equals(input.ToolName, "powershell", StringComparison.OrdinalIgnoreCase))
@@ -547,7 +547,7 @@ public sealed class ChatAgent : IAsyncDisposable
             };
         }
 
-        var rewritten = RewriteAzv2(command, azv2ExePath);
+        var rewritten = RewriteAz(command, azExePath);
         if (ReferenceEquals(rewritten, command))
             return null;
 
@@ -560,7 +560,7 @@ public sealed class ChatAgent : IAsyncDisposable
             return new PreToolUseHookOutput
             {
                 PermissionDecision = "deny",
-                PermissionDecisionReason = "User rejected the rewritten azv2 command.",
+                PermissionDecisionReason = "User rejected the rewritten az command.",
             };
         }
 
@@ -697,7 +697,7 @@ public sealed class ChatAgent : IAsyncDisposable
     // the command it was triggered by.
     //
     // Conservative by design — only fires when the failed input actually looks like
-    // an azv2 command invocation. Natural-language triggers ("create me a VM") or
+    // an az command invocation. Natural-language triggers ("create me a VM") or
     // odd input fall through to null (no injection), and the agent just uses its
     // tools as before — never worse than today.
     //
@@ -752,7 +752,7 @@ public sealed class ChatAgent : IAsyncDisposable
         }
     }
 
-    // Pulls the command verb out of a failed azv2 invocation: the leading run of
+    // Pulls the command verb out of a failed az invocation: the leading run of
     // command-name tokens (lowercase letters/digits/hyphens) up to the first flag.
     // Returns null when the input doesn't look like a command (natural language,
     // empty, starts with a flag) — the caller then skips pre-fetch entirely.
@@ -962,15 +962,15 @@ public sealed class ChatAgent : IAsyncDisposable
         return null;
     }
 
-    private static string RewriteAzv2(string command, string azv2ExePath)
+    private static string RewriteAz(string command, string azExePath)
     {
         var trimmed = command.TrimStart();
-        if (!trimmed.StartsWith("azv2 ", StringComparison.OrdinalIgnoreCase) &&
-            !trimmed.Equals("azv2", StringComparison.OrdinalIgnoreCase))
+        if (!trimmed.StartsWith("az ", StringComparison.OrdinalIgnoreCase) &&
+            !trimmed.Equals("az", StringComparison.OrdinalIgnoreCase))
             return command;
 
-        var rest = trimmed.Length > 4 ? trimmed[5..] : string.Empty;
-        var quoted = azv2ExePath.Contains(' ') ? $"\"{azv2ExePath}\"" : azv2ExePath;
+        var rest = trimmed.Length > 2 ? trimmed[3..] : string.Empty;
+        var quoted = azExePath.Contains(' ') ? $"\"{azExePath}\"" : azExePath;
         return string.IsNullOrEmpty(rest) ? quoted : $"{quoted} {rest}";
     }
 

@@ -12,5 +12,5 @@ Having a quick and reliable Continuous Integration (CI) system is essential for 
 
 - Refer to [README.md](../../README.md) for detailed build and test instructions.
 - E2E tests are to simply run the commands and check for successful completion.
-    - For CLI flavor, run `azv2 --help` and ensure it exits with code 0.
+    - For CLI flavor, run `az --help` and ensure it exits with code 0.
     - For PowerShell flavor, import the Login module and run `Get-Command -Module Login` to ensure commands are available.

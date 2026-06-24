@@ -80,8 +80,8 @@ namespace Cirrus.Help.Tool.Tests
                 "summary: x",
                 "schema: 1.0.0",
                 "relatedLinks:",
-                "  - azv2 logout",
-                "  - azv2 group list",
+                "  - az logout",
+                "  - az group list",
                 "---",
                 "",
                 "body");
@@ -89,8 +89,8 @@ namespace Cirrus.Help.Tool.Tests
             var (doc, _) = FrontmatterParser.Parse(content);
 
             Assert.Equal(2, doc.RelatedLinks.Count);
-            Assert.Equal("azv2 logout", doc.RelatedLinks[0]);
-            Assert.Equal("azv2 group list", doc.RelatedLinks[1]);
+            Assert.Equal("az logout", doc.RelatedLinks[0]);
+            Assert.Equal("az group list", doc.RelatedLinks[1]);
         }
 
         [Fact]

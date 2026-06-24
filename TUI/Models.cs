@@ -1,7 +1,7 @@
 namespace Core.Tui;
 
 /// <summary>
-/// Shell mode — Azure (azv2 CLI) or Local (system shell).
+/// Shell mode — Azure (az CLI) or Local (system shell).
 /// </summary>
 enum ShellMode { Azure, Local }
 

@@ -22,22 +22,22 @@ hero:
       link: /02-deep-dive/core-engine-orchestration
 
 features:
-  - icon: 🧩
+    - icon: 🧩
     title: Extension Architecture
     details: Dynamic extension loading from NuGet packages and local DLLs with assembly isolation and version management.
-  - icon: 🤖
+    - icon: 🤖
     title: AI-Powered Fallback
     details: Natural language command processing via Azure OpenAI with automatic fallback when structured parsing fails.
-  - icon: 🔧
+    - icon: 🔧
     title: Dual Interface
-    details: Both CLI (azv2) and PowerShell modules for Azure resource management with shared core libraries.
-  - icon: 🔐
+    details: Both CLI (az) and PowerShell modules for Azure resource management with shared core libraries.
+    - icon: 🔐
     title: MSAL Authentication
     details: Microsoft Authentication Library integration with persistent token caching and device code flow support.
-  - icon: 📊
+    - icon: 📊
     title: OpenTelemetry
     details: Full observability with Azure Monitor, Zipkin (dev), and local file export for distributed tracing.
-  - icon: 🏗️
+    - icon: 🏗️
     title: CI/CD Pipeline
     details: GitHub Actions with MSIX packaging, matrix extension builds, and PowerShell module validation.
 ---
@@ -45,7 +45,7 @@ features:
 ## Quick Navigation
 
 | Section | Description |
-|---------|-------------|
+| --- | --- |
 | [🚀 Principal-Level Guide](/onboarding-guide) | Dense architectural deep-dive for senior engineers |
 | [📚 Zero to Hero](/zero-to-hero-guide) | Progressive learning path from foundations to contributing |
 | [📖 Overview](/01-getting-started/overview) | Project architecture and key concepts |

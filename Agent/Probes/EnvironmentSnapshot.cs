@@ -45,7 +45,7 @@ public sealed record EnvironmentSnapshot(
             "<environment>\n" +
             "Runtime facts the harness probed at the start of this turn. Trust them; do not " +
             "ask the user for anything listed here. Refresh happens automatically each turn — " +
-            "after a state-changing command (e.g. `azv2 login`) the next turn's snapshot will " +
+            "after a state-changing command (e.g. `az login`) the next turn's snapshot will " +
             "reflect the new state.\n" +
             Format() + "\n" +
             "</environment>";

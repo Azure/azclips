@@ -19,22 +19,22 @@ jobs:
         Rid: linux-x64
         BuildProfile: lean
         DistributionArtifact: Distribution_Linux_Lean
-        CliTarPath: ${{ parameters.PackagingLinuxOutRoot }}/Release/tarball/azv2-lean-linux-x64-$(ArtifactVersion).tar.gz
+        CliTarPath: ${{ parameters.PackagingLinuxOutRoot }}/Release/tarball/az-lean-linux-x64-$(ArtifactVersion).tar.gz
       linux_arm64_lean:
         Rid: linux-arm64
         BuildProfile: lean
         DistributionArtifact: Distribution_Linux_Arm64_Lean
-        CliTarPath: ${{ parameters.PackagingLinuxOutRoot }}/Release/tarball/azv2-lean-linux-arm64-$(ArtifactVersion).tar.gz
+        CliTarPath: ${{ parameters.PackagingLinuxOutRoot }}/Release/tarball/az-lean-linux-arm64-$(ArtifactVersion).tar.gz
       linux_x64_full:
         Rid: linux-x64
         BuildProfile: full
         DistributionArtifact: Distribution_Linux_Full
-        CliTarPath: ${{ parameters.PackagingLinuxOutRoot }}/Release/tarball/azv2-linux-x64-$(ArtifactVersion).tar.gz
+        CliTarPath: ${{ parameters.PackagingLinuxOutRoot }}/Release/tarball/az-linux-x64-$(ArtifactVersion).tar.gz
       linux_arm64_full:
         Rid: linux-arm64
         BuildProfile: full
         DistributionArtifact: Distribution_Linux_Arm64_Full
-        CliTarPath: ${{ parameters.PackagingLinuxOutRoot }}/Release/tarball/azv2-linux-arm64-$(ArtifactVersion).tar.gz
+        CliTarPath: ${{ parameters.PackagingLinuxOutRoot }}/Release/tarball/az-linux-arm64-$(ArtifactVersion).tar.gz
   pool:
     vmImage: ${{ parameters.ubuntu_pool }}
   steps:

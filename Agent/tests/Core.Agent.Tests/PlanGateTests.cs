@@ -18,7 +18,7 @@ namespace Core.Agent.Tests;
 [Collection("Console")]
 public class PlanGateTests
 {
-    private const string Azv2 = "/fake/azv2";
+    private const string az = "/fake/az";
 
     private static JsonElement Args(object obj) => JsonSerializer.SerializeToElement(obj);
 
@@ -31,7 +31,7 @@ public class PlanGateTests
     private static object ValidPlan() => new
     {
         issues = new[] { "The resource group doesn't exist yet." },
-        steps = new[] { new { id = 1, label = "Create RG", cmd = "azv2 group create -n foo -l eastus" } },
+        steps = new[] { new { id = 1, label = "Create RG", cmd = "az group create -n foo -l eastus" } },
     };
 
     // Runs the hook with output suppressed. For branches that don't read stdin
@@ -43,7 +43,7 @@ public class PlanGateTests
         Console.SetOut(TextWriter.Null);
         try
         {
-            return await ChatAgent.HandlePreToolUseAsync(input, Azv2, approval, state, CancellationToken.None);
+            return await ChatAgent.HandlePreToolUseAsync(input, az, approval, state, CancellationToken.None);
         }
         finally
         {
@@ -63,7 +63,7 @@ public class PlanGateTests
         try
         {
             var hookTask = ChatAgent.HandlePreToolUseAsync(
-                Input("propose_plan", ValidPlan()), Azv2, approval, state, CancellationToken.None);
+                Input("propose_plan", ValidPlan()), az, approval, state, CancellationToken.None);
             // The hook posts the plan to the approval channel; pump it to read y/n.
             await approval.PumpOneAsync(CancellationToken.None);
             return await hookTask;
@@ -83,7 +83,7 @@ public class PlanGateTests
         var state = new SessionState { PlanApproved = false };
         var approval = new ConsoleApprovalPrompt();
 
-        var result = await RunHookAsync(Input(tool, new { command = "azv2 group list" }), state, approval);
+        var result = await RunHookAsync(Input(tool, new { command = "az group list" }), state, approval);
 
         Assert.NotNull(result);
         Assert.Equal("deny", result!.PermissionDecision);
@@ -95,8 +95,8 @@ public class PlanGateTests
     [InlineData("powershell")]
     public async Task Allows_shell_once_plan_approved(string tool)
     {
-        // Pre-approved gate: the rewrite branch only fires for a bare "azv2 ..."
-        // command, so a non-azv2 command passes straight through (returns null).
+        // Pre-approved gate: the rewrite branch only fires for a bare "az ..."
+        // command, so a non-az command passes straight through (returns null).
         var state = new SessionState { PlanApproved = true };
         var approval = new ConsoleApprovalPrompt();
 

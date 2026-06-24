@@ -10,11 +10,11 @@ Description: Provision a new resource group in your Azure subscription. Specify 
 ### Create a resource group in East US
 
 ```bash
-azv2 group create --name myresourcegroup --location eastus --subscription-id 00000000-0000-0000-0000-000000000000
+az group create --name myresourcegroup --location eastus --subscription-id 00000000-0000-0000-0000-000000000000
 ```
 
 ### Create a resource group in West US
 
 ```bash
-azv2 group create --name myrg --location westus --subscription-id 00000000-0000-0000-0000-000000000000
+az group create --name myrg --location westus --subscription-id 00000000-0000-0000-0000-000000000000
 ```

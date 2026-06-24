@@ -11,14 +11,14 @@ namespace Cirrus.Help.Tool.Validation
     /// <summary>
     /// Validates CLI examples in help markdown against the live <see cref="IExtensionIndex"/>:
     /// <list type="bullet">
-    ///   <item><description>Every <c>azv2 ...</c> line tokenizes to a routed command path.</description></item>
+    ///   <item><description>Every <c>az ...</c> line tokenizes to a routed command path.</description></item>
     ///   <item><description>Every <c>--flag</c> / <c>-x</c> token resolves to a declared parameter
     ///   (or to the global flag set: <c>--help</c>, <c>--debug</c>, <c>--output</c>, <c>-h</c>).</description></item>
     ///   <item><description>Every literal value following a known flag parses as the parameter's declared
     ///   <see cref="ParameterMetadata.ParameterType"/>, and (if specified) is a member of
     ///   <see cref="ParameterMetadata.AllowedValues"/>. Placeholders (<c>&lt;...&gt;</c>, <c>$var</c>) are skipped.</description></item>
     /// </list>
-    /// PowerShell examples and non-<c>azv2</c> shell lines are ignored.
+    /// PowerShell examples and non-<c>az</c> shell lines are ignored.
     /// </summary>
     public sealed class ExampleSyntaxValidator
     {
@@ -41,7 +41,7 @@ namespace Cirrus.Help.Tool.Validation
         /// </summary>
         /// <param name="repoRoot">Repository root (folder containing <c>src/</c>).</param>
         /// <param name="indexesByCliGroup">
-        /// Map of CLI group name (the first token after <c>azv2</c>, e.g. <c>group</c>, <c>login</c>) → its
+        /// Map of CLI group name (the first token after <c>az</c>, e.g. <c>group</c>, <c>login</c>) → its
         /// <see cref="IExtensionIndex"/>. Case-insensitive.
         /// </param>
         public ValidationReport Validate(string repoRoot, IReadOnlyDictionary<string, IExtensionIndex> indexesByCliGroup)
@@ -97,8 +97,8 @@ namespace Cirrus.Help.Tool.Validation
                 {
                     var line = lines[i].TrimEnd('\r').Trim();
 
-                    // Skip blank lines, comments, and any non-azv2 lines (prompts, output samples, etc.).
-                    if (line.Length == 0 || line.StartsWith('#') || !line.StartsWith("azv2", StringComparison.Ordinal))
+                    // Skip blank lines, comments, and any non-az lines (prompts, output samples, etc.).
+                    if (line.Length == 0 || line.StartsWith('#') || !line.StartsWith("az", StringComparison.Ordinal))
                     {
                         continue;
                     }
@@ -117,10 +117,10 @@ namespace Cirrus.Help.Tool.Validation
         {
             var tokens = Tokenize(line);
 
-            // Expect: azv2 <group> [subcommand...] [--flag value]...
-            if (tokens.Count < 2 || !string.Equals(tokens[0], "azv2", StringComparison.Ordinal))
+            // Expect: az <group> [subcommand...] [--flag value]...
+            if (tokens.Count < 2 || !string.Equals(tokens[0], "az", StringComparison.Ordinal))
             {
-                return; // not an azv2 invocation
+                return; // not an az invocation
             }
 
             var groupName = tokens[1];
@@ -177,15 +177,15 @@ namespace Cirrus.Help.Tool.Validation
                 var attempted = commandTokens.Count == 0 ? "<root>" : string.Join(' ', commandTokens);
                 report.AddError(
                     ProblemIds.CLI_L1_UnknownCommand,
-                    $"Unknown command path 'azv2 {groupName} {attempted}'. No matching command in the '{groupName}' extension.",
+                    $"Unknown command path 'az {groupName} {attempted}'. No matching command in the '{groupName}' extension.",
                     locator);
                 return;
             }
 
-            // Routed user-facing command path (e.g. "azv2 login" or "azv2 group create").
+            // Routed user-facing command path (e.g. "az login" or "az group create").
             var routedPath = string.IsNullOrEmpty(matchedSubKey)
-                ? $"azv2 {groupName}"
-                : $"azv2 {groupName} {matchedSubKey}";
+                ? $"az {groupName}"
+                : $"az {groupName} {matchedSubKey}";
 
             ValidateFlags(tokens, consumed, command, routedPath, locator, report);
         }

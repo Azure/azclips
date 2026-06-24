@@ -22,8 +22,8 @@ public class ExtractPlanStepsTests
             planMd = "plan",
             steps = new[]
             {
-                new { id = 1, label = "Create RG", cmd = "azv2 group create -n foo" },
-                new { id = 2, label = "Retry",     cmd = "azv2 vm create -n bar" },
+                new { id = 1, label = "Create RG", cmd = "az group create -n foo" },
+                new { id = 2, label = "Retry",     cmd = "az vm create -n bar" },
             },
         });
 
@@ -33,7 +33,7 @@ public class ExtractPlanStepsTests
         Assert.Equal(2, steps!.Count);
         Assert.Equal(1, steps[0].Id);
         Assert.Equal("Create RG", steps[0].Label);
-        Assert.Equal("azv2 group create -n foo", steps[0].Cmd);
+        Assert.Equal("az group create -n foo", steps[0].Cmd);
         Assert.Equal(2, steps[1].Id);
     }
 
@@ -45,8 +45,8 @@ public class ExtractPlanStepsTests
             planMd = "plan",
             steps = new[]
             {
-                new { label = "First", cmd = "azv2 a" },
-                new { label = "Second", cmd = "azv2 b" },
+                new { label = "First", cmd = "az a" },
+                new { label = "Second", cmd = "az b" },
             },
         });
 
@@ -67,8 +67,8 @@ public class ExtractPlanStepsTests
             planMd = "plan",
             steps = new[]
             {
-                new { id = "1", label = "First", cmd = "azv2 a" },
-                new { id = "two", label = "Second", cmd = "azv2 b" },
+                new { id = "1", label = "First", cmd = "az a" },
+                new { id = "two", label = "Second", cmd = "az b" },
             },
         });
 
@@ -88,7 +88,7 @@ public class ExtractPlanStepsTests
             planMd = "plan",
             steps = new[]
             {
-                new { id = 1, label = "Tag it", cmd = "azv2 group update -n foo", destructive = true },
+                new { id = 1, label = "Tag it", cmd = "az group update -n foo", destructive = true },
             },
         });
 
@@ -108,7 +108,7 @@ public class ExtractPlanStepsTests
             planMd = "plan",
             steps = new[]
             {
-                new { id = 1, label = "Remove RG", cmd = "azv2 group delete -n foo --yes" },
+                new { id = 1, label = "Remove RG", cmd = "az group delete -n foo --yes" },
             },
         });
 
@@ -126,7 +126,7 @@ public class ExtractPlanStepsTests
             planMd = "plan",
             steps = new[]
             {
-                new { id = 1, label = "List groups", cmd = "azv2 group list" },
+                new { id = 1, label = "List groups", cmd = "az group list" },
             },
         });
 
@@ -146,12 +146,12 @@ public class ExtractPlanStepsTests
         var stringArgs = Args(new
         {
             planMd = "plan",
-            steps = new[] { new { id = 1, label = "Tag it", cmd = "azv2 group update -n foo", destructive = "true" } },
+            steps = new[] { new { id = 1, label = "Tag it", cmd = "az group update -n foo", destructive = "true" } },
         });
         var numberArgs = Args(new
         {
             planMd = "plan",
-            steps = new[] { new { id = 1, label = "Tag it", cmd = "azv2 group update -n foo", destructive = 1 } },
+            steps = new[] { new { id = 1, label = "Tag it", cmd = "az group update -n foo", destructive = 1 } },
         });
 
         Assert.False(ChatAgent.ExtractPlanSteps(stringArgs)![0].Destructive);

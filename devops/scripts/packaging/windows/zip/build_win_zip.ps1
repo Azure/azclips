@@ -27,10 +27,10 @@ if ([string]::IsNullOrWhiteSpace($packageProfile)) {
 $packageProfile = $packageProfile.ToLowerInvariant()
 
 if ($packageProfile -eq 'full') {
-    $artifactPrefix = 'azv2'
+    $artifactPrefix = 'az'
 }
 elseif ($packageProfile -eq 'lean') {
-    $artifactPrefix = 'azv2-lean'
+    $artifactPrefix = 'az-lean'
 }
 else {
     throw "Unsupported PACKAGE_PROFILE '$packageProfile'. Expected 'lean' or 'full'."
