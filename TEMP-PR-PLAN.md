@@ -213,16 +213,71 @@ All four documentation sections updated to reflect discovery-first model:
 
 ## 7. Deferred Discussion Items
 
-1. **Root cause of stale hint table mismatch (§3.4):** Investigate how `rest -> Resources` got into the hint table and was not caught. Understand whether the build-time validation (`ExtensionHints.targets`) is sufficient or needs strengthening, and whether the hint table generation process needs to be tied more tightly to the actual installed registry.
-2. **Registry as non-authoritative install state (§4.5.4):** The team direction is that `registry.json` should not be the authoritative source of installed state — runtime discovery should determine what is installed. Discuss the implications for the install/remove lifecycle, startup time, and how to handle edge cases where discovery and any persisted state diverge.
-3. **Bundled install delivery and out-of-box CNF errors:** The project has an install/delivery philosophy where extensions may be shipped as part of install bundles rather than added explicitly via `extension add`. Under the current registry-first model, extensions dropped into the install directory without a registry entry are invisible to the dispatcher, producing CNF errors out of the box. Once this plan is implemented and DiscoverySession walks the disk to determine installed state, this issue goes away — any extension present in the install directory is automatically discoverable regardless of how it arrived. This is a strong additional motivation for the runtime discovery direction.
+1. **Root cause of stale hint table mismatch (§3.4) ✅ DONE:** Runtime risk is resolved by discovery-first help/dispatch (hint table is fallback-only). Historical forensic analysis of exactly how `rest -> Resources` drift occurred is optional follow-up and not required for runtime correctness.
+2. **Registry as non-authoritative install state (§4.5.4) ✅ DONE:** Runtime behavior now matches the target model — discovery determines installed state, while `registry.json` stores preferences only. Additional conceptual discussion (startup/perf trade-offs, lifecycle edge-case policy, divergence handling guidelines) is optional follow-up and not required for current runtime correctness.
+3. **Release/install-path verification (merged 7.3 + 7.5):** Validate extension lookup behavior in non-local-dev layouts. Confirm that runtime checks install-root `Extensions/` first for bundled extensions, then falls back to user profile installs under `~/.cirrus/extensions`, and that discovery/help/dispatch are consistent when running from a real install bundle (not repo-local debug output). This consolidates the prior conceptual notes around bundled delivery behavior and install location validation.
 4. **Audit and remove "stale extension" functionality:** Under the discovery-first model, stale extensions (registry entries with missing on-disk payloads) are no longer a user-facing concept — missing extensions simply don't appear in the discovery output. Post-PR, audit the codebase for references to "stale", `live`/`stale` array handling in registry reconcilers and JSON output, and registry validation logic that checks for missing payloads. Most of this code is now dead weight and should be removed or simplified for clarity.
-5. **Check Naga install locations** Manually added by Daniel. Verify install locations of a real build and if DiscoverySession via extension API picks them up.
 
 ## 8. Adjustments
 
-1. **`extension remove` strict success semantics (2026-06-24):**
+1. **`extension remove` strict success semantics (2026-06-24) ✅ DONE:**
     - Issue observed: `az extension remove --name <X>` returned success and cleared `registry.json`, but `<InstallRoot>/<PackageId>/` remained on disk; discovery still listed the extension as live.
     - Root cause: `RemoveExtensionProcessor` swallowed `Directory.Delete` failures and always returned `Removed = true`.
-    - Adjustment: `remove` now enforces payload deletion before reporting success. If delete fails or the directory still exists after delete, the command throws a structured error (`ExtensionRemoveFailed`, exit code 1).
-    - Expected postcondition: on success, extension payload is absent from disk and no longer appears in discovery-backed `extension list`.
+    - ✅ Adjustment implemented: `remove` now enforces payload deletion before reporting success. If delete fails or the directory still exists after delete, the command throws a structured error (`ExtensionRemoveFailed`, exit code 1).
+    - ✅ Expected postcondition met: on success, extension payload is absent from disk and no longer appears in discovery-backed `extension list`.
+    - ✅ Validated locally: install via local artifact, help/verb routing appears, remove succeeds, extension directory removed, and `registry.json` returns to empty preferences.
+
+## 9. Regression and Release Testing
+
+Goal: verify runtime discovery behavior from real build artifacts and installed layouts, not only local dev execution.
+
+### 9.1 Scope
+
+1. Validate built-in extension lookup roots for Debug and Release host layouts.
+2. Validate user-installed extension lookup path and versioned install semantics.
+3. Validate help and dispatch behavior in artifact-based runs (no dependency on repo-local assumptions).
+
+### 9.2 Expected lookup locations (defaults)
+
+1. Built-ins (Debug host):
+    - AppContext.BaseDirectory/..
+    - AppContext.BaseDirectory/../..
+    - AppContext.BaseDirectory/../../Debug
+    - AppContext.BaseDirectory/../../Release
+2. Built-ins (Release/installed host):
+    - AppContext.BaseDirectory/Extensions
+    - AppContext.BaseDirectory/..
+    - AppContext.BaseDirectory/../../Debug
+    - AppContext.BaseDirectory/../../Release
+3. User-installed/versioned extensions (all modes):
+    - ~/.cirrus/extensions
+
+### 9.2.1 Expected lookup order policy (installer scenario)
+
+1. Check install-root `Extensions/` first (bundled/full installer payload).
+2. If not found, check `~/.cirrus/extensions` for user-installed/versioned payloads.
+3. If still not found, return CNF/install guidance for private preview manual install.
+4. Future public-preview direction: optional dynamic install trigger instead of manual-only guidance.
+
+### 9.3 Test matrix
+
+1. Repo-local debug execution (sanity baseline).
+2. Artifact execution from artifacts/Debug/Core.Cli.
+3. Artifact execution from artifacts/Release/Core.Cli.
+4. Installed/bundled execution in a clean test location outside the repo tree.
+
+### 9.4 Verification checklist
+
+1. Run root help and verify built-in verbs are present.
+2. Run extension list/show and confirm only actual discovered installs appear.
+3. Install a user extension and confirm payload path under ~/.cirrus/extensions/<PackageId>/<Version>/.
+4. Verify command routing and help for installed extension verbs at root/group/command levels.
+5. Remove extension and verify disk deletion plus immediate disappearance from discovery-backed list/help.
+6. Negative check: unknown verb should return CNF guidance via hint fallback only when no installed owner exists.
+
+### 9.5 Suggested evidence to capture
+
+1. Command transcript for each matrix row.
+2. Directory snapshots before/after add/remove.
+3. extension list/show outputs before/after mutation.
+4. Any path-dependent discrepancies between debug and release hosts.
