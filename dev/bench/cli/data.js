@@ -1,6 +1,6 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782270871973,
-  "repoUrl": "https://github.com/Azure/cirrus",
+  "lastUpdate": 1782303089807,
+  "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Cirrus CLI Benchmarks": [
       {
@@ -1470,6 +1470,48 @@ window.BENCHMARK_DATA = {
             "value": 908110.0238095238,
             "unit": "ns",
             "range": "± 263840.0404651693"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "110961157+NoriZC@users.noreply.github.com",
+            "name": "NoriZC",
+            "username": "NoriZC"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "22f32b17625933459bfffb8c63ff86e75d59a29f",
+          "message": "Add source files (#315)",
+          "timestamp": "2026-06-24T22:09:36+10:00",
+          "tree_id": "2d5d60679fcacc1e301f3d141f4755d650fd09c3",
+          "url": "https://github.com/Azure/azclips/commit/22f32b17625933459bfffb8c63ff86e75d59a29f"
+        },
+        "date": 1782303089229,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 954541.1256754053,
+            "unit": "ns",
+            "range": "± 277658.3199035541"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 931054.0089044522,
+            "unit": "ns",
+            "range": "± 284360.44036941126"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 919918.3864705294,
+            "unit": "ns",
+            "range": "± 271502.74461024575"
           }
         ]
       }
