@@ -131,14 +131,15 @@ public class ExtensionHelpManifestBuilderTests
     {
         private static readonly CommandMetadata s_stubCommand = new(
             Name: "StubCommand",
+            InvocationName: "stub",
             Aliases: [],
             FullName: "Stub.StubCommand",
             AssemblyName: "Stub",
             ProcessorType: typeof(StubExtensionIndex),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
-                ["no-desc"] = new("NoDesc", typeof(string), string.Empty, IsRequired: false, Aliases: [], AllowedValues: []),
-                ["with-desc"] = new("WithDesc", typeof(string), "A described parameter.", IsRequired: true, Aliases: ["wd"], AllowedValues: []),
+                ["no-desc"] = new("NoDesc", "no-desc", typeof(string), string.Empty, IsRequired: false, Aliases: [], AllowedValues: []),
+                ["with-desc"] = new("WithDesc", "with-desc", typeof(string), "A described parameter.", IsRequired: true, Aliases: ["wd"], AllowedValues: []),
             },
             ParameterAliases: new Dictionary<string, string>());
 

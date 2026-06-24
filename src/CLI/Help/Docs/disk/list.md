@@ -10,11 +10,11 @@ Description: Return all managed disks that live in the specified resource group,
 ### List disks in a resource group
 
 ```bash
-azv2 disk list --resource-group myrg34 --subscription-id 00000000-0000-0000-0000-000000000000
+az disk list --resource-group myrg34 --subscription-id 00000000-0000-0000-0000-000000000000
 ```
 
 ### List using shell variables
 
 ```bash
-azv2 disk list --resource-group $rg --subscription-id $subId
+az disk list --resource-group $rg --subscription-id $subId
 ```

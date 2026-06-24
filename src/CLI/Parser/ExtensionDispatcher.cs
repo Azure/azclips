@@ -8,7 +8,7 @@ namespace Core.Cli.Parser;
 public class ExtensionDispatcher //: IParser
 {
     // Flag forms only. Literal `help` is excluded so it isn't mistaken for a positional
-    // value; the `azv2 help <group>` subcommand form is matched explicitly via args[0].
+    // value; the `az help <group>` subcommand form is matched explicitly via args[0].
     private static readonly string[] s_helpFlags = ["--help", "-h", "-?", "?"];
 
     private readonly record struct HelpRequest(string Verb, IReadOnlyList<string> Path, bool IsCommandHelp);
@@ -42,18 +42,9 @@ public class ExtensionDispatcher //: IParser
 
     private ExtensionDispatcher(FileExtensionRegistryStore store)
         : this(
-            new ExtensionResolver(new ReconcilingStore(store)),
+            new ExtensionResolver(new ReconcilingRegistryStore(store)),
             () => LeafIndex.Build(BuiltInExtensions.Map, store.LoadReconciled()))
     {
-    }
-
-    /// <summary>Reconciled view of <see cref="FileExtensionRegistryStore"/> exposed through the <see cref="IExtensionRegistryStore"/> contract.</summary>
-    private sealed class ReconcilingStore : IExtensionRegistryStore
-    {
-        private readonly FileExtensionRegistryStore _inner;
-        public ReconcilingStore(FileExtensionRegistryStore inner) => _inner = inner;
-        public ExtensionRegistry Load() => _inner.LoadReconciled();
-        public void Save(ExtensionRegistry registry) => _inner.Save(registry);
     }
 
     public ExtensionDispatcher(IExtensionResolver resolver)
@@ -73,7 +64,7 @@ public class ExtensionDispatcher //: IParser
         if (args.Length == 0) throw new ArgumentException("Arguments cannot be empty.", nameof(args));
         if (string.IsNullOrWhiteSpace(args[0])) throw new ArgumentException("Command-group token cannot be empty or whitespace.", nameof(args));
 
-        // Bare top-level help: `azv2 --help`, `azv2 -h`, `azv2 help`, etc.
+        // Bare top-level help: `az --help`, `az -h`, `az help`, etc.
         if (IsBareTopLevelHelp(args))
         {
             throw new DispatchHelpException(this);
@@ -122,7 +113,7 @@ public class ExtensionDispatcher //: IParser
 
                 // Generic miss → OrchestratorEngine hands off to AI fallback.
                 throw new KeyNotFoundException(
-                    $"Command group '{verb}' not found. Run 'azv2 extension list' to see installed extensions.");
+                    $"Command group '{verb}' not found. Run 'az extension list' to see installed extensions.");
             }
         }
 
@@ -174,8 +165,8 @@ public class ExtensionDispatcher //: IParser
         request = default;
 
         // Two recognized shapes:
-        //   1. `azv2 help <group> [...]`        — strip args[0]
-        //   2. `azv2 <group> [...] --help [...]` — strip the help flag in place
+        //   1. `az help <group> [...]`        — strip args[0]
+        //   2. `az <group> [...] --help [...]` — strip the help flag in place
         string[] targetTokens;
         if (IsHelpSubcommand(args[0]))
         {

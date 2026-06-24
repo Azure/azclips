@@ -2,7 +2,7 @@
 
 ## Overview
 
-Cirrus ships as both a standalone CLI (`azv2`) and a set of PowerShell modules. Both surfaces share the same extension assemblies and core engine, but differ in how they build, package, load extensions, and manage assembly isolation.
+Cirrus ships as both a standalone CLI (`az`) and a set of PowerShell modules. Both surfaces share the same extension assemblies and core engine, but differ in how they build, package, load extensions, and manage assembly isolation.
 
 > Items marked **[Proposal]** describe planned changes not yet implemented on `main`.
 > Items marked **[CLI]** or **[PS]** are specific to that surface.
@@ -13,18 +13,18 @@ Cirrus ships as both a standalone CLI (`azv2`) and a set of PowerShell modules. 
 
 Cirrus produces three categories of build artifact:
 
-- **Core CLI** (`azv2.exe`) — Self-contained host process bundling the engines, AI agent, DI container, and auth
+- **Core CLI** (`az.exe`) — Self-contained host process bundling the engines, AI agent, DI container, and auth
 - **Extensions** (`.nupkg` / DLL) — Dynamically loaded at runtime, carrying their own dependencies
 - **PowerShell Modules** (`.psd1` / `.psm1`) — Script-based wrappers that drive the same .NET engine and extensions
 
 Two host surfaces consume the same extensions:
 
-|                       | CLI                            | PowerShell                                     |
-| --------------------- | ------------------------------ | ---------------------------------------------- |
-| **Entry point**       | `azv2.exe` → `Program.cs`      | `Import-Module` → `.psm1` → exported functions |
-| **Engine**            | `CLIEngine`                    | `PSEngine`                                     |
-| **Extension loading** | File-based, into isolated ALCs | Pre-loaded via manifest, into shared ALC       |
-| **Output**            | `Console.WriteLine`            | `$PSCmdlet.WriteObject` via channel            |
+| | CLI | PowerShell |
+|---|-----|------------|
+| **Entry point** | `az.exe` → `Program.cs` | `Import-Module` → `.psm1` → exported functions |
+| **Engine** | `CLIEngine` | `PSEngine` |
+| **Extension loading** | File-based, into isolated ALCs | Pre-loaded via manifest, into shared ALC |
+| **Output** | `Console.WriteLine` | `$PSCmdlet.WriteObject` via channel |
 
 ---
 
@@ -55,7 +55,7 @@ All outputs land in `artifacts/{Configuration}/{ExtName}/` controlled by `Shared
 ### 2.3 How Extensions Are Packaged
 
 - **Builtin** — shipped alongside the CLI host in an `Extensions/` subdirectory
-- **User-installed** — downloaded as NuGet packages via `azv2 extension add`, placed in `~/.cirrus/extensions/<PackageId>/<Version>/`; latest semantic version is selected automatically
+- **User-installed** — downloaded as NuGet packages via `az extension add`, placed in `~/.cirrus/extensions/<PackageId>/<Version>/`; latest semantic version is selected automatically
 
 ---
 
@@ -194,7 +194,7 @@ PowerShell modules load all assemblies into the host's default ALC via `Required
 
 ```
 publish/win-x64/
-  azv2.exe                         ← Self-contained host
+  az.exe                         ← Self-contained host
   Core.*.dll                       ← Core framework (host ALC)
   prompt.md                        ← AI agent system prompt
   Extensions/                      ← Builtin extensions (each in own ALC)

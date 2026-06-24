@@ -21,7 +21,7 @@ namespace Cirrus.Help.Tool.Tests
             "",
             "### Example title (CLI)",
             "```bash",
-            "azv2 login --subscription-id 00000000-0000-0000-0000-000000000000",
+            "az login --subscription-id 00000000-0000-0000-0000-000000000000",
             "```",
             "");
 
@@ -43,7 +43,7 @@ namespace Cirrus.Help.Tool.Tests
                 "",
                 "### t (CLI)",
                 "```bash",
-                "azv2 x",
+                "az x",
                 "```",
                 "");
 
@@ -64,7 +64,7 @@ namespace Cirrus.Help.Tool.Tests
                 "",
                 "### t (CLI)",
                 "```bash",
-                "azv2 x",
+                "az x",
                 "```",
                 "");
 
@@ -85,7 +85,7 @@ namespace Cirrus.Help.Tool.Tests
                 "",
                 "### t (CLI)",
                 "```bash",
-                "azv2 x",
+                "az x",
                 "```",
                 "");
 
@@ -108,7 +108,7 @@ namespace Cirrus.Help.Tool.Tests
                 "",
                 "### t (CLI)",
                 "```bash",
-                "azv2 x",
+                "az x",
                 "```",
                 "");
 
@@ -131,7 +131,7 @@ namespace Cirrus.Help.Tool.Tests
                 "",
                 "### t (CLI)",
                 "```bash",
-                "azv2 x",
+                "az x",
                 "```",
                 "");
 
@@ -151,7 +151,7 @@ namespace Cirrus.Help.Tool.Tests
                 "",
                 "### t (CLI)",
                 "```bash",
-                "azv2 x",
+                "az x",
                 "```",
                 "");
 
@@ -219,7 +219,7 @@ namespace Cirrus.Help.Tool.Tests
                 "",
                 "### CLI example",
                 "```bash",
-                "azv2 x",
+                "az x",
                 "```",
                 "",
                 "### PS example",
@@ -247,7 +247,7 @@ namespace Cirrus.Help.Tool.Tests
                 "",
                 "### Example",
                 "```",
-                "azv2 x",
+                "az x",
                 "```",
                 "");
 
@@ -269,7 +269,7 @@ namespace Cirrus.Help.Tool.Tests
                 "",
                 "### Example (CLI)",
                 "```bash",
-                "azv2 x",
+                "az x",
                 // missing closing fence
                 "");
 
@@ -341,7 +341,7 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void ValidateContent_ShouldErrorTodo_WhenSummaryContainsTodoMarker()
         {
-            // Scaffolder seeds `summary: TODO \u2014 short summary of \`azv2 vm list\`.`
+            // Scaffolder seeds `summary: TODO \u2014 short summary of \`az vm list\`.`
             var content = string.Join("\n",
                 "---",
                 "summary: TODO \u2014 short summary.",
@@ -352,7 +352,7 @@ namespace Cirrus.Help.Tool.Tests
                 "",
                 "### List",
                 "```bash",
-                "azv2 vm list --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000",
+                "az vm list --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000",
                 "```",
                 "");
 
@@ -376,7 +376,7 @@ namespace Cirrus.Help.Tool.Tests
                 "",
                 "### List",
                 "```bash",
-                "azv2 vm list --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000",
+                "az vm list --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000",
                 "```",
                 "");
 
@@ -402,7 +402,7 @@ namespace Cirrus.Help.Tool.Tests
                 "### List",
                 "```bash",
                 "# TODO replace with real value",
-                "azv2 vm list --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000",
+                "az vm list --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000",
                 "```",
                 "");
 
@@ -437,7 +437,7 @@ namespace Cirrus.Help.Tool.Tests
                 "",
                 "### List",
                 "```bash",
-                "azv2 vm list --resource-group <string> --subscription-id <string>",
+                "az vm list --resource-group <string> --subscription-id <string>",
                 "```",
                 "");
 
@@ -466,7 +466,7 @@ namespace Cirrus.Help.Tool.Tests
                 "",
                 "### Show",
                 "```bash",
-                "azv2 group show --name <my-rg> --subscription-id <subscription-id>",
+                "az group show --name <my-rg> --subscription-id <subscription-id>",
                 "```",
                 "");
 
@@ -494,8 +494,8 @@ namespace Cirrus.Help.Tool.Tests
                 "### Create",
                 "```bash",
                 "rg=myrg",
-                "azv2 group create --name $rg --location eastus --subscription-id 00000000-0000-0000-0000-000000000000",
-                "azv2 group create --name ${RG_VAR} --location $env:LOCATION --subscription-id 00000000-0000-0000-0000-000000000000",
+                "az group create --name $rg --location eastus --subscription-id 00000000-0000-0000-0000-000000000000",
+                "az group create --name ${RG_VAR} --location $env:LOCATION --subscription-id 00000000-0000-0000-0000-000000000000",
                 "```",
                 "");
 
@@ -519,7 +519,7 @@ namespace Cirrus.Help.Tool.Tests
                 "",
                 "### List",
                 "```bash",
-                "azv2 vm list --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000",
+                "az vm list --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000",
                 "```",
                 "");
 
@@ -549,7 +549,7 @@ namespace Cirrus.Help.Tool.Tests
                 "",
                 "### From bash",
                 "```bash",
-                "azv2 vm list --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000",
+                "az vm list --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000",
                 "```",
                 "");
 

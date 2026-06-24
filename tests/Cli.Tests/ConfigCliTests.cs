@@ -41,7 +41,7 @@ public class ConfigCliTests
             new Dictionary<string, object> { ["all"] = new List<List<string>> { new() } },
             new Dictionary<string, ParameterMetadata>
             {
-                ["all"] = new("All", typeof(bool), "Include defaults.", false, [], [])
+                ["all"] = new("All", "all", typeof(bool), "Include defaults.", false, [], [])
             },
             parameterAliases: null);
 
@@ -140,6 +140,127 @@ public class ConfigCliTests
             // Get value with environment override
             var envOutput = fixture.ExecuteCli(["config", "get", "--key", "core.logging.level"]);
             Assert.Contains("core.logging.level = error [environment]", envOutput.Single());
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", null);
+        }
+    }
+
+    [Fact]
+    public void CliInvocation_ShouldGetSectionValues_WhenKeyIsSection()
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        fixture.ExecuteCli(["config", "set", "--key", "core.logging.level", "--value", "debug", "--force"]);
+        fixture.ExecuteCli(["config", "set", "--key", "core.http.maxRetries", "--value", "9", "--force"]);
+
+        var output = fixture.ExecuteCli(["config", "get", "--key", "core"]);
+        var text = output.Single();
+
+        Assert.Contains("logging.level = debug", text);
+        Assert.Contains("http.maxRetries = 9", text);
+        Assert.DoesNotContain("[global config]", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("[default]", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("[environment]", text, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void CliInvocation_ShouldReturnNestedJson_WhenGettingSubsection()
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        fixture.ExecuteCli(["config", "set", "--key", "core.logging.level", "--value", "debug", "--force"]);
+
+        var output = fixture.ExecuteCli(["config", "get", "--key", "core.logging", "--json"]);
+        var json = JsonNode.Parse(output.Single())!.AsObject();
+
+        Assert.Equal("debug", json["level"]?.GetValue<string>());
+    }
+
+    [Fact]
+    public void CliInvocation_ShouldReturnNestedJson_WhenGettingSection()
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        fixture.ExecuteCli(["config", "set", "--key", "core.logging.level", "--value", "debug", "--force"]);
+        fixture.ExecuteCli(["config", "set", "--key", "core.http.maxRetries", "--value", "9", "--force"]);
+
+        var output = fixture.ExecuteCli(["config", "get", "--key", "core", "--json"]);
+        var json = JsonNode.Parse(output.Single())!.AsObject();
+
+        Assert.Equal("debug", json["logging"]?["level"]?.GetValue<string>());
+        Assert.Equal(9, json["http"]?["maxRetries"]?.GetValue<int>());
+    }
+
+    [Fact]
+    public void CliInvocation_ShouldPreserveLeafOutputFormat_WhenGettingSingleKey()
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        fixture.ExecuteCli(["config", "set", "--key", "core.logging.level", "--value", "debug", "--force"]);
+
+        var output = fixture.ExecuteCli(["config", "get", "--key", "core.logging.level"]);
+
+        Assert.Equal("core.logging.level = debug [global config]", output.Single());
+    }
+
+    [Fact]
+    public void CliInvocation_ShouldThrow_WhenGettingUnknownSection()
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        var exception = Assert.Throws<KeyNotFoundException>(() =>
+            fixture.ExecuteCli(["config", "get", "--key", "coreasdf"]));
+
+        Assert.Contains("Configuration key 'coreasdf' was not found.", exception.Message);
+    }
+
+    [Fact]
+    public void CliInvocation_ShouldPreferEnvironmentOverGlobalConfig_WhenGettingSection()
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        fixture.ExecuteCli(["config", "set", "--key", "core.logging.level", "--value", "debug", "--force"]);
+        Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", "error");
+
+        try
+        {
+            var output = fixture.ExecuteCli(["config", "get", "--key", "core"]);
+            Assert.Contains("logging.level = error", output.Single());
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", null);
+        }
+    }
+
+    [Fact]
+    public void CliInvocation_ShouldHandleScalarThenNestedKeys_WhenGettingSection()
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        fixture.ExecuteCli(["config", "set", "--key", "core.logging", "--value", "plain", "--force"]);
+
+        var output = fixture.ExecuteCli(["config", "get", "--key", "core"]);
+
+        Assert.Contains("logging.level = info", output.Single());
+    }
+
+    [Fact]
+    public void CliInvocation_ShouldPreserveJsonNodeValues_WhenEnvironmentOverrideIsJson()
+    {
+        using var fixture = new ConfigCommandFixture();
+
+        Environment.SetEnvironmentVariable("CIRRUS_LOG_LEVEL", "{\"kind\":\"structured\",\"enabled\":true}");
+
+        try
+        {
+            var output = fixture.ExecuteCli(["config", "get", "--key", "core", "--json"]);
+            var json = JsonNode.Parse(output.Single())!.AsObject();
+
+            Assert.Equal("structured", json["logging"]?["level"]?["kind"]?.GetValue<string>());
+            Assert.True(json["logging"]?["level"]?["enabled"]?.GetValue<bool>());
         }
         finally
         {

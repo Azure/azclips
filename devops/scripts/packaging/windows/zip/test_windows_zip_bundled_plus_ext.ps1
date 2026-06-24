@@ -19,10 +19,10 @@ if ([string]::IsNullOrWhiteSpace($packageProfile)) {
 $packageProfile = $packageProfile.ToLowerInvariant()
 
 if ($packageProfile -eq 'full') {
-    $artifactPrefix = 'azv2'
+    $artifactPrefix = 'az'
 }
 elseif ($packageProfile -eq 'lean') {
-    $artifactPrefix = 'azv2-lean'
+    $artifactPrefix = 'az-lean'
 }
 else {
     throw "Unsupported PACKAGE_PROFILE '$packageProfile'. Expected 'lean' or 'full'."
@@ -69,11 +69,11 @@ $null = New-Item -Path (Join-Path $SimRoot 'home') -ItemType Directory -Force
 
 Expand-Archive -Path $CliZipPath -DestinationPath (Join-Path $SimRoot 'install') -Force
 
-$azv2Exe = Join-Path $SimRoot 'install/azv2.exe'
-if (-not (Test-Path -Path $azv2Exe -PathType Leaf)) {
-    throw 'FAIL: azv2.exe not found in extracted zip.'
+$azExe = Join-Path $SimRoot 'install/az.exe'
+if (-not (Test-Path -Path $azExe -PathType Leaf)) {
+    throw 'FAIL: az.exe not found in extracted zip.'
 }
-Write-Host 'PASS: azv2.exe found'
+Write-Host 'PASS: az.exe found'
 
 $builtins = @(
     'Microsoft.Azure.Cirrus.Extensions.Extension',
@@ -97,21 +97,21 @@ Write-Host "PASS: Resources package found: $($resNupkg.FullName)"
 
 if ($IsWindows -and -not $SkipRuntime) {
     Write-Host ''
-    Write-Host '[Runtime] Running azv2.exe checks on Windows'
+    Write-Host '[Runtime] Running az.exe checks on Windows'
 
     $env:USERPROFILE = Join-Path $SimRoot 'home'
 
-    & $azv2Exe --help | Select-Object -First 20 | Out-Host
+    & $azExe --help | Select-Object -First 20 | Out-Host
     if ($LASTEXITCODE -ne 0) {
-        throw "FAIL: azv2.exe --help exited with code $LASTEXITCODE."
+        throw "FAIL: az.exe --help exited with code $LASTEXITCODE."
     }
 
     Write-Host 'Verifying bundled Config command behavior'
-    & $azv2Exe config set --key core.logging.level --value debug --force | Out-Host
+    & $azExe config set --key core.logging.level --value debug --force | Out-Host
     if ($LASTEXITCODE -ne 0) {
         throw "FAIL: config set exited with code $LASTEXITCODE."
     }
-    $cfgGetOut = & $azv2Exe config get --key core.logging.level 2>&1
+    $cfgGetOut = & $azExe config get --key core.logging.level 2>&1
     $cfgGetExitCode = $LASTEXITCODE
     $cfgGetText = $cfgGetOut | Out-String
     $cfgGetText.Trim() | Out-Host
@@ -122,7 +122,7 @@ if ($IsWindows -and -not $SkipRuntime) {
         throw 'FAIL: Config command output did not confirm debug value.'
     }
 
-    $addResOut = & $azv2Exe extension add --path $resNupkg.FullName 2>&1
+    $addResOut = & $azExe extension add --path $resNupkg.FullName 2>&1
     $addResExitCode = $LASTEXITCODE
     $addResText = $addResOut | Out-String
     $addResText.Trim() | Out-Host
@@ -133,7 +133,7 @@ if ($IsWindows -and -not $SkipRuntime) {
         throw 'FAIL: Resources extension installation did not report installedExtensionPath.'
     }
 
-    $groupOut = & $azv2Exe group list 2>&1
+    $groupOut = & $azExe group list 2>&1
     $groupExitCode = $LASTEXITCODE
     $groupText = $groupOut | Out-String
     $groupText.Trim() | Out-Host

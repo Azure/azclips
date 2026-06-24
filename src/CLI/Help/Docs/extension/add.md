@@ -10,17 +10,17 @@ Description: Add a new extension to Cirrus. Extensions can be installed from a N
 ### Install from official feed
 
 ```bash
-azv2 extension add --name MyExtension --version 1.0.0 --feed-url https://api.nuget.org/v3/index.json
+az extension add --name MyExtension --version 1.0.0 --feed-url https://api.nuget.org/v3/index.json
 ```
 
 ### Install from custom feed
 
 ```bash
-azv2 extension add --name MyExtension --version 1.0.0 --feed-url https://packages.example.com/nuget
+az extension add --name MyExtension --version 1.0.0 --feed-url https://packages.example.com/nuget
 ```
 
 ### Install from local file
 
 ```bash
-azv2 extension add --path ./MyExtension.1.0.0.nupkg
+az extension add --path ./MyExtension.1.0.0.nupkg
 ```

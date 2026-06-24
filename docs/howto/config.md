@@ -18,7 +18,10 @@ Configuration follows strict precedence: **command args > environment variables 
 | `telemetry.enabled`                           | bool   | `true`      | Enable telemetry                                                                                |
 | `telemetry.appInsightsInstrumentationKey`     | string | (empty)     | Application Insights key                                                                        |
 | `telemetry.zipkinEndpoint`                    | string | (empty)     | Zipkin tracing endpoint                                                                         |
-| `agent.enabled`                               | bool   | `true`      | Enable AI agent fallback                                                                        |
+| `agent.enabled`                               | bool   | `false`     | Enable AI agent fallback (opt-in: `az config set --key agent.enabled --value true`)            |
+| `agent.sessionStyle`                          | string | `oneShot`   | Agent interaction mode: `oneShot` (single plan, then stop) or `interactive` (multi-turn)        |
+| `agent.trace.enabled`                         | bool   | `false`     | Write a JSONL trace of each agent session (events, tool I/O) for local debugging/evaluation     |
+| `agent.trace.path`                            | string | `~/.cirrus/trace` | Directory for agent trace files (used when `agent.trace.enabled` is true; created on first write) |
 | `extensions.resources.arm.apiVersionOverride` | string | (empty)     | Override ARM API version                                                                        |
 | `clients.cli.output.format`                   | string | `table`     | CLI output format: `json`, `table`, `tsv`, `yaml`                                               |
 | `clients.powershell.output.format`            | string | `object`    | PowerShell output format: `object`, `json`, `table`                                             |
@@ -31,28 +34,52 @@ Configuration follows strict precedence: **command args > environment variables 
 
 ## CLI Usage
 
+`core.logging.level` controls runtime host logging verbosity in CLI sessions.
+Use `--debug` to force debug-level output for a single invocation; this
+override does not persist to config.
+
 Use explicit parameter names for CLI config commands:
 
 - `--key` for configuration key
 - `--value` for configuration value
 
-### Get a configuration value
+### Get configuration values or sections
 
 ```bash
 # Retrieve a single key
-azv2 config get --key core.logging.level
+az config get --key core.logging.level
 
 # Output: core.logging.level = info [default]
+
+# Retrieve a section (text output)
+az config get --key core
+
+# Example output:
+#   logging.level = info
+#   engine.extensionIndexCacheSize = 512
+#   http.maxRetries = 3
+#   http.maxRetriesFor429 = 5
+
+# Retrieve a subsection as JSON
+az config get --key core.logging --json
+
+# Example output:
+# {
+#   "level": "info"
+# }
+
+# Retrieve a section as nested JSON
+az config get --key core --json
 ```
 
 ### Set a configuration value
 
 ```bash
 # Set a key
-azv2 config set --key core.logging.level --value debug
+az config set --key core.logging.level --value debug
 
 # Set with force (allows unknown keys)
-azv2 config set --key core.logging.level --value debug --force
+az config set --key core.logging.level --value debug --force
 
 # Output: Set core.logging.level = debug
 ```
@@ -61,23 +88,23 @@ azv2 config set --key core.logging.level --value debug --force
 
 ```bash
 # List user config only
-azv2 config list
+az config list
 
 # List with defaults (shows all keys with their current values)
-azv2 config list --all
+az config list --all
 
 # Output as JSON
-azv2 config list --all --json
+az config list --all --json
 ```
 
 ### Delete a configuration value
 
 ```bash
 # Delete a key
-azv2 config delete --key core.logging.level
+az config delete --key core.logging.level
 
 # Delete with force (allows unknown keys)
-azv2 config delete --key core.logging.level --force
+az config delete --key core.logging.level --force
 
 # Output: Deleted core.logging.level
 ```
@@ -86,10 +113,10 @@ azv2 config delete --key core.logging.level --force
 
 ```bash
 # Output schema metadata as JSON
-azv2 config info
+az config info
 
 # Output only key names (JSON array)
-azv2 config info --keys-only
+az config info --keys-only
 ```
 
 ## PowerShell Usage
@@ -100,7 +127,7 @@ azv2 config info --keys-only
 Import-Module ./src/PS/Config/Config.psd1
 ```
 
-### Get a configuration value
+### Get configuration values or sections
 
 ```powershell
 Get-CirrusConfig -Key core.logging.level
@@ -108,6 +135,16 @@ Get-CirrusConfig -Key core.logging.level
 
 Get-CirrusConfig -Key core.logging.level -AsJson
 # Output: {"Key":"core.logging.level","Value":"info","Source":"default"}
+
+# Retrieve a section (text output)
+Get-CirrusConfig -Key core
+
+# Retrieve a subsection as JSON
+Get-CirrusConfig -Key core.logging -AsJson
+# Output: {"level":"info"}
+
+# Retrieve a section as nested JSON
+Get-CirrusConfig -Key core -AsJson
 ```
 
 ### Set a configuration value
@@ -198,8 +235,8 @@ This confirms defaults handling and command-surface regressions as a bundle.
 **CLI:**
 
 ```bash
-azv2 config set --key core.logging.level --value debug --force
-azv2 config get --key core.logging.level
+az config set --key core.logging.level --value debug --force
+az config get --key core.logging.level
 ```
 
 **PowerShell:**
@@ -214,7 +251,7 @@ Get-CirrusConfig -Key core.logging.level
 **CLI:**
 
 ```bash
-azv2 config list --all
+az config list --all
 ```
 
 **PowerShell:**
@@ -229,8 +266,8 @@ Get-CirrusConfigList -IncludeDefaults
 
 ```bash
 # Delete all user-set config
-azv2 config list | grep -v '\[default\]' | awk '{print $1}' | while read key; do
-  azv2 config delete --key "$key" --force
+az config list | grep -v '\[default\]' | awk '{print $1}' | while read key; do
+  az config delete --key "$key" --force
 done
 ```
 
