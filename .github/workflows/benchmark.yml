@@ -59,12 +59,18 @@ jobs:
           retry_wait_seconds: 30
           command: dotnet run --project tests/Benchmark -c Release --no-build -- --ci --product CLI
 
+      - name: Convert CLI results to seconds
+        run: |
+          jq '[.Benchmarks[] | {name: .FullName, unit: "s", value: ((.Statistics.Mean // 0) / 1e9 * 10000 | round / 10000), range: "± \((.Statistics.StandardError // 0) / 1e9 * 10000 | round / 10000)"}]' \
+            artifacts/Benchmark/ci/CLI/results/Benchmark.CLI.ResourceGroupBenchmarks-report-full-compressed.json \
+            > artifacts/Benchmark/ci/CLI/results/cli-custom.json
+
       - name: Publish CLI dashboard / gate regression
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: 'Cirrus CLI Benchmarks'
-          tool: 'benchmarkdotnet'
-          output-file-path: artifacts/Benchmark/ci/CLI/results/Benchmark.CLI.ResourceGroupBenchmarks-report-full-compressed.json
+          tool: 'customSmallerIsBetter'
+          output-file-path: artifacts/Benchmark/ci/CLI/results/cli-custom.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: ${{ github.event_name == 'push' }}
           alert-threshold: '115%'
@@ -84,12 +90,18 @@ jobs:
           retry_wait_seconds: 30
           command: dotnet run --project tests/Benchmark -c Release --no-build -- --ci --product PS
 
+      - name: Convert PS results to seconds
+        run: |
+          jq '[.Benchmarks[] | {name: .FullName, unit: "s", value: ((.Statistics.Mean // 0) / 1e9 * 10000 | round / 10000), range: "± \((.Statistics.StandardError // 0) / 1e9 * 10000 | round / 10000)"}]' \
+            artifacts/Benchmark/ci/PS/results/Benchmark.PS.ResourceGroupBenchmarks-report-full-compressed.json \
+            > artifacts/Benchmark/ci/PS/results/ps-custom.json
+
       - name: Publish PS dashboard / gate regression
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: 'Cirrus PS Benchmarks'
-          tool: 'benchmarkdotnet'
-          output-file-path: artifacts/Benchmark/ci/PS/results/Benchmark.PS.ResourceGroupBenchmarks-report-full-compressed.json
+          tool: 'customSmallerIsBetter'
+          output-file-path: artifacts/Benchmark/ci/PS/results/ps-custom.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: ${{ github.event_name == 'push' }}
           alert-threshold: '115%'
