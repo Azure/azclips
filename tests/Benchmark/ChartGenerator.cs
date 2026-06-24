@@ -63,13 +63,25 @@ public static class ChartGenerator
 
                 var methodName = report.BenchmarkCase.Descriptor.WorkloadMethodDisplayInfo;
                 var fullName = report.BenchmarkCase.Descriptor.Type.FullName ?? "";
-                var product = fullName.Contains(".API.") ? "API" :
+                var meanSeconds = report.ResultStatistics.Mean / 1_000_000_000.0;
+
+                string product;
+                string mode = "";
+                string extension = "";
+                if (fullName.Contains(".Startup."))
+                {
+                    product = fullName.Contains("Ps") ? "STARTUP-PS" : "STARTUP-CLI";
+                    mode = fullName.Contains("Cold") ? "cold" : "warm";
+                    extension = methodName.ToLowerInvariant(); // [Benchmark(Description=...)] = config/login/extension
+                }
+                else
+                {
+                    product = fullName.Contains(".API.") ? "API" :
                               fullName.Contains(".CLI.") ? "CLI" :
                               fullName.Contains(".PS.") ? "PS" : "Other";
-                var meanNs = report.ResultStatistics.Mean;
-                var meanSeconds = meanNs / 1_000_000_000.0;
+                }
 
-                chartData.Add(new ChartDataPoint(methodName, product, meanSeconds));
+                chartData.Add(new ChartDataPoint(methodName, product, meanSeconds, mode, extension));
             }
         }
 
@@ -431,7 +443,7 @@ public static class ChartGenerator
     }
 }
 
-public record ChartDataPoint(string Method, string Product, double MeanSeconds);
+public record ChartDataPoint(string Method, string Product, double MeanSeconds, string Mode = "", string Extension = "");
 
 internal class OverheadData
 {
