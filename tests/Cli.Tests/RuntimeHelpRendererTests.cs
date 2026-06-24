@@ -1,5 +1,5 @@
 using Core.Cli.Help;
-using Microsoft.Azure.Cirrus.Extensions.Login;
+using Microsoft.Azure.Azclips.Extensions.Login;
 using Tests.Common.Utilities;
 
 namespace Cli.Tests;

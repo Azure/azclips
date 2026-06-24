@@ -12,7 +12,7 @@ namespace Core.Extensions.Tests
         {
             var builtIns = new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase)
             {
-                ["login"] = new("login", "Microsoft.Azure.Cirrus.Extensions.Login"),
+                ["login"] = new("login", "Microsoft.Azure.Azclips.Extensions.Login"),
                 ["config"] = new("config", "Microsoft.Azure.Cirrus.Extensions.Config"),
             };
 
@@ -20,7 +20,7 @@ namespace Core.Extensions.Tests
 
             Assert.True(index.TryGet("login", "", out var login));
             Assert.NotNull(login);
-            Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Login", login!.PackageId);
+            Assert.Equal("Microsoft.Azure.Azclips.Extensions.Login", login!.PackageId);
 
             Assert.True(index.TryGet("config", "", out _));
             Assert.False(index.TryGet("vm", "", out _));
@@ -31,7 +31,7 @@ namespace Core.Extensions.Tests
         {
             var builtIns = new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase)
             {
-                ["login"] = new("login", "Microsoft.Azure.Cirrus.Extensions.Login"),
+                ["login"] = new("login", "Microsoft.Azure.Azclips.Extensions.Login"),
             };
 
             var registry = new ExtensionRegistry
@@ -117,7 +117,7 @@ namespace Core.Extensions.Tests
         {
             var builtIns = new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase)
             {
-                ["login"] = new("login", "Microsoft.Azure.Cirrus.Extensions.Login"),
+                ["login"] = new("login", "Microsoft.Azure.Azclips.Extensions.Login"),
             };
 
             var registry = new ExtensionRegistry

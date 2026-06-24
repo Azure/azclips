@@ -36,8 +36,8 @@ artifacts/Debug/Core/Core.Telemetry.dll
 artifacts/Debug/Core/Core.Runtime.dll
 artifacts/Debug/Core/Core.Engine.dll
 artifacts/Debug/Core/Core.DependencyInjection.dll
-artifacts/Debug/Microsoft.Azure.Cirrus.Extensions.Login/
-    Microsoft.Azure.Cirrus.Extensions.Login.dll
+artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Login/
+    Microsoft.Azure.Azclips.Extensions.Login.dll
 ```
 
 ## Module Initialisation
@@ -83,42 +83,42 @@ graph TB
 
 ## Authentication Cmdlets
 
-### `Connect-CirrusAccount`
+### `Connect-AzAccount`
 
-Authenticates to Azure with a subscription and tenant (`src/PS/Login/exports/Connect-CirrusAccount.ps1:1-61`).
+Authenticates to Azure with a subscription and tenant (`src/PS/Login/exports/Connect-AzAccount.ps1:1-61`).
 
 ```powershell
-Connect-CirrusAccount -SubscriptionId <guid> -TenantId <guid>
+Connect-AzAccount -SubscriptionId <guid> -TenantId <guid>
 ```
 
-**Parameters** (`Connect-CirrusAccount.ps1:3-9`):
+**Parameters** (`Connect-AzAccount.ps1:3-9`):
 
 | Parameter | Type | Mandatory |
 |-----------|------|-----------|
 | `SubscriptionId` | `string` | Yes |
 | `TenantId` | `string` | Yes |
 
-Supports `ShouldProcess` (`-WhatIf`, `-Confirm`) with `ConfirmImpact = 'Medium'` (`Connect-CirrusAccount.ps1:2`).
+Supports `ShouldProcess` (`-WhatIf`, `-Confirm`) with `ConfirmImpact = 'Medium'` (`Connect-AzAccount.ps1:2`).
 
-### `Disconnect-CirrusAccount`
+### `Disconnect-AzAccount`
 
-Signs out of the current Cirrus session (`src/PS/Login/exports/Disconnect-CirrusAccount.ps1:1-52`).
-
-```powershell
-Disconnect-CirrusAccount
-```
-
-No parameters. Supports `ShouldProcess` with `ConfirmImpact = 'Medium'` (`Disconnect-CirrusAccount.ps1:2`).
-
-### `Get-CirrusAccount`
-
-Returns information about the current authenticated session (`src/PS/Login/exports/Get-CirrusAccount.ps1:1-48`).
+Signs out of the current Cirrus session (`src/PS/Login/exports/Disconnect-AzAccount.ps1:1-52`).
 
 ```powershell
-Get-CirrusAccount
+Disconnect-AzAccount
 ```
 
-No parameters. Uses basic `[CmdletBinding()]` without `ShouldProcess` since it is a read-only operation (`Get-CirrusAccount.ps1:2`).
+No parameters. Supports `ShouldProcess` with `ConfirmImpact = 'Medium'` (`Disconnect-AzAccount.ps1:2`).
+
+### `Get-AzAccount`
+
+Returns information about the current authenticated session (`src/PS/Login/exports/Get-AzAccount.ps1:1-48`).
+
+```powershell
+Get-AzAccount
+```
+
+No parameters. Uses basic `[CmdletBinding()]` without `ShouldProcess` since it is a read-only operation (`Get-AzAccount.ps1:2`).
 
 ## Resource Management Cmdlets
 
@@ -182,7 +182,7 @@ sequenceDiagram
     participant Azure as Azure API
     participant Tel as TelemetryService
 
-    PS->>Tel: Start-CmdletActivity("Connect-CirrusAccount")
+    PS->>Tel: Start-CmdletActivity("Connect-AzAccount")
     PS->>DI: GetRequiredService([IEngine])
     DI-->>PS: IEngine instance
     PS->>PS: Build Dictionary[string,object] from $PSBoundParameters
@@ -199,30 +199,30 @@ sequenceDiagram
 
 ### Step-by-Step Breakdown
 
-Taking `Connect-CirrusAccount.ps1` as the canonical example:
+Taking `Connect-AzAccount.ps1` as the canonical example:
 
-**1. Start telemetry** (`Connect-CirrusAccount.ps1:13`)
+**1. Start telemetry** (`Connect-AzAccount.ps1:13`)
 
 ```powershell
-$activity = Start-CmdletActivity -CmdletName "Connect-CirrusAccount" -Parameters $PSBoundParameters
+$activity = Start-CmdletActivity -CmdletName "Connect-AzAccount" -Parameters $PSBoundParameters
 ```
 
-**2. Get the engine from DI** (`Connect-CirrusAccount.ps1:15`)
+**2. Get the engine from DI** (`Connect-AzAccount.ps1:15`)
 
 ```powershell
 $engine = [Core.DependencyInjection.CirrusServiceProvider]::GetRequiredService(
     [Core.Abstractions.IEngine])
 ```
 
-**3. Create an output delegate** (`Connect-CirrusAccount.ps1:16-20`)
+**3. Create an output delegate** (`Connect-AzAccount.ps1:16-20`)
 
 An asynchronous `CommandOutputDelegate` is created that writes objects to the PowerShell pipeline.
 
-**4. Build the invocation** (`Connect-CirrusAccount.ps1:25-35`)
+**4. Build the invocation** (`Connect-AzAccount.ps1:25-35`)
 
 ```powershell
 $extensionName = "Login"
-$commandName   = "Connect-CirrusAccount"
+$commandName   = "Connect-AzAccount"
 $parameters    = [System.Collections.Generic.Dictionary[string,object]]::new()
 $parameters.Add("SubscriptionId", $SubscriptionId)
 $parameters.Add("TenantId", $TenantId)
@@ -231,7 +231,7 @@ $invocation = [Core.Runtime.PSCommandInvocation]::New(
     $extensionName, $commandName, $parameters)
 ```
 
-**5. Execute and handle results** (`Connect-CirrusAccount.ps1:36-47`)
+**5. Execute and handle results** (`Connect-AzAccount.ps1:36-47`)
 
 ```powershell
 $engine.Process($invocation, $outputDelegate, [System.Threading.CancellationToken]::None)
@@ -294,7 +294,7 @@ Both `.psd1` files follow the standard PowerShell module manifest format. Key se
 | `CompatiblePSEditions` | Runtime constraint | `@('Core')` (line 18) |
 | `PowerShellVersion` | Minimum PS version | `7.5` (line 36) |
 | `RequiredAssemblies` | C# DLLs to load | 7 assemblies (lines 59-65) |
-| `FunctionsToExport` | Public surface | `Connect-CirrusAccount`, `Disconnect-CirrusAccount`, `Get-CirrusAccount` (line 80) |
+| `FunctionsToExport` | Public surface | `Connect-AzAccount`, `Disconnect-AzAccount`, `Get-AzAccount` (line 80) |
 
 The `Resources.psd1` manifest (`src/PS/Resources/Resources.psd1`) is similar but targets a broader audience:
 
@@ -307,9 +307,9 @@ The `Resources.psd1` manifest (`src/PS/Resources/Resources.psd1`) is similar but
 
 | Cmdlet | Module | Parameters | ShouldProcess | Parameter Sets |
 |--------|--------|-----------|---------------|----------------|
-| `Connect-CirrusAccount` | Login | `SubscriptionId`*, `TenantId`* | Yes (Medium) | Default |
-| `Disconnect-CirrusAccount` | Login | — | Yes (Medium) | Default |
-| `Get-CirrusAccount` | Login | — | No | Default |
+| `Connect-AzAccount` | Login | `SubscriptionId`*, `TenantId`* | Yes (Medium) | Default |
+| `Disconnect-AzAccount` | Login | — | Yes (Medium) | Default |
+| `Get-AzAccount` | Login | — | No | Default |
 | `New-ResourceGroup` | Resources | `Name`*, `Location`*, `SubscriptionId` | Yes (Medium) | Default |
 | `Get-ResourceGroup` | Resources | `SubscriptionId`*, `Name`* | No | Get, List |
 
@@ -379,9 +379,9 @@ graph TB
 | Login module manifest | `src/PS/Login/Login.psd1` |
 | Resources module script | `src/PS/Resources/Resources.psm1` |
 | Resources module manifest | `src/PS/Resources/Resources.psd1` |
-| Connect-CirrusAccount | `src/PS/Login/exports/Connect-CirrusAccount.ps1` |
-| Disconnect-CirrusAccount | `src/PS/Login/exports/Disconnect-CirrusAccount.ps1` |
-| Get-CirrusAccount | `src/PS/Login/exports/Get-CirrusAccount.ps1` |
+| Connect-AzAccount | `src/PS/Login/exports/Connect-AzAccount.ps1` |
+| Disconnect-AzAccount | `src/PS/Login/exports/Disconnect-AzAccount.ps1` |
+| Get-AzAccount | `src/PS/Login/exports/Get-AzAccount.ps1` |
 | New-ResourceGroup | `src/PS/Resources/exports/New-ResourceGroup.ps1` |
 | Get-ResourceGroup | `src/PS/Resources/exports/Get-ResourceGroup.ps1` |
 | Telemetry helper | `src/PS/TelemetryHelper.ps1` |

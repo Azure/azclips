@@ -118,17 +118,28 @@ namespace Core.Extensions
         }
 
         /// <summary>
-        /// Convenience: strip the well-known <c>Microsoft.Azure.Cirrus.Extensions.</c> prefix from
+        /// Convenience: strip a well-known Microsoft Azure extension prefix from
         /// a package id so error messages can suggest the short form (e.g. <c>Compute</c>) that
         /// the user is most likely to type. Third-party / non-prefixed ids pass through unchanged.
         /// </summary>
         public static string ToShortName(string packageId)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(packageId);
-            const string prefix = "Microsoft.Azure.Cirrus.Extensions.";
-            return packageId.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
-                ? packageId[prefix.Length..]
-                : packageId;
+            string[] prefixes =
+            [
+                "Microsoft.Azure.Azclips.Extensions.",
+                "Microsoft.Azure.Cirrus.Extensions.",
+            ];
+
+            foreach (var prefix in prefixes)
+            {
+                if (packageId.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    return packageId[prefix.Length..];
+                }
+            }
+
+            return packageId;
         }
 
         private static bool Matches(string packageId, string name)

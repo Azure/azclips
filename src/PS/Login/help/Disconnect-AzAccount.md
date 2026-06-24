@@ -1,15 +1,15 @@
 ---
 document type: cmdlet
-external help file: Microsoft.Azure.Cirrus.Cmdlets.Login.dll-Help.xml
+external help file: Microsoft.Azure.Azclips.Cmdlets.Login.dll-Help.xml
 HelpUri: ""
 Locale: en-US
 Module Name: Login
 ms.date: 06/16/2026
 PlatyPS schema version: 2024-05-01
-title: Disconnect-CirrusAccount
+title: Disconnect-AzAccount
 ---
 
-# Disconnect-CirrusAccount
+# Disconnect-AzAccount
 
 ## SYNOPSIS
 
@@ -20,7 +20,7 @@ Sign out from the current Azure account context.
 ### \_\_AllParameterSets
 
 ```
-Disconnect-CirrusAccount [-WhatIf] [-Confirm] [<CommonParameters>]
+Disconnect-AzAccount [-WhatIf] [-Confirm] [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -36,10 +36,10 @@ Sign out from the current Azure account context.
 
 ### Sign out of the current account
 
-Clears the persisted Azure account context. Subsequent Cirrus cmdlets will require a fresh `Connect-CirrusAccount` before they can authenticate.
+Clears the persisted Azure account context. Subsequent Azclips cmdlets will require a fresh `Connect-AzAccount` before they can authenticate.
 
 ```powershell
-Disconnect-CirrusAccount
+Disconnect-AzAccount
 ```
 
 ## PARAMETERS

@@ -643,7 +643,7 @@ The naming pipeline converts CLI nouns to fully-qualified assembly names:
 ```
 CLI noun → CommandGroupIndex → Extension folder → EngineExtension.ResolveAssemblyName()
 "group"  → "Resources"       → "Resources"     → "Microsoft.Azure.Cirrus.Extensions.Resources"
-"login"  → "Login"           → "Login"         → "Microsoft.Azure.Cirrus.Extensions.Login"
+"login"  → "Login"           → "Login"         → "Microsoft.Azure.Azclips.Extensions.Login"
 ```
 
 From `EngineExtension` (`src/Core/Core.Engine/EngineExtension.cs`):
@@ -792,9 +792,9 @@ Options are stored in a case-insensitive `Dictionary<string, string>(StringCompa
 
 | Cmdlet | Module | Parameters | Underlying Command |
 |--------|--------|------------|-------------------|
-| `Connect-CirrusAccount` | Login | `-SubscriptionId` (required), `-TenantId` (required) | `LoginProcessor` |
-| `Disconnect-CirrusAccount` | Login | (none) | `LogoutProcessor` |
-| `Get-CirrusAccount` | Login | (none) | `GetContextProcessor` |
+| `Connect-AzAccount` | Login | `-SubscriptionId` (required), `-TenantId` (required) | `LoginProcessor` |
+| `Disconnect-AzAccount` | Login | (none) | `LogoutProcessor` |
+| `Get-AzAccount` | Login | (none) | `GetContextProcessor` |
 | `New-ResourceGroup` | Resources | `-Name` (required), `-Location` (required), `-SubscriptionId` | `NewResourceGroupProcessor` |
 | `Get-ResourceGroup` | Resources | `-Name`, `-SubscriptionId` | `GetResourceGroupProcessor` / `ListResourceGroupProcessor` |
 

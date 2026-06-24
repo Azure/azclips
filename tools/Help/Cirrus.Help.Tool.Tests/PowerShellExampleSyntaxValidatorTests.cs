@@ -464,8 +464,8 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldError_WhenExampleIsNativeCommand_InCmdletHelpFile()
         {
-            // The bug Copilot caught: PowerShell help for Connect-CirrusAccount whose example
-            // is `az login ...`. Both PSL1 (az not a cmdlet) and PSL7 (Connect-CirrusAccount
+            // The bug Copilot caught: PowerShell help for Connect-AzAccount whose example
+            // is `az login ...`. Both PSL1 (az not a cmdlet) and PSL7 (Connect-AzAccount
             // not invoked) must fire.
             var content = Fence("az login --subscription-id 00000000-0000-0000-0000-000000000000");
 

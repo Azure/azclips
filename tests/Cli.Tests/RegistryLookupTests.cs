@@ -158,11 +158,13 @@ public class RegistryLookupTests
     // ── ToShortName ──
 
     [Theory]
+    [InlineData("Microsoft.Azure.Azclips.Extensions.Login", "Login")]
+    [InlineData("microsoft.azure.azclips.extensions.login", "login")]
     [InlineData("Microsoft.Azure.Cirrus.Extensions.Compute", "Compute")]
     [InlineData("microsoft.azure.cirrus.extensions.compute", "compute")]
     [InlineData("Contoso.MyExtension", "Contoso.MyExtension")]
     [InlineData("Compute", "Compute")]
-    public void ToShortName_ShouldStripCirrusPrefix_CaseInsensitively(string input, string expected)
+    public void ToShortName_ShouldStripKnownPrefix_CaseInsensitively(string input, string expected)
     {
         Assert.Equal(expected, RegistryLookup.ToShortName(input));
     }

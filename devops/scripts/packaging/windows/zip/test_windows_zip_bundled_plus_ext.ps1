@@ -77,7 +77,7 @@ Write-Host 'PASS: az.exe found'
 
 $builtins = @(
     'Microsoft.Azure.Cirrus.Extensions.Extension',
-    'Microsoft.Azure.Cirrus.Extensions.Login',
+    'Microsoft.Azure.Azclips.Extensions.Login',
     'Microsoft.Azure.Cirrus.Extensions.Config'
 )
 

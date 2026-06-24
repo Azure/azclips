@@ -38,7 +38,7 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
         var processor = new DefaultTelemetryPropertyFilterProcessor(_filter);
 
         using var activity = _source.StartActivity("op")!;
-        activity.SetTag(TelemetryTags.Command, "Get-CirrusAccount");           // allowed
+        activity.SetTag(TelemetryTags.Command, "Get-AzAccount");           // allowed
         activity.SetTag("http.url", "https://example.com/subs/abcd");           // dropped
         activity.SetTag("subscriptionId", "guid-1234");                         // dropped
         activity.SetTag(TelemetryTags.ModuleName, "Cirrus.Login");              // allowed

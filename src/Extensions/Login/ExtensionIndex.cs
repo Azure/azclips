@@ -3,7 +3,7 @@
 
 using Core.Abstractions;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Login
+namespace Microsoft.Azure.Azclips.Extensions.Login
 {
     [ExtensionVerb("login")]
     public class ExtensionIndex : IExtensionIndex
@@ -11,10 +11,10 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
         // ── PS Command Metadata ──
         private static readonly CommandMetadata s_login_PS = new(
             Name: "LoginProcessor",
-            InvocationName: "Connect-CirrusAccount",
+            InvocationName: "Connect-AzAccount",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Processors.LoginProcessor",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Login.Processors.LoginProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Login",
             ProcessorType: typeof(Processors.LoginProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -26,20 +26,20 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
         );
         private static readonly CommandMetadata s_logout_PS = new(
             Name: "LogoutProcessor",
-            InvocationName: "Disconnect-CirrusAccount",
+            InvocationName: "Disconnect-AzAccount",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Processors.LogoutProcessor",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Login.Processors.LogoutProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Login",
             ProcessorType: typeof(Processors.LogoutProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>(),
             ParameterAliases: new Dictionary<string, string>()
         );
         private static readonly CommandMetadata s_getContext_PS = new(
             Name: "GetContextProcessor",
-            InvocationName: "Get-CirrusAccount",
+            InvocationName: "Get-AzAccount",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Processors.GetContextProcessor",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Login.Processors.GetContextProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Login",
             ProcessorType: typeof(Processors.GetContextProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>(),
             ParameterAliases: new Dictionary<string, string>()
@@ -49,8 +49,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
             Name: "LoginProcessor",
             InvocationName: "login",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Processors.LoginProcessor",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Login.Processors.LoginProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Login",
             ProcessorType: typeof(Processors.LoginProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>
             {
@@ -64,8 +64,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
             Name: "LogoutProcessor",
             InvocationName: "login logout",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Processors.LogoutProcessor",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Login.Processors.LogoutProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Login",
             ProcessorType: typeof(Processors.LogoutProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>(),
             ParameterAliases: new Dictionary<string, string>()
@@ -74,8 +74,8 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
             Name: "GetContextProcessor",
             InvocationName: "login show",
             Aliases: [],
-            FullName: "Microsoft.Azure.Cirrus.Extensions.Login.Processors.GetContextProcessor",
-            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Login",
+            FullName: "Microsoft.Azure.Azclips.Extensions.Login.Processors.GetContextProcessor",
+            AssemblyName: "Microsoft.Azure.Azclips.Extensions.Login",
             ProcessorType: typeof(Processors.GetContextProcessor),
             Parameters: new Dictionary<string, ParameterMetadata>(),
             ParameterAliases: new Dictionary<string, string>()
@@ -83,9 +83,9 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
         // ── Dispatch Tables ──
         private static readonly Dictionary<string, CommandMetadata> s_psTable = new()
         {
-            ["Connect-CirrusAccount"]    = s_login_PS,
-            ["Disconnect-CirrusAccount"] = s_logout_PS,
-            ["Get-CirrusAccount"]        = s_getContext_PS,
+            ["Connect-AzAccount"]    = s_login_PS,
+            ["Disconnect-AzAccount"] = s_logout_PS,
+            ["Get-AzAccount"]        = s_getContext_PS,
         };
         // Full-path keys. The root verb (`az login`) keys as just "login";
         // sub-leaves are `login {path}`.

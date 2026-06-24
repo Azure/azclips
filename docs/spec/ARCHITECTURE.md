@@ -64,7 +64,7 @@ $ az I would like to logni
 
 ```powershell
 # Direct cmdlet and function execution
-Connect-CirrusAccount -TenantId <tenant-id>
+Connect-AzAccount -TenantId <tenant-id>
 New-ResourceGroup -Name mygroup -Location eastus
 ```
 
@@ -192,7 +192,7 @@ New-ResourceGroup -Name mygroup -Location eastus
 | **PowerShell Help Markdown** | `src/PS/<Module>/help/*.md`                                | Authored PowerShell help (PlatyPS → MAML)     |
 | **Help Runtime Provider**    | `src/CLI/Help/MarkdownCommandHelpProvider.cs`              | Runtime markdown parsing for CLI              |
 | **Help Tool**                | `tools/Help/Cirrus.Help.Tool/`                             | Build-time validators + manifest emitter      |
-| **Login Extension**          | `artifacts/*/Microsoft.Azure.Cirrus.Extensions.Login/`     | Authentication commands                       |
+| **Login Extension**          | `artifacts/*/Microsoft.Azure.Azclips.Extensions.Login/`     | Authentication commands                       |
 | **Resources Extension**      | `artifacts/*/Microsoft.Azure.Cirrus.Extensions.Resources/` | Resource management commands                  |
 
 ### Dependency Graph
@@ -873,10 +873,10 @@ artifacts/
       Resources.psd1                                  ← PowerShell Resources module
       Resources.psm1
       runtimes/
-    Microsoft.Azure.Cirrus.Extensions.Login/
+    Microsoft.Azure.Azclips.Extensions.Login/
       Login.psd1                                      ← PowerShell Login module
       Login.psm1
-      Microsoft.Azure.Cirrus.Extensions.Login.dll
+      Microsoft.Azure.Azclips.Extensions.Login.dll
     Microsoft.Azure.Cirrus.Extensions.Resources/
       Resources.psd1
       Resources.psm1
@@ -904,7 +904,7 @@ Import-Module ./src/PS/Login/Login.psd1
 Import-Module ./src/PS/Resources/Resources.psd1
 
 # Use cmdlets and functions
-Connect-CirrusAccount -TenantId <tenant-id>
+Connect-AzAccount -TenantId <tenant-id>
 New-ResourceGroup -Name test -Location eastus
 ```
 

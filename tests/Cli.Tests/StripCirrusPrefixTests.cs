@@ -4,7 +4,8 @@ using Xunit;
 namespace Cli.Tests;
 
 /// <summary>
-/// Regression: <see cref="Constants.StripCirrusPrefix"/> must use a case-insensitive comparison.
+/// Regression: <see cref="Constants.StripCirrusPrefix"/> must use a case-insensitive comparison
+/// for all known Microsoft Azure extension package prefixes.
 /// Registry keys and NuGet package ids are case-insensitive, so a registry holding e.g.
 /// <c>microsoft.azure.cirrus.extensions.compute</c> must still strip cleanly to <c>compute</c>.
 /// Pre-fix the strip used <see cref="System.StringComparison.Ordinal"/>, so a lower-cased id
@@ -13,6 +14,9 @@ namespace Cli.Tests;
 public class StripCirrusPrefixTests
 {
     [Theory]
+    [InlineData("Microsoft.Azure.Azclips.Extensions.Login", "Login")]
+    [InlineData("microsoft.azure.azclips.extensions.login", "login")]
+    [InlineData("MICROSOFT.AZURE.AZCLIPS.EXTENSIONS.LOGIN", "LOGIN")]
     [InlineData("Microsoft.Azure.Cirrus.Extensions.Compute", "Compute")]
     [InlineData("microsoft.azure.cirrus.extensions.compute", "compute")]
     [InlineData("MICROSOFT.AZURE.CIRRUS.EXTENSIONS.COMPUTE", "COMPUTE")]

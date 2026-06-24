@@ -8,7 +8,7 @@ namespace Core.Extensions
     /// to <c>registry.json</c>; this seed is merged with the on-disk registry at startup.
     /// </summary>
     /// <param name="Verb">Top-level verb the built-in claims (e.g. <c>"login"</c>).</param>
-    /// <param name="PackageId">Full assembly / package id (e.g. <c>Microsoft.Azure.Cirrus.Extensions.Login</c>).</param>
+    /// <param name="PackageId">Full assembly / package id (e.g. <c>Microsoft.Azure.Azclips.Extensions.Login</c>).</param>
     public sealed record BuiltInExtension(string Verb, string PackageId)
     {
         /// <summary>
@@ -46,7 +46,7 @@ namespace Core.Extensions
                 {
                     Leaves = new[] { "add", "list", "show", "remove", "update", "pin", "unpin" },
                 },
-                ["login"] = new("login", "Microsoft.Azure.Cirrus.Extensions.Login")
+                ["login"] = new("login", "Microsoft.Azure.Azclips.Extensions.Login")
                 {
                     Leaves = new[] { "logout", "show" },
                 },

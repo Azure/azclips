@@ -2,10 +2,10 @@ using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
 using Core.Telemetry;
-using Microsoft.Azure.Cirrus.Cmdlets.Login.Telemetry;
+using Microsoft.Azure.Azclips.Cmdlets.Login.Telemetry;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Microsoft.Azure.Cirrus.Cmdlets.Login;
+namespace Microsoft.Azure.Azclips.Cmdlets.Login;
 
 public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyCleanup
 {

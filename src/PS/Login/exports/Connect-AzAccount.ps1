@@ -1,10 +1,19 @@
-function Disconnect-CirrusAccount {
+function Connect-AzAccount {
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
     param (
+        [Parameter(Mandatory = $true)]
+        [string] $SubscriptionId,
+
+        [Parameter(Mandatory = $false)]
+        [string] $TenantId,
+        
+        [Parameter(Mandatory = $false)]
+        [string] $UseDeviceCode
     )
 
     begin {
-        $script:activity = Start-CmdletActivity -CmdletName "Disconnect-CirrusAccount" -Parameters $PSBoundParameters
+        # Start telemetry activity
+        $script:activity = Start-CmdletActivity -CmdletName "Connect-AzAccount" -Parameters $PSBoundParameters
 
         $engine = [Core.DependencyInjection.CirrusServiceProvider]::GetRequiredService([Core.Abstractions.IEngine])
         $outputDelegate = [Core.Abstractions.Runtime.CommandOutputDelegate]{
@@ -17,16 +26,22 @@ function Disconnect-CirrusAccount {
     process {
         try {
             $extensionName = "Login";
-            $commandName = "Disconnect-CirrusAccount";
+            $commandName = "Connect-AzAccount";
             $parameters = [System.Collections.Generic.Dictionary[string, object]]::New();
 
+            if ($PSBoundParameters.ContainsKey('SubscriptionId')) {
+                $parameters.Add('SubscriptionId', [object]$SubscriptionId);
+            }
+            if ($PSBoundParameters.ContainsKey('TenantId')) {
+                $parameters.Add('TenantId', [object]$TenantId);
+            }
+            if ($PSBoundParameters.ContainsKey('UseDeviceCode')) {
+                $parameters.Add('UseDeviceCode', [object]$UseDeviceCode);
+            }
             $moduleName = $MyInvocation.MyCommand.ModuleName
             $moduleVersion = if ($MyInvocation.MyCommand.Version) { $MyInvocation.MyCommand.Version.ToString() } else { $null }
             $invocation = [Core.Abstractions.CommandInvocation]::New($extensionName, $commandName, $parameters, $false, $moduleName, $moduleVersion)
-
-            if ($PSCmdlet.ShouldProcess("Cirrus Account", "Disconnect")) {
-                $response = $engine.Process($invocation, $outputDelegate, [System.Threading.CancellationToken]::None);
-            }
+            $response = $engine.Process($invocation, $outputDelegate, [System.Threading.CancellationToken]::None);
 
             # Mark activity as successful
             if ($null -ne $script:activity) {

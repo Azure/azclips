@@ -50,12 +50,21 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
 
     private static IEnumerable<string> GetCandidateDirectoryNames(string extensionName, string configuredPrefix)
     {
-        var names = new[]
-        {
-            string.Concat(configuredPrefix ?? string.Empty, extensionName),
-            string.Concat(Constants.cirrusPrefix, extensionName),
-            extensionName
-        };
+        var names = Constants.extensionPackagePrefixes
+            .Select(prefix => string.Concat(prefix, extensionName))
+            .Prepend(string.Concat(configuredPrefix ?? string.Empty, extensionName))
+            .Append(extensionName);
+
+        return names
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static IEnumerable<string> GetCandidateAssemblyNames(string extensionName)
+    {
+        var names = Constants.extensionPackagePrefixes
+            .Select(prefix => string.Concat(prefix, extensionName))
+            .Prepend(extensionName);
 
         return names
             .Where(name => !string.IsNullOrWhiteSpace(name))
@@ -79,7 +88,6 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
 
     public Assembly? LoadExtension(string extensionName, string? version = null)
     {
-        string extensionNameFull = Constants.cirrusPrefix + extensionName;
         if (!string.IsNullOrEmpty(version))
         {
             return null;
@@ -89,18 +97,21 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
         {
             foreach (var directoryName in GetCandidateDirectoryNames(extensionName, _options.ExtensionFolderPrefix))
             {
-                var extensionPath = Path.Combine(root, directoryName, $"{extensionNameFull}.dll");
-                if (!File.Exists(extensionPath))
+                foreach (var assemblyName in GetCandidateAssemblyNames(extensionName))
                 {
-                    continue;
-                }
+                    var extensionPath = Path.Combine(root, directoryName, $"{assemblyName}.dll");
+                    if (!File.Exists(extensionPath))
+                    {
+                        continue;
+                    }
 
-                var loadContext = new ExtensionLoadContext(extensionPath, _loggingService);
-                return loadContext.LoadFromAssemblyPath(extensionPath);
+                    var loadContext = new ExtensionLoadContext(extensionPath, _loggingService);
+                    return loadContext.LoadFromAssemblyPath(extensionPath);
+                }
             }
         }
 
-        _loggingService?.Debug($"Extension '{extensionNameFull}' not found in builtin extensions directory, will try other sources. Checked root(s): '{string.Join(";", GetCandidateRoots(_options.BuiltinInstallationDir))}'");
+        _loggingService?.Debug($"Extension '{extensionName}' not found in builtin extensions directory, will try other sources. Checked root(s): '{string.Join(";", GetCandidateRoots(_options.BuiltinInstallationDir))}'");
         return null;
     }
 }
@@ -136,12 +147,21 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
 
     private static IEnumerable<string> GetCandidateDirectoryNames(string extensionName, string configuredPrefix)
     {
-        var names = new[]
-        {
-            string.Concat(configuredPrefix ?? string.Empty, extensionName),
-            string.Concat(Constants.cirrusPrefix, extensionName),
-            extensionName
-        };
+        var names = Constants.extensionPackagePrefixes
+            .Select(prefix => string.Concat(prefix, extensionName))
+            .Prepend(string.Concat(configuredPrefix ?? string.Empty, extensionName))
+            .Append(extensionName);
+
+        return names
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static IEnumerable<string> GetCandidateAssemblyNames(string extensionName)
+    {
+        var names = Constants.extensionPackagePrefixes
+            .Select(prefix => string.Concat(prefix, extensionName))
+            .Prepend(extensionName);
 
         return names
             .Where(name => !string.IsNullOrWhiteSpace(name))
@@ -193,8 +213,6 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
 
     public Assembly? LoadExtension(string extensionName, string? version = null)
     {
-        string extensionNameFull = Constants.cirrusPrefix + extensionName;
-
         var extensionDir = ResolveExtensionDirectory(extensionName, version);
         if (extensionDir is null)
         {
@@ -202,10 +220,13 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
             return null;
         }
 
-        var extensionPath = Path.Combine(extensionDir, $"{extensionNameFull}.dll");
-        if (!File.Exists(extensionPath))
+        var extensionPath = GetCandidateAssemblyNames(extensionName)
+            .Select(assemblyName => Path.Combine(extensionDir, $"{assemblyName}.dll"))
+            .FirstOrDefault(File.Exists);
+
+        if (extensionPath is null)
         {
-            _loggingService?.Debug($"Extension '{extensionNameFull}' version '{version}' not found in multi-version extensions directory. Checked path: '{extensionPath}'");
+            _loggingService?.Debug($"Extension '{extensionName}' version '{version}' not found in multi-version extensions directory. Checked path: '{extensionDir}'");
             return null;
         }
 
