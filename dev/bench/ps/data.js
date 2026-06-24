@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782303451038,
+  "lastUpdate": 1782320891223,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Cirrus PS Benchmarks": [
@@ -1470,6 +1470,48 @@ window.BENCHMARK_DATA = {
             "value": 5738820.926648415,
             "unit": "ns",
             "range": "± 97768.57242114852"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "wangalex@microsoft.com",
+            "name": "Alex Wang",
+            "username": "Alex-AZPS"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8f92b95c0a178fd834745e5df505730f1f17de80",
+          "message": "chore: add MIT license headers to source files (#317)\n\nAdds the standard two-line MIT header to every source file under src/\nand tests/ on top of latest main.\n\n- 406 source files total (.cs/.ps1/.psm1), excluding generated obj/bin\n- 335 files updated; 71 already had a header (skipped)\n- .cs uses // comments, .ps1/.psm1 use # comments\n\nDraft for content review (#8). Header text:\n\n    // Copyright (c) Microsoft Corporation.\n    // Licensed under the MIT License.\n\nCo-authored-by: copilot-swe-agent[bot] <198982749+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-06-24T10:00:20-07:00",
+          "tree_id": "43ce7d8afc065cdf63d21c8b9ff3bc9161263127",
+          "url": "https://github.com/Azure/azclips/commit/8f92b95c0a178fd834745e5df505730f1f17de80"
+        },
+        "date": 1782320891178,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 5749434.665835694,
+            "unit": "ns",
+            "range": "± 103206.94035263063"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 5733191.549329393,
+            "unit": "ns",
+            "range": "± 102528.61791272102"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 5739274.185291418,
+            "unit": "ns",
+            "range": "± 101238.45849755453"
           }
         ]
       }
