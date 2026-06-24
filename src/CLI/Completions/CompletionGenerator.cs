@@ -62,7 +62,7 @@ internal static class CompletionGenerator
     private static async Task<int> GenerateForCommandGroupAsync(ClientType clientType, IEngine engine, string commandGroupName, string? subcommand)
     {
         var registryStore = new FileExtensionRegistryStore();
-        var leafIndex = LeafIndex.Build(BuiltInExtensions.Map, registryStore.LoadReconciled());
+        var leafIndex = LeafIndex.Build(BuiltInExtensions.Map, registryStore.Load());
         var discoveryExtensionNames = leafIndex.Entries.Values
             .Where(v => v.Verb.Equals(commandGroupName, StringComparison.OrdinalIgnoreCase))
             .Select(v => Constants.StripCirrusPrefix(v.PackageId))
@@ -93,7 +93,7 @@ internal static class CompletionGenerator
     private static async Task<int> GenerateFullTreeAsync(ClientType clientType, IEngine engine)
     {
         var registryStore = new FileExtensionRegistryStore();
-        var leafIndex = LeafIndex.Build(BuiltInExtensions.Map, registryStore.LoadReconciled());
+        var leafIndex = LeafIndex.Build(BuiltInExtensions.Map, registryStore.Load());
         var discoveryExtensionNames = leafIndex.Entries.Values
             .Select(v => Constants.StripCirrusPrefix(v.PackageId))
             .Distinct(StringComparer.OrdinalIgnoreCase)
