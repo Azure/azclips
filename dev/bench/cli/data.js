@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782200548213,
+  "lastUpdate": 1782268781029,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus CLI Benchmarks": [
@@ -1344,6 +1344,48 @@ window.BENCHMARK_DATA = {
             "value": 1216471.2928533333,
             "unit": "ns",
             "range": "± 327282.4958593601"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "zelinwang@microsoft.com",
+            "name": "ZelinWang",
+            "username": "wangzelin007"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "401c2621a7f49caafbc26e093a609805ce7028b7",
+          "message": "feat(agent): plan-mode — propose_plan + two-stage approval + structured rendering (#309)\n\n## What this PR adds\n\nBuilds on the agent already in main, adding **plan-mode**: when a CLI\ncommand fails, the agent proposes a structured, reviewable fix instead\nof just acting.\n\n1. **`propose_plan` + `submit_response` tools with a two-stage approval\ngate.** `propose_plan` carries a structured plan — `issues` (what went\nwrong), `steps` (the exact commands, destructive ones flagged),\n`placeholders` (secrets the user must fill in) and `defaults` (values\nthe agent chose). No command runs until a plan is approved;\n`submit_response` is the single point that ends the session. Both are\nvalidated in the pre-tool-use hook (deny + correction, never a stack\ntrace).\n\n2. **Structured terminal rendering of the plan.** The plan renders as\nstyled blocks (`What went wrong:`, `Plan:` with the commands, `Values to\nreview before running:`, `✓ Done`, and an `AI-generated content may be\nincorrect` disclaimer). One-shot runs in a quiet presentation that hides\nagent-internal event/token noise — only the spinner (showing the current\nstep) and the final result are shown.\n\n3. **Two interaction styles.** `oneShot` (propose a fix and exit,\naz-CLI-like) and `interactive` (stay in a chat loop, with an escape\nvalve), selected by `agent.sessionStyle`.\n\n4. **System prompts split per entrypoint.** `oneshot.md` / `inline.md` /\n`tui.md` under `Agent/prompts/` (replacing the single `agent.md`), with\nscope filtering and sign-in / SKU-availability guidance.\n\n5. **Default-off switch + agent config.** Agent fallback is gated on\n`agent.enabled` (default false — opt-in for Private Preview). Adds an\noptional JSONL session trace via `agent.trace.enabled` /\n`agent.trace.path` (off by default; prints the trace file path when\nenabled).\n\n<img width=\"1221\" height=\"198\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/9001b0ad-0c28-4adb-8ae2-e599ad135fae\"\n/>\n<img width=\"2539\" height=\"1077\" alt=\"image\"\nsrc=\"https://github.com/user-attachments/assets/97e3821c-154b-4d87-b61c-532274fc6ac5\"\n/>",
+          "timestamp": "2026-06-24T12:35:31+10:00",
+          "tree_id": "4d8809cc9b74310af7808b6d08c9ffad5ea47eee",
+          "url": "https://github.com/Azure/cirrus/commit/401c2621a7f49caafbc26e093a609805ce7028b7"
+        },
+        "date": 1782268779806,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 1393969.4349411398,
+            "unit": "ns",
+            "range": "± 359832.543958566"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 1303499.9155310518,
+            "unit": "ns",
+            "range": "± 398996.20404848456"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 1311260.6765899865,
+            "unit": "ns",
+            "range": "± 361561.4393172069"
           }
         ]
       }
