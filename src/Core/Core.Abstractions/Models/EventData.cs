@@ -1,4 +1,7 @@
-﻿using Core.Abstractions.Runtime;
+﻿// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+using Core.Abstractions.Runtime;
 
 namespace Core.Abstractions
 {

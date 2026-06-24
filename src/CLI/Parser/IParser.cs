@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 //using Core.SharedContracts;
 
 //namespace Core.Cli.Parser;

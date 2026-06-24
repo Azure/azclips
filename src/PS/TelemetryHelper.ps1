@@ -1,3 +1,6 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
 # PowerShell Telemetry Helper
 # Provides telemetry integration for PowerShell cmdlets using the Core libraries
 
