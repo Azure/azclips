@@ -1,0 +1,44 @@
+Cirrus Third-Party Notices
+
+This NOTICE file is a pre-release placeholder for third-party attribution review.
+
+Before public MIT release, the engineering owner must run the Microsoft-approved open source dependency scan and NOTICE generation process, then replace this placeholder with the generated third-party notices if required.
+
+Known source of third-party dependency metadata:
+
+- .NET project PackageReference entries under src/ and tests/
+- npm dependencies under wiki/
+- Any generated, vendored, or copied assets added before release
+
+No final third-party attribution determination has been made in this draft file.
+
+---
+
+Third-Party Dependencies (preliminary)
+
+The following top-level NuGet package dependencies are declared by the Cirrus
+projects under src/. Versions reflect the resolved versions after restore, and
+declared licenses are recorded for attribution review and are subject to change.
+Test-only and benchmarking dependencies are excluded.
+
+MIT License:
+
+- Azure.AI.OpenAI (2.1.0-beta.2)
+- Azure.Monitor.OpenTelemetry.Exporter (1.2.0)
+- DotNetEnv (3.1.1)
+- Microsoft.Agents.AI (1.0.0-preview.251110.2)
+- Microsoft.Agents.AI.OpenAI (1.0.0-preview.251001.2)
+- Microsoft.Extensions.DependencyInjection (10.0.0)
+- Microsoft.Identity.Client (4.79.2)
+- Microsoft.Identity.Client.Extensions.Msal (4.79.2)
+- Microsoft.PowerShell.SDK (7.4.0)
+
+Apache License 2.0:
+
+- NuGet.Packaging (7.0.1)
+- NuGet.Protocol (7.0.1)
+- NuGet.Resolver (7.0.1)
+- NuGet.Versioning (6.13.2)
+- OpenTelemetry (1.8.1)
+- OpenTelemetry.Exporter.Zipkin (1.8.1)
+- OpenTelemetry.Instrumentation.Http (1.8.1)
