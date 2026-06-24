@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782303089807,
+  "lastUpdate": 1782320536873,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Cirrus CLI Benchmarks": [
@@ -1512,6 +1512,48 @@ window.BENCHMARK_DATA = {
             "value": 919918.3864705294,
             "unit": "ns",
             "range": "± 271502.74461024575"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "wangalex@microsoft.com",
+            "name": "Alex Wang",
+            "username": "Alex-AZPS"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8f92b95c0a178fd834745e5df505730f1f17de80",
+          "message": "chore: add MIT license headers to source files (#317)\n\nAdds the standard two-line MIT header to every source file under src/\nand tests/ on top of latest main.\n\n- 406 source files total (.cs/.ps1/.psm1), excluding generated obj/bin\n- 335 files updated; 71 already had a header (skipped)\n- .cs uses // comments, .ps1/.psm1 use # comments\n\nDraft for content review (#8). Header text:\n\n    // Copyright (c) Microsoft Corporation.\n    // Licensed under the MIT License.\n\nCo-authored-by: copilot-swe-agent[bot] <198982749+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-06-24T10:00:20-07:00",
+          "tree_id": "43ce7d8afc065cdf63d21c8b9ff3bc9161263127",
+          "url": "https://github.com/Azure/azclips/commit/8f92b95c0a178fd834745e5df505730f1f17de80"
+        },
+        "date": 1782320536214,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 953452.5882529517,
+            "unit": "ns",
+            "range": "± 284116.37254852173"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 929160.6081432573,
+            "unit": "ns",
+            "range": "± 279335.0063475178"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 902370.8129251701,
+            "unit": "ns",
+            "range": "± 269932.83545513166"
           }
         ]
       }
