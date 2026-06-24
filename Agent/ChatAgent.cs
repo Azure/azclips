@@ -547,7 +547,7 @@ public sealed class ChatAgent : IAsyncDisposable
             };
         }
 
-        var rewritten = Rewriteaz(command, azExePath);
+        var rewritten = RewriteAz(command, azExePath);
         if (ReferenceEquals(rewritten, command))
             return null;
 
@@ -962,14 +962,14 @@ public sealed class ChatAgent : IAsyncDisposable
         return null;
     }
 
-    private static string Rewriteaz(string command, string azExePath)
+    private static string RewriteAz(string command, string azExePath)
     {
         var trimmed = command.TrimStart();
         if (!trimmed.StartsWith("az ", StringComparison.OrdinalIgnoreCase) &&
             !trimmed.Equals("az", StringComparison.OrdinalIgnoreCase))
             return command;
 
-        var rest = trimmed.Length > 4 ? trimmed[5..] : string.Empty;
+        var rest = trimmed.Length > 2 ? trimmed[3..] : string.Empty;
         var quoted = azExePath.Contains(' ') ? $"\"{azExePath}\"" : azExePath;
         return string.IsNullOrEmpty(rest) ? quoted : $"{quoted} {rest}";
     }
