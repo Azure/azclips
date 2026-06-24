@@ -6,7 +6,7 @@ During private preview, maintainers may limit pull request acceptance to scoped 
 
 ## Before You Start
 
-- Review [README.md](README.md), [SUPPORT.md](SUPPORT.md), [SECURITY.md](SECURITY.md), and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+- Review [README.md](README.md) and [SECURITY.md](SECURITY.md).
 - For substantial changes, open or link an issue before starting implementation so maintainers can align on scope.
 - Do not include secrets, customer data, internal-only information, or private service details in issues, pull requests, tests, logs, or documentation.
 
