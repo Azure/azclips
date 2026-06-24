@@ -1,0 +1,86 @@
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using Tests.Common.Utilities;
+
+namespace Benchmark.Startup;
+
+/// <summary>
+/// Shared setup for process-level startup benchmarks. Each [Benchmark] spawns the real
+/// published azv2 / pwsh as a fresh OS process with CIRRUS_BENCH_RESOLVE_ONLY=1 so the child
+/// stops at the resolve-only seam (startup work done, command not executed).
+/// </summary>
+public abstract class StartupBenchmarkBase
+{
+#if DEBUG
+    protected const string Configuration = "Debug";
+#else
+    protected const string Configuration = "Release";
+#endif
+
+    protected string RepoRoot { get; private set; } = null!;
+
+    /// <summary>Resolve repo root once (RepoLocator scans upward for cirrus.slnx).</summary>
+    protected void InitializeCommon() => RepoRoot = RepoLocator.GetRepoRoot();
+
+    private string Azv2Path()
+    {
+        var exe = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "azv2.exe" : "azv2";
+        return Path.Combine(RepoRoot, "artifacts", Configuration, "Core.Cli", exe);
+    }
+
+    /// <summary>Absolute path to a staged PS manifest written by build/Set-ModuleConfiguration.ps1.</summary>
+    protected string StagedModulePath(string module) =>
+        Path.Combine(RepoRoot, "artifacts", Configuration, "PS", module, $"{module}.psd1");
+
+    /// <summary>ProcessStartInfo for an azv2 invocation, stopping at the seam.</summary>
+    protected ProcessStartInfo CliStartInfo(params string[] args)
+    {
+        var psi = new ProcessStartInfo
+        {
+            FileName = Azv2Path(),
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        foreach (var a in args) psi.ArgumentList.Add(a);
+        psi.Environment["CIRRUS_BENCH_RESOLVE_ONLY"] = "1";
+        return psi;
+    }
+
+    /// <summary>ProcessStartInfo for a pwsh module-import + cmdlet invocation, stopping at the seam.</summary>
+    protected ProcessStartInfo PsStartInfo(string modulePsd1, string cmdlet)
+    {
+        var psi = new ProcessStartInfo
+        {
+            FileName = "pwsh",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        psi.ArgumentList.Add("-NoProfile");
+        psi.ArgumentList.Add("-NonInteractive");
+        psi.ArgumentList.Add("-Command");
+        psi.ArgumentList.Add($"Import-Module '{modulePsd1}'; {cmdlet} | Out-Null");
+        psi.Environment["CIRRUS_BENCH_RESOLVE_ONLY"] = "1";
+        return psi;
+    }
+
+    /// <summary>Start the process, drain its streams, wait for exit, and assert exit code 0.</summary>
+    protected static void RunToExit(ProcessStartInfo psi)
+    {
+        using var p = Process.Start(psi)
+            ?? throw new InvalidOperationException($"Process.Start returned null for {psi.FileName}");
+        // Output at the seam is negligible; sequential drain before WaitForExit is safe here.
+        _ = p.StandardOutput.ReadToEnd();
+        _ = p.StandardError.ReadToEnd();
+        p.WaitForExit();
+        if (p.ExitCode != 0)
+        {
+            throw new InvalidOperationException(
+                $"Startup probe exited {p.ExitCode}: {psi.FileName} {string.Join(' ', psi.ArgumentList)}");
+        }
+    }
+}
