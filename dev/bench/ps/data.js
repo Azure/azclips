@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782201220684,
+  "lastUpdate": 1782269188990,
   "repoUrl": "https://github.com/Azure/cirrus",
   "entries": {
     "Cirrus PS Benchmarks": [
@@ -1344,6 +1344,48 @@ window.BENCHMARK_DATA = {
             "value": 14116528.00454447,
             "unit": "ns",
             "range": "± 573237.0428544746"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jaysontai@microsoft.com",
+            "name": "JaysonTaiMicrosoft",
+            "username": "JaysonTaiMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6b7d3ec50bdac64a3a61509391de903aa1685639",
+          "message": "[Benchmark] Set benchmark workflow to use self-hosted runner (#312)\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-06-24T12:38:39+10:00",
+          "tree_id": "b3f6b6f02907941261293c8614b4c8355779efd0",
+          "url": "https://github.com/Azure/cirrus/commit/6b7d3ec50bdac64a3a61509391de903aa1685639"
+        },
+        "date": 1782269188951,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 5750754.518020073,
+            "unit": "ns",
+            "range": "± 101257.8428315143"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 5759701.460991698,
+            "unit": "ns",
+            "range": "± 102603.84314632122"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 5723605.203841317,
+            "unit": "ns",
+            "range": "± 101964.54767407787"
           }
         ]
       }
