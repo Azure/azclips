@@ -27,10 +27,10 @@ public sealed class ReconcilingRegistryStoreTests
 
             var store = new ReconcilingRegistryStore(new FileExtensionRegistryStore(registryPath));
 
-            // Payload dir absent -> reconciler drops the entry.
-            Assert.Empty(store.Load().Extensions);
+            // Reconciliation is now a no-op: payload presence does not affect returned entries.
+            Assert.Single(store.Load().Extensions);
 
-            // Create payload dir <root>/Pkg.A/1.0.0/ -> entry survives.
+            // Create payload dir <root>/Pkg.A/1.0.0/ -> still a single entry.
             Directory.CreateDirectory(Path.Combine(root, "Pkg.A", "1.0.0"));
             Assert.Single(store.Load().Extensions);
         }

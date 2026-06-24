@@ -27,12 +27,11 @@ namespace Core.Extensions.Tests
 
                 var result = RegistryReconciler.Reconcile(registry, installRoot);
 
-                Assert.Single(result.Live.Extensions);
+                Assert.Equal(2, result.Live.Extensions.Count);
                 Assert.True(result.Live.Extensions.ContainsKey("PkgA"));
+                Assert.True(result.Live.Extensions.ContainsKey("PkgB"));
 
-                Assert.Single(result.Stale);
-                Assert.Equal("PkgB", result.Stale[0].PackageId);
-                Assert.Equal("2.0.0", result.Stale[0].Version);
+                Assert.Empty(result.Stale);
             }
             finally
             {
