@@ -17,8 +17,8 @@ No final third-party attribution determination has been made in this draft file.
 Third-Party Dependencies (preliminary)
 
 This is a preliminary inventory of third-party packages referenced via NuGet by
-the distributable Cirrus components (the `az` CLI and the `Cirrus.*` PowerShell
-modules). It exists to aid pre-release review only. The authoritative NOTICE must
+the distributable Cirrus components (including the `az` CLI, `cirrus-agent`, the
+`az-tui` dashboard, and the `Cirrus.*` PowerShell modules). It exists to aid pre-release review only. The authoritative NOTICE must
 be generated with Component Governance against the built artifacts, which captures
 the full (transitive) dependency tree and the complete license text for each
 component. Names, versions, and licenses below reflect the declarations on `main`
