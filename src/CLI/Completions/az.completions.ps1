@@ -1,40 +1,40 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-# azv2 Tab Completion for PowerShell
-# Usage: . <path-to>/azv2.completions.ps1
+# az Tab Completion for PowerShell
+# Usage: . <path-to>/az.completions.ps1
 # Or add to your $PROFILE to auto-load on every session.
 
 # Load command tree from pre-generated JSON file (built by build/build.ps1)
-$global:_Azv2CommandTree = $null
+$global:_azCommandTree = $null
 
-$_jsonFile = Join-Path $PSScriptRoot 'azv2.completions.json'
+$_jsonFile = Join-Path $PSScriptRoot 'az.completions.json'
 if (Test-Path $_jsonFile) {
-    $global:_Azv2CommandTree = Get-Content $_jsonFile -Raw | ConvertFrom-Json -AsHashtable
+    $global:_azCommandTree = Get-Content $_jsonFile -Raw | ConvertFrom-Json -AsHashtable
 } else {
-    # Fallback: try generating at load time via azv2 --completions
-    $_azv2Exe = Join-Path $PSScriptRoot 'azv2.exe'
-    if (-not (Test-Path $_azv2Exe)) {
-        $_azv2Exe = (Get-Command azv2 -ErrorAction SilentlyContinue)?.Source
+    # Fallback: try generating at load time via az --completions
+    $_azExe = Join-Path $PSScriptRoot 'az.exe'
+    if (-not (Test-Path $_azExe)) {
+        $_azExe = (Get-Command az -ErrorAction SilentlyContinue)?.Source
     }
     $json = $null
-    if ($_azv2Exe) { $json = & $_azv2Exe --completions 2>$null }
+    if ($_azExe) { $json = & $_azExe --completions 2>$null }
     if ($json) { $json = ($json | Where-Object { $_ -match '^\s*\{' }) -join '' }
     if ($json -and $json -ne '{}') {
-        $global:_Azv2CommandTree = $json | ConvertFrom-Json -AsHashtable
+        $global:_azCommandTree = $json | ConvertFrom-Json -AsHashtable
     }
 }
 
-if (-not $global:_Azv2CommandTree -or $global:_Azv2CommandTree.Count -eq 0) {
-    Write-Warning "azv2 completions data not found. Run 'build/build.ps1' to generate. Tab completion unavailable."
-    $global:_Azv2CommandTree = @{}
+if (-not $global:_azCommandTree -or $global:_azCommandTree.Count -eq 0) {
+    Write-Warning "az completions data not found. Run 'build/build.ps1' to generate. Tab completion unavailable."
+    $global:_azCommandTree = @{}
 }
 
 # Core completion logic — returns CompletionResult[] for a given input line and cursor
-function global:_Azv2GetCompletions {
+function global:_azGetCompletions {
     param([string]$inputText, [int]$cursorPos)
 
-    $tree = $global:_Azv2CommandTree
+    $tree = $global:_azCommandTree
     if (-not $tree -or $tree.Count -eq 0) { return @() }
 
     $textUpToCursor = $inputText.Substring(0, $cursorPos)
@@ -111,15 +111,15 @@ function global:_Azv2GetCompletions {
 }
 
 # Register native argument completer (fallback for scripts that invoke completions directly)
-Register-ArgumentCompleter -Native -CommandName azv2 -ScriptBlock {
+Register-ArgumentCompleter -Native -CommandName az -ScriptBlock {
     param($wordToComplete, $commandAst, $cursorPosition)
     $line = $commandAst.ToString()
-    _Azv2GetCompletions $line $cursorPosition
+    _azGetCompletions $line $cursorPosition
 }
 
-# Override TabExpansion2 so PSReadLine's MenuComplete works for azv2
-# including the empty-word case (e.g. "azv2 " + Tab).
-# For non-azv2 commands, delegates to the default implementation.
+# Override TabExpansion2 so PSReadLine's MenuComplete works for az
+# including the empty-word case (e.g. "az " + Tab).
+# For non-az commands, delegates to the default implementation.
 function global:TabExpansion2 {
     [CmdletBinding(DefaultParameterSetName = 'ScriptInputSet')]
     [OutputType([System.Management.Automation.CommandCompletion])]
@@ -149,8 +149,8 @@ function global:TabExpansion2 {
         $line = if ($PSCmdlet.ParameterSetName -eq 'ScriptInputSet') { $inputScript } else { $ast.Extent.Text }
         $cursor = if ($PSCmdlet.ParameterSetName -eq 'ScriptInputSet') { $cursorColumn } else { $positionOfCursor.Offset }
 
-        if ($line -match '^\s*azv2(\s|$)') {
-            $results = @(_Azv2GetCompletions $line $cursor)
+        if ($line -match '^\s*az(\s|$)') {
+            $results = @(_azGetCompletions $line $cursor)
             if ($results.Count -gt 0) {
                 $textUpToCursor = $line.Substring(0, [Math]::Min($cursor, $line.Length))
                 $lastSpace = $textUpToCursor.LastIndexOf(' ')
@@ -175,4 +175,4 @@ function global:TabExpansion2 {
 # Bind Tab to MenuComplete for dropdown-style display
 Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
 
-Write-Host "azv2 tab completion registered. Press Tab after 'azv2 ' to see suggestions." -ForegroundColor Green
+Write-Host "az tab completion registered. Press Tab after 'az ' to see suggestions." -ForegroundColor Green

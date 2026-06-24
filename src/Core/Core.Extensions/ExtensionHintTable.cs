@@ -146,7 +146,7 @@ namespace Core.Extensions
             // Disk fallback: only probe the well-known host assembly that owns the embedded
             // resource. Enumerating every *.dll in BaseDirectory wasted IO and could surface a
             // stale embedded hint table from any plugin DLL that happened to ship one.
-            var candidate = Path.Combine(baseDir, "azv2.dll");
+            var candidate = Path.Combine(baseDir, "az.dll");
             if (File.Exists(candidate))
             {
                 Assembly probed;

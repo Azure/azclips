@@ -26,9 +26,9 @@ PACKAGE_PROFILE="$(echo "$PACKAGE_PROFILE" | tr '[:upper:]' '[:lower:]')"
 ARTIFACT_VERSION="${ARTIFACT_VERSION:-}"
 
 if [[ "$PACKAGE_PROFILE" == "full" ]]; then
-  ARTIFACT_PREFIX="azv2"
+  ARTIFACT_PREFIX="az"
 elif [[ "$PACKAGE_PROFILE" == "lean" ]]; then
-  ARTIFACT_PREFIX="azv2-lean"
+  ARTIFACT_PREFIX="az-lean"
 else
   echo "ERROR: Unsupported PACKAGE_PROFILE '$PACKAGE_PROFILE'. Expected 'lean' or 'full'."
   exit 1
@@ -63,9 +63,9 @@ mkdir -p "$SIM_ROOT/home" "$SIM_ROOT/install"
 
 tar -xzf "$CLI_TAR_PATH" -C "$SIM_ROOT/install"
 
-AZV2="$SIM_ROOT/install/azv2"
-if [[ ! -f "$AZV2" ]]; then
-  echo "FAIL: azv2 binary not found in extracted tarball"
+az="$SIM_ROOT/install/az"
+if [[ ! -f "$az" ]]; then
+  echo "FAIL: az binary not found in extracted tarball"
   exit 1
 fi
 
@@ -89,12 +89,12 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
   exit 0
 fi
 
-chmod +x "$AZV2"
+chmod +x "$az"
 
 # Hosted macOS pools are often x86_64. When validating an osx-arm64 build there,
 # keep layout checks but skip runtime execution to avoid false failures.
 HOST_ARCH="$(uname -m)"
-BIN_INFO="$(file "$AZV2" 2>/dev/null || true)"
+BIN_INFO="$(file "$az" 2>/dev/null || true)"
 if [[ -n "$BIN_INFO" ]]; then
   echo "Binary info: $BIN_INFO"
 fi
@@ -118,11 +118,11 @@ fi
 
 echo ""
 echo "[1/4] CLI help (bundled install)"
-HOME="$SIM_ROOT/home" "$AZV2" --help 2>&1 | head -n 20 || true
+HOME="$SIM_ROOT/home" "$az" --help 2>&1 | head -n 20 || true
 
 echo ""
 echo "[2/4] Verify built-in extension manager is available"
-output=$(HOME="$SIM_ROOT/home" "$AZV2" extension add 2>&1 || true)
+output=$(HOME="$SIM_ROOT/home" "$az" extension add 2>&1 || true)
 echo "  $output"
 if echo "$output" | grep -qi "Extension.*could not be found"; then
   echo "  FAIL: Extension manager not loaded"
@@ -136,8 +136,8 @@ fi
 
 echo ""
 echo "[3/4] Verify bundled Config commands work"
-set_output=$(HOME="$SIM_ROOT/home" "$AZV2" config set --key core.logging.level --value debug --force 2>&1 || true)
-get_output=$(HOME="$SIM_ROOT/home" "$AZV2" config get --key core.logging.level 2>&1 || true)
+set_output=$(HOME="$SIM_ROOT/home" "$az" config set --key core.logging.level --value debug --force 2>&1 || true)
+get_output=$(HOME="$SIM_ROOT/home" "$az" config get --key core.logging.level 2>&1 || true)
 echo "  $set_output"
 echo "  $get_output"
 if echo "$get_output" | grep -q "core.logging.level = debug"; then
@@ -155,14 +155,14 @@ if [[ -z "${RES_NUPKG:-}" ]]; then
   exit 1
 fi
 
-output=$(HOME="$SIM_ROOT/home" "$AZV2" extension add --path "$RES_NUPKG" 2>&1 || true)
+output=$(HOME="$SIM_ROOT/home" "$az" extension add --path "$RES_NUPKG" 2>&1 || true)
 echo "  $output"
 if ! echo "$output" | grep -q "installedExtensionPath"; then
   echo "  FAIL: Resources extension install output did not include installed path"
   exit 1
 fi
 
-output=$(HOME="$SIM_ROOT/home" "$AZV2" group list 2>&1 || true)
+output=$(HOME="$SIM_ROOT/home" "$az" group list 2>&1 || true)
 echo "  $output"
 if echo "$output" | grep -q "could not be found"; then
   echo "  FAIL: Resources extension command not found"

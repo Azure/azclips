@@ -110,7 +110,7 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
         var subgroupSummaries = new Dictionary<string, RuntimeHelpGroupSummary>(StringComparer.OrdinalIgnoreCase);
         var commandSummaries = new List<RuntimeHelpCommandSummary>();
 
-        // A verb that also has a runnable root command (e.g. "azv2 login" itself) shows up
+        // A verb that also has a runnable root command (e.g. "az login" itself) shows up
         // as the empty-key entry in the per-verb table.
         if (string.IsNullOrEmpty(relativePrefix) && _verbCommands.TryGetValue(string.Empty, out var rootCommandMetadata))
         {

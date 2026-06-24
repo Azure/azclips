@@ -90,7 +90,7 @@ namespace Microsoft.Azure.Cirrus.Extensions.Login
             ["Disconnect-CirrusAccount"] = s_logout_PS,
             ["Get-CirrusAccount"]        = s_getContext_PS,
         };
-        // Full-path keys. The root verb (`azv2 login`) keys as just "login";
+        // Full-path keys. The root verb (`az login`) keys as just "login";
         // sub-leaves are `login {path}`.
         private static readonly Dictionary<string, CommandMetadata> s_cliTable = new()
         {

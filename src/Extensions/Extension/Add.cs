@@ -107,7 +107,7 @@ public class AddExtensionProcessor : IProcessor
                 {
                     details["localArtifact"] = localHint;
                     throw CirrusErrorException.ExtensionNotFound(
-                        $"{ex.Message}\n\nA local build artifact was found. Try:\n  azv2 extension add --path \"{localHint}\"",
+                        $"{ex.Message}\n\nA local build artifact was found. Try:\n  az extension add --path \"{localHint}\"",
                         details);
                 }
                 throw CirrusErrorException.ExtensionNotFound(ex.Message, details);
@@ -307,7 +307,7 @@ public class AddExtensionProcessor : IProcessor
             var suggestion = RegistryLookup.ToShortName(owningPackage);
             throw CirrusErrorException.UsageError(
                 $"'{name}' is a verb contributed by package '{owningPackage}', not a package identifier. " +
-                $"To install that package use:\n  azv2 extension add --name {suggestion}",
+                $"To install that package use:\n  az extension add --name {suggestion}",
                 new Dictionary<string, object?>
                 {
                     ["requestedName"] = name,

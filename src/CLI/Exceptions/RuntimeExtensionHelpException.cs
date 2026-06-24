@@ -7,7 +7,7 @@ namespace Core.Cli.Exceptions;
 
 /// <summary>
 /// Thrown by <see cref="ExtensionDispatcher"/> when the user requested help for a
-/// verb-scoped group or command (e.g. <c>azv2 vm --help</c>, <c>azv2 help vm create</c>).
+/// verb-scoped group or command (e.g. <c>az vm --help</c>, <c>az help vm create</c>).
 /// Carries the verb (not the package name) since help is a per-verb surface.
 /// </summary>
 public sealed class RuntimeExtensionHelpException(

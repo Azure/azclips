@@ -18,7 +18,7 @@ namespace Core.Extensions
         /// Paths within <see cref="Verb"/> that the built-in's <c>s_cliTable</c> handles
         /// (e.g. <c>"remove"</c> for the key <c>"extension remove"</c>). Seeded into
         /// <see cref="LeafIndex"/> so dispatch's longest-prefix match peels positional
-        /// arguments correctly — without this, <c>azv2 extension remove Resources</c>
+        /// arguments correctly — without this, <c>az extension remove Resources</c>
         /// would fall into the verb-only fallback and join <c>"remove Resources"</c>
         /// as the command name. Empty string represents the bare-verb leaf and is
         /// always seeded implicitly.

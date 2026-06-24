@@ -98,7 +98,7 @@ public class LocalArtifactProbeTests : IDisposable
     [Fact]
     public void Find_ShouldWalkUp_FromNestedSubdirectory()
     {
-        // Anchor walk-up: starting deep in a dev tree (e.g. running `azv2` from src/Foo) still
+        // Anchor walk-up: starting deep in a dev tree (e.g. running `az` from src/Foo) still
         // finds the root slnx and probes artifacts/ relative to it.
         var repo = MakeFakeRepo(withSlnx: true);
         var nupkg = CreateNupkg(repo, "Microsoft.Azure.Cirrus.Extensions.Compute", "1.0.0", DateTime.UtcNow);

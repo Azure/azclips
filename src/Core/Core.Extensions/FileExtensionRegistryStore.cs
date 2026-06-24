@@ -186,7 +186,7 @@ namespace Core.Extensions
                     {
                         throw CirrusErrorException.RegistryInvalid(
                             $"Registry entry '{packageId}' contains duplicate contribution '{key}'. " +
-                            $"Edit registry.json to remove the duplicate, or run 'azv2 extension remove' " +
+                            $"Edit registry.json to remove the duplicate, or run 'az extension remove' " +
                             $"and reinstall.",
                             new Dictionary<string, object?>
                             {
@@ -199,7 +199,7 @@ namespace Core.Extensions
                     {
                         throw CirrusErrorException.RegistryInvalid(
                             $"Registry contains duplicate contribution '{key}' claimed by both '{owner}' and '{packageId}'. " +
-                            $"Edit registry.json to remove one, or run 'azv2 extension remove' for the offender.",
+                            $"Edit registry.json to remove one, or run 'az extension remove' for the offender.",
                             new Dictionary<string, object?>
                             {
                                 ["leafKey"] = key,

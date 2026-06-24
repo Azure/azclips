@@ -34,7 +34,7 @@ jobs:
 
       - name: E2E - CLI Help
         run: |
-          ./artifacts/Debug/Core.Cli/azv2 --help
+          ./artifacts/Debug/Core.Cli/az --help
 
       - name: Setup PowerShell
         run: |

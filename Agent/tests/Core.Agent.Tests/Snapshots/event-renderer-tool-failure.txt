@@ -1,2 +1,2 @@
-ToolStarted name=run_command args={"command":"azv2 group show --name nope"} callId=call1
-ToolFailed name=run_command error=ResourceNotFound: 'nope' callId=call1
+ToolStarted name=powershell args={"command":"az group show --name nope"} callId=call1
+ToolFailed name=powershell error=ResourceNotFound: 'nope' callId=call1

@@ -10,11 +10,11 @@ Description: View and manage Azure managed disks attached to (or available for) 
 ### Discover disk commands
 
 ```bash
-azv2 disk --help
+az disk --help
 ```
 
 ### List disks in a resource group
 
 ```bash
-azv2 disk list --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000
+az disk list --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000
 ```

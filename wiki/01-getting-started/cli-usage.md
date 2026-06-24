@@ -1,21 +1,21 @@
 ---
 title: "CLI Usage Guide"
-description: "Complete guide to the azv2 command-line interface — structured commands, natural language input, AI fallback, help system, and response handling."
+description: "Complete guide to the az command-line interface — structured commands, natural language input, AI fallback, help system, and response handling."
 ---
 
 # CLI Usage Guide
 
 ## CLI Binary
 
-The CLI is compiled as a self-contained executable named **`azv2`**. After building the solution the binary is located at:
+The CLI is compiled as a self-contained executable named **`az`**. After building the solution the binary is located at:
 
 ```
-artifacts/<Configuration>/Core.Cli/azv2
+artifacts/<Configuration>/Core.Cli/az
 ```
 
-Inside the dev container, both `artifacts/Debug/Core.Cli` and `artifacts/Release/Core.Cli` are on `PATH` (`.devcontainer/devcontainer.json:60-61`), so `azv2` is directly invocable.
+Inside the dev container, both `artifacts/Debug/Core.Cli` and `artifacts/Release/Core.Cli` are on `PATH` (`.devcontainer/devcontainer.json:60-61`), so `az` is directly invocable.
 
-The assembly name is set to `azv2` in the CLI project file, producing a single executable entry point at `src/CLI/Program.cs:22`.
+The assembly name is set to `az` in the CLI project file, producing a single executable entry point at `src/CLI/Program.cs:22`.
 
 ## Command Syntax
 
@@ -24,16 +24,16 @@ Cirrus supports **two modes** of input in a single binary:
 ### Structured Commands
 
 ```bash
-azv2 <group> <command> [--Parameter value ...]
+az <group> <command> [--Parameter value ...]
 ```
 
 Examples:
 
 ```bash
-azv2 group create --Name my-rg --Location eastus --SubscriptionId <id>
-azv2 group show --SubscriptionId <id> --Name my-rg
-azv2 login show
-azv2 login logout
+az group create --Name my-rg --Location eastus --SubscriptionId <id>
+az group show --SubscriptionId <id> --Name my-rg
+az login show
+az login logout
 ```
 
 Arguments are parsed by `ExtensionDispatcher.Parse()` (`src/CLI/Parser/ExtensionDispatcher.cs:32-45`). The method:
@@ -46,9 +46,9 @@ Arguments are parsed by `ExtensionDispatcher.Parse()` (`src/CLI/Parser/Extension
 ### Natural Language Commands
 
 ```bash
-azv2 "create a resource group named test in eastus"
-azv2 "list all my resource groups"
-azv2 "how do I log in?"
+az "create a resource group named test in eastus"
+az "list all my resource groups"
+az "how do I log in?"
 ```
 
 When the structured engine cannot match the input, the orchestrator falls back to the AI agent automatically — no special flag is needed.
@@ -80,7 +80,7 @@ sequenceDiagram
     participant AI as AgentEngine
     participant Cloud as CloudAgent
 
-    User->>Main: azv2 "create a resource group"
+    User->>Main: az "create a resource group"
     Main->>Disp: Parse(args)
     Note over Disp: Unknown group → throws
     Disp-->>Main: ParserException
@@ -220,11 +220,11 @@ Help output is rendered through a table system:
 Available help triggers:
 
 ```bash
-azv2 --help
-azv2 -h
-azv2 help
-azv2 ?
-azv2 -?
+az --help
+az -h
+az help
+az ?
+az -?
 ```
 
 ## Exit Codes
