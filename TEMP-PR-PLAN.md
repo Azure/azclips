@@ -153,21 +153,34 @@ Implementation notes:
 
 ### 5.6 Documentation Updates
 
-1. Update `docs/howto/extension-management.md` to reflect discovery-first model:
-    - Clarify that `extension list` now enumerates discovered extensions (not registry-only state).
-    - Explain how pinning works as a preference overlay on top of discovered extensions.
-    - Document that `registry.json` is user preferences, not installed state.
-2. Update `docs/howto/help.md` to explain discovery-backed routing:
-    - Help resolution now queries installed extensions at runtime via discovery.
-    - Uninstalled verb fallback uses embedded hint table for install guidance.
-    - No static verb-to-package mappings are required.
-3. Update `docs/spec/extension-framework.md` with discovery contract:
-    - Document `DiscoveredExtensionInfo` output shape and semantics.
-    - Clarify multi-version discovery model (all versions enumerated, active version selected via registry preference).
-4. Update `docs/spec/help-system.md` with new routing logic:
-    - Root help generation via discovery pass.
-    - Help dispatcher ownership resolution via discovered verbs/commands.
-    - Hint table fallback-only usage.
+#### 5.6.1 `docs/howto/extension-management.md` ✅ DONE
+
+1. Clarified that `extension list` now enumerates discovered extensions (discovery-first model).
+2. Explained how pinning works as a preference overlay on top of discovered extensions.
+3. Documented that `registry.json` is user preferences, not installed state.
+4. Added "Discovery-First Model" section explaining discovery is authoritative, registry is optional.
+5. Removed obsolete "stale extensions" section (not relevant under discovery-first).
+
+#### 5.6.2 `docs/howto/help.md` ✅ DONE
+
+1. Added "Discovery-First Help Model" section explaining authoring-time vs runtime help resolution.
+2. Updated "Runtime Behavior" with new "Help Routing (Discovery-Backed)" subsection:
+   - Root help uses discovery to enumerate installed extensions
+   - Verb/command help resolved from discovered metadata
+   - Hint table fallback only for unknown verbs
+3. Clarified verb discovery at runtime (not static mappings).
+4. Updated CLI Help section to explain discovery-backed routing flow.
+
+#### 5.6.3 `docs/spec/extension-framework.md` – PENDING
+
+1. Document `DiscoveredExtensionInfo` output shape and semantics.
+2. Clarify multi-version discovery model (all versions enumerated, active version selected via registry preference).
+
+#### 5.6.4 `docs/spec/help-system.md` – PENDING
+
+1. Document root help generation via discovery pass.
+2. Document help dispatcher ownership resolution via discovered verbs/commands.
+3. Explain hint table fallback-only usage for unknown verbs.
 
 ## 6. Risks
 
@@ -186,5 +199,5 @@ Implementation notes:
 1. **Root cause of stale hint table mismatch (§3.4):** Investigate how `rest -> Resources` got into the hint table and was not caught. Understand whether the build-time validation (`ExtensionHints.targets`) is sufficient or needs strengthening, and whether the hint table generation process needs to be tied more tightly to the actual installed registry.
 2. **Registry as non-authoritative install state (§4.5.4):** The team direction is that `registry.json` should not be the authoritative source of installed state — runtime discovery should determine what is installed. Discuss the implications for the install/remove lifecycle, startup time, and how to handle edge cases where discovery and any persisted state diverge.
 3. **Bundled install delivery and out-of-box CNF errors:** The project has an install/delivery philosophy where extensions may be shipped as part of install bundles rather than added explicitly via `extension add`. Under the current registry-first model, extensions dropped into the install directory without a registry entry are invisible to the dispatcher, producing CNF errors out of the box. Once this plan is implemented and DiscoverySession walks the disk to determine installed state, this issue goes away — any extension present in the install directory is automatically discoverable regardless of how it arrived. This is a strong additional motivation for the runtime discovery direction.
-
-4. **Check Naga install locations** Manually added by Daniel. Verify install locations of a real build and if DiscoverySession via extension API picks them up.
+4. **Audit and remove "stale extension" functionality:** Under the discovery-first model, stale extensions (registry entries with missing on-disk payloads) are no longer a user-facing concept — missing extensions simply don't appear in the discovery output. Post-PR, audit the codebase for references to "stale", `live`/`stale` array handling in registry reconcilers and JSON output, and registry validation logic that checks for missing payloads. Most of this code is now dead weight and should be removed or simplified for clarity.
+5. **Check Naga install locations** Manually added by Daniel. Verify install locations of a real build and if DiscoverySession via extension API picks them up.
