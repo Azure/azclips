@@ -33,6 +33,9 @@ public static class StartupEviction
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
                 if (!File.Exists("/proc/sys/vm/drop_caches")) return false;
+                // Capability check: passwordless sudo. `-n` never prompts and exits non-zero
+                // if a password would be required. No system mutation, so safe on the probe path.
+                if (!Run("/bin/bash", "-c \"sudo -n true\"")) return false;
                 if (probe) return true;
                 return RunBash("sync; echo 3 | sudo tee /proc/sys/vm/drop_caches > /dev/null");
             }
@@ -41,6 +44,9 @@ public static class StartupEviction
             {
                 var tool = FindTool("EmptyStandbyList.exe");
                 if (tool is null) return false;
+                // EmptyStandbyList requires elevation; without it the evict would fail at runtime,
+                // so treat a non-elevated process as "cannot evict" rather than falsely cold.
+                if (!IsWindowsAdministrator()) return false;
                 if (probe) return true;
                 return Run(tool, "standbylist");
             }
@@ -51,6 +57,14 @@ public static class StartupEviction
         {
             return false;
         }
+    }
+
+    private static bool IsWindowsAdministrator()
+    {
+        if (!OperatingSystem.IsWindows()) return false;
+        using var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
+        var principal = new System.Security.Principal.WindowsPrincipal(identity);
+        return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
     }
 
     private static string? FindTool(string fileName)
