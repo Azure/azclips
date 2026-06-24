@@ -10,6 +10,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Core.Engine.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Core.Abstractions\Core.Abstractions.csproj" />
     <ProjectReference Include="..\Core.Telemetry\Core.Telemetry.csproj" />
     <ProjectReference Include="..\Core.Authentication\Core.Authentication.csproj" />

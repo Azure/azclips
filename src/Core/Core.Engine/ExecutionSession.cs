@@ -9,6 +9,7 @@ namespace Core.Engine;
 internal class ExecutionSession : ISession
 {
     private bool _disposed = false;
+    private readonly bool _resolveOnly;
     private ClientType clientType;
     private OutputStreamDelegate sessionOutputWriter = null!;
     private IDisposable loggingScope;
@@ -38,6 +39,12 @@ internal class ExecutionSession : ISession
         sessionOutputWriter = outputStreams.WriteOutput;
         outputStreamAdapter = new OutputStreamAdapter(outputStreams, EventBus.Token);
         loggingScope = ScopedLoggingService.UseScope(outputStreamAdapter);
+        // Benchmark/test seam: when CIRRUS_BENCH_RESOLVE_ONLY=1, the session performs all
+        // startup work (GetProcessor: runtime/DI/context init, extension assembly load,
+        // command-metadata resolve, processor Init + arg bind) and returns WITHOUT executing
+        // the command. Mirrors CIRRUS_NO_EXTENSION_CACHE / CIRRUS_AGENT_DISABLED. Read once per
+        // session so the startup benchmark can measure up to the seam with zero network/auth.
+        _resolveOnly = Environment.GetEnvironmentVariable("CIRRUS_BENCH_RESOLVE_ONLY") == "1";
     }
 
     public IExtensionIndex GetExtensionIndex()
@@ -56,7 +63,9 @@ internal class ExecutionSession : ISession
         ObjectDisposedException.ThrowIf(_disposed, this);
         EventBus.Token.ThrowIfCancellationRequested();
         ProcessorOutputWriter = sessionOutputWriter;
-        await (await GetProcessor()).ProcessAsync();
+        var processor = await GetProcessor();
+        if (_resolveOnly) return;   // stop at the seam — startup is measured up to here
+        await processor.ProcessAsync();
     }
 
     //TODO(Yabo): Consider implement ProcessAsync separately if we want to expose async processing in the future. For PowerShell, Process() must remain sync due to thread-affinity of cmdlet API, but other hosts could benefit from async.
@@ -97,7 +106,9 @@ internal class ExecutionSession : ISession
             try
             {
                 EventBus.Token.ThrowIfCancellationRequested();
-                await (await GetProcessor()).ProcessAsync();
+                var processor = await GetProcessor();
+                if (_resolveOnly) return;   // stop at the seam; finally still completes the channel
+                await processor.ProcessAsync();
             }
             finally
             {
