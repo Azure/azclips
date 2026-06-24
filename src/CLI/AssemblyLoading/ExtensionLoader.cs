@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Runtime.Loader;
 using Core.Abstractions;
 using Core.Configuration.Options;
+using Core.Extensions;
 using NuGet.Versioning;
 
 namespace Core.Cli;
@@ -119,6 +120,37 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
 
         _loggingService?.Debug($"Extension '{extensionNameFull}' not found in builtin extensions directory, will try other sources. Checked root(s): '{string.Join(";", GetCandidateRoots(_options.BuiltinInstallationDir))}'");
         return null;
+    }
+
+    /// <inheritdoc/>
+    public IEnumerable<(string Name, string Version)> GetInstalledExtensions()
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var root in GetCandidateRoots(_options.BuiltinInstallationDir))
+        {
+            foreach (var builtIn in BuiltInExtensions.Map.Values)
+            {
+                var shortName = Constants.StripCirrusPrefix(builtIn.PackageId);
+                if (seen.Contains(shortName))
+                {
+                    continue;
+                }
+
+                foreach (var directoryName in GetCandidateDirectoryNames(shortName, _options.ExtensionFolderPrefix))
+                {
+                    var assemblyPath = Path.Combine(root, directoryName, $"{builtIn.PackageId}.dll");
+                    if (!File.Exists(assemblyPath))
+                    {
+                        continue;
+                    }
+
+                    seen.Add(shortName);
+                    yield return (shortName, string.Empty);
+                    break;
+                }
+            }
+        }
     }
 }
 
