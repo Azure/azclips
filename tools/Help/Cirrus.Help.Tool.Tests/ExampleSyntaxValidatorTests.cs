@@ -58,7 +58,7 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldPass_WhenExampleResolvesAndAllFlagsAreKnown()
         {
-            var content = Fence("azv2 group create --name myrg --location eastus --subscription-id 00000000-0000-0000-0000-000000000000");
+            var content = Fence("az group create --name myrg --location eastus --subscription-id 00000000-0000-0000-0000-000000000000");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
 
@@ -68,8 +68,8 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldPass_WhenRootCommandResolvesToEmptyKey()
         {
-            // azv2 login (no subcommand) → key "" in login's CLI table.
-            var content = Fence("azv2 login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code");
+            // az login (no subcommand) → key "" in login's CLI table.
+            var content = Fence("az login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
 
@@ -79,7 +79,7 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldError_WhenGroupIsUnknown()
         {
-            var content = Fence("azv2 widget create --name foo");
+            var content = Fence("az widget create --name foo");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
 
@@ -90,7 +90,7 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldError_WhenSubcommandDoesNotResolve()
         {
-            var content = Fence("azv2 group bogus --name foo");
+            var content = Fence("az group bogus --name foo");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
 
@@ -101,7 +101,7 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldError_WhenFlagIsNotDeclaredOnCommand()
         {
-            var content = Fence("azv2 group create --name foo --location eastus --subscription-id 00000000-0000-0000-0000-000000000000 --bogus value");
+            var content = Fence("az group create --name foo --location eastus --subscription-id 00000000-0000-0000-0000-000000000000 --bogus value");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
 
@@ -112,7 +112,7 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldAllowDocumentedGlobalFlags()
         {
-            var content = Fence("azv2 group list --subscription-id 00000000-0000-0000-0000-000000000000 --help --debug --output json");
+            var content = Fence("az group list --subscription-id 00000000-0000-0000-0000-000000000000 --help --debug --output json");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
 
@@ -123,7 +123,7 @@ namespace Cirrus.Help.Tool.Tests
         public void Validate_ShouldAllowShortAliasFlag_WhenDeclaredOnParameter()
         {
             // -n is aliased to --name on `group create`.
-            var content = Fence("azv2 group create -n myrg --location eastus --subscription-id 00000000-0000-0000-0000-000000000000");
+            var content = Fence("az group create -n myrg --location eastus --subscription-id 00000000-0000-0000-0000-000000000000");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
 
@@ -133,7 +133,7 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldSupportEqualsFlagForm()
         {
-            var content = Fence("azv2 group create --name=myrg --location=eastus --subscription-id=00000000-0000-0000-0000-000000000000");
+            var content = Fence("az group create --name=myrg --location=eastus --subscription-id=00000000-0000-0000-0000-000000000000");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
 
@@ -141,12 +141,12 @@ namespace Cirrus.Help.Tool.Tests
         }
 
         [Fact]
-        public void Validate_ShouldIgnore_NonAzv2AndCommentLines()
+        public void Validate_ShouldIgnore_NonazAndCommentLines()
         {
             var content = Fence(
                 "# This is a comment",
                 "echo hello",
-                "azv2 group list");
+                "az group list");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
 
@@ -157,8 +157,8 @@ namespace Cirrus.Help.Tool.Tests
         public void Validate_ShouldOnlyFailOffendingLine_InMultiLineBlock()
         {
             var content = Fence(
-                "azv2 group list",
-                "azv2 group create --name foo --location westus --subscription-id 00000000-0000-0000-0000-000000000000 --rogue 1");
+                "az group list",
+                "az group create --name foo --location westus --subscription-id 00000000-0000-0000-0000-000000000000 --rogue 1");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
 
@@ -181,13 +181,13 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldIncludeFilePathAndLineNumber_InErrorLocator()
         {
-            // Two-line preamble pushes the azv2 line to absolute line 3.
-            var content = "Some prose.\n\n```bash\nazv2 widget create --name foo\n```";
+            // Two-line preamble pushes the az line to absolute line 3.
+            var content = "Some prose.\n\n```bash\naz widget create --name foo\n```";
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "extensions/foo/help/index.md", BuildIndexes());
 
             Assert.True(report.HasErrors);
-            // The fence body starts on line 4 (1 = "Some prose", 2 = blank, 3 = "```bash", 4 = azv2 line).
+            // The fence body starts on line 4 (1 = "Some prose", 2 = blank, 3 = "```bash", 4 = az line).
             Assert.Contains(report.Errors, e => e.FilePath!.EndsWith(":4", StringComparison.Ordinal));
         }
 
@@ -195,7 +195,7 @@ namespace Cirrus.Help.Tool.Tests
         public void Validate_ShouldNotTreatUrlOrPathOrNegativeNumber_AsFlag()
         {
             // Values like https://..., /subscriptions/..., -1 should never be flagged as unknown flags.
-            var content = Fence("azv2 group create --name myrg --location westus --subscription-id 00000000-0000-0000-0000-000000000000 --resource-id /subscriptions/abc/resourceGroups/myrg");
+            var content = Fence("az group create --name myrg --location westus --subscription-id 00000000-0000-0000-0000-000000000000 --resource-id /subscriptions/abc/resourceGroups/myrg");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
 
@@ -211,13 +211,13 @@ namespace Cirrus.Help.Tool.Tests
             {
                 ["vm create"] = new[]
                 {
-                    new ParameterMetadata("subscription-id", typeof(Guid), "", true, Array.Empty<string>(), Array.Empty<string>()),
-                    new ParameterMetadata("name", typeof(string), "", true, Array.Empty<string>(), Array.Empty<string>()),
-                    new ParameterMetadata("retries", typeof(int), "", false, Array.Empty<string>(), Array.Empty<string>()),
-                    new ParameterMetadata("use-device-code", typeof(bool), "", false, Array.Empty<string>(), Array.Empty<string>()),
-                    new ParameterMetadata("format", typeof(StubOutputFormat), "", false, Array.Empty<string>(), Array.Empty<string>()),
-                    new ParameterMetadata("verbosity", typeof(string), "", false, Array.Empty<string>(), new[] { "quiet", "normal", "diagnostic" }),
-                    new ParameterMetadata("tags", typeof(List<string>), "", false, Array.Empty<string>(), Array.Empty<string>()),
+                    new ParameterMetadata("subscription-id", "subscription-id", typeof(Guid), "", true, Array.Empty<string>(), Array.Empty<string>()),
+                    new ParameterMetadata("name", "name", typeof(string), "", true, Array.Empty<string>(), Array.Empty<string>()),
+                    new ParameterMetadata("retries", "retries", typeof(int), "", false, Array.Empty<string>(), Array.Empty<string>()),
+                    new ParameterMetadata("use-device-code", "use-device-code", typeof(bool), "", false, Array.Empty<string>(), Array.Empty<string>()),
+                    new ParameterMetadata("format", "format", typeof(StubOutputFormat), "", false, Array.Empty<string>(), Array.Empty<string>()),
+                    new ParameterMetadata("verbosity", "verbosity", typeof(string), "", false, Array.Empty<string>(), new[] { "quiet", "normal", "diagnostic" }),
+                    new ParameterMetadata("tags", "tags", typeof(List<string>), "", false, Array.Empty<string>(), Array.Empty<string>()),
                 },
             });
 
@@ -230,7 +230,7 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldPass_WhenGuidValueIsWellFormed()
         {
-            var content = Fence("azv2 vm create --name myvm --subscription-id 11111111-2222-3333-4444-555555555555");
+            var content = Fence("az vm create --name myvm --subscription-id 11111111-2222-3333-4444-555555555555");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
 
@@ -240,7 +240,7 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldError_WhenGuidValueIsMalformed()
         {
-            var content = Fence("azv2 vm create --name myvm --subscription-id not-a-guid");
+            var content = Fence("az vm create --name myvm --subscription-id not-a-guid");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
 
@@ -253,7 +253,7 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldError_WhenIntValueIsMalformed()
         {
-            var content = Fence("azv2 vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --retries abc");
+            var content = Fence("az vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --retries abc");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
 
@@ -264,7 +264,7 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldPass_WhenIntValueIsWellFormed()
         {
-            var content = Fence("azv2 vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --retries 5");
+            var content = Fence("az vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --retries 5");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
 
@@ -274,7 +274,7 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldPass_WhenBoolSwitchHasNoValue()
         {
-            var content = Fence("azv2 vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code");
+            var content = Fence("az vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
 
@@ -284,7 +284,7 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldPass_WhenBoolExplicitValueIsTrueOrFalse()
         {
-            var content = Fence("azv2 vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code true");
+            var content = Fence("az vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code true");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
 
@@ -294,7 +294,7 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldError_WhenBoolValueIsNeitherTrueNorFalse()
         {
-            var content = Fence("azv2 vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code yes");
+            var content = Fence("az vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code yes");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
 
@@ -305,7 +305,7 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldPass_WhenEnumValueMatchesCaseInsensitively()
         {
-            var content = Fence("azv2 vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --format JSON");
+            var content = Fence("az vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --format JSON");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
 
@@ -315,7 +315,7 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldError_WhenEnumValueIsNotAMember()
         {
-            var content = Fence("azv2 vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --format xml");
+            var content = Fence("az vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --format xml");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
 
@@ -328,7 +328,7 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldError_WhenAllowedValuesAreSetAndValueIsOutOfRange()
         {
-            var content = Fence("azv2 vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --verbosity loud");
+            var content = Fence("az vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --verbosity loud");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
 
@@ -341,7 +341,7 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldPass_WhenAllowedValuesContainTheValue()
         {
-            var content = Fence("azv2 vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --verbosity Quiet");
+            var content = Fence("az vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --verbosity Quiet");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
 
@@ -351,7 +351,7 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldSkipL3_WhenValueIsAngleBracketPlaceholder()
         {
-            var content = Fence("azv2 vm create --name myvm --subscription-id <subId> --retries <count>");
+            var content = Fence("az vm create --name myvm --subscription-id <subId> --retries <count>");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
 
@@ -361,7 +361,7 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldSkipL3_WhenValueIsShellVariable()
         {
-            var content = Fence("azv2 vm create --name $vmName --subscription-id $subId --retries $count");
+            var content = Fence("az vm create --name $vmName --subscription-id $subId --retries $count");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
 
@@ -372,7 +372,7 @@ namespace Cirrus.Help.Tool.Tests
         public void Validate_ShouldSkipL3_WhenValueIsAllZeroGuidPlaceholder()
         {
             // The all-zero GUID is also a valid Guid, but documented as a placeholder.
-            var content = Fence("azv2 vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000");
+            var content = Fence("az vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
 
@@ -382,8 +382,8 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldSupportEqualsForm_BothPassAndFail()
         {
-            var pass = Fence("azv2 vm create --name myvm --subscription-id=11111111-2222-3333-4444-555555555555");
-            var fail = Fence("azv2 vm create --name myvm --subscription-id=not-a-guid");
+            var pass = Fence("az vm create --name myvm --subscription-id=11111111-2222-3333-4444-555555555555");
+            var fail = Fence("az vm create --name myvm --subscription-id=not-a-guid");
 
             var passReport = new ExampleSyntaxValidator().ValidateContent(pass, "fake.md", BuildTypedIndexes());
             var failReport = new ExampleSyntaxValidator().ValidateContent(fail, "fake.md", BuildTypedIndexes());
@@ -397,7 +397,7 @@ namespace Cirrus.Help.Tool.Tests
         public void Validate_ShouldSkipL3_ForListParameters()
         {
             // List<string> element validation is deferred; literal value should not trigger an error.
-            var content = Fence("azv2 vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --tags foo");
+            var content = Fence("az vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --tags foo");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
 
@@ -408,7 +408,7 @@ namespace Cirrus.Help.Tool.Tests
         public void Validate_ShouldFireL2Only_WhenFlagIsUnknown_NotL3OnItsValue()
         {
             // --unknwn is unknown; the next token 'foo' should be skipped, not double-reported as a bad value.
-            var content = Fence("azv2 vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --unknwn foo");
+            var content = Fence("az vm create --name myvm --subscription-id 00000000-0000-0000-0000-000000000000 --unknwn foo");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildTypedIndexes());
 
@@ -424,7 +424,7 @@ namespace Cirrus.Help.Tool.Tests
         public void Validate_ShouldErrorL4_WhenRequiredFlagIsMissing()
         {
             // 'group create' requires name + location + subscription-id; only --name supplied.
-            var content = Fence("azv2 group create --name myrg");
+            var content = Fence("az group create --name myrg");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
 
@@ -442,7 +442,7 @@ namespace Cirrus.Help.Tool.Tests
         public void Validate_ShouldNotFireL4_WhenAliasFlagSatisfiesRequirement()
         {
             // -n is the alias for --name; using the alias should satisfy the requirement.
-            var content = Fence("azv2 group create -n myrg --location eastus --subscription-id 00000000-0000-0000-0000-000000000000");
+            var content = Fence("az group create -n myrg --location eastus --subscription-id 00000000-0000-0000-0000-000000000000");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
 
@@ -452,8 +452,8 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldNotFireL4_OnHelpInvocations()
         {
-            // `azv2 group create --help` is a help invocation; required-flag policing must not apply.
-            var content = Fence("azv2 group create --help");
+            // `az group create --help` is a help invocation; required-flag policing must not apply.
+            var content = Fence("az group create --help");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
 
@@ -464,7 +464,7 @@ namespace Cirrus.Help.Tool.Tests
         public void Validate_ShouldNotFireL4_WhenCommandHasNoRequiredFlags()
         {
             // 'group list' has only an optional subscription-id; bare invocation must pass.
-            var content = Fence("azv2 group list");
+            var content = Fence("az group list");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndexes());
 
@@ -479,15 +479,16 @@ namespace Cirrus.Help.Tool.Tests
             // The validator must match against the dictionary key, not the .Name field.
             var widgetCreate = new CommandMetadata(
                 Name: "widget create",
+                InvocationName: "widget create",
                 Aliases: Array.Empty<string>(),
                 FullName: "widget create",
                 AssemblyName: "Stub",
                 ProcessorType: typeof(StubExtensionIndex),
                 Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["name"]            = new ParameterMetadata("Name",           typeof(string), "", IsRequired: true, Aliases: new[] { "n" }, AllowedValues: Array.Empty<string>()),
-                    ["location"]        = new ParameterMetadata("Location",       typeof(string), "", IsRequired: true, Aliases: Array.Empty<string>(), AllowedValues: Array.Empty<string>()),
-                    ["subscription-id"] = new ParameterMetadata("SubscriptionId", typeof(string), "", IsRequired: true, Aliases: Array.Empty<string>(), AllowedValues: Array.Empty<string>()),
+                    ["name"]            = new ParameterMetadata("Name",           "name", typeof(string), "", IsRequired: true, Aliases: new[] { "n" }, AllowedValues: Array.Empty<string>()),
+                    ["location"]        = new ParameterMetadata("Location",       "location", typeof(string), "", IsRequired: true, Aliases: Array.Empty<string>(), AllowedValues: Array.Empty<string>()),
+                    ["subscription-id"] = new ParameterMetadata("SubscriptionId", "subscription-id", typeof(string), "", IsRequired: true, Aliases: Array.Empty<string>(), AllowedValues: Array.Empty<string>()),
                 },
                 ParameterAliases: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["n"] = "name" });
 
@@ -497,7 +498,7 @@ namespace Cirrus.Help.Tool.Tests
             });
             var indexes = new Dictionary<string, IExtensionIndex>(StringComparer.OrdinalIgnoreCase) { ["widget"] = widget };
 
-            var content = Fence("azv2 widget create --name myrg --location eastus --subscription-id 00000000-0000-0000-0000-000000000000");
+            var content = Fence("az widget create --name myrg --location eastus --subscription-id 00000000-0000-0000-0000-000000000000");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", indexes);
 
@@ -512,14 +513,15 @@ namespace Cirrus.Help.Tool.Tests
             // once (not zero, not duplicated for "subscription-id" + "SubscriptionId").
             var widgetCreate = new CommandMetadata(
                 Name: "widget create",
+                InvocationName: "widget create",
                 Aliases: Array.Empty<string>(),
                 FullName: "widget create",
                 AssemblyName: "Stub",
                 ProcessorType: typeof(StubExtensionIndex),
                 Parameters: new Dictionary<string, ParameterMetadata>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["name"]            = new ParameterMetadata("Name",           typeof(string), "", IsRequired: true, Aliases: Array.Empty<string>(), AllowedValues: Array.Empty<string>()),
-                    ["subscription-id"] = new ParameterMetadata("SubscriptionId", typeof(string), "", IsRequired: true, Aliases: Array.Empty<string>(), AllowedValues: Array.Empty<string>()),
+                    ["name"]            = new ParameterMetadata("Name",           "name", typeof(string), "", IsRequired: true, Aliases: Array.Empty<string>(), AllowedValues: Array.Empty<string>()),
+                    ["subscription-id"] = new ParameterMetadata("SubscriptionId", "subscription-id", typeof(string), "", IsRequired: true, Aliases: Array.Empty<string>(), AllowedValues: Array.Empty<string>()),
                 },
                 ParameterAliases: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
 
@@ -529,7 +531,7 @@ namespace Cirrus.Help.Tool.Tests
             });
             var indexes = new Dictionary<string, IExtensionIndex>(StringComparer.OrdinalIgnoreCase) { ["widget"] = widget };
 
-            var content = Fence("azv2 widget create --name myrg");
+            var content = Fence("az widget create --name myrg");
 
             var report = new ExampleSyntaxValidator().ValidateContent(content, "fake.md", indexes);
 
@@ -552,7 +554,7 @@ namespace Cirrus.Help.Tool.Tests
                         var aliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                         foreach (var (flag, required, alias) in pair.Value)
                         {
-                            parameters[flag] = new ParameterMetadata(flag, typeof(string), "", required, alias, Array.Empty<string>());
+                            parameters[flag] = new ParameterMetadata(flag, flag, typeof(string), "", required, alias, Array.Empty<string>());
                             foreach (var a in alias)
                             {
                                 aliases[a] = flag;
@@ -560,6 +562,7 @@ namespace Cirrus.Help.Tool.Tests
                         }
                         return new CommandMetadata(
                             Name: pair.Key,
+                            InvocationName: pair.Key,
                             Aliases: Array.Empty<string>(),
                             FullName: pair.Key,
                             AssemblyName: "Stub",
@@ -588,6 +591,7 @@ namespace Cirrus.Help.Tool.Tests
                         }
                         return new CommandMetadata(
                             Name: pair.Key,
+                            InvocationName: pair.Key,
                             Aliases: Array.Empty<string>(),
                             FullName: pair.Key,
                             AssemblyName: "Stub",

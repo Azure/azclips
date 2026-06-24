@@ -145,4 +145,28 @@ public class HelpToolsTests
                 $"index lists '{lookup}' but get_command returned not_found");
         }
     }
+
+    [Fact]
+    public void BuildFailedCommandContext_InjectsHelp_OnRealCommand()
+    {
+        var ctx = ChatAgent.BuildFailedCommandContext(new HelpTools(), "vm create -g rg -n x");
+        Assert.NotNull(ctx);
+        Assert.Contains("vm create", ctx!);
+    }
+
+    [Fact]
+    public void BuildFailedCommandContext_ReturnsNull_OnNotFound()
+    {
+        // A multi-word command whose trailing positional arg gets swept into the
+        // extracted verb resolves to not_found — we must NOT inject "not_found"
+        // (it would mislead the agent into thinking its real command doesn't exist).
+        var ctx = ChatAgent.BuildFailedCommandContext(new HelpTools(), "vm create totally-not-a-real-verb");
+        Assert.Null(ctx);
+    }
+
+    [Fact]
+    public void BuildFailedCommandContext_ReturnsNull_OnNaturalLanguage()
+    {
+        Assert.Null(ChatAgent.BuildFailedCommandContext(new HelpTools(), "帮我创建一个虚拟机"));
+    }
 }

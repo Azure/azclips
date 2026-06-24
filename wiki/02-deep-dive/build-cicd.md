@@ -16,7 +16,7 @@ flowchart TB
     subgraph Solution["cirrus.slnx"]
         direction TB
         subgraph CLI["src/CLI/"]
-            CoreCli["Core.Cli.csproj<br>azv2 executable"]
+            CoreCli["Core.Cli.csproj<br>az executable"]
         end
 
         subgraph Core["src/Core/"]
@@ -75,11 +75,11 @@ flowchart TB
     style Bench fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
-The CLI project (`src/CLI/Core.Cli.csproj:2`) produces the `azv2` executable:
+The CLI project (`src/CLI/Core.Cli.csproj:2`) produces the `az` executable:
 
 ```xml
 <OutputType>Exe</OutputType>
-<AssemblyName>azv2</AssemblyName>              <!-- line 4 -->
+<AssemblyName>az</AssemblyName>              <!-- line 4 -->
 <RootNamespace>Core.Cli</RootNamespace>         <!-- line 5 -->
 <StartupObject>Core.Cli.Program</StartupObject> <!-- line 13 -->
 ```
@@ -137,13 +137,13 @@ Source projects treat warnings as errors (`src/Directory.Build.props:10`), enfor
 ```json
 {
   "sdk": {
-    "version": "9.0.308",
+    "version": "10.0.203",
     "rollForward": "latestMinor"
   }
 }
 ```
 
-The `rollForward: "latestMinor"` policy allows minor version updates within .NET 9.x.
+The `rollForward: "latestMinor"` policy allows minor version updates within .NET 10.x.
 
 ## Code Quality Rules
 
@@ -204,7 +204,7 @@ flowchart TB
         BT_Restore["dotnet restore"]
         BT_Build["dotnet build (Debug)"]
         BT_Test["dotnet test"]
-        BT_E2E_CLI["E2E: azv2 --help"]
+        BT_E2E_CLI["E2E: az --help"]
         BT_E2E_PS["E2E: Import-Module Login"]
         BT_Restore --> BT_Build --> BT_Test --> BT_E2E_CLI --> BT_E2E_PS
     end
@@ -306,7 +306,7 @@ The lightweight PR gate pipeline (`.github/workflows/build-and-test.yml:1`) runs
 1. **Restore** — `dotnet restore cirrus.slnx` (`.github/workflows/build-and-test.yml:22`)
 2. **Build** — Debug configuration with `--no-restore` (`.github/workflows/build-and-test.yml:25`)
 3. **Test** — `dotnet test` with normal verbosity (`.github/workflows/build-and-test.yml:29`)
-4. **E2E CLI** — Runs `./artifacts/Debug/Core.Cli/azv2 --help` to validate the binary (`.github/workflows/build-and-test.yml:33`)
+4. **E2E CLI** — Runs `./artifacts/Debug/Core.Cli/az --help` to validate the binary (`.github/workflows/build-and-test.yml:33`)
 5. **E2E PowerShell** — Imports the Login module and verifies command count > 0 (`.github/workflows/build-and-test.yml:44`)
 
 ## build.yml (Full Build)
@@ -428,21 +428,21 @@ The build produces artifacts organized by configuration:
 artifacts/
 ├── Debug/
 │   ├── Core.Cli/
-│   │   └── azv2          # CLI executable
+│   │   └── az          # CLI executable
 │   └── Extensions.Resources/
 │       └── *.dll          # Extension assemblies
 ├── Release/
 │   └── (same structure)
 publish/
 ├── Debug/win-x64/         # Self-contained publish
-│   ├── azv2.exe
+│   ├── az.exe
 │   ├── Extensions/Extension/
 │   └── AppxManifest.xml
 bin/
 ├── Debug/
-│   └── azv2-win-x64.msix  # Signed MSIX package
+│   └── az-win-x64.msix  # Signed MSIX package
 └── Release/
-    └── azv2-win-x64.msix
+    └── az-win-x64.msix
 ```
 
 ## References
@@ -453,11 +453,11 @@ bin/
 | `Shared.props` | Repository paths, output directory, PowerShell manifest copying |
 | `src/Directory.Build.props` | net9 target, analyzers, warnings-as-errors |
 | `tests/Directory.Build.props` | xUnit/Coverlet packages, CA1707 suppression |
-| `global.json` | .NET SDK 9.0.308, `latestMinor` roll-forward |
+| `global.json` | .NET SDK 10.0.203, `latestMinor` roll-forward |
 | `.editorconfig` | 50+ analyzer rules, naming conventions, license header |
 | `.github/workflows/build.yml` | Full build: CLI, extensions, PS modules, MSIX, release |
 | `.github/workflows/build-and-test.yml` | PR gate: build, test, E2E validation |
 | `.devcontainer/devcontainer.json` | Features, ports, environment, VS Code extensions |
 | `.devcontainer/docker-compose.yml` | App + Zipkin services with health checks |
 | `build/build.ps1` | Single-line solution build script |
-| `src/CLI/Core.Cli.csproj` | azv2 executable, Shared.props import, project references |
+| `src/CLI/Core.Cli.csproj` | az executable, Shared.props import, project references |

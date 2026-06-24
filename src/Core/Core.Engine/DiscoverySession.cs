@@ -13,10 +13,11 @@ internal class DiscoverySession : ISession
     private IDisposable loggingScope;
     private bool isTransient;
     private string? commandName;
+    private IList<string> extensionNames;
+    private IDictionary<string, CommandMetadata> outputDict;
     private readonly OutputStreamAdapter outputStreamAdapter;
 
     public string Id { get; }
-    IList<string> Names { get; }
     public IEventBus EventBus { get; private set; }
 
     internal Func<string, string, Assembly> LoadAssembly { get; set; } = null!;
@@ -29,8 +30,9 @@ internal class DiscoverySession : ISession
         this.clientType = clientType;
         this.isTransient = isTransient;
         this.commandName = commandName;
+        this.extensionNames = [.. extensionNames];
+        this.outputDict = new Dictionary<string, CommandMetadata>();
         Id = $"{GetType().Name}-{clientType}-{Guid.NewGuid().ToString()}";
-        Names = new List<string>(extensionNames);
         EventBus = new RuntimeEventBus(cancellationToken);
         sessionOutputWriter = outputStreams.WriteOutput;
         outputStreamAdapter = new OutputStreamAdapter(outputStreams, EventBus.Token);
@@ -38,11 +40,18 @@ internal class DiscoverySession : ISession
     }
 
     public void Run() => throw new NotImplementedException();
+
+    /// <summary>
+    /// Discovers commands from the requested extension(s) and writes the result to the output stream
+    /// as a dictionary keyed by <see cref="CommandMetadata.InvocationName"/>
+    /// (the client-facing invocation token) with the <see cref="CommandMetadata"/> as the value.
+    /// </summary>
     public async Task RunAsync()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        if (Names == null || Names.Count == 0)
+        // Load all installed extensions
+        if (extensionNames == null || extensionNames.Count == 0)
         {
             foreach (var (name, version, asmFunc) in LoadAllAssemblies() ?? [])
             {
@@ -55,7 +64,7 @@ internal class DiscoverySession : ISession
                         index = CacheGetOrAdd(name, version, () => asmFunc.Invoke().GetExtensionIndex());
                     foreach (CommandMetadata metadata in index.GetAllCommands(clientType))
                     {
-                        await sessionOutputWriter(metadata, EventBus.Token);
+                        outputDict[metadata.InvocationName] = metadata;
                     }
                 }
                 catch (Exception ex)
@@ -64,12 +73,11 @@ internal class DiscoverySession : ISession
                     Console.Error.WriteLine($"Failed to load extension in discovery session {Id}: {ex.Message}");
                 }
             }
-            return;
         }
-
-        if (Names.Count > 1)
+        // Load multiple extensions
+        else if (extensionNames.Count > 0 && string.IsNullOrEmpty(commandName))
         {
-            foreach (string name in Names)
+            foreach (string name in extensionNames)
             {
                 try
                 {
@@ -80,7 +88,7 @@ internal class DiscoverySession : ISession
                         index = CacheGetOrAdd(name, GetExtensionVersion(name), () => LoadAssembly.Invoke(name, GetExtensionVersion(name)).GetExtensionIndex());
                     foreach (CommandMetadata metadata in index.GetAllCommands(clientType))
                     {
-                        await sessionOutputWriter(metadata, EventBus.Token);
+                        outputDict[metadata.InvocationName] = metadata;
                     }
                 }
                 catch (Exception ex)
@@ -89,27 +97,28 @@ internal class DiscoverySession : ISession
                     Console.Error.WriteLine($"Failed to load extension '{name}' in discovery session {Id}: {ex.Message}");
                 }
             }
-            return;
         }
-        
-        if (Names.Count == 1 && !string.IsNullOrEmpty(commandName))
+        // Load a specific command from a single extension
+        else if (extensionNames.Count == 1 && !string.IsNullOrEmpty(commandName))
         {
             try
             {
                 IExtensionIndex index;
                 if (isTransient)
-                    index = LoadAssembly.Invoke(Names[0], GetExtensionVersion(Names[0])).GetExtensionIndex();
+                    index = LoadAssembly.Invoke(extensionNames[0], GetExtensionVersion(extensionNames[0])).GetExtensionIndex();
                 else
-                    index = CacheGetOrAdd(Names[0], GetExtensionVersion(Names[0]), () => LoadAssembly.Invoke(Names[0], GetExtensionVersion(Names[0])).GetExtensionIndex());
-                await sessionOutputWriter(index.GetCommandMetadata(commandName, clientType), EventBus.Token);
+                    index = CacheGetOrAdd(extensionNames[0], GetExtensionVersion(extensionNames[0]), () => LoadAssembly.Invoke(extensionNames[0], GetExtensionVersion(extensionNames[0])).GetExtensionIndex());
+                CommandMetadata metadata = index.GetCommandMetadata(commandName, clientType);
+                outputDict[metadata.InvocationName] = metadata;
             }
             catch (Exception ex)
             {
                 // Log the error
-                Console.Error.WriteLine($"Failed to load extension '{Names[0]}' in discovery session {Id}: {ex.Message}");
+                Console.Error.WriteLine($"Failed to load extension '{extensionNames[0]}' in discovery session {Id}: {ex.Message}");
             }
-            return;
         }
+        // Emit the discovered commands as a Dictionary<InvocationName, CommandMetadata> to the output stream.
+        await sessionOutputWriter(outputDict, EventBus.Token);
     }
 
     /// <summary>

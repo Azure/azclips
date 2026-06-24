@@ -10,5 +10,5 @@ Description: Sign out from the current Azure account context.
 ### Sign out
 
 ```bash
-azv2 login logout
+az login logout
 ```

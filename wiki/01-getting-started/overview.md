@@ -7,9 +7,9 @@ description: "Comprehensive overview of the Cirrus CLI framework — an extensio
 
 ## What Is Cirrus?
 
-Cirrus is an extension-based command-line framework built on .NET 9 that provides **two complementary interfaces** for managing Azure resources: a structured CLI (producing the `azv2` binary) and a set of PowerShell modules. When a user issues a command that the structured engine cannot resolve, Cirrus automatically falls back to an **AI-powered agent** that interprets natural language and either answers the question or extracts a concrete command for retry.
+Cirrus is an extension-based command-line framework built on .NET 10 that provides **two complementary interfaces** for managing Azure resources: a structured CLI (producing the `az` binary) and a set of PowerShell modules. When a user issues a command that the structured engine cannot resolve, Cirrus automatically falls back to an **AI-powered agent** that interprets natural language and either answers the question or extracts a concrete command for retry.
 
-The solution is organised in the modern `.slnx` format (`cirrus.slnx:1-24`) and pins its SDK to **9.0.308** via `global.json:2-5` with a `latestMinor` roll-forward policy so contributors stay on a consistent toolchain.
+The solution is organised in the modern `.slnx` format (`cirrus.slnx:1-24`) and pins its SDK to **10.0.203** via `global.json:2-5` with a `latestMinor` roll-forward policy so contributors stay on a consistent toolchain.
 
 ## High-Level Architecture
 
@@ -17,7 +17,7 @@ The solution is organised in the modern `.slnx` format (`cirrus.slnx:1-24`) and 
 graph TB
     subgraph User["User Interfaces"]
         style User fill:#161b22,stroke:#30363d,color:#e6edf3
-        CLI["azv2 CLI Binary"]
+        CLI["az CLI Binary"]
         PS["PowerShell Modules<br>(Login · Resources)"]
     end
 
@@ -49,11 +49,11 @@ graph TB
         Cloud["Azure OpenAI<br>(CloudAgent)"]
     end
 
-    CLI -->|args| Parser
-    PS -->|PSCommandInvocation| Orchestrator
+    CLI --> args  Parser
+    PS --> PSCommandInvocation  Orchestrator
     Parser --> Orchestrator
-    Orchestrator -->|"try first"| Default
-    Default -->|exception| Agent
+    Orchestrator --> "try first"  Default
+    Default --> exception  Agent
     Agent --> Cloud
     Default --> Loader
     Loader --> Login
@@ -61,7 +61,7 @@ graph TB
     Loader --> ExtMgr
     DI --> Auth
     DI --> Telemetry
-    Orchestrator -.->|retry extracted cmd| Default
+    Orchestrator -.-> retry extracted cmd  Default
 
     style CLI fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style PS fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
@@ -85,7 +85,7 @@ graph TB
 |---------|-------------|
 | **Extension Loading** | Dynamically loads command extensions via custom `AssemblyLoadContext` with dependency isolation (`src/Core/Core.Engine/ExtensionLoader.cs:15-44`). Supports both built-in and multi-version (NuGet semver) loaders. |
 | **AI Fallback** | When `DefaultCommandEngine` throws, `OrchestratorEngine` automatically invokes `AgentEngine` backed by Azure OpenAI (`src/Core/Core.Engine/OrchestratorEngine.cs:94-114`). |
-| **Dual Interface** | The same business logic is exposed through both the `azv2` CLI binary and PowerShell modules (`Login`, `Resources`), sharing a common DI container (`src/Core/Core.DependencyInjection/CirrusServiceProvider.cs:1-30`). |
+| **Dual Interface** | The same business logic is exposed through both the `az` CLI binary and PowerShell modules (`Login`, `Resources`), sharing a common DI container (`src/Core/Core.DependencyInjection/CirrusServiceProvider.cs:1-30`). |
 | **Structured Telemetry** | OpenTelemetry with Zipkin exporter in DEBUG builds; Azure Monitor exporter for production (`src/Core/Core.Telemetry/`). |
 | **MSAL Authentication** | Browser-based interactive auth via MSAL, with dev-container helpers that bridge VS Code's browser (`src/Core/Core.Authentication/`). |
 
@@ -93,16 +93,16 @@ graph TB
 
 | Component | Technology | Version | Purpose |
 |-----------|-----------|---------|---------|
-| Runtime | .NET | 9.0.308 | Core framework (`global.json:3`) |
+| Runtime | .NET | 10.0.203 | Core framework (`global.json:3`) |
 | Language | C# | 13 | All source projects (`src/Directory.Build.props:4`) |
-| AI | Azure OpenAI | — | Natural language agent (`src/Core/Core.Agent/CloudAgent.cs:53-58`) |
-| Auth | MSAL | — | Azure AD authentication |
+| AI | Azure OpenAI | - | Natural language agent (`src/Core/Core.Agent/CloudAgent.cs:53-58`) |
+| Auth | MSAL | - | Azure AD authentication |
 | Telemetry | OpenTelemetry | 1.8.1 | Distributed tracing |
-| Tracing | Zipkin | — | Local trace visualisation (dev container) |
+| Tracing | Zipkin | - | Local trace visualisation (dev container) |
 | Shell | PowerShell | 7.5 | Module interface (`src/PS/Login/Login.psd1:36`) |
 | Testing | xUnit | 2.9.3 | Unit & integration tests (`tests/Directory.Build.props:19`) |
 | Coverage | Coverlet | 6.0.4 | Code coverage collection (`tests/Directory.Build.props:17`) |
-| CI/CD | GitHub Actions | — | Build, test, package (`.github/workflows/build.yml`) |
+| CI/CD | GitHub Actions | - | Build, test, package (`.github/workflows/build.yml`) |
 
 ## Repository Structure
 
@@ -194,7 +194,7 @@ sequenceDiagram
     participant Agent as AgentEngine
     participant Cloud as CloudAgent / Azure OpenAI
 
-    User->>Program: azv2 group create --Name test
+    User->>Program: az group create --Name test
     Program->>Dispatcher: Parse(args)
     Dispatcher->>Dispatcher: Lookup CommandGroupIndex
     Dispatcher-->>Program: CLICommandInvocation
@@ -237,7 +237,7 @@ The `Shared.props:6-8` file defines output paths so all projects publish into a 
 ```
 artifacts/
 ├── Debug/
-│   ├── Core.Cli/azv2          ← CLI executable
+│   ├── Core.Cli/az          ← CLI executable
 │   ├── Core/                  ← Shared core DLLs
 │   ├── Microsoft.Azure.Cirrus.Extensions.Login/
 │   └── Microsoft.Azure.Cirrus.Extensions.Resources/

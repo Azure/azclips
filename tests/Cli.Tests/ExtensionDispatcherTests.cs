@@ -46,7 +46,7 @@ public class ExtensionDispatcherTests
     [InlineData("help", "   ")]
     public void Parse_ShouldNotThrowIndexOutOfRange_WhenHelpSubcommandFollowedByEmptyGroupToken(string firstToken, string secondToken)
     {
-        // `azv2 help ""` previously crashed inside TryCreateHelpRequest at groupToken[0].
+        // `az help ""` previously crashed inside TryCreateHelpRequest at groupToken[0].
         // The guard now causes the help-request path to bail out; the dispatcher falls through
         // to the standard command path, which raises a descriptive error instead.
         var dispatcher = new ExtensionDispatcher();
@@ -264,7 +264,7 @@ public class ExtensionDispatcherTests
     [Fact]
     public void Parse_ShouldRouteBuiltInLeaf_WithPositionalResidual()
     {
-        // Regression: `azv2 extension remove Resources` must resolve to (extension, remove) via
+        // Regression: `az extension remove Resources` must resolve to (extension, remove) via
         // the built-in's seeded Leaves and surface "Resources" as a positional residual under the
         // empty parameter key — not fall through to verb-only fallback and yield the bogus
         // command name "extension remove Resources". See BuiltInExtensions.Map.
@@ -290,7 +290,7 @@ public class ExtensionDispatcherTests
 
     // -------- Intermediate-group help path --------
     //
-    // Regression: `azv2 deployment group --help` is parsed with IsCommandHelp=true (the parser
+    // Regression: `az deployment group --help` is parsed with IsCommandHelp=true (the parser
     // flags any path with extra tokens past the verb), but the leaf is `deployment group create` —
     // so `deployment group` is an intermediate group, not a command. The help dispatcher must
     // fall back to GetGroupHelp on a GetCommandHelp miss instead of throwing
@@ -341,6 +341,7 @@ public class ExtensionDispatcherTests
     {
         private static readonly CommandMetadata s_metadata = new(
             Name: "Stub",
+            InvocationName: "Stub",
             Aliases: Array.Empty<string>(),
             FullName: "Stub.Processors.StubProcessor",
             AssemblyName: "Stub",

@@ -97,6 +97,17 @@ public sealed class HelpTools
     public AIFunction GetCommand { get; }
     public IReadOnlyList<AIFunction> All { get; }
 
+    // Host-side entry to the same lookup the LLM's get_command uses. Lets the host
+    // pre-fetch a failed command's help and inject it into context, so the agent
+    // doesn't spend a turn looking up the command it was triggered by. Returns the
+    // exact same JSON (help or not_found) the tool would return.
+    //
+    // Today both this and get_command resolve through the same GetCommandImpl, so
+    // they stay in sync by construction. If a future index-backed lookup splits
+    // them into separate resolvers, that "stays in sync automatically" no longer
+    // holds — keep a single resolver entry point to preserve it.
+    public string LookupCommand(string name) => GetCommandImpl(name);
+
     [Description("Return the full HelpIndex catalog.")]
     private string ListCommandsImpl()
     {

@@ -2,7 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using Core.Extensions;
-using Microsoft.Azure.Cirrus.Extensions.Extension;
 
 namespace Cli.Tests;
 

@@ -17,15 +17,35 @@ public sealed class GetConfigCommand : ConfigCommandBase
 
         var entries = await GetResolvedEntriesAsync(includeDefaults: true).ConfigureAwait(false);
         var normalizedKey = NormalizeKey(Key);
-        if (!entries.TryGetValue(normalizedKey, out var entry))
+
+        // Check for exact match first (leaf value)
+        if (entries.TryGetValue(normalizedKey, out var entry))
+        {
+            var output = Json
+                ? Serialize(entry)
+                : $"{entry.Key} = {FormatValue(entry.Value)} [{entry.Source}]";
+
+            await WriteOutput(output, CancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        // Check for section/subsection matches (prefix match)
+        var matchingEntries = entries
+            .Where(e => e.Key.StartsWith(normalizedKey + ".", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(e => e.Key, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (matchingEntries.Count == 0)
         {
             throw new KeyNotFoundException($"Configuration key '{Key}' was not found.");
         }
 
-        var output = Json
-            ? Serialize(entry)
-            : $"{entry.Key} = {FormatValue(entry.Value)} [{entry.Source}]";
+        // Reconstruct nested object from matching entries
+        var nested = ReconstructNestedObject(normalizedKey, matchingEntries);
+        var sectionOutput = Json
+            ? Serialize(nested)
+            : FormatNestedAsTable(nested);
 
-        await WriteOutput(output, CancellationToken).ConfigureAwait(false);
+        await WriteOutput(sectionOutput, CancellationToken).ConfigureAwait(false);
     }
 }

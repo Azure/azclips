@@ -30,9 +30,11 @@
     <Project Path="Agent/Core.Agent.csproj" />
     <Project Path="Agent/tests/Core.Agent.Tests/Core.Agent.Tests.csproj" />
   </Folder>
+  <Folder Name="/src/PS/Config/" />
   <Folder Name="/tests/">
     <Project Path="tests/Cli.Tests/Cli.Tests.csproj" />
     <Project Path="tests/Benchmark/Benchmark.csproj" />
+    <Project Path="tests/Cmdlets.Tests/Cmdlets.Tests.csproj" />
     <Project Path="tests/Common/Tests.Common.csproj" />
     <Project Path="tests/Core.Extensions.Tests/Core.Extensions.Tests.csproj" />
     <Project Path="tests/Core.Telemetry.Tests/Core.Telemetry.Tests.csproj" />

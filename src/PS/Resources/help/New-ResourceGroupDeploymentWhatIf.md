@@ -13,7 +13,7 @@ title: New-ResourceGroupDeploymentWhatIf
 
 ## SYNOPSIS
 
-Preview the changes an ARM or Bicep template deployment would make to a resource group without applying them.
+Preview the changes an ARM or Bicep deployment would make to a resource group without applying them.
 
 ## SYNTAX
 
@@ -33,24 +33,24 @@ This cmdlet has the following aliases,
 
 ## DESCRIPTION
 
-Runs a what-if operation against the specified resource group using an ARM/Bicep template supplied either inline (`-TemplateFile`), via URL (`-TemplateUri`), or by referencing a template spec (`-TemplateSpecId`). Template parameters can be supplied via file, URI, query string, or as `Name=Value` pairs through `-Parameter`.
-Unlike `New-ResourceGroupDeployment`, this cmdlet is read-only: it never creates, modifies, or deletes resources. Use it to validate and review the expected changes before committing to a real deployment.
+Runs an ARM/Bicep what-if operation against an existing resource group and returns the set of resource changes the deployment would produce — additions, modifications, deletions, and no-ops — without creating or modifying any resources. The template is supplied either inline (`-TemplateFile`), via URL (`-TemplateUri`), or by referencing a template spec (`-TemplateSpecId`). Template parameters can be supplied via file, URI, query string, or as `Name=Value` pairs through `-Parameter`.
+Use `-ResultFormat ResourceIdOnly` for a compact summary, or `-ResultFormat FullResourcePayloads` (default) to include the full predicted resource bodies.
 
 ## EXAMPLES
 
-### Preview changes for a Bicep file against an existing resource group
+### Preview a Bicep deployment before applying it
 
-Run a what-if analysis of `main.bicep` with parameter file `main.parameters.json` against resource group `myrg`.
+Run a what-if for `main.bicep` with parameter file `main.parameters.json` as deployment `infra-prod-2026-06-18` against resource group `myrg`.
 
 ```powershell
-New-ResourceGroupDeploymentWhatIf -ResourceGroupName myrg -Name infra-prod-2026-06-18 -TemplateFile ./main.bicep -ParametersFile ./main.parameters.json
+New-ResourceGroupDeploymentWhatIf -ResourceGroupName myrg -Name infra-prod-2026-06-18 -TemplateFile ./main.bicep -ParametersFile ./main.parameters.json -Mode Incremental
 ```
 
 ## PARAMETERS
 
 ### -Mode
 
-Deployment mode used for the what-if analysis. Use `Incremental` (default) to preview adds and updates, or `Complete` to also preview which existing resources would be deleted.
+Deployment mode used to evaluate the change set. Use `Incremental` (default) to add and update resources, or `Complete` to also report resources in the resource group that aren't declared in the template.
 
 ```yaml
 Type: System.String
@@ -71,7 +71,7 @@ HelpMessage: ""
 
 ### -Name
 
-The name of the deployment used to track the what-if operation in deployment history.
+The name of the deployment. Used to track and reference the what-if operation in deployment history.
 
 ```yaml
 Type: System.String
@@ -176,7 +176,7 @@ HelpMessage: ""
 
 ### -ResourceGroupName
 
-The name of the resource group to run the what-if analysis against. The resource group must already exist.
+The name of the resource group to run the what-if against. The resource group must already exist.
 
 ```yaml
 Type: System.String
@@ -197,7 +197,7 @@ HelpMessage: ""
 
 ### -ResultFormat
 
-Controls how the what-if results are formatted. Common values are `FullResourcePayloads` (default, shows the full before/after resource state) and `ResourceIdOnly` (shows only the resource IDs that would change).
+The format of the what-if results. Use `FullResourcePayloads` (default) to include the full predicted resource bodies, or `ResourceIdOnly` for a compact list of affected resource IDs.
 
 ```yaml
 Type: System.String
@@ -212,7 +212,9 @@ ParameterSets:
       ValueFromPipelineByPropertyName: false
       ValueFromRemainingArguments: false
 DontShow: false
-AcceptedValues: []
+AcceptedValues:
+    - FullResourcePayloads
+    - ResourceIdOnly
 HelpMessage: ""
 ```
 
@@ -260,7 +262,7 @@ HelpMessage: ""
 
 ### -TemplateSpecId
 
-Resource ID of an existing template spec to analyse (for example, `/subscriptions/.../providers/Microsoft.Resources/templateSpecs/<spec>/versions/<version>`).
+Resource ID of an existing template spec to evaluate (for example, `/subscriptions/.../providers/Microsoft.Resources/templateSpecs/<spec>/versions/<version>`).
 
 ```yaml
 Type: System.String
@@ -302,7 +304,7 @@ HelpMessage: ""
 
 ### -ValidationLevel
 
-Deployment validation strictness. Common values are `Provider` (default) and `Template`. Use a stricter level to catch schema or parameter issues earlier.
+What-if validation strictness. Common values are `Provider` (default) and `Template`. Use a stricter level to catch schema or parameter issues earlier.
 
 ```yaml
 Type: System.String
@@ -334,12 +336,11 @@ This cmdlet supports the common parameters: -Debug, -ErrorAction, -ErrorVariable
 
 ### System.Object
 
-Returns the what-if result object describing the predicted changes (resource additions, modifications, deletions, and no-changes) without applying them.
+Returns the what-if result describing the predicted resource changes (create, modify, delete, ignore, no-change) for the deployment.
 
 ## NOTES
 
-This cmdlet is read-only and never modifies resources. It intentionally omits `-WhatIf` and `-Confirm` parameters because there is no side effect to gate on.
-The target resource group must already exist. Use `New-ResourceGroup` to create it first when bootstrapping a new environment.
+What-if is a read-only preview: it never creates or modifies resources. Use `New-ResourceGroupDeployment` to apply the changes once the preview looks correct.
 
 ## RELATED LINKS
 

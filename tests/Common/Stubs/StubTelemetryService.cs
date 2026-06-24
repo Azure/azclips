@@ -18,9 +18,9 @@ public class StubTelemetryService : ITelemetryService
 
     public Activity? TagInvocation(CommandInvocation commandInvocation) => Activity.Current;
 
-    public Activity? AddTag(string tagName, object value, Activity? activity = null)
+    public Activity? AddTag(string propertyName, object? value, Activity? activity = null)
     {
-        return new Activity(tagName);
+        return new Activity(propertyName);
     }
 
     public void Dispose() => ActivitySource.Dispose();
