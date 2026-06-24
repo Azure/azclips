@@ -26,7 +26,7 @@ dotnet build cirrus.slnx -c Debug
 Expected:
 
 1. Build succeeds.
-2. CLI is available as `azv2` in your dev environment.
+2. CLI is available as `az` in your dev environment.
 3. PowerShell manifests are copied under ./bin.
 
 ## 4. Fast Automated Regression
@@ -48,9 +48,9 @@ Expected:
 ## 5. CLI Smoke: Discovery-Backed Extension API
 
 ```powershell
-azv2 extension list
-azv2 extension list --by-verb
-azv2 extension list --output json
+az extension list
+az extension list --by-verb
+az extension list --output json
 ```
 
 Expected:
@@ -61,8 +61,8 @@ Expected:
 Show command:
 
 ```powershell
-azv2 extension show --name Resources
-azv2 extension show --name Microsoft.Azure.Cirrus.Extensions.Resources
+az extension show --name Resources
+az extension show --name Microsoft.Azure.Cirrus.Extensions.Resources
 ```
 
 Expected:
@@ -73,10 +73,10 @@ Expected:
 Pin/unpin behavior (preference overlay):
 
 ```powershell
-azv2 extension pin --name Resources
-azv2 extension list --output json
-azv2 extension unpin --name Resources
-azv2 extension list --output json
+az extension pin --name Resources
+az extension list --output json
+az extension unpin --name Resources
+az extension list --output json
 ```
 
 Expected:
@@ -88,10 +88,10 @@ Expected:
 Optional remove/re-add cycle (if you want destructive validation):
 
 ```powershell
-azv2 extension remove --name Resources
-azv2 extension list
-azv2 extension add --name Resources
-azv2 extension list
+az extension remove --name Resources
+az extension list
+az extension add --name Resources
+az extension list
 ```
 
 Expected:
@@ -104,7 +104,7 @@ Expected:
 Root help:
 
 ```powershell
-azv2 --help
+az --help
 ```
 
 Expected:
@@ -114,8 +114,8 @@ Expected:
 Installed extension help:
 
 ```powershell
-azv2 group --help
-azv2 deployment group --help
+az group --help
+az deployment group --help
 ```
 
 Expected:
@@ -126,7 +126,7 @@ Expected:
 Uninstalled extension hint fallback:
 
 ```powershell
-azv2 vm --help
+az vm --help
 ```
 
 Expected:
@@ -154,9 +154,10 @@ Expected for each entry written by current code path:
 Import packaged modules:
 
 ```powershell
-Import-Module ./bin/Cirrus.psd1 -Force
+Import-Module ./src/PS/config/Config.psd1 -Force
+Import-Module ./src/PS/resources/Resources.psd1 -Force
 Get-Module Cirrus*
-Get-Command -Module Cirrus.Login,Cirrus.Group,Cirrus.Agent -ErrorAction SilentlyContinue
+Get-Command -Module Cirrus.Config,Cirrus.Resources -ErrorAction SilentlyContinue
 ```
 
 Expected:
