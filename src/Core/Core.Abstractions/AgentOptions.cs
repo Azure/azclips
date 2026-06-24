@@ -30,12 +30,11 @@ public sealed class TraceOptions
     // Off by default — recording writes nothing until the user opts in.
     public bool Enabled { get; set; } = false;
 
-    // Where the JSONL trace files go (one file per session). Defaults under the
-    // cirrus home dir so enabling trace "just works" without also setting a path.
-    // The directory is created on first write if it doesn't exist.
-    public string Path { get; set; } = System.IO.Path.Combine(
-        System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile),
-        ".cirrus", "trace");
+    // Where the JSONL trace files go (one file per session). Defaults to
+    // ~/.cirrus/trace to match the schema/docs default; the leading ~ is expanded
+    // to the user profile at the point of use (AgentModeEntry.ExpandHome). The
+    // directory is created on first write if it doesn't exist.
+    public string Path { get; set; } = "~/.cirrus/trace";
 }
 
 public sealed class BuiltinProviderOptions

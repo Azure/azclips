@@ -38,7 +38,6 @@ public sealed class ChatAgent : IAsyncDisposable
     // only queried then replied in prose is still a protocol violation. The host
     // reads this after SendAsync to force a correction on a bare-prose turn.
     private int _sendCalledClosingTool;
-    private int _sendCalledSubmit;
 
     public string Model => _model;
 
@@ -48,9 +47,6 @@ public sealed class ChatAgent : IAsyncDisposable
     // or submit_response). A turn that ends without one — even if it called
     // get_command/bash — replied in prose and broke the act-through-tools contract.
     public bool LastSendCalledClosingTool => Volatile.Read(ref _sendCalledClosingTool) != 0;
-
-    // True when the most recent SendAsync called submit_response (session-ending).
-    public bool LastSendCalledSubmit => Volatile.Read(ref _sendCalledSubmit) != 0;
 
     // True once a plan was rendered this session. Informational only — under the
     // unified-mind model the plan is a mid-turn artifact and submit_response is the
@@ -72,7 +68,7 @@ public sealed class ChatAgent : IAsyncDisposable
     // then exit); inline does NOT — it keeps the conversation open so the user can
     // reply to the plan/questions, and ends only when the user types exit/quit.
     public bool SessionClosed =>
-        (_state?.IsOneShot ?? true) && ((_state?.SubmitRendered ?? false) || LastSendCalledSubmit);
+        (_state?.IsOneShot ?? true) && (_state?.SubmitRendered ?? false);
 
     // Hook for the host renderer to learn when submit_response has rendered its
     // final outcome, so it can suppress any trailing model prose. Forwards to
@@ -173,8 +169,6 @@ public sealed class ChatAgent : IAsyncDisposable
                 {
                     if (IsClosingTool(ts.Name, self._state?.IsOneShot ?? false))
                         Volatile.Write(ref self._sendCalledClosingTool, 1);
-                    if (IsSessionTerminator(ts.Name))
-                        Volatile.Write(ref self._sendCalledSubmit, 1);
                 }
                 if (spinner is not null)
                 {
@@ -361,7 +355,6 @@ public sealed class ChatAgent : IAsyncDisposable
     {
         LastError = null;
         Volatile.Write(ref _sendCalledClosingTool, 0);
-        Volatile.Write(ref _sendCalledSubmit, 0);
         if (_state is not null) _state.SubmittedThisTurn = false;
         var turnCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var oldCts = Interlocked.Exchange(ref _activeTurnCts, turnCts);
@@ -412,7 +405,7 @@ public sealed class ChatAgent : IAsyncDisposable
         // No user approval — the LLM already decided to end. Validate args; on
         // failure deny + feed the reason back as additionalContext so the LLM
         // self-corrects. On success render the final outcome and allow: the host
-        // recognizes this turn (via LastSendCalledSubmit) as the clean close.
+        // recognizes this turn (via SubmitRendered) as the clean close.
         if (string.Equals(input.ToolName, "submit_response", StringComparison.OrdinalIgnoreCase))
         {
             var submitError = ValidateSubmitResponse(input.ToolArgs);
