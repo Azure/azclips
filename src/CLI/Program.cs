@@ -6,6 +6,7 @@ using Core.Cli.Exceptions;
 using Core.Cli.Help;
 using Core.Cli.Parser;
 using Core.Cli.Telemetry;
+using Core.Configuration.Options;
 using Core.Engine;
 using Core.Extensions;
 using Core.Runtime;
@@ -278,14 +279,37 @@ public class Program
 
     private static async Task<int> TryAgentFallbackAsync(string[] args, string? errorText)
     {
-        // Global disable switch. Set CIRRUS_AGENT_DISABLED=1 to keep the
-        // original classic error and skip the agent fallback entirely.
-        if (Environment.GetEnvironmentVariable("CIRRUS_AGENT_DISABLED") == "1")
+        // Global enable switch: config `agent.enabled` (off by default for PP).
+        // The user opts in with `azv2 config set --key agent.enabled --value true`.
+        // Fail-safe: if config can't be read, treat as disabled and surface the
+        // original error rather than spawning the agent on an unknown state.
+        try
+        {
+            var config = CirrusServiceProvider.GetRequiredService<IConfigurationService>();
+            if (!config.GetConfiguration<AgentOptions>().Enabled)
+            {
+                return 1;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.Debug($"agent fallback skipped: agent.enabled unavailable ({ex.Message})");
+            return 1;
+        }
+
+        // Non-interactive guard: the agent reads y/n approvals and prompts from
+        // the terminal. When this isn't an interactive TTY (CI, a pipe, an
+        // unattended script) it can't interact and would hang or spew, so surface
+        // the original error instead of spawning it. Replaces the removed
+        // CIRRUS_AGENT_DISABLED env guard for unattended runs. Inlined (not the
+        // agent's ConsoleEnvironment helper) so Core.Cli stays decoupled from
+        // Core.Agent — same semantics: a TTY on both stdin and stdout.
+        if (Console.IsInputRedirected || Console.IsOutputRedirected)
         {
             return 1;
         }
 
-        // Recursion guard: a failed azv2 invoked by run_command from inside an
+        // Recursion guard: a failed azv2 invoked by powershell from inside an
         // already-running agent-mode TUI must NOT spawn another agent-mode TUI.
         if (Environment.GetEnvironmentVariable("CIRRUS_IN_AGENT_MODE") == "1")
         {
@@ -321,10 +345,24 @@ public class Program
                 psi.ArgumentList.Add(errorText);
             }
 
-            using var proc = Process.Start(psi)
-                ?? throw new InvalidOperationException("Process.Start returned null");
-            await proc.WaitForExitAsync();
-            return proc.ExitCode;
+            // The child TUI takes over Ctrl+C (it cancels the session). The parent
+            // must also intercept it — otherwise Ctrl+C kills the parent first, the
+            // shell redraws its prompt, and the child's remaining output prints onto
+            // that prompt ("terminal hijack"). Intercept-only here; the child owns the
+            // actual cancellation and we just wait for it to exit cleanly.
+            ConsoleCancelEventHandler cancelHandler = (_, e) => e.Cancel = true;
+            Console.CancelKeyPress += cancelHandler;
+            try
+            {
+                using var proc = Process.Start(psi)
+                    ?? throw new InvalidOperationException("Process.Start returned null");
+                await proc.WaitForExitAsync();
+                return proc.ExitCode;
+            }
+            finally
+            {
+                Console.CancelKeyPress -= cancelHandler;
+            }
         }
         catch (Exception ex)
         {

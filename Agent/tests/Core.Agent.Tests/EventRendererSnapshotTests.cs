@@ -42,7 +42,7 @@ public class EventRendererSnapshotTests
         {
             Data = new ToolExecutionStartData
             {
-                ToolName = "run_command",
+                ToolName = "powershell",
                 ToolCallId = "call1",
                 Arguments = JsonSerializer.Deserialize<JsonElement>("{\"command\":\"azv2 group list\"}"),
             }
@@ -111,7 +111,7 @@ public class EventRendererSnapshotTests
         {
             Data = new ToolExecutionStartData
             {
-                ToolName = "run_command",
+                ToolName = "powershell",
                 ToolCallId = "call1",
                 Arguments = JsonSerializer.Deserialize<JsonElement>("{\"command\":\"azv2 group show --name nope\"}"),
             }

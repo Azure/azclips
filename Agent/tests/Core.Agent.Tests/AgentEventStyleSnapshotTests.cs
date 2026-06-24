@@ -18,7 +18,7 @@ public class AgentEventStyleSnapshotTests
     public void ToolStarted_PrefixIsDarkGray_NameIsBoldDefault_ArgsAreDefault()
     {
         var ev = new ToolStarted(
-            Name: "run_command",
+            Name: "powershell",
             ArgsJson: "{\"command\":\"azv2 group list\"}",
             CallId: "call1", ParentCallId: null, At: At);
 
@@ -29,7 +29,7 @@ public class AgentEventStyleSnapshotTests
     public void ToolCompleted_Success_PrefixDarkGray_ResultDefault()
     {
         var ev = new ToolCompleted(
-            Name: "run_command",
+            Name: "powershell",
             Elapsed: TimeSpan.FromMilliseconds(123),
             FullResult: "SUCCESS · exit 0\noutput: rg1, rg2",
             IsError: false,
@@ -42,7 +42,7 @@ public class AgentEventStyleSnapshotTests
     public void ToolCompleted_IsError_NameRed_ElapsedDarkGray_ResultDefault()
     {
         var ev = new ToolCompleted(
-            Name: "run_command",
+            Name: "powershell",
             Elapsed: TimeSpan.FromMilliseconds(45),
             FullResult: "FAILURE · exit 1 · ResourceNotFound",
             IsError: true,
@@ -55,7 +55,7 @@ public class AgentEventStyleSnapshotTests
     public void ToolFailed_NameRed_ElapsedDarkGray_ErrorRed()
     {
         var ev = new ToolFailed(
-            Name: "run_command",
+            Name: "powershell",
             Elapsed: TimeSpan.FromMilliseconds(78),
             Error: "AuthenticationFailed: token expired",
             CallId: "call1", ParentCallId: null, At: At);
