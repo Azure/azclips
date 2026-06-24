@@ -218,3 +218,11 @@ All four documentation sections updated to reflect discovery-first model:
 3. **Bundled install delivery and out-of-box CNF errors:** The project has an install/delivery philosophy where extensions may be shipped as part of install bundles rather than added explicitly via `extension add`. Under the current registry-first model, extensions dropped into the install directory without a registry entry are invisible to the dispatcher, producing CNF errors out of the box. Once this plan is implemented and DiscoverySession walks the disk to determine installed state, this issue goes away — any extension present in the install directory is automatically discoverable regardless of how it arrived. This is a strong additional motivation for the runtime discovery direction.
 4. **Audit and remove "stale extension" functionality:** Under the discovery-first model, stale extensions (registry entries with missing on-disk payloads) are no longer a user-facing concept — missing extensions simply don't appear in the discovery output. Post-PR, audit the codebase for references to "stale", `live`/`stale` array handling in registry reconcilers and JSON output, and registry validation logic that checks for missing payloads. Most of this code is now dead weight and should be removed or simplified for clarity.
 5. **Check Naga install locations** Manually added by Daniel. Verify install locations of a real build and if DiscoverySession via extension API picks them up.
+
+## 8. Adjustments
+
+1. **`extension remove` strict success semantics (2026-06-24):**
+    - Issue observed: `az extension remove --name <X>` returned success and cleared `registry.json`, but `<InstallRoot>/<PackageId>/` remained on disk; discovery still listed the extension as live.
+    - Root cause: `RemoveExtensionProcessor` swallowed `Directory.Delete` failures and always returned `Removed = true`.
+    - Adjustment: `remove` now enforces payload deletion before reporting success. If delete fails or the directory still exists after delete, the command throws a structured error (`ExtensionRemoveFailed`, exit code 1).
+    - Expected postcondition: on success, extension payload is absent from disk and no longer appears in discovery-backed `extension list`.
