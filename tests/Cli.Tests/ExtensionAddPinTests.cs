@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Core.Abstractions.Runtime;
 using Core.Extensions;
 using Microsoft.Azure.Cirrus.Extensions.Extension.Processors;

@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Text.Json;
 using Core.Cli.Help;
 using Microsoft.Azure.Azclips.Extensions.Login;

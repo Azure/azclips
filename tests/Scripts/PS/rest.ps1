@@ -1,3 +1,6 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
 # Universal REST passthrough - PowerShell
 # Equivalent of: Invoke-AzRestMethod -Method GET -Uri <url>
 #

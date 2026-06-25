@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Text.Json;
 using Core.Abstractions;
 using Core.DependencyInjection;
@@ -98,11 +101,52 @@ internal static class CompletionGenerator
             .Select(v => Constants.StripKnownExtensionPrefix(v.PackageId))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+        // Also discover extensions available on disk (same roots the BuiltinExtensionLoader scans)
+        foreach (var name in ScanLocalExtensionNames())
+        {
+            if (!discoveryExtensionNames.Contains(name, StringComparer.OrdinalIgnoreCase))
+            {
+                discoveryExtensionNames.Add(name);
+            }
+        }
+
         var discoveredCommands = await DiscoverCommandsAsync(clientType, engine, discoveryExtensionNames);
         var tree = BuildCompletionTree(discoveredCommands, scopedToVerb: false);
 
         Console.WriteLine(JsonSerializer.Serialize(tree, new JsonSerializerOptions { WriteIndented = false }));
         return 0;
+    }
+
+    /// <summary>
+    /// Scans the same candidate roots used by <c>BuiltinExtensionLoader</c> for directories
+    /// matching the extension naming convention and returns short extension names (e.g. "Resources").
+    /// </summary>
+    private static IEnumerable<string> ScanLocalExtensionNames()
+    {
+        var roots = new[]
+        {
+            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..")),
+            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "Debug")),
+            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "Release")),
+        };
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var root in roots.Where(Directory.Exists).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            foreach (var dir in Directory.EnumerateDirectories(root))
+            {
+                var dirName = Path.GetFileName(dir);
+                if (dirName.StartsWith(Constants.cirrusPrefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    var shortName = dirName[Constants.cirrusPrefix.Length..];
+                    if (!string.IsNullOrEmpty(shortName) && seen.Add(shortName))
+                    {
+                        yield return shortName;
+                    }
+                }
+            }
+        }
     }
 
     private static async Task<Dictionary<string, CommandMetadata>> DiscoverCommandsAsync(ClientType clientType, IEngine engine, IList<string> extensionNames)

@@ -68,8 +68,8 @@ _az() {
     _az_debug "enter _az CURRENT=$CURRENT words=(${words[*]})"
 
     # Allow the JSON path to be overridden via environment variable (useful for tests)
-    if [[ -n "${AZUREV2_COMPLETIONS_JSON:-}" && -f "$AZUREV2_COMPLETIONS_JSON" ]]; then
-        json_file="$AZUREV2_COMPLETIONS_JSON"
+    if [[ -n "${AZ_COMPLETIONS_JSON:-}" && -f "$AZ_COMPLETIONS_JSON" ]]; then
+        json_file="$AZ_COMPLETIONS_JSON"
     else
         # Resolve the directory of THIS script so the sibling JSON file is found
         # regardless of where the shell's CWD is.
