@@ -117,11 +117,9 @@ public static class CliExtensionServiceRegistration
 
             return discovered;
         }
-        catch when (currentRegistry.Extensions.Values.Any(e =>
-            e.Contributions.Count > 0 || !string.IsNullOrWhiteSpace(e.Verb)))
+        catch
         {
-            // Best-effort fallback for test hosts / degraded environments where discovery is
-            // unavailable but the injected registry still carries routable contribution metadata.
+            // Best-effort fallback for degraded environments where discovery cannot run.
             return currentRegistry;
         }
     }
