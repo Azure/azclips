@@ -46,6 +46,30 @@ public class ExtensionRemoveTests
     }
 
     [Fact]
+    public void BuildInstalledRegistryFromFilesystem_ShouldSkipPackageDirectoryWithoutValidVersionFolder()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"cirrus-remove-test-{Guid.NewGuid():N}");
+        var packageId = "Microsoft.Azure.Cirrus.Extensions.Invalid";
+        var packageDir = Path.Combine(tempRoot, packageId);
+
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(packageDir, "not-a-version"));
+
+            var discovered = RemoveExtensionProcessor.BuildInstalledRegistryFromFilesystem(tempRoot, new ExtensionRegistry());
+
+            Assert.False(discovered.Extensions.ContainsKey(packageId));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public void EnsurePackageDirectoryDeleted_ShouldDeleteExistingDirectory()
     {
         var packageId = "Microsoft.Azure.Cirrus.Extensions.Compute";
@@ -90,6 +114,31 @@ public class ExtensionRemoveTests
             Assert.Equal("ExtensionRemoveFailed", ex.Code);
             Assert.Equal(1, ex.ExitCode);
             Assert.True(Directory.Exists(packageDir));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void EnsurePackageDirectoryDeleted_ShouldSucceed_WhenDirectoryVanishesDuringDelete()
+    {
+        var packageId = "Microsoft.Azure.Cirrus.Extensions.Compute";
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"cirrus-remove-test-{Guid.NewGuid():N}");
+        var packageDir = Path.Combine(tempRoot, packageId);
+
+        try
+        {
+            Directory.CreateDirectory(packageDir);
+
+            RemoveExtensionProcessor.EnsurePackageDirectoryDeleted(
+                packageDir,
+                packageId,
+                _ => throw new DirectoryNotFoundException("gone"));
         }
         finally
         {

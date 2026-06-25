@@ -130,6 +130,13 @@ public class RemoveExtensionProcessor : IProcessor
                 InstalledAt = DateTimeOffset.UtcNow,
             };
 
+            // Ignore directories that don't contain a valid semantic-version child folder.
+            // They are not install roots for a removable extension payload.
+            if (string.IsNullOrEmpty(entry.Version))
+            {
+                continue;
+            }
+
             if (fileRegistry.Extensions.TryGetValue(packageId, out var fileEntry))
             {
                 entry.Pinned = fileEntry.Pinned;
@@ -189,6 +196,12 @@ public class RemoveExtensionProcessor : IProcessor
         try
         {
             deleteDirectory(packageDir);
+        }
+        catch (DirectoryNotFoundException)
+        {
+            // Idempotent success: if the directory vanished between existence check and delete,
+            // the desired postcondition (package directory absent) is already true.
+            return;
         }
         catch (IOException ex)
         {
