@@ -349,12 +349,8 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
         foreach (var packageDir in packageDirs)
         {
             var fullPackageName = Path.GetFileName(packageDir);
-            // Strip the prefix to get the short name for the extension system.
-            // Folder name: "Microsoft.Azure.Cirrus.Extensions.Resources"
-            // Short name: "Resources"
-            var shortName = fullPackageName.StartsWith(Constants.cirrusPrefix, StringComparison.OrdinalIgnoreCase)
-                ? fullPackageName.Substring(Constants.cirrusPrefix.Length)
-                : fullPackageName;
+            // Strip any known prefix to get the short extension name.
+            var shortName = Constants.StripKnownExtensionPrefix(fullPackageName);
             
             var versionDirs = Directory.GetDirectories(packageDir);
             
