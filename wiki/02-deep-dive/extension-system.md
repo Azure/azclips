@@ -233,9 +233,9 @@ Each extension's `ExtensionIndex` constructor populates command tables mapping s
 `src/Extensions/Login/ExtensionIndex.cs:8-85` provides authentication commands:
 
 **PowerShell table** (lines 15-32):
-- `"Connect-CirrusAccount"` → `LoginCommand`
-- `"Disconnect-CirrusAccount"` → `LogoutCommand`
-- `"Get-CirrusAccount"` → Show account
+- `"Connect-AzAccount"` → `LoginCommand`
+- `"Disconnect-AzAccount"` → `LogoutCommand`
+- `"Get-AzAccount"` → Show account
 
 **CLI table** (lines 34-51):
 - `""` (empty string for bare `login`) → `LoginCommand`

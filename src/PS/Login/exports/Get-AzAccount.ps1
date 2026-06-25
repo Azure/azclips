@@ -1,12 +1,12 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
 
-function Get-CirrusAccount {
+function Get-AzAccount {
     [CmdletBinding()]
     param()
 
     begin {
-        $script:activity = Start-CmdletActivity -CmdletName "Get-CirrusAccount" -Parameters $PSBoundParameters
+        $script:activity = Start-CmdletActivity -CmdletName "Get-AzAccount" -Parameters $PSBoundParameters
 
         $engine = [Core.DependencyInjection.CirrusServiceProvider]::GetRequiredService([Core.Abstractions.IEngine])
         $outputDelegate = [Core.Abstractions.Runtime.CommandOutputDelegate]{
@@ -19,7 +19,7 @@ function Get-CirrusAccount {
     process {
         try {
             $extensionName = "Login";
-            $commandName = "Get-CirrusAccount";
+            $commandName = "Get-AzAccount";
             $parameters = [System.Collections.Generic.Dictionary[string, object]]::New();
             $moduleName = $MyInvocation.MyCommand.ModuleName
             $moduleVersion = if ($MyInvocation.MyCommand.Version) { $MyInvocation.MyCommand.Version.ToString() } else { $null }
