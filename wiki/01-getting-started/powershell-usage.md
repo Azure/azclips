@@ -96,7 +96,8 @@ Connect-AzAccount -SubscriptionId <guid> -TenantId <guid>
 | Parameter | Type | Mandatory |
 |-----------|------|-----------|
 | `SubscriptionId` | `string` | Yes |
-| `TenantId` | `string` | Yes |
+| `TenantId` | `string` | No |
+| `UseDeviceCode` | `SwitchParameter` | No |
 
 Supports `ShouldProcess` (`-WhatIf`, `-Confirm`) with `ConfirmImpact = 'Medium'` (`Connect-AzAccount.ps1:2`).
 
@@ -307,7 +308,7 @@ The `Resources.psd1` manifest (`src/PS/Resources/Resources.psd1`) is similar but
 
 | Cmdlet | Module | Parameters | ShouldProcess | Parameter Sets |
 |--------|--------|-----------|---------------|----------------|
-| `Connect-AzAccount` | Login | `SubscriptionId`*, `TenantId`* | Yes (Medium) | Default |
+| `Connect-AzAccount` | Login | `SubscriptionId`*, `TenantId`, `UseDeviceCode` | Yes (Medium) | Default |
 | `Disconnect-AzAccount` | Login | — | Yes (Medium) | Default |
 | `Get-AzAccount` | Login | — | No | Default |
 | `New-ResourceGroup` | Resources | `Name`*, `Location`*, `SubscriptionId` | Yes (Medium) | Default |

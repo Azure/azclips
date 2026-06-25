@@ -64,7 +64,7 @@ $ az I would like to logni
 
 ```powershell
 # Direct cmdlet and function execution
-Connect-AzAccount -TenantId <tenant-id>
+Connect-AzAccount -SubscriptionId <subscription-id> -TenantId <tenant-id>
 New-ResourceGroup -Name mygroup -Location eastus
 ```
 
@@ -904,7 +904,7 @@ Import-Module ./src/PS/Login/Login.psd1
 Import-Module ./src/PS/Resources/Resources.psd1
 
 # Use cmdlets and functions
-Connect-AzAccount -TenantId <tenant-id>
+Connect-AzAccount -SubscriptionId <subscription-id> -TenantId <tenant-id>
 New-ResourceGroup -Name test -Location eastus
 ```
 

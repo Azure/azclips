@@ -123,7 +123,7 @@ Import-Module ./src/PS/Login/Login.psd1
 Import-Module ./src/PS/Resources/Resources.psd1
 
 # Use authentication cmdlets
-Connect-AzAccount -TenantId <tenant-id>
+Connect-AzAccount -SubscriptionId <subscription-id> -TenantId <tenant-id>
 
 # Use resource management functions
 New-ResourceGroup -Name mygroup -Location eastus

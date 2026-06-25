@@ -30,6 +30,12 @@ namespace Core.Extensions
     /// </remarks>
     public static class RegistryLookup
     {
+        private static readonly string[] s_knownExtensionPrefixes =
+        [
+            "Microsoft.Azure.Azclips.Extensions.",
+            "Microsoft.Azure.Cirrus.Extensions.",
+        ];
+
         /// <summary>
         /// Locates the entry for <paramref name="name"/> in <paramref name="registry"/>.
         /// </summary>
@@ -125,13 +131,7 @@ namespace Core.Extensions
         public static string ToShortName(string packageId)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(packageId);
-            string[] prefixes =
-            [
-                "Microsoft.Azure.Azclips.Extensions.",
-                "Microsoft.Azure.Cirrus.Extensions.",
-            ];
-
-            foreach (var prefix in prefixes)
+            foreach (var prefix in s_knownExtensionPrefixes)
             {
                 if (packageId.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                 {

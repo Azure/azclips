@@ -792,7 +792,7 @@ Options are stored in a case-insensitive `Dictionary<string, string>(StringCompa
 
 | Cmdlet | Module | Parameters | Underlying Command |
 |--------|--------|------------|-------------------|
-| `Connect-AzAccount` | Login | `-SubscriptionId` (required), `-TenantId` (required) | `LoginProcessor` |
+| `Connect-AzAccount` | Login | `-SubscriptionId` (required), `-TenantId` (optional), `-UseDeviceCode` (optional) | `LoginProcessor` |
 | `Disconnect-AzAccount` | Login | (none) | `LogoutProcessor` |
 | `Get-AzAccount` | Login | (none) | `GetContextProcessor` |
 | `New-ResourceGroup` | Resources | `-Name` (required), `-Location` (required), `-SubscriptionId` | `NewResourceGroupProcessor` |

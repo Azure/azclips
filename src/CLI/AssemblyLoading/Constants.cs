@@ -18,7 +18,7 @@ namespace Core.Cli
         /// (case-sensitive) prefix check; the loader would then re-prepend the prefix and
         /// look for <c>Microsoft.Azure.Cirrus.Extensions.microsoft.azure.cirrus.extensions.compute</c>.
         /// </remarks>
-        internal static string StripCirrusPrefix(string packageId)
+        internal static string StripKnownExtensionPrefix(string packageId)
         {
             foreach (var prefix in extensionPackagePrefixes)
             {

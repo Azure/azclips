@@ -236,7 +236,7 @@ public sealed class RuntimeHelpDispatcher
 
     /// <summary>Strips the <c>Microsoft.Azure.Cirrus.Extensions.</c> prefix that the loader re-prepends.</summary>
     private static string StripPackagePrefix(string packageId)
-        => Constants.StripCirrusPrefix(packageId);
+        => Constants.StripKnownExtensionPrefix(packageId);
 
     private static uint? TerminalWidth()
     {

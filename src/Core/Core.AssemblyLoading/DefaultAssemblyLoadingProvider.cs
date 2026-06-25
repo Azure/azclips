@@ -9,7 +9,6 @@ public class DefaultAssemblyLoadingProvider(): IAssemblyLoadingProvider
     private const string cirrusPrefix = "Microsoft.Azure.Cirrus.Extensions.";
     private static readonly string[] s_extensionPackagePrefixes = [azclipsPrefix, cirrusPrefix];
 
-    //Yabo: Default implementation of assembly loading.
     public Assembly LoadExtension(string extensionName, string? extensionVersion = null)
     {
         var failures = new List<Exception>();
@@ -37,7 +36,7 @@ public class DefaultAssemblyLoadingProvider(): IAssemblyLoadingProvider
 
     public IList<Tuple<string, string?>>? GetAllInstalledExtensions()
     {
-        //Yabo: Default implementation does not support extension discovery, return null to indicate no extensions found.
+        // Default implementation does not support extension discovery.
         return null;
     }
 }
