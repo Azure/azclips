@@ -22,6 +22,31 @@ public class BuiltinExtensionLoaderTests
         Assert.Contains(installed, x => x.Name == "Config" && x.Version == string.Empty);
     }
 
+    [Fact]
+    public void GetInstalledExtensions_ShouldEnumerateInstallRootPackages_NotInBuiltInMap()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"builtin-loader-{Guid.NewGuid():N}");
+        var packageDir = Path.Combine(root, "Microsoft.Azure.Cirrus.Extensions.Foo");
+        Directory.CreateDirectory(packageDir);
+
+        try
+        {
+            File.WriteAllText(Path.Combine(packageDir, "Microsoft.Azure.Cirrus.Extensions.Foo.dll"), string.Empty);
+            var loader = new BuiltinExtensionLoader(new NullLoggingService(), new TestConfigurationService(root));
+
+            var installed = loader.GetInstalledExtensions().ToArray();
+
+            Assert.Contains(installed, x => x.Name == "Foo" && x.Version == string.Empty);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
     private sealed class TestConfigurationService(string installationRoot) : IConfigurationService
     {
         private readonly AssemblyLoadingOptions _options = new()

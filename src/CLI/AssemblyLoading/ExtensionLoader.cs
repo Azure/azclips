@@ -92,6 +92,17 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
             .Distinct(StringComparer.OrdinalIgnoreCase);
     }
 
+    private static bool IsKnownExtensionPackageId(string packageId, string configuredPrefix)
+    {
+        var prefixes = Constants.extensionPackagePrefixes
+            .Prepend(configuredPrefix ?? string.Empty)
+            .Where(prefix => !string.IsNullOrWhiteSpace(prefix))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
+        return prefixes.Any(prefix =>
+            packageId.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+    }
+
     private static IEnumerable<string> GetCandidateRoots(string configuredBuiltinInstallationDir)
     {
         var roots = new[]
@@ -143,26 +154,41 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
 
         foreach (var root in GetCandidateRoots(_options.BuiltinInstallationDir))
         {
-            foreach (var builtIn in BuiltInExtensions.Map.Values)
+            if (!Directory.Exists(root))
             {
-                var shortName = Constants.StripKnownExtensionPrefix(builtIn.PackageId);
+                continue;
+            }
+
+            foreach (var packageDir in Directory.GetDirectories(root))
+            {
+                var packageId = Path.GetFileName(packageDir);
+                if (string.IsNullOrWhiteSpace(packageId))
+                {
+                    continue;
+                }
+
+                if (!IsKnownExtensionPackageId(packageId, _options.ExtensionFolderPrefix))
+                {
+                    continue;
+                }
+
+                var shortName = Constants.StripKnownExtensionPrefix(packageId);
                 if (seen.Contains(shortName))
                 {
                     continue;
                 }
 
-                foreach (var directoryName in GetCandidateDirectoryNames(shortName, _options.ExtensionFolderPrefix))
-                {
-                    var assemblyPath = Path.Combine(root, directoryName, $"{builtIn.PackageId}.dll");
-                    if (!File.Exists(assemblyPath))
-                    {
-                        continue;
-                    }
+                var hasAssembly = GetCandidateAssemblyNames(shortName)
+                    .Select(assemblyName => Path.Combine(packageDir, $"{assemblyName}.dll"))
+                    .Any(File.Exists);
 
-                    seen.Add(shortName);
-                    yield return (shortName, string.Empty);
-                    break;
+                if (!hasAssembly)
+                {
+                    continue;
                 }
+
+                seen.Add(shortName);
+                yield return (shortName, string.Empty);
             }
         }
     }
