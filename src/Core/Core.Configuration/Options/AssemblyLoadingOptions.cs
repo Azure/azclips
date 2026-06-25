@@ -42,8 +42,8 @@ public sealed class AssemblyLoadingOptions
     {
 #if DEBUG
         return RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-            ? "Microsoft.Azure.Cirrus.Extensions."
-            : "Microsoft.Azure.Cirrus.Extensions.";
+            ? "Microsoft.Azure.Azclips.Extensions."
+            : "Microsoft.Azure.Azclips.Extensions.";
 #else
         return string.Empty;
 #endif
