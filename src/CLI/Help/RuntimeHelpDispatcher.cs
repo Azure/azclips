@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Reflection;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Cli.Exceptions;
@@ -12,15 +11,15 @@ namespace Core.Cli.Help;
 
 /// <summary>
 /// Renders root, group, and command help to the console. Encapsulates the help
-/// orchestration that used to live in <c>Program.Main</c>'s catch blocks: loading
-/// extension assemblies, projecting them through <see cref="ExtensionIndexHelpAdapter"/>
+/// orchestration that used to live in <c>Program.Main</c>'s catch blocks: projecting
+/// discovery-session command tables through <see cref="ExtensionIndexHelpAdapter"/>
 /// (one adapter per verb), and dispatching to <see cref="IHelpRenderer"/>.
 /// </summary>
 /// <remarks>
 /// <para>
 /// Help is verb-scoped, not package-scoped. <see cref="RenderRoot"/> runs discovery to
 /// enumerate installed extensions from disk, then projects each through
-/// <see cref="IExtensionIndex.GetVerbs"/> to discover root groups; this is what makes
+/// discovered verb metadata to discover root groups; this is what makes
 /// multi-verb extensions like Compute surface as both <c>vm</c> and <c>disk</c> roots.
 /// </para>
 /// <para>
@@ -33,18 +32,13 @@ namespace Core.Cli.Help;
 public sealed class RuntimeHelpDispatcher
 {
     private readonly IHelpRenderer _renderer;
-    private readonly IAssemblyLoadingService _assemblyLoading;
     private readonly IEngine _engine;
-    private readonly IReadOnlyDictionary<string, BuiltInExtension> _builtIns;
     private readonly HashSet<string> _builtInPackageIds;
     private readonly ExtensionHintTable _hintTable;
     private readonly TextWriter _output;
 
-    public RuntimeHelpDispatcher(
-        IAssemblyLoadingService assemblyLoading,
-        IEngine engine)
+    public RuntimeHelpDispatcher(IEngine engine)
         : this(
-            assemblyLoading,
             engine,
             BuiltInExtensions.Map,
             ExtensionHintTable.Default,
@@ -54,17 +48,14 @@ public sealed class RuntimeHelpDispatcher
     }
 
     internal RuntimeHelpDispatcher(
-        IAssemblyLoadingService assemblyLoading,
         IEngine engine,
         IReadOnlyDictionary<string, BuiltInExtension> builtIns,
         ExtensionHintTable hintTable,
         IHelpRenderer renderer,
         TextWriter output)
     {
-        _assemblyLoading = assemblyLoading;
         _engine = engine;
-        _builtIns = builtIns;
-        _builtInPackageIds = _builtIns.Values
+        _builtInPackageIds = builtIns.Values
             .Select(static b => b.PackageId)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         _hintTable = hintTable;
@@ -84,7 +75,7 @@ public sealed class RuntimeHelpDispatcher
     public int RenderExtensionHelp(RuntimeExtensionHelpException helpException)
     {
         var discovered = DiscoverInstalledExtensions();
-        if (!TryResolvePackageId(discovered, helpException.Verb, out var packageId))
+        if (!TryResolveExtension(discovered, helpException.Verb, out var extensionInfo))
         {
             // No discovered owner for this verb. If the embedded hint table knows it,
             // surface the structured "extension not installed" message — same UX as
@@ -103,9 +94,7 @@ public sealed class RuntimeHelpDispatcher
                 details: new Dictionary<string, object?> { ["verb"] = helpException.Verb });
         }
 
-            var extensionName = StripPackagePrefix(packageId);
-        var assembly = _assemblyLoading.LoadExtension(extensionName);
-        var helpProvider = new ExtensionIndexHelpAdapter(assembly.GetExtensionIndex(), helpException.Verb);
+        var helpProvider = new ExtensionIndexHelpAdapter(extensionInfo.Commands, helpException.Verb);
 
         IEnumerable<string> lines;
         if (helpException.IsCommandHelp)
@@ -155,7 +144,7 @@ public sealed class RuntimeHelpDispatcher
     }
 
     /// <summary>
-    /// Yields one <see cref="RuntimeHelpGroup"/> per discovered (package, verb) pair we can load.
+    /// Yields one <see cref="RuntimeHelpGroup"/> per discovered (package, verb) pair.
     /// Discovery is authoritative for installed state; built-ins are used only as tie-breaker
     /// precedence when two discovered extensions claim the same verb.
     /// </summary>
@@ -169,21 +158,7 @@ public sealed class RuntimeHelpDispatcher
 
         foreach (var info in ordered)
         {
-            var extensionName = StripPackagePrefix(info.PackageId);
-
-            IExtensionIndex index;
-            try
-            {
-                index = _assemblyLoading.LoadExtension(extensionName).GetExtensionIndex();
-            }
-            catch
-            {
-                // A discovered package whose assembly fails to load is no reason to crash
-                // root help; skip it and continue.
-                continue;
-            }
-
-            var verbs = info.Verbs.Count > 0 ? info.Verbs : index.GetVerbs();
+            var verbs = GetOwnedVerbs(info);
             foreach (var verb in verbs)
             {
                 if (!seenVerbs.Add(verb))
@@ -195,7 +170,7 @@ public sealed class RuntimeHelpDispatcher
                 RuntimeHelpGroup? root;
                 try
                 {
-                    root = new ExtensionIndexHelpAdapter(index, verb).GetRootGroup();
+                    root = new ExtensionIndexHelpAdapter(info.Commands, verb).GetRootGroup();
                 }
                 catch
                 {
@@ -246,7 +221,7 @@ public sealed class RuntimeHelpDispatcher
             .ToList();
     }
 
-    private bool TryResolvePackageId(IReadOnlyList<DiscoveredExtensionInfo> discovered, string verb, out string packageId)
+    private bool TryResolveExtension(IReadOnlyList<DiscoveredExtensionInfo> discovered, string verb, out DiscoveredExtensionInfo extensionInfo)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(verb);
 
@@ -258,12 +233,27 @@ public sealed class RuntimeHelpDispatcher
 
         if (match is null)
         {
-            packageId = string.Empty;
+            extensionInfo = null!;
             return false;
         }
 
-        packageId = match.PackageId;
+        extensionInfo = match;
         return true;
+    }
+
+    private static IReadOnlyList<string> GetOwnedVerbs(DiscoveredExtensionInfo info)
+    {
+        if (info.Verbs.Count > 0)
+        {
+            return info.Verbs;
+        }
+
+        return info.Commands.Keys
+            .Select(static command => command.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault())
+            .Where(static verb => !string.IsNullOrWhiteSpace(verb))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Cast<string>()
+            .ToList();
     }
 
     private static bool OwnsVerb(DiscoveredExtensionInfo info, string verb)
@@ -277,11 +267,6 @@ public sealed class RuntimeHelpDispatcher
             command.Equals(verb, StringComparison.OrdinalIgnoreCase) ||
             command.StartsWith(verb + " ", StringComparison.OrdinalIgnoreCase));
     }
-
-    /// <summary>Strips the <c>Microsoft.Azure.Cirrus.Extensions.</c> prefix that the loader re-prepends.</summary>
-    private static string StripPackagePrefix(string packageId)
-        => Constants.StripKnownExtensionPrefix(packageId);
-
     private static uint? TerminalWidth()
     {
         try

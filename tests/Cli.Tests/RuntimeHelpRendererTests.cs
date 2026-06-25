@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Core.Abstractions;
 using Core.Cli.Help;
 using Microsoft.Azure.Azclips.Extensions.Login;
 using Tests.Common.Utilities;
@@ -13,7 +14,7 @@ public class RuntimeHelpRendererTests
     public void RenderGroup_ShouldMatchFixture_ForLoginGroup()
     {
         var renderer = new RuntimeHelpRenderer();
-        var helpProvider = new ExtensionIndexHelpAdapter(new ExtensionIndex(), "Login");
+        var helpProvider = new ExtensionIndexHelpAdapter(new ExtensionIndex().GetCommandTable(ClientType.CLI), "Login");
         var group = helpProvider.GetGroupHelp(["login"]);
 
         Assert.NotNull(group);
@@ -28,7 +29,7 @@ public class RuntimeHelpRendererTests
     public void RenderCommand_ShouldMatchFixture_ForLoginShowCommand()
     {
         var renderer = new RuntimeHelpRenderer();
-        var helpProvider = new ExtensionIndexHelpAdapter(new ExtensionIndex(), "Login");
+        var helpProvider = new ExtensionIndexHelpAdapter(new ExtensionIndex().GetCommandTable(ClientType.CLI), "Login");
         var command = helpProvider.GetCommandHelp(["login", "show"]);
 
         Assert.NotNull(command);

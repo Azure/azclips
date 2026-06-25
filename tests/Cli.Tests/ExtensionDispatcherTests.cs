@@ -114,7 +114,9 @@ public class ExtensionDispatcherTests
     [Fact]
     public void LoginHelpAdapter_ShouldProvideRuntimeCommandHelp()
     {
-        var helpProvider = new ExtensionIndexHelpAdapter(new Microsoft.Azure.Azclips.Extensions.Login.ExtensionIndex(), "Login");
+        var helpProvider = new ExtensionIndexHelpAdapter(
+            new Microsoft.Azure.Azclips.Extensions.Login.ExtensionIndex().GetCommandTable(ClientType.CLI),
+            "Login");
 
         var groupHelp = helpProvider.GetGroupHelp(["login"]);
         var commandHelp = helpProvider.GetCommandHelp(["login", "show"]);
@@ -323,7 +325,7 @@ public class ExtensionDispatcherTests
         var index = new StubExtensionIndex(
             verb: "deployment",
             cliLeaf: "deployment group create");
-        var adapter = new ExtensionIndexHelpAdapter(index, "deployment");
+        var adapter = new ExtensionIndexHelpAdapter(index.GetCommandTable(ClientType.CLI), "deployment");
 
         var commandAtIntermediatePath = adapter.GetCommandHelp(["deployment", "group"]);
         var groupAtIntermediatePath = adapter.GetGroupHelp(["deployment", "group"]);

@@ -92,7 +92,7 @@ public class Program
             {
                 var assemblyLoading = CirrusServiceProvider.GetRequiredService<IAssemblyLoadingService>();
                 var engine = CirrusServiceProvider.GetRequiredService<IEngine>();
-                var exitCode = new RuntimeHelpDispatcher(assemblyLoading, engine).RenderRoot();
+                var exitCode = new RuntimeHelpDispatcher(engine).RenderRoot();
 
                 activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
                 return exitCode;
@@ -103,7 +103,7 @@ public class Program
                 var engine = CirrusServiceProvider.GetRequiredService<IEngine>();
                 try
                 {
-                    var exitCode = new RuntimeHelpDispatcher(assemblyLoading, engine).RenderExtensionHelp(helpException);
+                    var exitCode = new RuntimeHelpDispatcher(engine).RenderExtensionHelp(helpException);
 
                     activity?.SetStatus(ActivityStatusCode.Ok, "Extension help requested");
                     return exitCode;
