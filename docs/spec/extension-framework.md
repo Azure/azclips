@@ -72,14 +72,11 @@ The registry (`~/.cirrus/extensions/registry.json`) is a **preferences layer** o
 `DiscoverySession` emits `DiscoveredExtensionInfo` for each discovered extension:
 
 ```csharp
-public record DiscoveredExtensionInfo
-{
-    public string PackageId { get; init; }                    // e.g., "Microsoft.Azure.Cirrus.Extensions.Compute"
-    public string ResolvedVersion { get; init; }             // e.g., "1.1.0"
-    public IReadOnlyList<string> Verbs { get; init; }        // e.g., ["vm", "disk"]
-    public IReadOnlyList<CommandMetadata> Commands { get; init; } // Full command metadata per verb
-    public bool IsBuiltin { get; init; }                     // true if part of host, false if user-installed
-}
+public sealed record DiscoveredExtensionInfo(
+  string PackageId,
+  string ResolvedVersion,
+  IReadOnlyList<string> Verbs,
+  IReadOnlyDictionary<string, CommandMetadata> Commands);
 ```
 
 **Key fields:**
@@ -87,8 +84,7 @@ public record DiscoveredExtensionInfo
 - **PackageId** — Unique extension identifier. Builtin and user-installed extensions use the same id scheme.
 - **ResolvedVersion** — The semantic version being used for this discovery pass. For builtin extensions, this is the host version. For user-installed, this is determined by multi-version resolution (see §3.4).
 - **Verbs** — All top-level command namespaces contributed by this extension (e.g., an extension may contribute both `vm` and `disk`).
-- **Commands** — Full `CommandMetadata` for each command under each verb. Includes parameter definitions, help text, and processor binding.
-- **IsBuiltin** — Distinguishes first-party (host-bundled) from third-party (user-installed) extensions.
+- **Commands** — Full `CommandMetadata` for each command, keyed by invocation name (for example, `"vm create"`).
 
 ### 3.3 Discovery Flow
 

@@ -122,7 +122,7 @@ group
   Microsoft.Azure.Cirrus.Extensions.Resources     1.0.0
 ```
 
-JSON output reflects the union of discovered extensions. **Note:** `installed-at` is metadata from the registry if available; if missing (e.g., an extension was copied to the directory without an install record), it defaults to the directory's modification time.
+JSON output reflects the union of discovered extensions. **Note:** `installed-at` is metadata from the registry if available; if missing (for example, an extension copied to disk without an install record), runtime discovery defaults it to the current UTC timestamp for that invocation.
 
 ## Inspecting — `extension show`
 
