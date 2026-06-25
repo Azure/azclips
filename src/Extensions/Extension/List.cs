@@ -39,7 +39,7 @@ public class ListExtensionsProcessor : IProcessor
         var fileRegistry = store.Load();
         var discoveredRegistry = DiscoveryBackedExtensionRegistry.BuildDiscoveredWithPreferences(fileRegistry);
 
-        var live = discoveredRegistry.Extensions
+        var discoveredExtensions = discoveredRegistry.Extensions
             .OrderBy(kvp => kvp.Value.Verb, StringComparer.OrdinalIgnoreCase)
             .Select(kvp => new
             {
@@ -59,7 +59,7 @@ public class ListExtensionsProcessor : IProcessor
         if (ByVerb)
         {
             // Regroup discovered contributors verb-headed for stable --by-verb output.
-            var contributors = live.Select(e => new LiveContributor(
+            var contributors = discoveredExtensions.Select(e => new LiveContributor(
                 PackageId: e.PackageId,
                 Version: e.Version,
                 Pinned: e.Pinned,
@@ -70,7 +70,7 @@ public class ListExtensionsProcessor : IProcessor
             return PivotByVerb(contributors);
         }
 
-        return live;
+        return discoveredExtensions;
     }
 
     /// <summary>
