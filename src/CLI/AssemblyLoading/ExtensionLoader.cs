@@ -138,7 +138,7 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
                     }
 
                     var loadContext = new ExtensionLoadContext(extensionPath, _loggingService);
-                    return loadContext.LoadFromAssemblyPath(extensionPath);
+                    return loadContext.LoadManagedAssembly(extensionPath);
                 }
             }
         }
@@ -351,18 +351,27 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
             var fullPackageName = Path.GetFileName(packageDir);
             // Strip any known prefix to get the short extension name.
             var shortName = Constants.StripKnownExtensionPrefix(fullPackageName);
-            
-            var versionDirs = Directory.GetDirectories(packageDir);
-            
-            foreach (var versionDir in versionDirs)
-            {
-                var versionName = Path.GetFileName(versionDir);
-                var isParsed = NuGetVersion.TryParse(versionName, out _);
-                
-                if (isParsed)
+
+            // TODO(dlanguiller): In a future pass, allow this provider to honor persisted
+            // pin/active-version preferences when selecting the resolved installed version.
+            // For now, emit a single deterministic version per package: highest semver.
+            var latestVersion = Directory.GetDirectories(packageDir)
+                .Select(versionDir =>
                 {
-                    yield return (shortName, versionName);
-                }
+                    var versionName = Path.GetFileName(versionDir);
+                    var parsed = NuGetVersion.TryParse(versionName, out var parsedVersion)
+                        ? parsedVersion
+                        : null;
+                    return (versionName, parsedVersion: parsed);
+                })
+                .Where(item => item.parsedVersion is not null)
+                .OrderByDescending(item => item.parsedVersion)
+                .Select(item => item.versionName)
+                .FirstOrDefault();
+
+            if (!string.IsNullOrWhiteSpace(latestVersion))
+            {
+                yield return (shortName, latestVersion);
             }
         }
     }
