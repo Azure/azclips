@@ -35,7 +35,6 @@ public class ListExtensionsProcessor : IProcessor
         var store = new FileExtensionRegistryStore();
         var fileRegistry = store.Load();
         var discoveredRegistry = DiscoveryBackedExtensionRegistry.BuildDiscoveredWithPreferences(fileRegistry);
-        var preferenceOnly = DiscoveryBackedExtensionRegistry.GetPreferenceOnlyPackageIds(fileRegistry, discoveredRegistry);
 
         var live = discoveredRegistry.Extensions
             .OrderBy(kvp => kvp.Value.Verb, StringComparer.OrdinalIgnoreCase)
@@ -51,25 +50,12 @@ public class ListExtensionsProcessor : IProcessor
                 Pinned = kvp.Value.Pinned,
                 Source = kvp.Value.Source,
                 InstalledAt = kvp.Value.InstalledAt,
-                Status = "live",
-            })
-            .ToList();
-
-        var stale = preferenceOnly
-            .Select(packageId => new
-            {
-                PackageId = packageId,
-                Version = fileRegistry.Extensions.TryGetValue(packageId, out var entry) ? entry.Version : null,
-                ExpectedPath = Path.Combine(store.InstallRoot, packageId),
-                Reason = "Package is present in registry preferences but not discovered on disk.",
-                Status = "stale",
             })
             .ToList();
 
         if (ByVerb)
         {
-            // Regroup live set verb-headed; multi-namespace extensions appear under each verb
-            // they contribute to (mirrors the routing table). Stale entries stay separate — not routable.
+            // Regroup discovered contributors verb-headed for stable --by-verb output.
             var contributors = live.Select(e => new LiveContributor(
                 PackageId: e.PackageId,
                 Version: e.Version,
@@ -81,14 +67,12 @@ public class ListExtensionsProcessor : IProcessor
             return new
             {
                 ByVerb = PivotByVerb(contributors),
-                Stale = stale,
             };
         }
 
         return new
         {
             Live = live,
-            Stale = stale,
         };
     }
 

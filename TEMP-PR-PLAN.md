@@ -106,8 +106,8 @@ The `extension` command group (list, show, add, remove, update, pin, unpin) must
 2. Keep: pinned state, active version override, install source, install timestamp.
     - ✅ Only these fields are written by Add.cs/Update.cs now
 3. Retire `RegistryReconciler` — its live/stale split becomes unnecessary once discovery walks the disk directly.
-    - ✅ Deprecated RegistryReconciler.Reconcile() to no-op (returns all entries as "live")
-    - ✅ Marked LoadReconciled() and ReconcilingRegistryStore obsolete for §5.3 removal
+    - ✅ Removed `RegistryReconciler` and `ReconcilingRegistryStore`
+    - ✅ Removed `LoadReconciled()` from `FileExtensionRegistryStore`
 
 ### 5.3 Extension API migration ✅ DONE
 
@@ -215,8 +215,8 @@ All four documentation sections updated to reflect discovery-first model:
 
 1. **Root cause of stale hint table mismatch (§3.4) ✅ DONE:** Runtime risk is resolved by discovery-first help/dispatch (hint table is fallback-only). Historical forensic analysis of exactly how `rest -> Resources` drift occurred is optional follow-up and not required for runtime correctness.
 2. **Registry as non-authoritative install state (§4.5.4) ✅ DONE:** Runtime behavior now matches the target model — discovery determines installed state, while `registry.json` stores preferences only. Additional conceptual discussion (startup/perf trade-offs, lifecycle edge-case policy, divergence handling guidelines) is optional follow-up and not required for current runtime correctness.
-3. **Release/install-path verification (merged 7.3 + 7.5):** Validate extension lookup behavior in non-local-dev layouts. Confirm that runtime checks install-root `Extensions/` first for bundled extensions, then falls back to user profile installs under `~/.cirrus/extensions`, and that discovery/help/dispatch are consistent when running from a real install bundle (not repo-local debug output). This consolidates the prior conceptual notes around bundled delivery behavior and install location validation.
-4. **Audit and remove "stale extension" functionality:** Under the discovery-first model, stale extensions (registry entries with missing on-disk payloads) are no longer a user-facing concept — missing extensions simply don't appear in the discovery output. Post-PR, audit the codebase for references to "stale", `live`/`stale` array handling in registry reconcilers and JSON output, and registry validation logic that checks for missing payloads. Most of this code is now dead weight and should be removed or simplified for clarity.
+3. **Release/install-path verification (merged 7.3 + 7.5) ✅ DONE:** Conceptual/design coverage is complete and consolidated under §9 (Regression and Release Testing), including expected lookup locations, lookup order policy, matrix, and verification checklist. Execution evidence is tracked by §9 test runs.
+4. **Audit and remove "stale extension" functionality ✅ DONE:** Removed deprecated `RegistryReconciler` / `ReconcilingRegistryStore` paths, removed `LoadReconciled` from `FileExtensionRegistryStore`, and simplified extension list output by dropping stale-array projection. Discovery remains authoritative for installed state; preference-only registry entries are inert and non-routable.
 
 ## 8. Adjustments
 

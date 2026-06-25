@@ -41,11 +41,9 @@ public class ExtensionDispatcher //: IParser
     }
 
     private ExtensionDispatcher(FileExtensionRegistryStore store)
-#pragma warning disable CS0618
         : this(
-            new ExtensionResolver(new ReconcilingRegistryStore(store)),
+            new ExtensionResolver(store),
             () => LeafIndex.Build(BuiltInExtensions.Map, store.Load()))
-#pragma warning restore CS0618
     {
     }
 

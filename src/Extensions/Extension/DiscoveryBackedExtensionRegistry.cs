@@ -73,24 +73,6 @@ internal static class DiscoveryBackedExtensionRegistry
         return discovered;
     }
 
-    public static IReadOnlyList<string> GetPreferenceOnlyPackageIds(ExtensionRegistry fileRegistry, ExtensionRegistry discoveredRegistry)
-    {
-        ArgumentNullException.ThrowIfNull(fileRegistry);
-        ArgumentNullException.ThrowIfNull(discoveredRegistry);
-
-        var ids = new List<string>();
-        foreach (var packageId in fileRegistry.Extensions.Keys)
-        {
-            if (!discoveredRegistry.Extensions.ContainsKey(packageId))
-            {
-                ids.Add(packageId);
-            }
-        }
-
-        ids.Sort(StringComparer.OrdinalIgnoreCase);
-        return ids;
-    }
-
     private static List<DiscoveredExtensionInfo> RunDiscoverySession()
     {
         var engine = CirrusServiceProvider.GetRequiredService<IEngine>();

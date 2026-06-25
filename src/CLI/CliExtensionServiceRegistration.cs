@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-#pragma warning disable CS0618 // Obsolete warnings: will be replaced with DiscoverySession in §5.3
-
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.Cli.Parser;
@@ -25,7 +23,7 @@ public static class CliExtensionServiceRegistration
     public static IServiceCollection AddCliExtensionDispatch(this IServiceCollection services)
     {
         services.AddSingleton<IExtensionRegistryStore>(
-            _ => new ReconcilingRegistryStore(new FileExtensionRegistryStore()));
+            _ => new FileExtensionRegistryStore());
 
         services.AddSingleton<IExtensionResolver>(
             sp => new ExtensionResolver(sp.GetRequiredService<IExtensionRegistryStore>()));

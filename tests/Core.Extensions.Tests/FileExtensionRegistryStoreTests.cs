@@ -311,14 +311,7 @@ namespace Core.Extensions.Tests
             Assert.DoesNotContain("\"verb\"", raw, StringComparison.Ordinal);
         }
 
-        // -------- Optimistic concurrency + load-time validation + InstallRoot --------
-
-        [Fact]
-        public void InstallRoot_ShouldReturnParentDirectoryOfRegistryPath()
-        {
-            var store = new FileExtensionRegistryStore(_registryPath);
-            Assert.Equal(_tempDir, store.InstallRoot);
-        }
+        // -------- Optimistic concurrency + load-time validation --------
 
         [Fact]
         public void Save_ShouldThrowConcurrency_WhenFileChangedBetweenLoadAndSave()
@@ -394,31 +387,6 @@ namespace Core.Extensions.Tests
             var store = new FileExtensionRegistryStore(_registryPath);
             var ex = Assert.Throws<CirrusErrorException>(() => store.Load());
             Assert.Equal("RegistryInvalid", ex.Code);
-        }
-
-        [Fact]
-        public void LoadReconciled_ShouldDropEntries_WithMissingInstallDirectory()
-        {
-            Directory.CreateDirectory(_tempDir);
-            // Create payload only for Pkg.A.
-            Directory.CreateDirectory(Path.Combine(_tempDir, "Pkg.A", "1.0.0"));
-
-            File.WriteAllText(_registryPath, """
-                {
-                  "schemaVersion": 2,
-                  "extensions": {
-                    "Pkg.A": { "version": "1.0.0", "contributions": [ { "verb": "a", "path": "" } ] },
-                    "Pkg.B": { "version": "1.0.0", "contributions": [ { "verb": "b", "path": "" } ] }
-                  }
-                }
-                """);
-
-            var store = new FileExtensionRegistryStore(_registryPath);
-            var live = store.LoadReconciled();
-
-            Assert.Equal(2, live.Extensions.Count);
-            Assert.True(live.Extensions.ContainsKey("Pkg.A"));
-            Assert.True(live.Extensions.ContainsKey("Pkg.B"));
         }
 
         // --- NormalizeEntry trims whitespace and detects intra-entry dupes. ---

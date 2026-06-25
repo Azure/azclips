@@ -39,24 +39,6 @@ namespace Core.Extensions
         /// </summary>
         public string Path => _path;
 
-        /// <summary>
-        /// Directory that holds installed extension payloads: by convention the parent of
-        /// <see cref="Path"/>. Used by <see cref="RegistryReconciler"/>.
-        /// </summary>
-        public string InstallRoot => System.IO.Path.GetDirectoryName(_path) ?? string.Empty;
-
-        /// <summary>
-        /// DEPRECATED in \u00a75.2: No longer needed. DiscoverySession now owns installed state;
-        /// use <see cref="Load"/> directly. Kept for back-compat; returns result unchanged since
-        /// <see cref="RegistryReconciler.Reconcile"/> is now a no-op.
-        /// </summary>
-        [Obsolete("Registry reconciliation is no longer performed. Use Load() instead. Reconciliation is a no-op. Will be removed in \u00a75.3.", error: false)]
-        public ExtensionRegistry LoadReconciled()
-        {
-            var raw = Load();
-            return RegistryReconciler.Reconcile(raw, InstallRoot).Live;
-        }
-
         /// <inheritdoc />
         public ExtensionRegistry Load()
         {
