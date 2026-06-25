@@ -149,7 +149,7 @@ public static class CliExtensionServiceRegistration
 
     internal static (List<Contribution> Contributions, List<string> Namespaces) BuildContributionProjection(DiscoveredExtensionInfo info)
     {
-        var seenLeaves = new HashSet<(string Verb, string Path)>();
+        var seenLeaves = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var contributions = new List<Contribution>();
 
         foreach (var key in info.Commands.Keys)
@@ -159,7 +159,7 @@ public static class CliExtensionServiceRegistration
                 continue;
             }
 
-            if (!seenLeaves.Add((verb, path)))
+            if (!seenLeaves.Add(ToLeafKey(verb, path)))
             {
                 continue;
             }
@@ -178,7 +178,7 @@ public static class CliExtensionServiceRegistration
                     continue;
                 }
 
-                if (!seenLeaves.Add((normalizedVerb, string.Empty)))
+                if (!seenLeaves.Add(ToLeafKey(normalizedVerb, string.Empty)))
                 {
                     continue;
                 }
@@ -218,4 +218,6 @@ public static class CliExtensionServiceRegistration
         path = normalized[(firstSpace + 1)..].Trim();
         return !string.IsNullOrEmpty(verb);
     }
+
+    private static string ToLeafKey(string verb, string path) => $"{verb}\u0000{path}";
 }

@@ -1,8 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Runtime.InteropServices;
-
 namespace Core.Configuration.Options;
 
 public sealed class AssemblyLoadingOptions
@@ -41,9 +39,7 @@ public sealed class AssemblyLoadingOptions
     private static string GetDefaultExtensionFolderPrefix()
     {
 #if DEBUG
-        return RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-            ? "Microsoft.Azure.Azclips.Extensions."
-            : "Microsoft.Azure.Azclips.Extensions.";
+        return "Microsoft.Azure.Azclips.Extensions.";
 #else
         return string.Empty;
 #endif

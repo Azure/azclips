@@ -28,7 +28,7 @@ internal static class DiscoveryBackedExtensionRegistry
             var entry = new ExtensionRegistryEntry
             {
                 Verb = info.Verbs.FirstOrDefault(),
-                Version = info.ResolvedVersion ?? string.Empty,
+                Version = info.ResolvedVersion,
                 Pinned = false,
                 Source = null,
                 InstalledAt = DateTimeOffset.UtcNow,
