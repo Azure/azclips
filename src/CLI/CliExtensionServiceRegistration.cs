@@ -93,12 +93,9 @@ public static class CliExtensionServiceRegistration
                                 InstalledAt = DateTimeOffset.UtcNow,
                             };
 
-                            // Build contributions from discovered verbs:
-                            // Each verb contributes a root entry (verb, "").
-                            foreach (var verb in info.Verbs)
-                            {
-                                entry.Contributions.Add(new Contribution { Verb = verb, Path = string.Empty });
-                            }
+                            var projection = BuildContributionProjection(info);
+                            entry.Contributions = projection.Contributions;
+                            entry.Namespaces = projection.Namespaces;
 
                             discovered.Extensions[info.PackageId] = entry;
                         }
@@ -148,5 +145,77 @@ public static class CliExtensionServiceRegistration
                 discovered.InstalledAt = fileEntry.InstalledAt;
             }
         }
+    }
+
+    internal static (List<Contribution> Contributions, List<string> Namespaces) BuildContributionProjection(DiscoveredExtensionInfo info)
+    {
+        var seenLeaves = new HashSet<(string Verb, string Path)>();
+        var contributions = new List<Contribution>();
+
+        foreach (var key in info.Commands.Keys)
+        {
+            if (!TryParseInvocationKey(key, out var verb, out var path))
+            {
+                continue;
+            }
+
+            if (!seenLeaves.Add((verb, path)))
+            {
+                continue;
+            }
+
+            contributions.Add(new Contribution { Verb = verb, Path = path });
+        }
+
+        // Fallback for commandless indexes: retain root ownership from advertised verbs.
+        if (contributions.Count == 0)
+        {
+            foreach (var verb in info.Verbs)
+            {
+                var normalizedVerb = (verb ?? string.Empty).Trim();
+                if (string.IsNullOrEmpty(normalizedVerb))
+                {
+                    continue;
+                }
+
+                if (!seenLeaves.Add((normalizedVerb, string.Empty)))
+                {
+                    continue;
+                }
+
+                contributions.Add(new Contribution { Verb = normalizedVerb, Path = string.Empty });
+            }
+        }
+
+        var namespaces = contributions
+            .Select(c => c.Verb)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return (contributions, namespaces);
+    }
+
+    private static bool TryParseInvocationKey(string? key, out string verb, out string path)
+    {
+        verb = string.Empty;
+        path = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            return false;
+        }
+
+        var normalized = key.Trim();
+        var firstSpace = normalized.IndexOf(' ');
+        if (firstSpace < 0)
+        {
+            verb = normalized;
+            path = string.Empty;
+            return true;
+        }
+
+        verb = normalized[..firstSpace].Trim();
+        path = normalized[(firstSpace + 1)..].Trim();
+        return !string.IsNullOrEmpty(verb);
     }
 }
