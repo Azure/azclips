@@ -1,11 +1,11 @@
-name: cirrus-beta-build-$(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:.r)
+name: azclips-alpha-build-$(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:.r)
 
-trigger:
-  batch: true
+trigger: none
+pr:
+  autoCancel: true
   branches:
     include:
-    - main
-pr: none
+    - '*'
 
 variables:
 - template: templates/variables.yml
@@ -17,7 +17,7 @@ stages:
   parameters:
     artifact_version_override: auto
     bump_type: patch
-    release_channel: beta
+    release_channel: pr-alpha
     release_date: auto
     pr_number: auto
     sequence: auto
@@ -25,4 +25,4 @@ stages:
     windows_pool: ${{ variables.windows_pool }}
     macos_arm64_pool: ${{ variables.macos_arm64_pool }}
     macos_intel_pool: ${{ variables.macos_intel_pool }}
-    final_artifact_name: Distribution_Final
+    final_artifact_name: Final_Build_Distribution

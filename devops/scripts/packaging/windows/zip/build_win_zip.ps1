@@ -13,6 +13,40 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $packagingRoot = [System.IO.Path]::GetFullPath((Join-Path $scriptDir '../..'))
 $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $packagingRoot '../../..'))
 
+function Get-ArtifactConfigValue {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Name,
+
+        [Parameter(Mandatory = $true)]
+        [string]$DefaultValue
+    )
+
+    $configPath = $env:ARTIFACT_NAMING_CONFIG
+    if ([string]::IsNullOrWhiteSpace($configPath)) {
+        $configPath = Join-Path $packagingRoot 'config/artifact_naming.config'
+    }
+
+    if (Test-Path -Path $configPath -PathType Leaf) {
+        foreach ($line in Get-Content -Path $configPath) {
+            $trimmed = $line.Trim()
+            if ([string]::IsNullOrWhiteSpace($trimmed) -or $trimmed.StartsWith('#')) {
+                continue
+            }
+
+            $parts = $trimmed.Split('=', 2)
+            if ($parts.Count -eq 2 -and $parts[0].Trim() -eq $Name) {
+                $value = $parts[1].Trim()
+                if (-not [string]::IsNullOrWhiteSpace($value)) {
+                    return $value
+                }
+            }
+        }
+    }
+
+    return $DefaultValue
+}
+
 if ([string]::IsNullOrWhiteSpace($OutRoot)) {
     $OutRoot = Join-Path $repoRoot 'devops/out/windows'
 }
@@ -27,23 +61,36 @@ if ([string]::IsNullOrWhiteSpace($packageProfile)) {
 $packageProfile = $packageProfile.ToLowerInvariant()
 
 if ($packageProfile -eq 'full') {
-    $artifactPrefix = 'az'
+    $artifactStem = $env:CLI_ARCHIVE_STEM
+    if ([string]::IsNullOrWhiteSpace($artifactStem)) {
+        $artifactStem = Get-ArtifactConfigValue -Name 'cli_archive_stem' -DefaultValue 'azcli-preview'
+    }
 }
 elseif ($packageProfile -eq 'lean') {
-    $artifactPrefix = 'az-lean'
+    $artifactStem = $env:CLI_LEAN_ARCHIVE_STEM
+    if ([string]::IsNullOrWhiteSpace($artifactStem)) {
+        $artifactStem = Get-ArtifactConfigValue -Name 'cli_lean_archive_stem' -DefaultValue 'azcli-lean-preview'
+    }
 }
 else {
     throw "Unsupported PACKAGE_PROFILE '$packageProfile'. Expected 'lean' or 'full'."
 }
 
 $artifactVersion = $env:ARTIFACT_VERSION
+$assetArchitecture = $Rid
+if ($Rid -eq 'win-x64') {
+    $assetArchitecture = Get-ArtifactConfigValue -Name 'windows_x64_label' -DefaultValue 'win-x64'
+}
+elseif ($Rid -eq 'win-arm64') {
+    $assetArchitecture = Get-ArtifactConfigValue -Name 'windows_arm64_label' -DefaultValue 'win-arm64'
+}
 
 if ([string]::IsNullOrWhiteSpace($CliWinZipPath)) {
     if (-not [string]::IsNullOrWhiteSpace($artifactVersion)) {
-        $CliWinZipPath = Join-Path $OutRoot "Release/zip/$artifactPrefix-$Rid-$artifactVersion.zip"
+        $CliWinZipPath = Join-Path $OutRoot "Release/zip/$artifactStem-$artifactVersion-$assetArchitecture.zip"
     }
     else {
-        $CliWinZipPath = Join-Path $OutRoot "Release/zip/$artifactPrefix-$Rid.zip"
+        $CliWinZipPath = Join-Path $OutRoot "Release/zip/$artifactStem-$assetArchitecture.zip"
     }
 }
 

@@ -7,64 +7,206 @@ parameters:
   default: 'public'
 - name: source_pipeline_name
   type: string
-  default: 'cirrus-adhoc-build'
+  default: 'azclips-adhoc-build'
 - name: source_build_id
   type: string
   default: ''
 - name: source_artifact_name
   type: string
-  default: 'Distribution_Final'
+  default: 'Final_Build_Distribution'
 - name: source_artifact_source
   type: string
   default: 'specific'
+- name: esrp_service_connection
+  type: string
+  default: ''
+- name: esrp_nuget_keycode
+  type: string
+  default: 'CP-401405'
+- name: esrp_enable_nuget_verify
+  type: boolean
+  default: true
 
 jobs:
-- job: SignNuget
-  displayName: NuGet Placeholder Pass-Through
-  pool:
-    vmImage: ${{ parameters.windows_pool }}
-  steps:
-  - checkout: none
-  - ${{ if eq(parameters.source_artifact_source, 'current') }}:
-    - task: DownloadPipelineArtifact@2
-      displayName: Download Unsigned Distribution Artifacts
+  - job: SignNuget
+    displayName: Sign NuGet Artifacts
+    pool:
+      vmImage: ${{ parameters.windows_pool }}
+    steps:
+    - checkout: self
+      clean: true
+    - task: UseDotNet@2
+      displayName: Setup .NET SDK
       inputs:
-        artifact: ${{ parameters.source_artifact_name }}
-        path: $(Pipeline.Workspace)/unsigned-all
-  - ${{ if ne(parameters.source_artifact_source, 'current') }}:
-    - task: DownloadPipelineArtifact@2
-      displayName: Download Unsigned Distribution Artifacts
+        packageType: sdk
+        version: '8.0.x'
+    - ${{ if eq(parameters.source_artifact_source, 'current') }}:
+      - task: DownloadPipelineArtifact@2
+        displayName: Download Unsigned Distribution Artifacts
+        inputs:
+          artifact: ${{ parameters.source_artifact_name }}
+          path: $(Pipeline.Workspace)/unsigned-all
+    - ${{ if ne(parameters.source_artifact_source, 'current') }}:
+      - task: DownloadPipelineArtifact@2
+        displayName: Download Unsigned Distribution Artifacts
+        inputs:
+          buildType: specific
+          project: ${{ parameters.SourceProject }}
+          definition: ${{ parameters.source_pipeline_name }}
+          buildVersionToDownload: specific
+          pipelineId: ${{ parameters.source_build_id }}
+          artifactName: ${{ parameters.source_artifact_name }}
+          targetPath: $(Pipeline.Workspace)/unsigned-all
+    - task: PowerShell@2
+      displayName: Filter NuGet Release Artifacts
       inputs:
-        source: specific
-        project: ${{ parameters.SourceProject }}
-        pipeline: ${{ parameters.source_pipeline_name }}
-        runVersion: specific
-        runId: ${{ parameters.source_build_id }}
-        artifact: ${{ parameters.source_artifact_name }}
-        path: $(Pipeline.Workspace)/unsigned-all
-  - pwsh: |
-      $ErrorActionPreference = 'Stop'
-      $sourceRoot = "$(Pipeline.Workspace)/unsigned-all"
-      $targetRoot = "$(Build.ArtifactStagingDirectory)/signed-nuget"
-      Remove-Item $targetRoot -Recurse -Force -ErrorAction SilentlyContinue
-      New-Item -ItemType Directory -Path $targetRoot -Force | Out-Null
+        targetType: inline
+        pwsh: true
+        script: |
+          $ErrorActionPreference = 'Stop'
+          $sourceRoot = "$(Pipeline.Workspace)/unsigned-all"
+          $targetRoot = "$(Pipeline.Workspace)/unsigned"
+          Remove-Item $targetRoot -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $targetRoot -Force | Out-Null
+          $allNupkgs = Get-ChildItem -Path $sourceRoot -Recurse -File | Where-Object {
+            $_.Name -like '*.nupkg' -and $_.Name -notlike '*.snupkg'
+          }
+          $selected = $allNupkgs | Where-Object {
+            $_.Name -like 'Microsoft.Azure.Cirrus*.nupkg'
+          }
+          if (-not $selected) {
+            throw "No Cirrus NuGet release artifacts found under $sourceRoot (expected Microsoft.Azure.Cirrus*.nupkg)"
+          }
+          foreach ($asset in $selected) {
+            Copy-Item $asset.FullName -Destination (Join-Path $targetRoot $asset.Name) -Force
+          }
+          Write-Host "Selected $($selected.Count) Cirrus NuGet release artifacts."
 
-      $selected = Get-ChildItem -Path $sourceRoot -Recurse -File | Where-Object {
-        $_.Name -like 'Microsoft.Azure.Cirrus*.nupkg' -and $_.Name -notlike '*.snupkg'
-      } | Sort-Object Name
+          $excluded = $allNupkgs | Where-Object {
+            $_.Name -notlike 'Microsoft.Azure.Cirrus*.nupkg'
+          }
+          if ($excluded) {
+            Write-Host "Excluded non-Cirrus nupkgs from ESRP submission:"
+            foreach ($pkg in $excluded) {
+              Write-Host "  $($pkg.Name)"
+            }
+          }
+    - task: PowerShell@2
+      displayName: Prepare Signing Inputs
+      inputs:
+        targetType: filePath
+        filePath: devops/scripts/packaging/signing/prepare_signing_inputs.ps1
+        arguments: >-
+          -UnsignedRoot "$(Pipeline.Workspace)/unsigned"
+          -WorkingRoot "$(Pipeline.Workspace)/signing-work"
+          -ReleaseRoot "$(Build.ArtifactStagingDirectory)/signed-release"
+        pwsh: true
+    - task: PowerShell@2
+      displayName: List NuGet Artifacts To Be Signed
+      inputs:
+        targetType: inline
+        pwsh: true
+        script: |
+          $ErrorActionPreference = 'Stop'
+          $nupkgRoot = "$(Pipeline.Workspace)/signing-work/nupkg"
+          if (-not (Test-Path $nupkgRoot)) {
+            throw "NuGet signing input folder not found: $nupkgRoot"
+          }
 
-      if (-not $selected) {
-        throw "No Cirrus NuGet release artifacts found under $sourceRoot (expected Microsoft.Azure.Cirrus*.nupkg)"
-      }
+          $files = Get-ChildItem -Path $nupkgRoot -File | Where-Object {
+            $_.Name -like 'Microsoft.Azure.Cirrus*.nupkg'
+          } | Sort-Object Name
+          if (-not $files) {
+            throw "No Cirrus .nupkg files found for signing in $nupkgRoot"
+          }
 
-      foreach ($asset in $selected) {
-        Copy-Item $asset.FullName -Destination (Join-Path $targetRoot $asset.Name) -Force
-      }
-      Write-Host "Collected $($selected.Count) NuGet artifact(s) for placeholder pass-through."
-    displayName: Collect NuGet Placeholder Artifacts
-  - task: PublishPipelineArtifact@1
-    displayName: Publish NuGet Placeholder Artifacts
-    inputs:
-      targetPath: $(Build.ArtifactStagingDirectory)/signed-nuget
-      artifact: signed-nuget
-      publishLocation: pipeline
+          Write-Host "NuGet signing candidates ($($files.Count))"
+          foreach ($file in $files) {
+            Write-Host ("  {0}  ({1} bytes)" -f $file.Name, $file.Length)
+          }
+
+          $totalBytes = ($files | Measure-Object -Property Length -Sum).Sum
+          Write-Host "NuGet total bytes to sign: $totalBytes"
+    - task: EsrpCodeSigning@6
+      displayName: Sign NuGet Packages [NuGetSign]
+      condition: eq(variables['HasNupkg'], 'true')
+      inputs:
+        ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+        AppRegistrationClientId: '$(ESRPAppClientId)'
+        AppRegistrationTenantId: '$(ESRPAppTenantId)'
+        AuthAKVName: '$(ESRPKVName)'
+        AuthCertName: '$(ESRPAuthCertName)'
+        AuthSignCertName: '$(ESRPSignCertName)'
+        batchSignPolicyFile: ''
+        ciPolicyFile: ''
+        FolderPath: '$(Pipeline.Workspace)/signing-work/nupkg'
+        UseMinimatch: true
+        Pattern: 'Microsoft.Azure.Cirrus*.nupkg'
+        signConfigType: inlineSignParams
+        SessionTimeout: '60'
+        MaxConcurrency: '25'
+        MaxRetryAttempts: '5'
+        inlineOperation: |
+          [
+            {
+              "KeyCode": "${{ parameters.esrp_nuget_keycode }}",
+              "OperationCode": "NuGetSign",
+              "Parameters": {},
+              "ToolName": "sign",
+              "ToolVersion": "1.0"
+            }
+          ]
+    - ${{ if eq(parameters.esrp_enable_nuget_verify, true) }}:
+      - task: EsrpCodeSigning@6
+        displayName: Verify NuGet Packages In ESRP [NuGetVerify]
+        condition: eq(variables['HasNupkg'], 'true')
+        inputs:
+          ConnectedServiceName: '${{ parameters.esrp_service_connection }}'
+          AppRegistrationClientId: '$(ESRPAppClientId)'
+          AppRegistrationTenantId: '$(ESRPAppTenantId)'
+          AuthAKVName: '$(ESRPKVName)'
+          AuthCertName: '$(ESRPAuthCertName)'
+          AuthSignCertName: '$(ESRPSignCertName)'
+          batchSignPolicyFile: ''
+          ciPolicyFile: ''
+          FolderPath: '$(Pipeline.Workspace)/signing-work/nupkg'
+          UseMinimatch: true
+          Pattern: 'Microsoft.Azure.Cirrus*.nupkg'
+          signConfigType: inlineSignParams
+          SessionTimeout: '60'
+          MaxConcurrency: '25'
+          MaxRetryAttempts: '5'
+          inlineOperation: |
+            [
+              {
+                "KeyCode": "${{ parameters.esrp_nuget_keycode }}",
+                "OperationCode": "NuGetVerify",
+                "Parameters": {},
+                "ToolName": "sign",
+                "ToolVersion": "1.0"
+              }
+            ]
+    - task: PowerShell@2
+      displayName: Verify Signed Outputs
+      inputs:
+        targetType: filePath
+        filePath: devops/scripts/packaging/signing/verify_signed_outputs.ps1
+        arguments: >-
+          -WorkingRoot "$(Pipeline.Workspace)/signing-work"
+          -RequireNupkg $true
+        pwsh: true
+    - task: PowerShell@2
+      displayName: Repack Signed Outputs
+      inputs:
+        targetType: filePath
+        filePath: devops/scripts/packaging/signing/repack_signed_outputs.ps1
+        arguments: >-
+          -WorkingRoot "$(Pipeline.Workspace)/signing-work"
+          -ReleaseRoot "$(Build.ArtifactStagingDirectory)/signed-release"
+        pwsh: true
+    - task: PublishPipelineArtifact@1
+      displayName: Publish Signed NuGet Artifacts
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)/signed-release
+        artifact: signed-nuget
+        publishLocation: pipeline

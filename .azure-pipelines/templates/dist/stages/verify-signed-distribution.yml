@@ -1,0 +1,163 @@
+parameters:
+- name: ubuntu_pool
+  type: string
+  default: 'ubuntu-latest'
+- name: dependency_stage
+  type: object
+  default: 'AssembleSignedArtifacts'
+- name: signed_artifact_name
+  type: string
+  default: 'Final_Signed_Distribution'
+- name: signed_artifact_source
+  type: string
+  default: 'current'
+- name: SourceProject
+  type: string
+  default: 'release'
+- name: signed_pipeline_name
+  type: string
+  default: ''
+- name: signed_build_id
+  type: string
+  default: ''
+- name: require_stable_version_tag
+  type: boolean
+  default: true
+
+stages:
+- stage: VerifySignedDistribution
+  displayName: Verify Signed Distribution
+  dependsOn: ${{ parameters.dependency_stage }}
+  jobs:
+  - job: VerifySignedDistribution
+    displayName: Verify Signed Distribution Assets
+    pool:
+      vmImage: ${{ parameters.ubuntu_pool }}
+    steps:
+    - checkout: none
+
+    - ${{ if eq(parameters.signed_artifact_source, 'current') }}:
+      - task: DownloadPipelineArtifact@2
+        displayName: Download Signed Distribution Artifact
+        inputs:
+          artifactName: ${{ parameters.signed_artifact_name }}
+          targetPath: $(Pipeline.Workspace)/signed-dist
+    - ${{ if ne(parameters.signed_artifact_source, 'current') }}:
+      - task: DownloadPipelineArtifact@2
+        displayName: Download Signed Distribution Artifact
+        inputs:
+          buildType: specific
+          project: ${{ parameters.SourceProject }}
+          definition: ${{ parameters.signed_pipeline_name }}
+          buildVersionToDownload: specific
+          pipelineId: ${{ parameters.signed_build_id }}
+          artifactName: ${{ parameters.signed_artifact_name }}
+          targetPath: $(Pipeline.Workspace)/signed-dist
+
+    - bash: |
+        set -euo pipefail
+
+        signed_root="$(Pipeline.Workspace)/signed-dist"
+        echo "Signed artifact root: $signed_root"
+        find "$signed_root" -maxdepth 4 -type f | sort | sed -n '1,300p'
+
+        mapfile -t release_assets < <(find "$signed_root" -type f \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.nupkg' \) ! -name '*.snupkg' | sort)
+        if [[ ${#release_assets[@]} -eq 0 ]]; then
+          echo "ERROR: No signed release assets found under $signed_root."
+          exit 1
+        fi
+
+        mapfile -t distribution_archives < <(printf '%s\n' "${release_assets[@]}" | grep -E '(\.tar\.gz|\.zip)$' || true)
+        mapfile -t nupkgs < <(printf '%s\n' "${release_assets[@]}" | grep -E '\.nupkg$' || true)
+
+        if [[ ${#distribution_archives[@]} -eq 0 ]]; then
+          echo "ERROR: Signed distribution artifact must contain at least one .zip or .tar.gz archive."
+          exit 1
+        fi
+
+        mapfile -t cli_extension_archives < <(printf '%s\n' "${distribution_archives[@]}" | grep -E '/azcli-extensions-[^/]+\.tar\.gz$' || true)
+        if [[ ${#cli_extension_archives[@]} -eq 0 ]]; then
+          echo "ERROR: Signed distribution artifact must contain azcli-extensions-<version>.tar.gz."
+          exit 1
+        fi
+
+        mapfile -t ps_cmdlet_archives < <(printf '%s\n' "${distribution_archives[@]}" | grep -E '/azps-cmdlets-[^/]+\.tar\.gz$' || true)
+        if [[ ${#ps_cmdlet_archives[@]} -eq 0 ]]; then
+          echo "ERROR: Signed distribution artifact must contain azps-cmdlets-<version>.tar.gz."
+          exit 1
+        fi
+
+        extract_distribution_version() {
+          local archive="$1"
+          local name base stem label version
+          name="$(basename "$archive")"
+          base="$name"
+          base="${base%.tar.gz}"
+          base="${base%.zip}"
+
+          for stem in azcli-preview azcli-lean-preview; do
+            [[ "$base" == "$stem"-* ]] || continue
+            for label in linux-x64 linux-arm64 win-x64 win-arm64 macos-arm64 macos-x86_64; do
+              [[ "$base" == *-"$label" ]] || continue
+              version="${base#"$stem"-}"
+              version="${version%-"$label"}"
+              if [[ -n "$version" && "$version" != "$base" ]]; then
+                printf '%s\n' "$version"
+                return 0
+              fi
+            done
+          done
+
+          for stem in azcli-extensions azps-cmdlets; do
+            if [[ "$base" == "$stem"-* ]]; then
+              version="${base#"$stem"-}"
+              if [[ -n "$version" && "$version" != "$base" ]]; then
+                printf '%s\n' "$version"
+                return 0
+              fi
+            fi
+          done
+
+          return 1
+        }
+
+        # Version consistency is checked against versioned distribution archives.
+        # Individual package versions can evolve independently and may differ.
+        mapfile -t derived_versions < <(
+          for archive in "${distribution_archives[@]}"; do
+            extract_distribution_version "$archive" || true
+          done | sort -u
+        )
+
+        require_stable_version_tag='${{ parameters.require_stable_version_tag }}'
+
+        if [[ ${#derived_versions[@]} -ne 1 ]]; then
+          echo "ERROR: Expected exactly one CLI version across signed distribution archives. Found: ${derived_versions[*]:-none}"
+          exit 1
+        fi
+
+        signed_version="${derived_versions[0]}"
+        if [[ "$require_stable_version_tag" == "true" ]]; then
+          if [[ ! "$signed_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "ERROR: Signed CLI version must be stable SemVer. Got: $signed_version"
+            exit 1
+          fi
+
+          expected_tag_pattern="^refs/tags/v$signed_version\.[0-9]{8}T[0-9]{6}Z$"
+          if [[ ! "$(Build.SourceBranch)" =~ $expected_tag_pattern ]]; then
+            echo "ERROR: Signed CLI version $signed_version does not match Build.SourceBranch $(Build.SourceBranch). Expected UTC timestamp-suffixed tag v$signed_version.yyyyMMddTHHmmssZ."
+            exit 1
+          fi
+        else
+          if [[ ! "$signed_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "ERROR: Signed CLI version must be SemVer-like. Got: $signed_version"
+            exit 1
+          fi
+        fi
+
+        echo "Verified signed CLI version: $signed_version"
+        echo "Extension packages present (versions not checked): ${#nupkgs[@]}"
+        echo "Signed distribution archives: ${#distribution_archives[@]}"
+        echo "Signed NuGet packages: ${#nupkgs[@]}"
+        printf '  %s\n' "${release_assets[@]}"
+      displayName: Verify Signed Distribution Contents

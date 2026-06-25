@@ -33,7 +33,7 @@ Copyright = '(c) Microsoft. All rights reserved.'
 Description = 'Configuration management cmdlets for Cirrus v2'
 
 # Minimum version of the PowerShell engine required by this module
-PowerShellVersion = '7.5'
+PowerShellVersion = '7.6'
 
 # Name of the PowerShell host required by this module
 # PowerShellHostName = ''

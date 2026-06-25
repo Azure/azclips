@@ -110,7 +110,7 @@ stages:
         source_branch="$(Build.SourceBranch)"
         tag_version=""
 
-        if [[ "$source_branch" =~ ^refs/tags/v?([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+        if [[ "$source_branch" =~ ^refs/tags/v([0-9]+\.[0-9]+\.[0-9]+)\.[0-9]{8}T[0-9]{6}Z$ ]]; then
           tag_version="${BASH_REMATCH[1]}"
         fi
 
@@ -171,7 +171,7 @@ stages:
 
         if [[ "$release_channel" == "stable" ]]; then
           if [[ -z "$tag_version" ]]; then
-            echo "ERROR: stable release_channel requires a stable SemVer tag like v0.1.1. Got Build.SourceBranch=$source_branch"
+            echo "ERROR: stable release_channel requires a UTC timestamp-suffixed stable tag like v0.1.1.20260624T091500Z. Got Build.SourceBranch=$source_branch"
             exit 1
           fi
 

@@ -24,5 +24,20 @@ jobs:
   - script: |
       set -euo pipefail
       dotnet restore cirrus.slnx
-      dotnet test cirrus.slnx -c Release --verbosity normal
+      dotnet build cirrus.slnx --no-restore -c Release
+      dotnet test cirrus.slnx --no-build -c Release --verbosity normal
     displayName: Run Unit Tests
+
+  - script: |
+      set -euo pipefail
+      dotnet run --project tools/Help/Cirrus.Help.Tool/Cirrus.Help.Tool.csproj --configuration Release -- \
+        --artifacts-root artifacts/Release \
+        --output-root artifacts/help
+    displayName: Validate Help Content
+
+  - script: |
+      set -euo pipefail
+      dotnet restore tools/Help/Cirrus.Help.Tool.Tests/Cirrus.Help.Tool.Tests.csproj
+      dotnet build tools/Help/Cirrus.Help.Tool.Tests/Cirrus.Help.Tool.Tests.csproj --no-restore --configuration Release
+      dotnet test tools/Help/Cirrus.Help.Tool.Tests/Cirrus.Help.Tool.Tests.csproj --no-build --configuration Release --verbosity normal
+    displayName: Run Help Tool Tests

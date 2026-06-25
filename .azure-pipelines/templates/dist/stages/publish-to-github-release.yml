@@ -7,7 +7,7 @@ parameters:
   default: 'public'
 - name: GitHubTargetRepo
   type: string
-  default: 'Azure/cirrus'
+  default: 'Azure/azclips'
 - name: GitHubReleasePrefix
   type: string
   default: 'dist'
@@ -86,19 +86,19 @@ stages:
       - task: DownloadPipelineArtifact@2
         displayName: Download Final Signed Distribution Artifact
         inputs:
-          artifact: ${{ parameters.signed_artifact_name }}
-          path: $(Pipeline.Workspace)/signed-dist
+          artifactName: ${{ parameters.signed_artifact_name }}
+          targetPath: $(Pipeline.Workspace)/signed-dist
     - ${{ if ne(parameters.signed_artifact_source, 'current') }}:
       - task: DownloadPipelineArtifact@2
         displayName: Download Final Signed Distribution Artifact
         inputs:
-          source: specific
+          buildType: specific
           project: ${{ parameters.SourceProject }}
-          pipeline: ${{ parameters.signed_pipeline_name }}
-          runVersion: specific
-          runId: ${{ parameters.signed_build_id }}
-          artifact: ${{ parameters.signed_artifact_name }}
-          path: $(Pipeline.Workspace)/signed-dist
+          definition: ${{ parameters.signed_pipeline_name }}
+          buildVersionToDownload: specific
+          pipelineId: ${{ parameters.signed_build_id }}
+          artifactName: ${{ parameters.signed_artifact_name }}
+          targetPath: $(Pipeline.Workspace)/signed-dist
 
     - script: |
         set -euo pipefail
@@ -166,12 +166,44 @@ stages:
           echo "$package_name,$package_version,$package_file_name" >> "$package_versions_tmp"
         done
 
+        extract_distribution_version() {
+          local archive="$1"
+          local name base stem label version
+          name="$(basename "$archive")"
+          base="$name"
+          base="${base%.tar.gz}"
+          base="${base%.zip}"
+
+          for stem in azcli-preview azcli-lean-preview; do
+            [[ "$base" == "$stem"-* ]] || continue
+            for label in linux-x64 linux-arm64 win-x64 win-arm64 macos-arm64 macos-x86_64; do
+              [[ "$base" == *-"$label" ]] || continue
+              version="${base#"$stem"-}"
+              version="${version%-"$label"}"
+              if [[ -n "$version" && "$version" != "$base" ]]; then
+                printf '%s\n' "$version"
+                return 0
+              fi
+            done
+          done
+
+          for stem in azcli-extensions azps-cmdlets; do
+            if [[ "$base" == "$stem"-* ]]; then
+              version="${base#"$stem"-}"
+              if [[ -n "$version" && "$version" != "$base" ]]; then
+                printf '%s\n' "$version"
+                return 0
+              fi
+            fi
+          done
+
+          return 1
+        }
+
         mapfile -t derived_versions < <(
-          printf '%s\n' "${distribution_archives[@]}" |
-            sed -E 's#^.*/##' |
-            sed -E 's#\.(tar\.gz|zip)$##' |
-            grep -Eo '[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?' |
-            sort -u
+          for archive in "${distribution_archives[@]}"; do
+            extract_distribution_version "$archive" || true
+          done | sort -u
         )
 
         if [[ ${#derived_versions[@]} -eq 1 ]]; then
@@ -201,7 +233,12 @@ stages:
               echo "ERROR: stableVersion GitHub release tag mode requires a stable SemVer artifact version. Got: $core_distribution_version"
               exit 1
             fi
-            tag_name="v$core_distribution_version"
+            source_branch="$(Build.SourceBranch)"
+            if [[ ! "$source_branch" =~ ^refs/tags/v$core_distribution_version\.[0-9]{8}T[0-9]{6}Z$ ]]; then
+              echo "ERROR: stableVersion GitHub release tag mode requires Build.SourceBranch to be v$core_distribution_version.yyyyMMddTHHmmssZ. Got: $source_branch"
+              exit 1
+            fi
+            tag_name="${source_branch#refs/tags/}"
             release_name="Cirrus $core_distribution_version"
             release_target="$(git ls-remote --tags origin "refs/tags/$tag_name^{}" | awk '{print $1}' | head -n 1)"
             if [[ -z "$release_target" ]]; then
@@ -223,15 +260,15 @@ stages:
         mkdir -p "$release_dir"
 
         release_notes_file="$(Build.ArtifactStagingDirectory)/release-notes.md"
-        changelog_file="$(Build.ArtifactStagingDirectory)/CHANGELOG.md"
-        if [[ "$release_tag_mode" == "stableVersion" ]] && \
-           curl -fsSL "https://raw.githubusercontent.com/$repo/$tag_name/CHANGELOG.md" -o "$changelog_file"; then
-          awk -v tag="$tag_name" '
+        changelog_file="$(Build.SourcesDirectory)/CHANGELOG.md"
+        changelog_section_tag="v$core_distribution_version"
+        if [[ "$release_tag_mode" == "stableVersion" && -s "$changelog_file" ]]; then
+          awk -v tag="$tag_name" -v version_tag="$changelog_section_tag" '
             /^## / {
               if (in_section) {
                 exit
               }
-              if ($0 == "## " tag || index($0, "## " tag " ") == 1) {
+              if ($0 == "## " tag || index($0, "## " tag " ") == 1 || $0 == "## " version_tag || index($0, "## " version_tag " ") == 1) {
                 in_section = 1
               }
             }

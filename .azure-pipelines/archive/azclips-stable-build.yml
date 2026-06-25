@@ -1,4 +1,4 @@
-name: cirrus-stable-build-$(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:.r)
+name: azclips-stable-build-$(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:.r)
 
 trigger:
   tags:
@@ -28,7 +28,7 @@ stages:
     - checkout: none
     - template: templates/dist/steps/validate-release-project.yml
       parameters:
-        error_message: cirrus-stable-build must run in the 'release' project.
+        error_message: azclips-stable-build must run in the 'release' project.
 
 - template: templates/dist/stages/build-unsigned-distribution.yml
   parameters:
@@ -42,4 +42,4 @@ stages:
     windows_pool: ${{ variables.windows_pool }}
     macos_arm64_pool: ${{ variables.macos_arm64_pool }}
     macos_intel_pool: ${{ variables.macos_intel_pool }}
-    final_artifact_name: Distribution_Final
+    final_artifact_name: Final_Build_Distribution

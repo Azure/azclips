@@ -7,13 +7,13 @@ parameters:
   default: 'public'
 - name: source_pipeline_name
   type: string
-  default: 'cirrus-adhoc-build'
+  default: 'azclips-adhoc-build'
 - name: source_build_id
   type: string
   default: ''
 - name: source_artifact_name
   type: string
-  default: 'Distribution_Final'
+  default: 'Final_Build_Distribution'
 - name: source_artifact_source
   type: string
   default: 'specific'
@@ -25,7 +25,7 @@ parameters:
 
 jobs:
   - job: SignLinux
-    displayName: Linux Placeholder Pass-Through
+    displayName: Collect Linux Release Artifacts (No Signing Yet)
     pool:
       vmImage: ${{ parameters.ubuntu_pool }}
     steps:
@@ -40,13 +40,13 @@ jobs:
       - task: DownloadPipelineArtifact@2
         displayName: Download Unsigned Distribution Artifacts
         inputs:
-          source: specific
+          buildType: specific
           project: ${{ parameters.SourceProject }}
-          pipeline: ${{ parameters.source_pipeline_name }}
-          runVersion: specific
-          runId: ${{ parameters.source_build_id }}
-          artifact: ${{ parameters.source_artifact_name }}
-          path: $(Pipeline.Workspace)/unsigned-all
+          definition: ${{ parameters.source_pipeline_name }}
+          buildVersionToDownload: specific
+          pipelineId: ${{ parameters.source_build_id }}
+          artifactName: ${{ parameters.source_artifact_name }}
+          targetPath: $(Pipeline.Workspace)/unsigned-all
     - bash: |
         set -euo pipefail
         source_root="$(Pipeline.Workspace)/unsigned-all"
@@ -87,13 +87,13 @@ jobs:
         for asset in "${linux_assets[@]}"; do
           cp "$asset" "$out_dir/"
         done
-      displayName: Collect Linux Placeholder Artifacts
+      displayName: Collect Linux Release Artifacts
     - task: AzureArtifacts.manifest-generator-task.manifest-generator-task.ManifestGeneratorTask@0
-      displayName: Generate SBOM For Linux Placeholder Artifacts
+      displayName: Generate SBOM For Linux Release Artifacts
       inputs:
         BuildDropPath: $(Build.ArtifactStagingDirectory)/signed-linux
     - task: PublishPipelineArtifact@1
-      displayName: Publish Linux Placeholder Artifacts
+      displayName: Publish Signed Linux Artifacts
       inputs:
         targetPath: $(Build.ArtifactStagingDirectory)/signed-linux
         artifact: signed-linux

@@ -7,7 +7,7 @@
 
         <Description>Extension management for Cirrus CLI</Description>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <RepositoryUrl>https://github.com/Azure/cirrus</RepositoryUrl>
+        <RepositoryUrl>https://github.com/Azure/azclips</RepositoryUrl>
 
         <PackageId>Microsoft.Azure.Cirrus.Extensions.Extension</PackageId>
         <Version>0.1.0</Version>

@@ -1,4 +1,4 @@
-name: cirrus-stable-publish-$(Date:yyyyMMdd)$(Rev:.r)
+name: azclips-stable-publish-$(Date:yyyyMMdd)$(Rev:.r)
 
 trigger: none
 pr: none
@@ -7,7 +7,7 @@ resources:
   pipelines:
   - pipeline: stableSign
     project: release
-    source: cirrus-stable-sign
+    source: azclips-stable-sign
     trigger: true
 
 parameters:
@@ -18,7 +18,7 @@ parameters:
 - name: signed_artifact_name
   displayName: 'Signed artifact name'
   type: string
-  default: 'Distribution_Signed'
+  default: 'Final_Signed_Distribution'
 
 variables:
 - template: templates/variables.yml
@@ -26,7 +26,7 @@ variables:
 - name: SourceProject
   value: release
 - name: GitHubTargetRepo
-  value: Azure/cirrus
+  value: Azure/azclips
 - name: GitHubReleasePrefix
   value: dist
 - name: GitHubReleaseIsPrerelease
@@ -44,12 +44,12 @@ stages:
     - checkout: none
     - template: templates/dist/steps/validate-release-project.yml
       parameters:
-        error_message: cirrus-stable-publish must run in the 'release' project for publish access.
+        error_message: azclips-stable-publish must run in the 'release' project for publish access.
     - bash: |
         set -euo pipefail
         signed_build_id='$(resources.pipeline.stableSign.runID)'
         if [[ -z "$signed_build_id" ]]; then
-          echo 'ERROR: stableSign resource run id was not resolved. Select a cirrus-stable-sign resource version when queueing this pipeline.'
+          echo 'ERROR: stableSign resource run id was not resolved. Select a azclips-stable-sign resource version when queueing this pipeline.'
           exit 1
         fi
         if ! [[ "$signed_build_id" =~ ^[0-9]+$ ]]; then
@@ -58,7 +58,7 @@ stages:
         fi
 
         echo "Signed source project: release"
-        echo "Signed source pipeline: cirrus-stable-sign"
+        echo "Signed source pipeline: azclips-stable-sign"
         echo "Signed source build id: $signed_build_id"
         echo "Signed source run name: $(resources.pipeline.stableSign.runName)"
         echo "Signed source branch: $(resources.pipeline.stableSign.sourceBranch)"
@@ -77,6 +77,6 @@ stages:
     GitHubReleaseAllowOverwrite: 'false'
     GitHubReleaseIsPrerelease: ${{ variables.GitHubReleaseIsPrerelease }}
     GitHubServiceConnection: ${{ parameters.GitHubServiceConnection }}
-    signed_pipeline_name: cirrus-stable-sign
+    signed_pipeline_name: azclips-stable-sign
     signed_build_id: $(resources.pipeline.stableSign.runID)
     signed_artifact_name: ${{ parameters.signed_artifact_name }}
