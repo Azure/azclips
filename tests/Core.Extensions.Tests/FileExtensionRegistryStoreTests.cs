@@ -286,6 +286,39 @@ namespace Core.Extensions.Tests
         }
 
         [Fact]
+        public void Save_ShouldNotMutateInputRegistry()
+        {
+            var store = new FileExtensionRegistryStore(_registryPath);
+            var registry = new ExtensionRegistry
+            {
+                Extensions =
+                {
+                    ["Contoso.Mutable"] = new ExtensionRegistryEntry
+                    {
+                        Verb = "resources",
+                        Version = "0.1.0",
+                        Contributions =
+                        {
+                            new Contribution { Verb = "resources", Path = "group create" },
+                        },
+                        Namespaces = { "resources" },
+                        InstalledAt = DateTimeOffset.UtcNow,
+                    },
+                },
+            };
+
+            store.Save(registry);
+
+            var entry = registry.Extensions["Contoso.Mutable"];
+            Assert.Equal("resources", entry.Verb);
+            Assert.Single(entry.Contributions);
+            Assert.Equal("resources", entry.Contributions[0].Verb);
+            Assert.Equal("group create", entry.Contributions[0].Path);
+            Assert.Single(entry.Namespaces);
+            Assert.Equal("resources", entry.Namespaces[0]);
+        }
+
+        [Fact]
         public void Save_ShouldAlwaysWriteCurrentSchemaVersion_EvenWhenLoadedAsV1()
         {
             var store = new FileExtensionRegistryStore(_registryPath);
