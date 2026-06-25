@@ -18,10 +18,10 @@ public class ExtensionIndex : IExtensionIndex
         ProcessorType: typeof(Processors.AddExtensionProcessor),
         Parameters: new Dictionary<string, ParameterMetadata>
         {
-            ["name"]     = new("Name", "name", typeof(string), "The name of the extension to add.", IsRequired: false, Aliases: [], AllowedValues: []),
-            ["version"]  = new("Version", "version", typeof(string), "The version of the extension to add.", IsRequired: false, Aliases: [], AllowedValues: []),
-            ["feed-url"] = new("FeedUrl", "feed-url", typeof(string), "Feed URL to install the extension from.", IsRequired: false, Aliases: [], AllowedValues: []),
-            ["path"]     = new("Path", "path", typeof(string), "Path to the extension .nupkg file to add.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["name"]     = new("Name", "name", typeof(string), "Package id (full or short suffix) of the extension to add from a feed. Verb and namespace tokens are not accepted. Omit when using --path.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["version"]  = new("Version", "version", typeof(string), "Optional version to install when using --name. Omit to use the latest available package version.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["feed-url"] = new("FeedUrl", "feed-url", typeof(string), "NuGet feed URL to install from when using --name.", IsRequired: false, Aliases: [], AllowedValues: []),
+            ["path"]     = new("Path", "path", typeof(string), "Path to a local extension .nupkg file to install.", IsRequired: false, Aliases: [], AllowedValues: []),
             ["pin"]      = new("Pin", "pin", typeof(bool), "Pin the installed version so future 'update' commands skip it without --force.", IsRequired: false, Aliases: [], AllowedValues: []),
             ["force"]    = new("Force", "force", typeof(bool), "Allow add to overwrite an existing pinned installation of the same package.", IsRequired: false, Aliases: [], AllowedValues: []),
         },

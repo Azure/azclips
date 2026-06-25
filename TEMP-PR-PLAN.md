@@ -282,7 +282,7 @@ Goal: verify runtime discovery behavior from real build artifacts and installed 
 4. Verify command routing and help for installed extension verbs at root/group/command levels.
 5. Remove extension and verify disk deletion plus immediate disappearance from discovery-backed list/help.
 6. Negative check: unknown verb should return CNF guidance via hint fallback only when no installed owner exists.
-7. Verify extension API help docs render correctly: run `az extension --help`, `az extension list --help`, `az extension show --help`, `az extension add --help`, `az extension remove --help`, and confirm content/usage reflect current discovery-first behavior.
+7. Verify extension API help docs render correctly ✅ DONE: updated extension help summaries/descriptions/argument text for `az extension --help`, `az extension list --help`, `az extension show --help`, `az extension add --help`, and `az extension remove --help`, then re-rendered those commands from the built CLI to confirm they reflect the current discovery-first behavior.
 
 ### 9.5 Suggested evidence to capture
 

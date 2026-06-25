@@ -14,25 +14,25 @@ public class AddExtensionProcessor : IProcessor
 
     [ArgumentInfo(
     Required = false,
-    Description = @"The name of the extension to add.",
+    Description = @"Package id (full or short suffix) of the extension to add from a feed. Verb and namespace tokens are not accepted. Omit when using --path.",
     SerializedName = @"Name")]
     public string? Name { get; set; }
 
     [ArgumentInfo(
     Required = false,
-    Description = @"The version of the extension to add.",
+    Description = @"Optional version to install when using --name. Omit to use the latest available package version.",
     SerializedName = @"Version")]
     public string? Version { get; set; }
 
     [ArgumentInfo(
     Required = false,
-    Description = @"Feed URL to install the extension from.",
+    Description = @"NuGet feed URL to install from when using --name.",
     SerializedName = @"FeedUrl")]
     public string? FeedUrl { get; set; }
 
     [ArgumentInfo(
     Required = false,
-    Description = @"Path to the extension .nupkg file to add.",
+    Description = @"Path to a local extension .nupkg file to install.",
     SerializedName = @"Path")]
     public string? Path { get; set; }
 
