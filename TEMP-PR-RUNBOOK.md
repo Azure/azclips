@@ -99,7 +99,49 @@ Expected:
 1. Remove deletes the installed payload and preference entry.
 2. Re-add restores extension visibility via discovery.
 
-## 6. CLI Smoke: Help Routing (5.4)
+## 6. CLI Scenario: Explicit Add/Remove Attempt
+
+Use a disposable extension target for this step. If `Resources` is your only active extension, prefer a local test package to avoid disrupting your normal dev flow.
+
+Install attempt:
+
+```powershell
+az extension add --name Resources
+az extension list --output json
+```
+
+Expected:
+
+1. Add succeeds (or reports already-installed in a structured way).
+2. Extension is visible in discovery-backed list output.
+3. Help for contributed verbs resolves after add.
+
+Remove attempt:
+
+```powershell
+az extension remove --name Resources
+az extension list --output json
+```
+
+Expected:
+
+1. Remove succeeds only when payload deletion succeeds.
+2. Removed extension no longer appears in discovery-backed list output.
+3. Help for removed verbs falls back to install guidance (CNF/hint path).
+
+Re-add recovery:
+
+```powershell
+az extension add --name Resources
+az extension list --output json
+```
+
+Expected:
+
+1. Re-add restores the extension in discovery output.
+2. Verb help/dispatch works again without manual registry edits.
+
+## 7. CLI Smoke: Help Routing (5.4)
 
 Root help:
 
@@ -134,7 +176,7 @@ Expected:
 1. If Compute is not installed, returns structured install guidance (ExtensionNotInstalled path).
 2. This path is hint-table fallback, not primary ownership resolution.
 
-## 7. Registry Behavior Spot Check (Preference-Only Writes)
+## 8. Registry Behavior Spot Check (Preference-Only Writes)
 
 Run any command that writes registry preferences (pin/unpin is easiest), then inspect registry.
 
@@ -149,7 +191,7 @@ Expected for each entry written by current code path:
 2. Does not persist installed-state fields as authoritative data.
 3. Contributions/namespaces/verb are not required for runtime routing.
 
-## 8. PowerShell Surface Regression
+## 9. PowerShell Surface Regression
 
 Import packaged modules:
 

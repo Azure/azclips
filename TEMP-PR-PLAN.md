@@ -227,6 +227,11 @@ All four documentation sections updated to reflect discovery-first model:
     - ✅ Expected postcondition met: on success, extension payload is absent from disk and no longer appears in discovery-backed `extension list`.
     - ✅ Validated locally: install via local artifact, help/verb routing appears, remove succeeds, extension directory removed, and `registry.json` returns to empty preferences.
 
+2. **`extension list` API shape review (post-stale removal) ⏳ PENDING:**
+    - Observation: now that `stale` output is retired, default JSON still returns a top-level `live` wrapper (`{ "live": [ ... ] }`).
+    - Decision needed: keep `live` as a compatibility envelope, or simplify to a direct array/object shape.
+    - Follow-up if simplified: update CLI tests/spec docs and any internal callers that depend on the wrapper shape.
+
 ## 9. Regression and Release Testing
 
 Goal: verify runtime discovery behavior from real build artifacts and installed layouts, not only local dev execution.
@@ -274,6 +279,7 @@ Goal: verify runtime discovery behavior from real build artifacts and installed 
 4. Verify command routing and help for installed extension verbs at root/group/command levels.
 5. Remove extension and verify disk deletion plus immediate disappearance from discovery-backed list/help.
 6. Negative check: unknown verb should return CNF guidance via hint fallback only when no installed owner exists.
+7. Verify extension API help docs render correctly: run `az extension --help`, `az extension list --help`, `az extension show --help`, `az extension add --help`, `az extension remove --help`, and confirm content/usage reflect current discovery-first behavior.
 
 ### 9.5 Suggested evidence to capture
 
