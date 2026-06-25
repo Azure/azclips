@@ -1,0 +1,75 @@
+name: "Disallow New Cirrus References"
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: "Scan added lines"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "Scan for new references"
+        shell: bash
+        env:
+          FORBIDDEN_DISPLAY: "Cirrus"
+          FORBIDDEN_PATTERN: "cirrus"
+          SELF_WORKFLOW: .github/workflows/disallow-cirrus-references.yml
+        run: |
+          set -euo pipefail
+
+          event_name='${{ github.event_name }}'
+          head_sha='${{ github.sha }}'
+
+          if [[ "$event_name" == 'pull_request' ]]; then
+            base_sha='${{ github.event.pull_request.base.sha }}'
+            head_sha='${{ github.event.pull_request.head.sha }}'
+          elif [[ '${{ github.event.before }}' != '0000000000000000000000000000000000000000' ]]; then
+            base_sha='${{ github.event.before }}'
+          elif git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+            base_sha='HEAD^'
+          else
+            base_sha="$(git hash-object -t tree /dev/null)"
+          fi
+
+          diff_file="$(mktemp)"
+          matches_file="$(mktemp)"
+
+          git diff --unified=0 --no-ext-diff "$base_sha" "$head_sha" -- . \
+            ":(exclude)$SELF_WORKFLOW" \
+            > "$diff_file"
+
+          perl -ne '
+            BEGIN { $pattern = qr/$ENV{FORBIDDEN_PATTERN}/i; }
+            if (/^diff --git a\/.+ b\/(.+)$/) { $file = $1; next; }
+            if (/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/) { $line = $1 - 1; next; }
+            next if /^\+\+\+ /;
+            if (/^\+(.*)$/) {
+              $line++;
+              $text = $1;
+              if ($text =~ $pattern) {
+                print "$file:$line:$text\n";
+              }
+            }
+          ' "$diff_file" > "$matches_file"
+
+          if [[ -s "$matches_file" ]]; then
+            echo "New references to '$FORBIDDEN_DISPLAY' are not allowed. Use the Azclips naming instead."
+            echo
+            cat "$matches_file"
+            exit 1
+          fi
+
+          echo "No new references to '$FORBIDDEN_DISPLAY' were added."
