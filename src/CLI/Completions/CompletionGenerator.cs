@@ -156,7 +156,17 @@ internal static class CompletionGenerator
         var discoveryStreams = new OutputStreams(
             WriteOutput: (value, ct) =>
             {
-                if (value is IDictionary<string, CommandMetadata> discovered)
+                if (value is IList<DiscoveredExtensionInfo> infos)
+                {
+                    foreach (var info in infos)
+                    {
+                        foreach (var (invocationName, metadata) in info.Commands)
+                        {
+                            discoveredCommands[invocationName] = metadata;
+                        }
+                    }
+                }
+                else if (value is IDictionary<string, CommandMetadata> discovered)
                 {
                     foreach (var (invocationName, metadata) in discovered)
                     {
