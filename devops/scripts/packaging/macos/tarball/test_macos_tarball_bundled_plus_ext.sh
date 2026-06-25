@@ -73,7 +73,7 @@ if [[ ! -d "$SIM_ROOT/install/Extensions/Microsoft.Azure.Cirrus.Extensions.Exten
   echo "FAIL: Built-in Extension manager bundle missing"
   exit 1
 fi
-if [[ ! -d "$SIM_ROOT/install/Extensions/Microsoft.Azure.Cirrus.Extensions.Login" ]]; then
+if [[ ! -d "$SIM_ROOT/install/Extensions/Microsoft.Azure.Azclips.Extensions.Login" ]]; then
   echo "FAIL: Built-in Login bundle missing"
   exit 1
 fi

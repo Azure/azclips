@@ -5,7 +5,7 @@
   "commands": [
     {
       "cliName": "login",
-      "psName": "Connect-CirrusAccount",
+      "psName": "Connect-AzAccount",
       "summary": "Authenticate to Azure.",
       "description": "Authenticate to Azure and persist account context for subsequent commands.",
       "parameters": [
@@ -63,7 +63,7 @@
     },
     {
       "cliName": "login logout",
-      "psName": "Disconnect-CirrusAccount",
+      "psName": "Disconnect-AzAccount",
       "summary": "Sign out from the current Azure account context.",
       "description": "Sign out from the current Azure account context.",
       "parameters": [],
@@ -80,7 +80,7 @@
     },
     {
       "cliName": "login show",
-      "psName": "Get-CirrusAccount",
+      "psName": "Get-AzAccount",
       "summary": "Show the current Azure account context.",
       "description": "Show the current Azure account context.",
       "parameters": [],

@@ -6,23 +6,14 @@ using Core.Abstractions;
 using Core.DependencyInjection;
 using Microsoft.Azure.Cirrus.Cmdlets.Common;
 
-namespace Microsoft.Azure.Cirrus.Cmdlets.Login;
+namespace Microsoft.Azure.Azclips.Cmdlets.Login;
 
-[Cmdlet(VerbsCommunications.Connect, "CirrusAccount", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
-public class ConnectCirrusAccountCmdlet : PSCmdlet
+[Cmdlet(VerbsCommon.Get, "AzAccount")]
+public class GetAzAccountCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
     private IEngine engine = null!;
-
-    [Parameter(Mandatory = true)]
-    public string SubscriptionId { get; set; } = "";
-
-    [Parameter(Mandatory = false)]
-    public string? TenantId { get; set; }
-
-    [Parameter(Mandatory = false)]
-    public SwitchParameter UseDeviceCode { get; set; }
 
     protected override void BeginProcessing()
     {
@@ -35,22 +26,9 @@ public class ConnectCirrusAccountCmdlet : PSCmdlet
         var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
         using var activity = telemetryService.StartRootActivity();
         var parameters = new Dictionary<string, object>();
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(SubscriptionId)))
-        {
-            parameters.Add("SubscriptionId", SubscriptionId);
-        }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(TenantId)))
-        {
-            parameters.Add("TenantId", TenantId!);
-        }
-        if (MyInvocation.BoundParameters.ContainsKey(nameof(UseDeviceCode)))
-        {
-            parameters.Add("UseDeviceCode", UseDeviceCode.IsPresent);
-        }
-
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
-        var invocation = new CommandInvocation("Login", "Connect-CirrusAccount", parameters, false, moduleName, moduleVersion);
+        var invocation = new CommandInvocation("Login", "Get-AzAccount", parameters, false, moduleName, moduleVersion);
         telemetryService.TagInvocation(invocation);
 
         using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);

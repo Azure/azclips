@@ -48,7 +48,7 @@ cirrus/
 │   └── Release/                  # Release builds
 │       ├── Core/                 # Core libraries
 │       ├── Core.Cli/             # CLI binary 'az' + dependencies + Resources module
-│       ├── Microsoft.Azure.Cirrus.Extensions.Login/     # Login extension + PowerShell module
+│       ├── Microsoft.Azure.Azclips.Extensions.Login/     # Login extension + PowerShell module
 │       └── Microsoft.Azure.Cirrus.Extensions.Resources/  # Resources extension
 ├── 📄 global.json               # .NET SDK version (9.0)
 ├── 📄 cirrus.slnx              # Main solution file
@@ -123,7 +123,7 @@ Import-Module ./src/PS/Login/Login.psd1
 Import-Module ./src/PS/Resources/Resources.psd1
 
 # Use authentication cmdlets
-Connect-CirrusAccount -TenantId <tenant-id>
+Connect-AzAccount -SubscriptionId <subscription-id> -TenantId <tenant-id>
 
 # Use resource management functions
 New-ResourceGroup -Name mygroup -Location eastus
@@ -132,10 +132,10 @@ New-ResourceGroup -Name mygroup -Location eastus
 
 **Available Modules:**
 
-- **Login** ([`src/PS/Login/Login.psd1`](src/PS/Login/Login.psd1)) - Binary module with `Connect-CirrusAccount` cmdlet for Azure authentication
+- **Login** ([`src/PS/Login/Login.psd1`](src/PS/Login/Login.psd1)) - Binary module with `Connect-AzAccount` cmdlet for Azure authentication
 - **Resources** ([`src/PS/Resources/Resources.psd1`](src/PS/Resources/Resources.psd1)) - Script module with resource management functions
 
-**Note**: The Login module requires the solution to be built first (`dotnet build -c Release`) so that `Login.dll` is available in [`artifacts/Release/Microsoft.Azure.Cirrus.Extensions.Login/`](artifacts/Release/Microsoft.Azure.Cirrus.Extensions.Login/). The Resources module works directly from source.
+**Note**: The Login module requires the solution to be built first (`dotnet build -c Release`) so that `Login.dll` is available in [`artifacts/Release/Microsoft.Azure.Azclips.Extensions.Login/`](artifacts/Release/Microsoft.Azure.Azclips.Extensions.Login/). The Resources module works directly from source.
 
 ### Running Tests
 

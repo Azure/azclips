@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-namespace Microsoft.Azure.Cirrus.Cmdlets.Login;
+namespace Microsoft.Azure.Azclips.Cmdlets.Login;
 
 using System;
 using System.Collections;

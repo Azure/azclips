@@ -14,7 +14,7 @@ namespace Core.Extensions.Tests
         private static readonly IReadOnlyDictionary<string, BuiltInExtension> TestBuiltIns =
             new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase)
             {
-                ["login"] = new("login", "Microsoft.Azure.Cirrus.Extensions.Login"),
+                ["login"] = new("login", "Microsoft.Azure.Azclips.Extensions.Login"),
                 ["config"] = new("config", "Microsoft.Azure.Cirrus.Extensions.Config"),
             };
 
@@ -41,7 +41,7 @@ namespace Core.Extensions.Tests
 
             Assert.True(found);
             Assert.NotNull(resolved);
-            Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Login", resolved!.PackageId);
+            Assert.Equal("Microsoft.Azure.Azclips.Extensions.Login", resolved!.PackageId);
             Assert.Null(resolved.Version);
         }
 
@@ -80,7 +80,7 @@ namespace Core.Extensions.Tests
 
             Assert.True(found);
             Assert.True(BuiltInExtensions.IsBuiltInVerb(resolved!.Verb));
-            Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Login", resolved.PackageId);
+            Assert.Equal("Microsoft.Azure.Azclips.Extensions.Login", resolved.PackageId);
         }
 
         [Fact]

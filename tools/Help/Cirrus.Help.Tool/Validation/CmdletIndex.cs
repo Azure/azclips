@@ -19,8 +19,8 @@ namespace Cirrus.Help.Tool.Validation
         Dictionary<string, Type> ParameterTypes);
 
     /// <summary>
-    /// Reflection-based catalogue of every cmdlet exposed by Cirrus cmdlet assemblies
-    /// (<c>Microsoft.Azure.Cirrus.Cmdlets.*.dll</c>). Built once per Help-tool run.
+    /// Reflection-based catalogue of every cmdlet exposed by Microsoft Azure cmdlet assemblies.
+    /// Built once per Help-tool run.
     /// Parameter names are unioned across all parameter sets to avoid false positives in
     /// examples that mix sets.
     /// </summary>

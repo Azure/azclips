@@ -240,7 +240,7 @@ Validation rules (full list, see Troubleshooting below for fixes):
 - **PSL4** — the same parameter (after alias resolution) is bound twice on one invocation.
 - **PSL5** — a `$variable` is read but never assigned in the same fence.
 - **PSL6** — a literal value bound to a `Guid`- or enum-typed parameter doesn't parse.
-- **PSL7** — a fence under `## EXAMPLES` does not invoke the cmdlet whose name matches the file (e.g. an `az …` line in `Connect-CirrusAccount.md`).
+- **PSL7** — a fence under `## EXAMPLES` does not invoke the cmdlet whose name matches the file (e.g. an `az …` line in `Connect-AzAccount.md`).
 - **PSL8** — the cmdlet help file has no fenced PowerShell example under `## EXAMPLES`.
 - **PSL9** — a cmdlet declared in `<Module>.psd1`'s `CmdletsToExport` has no matching `help/<Verb-Noun>.md` file.
 - **PSL10** — a module manifest declares `CmdletsToExport` but the module folder has no `help/` directory at all (supersedes the per-cmdlet PSL9 cascade).
@@ -302,7 +302,7 @@ Help markdown is stored in `src/CLI/Help/Docs/<verb>/<command>.md`. The build co
 
 `Get-Help <Cmdlet>` reads MAML XML from `<ModuleBase>/<culture>/<dll>-Help.xml`. The build:
 
-1. Runs `Import-MarkdownCommandHelp` over `src/PS/<Module>/help/*.md` and pipes through `Export-MamlCommandHelp` to write MAML XML. The produced `<Module>-Help.xml` is then renamed to whatever the per-cmdlet `external help file:` frontmatter declares (e.g. `Microsoft.Azure.Cirrus.Cmdlets.Login.dll-Help.xml`) and copied into both `src/PS/<Module>/en-US/` (gitignored local build output) and `artifacts/Debug/PS/<Module>/en-US/` (next to the staged `.psd1`).
+1. Runs `Import-MarkdownCommandHelp` over `src/PS/<Module>/help/*.md` and pipes through `Export-MamlCommandHelp` to write MAML XML. The produced `<Module>-Help.xml` is then renamed to whatever the per-cmdlet `external help file:` frontmatter declares (e.g. `Microsoft.Azure.Azclips.Cmdlets.Login.dll-Help.xml`) and copied into both `src/PS/<Module>/en-US/` (gitignored local build output) and `artifacts/Debug/PS/<Module>/en-US/` (next to the staged `.psd1`).
 2. Copies that XML to `artifacts/<Config>/PS/<Module>/en-US/` so `Import-Module artifacts/<Config>/PS/<Module>/<Module>.psd1` resolves help next to the manifest.
 
 ## Build Process
@@ -416,7 +416,7 @@ dotnet test tools/Help/Cirrus.Help.Tool.Tests/Cirrus.Help.Tool.Tests.csproj
 
 **Build fails with `PSL7_ExampleMustInvokeDocumentedCmdlet`:**
 
-- The validator extracts the documented cmdlet from the filename (`Connect-CirrusAccount.md` → `Connect-CirrusAccount`) and requires every fence under `## EXAMPLES` to invoke it at least once. Setup commands in the same fence are fine — what's not fine is a fence that demonstrates a different cmdlet, or worse, a CLI invocation (`az ...`) inside a PowerShell help file.
+- The validator extracts the documented cmdlet from the filename (`Connect-AzAccount.md` → `Connect-AzAccount`) and requires every fence under `## EXAMPLES` to invoke it at least once. Setup commands in the same fence are fine — what's not fine is a fence that demonstrates a different cmdlet, or worse, a CLI invocation (`az ...`) inside a PowerShell help file.
 - Fix: replace the example so it actually shows the cmdlet the file documents.
 
 **Build fails with `PSL8_NoExamples`:**

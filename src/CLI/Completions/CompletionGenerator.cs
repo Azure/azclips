@@ -68,7 +68,7 @@ internal static class CompletionGenerator
         var leafIndex = LeafIndex.Build(BuiltInExtensions.Map, registryStore.Load());
         var discoveryExtensionNames = leafIndex.Entries.Values
             .Where(v => v.Verb.Equals(commandGroupName, StringComparison.OrdinalIgnoreCase))
-            .Select(v => Constants.StripCirrusPrefix(v.PackageId))
+            .Select(v => Constants.StripKnownExtensionPrefix(v.PackageId))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
@@ -98,7 +98,7 @@ internal static class CompletionGenerator
         var registryStore = new FileExtensionRegistryStore();
         var leafIndex = LeafIndex.Build(BuiltInExtensions.Map, registryStore.Load());
         var discoveryExtensionNames = leafIndex.Entries.Values
-            .Select(v => Constants.StripCirrusPrefix(v.PackageId))
+            .Select(v => Constants.StripKnownExtensionPrefix(v.PackageId))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 

@@ -131,7 +131,7 @@ az login --subscription-id 00000000-0000-0000-0000-000000000000
 ### Connect with subscription id (PowerShell)
 
 ```powershell
-Connect-CirrusAccount -SubscriptionId "00000000-0000-0000-0000-000000000000"
+Connect-AzAccount -SubscriptionId "00000000-0000-0000-0000-000000000000"
 ```
 ````
 

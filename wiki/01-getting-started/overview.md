@@ -239,7 +239,7 @@ artifacts/
 ├── Debug/
 │   ├── Core.Cli/az          ← CLI executable
 │   ├── Core/                  ← Shared core DLLs
-│   ├── Microsoft.Azure.Cirrus.Extensions.Login/
+│   ├── Microsoft.Azure.Azclips.Extensions.Login/
 │   └── Microsoft.Azure.Cirrus.Extensions.Resources/
 └── Release/                   ← Same structure
 ```

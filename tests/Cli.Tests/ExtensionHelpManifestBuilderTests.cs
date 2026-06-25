@@ -3,7 +3,7 @@
 
 using Core.Abstractions;
 using Core.Cli.Help;
-using Microsoft.Azure.Cirrus.Extensions.Login;
+using Microsoft.Azure.Azclips.Extensions.Login;
 using Tests.Common.Utilities;
 
 namespace Cli.Tests;
@@ -25,7 +25,7 @@ public class ExtensionHelpManifestBuilderTests
         Assert.Equal(3, manifest.Commands.Count);
 
         var loginCommand = Assert.Single(manifest.Commands, c => c.CliName == "login");
-        Assert.Equal("Connect-CirrusAccount", loginCommand.PsName);
+        Assert.Equal("Connect-AzAccount", loginCommand.PsName);
         Assert.NotEmpty(loginCommand.Summary);
         Assert.NotEmpty(loginCommand.Examples.Cli);
 
@@ -46,9 +46,9 @@ public class ExtensionHelpManifestBuilderTests
         Assert.Equal("login", group.Verb);
 
         Assert.Equal(3, helpIndex.Commands.Count);
-        Assert.Contains(helpIndex.Commands, c => c.CliName == "login" && c.PsName == "Connect-CirrusAccount");
-        Assert.Contains(helpIndex.Commands, c => c.CliName == "login logout" && c.PsName == "Disconnect-CirrusAccount");
-        Assert.Contains(helpIndex.Commands, c => c.CliName == "login show" && c.PsName == "Get-CirrusAccount");
+        Assert.Contains(helpIndex.Commands, c => c.CliName == "login" && c.PsName == "Connect-AzAccount");
+        Assert.Contains(helpIndex.Commands, c => c.CliName == "login logout" && c.PsName == "Disconnect-AzAccount");
+        Assert.Contains(helpIndex.Commands, c => c.CliName == "login show" && c.PsName == "Get-AzAccount");
     }
 
     [Fact]
@@ -116,12 +116,12 @@ public class ExtensionHelpManifestBuilderTests
 
         // CLI examples should not contain PowerShell-style commands.
         Assert.NotEmpty(loginCommand.Examples.Cli);
-        Assert.All(loginCommand.Examples.Cli, ex => Assert.DoesNotContain("Connect-CirrusAccount", ex.Command));
+        Assert.All(loginCommand.Examples.Cli, ex => Assert.DoesNotContain("Connect-AzAccount", ex.Command));
 
-        // PowerShell examples (if present) should reference Connect-CirrusAccount.
+        // PowerShell examples (if present) should reference Connect-AzAccount.
         if (loginCommand.Examples.PowerShell.Count > 0)
         {
-            Assert.Contains(loginCommand.Examples.PowerShell, ex => ex.Command.Contains("Connect-CirrusAccount"));
+            Assert.Contains(loginCommand.Examples.PowerShell, ex => ex.Command.Contains("Connect-AzAccount"));
         }
     }
 

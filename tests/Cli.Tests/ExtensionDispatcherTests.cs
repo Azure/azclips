@@ -114,7 +114,7 @@ public class ExtensionDispatcherTests
     [Fact]
     public void LoginHelpAdapter_ShouldProvideRuntimeCommandHelp()
     {
-        var helpProvider = new ExtensionIndexHelpAdapter(new Microsoft.Azure.Cirrus.Extensions.Login.ExtensionIndex(), "Login");
+        var helpProvider = new ExtensionIndexHelpAdapter(new Microsoft.Azure.Azclips.Extensions.Login.ExtensionIndex(), "Login");
 
         var groupHelp = helpProvider.GetGroupHelp(["login"]);
         var commandHelp = helpProvider.GetCommandHelp(["login", "show"]);
@@ -209,7 +209,7 @@ public class ExtensionDispatcherTests
     public void Parse_ShouldRouteBuiltInRoot_ByVerb()
     {
         var dispatcher = CreateLeafDispatcher(
-            ("login", "", "Microsoft.Azure.Cirrus.Extensions.Login", true));
+            ("login", "", "Microsoft.Azure.Azclips.Extensions.Login", true));
 
         var invocation = dispatcher.Parse(["login"]);
 
@@ -223,7 +223,7 @@ public class ExtensionDispatcherTests
         // Built-ins contribute only (verb, ""). The dispatcher matches that, then prepends `verb`
         // to whatever ExtensionParser pulls out of the residual — yielding "login logout".
         var dispatcher = CreateLeafDispatcher(
-            ("login", "", "Microsoft.Azure.Cirrus.Extensions.Login", true));
+            ("login", "", "Microsoft.Azure.Azclips.Extensions.Login", true));
 
         var invocation = dispatcher.Parse(["login", "logout"]);
 
@@ -238,7 +238,7 @@ public class ExtensionDispatcherTests
         var registry = new ExtensionRegistry();
         var builtIns = new Dictionary<string, BuiltInExtension>(StringComparer.OrdinalIgnoreCase)
         {
-            ["login"] = new("login", "Microsoft.Azure.Cirrus.Extensions.Login"),
+            ["login"] = new("login", "Microsoft.Azure.Azclips.Extensions.Login"),
         };
         var resolver = new ExtensionResolver(new InMemoryRegistryStore(registry), builtIns);
         // Empty leaf index — forces fallback.
