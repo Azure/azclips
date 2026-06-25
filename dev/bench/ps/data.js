@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782357442643,
+  "lastUpdate": 1782371348499,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Cirrus PS Benchmarks": [
@@ -1554,6 +1554,48 @@ window.BENCHMARK_DATA = {
             "value": 5790972.318750718,
             "unit": "ns",
             "range": "± 100107.92406038813"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dlanguiller@microsoft.com",
+            "name": "DanielMicrosoft",
+            "username": "DanielMicrosoft"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ccf6a9ba1bd4be52ee5ab5114063a7d6e82044fa",
+          "message": "{Core/Help/Extensions} move help/extension APIs runtime usage of `DiscoverySession` (#310)\n\n## Summary\nAlign extension discovery/registry behavior with the preferences-only\nmodel and resolve review feedback across loader, dispatch, pin/unpin,\ndocs, and remove-path robustness.\n\n## What changed\n- Extension loading: deterministic installed-version enumeration (one\nresolved version per package), improved prefix handling, and\nstream-based builtin root assembly load.\n- Dispatch/registry integration: discovery-backed leaf index now honors\nDI-provided registry stores; leaf de-dupe is case-insensitive.\n- Pin/unpin: seed missing registry entries with preference fields only\n(no runtime-derived contributions/namespaces persisted).\n- Discovery-backed registry: removed redundant nullable handling and\nadded fallback derivation of namespaces/verb from discovered command\nleaves when needed.\n- Remove command: strengthened structured error wrapping for additional\ndelete failure modes.\n- Docs/spec: updated extension/help/discovery docs to match current\nruntime behavior.\n\n## Validation\n- Targeted test runs passed for updated areas, including:\n  - `CliExtensionServiceRegistrationTests`\n  - `BuiltinExtensionLoaderTests`\n  - `ExtensionLoadContextDirectoryTests`\n  - `ExtensionPinTests`\n  - `ExtensionRemoveTests`\n\nAll non-self unresolved review threads on this PR have been addressed\nand resolved.",
+          "timestamp": "2026-06-25T17:01:04+10:00",
+          "tree_id": "6638532ad5c1979c829f8f087836fdbc423161ec",
+          "url": "https://github.com/Azure/azclips/commit/ccf6a9ba1bd4be52ee5ab5114063a7d6e82044fa"
+        },
+        "date": 1782371348452,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 5812461.367911638,
+            "unit": "ns",
+            "range": "± 95903.88997301948"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 5787701.788593679,
+            "unit": "ns",
+            "range": "± 96551.36732240983"
+          },
+          {
+            "name": "Benchmark.PS.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 5779354.115230575,
+            "unit": "ns",
+            "range": "± 96121.50473650466"
           }
         ]
       }
