@@ -245,7 +245,7 @@ Goal: verify runtime discovery behavior from real build artifacts and installed 
 2. Validate user-installed extension lookup path and versioned install semantics.
 3. Validate help and dispatch behavior in artifact-based runs (no dependency on repo-local assumptions).
 
-### 9.2 Expected lookup locations (defaults)
+### 9.2 Expected lookup locations (defaults) ✅ DONE
 
 1. Built-ins (Debug host):
     - AppContext.BaseDirectory/..
@@ -260,12 +260,18 @@ Goal: verify runtime discovery behavior from real build artifacts and installed 
 3. User-installed/versioned extensions (all modes):
     - ~/.cirrus/extensions
 
-### 9.2.1 Expected lookup order policy (installer scenario)
+Status:
+- Implemented and validated in CLI loader/discovery flow. Built-in roots are enumerated from install-root package directories first, with non-extension folders excluded.
+
+### 9.2.1 Expected lookup order policy (installer scenario) ✅ DONE
 
 1. Check install-root `Extensions/` first (bundled/full installer payload).
 2. If not found, check `~/.cirrus/extensions` for user-installed/versioned payloads.
 3. If still not found, return CNF/install guidance for private preview manual install.
 4. Future public-preview direction: optional dynamic install trigger instead of manual-only guidance.
+
+Status:
+- Implemented and validated: lookup order remains install-root `Extensions/` first, then `~/.cirrus/extensions`, then existing CNF/install guidance if unresolved.
 
 ### 9.3 Test matrix
 
