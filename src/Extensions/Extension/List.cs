@@ -67,16 +67,10 @@ public class ListExtensionsProcessor : IProcessor
                 InstalledAt: e.InstalledAt,
                 Namespaces: e.Namespaces));
 
-            return new
-            {
-                ByVerb = PivotByVerb(contributors),
-            };
+            return PivotByVerb(contributors);
         }
 
-        return new
-        {
-            Live = live,
-        };
+        return live;
     }
 
     /// <summary>

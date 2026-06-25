@@ -227,10 +227,13 @@ All four documentation sections updated to reflect discovery-first model:
     - ✅ Expected postcondition met: on success, extension payload is absent from disk and no longer appears in discovery-backed `extension list`.
     - ✅ Validated locally: install via local artifact, help/verb routing appears, remove succeeds, extension directory removed, and `registry.json` returns to empty preferences.
 
-2. **`extension list` API shape review (post-stale removal) ⏳ PENDING:**
-    - Observation: now that `stale` output is retired, default JSON still returns a top-level `live` wrapper (`{ "live": [ ... ] }`).
-    - Decision needed: keep `live` as a compatibility envelope, or simplify to a direct array/object shape.
-    - Follow-up if simplified: update CLI tests/spec docs and any internal callers that depend on the wrapper shape.
+2. **`extension list` API shape review (post-stale removal) ✅ DONE:**
+    - Issue: After removing `stale` output, default JSON still returned top-level `live` wrapper (`{ "live": [ ... ] }`).
+    - Decision: Simplify to direct array/object shape per spec contract (no wrappers).
+    - Rationale: Wrappers were originally needed to distinguish `Live`/`Stale` arrays; now vestigial. Direct shape is simpler, more REST-like, matches documented expected output.
+    - ✅ Implementation: Modified `ListExtensionsProcessor.Process()` to return `live` directly (default) and `PivotByVerb(contributors)` directly (--by-verb).
+    - ✅ Tests: All 271 Cli.Tests pass; 6 ExtensionListByVerbTests validate pivot logic unchanged.
+    - Impact: Breaking change to JSON output shape, but project not yet live; spec documents direct shape as expected.
 
 ## 9. Regression and Release Testing
 
