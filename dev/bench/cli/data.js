@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782320536873,
+  "lastUpdate": 1782357085533,
   "repoUrl": "https://github.com/Azure/azclips",
   "entries": {
     "Cirrus CLI Benchmarks": [
@@ -1554,6 +1554,48 @@ window.BENCHMARK_DATA = {
             "value": 902370.8129251701,
             "unit": "ns",
             "range": "± 269932.83545513166"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tritorto@gmail.com",
+            "name": "Teresa Ritorto",
+            "username": "teresaritorto"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0efdcbc00aee2f645e2753e05a5c1ab8ee831877",
+          "message": "Rename login extension PowerShell cmdlets (#319)\n\nThis change updates the login extension cmdlets to match `classic` Azure\nPowerShell cmdlet names.\n\n### Testing\n- Verified manual tests against all cmdlets to confirm interactive flow.\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-06-25T11:09:31+08:00",
+          "tree_id": "9bb9a3871bf09924cacbc0617d0b91a659338b57",
+          "url": "https://github.com/Azure/azclips/commit/0efdcbc00aee2f645e2753e05a5c1ab8ee831877"
+        },
+        "date": 1782357084971,
+        "tool": "benchmarkdotnet",
+        "benches": [
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.ListResourceGroups",
+            "value": 994789.006402561,
+            "unit": "ns",
+            "range": "± 289197.13063842925"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.CreateResourceGroup",
+            "value": 971263.843937575,
+            "unit": "ns",
+            "range": "± 294604.280518428"
+          },
+          {
+            "name": "Benchmark.CLI.ResourceGroupBenchmarks.GetResourceGroup",
+            "value": 962468.4697348675,
+            "unit": "ns",
+            "range": "± 286816.5426777434"
           }
         ]
       }
