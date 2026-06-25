@@ -88,13 +88,15 @@ public sealed record DiscoveredExtensionInfo(
 
 ### 3.3 Discovery Flow
 
-The discovery process is **metadata-only** and does not execute any extension code:
+The discovery process is **index-only**. It does not execute command processors, but it does load extension assemblies and instantiate the extension index type to read declared verbs/commands.
 
 1. Walk `~/.cirrus/extensions/<packageId>/` — find all installed versions
-2. For each version, load the extension's manifest (embedded in the assembly, read via `MetadataLoadContext`)
-3. Instantiate `IExtensionIndex` in the manifest, call `GetVerbs()` and `GetCommandTable()`
-4. Collect results into `DiscoveredExtensionInfo`
-5. Return all discoveries without executing any processor or initialization code
+2. Resolve the version to inspect (registry preference if present, otherwise latest semver)
+3. Load the extension assembly for the selected version
+4. Instantiate `IExtensionIndex`, then call `GetVerbs()` and `GetCommandTable()`
+5. Collect results into `DiscoveredExtensionInfo`
+
+Because assemblies are loaded and index types are instantiated, discovery may run static initializers and index constructors. The runtime guarantee is narrower: discovery avoids processor activation/execution and processor-context initialization.
 
 ### 3.4 Multi-Version Selection
 
