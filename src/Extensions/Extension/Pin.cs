@@ -117,13 +117,10 @@ public static class PinHelper
         {
             registry.Extensions[discoveredMatch.Key] = new ExtensionRegistryEntry
             {
-                Verb = discoveredMatch.Value.Verb,
                 Version = discoveredMatch.Value.Version,
                 Pinned = false,
                 Source = discoveredMatch.Value.Source,
                 InstalledAt = discoveredMatch.Value.InstalledAt,
-                Contributions = new List<Contribution>(discoveredMatch.Value.Contributions),
-                Namespaces = new List<string>(discoveredMatch.Value.Namespaces),
             };
         }
 
@@ -132,7 +129,7 @@ public static class PinHelper
         {
             store.Save(registry);
         }
-        return Project(packageId, entry);
+        return Project(packageId, entry, discoveredMatch.Value.Verb);
     }
 
     /// <summary>
@@ -187,10 +184,10 @@ public static class PinHelper
         return (match.Key, registry.Extensions[match.Key], true);
     }
 
-    private static object Project(string packageId, ExtensionRegistryEntry entry) => new
+    private static object Project(string packageId, ExtensionRegistryEntry entry, string? discoveredVerb = null) => new
     {
         PackageId = packageId,
-        Verb = entry.Verb,
+        Verb = entry.Verb ?? discoveredVerb,
         Version = entry.Version,
         Pinned = entry.Pinned,
         Source = entry.Source,
