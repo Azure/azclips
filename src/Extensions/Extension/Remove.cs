@@ -203,6 +203,18 @@ public class RemoveExtensionProcessor : IProcessor
             // the desired postcondition (package directory absent) is already true.
             return;
         }
+        catch (PathTooLongException ex)
+        {
+            throw new CirrusErrorException(
+                "ExtensionRemoveFailed",
+                1,
+                $"Failed to remove extension '{packageId}'. Path too long deleting '{packageDir}': {ex.Message}",
+                new Dictionary<string, object?>
+                {
+                    ["packageId"] = packageId,
+                    ["path"] = packageDir,
+                });
+        }
         catch (IOException ex)
         {
             throw new CirrusErrorException(
@@ -221,6 +233,18 @@ public class RemoveExtensionProcessor : IProcessor
                 "ExtensionRemoveFailed",
                 1,
                 $"Failed to remove extension '{packageId}'. Access denied deleting '{packageDir}': {ex.Message}",
+                new Dictionary<string, object?>
+                {
+                    ["packageId"] = packageId,
+                    ["path"] = packageDir,
+                });
+        }
+        catch (System.Security.SecurityException ex)
+        {
+            throw new CirrusErrorException(
+                "ExtensionRemoveFailed",
+                1,
+                $"Failed to remove extension '{packageId}'. Security policy blocked delete for '{packageDir}': {ex.Message}",
                 new Dictionary<string, object?>
                 {
                     ["packageId"] = packageId,

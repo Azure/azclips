@@ -55,6 +55,22 @@ internal static class DiscoveryBackedExtensionRegistry
                 }
             }
 
+            // Some extension indexes may not populate Verbs; derive from discovered command leaves.
+            if (entry.Namespaces.Count == 0)
+            {
+                foreach (var derivedNs in entry.Contributions
+                    .Select(static c => c.Verb)
+                    .Distinct(StringComparer.OrdinalIgnoreCase))
+                {
+                    entry.Namespaces.Add(derivedNs);
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(entry.Verb))
+            {
+                entry.Verb = entry.Namespaces.FirstOrDefault();
+            }
+
             discovered.Extensions[info.PackageId] = entry;
         }
 

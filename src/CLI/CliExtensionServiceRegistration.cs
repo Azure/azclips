@@ -33,7 +33,7 @@ public static class CliExtensionServiceRegistration
 
         services.AddSingleton(sp => new ExtensionDispatcher(
             sp.GetRequiredService<IExtensionResolver>(),
-            BuildLeafIndexWithDiscovery));
+            () => BuildLeafIndexWithDiscovery(sp.GetRequiredService<IExtensionRegistryStore>())));
 
         return services;
     }
@@ -43,9 +43,8 @@ public static class CliExtensionServiceRegistration
     /// Discovery is now the source of truth for installed state; registry provides preference overlays.
     /// §5.3: Routes verbs from disk even if registry.json is missing.
     /// </summary>
-    private static LeafIndex BuildLeafIndexWithDiscovery()
+    private static LeafIndex BuildLeafIndexWithDiscovery(IExtensionRegistryStore registryStore)
     {
-        var registryStore = new FileExtensionRegistryStore();
         var fileRegistry = registryStore.Load();
 
         // §5.3: Discover all installed extensions from disk. This is authoritative.
@@ -66,7 +65,6 @@ public static class CliExtensionServiceRegistration
         try
         {
             var engine = CirrusServiceProvider.GetRequiredService<IEngine>();
-            
             var discovered = new ExtensionRegistry { SchemaVersion = ExtensionRegistry.CurrentSchemaVersion };
 
             // Open a transient discovery session to enumerate all installed extensions.
@@ -114,15 +112,16 @@ public static class CliExtensionServiceRegistration
                 commandName: null,
                 outputStreams: outputStreams,
                 isTransient: true);
-            
+
             session.RunAsync().GetAwaiter().GetResult();
 
             return discovered;
         }
-        catch
+        catch when (currentRegistry.Extensions.Values.Any(e =>
+            e.Contributions.Count > 0 || !string.IsNullOrWhiteSpace(e.Verb)))
         {
-            // Discovery failure: fall back to file registry. This preserves existing behavior
-            // while allowing graceful degradation if discovery fails.
+            // Best-effort fallback for test hosts / degraded environments where discovery is
+            // unavailable but the injected registry still carries routable contribution metadata.
             return currentRegistry;
         }
     }
