@@ -5,13 +5,22 @@ using System.Reflection;
 using System.Runtime.Loader;
 using Core.Abstractions;
 using Core.Configuration.Options;
+using Core.Extensions;
 using NuGet.Versioning;
 
 namespace Core.Cli;
 
 public interface IExtensionLoader
 {
-    public Assembly? LoadExtension(string extensionName, string? version = null);
+    Assembly? LoadExtension(string extensionName, string? version = null);
+
+    /// <summary>
+    /// Enumerates all extensions this loader knows about on disk. Returns (folderName, version)
+    /// pairs where <c>folderName</c> can be passed verbatim back to
+    /// <see cref="LoadExtension"/>. Default returns empty — loaders that cannot enumerate
+    /// (e.g. built-in loaders without a static manifest) simply do not contribute.
+    /// </summary>
+    IEnumerable<(string Name, string Version)> GetInstalledExtensions() => [];
 }
 
 public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurationService configurationService) : IExtensionLoader
@@ -20,6 +29,15 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
     {
         private readonly AssemblyDependencyResolver _resolver = new(extensionPath);
         private readonly ILoggingService? _loggingService = loggingService;
+
+        internal Assembly LoadManagedAssembly(string assemblyPath)
+        {
+            using var stream = File.OpenRead(assemblyPath);
+            using var ms = new MemoryStream();
+            stream.CopyTo(ms);
+            ms.Position = 0;
+            return LoadFromStream(ms);
+        }
 
         protected override Assembly? Load(AssemblyName assemblyName)
         {
@@ -32,7 +50,7 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
             if (assemblyPath != null)
             {
                 _loggingService?.Debug($"Loading assembly from path: {assemblyPath}");
-                return LoadFromAssemblyPath(assemblyPath);
+                return LoadManagedAssembly(assemblyPath);
             }
             return null;
         }
@@ -74,6 +92,17 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
             .Distinct(StringComparer.OrdinalIgnoreCase);
     }
 
+    private static bool IsKnownExtensionPackageId(string packageId, string configuredPrefix)
+    {
+        var prefixes = Constants.extensionPackagePrefixes
+            .Prepend(configuredPrefix ?? string.Empty)
+            .Where(prefix => !string.IsNullOrWhiteSpace(prefix))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
+        return prefixes.Any(prefix =>
+            packageId.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+    }
+
     private static IEnumerable<string> GetCandidateRoots(string configuredBuiltinInstallationDir)
     {
         var roots = new[]
@@ -109,13 +138,59 @@ public class BuiltinExtensionLoader(ILoggingService loggingService, IConfigurati
                     }
 
                     var loadContext = new ExtensionLoadContext(extensionPath, _loggingService);
-                    return loadContext.LoadFromAssemblyPath(extensionPath);
+                    return loadContext.LoadManagedAssembly(extensionPath);
                 }
             }
         }
 
         _loggingService?.Debug($"Extension '{extensionName}' not found in builtin extensions directory, will try other sources. Checked root(s): '{string.Join(";", GetCandidateRoots(_options.BuiltinInstallationDir))}'");
         return null;
+    }
+
+    /// <inheritdoc/>
+    public IEnumerable<(string Name, string Version)> GetInstalledExtensions()
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var root in GetCandidateRoots(_options.BuiltinInstallationDir))
+        {
+            if (!Directory.Exists(root))
+            {
+                continue;
+            }
+
+            foreach (var packageDir in Directory.GetDirectories(root))
+            {
+                var packageId = Path.GetFileName(packageDir);
+                if (string.IsNullOrWhiteSpace(packageId))
+                {
+                    continue;
+                }
+
+                if (!IsKnownExtensionPackageId(packageId, _options.ExtensionFolderPrefix))
+                {
+                    continue;
+                }
+
+                var shortName = Constants.StripKnownExtensionPrefix(packageId);
+                if (seen.Contains(shortName))
+                {
+                    continue;
+                }
+
+                var hasAssembly = GetCandidateAssemblyNames(shortName)
+                    .Select(assemblyName => Path.Combine(packageDir, $"{assemblyName}.dll"))
+                    .Any(File.Exists);
+
+                if (!hasAssembly)
+                {
+                    continue;
+                }
+
+                seen.Add(shortName);
+                yield return (shortName, string.Empty);
+            }
+        }
     }
 }
 
@@ -129,6 +204,15 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
         public string ExtensionDirectory { get; } = extensionDirectory;
         private readonly ILoggingService? _loggingService = loggingService;
 
+        internal Assembly LoadManagedAssembly(string assemblyPath)
+        {
+            using var stream = File.OpenRead(assemblyPath);
+            using var ms = new MemoryStream();
+            stream.CopyTo(ms);
+            ms.Position = 0;
+            return LoadFromStream(ms);
+        }
+
         protected override Assembly? Load(AssemblyName assemblyName)
         {
             if (assemblyName.Name != null && (assemblyName.Name.StartsWith("Core.") || assemblyName.Name.StartsWith("Microsoft.Extensions.DependencyInjection")))
@@ -139,7 +223,7 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
             string assemblyPath = Path.Combine(ExtensionDirectory, $"{assemblyName.Name}.dll");
             if (File.Exists(assemblyPath))
             {
-                return LoadFromAssemblyPath(assemblyPath);
+                return LoadManagedAssembly(assemblyPath);
             }
             return null;
         }
@@ -238,7 +322,7 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
             // ExtensionLoadContext expects a directory (Path.Combine in Load resolves siblings).
             // Cache hits below already pass key.Directory directly.
             var freshCtx = new ExtensionLoadContext(extensionDir, _loggingService);
-            return freshCtx.LoadFromAssemblyPath(extensionPath);
+            return freshCtx.LoadManagedAssembly(extensionPath);
         }
 
         var entry = s_cache.GetOrAdd(
@@ -246,9 +330,49 @@ public class MultiVersionExtensionLoader(ILoggingService loggingService, IConfig
             key => new Lazy<(ExtensionLoadContext, Assembly)>(() =>
             {
                 var ctx = new ExtensionLoadContext(key.Directory, _loggingService);
-                var asm = ctx.LoadFromAssemblyPath(key.AssemblyPath);
+                var asm = ctx.LoadManagedAssembly(key.AssemblyPath);
                 return (ctx, asm);
             }));
         return entry.Value.Assembly;
+    }
+
+    /// <inheritdoc/>
+    public IEnumerable<(string Name, string Version)> GetInstalledExtensions()
+    {
+        if (!Directory.Exists(_options.VersionedInstallationDir))
+        {
+            yield break;
+        }
+
+        var packageDirs = Directory.GetDirectories(_options.VersionedInstallationDir);
+        
+        foreach (var packageDir in packageDirs)
+        {
+            var fullPackageName = Path.GetFileName(packageDir);
+            // Strip any known prefix to get the short extension name.
+            var shortName = Constants.StripKnownExtensionPrefix(fullPackageName);
+
+            // TODO(dlanguiller): In a future pass, allow this provider to honor persisted
+            // pin/active-version preferences when selecting the resolved installed version.
+            // For now, emit a single deterministic version per package: highest semver.
+            var latestVersion = Directory.GetDirectories(packageDir)
+                .Select(versionDir =>
+                {
+                    var versionName = Path.GetFileName(versionDir);
+                    var parsed = NuGetVersion.TryParse(versionName, out var parsedVersion)
+                        ? parsedVersion
+                        : null;
+                    return (versionName, parsedVersion: parsed);
+                })
+                .Where(item => item.parsedVersion is not null)
+                .OrderByDescending(item => item.parsedVersion)
+                .Select(item => item.versionName)
+                .FirstOrDefault();
+
+            if (!string.IsNullOrWhiteSpace(latestVersion))
+            {
+                yield return (shortName, latestVersion);
+            }
+        }
     }
 }

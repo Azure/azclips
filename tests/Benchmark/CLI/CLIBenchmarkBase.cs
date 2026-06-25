@@ -92,8 +92,8 @@ public abstract class CLIBenchmarkBase : BenchmarkBase
 
             // Resolver reads the staged registry (the layer that fails today).
             services.RemoveAll<IExtensionRegistryStore>();
-            services.AddSingleton<IExtensionRegistryStore>(_ => new ReconcilingRegistryStore(
-                new FileExtensionRegistryStore(Path.Combine(extensionsRoot, "registry.json"))));
+            services.AddSingleton<IExtensionRegistryStore>(_ =>
+                new FileExtensionRegistryStore(Path.Combine(extensionsRoot, "registry.json")));
         });
     }
 

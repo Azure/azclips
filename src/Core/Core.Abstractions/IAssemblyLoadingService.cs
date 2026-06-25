@@ -21,5 +21,10 @@ public interface IAssemblyLoadingService
     /// <returns>The loaded assembly.</returns>
     Assembly LoadExtension(string extensionName, string? extensionVersion = null);
 
-    IList<Tuple<string, string, Func<Assembly>>>? LoadAllExtensions();
+    /// <summary>
+    /// Returns all on-disk extension installations paired with a lazy assembly loader for
+    /// each. Delegates to <see cref="IAssemblyLoadingProvider.GetAllInstalledExtensions"/>.
+    /// Returns <c>null</c> when no extensions are discovered.
+    /// </summary>
+    IList<(InstalledExtensionRef Info, Func<Assembly> Load)>? LoadAllExtensions();
 }

@@ -17,21 +17,21 @@ namespace Core.AssemblyLoading
             return provider.LoadExtension(extensionName, extensionVersion);
         }
 
-        public IList<Tuple<string, string, Func<Assembly>>>? LoadAllExtensions()
+        public IList<(InstalledExtensionRef Info, Func<Assembly> Load)>? LoadAllExtensions()
         {
-            IList<Tuple<string, string?>>? extensionNames = provider.GetAllInstalledExtensions();
-            if (extensionNames == null || extensionNames.Count == 0)
+            var refs = provider.GetAllInstalledExtensions();
+            if (refs == null || refs.Count == 0)
             {
                 return null;
             }
 
-            var assemblies = new List<Tuple<string, string, Func<Assembly>>>();
-            foreach (var extensionName in extensionNames)
+            var result = new List<(InstalledExtensionRef, Func<Assembly>)>(refs.Count);
+            foreach (var r in refs)
             {
-                var assembly = () => provider.LoadExtension(extensionName.Item1, extensionName.Item2);
-                assemblies.Add(Tuple.Create(extensionName.Item1, extensionName.Item2 ?? string.Empty, assembly));
+                var captured = r;
+                result.Add((captured, () => provider.LoadExtension(captured.Name, captured.Version)));
             }
-            return assemblies;
+            return result;
         }
     }
 }

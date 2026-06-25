@@ -8,9 +8,17 @@ For extension **authoring**, see [Extension-Development-For-Private-Preview.md](
 
 An extension is a NuGet package that contributes one or more top-level command **namespaces** to `az`. For example, the Compute extension contributes `vm` and `disk`, so installing it makes `az vm list` and `az disk create` work.
 
-Installed extensions live under `~/.cirrus/extensions/<packageId>/<version>/` and are tracked in `~/.cirrus/extensions/registry.json`.
+Installed extensions live under `~/.cirrus/extensions/<packageId>/<version>/`. Cirrus **discovers** them automatically at runtime by walking the extensions directory — no install manifest is required. User preferences (pinning, version selection) are stored in `~/.cirrus/extensions/registry.json` as an optional overlay on top of discovered extensions.
 
 Built-in namespaces (`extension`, `login`, `config`) are part of the host and cannot be removed.
+
+## Discovery-First Model
+
+Cirrus uses a **discovery-first** approach to extension management:
+
+1. **Discovery** (source of truth): At runtime, Cirrus walks `~/.cirrus/extensions/` to find all installed packages and versions. This is what determines which extensions are available for dispatch, help, and listing.
+2. **Registry** (preferences layer): `registry.json` records user preferences — pinned versions, active-version overrides, install timestamps — but is **not** the authoritative source of installed state. If an extension is present on disk but has no registry entry, it is still discovered and available.
+3. **Resilience**: If `registry.json` is missing or corrupted, Cirrus continues to work with discovered extensions. Users only lose their pinning preferences.
 
 ## Quick start
 
@@ -94,6 +102,8 @@ az extension list --by-verb        # regrouped by namespace
 az extension list --output json    # structured output
 ```
 
+`az extension list` runs a **discovery pass** to enumerate all installed extensions on disk, then overlays user preferences (pins, version selections) from the registry. Extensions appear in the output even if they have no registry entry — a fresh directory discovery at runtime is always authoritative.
+
 Default output:
 
 ```
@@ -112,7 +122,7 @@ group
   Microsoft.Azure.Cirrus.Extensions.Resources     1.0.0
 ```
 
-JSON output carries `live` and `stale` arrays. Stale entries are registry rows whose on-disk DLLs have gone missing (e.g. someone deleted `~/.cirrus/extensions/`). They're never dispatched to; remove them with `az extension remove <name>`.
+JSON output reflects the union of discovered extensions. **Note:** `installed-at` is metadata from the registry if available; if missing (for example, an extension copied to disk without an install record), runtime discovery defaults it to the current UTC timestamp for that invocation.
 
 ## Inspecting — `extension show`
 
@@ -140,7 +150,9 @@ az extension pin <name>@1.2.0      # pin a specific version (installs it if need
 az extension unpin <name>
 ```
 
-Pinned extensions are skipped by `update` unless you pass `--force`. Useful for freezing a known-good version while you upgrade other parts of the toolchain.
+Pinning stores a **user preference** in the registry that freezes a known-good version against future `update` commands (unless you pass `--force`). Useful for freezing a known-good version while you upgrade other parts of the toolchain.
+
+The pinned state is persisted in `registry.json` and consulted at runtime; unpinned extensions always fall back to the most recently installed version (determined by discovery).
 
 ## Removing — `extension remove`
 
@@ -198,10 +210,6 @@ Two `az` invocations modified the registry simultaneously. The mtime guard rejec
 
 The on-disk `registry.json` violates the leaf-uniqueness invariant — usually from a hand-edit. The error names both offending packages. Restore from a backup or `extension remove` one of them by editing the file directly, then rerun.
 
-### Stale extensions in `extension list`
-
-A row appears under `stale` when its install directory is missing. Run `az extension remove <name>` to clean up the registry.
-
 ### Force a fresh assembly load — `--no-cache`
 
 Cirrus caches loaded extension assemblies per `(packageId, version)` for the life of the process. Long-running hosts (TUI) benefit; one-shot CLI invocations are unaffected. To force a fresh load (debugging, benchmarking):
@@ -220,11 +228,11 @@ $env:CIRRUS_NO_EXTENSION_CACHE = "true"
 
 ## Where things live
 
-| Path                                                  | Contents                                                                                         |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `~/.cirrus/extensions/registry.json`                  | Installed-extension manifest (schema v2). Authoritative.                                         |
-| `~/.cirrus/extensions/<packageId>/<version>/`         | Extracted DLLs for one installed version.                                                        |
-| `az.dll` (embedded resource `extension-hints.json`) | Build-time catalog of first-party verb → package mappings. Used for the unknown-verb suggestion. |
+| Path                                                | Contents                                                                                                                                      |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `~/.cirrus/extensions/<packageId>/<version>/`       | Extracted DLLs for one installed version. **Authoritative source** for installed extensions.                                                  |
+| `~/.cirrus/extensions/registry.json`                | User preferences (pinning, active version override, install metadata). Optional; discovery works even if missing.                             |
+| `az.dll` (embedded resource `extension-hints.json`) | Build-time catalog of first-party verb → package mappings. Used for the unknown-verb suggestion in case no installed extension owns the verb. |
 
 ## Exit code reference
 

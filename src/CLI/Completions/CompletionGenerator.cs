@@ -65,7 +65,7 @@ internal static class CompletionGenerator
     private static async Task<int> GenerateForCommandGroupAsync(ClientType clientType, IEngine engine, string commandGroupName, string? subcommand)
     {
         var registryStore = new FileExtensionRegistryStore();
-        var leafIndex = LeafIndex.Build(BuiltInExtensions.Map, registryStore.LoadReconciled());
+        var leafIndex = LeafIndex.Build(BuiltInExtensions.Map, registryStore.Load());
         var discoveryExtensionNames = leafIndex.Entries.Values
             .Where(v => v.Verb.Equals(commandGroupName, StringComparison.OrdinalIgnoreCase))
             .Select(v => Constants.StripKnownExtensionPrefix(v.PackageId))
@@ -96,7 +96,7 @@ internal static class CompletionGenerator
     private static async Task<int> GenerateFullTreeAsync(ClientType clientType, IEngine engine)
     {
         var registryStore = new FileExtensionRegistryStore();
-        var leafIndex = LeafIndex.Build(BuiltInExtensions.Map, registryStore.LoadReconciled());
+        var leafIndex = LeafIndex.Build(BuiltInExtensions.Map, registryStore.Load());
         var discoveryExtensionNames = leafIndex.Entries.Values
             .Select(v => Constants.StripKnownExtensionPrefix(v.PackageId))
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -156,7 +156,17 @@ internal static class CompletionGenerator
         var discoveryStreams = new OutputStreams(
             WriteOutput: (value, ct) =>
             {
-                if (value is IDictionary<string, CommandMetadata> discovered)
+                if (value is IList<DiscoveredExtensionInfo> infos)
+                {
+                    foreach (var info in infos)
+                    {
+                        foreach (var (invocationName, metadata) in info.Commands)
+                        {
+                            discoveredCommands[invocationName] = metadata;
+                        }
+                    }
+                }
+                else if (value is IDictionary<string, CommandMetadata> discovered)
                 {
                     foreach (var (invocationName, metadata) in discovered)
                     {

@@ -84,7 +84,7 @@ namespace Core.Extensions.Tests
         [Fact]
         public void Save_Roundtrip_ShouldPreserveBothNamespaces()
         {
-            // Persisting and reloading a multi-namespace entry keeps every contribution.
+            // §5.2: Save strips installed-state fields; only preferences survive round-trip.
             var tmp = Path.Combine(Path.GetTempPath(), "cirrus-multi-ns-" + Guid.NewGuid().ToString("N"));
             try
             {
@@ -100,11 +100,10 @@ namespace Core.Extensions.Tests
                 var reloaded = store2.Load();
                 var entry = reloaded.Extensions["Microsoft.Azure.Cirrus.Extensions.Compute"];
 
-                Assert.Equal(2, entry.Namespaces.Count);
-                Assert.Contains("vm", entry.Namespaces, StringComparer.OrdinalIgnoreCase);
-                Assert.Contains("disk", entry.Namespaces, StringComparer.OrdinalIgnoreCase);
-                Assert.Equal(5, entry.Contributions.Count);
-                Assert.Contains(entry.Contributions, c => c.Verb == "disk" && c.Path == "list");
+                Assert.Empty(entry.Namespaces);
+                Assert.Empty(entry.Contributions);
+                Assert.Null(entry.Verb);
+                Assert.Equal("1.0.0", entry.Version);
             }
             finally
             {

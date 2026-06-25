@@ -1,8 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Reflection;
-using System.Runtime.Loader;
 using Core.Abstractions;
 using Core.Cli.Exceptions;
 using Core.Extensions;
@@ -16,25 +14,6 @@ public class ExtensionDispatcher //: IParser
 
     private readonly record struct HelpRequest(string Verb, IReadOnlyList<string> Path, bool IsCommandHelp);
 
-    internal class ExtensionLoadContext(string extensionDirectory) : AssemblyLoadContext
-    {
-        public string ExtensionDirectory { get; } = extensionDirectory;
-
-        protected override Assembly? Load(AssemblyName assemblyName)
-        {
-            if (assemblyName.Name == "SharedContracts" || assemblyName.Name == "Core.SharedContracts")
-            {
-                return null;
-            }
-            string assemblyPath = Path.Combine(ExtensionDirectory, $"{assemblyName.Name}.dll");
-            if (File.Exists(assemblyPath))
-            {
-                return LoadFromAssemblyPath(assemblyPath);
-            }
-            return null;
-        }
-    }
-
     private readonly IExtensionResolver _resolver;
     private readonly Lazy<LeafIndex> _leafIndex;
 
@@ -45,8 +24,8 @@ public class ExtensionDispatcher //: IParser
 
     private ExtensionDispatcher(FileExtensionRegistryStore store)
         : this(
-            new ExtensionResolver(new ReconcilingRegistryStore(store)),
-            () => LeafIndex.Build(BuiltInExtensions.Map, store.LoadReconciled()))
+            new ExtensionResolver(store),
+            () => LeafIndex.Build(BuiltInExtensions.Map, store.Load()))
     {
     }
 

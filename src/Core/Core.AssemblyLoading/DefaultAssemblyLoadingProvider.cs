@@ -37,7 +37,7 @@ public class DefaultAssemblyLoadingProvider(): IAssemblyLoadingProvider
             new AggregateException(failures));
     }
 
-    public IList<Tuple<string, string?>>? GetAllInstalledExtensions()
+    public IList<InstalledExtensionRef>? GetAllInstalledExtensions()
     {
         // Default implementation does not support extension discovery.
         return null;

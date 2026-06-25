@@ -17,7 +17,6 @@ internal class DiscoverySession : ISession
     private bool isTransient;
     private string? commandName;
     private IList<string> extensionNames;
-    private IDictionary<string, CommandMetadata> outputDict;
     private readonly OutputStreamAdapter outputStreamAdapter;
 
     public string Id { get; }
@@ -25,7 +24,7 @@ internal class DiscoverySession : ISession
 
     internal Func<string, string, Assembly> LoadAssembly { get; set; } = null!;
     internal Func<string, string> GetExtensionVersion { get; set; } = null!;
-    internal Func<IList<Tuple<string, string, Func<Assembly>>>?> LoadAllAssemblies { get; set; } = null!;
+    internal Func<IList<(InstalledExtensionRef Info, Func<Assembly> Load)>?> LoadAllAssemblies { get; set; } = null!;
     internal Func<string, string, Func<IExtensionIndex>, IExtensionIndex> CacheGetOrAdd { get; set; } = null!;
 
     internal DiscoverySession(ClientType clientType, IList<string> extensionNames, string? commandName, OutputStreams outputStreams, bool isTransient, CancellationToken cancellationToken = default)
@@ -34,7 +33,6 @@ internal class DiscoverySession : ISession
         this.isTransient = isTransient;
         this.commandName = commandName;
         this.extensionNames = [.. extensionNames];
-        this.outputDict = new Dictionary<string, CommandMetadata>();
         Id = $"{GetType().Name}-{clientType}-{Guid.NewGuid().ToString()}";
         EventBus = new RuntimeEventBus(cancellationToken);
         sessionOutputWriter = outputStreams.WriteOutput;
@@ -45,83 +43,114 @@ internal class DiscoverySession : ISession
     public void Run() => throw new NotImplementedException();
 
     /// <summary>
-    /// Discovers commands from the requested extension(s) and writes the result to the output stream
-    /// as a dictionary keyed by <see cref="CommandMetadata.InvocationName"/>
-    /// (the client-facing invocation token) with the <see cref="CommandMetadata"/> as the value.
+    /// Discovers commands from the requested extension(s) and writes a
+    /// <see cref="IList{DiscoveredExtensionInfo}"/> to the output stream. Each entry
+    /// carries the extension package id, resolved version, contributed verbs, and full
+    /// command table keyed by <see cref="CommandMetadata.InvocationName"/>.
     /// </summary>
     public async Task RunAsync()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        // Load all installed extensions
+        var extensionInfos = new List<DiscoveredExtensionInfo>();
+
         if (extensionNames == null || extensionNames.Count == 0)
         {
-            foreach (var (name, version, asmFunc) in LoadAllAssemblies() ?? [])
+            // All installed extensions: enumerate every on-disk installation.
+            foreach (var (info, asmFunc) in LoadAllAssemblies() ?? [])
             {
                 try
                 {
-                    IExtensionIndex index;
-                    if (isTransient)
-                        index = asmFunc.Invoke().GetExtensionIndex();
-                    else
-                        index = CacheGetOrAdd(name, version, () => asmFunc.Invoke().GetExtensionIndex());
-                    foreach (CommandMetadata metadata in index.GetAllCommands(clientType))
-                    {
-                        outputDict[metadata.InvocationName] = metadata;
-                    }
+                    IExtensionIndex index = isTransient
+                        ? asmFunc().GetExtensionIndex()
+                        : CacheGetOrAdd(info.Name, info.Version, () => asmFunc().GetExtensionIndex());
+
+                    var commands = index.GetAllCommands(clientType)
+                        .ToDictionary(c => c.InvocationName);
+                    var packageId = ResolvePackageId(index, commands, info.Name);
+
+                    extensionInfos.Add(new DiscoveredExtensionInfo(
+                        PackageId: packageId,
+                        ResolvedVersion: info.Version,
+                        Verbs: index.GetVerbs(),
+                        Commands: commands));
                 }
                 catch (Exception ex)
                 {
-                    // Log the error and continue loading other extensions
                     Console.Error.WriteLine($"Failed to load extension in discovery session {Id}: {ex.Message}");
                 }
             }
         }
-        // Load multiple extensions
         else if (extensionNames.Count > 0 && string.IsNullOrEmpty(commandName))
         {
+            // Named extensions, all commands.
             foreach (string name in extensionNames)
             {
                 try
                 {
-                    IExtensionIndex index;
-                    if (isTransient)
-                        index = LoadAssembly.Invoke(name, GetExtensionVersion(name)).GetExtensionIndex();
-                    else
-                        index = CacheGetOrAdd(name, GetExtensionVersion(name), () => LoadAssembly.Invoke(name, GetExtensionVersion(name)).GetExtensionIndex());
-                    foreach (CommandMetadata metadata in index.GetAllCommands(clientType))
-                    {
-                        outputDict[metadata.InvocationName] = metadata;
-                    }
+                    var version = GetExtensionVersion(name);
+                    IExtensionIndex index = isTransient
+                        ? LoadAssembly.Invoke(name, version).GetExtensionIndex()
+                        : CacheGetOrAdd(name, version, () => LoadAssembly.Invoke(name, version).GetExtensionIndex());
+
+                    var commands = index.GetAllCommands(clientType)
+                        .ToDictionary(c => c.InvocationName);
+                    var packageId = ResolvePackageId(index, commands, name);
+
+                    extensionInfos.Add(new DiscoveredExtensionInfo(
+                        PackageId: packageId,
+                        ResolvedVersion: version,
+                        Verbs: index.GetVerbs(),
+                        Commands: commands));
                 }
                 catch (Exception ex)
                 {
-                    // Log the error and continue loading other extensions
                     Console.Error.WriteLine($"Failed to load extension '{name}' in discovery session {Id}: {ex.Message}");
                 }
             }
         }
-        // Load a specific command from a single extension
         else if (extensionNames.Count == 1 && !string.IsNullOrEmpty(commandName))
         {
+            // Single extension, single command lookup.
             try
             {
-                IExtensionIndex index;
-                if (isTransient)
-                    index = LoadAssembly.Invoke(extensionNames[0], GetExtensionVersion(extensionNames[0])).GetExtensionIndex();
-                else
-                    index = CacheGetOrAdd(extensionNames[0], GetExtensionVersion(extensionNames[0]), () => LoadAssembly.Invoke(extensionNames[0], GetExtensionVersion(extensionNames[0])).GetExtensionIndex());
-                CommandMetadata metadata = index.GetCommandMetadata(commandName, clientType);
-                outputDict[metadata.InvocationName] = metadata;
+                var name = extensionNames[0];
+                var version = GetExtensionVersion(name);
+                IExtensionIndex index = isTransient
+                    ? LoadAssembly.Invoke(name, version).GetExtensionIndex()
+                    : CacheGetOrAdd(name, version, () => LoadAssembly.Invoke(name, version).GetExtensionIndex());
+
+                var metadata = index.GetCommandMetadata(commandName, clientType);
+                extensionInfos.Add(new DiscoveredExtensionInfo(
+                    PackageId: metadata.AssemblyName,
+                    ResolvedVersion: version,
+                    Verbs: index.GetVerbs(),
+                    Commands: new Dictionary<string, CommandMetadata> { [metadata.InvocationName] = metadata }));
             }
             catch (Exception ex)
             {
-                // Log the error
                 Console.Error.WriteLine($"Failed to load extension '{extensionNames[0]}' in discovery session {Id}: {ex.Message}");
             }
         }
-        // Emit the discovered commands as a Dictionary<InvocationName, CommandMetadata> to the output stream.
-        await sessionOutputWriter(outputDict, EventBus.Token);
+
+        await sessionOutputWriter(extensionInfos, EventBus.Token);
+    }
+
+    private static string ResolvePackageId(IExtensionIndex index, IReadOnlyDictionary<string, CommandMetadata> commands, string fallbackIdentifier)
+    {
+        var fromCommands = commands.Values.FirstOrDefault()?.AssemblyName;
+        if (!string.IsNullOrWhiteSpace(fromCommands))
+        {
+            return fromCommands;
+        }
+
+        var fromAssembly = index.GetType().Assembly.GetName().Name;
+        if (!string.IsNullOrWhiteSpace(fromAssembly))
+        {
+            return fromAssembly;
+        }
+
+        return fallbackIdentifier;
     }
 
     /// <summary>

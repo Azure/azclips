@@ -1,8 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Runtime.InteropServices;
-
 namespace Core.Configuration.Options;
 
 public sealed class AssemblyLoadingOptions
@@ -32,20 +30,16 @@ public sealed class AssemblyLoadingOptions
 
     private static string GetDefaultVersionedInstallationDir()
     {
-#if DEBUG
-        return GetDefaultBuiltinInstallationDir();
-#else
+        // Always use ~/.cirrus/extensions regardless of build configuration.
+        // Installed extensions live there, even during local development.
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         return Path.Combine(home, ".cirrus", "extensions");
-#endif
     }
 
     private static string GetDefaultExtensionFolderPrefix()
     {
 #if DEBUG
-        return RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-            ? "Microsoft.Azure.Cirrus.Extensions."
-            : "Microsoft.Azure.Cirrus.Extensions.";
+        return "Microsoft.Azure.Azclips.Extensions.";
 #else
         return string.Empty;
 #endif

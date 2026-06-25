@@ -6,6 +6,7 @@
 
 using Core.Cli;
 using Core.Cli.Parser;
+using Core.Abstractions;
 using Core.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -44,5 +45,53 @@ public sealed class CliExtensionServiceRegistrationTests
 
         // Resolution succeeded (no ExtensionNotInstalledException); package id stripped to short name.
         Assert.Equal("Widget", invocation.ModuleName);
+    }
+
+    [Fact]
+    public void BuildContributionProjection_DerivesLeaves_FromDiscoveredCommands()
+    {
+        var metadata = new CommandMetadata(
+            Name: "create",
+            InvocationName: "vm create",
+            Aliases: [],
+            FullName: "vm create",
+            AssemblyName: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            ProcessorType: typeof(object),
+            Parameters: new Dictionary<string, ParameterMetadata>(),
+            ParameterAliases: new Dictionary<string, string>());
+
+        var info = new DiscoveredExtensionInfo(
+            PackageId: "Microsoft.Azure.Cirrus.Extensions.Compute",
+            ResolvedVersion: "1.0.0",
+            Verbs: ["vm"],
+            Commands: new Dictionary<string, CommandMetadata>
+            {
+                ["vm create"] = metadata,
+                ["vm delete"] = metadata with { Name = "delete", InvocationName = "vm delete", FullName = "vm delete" },
+            });
+
+        var projection = CliExtensionServiceRegistration.BuildContributionProjection(info);
+
+        Assert.Contains(projection.Contributions, c => c.Verb == "vm" && c.Path == "create");
+        Assert.Contains(projection.Contributions, c => c.Verb == "vm" && c.Path == "delete");
+        Assert.DoesNotContain(projection.Contributions, c => c.Verb == "vm" && c.Path == string.Empty);
+        Assert.Equal(new[] { "vm" }, projection.Namespaces);
+    }
+
+    [Fact]
+    public void BuildContributionProjection_FallsBackToVerbRoots_WhenNoCommandsPresent()
+    {
+        var info = new DiscoveredExtensionInfo(
+            PackageId: "Contoso.Foo",
+            ResolvedVersion: "1.0.0",
+            Verbs: ["foo"],
+            Commands: new Dictionary<string, CommandMetadata>());
+
+        var projection = CliExtensionServiceRegistration.BuildContributionProjection(info);
+
+        var single = Assert.Single(projection.Contributions);
+        Assert.Equal("foo", single.Verb);
+        Assert.Equal(string.Empty, single.Path);
+        Assert.Equal(new[] { "foo" }, projection.Namespaces);
     }
 }

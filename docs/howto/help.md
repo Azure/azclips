@@ -17,6 +17,19 @@ Both surfaces are validated and built by:
 .\build\build.ps1 -GenerateHelpArtifacts
 ```
 
+## Discovery-First Help Model
+
+Help resolution in Cirrus is **discovery-first**:
+
+- **Authoring time** (you): Scaffolder walks `IExtensionIndex.GetVerbs()` to find what verbs an extension contributes, generates markdown stubs under `src/CLI/Help/Docs/<verb>/`, you hand-fill them.
+- **Runtime** (user): Cirrus discovers what's actually installed on the user's machine, resolves verb ownership from discovered extensions (not static hints), and routes help requests accordingly.
+
+This means:
+
+- Help is always in sync with what's installed — no stale verb→package mappings.
+- If a new extension is added to `~/.cirrus/extensions/`, its verbs appear in help immediately.
+- Unknown verbs suggest an install command via the embedded hint table (fallback only).
+
 ## Quick Start — CLI
 
 1. **Scaffold templates** for a verb's CLI commands. Replace `<verb>` with the user-facing CLI noun you're authoring help for (e.g. `vm`, `disk`, `group`, `login`, `config`, `extension`):
@@ -88,7 +101,7 @@ src/PS/                        # PowerShell — PlatyPS format, one folder per m
 ├── Config/, Login/, Resources/
 ```
 
-The CLI folder name is the **verb** (the first user-facing CLI token: `vm`, `disk`, `group`, `login`, `config`, `extension`, `deployment`). Verbs are declared by `[ExtensionVerb("...")]` attributes on the extension's `IExtensionIndex` class and surface through `IExtensionIndex.GetVerbs()`. One extension may contribute several verbs — for example, `Compute` owns both `vm` and `disk`. `MarkdownCommandHelpProvider.Get(verb, commandKey)` and the scaffolder both use these verb names directly, so the on-disk layout stays in lockstep with code with no separate mapping table.
+The CLI folder name is the **verb** (the first user-facing CLI token: `vm`, `disk`, `group`, `login`, `config`, `extension`, `deployment`). Verbs are declared by `[ExtensionVerb("...")]` attributes on the extension's `IExtensionIndex` class. One extension may contribute several verbs — for example, `Compute` owns both `vm` and `disk`. The scaffolder uses these verb names to bootstrap templates, so the on-disk layout stays in sync with code at authoring time.
 
 ## CLI Markdown Format
 
@@ -121,7 +134,7 @@ az vm create --name myvm --location eastus --resource-group myrg --subscription-
 | `status:`         | no       | `ga` (default), `preview`, `deprecated`, or `internal`. |
 | `schema:`         | yes      | Always `1.0.0`.                                         |
 | `online version:` | no       | MSLearn URL or empty.                                   |
-| `relatedLinks:`   | no       | Flat list of related `az ...` invocations.            |
+| `relatedLinks:`   | no       | Flat list of related `az ...` invocations.              |
 
 **Example fences must use `bash` or `sh`.** PowerShell fences are not consumed from CLI markdown — author those in `src/PS/<Module>/help/` instead.
 
@@ -263,9 +276,27 @@ Prose outside fences is not scanned — you can still mention `<key>=<value>` in
 
 ## Runtime Behavior
 
+### Help Routing (Discovery-Backed)
+
+Cirrus uses a **discovery-backed model** for help resolution:
+
+1. **Root help** (`az --help`) runs a discovery pass to enumerate all installed extensions, then renders help for each discovered verb. No static hint table needed.
+2. **Verb help** (`az vm --help`) resolves the owning package by querying what's currently installed via discovery. If no installed extension owns the verb, the system falls back to an embedded hint table to suggest which package to install.
+3. **Command help** (`az vm create --help`) works the same way — owned by the discovered extension.
+
+This means help is always in sync with what's actually installed. If you drop a new extension into `~/.cirrus/extensions/`, the next `az --help` immediately shows its verbs without any registry update required.
+
 ### CLI Help
 
-`az <verb> <command> --help` reads markdown from `<az-base>/help/<verb>/<command-key>.md`. The build copies `src/CLI/Help/Docs/` → `artifacts/<Config>/Core.Cli/help/` so help works from a local build, and `MarkdownCommandHelpProvider` parses Summary/Description/examples on demand. If the packaged file is missing, the provider walks up to `cirrus.slnx` and reads the markdown straight from `src/CLI/Help/Docs/<verb>/` — dev-loop fallback, no rebuild required.
+`az <verb> <command> --help` is routed at runtime:
+
+1. Cirrus runs a discovery pass to find all installed extensions and their contributed verbs.
+2. It looks up which extension owns the requested verb from the discovered metadata.
+3. It loads the owning extension's help provider and renders the markdown for that verb + command.
+
+If the verb is not found in discovered extensions, a structured error lists the owning package (from the embedded hint table) and suggests `az extension add --name <Package>`.
+
+Help markdown is stored in `src/CLI/Help/Docs/<verb>/<command>.md`. The build copies these files to `artifacts/<Config>/Core.Cli/help/`, and at runtime `MarkdownCommandHelpProvider` parses Summary/Description/examples on demand. If the packaged file is missing during development, the provider walks up to `cirrus.slnx` and reads the markdown straight from `src/CLI/Help/Docs/<verb>/` — dev-loop fallback, no rebuild required.
 
 ### PowerShell Help
 

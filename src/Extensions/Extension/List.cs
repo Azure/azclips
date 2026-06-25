@@ -36,14 +36,10 @@ public class ListExtensionsProcessor : IProcessor
         using var _ = telemetryService.StartActivity($"{nameof(ListExtensionsProcessor)}.{nameof(Process)}");
 
         var store = new FileExtensionRegistryStore();
-        var registry = store.Load();
+        var fileRegistry = store.Load();
+        var discoveredRegistry = DiscoveryBackedExtensionRegistry.BuildDiscoveredWithPreferences(fileRegistry);
 
-        // Split the listing into live + stale so the user sees missing-payload entries
-        // separately (e.g. when they manually deleted `~/.cirrus/extensions/<pkg>/<ver>/`). Live
-        // entries are routable; stale entries are advisory until the user removes them.
-        var reconciled = RegistryReconciler.Reconcile(registry, store.InstallRoot);
-
-        var live = reconciled.Live.Extensions
+        var discoveredExtensions = discoveredRegistry.Extensions
             .OrderBy(kvp => kvp.Value.Verb, StringComparer.OrdinalIgnoreCase)
             .Select(kvp => new
             {
@@ -57,27 +53,13 @@ public class ListExtensionsProcessor : IProcessor
                 Pinned = kvp.Value.Pinned,
                 Source = kvp.Value.Source,
                 InstalledAt = kvp.Value.InstalledAt,
-                Status = "live",
-            })
-            .ToList();
-
-        var stale = reconciled.Stale
-            .OrderBy(s => s.PackageId, StringComparer.OrdinalIgnoreCase)
-            .Select(s => new
-            {
-                PackageId = s.PackageId,
-                Version = s.Version,
-                ExpectedPath = s.ExpectedPath,
-                Reason = s.Reason,
-                Status = "stale",
             })
             .ToList();
 
         if (ByVerb)
         {
-            // Regroup live set verb-headed; multi-namespace extensions appear under each verb
-            // they contribute to (mirrors the routing table). Stale entries stay separate — not routable.
-            var contributors = live.Select(e => new LiveContributor(
+            // Regroup discovered contributors verb-headed for stable --by-verb output.
+            var contributors = discoveredExtensions.Select(e => new LiveContributor(
                 PackageId: e.PackageId,
                 Version: e.Version,
                 Pinned: e.Pinned,
@@ -85,18 +67,10 @@ public class ListExtensionsProcessor : IProcessor
                 InstalledAt: e.InstalledAt,
                 Namespaces: e.Namespaces));
 
-            return new
-            {
-                ByVerb = PivotByVerb(contributors),
-                Stale = stale,
-            };
+            return PivotByVerb(contributors);
         }
 
-        return new
-        {
-            Live = live,
-            Stale = stale,
-        };
+        return discoveredExtensions;
     }
 
     /// <summary>

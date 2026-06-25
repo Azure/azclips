@@ -60,8 +60,8 @@ Everything else (including `group` / Resources and `vm` / Compute) is an install
 
 All under `az extension`. Kebab-case CLI convention.
 
-| Command                                          | Behavior                                                                                                                                                                                                          |
-| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Command                                        | Behavior                                                                                                                                                                                                          |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `az extension add <pkg>[@<version>] [--force]` | Install. Overwrites any prior version of the same package. `--pin` flag locks the version against `update`. `--force` is required to overwrite an existing pinned installation (the pin is then carried forward). |
 | `az extension list`                            | Show installed extensions: name, version, namespaces, install source, install date. `--by-verb` regroups output verb-headed (§3.5).                                                                               |
 | `az extension remove <name>`                   | Uninstall. Remove from registry, delete `~/.cirrus/extensions/<pkg>/`. Errors on built-in extensions.                                                                                                             |
@@ -180,8 +180,6 @@ group
 ```
 
 JSON shapes are stable: default is `[{packageId, version, namespaces, ...}]`; `--by-verb` is `{verb: [{packageId, version, ...}]}`.
-
-`extension list` also surfaces stale entries: the response carries separate `Live` and `Stale` arrays. Stale entries include the missing path and a reason so the user can decide whether to `remove` them.
 
 ---
 
@@ -313,10 +311,9 @@ A hardcoded seed dict in the host, merged with the on-disk registry at startup:
 
 ### 4.7 Registry hardening
 
-- **`RegistryReconciler`** compares `registry.json` against the install root on every dispatch. Entries whose `~/.cirrus/extensions/{packageId}/{version}/` folder is missing are dropped from the live view so the dispatcher never routes to a stale entry. Non-destructive — the file on disk is unchanged.
+- **Discovery-first installed state.** Runtime routing and extension listing are driven by discovery of on-disk payloads; `registry.json` is treated as a preferences overlay only. Missing payloads therefore disappear naturally from live routing without a separate reconciliation pass.
 - **Concurrency guard.** `FileExtensionRegistryStore` captures the file's last-write timestamp at `Load()` and checks it at `Save()`. A mismatch throws `CirrusErrorException.RegistryConcurrency` so two interleaved CLI invocations can't silently overwrite each other.
 - **Invariant check.** `FileExtensionRegistryStore.Load()` enforces the leaf-uniqueness invariant by scanning every entry's `Contributions`; duplicates across packages throw `CirrusErrorException.RegistryInvalid` with both offending package ids. Catches hand-edited corruption before it reaches the `LeafIndex`.
-- **Stale entries in `extension list`.** Separate `Live` and `Stale` arrays in the response (§3.5).
 
 ### 4.8 Telemetry
 
@@ -466,7 +463,7 @@ Tracked, not v1.
 - **`CirrusCmdletBase : PSCmdlet`** so the PS surface gets `CompatibilityGuard.CheckAssembly` for free in `BeginProcessing`, instead of duplicating the guard call across the ~12 cmdlet entry points across four modules. Skipped in v1 because the base type doesn't exist yet and rebasing every cmdlet is its own refactor.
 - **Bounded LRU on the ALC cache** if memory matters (§4.5). Worst case ~100MB for 20 extensions today, acceptable for the TUI. Revisit only if profiling demands it.
 - **Multi-version retention.** `versions: [...]` + `activeVersion`, additive schema change. Strict single-version is the v1 stance; matches az-cli.
-- **Latency / cache guardrails.** (a) TTL/mtime-keyed cache for `RegistryReconciler` so post-cache reconcile is constant-time on network home dirs (SMB/NFS/OneDrive); local-SSD impact today is negligible. (b) BenchmarkDotNet target in `tests/Benchmark/` asserting a leaf-miss hot path stays under a p99 budget (~300ms), plus an assembly-load-counter contract test asserting the dispatcher never spins up an ALC on miss. Insurance against drift toward az-cli's load-everything-on-CNF behavior.
+- **Latency / cache guardrails.** (a) If needed, add caching around discovery metadata collection on network home dirs (SMB/NFS/OneDrive); local-SSD impact today is negligible. (b) BenchmarkDotNet target in `tests/Benchmark/` asserting a leaf-miss hot path stays under a p99 budget (~300ms), plus an assembly-load-counter contract test asserting the dispatcher never spins up an ALC on miss. Insurance against drift toward az-cli's load-everything-on-CNF behavior.
 - **Explicit `--override` for `extension add`** (informed by az-cli's `overwrite_order_in_cli.md`). v1 rejects all leaf collisions at install time, no exceptions. vNext relaxes this with an opt-in `--override "verb path[, ...]"` flag that lets a new extension take ownership of specific leaves while preserving the **stack** model committed in §4.1: the displaced contributor is pushed down (not removed), `extension list --by-verb` annotates the override, and `extension remove` of the top-of-stack contributor restores the next one underneath. Built-in displacement uses the same mechanism. This is a strict improvement over az-cli's silent alphabetical-name-wins overwrite (no audit trail, no restore-on-remove, see [`doc/overwrite_order_in_cli.md`](https://github.com/Azure/azure-cli/blob/main/doc/overwrite_order_in_cli.md)). Schema cost: additive only — a `displaced: [...]` field on the contribution object plus an `overriddenAt` timestamp.
 - **Aggregated namespace help.** Whether `az vm --help` auto-merges leaves across contributors or each contributor advertises separately. The per-leaf ownership model guarantees the data shape; help branch decides the rendering.
 - **Trust / signing / provenance.** Anything in `~/.cirrus/extensions/` loads today. Shared namespaces mean unsigned third-party extensions can contribute leaves under first-party verbs (namespace squatting). Revisit before the first third-party extension ships.

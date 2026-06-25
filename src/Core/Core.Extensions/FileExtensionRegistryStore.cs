@@ -42,24 +42,6 @@ namespace Core.Extensions
         /// </summary>
         public string Path => _path;
 
-        /// <summary>
-        /// Directory that holds installed extension payloads: by convention the parent of
-        /// <see cref="Path"/>. Used by <see cref="RegistryReconciler"/>.
-        /// </summary>
-        public string InstallRoot => System.IO.Path.GetDirectoryName(_path) ?? string.Empty;
-
-        /// <summary>
-        /// Loads the registry then drops entries whose install payload is missing on disk
-        /// (registry reconciler). The on-disk file is not modified; this is purely a view filter so
-        /// the dispatcher never routes to a stale entry. Use <see cref="Load"/> when you need
-        /// the verbatim file contents (e.g. for an <c>extension list --include-stale</c>).
-        /// </summary>
-        public ExtensionRegistry LoadReconciled()
-        {
-            var raw = Load();
-            return RegistryReconciler.Reconcile(raw, InstallRoot).Live;
-        }
-
         /// <inheritdoc />
         public ExtensionRegistry Load()
         {
@@ -107,18 +89,7 @@ namespace Core.Extensions
         public void Save(ExtensionRegistry registry)
         {
             ArgumentNullException.ThrowIfNull(registry);
-
-            // Always write the current schema version; in-memory entries may have been loaded from
-            // a v1 file but are normalized to v2 shape by NormalizeEntry below.
-            registry.SchemaVersion = ExtensionRegistry.CurrentSchemaVersion;
-            foreach (var entry in registry.Extensions.Values)
-            {
-                NormalizeEntry(entry);
-            }
-
-            // Validate before writing so a buggy caller can't corrupt the file with a duplicate
-            // contribution. Mirror Load()'s invariant check.
-            ValidateNoDuplicateContributions(registry);
+            var persisted = CreatePersistedSnapshot(registry);
 
             var directory = System.IO.Path.GetDirectoryName(_path);
             if (!string.IsNullOrEmpty(directory))
@@ -151,7 +122,7 @@ namespace Core.Extensions
 
             using (var stream = File.Create(tempPath))
             {
-                JsonSerializer.Serialize(stream, registry, s_jsonOptions);
+                JsonSerializer.Serialize(stream, persisted, s_jsonOptions);
             }
 
             // Atomic rename on the same volume; overwrites any existing file.
@@ -160,6 +131,48 @@ namespace Core.Extensions
             // Refresh our observation so a subsequent Save in the same instance doesn't
             // mistakenly flag itself as a concurrent edit.
             _lastObservedWriteUtc = File.GetLastWriteTimeUtc(_path);
+        }
+
+        private static ExtensionRegistry CreatePersistedSnapshot(ExtensionRegistry source)
+        {
+            var snapshot = new ExtensionRegistry
+            {
+                SchemaVersion = ExtensionRegistry.CurrentSchemaVersion,
+                Extensions = new Dictionary<string, ExtensionRegistryEntry>(StringComparer.OrdinalIgnoreCase)
+            };
+
+            foreach (var (packageId, entry) in source.Extensions)
+            {
+                var clonedEntry = new ExtensionRegistryEntry
+                {
+                    Verb = entry.Verb,
+                    Version = entry.Version,
+                    Pinned = entry.Pinned,
+                    Source = entry.Source,
+                    InstalledAt = entry.InstalledAt,
+                    Contributions = entry.Contributions
+                        .Select(c => new Contribution { Verb = c.Verb, Path = c.Path })
+                        .ToList(),
+                    Namespaces = [.. entry.Namespaces],
+                };
+
+                NormalizeEntry(clonedEntry);
+
+                snapshot.Extensions[packageId] = clonedEntry;
+            }
+
+            // Validate after normalization and before stripping persisted compatibility fields.
+            ValidateNoDuplicateContributions(snapshot);
+
+            // Preferences-only persisted shape: keep compatibility fields out of registry.json.
+            foreach (var entry in snapshot.Extensions.Values)
+            {
+                entry.Verb = null;
+                entry.Contributions.Clear();
+                entry.Namespaces.Clear();
+            }
+
+            return snapshot;
         }
 
         /// <summary>

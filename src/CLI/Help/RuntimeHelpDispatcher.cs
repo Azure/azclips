@@ -1,8 +1,8 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System.Reflection;
 using Core.Abstractions;
+using Core.Abstractions.Runtime;
 using Core.Cli.Exceptions;
 using Core.Extensions;
 using Core.Runtime;
@@ -11,20 +11,19 @@ namespace Core.Cli.Help;
 
 /// <summary>
 /// Renders root, group, and command help to the console. Encapsulates the help
-/// orchestration that used to live in <c>Program.Main</c>'s catch blocks: loading
-/// extension assemblies, projecting them through <see cref="ExtensionIndexHelpAdapter"/>
+/// orchestration that used to live in <c>Program.Main</c>'s catch blocks: projecting
+/// discovery-session command tables through <see cref="ExtensionIndexHelpAdapter"/>
 /// (one adapter per verb), and dispatching to <see cref="IHelpRenderer"/>.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Help is verb-scoped, not package-scoped. <see cref="RenderRoot"/> enumerates every
-/// known package (built-ins from <see cref="BuiltInExtensions.Map"/> + every entry in
-/// <see cref="IExtensionRegistryStore"/>), then projects each through
-/// <see cref="IExtensionIndex.GetVerbs"/> to discover root groups; this is what makes
+/// Help is verb-scoped, not package-scoped. <see cref="RenderRoot"/> runs discovery to
+/// enumerate installed extensions from disk, then projects each through
+/// discovered verb metadata to discover root groups; this is what makes
 /// multi-verb extensions like Compute surface as both <c>vm</c> and <c>disk</c> roots.
 /// </para>
 /// <para>
-/// <see cref="RenderExtensionHelp"/> resolves verb→package via <see cref="IExtensionResolver"/>;
+/// <see cref="RenderExtensionHelp"/> resolves verb ownership from discovered extension metadata;
 /// on a miss it consults <see cref="ExtensionHintTable.Default"/> so <c>az vm --help</c>
 /// (when Compute is uninstalled) yields a precise "install it with: az extension add --name Compute"
 /// hint instead of a bare <see cref="KeyNotFoundException"/>.
@@ -33,21 +32,14 @@ namespace Core.Cli.Help;
 public sealed class RuntimeHelpDispatcher
 {
     private readonly IHelpRenderer _renderer;
-    private readonly IAssemblyLoadingService _assemblyLoading;
-    private readonly IExtensionResolver _extensionResolver;
-    private readonly IExtensionRegistryStore _registryStore;
-    private readonly IReadOnlyDictionary<string, BuiltInExtension> _builtIns;
+    private readonly IEngine _engine;
+    private readonly HashSet<string> _builtInPackageIds;
     private readonly ExtensionHintTable _hintTable;
     private readonly TextWriter _output;
 
-    public RuntimeHelpDispatcher(
-        IAssemblyLoadingService assemblyLoading,
-        IExtensionResolver extensionResolver,
-        IExtensionRegistryStore registryStore)
+    public RuntimeHelpDispatcher(IEngine engine)
         : this(
-            assemblyLoading,
-            extensionResolver,
-            registryStore,
+            engine,
             BuiltInExtensions.Map,
             ExtensionHintTable.Default,
             new RuntimeHelpRenderer(),
@@ -56,18 +48,16 @@ public sealed class RuntimeHelpDispatcher
     }
 
     internal RuntimeHelpDispatcher(
-        IAssemblyLoadingService assemblyLoading,
-        IExtensionResolver extensionResolver,
-        IExtensionRegistryStore registryStore,
+        IEngine engine,
         IReadOnlyDictionary<string, BuiltInExtension> builtIns,
         ExtensionHintTable hintTable,
         IHelpRenderer renderer,
         TextWriter output)
     {
-        _assemblyLoading = assemblyLoading;
-        _extensionResolver = extensionResolver;
-        _registryStore = registryStore;
-        _builtIns = builtIns;
+        _engine = engine;
+        _builtInPackageIds = builtIns.Values
+            .Select(static b => b.PackageId)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         _hintTable = hintTable;
         _renderer = renderer;
         _output = output;
@@ -84,9 +74,10 @@ public sealed class RuntimeHelpDispatcher
     /// <summary>Renders help for a group or command path raised via <see cref="RuntimeExtensionHelpException"/>.</summary>
     public int RenderExtensionHelp(RuntimeExtensionHelpException helpException)
     {
-        if (!_extensionResolver.TryResolve(helpException.Verb, out var resolved) || resolved is null)
+        var discovered = DiscoverInstalledExtensions();
+        if (!TryResolveExtension(discovered, helpException.Verb, out var extensionInfo))
         {
-            // Verb is unknown to the resolver. If the embedded hint table knows it,
+            // No discovered owner for this verb. If the embedded hint table knows it,
             // surface the structured "extension not installed" message — same UX as
             // the execute path (see ExtensionDispatcher.Parse).
             if (_hintTable.TryGetPackageId(helpException.Verb, out var hintedPackage))
@@ -103,9 +94,7 @@ public sealed class RuntimeHelpDispatcher
                 details: new Dictionary<string, object?> { ["verb"] = helpException.Verb });
         }
 
-        var extensionName = StripPackagePrefix(resolved.PackageId);
-        var assembly = _assemblyLoading.LoadExtension(extensionName);
-        var helpProvider = new ExtensionIndexHelpAdapter(assembly.GetExtensionIndex(), helpException.Verb);
+        var helpProvider = new ExtensionIndexHelpAdapter(extensionInfo.Commands, helpException.Verb);
 
         IEnumerable<string> lines;
         if (helpException.IsCommandHelp)
@@ -155,42 +144,33 @@ public sealed class RuntimeHelpDispatcher
     }
 
     /// <summary>
-    /// Yields one <see cref="RuntimeHelpGroup"/> per (package, verb) pair we can load. Package
-    /// sources are deduplicated across built-ins and the on-disk registry.
+    /// Yields one <see cref="RuntimeHelpGroup"/> per discovered (package, verb) pair.
+    /// Discovery is authoritative for installed state; built-ins are used only as tie-breaker
+    /// precedence when two discovered extensions claim the same verb.
     /// </summary>
     private IEnumerable<RuntimeHelpGroup> EnumerateAllVerbRoots()
     {
         var seenVerbs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var discovered = DiscoverInstalledExtensions();
+        var ordered = discovered
+            .OrderByDescending(info => _builtInPackageIds.Contains(info.PackageId))
+            .ThenBy(info => info.PackageId, StringComparer.OrdinalIgnoreCase);
 
-        foreach (var packageId in EnumerateKnownPackageIds())
+        foreach (var info in ordered)
         {
-            var extensionName = StripPackagePrefix(packageId);
-
-            IExtensionIndex index;
-            try
-            {
-                index = _assemblyLoading.LoadExtension(extensionName).GetExtensionIndex();
-            }
-            catch
-            {
-                // A registered package whose assembly is missing from disk is no reason to
-                // crash root help; skip it and continue.
-                continue;
-            }
-
-            foreach (var verb in index.GetVerbs())
+            var verbs = GetOwnedVerbs(info);
+            foreach (var verb in verbs)
             {
                 if (!seenVerbs.Add(verb))
                 {
-                    // Built-ins win over registry entries for the same verb (defensive — `extension add`
-                    // already refuses colliding verbs, but the assembly may still ship in both lists).
+                    // First owner wins; ordering above ensures built-ins win when present.
                     continue;
                 }
 
                 RuntimeHelpGroup? root;
                 try
                 {
-                    root = new ExtensionIndexHelpAdapter(index, verb).GetRootGroup();
+                    root = new ExtensionIndexHelpAdapter(info.Commands, verb).GetRootGroup();
                 }
                 catch
                 {
@@ -202,45 +182,91 @@ public sealed class RuntimeHelpDispatcher
         }
     }
 
-    /// <summary>
-    /// Returns every package id Cirrus might be able to load: built-ins first (so they win on
-    /// verb conflicts), then everything in the on-disk registry.
-    /// </summary>
-    private IEnumerable<string> EnumerateKnownPackageIds()
+    private IReadOnlyList<DiscoveredExtensionInfo> DiscoverInstalledExtensions()
     {
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var builtIn in _builtIns.Values)
-        {
-            if (seen.Add(builtIn.PackageId))
+        var discoveredInfos = new List<DiscoveredExtensionInfo>();
+        var outputStreams = new OutputStreams(
+            WriteOutput: async (result, _) =>
             {
-                yield return builtIn.PackageId;
-            }
-        }
+                if (result is List<DiscoveredExtensionInfo> infos)
+                {
+                    discoveredInfos.AddRange(infos);
+                }
 
-        ExtensionRegistry registry;
+                await Task.CompletedTask;
+            },
+            WriteVerbose: async (_, _) => { await Task.CompletedTask; },
+            WriteDebug: async (_, _) => { await Task.CompletedTask; },
+            WriteWarning: async (_, _) => { await Task.CompletedTask; },
+            WriteError: async (_, _) => { await Task.CompletedTask; },
+            WriteInformation: async (_, _) => { await Task.CompletedTask; });
+
         try
         {
-            registry = _registryStore.Load();
+            using var session = _engine.OpenDiscoverySession(
+                extensionNames: [],
+                commandName: null,
+                outputStreams: outputStreams,
+                isTransient: true);
+
+            session.RunAsync().GetAwaiter().GetResult();
         }
         catch
         {
-            yield break;
+            return [];
         }
 
-        foreach (var packageId in registry.Extensions.Keys)
-        {
-            if (seen.Add(packageId))
-            {
-                yield return packageId;
-            }
-        }
+        return discoveredInfos
+            .Where(static info => !string.IsNullOrWhiteSpace(info.PackageId))
+            .ToList();
     }
 
-    /// <summary>Strips the <c>Microsoft.Azure.Cirrus.Extensions.</c> prefix that the loader re-prepends.</summary>
-    private static string StripPackagePrefix(string packageId)
-        => Constants.StripKnownExtensionPrefix(packageId);
+    private bool TryResolveExtension(IReadOnlyList<DiscoveredExtensionInfo> discovered, string verb, out DiscoveredExtensionInfo extensionInfo)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(verb);
 
+        var match = discovered
+            .Where(info => OwnsVerb(info, verb))
+            .OrderByDescending(info => _builtInPackageIds.Contains(info.PackageId))
+            .ThenBy(info => info.PackageId, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
+
+        if (match is null)
+        {
+            extensionInfo = null!;
+            return false;
+        }
+
+        extensionInfo = match;
+        return true;
+    }
+
+    private static IReadOnlyList<string> GetOwnedVerbs(DiscoveredExtensionInfo info)
+    {
+        if (info.Verbs.Count > 0)
+        {
+            return info.Verbs;
+        }
+
+        return info.Commands.Keys
+            .Select(static command => command.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault())
+            .Where(static verb => !string.IsNullOrWhiteSpace(verb))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Cast<string>()
+            .ToList();
+    }
+
+    private static bool OwnsVerb(DiscoveredExtensionInfo info, string verb)
+    {
+        if (info.Verbs.Any(v => v.Equals(verb, StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        return info.Commands.Keys.Any(command =>
+            command.Equals(verb, StringComparison.OrdinalIgnoreCase) ||
+            command.StartsWith(verb + " ", StringComparison.OrdinalIgnoreCase));
+    }
     private static uint? TerminalWidth()
     {
         try

@@ -95,13 +95,41 @@ public static class PinHelper
 
         var store = new FileExtensionRegistryStore();
         var registry = store.Load();
+        var discoveredRegistry = DiscoveryBackedExtensionRegistry.BuildDiscoveredWithPreferences(registry);
 
-        var (packageId, entry, mutated) = ApplyPinChange(registry, name, pinned);
+        // Resolve against discovered state first. This allows pin/unpin to work even when the
+        // package exists on disk but has no preference entry in registry.json.
+        if (!RegistryLookup.TryFind(discoveredRegistry, name, out var discoveredMatch))
+        {
+            var message = $"No installed extension matches '{name}' (by package id or short name).";
+            if (RegistryLookup.SuggestPackageForToken(discoveredRegistry, name, out var suggested))
+            {
+                var verb = pinned ? "pin" : "unpin";
+                message += $" '{name}' is a verb contributed by package '{suggested}'; " +
+                           $"to {verb} that package use '--name {RegistryLookup.ToShortName(suggested)}'.";
+            }
+            throw CirrusErrorException.ExtensionNotFound(
+                message,
+                new Dictionary<string, object?> { ["name"] = name });
+        }
+
+        if (!registry.Extensions.ContainsKey(discoveredMatch.Key))
+        {
+            registry.Extensions[discoveredMatch.Key] = new ExtensionRegistryEntry
+            {
+                Version = discoveredMatch.Value.Version,
+                Pinned = false,
+                Source = discoveredMatch.Value.Source,
+                InstalledAt = discoveredMatch.Value.InstalledAt,
+            };
+        }
+
+        var (packageId, entry, mutated) = ApplyPinChange(registry, discoveredMatch.Key, pinned);
         if (mutated)
         {
             store.Save(registry);
         }
-        return Project(packageId, entry);
+        return Project(packageId, entry, discoveredMatch.Value.Verb);
     }
 
     /// <summary>
@@ -156,10 +184,10 @@ public static class PinHelper
         return (match.Key, registry.Extensions[match.Key], true);
     }
 
-    private static object Project(string packageId, ExtensionRegistryEntry entry) => new
+    private static object Project(string packageId, ExtensionRegistryEntry entry, string? discoveredVerb = null) => new
     {
         PackageId = packageId,
-        Verb = entry.Verb,
+        Verb = entry.Verb ?? discoveredVerb,
         Version = entry.Version,
         Pinned = entry.Pinned,
         Source = entry.Source,
