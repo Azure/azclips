@@ -67,7 +67,7 @@ internal class DiscoverySession : ISession
 
                     var commands = index.GetAllCommands(clientType)
                         .ToDictionary(c => c.InvocationName);
-                    var packageId = commands.Values.FirstOrDefault()?.AssemblyName ?? info.Name;
+                    var packageId = ResolvePackageId(index, commands, info.Name);
 
                     extensionInfos.Add(new DiscoveredExtensionInfo(
                         PackageId: packageId,
@@ -95,7 +95,7 @@ internal class DiscoverySession : ISession
 
                     var commands = index.GetAllCommands(clientType)
                         .ToDictionary(c => c.InvocationName);
-                    var packageId = commands.Values.FirstOrDefault()?.AssemblyName ?? name;
+                    var packageId = ResolvePackageId(index, commands, name);
 
                     extensionInfos.Add(new DiscoveredExtensionInfo(
                         PackageId: packageId,
@@ -134,6 +134,23 @@ internal class DiscoverySession : ISession
         }
 
         await sessionOutputWriter(extensionInfos, EventBus.Token);
+    }
+
+    private static string ResolvePackageId(IExtensionIndex index, IReadOnlyDictionary<string, CommandMetadata> commands, string fallbackIdentifier)
+    {
+        var fromCommands = commands.Values.FirstOrDefault()?.AssemblyName;
+        if (!string.IsNullOrWhiteSpace(fromCommands))
+        {
+            return fromCommands;
+        }
+
+        var fromAssembly = index.GetType().Assembly.GetName().Name;
+        if (!string.IsNullOrWhiteSpace(fromAssembly))
+        {
+            return fromAssembly;
+        }
+
+        return fallbackIdentifier;
     }
 
     /// <summary>
