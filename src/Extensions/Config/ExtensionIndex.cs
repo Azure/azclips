@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Core.Abstractions;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Config;

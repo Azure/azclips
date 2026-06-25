@@ -1,3 +1,6 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
 # Resource group scope deployment what-if - PowerShell (New-ResourceGroupDeploymentWhatIf)
 # Equivalent of: Get-AzResourceGroupDeploymentWhatIfResult / New-AzResourceGroupDeployment -WhatIf
 #
