@@ -56,7 +56,7 @@ public class LocalArtifactProbeTests : IDisposable
         var notARepo = Path.Combine(_tempRoot, "not-a-repo");
         Directory.CreateDirectory(notARepo);
 
-        var result = LocalArtifactProbe.Find("Microsoft.Azure.Cirrus.Extensions.Compute", notARepo);
+        var result = LocalArtifactProbe.Find("Microsoft.Azure.Azclips.Extensions.Compute", notARepo);
 
         Assert.Null(result);
     }
@@ -66,7 +66,7 @@ public class LocalArtifactProbeTests : IDisposable
     {
         var repo = MakeFakeRepo(withSlnx: true);
 
-        var result = LocalArtifactProbe.Find("Microsoft.Azure.Cirrus.Extensions.Compute", repo);
+        var result = LocalArtifactProbe.Find("Microsoft.Azure.Azclips.Extensions.Compute", repo);
 
         Assert.Null(result);
     }
@@ -75,9 +75,9 @@ public class LocalArtifactProbeTests : IDisposable
     public void Find_ShouldReturnNupkgPath_WhenSingleArtifactExists()
     {
         var repo = MakeFakeRepo(withSlnx: true);
-        var nupkg = CreateNupkg(repo, "Microsoft.Azure.Cirrus.Extensions.Compute", "1.0.0-alpha", DateTime.UtcNow);
+        var nupkg = CreateNupkg(repo, "Microsoft.Azure.Azclips.Extensions.Compute", "1.0.0-alpha", DateTime.UtcNow);
 
-        var result = LocalArtifactProbe.Find("Microsoft.Azure.Cirrus.Extensions.Compute", repo);
+        var result = LocalArtifactProbe.Find("Microsoft.Azure.Azclips.Extensions.Compute", repo);
 
         Assert.Equal(nupkg, result);
     }
@@ -86,10 +86,10 @@ public class LocalArtifactProbeTests : IDisposable
     public void Find_ShouldReturnMostRecent_WhenMultipleVersionsExist()
     {
         var repo = MakeFakeRepo(withSlnx: true);
-        var older = CreateNupkg(repo, "Microsoft.Azure.Cirrus.Extensions.Compute", "1.0.0-alpha", DateTime.UtcNow.AddDays(-2));
-        var newer = CreateNupkg(repo, "Microsoft.Azure.Cirrus.Extensions.Compute", "1.0.1-alpha", DateTime.UtcNow);
+        var older = CreateNupkg(repo, "Microsoft.Azure.Azclips.Extensions.Compute", "1.0.0-alpha", DateTime.UtcNow.AddDays(-2));
+        var newer = CreateNupkg(repo, "Microsoft.Azure.Azclips.Extensions.Compute", "1.0.1-alpha", DateTime.UtcNow);
 
-        var result = LocalArtifactProbe.Find("Microsoft.Azure.Cirrus.Extensions.Compute", repo);
+        var result = LocalArtifactProbe.Find("Microsoft.Azure.Azclips.Extensions.Compute", repo);
 
         Assert.Equal(newer, result);
         Assert.NotEqual(older, result);
@@ -101,11 +101,11 @@ public class LocalArtifactProbeTests : IDisposable
         // Anchor walk-up: starting deep in a dev tree (e.g. running `az` from src/Foo) still
         // finds the root slnx and probes artifacts/ relative to it.
         var repo = MakeFakeRepo(withSlnx: true);
-        var nupkg = CreateNupkg(repo, "Microsoft.Azure.Cirrus.Extensions.Compute", "1.0.0", DateTime.UtcNow);
+        var nupkg = CreateNupkg(repo, "Microsoft.Azure.Azclips.Extensions.Compute", "1.0.0", DateTime.UtcNow);
         var nested = Path.Combine(repo, "src", "Extensions", "Extension");
         Directory.CreateDirectory(nested);
 
-        var result = LocalArtifactProbe.Find("Microsoft.Azure.Cirrus.Extensions.Compute", nested);
+        var result = LocalArtifactProbe.Find("Microsoft.Azure.Azclips.Extensions.Compute", nested);
 
         Assert.Equal(nupkg, result);
     }

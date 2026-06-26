@@ -19,9 +19,9 @@
 $ErrorActionPreference = 'Stop'
 
 $root = Resolve-Path (Join-Path $PSScriptRoot '../../..')
-$extDir = Join-Path $root 'artifacts/Debug/Microsoft.Azure.Cirrus.Extensions.Resources'
+$extDir = Join-Path $root 'artifacts/Debug/Microsoft.Azure.Azclips.Extensions.Resources'
 $cliDir = Join-Path $root 'artifacts/Debug/Core.Cli'
-$extDll = Join-Path $extDir 'Microsoft.Azure.Cirrus.Extensions.Resources.dll'
+$extDll = Join-Path $extDir 'Microsoft.Azure.Azclips.Extensions.Resources.dll'
 
 if (-not (Test-Path $extDll)) { throw "Extension DLL not found at $extDll. Build the solution first." }
 
@@ -39,7 +39,7 @@ $resolver = [System.ResolveEventHandler]{
 [System.AppDomain]::CurrentDomain.add_AssemblyResolve($resolver)
 
 $asm = [System.Reflection.Assembly]::LoadFrom($extDll)
-$procType = $asm.GetType('Microsoft.Azure.Cirrus.Extensions.Resources.Processors.NewResourceGroupDeploymentProcessor_Orchestrator', $true)
+$procType = $asm.GetType('Microsoft.Azure.Azclips.Extensions.Resources.Processors.NewResourceGroupDeploymentProcessor_Orchestrator', $true)
 
 $flags = [System.Reflection.BindingFlags]'Instance,Public,NonPublic'
 

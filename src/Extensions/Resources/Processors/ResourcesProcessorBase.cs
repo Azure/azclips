@@ -5,10 +5,10 @@ using System.Net;
 using System.Text.Json;
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
-using Microsoft.Azure.Cirrus.ExtensionRuntime;
-using Microsoft.Azure.Cirrus.ExtensionRuntime.Json;
+using Microsoft.Azure.Azclips.ExtensionRuntime;
+using Microsoft.Azure.Azclips.ExtensionRuntime.Json;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Resources.Processors
+namespace Microsoft.Azure.Azclips.Extensions.Resources.Processors
 {
     /// <summary>
     /// Non-generic base used as a marker so that <see cref="CreateExtendedProcessor{T}"/> and

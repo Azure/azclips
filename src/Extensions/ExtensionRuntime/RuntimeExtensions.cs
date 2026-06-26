@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-namespace Microsoft.Azure.Cirrus.ExtensionRuntime;
+namespace Microsoft.Azure.Azclips.ExtensionRuntime;
 
 using System.Collections.Generic;
 using System.Net.Http;
@@ -11,7 +11,7 @@ using Core.Abstractions;
 using System.Text.RegularExpressions;
 using System.Text;
 using System.Net.Http.Headers;
-using Microsoft.Azure.Cirrus.ExtensionRuntime.Json;
+using Microsoft.Azure.Azclips.ExtensionRuntime.Json;
 
 public static class RuntimeExtensions
 {

@@ -16,7 +16,7 @@ namespace Cli.Tests;
 /// </summary>
 public class ExtensionPinTests
 {
-    private const string PackageId = "Microsoft.Azure.Cirrus.Extensions.Resources";
+    private const string PackageId = "Microsoft.Azure.Azclips.Extensions.Resources";
 
     private static ExtensionRegistry RegistryWithMultiLeafExtension(bool pinned)
     {
