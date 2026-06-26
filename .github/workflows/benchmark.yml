@@ -130,11 +130,11 @@ jobs:
           path: artifacts/Benchmark/ci/PS/results
         continue-on-error: true
 
+      - name: Fetch gh-pages branch
+        if: hashFiles('artifacts/Benchmark/ci/CLI/results/Benchmark.CLI.ResourceGroupBenchmarks-report-full-compressed.json') != '' || hashFiles('artifacts/Benchmark/ci/PS/results/Benchmark.PS.ResourceGroupBenchmarks-report-full-compressed.json') != ''
+        run: git fetch origin gh-pages:gh-pages
+
       # ─────────────── CLI ───────────────
-      # No skip-fetch-gh-pages: each step fetches gh-pages itself. Because the two
-      # steps run one-after-another in this single job, the second fetch is a
-      # harmless fast-forward, and either product can publish independently even
-      # if the other was skipped.
       - name: Publish CLI dashboard / gate regression
         if: hashFiles('artifacts/Benchmark/ci/CLI/results/Benchmark.CLI.ResourceGroupBenchmarks-report-full-compressed.json') != ''
         uses: benchmark-action/github-action-benchmark@v1
@@ -149,6 +149,7 @@ jobs:
           comment-on-alert: ${{ github.event.pull_request.head.repo.fork != true }}
           summary-always: true
           gh-pages-branch: gh-pages
+          skip-fetch-gh-pages: true   # gh-pages fetched once by the step above
           benchmark-data-dir-path: dev/bench/cli
           comment-always: ${{ github.event.pull_request.head.repo.fork != true }}
 
@@ -167,6 +168,7 @@ jobs:
           comment-on-alert: ${{ github.event.pull_request.head.repo.fork != true }}
           summary-always: true
           gh-pages-branch: gh-pages
+          skip-fetch-gh-pages: true   # local gh-pages already prepared; avoids non-ff re-fetch
           benchmark-data-dir-path: dev/bench/ps
           comment-always: ${{ github.event.pull_request.head.repo.fork != true }}
 
