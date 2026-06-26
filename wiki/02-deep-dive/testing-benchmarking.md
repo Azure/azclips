@@ -279,7 +279,7 @@ sequenceDiagram
     BDN-->>Prog: Summary[] results
 
     Prog->>CG: Generate(artifactsPath, timestamp, summaries)
-    CG->>CG: ExtractChartData() + CalculateOperationTimings()
+    CG->>CG: ExtractChartData() + CalculateOverhead()
     CG->>CG: Write HTML chart + JSON summary
 
     Prog->>AIE: Export(chartData, timestamp)
@@ -343,7 +343,7 @@ public record ChartDataPoint(string Method, string Product, double MeanSeconds);
 ```
 
 ```csharp
-internal class OperationTiming
+internal class OverheadData
 {
     public string Operation { get; set; }
     public double CliTime { get; set; }
@@ -353,7 +353,7 @@ internal class OperationTiming
 
 ### Operation Timings
 
-`CalculateOperationTimings` (`tests/Benchmark/ChartGenerator.cs`) collects CLI and PS mean times for three operations: `"List RG"`, `"Create RG"`, and `"Get RG"`. The details chart renders these side by side in a per-operation comparison table.
+`CalculateOverhead` (`tests/Benchmark/ChartGenerator.cs`) collects CLI and PS mean times for three operations: `"List RG"`, `"Create RG"`, and `"Get RG"`. The details chart renders these side by side in a per-operation comparison table.
 
 ### Chart.js Configuration
 
@@ -396,6 +396,6 @@ The full build pipeline (`.github/workflows/build.yml:6`) runs a matrix strategy
 | `tests/Benchmark/BenchmarkBase.cs` | Repo root discovery, stub HTTP/DI registration, `BenchmarkEventPublisher` |
 | `tests/Benchmark/Benchmark.csproj` | BenchmarkDotNet 0.13.12, PowerShell SDK 7.4.0 |
 | `tests/Benchmark/AppInsightsExporter.cs` | Metric and event telemetry export |
-| `tests/Benchmark/ChartGenerator.cs` | Chart.js HTML, JSON summary, operation timing calculation |
+| `tests/Benchmark/ChartGenerator.cs` | Chart.js HTML, JSON summary, overhead calculation |
 | `.github/workflows/build-and-test.yml` | PR test pipeline with E2E steps |
 | `.github/workflows/build.yml` | Matrix build with test execution |

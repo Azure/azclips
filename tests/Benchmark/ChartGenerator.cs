@@ -26,7 +26,7 @@ public static class ChartGenerator
         var chartData = ExtractChartData(summaries);
         if (chartData.Count == 0) return chartData;
 
-        var timings = CalculateOperationTimings(chartData);
+        var timings = CalculateOverhead(chartData);
 
         // Generate professional grouped bar chart (Chart.js)
         var chartJsPath = Path.Combine(artifactsPath, $"benchmark-comparison-{timestamp}.html");
@@ -78,7 +78,7 @@ public static class ChartGenerator
         return chartData;
     }
 
-    private static List<OperationTiming> CalculateOperationTimings(List<ChartDataPoint> data)
+    private static List<OverheadData> CalculateOverhead(List<ChartDataPoint> data)
     {
         var operations = new[] { "List RG", "Create RG", "Get RG" };
 
@@ -87,7 +87,7 @@ public static class ChartGenerator
             var cliResult = data.FirstOrDefault(x => x.Method.Contains(op) && x.Product == "CLI");
             var psResult = data.FirstOrDefault(x => x.Method.Contains(op) && x.Product == "PS");
 
-            return new OperationTiming
+            return new OverheadData
             {
                 Operation = op,
                 CliTime = Math.Round(cliResult?.MeanSeconds ?? 0, 4),
@@ -96,7 +96,7 @@ public static class ChartGenerator
         }).ToList();
     }
 
-    private static string GenerateGroupedBarChart(List<OperationTiming> timings, string timestamp)
+    private static string GenerateGroupedBarChart(List<OverheadData> timings, string timestamp)
     {
         var operations = timings.Select(x => $"'{x.Operation}'").ToArray();
         var cliData = timings.Select(x => x.CliTime.ToString("F4")).ToArray();
@@ -300,7 +300,7 @@ public static class ChartGenerator
 
     private static string GenerateDetailsChart(
         List<ChartDataPoint> data,
-        List<OperationTiming> timings,
+        List<OverheadData> timings,
         string timestamp)
     {
         var maxValue = data.Max(x => x.MeanSeconds);
@@ -404,7 +404,7 @@ public static class ChartGenerator
 
 public record ChartDataPoint(string Method, string Product, double MeanSeconds);
 
-internal class OperationTiming
+internal class OverheadData
 {
     public string Operation { get; set; } = "";
     public double CliTime { get; set; }
