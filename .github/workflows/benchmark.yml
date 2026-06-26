@@ -23,12 +23,21 @@ permissions:
   contents: read
 
 jobs:
+  # ─────────────── Stage 1: run CLI + PS benchmarks in parallel ───────────────
+  # Each product runs as its own matrix leg so the two ~15-min benchmark runs
+  # execute concurrently on separate self-hosted benchmark machines (running both
+  # on one machine would skew measurements). These jobs only PRODUCE result JSON —
+  # they never touch gh-pages — so they drop to read-only permissions. The
+  # serial `publish` job below is the single writer to gh-pages.
   benchmark:
-    name: Run benchmarks and gate regressions
+    name: Run ${{ matrix.product }} benchmarks
     runs-on: [self-hosted, Linux, X64, benchmark]
     permissions:
-      contents: write          # gh-pages auto-push (main only)
-      pull-requests: write     # PR comments on regression
+      contents: read
+    strategy:
+      fail-fast: false          # let one product finish even if the other fails
+      matrix:
+        product: [CLI, PS]
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@v2
@@ -45,21 +54,89 @@ jobs:
 
       # Stage PowerShell module manifests into artifacts/Release/PS/<Module>/.
       # The PS benchmarks import these instead of the tracked src/PS/<Module>/<Module>.psd1
-      # files, so the working tree stays clean and benchmark-action's `git switch gh-pages`
-      # below doesn't fail with "local changes would be overwritten".
+      # files. Only the PS leg needs them.
       - name: Stage PS module manifests
+        if: matrix.product == 'PS'
         run: pwsh -NoProfile -File build/Set-ModuleConfiguration.ps1 -Configuration Release
 
-      # ─────────────── CLI ───────────────
-      - name: Run CLI benchmarks (with retry)
+      - name: Run ${{ matrix.product }} benchmarks (with retry)
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 15
           max_attempts: 2
           retry_wait_seconds: 30
-          command: dotnet run --project tests/Benchmark -c Release --no-build -- --ci --product CLI
+          command: dotnet run --project tests/Benchmark -c Release --no-build -- --ci --product ${{ matrix.product }}
 
+      # Hand the single result JSON to the publish job. Kept separate from the
+      # full BDN log artifact so publish can drop it at the exact path the
+      # dashboard action expects.
+      - name: Upload ${{ matrix.product }} benchmark result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-result-${{ matrix.product }}
+          path: artifacts/Benchmark/ci/${{ matrix.product }}/results/Benchmark.${{ matrix.product }}.ResourceGroupBenchmarks-report-full-compressed.json
+          if-no-files-found: warn
+          retention-days: 1
+
+      - name: Upload BDN logs (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-ci-${{ github.run_id }}-${{ matrix.product }}
+          path: artifacts/Benchmark/ci/**
+          retention-days: 14
+
+  # ─────────────── Stage 2: publish dashboards + gate (single gh-pages writer) ──
+  # Runs once, after both benchmark legs. Both publish steps execute sequentially
+  # inside this one job, so only one process ever writes the gh-pages branch —
+  # which is exactly what prevents the non-fast-forward ("merge conflict") that a
+  # naive parallel-publish design hits. The concurrency group additionally
+  # serializes gh-pages writes across DIFFERENT workflow runs (the benchmark runs
+  # above still parallelize freely).
+  publish:
+    name: Publish dashboards / gate regressions
+    needs: benchmark
+    if: always()              # publish whatever results exist, even if a leg failed
+    runs-on: ubuntu-latest    # just git + the node action; no need for a benchmark machine
+    permissions:
+      contents: write          # gh-pages auto-push (main only)
+      pull-requests: write     # PR comments on regression
+    concurrency:
+      group: benchmark-gh-pages
+      cancel-in-progress: false
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@v4
+
+      # Pull both products' result JSONs back to the paths the dashboard action
+      # expects. continue-on-error tolerates a product whose benchmark leg failed
+      # to produce a result; the matching publish step is then skipped via hashFiles.
+      - name: Download CLI benchmark result
+        uses: actions/download-artifact@v4
+        with:
+          name: bench-result-CLI
+          path: artifacts/Benchmark/ci/CLI/results
+        continue-on-error: true
+
+      - name: Download PS benchmark result
+        uses: actions/download-artifact@v4
+        with:
+          name: bench-result-PS
+          path: artifacts/Benchmark/ci/PS/results
+        continue-on-error: true
+
+      # ─────────────── CLI ───────────────
+      # No skip-fetch-gh-pages: each step fetches gh-pages itself. Because the two
+      # steps run one-after-another in this single job, the second fetch is a
+      # harmless fast-forward, and either product can publish independently even
+      # if the other was skipped.
       - name: Publish CLI dashboard / gate regression
+        if: hashFiles('artifacts/Benchmark/ci/CLI/results/Benchmark.CLI.ResourceGroupBenchmarks-report-full-compressed.json') != ''
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: 'Cirrus CLI Benchmarks'
@@ -76,15 +153,8 @@ jobs:
           comment-always: ${{ github.event.pull_request.head.repo.fork != true }}
 
       # ─────────────── PS ────────────────
-      - name: Run PS benchmarks (with retry)
-        uses: nick-fields/retry@v3
-        with:
-          timeout_minutes: 15
-          max_attempts: 2
-          retry_wait_seconds: 30
-          command: dotnet run --project tests/Benchmark -c Release --no-build -- --ci --product PS
-
       - name: Publish PS dashboard / gate regression
+        if: hashFiles('artifacts/Benchmark/ci/PS/results/Benchmark.PS.ResourceGroupBenchmarks-report-full-compressed.json') != ''
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: 'Cirrus PS Benchmarks'
@@ -99,7 +169,6 @@ jobs:
           gh-pages-branch: gh-pages
           benchmark-data-dir-path: dev/bench/ps
           comment-always: ${{ github.event.pull_request.head.repo.fork != true }}
-          skip-fetch-gh-pages: true
 
       # Upload CLI + PS benchmark results for the fork-PR comment workflow
       - name: Upload benchmark results for fork PR
@@ -111,12 +180,4 @@ jobs:
             artifacts/Benchmark/ci/CLI/results/Benchmark.CLI.ResourceGroupBenchmarks-report-full-compressed.json
             artifacts/Benchmark/ci/PS/results/Benchmark.PS.ResourceGroupBenchmarks-report-full-compressed.json
           retention-days: 1
-
-      # ─────────────── Always ────────────
-      - name: Upload BDN logs (always)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: benchmark-ci-${{ github.run_id }}
-          path: artifacts/Benchmark/ci/**
-          retention-days: 14
+          if-no-files-found: warn
