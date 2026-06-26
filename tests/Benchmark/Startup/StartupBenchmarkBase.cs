@@ -9,7 +9,7 @@ namespace Benchmark.Startup;
 
 /// <summary>
 /// Shared setup for process-level startup benchmarks. Each [Benchmark] spawns the real
-/// published az / pwsh as a fresh OS process with CIRRUS_BENCH_RESOLVE_ONLY=1 so the child
+/// published az / pwsh as a fresh OS process with CIRRUS_BENCH_RESOLVE_ONLY=true so the child
 /// stops at the resolve-only seam (startup work done, command not executed).
 /// </summary>
 public abstract class StartupBenchmarkBase
@@ -46,7 +46,9 @@ public abstract class StartupBenchmarkBase
             UseShellExecute = false,
         };
         foreach (var a in args) psi.ArgumentList.Add(a);
-        psi.Environment["CIRRUS_BENCH_RESOLVE_ONLY"] = "1";
+        // "true" (not "1"): resolved through the configuration service into BenchmarkOptions.ResolveOnly,
+        // whose bool binder accepts true/false only.
+        psi.Environment["CIRRUS_BENCH_RESOLVE_ONLY"] = "true";
         return psi;
     }
 
@@ -64,7 +66,7 @@ public abstract class StartupBenchmarkBase
         psi.ArgumentList.Add("-NonInteractive");
         psi.ArgumentList.Add("-Command");
         psi.ArgumentList.Add($"Import-Module '{modulePsd1}'; {cmdlet} | Out-Null");
-        psi.Environment["CIRRUS_BENCH_RESOLVE_ONLY"] = "1";
+        psi.Environment["CIRRUS_BENCH_RESOLVE_ONLY"] = "true";
         return psi;
     }
 

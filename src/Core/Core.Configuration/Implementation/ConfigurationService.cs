@@ -35,7 +35,10 @@ public sealed class ConfigurationService(
         [typeof(AgentOptions)] = "agent",
         [typeof(ExtensionsOptions)] = "extensions",
         [typeof(ClientsOptions)] = "clients",
-        [typeof(DefaultsOptions)] = "defaults"
+        [typeof(DefaultsOptions)] = "defaults",
+        // Internal-only benchmark seam section; deliberately absent from ConfigurationSchema so it
+        // stays hidden from `config info` / `config list`. See Core.Abstractions.BenchmarkOptions.
+        [typeof(BenchmarkOptions)] = "benchmark"
     };
 
     public T GetConfiguration<T>(string? key = null, T? defaultValue = null) where T : class, new()
