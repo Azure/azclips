@@ -356,6 +356,8 @@ public static class ChartGenerator
                     "API" => "bar-api",
                     "CLI" => "bar-cli",
                     "PS" => "bar-ps",
+                    "STARTUP-CLI" => "bar-startup-cli",
+                    "STARTUP-PS" => "bar-startup-ps",
                     _ => "bar-other"
                 };
                 return $@"
@@ -402,6 +404,9 @@ public static class ChartGenerator
         .bar-api {{ background: linear-gradient(90deg, #4CAF50, #8BC34A); }}
         .bar-cli {{ background: linear-gradient(90deg, #2196F3, #64B5F6); }}
         .bar-ps {{ background: linear-gradient(90deg, #9C27B0, #BA68C8); }}
+        .bar-startup-cli {{ background: linear-gradient(90deg, #FF9800, #FFB74D); }}
+        .bar-startup-ps {{ background: linear-gradient(90deg, #009688, #4DB6AC); }}
+        .bar-other {{ background: linear-gradient(90deg, #757575, #BDBDBD); }}
         .bar-value {{ margin-left: 10px; font-weight: bold; color: #333; white-space: nowrap; }}
         .legend {{ display: flex; gap: 20px; margin-top: 20px; flex-wrap: wrap; }}
         .legend-item {{ display: flex; align-items: center; gap: 5px; }}
@@ -423,6 +428,8 @@ public static class ChartGenerator
             <div class=""legend-item""><div class=""legend-color"" style=""background: #4CAF50;""></div> API (HTTP Pipeline)</div>
             <div class=""legend-item""><div class=""legend-color"" style=""background: #2196F3;""></div> CLI (az.exe)</div>
             <div class=""legend-item""><div class=""legend-color"" style=""background: #9C27B0;""></div> PS (pwsh.exe)</div>
+            <div class=""legend-item""><div class=""legend-color"" style=""background: #FF9800;""></div> Startup CLI (az.exe)</div>
+            <div class=""legend-item""><div class=""legend-color"" style=""background: #009688;""></div> Startup PS (pwsh.exe)</div>
         </div>
     </div>
 
