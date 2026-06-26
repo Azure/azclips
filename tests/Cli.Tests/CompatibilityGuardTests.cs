@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
@@ -147,7 +150,7 @@ public class CompatibilityGuardTests
     {
         // Walk up from test bin and find the published Login extension folder. It contains the
         // Login DLL plus all sibling Core.* DLLs the metadata graph needs to fully resolve.
-        const string DllName = "Microsoft.Azure.Cirrus.Extensions.Login.dll";
+        const string DllName = "Microsoft.Azure.Azclips.Extensions.Login.dll";
         var probe = AppContext.BaseDirectory;
         for (int i = 0; i < 8 && !string.IsNullOrEmpty(probe); i++)
         {

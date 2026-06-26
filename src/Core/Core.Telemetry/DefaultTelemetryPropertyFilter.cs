@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
@@ -24,6 +27,8 @@ public sealed class DefaultTelemetryPropertyFilter : ITelemetryPropertyFilter
         TelemetryTags.ModuleName,
         TelemetryTags.ModuleVersion,
         TelemetryTags.Parameter,
+        TelemetryTags.SubscriptionId,
+        TelemetryTags.TenantId,
 
         // HTTP standard attributes — method/status/host are safe; URL/path are NOT allowed
         "http.method",

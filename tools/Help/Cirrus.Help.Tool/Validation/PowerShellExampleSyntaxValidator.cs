@@ -111,7 +111,7 @@ namespace Cirrus.Help.Tool.Validation
             CmdletIndex cmdlets,
             ValidationReport report)
         {
-            // The documented cmdlet is encoded in the filename (e.g. `Connect-CirrusAccount.md`).
+            // The documented cmdlet is encoded in the filename (e.g. `Connect-AzAccount.md`).
             // PSL7 enforces that every fence in the EXAMPLES section actually invokes that
             // cmdlet — anything else means the example is wrong help, regardless of whether
             // the individual lines parse cleanly.
@@ -266,7 +266,7 @@ namespace Cirrus.Help.Tool.Validation
             if (!cmdlets.TryGet(name, out var metadata))
             {
                 // Inside a help example, every command leader must be a registered Cirrus cmdlet.
-                // Native commands (`azv2`, `dotnet`, `git`), built-in PS cmdlets we don't ship, or
+                // Native commands (`az`, `dotnet`, `git`), built-in PS cmdlets we don't ship, or
                 // plain typos all fall here. We deliberately do not whitelist anything — help docs
                 // exist to demonstrate Cirrus cmdlets, not arbitrary shell commands.
                 report.AddError(

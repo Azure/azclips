@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
@@ -225,7 +228,7 @@ public static class ChartGenerator
                     <span class=""stat-value api"">{x.ApiTime:F4}s</span>
                 </div>
                 <div class=""stat-row"">
-                    <span class=""stat-label"">CLI (azv2.exe)</span>
+                    <span class=""stat-label"">CLI (az.exe)</span>
                     <span class=""stat-value cli"">{x.CliTime:F4}s
                         <span class=""overhead"">{(x.CliTime > 0 && x.ApiTime > 0 ? $"+{(x.CliTime - x.ApiTime):F2}s" : "")}</span>
                     </span>
@@ -258,7 +261,7 @@ public static class ChartGenerator
                         borderRadius: 4
                     }},
                     {{
-                        label: 'CLI (azv2.exe)',
+                        label: 'CLI (az.exe)',
                         data: [{string.Join(", ", cliData)}],
                         backgroundColor: 'rgba(59, 130, 246, 0.8)',
                         borderColor: 'rgba(59, 130, 246, 1)',
@@ -418,7 +421,7 @@ public static class ChartGenerator
         {productSections}
         <div class=""legend"">
             <div class=""legend-item""><div class=""legend-color"" style=""background: #4CAF50;""></div> API (HTTP Pipeline)</div>
-            <div class=""legend-item""><div class=""legend-color"" style=""background: #2196F3;""></div> CLI (azv2.exe)</div>
+            <div class=""legend-item""><div class=""legend-color"" style=""background: #2196F3;""></div> CLI (az.exe)</div>
             <div class=""legend-item""><div class=""legend-color"" style=""background: #9C27B0;""></div> PS (pwsh.exe)</div>
         </div>
     </div>

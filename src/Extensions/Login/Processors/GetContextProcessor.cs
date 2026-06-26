@@ -1,8 +1,11 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
 
-namespace Microsoft.Azure.Cirrus.Extensions.Login.Processors
+namespace Microsoft.Azure.Azclips.Extensions.Login.Processors
 {
     public class GetContextProcessor : LoginProcessorBase
     {

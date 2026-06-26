@@ -215,7 +215,7 @@ Migrate existing readers:
 
 ### 4) CLI Surface
 
-Add azv2 config group:
+Add az config group:
 
 - get <key>
 - set <key> <value> [--force]
@@ -365,6 +365,7 @@ Integration:
 7. **Default Reflection:** Defaults sourced from option classes via reflection, not flattened dicts, to preserve dotted schema keys
 8. **Lock + Atomic Writes:** Cross-process lock + temp file swap prevents corruption on concurrent writes
 9. **Environment Isolation in Tests:** Cache original env vars, clear on setup, restore on teardown to avoid ambient values shadowing test assertions
+10. **CLI Runtime Logging Policy:** `core.logging.level` now controls CLI host log stream emission; `--debug` is treated as a one-shot invocation override that takes precedence over env/global/default values.
 
 ## Future Design Work (Phase 3+)
 

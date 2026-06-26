@@ -13,7 +13,7 @@
 - Make installed extensions first-class: usable without code changes to the host.
 - Persistent registry populated at install/remove time, replacing any hardcoded command index.
 - Full CRUD lifecycle: `add`, `list`, `remove`, `update`, `show`, `pin`, `unpin`.
-- Multi-level command trees so extensions can ship `azv2 vm boot-diagnostics enable` and similar.
+- Multi-level command trees so extensions can ship `az vm boot-diagnostics enable` and similar.
 - ALC caching across invocations for long-running hosts.
 - Multiple extensions contributing under the same top-level verb, with per-leaf ownership.
 - Host↔extension compatibility metadata so version mismatches surface as actionable errors.
@@ -38,7 +38,7 @@ Consequences:
 - Routing is `{(verb, path) → packageId}`. Lookup is O(1).
 - There is no "namespace owner" role. Every contributor is equal. Namespaces exist by virtue of being contributed to.
 - A single extension may contribute to multiple namespaces — e.g. one `Compute` package contributing under `vm`, `disk`, `disk-access`. This is the common case for Azure-style resource families.
-- `azv2 vm --help` (when help lands) aggregates leaves across all extensions contributing to `vm`. The host can answer "who contributes to this namespace" without loading anything.
+- `az vm --help` (when help lands) aggregates leaves across all extensions contributing to `vm`. The host can answer "who contributes to this namespace" without loading anything.
 
 ### Built-in trio
 
@@ -58,17 +58,17 @@ Everything else (including `group` / Resources and `vm` / Compute) is an install
 
 ### 3.1 Extension CRUD commands
 
-All under `azv2 extension`. Kebab-case CLI convention.
+All under `az extension`. Kebab-case CLI convention.
 
-| Command                                          | Behavior                                                                                                                                                                                                          |
-| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `azv2 extension add <pkg>[@<version>] [--force]` | Install. Overwrites any prior version of the same package. `--pin` flag locks the version against `update`. `--force` is required to overwrite an existing pinned installation (the pin is then carried forward). |
-| `azv2 extension list`                            | Show installed extensions: name, version, namespaces, install source, install date. `--by-verb` regroups output verb-headed (§3.5).                                                                               |
-| `azv2 extension remove <name>`                   | Uninstall. Remove from registry, delete `~/.cirrus/extensions/<pkg>/`. Errors on built-in extensions.                                                                                                             |
-| `azv2 extension update <name>[@<version>]`       | Install newer version, replacing the old one in place. Fails on pinned extensions unless `--force`.                                                                                                               |
-| `azv2 extension pin <name>[@<version>]`          | Lock active version. With no version, pins the currently installed version.                                                                                                                                       |
-| `azv2 extension unpin <name>`                    | Remove the pin.                                                                                                                                                                                                   |
-| `azv2 extension show <name>`                     | Detail view: full path, version, namespaces, contributions, source feed, install date, compat range.                                                                                                              |
+| Command                                        | Behavior                                                                                                                                                                                                          |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `az extension add <pkg>[@<version>] [--force]` | Install. Overwrites any prior version of the same package. `--pin` flag locks the version against `update`. `--force` is required to overwrite an existing pinned installation (the pin is then carried forward). |
+| `az extension list`                            | Show installed extensions: name, version, namespaces, install source, install date. `--by-verb` regroups output verb-headed (§3.5).                                                                               |
+| `az extension remove <name>`                   | Uninstall. Remove from registry, delete `~/.cirrus/extensions/<pkg>/`. Errors on built-in extensions.                                                                                                             |
+| `az extension update <name>[@<version>]`       | Install newer version, replacing the old one in place. Fails on pinned extensions unless `--force`.                                                                                                               |
+| `az extension pin <name>[@<version>]`          | Lock active version. With no version, pins the currently installed version.                                                                                                                                       |
+| `az extension unpin <name>`                    | Remove the pin.                                                                                                                                                                                                   |
+| `az extension show <name>`                     | Detail view: full path, version, namespaces, contributions, source feed, install date, compat range.                                                                                                              |
 
 `extension add --name <token>` resolves two ways: **dotted token** → passthrough (full package id, including third-party); **bare token** that is _not_ a known verb → legacy `Microsoft.Azure.Cirrus.Extensions.{name}` prefix-strip. A bare token that **is** a known verb in the embedded `ExtensionHintTable` is rejected with a usage error pointing the user at the owning package id (e.g. `add --name disk` errors with "use `--name Compute`"). The unit of install is a package, not a verb — accepting a verb here would silently pull in unrelated sibling verbs (Compute ships both `vm` and `disk`).
 
@@ -85,7 +85,7 @@ When `extension add --name <token>` misses every configured feed, the resulting 
 3. **Per-leaf collision.** Every `(verb, path)` tuple the candidate contributes is checked against the registry. All collisions across the candidate's full leaf set are accumulated and surfaced as a single `LeafConflict`:
 
     ```
-    > azv2 extension add Contoso.Foo
+    > az extension add Contoso.Foo
     error: [LeafConflict] Extension 'Contoso.Foo' has 2 leaf conflicts with already-installed extensions.
       - leaf 'vm contoso-magic' is already owned by 'Microsoft.Azure.Cirrus.Extensions.Compute'
       - leaf 'disk contoso-extra' is already owned by 'Microsoft.Azure.Cirrus.Extensions.Compute'
@@ -103,13 +103,13 @@ When the dispatcher sees an unknown token, it consults the embedded hint catalog
 1. **Exact `(verb, path)` match** in the catalog:
 
     ```
-    > azv2 vm list
+    > az vm list
     Error: 'vm list' is provided by extension 'Microsoft.Azure.Cirrus.Extensions.Compute',
     which is not installed. Install it with:
-      azv2 extension add --name Compute
+      az extension add --name Compute
     ```
 
-2. **Verb match, no path match**: "package X provides verb '<verb>' but no '<path>' leaf — try `azv2 <verb> --help` after installing."
+2. **Verb match, no path match**: "package X provides verb '<verb>' but no '<path>' leaf — try `az <verb> --help` after installing."
 
 3. **No verb match**: fall through to the generic "try `extension search <verb>`" path. The AI fallback in `OrchestratorEngine` continues to handle free-form input.
 
@@ -180,8 +180,6 @@ group
 ```
 
 JSON shapes are stable: default is `[{packageId, version, namespaces, ...}]`; `--by-verb` is `{verb: [{packageId, version, ...}]}`.
-
-`extension list` also surfaces stale entries: the response carries separate `Live` and `Stale` arrays. Stale entries include the missing path and a reason so the user can decide whether to `remove` them.
 
 ---
 
@@ -272,7 +270,7 @@ public class ExtensionIndex : IExtensionIndex { ... }
 ### 4.4 Dispatch flow
 
 ```
-azv2 vm create --name foo
+az vm create --name foo
        │
        ▼
   args[0..n] = longest-prefix match against LeafIndex (verb, path) keys
@@ -313,10 +311,9 @@ A hardcoded seed dict in the host, merged with the on-disk registry at startup:
 
 ### 4.7 Registry hardening
 
-- **`RegistryReconciler`** compares `registry.json` against the install root on every dispatch. Entries whose `~/.cirrus/extensions/{packageId}/{version}/` folder is missing are dropped from the live view so the dispatcher never routes to a stale entry. Non-destructive — the file on disk is unchanged.
+- **Discovery-first installed state.** Runtime routing and extension listing are driven by discovery of on-disk payloads; `registry.json` is treated as a preferences overlay only. Missing payloads therefore disappear naturally from live routing without a separate reconciliation pass.
 - **Concurrency guard.** `FileExtensionRegistryStore` captures the file's last-write timestamp at `Load()` and checks it at `Save()`. A mismatch throws `CirrusErrorException.RegistryConcurrency` so two interleaved CLI invocations can't silently overwrite each other.
 - **Invariant check.** `FileExtensionRegistryStore.Load()` enforces the leaf-uniqueness invariant by scanning every entry's `Contributions`; duplicates across packages throw `CirrusErrorException.RegistryInvalid` with both offending package ids. Catches hand-edited corruption before it reaches the `LeafIndex`.
-- **Stale entries in `extension list`.** Separate `Live` and `Stale` arrays in the response (§3.5).
 
 ### 4.8 Telemetry
 
@@ -466,9 +463,9 @@ Tracked, not v1.
 - **`CirrusCmdletBase : PSCmdlet`** so the PS surface gets `CompatibilityGuard.CheckAssembly` for free in `BeginProcessing`, instead of duplicating the guard call across the ~12 cmdlet entry points across four modules. Skipped in v1 because the base type doesn't exist yet and rebasing every cmdlet is its own refactor.
 - **Bounded LRU on the ALC cache** if memory matters (§4.5). Worst case ~100MB for 20 extensions today, acceptable for the TUI. Revisit only if profiling demands it.
 - **Multi-version retention.** `versions: [...]` + `activeVersion`, additive schema change. Strict single-version is the v1 stance; matches az-cli.
-- **Latency / cache guardrails.** (a) TTL/mtime-keyed cache for `RegistryReconciler` so post-cache reconcile is constant-time on network home dirs (SMB/NFS/OneDrive); local-SSD impact today is negligible. (b) BenchmarkDotNet target in `tests/Benchmark/` asserting a leaf-miss hot path stays under a p99 budget (~300ms), plus an assembly-load-counter contract test asserting the dispatcher never spins up an ALC on miss. Insurance against drift toward az-cli's load-everything-on-CNF behavior.
+- **Latency / cache guardrails.** (a) If needed, add caching around discovery metadata collection on network home dirs (SMB/NFS/OneDrive); local-SSD impact today is negligible. (b) BenchmarkDotNet target in `tests/Benchmark/` asserting a leaf-miss hot path stays under a p99 budget (~300ms), plus an assembly-load-counter contract test asserting the dispatcher never spins up an ALC on miss. Insurance against drift toward az-cli's load-everything-on-CNF behavior.
 - **Explicit `--override` for `extension add`** (informed by az-cli's `overwrite_order_in_cli.md`). v1 rejects all leaf collisions at install time, no exceptions. vNext relaxes this with an opt-in `--override "verb path[, ...]"` flag that lets a new extension take ownership of specific leaves while preserving the **stack** model committed in §4.1: the displaced contributor is pushed down (not removed), `extension list --by-verb` annotates the override, and `extension remove` of the top-of-stack contributor restores the next one underneath. Built-in displacement uses the same mechanism. This is a strict improvement over az-cli's silent alphabetical-name-wins overwrite (no audit trail, no restore-on-remove, see [`doc/overwrite_order_in_cli.md`](https://github.com/Azure/azure-cli/blob/main/doc/overwrite_order_in_cli.md)). Schema cost: additive only — a `displaced: [...]` field on the contribution object plus an `overriddenAt` timestamp.
-- **Aggregated namespace help.** Whether `azv2 vm --help` auto-merges leaves across contributors or each contributor advertises separately. The per-leaf ownership model guarantees the data shape; help branch decides the rendering.
+- **Aggregated namespace help.** Whether `az vm --help` auto-merges leaves across contributors or each contributor advertises separately. The per-leaf ownership model guarantees the data shape; help branch decides the rendering.
 - **Trust / signing / provenance.** Anything in `~/.cirrus/extensions/` loads today. Shared namespaces mean unsigned third-party extensions can contribute leaves under first-party verbs (namespace squatting). Revisit before the first third-party extension ships.
 - **Registry hygiene gaps.** Schema-versioning commitment ("how many versions back do we read indefinitely?"); roaming home directories; system-wide installs. Current posture: per-user, unsupported on roaming.
 - **PowerShell parity definition.** "Same surface" vs. "same shape when both exist." Decide post-v1.
@@ -489,7 +486,7 @@ Fresh-eyes review pass against `origin/main`. Findings ordered by severity. Each
 
 ### High
 
-2. **`ExtensionHintTable.LoadFromEmbeddedResource` disk fallback is too broad.** The CI fix walks every `*.dll` in `AppContext.BaseDirectory` and `Assembly.LoadFrom`s each one until the embedded resource is found. That's an unbounded code-execution surface and slow on populated bin dirs. Tighten to `Path.Combine(BaseDirectory, "azv2.dll")` (the assembly the build target actually embeds into), with the existing in-memory scan as the fast path. Today's broad probe was a thirty-second fix for the CI flake; replace with the targeted version before merge. **[fixed]**
+2. **`ExtensionHintTable.LoadFromEmbeddedResource` disk fallback is too broad.** The CI fix walks every `*.dll` in `AppContext.BaseDirectory` and `Assembly.LoadFrom`s each one until the embedded resource is found. That's an unbounded code-execution surface and slow on populated bin dirs. Tighten to `Path.Combine(BaseDirectory, "az.dll")` (the assembly the build target actually embeds into), with the existing in-memory scan as the fast path. Today's broad probe was a thirty-second fix for the CI flake; replace with the targeted version before merge. **[fixed]**
 
 3. **Reflection paths swallow malformed input.** `LeafReader` parses an enum without a guard against unknown values; `CompatibilityGuard` treats unparseable `MinCoreVersion` / `MaxCoreVersion` as "no bound" with only an inline advisory. A typo in a manifest (`"main"`, `"1.0.0.0"`, `"latest"`) currently looks indistinguishable from "compatible." Surface unparseable bounds as a warning at minimum, ideally fail closed unless an explicit "I really mean unbounded" sentinel is used. **[deferred]**
 

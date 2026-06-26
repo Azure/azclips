@@ -155,6 +155,7 @@ namespace Cirrus.Help.Tool.Tests
                     key => key,
                     key => new CommandMetadata(
                         Name: key,
+                        InvocationName: key,
                         Aliases: Array.Empty<string>(),
                         FullName: key,
                         AssemblyName: "Stub",

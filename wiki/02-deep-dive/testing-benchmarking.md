@@ -389,7 +389,7 @@ The `Build and Test` workflow (`.github/workflows/build-and-test.yml:1`) runs on
 | Restore | `dotnet restore cirrus.slnx` | 22 |
 | Build | `dotnet build cirrus.slnx --no-restore --configuration Debug` | 25 |
 | Unit tests | `dotnet test cirrus.slnx --no-build --configuration Debug` | 29 |
-| E2E CLI | `./artifacts/Debug/Core.Cli/azv2 --help` | 33 |
+| E2E CLI | `./artifacts/Debug/Core.Cli/az --help` | 33 |
 | E2E PowerShell | `Import-Module ./src/PS/Login/Login.psd1` | 44 |
 
 The PowerShell E2E step validates module import and command discovery (`.github/workflows/build-and-test.yml:46`).

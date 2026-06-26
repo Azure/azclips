@@ -1,15 +1,15 @@
 ---
 document type: cmdlet
-external help file: Microsoft.Azure.Cirrus.Cmdlets.Login.dll-Help.xml
+external help file: Microsoft.Azure.Azclips.Cmdlets.Login.dll-Help.xml
 HelpUri: ""
 Locale: en-US
 Module Name: Login
 ms.date: 06/16/2026
 PlatyPS schema version: 2024-05-01
-title: Connect-CirrusAccount
+title: Connect-AzAccount
 ---
 
-# Connect-CirrusAccount
+# Connect-AzAccount
 
 ## SYNOPSIS
 
@@ -20,7 +20,7 @@ Authenticate to Azure.
 ### \_\_AllParameterSets
 
 ```
-Connect-CirrusAccount -SubscriptionId <string> [-TenantId <string>] [-UseDeviceCode] [-WhatIf]
+Connect-AzAccount -SubscriptionId <string> [-TenantId <string>] [-UseDeviceCode] [-WhatIf]
  [-Confirm] [<CommonParameters>]
 ```
 
@@ -40,7 +40,7 @@ Authenticate to Azure and persist account context for subsequent commands.
 Launches the interactive browser sign-in experience and persists the resulting account context for the specified subscription. Use this on a workstation with a default browser available.
 
 ```powershell
-Connect-CirrusAccount -SubscriptionId '00000000-0000-0000-0000-000000000000' -TenantId '11111111-1111-1111-1111-111111111111'
+Connect-AzAccount -SubscriptionId '00000000-0000-0000-0000-000000000000' -TenantId '11111111-1111-1111-1111-111111111111'
 ```
 
 ### Sign in with device code on a host without a browser
@@ -48,7 +48,7 @@ Connect-CirrusAccount -SubscriptionId '00000000-0000-0000-0000-000000000000' -Te
 Uses the device-code authentication flow — prints a code and verification URL to the console so you can complete the sign-in from another device. Useful for SSH sessions, containers, and headless build agents.
 
 ```powershell
-Connect-CirrusAccount -SubscriptionId '00000000-0000-0000-0000-000000000000' -TenantId '11111111-1111-1111-1111-111111111111' -UseDeviceCode
+Connect-AzAccount -SubscriptionId '00000000-0000-0000-0000-000000000000' -TenantId '11111111-1111-1111-1111-111111111111' -UseDeviceCode
 ```
 
 ## PARAMETERS

@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Core.Abstractions;
 using Core.Abstractions.Runtime.Handler;
 using Core.Runtime.Handler;

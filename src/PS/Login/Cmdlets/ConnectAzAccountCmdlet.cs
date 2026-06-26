@@ -1,11 +1,15 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Management.Automation;
 using Core.Abstractions;
 using Core.DependencyInjection;
+using Microsoft.Azure.Cirrus.Cmdlets.Common;
 
-namespace Microsoft.Azure.Cirrus.Cmdlets.Login;
+namespace Microsoft.Azure.Azclips.Cmdlets.Login;
 
-[Cmdlet(VerbsCommunications.Connect, "CirrusAccount", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
-public class ConnectCirrusAccountCmdlet : PSCmdlet
+[Cmdlet(VerbsCommunications.Connect, "AzAccount", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
+public class ConnectAzAccountCmdlet : PSCmdlet
 {
     private readonly CancellationTokenSource _cts = new();
     private OutputStreams streams = null!;
@@ -22,25 +26,7 @@ public class ConnectCirrusAccountCmdlet : PSCmdlet
 
     protected override void BeginProcessing()
     {
-        streams = new OutputStreams(
-            WriteOutput: (value, ct) => { WriteObject(value); return Task.CompletedTask; },
-            WriteVerbose: (value, ct) => { WriteVerbose(value?.ToString() ?? ""); return Task.CompletedTask; },
-            WriteDebug: (value, ct) => { WriteDebug(value?.ToString() ?? ""); return Task.CompletedTask; },
-            WriteWarning: (value, ct) => { WriteWarning(value?.ToString() ?? ""); return Task.CompletedTask; },
-            WriteError: (value, ct) =>
-            {
-                WriteError(new ErrorRecord(
-                    new Exception(value?.ToString() ?? ""),
-                    "LoginError",
-                    ErrorCategory.AuthenticationError,
-                    null));
-                return Task.CompletedTask;
-            },
-            WriteInformation: (value, ct) =>
-            {
-                WriteInformation(new InformationRecord(value, null));
-                return Task.CompletedTask;
-            });
+        streams = CmdletOutputStreamsFactory.Create(this, "LoginError", ErrorCategory.AuthenticationError);
         engine = CirrusServiceProvider.GetRequiredService<IEngine>();
     }
 
@@ -64,7 +50,7 @@ public class ConnectCirrusAccountCmdlet : PSCmdlet
 
         var moduleName = MyInvocation.MyCommand.ModuleName;
         var moduleVersion = MyInvocation.MyCommand.Version?.ToString();
-        var invocation = new CommandInvocation("Login", "Connect-CirrusAccount", parameters, false, moduleName, moduleVersion);
+        var invocation = new CommandInvocation("Login", "Connect-AzAccount", parameters, false, moduleName, moduleVersion);
         telemetryService.TagInvocation(invocation);
 
         using ISession session = engine.OpenExecutionSession(invocation, streams, _cts.Token);

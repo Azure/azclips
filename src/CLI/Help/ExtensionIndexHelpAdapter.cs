@@ -1,10 +1,13 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Core.Abstractions;
 using System.Reflection;
 
 namespace Core.Cli.Help;
 
 /// <summary>
-/// Verb-scoped projection of <see cref="IExtensionIndex"/> + the markdown help corpus
+/// Verb-scoped projection of a discovery-produced CLI command table + the markdown help corpus
 /// into the runtime help tree. One instance covers exactly one CLI verb
 /// (e.g. <c>"vm"</c>); multi-verb extensions create one adapter per verb.
 /// </summary>
@@ -32,14 +35,14 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
     /// </remarks>
     private readonly IReadOnlyDictionary<string, CommandMetadata> _verbCommands;
 
-    public ExtensionIndexHelpAdapter(IExtensionIndex extensionIndex, string verb)
+    public ExtensionIndexHelpAdapter(IReadOnlyDictionary<string, CommandMetadata> commandTable, string verb)
     {
-        ArgumentNullException.ThrowIfNull(extensionIndex);
+        ArgumentNullException.ThrowIfNull(commandTable);
         Verb = string.IsNullOrWhiteSpace(verb)
             ? throw new ArgumentException("Verb cannot be null or empty.", nameof(verb))
             : verb.ToLowerInvariant();
 
-        _verbCommands = BuildVerbScopedTable(extensionIndex.GetCommandTable(ClientType.CLI), Verb);
+        _verbCommands = BuildVerbScopedTable(commandTable, Verb);
     }
 
     public string Verb { get; }
@@ -107,7 +110,7 @@ public sealed class ExtensionIndexHelpAdapter : IExtensionHelpProvider
         var subgroupSummaries = new Dictionary<string, RuntimeHelpGroupSummary>(StringComparer.OrdinalIgnoreCase);
         var commandSummaries = new List<RuntimeHelpCommandSummary>();
 
-        // A verb that also has a runnable root command (e.g. "azv2 login" itself) shows up
+        // A verb that also has a runnable root command (e.g. "az login" itself) shows up
         // as the empty-key entry in the per-verb table.
         if (string.IsNullOrEmpty(relativePrefix) && _verbCommands.TryGetValue(string.Empty, out var rootCommandMetadata))
         {

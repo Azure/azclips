@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
@@ -8,7 +11,7 @@ using OpenTelemetry;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
-namespace Microsoft.Azure.Cirrus.Cmdlets.Login.Telemetry;
+namespace Microsoft.Azure.Azclips.Cmdlets.Login.Telemetry;
 
 public class PSTelemetryProvider : DefaultTelemetryProvider
 {

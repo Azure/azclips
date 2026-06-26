@@ -1,0 +1,73 @@
+Cirrus Third-Party Notices
+
+This NOTICE file is a pre-release placeholder for third-party attribution review.
+
+Before public MIT release, the engineering owner must run the Microsoft-approved open source dependency scan and NOTICE generation process, then replace this placeholder with the generated third-party notices if required.
+
+Known source of third-party dependency metadata:
+
+- .NET project PackageReference entries across all *.csproj files (e.g., src/, tests/, Agent/, TUI/, tools/)
+- npm dependencies under wiki/
+- Any generated, vendored, or copied assets added before release
+
+No final third-party attribution determination has been made in this draft file.
+
+---
+
+Third-Party Dependencies (preliminary)
+
+This is a preliminary inventory of third-party packages referenced via NuGet by
+the distributable Cirrus components (including the `az` CLI, `cirrus-agent`, the
+`az-tui` dashboard, and the `Cirrus.*` PowerShell modules).
+It exists to aid pre-release review only. The authoritative NOTICE must
+be generated with Component Governance against the built artifacts, which captures
+the full (transitive) dependency tree and the complete license text for each
+component. Names, versions, and licenses below reflect the declarations on `main`
+and are subject to change.
+
+Scope notes:
+
+- Test-only and benchmarking dependencies are excluded. For example,
+  BenchmarkDotNet, Microsoft.PowerShell.SDK, and Microsoft.ApplicationInsights are
+  referenced only by tests/Benchmark and are not distributed.
+- npm packages under wiki/ (medium-zoom, mermaid, vitepress,
+  vitepress-plugin-mermaid) are devDependencies used only to build the
+  documentation site and are not distributed, so they are excluded.
+- In the distributable PowerShell cmdlet projects under src/PS/, System.Management.Automation is referenced with PrivateAssets="all" and is
+  provided by the PowerShell host at runtime rather than redistributed.
+- AI capabilities are provided by calling the Azure OpenAI service through
+  Microsoft SDKs; no third-party AI model is bundled or distributed with Cirrus.
+
+MIT License:
+
+- Azure.Identity (1.13.2)
+- Azure.ResourceManager (1.13.1)
+- Azure.Monitor.OpenTelemetry.Exporter (1.8.0)
+- DotNetEnv (3.1.1)
+- Microsoft.Extensions.AI (9.10.0)
+- Microsoft.Extensions.Configuration (9.0.0)
+- Microsoft.Extensions.Configuration.Binder (9.0.0)
+- Microsoft.Extensions.Configuration.Json (9.0.0)
+- Microsoft.Extensions.DependencyInjection (10.0.0)
+- Microsoft.Extensions.DependencyInjection.Abstractions (9.0.0)
+- Microsoft.Identity.Client (4.67.2)
+- Microsoft.Identity.Client (4.79.2)
+- Microsoft.Identity.Client.Extensions.Msal (4.67.2)
+- Microsoft.Identity.Client.Extensions.Msal (4.79.2)
+- System.Management.Automation (7.6.1)
+- System.Reflection.MetadataLoadContext (9.0.0)
+
+Apache License 2.0:
+
+- NuGet.Packaging (7.3.1)
+- NuGet.Protocol (7.3.1)
+- NuGet.Resolver (7.3.1)
+- NuGet.Versioning (6.13.2)
+- OpenTelemetry (1.15.3)
+- OpenTelemetry.Api (1.15.3)
+- OpenTelemetry.Instrumentation.Http (1.15.1)
+
+License pending verification (confirm via Component Governance before release):
+
+- GitHub.Copilot.SDK (1.0.0)
+- Hex1b (0.154.0)

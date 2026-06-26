@@ -52,7 +52,7 @@ static class HelpRenderer
 
         - Type a natural language query for AI help
         - Use tab completion for faster input
-        - Commands are forwarded to azv2 CLI
+        - Commands are forwarded to az CLI
 
         ---
 

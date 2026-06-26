@@ -10,11 +10,11 @@ Description: Show metadata about available configuration keys including their de
 ### Display configuration schema
 
 ```bash
-azv2 config info
+az config info
 ```
 
 ### Display only valid configuration key names
 
 ```bash
-azv2 config info --keys-only
+az config info --keys-only
 ```

@@ -7,7 +7,7 @@ description: "Dense, opinionated architectural deep-dive for senior/principal en
 
 ## 1. Executive Summary
 
-Cirrus is an extension-based CLI framework for Azure resource management that ships as a single binary (`azv2`) and a set of PowerShell modules (`Cirrus.Login`, `Cirrus.Resources`). The architecture centers on an `OrchestratorEngine` that first attempts structured command dispatch through dynamically-loaded extension DLLs — each extension registering commands via an `IExtensionIndex` with separate CLI and PowerShell lookup tables — and falls back to an AI-powered `AgentEngine` backed by Azure OpenAI when structured parsing fails. Extensions are loaded into isolated `AssemblyLoadContext` instances, sharing only `Core.*` assemblies with the host process via `ExcludeAssets=runtime` in their `.csproj` files. PowerShell modules wrap the same C# core through `CirrusServiceProvider`, a thread-safe singleton DI container initialized once per process. The target API surface is Azure Resource Manager (`management.azure.com`), with authentication handled by MSAL and all operations instrumented via OpenTelemetry with export to local files, Azure Monitor, and Zipkin (debug builds only). The system is pinned to .NET 9.0.308 via `global.json` with `rollForward: latestMinor`.
+Cirrus is an extension-based CLI framework for Azure resource management that ships as a single binary (`az`) and a set of PowerShell modules (`Cirrus.Login`, `Cirrus.Resources`). The architecture centers on an `OrchestratorEngine` that first attempts structured command dispatch through dynamically-loaded extension DLLs — each extension registering commands via an `IExtensionIndex` with separate CLI and PowerShell lookup tables — and falls back to an AI-powered `AgentEngine` backed by Azure OpenAI when structured parsing fails. Extensions are loaded into isolated `AssemblyLoadContext` instances, sharing only `Core.*` assemblies with the host process via `ExcludeAssets=runtime` in their `.csproj` files. PowerShell modules wrap the same C# core through `CirrusServiceProvider`, a thread-safe singleton DI container initialized once per process. The target API surface is Azure Resource Manager (`management.azure.com`), with authentication handled by MSAL and all operations instrumented via OpenTelemetry with export to local files, Azure Monitor, and Zipkin (debug builds only). The system is pinned to .NET SDK 10.0.203 via `global.json` with `rollForward: latestMinor`.
 
 ---
 
@@ -42,8 +42,8 @@ def execute_command(args):
 **Why exceptions instead of explicit routing?** Three reasons:
 
 1. **Open-closed principle for extensions.** New extensions only need to implement `IExtensionIndex` and `ICommand`. No central router to modify.
-2. **Natural language is the default.** If you type `azv2 "create a resource group in eastus"`, that string will fail structured parsing and fall through to the AI — exactly the desired behavior.
-3. **AI can fix your typos.** If you type `azv2 gropu list`, the structured parser throws, the AI recognizes the intent, extracts `azv2 group list`, and the retry loop executes it correctly.
+2. **Natural language is the default.** If you type `az "create a resource group in eastus"`, that string will fail structured parsing and fall through to the AI — exactly the desired behavior.
+3. **AI can fix your typos.** If you type `az gropu list`, the structured parser throws, the AI recognizes the intent, extracts `az group list`, and the retry loop executes it correctly.
 
 The tradeoff is that exception-based control flow is expensive (stack unwinding, allocation) and harder to debug. For a CLI that runs once and exits, this is acceptable. For a long-running service, it would not be.
 
@@ -424,7 +424,7 @@ classDiagram
 | `NewResourceGroupProcessor` | Extension cmd | `src/Extensions/Resources/Processors/NewResourceGroup.cs` | PUT to `management.azure.com` → parse response |
 | `AddExtensionProcessor` | Extension cmd | `src/Extensions/Extension/Add.cs` | `ExtensionInstaller` → NuGet resolve → extract to `~/.cirrus/extensions/` |
 
-### Execution Flow: `azv2 group list --SubscriptionId abc123`
+### Execution Flow: `az group list --SubscriptionId abc123`
 
 ```mermaid
 sequenceDiagram
@@ -443,7 +443,7 @@ sequenceDiagram
     participant Cmd as ListResourceGroupProcessor
     participant ARM as management.azure.com
 
-    User->>Program: azv2 group list --SubscriptionId abc123
+    User->>Program: az group list --SubscriptionId abc123
     Program->>CSP: Initialize(ClientType.CLI)
     CSP->>CSP: Register all singletons
     Program->>ED: Parse(["group", "list", "--SubscriptionId", "abc123"])
@@ -485,7 +485,7 @@ sequenceDiagram
 
 ### Execution Flow: Natural Language Input
 
-When the user types a natural-language string like `azv2 "create a resource group called mygroup"`, the `ExtensionDispatcher.Parse()` call fails because `"create a resource group called mygroup"` does not map to any known command group. `Program.Main` catches this exception and calls `TryAgentFallbackAsync(args)`:
+When the user types a natural-language string like `az "create a resource group called mygroup"`, the `ExtensionDispatcher.Parse()` call fails because `"create a resource group called mygroup"` does not map to any known command group. `Program.Main` catches this exception and calls `TryAgentFallbackAsync(args)`:
 
 1. `AgentEngine.ExecuteCommandAsync()` is invoked with the raw args.
 2. `CloudAgent.CreateAsync(flavor)` loads `.env`, creates an `AzureOpenAIClient`, and loads `prompt.md` with `{{flavor}}` replaced by `"azure cli"`.
@@ -557,7 +557,7 @@ graph TB
 | **Version support** | None — returns `null` if version specified | Full semantic versioning via `NuGetVersion` |
 | **Resolution** | `AssemblyDependencyResolver` (reads `.deps.json`) | Directory-based: scans for DLLs by name |
 | **Version selection** | N/A | Latest semantic version if version not specified |
-| **Use case** | Extensions compiled and shipped with the CLI | User-installed extensions via `azv2 extension add` |
+| **Use case** | Extensions compiled and shipped with the CLI | User-installed extensions via `az extension add` |
 
 ### AssemblyLoadContext Isolation
 
@@ -643,7 +643,7 @@ The naming pipeline converts CLI nouns to fully-qualified assembly names:
 ```
 CLI noun → CommandGroupIndex → Extension folder → EngineExtension.ResolveAssemblyName()
 "group"  → "Resources"       → "Resources"     → "Microsoft.Azure.Cirrus.Extensions.Resources"
-"login"  → "Login"           → "Login"         → "Microsoft.Azure.Cirrus.Extensions.Login"
+"login"  → "Login"           → "Login"         → "Microsoft.Azure.Azclips.Extensions.Login"
 ```
 
 From `EngineExtension` (`src/Core/Core.Engine/EngineExtension.cs`):
@@ -774,16 +774,16 @@ The `CommandParser` (`src/Core/Core.Engine/CommandParser.cs`) supports four form
 
 ```bash
 # Long option with equals
-azv2 group create --Name=mygroup --Location=eastus
+az group create --Name=mygroup --Location=eastus
 
 # Long option with space
-azv2 group create --Name mygroup --Location eastus
+az group create --Name mygroup --Location eastus
 
 # Short option (single letter)
-azv2 group create -n mygroup -l eastus
+az group create -n mygroup -l eastus
 
 # Flags (no value = "true")
-azv2 login --UseDeviceCode
+az login --UseDeviceCode
 ```
 
 Options are stored in a case-insensitive `Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)`.
@@ -792,9 +792,9 @@ Options are stored in a case-insensitive `Dictionary<string, string>(StringCompa
 
 | Cmdlet | Module | Parameters | Underlying Command |
 |--------|--------|------------|-------------------|
-| `Connect-CirrusAccount` | Login | `-SubscriptionId` (required), `-TenantId` (required) | `LoginProcessor` |
-| `Disconnect-CirrusAccount` | Login | (none) | `LogoutProcessor` |
-| `Get-CirrusAccount` | Login | (none) | `GetContextProcessor` |
+| `Connect-AzAccount` | Login | `-SubscriptionId` (required), `-TenantId` (optional), `-UseDeviceCode` (optional) | `LoginProcessor` |
+| `Disconnect-AzAccount` | Login | (none) | `LogoutProcessor` |
+| `Get-AzAccount` | Login | (none) | `GetContextProcessor` |
 | `New-ResourceGroup` | Resources | `-Name` (required), `-Location` (required), `-SubscriptionId` | `NewResourceGroupProcessor` |
 | `Get-ResourceGroup` | Resources | `-Name`, `-SubscriptionId` | `GetResourceGroupProcessor` / `ListResourceGroupProcessor` |
 
@@ -873,13 +873,13 @@ Only active in `#if DEBUG` builds. The Zipkin exporter is compiled out of Releas
 ```json
 {
     "sdk": {
-        "version": "9.0.308",
+        "version": "10.0.203",
         "rollForward": "latestMinor"
     }
 }
 ```
 
-The `rollForward: "latestMinor"` policy means any 9.x SDK will work, but prefers 9.0.308. CI and local builds must have a compatible .NET 9.x SDK installed.
+The `rollForward: "latestMinor"` policy means any compatible 10.x SDK will work, but prefers 10.0.203. CI and local builds must have a compatible .NET 10.x SDK installed.
 
 ### Dev Container Environment
 
@@ -887,7 +887,7 @@ The `.devcontainer/devcontainer.json` configures:
 
 - **Docker Compose** with app container + Zipkin sidecar.
 - **Port forwarding**: 50000-50009 (MSAL auth redirects), 9411 (Zipkin UI).
-- **PATH injection**: Adds `artifacts/Debug/Core.Cli` and `artifacts/Release/Core.Cli` to `$PATH` so `azv2` is directly invocable after build.
+- **PATH injection**: Adds `artifacts/Debug/Core.Cli` and `artifacts/Release/Core.Cli` to `$PATH` so `az` is directly invocable after build.
 - **Features**: .NET SDK, GitHub CLI, Node.js LTS, PowerShell 7.5.4.
 
 ---
@@ -984,8 +984,8 @@ dotnet build cirrus.slnx
 ./scripts/deploy.sh
 
 # Run CLI after deploy
-./bin/azv2 group list
-./bin/azv2 "create a resource group"
+./bin/az group list
+./bin/az "create a resource group"
 
 # Import PowerShell modules
 Import-Module ./bin/Cirrus.psd1
@@ -1156,7 +1156,7 @@ Read these source files in order to build a complete mental model:
 ├── build/                              # PowerShell build scripts
 ├── scripts/                            # deploy.sh
 ├── docs/spec/                          # Design specifications
-├── global.json                         # .NET SDK 9.0.308 pin
+├── global.json                         # .NET SDK 10.0.203 pin
 ├── cirrus.slnx                         # Solution file
 └── AGENTS.md                           # Repository coding guidelines
 ```

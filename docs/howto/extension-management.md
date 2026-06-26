@@ -6,36 +6,44 @@ For extension **authoring**, see [Extension-Development-For-Private-Preview.md](
 
 ## What is an extension?
 
-An extension is a NuGet package that contributes one or more top-level command **namespaces** to `azv2`. For example, the Compute extension contributes `vm` and `disk`, so installing it makes `azv2 vm list` and `azv2 disk create` work.
+An extension is a NuGet package that contributes one or more top-level command **namespaces** to `az`. For example, the Compute extension contributes `vm` and `disk`, so installing it makes `az vm list` and `az disk create` work.
 
-Installed extensions live under `~/.cirrus/extensions/<packageId>/<version>/` and are tracked in `~/.cirrus/extensions/registry.json`.
+Installed extensions live under `~/.cirrus/extensions/<packageId>/<version>/`. Cirrus **discovers** them automatically at runtime by walking the extensions directory — no install manifest is required. User preferences (pinning, version selection) are stored in `~/.cirrus/extensions/registry.json` as an optional overlay on top of discovered extensions.
 
 Built-in namespaces (`extension`, `login`, `config`) are part of the host and cannot be removed.
+
+## Discovery-First Model
+
+Cirrus uses a **discovery-first** approach to extension management:
+
+1. **Discovery** (source of truth): At runtime, Cirrus walks `~/.cirrus/extensions/` to find all installed packages and versions. This is what determines which extensions are available for dispatch, help, and listing.
+2. **Registry** (preferences layer): `registry.json` records user preferences — pinned versions, active-version overrides, install timestamps — but is **not** the authoritative source of installed state. If an extension is present on disk but has no registry entry, it is still discovered and available.
+3. **Resilience**: If `registry.json` is missing or corrupted, Cirrus continues to work with discovered extensions. Users only lose their pinning preferences.
 
 ## Quick start
 
 ```bash
 # Discover what provides a verb you don't have
-azv2 vm list
+az vm list
 # → Error: 'vm list' is provided by extension 'Microsoft.Azure.Cirrus.Extensions.Compute',
 #   which is not installed. Install it with:
-#     azv2 extension add --name Compute
+#     az extension add --name Compute
 
 # Install
-azv2 extension add --name Compute
+az extension add --name Compute
 
 # Use it
-azv2 vm list
+az vm list
 
 # See what you have
-azv2 extension list
+az extension list
 ```
 
 ## Installing — `extension add`
 
 ```bash
-azv2 extension add --name <token> [--version <v>] [--feed-url <url>] [--pin] [--force]
-azv2 extension add --path <path-to.nupkg> [--pin] [--force]
+az extension add --name <token> [--version <v>] [--feed-url <url>] [--pin] [--force]
+az extension add --path <path-to.nupkg> [--pin] [--force]
 ```
 
 | Flag         | Purpose                                                                                                                                                                                                                                                                                                                                                   |
@@ -52,16 +60,16 @@ azv2 extension add --path <path-to.nupkg> [--pin] [--force]
 Both of these install the same package:
 
 ```bash
-azv2 extension add --name Compute                                      # short suffix
-azv2 extension add --name Microsoft.Azure.Cirrus.Extensions.Compute    # full id
+az extension add --name Compute                                      # short suffix
+az extension add --name Microsoft.Azure.Cirrus.Extensions.Compute    # full id
 ```
 
-Third-party packages must use the dotted form: `azv2 extension add --name Contoso.Foo`.
+Third-party packages must use the dotted form: `az extension add --name Contoso.Foo`.
 
 A verb token is rejected with a usage error:
 
 ```
-> azv2 extension add --name vm
+> az extension add --name vm
 Error: [UsageError] '--name vm' is a verb, not a package identifier.
   Use '--name Compute' to install the package that provides 'vm'.
 ```
@@ -75,7 +83,7 @@ When `--name` misses every configured feed and you're inside the `cirrus` repo, 
 ```
 Error: [ExtensionNotFound] ...
 A local build artifact was found. Try:
-  azv2 extension add --path "C:\src\cirrus\artifacts\Debug\Microsoft.Azure.Cirrus.Extensions.Compute\Microsoft.Azure.Cirrus.Extensions.Compute.1.0.0-alpha.nupkg"
+  az extension add --path "C:\src\cirrus\artifacts\Debug\Microsoft.Azure.Cirrus.Extensions.Compute\Microsoft.Azure.Cirrus.Extensions.Compute.1.0.0-alpha.nupkg"
 ```
 
 The probe walks up from cwd looking for `cirrus.slnx`, then globs `artifacts/Debug/<packageId>/`. It's suggestion-only — Cirrus never auto-installs from local builds.
@@ -89,10 +97,12 @@ The probe walks up from cwd looking for `cirrus.slnx`, then globs `artifacts/Deb
 ## Listing — `extension list`
 
 ```bash
-azv2 extension list                  # default: one row per package
-azv2 extension list --by-verb        # regrouped by namespace
-azv2 extension list --output json    # structured output
+az extension list                  # default: one row per package
+az extension list --by-verb        # regrouped by namespace
+az extension list --output json    # structured output
 ```
+
+`az extension list` runs a **discovery pass** to enumerate all installed extensions on disk, then overlays user preferences (pins, version selections) from the registry. Extensions appear in the output even if they have no registry entry — a fresh directory discovery at runtime is always authoritative.
 
 Default output:
 
@@ -112,12 +122,12 @@ group
   Microsoft.Azure.Cirrus.Extensions.Resources     1.0.0
 ```
 
-JSON output carries `live` and `stale` arrays. Stale entries are registry rows whose on-disk DLLs have gone missing (e.g. someone deleted `~/.cirrus/extensions/`). They're never dispatched to; remove them with `azv2 extension remove <name>`.
+JSON output reflects the union of discovered extensions. **Note:** `installed-at` is metadata from the registry if available; if missing (for example, an extension copied to disk without an install record), runtime discovery defaults it to the current UTC timestamp for that invocation.
 
 ## Inspecting — `extension show`
 
 ```bash
-azv2 extension show <name>
+az extension show <name>
 ```
 
 Shows full path, version, pin state, source feed, install date, declared namespaces, and the full `contributions` list (every `(verb, path)` the extension owns).
@@ -125,7 +135,7 @@ Shows full path, version, pin state, source feed, install date, declared namespa
 ## Updating — `extension update`
 
 ```bash
-azv2 extension update <name> [--version <v>] [--feed-url <url>] [--force]
+az extension update <name> [--version <v>] [--feed-url <url>] [--force]
 ```
 
 Replaces the installed version in place. Pinned extensions require `--force`.
@@ -135,17 +145,19 @@ Replaces the installed version in place. Pinned extensions require `--force`.
 ## Pinning — `extension pin` / `extension unpin`
 
 ```bash
-azv2 extension pin <name>            # pin the currently installed version
-azv2 extension pin <name>@1.2.0      # pin a specific version (installs it if needed)
-azv2 extension unpin <name>
+az extension pin <name>            # pin the currently installed version
+az extension pin <name>@1.2.0      # pin a specific version (installs it if needed)
+az extension unpin <name>
 ```
 
-Pinned extensions are skipped by `update` unless you pass `--force`. Useful for freezing a known-good version while you upgrade other parts of the toolchain.
+Pinning stores a **user preference** in the registry that freezes a known-good version against future `update` commands (unless you pass `--force`). Useful for freezing a known-good version while you upgrade other parts of the toolchain.
+
+The pinned state is persisted in `registry.json` and consulted at runtime; unpinned extensions always fall back to the most recently installed version (determined by discovery).
 
 ## Removing — `extension remove`
 
 ```bash
-azv2 extension remove <name>
+az extension remove <name>
 ```
 
 Deletes `~/.cirrus/extensions/<packageId>/` and the registry entry. Built-in namespaces (`extension`, `login`, `config`) cannot be removed.
@@ -192,39 +204,35 @@ The extension's `[CirrusCompatibility]` range excludes your `core` version. Eith
 
 ### `RegistryConcurrency` (exit 8)
 
-Two `azv2` invocations modified the registry simultaneously. The mtime guard rejected the second writer. Just retry.
+Two `az` invocations modified the registry simultaneously. The mtime guard rejected the second writer. Just retry.
 
 ### `RegistryInvalid` (exit 9)
 
 The on-disk `registry.json` violates the leaf-uniqueness invariant — usually from a hand-edit. The error names both offending packages. Restore from a backup or `extension remove` one of them by editing the file directly, then rerun.
-
-### Stale extensions in `extension list`
-
-A row appears under `stale` when its install directory is missing. Run `azv2 extension remove <name>` to clean up the registry.
 
 ### Force a fresh assembly load — `--no-cache`
 
 Cirrus caches loaded extension assemblies per `(packageId, version)` for the life of the process. Long-running hosts (TUI) benefit; one-shot CLI invocations are unaffected. To force a fresh load (debugging, benchmarking):
 
 ```bash
-azv2 --no-cache vm list
+az --no-cache vm list
 ```
 
 Or set the config / env var to disable caching globally:
 
 ```bash
-azv2 config set --key assemblyLoading.bypassExtensionCache --value true
+az config set --key assemblyLoading.bypassExtensionCache --value true
 # or
 $env:CIRRUS_NO_EXTENSION_CACHE = "true"
 ```
 
 ## Where things live
 
-| Path                                                  | Contents                                                                                         |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `~/.cirrus/extensions/registry.json`                  | Installed-extension manifest (schema v2). Authoritative.                                         |
-| `~/.cirrus/extensions/<packageId>/<version>/`         | Extracted DLLs for one installed version.                                                        |
-| `azv2.dll` (embedded resource `extension-hints.json`) | Build-time catalog of first-party verb → package mappings. Used for the unknown-verb suggestion. |
+| Path                                                | Contents                                                                                                                                      |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `~/.cirrus/extensions/<packageId>/<version>/`       | Extracted DLLs for one installed version. **Authoritative source** for installed extensions.                                                  |
+| `~/.cirrus/extensions/registry.json`                | User preferences (pinning, active version override, install metadata). Optional; discovery works even if missing.                             |
+| `az.dll` (embedded resource `extension-hints.json`) | Build-time catalog of first-party verb → package mappings. Used for the unknown-verb suggestion in case no installed extension owns the verb. |
 
 ## Exit code reference
 

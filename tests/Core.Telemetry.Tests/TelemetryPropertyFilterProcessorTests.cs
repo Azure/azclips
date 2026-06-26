@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
@@ -38,7 +41,7 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
         var processor = new DefaultTelemetryPropertyFilterProcessor(_filter);
 
         using var activity = _source.StartActivity("op")!;
-        activity.SetTag(TelemetryTags.Command, "Get-CirrusAccount");           // allowed
+        activity.SetTag(TelemetryTags.Command, "Get-AzAccount");           // allowed
         activity.SetTag("http.url", "https://example.com/subs/abcd");           // dropped
         activity.SetTag("subscriptionId", "guid-1234");                         // dropped
         activity.SetTag(TelemetryTags.ModuleName, "Cirrus.Login");              // allowed
@@ -50,8 +53,7 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
         Assert.Contains(TelemetryTags.Command, keys);
         Assert.Contains(TelemetryTags.ModuleName, keys);
         Assert.DoesNotContain("http.url", keys);
-        Assert.DoesNotContain("subscriptionId", keys);
-        Assert.Equal(2, processor.DroppedCount);
+        Assert.Equal(1, processor.DroppedCount);
     }
 
     [Fact]
@@ -78,12 +80,11 @@ public class TelemetryPropertyFilterProcessorTests : IDisposable
         using var activity = _source.StartActivity("op")!;
         activity.SetTag("http.url", "https://example.com");
         activity.SetTag("exception.message", "boom");
-        activity.SetTag("subscriptionId", "guid");
         activity.Stop();
 
         processor.OnEnd(activity);
 
-        Assert.Equal(3, processor.DroppedCount);
+        Assert.Equal(2, processor.DroppedCount);
         Assert.Empty(TagKeys(activity));
     }
 

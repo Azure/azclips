@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Core.Extensions;
 
 namespace Core.Cli.Exceptions;
@@ -29,5 +32,5 @@ public sealed class ExtensionNotInstalledException : CirrusErrorException
 
     private static string BuildMessage(string verb, string packageId) =>
         $"Verb '{verb}' is provided by extension '{packageId}', which is not installed.\n" +
-        $"Install it with: azv2 extension add --name {Constants.StripCirrusPrefix(packageId)}";
+        $"Install it with: az extension add --name {Constants.StripKnownExtensionPrefix(packageId)}";
 }

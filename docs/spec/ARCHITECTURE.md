@@ -45,14 +45,14 @@ Cirrus is a modular Azure CLI tool with **AI-powered fallback** for natural lang
 
 ```bash
 # Structured commands (extension routing)
-$ azv2 group create --name mygroup --location eastus
+$ az group create --name mygroup --location eastus
 
 # Natural language (AI fallback)
-$ azv2 create a resource group called mygroup in westus
-$ azv2 how do I list virtual machines
+$ az create a resource group called mygroup in westus
+$ az how do I list virtual machines
 
 # Typo correction (AI fallback)
-$ azv2 I would like to logni
+$ az I would like to logni
 ```
 
 **What the Bootstrapper does:**
@@ -64,7 +64,7 @@ $ azv2 I would like to logni
 
 ```powershell
 # Direct cmdlet and function execution
-Connect-CirrusAccount -TenantId <tenant-id>
+Connect-AzAccount -SubscriptionId <subscription-id> -TenantId <tenant-id>
 New-ResourceGroup -Name mygroup -Location eastus
 ```
 
@@ -76,7 +76,7 @@ New-ResourceGroup -Name mygroup -Location eastus
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│              User Input: "azv2 <command>"                   │
+│              User Input: "az <command>"                   │
 └────────────────────┬────────────────────────────────────────┘
                      │
                      ↓
@@ -192,7 +192,7 @@ New-ResourceGroup -Name mygroup -Location eastus
 | **PowerShell Help Markdown** | `src/PS/<Module>/help/*.md`                                | Authored PowerShell help (PlatyPS → MAML)     |
 | **Help Runtime Provider**    | `src/CLI/Help/MarkdownCommandHelpProvider.cs`              | Runtime markdown parsing for CLI              |
 | **Help Tool**                | `tools/Help/Cirrus.Help.Tool/`                             | Build-time validators + manifest emitter      |
-| **Login Extension**          | `artifacts/*/Microsoft.Azure.Cirrus.Extensions.Login/`     | Authentication commands                       |
+| **Login Extension**          | `artifacts/*/Microsoft.Azure.Azclips.Extensions.Login/`     | Authentication commands                       |
 | **Resources Extension**      | `artifacts/*/Microsoft.Azure.Cirrus.Extensions.Resources/` | Resource management commands                  |
 
 ### Dependency Graph
@@ -398,14 +398,14 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
 {
   "type": "sample_command",
   "explanation": "Here's how to create a resource group:",
-  "command": "azv2 group create --name <name> --location <location>"
+  "command": "az group create --name <name> --location <location>"
 }
 
 // Natural language execution
 {
   "type": "executable_command",
   "explanation": "I'll create a resource group named 'mygroup'.",
-  "command": "azv2 group create --name mygroup --location westus"
+  "command": "az group create --name mygroup --location westus"
 }
 
 // Need more info
@@ -497,7 +497,7 @@ For the design philosophy, validator details, and authoring schema, see [help-sy
 ### Example 1: Structured CLI Command (Success)
 
 ```bash
-$ azv2 group create --name mygroup --location eastus
+$ az group create --name mygroup --location eastus
 ```
 
 **Flow:**
@@ -517,7 +517,7 @@ $ azv2 group create --name mygroup --location eastus
 ### Example 2: CLI with Typo (AI Correction)
 
 ```bash
-$ azv2 grup create --name mygroup --location eastus  # Typo: "grup"
+$ az grup create --name mygroup --location eastus  # Typo: "grup"
 ```
 
 **Flow:**
@@ -527,7 +527,7 @@ $ azv2 grup create --name mygroup --location eastus  # Typo: "grup"
 3. Catch block → `TryAgentFallbackAsync(args)`
 4. `AgentEngine` created, sends to `CloudAgent`
 5. Azure OpenAI recognizes "grup" → "group" typo
-6. Returns `sample_command` JSON: `azv2 group create --name <name> --location <location>`
+6. Returns `sample_command` JSON: `az group create --name <name> --location <location>`
 7. Display corrected syntax to user
 8. Return 0
 
@@ -538,7 +538,7 @@ $ azv2 grup create --name mygroup --location eastus  # Typo: "grup"
 ### Example 3: Natural Language CLI (Interactive)
 
 ```bash
-$ azv2 create a resource group called mygroup in westus
+$ az create a resource group called mygroup in westus
 ```
 
 **Flow:**
@@ -552,7 +552,7 @@ $ azv2 create a resource group called mygroup in westus
 7. `AgentEngine` prompts user
 8. User responds with natural language (e.g., "yes", "sure", "go ahead")
 9. Agent interprets intent and returns `executable_command`
-10. Recursive call: `azv2 group create --name mygroup --location westus`
+10. Recursive call: `az group create --name mygroup --location westus`
 11. Extension executes command
 12. Return 0
 
@@ -571,15 +571,15 @@ $ azv2 create a resource group called mygroup in westus
 **Example:**
 
 ```bash
-$ azv2 I would like to logni
+$ az I would like to logni
 
 ⠋ Thinking...
 
 It looks like you want to log in. Here are the login commands:
 
-azv2 login
-azv2 login --service-principal --username <appId> --password <password> --tenant <tenantId>
-azv2 login --use-device-code
+az login
+az login --service-principal --username <appId> --password <password> --tenant <tenantId>
+az login --use-device-code
 ```
 
 **Outcome:** User sees help text, no execution.
@@ -597,17 +597,17 @@ azv2 login --use-device-code
 **Example:**
 
 ```bash
-$ azv2 how do I create a resource group
+$ az how do I create a resource group
 
 ⠋ Thinking...
 
 To create a resource group:
 
-azv2 group create --name <resource-group-name> --location <location>
+az group create --name <resource-group-name> --location <location>
 
 # Examples:
-azv2 group create --name myResourceGroup --location eastus
-azv2 group create --name prodResourceGroup --location westus2
+az group create --name myResourceGroup --location eastus
+az group create --name prodResourceGroup --location westus2
 ```
 
 **Outcome:** User manually copies and fills in placeholders.
@@ -625,14 +625,14 @@ azv2 group create --name prodResourceGroup --location westus2
 **Example:**
 
 ```bash
-$ azv2 create a resource group called mygroup in westus
+$ az create a resource group called mygroup in westus
 
 ⠋ Thinking...
 
 I'll create a resource group named "mygroup" in the westus region.
 
 Command:
-azv2 group create --name mygroup --location westus
+az group create --name mygroup --location westus
 
 Execute this command? (yes/no): yes
 
@@ -780,7 +780,7 @@ dotnet test
 For tests requiring Azure OpenAI:
 
 1. Set up `.env` file in `src/Core/Core.Agent/`
-2. Run CLI manually: `./artifacts/Release/Core.Cli/azv2 how do I create a resource group`
+2. Run CLI manually: `./artifacts/Release/Core.Cli/az how do I create a resource group`
 3. Verify spinner, AI response, command output
 
 ## Configuration
@@ -853,7 +853,7 @@ dotnet build -c Release cirrus.slnx
 1. Restore NuGet packages
 2. Build solution to `artifacts/Release/`
 3. Extensions built to their respective directories
-4. CLI executable generated as `azv2`
+4. CLI executable generated as `az`
 
 ### Directory Structure After Build
 
@@ -866,17 +866,17 @@ artifacts/
       Core.Engine.dll
       Core.Implementation.dll
     Core.Cli/
-      azv2                                            ← CLI executable
-      azv2.deps.json
-      azv2.runtimeconfig.json
+      az                                            ← CLI executable
+      az.deps.json
+      az.runtimeconfig.json
       prompt.md
       Resources.psd1                                  ← PowerShell Resources module
       Resources.psm1
       runtimes/
-    Microsoft.Azure.Cirrus.Extensions.Login/
+    Microsoft.Azure.Azclips.Extensions.Login/
       Login.psd1                                      ← PowerShell Login module
       Login.psm1
-      Microsoft.Azure.Cirrus.Extensions.Login.dll
+      Microsoft.Azure.Azclips.Extensions.Login.dll
     Microsoft.Azure.Cirrus.Extensions.Resources/
       Resources.psd1
       Resources.psm1
@@ -887,11 +887,11 @@ artifacts/
 
 ```bash
 # After build
-./artifacts/Release/Core.Cli/azv2 group create --name test --location eastus
+./artifacts/Release/Core.Cli/az group create --name test --location eastus
 
 # Or add to PATH
 export PATH="$PATH:/workspaces/cirrus/artifacts/Release/Core.Cli"
-azv2 --help
+az --help
 ```
 
 ### Using PowerShell Modules
@@ -904,7 +904,7 @@ Import-Module ./src/PS/Login/Login.psd1
 Import-Module ./src/PS/Resources/Resources.psd1
 
 # Use cmdlets and functions
-Connect-CirrusAccount -TenantId <tenant-id>
+Connect-AzAccount -SubscriptionId <subscription-id> -TenantId <tenant-id>
 New-ResourceGroup -Name test -Location eastus
 ```
 

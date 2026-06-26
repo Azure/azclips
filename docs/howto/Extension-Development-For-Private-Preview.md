@@ -153,7 +153,7 @@ Ask LLM to review `Cirrus/src/Extensions/{ExtensionName}/ExtensionIndex.cs` and 
 # Manual Verification
 * Go to root of `Cirrus`
 * `dotnet build cirrus.slnx`
-* For CLI, `Cirrus\artifacts\Debug\Core.Cli\azv2.exe {CommandGroupName} {Command} ...`
+* For CLI, `Cirrus\artifacts\Debug\Core.Cli\az.exe {CommandGroupName} {Command} ...`
 * For PowerShell
     * `Import-module Cirrus\src\PS\Login\login.psd1`
     * `Import-module Cirrus\src\PS\{ModuleName}\{ModuleName}.psd1`

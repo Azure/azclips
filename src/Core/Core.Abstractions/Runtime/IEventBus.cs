@@ -1,4 +1,7 @@
-﻿namespace Core.Abstractions.Runtime
+﻿// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
+namespace Core.Abstractions.Runtime
 {
     using System.Threading;
     using System.Threading.Tasks;

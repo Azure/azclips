@@ -1,7 +1,11 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
 using Core.Extensions;
+using NuGet.Versioning;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Extension.Processors;
 
@@ -47,7 +51,13 @@ public class RemoveExtensionProcessor : IProcessor
         }
 
         var store = new FileExtensionRegistryStore();
-        var registry = store.Load();
+        var fileRegistry = store.Load();
+
+        // Metadata-only install lookup for remove: enumerate package/version directories without
+        // loading extension assemblies. Loading assemblies here can lock DLLs on Windows and make
+        // in-process delete fail.
+        var installer = new ExtensionInstaller(loggingService);
+        var registry = BuildInstalledRegistryFromFilesystem(installer.InstallPath, fileRegistry);
 
         if (!RegistryLookup.TryFind(registry, Name, out var match))
         {
@@ -74,28 +84,14 @@ public class RemoveExtensionProcessor : IProcessor
         activity?.SetTag("extension.contribution_count", entry.Contributions.Count);
 
         // Always wipe the whole package directory (strict single-version means at most one).
-        var installer = new ExtensionInstaller(loggingService);
         var packageDir = Path.Combine(installer.InstallPath, packageId);
 
-        // Registry-first ordering: a partial file-delete leaves us with no orphan registry entry.
-        registry.Extensions.Remove(packageId);
-        store.Save(registry);
+        EnsurePackageDirectoryDeleted(packageDir, packageId);
 
-        try
-        {
-            if (Directory.Exists(packageDir))
-            {
-                Directory.Delete(packageDir, recursive: true);
-            }
-        }
-        catch (IOException ex)
-        {
-            loggingService.Warn($"Removed registry entry for '{packageId}' but failed to delete '{packageDir}': {ex.Message}");
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            loggingService.Warn($"Removed registry entry for '{packageId}' but failed to delete '{packageDir}': {ex.Message}");
-        }
+        // Remove preference entry only after payload delete succeeds so the command does not
+        // report success while the extension remains discoverable on disk.
+        fileRegistry.Extensions.Remove(packageId);
+        store.Save(fileRegistry);
 
         return new
         {
@@ -104,6 +100,72 @@ public class RemoveExtensionProcessor : IProcessor
             Version = entry.Version,
             Removed = true,
         };
+    }
+
+    public static ExtensionRegistry BuildInstalledRegistryFromFilesystem(string installRoot, ExtensionRegistry fileRegistry)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(installRoot);
+        ArgumentNullException.ThrowIfNull(fileRegistry);
+
+        var discovered = new ExtensionRegistry { SchemaVersion = ExtensionRegistry.CurrentSchemaVersion };
+
+        if (!Directory.Exists(installRoot))
+        {
+            return discovered;
+        }
+
+        foreach (var packageDir in Directory.GetDirectories(installRoot))
+        {
+            var packageId = Path.GetFileName(packageDir);
+            if (string.IsNullOrWhiteSpace(packageId))
+            {
+                continue;
+            }
+
+            var entry = new ExtensionRegistryEntry
+            {
+                Version = ResolveLatestVersion(packageDir),
+                Pinned = false,
+                Source = null,
+                InstalledAt = DateTimeOffset.UtcNow,
+            };
+
+            // Ignore directories that don't contain a valid semantic-version child folder.
+            // They are not install roots for a removable extension payload.
+            if (string.IsNullOrEmpty(entry.Version))
+            {
+                continue;
+            }
+
+            if (fileRegistry.Extensions.TryGetValue(packageId, out var fileEntry))
+            {
+                entry.Pinned = fileEntry.Pinned;
+                entry.Source = fileEntry.Source;
+                entry.InstalledAt = fileEntry.InstalledAt;
+            }
+
+            discovered.Extensions[packageId] = entry;
+        }
+
+        return discovered;
+    }
+
+    private static string ResolveLatestVersion(string packageDir)
+    {
+        var versionDirs = Directory.GetDirectories(packageDir);
+        if (versionDirs.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        var latest = versionDirs
+            .Select(dir => (dir, parsed: NuGetVersion.TryParse(Path.GetFileName(dir), out var parsed) ? parsed : null))
+            .Where(x => x.parsed is not null)
+            .OrderByDescending(x => x.parsed)
+            .Select(x => x.parsed!.ToNormalizedString())
+            .FirstOrDefault();
+
+        return latest ?? string.Empty;
     }
 
     public string Process(bool Serialize)
@@ -116,6 +178,91 @@ public class RemoveExtensionProcessor : IProcessor
         else
         {
             return result.ToString() ?? "";
+        }
+    }
+
+    public static void EnsurePackageDirectoryDeleted(
+        string packageDir,
+        string packageId,
+        Action<string>? deleteDirectory = null)
+    {
+        if (!Directory.Exists(packageDir))
+        {
+            return;
+        }
+
+        deleteDirectory ??= path => Directory.Delete(path, recursive: true);
+
+        try
+        {
+            deleteDirectory(packageDir);
+        }
+        catch (DirectoryNotFoundException)
+        {
+            // Idempotent success: if the directory vanished between existence check and delete,
+            // the desired postcondition (package directory absent) is already true.
+            return;
+        }
+        catch (PathTooLongException ex)
+        {
+            throw new CirrusErrorException(
+                "ExtensionRemoveFailed",
+                1,
+                $"Failed to remove extension '{packageId}'. Path too long deleting '{packageDir}': {ex.Message}",
+                new Dictionary<string, object?>
+                {
+                    ["packageId"] = packageId,
+                    ["path"] = packageDir,
+                });
+        }
+        catch (IOException ex)
+        {
+            throw new CirrusErrorException(
+                "ExtensionRemoveFailed",
+                1,
+                $"Failed to remove extension '{packageId}'. Could not delete '{packageDir}': {ex.Message}",
+                new Dictionary<string, object?>
+                {
+                    ["packageId"] = packageId,
+                    ["path"] = packageDir,
+                });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            throw new CirrusErrorException(
+                "ExtensionRemoveFailed",
+                1,
+                $"Failed to remove extension '{packageId}'. Access denied deleting '{packageDir}': {ex.Message}",
+                new Dictionary<string, object?>
+                {
+                    ["packageId"] = packageId,
+                    ["path"] = packageDir,
+                });
+        }
+        catch (System.Security.SecurityException ex)
+        {
+            throw new CirrusErrorException(
+                "ExtensionRemoveFailed",
+                1,
+                $"Failed to remove extension '{packageId}'. Security policy blocked delete for '{packageDir}': {ex.Message}",
+                new Dictionary<string, object?>
+                {
+                    ["packageId"] = packageId,
+                    ["path"] = packageDir,
+                });
+        }
+
+        if (Directory.Exists(packageDir))
+        {
+            throw new CirrusErrorException(
+                "ExtensionRemoveFailed",
+                1,
+                $"Failed to remove extension '{packageId}'. Directory '{packageDir}' still exists after delete.",
+                new Dictionary<string, object?>
+                {
+                    ["packageId"] = packageId,
+                    ["path"] = packageDir,
+                });
         }
     }
 }

@@ -1,19 +1,12 @@
-function Connect-CirrusAccount {
-    [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
-    param (
-        [Parameter(Mandatory = $true)]
-        [string] $SubscriptionId,
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
 
-        [Parameter(Mandatory = $false)]
-        [string] $TenantId,
-        
-        [Parameter(Mandatory = $false)]
-        [string] $UseDeviceCode
-    )
+function Get-AzAccount {
+    [CmdletBinding()]
+    param()
 
     begin {
-        # Start telemetry activity
-        $script:activity = Start-CmdletActivity -CmdletName "Connect-CirrusAccount" -Parameters $PSBoundParameters
+        $script:activity = Start-CmdletActivity -CmdletName "Get-AzAccount" -Parameters $PSBoundParameters
 
         $engine = [Core.DependencyInjection.CirrusServiceProvider]::GetRequiredService([Core.Abstractions.IEngine])
         $outputDelegate = [Core.Abstractions.Runtime.CommandOutputDelegate]{
@@ -26,18 +19,8 @@ function Connect-CirrusAccount {
     process {
         try {
             $extensionName = "Login";
-            $commandName = "Connect-CirrusAccount";
+            $commandName = "Get-AzAccount";
             $parameters = [System.Collections.Generic.Dictionary[string, object]]::New();
-
-            if ($PSBoundParameters.ContainsKey('SubscriptionId')) {
-                $parameters.Add('SubscriptionId', [object]$SubscriptionId);
-            }
-            if ($PSBoundParameters.ContainsKey('TenantId')) {
-                $parameters.Add('TenantId', [object]$TenantId);
-            }
-            if ($PSBoundParameters.ContainsKey('UseDeviceCode')) {
-                $parameters.Add('UseDeviceCode', [object]$UseDeviceCode);
-            }
             $moduleName = $MyInvocation.MyCommand.ModuleName
             $moduleVersion = if ($MyInvocation.MyCommand.Version) { $MyInvocation.MyCommand.Version.ToString() } else { $null }
             $invocation = [Core.Abstractions.CommandInvocation]::New($extensionName, $commandName, $parameters, $false, $moduleName, $moduleVersion)

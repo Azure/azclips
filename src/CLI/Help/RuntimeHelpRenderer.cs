@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 namespace Core.Cli.Help;
 
 public interface IHelpRenderer
@@ -31,7 +34,7 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
         var lines = new List<string>
         {
             "Group",
-            $"    azv2 {group.GroupPath} : {group.Summary}",
+            $"    az {group.GroupPath} : {group.Summary}",
             string.Empty
         };
 
@@ -73,7 +76,7 @@ public sealed class RuntimeHelpRenderer : IHelpRenderer
         var lines = new List<string>
         {
             "Command",
-            $"    azv2 {command.CommandPath} : {command.Summary}",
+            $"    az {command.CommandPath} : {command.Summary}",
             string.Empty,
             "Arguments"
         };

@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Core.Abstractions;
 using Core.Extensions;
 using Xunit;
@@ -7,7 +10,7 @@ namespace Cli.Tests;
 /// <summary>
 /// Drift guard: <see cref="BuiltInExtensions.Map"/> hand-maintains a <c>Leaves</c> array per
 /// built-in that must mirror that module's <c>s_cliTable</c> keys (minus the verb prefix).
-/// Otherwise dispatch's longest-prefix match silently breaks — e.g. <c>azv2 extension search
+/// Otherwise dispatch's longest-prefix match silently breaks — e.g. <c>az extension search
 /// foo</c> falls into the verb-only fallback and joins <c>"search foo"</c> as one command.
 /// Asserting the two sources agree turns that runtime regression into a CI failure.
 /// </summary>
@@ -17,7 +20,7 @@ public class BuiltInExtensionsLeavesDriftTests
         new()
         {
             { "extension", new Microsoft.Azure.Cirrus.Extensions.Extension.ExtensionIndex() },
-            { "login",     new Microsoft.Azure.Cirrus.Extensions.Login.ExtensionIndex()     },
+            { "login",     new Microsoft.Azure.Azclips.Extensions.Login.ExtensionIndex()     },
             { "config",    new Microsoft.Azure.Cirrus.Extensions.Config.ExtensionIndex()    },
         };
 

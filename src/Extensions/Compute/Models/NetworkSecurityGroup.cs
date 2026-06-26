@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Microsoft.Azure.Cirrus.ExtensionRuntime.Json;
 
 namespace Microsoft.Azure.Cirrus.Extensions.Compute.Models;

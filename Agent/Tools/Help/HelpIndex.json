@@ -7,9 +7,9 @@
     { "name": "extension", "summary": "Manage Cirrus extensions and extension packages.", "extension": "extension", "prefix": "extension" }
   ],
   "commands": [
-    { "name": "LoginProcessor", "cliName": "login", "psName": "Connect-CirrusAccount", "extension": "login", "group": "login", "summary": "Authenticate to Azure and set the current account context." },
-    { "name": "LogoutProcessor", "cliName": "login logout", "psName": "Disconnect-CirrusAccount", "extension": "login", "group": "login", "summary": "Sign out from the current Azure account context." },
-    { "name": "GetContextProcessor", "cliName": "login show", "psName": "Get-CirrusAccount", "extension": "login", "group": "login", "summary": "Show the current Azure account context." },
+    { "name": "LoginProcessor", "cliName": "login", "psName": "Connect-AzAccount", "extension": "login", "group": "login", "summary": "Authenticate to Azure and set the current account context." },
+    { "name": "LogoutProcessor", "cliName": "login logout", "psName": "Disconnect-AzAccount", "extension": "login", "group": "login", "summary": "Sign out from the current Azure account context." },
+    { "name": "GetContextProcessor", "cliName": "login show", "psName": "Get-AzAccount", "extension": "login", "group": "login", "summary": "Show the current Azure account context." },
 
     { "name": "NewResourceGroupProcessor", "cliName": "group create", "psName": "New-ResourceGroup", "extension": "resources", "group": "group", "summary": "Create a new resource group." },
     { "name": "ListResourceGroupProcessor", "cliName": "group list", "psName": "Get-ResourceGroup_List", "extension": "resources", "group": "group", "summary": "List all resource groups in a subscription." },

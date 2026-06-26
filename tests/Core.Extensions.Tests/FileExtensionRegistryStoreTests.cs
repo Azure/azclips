@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
@@ -80,16 +83,20 @@ namespace Core.Extensions.Tests
             Assert.Equal(2, loaded.Extensions.Count);
 
             var compute = loaded.Extensions["Microsoft.Azure.Cirrus.Extensions.Compute"];
-            Assert.Equal("vm", compute.Verb);
+            Assert.Null(compute.Verb);
             Assert.Equal("1.1.0", compute.Version);
             Assert.False(compute.Pinned);
             Assert.Equal("https://api.nuget.org/v3/index.json", compute.Source);
             Assert.Equal(installedAt, compute.InstalledAt);
+            Assert.Empty(compute.Contributions);
+            Assert.Empty(compute.Namespaces);
 
             var foo = loaded.Extensions["Contoso.Foo"];
-            Assert.Equal("foo", foo.Verb);
+            Assert.Null(foo.Verb);
             Assert.True(foo.Pinned);
             Assert.Null(foo.Source);
+            Assert.Empty(foo.Contributions);
+            Assert.Empty(foo.Namespaces);
         }
 
         [Fact]
@@ -242,13 +249,9 @@ namespace Core.Extensions.Tests
             var loaded = store.Load();
 
             var entry = loaded.Extensions["Microsoft.Azure.Cirrus.Extensions.Compute"];
-            Assert.Equal(3, entry.Contributions.Count);
-            Assert.Contains(entry.Contributions, c => c.Verb == "vm"   && c.Path == "create");
-            Assert.Contains(entry.Contributions, c => c.Verb == "vm"   && c.Path == "delete");
-            Assert.Contains(entry.Contributions, c => c.Verb == "disk" && c.Path == "attach");
-
-            // Namespaces is a derived view: distinct (case-insensitive), first-seen order.
-            Assert.Equal(new[] { "vm", "disk" }, entry.Namespaces);
+            Assert.Null(entry.Verb);
+            Assert.Empty(entry.Contributions);
+            Assert.Empty(entry.Namespaces);
         }
 
         [Fact]
@@ -279,7 +282,40 @@ namespace Core.Extensions.Tests
             var loaded = store.Load();
 
             var entry = loaded.Extensions["Contoso.MultiNs"];
-            Assert.Equal(new[] { "alpha", "beta" }, entry.Namespaces);
+            Assert.Empty(entry.Namespaces);
+        }
+
+        [Fact]
+        public void Save_ShouldNotMutateInputRegistry()
+        {
+            var store = new FileExtensionRegistryStore(_registryPath);
+            var registry = new ExtensionRegistry
+            {
+                Extensions =
+                {
+                    ["Contoso.Mutable"] = new ExtensionRegistryEntry
+                    {
+                        Verb = "resources",
+                        Version = "0.1.0",
+                        Contributions =
+                        {
+                            new Contribution { Verb = "resources", Path = "group create" },
+                        },
+                        Namespaces = { "resources" },
+                        InstalledAt = DateTimeOffset.UtcNow,
+                    },
+                },
+            };
+
+            store.Save(registry);
+
+            var entry = registry.Extensions["Contoso.Mutable"];
+            Assert.Equal("resources", entry.Verb);
+            Assert.Single(entry.Contributions);
+            Assert.Equal("resources", entry.Contributions[0].Verb);
+            Assert.Equal("group create", entry.Contributions[0].Path);
+            Assert.Single(entry.Namespaces);
+            Assert.Equal("resources", entry.Namespaces[0]);
         }
 
         [Fact]
@@ -306,18 +342,12 @@ namespace Core.Extensions.Tests
 
             var raw = File.ReadAllText(_registryPath);
             Assert.Contains("\"schemaVersion\": 2", raw, StringComparison.Ordinal);
-            Assert.Contains("\"contributions\"", raw, StringComparison.Ordinal);
-            Assert.Contains("\"namespaces\"", raw, StringComparison.Ordinal);
+            Assert.DoesNotContain("\"contributions\"", raw, StringComparison.Ordinal);
+            Assert.DoesNotContain("\"namespaces\"", raw, StringComparison.Ordinal);
+            Assert.DoesNotContain("\"verb\"", raw, StringComparison.Ordinal);
         }
 
-        // -------- Optimistic concurrency + load-time validation + InstallRoot --------
-
-        [Fact]
-        public void InstallRoot_ShouldReturnParentDirectoryOfRegistryPath()
-        {
-            var store = new FileExtensionRegistryStore(_registryPath);
-            Assert.Equal(_tempDir, store.InstallRoot);
-        }
+        // -------- Optimistic concurrency + load-time validation --------
 
         [Fact]
         public void Save_ShouldThrowConcurrency_WhenFileChangedBetweenLoadAndSave()
@@ -395,30 +425,6 @@ namespace Core.Extensions.Tests
             Assert.Equal("RegistryInvalid", ex.Code);
         }
 
-        [Fact]
-        public void LoadReconciled_ShouldDropEntries_WithMissingInstallDirectory()
-        {
-            Directory.CreateDirectory(_tempDir);
-            // Create payload only for Pkg.A.
-            Directory.CreateDirectory(Path.Combine(_tempDir, "Pkg.A", "1.0.0"));
-
-            File.WriteAllText(_registryPath, """
-                {
-                  "schemaVersion": 2,
-                  "extensions": {
-                    "Pkg.A": { "version": "1.0.0", "contributions": [ { "verb": "a", "path": "" } ] },
-                    "Pkg.B": { "version": "1.0.0", "contributions": [ { "verb": "b", "path": "" } ] }
-                  }
-                }
-                """);
-
-            var store = new FileExtensionRegistryStore(_registryPath);
-            var live = store.LoadReconciled();
-
-            Assert.Single(live.Extensions);
-            Assert.True(live.Extensions.ContainsKey("Pkg.A"));
-        }
-
         // --- NormalizeEntry trims whitespace and detects intra-entry dupes. ---
 
         [Fact]
@@ -442,10 +448,9 @@ namespace Core.Extensions.Tests
             var reloaded = new FileExtensionRegistryStore(_registryPath).Load();
 
             var entry = reloaded.Extensions["Pkg.Trim"];
-            Assert.Equal("resources", entry.Verb);
-            Assert.Collection(entry.Contributions,
-                c => { Assert.Equal("resources", c.Verb); Assert.Equal("group   create", c.Path); },
-                c => { Assert.Equal("deployment", c.Verb); Assert.Equal(string.Empty, c.Path); });
+            Assert.Null(entry.Verb);
+            Assert.Empty(entry.Contributions);
+            Assert.Empty(entry.Namespaces);
         }
 
         [Fact]
@@ -477,25 +482,24 @@ namespace Core.Extensions.Tests
         public void NormalizeEntry_ShouldExcludeEmptyVerbsFromNamespaces()
         {
             Directory.CreateDirectory(_tempDir);
-            var registry = new ExtensionRegistry();
-            registry.Extensions["Pkg.EmptyVerb"] = new ExtensionRegistryEntry
-            {
-                Verb = "real",
-                Version = "1.0.0",
-                Contributions =
-                {
-                    new Contribution { Verb = "real", Path = string.Empty },
-                    // Whitespace-only verb gets trimmed to empty by NormalizeEntry; namespaces
-                    // builder must skip it rather than emit a phantom "" entry.
-                    new Contribution { Verb = "   ", Path = "x" },
-                },
-                InstalledAt = DateTimeOffset.UtcNow,
-            };
+                        File.WriteAllText(_registryPath, """
+                                {
+                                    "schemaVersion": 2,
+                                    "extensions": {
+                                        "Pkg.EmptyVerb": {
+                                            "version": "1.0.0",
+                                            "contributions": [
+                                                { "verb": "real", "path": "" },
+                                                { "verb": "   ", "path": "x" }
+                                            ]
+                                        }
+                                    }
+                                }
+                                """);
 
-            new FileExtensionRegistryStore(_registryPath).Save(registry);
-            var reloaded = new FileExtensionRegistryStore(_registryPath).Load();
+                        var reloaded = new FileExtensionRegistryStore(_registryPath).Load();
 
-            Assert.Equal(new[] { "real" }, reloaded.Extensions["Pkg.EmptyVerb"].Namespaces);
+                        Assert.Equal(new[] { "real" }, reloaded.Extensions["Pkg.EmptyVerb"].Namespaces);
         }
     }
 }

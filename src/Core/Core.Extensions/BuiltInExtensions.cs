@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
@@ -8,14 +11,14 @@ namespace Core.Extensions
     /// to <c>registry.json</c>; this seed is merged with the on-disk registry at startup.
     /// </summary>
     /// <param name="Verb">Top-level verb the built-in claims (e.g. <c>"login"</c>).</param>
-    /// <param name="PackageId">Full assembly / package id (e.g. <c>Microsoft.Azure.Cirrus.Extensions.Login</c>).</param>
+    /// <param name="PackageId">Full assembly / package id (e.g. <c>Microsoft.Azure.Azclips.Extensions.Login</c>).</param>
     public sealed record BuiltInExtension(string Verb, string PackageId)
     {
         /// <summary>
         /// Paths within <see cref="Verb"/> that the built-in's <c>s_cliTable</c> handles
         /// (e.g. <c>"remove"</c> for the key <c>"extension remove"</c>). Seeded into
         /// <see cref="LeafIndex"/> so dispatch's longest-prefix match peels positional
-        /// arguments correctly — without this, <c>azv2 extension remove Resources</c>
+        /// arguments correctly — without this, <c>az extension remove Resources</c>
         /// would fall into the verb-only fallback and join <c>"remove Resources"</c>
         /// as the command name. Empty string represents the bare-verb leaf and is
         /// always seeded implicitly.
@@ -46,7 +49,7 @@ namespace Core.Extensions
                 {
                     Leaves = new[] { "add", "list", "show", "remove", "update", "pin", "unpin" },
                 },
-                ["login"] = new("login", "Microsoft.Azure.Cirrus.Extensions.Login")
+                ["login"] = new("login", "Microsoft.Azure.Azclips.Extensions.Login")
                 {
                     Leaves = new[] { "logout", "show" },
                 },

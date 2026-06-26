@@ -1,26 +1,26 @@
 ---
-summary: Install a new extension from a package feed or local file.
+summary: Install an extension package from a feed or local file.
 status: ga
 schema: 1.0.0
 online version:
 ---
 
-Description: Add a new extension to Cirrus. Extensions can be installed from a NuGet package feed URL or from a local .nupkg file. Specify the extension name and version (for feed installs) or the path to the .nupkg file (for local installs). Once installed, extensions are automatically loaded on next CLI startup.
+Description: Install an extension package into the user extension directory from a NuGet feed or a local .nupkg file. Use `--name` for package-based installs or `--path` for local artifacts. After installation, the package is discoverable by subsequent Cirrus commands without any manual registry edits.
 
 ### Install from official feed
 
 ```bash
-azv2 extension add --name MyExtension --version 1.0.0 --feed-url https://api.nuget.org/v3/index.json
+az extension add --name MyExtension --version 1.0.0 --feed-url https://api.nuget.org/v3/index.json
 ```
 
 ### Install from custom feed
 
 ```bash
-azv2 extension add --name MyExtension --version 1.0.0 --feed-url https://packages.example.com/nuget
+az extension add --name MyExtension --version 1.0.0 --feed-url https://packages.example.com/nuget
 ```
 
 ### Install from local file
 
 ```bash
-azv2 extension add --path ./MyExtension.1.0.0.nupkg
+az extension add --path ./MyExtension.1.0.0.nupkg
 ```

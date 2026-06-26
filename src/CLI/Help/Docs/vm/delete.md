@@ -10,11 +10,11 @@ Description: Remove the specified virtual machine from its resource group. The c
 ### Delete a virtual machine
 
 ```bash
-azv2 vm delete --name myvm --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000
+az vm delete --name myvm --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000
 ```
 
 ### Delete using shell variables
 
 ```bash
-azv2 vm delete --name $vmName --resource-group $rg --subscription-id $subId
+az vm delete --name $vmName --resource-group $rg --subscription-id $subId
 ```

@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
@@ -171,7 +174,6 @@ public class Program
     {
         var allTypes = new[]
         {
-            typeof(API.ResourceGroupBenchmarks),
             typeof(CLI.ResourceGroupBenchmarks),
             typeof(PS.ResourceGroupBenchmarks)
         };
@@ -183,7 +185,6 @@ public class Program
 
         return product switch
         {
-            "API" => new[] { typeof(API.ResourceGroupBenchmarks) },
             "CLI" => new[] { typeof(CLI.ResourceGroupBenchmarks) },
             "PS" => new[] { typeof(PS.ResourceGroupBenchmarks) },
             "STARTUP" => GetStartupBenchmarkTypes(),

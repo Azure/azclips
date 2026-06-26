@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
@@ -50,12 +53,12 @@ namespace Core.Extensions.Tests
             {
                 Leaves = new Dictionary<string, ExtensionHint>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["login"] = new() { PackageId = "Microsoft.Azure.Cirrus.Extensions.Login" },
+                    ["login"] = new() { PackageId = "Microsoft.Azure.Azclips.Extensions.Login" },
                 },
             };
 
             Assert.True(table.TryGetPackageId("login", "", out var pkg));
-            Assert.Equal("Microsoft.Azure.Cirrus.Extensions.Login", pkg);
+            Assert.Equal("Microsoft.Azure.Azclips.Extensions.Login", pkg);
         }
 
         [Fact]

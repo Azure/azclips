@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
@@ -38,7 +41,8 @@ public class ShowExtensionProcessor : IProcessor
         using var _ = telemetryService.StartActivity($"{nameof(ShowExtensionProcessor)}.{nameof(Process)}");
 
         var store = new FileExtensionRegistryStore();
-        var registry = store.Load();
+        var fileRegistry = store.Load();
+        var registry = DiscoveryBackedExtensionRegistry.BuildDiscoveredWithPreferences(fileRegistry);
 
         // Match on package identifier only (full package id or short suffix). Verb/namespace
         // tokens are intentionally rejected — see RegistryLookup remarks.

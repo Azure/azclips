@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
@@ -16,6 +19,7 @@ public sealed class ExtensionIndex : IExtensionIndex
     {
         ["sharedverb beta"] = new CommandMetadata(
             Name: "BetaProcessor",
+            InvocationName: "sharedverb beta",
             Aliases: [],
             FullName: "Cirrus.Tests.Fixtures.SharedBeta.BetaProcessor",
             AssemblyName: "Cirrus.Tests.Fixtures.SharedBeta",

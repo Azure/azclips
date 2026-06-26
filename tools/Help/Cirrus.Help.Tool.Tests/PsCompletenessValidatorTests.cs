@@ -44,7 +44,7 @@ namespace Cirrus.Help.Tool.Tests
         public void Validate_ShouldFirePSL10_WhenModuleExportsCmdletsButHasNoHelpFolder()
         {
             using var temp = new TempDirectory();
-            var (repoRoot, _) = CreateModule(temp, "Login", "Connect-CirrusAccount", "Get-CirrusAccount");
+            var (repoRoot, _) = CreateModule(temp, "Login", "Connect-AzAccount", "Get-AzAccount");
 
             var report = new PsCompletenessValidator().Validate(repoRoot);
 
@@ -60,7 +60,7 @@ namespace Cirrus.Help.Tool.Tests
             // PSL10 supersedes per-cmdlet PSL9 errors so multi-cmdlet modules don't drown
             // the log when the entire help/ folder is missing.
             using var temp = new TempDirectory();
-            var (repoRoot, _) = CreateModule(temp, "Login", "Connect-CirrusAccount", "Get-CirrusAccount");
+            var (repoRoot, _) = CreateModule(temp, "Login", "Connect-AzAccount", "Get-AzAccount");
 
             var report = new PsCompletenessValidator().Validate(repoRoot);
 
@@ -73,25 +73,25 @@ namespace Cirrus.Help.Tool.Tests
         public void Validate_ShouldFirePSL9_WhenExportedCmdletHasNoHelpFile()
         {
             using var temp = new TempDirectory();
-            var (repoRoot, moduleDir) = CreateModule(temp, "Login", "Connect-CirrusAccount", "Get-CirrusAccount");
-            CreateHelpFile(moduleDir, "Connect-CirrusAccount.md");
-            // Get-CirrusAccount.md is intentionally absent.
+            var (repoRoot, moduleDir) = CreateModule(temp, "Login", "Connect-AzAccount", "Get-AzAccount");
+            CreateHelpFile(moduleDir, "Connect-AzAccount.md");
+            // Get-AzAccount.md is intentionally absent.
 
             var report = new PsCompletenessValidator().Validate(repoRoot);
 
             var psl9 = report.Errors.Where(e => e.ProblemId == ProblemIds.PSL9_MissingHelpFile).ToList();
             Assert.Single(psl9);
-            Assert.Contains("Get-CirrusAccount", psl9[0].Message, StringComparison.Ordinal);
-            Assert.EndsWith("Get-CirrusAccount.md", psl9[0].FilePath, StringComparison.Ordinal);
+            Assert.Contains("Get-AzAccount", psl9[0].Message, StringComparison.Ordinal);
+            Assert.EndsWith("Get-AzAccount.md", psl9[0].FilePath, StringComparison.Ordinal);
         }
 
         [Fact]
         public void Validate_ShouldNotFirePSL9_WhenAllExportedCmdletsHaveHelpFiles()
         {
             using var temp = new TempDirectory();
-            var (repoRoot, moduleDir) = CreateModule(temp, "Login", "Connect-CirrusAccount", "Get-CirrusAccount");
-            CreateHelpFile(moduleDir, "Connect-CirrusAccount.md");
-            CreateHelpFile(moduleDir, "Get-CirrusAccount.md");
+            var (repoRoot, moduleDir) = CreateModule(temp, "Login", "Connect-AzAccount", "Get-AzAccount");
+            CreateHelpFile(moduleDir, "Connect-AzAccount.md");
+            CreateHelpFile(moduleDir, "Get-AzAccount.md");
 
             var report = new PsCompletenessValidator().Validate(repoRoot);
 
@@ -102,8 +102,8 @@ namespace Cirrus.Help.Tool.Tests
         public void Validate_ShouldBeCaseInsensitive_WhenMatchingHelpFilesToCmdlets()
         {
             using var temp = new TempDirectory();
-            var (repoRoot, moduleDir) = CreateModule(temp, "Login", "Connect-CirrusAccount");
-            CreateHelpFile(moduleDir, "connect-cirrusaccount.md"); // lowercased
+            var (repoRoot, moduleDir) = CreateModule(temp, "Login", "Connect-AzAccount");
+            CreateHelpFile(moduleDir, "connect-azaccount.md"); // lowercased
 
             var report = new PsCompletenessValidator().Validate(repoRoot);
 
@@ -116,8 +116,8 @@ namespace Cirrus.Help.Tool.Tests
         public void Validate_ShouldWarnPSL11_WhenHelpFileHasNoCorrespondingExportedCmdlet()
         {
             using var temp = new TempDirectory();
-            var (repoRoot, moduleDir) = CreateModule(temp, "Login", "Connect-CirrusAccount");
-            CreateHelpFile(moduleDir, "Connect-CirrusAccount.md");
+            var (repoRoot, moduleDir) = CreateModule(temp, "Login", "Connect-AzAccount");
+            CreateHelpFile(moduleDir, "Connect-AzAccount.md");
             CreateHelpFile(moduleDir, "Get-Ghost.md"); // orphan
 
             var report = new PsCompletenessValidator().Validate(repoRoot);
@@ -211,8 +211,8 @@ namespace Cirrus.Help.Tool.Tests
         public void Validate_ShouldReportEachModuleIndependently()
         {
             using var temp = new TempDirectory();
-            var (repoRoot, loginDir) = CreateModule(temp, "Login", "Connect-CirrusAccount");
-            CreateHelpFile(loginDir, "Connect-CirrusAccount.md");
+            var (repoRoot, loginDir) = CreateModule(temp, "Login", "Connect-AzAccount");
+            CreateHelpFile(loginDir, "Connect-AzAccount.md");
 
             // Second module: missing help file.
             var (_, configDir) = CreateModule(temp, "Config", "Get-CirrusConfig");

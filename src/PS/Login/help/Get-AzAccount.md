@@ -1,15 +1,15 @@
 ---
 document type: cmdlet
-external help file: Microsoft.Azure.Cirrus.Cmdlets.Login.dll-Help.xml
+external help file: Microsoft.Azure.Azclips.Cmdlets.Login.dll-Help.xml
 HelpUri: ""
 Locale: en-US
 Module Name: Login
 ms.date: 06/16/2026
 PlatyPS schema version: 2024-05-01
-title: Get-CirrusAccount
+title: Get-AzAccount
 ---
 
-# Get-CirrusAccount
+# Get-AzAccount
 
 ## SYNOPSIS
 
@@ -20,7 +20,7 @@ Show the current Azure account context.
 ### \_\_AllParameterSets
 
 ```
-Get-CirrusAccount [<CommonParameters>]
+Get-AzAccount [<CommonParameters>]
 ```
 
 ## ALIASES
@@ -36,10 +36,10 @@ Show the current Azure account context.
 
 ### Show the current account context
 
-Returns the persisted account information — subscription, tenant, and signed-in user — from the most recent `Connect-CirrusAccount` call. Returns `$null` when no account is connected.
+Returns the persisted account information — subscription, tenant, and signed-in user — from the most recent `Connect-AzAccount` call. Returns `$null` when no account is connected.
 
 ```powershell
-Get-CirrusAccount
+Get-AzAccount
 ```
 
 ## PARAMETERS

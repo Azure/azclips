@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Core.Cli.Help;
 
 namespace Cli.Tests;
@@ -34,7 +37,7 @@ public class MarkdownCommandHelpProviderTests
 
             ### Example
             ```bash
-            azv2 do-thing
+            az do-thing
             ```
             """;
 
@@ -56,7 +59,7 @@ public class MarkdownCommandHelpProviderTests
 
             ### Example
             ```bash
-            azv2 do-thing
+            az do-thing
             ```
             """;
 
@@ -80,7 +83,7 @@ public class MarkdownCommandHelpProviderTests
 
             ### Example
             ```bash
-            azv2 do-thing
+            az do-thing
             """;
 
         var result = MarkdownCommandHelpProvider.Parse(content);
@@ -104,7 +107,7 @@ public class MarkdownCommandHelpProviderTests
 
             ### Example (CLI)
             ```bash
-            azv2 do-thing
+            az do-thing
             ```
             """;
 
@@ -124,7 +127,7 @@ public class MarkdownCommandHelpProviderTests
 
             ### Example
             ```ruby
-            azv2 do-thing
+            az do-thing
             ```
             """;
 
@@ -132,7 +135,7 @@ public class MarkdownCommandHelpProviderTests
 
         var example = Assert.Single(result.Examples);
         Assert.False(example.IsPowerShell);
-        Assert.Equal("azv2 do-thing", example.Command);
+        Assert.Equal("az do-thing", example.Command);
     }
 
     [Fact]
@@ -144,7 +147,7 @@ public class MarkdownCommandHelpProviderTests
 
             ### Example
             ```
-            azv2 do-thing
+            az do-thing
             ```
             """;
 
@@ -191,7 +194,7 @@ public class MarkdownCommandHelpProviderTests
 
             ### Valid Example
             ```bash
-            azv2 do-thing
+            az do-thing
             ```
             """;
 
@@ -207,7 +210,7 @@ public class MarkdownCommandHelpProviderTests
     public void Parse_ShouldUseFallbackTitle_WhenTitleIsBlank()
     {
         // Whitespace-only title triggers fallback to "Example".
-        var content = "Summary: Short.\r\nDescription: Longer.\r\n\r\n###  x\r\n```bash\r\nazv2 do-thing\r\n```\r\n";
+        var content = "Summary: Short.\r\nDescription: Longer.\r\n\r\n###  x\r\n```bash\r\naz do-thing\r\n```\r\n";
 
         var result = MarkdownCommandHelpProvider.Parse(content);
 
@@ -221,7 +224,7 @@ public class MarkdownCommandHelpProviderTests
         var content = """
             ### Example
             ```bash
-            azv2 do-thing
+            az do-thing
             ```
             """;
 
@@ -250,7 +253,7 @@ public class MarkdownCommandHelpProviderTests
 
             ### Example
             ```bash
-            azv2 do-thing
+            az do-thing
             ```
             """;
 
@@ -268,7 +271,7 @@ public class MarkdownCommandHelpProviderTests
 
             ### CLI Example
             ```bash
-            azv2 do-thing
+            az do-thing
             ```
 
             ### PowerShell Example
@@ -313,7 +316,7 @@ public class MarkdownCommandHelpProviderTests
 
             ### CLI A
             ```bash
-            azv2 do-a
+            az do-a
             ```
 
             ### PS B
@@ -323,7 +326,7 @@ public class MarkdownCommandHelpProviderTests
 
             ### CLI C
             ```sh
-            azv2 do-c
+            az do-c
             ```
             """;
 
@@ -345,7 +348,7 @@ public class MarkdownCommandHelpProviderTests
 
             ### First
             ```bash
-            azv2 first
+            az first
             ```
 
             ### Second
@@ -355,7 +358,7 @@ public class MarkdownCommandHelpProviderTests
 
             ### Third
             ```bash
-            azv2 third
+            az third
             ```
             """;
 

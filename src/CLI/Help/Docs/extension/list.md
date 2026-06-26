@@ -1,20 +1,26 @@
 ---
-summary: List installed Cirrus extensions.
+summary: List discovered installed Cirrus extensions.
 status: ga
 schema: 1.0.0
 online version:
 ---
 
-Description: Display every extension currently installed in the Cirrus extension registry, including built-ins. By default, output is grouped by package; use `--by-verb` to regroup by the CLI verb each package contributes to.
+Description: Display every installed extension package discovered on disk, overlaid with user preferences from the registry. By default, output is grouped by package; use `--by-verb` to regroup by each contributed CLI verb. Built-in host functionality is not listed here unless installed separately as an extension package.
 
 ### List installed extensions
 
 ```bash
-azv2 extension list
+az extension list
 ```
 
 ### Group by verb
 
 ```bash
-azv2 extension list --by-verb
+az extension list --by-verb
+```
+
+### Emit structured JSON
+
+```bash
+az extension list --output json
 ```

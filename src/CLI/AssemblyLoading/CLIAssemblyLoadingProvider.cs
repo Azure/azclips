@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 namespace Core.Cli;
 
 using System.Reflection;
@@ -15,5 +18,17 @@ public class CLIAssemblyLoadingProvider(IEnumerable<IExtensionLoader> extensionL
         return LoadExtension(extensionLoaders, extensionName, extensionVersion) ?? throw new InvalidOperationException($"Extension '{Constants.cirrusPrefix + extensionName}' could not be found by any extension loader.");
     }
 
-    public IList<Tuple<string, string?>>? GetAllInstalledExtensions() => throw new NotImplementedException();
+    public IList<InstalledExtensionRef>? GetAllInstalledExtensions()
+    {
+        var result = new List<InstalledExtensionRef>();
+        foreach (var loader in extensionLoaders)
+        {
+            foreach (var (name, version) in loader.GetInstalledExtensions())
+            {
+                result.Add(new InstalledExtensionRef(name, version));
+            }
+        }
+
+        return result.Count > 0 ? result : null;
+    }
 }

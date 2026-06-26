@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Core.Abstractions;
 using Core.Configuration.Abstractions;
 using Core.Configuration.Implementation;
@@ -86,12 +89,22 @@ public class ConfigurationSchemaTests
     }
 
     [Fact]
-    public void ValidateKey_ShouldAllowUnknownDefaultsKey_WhenForceIsTrue()
+    public void ValidateValue_ShouldRejectNonBoolValue_ForAgentEnabled()
     {
         var validator = new DefaultConfigurationValidator(_schema);
 
-        var result = validator.ValidateKey("defaults.unknown", force: true);
+        var result = validator.ValidateValue("agent.enabled", "notabool");
 
-        Assert.True(result.IsValid);
+        Assert.False(result.IsValid);
+    }
+
+    [Fact]
+    public void GetAllKeys_ShouldDefaultAgentEnabledToFalse()
+    {
+        var key = _schema.GetAllKeys()
+            .Single(k => string.Equals(k.Key, "agent.enabled", StringComparison.OrdinalIgnoreCase));
+
+        // Must stay in sync with AgentOptions.Enabled = false (PP opt-in default).
+        Assert.Equal("false", key.DefaultValue);
     }
 }

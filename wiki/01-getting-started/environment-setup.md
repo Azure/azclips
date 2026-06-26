@@ -9,7 +9,7 @@ description: "Step-by-step guide to setting up the Cirrus development environmen
 
 | Requirement | Version / Detail | Source |
 |-------------|-----------------|--------|
-| **.NET SDK** | 9.0.308 (`latestMinor` roll-forward) | `global.json:3` |
+| **.NET SDK** | 10.0.203 (`latestMinor` roll-forward) | `global.json:3` |
 | **PowerShell** | 7.5+ (Core edition) | `src/PS/Login/Login.psd1:36` |
 | **Docker** | Required for dev container | `.devcontainer/docker-compose.yml` |
 | **VS Code** | With C# DevKit extension | `.devcontainer/devcontainer.json:71-73` |
@@ -29,7 +29,7 @@ The repository ships a complete multi-container development environment defined 
 graph TB
     subgraph DevEnv["Dev Container Environment"]
         style DevEnv fill:#161b22,stroke:#30363d,color:#e6edf3
-        App["App Container<br>.NET 9.0 + PowerShell 7.5"]
+        App["App Container<br>.NET 10.0 + PowerShell 7.5"]
         Zipkin["Zipkin Container<br>openzipkin/zipkin"]
         VSCode["VS Code Server<br>C# DevKit"]
     end
@@ -154,9 +154,9 @@ After a successful build the `artifacts/` directory contains:
 artifacts/
 ├── Debug/
 │   ├── Core.Cli/
-│   │   └── azv2              ← CLI executable
+│   │   └── az              ← CLI executable
 │   ├── Core/                 ← Shared core DLLs
-│   ├── Microsoft.Azure.Cirrus.Extensions.Login/
+│   ├── Microsoft.Azure.Azclips.Extensions.Login/
 │   ├── Microsoft.Azure.Cirrus.Extensions.Resources/
 │   └── Microsoft.Azure.Cirrus.Extensions.Extension/
 └── Release/                  ← Same structure
@@ -168,18 +168,18 @@ Once built, the CLI is available at:
 
 ```bash
 # Debug build (default)
-./artifacts/Debug/Core.Cli/azv2
+./artifacts/Debug/Core.Cli/az
 
 # Release build
-./artifacts/Release/Core.Cli/azv2
+./artifacts/Release/Core.Cli/az
 ```
 
 Inside the dev container, both paths are on `PATH` (`devcontainer.json:60-61`), so you can invoke:
 
 ```bash
-azv2 --help
-azv2 group list -SubscriptionId <id>
-azv2 "create a resource group named test in eastus"
+az --help
+az group list -SubscriptionId <id>
+az "create a resource group named test in eastus"
 ```
 
 ## Running Tests
@@ -203,7 +203,7 @@ Coverage is collected via **Coverlet 6.0.4** (`tests/Directory.Build.props:17`).
 The GitHub Actions workflow `.github/workflows/build-and-test.yml` runs on every PR:
 
 1. `dotnet restore` → `dotnet build` → `dotnet test`
-2. **E2E CLI**: executes `./artifacts/Debug/Core.Cli/azv2 --help` to verify the binary starts.
+2. **E2E CLI**: executes `./artifacts/Debug/Core.Cli/az --help` to verify the binary starts.
 3. **E2E PowerShell**: imports the Login module and verifies exported commands:
    ```powershell
    Import-Module ./src/PS/Login/Login.psd1
@@ -212,7 +212,7 @@ The GitHub Actions workflow `.github/workflows/build-and-test.yml` runs on every
 
 ## VS Code Debug Configurations
 
-`.vscode/launch.json` defines **seven** launch profiles. All use `coreclr` type and launch the `azv2` binary from `artifacts/Debug/Core.Cli/` with `integratedTerminal` console. A `dotnet: build` pre-launch task (`.vscode/tasks.json:4-13`) compiles the solution first.
+`.vscode/launch.json` defines **seven** launch profiles. All use `coreclr` type and launch the `az` binary from `artifacts/Debug/Core.Cli/` with `integratedTerminal` console. A `dotnet: build` pre-launch task (`.vscode/tasks.json:4-13`) compiles the solution first.
 
 | # | Profile                     | Purpose | Key Args |
 |---|-----------------------------|---------|----------|
@@ -227,7 +227,7 @@ The GitHub Actions workflow `.github/workflows/build-and-test.yml` runs on every
 All profiles point to the same program path (`launch.json:18`):
 
 ```
-${workspaceFolder}/artifacts/Debug/Core.Cli/azv2
+${workspaceFolder}/artifacts/Debug/Core.Cli/az
 ```
 
 ## Telemetry & Tracing
@@ -259,7 +259,7 @@ AZURE_OPENAI_DEPLOYMENT=<deployment-name>
 
 | Issue | Cause | Fix |
 |-------|-------|-----|
-| `dotnet build` fails with SDK error | Wrong SDK version | Run `dotnet --info` and compare with `global.json:3` (expects 9.0.308) |
+| `dotnet build` fails with SDK error | Wrong SDK version | Run `dotnet --info` and compare with `global.json:3` (expects 10.0.203) |
 | MSAL browser window doesn't open | Missing symlinks | Re-run `.devcontainer/post-start.sh` or recreate symlinks manually |
 | Zipkin UI unavailable | Container not healthy | Run `docker compose -f .devcontainer/docker-compose.yml ps` and check health |
 | `CA1707` warnings in tests | Underscore naming convention | Already suppressed in `tests/Directory.Build.props:12` — verify import chain |

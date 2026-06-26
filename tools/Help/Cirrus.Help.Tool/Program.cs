@@ -21,6 +21,16 @@ if (!Directory.Exists(artifactsRoot))
 }
 
 var aggregateReport = new ValidationReport();
+string[] knownExtensionPrefixes =
+[
+    "Microsoft.Azure.Azclips.Extensions.",
+    "Microsoft.Azure.Cirrus.Extensions.",
+];
+string[] knownCmdletAssemblyPatterns =
+[
+    "Microsoft.Azure.Azclips.Cmdlets.*.dll",
+    "Microsoft.Azure.Cirrus.Cmdlets.*.dll",
+];
 
 var structureReport = new MarkdownStructureValidator().Validate(repoRoot);
 aggregateReport.Merge(structureReport);
@@ -36,8 +46,8 @@ AssemblyLoadContext.Default.Resolving += (_, assemblyName) =>
     return candidate == null ? null : AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(candidate));
 };
 
-var extensionDlls = Directory
-    .EnumerateFiles(artifactsRoot, "Microsoft.Azure.Cirrus.Extensions.*.dll", SearchOption.AllDirectories)
+var extensionDlls = knownExtensionPrefixes
+    .SelectMany(prefix => Directory.EnumerateFiles(artifactsRoot, $"{prefix}*.dll", SearchOption.AllDirectories))
     .Where(static path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
     .Distinct(StringComparer.OrdinalIgnoreCase)
     .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)
@@ -109,12 +119,11 @@ foreach (var dllPath in extensionDlls)
     var assembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(assemblyPath);
     var assemblyName = assembly.GetName().Name ?? string.Empty;
 
-    if (!assemblyName.StartsWith("Microsoft.Azure.Cirrus.Extensions.", StringComparison.Ordinal))
+    if (!TryGetExtensionName(assemblyName, knownExtensionPrefixes, out var extensionName))
     {
         continue;
     }
 
-    var extensionName = assemblyName["Microsoft.Azure.Cirrus.Extensions.".Length..].ToLowerInvariant();
     var version = assembly.GetName().Version?.ToString() ?? "1.0.0";
 
     IExtensionIndex extensionIndex;
@@ -179,11 +188,11 @@ var exampleSyntaxReport = new ExampleSyntaxValidator().Validate(repoRoot, indexe
 aggregateReport.Merge(exampleSyntaxReport);
 
 
-// Build the cmdlet index from Microsoft.Azure.Cirrus.Cmdlets.*.dll (sibling assemblies in
+// Build the cmdlet index from Microsoft Azure cmdlet assemblies (sibling assemblies in
 // artifacts/Debug/) and validate every powershell/pwsh fence in help markdown against it.
 var cmdletIndex = new CmdletIndex();
-var cmdletDlls = Directory
-    .EnumerateFiles(artifactsRoot, "Microsoft.Azure.Cirrus.Cmdlets.*.dll", SearchOption.AllDirectories)
+var cmdletDlls = knownCmdletAssemblyPatterns
+    .SelectMany(pattern => Directory.EnumerateFiles(artifactsRoot, pattern, SearchOption.AllDirectories))
     .Where(static path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
     .Distinct(StringComparer.OrdinalIgnoreCase)
     .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase);
@@ -242,6 +251,21 @@ static string? GetArg(string[] args, string name)
     }
 
     return null;
+}
+
+static bool TryGetExtensionName(string assemblyName, IEnumerable<string> knownPrefixes, out string extensionName)
+{
+    foreach (var prefix in knownPrefixes)
+    {
+        if (assemblyName.StartsWith(prefix, StringComparison.Ordinal))
+        {
+            extensionName = assemblyName[prefix.Length..].ToLowerInvariant();
+            return true;
+        }
+    }
+
+    extensionName = string.Empty;
+    return false;
 }
 
 // Renders the final summary: warnings first, then errors grouped by ProblemId, then

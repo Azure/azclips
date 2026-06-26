@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using Core.Abstractions;
 using Core.Abstractions.Runtime;
 using Core.DependencyInjection;
@@ -11,25 +14,25 @@ public class AddExtensionProcessor : IProcessor
 
     [ArgumentInfo(
     Required = false,
-    Description = @"The name of the extension to add.",
+    Description = @"Package id (full or short suffix) of the extension to add from a feed. Verb and namespace tokens are not accepted. Omit when using --path.",
     SerializedName = @"Name")]
     public string? Name { get; set; }
 
     [ArgumentInfo(
     Required = false,
-    Description = @"The version of the extension to add.",
+    Description = @"Optional version to install when using --name. Omit to use the latest available package version.",
     SerializedName = @"Version")]
     public string? Version { get; set; }
 
     [ArgumentInfo(
     Required = false,
-    Description = @"Feed URL to install the extension from.",
+    Description = @"NuGet feed URL to install from when using --name.",
     SerializedName = @"FeedUrl")]
     public string? FeedUrl { get; set; }
 
     [ArgumentInfo(
     Required = false,
-    Description = @"Path to the extension .nupkg file to add.",
+    Description = @"Path to a local extension .nupkg file to install.",
     SerializedName = @"Path")]
     public string? Path { get; set; }
 
@@ -104,7 +107,7 @@ public class AddExtensionProcessor : IProcessor
                 {
                     details["localArtifact"] = localHint;
                     throw CirrusErrorException.ExtensionNotFound(
-                        $"{ex.Message}\n\nA local build artifact was found. Try:\n  azv2 extension add --path \"{localHint}\"",
+                        $"{ex.Message}\n\nA local build artifact was found. Try:\n  az extension add --path \"{localHint}\"",
                         details);
                 }
                 throw CirrusErrorException.ExtensionNotFound(ex.Message, details);
@@ -188,12 +191,10 @@ public class AddExtensionProcessor : IProcessor
 
             registry.Extensions[packageId] = new ExtensionRegistryEntry
             {
-                Verb = primaryVerb,
                 Version = version,
                 Pinned = Pin || carryPinForward,
                 Source = FeedUrl,
                 InstalledAt = DateTimeOffset.UtcNow,
-                Contributions = contributions,
             };
             store.Save(registry);
 
@@ -304,7 +305,7 @@ public class AddExtensionProcessor : IProcessor
             var suggestion = RegistryLookup.ToShortName(owningPackage);
             throw CirrusErrorException.UsageError(
                 $"'{name}' is a verb contributed by package '{owningPackage}', not a package identifier. " +
-                $"To install that package use:\n  azv2 extension add --name {suggestion}",
+                $"To install that package use:\n  az extension add --name {suggestion}",
                 new Dictionary<string, object?>
                 {
                     ["requestedName"] = name,

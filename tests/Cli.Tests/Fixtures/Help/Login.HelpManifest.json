@@ -5,7 +5,7 @@
   "commands": [
     {
       "cliName": "login",
-      "psName": "Connect-CirrusAccount",
+      "psName": "Connect-AzAccount",
       "summary": "Authenticate to Azure.",
       "description": "Authenticate to Azure and persist account context for subsequent commands.",
       "parameters": [
@@ -50,11 +50,11 @@
         "cli": [
           {
             "title": "Login with subscription id",
-            "command": "azv2 login --subscription-id 00000000-0000-0000-0000-000000000000"
+            "command": "az login --subscription-id 00000000-0000-0000-0000-000000000000"
           },
           {
             "title": "Login with device code",
-            "command": "azv2 login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code"
+            "command": "az login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code"
           }
         ],
         "powerShell": []
@@ -63,7 +63,7 @@
     },
     {
       "cliName": "login logout",
-      "psName": "Disconnect-CirrusAccount",
+      "psName": "Disconnect-AzAccount",
       "summary": "Sign out from the current Azure account context.",
       "description": "Sign out from the current Azure account context.",
       "parameters": [],
@@ -71,7 +71,7 @@
         "cli": [
           {
             "title": "Sign out",
-            "command": "azv2 login logout"
+            "command": "az login logout"
           }
         ],
         "powerShell": []
@@ -80,7 +80,7 @@
     },
     {
       "cliName": "login show",
-      "psName": "Get-CirrusAccount",
+      "psName": "Get-AzAccount",
       "summary": "Show the current Azure account context.",
       "description": "Show the current Azure account context.",
       "parameters": [],
@@ -88,7 +88,7 @@
         "cli": [
           {
             "title": "Show current account context",
-            "command": "azv2 login show"
+            "command": "az login show"
           }
         ],
         "powerShell": []

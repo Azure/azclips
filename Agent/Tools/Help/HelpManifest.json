@@ -4,7 +4,7 @@
     {
       "name": "LoginProcessor",
       "cliName": "login",
-      "psName": "Connect-CirrusAccount",
+      "psName": "Connect-AzAccount",
       "extension": "login",
       "group": "login",
       "summary": "Authenticate to Azure and set the current account context.",
@@ -16,41 +16,41 @@
       ],
       "examples": {
         "cli": [
-          { "title": "Login with subscription id", "command": "azv2 login --subscription-id 00000000-0000-0000-0000-000000000000" },
-          { "title": "Login with device code", "command": "azv2 login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code" }
+          { "title": "Login with subscription id", "command": "az login --subscription-id 00000000-0000-0000-0000-000000000000" },
+          { "title": "Login with device code", "command": "az login --subscription-id 00000000-0000-0000-0000-000000000000 --use-device-code" }
         ],
         "powerShell": [
-          { "title": "Login with subscription id", "command": "Connect-CirrusAccount -SubscriptionId 00000000-0000-0000-0000-000000000000" },
-          { "title": "Login with device code", "command": "Connect-CirrusAccount -SubscriptionId 00000000-0000-0000-0000-000000000000 -UseDeviceCode" }
+          { "title": "Login with subscription id", "command": "Connect-AzAccount -SubscriptionId 00000000-0000-0000-0000-000000000000" },
+          { "title": "Login with device code", "command": "Connect-AzAccount -SubscriptionId 00000000-0000-0000-0000-000000000000 -UseDeviceCode" }
         ]
       }
     },
     {
       "name": "LogoutProcessor",
       "cliName": "login logout",
-      "psName": "Disconnect-CirrusAccount",
+      "psName": "Disconnect-AzAccount",
       "extension": "login",
       "group": "login",
       "summary": "Sign out from the current Azure account context.",
       "description": "Sign out from the current Azure account context.",
       "parameters": [],
       "examples": {
-        "cli": [ { "title": "Sign out", "command": "azv2 login logout" } ],
-        "powerShell": [ { "title": "Sign out", "command": "Disconnect-CirrusAccount" } ]
+        "cli": [ { "title": "Sign out", "command": "az login logout" } ],
+        "powerShell": [ { "title": "Sign out", "command": "Disconnect-AzAccount" } ]
       }
     },
     {
       "name": "GetContextProcessor",
       "cliName": "login show",
-      "psName": "Get-CirrusAccount",
+      "psName": "Get-AzAccount",
       "extension": "login",
       "group": "login",
       "summary": "Show the current Azure account context.",
       "description": "Show the current Azure account context.",
       "parameters": [],
       "examples": {
-        "cli": [ { "title": "Show current account", "command": "azv2 login show" } ],
-        "powerShell": [ { "title": "Show current account", "command": "Get-CirrusAccount" } ]
+        "cli": [ { "title": "Show current account", "command": "az login show" } ],
+        "powerShell": [ { "title": "Show current account", "command": "Get-AzAccount" } ]
       }
     },
 
@@ -70,8 +70,8 @@
       ],
       "examples": {
         "cli": [
-          { "title": "Create in East US", "command": "azv2 group create --name myresourcegroup --location eastus --subscription-id 00000000-0000-0000-0000-000000000000" },
-          { "title": "Create with explicit resource id", "command": "azv2 group create --name myrg --location westus --resource-id /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myrg --subscription-id 00000000-0000-0000-0000-000000000000" }
+          { "title": "Create in East US", "command": "az group create --name myresourcegroup --location eastus --subscription-id 00000000-0000-0000-0000-000000000000" },
+          { "title": "Create with explicit resource id", "command": "az group create --name myrg --location westus --resource-id /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/myrg --subscription-id 00000000-0000-0000-0000-000000000000" }
         ],
         "powerShell": [
           { "title": "Create a resource group", "command": "New-ResourceGroup -Name \"myresourcegroup\" -Location \"eastus\" -SubscriptionId \"00000000-0000-0000-0000-000000000000\"" }
@@ -91,8 +91,8 @@
       ],
       "examples": {
         "cli": [
-          { "title": "List with explicit subscription", "command": "azv2 group list --subscription-id 00000000-0000-0000-0000-000000000000" },
-          { "title": "List using default subscription", "command": "azv2 group list" }
+          { "title": "List with explicit subscription", "command": "az group list --subscription-id 00000000-0000-0000-0000-000000000000" },
+          { "title": "List using default subscription", "command": "az group list" }
         ],
         "powerShell": [
           { "title": "List with explicit subscription", "command": "Get-ResourceGroup_List -SubscriptionId \"00000000-0000-0000-0000-000000000000\"" },
@@ -114,8 +114,8 @@
       ],
       "examples": {
         "cli": [
-          { "title": "Show with explicit subscription", "command": "azv2 group show --name myresourcegroup --subscription-id 00000000-0000-0000-0000-000000000000" },
-          { "title": "Show using default subscription", "command": "azv2 group show --name myresourcegroup" }
+          { "title": "Show with explicit subscription", "command": "az group show --name myresourcegroup --subscription-id 00000000-0000-0000-0000-000000000000" },
+          { "title": "Show using default subscription", "command": "az group show --name myresourcegroup" }
         ],
         "powerShell": [
           { "title": "Show a resource group", "command": "Get-ResourceGroup_Get -Name \"myresourcegroup\" -SubscriptionId \"00000000-0000-0000-0000-000000000000\"" }
@@ -157,8 +157,8 @@
       ],
       "examples": {
         "cli": [
-          { "title": "Create VM with combined networking", "command": "azv2 vm create --name myvm --location eastus --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000 --vm-size Standard_D2s_v3 --admin-username azureuser --admin-password <password> --network-interface-name mynic --virtual-network-name myvnet --network-security-group-name mynsg" },
-          { "title": "Create with explicit subnet and address prefixes", "command": "azv2 vm create --name myvm --location eastus --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000 --vm-size Standard_D2s_v3 --admin-username azureuser --admin-password <password> --network-interface-name mynic --virtual-network-name myvnet --network-security-group-name mynsg --subnet-names default --address-prefixes 10.0.0.0/16" }
+          { "title": "Create VM with combined networking", "command": "az vm create --name myvm --location eastus --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000 --vm-size Standard_D2s_v3 --admin-username azureuser --admin-password <password> --network-interface-name mynic --virtual-network-name myvnet --network-security-group-name mynsg" },
+          { "title": "Create with explicit subnet and address prefixes", "command": "az vm create --name myvm --location eastus --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000 --vm-size Standard_D2s_v3 --admin-username azureuser --admin-password <password> --network-interface-name mynic --virtual-network-name myvnet --network-security-group-name mynsg --subnet-names default --address-prefixes 10.0.0.0/16" }
         ],
         "powerShell": [
           { "title": "Create VM with combined networking", "command": "New-VM -SubscriptionId \"00000000-0000-0000-0000-000000000000\" -Name \"myvm\" -Location \"eastus\" -ResourceGroupName \"myrg\" -VmSize \"Standard_D2s_v3\" -AdminUsername \"azureuser\" -AdminPassword \"<password>\" -NetworkInterfaceName \"mynic\" -VirtualNetworkName \"myvnet\" -NetworkSecurityGroupName \"mynsg\"" }
@@ -180,7 +180,7 @@
       ],
       "examples": {
         "cli": [
-          { "title": "Show a VM", "command": "azv2 vm show --name myvm --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000" }
+          { "title": "Show a VM", "command": "az vm show --name myvm --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000" }
         ],
         "powerShell": [
           { "title": "Show a VM", "command": "Get-VM_Get -SubscriptionId \"00000000-0000-0000-0000-000000000000\" -Name \"myvm\" -ResourceGroupName \"myrg\"" }
@@ -201,7 +201,7 @@
       ],
       "examples": {
         "cli": [
-          { "title": "List VMs in a resource group", "command": "azv2 vm list --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000" }
+          { "title": "List VMs in a resource group", "command": "az vm list --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000" }
         ],
         "powerShell": [
           { "title": "List VMs in a resource group", "command": "Get-VM_List -SubscriptionId \"00000000-0000-0000-0000-000000000000\" -ResourceGroupName \"myrg\"" }
@@ -223,7 +223,7 @@
       ],
       "examples": {
         "cli": [
-          { "title": "Delete a VM", "command": "azv2 vm delete --name myvm --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000" }
+          { "title": "Delete a VM", "command": "az vm delete --name myvm --resource-group myrg --subscription-id 00000000-0000-0000-0000-000000000000" }
         ],
         "powerShell": [
           { "title": "Delete a VM", "command": "Remove-VM -SubscriptionId \"00000000-0000-0000-0000-000000000000\" -Name \"myvm\" -ResourceGroupName \"myrg\"" }
@@ -358,8 +358,8 @@
       ],
       "examples": {
         "cli": [
-          { "title": "Get output format setting", "command": "azv2 config get output.format" },
-          { "title": "Get output as JSON", "command": "azv2 config get output.format --json" }
+          { "title": "Get output format setting", "command": "az config get output.format" },
+          { "title": "Get output as JSON", "command": "az config get output.format --json" }
         ],
         "powerShell": [
           { "title": "Get a configuration value", "command": "Get-CirrusConfig -Key \"output.format\"" }
@@ -381,8 +381,8 @@
       ],
       "examples": {
         "cli": [
-          { "title": "Set output format to JSON", "command": "azv2 config set output.format json" },
-          { "title": "Set a custom key with force", "command": "azv2 config set custom.mykey myvalue --force" }
+          { "title": "Set output format to JSON", "command": "az config set output.format json" },
+          { "title": "Set a custom key with force", "command": "az config set custom.mykey myvalue --force" }
         ],
         "powerShell": [
           { "title": "Set output format", "command": "Set-CirrusConfig -Key \"output.format\" -Value \"json\"" },
@@ -404,8 +404,8 @@
       ],
       "examples": {
         "cli": [
-          { "title": "Delete a configuration setting", "command": "azv2 config delete custom.mykey" },
-          { "title": "Force delete without validation", "command": "azv2 config delete custom.mykey --force" }
+          { "title": "Delete a configuration setting", "command": "az config delete custom.mykey" },
+          { "title": "Force delete without validation", "command": "az config delete custom.mykey --force" }
         ],
         "powerShell": [
           { "title": "Delete a configuration value", "command": "Remove-CirrusConfig -Key \"custom.mykey\"" },
@@ -427,9 +427,9 @@
       ],
       "examples": {
         "cli": [
-          { "title": "List current values", "command": "azv2 config list" },
-          { "title": "List including defaults", "command": "azv2 config list --all" },
-          { "title": "List as JSON", "command": "azv2 config list --json" }
+          { "title": "List current values", "command": "az config list" },
+          { "title": "List including defaults", "command": "az config list --all" },
+          { "title": "List as JSON", "command": "az config list --json" }
         ],
         "powerShell": [
           { "title": "List all configuration", "command": "Get-CirrusConfigList" },
@@ -450,8 +450,8 @@
       ],
       "examples": {
         "cli": [
-          { "title": "Display configuration schema", "command": "azv2 config info" },
-          { "title": "Display only valid key names", "command": "azv2 config info --keys-only" }
+          { "title": "Display configuration schema", "command": "az config info" },
+          { "title": "Display only valid key names", "command": "az config info --keys-only" }
         ],
         "powerShell": [
           { "title": "Display configuration schema", "command": "Get-CirrusConfigInfo" },
@@ -476,9 +476,9 @@
       ],
       "examples": {
         "cli": [
-          { "title": "Install from official feed", "command": "azv2 extension add --name MyExtension --version 1.0.0 --feed-url https://api.nuget.org/v3/index.json" },
-          { "title": "Install from custom feed", "command": "azv2 extension add --name MyExtension --version 1.0.0 --feed-url https://packages.example.com/nuget" },
-          { "title": "Install from local file", "command": "azv2 extension add --path ./MyExtension.1.0.0.nupkg" }
+          { "title": "Install from official feed", "command": "az extension add --name MyExtension --version 1.0.0 --feed-url https://api.nuget.org/v3/index.json" },
+          { "title": "Install from custom feed", "command": "az extension add --name MyExtension --version 1.0.0 --feed-url https://packages.example.com/nuget" },
+          { "title": "Install from local file", "command": "az extension add --path ./MyExtension.1.0.0.nupkg" }
         ],
         "powerShell": []
       }

@@ -184,7 +184,7 @@ namespace Cirrus.Help.Tool.Tests
         {
             // bash fences are someone else's problem (ExampleSyntaxValidator) — must be ignored here
             // even when they sit inside the ## EXAMPLES section.
-            var content = "## EXAMPLES\n\n```bash\nazv2 group create --name foo --bogus value\n```";
+            var content = "## EXAMPLES\n\n```bash\naz group create --name foo --bogus value\n```";
 
             var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());
 
@@ -209,15 +209,15 @@ namespace Cirrus.Help.Tool.Tests
         {
             // Help docs are for cmdlets, not arbitrary shell commands. Anything the parser sees
             // as a CommandAst leader must resolve to a registered Cirrus cmdlet (PSL1).
-            // This is the rule that catches `azv2 ...` baked into a PowerShell help example.
-            var content = Fence("azv2 login --subscription-id 00000000-0000-0000-0000-000000000000");
+            // This is the rule that catches `az ...` baked into a PowerShell help example.
+            var content = Fence("az login --subscription-id 00000000-0000-0000-0000-000000000000");
 
             var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "fake.md", BuildIndex());
 
             Assert.True(report.HasErrors);
             Assert.Contains(report.Errors, e =>
                 e.ProblemId == ProblemIds.PSL1_UnknownCmdlet
-                && e.Message.Contains("azv2", StringComparison.Ordinal));
+                && e.Message.Contains("az", StringComparison.Ordinal));
         }
 
         // ----- PSL3: Required parameter missing -----
@@ -464,10 +464,10 @@ namespace Cirrus.Help.Tool.Tests
         [Fact]
         public void Validate_ShouldError_WhenExampleIsNativeCommand_InCmdletHelpFile()
         {
-            // The bug Copilot caught: PowerShell help for Connect-CirrusAccount whose example
-            // is `azv2 login ...`. Both PSL1 (azv2 not a cmdlet) and PSL7 (Connect-CirrusAccount
+            // The bug Copilot caught: PowerShell help for Connect-AzAccount whose example
+            // is `az login ...`. Both PSL1 (az not a cmdlet) and PSL7 (Connect-AzAccount
             // not invoked) must fire.
-            var content = Fence("azv2 login --subscription-id 00000000-0000-0000-0000-000000000000");
+            var content = Fence("az login --subscription-id 00000000-0000-0000-0000-000000000000");
 
             var report = new PowerShellExampleSyntaxValidator().ValidateContent(content, "Set-FakeWidget.md", BuildIndex());
 
@@ -510,7 +510,7 @@ namespace Cirrus.Help.Tool.Tests
         public void Validate_ShouldWalk_BareFences_InsideExamplesSection()
         {
             // PlatyPS emits bare fences by default. They must still be validated so authoring
-            // bugs (like `azv2 ...` inside a cmdlet help file) cannot hide.
+            // bugs (like `az ...` inside a cmdlet help file) cannot hide.
             var content =
                 "## EXAMPLES\n\n" +
                 "### Example 1\n```\n" +

@@ -207,7 +207,7 @@ sequenceDiagram
     participant AM as Azure Monitor
     participant ZK as Zipkin
 
-    User->>CLI: azv2 group list --subscription ***
+    User->>CLI: az group list --subscription ***
     CLI->>Ext: StartCLIActivity(args)
     Ext->>TS: ActivitySource.StartActivity("AzureCLI.Main")
     TS->>AS: Create Activity (Server kind)

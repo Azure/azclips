@@ -1,10 +1,15 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 using System.Diagnostics;
 using System.Reflection;
 using Core.Abstractions;
+using Core.Cli.Completions;
 using Core.Cli.Exceptions;
 using Core.Cli.Help;
 using Core.Cli.Parser;
 using Core.Cli.Telemetry;
+using Core.Configuration.Options;
 using Core.Engine;
 using Core.Extensions;
 using Core.Runtime;
@@ -21,26 +26,7 @@ public class Program
     private static ILoggingService? _logger;
     private static readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
 
-    // CLI by default only enable output and error streams. Optional streams enabled by global parameters
-    private static OutputStreams streams = new OutputStreams(
-        WriteOutput: (value, ct) =>
-        {
-            Console.WriteLine(CliOutputFormatter.FormatValue(value));
-            return Task.CompletedTask;
-        },
-        WriteError: (value, ct) =>
-        {
-            var originalColor = Console.ForegroundColor;
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.Error.WriteLine($"[ERROR] {value}");
-            Console.ForegroundColor = originalColor;
-            return Task.CompletedTask;
-        },
-        WriteVerbose: (value, ct) => Task.CompletedTask,
-        WriteDebug: (value, ct) => Task.CompletedTask,
-        WriteWarning: (value, ct) => Task.CompletedTask,
-        WriteInformation: (value, ct) => Task.CompletedTask
-    );
+    private static OutputStreams streams = BuildStreams(CliLogLevel.Info);
 
     public static async Task<int> Main(string[] args)
     {
@@ -56,6 +42,7 @@ public class Program
             services.AddSingleton<IExtensionLoader, BuiltinExtensionLoader>();
             services.AddSingleton<IExtensionLoader, MultiVersionExtensionLoader>();
             services.AddSingleton<PropertyParser>();
+            services.AddCliExtensionDispatch();
         });
         CirrusServiceProvider.OverrideRegistration(services =>
         {
@@ -64,15 +51,24 @@ public class Program
             services.AddSingleton<ITelemetryProvider, CLITelemetryProvider>();
         });
         CirrusServiceProvider.Initialize(_clientType);
+
+        // Shell tab-completion metadata (after DI so generator can resolve IEngine directly)
+        int? completionExit = await CompletionGenerator.TryHandleAsync(args, _clientType);
+        if (completionExit.HasValue)
+            return completionExit.Value;
+
         _logger = CirrusServiceProvider.GetRequiredService<ILoggingService>();
+        var configurationService = CirrusServiceProvider.GetRequiredService<IConfigurationService>();
 
         var telemetryService = CirrusServiceProvider.GetRequiredService<ITelemetryService>();
 
         try
         {
             using var activity = telemetryService.StartRootActivity();
-            var dispatcher = new ExtensionDispatcher();
-            args = WireDebugStreams(args);
+            var dispatcher = CirrusServiceProvider.GetRequiredService<ExtensionDispatcher>();
+            args = ParseDebugFlag(args, out var debugOverride);
+            var effectiveLogLevel = CliLoggingPolicy.ResolveEffectiveLevel(configurationService, debugOverride);
+            streams = BuildStreams(effectiveLogLevel);
             args = ParseOutputFlag(args, out var outputJson);
             args = ParseNoCacheFlag(args);
             try
@@ -95,9 +91,8 @@ public class Program
             catch (DispatchHelpException)
             {
                 var assemblyLoading = CirrusServiceProvider.GetRequiredService<IAssemblyLoadingService>();
-                var registryStore = new FileExtensionRegistryStore();
-                var extensionResolver = new ExtensionResolver(registryStore);
-                var exitCode = new RuntimeHelpDispatcher(assemblyLoading, extensionResolver, registryStore).RenderRoot();
+                var engine = CirrusServiceProvider.GetRequiredService<IEngine>();
+                var exitCode = new RuntimeHelpDispatcher(engine).RenderRoot();
 
                 activity?.SetStatus(ActivityStatusCode.Ok, "Help requested");
                 return exitCode;
@@ -105,11 +100,10 @@ public class Program
             catch (RuntimeExtensionHelpException helpException)
             {
                 var assemblyLoading = CirrusServiceProvider.GetRequiredService<IAssemblyLoadingService>();
-                var registryStore = new FileExtensionRegistryStore();
-                var extensionResolver = new ExtensionResolver(registryStore);
+                var engine = CirrusServiceProvider.GetRequiredService<IEngine>();
                 try
                 {
-                    var exitCode = new RuntimeHelpDispatcher(assemblyLoading, extensionResolver, registryStore).RenderExtensionHelp(helpException);
+                    var exitCode = new RuntimeHelpDispatcher(engine).RenderExtensionHelp(helpException);
 
                     activity?.SetStatus(ActivityStatusCode.Ok, "Extension help requested");
                     return exitCode;
@@ -158,13 +152,20 @@ public class Program
 
     // TODO(Yabo): Q&P squad to refactor global parameter handling
     // this method is temporary and is for ease of debugging
-    private static string[] WireDebugStreams(string[] args)
+    private static string[] ParseDebugFlag(string[] args, out bool debugOverride)
     {
-        if (!args.Contains("--debug"))
+        debugOverride = args.Contains("--debug", StringComparer.OrdinalIgnoreCase);
+        if (!debugOverride)
         {
             return args;
         }
-        streams = new OutputStreams(
+
+        return args.Where(a => !a.Equals("--debug", StringComparison.OrdinalIgnoreCase)).ToArray();
+    }
+
+    private static OutputStreams BuildStreams(CliLogLevel level)
+    {
+        return new OutputStreams(
             WriteOutput: (value, ct) =>
             {
                 Console.WriteLine(CliOutputFormatter.FormatValue(value));
@@ -178,16 +179,39 @@ public class Program
                 Console.ForegroundColor = originalColor;
                 return Task.CompletedTask;
             },
-            WriteVerbose: (value, ct) => { Console.WriteLine($"VERBOSE: {value}"); return Task.CompletedTask; },
-            WriteDebug: (value, ct) => { Console.WriteLine($"DEBUG: {value}"); return Task.CompletedTask; },
-            WriteWarning: (value, ct) => { Console.WriteLine($"WARNING: {value}"); return Task.CompletedTask; },
+            WriteVerbose: (value, ct) =>
+            {
+                if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Verbose))
+                {
+                    Console.WriteLine($"VERBOSE: {value}");
+                }
+                return Task.CompletedTask;
+            },
+            WriteDebug: (value, ct) =>
+            {
+                if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Debug))
+                {
+                    Console.WriteLine($"DEBUG: {value}");
+                }
+                return Task.CompletedTask;
+            },
+            WriteWarning: (value, ct) =>
+            {
+                if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Warn))
+                {
+                    Console.WriteLine($"WARNING: {value}");
+                }
+                return Task.CompletedTask;
+            },
             WriteInformation: (value, ct) =>
             {
-                Console.WriteLine($"INFO: {value}");
+                if (CliLoggingPolicy.ShouldEmit(level, CliLogSeverity.Info))
+                {
+                    Console.WriteLine($"INFO: {value}");
+                }
                 return Task.CompletedTask;
             }
         );
-        return args.Where(a => a != "--debug").ToArray();
     }
 
     // Strips `--output json` / `--output plain` (and `--output=json`) from args and reports
@@ -256,14 +280,37 @@ public class Program
 
     private static async Task<int> TryAgentFallbackAsync(string[] args, string? errorText)
     {
-        // Global disable switch. Set CIRRUS_AGENT_DISABLED=1 to keep the
-        // original classic error and skip the agent fallback entirely.
-        if (Environment.GetEnvironmentVariable("CIRRUS_AGENT_DISABLED") == "1")
+        // Global enable switch: config `agent.enabled` (off by default for PP).
+        // The user opts in with `az config set --key agent.enabled --value true`.
+        // Fail-safe: if config can't be read, treat as disabled and surface the
+        // original error rather than spawning the agent on an unknown state.
+        try
+        {
+            var config = CirrusServiceProvider.GetRequiredService<IConfigurationService>();
+            if (!config.GetConfiguration<AgentOptions>().Enabled)
+            {
+                return 1;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.Debug($"agent fallback skipped: agent.enabled unavailable ({ex.Message})");
+            return 1;
+        }
+
+        // Non-interactive guard: the agent reads y/n approvals and prompts from
+        // the terminal. When this isn't an interactive TTY (CI, a pipe, an
+        // unattended script) it can't interact and would hang or spew, so surface
+        // the original error instead of spawning it. Replaces the removed
+        // CIRRUS_AGENT_DISABLED env guard for unattended runs. Inlined (not the
+        // agent's ConsoleEnvironment helper) so Core.Cli stays decoupled from
+        // Core.Agent — same semantics: a TTY on both stdin and stdout.
+        if (Console.IsInputRedirected || Console.IsOutputRedirected)
         {
             return 1;
         }
 
-        // Recursion guard: a failed azv2 invoked by run_command from inside an
+        // Recursion guard: a failed az invoked by powershell from inside an
         // already-running agent-mode TUI must NOT spawn another agent-mode TUI.
         if (Environment.GetEnvironmentVariable("CIRRUS_IN_AGENT_MODE") == "1")
         {
@@ -273,7 +320,7 @@ public class Program
         var tuiExe = FindTuiExe();
         if (tuiExe is null)
         {
-            _logger?.Error("agent mode unavailable: Core.Tui.exe not found alongside azv2");
+            _logger?.Error("agent mode unavailable: Core.Tui.exe not found alongside az");
             return 1;
         }
 
@@ -299,10 +346,24 @@ public class Program
                 psi.ArgumentList.Add(errorText);
             }
 
-            using var proc = Process.Start(psi)
-                ?? throw new InvalidOperationException("Process.Start returned null");
-            await proc.WaitForExitAsync();
-            return proc.ExitCode;
+            // The child TUI takes over Ctrl+C (it cancels the session). The parent
+            // must also intercept it — otherwise Ctrl+C kills the parent first, the
+            // shell redraws its prompt, and the child's remaining output prints onto
+            // that prompt ("terminal hijack"). Intercept-only here; the child owns the
+            // actual cancellation and we just wait for it to exit cleanly.
+            ConsoleCancelEventHandler cancelHandler = (_, e) => e.Cancel = true;
+            Console.CancelKeyPress += cancelHandler;
+            try
+            {
+                using var proc = Process.Start(psi)
+                    ?? throw new InvalidOperationException("Process.Start returned null");
+                await proc.WaitForExitAsync();
+                return proc.ExitCode;
+            }
+            finally
+            {
+                Console.CancelKeyPress -= cancelHandler;
+            }
         }
         catch (Exception ex)
         {
@@ -354,8 +415,8 @@ public class Program
             if (exePath == null) return;
 
             // In-process benchmark mode: do not attempt to flush telemetry as in benchmark execution process
-            if (!exePath.EndsWith("azv2", StringComparison.OrdinalIgnoreCase) &&
-                !exePath.EndsWith("azv2.exe", StringComparison.OrdinalIgnoreCase))
+            if (!exePath.EndsWith("az", StringComparison.OrdinalIgnoreCase) &&
+                !exePath.EndsWith("az.exe", StringComparison.OrdinalIgnoreCase))
             {
                 return;
             }
