@@ -9,7 +9,7 @@
 # only resolve in the deployed bin/ layout. The reflection load exercises the renamed assembly the
 # same way the module would, with no Azure dependency.
 #
-# Prereqs: build the solution in Release (dotnet build) so the extension dll exists under artifacts/Debug.
+# Prereqs: build the solution first (dotnet build, which outputs to artifacts/Debug/...) so the extension dll exists under artifacts/Debug.
 # Usage: pwsh -NoProfile -File ./tests/Scripts/PS/AzclipsRenameSmoke.ps1
 $ErrorActionPreference = 'Stop'
 

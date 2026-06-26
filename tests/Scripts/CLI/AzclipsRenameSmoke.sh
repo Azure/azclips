@@ -5,7 +5,7 @@
 #   - Microsoft.Azure.Azclips.Extensions.Compute     (vm list)
 #
 # Prereqs:
-#   - Build the solution in Release (dotnet build) so artifacts/Debug/Core.Cli/az(.exe) exists.
+#   - Build the solution first (dotnet build, which outputs to artifacts/Debug/...) so artifacts/Debug/Core.Cli/az(.exe) exists.
 #   - A valid cached login for the test subscription.
 #
 # Usage: ./tests/Scripts/CLI/AzclipsRenameSmoke.sh
